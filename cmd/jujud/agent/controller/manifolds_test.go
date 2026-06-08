@@ -473,6 +473,28 @@ func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
 	}
 }
 
+func (*ManifoldsSuite) TestLeaseManagerDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold, ok := manifolds["lease-manager"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(manifold.Inputs, tc.SameContents, []string{
+			"db-accessor",
+			"trace",
+		})
+		checkNotContains(c, manifold.Inputs, "agent")
+		checkNotContains(c, manifold.Inputs, "clock")
+	}
+}
+
 func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
@@ -612,7 +634,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -640,7 +661,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -681,7 +701,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
@@ -745,7 +764,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -771,7 +789,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -799,7 +816,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-remote-caller",
 		"certificate-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
@@ -840,7 +856,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -873,7 +888,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -901,7 +915,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -932,7 +945,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -957,7 +969,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-primary-controller-flag",
@@ -1046,7 +1057,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"is-primary-controller-flag": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"lease-manager",
@@ -1058,7 +1068,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1082,7 +1091,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"lease-expiry": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"is-primary-controller-flag",
@@ -1093,7 +1101,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"lease-manager": {
 		"agent",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"query-logger",
@@ -1108,7 +1115,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1155,7 +1161,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-remote-relation-caller",
 		"certificate-watcher",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
@@ -1189,7 +1194,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -1209,7 +1213,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -1229,7 +1232,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
@@ -1289,7 +1291,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1326,7 +1327,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1367,7 +1367,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"db-accessor",
 		"domain-services",
@@ -1430,7 +1429,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
-		"clock",
 		"controller-agent-config",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
