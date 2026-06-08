@@ -17,7 +17,7 @@ In Juju, a **Kubernetes cloud** is a Kubernetes cluster: managed services like E
 
 Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes, and others.
 
-Kubernetes clouds are very similar in Juju. This page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`.
+Kubernetes clouds are very similar in Juju; this page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EKS <cloud-kubernetes-eks>`, {ref}`Google GKE <cloud-kubernetes-gke>`, {ref}`Microsoft AKS <cloud-kubernetes-aks>`, {ref}`MicroK8s <cloud-kubernetes-microk8s>`, or {ref}`Canonical Kubernetes <cloud-canonical-k8s>`.
 
 ## The cloud
 
@@ -41,17 +41,18 @@ On Kubernetes clouds, both the cloud definition and the credentials are typicall
 
 A Kubernetes cloud in Juju represents an existing Kubernetes cluster. Juju connects to the cluster via the Kubernetes API and manages application deployments within namespaces.
 
-(kubernetes-cloud-definition-file)=
-### Cloud definition file
+A Kubernetes cloud definition can be supplied through `juju add-k8s` flows, either interactively (from kubeconfig) or as YAML:
 
-If you prefer to add a Kubernetes cloud from a YAML file rather than using `juju add-k8s`, use the following template:
+```{tip}
+In most cases you do not need to write this file manually. `juju add-k8s` can read kubeconfig and create the cloud definition for you.
+```
 
 ```yaml
 clouds:
   <cloud-name>:                    # User-defined name for the cluster
     type: kubernetes               # Always 'kubernetes' for Kubernetes clouds
     auth-types:                    # Authentication types
-      - certificate                # or: clientcertificate, oauth2, oauth2withcert, userpass
+      - clientcertificate          # or: oauth2, userpass (legacy compatibility only: certificate, oauth2withcert)
     endpoint: <endpoint>           # Kubernetes API server URL
     host-cloud-region: <cloud>/<region>  # Optional: host cloud for the cluster (e.g., ec2/us-west-2)
     regions:                       # Optional: define regions
@@ -68,24 +69,28 @@ clouds:
 See more: {ref}`manage-clouds`, {ref}`add-a-kubernetes-cloud`
 ```
 
-(kubernetes-concept-mapping)=
-### Kubernetes-to-Juju concept mapping
-
-If you are familiar with Kubernetes, the following maps Kubernetes concepts to their Juju equivalents:
-
-| Kubernetes | Juju |
-| - | - |
-| [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) | {ref}`model <model>` |
-| [node](https://kubernetes.io/docs/concepts/architecture/nodes/) | {ref}`machine <machine>` (on Kubernetes clouds, not managed by Juju) |
-| [pod](https://kubernetes.io/docs/concepts/workloads/pods/) | {ref}`unit <unit>` |
-| container | process in a unit |
-| [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |
-
 (kubernetes-credential)=
 ## Credentials
 
 ```{ibnote}
 See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
+```
+
+(kubernetes-credential-definition)=
+### Definition
+
+For Kubernetes clouds, credential data is stored in `credentials.yaml` under the selected cloud and credential name, using one Kubernetes auth type and its corresponding attributes.
+
+```{tip}
+In most cases you do not need to write this file manually. `juju add-k8s` can read kubeconfig and create the matching credential entry for the selected context.
+```
+
+```yaml
+credentials:
+  <cloud-name>:
+    <credential-name>:
+      auth-type: <auth-type>          # clientcertificate | oauth2 | userpass
+      <auth-attributes>               # fill using one of the mappings below
 ```
 
 (kubernetes-supported-authentication-types)=
@@ -94,7 +99,7 @@ See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials
 Kubernetes clouds support the following authentication types:
 
 (kubernetes-auth-certificate)=
-- **`certificate`**: Kubernetes service account token with certificate.
+- **`certificate`** (*legacy compatibility*): Kubernetes service account token with certificate.
   - ClientCertificateData: The kubernetes certificate data (required).
   - Token: The kubernetes service account bearer token (required).
   - rbac-id: The unique ID key name of the rbac resources (optional).
@@ -111,7 +116,7 @@ Kubernetes clouds support the following authentication types:
   - rbac-id: The unique ID key name of the rbac resources (optional).
 
 (kubernetes-auth-oauth2withcert)=
-- **`oauth2withcert`**: OAuth2 token with certificate.
+- **`oauth2withcert`** (*legacy compatibility*): OAuth2 token with certificate.
   - ClientCertificateData: The kubernetes certificate data (required).
   - ClientKeyData: The kubernetes private key data (required).
   - Token: The kubernetes token (required).
@@ -176,7 +181,7 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 (kubernetes-model-configuration-keys)=
 ### Model configuration keys
 
-Kubernetes clouds support the following cloud-specific model configuration keys:
+Kubernetes clouds support the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (kubernetes-model-config-operator-storage)=
 - **`operator-storage`**: The storage class used to provision operator storage. Type: string. Default: "" (uses cluster default storage class). Immutable: true. Mandatory: false.
@@ -245,7 +250,7 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 See first: {ref}`storage-provider`
 ```
 
-In addition to {ref}`generic storage providers <storage-provider>`, Kubernetes-based models have access to the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
+In addition to generic storage providers, Kubernetes-based models have access to the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
 
 (storage-provider-kubernetes)=
 #### `kubernetes`
@@ -263,3 +268,19 @@ Configuration options:
 - **`storage-provisioner`**: The Kubernetes storage provisioner. For example: `kubernetes.io/no-provisioner`, `kubernetes.io/aws-ebs`, `kubernetes.io/gce-pd`, `microk8s.io/hostpath`, etc.
 
 - **`parameters.type`**: Extra parameters passed to the storage provisioner. For example: `gp2`, `pd-standard`, etc.
+
+(kubernetes-other)=
+## Other
+
+(kubernetes-concept-mapping)=
+### Kubernetes-to-Juju concept mapping
+
+If you are familiar with Kubernetes, the following maps Kubernetes concepts to their Juju equivalents:
+
+| Kubernetes | Juju |
+| - | - |
+| [namespace](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) | {ref}`model <model>` |
+| [node](https://kubernetes.io/docs/concepts/architecture/nodes/) | {ref}`machine <machine>` (on Kubernetes clouds, not managed by Juju) |
+| [pod](https://kubernetes.io/docs/concepts/workloads/pods/) | {ref}`unit <unit>` |
+| container | process in a unit |
+| [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |

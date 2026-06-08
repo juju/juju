@@ -53,6 +53,28 @@ A machine cloud in Juju represents a substrate that can provide compute resource
 
 Juju interacts with these clouds through their APIs to provision infrastructure, deploy applications, and manage the full lifecycle of workloads.
 
+A machine cloud definition can be supplied to `juju add-cloud` flows, either interactively or as YAML:
+
+```yaml
+clouds:
+  <cloud-name>:                    # User-defined name (or predefined for public clouds)
+    type: <cloud-type>             # ec2, azure, gce, openstack, oci, vsphere, lxd, maas, manual
+    auth-types:                    # Authentication types for this cloud
+      - <auth-type>                # See cloud-specific docs for valid types
+    endpoint: <endpoint>           # API endpoint URL (required for most clouds)
+    regions:                       # Optional: define regions/availability zones
+      <region-name>:
+        endpoint: <endpoint>       # Region-specific endpoint (if different)
+    config:                        # Optional: model config defaults
+      <config-key>: <value>        # See model configuration docs
+    ca-certificates:               # Optional: for private/self-signed clouds
+      - <base64-cert>              # Base64-encoded x.509 certificates
+```
+
+```{ibnote}
+See more: {ref}`manage-clouds`, {ref}`list-of-supported-machine-clouds` > `<cloud name>` for cloud-specific values (type, auth-types, endpoint format)
+```
+
 (machine-provisioning-models)=
 ### Provisioning models
 
@@ -122,31 +144,6 @@ Juju adopts existing machines via SSH without provisioning any infrastructure.
 - Machines must be prepared externally.
 - SSH-based agent installation.
 - Limited control over infrastructure.
-
-(machine-cloud-definition-file)=
-### Cloud definition file
-
-When adding a machine cloud from a YAML file, use the following template:
-
-```yaml
-clouds:
-  <cloud-name>:                    # User-defined name (or predefined for public clouds)
-    type: <cloud-type>             # ec2, azure, gce, openstack, oci, vsphere, lxd, maas, manual
-    auth-types:                    # Authentication types for this cloud
-      - <auth-type>                # See cloud-specific docs for valid types
-    endpoint: <endpoint>           # API endpoint URL (required for most clouds)
-    regions:                       # Optional: define regions/availability zones
-      <region-name>:
-        endpoint: <endpoint>       # Region-specific endpoint (if different)
-    config:                        # Optional: model config defaults
-      <config-key>: <value>        # See model configuration docs
-    ca-certificates:               # Optional: for private/self-signed clouds
-      - <base64-cert>              # Base64-encoded x.509 certificates
-```
-
-```{ibnote}
-See more: {ref}`manage-clouds`, {ref}`list-of-supported-machine-clouds` > `<cloud name>` for cloud-specific values (type, auth-types, endpoint format)
-```
 
 (machine-credential)=
 ## Credentials
