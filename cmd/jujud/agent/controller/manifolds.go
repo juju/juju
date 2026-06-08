@@ -476,9 +476,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// responsibility for running certain workers that must not be
 		// run concurrently by multiple controller agents.
 		isPrimaryControllerFlagName: singular.Manifold(singular.ManifoldConfig{
-			AgentName:        agentName,
+			ModelUUID:        config.ControllerModelUUID,
 			LeaseManagerName: leaseManagerName,
-			Clock:            config.Clock,
+			Clock:            clock.WallClock,
 			Duration:         config.ControllerLeaseDuration,
 			Claimant:         agentTag,
 			Entity:           controllerTag,
