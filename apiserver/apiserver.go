@@ -792,6 +792,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
 		controllerModelUUID.String(),
 	)
+	logSinkHandler = maybeWrapLogSink503Wrench(logSinkHandler)
 	logSinkAuthorizer := tagKindAuthorizer(stateauthenticator.AgentTags)
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
