@@ -42,6 +42,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -63,6 +67,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	manifold := Manifold(ManifoldConfig{
 		ChangeStreamName:             "changestream",
+		Clock:                        clock.WallClock,
 		Logger:                       s.logger,
 		NewWorker:                    NewWorker,
 		NewObjectStoreServices:       NewObjectStoreServices,
@@ -85,6 +90,7 @@ func (s *manifoldSuite) TestStartUsesWallClock(c *tc.C) {
 	var workerConfig Config
 	manifold := Manifold(ManifoldConfig{
 		ChangeStreamName: "changestream",
+		Clock:            clock.WallClock,
 		Logger:           s.logger,
 		NewWorker: func(cfg Config) (worker.Worker, error) {
 			workerConfig = cfg
@@ -142,6 +148,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		ChangeStreamName: "changestream",
+		Clock:            clock.WallClock,
 		Logger:           s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
