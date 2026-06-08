@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -58,13 +59,13 @@ func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 			if readErr != nil {
 				return nil, err
 			}
-			if resp.Header.Get("Content-Type") == "application/json" {
+			if isJSONContentType(resp.Header.Get("Content-Type")) {
 				var result params.ErrorResult
 				jsonErr := json.Unmarshal(body, &result)
 				if jsonErr != nil {
 					return nil, errors.Annotate(jsonErr, "reading error response")
 				}
-				return nil, result.Error
+				return nil, addHTTPStatusError(result.Error, resp.StatusCode)
 			}
 
 			err = errors.Errorf(
@@ -72,7 +73,7 @@ func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 				strings.TrimSpace(string(body)),
 				http.StatusText(resp.StatusCode),
 			)
-			err = addHTTPStatusError(err, resp.StatusCode)
+			return nil, addHTTPStatusError(err, resp.StatusCode)
 		}
 		return nil, err
 	}
@@ -83,10 +84,21 @@ func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 func addHTTPStatusError(err error, statusCode int) error {
 	switch statusCode {
 	case http.StatusServiceUnavailable:
+		if err == nil {
+			return HTTPStatusServiceUnavailable
+		}
 		return errors.WithType(err, HTTPStatusServiceUnavailable)
 	default:
 		return err
 	}
+}
+
+func isJSONContentType(contentType string) bool {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return mediaType == "application/json"
 }
 
 // DeadlineStream wraps a websocket connection and applies a write
