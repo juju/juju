@@ -567,6 +567,24 @@ func (a *MachineAgent) makeEngineCreator(
 		)
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
 
+		// Read controller certificate material from the agent config for
+		// the transitional controller-on-machine path. The values are
+		// supplied as explicit startup fields so that the cert-watcher
+		// manifold does not need to read the controller runtime config
+		// file or depend on the agent manifold at worker start.
+		controllerAgentInfo, hasControllerInfo := agentConfig.ControllerAgentInfo()
+		var (
+			caCert               = agentConfig.CACert()
+			caPrivateKey         string
+			controllerCert       string
+			controllerPrivateKey string
+		)
+		if hasControllerInfo {
+			caPrivateKey = controllerAgentInfo.CAPrivateKey
+			controllerCert = controllerAgentInfo.Cert
+			controllerPrivateKey = controllerAgentInfo.PrivateKey
+		}
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
@@ -577,6 +595,10 @@ func (a *MachineAgent) makeEngineCreator(
 			ControllerRuntimeConfigPath:       controllerRuntimeConfigPath,
 			ControllerAgentTag:                agentConfig.Tag(),
 			LogDir:                            agentConfig.LogDir(),
+			CACert:                            caCert,
+			CAPrivateKey:                      caPrivateKey,
+			ControllerCert:                    controllerCert,
+			ControllerPrivateKey:              controllerPrivateKey,
 			ConfigChangeSocketPath:            path.Join(agentConfig.DataDir(), "configchange.socket"),
 			ControlSocketPath:                 path.Join(agentConfig.DataDir(), "control.socket"),
 			Agent:                             agent.APIHostPortsSetter{Agent: a},
