@@ -636,7 +636,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		httpServerArgsName: ifBootstrapComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
-			ClockName:             clockName,
+			Clock:                 clock.WallClock,
 			DomainServicesName:    domainServicesName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		})),
