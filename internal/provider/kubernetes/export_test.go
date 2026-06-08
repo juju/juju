@@ -69,6 +69,8 @@ func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *tc.C) string {
 func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:          cs.pcfg.ControllerId,
+		ControllerUUID:        cs.pcfg.ControllerTag.Id(),
+		ControllerModelUUID:   cs.pcfg.APIInfo.ModelTag.Id(),
 		DataDir:               cs.pcfg.DataDir,
 		LogDir:                cs.pcfg.LogDir,
 		QueryTracingEnabled:   cs.pcfg.Controller.QueryTracingEnabled(),
