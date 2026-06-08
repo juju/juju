@@ -493,6 +493,8 @@ func (w *userdataConfig) configureBootstrap() error {
 	)
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:          agent.BootstrapControllerId,
+		ControllerUUID:        w.icfg.ControllerTag.Id(),
+		ControllerModelUUID:   w.icfg.APIInfo.ModelTag.Id(),
 		DataDir:               w.icfg.DataDir,
 		LogDir:                w.icfg.LogDir,
 		QueryTracingEnabled:   w.icfg.ControllerConfig.QueryTracingEnabled(),

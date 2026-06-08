@@ -785,6 +785,8 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	// available, without requiring access to machine-agent config.
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:          c.pcfg.ControllerId,
+		ControllerUUID:        c.pcfg.ControllerTag.Id(),
+		ControllerModelUUID:   c.pcfg.APIInfo.ModelTag.Id(),
 		DataDir:               c.pcfg.DataDir,
 		LogDir:                c.pcfg.LogDir,
 		QueryTracingEnabled:   c.pcfg.Controller.QueryTracingEnabled(),
