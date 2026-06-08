@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	coreos "github.com/juju/juju/core/os"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
@@ -291,7 +290,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		agentConfig.SetOpenTelemetryStackTraces(args.ControllerConfig.OpenTelemetryStackTraces())
 		agentConfig.SetOpenTelemetrySampleRatio(args.ControllerConfig.OpenTelemetrySampleRatio())
 		agentConfig.SetOpenTelemetryTailSamplingThreshold(args.ControllerConfig.OpenTelemetryTailSamplingThreshold())
-		agentConfig.SetObjectStoreType(objectstore.FileBackend)
 
 		return nil
 	}); err != nil {

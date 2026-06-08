@@ -28,6 +28,8 @@ func TestConfigSuite(t *testing.T) {
 func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 	return controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:          "0",
+		ControllerUUID:        "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:   "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:               "/var/lib/juju",
 		LogDir:                "/var/log/juju",
 		QueryTracingEnabled:   true,
@@ -75,6 +77,22 @@ func (s *configSuite) TestValidate_EmptyControllerID(c *tc.C) {
 	cfg := validConfig()
 	cfg.ControllerID = ""
 	c.Check(cfg.Validate(), tc.ErrorMatches, `controller ID "" not valid`)
+}
+
+// TestValidate_EmptyControllerUUID ensures an empty controller UUID is
+// rejected.
+func (s *configSuite) TestValidate_EmptyControllerUUID(c *tc.C) {
+	cfg := validConfig()
+	cfg.ControllerUUID = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, `controller UUID "" not valid`)
+}
+
+// TestValidate_EmptyControllerModelUUID ensures an empty controller model UUID
+// is rejected.
+func (s *configSuite) TestValidate_EmptyControllerModelUUID(c *tc.C) {
+	cfg := validConfig()
+	cfg.ControllerModelUUID = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, `controller model UUID "" not valid`)
 }
 
 // TestValidate_EmptyDataDir ensures an empty data dir is rejected.
@@ -201,6 +219,8 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	path := filepath.Join(dir, controllerruntimeconfig.Filename)
 	cfg := controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:          "0",
+		ControllerUUID:        "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:   "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:               "/var/lib/juju",
 		LogDir:                "/var/log/juju",
 		DqlitePort:            0, // default
@@ -218,6 +238,8 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.ControllerID, tc.Equals, cfg.ControllerID)
+	c.Check(got.ControllerUUID, tc.Equals, cfg.ControllerUUID)
+	c.Check(got.ControllerModelUUID, tc.Equals, cfg.ControllerModelUUID)
 	c.Check(got.DataDir, tc.Equals, cfg.DataDir)
 	c.Check(got.LogDir, tc.Equals, cfg.LogDir)
 	c.Check(got.CACert, tc.Equals, cfg.CACert)
@@ -288,6 +310,8 @@ func (s *configSuite) TestRead_MissingRequiredField(c *tc.C) {
 	// Write config without the required ca-cert field.
 	content := `
 controller-id: "0"
+controller-uuid: "deadbeef-0bad-400d-8000-4b1d0d06f00d"
+controller-model-uuid: "feedface-dead-beef-cafe-c0ffee000000"
 data-dir: /var/lib/juju
 log-dir: /var/log/juju
 controller-cert: cert-pem
