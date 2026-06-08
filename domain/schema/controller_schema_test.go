@@ -368,6 +368,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_logging_loki_config_insert",
 		"trg_log_logging_loki_config_update",
 		"trg_log_logging_loki_config_delete",
+
+		"trg_log_workload_tracing_config_insert",
+		"trg_log_workload_tracing_config_update",
+		"trg_log_workload_tracing_config_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but
