@@ -9,6 +9,26 @@ myst:
 
 In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+1. Add or confirm the predefined EC2 cloud with `juju add-cloud`.
+2. Add credentials with `juju add-credential aws` and choose `access-key`.
+3. Bootstrap with `juju bootstrap --bootstrap-constraints="instance-role=auto" aws aws-controller`.
+```
+
+(ec2-cloud-concepts)=
+## Concepts
+
+The following table shows how EC2 abstractions map to Juju concepts:
+
+| Amazon EC2 | Juju |
+| - | - |
+| [EC2 instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/concepts.html) | {ref}`machine <machine>` |
+| Process on an instance | {ref}`unit <unit>` |
+| Set of instances for one workload | {ref}`application <application>` |
+| [EBS volume](https://docs.aws.amazon.com/ebs/latest/userguide/what-is-ebs.html) | {ref}`storage <storage>` |
+| [VPC/subnet](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html) | Network spaces and placement targets (roughly) |
+| [IAM instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) | Cloud identity used by controller and machines |
+
 (ec2-cloud)=
 ## Cloud definition
 

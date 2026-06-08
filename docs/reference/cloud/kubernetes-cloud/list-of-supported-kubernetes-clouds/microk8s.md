@@ -9,6 +9,14 @@ myst:
 
 In Juju, [MicroK8s](https://microk8s.io/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all Kubernetes clouds, except for a few points of variation related to the cloud, described below.
 
+```{dropdown} Example workflow
+Before starting, install MicroK8s and enable required add-ons (`dns`, `hostpath-storage`).
+
+1. Add the Kubernetes cloud with `juju add-k8s microk8s`.
+2. Select or confirm the kubeconfig context and credentials when prompted.
+3. Bootstrap with `juju bootstrap microk8s microk8s-controller`.
+```
+
 (microk8s-cloud)=
 ## Cloud definition
 

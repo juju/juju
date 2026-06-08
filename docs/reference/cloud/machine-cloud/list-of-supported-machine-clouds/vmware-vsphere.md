@@ -9,6 +9,27 @@ myst:
 
 In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+
+1. Add the vSphere cloud with `juju add-cloud`.
+2. Add credentials with `juju add-credential` and choose `userpass`.
+3. Bootstrap with `juju bootstrap --model-default datastore=<datastore> --model-default primary-network=<network> <vsphere-cloud-name> vsphere-controller`.
+```
+
+(vsphere-cloud-concepts)=
+## Concepts
+
+The following table shows how vSphere abstractions map to Juju concepts:
+
+| vSphere | Juju |
+| - | - |
+| Virtual machine | {ref}`machine <machine>` |
+| Process inside a VM | {ref}`unit <unit>` |
+| Group of units for one workload | {ref}`application <application>` |
+| Datastore disk | {ref}`storage <storage>` |
+| Port group / network | Network spaces and placement targets (roughly) |
+| Cluster/resource pool | Placement target (`zones`) |
+
 (vsphere-cloud)=
 ## Cloud definition
 

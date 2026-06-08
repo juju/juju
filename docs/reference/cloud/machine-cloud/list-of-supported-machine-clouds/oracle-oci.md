@@ -9,6 +9,27 @@ myst:
 
 In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+
+1. Add or confirm the predefined cloud with `juju add-cloud`.
+2. Add credentials with `juju add-credential oracle` and choose `httpsig`.
+3. Bootstrap with `juju bootstrap --config compartment-id=<compartment-ocid> oracle oci-controller`.
+```
+
+(oci-cloud-concepts)=
+## Concepts
+
+The following table shows how OCI abstractions map to Juju concepts:
+
+| OCI | Juju |
+| - | - |
+| Compute instance | {ref}`machine <machine>` |
+| Process on an instance | {ref}`unit <unit>` |
+| Group of units for one workload | {ref}`application <application>` |
+| Block volume | {ref}`storage <storage>` |
+| VCN/subnet | Network spaces and placement targets (roughly) |
+| Availability domain | Placement target (`zones`) |
+
 (oci-cloud)=
 ## Cloud definition
 

@@ -9,6 +9,27 @@ myst:
 
 In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+
+1. Add the cloud endpoint with `juju add-cloud`.
+2. Add credentials with `juju add-credential` and choose `oauth1`.
+3. Bootstrap with `juju bootstrap <maas-cloud-name> maas-controller`.
+```
+
+(maas-cloud-concepts)=
+## Concepts
+
+The following table shows how MAAS abstractions map to Juju concepts:
+
+| MAAS | Juju |
+| - | - |
+| Allocated machine from inventory | {ref}`machine <machine>` |
+| Process on a commissioned machine | {ref}`unit <unit>` |
+| Group of units for one workload | {ref}`application <application>` |
+| MAAS-managed disks and filesystems | {ref}`storage <storage>` |
+| MAAS spaces/fabrics/subnets | Network spaces and placement targets |
+| MAAS API key (`maas-oauth`) | Cloud credential |
+
 (maas-cloud)=
 ## Cloud definition
 

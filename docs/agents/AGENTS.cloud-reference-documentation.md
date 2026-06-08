@@ -35,7 +35,7 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 
 <Short intro describing this as a {ref}`machine cloud <machine-cloud>`>
 
-## Cloud
+## Cloud definition
   ### Requirements
   ### Definition
   ### Cloud definition file (for generic cloud type docs)
@@ -83,13 +83,19 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 - **Lateral links**: Add ibnote blocks beneath each entity section heading linking to related how-tos
 - **Clarifying intros**: Add brief intros to subsections that could be ambiguous about scope
 
+**Cloud Reference Style Notes:**
+- In cloud-specific docs, place requirements content under `## Cloud definition` -> `### Requirements`.
+- For embedded requirement labels, prefer real subheadings (for example `#### VPC requirements`) so they appear in page TOCs.
+- Add an `Example workflow` dropdown immediately after the intro, using a short sequence from cloud registration to bootstrap.
+- Add a top-level `## Concepts` section near the top of each cloud-specific doc to map provider abstractions to Juju entities.
+
 ---
 
 ## Lateral Links Pattern
 
 **Purpose**: Help users discover related how-to documentation from reference pages.
 
-Beneath each entity section heading (## The cloud, ## Credentials, etc.), add an ibnote block with lateral links to corresponding how-tos in both Juju and Terraform Provider for Juju documentation.
+Beneath each entity section heading (## Cloud definition, ## Credentials, etc.), add an ibnote block with lateral links to corresponding how-tos in both Juju and Terraform Provider for Juju documentation.
 
 **Pattern**:
 ```markdown
@@ -106,7 +112,7 @@ See also: {ref}`Juju | Manage <entity> <manage-<entity>>`, {ref}`Terraform Provi
 
 ```markdown
 (openstack-cloud)=
-## The cloud
+## Cloud definition
 
 \```{ibnote}
 See also: {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
@@ -269,7 +275,7 @@ Type and name as recognized by Juju.
 **Template**:
 ```markdown
 (<cloud>-cloud)=
-## Cloud
+## Cloud definition
 
 (<cloud>-cloud-definition)=
 ### Definition
@@ -1107,7 +1113,7 @@ The Kubernetes cloud template follows the same entity-based approach as machine 
 
 <Short intro describing this as a {ref}`kubernetes-cloud`>
 
-## Cloud
+## Cloud definition
   ### Definition
   ### Requirements
   ### Juju-to-Kubernetes concept mapping
@@ -1178,7 +1184,7 @@ Follow the same `<cloud>-section-subsection` pattern:
 
 ```markdown
 (kubernetes-cloud)=
-## Cloud
+## Cloud definition
 
 (kubernetes-definition)=
 ### Definition

@@ -2,6 +2,13 @@
 
 In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+
+1. Add or confirm the predefined cloud with `juju add-cloud`.
+2. From Azure Cloud Shell (or an Azure-hosted jump host), run `juju add-credential azure` and choose `managed-identity`.
+3. Bootstrap with `juju bootstrap azure azure-controller`.
+```
+
 (azure-cloud-concepts)=
 ## Concepts
 

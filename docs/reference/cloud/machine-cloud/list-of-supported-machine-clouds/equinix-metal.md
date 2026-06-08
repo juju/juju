@@ -9,6 +9,26 @@ myst:
 
 In Juju, [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+1. Add or confirm the predefined cloud with `juju add-cloud`.
+2. Add credentials with `juju add-credential equinix` and choose `access-key`.
+3. Bootstrap with `juju bootstrap equinix equinix-controller`.
+```
+
+(equinix-cloud-concepts)=
+## Concepts
+
+The following table shows how Equinix Metal abstractions map to Juju concepts:
+
+| Equinix Metal | Juju |
+| - | - |
+| Provisioned server | {ref}`machine <machine>` |
+| Process on a server | {ref}`unit <unit>` |
+| Group of units for one workload | {ref}`application <application>` |
+| Attached block storage (if used) | {ref}`storage <storage>` |
+| Facility/metro zone | Placement target (`zones`) |
+| Project ID and API token | Cloud access boundary and credential |
+
 (equinix-cloud)=
 ## Cloud definition
 

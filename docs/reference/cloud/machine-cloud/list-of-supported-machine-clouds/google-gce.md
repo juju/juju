@@ -9,6 +9,28 @@ myst:
 
 In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+1. Add or confirm the predefined cloud with `juju add-cloud`.
+2. On a jump host in Google Cloud, run `juju add-credential google` and choose `service-account`.
+3. Bootstrap with `juju bootstrap google gce-controller`.
+
+If service-account setup is not available, use {ref}`gce-appendix-workflow-2`.
+```
+
+(gce-cloud-concepts)=
+## Concepts
+
+The following table shows how GCE abstractions map to Juju concepts:
+
+| GCE | Juju |
+| - | - |
+| [Project](https://cloud.google.com/resource-manager/docs/creating-managing-projects) | Administrative boundary for {ref}`models <model>` (roughly) |
+| [Compute Engine instance](https://cloud.google.com/compute/docs/instances) | {ref}`machine <machine>` |
+| Process on a VM | {ref}`unit <unit>` |
+| Managed set of workload instances | {ref}`application <application>` |
+| [Persistent Disk](https://cloud.google.com/compute/docs/disks) | {ref}`storage <storage>` |
+| [VPC/subnet](https://cloud.google.com/vpc/docs) | Network spaces and placement targets (roughly) |
+
 (gce-cloud)=
 ## Cloud definition
 

@@ -9,13 +9,13 @@ myst:
 
 In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-````{dropdown} How to get a LXD cloud quickly on Ubuntu
-
-Your Ubuntu likely comes with LXD preinstalled. Configure it as below. Juju will then recognize it as the `localhost` cloud.
+````{dropdown} Example workflow
+Your Ubuntu likely comes with LXD preinstalled. Configure it as below, then bootstrap directly to `localhost`.
 
 ```text
 lxd init --auto
 lxc network set lxdbr0 ipv6.address none
+juju bootstrap localhost lxd-controller
 ```
 ````
 
@@ -33,6 +33,20 @@ The LXD cloud, especially when used locally, is great for:
 
 Juju expects to see an operating system-like environment, so a LXD system container fits the bill. Docker containers are laid out for a singular application process, with a self-contained filesystem rather than a base userspace image.
 ```
+
+(lxd-cloud-concepts)=
+## Concepts
+
+The following table shows how LXD abstractions map to Juju concepts:
+
+| LXD | Juju |
+| - | - |
+| Container or VM instance | {ref}`machine <machine>` |
+| Process in a container or VM | {ref}`unit <unit>` |
+| Group of units for one workload | {ref}`application <application>` |
+| Storage pool volume | {ref}`storage <storage>` |
+| LXD project | Administrative boundary for model resources (roughly) |
+| Cluster member | Placement target (`zones`) |
 
 (lxd-cloud)=
 ## Cloud definition

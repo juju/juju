@@ -9,6 +9,28 @@ myst:
 
 In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+
+1. Ensure SSH key access and sudo access to the target host.
+2. Add the cloud with `juju add-cloud` and choose type `manual`.
+3. Add credentials with `juju add-credential` for the Manual cloud.
+4. Bootstrap with `juju bootstrap <manual-cloud-name> manual-controller`.
+```
+
+(manual-cloud-concepts)=
+## Concepts
+
+The following table shows how Manual cloud behavior maps to Juju concepts:
+
+| Manual cloud concept | Juju |
+| - | - |
+| Existing host reachable over SSH | {ref}`machine <machine>` |
+| SSH user and keys | Cloud access mechanism |
+| Process running on host | {ref}`unit <unit>` |
+| Set of units for one workload | {ref}`application <application>` |
+| Host disks and filesystems | {ref}`storage <storage>` |
+| Host network interfaces | Network spaces and connectivity constraints (roughly) |
+
 ```{important}
 The Manual cloud is a cloud you create with Juju from existing machines. Manual does not provision new infrastructure -- it brings existing Ubuntu/Debian systems under Juju management via SSH.
 

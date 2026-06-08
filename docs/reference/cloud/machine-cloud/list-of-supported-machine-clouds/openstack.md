@@ -9,6 +9,28 @@ myst:
 
 In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
+```{dropdown} Example workflow
+
+1. Source your OpenStack RC file: `source <path-to-openrc>`.
+2. Add the cloud interactively with `juju add-cloud` and accept detected defaults.
+3. Add credentials with `juju add-credential` and accept detected defaults.
+4. Bootstrap with `juju bootstrap <openstack-cloud-name> openstack-controller`.
+```
+
+(openstack-cloud-concepts)=
+## Concepts
+
+The following table shows how OpenStack abstractions map to Juju concepts:
+
+| OpenStack | Juju |
+| - | - |
+| [Project/Tenant](https://docs.openstack.org/keystone/latest/admin/projects-users-and-roles.html) | Scope for a {ref}`model <model>` (roughly) |
+| [Nova instance](https://docs.openstack.org/nova/latest/) | {ref}`machine <machine>` |
+| Process on an instance | {ref}`unit <unit>` |
+| Group of units for one workload | {ref}`application <application>` |
+| [Cinder volume](https://docs.openstack.org/cinder/latest/) | {ref}`storage <storage>` |
+| [Neutron network/subnet](https://docs.openstack.org/neutron/latest/) | Network spaces and placement targets (roughly) |
+
 (openstack-cloud)=
 ## Cloud definition
 

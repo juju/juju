@@ -113,31 +113,31 @@ Kubernetes clouds support the following authentication types:
 
 (kubernetes-auth-certificate)=
 - **`certificate`** (*legacy compatibility*): Kubernetes service account token with certificate.
-  - ClientCertificateData: The kubernetes certificate data (required).
-  - Token: The kubernetes service account bearer token (required).
-  - rbac-id: The unique ID key name of the rbac resources (optional).
+  - `ClientCertificateData`: The kubernetes certificate data (required).
+  - `Token`: The kubernetes service account bearer token (required).
+  - `rbac-id`: The unique ID key name of the rbac resources (optional).
 
 (kubernetes-auth-clientcertificate)=
 - **`clientcertificate`**: Kubernetes client certificate and key.
-  - ClientCertificateData: The kubernetes certificate data (required).
-  - ClientKeyData: The kubernetes certificate key (required).
-  - rbac-id: The unique ID key name of the rbac resources (optional).
+  - `ClientCertificateData`: The kubernetes certificate data (required).
+  - `ClientKeyData`: The kubernetes certificate key (required).
+  - `rbac-id`: The unique ID key name of the rbac resources (optional).
 
 (kubernetes-auth-oauth2)=
 - **`oauth2`**: OAuth2 token authentication.
-  - Token: The kubernetes token (required).
-  - rbac-id: The unique ID key name of the rbac resources (optional).
+  - `Token`: The kubernetes token (required).
+  - `rbac-id`: The unique ID key name of the rbac resources (optional).
 
 (kubernetes-auth-oauth2withcert)=
 - **`oauth2withcert`** (*legacy compatibility*): OAuth2 token with certificate.
-  - ClientCertificateData: The kubernetes certificate data (required).
-  - ClientKeyData: The kubernetes private key data (required).
-  - Token: The kubernetes token (required).
+  - `ClientCertificateData`: The kubernetes certificate data (required).
+  - `ClientKeyData`: The kubernetes private key data (required).
+  - `Token`: The kubernetes token (required).
 
 (kubernetes-auth-userpass)=
 - **`userpass`**: Username and password authentication.
-  - username: The username to authenticate with (required).
-  - password: The password for the specified username (required).
+  - `username`: The username to authenticate with (required).
+  - `password`: The password for the specified username (required).
 
 (kubernetes-controller)=
 ## Controllers
@@ -203,16 +203,17 @@ Kubernetes clouds support the following {ref}`cloud-specific model configuration
 - **`workload-storage`**: The preferred storage class used to provision workload storage. Type: string. Default: "" (uses cluster default storage class). Immutable: false. Mandatory: false.
 
 (kubernetes-application)=
-## Applications
+(kubernetes-pod)=
+## Pods
 
 ```{ibnote}
-See also: {ref}`application`, {ref}`Juju | Manage applications <manage-applications>`
+See also: {ref}`unit`, {ref}`Juju | Manage units <manage-units>`
 ```
 
 (kubernetes-supported-constraints)=
 ### Supported constraints
 
-Kubernetes clouds support the following constraints:
+On Kubernetes clouds, constraints apply to pod resources and placement behavior.
 
 Kubernetes clouds support a limited subset of constraints compared to machine clouds:
 

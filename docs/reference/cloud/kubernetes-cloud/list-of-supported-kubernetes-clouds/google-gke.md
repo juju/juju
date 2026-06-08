@@ -9,6 +9,14 @@ myst:
 
 In Juju, [Google GKE](https://cloud.google.com/kubernetes-engine/docs) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all Kubernetes clouds, except for a few points of variation related to the cloud, described below.
 
+```{dropdown} Example workflow
+Before starting, authenticate to Google Cloud and fetch kubeconfig for the target GKE cluster.
+
+1. Add the Kubernetes cloud with `juju add-k8s gke`.
+2. Select or confirm the kubeconfig context and credentials when prompted.
+3. Bootstrap with `juju bootstrap gke gke-controller`.
+```
+
 (gke-cloud)=
 ## Cloud definition
 
