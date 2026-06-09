@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/permission"
 )
 
@@ -101,10 +102,15 @@ func (j *JWTAuthenticator) Authenticate(req *http.Request) (authentication.AuthI
 		return authentication.AuthInfo{}, fmt.Errorf("parsing jwt: %w", err)
 	}
 
-	return authentication.AuthInfo{
+	authInfo := authentication.AuthInfo{
 		Entity:    entity,
 		Delegator: &PermissionDelegator{token},
-	}, nil
+	}
+	if modelUUID := httpcontext.RequestModelUUID(req); modelUUID != "" {
+		authInfo.ModelTag = names.NewModelTag(modelUUID)
+	}
+
+	return authInfo, nil
 }
 
 // AuthenticateLoginRequest implements LoginAuthenticator

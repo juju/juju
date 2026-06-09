@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"net/http"
+	"net/http/httptest"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testing"
 )
@@ -63,6 +65,48 @@ func (s *loginTokenSuite) TestAuthenticate(c *gc.C) {
 	perm, err = authInfo.SubjectPermissions(applicationOfferTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.ConsumeAccess)
+	c.Assert(authInfo.ModelTag.Id(), gc.Equals, "")
+}
+
+func (s *loginTokenSuite) TestAuthenticateSetsModelTagFromRequestContext(c *gc.C) {
+	tok, err := EncodedJWT(JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred",
+		Access: map[string]string{
+			testing.ModelTag.String(): "write",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	req, err := http.NewRequest("", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	req.Header.Add("Authorization", "Bearer "+base64.StdEncoding.EncodeToString(tok))
+	req = requestWithModelContext(c, testing.ModelTag.Id(), req)
+
+	authInfo, err := authenticator.Authenticate(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(authInfo.ModelTag.Id(), gc.Equals, testing.ModelTag.Id())
+}
+
+func (s *loginTokenSuite) TestAuthenticateWithoutModelContextLeavesModelTagEmpty(c *gc.C) {
+	tok, err := EncodedJWT(JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred",
+		Access: map[string]string{
+			testing.ModelTag.String(): "write",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	req, err := http.NewRequest("", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	req.Header.Add("Authorization", "Bearer "+base64.StdEncoding.EncodeToString(tok))
+
+	authInfo, err := authenticator.Authenticate(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(authInfo.ModelTag.Id(), gc.Equals, "")
 }
 
 func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *gc.C) {
@@ -109,6 +153,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), gc.Equals, "user-fred")
+	c.Assert(authInfo.ModelTag.Id(), gc.Equals, "")
 	perm, err := authInfo.SubjectPermissions(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.WriteAccess)
@@ -202,4 +247,17 @@ func (s *loginTokenSuite) TestNotAvailableJWTParser(c *gc.C) {
 	req.Header.Add("Authorization", "Bearer aaaaa")
 	_, err = authenticator.Authenticate(req)
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
+}
+
+func requestWithModelContext(c *gc.C, modelUUID string, req *http.Request) *http.Request {
+	var modelReq *http.Request
+	handler := &httpcontext.ImpliedModelHandler{
+		Handler: http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
+			modelReq = req
+		}),
+		ModelUUID: modelUUID,
+	}
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	c.Assert(modelReq, gc.NotNil)
+	return modelReq
 }
