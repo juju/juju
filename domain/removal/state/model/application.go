@@ -139,6 +139,8 @@ AND    life_id < 2`, applicationUUID)
 	}
 
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		res = internal.CascadedApplicationLives{}
+
 		if err := tx.Query(ctx, updateApplicationStmt, applicationUUID).Run(); err != nil {
 			return errors.Errorf("advancing application life: %w", err)
 		}

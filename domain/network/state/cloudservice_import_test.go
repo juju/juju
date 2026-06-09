@@ -63,6 +63,8 @@ func (s *k8sServiceImportSuite) TestCreateK8sServices(c *tc.C) {
 	}
 	var k8sServices []k8sService
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		k8sServices = nil
+
 		rows, err := tx.QueryContext(ctx, `SELECT uuid, net_node_uuid, application_uuid, provider_id FROM k8s_service`)
 		if err != nil {
 			return errors.Errorf("querying net nodes: %w", err)
@@ -97,6 +99,8 @@ func (s *k8sServiceImportSuite) TestCreateK8sServices(c *tc.C) {
 func (s *k8sServiceImportSuite) fetchNetNodeUUIDs(c *tc.C) []string {
 	var nodes []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		nodes = nil
+
 		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM net_node`)
 		if err != nil {
 			return errors.Errorf("querying net nodes: %w", err)

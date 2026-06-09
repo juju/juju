@@ -149,6 +149,8 @@ WHERE m.uuid = $modelUUID.uuid
 
 	result := map[string]string{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = map[string]string{}
+
 		err := tx.Query(ctx, modelExistsStmt, model).Get(&model)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(

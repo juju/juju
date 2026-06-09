@@ -1524,6 +1524,8 @@ WHERE lld.net_node_uuid = ?
 `
 	err := s.TxnRunner().StdTxn(c.Context(),
 		func(ctx context.Context, tx *sql.Tx) error {
+			result = nil
+
 			rows, err := tx.QueryContext(ctx, query, netNodeUUID)
 			if err != nil {
 				return err
@@ -1563,6 +1565,8 @@ WHERE ia.net_node_uuid = ?
 `
 	err := s.TxnRunner().StdTxn(c.Context(),
 		func(ctx context.Context, tx *sql.Tx) error {
+			result = nil
+
 			rows, err := tx.QueryContext(ctx, query, netNodeUUID)
 			if err != nil {
 				return err

@@ -22,6 +22,7 @@ var controllerFacadeNames = set.NewStrings(
 	"MigrationTarget",
 	"ModelManager",
 	"ModelSummaryWatcher",
+	"ModelUpgrader",
 	"SecretBackends",
 	"UserManager",
 )

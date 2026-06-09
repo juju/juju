@@ -244,6 +244,8 @@ func (s *baseSuite) assertUnitNames(c *tc.C, applicationUUID coreapplication.UUI
 
 	var names []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		names = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT name
 FROM unit
@@ -462,8 +464,11 @@ func (s *baseSuite) assertRelationEndpoints(c *tc.C, relationUUID, app1UUID, app
 	c.Helper()
 
 	appUUIDs := set.NewStrings(app1UUID, app2UUID)
+	var foundAppUUIDs []string
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		foundAppUUIDs = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT ae.application_uuid
 FROM   relation_endpoint AS re
@@ -481,13 +486,16 @@ WHERE  relation_uuid = ?
 			if err := rows.Scan(&appUUID); err != nil {
 				return err
 			}
-			if c.Check(appUUIDs.Contains(appUUID), tc.Equals, true) {
-				appUUIDs.Remove(appUUID)
-			}
+			foundAppUUIDs = append(foundAppUUIDs, appUUID)
 		}
 		return nil
 	})
 	c.Assert(err, tc.ErrorIsNil)
+	for _, appUUID := range foundAppUUIDs {
+		if c.Check(appUUIDs.Contains(appUUID), tc.IsTrue) {
+			appUUIDs.Remove(appUUID)
+		}
+	}
 	c.Check(appUUIDs.IsEmpty(), tc.Equals, true, tc.Commentf("relation_endpoint with app %q, not found", appUUIDs.SortedValues()))
 }
 
@@ -523,6 +531,9 @@ func (s *baseSuite) assertCharmMetadata(c *tc.C, appUUID, charmUUID string, expe
 		gotRequires = make(map[string]appcharm.Relation)
 	)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		gotProvides = map[string]appcharm.Relation{}
+		gotRequires = map[string]appcharm.Relation{}
+
 		err := tx.QueryRowContext(ctx, `
 SELECT ch.reference_name, cs.name, cm.name
 FROM application
@@ -617,6 +628,8 @@ func (s *baseSuite) fetchApplicationEndpoints(c *tc.C, appID string) []applicati
 
 	var endpoints []applicationEndpoint
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		endpoints = nil
+
 		rows, err := tx.Query(`
 SELECT ae.charm_relation_uuid, s.name, cr.name AS charm_relation_name
 FROM application_endpoint ae

@@ -352,6 +352,52 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *FlushContextSuite) TestRunHookGrantsSecrets(c *tc.C) {
+	uri := secrets.NewURI()
+
+	s.secretMetadata = map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "some secret",
+			LatestRevision: 1,
+			LatestChecksum: "deadbeef",
+			Owner:          secrets.Owner{Kind: secrets.ApplicationOwner, ID: "u"},
+		},
+	}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ctx := s.context(c, ctrl)
+
+	app, _ := names.UnitApplication(s.unit.Name())
+	relationKey := "u:db remote:use"
+	err := ctx.GrantSecret(c.Context(), uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: new(app),
+		RelationKey:     new(relationKey),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	appTag := names.NewApplicationTag(app)
+	relationTag := names.NewRelationTag(relationKey)
+	arg := params.CommitHookChangesArg{
+		Tag: s.unit.Tag().String(),
+		SecretGrants: []params.GrantRevokeSecretArg{{
+			URI:         uri.String(),
+			ScopeTag:    relationTag.String(),
+			SubjectTags: []string{appTag.String()},
+			Role:        "view",
+		}},
+	}
+
+	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{arg},
+	}}).Return(nil)
+
+	// Flush the context with a success.
+	err = ctx.Flush(c.Context(), "some badge", nil)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *BaseHookContextSuite) context(c *tc.C, ctrl *gomock.Controller) *context.HookContext {
 	uuid, err := uuid.NewUUID()
 	c.Assert(err, tc.ErrorIsNil)

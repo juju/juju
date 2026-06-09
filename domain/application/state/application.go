@@ -952,11 +952,6 @@ func (st *State) SetApplicationScalingState(ctx context.Context, appName string,
 		return errors.Capture(err)
 	}
 
-	scaleDetails := applicationScale{
-		Scaling:     scaling,
-		ScaleTarget: targetScale,
-	}
-
 	upsertApplicationScale := `
 UPDATE application_scale
 SET    scale = $applicationScale.scale,
@@ -965,7 +960,7 @@ SET    scale = $applicationScale.scale,
 WHERE  application_uuid = $applicationScale.application_uuid
 `
 
-	upsertStmt, err := st.Prepare(upsertApplicationScale, scaleDetails)
+	upsertStmt, err := st.Prepare(upsertApplicationScale, applicationScale{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -976,13 +971,13 @@ WHERE  application_uuid = $applicationScale.application_uuid
 		} else if appDetails.IsApplicationSynthetic {
 			return errors.Errorf("cannot set scaling state for synthetic application %q", appName)
 		}
-		scaleDetails.ApplicationID = appDetails.UUID
 
 		currentScaleState, err := st.getApplicationScaleState(ctx, tx, appDetails.UUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
+		var scale int
 		if scaling {
 			switch appDetails.LifeID {
 			case life.Alive:
@@ -991,17 +986,23 @@ WHERE  application_uuid = $applicationScale.application_uuid
 					return applicationerrors.ScalingStateInconsistent
 				}
 				// Make sure to leave the scale value unchanged.
-				scaleDetails.Scale = currentScaleState.Scale
+				scale = currentScaleState.Scale
 			case life.Dying, life.Dead:
 				// force scale to the scale target when dying/dead.
-				scaleDetails.Scale = targetScale
+				scale = targetScale
 			}
 		} else {
 			// Make sure to leave the scale value unchanged.
-			scaleDetails.Scale = currentScaleState.Scale
+			scale = currentScaleState.Scale
 		}
 
-		return tx.Query(ctx, upsertStmt, scaleDetails).Run()
+		scaleDetailsToUpdate := applicationScale{
+			ApplicationID: appDetails.UUID,
+			Scaling:       scaling,
+			Scale:         scale,
+			ScaleTarget:   targetScale,
+		}
+		return tx.Query(ctx, upsertStmt, scaleDetailsToUpdate).Run()
 	})
 	return errors.Capture(err)
 }
@@ -1015,16 +1016,12 @@ func (st *State) UpsertK8sService(ctx context.Context, applicationName, provider
 		return errors.Capture(err)
 	}
 
-	serviceInfo := k8sService{
-		ProviderID: providerID,
-	}
-
 	// Query any existing records for application and provider id.
 	queryExistingStmt, err := st.Prepare(`
 SELECT &k8sService.* 
 FROM   k8s_service
 WHERE  application_uuid = $k8sService.application_uuid
-AND    provider_id = $k8sService.provider_id`, serviceInfo)
+AND    provider_id = $k8sService.provider_id`, k8sService{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1036,29 +1033,32 @@ AND    provider_id = $k8sService.provider_id`, serviceInfo)
 		} else if appDetails.IsApplicationSynthetic {
 			return errors.Errorf("cannot upsert cloud service for synthetic application %q", applicationName)
 		}
-		serviceInfo.ApplicationUUID = appDetails.UUID
 
 		// First see if the cloud service for the app and provider id already exists.
 		// If so, it's a no-op.
-		err = tx.Query(ctx, queryExistingStmt, serviceInfo).Get(&serviceInfo)
+		serviceInfoToUpsert := k8sService{
+			ProviderID:      providerID,
+			ApplicationUUID: appDetails.UUID,
+		}
+		err = tx.Query(ctx, queryExistingStmt, serviceInfoToUpsert).Get(&serviceInfoToUpsert)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
 				"querying cloud service for application %q and provider id %q: %w", applicationName, providerID, err)
 		} else if errors.Is(err, sqlair.ErrNoRows) {
 			// Nothing already exists so create a new net node and the cloud
 			// service.
-			netNodeUUID, k8sServiceUUID, err := st.createK8sService(ctx, tx, serviceInfo)
+			netNodeUUID, k8sServiceUUID, err := st.createK8sService(ctx, tx, serviceInfoToUpsert)
 			if err != nil {
 				return errors.Errorf("creating k8s service for application %q: %w", applicationName, err)
 			}
-			serviceInfo.NetNodeUUID = netNodeUUID.String()
-			serviceInfo.UUID = k8sServiceUUID.String()
+			serviceInfoToUpsert.NetNodeUUID = netNodeUUID.String()
+			serviceInfoToUpsert.UUID = k8sServiceUUID.String()
 		}
 
 		if len(sAddrs) > 0 {
 			// If we have addresses to insert, then first create the link layer
 			// device (if needed) and then insert the addresses.
-			if err := st.upsertK8sServiceAddresses(ctx, tx, serviceInfo, applicationName, sAddrs); err != nil {
+			if err := st.upsertK8sServiceAddresses(ctx, tx, serviceInfoToUpsert, applicationName, sAddrs); err != nil {
 				return errors.Capture(err)
 			}
 		}

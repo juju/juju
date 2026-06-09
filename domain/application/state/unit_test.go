@@ -108,6 +108,8 @@ WHERE u.name=?`,
 func (s *unitStateSuite) assertContainerPortValues(c *tc.C, unitName string, ports []string) {
 	var gotPorts []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		gotPorts = nil
+
 		rows, err := tx.QueryContext(ctx, `
 
 SELECT ccp.port
@@ -319,6 +321,8 @@ func (s *unitStateSuite) assertCAASUnit(c *tc.C, name, passwordHash, addressValu
 	)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		gotPorts = nil
+
 		err := tx.QueryRowContext(ctx, "SELECT password_hash FROM unit WHERE name = ?", name).Scan(&gotPasswordHash)
 		if err != nil {
 			return errors.Errorf("failed to get password hash: %v", err)
@@ -2728,6 +2732,8 @@ func (s *unitStateSuite) getUnitStorageDirectivesForCharm(
 ) []unitStorageDirectiveValue {
 	var directives []unitStorageDirectiveValue
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		directives = nil
+
 		rows, err := tx.QueryContext(
 			ctx,
 			`SELECT storage_name, storage_pool_uuid, size_mib, count

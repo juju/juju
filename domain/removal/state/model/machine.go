@@ -130,6 +130,8 @@ AND    u.life_id < 2;`, machineUUID, uuids{})
 	}
 
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		cascaded = internal.CascadedMachineLives{}
+
 		// Remove any container machines that are on the same parent machine
 		// as the input machine.
 		var machineUUIDs []entityUUID

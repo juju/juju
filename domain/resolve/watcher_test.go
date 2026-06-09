@@ -192,6 +192,8 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 
 	var unitUUIDs = make([]coreunit.UUID, len(units))
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitUUIDs = make([]coreunit.UUID, len(units))
+
 		for i, unitName := range unitNames {
 			var uuid coreunit.UUID
 			err := tx.QueryRowContext(ctx, "SELECT uuid FROM unit WHERE name = ?", unitName).Scan(&uuid)

@@ -40,6 +40,13 @@ func (s *restrictModelSuite) TestBlocked(c *tc.C) {
 	c.Assert(caller, tc.IsNil)
 }
 
+func (s *restrictModelSuite) TestModelUpgraderV2Blocked(c *tc.C) {
+	caller, err := s.root.FindMethod("ModelUpgrader", 2, "UpgradeModel")
+	c.Assert(err, tc.ErrorMatches, `facade "ModelUpgrader" not supported for model API connection`)
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+	c.Assert(caller, tc.IsNil)
+}
+
 func (s *restrictModelSuite) assertMethod(c *tc.C, facadeName string, version int, method string) {
 	caller, err := s.root.FindMethod(facadeName, version, method)
 	c.Check(err, tc.ErrorIsNil)

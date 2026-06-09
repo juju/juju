@@ -32,10 +32,15 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.model_uuid != OLD.model_uuid OR
 	NEW.target_controller_uuid != OLD.target_controller_uuid OR
-	NEW.current_phase_id != OLD.current_phase_id OR
-	NEW.phase_changed_at != OLD.phase_changed_at OR
 	NEW.start_time != OLD.start_time OR
-	(NEW.end_time != OLD.end_time OR (NEW.end_time IS NOT NULL AND OLD.end_time IS NULL) OR (NEW.end_time IS NULL AND OLD.end_time IS NOT NULL)) 
+	(
+		OLD.current_phase_id NOT IN (7, 8, 10) AND
+		NEW.current_phase_id IN (7, 8, 10)
+	) OR
+	(
+		OLD.current_phase_id IN (7, 8, 10) AND
+		NEW.current_phase_id NOT IN (7, 8, 10)
+	)
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -74,7 +79,7 @@ WHEN
 	NEW.phase_id != OLD.phase_id OR
 	NEW.entity_key != OLD.entity_key OR
 	NEW.success != OLD.success OR
-	NEW.reported_at != OLD.reported_at 
+	NEW.reported_at != OLD.reported_at
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -110,8 +115,9 @@ CREATE TRIGGER trg_log_model_migration_export_phase_update
 AFTER UPDATE ON model_migration_export_phase FOR EACH ROW
 WHEN 
 	NEW.migration_uuid != OLD.migration_uuid OR
+	NEW.model_uuid != OLD.model_uuid OR
 	NEW.phase_id != OLD.phase_id OR
-	NEW.changed_at != OLD.changed_at 
+	NEW.changed_at != OLD.changed_at
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

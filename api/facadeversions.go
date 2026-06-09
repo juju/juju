@@ -80,7 +80,7 @@ var facadeVersions = facades.FacadeVersions{
 	"ModelConfig":                  {3, 4},
 	"ModelManager":                 {9, 10, 11},
 	"ModelSummaryWatcher":          {1},
-	"ModelUpgrader":                {1},
+	"ModelUpgrader":                {1, 2},
 	"NotifyWatcher":                {1},
 	"OfferStatusWatcher":           {1},
 	"Pinger":                       {1},

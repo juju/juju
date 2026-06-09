@@ -4685,6 +4685,8 @@ VALUES (?,?)
 func (s *addRelationSuite) fetchAllRelationStatusesOrderByRelationIDs(c *tc.C) []corestatus.Status {
 	var statuses []corestatus.Status
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		statuses = nil
+
 		query := `
 SELECT rst.name
 FROM relation r 
@@ -4719,6 +4721,8 @@ ORDER BY r.relation_id
 func (s *addRelationSuite) fetchAllEndpointUUIDsByRelationIDs(c *tc.C) map[int][]corerelation.EndpointUUID {
 	epUUIDsByRelID := make(map[int][]corerelation.EndpointUUID)
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		epUUIDsByRelID = map[int][]corerelation.EndpointUUID{}
+
 		query := `
 SELECT re.endpoint_uuid, r.relation_id
 FROM relation_endpoint re 
@@ -4749,6 +4753,8 @@ JOIN relation r  ON re.relation_uuid = r.uuid
 func (s *addRelationSuite) fetchRelationNetworkEgress(c *tc.C) [][]string {
 	var result [][]string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		query := `
 SELECT r.relation_id, rne.cidr
 FROM relation_network_egress rne

@@ -75,6 +75,8 @@ func (s *baseSuite) query(c *tc.C, query string, args ...any) {
 func (s *baseSuite) queryRows(c *tc.C, query string, args ...any) []map[string]any {
 	var results []map[string]any
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		results = nil
+
 		rows, err := tx.QueryContext(ctx, query, args...)
 		if err != nil {
 			return err
@@ -136,6 +138,8 @@ func (s *baseSuite) getRowCountByField(c *tc.C, field, value, table string) int 
 func (s *baseSuite) selectDistinctValues(c *tc.C, field, table string) []string {
 	var obtained []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		obtained = nil
+
 		query := fmt.Sprintf("SELECT DISTINCT %q FROM %q", field, table)
 		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {

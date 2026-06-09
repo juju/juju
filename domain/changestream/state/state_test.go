@@ -300,7 +300,9 @@ VALUES ($M.ctrl_id, $M.node_id, $M.addr)
 				"node_id": i,
 				"addr":    fmt.Sprintf("127.0.1.%d", i+2),
 			}).Run()
-			c.Assert(err, tc.ErrorIsNil)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -322,7 +324,9 @@ ON CONFLICT (controller_id) DO UPDATE SET lower_bound = $M.lower_bound, updated_
 				"lower_bound": watermark.LowerBound,
 				"updated_at":  watermark.UpdatedAt,
 			}).Run()
-			c.Assert(err, tc.ErrorIsNil)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -342,7 +346,9 @@ VALUES ($M.id, 4, 10002, 0, $M.created_at);
 				"id":         i + 1000,
 				"created_at": now,
 			}).Run()
-			c.Assert(err, tc.ErrorIsNil)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})

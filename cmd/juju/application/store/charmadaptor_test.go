@@ -5,8 +5,11 @@ package store
 
 import (
 	"context"
+	stderrors "errors"
+	"net"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -141,6 +144,68 @@ func (s *resolveSuite) TestCharmHubGetBundle(c *tc.C) {
 	c.Assert(bundle, tc.DeepEquals, s.bundle)
 }
 
+func (s *resolveSuite) TestCharmHubGetBundleRetriesTransientDownloadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl, err := charm.ParseURL("ch:testme-1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmHub,
+		Type:   "bundle",
+		Risk:   "edge",
+	}
+	s.expectDownloadInfo(c, curl, origin, "http://messhuggah.com")
+	downloadURL, err := url.Parse("http://messhuggah.com")
+	c.Assert(err, tc.ErrorIsNil)
+
+	gomock.InOrder(
+		s.downloadClient.EXPECT().Download(gomock.Any(), downloadURL, "/tmp/bundle.bundle").Return(nil, timeoutError{}),
+		s.downloadClient.EXPECT().Download(gomock.Any(), downloadURL, "/tmp/bundle.bundle").Return(&charmhub.Digest{}, nil),
+		s.charmReader.EXPECT().ReadBundleArchive("/tmp/bundle.bundle").Return(s.bundle, nil),
+	)
+
+	charmAdaptor := s.newCharmAdaptorWithBundleDownloadRetryDelay(time.Nanosecond)
+	bundle, err := charmAdaptor.GetBundle(c.Context(), curl, origin, "/tmp/bundle.bundle")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(bundle, tc.DeepEquals, s.bundle)
+}
+
+func (s *resolveSuite) TestCharmHubGetBundleDoesNotRetryPermanentDownloadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	curl, err := charm.ParseURL("ch:testme-1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmHub,
+		Type:   "bundle",
+		Risk:   "edge",
+	}
+	s.expectDownloadInfo(c, curl, origin, "http://messhuggah.com")
+	downloadURL, err := url.Parse("http://messhuggah.com")
+	c.Assert(err, tc.ErrorIsNil)
+
+	downloadErr := errors.New("boom")
+	s.downloadClient.EXPECT().Download(gomock.Any(), downloadURL, "/tmp/bundle.bundle").Return(nil, downloadErr)
+
+	charmAdaptor := s.newCharmAdaptorWithBundleDownloadRetryDelay(time.Nanosecond)
+	_, err = charmAdaptor.GetBundle(c.Context(), curl, origin, "/tmp/bundle.bundle")
+	c.Assert(err, tc.ErrorIs, downloadErr)
+}
+
+func (s *resolveSuite) TestTransientBundleDownloadError(c *tc.C) {
+	c.Check(isTransientBundleDownloadError(timeoutError{}), tc.IsTrue)
+	c.Check(isTransientBundleDownloadError(context.Canceled), tc.IsFalse)
+	c.Check(isTransientBundleDownloadError(context.DeadlineExceeded), tc.IsFalse)
+	c.Check(isTransientBundleDownloadError(errors.New("boom")), tc.IsFalse)
+
+	err := errors.Annotate(timeoutError{}, "cannot get archive")
+	var netErr net.Error
+	c.Assert(stderrors.As(err, &netErr), tc.IsTrue)
+	c.Check(isTransientBundleDownloadError(err), tc.IsTrue)
+}
+
 func (s *resolveSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.charmsAPI = mocks.NewMockCharmsAPI(ctrl)
@@ -151,6 +216,10 @@ func (s *resolveSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *resolveSuite) newCharmAdaptor() *CharmAdaptor {
+	return s.newCharmAdaptorWithBundleDownloadRetryDelay(bundleDownloadRetryDelay)
+}
+
+func (s *resolveSuite) newCharmAdaptorWithBundleDownloadRetryDelay(delay time.Duration) *CharmAdaptor {
 	return &CharmAdaptor{
 		charmsAPI: s.charmsAPI,
 		bundleRepoFn: func(curl *charm.URL) (BundleFactory, error) {
@@ -160,6 +229,7 @@ func (s *resolveSuite) newCharmAdaptor() *CharmAdaptor {
 				downloadBundleClientFunc: func(ctx context.Context) (DownloadBundleClient, error) {
 					return s.downloadClient, nil
 				},
+				downloadRetryDelay: delay,
 			}, nil
 		},
 	}
@@ -219,11 +289,29 @@ func (s *resolveSuite) expectCharmResolutionCallWithAPIError(curl *charm.URL, ou
 
 func (s *resolveSuite) expectedCharmHubGetBundle(c *tc.C, curl *charm.URL, origin commoncharm.Origin) {
 	surl := "http://messhuggah.com"
-	s.charmsAPI.EXPECT().GetDownloadInfo(gomock.Any(), curl, origin).Return(apicharm.DownloadInfo{
-		URL: surl,
-	}, nil)
+	s.expectDownloadInfo(c, curl, origin, surl)
 	url, err := url.Parse(surl)
 	c.Assert(err, tc.ErrorIsNil)
-	s.downloadClient.EXPECT().Download(gomock.Any(), url, "/tmp/bundle.bundle", gomock.Any()).Return(&charmhub.Digest{}, nil)
+	s.downloadClient.EXPECT().Download(gomock.Any(), url, "/tmp/bundle.bundle").Return(&charmhub.Digest{}, nil)
 	s.charmReader.EXPECT().ReadBundleArchive("/tmp/bundle.bundle").Return(s.bundle, nil)
+}
+
+func (s *resolveSuite) expectDownloadInfo(c *tc.C, curl *charm.URL, origin commoncharm.Origin, rawURL string) {
+	s.charmsAPI.EXPECT().GetDownloadInfo(gomock.Any(), curl, origin).Return(apicharm.DownloadInfo{
+		URL: rawURL,
+	}, nil)
+}
+
+type timeoutError struct{}
+
+func (timeoutError) Error() string {
+	return "timeout"
+}
+
+func (timeoutError) Timeout() bool {
+	return true
+}
+
+func (timeoutError) Temporary() bool {
+	return false
 }

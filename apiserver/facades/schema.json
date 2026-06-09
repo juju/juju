@@ -11873,7 +11873,7 @@
     {
         "Name": "ModelUpgrader",
         "Description": "",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {

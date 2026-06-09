@@ -1139,25 +1139,18 @@ func (st *State) SetMachineRunningAgentBinaryVersion(
 		return errors.Capture(err)
 	}
 
-	archMap := architectureMap{Name: version.Arch}
-
 	archMapStmt, err := st.Prepare(`
 SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap.name
-`, archMap)
+`, architectureMap{})
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	machineAgentVersion := machineAgentVersion{
-		MachineUUID: machineUUID,
-		Version:     version.Number.String(),
 	}
 
 	upsertRunningVersionStmt, err := st.Prepare(`
 INSERT INTO machine_agent_version (*) VALUES ($machineAgentVersion.*)
 ON CONFLICT (machine_uuid) DO
 UPDATE SET version = excluded.version, architecture_id = excluded.architecture_id
-`, machineAgentVersion)
+`, machineAgentVersion{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -1168,6 +1161,7 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 			return errors.Capture(err)
 		}
 
+		archMap := architectureMap{Name: version.Arch}
 		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
@@ -1179,8 +1173,12 @@ UPDATE SET version = excluded.version, architecture_id = excluded.architecture_i
 			)
 		}
 
-		machineAgentVersion.ArchitectureID = archMap.ID
-		return tx.Query(ctx, upsertRunningVersionStmt, machineAgentVersion).Run()
+		machineAgentVersionToSet := machineAgentVersion{
+			MachineUUID:    machineUUID,
+			Version:        version.Number.String(),
+			ArchitectureID: archMap.ID,
+		}
+		return tx.Query(ctx, upsertRunningVersionStmt, machineAgentVersionToSet).Run()
 	})
 
 	if err != nil {
@@ -1480,18 +1478,11 @@ func (st *State) SetUnitRunningAgentBinaryVersion(
 		return errors.Capture(err)
 	}
 
-	archMap := architectureMap{Name: version.Arch}
-
 	archMapStmt, err := st.Prepare(`
 SELECT id AS &architectureMap.id FROM architecture WHERE name = $architectureMap.name
-`, archMap)
+`, architectureMap{})
 	if err != nil {
 		return errors.Capture(err)
-	}
-
-	unitAgentVersion := unitAgentVersion{
-		UnitUUID: uuid.String(),
-		Version:  version.Number.String(),
 	}
 
 	upsertRunningVersionStmt, err := st.Prepare(`
@@ -1500,13 +1491,12 @@ VALUES ($unitAgentVersion.*)
 ON CONFLICT (unit_uuid) DO
 UPDATE SET version = excluded.version,
            architecture_id = excluded.architecture_id
-`, unitAgentVersion)
+`, unitAgentVersion{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-
 		// Check if unit exists and is not dead.
 		err := st.checkUnitNotDead(ctx, tx, uuid)
 		if err != nil {
@@ -1516,6 +1506,7 @@ UPDATE SET version = excluded.version,
 		}
 
 		// Look up architecture ID.
+		archMap := architectureMap{Name: version.Arch}
 		err = tx.Query(ctx, archMapStmt, archMap).Get(&archMap)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
@@ -1527,8 +1518,12 @@ UPDATE SET version = excluded.version,
 			)
 		}
 
-		unitAgentVersion.ArchitectureID = archMap.ID
-		return tx.Query(ctx, upsertRunningVersionStmt, unitAgentVersion).Run()
+		unitAgentVersionToSet := unitAgentVersion{
+			UnitUUID:       uuid.String(),
+			Version:        version.Number.String(),
+			ArchitectureID: archMap.ID,
+		}
+		return tx.Query(ctx, upsertRunningVersionStmt, unitAgentVersionToSet).Run()
 	})
 
 	if err != nil {

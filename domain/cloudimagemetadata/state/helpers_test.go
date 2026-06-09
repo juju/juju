@@ -20,7 +20,9 @@ import (
 // It is used in test to keep save and find tests independent of each other
 func (s *stateSuite) retrieveMetadataFromDB(c *tc.C) ([]cloudimagemetadata.Metadata, error) {
 	var metadata []cloudimagemetadata.Metadata
-	return metadata, s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		metadata = nil
+
 		rows, err := tx.Query(`
 SELECT 
     created_at,
@@ -62,6 +64,7 @@ JOIN architecture arch on cloud_image_metadata.architecture_id = arch.id
 		}
 		return errors.Capture(err)
 	})
+	return metadata, err
 }
 
 // runQuery executes the provided SQL query string using the current state's database connection.

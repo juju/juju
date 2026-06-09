@@ -32,7 +32,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.life_id != OLD.life_id OR
 	NEW.type_id != OLD.type_id OR
-	NEW.updated_at != OLD.updated_at 
+	NEW.updated_at != OLD.updated_at
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -70,7 +70,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.phase_type_id != OLD.phase_type_id OR
 	(NEW.from_backend_uuid != OLD.from_backend_uuid OR (NEW.from_backend_uuid IS NOT NULL AND OLD.from_backend_uuid IS NULL) OR (NEW.from_backend_uuid IS NULL AND OLD.from_backend_uuid IS NOT NULL)) OR
-	NEW.to_backend_uuid != OLD.to_backend_uuid 
+	NEW.to_backend_uuid != OLD.to_backend_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -106,7 +106,7 @@ CREATE TRIGGER trg_log_object_store_metadata_path_update
 AFTER UPDATE ON object_store_metadata_path FOR EACH ROW
 WHEN 
 	NEW.path != OLD.path OR
-	NEW.metadata_uuid != OLD.metadata_uuid 
+	NEW.metadata_uuid != OLD.metadata_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

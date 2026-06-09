@@ -814,32 +814,6 @@ type OpenUnitPortRangesByEndpoint struct {
 	PortRanges []PortRange `json:"port-ranges"`
 }
 
-// OpenMachinePortRangesResults holds the results of a request to the
-// firewaller's OpenedMachinePortRanges API.
-type OpenMachinePortRangesResults struct {
-	Results []OpenMachinePortRangesResult `json:"results"`
-}
-
-// OpenMachinePortRangesResult holds a single result of a request to
-// the firewaller's OpenedMachinePortRanges API.
-type OpenMachinePortRangesResult struct {
-	Error *Error `json:"error,omitempty"`
-
-	// The set of opened port ranges grouped by unit tag.
-	UnitPortRanges map[string][]OpenUnitPortRanges `json:"unit-port-ranges"`
-}
-
-// OpenUnitPortRanges describes the set of port ranges that have been
-// opened by a unit on the machine it is deployed to for an endpoint.
-type OpenUnitPortRanges struct {
-	Endpoint   string      `json:"endpoint"`
-	PortRanges []PortRange `json:"port-ranges"`
-
-	// The CIDRs that correspond to the subnets assigned to the space that
-	// this endpoint is bound to.
-	SubnetCIDRs []string `json:"subnet-cidrs"`
-}
-
 type IngressRulesResult struct {
 	Rules []IngressRule `json:"rules"`
 	Error *Error        `json:"error,omitempty"`

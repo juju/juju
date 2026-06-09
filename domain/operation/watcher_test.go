@@ -361,6 +361,8 @@ func (s *watcherSuite) addOperationTaskLogs(c *tc.C, taskUUID string, contents [
 	results := make([]string, 0, len(contents))
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		results = nil
+
 		for _, content := range contents {
 			date := time.Now().UTC()
 

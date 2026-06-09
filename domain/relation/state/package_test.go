@@ -392,6 +392,8 @@ WHERE  r.relation_id = ?
 func (s *baseRelationSuite) getRelationApplicationSettings(c *tc.C, relationEndpointUUID string) map[string]string {
 	settings := map[string]string{}
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		settings = map[string]string{}
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT key, value
 FROM relation_application_setting 
@@ -465,6 +467,8 @@ AND    ru.unit_uuid = ?
 func (s *baseRelationSuite) getRelationUnitSettings(c *tc.C, relationUnitUUID corerelation.UnitUUID) map[string]string {
 	settings := map[string]string{}
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		settings = map[string]string{}
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT key, value
 FROM relation_unit_setting 

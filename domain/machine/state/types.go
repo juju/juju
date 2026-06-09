@@ -116,6 +116,13 @@ type machineLife struct {
 	LifeID life.Life `db:"life_id"`
 }
 
+// machineLifeAndManual is used by the combined query that returns both the
+// life status and manual-provisioning state for a machine in one round-trip.
+type machineLifeAndManual struct {
+	LifeID   life.Life `db:"life_id"`
+	IsManual int64     `db:"is_manual"`
+}
+
 // instanceID represents the struct to be used for the instance_id column within
 // the sqlair statements in the machine domain.
 type instanceID struct {

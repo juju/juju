@@ -61,7 +61,7 @@ func CreateGlobalModelRecord(
 	modelID coremodel.UUID,
 	args model.GlobalModelCreationArgs,
 ) internaldatabase.BootstrapOpt {
-	return func(ctx context.Context, controller, model database.TxnRunner) error {
+	return func(ctx context.Context, controller, modelDB database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
 			return errors.Errorf("cannot create model when validating args: %w", err)
 		}
@@ -83,12 +83,13 @@ func CreateGlobalModelRecord(
 				return errors.Errorf("determining cloud type for model %q: %w", args.Name, err)
 			}
 
-			if args.SecretBackend == "" {
+			secretBackend := args.SecretBackend
+			if secretBackend == "" {
 				switch modelType {
 				case coremodel.CAAS:
-					args.SecretBackend = kubernetessecrets.BackendName
+					secretBackend = kubernetessecrets.BackendName
 				case coremodel.IAAS:
-					args.SecretBackend = jujusecrets.BackendName
+					secretBackend = jujusecrets.BackendName
 				default:
 					return errors.Errorf(
 						"%w for model type %q when creating model with name %q",
@@ -118,12 +119,14 @@ func CreateGlobalModelRecord(
 				}
 			}
 
-			if err := statecontroller.Create(ctx, preparer{}, tx, modelID, modelType, args); err != nil {
-				return errors.Errorf("create bootstrap model %s/%s with uuid %q: %w", args.Qualifier, args.Name, modelID, err)
+			creationArgs := args
+			creationArgs.SecretBackend = secretBackend
+			if err := statecontroller.Create(ctx, preparer{}, tx, modelID, modelType, creationArgs); err != nil {
+				return errors.Errorf("create bootstrap model %s/%s with uuid %q: %w", creationArgs.Qualifier, creationArgs.Name, modelID, err)
 			}
 
 			if err := activator(ctx, preparer{}, tx, modelID); err != nil {
-				return errors.Errorf("activating bootstrap model %s/%s with uuid %q: %w", args.Qualifier, args.Name, modelID, err)
+				return errors.Errorf("activating bootstrap model %s/%s with uuid %q: %w", creationArgs.Qualifier, creationArgs.Name, modelID, err)
 			}
 			return nil
 		})

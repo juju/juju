@@ -236,6 +236,48 @@ func (s *serviceSuite) TestIsMachineManuallyProvisionedNotFound(c *tc.C) {
 	c.Check(isController, tc.IsFalse)
 }
 
+// TestGetMachineLifeAndIsManuallyProvisionedSuccess asserts the happy path
+// for the combined call returning life and manual-provisioning state.
+func (s *serviceSuite) TestGetMachineLifeAndIsManuallyProvisionedSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machine.Name("0")).
+		Return(life.Alive, true, nil)
+
+	lifeVal, isManual, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineLifeAndIsManuallyProvisioned(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(lifeVal, tc.Equals, corelife.Alive)
+	c.Check(isManual, tc.IsTrue)
+}
+
+// TestGetMachineLifeAndIsManuallyProvisionedNotFound asserts that the
+// MachineNotFound error is preserved from state.
+func (s *serviceSuite) TestGetMachineLifeAndIsManuallyProvisionedNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machine.Name("666")).
+		Return(life.Life(-1), false, machineerrors.MachineNotFound)
+
+	_, _, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineLifeAndIsManuallyProvisioned(c.Context(), machine.Name("666"))
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetMachineLifeAndIsManuallyProvisionedError asserts that an error
+// from the state layer is preserved through the service layer.
+func (s *serviceSuite) TestGetMachineLifeAndIsManuallyProvisionedError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetMachineLifeAndIsManuallyProvisioned(gomock.Any(), machine.Name("0")).
+		Return(life.Life(-1), false, rErr)
+
+	_, _, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetMachineLifeAndIsManuallyProvisioned(c.Context(), machine.Name("0"))
+	c.Assert(err, tc.ErrorIs, rErr)
+}
+
 func (s *serviceSuite) TestRequireMachineRebootSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

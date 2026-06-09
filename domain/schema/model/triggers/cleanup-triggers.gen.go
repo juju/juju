@@ -34,7 +34,7 @@ WHEN
 	NEW.entity_uuid != OLD.entity_uuid OR
 	NEW.force != OLD.force OR
 	NEW.scheduled_for != OLD.scheduled_for OR
-	(NEW.arg != OLD.arg OR (NEW.arg IS NOT NULL AND OLD.arg IS NULL) OR (NEW.arg IS NULL AND OLD.arg IS NOT NULL)) 
+	(NEW.arg != OLD.arg OR (NEW.arg IS NOT NULL AND OLD.arg IS NULL) OR (NEW.arg IS NULL AND OLD.arg IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
