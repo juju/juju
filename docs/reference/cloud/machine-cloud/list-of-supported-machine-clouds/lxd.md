@@ -34,6 +34,14 @@ The LXD cloud, especially when used locally, is great for:
 Juju expects to see an operating system-like environment, so a LXD system container fits the bill. Docker containers are laid out for a singular application process, with a self-contained filesystem rather than a base userspace image.
 ```
 
+(lxd-cloud-requirements)=
+## Requirements
+
+**Juju version compatibility:**
+
+- Juju `2.9.x`: LXD `5.0`
+- Juju `3.x.x`: LXD `5.x`
+
 (lxd-cloud-concepts)=
 ## Concepts
 
@@ -54,14 +62,6 @@ The following table shows how LXD abstractions map to Juju concepts:
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(lxd-cloud-requirements)=
-### Requirements
-
-**Juju version compatibility:**
-
-- Juju `2.9.x`: LXD `5.0`
-- Juju `3.x.x`: LXD `5.x`
 
 (lxd-cloud-definition)=
 ### Definition

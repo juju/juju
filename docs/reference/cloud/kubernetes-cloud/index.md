@@ -19,6 +19,12 @@ Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft A
 
 Kubernetes clouds are very similar in Juju; this page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EKS <cloud-kubernetes-eks>`, {ref}`Google GKE <cloud-kubernetes-gke>`, {ref}`Microsoft AKS <cloud-kubernetes-aks>`, {ref}`MicroK8s <cloud-kubernetes-microk8s>`, or {ref}`Canonical Kubernetes <cloud-canonical-k8s>`.
 
+## Requirements
+
+- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.).
+- kubectl configured with cluster access.
+- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources.
+
 (kubernetes-concept-mapping)=
 ## Concepts
 
@@ -41,13 +47,6 @@ See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terra
 ```{note}
 On Kubernetes clouds, both the cloud definition and the credentials are typically added through `juju add-k8s`, which reads from your kubeconfig file. This is easier than manually creating cloud definition and credential files.
 ```
-
-(kubernetes-requirements)=
-### Requirements
-
-- A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.).
-- kubectl configured with cluster access.
-- Sufficient RBAC permissions to create namespaces, deployments, services, and other resources.
 
 (kubernetes-definition)=
 ### Definition

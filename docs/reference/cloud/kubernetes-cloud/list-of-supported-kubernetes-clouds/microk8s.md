@@ -17,19 +17,19 @@ Before starting, install MicroK8s and enable required add-ons (`dns`, `hostpath-
 3. Bootstrap with `juju bootstrap microk8s microk8s-controller`.
 ```
 
+## Requirements
+
+**Services that must be enabled:**
+
+- `dns`
+- `hostpath-storage`
+
 (microk8s-cloud)=
 ## Cloud definition
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-### Requirements
-
-**Services that must be enabled:**
-
-- `dns`
-- `hostpath-storage`
 
 ### Adding the cloud
 

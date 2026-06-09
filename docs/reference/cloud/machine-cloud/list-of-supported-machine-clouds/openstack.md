@@ -17,6 +17,22 @@ In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine clo
 4. Bootstrap with `juju bootstrap <openstack-cloud-name> openstack-controller`.
 ```
 
+(openstack-cloud-requirements)=
+## Requirements
+
+#### Supported cloud versions
+
+Any version that supports:
+
+- Compute v2 (Nova).
+- Network v2 (Neutron) (optional, but required for Queens or newer).
+- Volume v2 (Cinder) (optional).
+- Identity v2 or v3 (Keystone).
+
+#### RC file usage
+
+Source the OpenStack RC file (`source <path to file>`). This allows Juju to detect values from preset OpenStack environment variables. Run `juju add-cloud` in interactive mode and accept the suggested defaults.
+
 (openstack-cloud-concepts)=
 ## Concepts
 
@@ -37,21 +53,6 @@ The following table shows how OpenStack abstractions map to Juju concepts:
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(openstack-cloud-requirements)=
-### Requirements
-
-**Supported cloud versions:**
-
-Any version that supports:
-- Compute v2 (Nova).
-- Network v2 (Neutron) (optional, but required for Queens or newer).
-- Volume v2 (Cinder) (optional).
-- Identity v2 or v3 (Keystone).
-
-**OpenStack RC file usage (recommended):**
-
-Source the OpenStack RC file (`source <path to file>`). This allows Juju to detect values from preset OpenStack environment variables. Run `juju add-cloud` in interactive mode and accept the suggested defaults.
 
 (openstack-cloud-definition)=
 ### Definition

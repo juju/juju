@@ -16,6 +16,18 @@ In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {re
 3. Bootstrap with `juju bootstrap --model-default datastore=<datastore> --model-default primary-network=<network> <vsphere-cloud-name> vsphere-controller`.
 ```
 
+(vsphere-cloud-requirements)=
+## Requirements
+
+In order to add a vSphere cloud you will need an existing vSphere installation which supports, or has access to, the following:
+
+- VMware Hardware Version 8 or greater.
+- ESXi 5.0 or greater.
+- Internet access.
+- DNS and DHCP.
+
+Juju supports both high-availability vSAN deployments and standard deployments.
+
 (vsphere-cloud-concepts)=
 ## Concepts
 
@@ -36,18 +48,6 @@ The following table shows how vSphere abstractions map to Juju concepts:
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(vsphere-cloud-requirements)=
-### Requirements
-
-In order to add a vSphere cloud you will need an existing vSphere installation which supports, or has access to, the following:
-
-- VMware Hardware Version 8 or greater.
-- ESXi 5.0 or greater.
-- Internet access.
-- DNS and DHCP.
-
-Juju supports both high-availability vSAN deployments and standard deployments.
 
 (vsphere-cloud-definition)=
 ### Definition

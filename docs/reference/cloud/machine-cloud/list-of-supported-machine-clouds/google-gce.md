@@ -17,6 +17,25 @@ In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine 
 If service-account setup is not available, use {ref}`gce-appendix-workflow-2`.
 ```
 
+(gce-cloud-requirements)=
+## Requirements
+
+#### IAM permissions
+
+Juju needs Service Account Key Admin, Compute Instance Admin, and Compute Security Admin to create and manage the GCE resources used during cloud registration and bootstrap.
+
+```{ibnote}
+See more: [Google | Compute Engine IAM roles and permissions](https://cloud.google.com/compute/docs/access/iam)
+```
+
+#### VPC requirements
+
+If you use a VPC, Juju validates the configuration before bootstrap. A valid VPC must have:
+
+- At least one subnet with status `READY`, OR.
+- `AutoCreateSubnetworks=true` enabled.
+- SSH access enabled (firewall rule for port 22).
+
 (gce-cloud-concepts)=
 ## Concepts
 
@@ -38,33 +57,12 @@ The following table shows how GCE abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(gce-cloud-requirements)=
-### Requirements
-
-**IAM permissions:** Service Account Key Admin, Compute Instance Admin, and Compute Security Admin.
-
-```{ibnote}
-See more: [Google | Compute Engine IAM roles and permissions](https://cloud.google.com/compute/docs/access/iam)
-```
-
 (gce-cloud-definition)=
 ### Definition
 
 Type in Juju: `gce`
 
 Name in Juju: `google` (predefined)
-
-(gce-cloud-other)=
-### Other
-
-(gce-cloud-vpc-requirements)=
-#### VPC requirements
-
-When using a VPC, Juju validates the configuration before bootstrap. A valid VPC must have:
-
-- At least one subnet with status `READY`, OR.
-- `AutoCreateSubnetworks=true` enabled.
-- SSH access enabled (firewall rule for port 22).
 
 (gce-credential)=
 ## Credentials

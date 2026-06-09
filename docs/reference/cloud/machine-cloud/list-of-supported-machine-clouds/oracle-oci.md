@@ -16,6 +16,13 @@ In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a 
 3. Bootstrap with `juju bootstrap --config compartment-id=<compartment-ocid> oracle oci-controller`.
 ```
 
+(oci-cloud-requirements)=
+## Requirements
+
+You must specify the compartment OCID via the cloud-specific `compartment-id` model configuration key. All resources (VCNs, subnets, instances, volumes) are created in this single compartment.
+
+Example: `juju bootstrap --config compartment-id=<compartment OCID> oracle oracle-controller`
+
 (oci-cloud-concepts)=
 ## Concepts
 
@@ -36,13 +43,6 @@ The following table shows how OCI abstractions map to Juju concepts:
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(oci-cloud-requirements)=
-### Requirements
-
-You must specify the compartment OCID via the cloud-specific `compartment-id` model configuration key. All resources (VCNs, subnets, instances, volumes) are created in this single compartment.
-
-Example: `juju bootstrap --config compartment-id=<compartment OCID> oracle oracle-controller`
 
 (oci-cloud-definition)=
 ### Definition

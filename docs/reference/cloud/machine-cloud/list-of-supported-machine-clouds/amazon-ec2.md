@@ -15,6 +15,25 @@ In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_feat
 3. Bootstrap with `juju bootstrap --bootstrap-constraints="instance-role=auto" aws aws-controller`.
 ```
 
+(ec2-cloud-requirements)=
+## Requirements
+
+#### IAM permissions
+
+Juju needs Service Account Key Admin, Compute Instance Admin, and Compute Security Admin to create and manage the EC2 resources used during cloud registration and bootstrap.
+
+#### VPC requirements
+
+When using a VPC, Juju validates the configuration before bootstrap. A valid VPC must have:
+
+- State: `available`.
+- Internet Gateway attached.
+- Main route table with default route (`0.0.0.0/0`) to the Internet Gateway.
+- At least one subnet with `MapPublicIPOnLaunch=true`.
+- All subnets using the main route table (not per-subnet route tables).
+
+Use `vpc-id-force=true` to skip validation.
+
 (ec2-cloud-concepts)=
 ## Concepts
 
@@ -35,22 +54,6 @@ The following table shows how EC2 abstractions map to Juju concepts:
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(ec2-cloud-requirements)=
-### Requirements
-
-(ec2-cloud-vpc-requirements)=
-#### VPC requirements
-
-When using a VPC, Juju validates the configuration before bootstrap. A valid VPC must have:
-
-- State: `available`.
-- Internet Gateway attached.
-- Main route table with default route (`0.0.0.0/0`) to the Internet Gateway.
-- At least one subnet with `MapPublicIPOnLaunch=true`.
-- All subnets using the main route table (not per-subnet route tables).
-
-Use `vpc-id-force=true` to skip validation.
 
 (ec2-cloud-definition)=
 ### Definition

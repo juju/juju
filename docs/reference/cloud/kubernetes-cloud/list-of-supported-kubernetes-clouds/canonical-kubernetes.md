@@ -18,14 +18,7 @@ Before starting, ensure required services are enabled in the cluster (`dns`, `in
 4. Bootstrap with `juju bootstrap canonical-k8s canonical-k8s-controller`.
 ```
 
-(canonical-k8s-cloud)=
-## Cloud definition
-
-```{ibnote}
-See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
-```
-
-### Requirements
+## Requirements
 
 **Services that must be enabled:**
 
@@ -33,6 +26,13 @@ See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terra
 - `ingress` (technically not required, but you need it if you want to do anything meaningful).
 - `local-storage`
 - `network`
+
+(canonical-k8s-cloud)=
+## Cloud definition
+
+```{ibnote}
+See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
+```
 
 (canonical-k8s-controller)=
 ## Controller

@@ -16,6 +16,11 @@ In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It 
 3. Bootstrap with `juju bootstrap <maas-cloud-name> maas-controller`.
 ```
 
+(maas-cloud-requirements)=
+## Requirements
+
+Starting with Juju 3.0, versions of MAAS <2 are no longer supported.
+
 (maas-cloud-concepts)=
 ## Concepts
 
@@ -36,11 +41,6 @@ The following table shows how MAAS abstractions map to Juju concepts:
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(maas-cloud-requirements)=
-### Requirements
-
-Starting with Juju 3.0, versions of MAAS <2 are no longer supported.
 
 (maas-cloud-definition)=
 ### Definition

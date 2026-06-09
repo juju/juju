@@ -9,6 +9,26 @@ In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine
 3. Bootstrap with `juju bootstrap azure azure-controller`.
 ```
 
+(azure-cloud-requirements)=
+## Requirements
+
+#### Azure API permissions
+
+Juju needs the Azure API permissions listed below to create and manage the Azure resources used during cloud registration and bootstrap:
+
+- `Microsoft.Compute/skus` (read).
+- `Microsoft.Resources/subscriptions/resourceGroups` (read, write, delete).
+- `Microsoft.Resources/deployments/*` (write, read, delete, cancel, validate).
+- `Microsoft.Network/networkSecurityGroups` (write, read, delete, join).
+- `Microsoft.Network/virtualNetworks/*` (write, read, delete).
+- `Microsoft.Compute/virtualMachineScaleSets/*` (write, read, delete, start, deallocate, restart, powerOff).
+- `Microsoft.Network/virtualNetworks/subnets/*` (read, write, delete, join).
+- `Microsoft.Compute/availabilitySets` (write, read, delete).
+- `Microsoft.Network/publicIPAddresses` (write, read, delete, join) -- optional for public-facing services.
+- `Microsoft.Network/networkInterfaces` (write, read, delete, join).
+- `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate).
+- `Microsoft.Compute/disks` (write, read, delete).
+
 (azure-cloud-concepts)=
 ## Concepts
 
@@ -29,24 +49,6 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(azure-cloud-requirements)=
-### Requirements
-
-**Required Azure API permissions:**
-
-- `Microsoft.Compute/skus` (read).
-- `Microsoft.Resources/subscriptions/resourceGroups` (read, write, delete).
-- `Microsoft.Resources/deployments/*` (write, read, delete, cancel, validate).
-- `Microsoft.Network/networkSecurityGroups` (write, read, delete, join).
-- `Microsoft.Network/virtualNetworks/*` (write, read, delete).
-- `Microsoft.Compute/virtualMachineScaleSets/*` (write, read, delete, start, deallocate, restart, powerOff).
-- `Microsoft.Network/virtualNetworks/subnets/*` (read, write, delete, join).
-- `Microsoft.Compute/availabilitySets` (write, read, delete).
-- `Microsoft.Network/publicIPAddresses` (write, read, delete, join) -- optional for public-facing services.
-- `Microsoft.Network/networkInterfaces` (write, read, delete, join).
-- `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate).
-- `Microsoft.Compute/disks` (write, read, delete).
 
 (azure-cloud-definition)=
 ### Definition

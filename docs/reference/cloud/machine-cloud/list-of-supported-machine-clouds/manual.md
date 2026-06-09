@@ -17,6 +17,17 @@ In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing m
 4. Bootstrap with `juju bootstrap <manual-cloud-name> manual-controller`.
 ```
 
+(manual-cloud-requirements)=
+## Requirements
+
+The target machines must already exist and be reachable over SSH with sudo access.
+
+- At least two pre-existing machines (one for the controller and one where charms will be deployed).
+- The machines must be running Ubuntu.
+- The machines must be accessible over SSH from the terminal you're running the Juju client from using public key authentication.
+- SSH user must have sudo rights (passwordless sudo preferred, but Juju will prompt for password if needed).
+- The machines must be able to ping one another.
+
 (manual-cloud-concepts)=
 ## Concepts
 
@@ -45,15 +56,6 @@ If this collection of machines is composed solely of bare metal you might opt fo
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
-
-(manual-cloud-requirements)=
-### Requirements
-
-- At least two pre-existing machines (one for the controller and one where charms will be deployed).
-- The machines must be running Ubuntu.
-- The machines must be accessible over SSH from the terminal you're running the Juju client from using public key authentication.
-- SSH user must have sudo rights (passwordless sudo preferred, but Juju will prompt for password if needed).
-- The machines must be able to ping one another.
 
 (manual-cloud-definition)=
 ### Definition

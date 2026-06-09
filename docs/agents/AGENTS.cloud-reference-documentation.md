@@ -84,7 +84,7 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 - **Clarifying intros**: Add brief intros to subsections that could be ambiguous about scope
 
 **Cloud Reference Style Notes:**
-- In cloud-specific docs, place requirements content under `## Cloud definition` -> `### Requirements`.
+- In cloud-specific docs, place requirements content in a top-level `## Requirements` section before `## Concepts`.
 - For embedded requirement labels, prefer real subheadings (for example `#### VPC requirements`) so they appear in page TOCs.
 - Add an `Example workflow` dropdown immediately after the intro, using a short sequence from cloud registration to bootstrap.
 - Add a top-level `## Concepts` section near the top of each cloud-specific doc to map provider abstractions to Juju entities.
@@ -277,13 +277,13 @@ Type and name as recognized by Juju.
 (<cloud>-cloud)=
 ## Cloud definition
 
+
 (<cloud>-cloud-definition)=
 ### Definition
 
 Type in Juju: `<cloud-type>`
 
 Name in Juju: `<cloud-name>`
-```
 
 ### Requirements
 
@@ -292,7 +292,7 @@ Name in Juju: `<cloud-name>`
 **Template**:
 ```markdown
 (<cloud>-cloud-requirements)=
-### Requirements
+## Requirements
 
 **Required <Cloud> API permissions:**
 
