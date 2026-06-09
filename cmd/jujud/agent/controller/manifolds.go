@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
+	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
@@ -162,6 +163,16 @@ type ManifoldsConfig struct {
 
 	// LogDir is the controller process log directory.
 	LogDir string
+
+	// DataDir is the controller process data directory. It is passed
+	// directly to the api-server worker instead of being read from
+	// agent config at worker start.
+	DataDir string
+
+	// APIServerLogSinkConfig holds rate-limit parameters for the API
+	// server log sink. It is populated from controller-owned startup
+	// state and passed directly to the api-server manifold.
+	APIServerLogSinkConfig coreapiserver.LogSinkConfig
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
@@ -546,9 +557,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
-			ClockName:              clockName,
+			Clock:                  clock.WallClock,
+			ControllerTag:          config.ControllerAgentTag,
+			DataDir:                config.DataDir,
+			LogDir:                 config.LogDir,
+			LogSinkConfig:          config.APIServerLogSinkConfig,
 			LogSinkName:            logSinkName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
