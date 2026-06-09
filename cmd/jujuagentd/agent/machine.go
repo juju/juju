@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/api/base"
+	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
@@ -564,6 +566,11 @@ func (a *MachineAgent) makeEngineCreator(
 			controllerPrivateKey = controllerAgentInfo.PrivateKey
 		}
 
+		logSinkConfig, err := logSinkConfigFromAgentConfig(agentConfig)
+		if err != nil {
+			return nil, errors.Annotate(err, "getting log sink config")
+		}
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
@@ -574,6 +581,8 @@ func (a *MachineAgent) makeEngineCreator(
 			ControllerRuntimeConfigPath:       controllerRuntimeConfigPath,
 			ControllerAgentTag:                agentConfig.Tag(),
 			LogDir:                            agentConfig.LogDir(),
+			DataDir:                           agentConfig.DataDir(),
+			APIServerLogSinkConfig:            logSinkConfig,
 			CACert:                            caCert,
 			CAPrivateKey:                      caPrivateKey,
 			ControllerCert:                    controllerCert,
@@ -939,4 +948,27 @@ func (a *MachineAgent) recordAgentStartInformation(ctx context.Context, apiConn 
 		return errors.Annotate(err, "cannot record agent start information")
 	}
 	return nil
+}
+
+// logSinkConfigFromAgentConfig builds an apiserver.LogSinkConfig from the
+// agent config values LOGSINK_RATELIMIT_BURST and LOGSINK_RATELIMIT_REFILL.
+// Absent values fall back to DefaultLogSinkConfig(); malformed values return
+// an error.
+func logSinkConfigFromAgentConfig(cfg agent.Config) (coreapiserver.LogSinkConfig, error) {
+	result := coreapiserver.DefaultLogSinkConfig()
+	if v := cfg.Value(agent.LogSinkRateLimitBurst); v != "" {
+		burst, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return result, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitBurst)
+		}
+		result.RateLimitBurst = burst
+	}
+	if v := cfg.Value(agent.LogSinkRateLimitRefill); v != "" {
+		refill, err := time.ParseDuration(v)
+		if err != nil {
+			return result, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitRefill)
+		}
+		result.RateLimitRefill = refill
+	}
+	return result, nil
 }

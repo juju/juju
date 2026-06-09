@@ -12,8 +12,10 @@ import (
 	stdos "os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v3"
@@ -499,20 +501,26 @@ func (w *userdataConfig) configureBootstrap() error {
 	controllerAgentDir := path.Join(
 		w.icfg.DataDir, "agents", "controller-"+agent.BootstrapControllerId,
 	)
+	logSinkBurst, logSinkRefill, err := parseLogSinkRateLimits(w.icfg.AgentEnvironment)
+	if err != nil {
+		return errors.Annotate(err, "parsing log-sink rate limits")
+	}
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:          agent.BootstrapControllerId,
-		ControllerUUID:        w.icfg.ControllerTag.Id(),
-		ControllerModelUUID:   w.icfg.APIInfo.ModelTag.Id(),
-		DataDir:               w.icfg.DataDir,
-		LogDir:                w.icfg.LogDir,
-		QueryTracingEnabled:   w.icfg.ControllerConfig.QueryTracingEnabled(),
-		QueryTracingThreshold: w.icfg.ControllerConfig.QueryTracingThreshold(),
-		DqliteBusyTimeout:     w.icfg.ControllerConfig.DqliteBusyTimeout(),
-		CACert:                w.icfg.APIInfo.CACert,
-		CAPrivateKey:          w.icfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
-		ControllerCert:        w.icfg.Bootstrap.ControllerAgentInfo.Cert,
-		ControllerPrivateKey:  w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
-		SystemIdentity:        w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
+		ControllerID:           agent.BootstrapControllerId,
+		ControllerUUID:         w.icfg.ControllerTag.Id(),
+		ControllerModelUUID:    w.icfg.APIInfo.ModelTag.Id(),
+		DataDir:                w.icfg.DataDir,
+		LogDir:                 w.icfg.LogDir,
+		QueryTracingEnabled:    w.icfg.ControllerConfig.QueryTracingEnabled(),
+		QueryTracingThreshold:  w.icfg.ControllerConfig.QueryTracingThreshold(),
+		DqliteBusyTimeout:      w.icfg.ControllerConfig.DqliteBusyTimeout(),
+		CACert:                 w.icfg.APIInfo.CACert,
+		CAPrivateKey:           w.icfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
+		ControllerCert:         w.icfg.Bootstrap.ControllerAgentInfo.Cert,
+		ControllerPrivateKey:   w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		SystemIdentity:         w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
+		LogSinkRateLimitBurst:  logSinkBurst,
+		LogSinkRateLimitRefill: logSinkRefill,
 	}
 	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	if err != nil {
@@ -871,3 +879,24 @@ func (p packageManagerProxySettings) SnapStoreProxyID() string { return p.snapSt
 
 // SnapStoreProxyURL implements cloudinit.PackageManagerProxyConfig.
 func (p packageManagerProxySettings) SnapStoreProxyURL() string { return p.snapStoreProxyURL }
+
+// parseLogSinkRateLimits reads log-sink rate-limit overrides from the agent
+// environment map using the agent.LogSinkRateLimitBurst and
+// agent.LogSinkRateLimitRefill keys. Zero values are returned for keys that
+// are absent or unparseable, which signals "use defaults" to the controller
+// runtime config.
+func parseLogSinkRateLimits(agentEnv map[string]string) (burst int64, refill time.Duration, err error) {
+	if v := agentEnv[agent.LogSinkRateLimitBurst]; v != "" {
+		burst, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitBurst)
+		}
+	}
+	if v := agentEnv[agent.LogSinkRateLimitRefill]; v != "" {
+		refill, err = time.ParseDuration(v)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitRefill)
+		}
+	}
+	return burst, refill, nil
+}
