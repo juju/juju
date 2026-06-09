@@ -12,6 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	replicaset "github.com/juju/replicaset/v3"
@@ -180,6 +181,21 @@ func (m *MockModel) AgentVersion() (version.Number, error) {
 func (mr *MockModelMockRecorder) AgentVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockModel)(nil).AgentVersion))
+}
+
+// Config mocks base method.
+func (m *MockModel) Config() (*config.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(*config.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockModelMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockModel)(nil).Config))
 }
 
 // MigrationMode mocks base method.

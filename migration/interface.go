@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
@@ -52,6 +53,7 @@ type PrecheckModel interface {
 	MigrationMode() state.MigrationMode
 	AgentVersion() (version.Number, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
+	Config() (*config.Config, error)
 }
 
 // PrecheckMachine describes the state interface for a machine needed

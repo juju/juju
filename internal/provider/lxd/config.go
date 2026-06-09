@@ -81,3 +81,12 @@ func (c *environConfig) project() string {
 	}
 	return project.(string)
 }
+
+// ProjectFromConfig returns the LXD project name configured for the model,
+// or the empty string when unset (matching environConfig.project()). It lets
+// callers outside this package - notably the upgrade/migration validators -
+// resolve the project the same way the environ does when it connects in
+// SetCloudSpec.
+func ProjectFromConfig(cfg *config.Config) string {
+	return newConfig(cfg).project()
+}

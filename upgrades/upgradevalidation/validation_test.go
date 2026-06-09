@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -329,12 +330,23 @@ func (s *upgradeValidationSuite) TestCheckMongoVersionForControllerModel(c *gc.C
 	c.Assert(blocker.Error(), gc.Equals, `mongo version has to be "4.4" at least, but current version is "4.3"`)
 }
 
-func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType string) {
+// lxdModelConfig returns a model config carrying the given LXD project, or a
+// project-less config when project is empty.
+func lxdModelConfig(c *gc.C, project string) *config.Config {
+	extra := coretesting.Attrs{}
+	if project != "" {
+		extra["project"] = project
+	}
+	return coretesting.CustomModelConfig(c, extra)
+}
+
+func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType, project string) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	server := mocks.NewMockServer(ctrl)
 	serverFactory := mocks.NewMockServerFactory(ctrl)
+	model := mocks.NewMockModel(ctrl)
 
 	s.PatchValue(&upgradevalidation.NewServerFactory,
 		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
@@ -342,21 +354,32 @@ func (s *upgradeValidationSuite) assertGetCheckForLXDVersion(c *gc.C, cloudType 
 		},
 	)
 
-	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: cloudType}}
+	model.EXPECT().Config().Return(lxdModelConfig(c, project), nil)
+
+	// The model's configured project must be carried on the cloud spec, so a
+	// restricted TLS client connects to its own project rather than "default".
+	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: cloudType}, Project: project}
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
-	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec.CloudSpec)("", nil, nil, nil)
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec.CloudSpec)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.IsNil)
 }
 
 func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLXD(c *gc.C) {
-	s.assertGetCheckForLXDVersion(c, "lxd")
+	s.assertGetCheckForLXDVersion(c, "lxd", "")
 }
 
 func (s *upgradeValidationSuite) TestGetCheckForLXDVersionLocalhost(c *gc.C) {
-	s.assertGetCheckForLXDVersion(c, "localhost")
+	s.assertGetCheckForLXDVersion(c, "localhost", "")
+}
+
+// TestGetCheckForLXDVersionUsesModelProject is a regression test for
+// https://github.com/juju/juju/issues/22486: the version check must connect
+// using the model's configured LXD project.
+func (s *upgradeValidationSuite) TestGetCheckForLXDVersionUsesModelProject(c *gc.C) {
+	s.assertGetCheckForLXDVersion(c, "lxd", "juju-reproducer")
 }
 
 func (s *upgradeValidationSuite) TestGetCheckForLXDVersionSkippedForNonLXDCloud(c *gc.C) {
@@ -382,17 +405,19 @@ func (s *upgradeValidationSuite) TestGetCheckForLXDVersionFailed(c *gc.C) {
 
 	server := mocks.NewMockServer(ctrl)
 	serverFactory := mocks.NewMockServerFactory(ctrl)
+	model := mocks.NewMockModel(ctrl)
 
 	s.PatchValue(&upgradevalidation.NewServerFactory,
 		func(_ lxd.NewHTTPClientFunc) lxd.ServerFactory {
 			return serverFactory
 		},
 	)
+	model.EXPECT().Config().Return(lxdModelConfig(c, ""), nil)
 	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("4.0")
 
-	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec.CloudSpec)("", nil, nil, nil)
+	blocker, err := upgradevalidation.GetCheckForLXDVersion(cloudSpec.CloudSpec)("", nil, nil, model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker, gc.NotNil)
 	c.Assert(blocker.Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)

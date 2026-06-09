@@ -8,6 +8,7 @@ import (
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -31,4 +32,5 @@ type Model interface {
 	Owner() names.UserTag
 	AgentVersion() (version.Number, error)
 	MigrationMode() state.MigrationMode
+	Config() (*config.Config, error)
 }
