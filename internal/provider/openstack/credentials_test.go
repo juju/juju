@@ -60,6 +60,14 @@ func (s *credentialsSuite) TestUserPassCredentialsValid(c *tc.C) {
 	})
 }
 
+func (s *credentialsSuite) TestUserPassTrustCredentialsValid(c *tc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "userpass", map[string]string{
+		"username": "bob",
+		"password": "dobbs",
+		"trust-id": "trust",
+	})
+}
+
 func (s *credentialsSuite) TestUserPassHiddenAttributes(c *tc.C) {
 	envtesting.AssertProviderCredentialsAttributesHidden(c, s.provider, "userpass", "password")
 }
@@ -78,6 +86,8 @@ func (s *credentialsSuite) TestDetectCredentialsAccessKeyEnvironmentVariables(c 
 	s.PatchEnvironment("OS_ACCESS_KEY", "key-id")
 	s.PatchEnvironment("OS_SECRET_KEY", "secret-access-key")
 	s.PatchEnvironment("OS_REGION_NAME", "east")
+	// Trust auth only applies to userpass; it must not reject access keys.
+	s.PatchEnvironment("OS_TRUST_ID", "trust-id")
 
 	credentials, err := s.provider.DetectCredentials("")
 	c.Assert(err, tc.ErrorIsNil)
@@ -117,11 +127,59 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassEnvironmentVariables(c *
 			"tenant-id":           "xyz",
 			"domain-name":         "",
 			"project-domain-name": "",
+			"trust-id":            "",
 			"user-domain-name":    "user-domain",
 		},
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
 	c.Assert(credentials.AuthCredentials["bob"], tc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsUserPassTrustEnvironmentVariables(c *tc.C) {
+	s.PatchEnvironment("OS_IDENTITY_API_VERSION", "3")
+	s.PatchEnvironment("OS_USERNAME", "admin")
+	s.PatchEnvironment("OS_PASSWORD", "secret")
+	s.PatchEnvironment("OS_REGION_NAME", "region")
+	s.PatchEnvironment("OS_USER_DOMAIN_NAME", "admin_domain")
+	s.PatchEnvironment("OS_TRUST_ID", "trust-id")
+
+	credentials, err := s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credentials.DefaultRegion, tc.Equals, "region")
+	expected := cloud.NewCredential(
+		cloud.UserPassAuthType, map[string]string{
+			"version":             "3",
+			"username":            "admin",
+			"password":            "secret",
+			"tenant-name":         "",
+			"tenant-id":           "",
+			"domain-name":         "",
+			"project-domain-name": "",
+			"trust-id":            "trust-id",
+			"user-domain-name":    "admin_domain",
+		},
+	)
+	expected.Label = `openstack region "region" project "" user "admin"`
+	c.Assert(credentials.AuthCredentials["admin"], tc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsUserPassTrustWithProjectEnvironmentVariablesRejects(c *tc.C) {
+	s.PatchEnvironment("OS_IDENTITY_API_VERSION", "3")
+	s.PatchEnvironment("OS_PROJECT_NAME", "gary")
+	s.PatchEnvironment("OS_USERNAME", "admin")
+	s.PatchEnvironment("OS_PASSWORD", "secret")
+	s.PatchEnvironment("OS_USER_DOMAIN_NAME", "admin_domain")
+	s.PatchEnvironment("OS_TRUST_ID", "trust-id")
+
+	_, err := s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorMatches, "trust-id cannot be used with project or domain scope attributes: tenant-name")
+}
+
+func (s *credentialsSuite) TestDetectCredentialsInvalidEnvironmentVariablesRejects(c *tc.C) {
+	s.PatchEnvironment("OS_AUTH_VERSION", "not-a-version")
+
+	_, err := s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorMatches, "failed to retrieve credential from env : cred.Version is not a valid integer type.*")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *tc.C) {
@@ -145,11 +203,38 @@ func (s *credentialsSuite) TestDetectCredentialsUserPassDefaultDomain(c *tc.C) {
 			"tenant-id":           "",
 			"domain-name":         "",
 			"project-domain-name": "default-domain",
+			"trust-id":            "",
 			"user-domain-name":    "default-domain",
 		},
 	)
 	expected.Label = `openstack region "west" project "gary" user "bob"`
 	c.Assert(credentials.AuthCredentials["bob"], tc.DeepEquals, expected)
+}
+
+func (s *credentialsSuite) TestDetectCredentialsInvalidNovarcRejects(c *tc.C) {
+	if runtime.GOOS != "linux" {
+		c.Skip("not running linux")
+	}
+	home := utils.Home()
+	dir := c.MkDir()
+	err := utils.SetHome(dir)
+	c.Assert(err, tc.ErrorIsNil)
+	s.AddCleanup(func(c *tc.C) {
+		err := utils.SetHome(home)
+		c.Assert(err, tc.ErrorIsNil)
+	})
+
+	content := `
+OS_AUTH_VERSION=not-a-version
+OS_USERNAME=bob
+OS_PASSWORD=dobbs
+`[1:]
+	novarc := filepath.Join(dir, ".novarc")
+	err = os.WriteFile(novarc, []byte(content), 0600)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.provider.DetectCredentials("")
+	c.Assert(err, tc.ErrorMatches, "failed to retrieve credential from env : cred.Version is not a valid integer type.*")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsNovarc(c *tc.C) {
@@ -190,6 +275,7 @@ OS_PROJECT_DOMAIN_NAME=project-domain
 			"tenant-id":           "xyz",
 			"domain-name":         "",
 			"project-domain-name": "project-domain",
+			"trust-id":            "",
 			"user-domain-name":    "",
 		},
 	)

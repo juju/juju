@@ -822,11 +822,16 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
 		cred.UserDomain = credAttrs[CredAttrUserDomainName]
 		cred.Domain = credAttrs[CredAttrDomainName]
+		cred.TrustID = credAttrs[CredAttrTrustID]
 		if credAttrs[CredAttrVersion] != "" {
 			version, err := strconv.Atoi(credAttrs[CredAttrVersion])
 			if err != nil {
 				return identity.Credentials{}, 0,
 					errors.Errorf("cred.Version is not a valid integer type : %v", err)
+			}
+			if version < 3 && cred.TrustID != "" {
+				return identity.Credentials{}, 0,
+					errors.Errorf("cred.TrustID requires Keystone identity version 3")
 			}
 			if version < 3 {
 				authMode = identity.AuthUserPass
@@ -834,10 +839,13 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 				authMode = identity.AuthUserPassV3
 			}
 			cred.Version = version
-		} else if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
+		} else if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" || cred.TrustID != "" {
 			authMode = identity.AuthUserPassV3
 		} else {
 			authMode = identity.AuthUserPass
+		}
+		if err := validateTrustCredentialScope(cred); err != nil {
+			return identity.Credentials{}, 0, errors.Trace(err)
 		}
 	case cloud.AccessKeyAuthType:
 		cred.User = credAttrs[CredAttrAccessKey]
@@ -845,6 +853,30 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		authMode = identity.AuthKeyPair
 	}
 	return cred, authMode, nil
+}
+
+func validateTrustCredentialScope(cred identity.Credentials) error {
+	if cred.TrustID == "" {
+		return nil
+	}
+	var scopeAttrs []string
+	if cred.TenantName != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrTenantName)
+	}
+	if cred.TenantID != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrTenantID)
+	}
+	if cred.Domain != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrDomainName)
+	}
+	if len(scopeAttrs) == 0 {
+		return nil
+	}
+	return errors.NewNotValid(nil, fmt.Sprintf(
+		"%s cannot be used with project or domain scope attributes: %s",
+		CredAttrTrustID,
+		strings.Join(scopeAttrs, ", "),
+	))
 }
 
 func tlsConfig(certStrs []string) *tls.Config {
