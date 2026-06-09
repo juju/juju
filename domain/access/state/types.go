@@ -247,3 +247,25 @@ type nameAndUUID struct {
 	Name string `db:"name"`
 	UUID string `db:"uuid"`
 }
+
+// userNameAndDisabled is used to pass a user's name and disabled
+// status as arguments to SQL.
+type userNameAndDisabled struct {
+	Name     string `db:"name"`
+	Disabled bool   `db:"disabled"`
+}
+
+// userNameAndPassword is used to pass a user's name and password
+// details as arguments to SQL.
+type userNameAndPassword struct {
+	Name         string `db:"name"`
+	PasswordHash string `db:"password_hash"`
+	PasswordSalt []byte `db:"password_salt"`
+}
+
+// userNameAndActivationKey is used to pass a user's name and
+// activation key as arguments to SQL.
+type userNameAndActivationKey struct {
+	Name          string `db:"name"`
+	ActivationKey []byte `db:"activation_key"`
+}

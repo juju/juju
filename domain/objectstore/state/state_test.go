@@ -469,6 +469,8 @@ func (s *stateSuite) TestAddControllerIDHint(c *tc.C) {
 
 	var nodes []string
 	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		nodes = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT p.node_id
 FROM object_store_placement AS p

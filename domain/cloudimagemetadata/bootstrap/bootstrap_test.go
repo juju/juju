@@ -129,7 +129,9 @@ func (s *bootstrapSuite) TestInitCustomImageMetadataWithNil(c *tc.C) {
 // It is used in test to keep save and find tests independent of each other
 func (s *bootstrapSuite) retrieveMetadataFromDB(c *tc.C) ([]cloudimagemetadata.Metadata, error) {
 	var metadata []cloudimagemetadata.Metadata
-	return metadata, s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		metadata = nil
+
 		rows, err := tx.Query(`
 SELECT 
 source,
@@ -166,4 +168,5 @@ image_id
 		}
 		return errors.Capture(rows.Err())
 	})
+	return metadata, err
 }

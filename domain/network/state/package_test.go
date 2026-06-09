@@ -233,6 +233,8 @@ func (s *linkLayerBaseSuite) checkRowCount(c *tc.C, table string, expected int) 
 func (s *linkLayerBaseSuite) selectDistinctValues(c *tc.C, field, table string) []string {
 	var obtained []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		obtained = nil
+
 		query := fmt.Sprintf(`SELECT DISTINCT %q FROM %q`, field, table)
 		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {

@@ -914,6 +914,8 @@ func (s *baseSuite) createMigratingApplication(c *tc.C, name string) (coreapplic
 func (s *baseSuite) getApplicationUnits(c *tc.C, appUUID coreapplication.UUID) []coreunit.UUID {
 	var dbVals []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		dbVals = nil
+
 		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM unit WHERE application_uuid = ?", appUUID.String())
 		if err != nil {
 			return err

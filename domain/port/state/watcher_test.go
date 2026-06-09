@@ -124,6 +124,8 @@ func (s *watcherSuite) TestInitialWatchOpenedPortsStatement(c *tc.C) {
 func (s *watcherSuite) assertUnits(c *tc.C, stmt string, expected []coreunit.UUID) {
 	var unitUUIDs []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitUUIDs = nil
+
 		rows, err := tx.QueryContext(ctx, stmt)
 		if err != nil {
 			return err

@@ -4,13 +4,13 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,139 +22,433 @@ func main() {
 		os.Exit(1)
 	}
 
-	var foundAssert bool
-	err := filepath.WalkDir(os.Args[1], func(path string, d fs.DirEntry, err error) error {
+	root, err := filepath.Abs(os.Args[1])
+	check(err)
+
+	var foundIssue bool
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-
-		if d.IsDir() {
+		if d.IsDir() || filepath.Ext(path) != ".go" {
 			return nil
 		}
 
-		if filepath.Ext(path) != ".go" {
-			return nil
-		}
-
-		file, err := os.OpenFile(path, os.O_RDONLY, 0)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil
 		}
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-
-			if strings.Contains(scanner.Text(), "database/sql") ||
-				strings.Contains(scanner.Text(), "github.com/canonical/sqlair") {
-
-				_, _ = file.Seek(0, 0)
-
-				if checkFile(path, file) {
-					foundAssert = true
-					return nil
-				}
-
-			}
+		if !shouldCheck(data) {
+			return nil
 		}
 
+		findings, err := checkFile(path, data)
+		if err != nil {
+			return err
+		}
+		for _, finding := range findings {
+			fmt.Println(finding)
+			foundIssue = true
+		}
 		return nil
 	})
 	check(err)
 
-	// If we found an assert, we should exit with a non-zero status.
-	// Any checks, are just warnings.
-	if foundAssert {
+	if foundIssue {
 		os.Exit(1)
 	}
 }
 
-func checkFile(path string, file io.Reader) bool {
+func shouldCheck(data []byte) bool {
+	return bytes.Contains(data, []byte("database/sql")) ||
+		bytes.Contains(data, []byte("github.com/canonical/sqlair"))
+}
+
+func checkFile(path string, data []byte) ([]finding, error) {
+	return checkFileWithChecks(path, data, defaultChecks())
+}
+
+func checkFileWithChecks(path string, data []byte, checks []nodeCheck) ([]finding, error) {
 	fileSet := token.NewFileSet()
-	parsed, err := parser.ParseFile(fileSet, "", file, 0)
-	check(err)
+	parsed, err := parser.ParseFile(fileSet, path, data, 0)
+	if err != nil {
+		return nil, err
+	}
 
 	contextPath, ok := locateImportAlias(parsed.Imports, "context")
 	if !ok {
-		return false
+		return nil, nil
 	}
 	sqlPath, sqlFound := locateImportAlias(parsed.Imports, "database/sql")
 	sqlairPath, sqlairFound := locateImportAlias(parsed.Imports, "github.com/canonical/sqlair")
-
-	// We need to at least import one of these.
 	if !sqlFound && !sqlairFound {
-		return false
+		return nil, nil
 	}
 
-	// Walk over all the function declarations and look for assignment
-	// statements that have a call expression with two arguments.
-	// The first argument should be a context.Context and the second
-	// argument should be a *sql.Tx or *sqlair.Tx.
-	// If that is the case, we look for a call expression that has a
-	// selector expression with the name "Assert".
+	fileCtx := &fileContext{
+		fileSet:     fileSet,
+		contextPath: contextPath,
+		sqlPath:     sqlPath,
+		sqlairPath:  sqlairPath,
+	}
+	ast.Walk(&fileVisitor{
+		checks: checks,
+		file:   fileCtx,
+	}, parsed)
+	return fileCtx.findings, nil
+}
 
-	for _, stmt := range getFuncBodies(parsed) {
-		for _, funcLit := range getCallExprs(stmt) {
+type finding struct {
+	pos     token.Position
+	message string
+}
 
-			funcDecl := funcLit.Type
-			list := funcDecl.Params.List
-			if len(list) != 2 {
+func (f finding) String() string {
+	return fmt.Sprintf("%s: %s", f.message, f.pos)
+}
+
+type nodeCheck interface {
+	Check(*nodeContext, ast.Node)
+}
+
+func defaultChecks() []nodeCheck {
+	return []nodeCheck{
+		assertCheck{},
+		capturedAssignmentCheck{},
+		capturedBuiltinMutationCheck{},
+	}
+}
+
+type fileContext struct {
+	fileSet     *token.FileSet
+	contextPath string
+	sqlPath     string
+	sqlairPath  string
+
+	findings []finding
+}
+
+func (c *fileContext) isTxnFunc(funcLit *ast.FuncLit) bool {
+	params := funcLit.Type.Params
+	if params == nil || len(params.List) != 2 {
+		return false
+	}
+	if !isContextType(params.List[0], c.contextPath) {
+		return false
+	}
+	if !isErrorResult(funcLit.Type.Results) {
+		return false
+	}
+	return isTxnType(params.List[1], c.sqlPath, SQLTxnType) ||
+		isTxnType(params.List[1], c.sqlairPath, SQLairTxnType)
+}
+
+func (c *fileContext) addFinding(pos token.Pos, message string) {
+	c.findings = append(c.findings, finding{
+		pos:     c.fileSet.Position(pos),
+		message: message,
+	})
+}
+
+type nodeContext struct {
+	file       *fileContext
+	txn        *ast.FuncLit
+	reassigned map[*ast.Object]bool
+}
+
+func (c *nodeContext) InTxn() bool {
+	return c.txn != nil
+}
+
+func (c *nodeContext) IsCaptured(id *ast.Ident) bool {
+	if !c.InTxn() || id == nil || id.Name == "_" || id.Obj == nil {
+		return false
+	}
+	return id.Obj.Pos() < c.txn.Pos() || id.Obj.Pos() > c.txn.End()
+}
+
+func (c *nodeContext) IsReassigned(id *ast.Ident) bool {
+	return id != nil && id.Obj != nil && c.reassigned[id.Obj]
+}
+
+func (c *nodeContext) MarkReassigned(id *ast.Ident) {
+	if c.IsCaptured(id) {
+		c.reassigned[id.Obj] = true
+	}
+}
+
+func (c *nodeContext) AddFinding(pos token.Pos, message string) {
+	c.file.addFinding(pos, message)
+}
+
+type fileVisitor struct {
+	checks     []nodeCheck
+	file       *fileContext
+	txn        *ast.FuncLit
+	reassigned map[*ast.Object]bool
+}
+
+func (v *fileVisitor) Visit(node ast.Node) ast.Visitor {
+	if node == nil {
+		return nil
+	}
+
+	ctx := &nodeContext{
+		file:       v.file,
+		txn:        v.txn,
+		reassigned: v.reassigned,
+	}
+	for _, check := range v.checks {
+		check.Check(ctx, node)
+	}
+
+	funcLit, ok := node.(*ast.FuncLit)
+	if ok {
+		if v.file.isTxnFunc(funcLit) {
+			return v.withReassigned(funcLit, make(map[*ast.Object]bool))
+		}
+		if v.txn != nil {
+			return v.withReassigned(v.txn, cloneReassigned(v.reassigned))
+		}
+		return v
+	}
+
+	if v.txn != nil && isolatesReassignments(node) {
+		return v.withReassigned(v.txn, cloneReassigned(v.reassigned))
+	}
+	return v
+}
+
+func (v *fileVisitor) withReassigned(
+	txn *ast.FuncLit,
+	reassigned map[*ast.Object]bool,
+) *fileVisitor {
+	return &fileVisitor{
+		checks:     v.checks,
+		file:       v.file,
+		txn:        txn,
+		reassigned: reassigned,
+	}
+}
+
+func isolatesReassignments(node ast.Node) bool {
+	switch node.(type) {
+	case *ast.BlockStmt,
+		*ast.IfStmt,
+		*ast.ForStmt,
+		*ast.RangeStmt,
+		*ast.SwitchStmt,
+		*ast.TypeSwitchStmt,
+		*ast.SelectStmt:
+		return true
+	}
+	return false
+}
+
+type capturedAssignmentCheck struct{}
+
+func (capturedAssignmentCheck) Check(ctx *nodeContext, node ast.Node) {
+	if !ctx.InTxn() {
+		return
+	}
+	switch n := node.(type) {
+	case *ast.AssignStmt:
+		checkCapturedAssignment(ctx, n)
+	case *ast.IncDecStmt:
+		checkCapturedIncDec(ctx, n)
+	}
+}
+
+func checkCapturedAssignment(ctx *nodeContext, stmt *ast.AssignStmt) {
+	switch stmt.Tok {
+	case token.DEFINE:
+		return
+	case token.ASSIGN:
+		reassigned := capturedReassignments(ctx, stmt.Lhs)
+		checkCapturedBuiltinMutations(ctx, stmt.Rhs, reassigned)
+		for _, lhs := range stmt.Lhs {
+			if _, ok := lhs.(*ast.Ident); ok {
 				continue
 			}
-
-			// Is the first argument a context.Context?
-			if !isContextType(list[0], contextPath) {
-				continue
-			}
-
-			// Is the scope of the second argument a *sql.Tx or *sqlair.Tx?
-			if !isTxnType(list[1], sqlPath, SQLTxnType) && !isTxnType(list[1], sqlairPath, SQLairTxnType) {
-				continue
-			}
-
-			// Located a potential transaction function, now we need to
-			// check if it has a call expression with a selector expression
-			// that has the name "Assert" or "Check".
-			for _, items := range funcLit.Body.List {
-				switch i := items.(type) {
-				case *ast.ExprStmt:
-					call, ok := i.X.(*ast.CallExpr)
-					if !ok {
-						continue
-					}
-
-					sel, ok := call.Fun.(*ast.SelectorExpr)
-					if !ok {
-						continue
-					}
-
-					id, ok := sel.X.(*ast.Ident)
-					if !ok {
-						continue
-					}
-
-					// We only care about the "c" variable.
-					// TODO (stickupkid): This is a bit naive,
-					// we should be checking if the variable is
-					// actually gc.C.Assert or gc.C.Check.
-					if id.Name != "c" {
-						continue
-					}
-
-					start := fileSet.Position(sel.Pos())
-					if sel.Sel.Name == "Assert" {
-						fmt.Printf("found assert: %s:%s\n", path, start)
-						return true
-					}
-					if sel.Sel.Name == "Check" {
-						fmt.Printf("found check: %s:%s\n", path, start)
-						return true
-					}
+			if id := rootIdent(lhs); ctx.IsCaptured(id) {
+				if ctx.IsReassigned(id) {
+					continue
 				}
+				ctx.AddFinding(lhs.Pos(),
+					fmt.Sprintf("found captured mutation in transaction: %q is mutated by assignment", id.Name))
+			}
+		}
+		for _, id := range reassigned {
+			ctx.MarkReassigned(id)
+		}
+	default:
+		for _, lhs := range stmt.Lhs {
+			if id := rootIdent(lhs); ctx.IsCaptured(id) {
+				if ctx.IsReassigned(id) {
+					continue
+				}
+				ctx.AddFinding(lhs.Pos(),
+					fmt.Sprintf("found captured mutation in transaction: %q is mutated by compound assignment", id.Name))
 			}
 		}
 	}
+}
 
-	return false
+func checkCapturedIncDec(ctx *nodeContext, stmt *ast.IncDecStmt) {
+	if id := rootIdent(stmt.X); ctx.IsCaptured(id) {
+		if ctx.IsReassigned(id) {
+			return
+		}
+		ctx.AddFinding(stmt.Pos(),
+			fmt.Sprintf("found captured mutation in transaction: %q is mutated by increment/decrement", id.Name))
+	}
+}
+
+type assertCheck struct{}
+
+func (assertCheck) Check(ctx *nodeContext, node ast.Node) {
+	if !ctx.InTxn() {
+		return
+	}
+	call, ok := node.(*ast.CallExpr)
+	if !ok {
+		return
+	}
+
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok {
+		return
+	}
+	id, ok := sel.X.(*ast.Ident)
+	if !ok || id.Name != "c" {
+		return
+	}
+
+	switch sel.Sel.Name {
+	case "Assert":
+		ctx.AddFinding(sel.Pos(), "found assert in transaction")
+	case "Check":
+		ctx.AddFinding(sel.Pos(), "found check in transaction")
+	}
+}
+
+type capturedBuiltinMutationCheck struct{}
+
+func (capturedBuiltinMutationCheck) Check(ctx *nodeContext, node ast.Node) {
+	if !ctx.InTxn() {
+		return
+	}
+	call, ok := node.(*ast.CallExpr)
+	if !ok {
+		return
+	}
+
+	name := builtinName(call.Fun)
+	switch name {
+	case "append":
+		if len(call.Args) == 0 {
+			return
+		}
+		if id := rootIdent(call.Args[0]); ctx.IsCaptured(id) {
+			if ctx.IsReassigned(id) {
+				return
+			}
+			ctx.AddFinding(call.Pos(),
+				fmt.Sprintf("found captured mutation in transaction: %q is mutated by append", id.Name))
+		}
+	case "copy", "delete", "clear":
+		if len(call.Args) == 0 {
+			return
+		}
+		if id := rootIdent(call.Args[0]); ctx.IsCaptured(id) {
+			if ctx.IsReassigned(id) {
+				return
+			}
+			ctx.AddFinding(call.Pos(),
+				fmt.Sprintf("found captured mutation in transaction: %q is mutated by %s", id.Name, name))
+		}
+	}
+}
+
+func capturedReassignments(ctx *nodeContext, exprs []ast.Expr) map[*ast.Object]*ast.Ident {
+	reassigned := make(map[*ast.Object]*ast.Ident)
+	for _, expr := range exprs {
+		id, ok := expr.(*ast.Ident)
+		if !ok || !ctx.IsCaptured(id) {
+			continue
+		}
+		reassigned[id.Obj] = id
+	}
+	return reassigned
+}
+
+func checkCapturedBuiltinMutations(
+	ctx *nodeContext,
+	exprs []ast.Expr,
+	reassigned map[*ast.Object]*ast.Ident,
+) {
+	for _, expr := range exprs {
+		ast.Inspect(expr, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+
+			id := capturedBuiltinMutation(call)
+			if id == nil || reassigned[id.Obj] == nil || ctx.IsReassigned(id) {
+				return true
+			}
+
+			name := builtinName(call.Fun)
+			ctx.AddFinding(call.Pos(),
+				fmt.Sprintf("found captured mutation in transaction: %q is mutated by %s", id.Name, name))
+			return true
+		})
+	}
+}
+
+func capturedBuiltinMutation(call *ast.CallExpr) *ast.Ident {
+	name := builtinName(call.Fun)
+	switch name {
+	case "append", "copy", "delete", "clear":
+		if len(call.Args) == 0 {
+			return nil
+		}
+		return rootIdent(call.Args[0])
+	}
+	return nil
+}
+
+func cloneReassigned(reassigned map[*ast.Object]bool) map[*ast.Object]bool {
+	clone := make(map[*ast.Object]bool, len(reassigned))
+	maps.Copy(clone, reassigned)
+	return clone
+}
+
+func builtinName(expr ast.Expr) string {
+	id, ok := expr.(*ast.Ident)
+	if !ok {
+		return ""
+	}
+	return id.Name
+}
+
+func rootIdent(expr ast.Expr) *ast.Ident {
+	switch e := expr.(type) {
+	case *ast.Ident:
+		return e
+	case *ast.IndexExpr:
+		return rootIdent(e.X)
+	case *ast.IndexListExpr:
+		return rootIdent(e.X)
+	case *ast.SelectorExpr:
+		return rootIdent(e.X)
+	case *ast.StarExpr:
+		return rootIdent(e.X)
+	case *ast.ParenExpr:
+		return rootIdent(e.X)
+	}
+	return nil
 }
 
 func check(err error) {
@@ -163,73 +457,8 @@ func check(err error) {
 	}
 }
 
-func getFuncBodies(parsed *ast.File) []ast.Stmt {
-	var stmts []ast.Stmt
-	for _, decl := range parsed.Decls {
-		switch d := decl.(type) {
-		case *ast.FuncDecl:
-			stmts = append(stmts, d.Body.List...)
-		}
-	}
-	return stmts
-}
-
-func getCallExprs(stmt ast.Stmt) []*ast.FuncLit {
-	var callExprs []*ast.FuncLit
-	switch s := stmt.(type) {
-	case *ast.AssignStmt:
-		for _, r := range s.Rhs {
-			switch x := r.(type) {
-			case *ast.CallExpr:
-				// If the call expression doesn't have two arguments,
-				// we skip it.
-				if len(x.Args) != 2 {
-					continue
-				}
-
-				// If the second argument is not a function literal, which
-				// would correspond to the following signature, we skip it.
-				//
-				//     func(context.Context, func(context.Context, *sql.Tx) error) error
-				//     func(context.Context, func(context.Context, *sqlair.TX) error) error
-				//
-				funcLit, ok := x.Args[1].(*ast.FuncLit)
-				if !ok {
-					continue
-				}
-
-				callExprs = append(callExprs, funcLit)
-			}
-		}
-	case *ast.ExprStmt:
-		// Recursive descent into the expression statement to find the
-		// call expression.
-		switch x := s.X.(type) {
-		case *ast.CallExpr:
-			if len(x.Args) == 0 {
-				return callExprs
-			}
-
-			// Check the function literal arguments.
-			for _, arg := range x.Args {
-				funcLit, ok := arg.(*ast.FuncLit)
-				if !ok {
-					continue
-				}
-				callExprs = append(callExprs, funcLit)
-
-				for _, stmt := range funcLit.Body.List {
-					callExprs = append(callExprs, getCallExprs(stmt)...)
-				}
-			}
-		}
-	}
-	return callExprs
-}
-
 func locateImportAlias(imports []*ast.ImportSpec, path string) (string, bool) {
 	for _, i := range imports {
-
 		if i.Path.Value != fmt.Sprintf(`"%s"`, path) {
 			continue
 		}
@@ -251,7 +480,8 @@ func isContextType(expr *ast.Field, importPath string) bool {
 		return false
 	}
 
-	if t.X.(*ast.Ident).Name != importPath {
+	i, ok := t.X.(*ast.Ident)
+	if !ok || i.Name != importPath {
 		return false
 	}
 
@@ -259,6 +489,14 @@ func isContextType(expr *ast.Field, importPath string) bool {
 		return false
 	}
 	return true
+}
+
+func isErrorResult(results *ast.FieldList) bool {
+	if results == nil || len(results.List) != 1 {
+		return false
+	}
+	id, ok := results.List[0].Type.(*ast.Ident)
+	return ok && id.Name == "error"
 }
 
 type txnType string

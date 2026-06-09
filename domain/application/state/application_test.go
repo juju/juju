@@ -588,6 +588,8 @@ WHERE name=?`, "666").Scan(&appUUID, &charmUUID)
 		foundAppPotentialResources []application.AddApplicationResourceArg
 	)
 	assertTxn("Fetch charm resources", func(ctx context.Context, tx *sql.Tx) error {
+		foundCharmResources = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT cr.name, crk.name as kind, path, description
 FROM charm_resource cr
@@ -607,6 +609,8 @@ WHERE charm_uuid=?`, charmUUID)
 		return nil
 	})
 	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
+		foundAppAvailableResources = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision, origin_type
 FROM v_application_resource vr
@@ -631,6 +635,8 @@ AND state = 'available'`, appUUID)
 	})
 
 	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
+		foundAppPotentialResources = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision, origin_type
 FROM v_application_resource vr
@@ -734,6 +740,8 @@ WHERE name=?`, appName).Scan(&appUUID, &charmUUID)
 		foundAppPotentialResources []resource.AddResourceDetails
 	)
 	assertTxn("Fetch charm resources", func(ctx context.Context, tx *sql.Tx) error {
+		foundCharmResources = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT cr.name, crk.name as kind, path, description
 FROM charm_resource cr
@@ -753,6 +761,8 @@ WHERE charm_uuid=?`, charmUUID)
 		return nil
 	})
 	assertTxn("Fetch application available resources", func(ctx context.Context, tx *sql.Tx) error {
+		foundAppAvailableResources = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision
 FROM v_application_resource vr
@@ -774,6 +784,8 @@ AND state = 'available'`, appUUID)
 	})
 
 	assertTxn("Fetch application potential resources", func(ctx context.Context, tx *sql.Tx) error {
+		foundAppPotentialResources = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT vr.name, revision
 FROM v_application_resource vr
@@ -843,7 +855,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
 `
 			_, err := tx.ExecContext(ctx, insertStmt,
 				res.UUID, charmUUID, res.Name, res.Revision, 1, 0, res.CreatedAt)
-			c.Assert(err, tc.IsNil)
 			if err != nil {
 				return err
 			}
@@ -853,7 +864,6 @@ INSERT INTO pending_application_resource (application_name, resource_uuid)
 VALUES (?, ?)
 `
 			_, err = tx.ExecContext(ctx, linkStmt, appName, res.UUID)
-			c.Assert(err, tc.IsNil)
 			if err != nil {
 				return err
 			}
@@ -1171,6 +1181,8 @@ func (s *applicationStateSuite) TestUpsertK8sServiceAnother(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	var providerIds []string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		providerIds = nil
+
 		rows, err := tx.QueryContext(ctx, "SELECT provider_id FROM k8s_service WHERE application_uuid = ?", appUUID)
 		if err != nil {
 			return err
@@ -1244,6 +1256,8 @@ func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingEmptyAddresses
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			resultAddresses = nil
+
 			rows, err := tx.QueryContext(ctx, `
 SELECT address_value
 FROM ip_address
@@ -1305,6 +1319,8 @@ func (s *applicationStateSuite) TestUpsertK8sServiceUpdateExistingWithAddresses(
 	checkAddresses := func(c *tc.C, expectedAddresses ...string) {
 		var resultAddresses []string
 		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			resultAddresses = nil
+
 			rows, err := tx.QueryContext(ctx, `
 SELECT address_value
 FROM ip_address
@@ -3297,6 +3313,10 @@ func (s *applicationStateSuite) TestSetConstraintFull(c *tc.C) {
 		allocatePublicIP                                                    bool
 	)
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		constraintSpaces = nil
+		constraintTags = nil
+		constraintZones = nil
+
 		err := tx.QueryRowContext(ctx, "SELECT application_uuid, constraint_uuid FROM application_constraint WHERE application_uuid=?", id).Scan(&applicationUUID, &constraintUUID)
 		if err != nil {
 			return err
@@ -4219,6 +4239,8 @@ func (s *baseSuite) assertPeerRelation(c *tc.C, appName string, peerRelationInpu
 
 	var peerRelations []peerRelation
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		peerRelations = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT cr.name, r.relation_id, rst.name
 FROM charm_relation cr

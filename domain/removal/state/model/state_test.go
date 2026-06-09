@@ -693,6 +693,8 @@ WHERE uuid IN (
 func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.UUID) []unit.UUID {
 	var unitUUIDs []unit.UUID
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		unitUUIDs = nil
+
 		rows, err := tx.QueryContext(ctx, `SELECT uuid FROM unit WHERE application_uuid = ? ORDER BY name`, appID)
 		if err != nil {
 			return err
@@ -715,6 +717,8 @@ func (s *baseSuite) getAllUnitUUIDs(c *tc.C, appID coreapplication.UUID) []unit.
 func (s *baseSuite) getAllUnitAndMachineUUIDs(c *tc.C) ([]unit.UUID, []machine.UUID) {
 	result := make(map[unit.UUID]machine.UUID)
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = map[unit.UUID]machine.UUID{}
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT u.uuid, m.uuid
 FROM unit AS u
@@ -758,6 +762,8 @@ JOIN machine AS m ON m.net_node_uuid = nn.uuid
 func (s *baseSuite) getUnitMachineUUID(c *tc.C, unitUUID unit.UUID) machine.UUID {
 	var machineUUIDs []machine.UUID
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		machineUUIDs = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT m.uuid
 FROM   machine AS m
@@ -1200,6 +1206,8 @@ func (s *baseSuite) getRowCount(c *tc.C, table string) int {
 func (s *baseSuite) selectDistinctValues(c *tc.C, field, table string) []string {
 	var obtained []string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		obtained = nil
+
 		query := fmt.Sprintf("SELECT DISTINCT %q FROM %q", field, table)
 		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {

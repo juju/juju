@@ -286,6 +286,48 @@ func (s *SecretService) grantParams(ctx context.Context, in domainsecret.SecretA
 	return p, nil
 }
 
+// ResolveGrantParams resolves a batch of SecretAccessParams into GrantResults,
+// looking up subject and scope UUIDs for each entry. Each entry is resolved
+// independently; per-entry errors are returned in the corresponding
+// GrantResult.Error rather than failing the entire call.
+func (s *SecretService) ResolveGrantParams(ctx context.Context, params []domainsecret.SecretAccessParams) []domainsecret.GrantResult {
+	results := make([]domainsecret.GrantResult, len(params))
+	for i, p := range params {
+		gp, err := s.grantParams(ctx, p)
+		if err != nil {
+			results[i].Error = errors.Capture(err)
+			continue
+		}
+		results[i].GrantParams = gp
+	}
+	return results
+}
+
+// ResolveRevokeParams resolves a batch of SecretAccessParams into
+// RevokeResults. Each entry is resolved independently; per-entry errors
+// are returned in the corresponding RevokeResult.Error rather than
+// failing the entire call.
+func (s *SecretService) ResolveRevokeParams(ctx context.Context, params []domainsecret.SecretAccessParams) []domainsecret.RevokeResult {
+	results := make([]domainsecret.RevokeResult, len(params))
+	for i, p := range params {
+		subjectUUID, err := s.lookupSubjectUUID(ctx, p.Subject.ID, p.Subject.Kind)
+		if err != nil {
+			results[i].Error = errors.Capture(err)
+			continue
+		}
+		results[i].SubjectUUID = subjectUUID
+		switch p.Subject.Kind {
+		case domainsecret.UnitAccessor:
+			results[i].SubjectTypeID = domainsecret.SubjectUnit
+		case domainsecret.ApplicationAccessor:
+			results[i].SubjectTypeID = domainsecret.SubjectApplication
+		case domainsecret.ModelAccessor:
+			results[i].SubjectTypeID = domainsecret.SubjectModel
+		}
+	}
+	return results
+}
+
 // RevokeSecretAccess revokes access to the secret for the specified subject.
 // It returns an error satisfying [secreterrors.SecretNotFound] if the secret is not found.
 func (s *SecretService) RevokeSecretAccess(ctx context.Context, uri *secrets.URI, params domainsecret.SecretAccessParams) error {

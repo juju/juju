@@ -13,6 +13,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 
+	"github.com/juju/juju/api/client/modelupgrader"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/constants"
@@ -106,7 +107,11 @@ func (c *syncAgentBinaryCommand) getSyncToolAPI(ctx context.Context) (SyncToolAP
 	if c.syncToolAPI != nil {
 		return c.syncToolAPI, nil
 	}
-	return c.NewModelUpgraderAPIClient(ctx)
+	root, err := c.NewAPIRoot(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelupgrader.NewClient(root), nil
 }
 
 func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {

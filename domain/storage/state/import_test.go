@@ -664,6 +664,8 @@ func (s *importSuite) TestGetBlockDevicesForMachinesByNetNodeUUIDsMany(c *tc.C) 
 func (s *importSuite) getStorageInstances(c *tc.C) []importStorageInstance {
 	var result []importStorageInstance
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id, storage_pool_uuid, requested_size_mib 
 FROM   storage_instance`)
@@ -698,6 +700,8 @@ FROM   storage_instance`)
 func (s *importSuite) getStorageVolumes(c *tc.C) []importStorageVolume {
 	var result []importStorageVolume
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, volume_id, life_id, provision_scope_id, provider_id, size_mib, wwn, persistent 
 FROM   storage_volume`)
@@ -732,6 +736,8 @@ FROM   storage_volume`)
 func (s *importSuite) getStorageAttachments(c *tc.C) []importStorageAttachment {
 	var result []importStorageAttachment
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, storage_instance_uuid, unit_uuid, life_id 
 FROM storage_attachment`)
@@ -762,6 +768,8 @@ FROM storage_attachment`)
 func (s *importSuite) getStorageInstanceVolumes(c *tc.C) []importStorageInstanceVolume {
 	var result []importStorageInstanceVolume
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT storage_instance_uuid, storage_volume_uuid 
 FROM   storage_instance_volume`)
@@ -788,6 +796,8 @@ FROM   storage_instance_volume`)
 func (s *importSuite) getStorageInstanceVolumeAttachmentPlans(c *tc.C) []importStorageVolumeAttachmentPlan {
 	var result []importStorageVolumeAttachmentPlan
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, device_type_id
 FROM   storage_volume_attachment_plan`)
@@ -822,6 +832,8 @@ FROM   storage_volume_attachment_plan`)
 func (s *importSuite) getStorageVolumeAttachments(c *tc.C) []importStorageVolumeAttachment {
 	var result []importStorageVolumeAttachment
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, block_device_uuid, storage_volume_uuid, net_node_uuid, life_id, provision_scope_id, provider_id, read_only
 FROM   storage_volume_attachment`)
@@ -858,6 +870,8 @@ FROM   storage_volume_attachment`)
 func (s *importSuite) getStorageInstanceVolumeAttachmentPlanAttrs(c *tc.C) []importStorageVolumePlanAttribute {
 	var result []importStorageVolumePlanAttribute
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT attachment_plan_uuid, key, value 
 FROM   storage_volume_attachment_plan_attr`)
@@ -1039,6 +1053,9 @@ func (s *importSuite) getFilesystems(c *tc.C) ([]importStorageFilesystem, []impo
 	var filesystems []importStorageFilesystem
 	var instanceFilesystems []importStorageInstanceFilesystem
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		filesystems = nil
+		instanceFilesystems = nil
+
 		fsRows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, filesystem_id, life_id, provision_scope_id, provider_id, size_mib
 FROM storage_filesystem`)
@@ -1099,6 +1116,8 @@ FROM storage_instance_filesystem`)
 func (s *importSuite) getFilesystemAttachments(c *tc.C) []importStorageFilesystemAttachment {
 	var attachments []importStorageFilesystemAttachment
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		attachments = nil
+
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, storage_filesystem_uuid, net_node_uuid, provision_scope_id, life_id, mount_point, provider_id, read_only
 FROM storage_filesystem_attachment`)

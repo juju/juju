@@ -135,6 +135,8 @@ AND    life_id = 0`, uuids{})
 	}
 
 	if err := errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		res = internal.CascadedRemoteApplicationOffererLives{}
+
 		if err := tx.Query(ctx, updateRemoteAppOffererStmt, remoteAppOffererUUID).Run(); err != nil {
 			return errors.Errorf("advancing remote application offerer life: %w", err)
 		}

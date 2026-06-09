@@ -224,6 +224,23 @@ func (s *providerSuite) TestSchema(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestProviderSatisfiesModelConfigProvider ensures that UnmanagedProvider
+// implements the combined ModelConfigProvider + ProviderSchema interface.
+// This is a regression test: Schema() was missing prior to its introduction,
+// breaking callers that rely on the ProviderSchema interface being satisfied.
+func (s *providerSuite) TestProviderSatisfiesModelConfigProvider(c *tc.C) {
+	p, err := environs.Provider("unmanaged")
+	c.Assert(err, tc.ErrorIsNil)
+
+	mcp, ok := p.(environs.ModelConfigProvider)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("UnmanagedProvider must implement environs.ModelConfigProvider"))
+	c.Assert(mcp.ConfigSchema(), tc.NotNil)
+
+	ps, ok := p.(environs.ProviderSchema)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("UnmanagedProvider must implement environs.ProviderSchema"))
+	c.Assert(ps.Schema(), tc.NotNil)
+}
+
 func (s *providerSuite) TestPingEndpointWithUser(c *tc.C) {
 	endpoint := "user@IP"
 	called := false

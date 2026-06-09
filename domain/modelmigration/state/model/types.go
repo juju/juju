@@ -10,6 +10,16 @@ type modelInfo struct {
 	ControllerUUID string `db:"controller_uuid"`
 }
 
+// modelType represents the model's deployment type.
+type modelType struct {
+	Type string `db:"type"`
+}
+
+// agentName represents an agent-bearing entity name.
+type agentName struct {
+	Name string `db:"name"`
+}
+
 // instanceID represents the struct to be used for the instance_id column within
 // the sqlair statements in the machine domain.
 type instanceID struct {

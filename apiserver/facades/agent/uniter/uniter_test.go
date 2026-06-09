@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/domain/resolve"
 	resolveerrors "github.com/juju/juju/domain/resolve/errors"
 	domainsecret "github.com/juju/juju/domain/secret"
-	secreterrors "github.com/juju/juju/domain/secret/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/domain/unitstate"
@@ -3598,7 +3597,7 @@ func (s *commitHookChangesSuite) TestCommitHookChangesStorageSizeOverrideUnsuppo
 	c.Check(err, tc.ErrorMatches, `preparing storage additions: storage directive data size override not supported`)
 }
 
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecrets(c *tc.C) {
+func (s *commitHookChangesSuite) TestCommitHookChangesRevokeSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName, _ := coreunit.NewName("wordpress/0")
@@ -3607,6 +3606,17 @@ func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecrets(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.secretService.EXPECT().ResolveRevokeParams(gomock.Any(), []domainsecret.SecretAccessParams{{
+		Accessor: domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "wordpress/0"},
+		Scope:    domainsecret.SecretAccessScope{Kind: domainsecret.RelationAccessScope, ID: "one:db two:use"},
+		Subject:  domainsecret.SecretAccessor{Kind: domainsecret.ApplicationAccessor, ID: "two"},
+		Role:     "",
+	}}).Return([]domainsecret.RevokeResult{{
+		RevokeParams: domainsecret.RevokeParams{
+			SubjectUUID:   "app-uuid-two",
+			SubjectTypeID: domainsecret.SubjectApplication,
+		},
+	}})
 	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
 		Return([]domainsecret.SecretOwnerInfo{{
 			SecretID:  uri.ID,
@@ -3615,26 +3625,28 @@ func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecrets(c *tc.C) {
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
 			c.Check(arg.UnitName, tc.Equals, unitName)
-			c.Assert(len(arg.SecretDeletes), tc.Equals, 1)
-			c.Check(arg.SecretDeletes[0].URI.String(), tc.Equals, uri.String())
-			c.Check(arg.SecretDeletes[0].Revisions, tc.DeepEquals, []int{1, 3})
-			c.Check(arg.SecretDeletes[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
+			c.Assert(len(arg.SecretRevokes), tc.Equals, 1)
+			c.Check(arg.SecretRevokes[0].URI.String(), tc.Equals, uri.String())
+			c.Check(arg.SecretRevokes[0].SubjectUUID, tc.Equals, "app-uuid-two")
+			c.Check(arg.SecretRevokes[0].SubjectTypeID, tc.Equals, domainsecret.SubjectApplication)
+			c.Check(arg.SecretRevokes[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
 			return nil
 		})
 
 	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
 		params.CommitHookChangesArg{
 			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{{
-				URI:       uri.String(),
-				Revisions: []int{1, 3},
+			SecretRevokes: []params.GrantRevokeSecretArg{{
+				URI:         uri.String(),
+				ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+				SubjectTags: []string{names.NewApplicationTag("two").String()},
 			}},
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsNotFoundSkipped(c *tc.C) {
+func (s *commitHookChangesSuite) TestCommitHookChangesGrantSecrets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName, _ := coreunit.NewName("wordpress/0")
@@ -3642,83 +3654,52 @@ func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsNotFoundSkipp
 
 	uri := coresecrets.NewURI()
 
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
-		Return(secreterrors.SecretNotFound)
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.secretService.EXPECT().ResolveGrantParams(gomock.Any(), []domainsecret.SecretAccessParams{{
+		Accessor: domainsecret.SecretAccessor{Kind: domainsecret.UnitAccessor, ID: "wordpress/0"},
+		Scope:    domainsecret.SecretAccessScope{Kind: domainsecret.RelationAccessScope, ID: "one:db two:use"},
+		Subject:  domainsecret.SecretAccessor{Kind: domainsecret.ApplicationAccessor, ID: "two"},
+		Role:     coresecrets.RoleView,
+	}}).Return([]domainsecret.GrantResult{{
+		GrantParams: domainsecret.GrantParams{
+			SubjectUUID:   "app-uuid-two",
+			SubjectTypeID: domainsecret.SubjectApplication,
+			ScopeUUID:     "relation-scope-uuid",
+			ScopeTypeID:   domainsecret.ScopeRelation,
+			RoleID:        domainsecret.RoleView,
+		},
+	}})
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
+		Return([]domainsecret.SecretOwnerInfo{{
+			SecretID:  uri.ID,
+			OwnerKind: domainsecret.UnitCharmSecretOwner,
+		}}, nil)
 	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
-			c.Check(arg.SecretDeletes, tc.HasLen, 0)
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Assert(len(arg.SecretGrants), tc.Equals, 1)
+			c.Check(arg.SecretGrants[0].URI.String(), tc.Equals, uri.String())
+			c.Check(arg.SecretGrants[0].SubjectUUID, tc.Equals, "app-uuid-two")
+			c.Check(arg.SecretGrants[0].SubjectTypeID, tc.Equals, domainsecret.SubjectApplication)
+			c.Check(arg.SecretGrants[0].ScopeUUID, tc.Equals, "relation-scope-uuid")
+			c.Check(arg.SecretGrants[0].ScopeTypeID, tc.Equals, domainsecret.ScopeRelation)
+			c.Check(arg.SecretGrants[0].RoleID, tc.Equals, domainsecret.RoleView)
+			c.Check(arg.SecretGrants[0].OwnerKind, tc.Equals, domainsecret.UnitCharmSecretOwner)
 			return nil
 		})
 
 	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
 		params.CommitHookChangesArg{
 			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{{
-				URI: uri.String(),
+			SecretGrants: []params.GrantRevokeSecretArg{{
+				URI:         uri.String(),
+				ScopeTag:    names.NewRelationTag("one:db two:use").String(),
+				SubjectTags: []string{names.NewApplicationTag("two").String()},
+				Role:        string(coresecrets.RoleView),
 			}},
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsPermissionDenied(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName, _ := coreunit.NewName("wordpress/0")
-	unitTag := names.NewUnitTag(unitName.String())
-
-	uri := coresecrets.NewURI()
-
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).
-		Return(secreterrors.PermissionDenied)
-
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
-		params.CommitHookChangesArg{
-			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{{
-				URI: uri.String(),
-			}},
-		},
-	)
-	c.Assert(err, tc.ErrorMatches, `removing secrets: permission denied`)
-}
-
-func (s *commitHookChangesSuite) TestCommitHookChangesDeleteSecretsMixed(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName, _ := coreunit.NewName("wordpress/0")
-	unitTag := names.NewUnitTag(unitName.String())
-
-	uriA := coresecrets.NewURI()
-	uriB := coresecrets.NewURI()
-	uriC := coresecrets.NewURI()
-	uriD := coresecrets.NewURI()
-
-	// A: access granted (success)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriA, unitName).Return(nil)
-	// B: not found (silently skipped)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriB, unitName).
-		Return(secreterrors.SecretNotFound)
-	// C: permission denied (error collected)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriC, unitName).
-		Return(secreterrors.PermissionDenied)
-	// D: permission denied (error collected)
-	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uriD, unitName).
-		Return(secreterrors.PermissionDenied)
-
-	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
-		params.CommitHookChangesArg{
-			Tag: unitTag.String(),
-			SecretDeletes: []params.DeleteSecretArg{
-				{URI: uriA.String()},
-				{URI: uriB.String()},
-				{URI: uriC.String()},
-				{URI: uriD.String()},
-			},
-		},
-	)
-	// Both permission denied errors are joined.
-	c.Assert(err, tc.ErrorMatches, `removing secrets: permission denied\npermission denied`)
 }
 
 func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {
@@ -3939,6 +3920,9 @@ func (s *commitHookChangesSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.uniter = &UniterAPI{
 		logger: loggertesting.WrapCheckLog(c),
+		auth: &apiservertesting.FakeAuthorizer{
+			Tag: names.NewUnitTag("wordpress/0"),
+		},
 
 		applicationService: s.applicationService,
 		networkService:     s.networkService,

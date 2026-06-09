@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -29,13 +30,6 @@ func New(modelFactory database.TxnRunnerFactory, modelUUID model.UUID) *State {
 		StateBase: domain.NewStateBase(modelFactory),
 		modelUUID: modelUUID,
 	}
-}
-
-// GetNamespaceModelMigrating returns the name of the model_migrating
-// changestream namespace. A change in this namespace indicates that this
-// model has started or stopped undergoing a migration.
-func (s *State) GetNamespaceModelMigrating() string {
-	return "model_migrating"
 }
 
 // GetControllerUUID is responsible for returning the controller's unique id
@@ -111,6 +105,99 @@ FROM   machine_cloud_instance`
 		instanceIDs.Add(instanceID.ID)
 	}
 	return instanceIDs, nil
+}
+
+// GetMigrationAgents returns all agents that must report migration minion
+// progress for this model.
+func (s *State) GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return modelmigrationinternal.MigrationAgents{}, errors.Errorf("cannot get database to retrieve migration agents: %w", err)
+	}
+
+	modelTypeStmt, err := s.Prepare(`
+SELECT &modelType.*
+FROM   model
+`, modelType{})
+	if err != nil {
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
+	}
+	machineStmt, err := s.Prepare(`
+SELECT &agentName.name
+FROM   machine
+`, agentName{})
+	if err != nil {
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
+	}
+	unitStmt, err := s.Prepare(`
+SELECT &agentName.name
+FROM   unit
+`, agentName{})
+	if err != nil {
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
+	}
+	applicationAgentStmt, err := s.Prepare(`
+SELECT &agentName.name
+FROM   application AS a
+JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
+`, agentName{})
+	if err != nil {
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
+	}
+
+	var (
+		modelTypeValue modelType
+		machines       []agentName
+		units          []agentName
+		applications   []agentName
+	)
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		modelTypeValue = modelType{}
+		machines = nil
+		units = nil
+		applications = nil
+
+		if err := tx.Query(ctx, modelTypeStmt).Get(&modelTypeValue); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.New("model information is missing from database")
+			}
+			return errors.Errorf("querying model type: %w", err)
+		}
+
+		if model.ModelType(modelTypeValue.Type) == model.CAAS {
+			if err := tx.Query(ctx, applicationAgentStmt).GetAll(&applications); err != nil &&
+				!errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Errorf("querying application agents: %w", err)
+			}
+		} else if err := tx.Query(ctx, machineStmt).GetAll(&machines); err != nil &&
+			!errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying machine agents: %w", err)
+		}
+
+		if err := tx.Query(ctx, unitStmt).GetAll(&units); err != nil &&
+			!errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying unit agents: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
+	}
+
+	agents := modelmigrationinternal.MigrationAgents{
+		Machines:     make([]string, 0, len(machines)),
+		Units:        make([]string, 0, len(units)),
+		Applications: make([]string, 0, len(applications)),
+	}
+	for _, m := range machines {
+		agents.Machines = append(agents.Machines, m.Name)
+	}
+	for _, u := range units {
+		agents.Units = append(agents.Units, u.Name)
+	}
+	for _, a := range applications {
+		agents.Applications = append(agents.Applications, a.Name)
+	}
+	return agents, nil
 }
 
 // DeleteModelImportingStatus removes the entry from the model_migrating table

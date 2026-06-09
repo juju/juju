@@ -33,8 +33,8 @@ type MockSecretServiceMockRecorder struct {
 	getConsumedRevisionExpects     []*gomock.Call6_2[context.Context, *secrets.URI, unit.Name, bool, bool, *string, int, error]
 	getSecretOwnerKindsExpects     []*gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
 	getSecretValueExpects          []*gomock.Call4_3[context.Context, *secrets.URI, int, secret.SecretAccessor, secrets.SecretValue, *secrets.ValueRef, error]
-	grantSecretAccessExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
-	revokeSecretAccessExpects      []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
+	resolveGrantParamsExpects      []*gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.GrantResult]
+	resolveRevokeParamsExpects     []*gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.RevokeResult]
 	updateCharmSecretExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.UpdateCharmSecretParams, error]
 }
 
@@ -140,41 +140,41 @@ func (mr *MockSecretServiceMockRecorder) GetSecretValue(arg0, arg1, arg2, arg3 a
 // MockSecretServiceGetSecretValueCall is the typed call wrapper for GetSecretValue.
 type MockSecretServiceGetSecretValueCall = gomock.Call4_3[context.Context, *secrets.URI, int, secret.SecretAccessor, secrets.SecretValue, *secrets.ValueRef, error]
 
-// GrantSecretAccess mocks base method.
-func (m *MockSecretService) GrantSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessParams) error {
+// ResolveGrantParams mocks base method.
+func (m *MockSecretService) ResolveGrantParams(ctx context.Context, params []secret.SecretAccessParams) []secret.GrantResult {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.grantSecretAccessExpects, m.ctrl, m, "GrantSecretAccess", arg0, arg1, arg2)
+	return gomock.Dispatch2_1(&m.recorder.resolveGrantParamsExpects, m.ctrl, m, "ResolveGrantParams", ctx, params)
 }
 
-// GrantSecretAccess indicates an expected call of GrantSecretAccess.
-func (mr *MockSecretServiceMockRecorder) GrantSecretAccess(arg0, arg1, arg2 any) *MockSecretServiceGrantSecretAccessCall {
+// ResolveGrantParams indicates an expected call of ResolveGrantParams.
+func (mr *MockSecretServiceMockRecorder) ResolveGrantParams(ctx, params any) *MockSecretServiceResolveGrantParamsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error](mr.mock.ctrl.T, mr.mock, "GrantSecretAccess", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.grantSecretAccessExpects = append(mr.grantSecretAccessExpects, call)
+	call := gomock.NewCall2_1[context.Context, []secret.SecretAccessParams, []secret.GrantResult](mr.mock.ctrl.T, mr.mock, "ResolveGrantParams", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(params))
+	mr.resolveGrantParamsExpects = append(mr.resolveGrantParamsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockSecretServiceGrantSecretAccessCall is the typed call wrapper for GrantSecretAccess.
-type MockSecretServiceGrantSecretAccessCall = gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
+// MockSecretServiceResolveGrantParamsCall is the typed call wrapper for ResolveGrantParams.
+type MockSecretServiceResolveGrantParamsCall = gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.GrantResult]
 
-// RevokeSecretAccess mocks base method.
-func (m *MockSecretService) RevokeSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessParams) error {
+// ResolveRevokeParams mocks base method.
+func (m *MockSecretService) ResolveRevokeParams(ctx context.Context, params []secret.SecretAccessParams) []secret.RevokeResult {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.revokeSecretAccessExpects, m.ctrl, m, "RevokeSecretAccess", arg0, arg1, arg2)
+	return gomock.Dispatch2_1(&m.recorder.resolveRevokeParamsExpects, m.ctrl, m, "ResolveRevokeParams", ctx, params)
 }
 
-// RevokeSecretAccess indicates an expected call of RevokeSecretAccess.
-func (mr *MockSecretServiceMockRecorder) RevokeSecretAccess(arg0, arg1, arg2 any) *MockSecretServiceRevokeSecretAccessCall {
+// ResolveRevokeParams indicates an expected call of ResolveRevokeParams.
+func (mr *MockSecretServiceMockRecorder) ResolveRevokeParams(ctx, params any) *MockSecretServiceResolveRevokeParamsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error](mr.mock.ctrl.T, mr.mock, "RevokeSecretAccess", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.revokeSecretAccessExpects = append(mr.revokeSecretAccessExpects, call)
+	call := gomock.NewCall2_1[context.Context, []secret.SecretAccessParams, []secret.RevokeResult](mr.mock.ctrl.T, mr.mock, "ResolveRevokeParams", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(params))
+	mr.resolveRevokeParamsExpects = append(mr.resolveRevokeParamsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockSecretServiceRevokeSecretAccessCall is the typed call wrapper for RevokeSecretAccess.
-type MockSecretServiceRevokeSecretAccessCall = gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
+// MockSecretServiceResolveRevokeParamsCall is the typed call wrapper for ResolveRevokeParams.
+type MockSecretServiceResolveRevokeParamsCall = gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.RevokeResult]
 
 // UpdateCharmSecret mocks base method.
 func (m *MockSecretService) UpdateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secret.UpdateCharmSecretParams) error {

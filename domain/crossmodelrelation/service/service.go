@@ -12,6 +12,7 @@ import (
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
@@ -296,30 +297,21 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 	// Create a stateful mapper that maintains a cache of remote relation UUIDs.
 	// The cache is rebuilt when consumer deletions occur since we cannot query
 	// deleted consumers to determine their relation UUIDs.
-	cache := make(map[string]bool)
-	initialized := false
+	cache := make(map[string]struct{})
+	cachedInitialQuery := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		relationUUIDs, err := initialQuery(ctx, runner)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		for _, uuid := range relationUUIDs {
+			cache[uuid] = struct{}{}
+		}
+		return relationUUIDs, nil
+	}
 
 	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
 		if len(changes) == 0 {
 			return nil, nil
-		}
-
-		// On first call, initialize the cache from the initial query results.
-		// The initial query returns all relation UUIDs that are remote.
-		if !initialized {
-			for _, change := range changes {
-				if change.Namespace() == relationTable {
-					cache[change.Changed()] = true
-				}
-			}
-			initialized = true
-
-			// Return all initial remote relation UUIDs.
-			result := make([]string, 0, len(cache))
-			for uuid := range cache {
-				result = append(result, uuid)
-			}
-			return result, nil
 		}
 
 		// Separate changes by namespace.
@@ -358,9 +350,9 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 				// Continue with old cache on error.
 			} else {
 				// Rebuild cache from scratch.
-				cache = make(map[string]bool)
+				cache = make(map[string]struct{})
 				for _, uuid := range relationUUIDs {
-					cache[uuid] = true
+					cache[uuid] = struct{}{}
 				}
 			}
 		}
@@ -373,7 +365,7 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 				// Continue processing relation changes even if cache update fails.
 			} else {
 				for _, uuid := range newRelationUUIDs {
-					cache[uuid] = true
+					cache[uuid] = struct{}{}
 				}
 			}
 		}
@@ -381,7 +373,7 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 		// Filter relation changes based on cache.
 		var result []string
 		for _, uuid := range relationChanges {
-			if cache[uuid] {
+			if _, ok := cache[uuid]; ok {
 				result = append(result, uuid)
 			}
 		}
@@ -391,7 +383,7 @@ func (w *WatchableService) WatchOffererRelations(ctx context.Context) (watcher.S
 
 	return w.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
-		initialQuery,
+		cachedInitialQuery,
 		"offerer relations watcher",
 		mapper,
 		eventsource.NamespaceFilter(relationTable, changestream.All),

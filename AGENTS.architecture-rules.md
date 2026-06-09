@@ -57,6 +57,9 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Put logic in state only when it must execute inside a transaction.
 - State sub-packages must use Sqlair for query and mutation.
 - State method arguments should be simple types (`string`, `int`, etc.) or types local to that domain.
+- Domain packages should generally avoid `github.com/juju/names`. Prefer
+  converting Juju tags to primitive values at API, facade, worker, or command
+  boundaries before calling domain services.
 - Variables and accumulators populated inside a `db.Txn` closure MUST be reset
   at the top of the closure to ensure correctness on transaction retry. The
   `db.Txn` runner may re-execute the closure on transient errors; stale or

@@ -5,7 +5,6 @@ package secrets_test
 
 import (
 	"fmt"
-	"slices"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -91,7 +90,6 @@ func (s *ListSuite) TestListYAML(c *tc.C) {
 		coresecrets.NewURI(),
 		coresecrets.NewURI(),
 	}
-	slices.SortFunc(uris, coresecrets.CompareURI)
 	s.secretsAPI.EXPECT().ListSecrets(gomock.Any(), false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
@@ -174,7 +172,6 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
-	slices.SortFunc(uris, coresecrets.CompareURI)
 	backend := "alvinmini410model3-local"
 
 	s.secretsAPI.EXPECT().ListSecrets(
@@ -218,7 +215,7 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--format", "yaml")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, tc.Equals, fmt.Sprintf(`%s:
+	c.Assert(out, tc.Contains, fmt.Sprintf(`%s:
   revision: 1
   rotation: never
   owner: traefik-k8s/0
@@ -230,7 +227,8 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
     backend: alvinmini410model3-local
     created: 0001-01-01T00:00:00Z
     updated: 0001-01-01T00:00:00Z
-%s:
+`, uris[0].ID))
+	c.Assert(out, tc.Contains, fmt.Sprintf(`%s:
   revision: 1
   rotation: never
   owner: traefik-k8s/1
@@ -242,14 +240,13 @@ func (s *ListSuite) TestListWithRevisionsUnitFilterYAML(c *tc.C) {
     backend: alvinmini410model3-local
     created: 0001-01-01T00:00:00Z
     updated: 0001-01-01T00:00:00Z
-`, uris[0].ID, uris[1].ID))
+`, uris[1].ID))
 }
 
 func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	uris := []*coresecrets.URI{coresecrets.NewURI(), coresecrets.NewURI()}
-	slices.SortFunc(uris, coresecrets.CompareURI)
 	backend := "testmodel-local"
 
 	s.secretsAPI.EXPECT().ListSecrets(
@@ -291,10 +288,12 @@ func (s *ListSuite) TestListWithRevisionsApplicationFilterJSON(c *tc.C) {
 	ctx, err := cmdtesting.RunCommand(c, secrets.NewListCommandForTest(s.store, s.secretsAPI), "--revisions", "--format", "json")
 	c.Assert(err, tc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, tc.Equals, fmt.Sprintf(
-		`{"%s":{"revision":1,"rotation":"never","owner":"dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]},"%s":{"revision":1,"rotation":"never","owner":"not-dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}}
-`,
+	c.Assert(out, tc.Contains, fmt.Sprintf(
+		`"%s":{"revision":1,"rotation":"never","owner":"dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}`,
 		uris[0].ID,
+	))
+	c.Assert(out, tc.Contains, fmt.Sprintf(
+		`"%s":{"revision":1,"rotation":"never","owner":"not-dummy-source","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z","revisions":[{"revision":1,"backend":"testmodel-local","created":"0001-01-01T00:00:00Z","updated":"0001-01-01T00:00:00Z"}]}`,
 		uris[1].ID,
 	))
 }

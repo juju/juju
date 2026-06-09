@@ -49,14 +49,30 @@ type TestWatchableDB struct {
 func NewTestWatchableDB(c *tc.C, id string, db database.TxnRunner) *TestWatchableDB {
 	states := make(chan []string, 1)
 
-	termDeadline, _ := c.Deadline()
-	if time.Until(termDeadline) > coretesting.ShortWait {
-		termDeadline = termDeadline.Add(-coretesting.ShortWait)
+	// c.Deadline() only returns a deadline when the test binary was run with
+	// -test.timeout set (e.g. `go test`, which injects a 10m timeout). When the
+	// compiled binary is run directly (as `stress` does), there is no deadline:
+	// c.Deadline() returns the zero time with ok=false. We must not derive a
+	// timeout from it, since time.Until(zeroTime) is a huge negative duration.
+	termDeadline, hasDeadline := c.Deadline()
+
+	// A signalTimeout of 0 makes the event multiplexer fall back to its
+	// DefaultSignalTimeout. Only override it with a deadline-relative timeout
+	// when the test actually has a deadline.
+	var signalTimeout time.Duration
+	if hasDeadline {
+		if time.Until(termDeadline) > coretesting.ShortWait {
+			termDeadline = termDeadline.Add(-coretesting.ShortWait)
+		}
+		signalTimeout = time.Until(termDeadline)
 	}
 
 	logger := loggertesting.WrapCheckLog(c)
+	// NewInternalStates handles a zero termDeadline itself (it falls back to
+	// defaultWaitTermTimeout via termDeadline.IsZero()), so passing the zero
+	// time here is safe.
 	stream := stream.NewInternalStates(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger, termDeadline, states)
-	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger, time.Until(termDeadline))
+	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger, signalTimeout)
 	c.Assert(err, tc.ErrorIsNil)
 
 	h := TestWatchableDB{
