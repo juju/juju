@@ -184,18 +184,27 @@ func (s *MigrationService) transformImportIPAddress(
 	return addr, errors.Capture(err)
 }
 
-// maybeAddSubnet creates a subnet if the address provided is a /32
-// or /128. Should only be called if an existing subnet does not match.
+// maybeAddSubnet creates a minimal subnet record for addr.SubnetCIDR when
+// no existing subnet matches. It handles two distinct cases:
+//
+//   - /32 (IPv4) or /128 (IPv6) host-only addresses (e.g. Cilium): these
+//     genuinely have no corresponding network subnet in any provider, so
+//     auto-creation is expected.
+//   - Regular network CIDRs (e.g. /24): these should have been exported from
+//     the source model, but some 3.6 LXD models omit bridge subnets (e.g.
+//     lxdbr0) because they were referenced by IP address records without
+//     being formally registered in the model's subnet topology. A warning is
+//     logged so that operators can reassign the auto-created subnet to the
+//     correct space after migration.
 func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.ImportIPAddress) (internal.ImportIPAddress, error) {
-	// Check to see if we have a /32 or /128 CIDR.
-	_, ipNet, err := net.ParseCIDR(addr.SubnetCIDR)
-	if err != nil {
+	if _, _, err := net.ParseCIDR(addr.SubnetCIDR); err != nil {
 		return internal.ImportIPAddress{}, errors.Capture(err)
 	}
-	ones, bits := ipNet.Mask.Size()
-	if ones != bits && (bits == 32 || bits == 128) {
-		return internal.ImportIPAddress{}, errors.Errorf("no subnet found, nor created")
-	}
+
+	s.logger.Warningf(ctx,
+		"subnet %q not found in model; auto-creating a minimal record in the default space — "+
+			"reassign it to the correct space after migration if needed",
+		addr.SubnetCIDR)
 
 	subnetUUID, err := uuid.NewUUID()
 	if err != nil {
