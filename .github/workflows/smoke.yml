@@ -100,10 +100,22 @@ jobs:
           sg snap_microk8s './main.sh -c microk8s -v smoke_k8s'
 
   deploy:
-    name: Deploy
+    name: Deploy test (LXD, ${{ matrix.deploy_test.name }})
     runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     timeout-minutes: 60
     if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        deploy_test:
+          - name: charms
+            skip: test_cmr_bundles_export_overlay,test_deploy_bundles,test_deploy_revision,test_deploy_default_series
+          - name: bundles
+            skip: test_cmr_bundles_export_overlay,test_deploy_charms,test_deploy_revision,test_deploy_default_series
+          - name: revision
+            skip: test_cmr_bundles_export_overlay,test_deploy_charms,test_deploy_bundles,test_deploy_default_series
+          - name: default-bases
+            skip: test_cmr_bundles_export_overlay,test_deploy_charms,test_deploy_bundles,test_deploy_revision
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -129,12 +141,11 @@ jobs:
         run: |
           make go-install
 
-      - name: Deploy test (LXD)
+      - name: Deploy test (LXD, ${{ matrix.deploy_test.name }})
         shell: bash
         run: |
           cd tests
           export MODEL_ARCH=$(go env GOARCH)
           export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false --model-default logging-config='<root>=INFO;juju.worker.asynccharmdownloader=TRACE'"
 
-          # Skip these tests for now, as they rely on cmrs
-          ./main.sh -v -s 'test_cmr_bundles_export_overlay' deploy
+          ./main.sh -v -s '${{ matrix.deploy_test.skip }}' deploy
