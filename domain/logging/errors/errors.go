@@ -6,7 +6,6 @@ package errors
 import "github.com/juju/juju/internal/errors"
 
 const (
-	// LokiEndpointNotFound is returned when no Loki endpoint has been
-	// configured.
-	LokiEndpointNotFound = errors.ConstError("loki endpoint not found")
+	// LokiConfigNotFound is returned when no Loki config has been configured.
+	LokiConfigNotFound = errors.ConstError("loki config not found")
 )

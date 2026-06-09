@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/domain/logging"
 	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -20,55 +21,69 @@ func TestStateSuite(t *testing.T) {
 	tc.Run(t, &stateSuite{})
 }
 
-func (s *stateSuite) TestSetLokiEndpoint(c *tc.C) {
+func (s *stateSuite) TestSetLokiConfig(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetLokiEndpoint(c.Context(), "some-uuid-1", "http://loki:3100/loki/api/v1/push")
+	err := st.SetLokiConfig(c.Context(), "some-uuid-1", logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	endpoint, err := st.GetLokiEndpoint(c.Context())
+	config, err := st.GetLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.Endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "ca-cert")
 }
 
-func (s *stateSuite) TestSetLokiEndpointReplacesExisting(c *tc.C) {
+func (s *stateSuite) TestSetLokiConfigReplacesExisting(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetLokiEndpoint(c.Context(), "some-uuid-1", "http://old-loki:3100/loki/api/v1/push")
+	err := st.SetLokiConfig(c.Context(), "some-uuid-1", logging.LokiConfig{
+		Endpoint:      "http://old-loki:3100/loki/api/v1/push",
+		CACertificate: "old-ca",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.SetLokiEndpoint(c.Context(), "some-uuid-2", "http://new-loki:3100/loki/api/v1/push")
+	err = st.SetLokiConfig(c.Context(), "some-uuid-2", logging.LokiConfig{
+		Endpoint:      "http://new-loki:3100/loki/api/v1/push",
+		CACertificate: "new-ca",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	endpoint, err := st.GetLokiEndpoint(c.Context())
+	config, err := st.GetLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(endpoint, tc.Equals, "http://new-loki:3100/loki/api/v1/push")
+	c.Check(config.Endpoint, tc.Equals, "http://new-loki:3100/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "new-ca")
 }
 
-func (s *stateSuite) TestGetLokiEndpointNotFound(c *tc.C) {
+func (s *stateSuite) TestGetLokiConfigNotFound(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.GetLokiEndpoint(c.Context())
-	c.Assert(err, tc.ErrorIs, loggingerrors.LokiEndpointNotFound)
+	_, err := st.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIs, loggingerrors.LokiConfigNotFound)
 }
 
-func (s *stateSuite) TestDeleteLokiEndpoint(c *tc.C) {
+func (s *stateSuite) TestDeleteLokiConfig(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	err := st.SetLokiEndpoint(c.Context(), "some-uuid-1", "http://loki:3100/loki/api/v1/push")
+	err := st.SetLokiConfig(c.Context(), "some-uuid-1", logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = st.DeleteLokiEndpoint(c.Context())
+	err = st.DeleteLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.GetLokiEndpoint(c.Context())
-	c.Assert(err, tc.ErrorIs, loggingerrors.LokiEndpointNotFound)
+	_, err = st.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIs, loggingerrors.LokiConfigNotFound)
 }
 
-func (s *stateSuite) TestDeleteLokiEndpointWhenEmpty(c *tc.C) {
+func (s *stateSuite) TestDeleteLokiConfigWhenEmpty(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Delete when nothing is set should be a no-op.
-	err := st.DeleteLokiEndpoint(c.Context())
+	err := st.DeleteLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }

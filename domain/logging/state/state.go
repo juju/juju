@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/logging"
 	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -26,9 +27,9 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// SetLokiEndpoint sets the Loki push API endpoint. Any previously stored
-// endpoint is replaced.
-func (st *State) SetLokiEndpoint(ctx context.Context, id string, endpoint string) error {
+// SetLokiConfig sets the Loki push API endpoint and CA certificate. Any
+// previously stored config is replaced.
+func (st *State) SetLokiConfig(ctx context.Context, id string, config logging.LokiConfig) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting database: %w", err)
@@ -40,22 +41,23 @@ func (st *State) SetLokiEndpoint(ctx context.Context, id string, endpoint string
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO logging_loki_config (uuid, endpoint)
-VALUES ($lokiConfig.uuid, $lokiConfig.endpoint)`, lokiConfig{})
+	INSERT INTO logging_loki_config (uuid, endpoint, ca_cert)
+	VALUES ($lokiConfig.uuid, $lokiConfig.endpoint, $lokiConfig.ca_cert)`, lokiConfig{})
 	if err != nil {
 		return errors.Errorf("preparing insert statement: %w", err)
 	}
 
-	config := lokiConfig{
-		UUID:     id,
-		Endpoint: endpoint,
+	dbConfig := lokiConfig{
+		UUID:          id,
+		Endpoint:      config.Endpoint,
+		CACertificate: config.CACertificate,
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, deleteStmt).Run(); err != nil {
 			return errors.Errorf("deleting existing loki endpoint: %w", err)
 		}
-		if err := tx.Query(ctx, insertStmt, config).Run(); err != nil {
+		if err := tx.Query(ctx, insertStmt, dbConfig).Run(); err != nil {
 			return errors.Errorf("inserting loki endpoint: %w", err)
 		}
 		return nil
@@ -65,37 +67,42 @@ VALUES ($lokiConfig.uuid, $lokiConfig.endpoint)`, lokiConfig{})
 	return nil
 }
 
-// GetLokiEndpoint returns the configured Loki push API endpoint. If no
-// endpoint is configured, an error satisfying [loggingerrors.LokiEndpointNotFound]
-// is returned.
-func (st *State) GetLokiEndpoint(ctx context.Context) (string, error) {
+// GetLokiConfig returns the configured Loki push API endpoint and CA
+// certificate. If no endpoint is configured, an error satisfying
+// [loggingerrors.LokiConfigNotFound] is returned.
+func (st *State) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", errors.Errorf("getting database: %w", err)
+		return logging.LokiConfig{}, errors.Errorf("getting database: %w", err)
 	}
 
-	stmt, err := st.Prepare(`SELECT &lokiConfig.endpoint FROM logging_loki_config`, lokiConfig{})
+	stmt, err := st.Prepare(`
+SELECT &lokiConfig.endpoint, &lokiConfig.ca_cert FROM logging_loki_config
+`, lokiConfig{})
 	if err != nil {
-		return "", errors.Errorf("preparing select statement: %w", err)
+		return logging.LokiConfig{}, errors.Errorf("preparing select statement: %w", err)
 	}
 
 	var config lokiConfig
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt).Get(&config); errors.Is(err, sqlair.ErrNoRows) {
-			return loggingerrors.LokiEndpointNotFound
+			return loggingerrors.LokiConfigNotFound
 		} else if err != nil {
-			return errors.Errorf("getting loki endpoint: %w", err)
+			return errors.Errorf("getting loki config: %w", err)
 		}
 		return nil
 	}); err != nil {
-		return "", errors.Errorf("getting loki endpoint: %w", err)
+		return logging.LokiConfig{}, errors.Errorf("getting loki config: %w", err)
 	}
-	return config.Endpoint, nil
+	return logging.LokiConfig{
+		Endpoint:      config.Endpoint,
+		CACertificate: config.CACertificate,
+	}, nil
 }
 
-// DeleteLokiEndpoint removes the configured Loki push API endpoint. If no
-// endpoint is configured, this is a no-op.
-func (st *State) DeleteLokiEndpoint(ctx context.Context) error {
+// DeleteLokiConfig removes the configured Loki push API config. If no config
+// is configured, this is a no-op.
+func (st *State) DeleteLokiConfig(ctx context.Context) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Errorf("getting database: %w", err)
@@ -118,12 +125,13 @@ func (st *State) DeleteLokiEndpoint(ctx context.Context) error {
 }
 
 type lokiConfig struct {
-	UUID     string `db:"uuid"`
-	Endpoint string `db:"endpoint"`
+	UUID          string `db:"uuid"`
+	Endpoint      string `db:"endpoint"`
+	CACertificate string `db:"ca_cert"`
 }
 
-// NamespaceForWatchLokiEndpoint returns the namespace identifier used for
-// watching Loki endpoint changes.
-func (*State) NamespaceForWatchLokiEndpoint() string {
+// NamespaceForWatchLokiConfig returns the namespace identifier used for
+// watching Loki config changes.
+func (*State) NamespaceForWatchLokiConfig() string {
 	return "logging_loki_config"
 }

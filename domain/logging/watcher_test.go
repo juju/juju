@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/logging"
 	"github.com/juju/juju/domain/logging/service"
 	"github.com/juju/juju/domain/logging/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -27,17 +28,20 @@ func TestWatcherSuite(t *testing.T) {
 	tc.Run(t, &watcherSuite{})
 }
 
-func (s *watcherSuite) TestWatchLokiEndpointSet(c *tc.C) {
+func (s *watcherSuite) TestWatchLokiConfigSet(c *tc.C) {
 	svc := s.setupService(c)
 
-	watcher, err := svc.WatchLokiEndpoint(c.Context())
+	watcher, err := svc.WatchLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Setting a new loki endpoint should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.SetLokiEndpoint(c.Context(), "http://loki:3100/loki/api/v1/push")
+		err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+			Endpoint:      "http://loki:3100/loki/api/v1/push",
+			CACertificate: "ca-cert",
+		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -46,21 +50,27 @@ func (s *watcherSuite) TestWatchLokiEndpointSet(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchLokiEndpointUpdate(c *tc.C) {
+func (s *watcherSuite) TestWatchLokiConfigEndpointUpdate(c *tc.C) {
 	svc := s.setupService(c)
 
 	// Set an initial endpoint before starting the watcher.
-	err := svc.SetLokiEndpoint(c.Context(), "http://old-loki:3100/loki/api/v1/push")
+	err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+		Endpoint:      "http://old-loki:3100/loki/api/v1/push",
+		CACertificate: "old-ca",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := svc.WatchLokiEndpoint(c.Context())
+	watcher, err := svc.WatchLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Updating the endpoint should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.SetLokiEndpoint(c.Context(), "http://new-loki:3100/loki/api/v1/push")
+		err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+			Endpoint:      "http://new-loki:3100/loki/api/v1/push",
+			CACertificate: "old-ca",
+		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -69,21 +79,53 @@ func (s *watcherSuite) TestWatchLokiEndpointUpdate(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchLokiEndpointDelete(c *tc.C) {
+func (s *watcherSuite) TestWatchLokiConfigCACertificateUpdate(c *tc.C) {
 	svc := s.setupService(c)
 
 	// Set an initial endpoint before starting the watcher.
-	err := svc.SetLokiEndpoint(c.Context(), "http://loki:3100/loki/api/v1/push")
+	err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "old-ca",
+	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	watcher, err := svc.WatchLokiEndpoint(c.Context())
+	watcher, err := svc.WatchLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Updating only the CA certificate should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+			Endpoint:      "http://loki:3100/loki/api/v1/push",
+			CACertificate: "new-ca",
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchLokiConfigDelete(c *tc.C) {
+	svc := s.setupService(c)
+
+	// Set an initial endpoint before starting the watcher.
+	err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := svc.WatchLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
 
 	// Deleting the endpoint should trigger a change.
 	harness.AddTest(c, func(c *tc.C) {
-		err := svc.DeleteLokiEndpoint(c.Context())
+		err := svc.DeleteLokiConfig(c.Context())
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[struct{}]) {
 		w.AssertChange()
@@ -92,10 +134,10 @@ func (s *watcherSuite) TestWatchLokiEndpointDelete(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
-func (s *watcherSuite) TestWatchLokiEndpointNoChange(c *tc.C) {
+func (s *watcherSuite) TestWatchLokiConfigNoChange(c *tc.C) {
 	svc := s.setupService(c)
 
-	watcher, err := svc.WatchLokiEndpoint(c.Context())
+	watcher, err := svc.WatchLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
