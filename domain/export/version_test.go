@@ -34,8 +34,12 @@ func (s *versionSuite) TestExportVersionsAscending(c *tc.C) {
 	}
 }
 
-// TestLatestSupportedPayloadVersion verifies the accessor returns the highest
-// supported export schema version.
-func (s *versionSuite) TestLatestSupportedPayloadVersion(c *tc.C) {
-	c.Assert(LatestSupportedPayloadVersion(), tc.Equals, ExportVersions[len(ExportVersions)-1])
+// TestLatestSupportedPayloadVersion documents the current highest supported
+// export schema version. Update this when adding a new export payload version.
+func (s *versionSuite) TestLatestSupportedPayloadVersionCurrent(c *tc.C) {
+	c.Assert(
+		LatestSupportedPayloadVersion(),
+		tc.Equals,
+		semversion.MustParse("4.0.6"),
+	)
 }

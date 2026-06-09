@@ -194,7 +194,7 @@ type SerializedModelV2 struct {
 
 	// CloudImageMetadata are custom image metadata rows to recreate on the
 	// target controller.
-	CloudImageMetadata []CloudImageMetadata `json:"cloud-image-metadata,omitempty"`
+	CloudImageMetadata []ModelCloudImageMetadata `json:"cloud-image-metadata,omitempty"`
 
 	// ExternalControllers are the third-party controllers (not the source
 	// controller) referenced by this model's cross-model relations, with the
@@ -359,6 +359,34 @@ type LeasePin struct {
 type ModelLastLogin struct {
 	Username string    `json:"username"`
 	Time     time.Time `json:"time"`
+}
+
+// ModelCloudImageMetadata carries one custom cloud image metadata row to
+// recreate on the target controller. It includes the source creation time for
+// migration fidelity without changing the imagemetadatamanager facade shape.
+type ModelCloudImageMetadata struct {
+	// Stream contains reference to a particular stream, e.g. "released".
+	Stream string `json:"stream,omitempty"`
+	// Region is the name of cloud region associated with the image.
+	Region string `json:"region"`
+	// Version is OS version, for e.g. "22.04".
+	Version string `json:"version"`
+	// Arch is the architecture for this cloud image, for e.g. "amd64".
+	Arch string `json:"arch"`
+	// VirtType contains the virtualisation type of the cloud image.
+	VirtType string `json:"virt-type,omitempty"`
+	// RootStorageType contains type of root storage.
+	RootStorageType string `json:"root-storage-type,omitempty"`
+	// RootStorageSize contains size of root storage in gigabytes (GB).
+	RootStorageSize *uint64 `json:"root-storage-size,omitempty"`
+	// Source describes where this image is coming from.
+	Source string `json:"source"`
+	// Priority is an importance factor for image metadata.
+	Priority int `json:"priority"`
+	// ImageId is an image identifier.
+	ImageId string `json:"image-id"`
+	// CreatedAt is when the cloud image metadata row was created.
+	CreatedAt time.Time `json:"created-at,omitempty"`
 }
 
 // ExternalControllerRef carries the connection details for a single third-party
