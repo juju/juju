@@ -6,12 +6,15 @@ package controllerruntimeconfig
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/agent"
 )
 
 const (
@@ -65,6 +68,12 @@ type ControllerRuntimeConfig struct {
 	// CACert is the TLS CA certificate PEM block used for Dqlite.
 	CACert string `yaml:"ca-cert"`
 
+	// CAPrivateKey is the TLS CA private key PEM block. It is used by
+	// the certificate-watcher worker to build the PKI authority at
+	// controller startup. This field is sensitive and must not be
+	// logged.
+	CAPrivateKey string `yaml:"ca-private-key"`
+
 	// ControllerCert is the Dqlite node TLS certificate PEM block.
 	ControllerCert string `yaml:"controller-cert"`
 
@@ -76,6 +85,16 @@ type ControllerRuntimeConfig struct {
 	// system identity file. An empty value means no system identity file
 	// is present. This field is sensitive and must not be logged.
 	SystemIdentity string `yaml:"system-identity,omitempty"`
+
+	// LogSinkRateLimitBurst is the number of log messages that will be
+	// let through before rate limiting begins. A zero value means use
+	// the default from apiserver.DefaultLogSinkConfig().
+	LogSinkRateLimitBurst int64 `yaml:"log-sink-rate-limit-burst,omitempty"`
+
+	// LogSinkRateLimitRefill is the rate at which log messages are let
+	// through once the initial burst is depleted. A zero value means use
+	// the default from apiserver.DefaultLogSinkConfig().
+	LogSinkRateLimitRefill time.Duration `yaml:"log-sink-rate-limit-refill,omitempty"`
 }
 
 // Validate returns an error if any required field is missing or invalid.
@@ -106,6 +125,9 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	}
 	if cfg.CACert == "" {
 		return errors.NotValidf("empty ca-cert")
+	}
+	if cfg.CAPrivateKey == "" {
+		return errors.NotValidf("empty ca-private-key")
 	}
 	if cfg.ControllerCert == "" {
 		return errors.NotValidf("empty controller-cert")
@@ -171,4 +193,24 @@ func RenderControllerRuntimeConfig(cfg ControllerRuntimeConfig) ([]byte, error) 
 		return nil, errors.Annotate(err, "marshalling controller runtime config")
 	}
 	return data, nil
+}
+
+// ParseLogSinkRateLimits reads log-sink rate-limit overrides from the agent
+// environment map using the agent.LogSinkRateLimitBurst and
+// agent.LogSinkRateLimitRefill keys. Absent values return zeroes, which signal
+// "use defaults" in ControllerRuntimeConfig.
+func ParseLogSinkRateLimits(agentEnv map[string]string) (burst int64, refill time.Duration, err error) {
+	if v := agentEnv[agent.LogSinkRateLimitBurst]; v != "" {
+		burst, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitBurst)
+		}
+	}
+	if v := agentEnv[agent.LogSinkRateLimitRefill]; v != "" {
+		refill, err = time.ParseDuration(v)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitRefill)
+		}
+	}
+	return burst, refill, nil
 }

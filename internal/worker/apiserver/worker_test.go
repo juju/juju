@@ -10,15 +10,14 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/mock/gomock"
 
-	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -33,7 +32,10 @@ import (
 
 type workerFixture struct {
 	testhelpers.IsolationSuite
-	agentConfig              mockAgentConfig
+	controllerTag            names.Tag
+	dataDir                  string
+	logDir                   string
+	logSinkConfig            coreapiserver.LogSinkConfig
 	authenticator            *mockAuthenticator
 	clock                    *testclock.Clock
 	mux                      *apiserverhttp.Mux
@@ -66,13 +68,10 @@ func (s *workerFixture) SetUpTest(c *tc.C) {
 func (s *workerFixture) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.agentConfig = mockAgentConfig{
-		dataDir: c.MkDir(),
-		logDir:  c.MkDir(),
-		info: &controller.ControllerAgentInfo{
-			APIPort: 0, // listen on any port
-		},
-	}
+	s.controllerTag = names.NewControllerAgentTag("0")
+	s.dataDir = c.MkDir()
+	s.logDir = c.MkDir()
+	s.logSinkConfig = coreapiserver.DefaultLogSinkConfig()
 	s.authenticator = &mockAuthenticator{}
 	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
@@ -91,8 +90,16 @@ func (s *workerFixture) setupMocks(c *tc.C) *gomock.Controller {
 	s.flightRecorder = flightrecorder.NoopRecorder{}
 	s.ephemeralProviderFactory = NewMockProviderFactory(ctrl)
 
+	// controllerConfigService and modelService are set up by each test
+	// suite that uses them.
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
+
 	s.config = apiserver.Config{
-		AgentConfig:                       &s.agentConfig,
+		ControllerTag:                     s.controllerTag,
+		DataDir:                           s.dataDir,
+		LogDir:                            s.logDir,
+		LogSinkConfig:                     s.logSinkConfig,
 		LocalMacaroonAuthenticator:        s.authenticator,
 		Clock:                             s.clock,
 		Mux:                               s.mux,
@@ -117,7 +124,9 @@ func (s *workerFixture) setupMocks(c *tc.C) *gomock.Controller {
 	}
 
 	c.Cleanup(func() {
-		s.agentConfig = mockAgentConfig{}
+		s.controllerTag = nil
+		s.dataDir = ""
+		s.logDir = ""
 		s.authenticator = nil
 		s.mux = nil
 		s.leaseManager = nil
@@ -130,6 +139,7 @@ func (s *workerFixture) setupMocks(c *tc.C) *gomock.Controller {
 		s.flightRecorder = flightrecorder.NoopRecorder{}
 		s.config = apiserver.Config{}
 		s.controllerConfigService = nil
+		s.modelService = nil
 		s.controllerModelUUID = ""
 		s.controllerUUID = ""
 	})
@@ -167,8 +177,14 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *tc.C) {
 		expect string
 	}
 	tests := []test{{
-		f:      func(cfg *apiserver.Config) { cfg.AgentConfig = nil },
-		expect: "nil AgentConfig not valid",
+		f:      func(cfg *apiserver.Config) { cfg.ControllerTag = nil },
+		expect: "nil ControllerTag not valid",
+	}, {
+		f:      func(cfg *apiserver.Config) { cfg.DataDir = "" },
+		expect: "empty DataDir not valid",
+	}, {
+		f:      func(cfg *apiserver.Config) { cfg.LogDir = "" },
+		expect: "empty LogDir not valid",
 	}, {
 		f:      func(cfg *apiserver.Config) { cfg.LocalMacaroonAuthenticator = nil },
 		expect: "nil LocalMacaroonAuthenticator not valid",
@@ -240,16 +256,4 @@ func (s *WorkerValidationSuite) testValidateError(c *tc.C, f func(*apiserver.Con
 	}
 	c.Check(w, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, expect)
-}
-
-func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitBurst, "foo", "parsing LOGSINK_RATELIMIT_BURST: .*")
-	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitRefill, "foo", "parsing LOGSINK_RATELIMIT_REFILL: .*")
-}
-
-func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *tc.C, key, value, expect string) {
-	s.agentConfig.values = map[string]string{key: value}
-	_, err := apiserver.NewWorker(c.Context(), s.config)
-	c.Check(err, tc.ErrorMatches, "getting log sink config: "+expect)
 }

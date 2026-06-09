@@ -27,11 +27,9 @@ import (
 type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 
-	agent       *MockAgent
-	agentConfig *MockConfig
-	manager     *MockManager
+	manager *MockManager
 
-	modelTag names.ModelTag
+	modelUUID string
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -42,7 +40,7 @@ func TestManifoldSuite(t *testing.T) {
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.modelTag = names.NewModelTag(uuid.MustNewUUID().String())
+	s.modelUUID = uuid.MustNewUUID().String()
 }
 
 func (s *ManifoldSuite) TestValidate(c *tc.C) {
@@ -50,7 +48,7 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 	c.Assert(config.Validate(), tc.ErrorIsNil)
 
 	config = s.newConfig()
-	config.AgentName = ""
+	config.ModelUUID = ""
 	c.Assert(config.Validate(), tc.ErrorIs, errors.NotValid)
 
 	config = s.newConfig()
@@ -72,7 +70,7 @@ func (s *ManifoldSuite) TestValidate(c *tc.C) {
 
 func (s *ManifoldSuite) newConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:        "agent",
+		ModelUUID:        s.modelUUID,
 		LeaseManagerName: "lease-manager",
 		Clock:            clock.WallClock,
 		Duration:         time.Minute,
@@ -86,13 +84,12 @@ func (s *ManifoldSuite) newConfig() ManifoldConfig {
 
 func (s *ManifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":         s.agent,
 		"lease-manager": s.manager,
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "lease-manager"}
+var expectedInputs = []string{"lease-manager"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.newConfig()).Inputs, tc.SameContents, expectedInputs)
@@ -100,8 +97,6 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-
-	s.expectAgentConfig(c)
 
 	w, err := Manifold(s.newConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
@@ -111,10 +106,8 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 func (s *ManifoldSuite) TestWorkerBounceOnStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAgentConfig(c)
-
 	config := ManifoldConfig{
-		AgentName:        "agent",
+		ModelUUID:        s.modelUUID,
 		LeaseManagerName: "lease-manager",
 		Clock:            clock.WallClock,
 		Duration:         time.Minute,
@@ -129,16 +122,35 @@ func (s *ManifoldSuite) TestWorkerBounceOnStart(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, dependency.ErrBounce)
 }
 
-func (s *ManifoldSuite) expectAgentConfig(c *tc.C) {
-	s.agentConfig.EXPECT().Model().Return(s.modelTag)
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+// TestStart_ModelUUIDPassedToFlagConfig asserts the model UUID is passed
+// from ManifoldConfig.ModelUUID to FlagConfig without re-fetching it from
+// agent config.
+func (s *ManifoldSuite) TestStart_ModelUUIDPassedToFlagConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var gotUUID string
+	config := ManifoldConfig{
+		ModelUUID:        s.modelUUID,
+		LeaseManagerName: "lease-manager",
+		Clock:            clock.WallClock,
+		Duration:         time.Minute,
+		Entity:           names.NewModelTag("model-123"),
+		Claimant:         names.NewMachineTag("123"),
+		NewWorker: func(ctx context.Context, cfg FlagConfig) (worker.Worker, error) {
+			gotUUID = string(cfg.ModelUUID)
+			return newStubWorker(), nil
+		},
+	}
+
+	w, err := Manifold(config).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
+	workertest.CleanKill(c, w)
+	c.Check(gotUUID, tc.Equals, s.modelUUID)
 }
 
 func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.agent = NewMockAgent(ctrl)
-	s.agentConfig = NewMockConfig(ctrl)
 	s.manager = NewMockManager(ctrl)
 
 	return ctrl

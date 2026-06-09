@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/internal/pki"
 )
 
@@ -20,33 +19,63 @@ type AuthorityWorker interface {
 	worker.Worker
 }
 
-type NewCertWatcherWorker func(agent.Agent) (AuthorityWorker, error)
-
+// ManifoldConfig holds the certificate material needed to start the
+// certificate-watcher worker. All fields are controller-owned startup
+// values supplied at engine-creation time; the manifold does not read
+// any config file or look up values through the agent manifold.
 type ManifoldConfig struct {
-	AgentName           string
-	CertWatcherWorkerFn NewCertWatcherWorker
+	// CACert is the TLS CA certificate PEM block.
+	CACert string
+
+	// CAPrivateKey is the TLS CA private key PEM block. This field
+	// is sensitive and must not be logged.
+	CAPrivateKey string
+
+	// ControllerCert is the controller TLS certificate PEM block.
+	ControllerCert string
+
+	// ControllerPrivateKey is the controller TLS private key PEM block.
+	// This field is sensitive and must not be logged.
+	ControllerPrivateKey string
+
+	// CertWatcherWorkerFn is an optional override for tests.
+	CertWatcherWorkerFn func(config ManifoldConfig) (AuthorityWorker, error)
 }
 
+// Validate returns an error if the config is incomplete.
+func (c ManifoldConfig) Validate() error {
+	if c.CACert == "" {
+		return errors.NotValidf("empty CACert")
+	}
+	if c.CAPrivateKey == "" {
+		return errors.NotValidf("empty CAPrivateKey")
+	}
+	if c.ControllerCert == "" {
+		return errors.NotValidf("empty ControllerCert")
+	}
+	if c.ControllerPrivateKey == "" {
+		return errors.NotValidf("empty ControllerPrivateKey")
+	}
+	return nil
+}
+
+// Manifold provides a worker for supplying a pki Authority to other
+// workers that want to create and modify certificates in a Juju
+// controller.
 // The manifold is intended to be a dependency for the apiserver.
-// Manifold provides a worker for supplying a pki Authority to other workers
-// that want to create and modify certificates in a Juju controller.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.AgentName},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			var a agent.Agent
-			if err := getter.Get(config.AgentName, &a); err != nil {
-				return nil, err
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
 			}
 
 			if config.CertWatcherWorkerFn != nil {
-				return config.CertWatcherWorkerFn(a)
+				return config.CertWatcherWorkerFn(config)
 			}
 
-			w := &apiserverCertWatcher{
-				agent: a,
-			}
-			if err := w.setup(); err != nil {
+			w := &apiserverCertWatcher{}
+			if err := w.setup(config); err != nil {
 				return nil, errors.Annotate(err, "setting up initial ca authority")
 			}
 
@@ -73,7 +102,6 @@ func outputFunc(in worker.Worker, out any) error {
 
 type apiserverCertWatcher struct {
 	tomb      tomb.Tomb
-	agent     agent.Agent
 	authority pki.Authority
 }
 
@@ -93,21 +121,15 @@ func (w *apiserverCertWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
-func (w *apiserverCertWatcher) setup() error {
-	config := w.agent.CurrentConfig()
-	info, ok := config.ControllerAgentInfo()
-	if !ok {
-		return errors.New("no controller agent info in agent config")
-	}
-
-	caCert := config.CACert()
+func (w *apiserverCertWatcher) setup(config ManifoldConfig) error {
+	caCert := config.CACert
 	if caCert == "" {
 		return errors.New("no ca certificate found in config")
 	}
 
-	caPrivateKey := info.CAPrivateKey
+	caPrivateKey := config.CAPrivateKey
 	if caPrivateKey == "" {
-		return errors.New("no CA cert private key")
+		return errors.New("no CA private key found in config")
 	}
 
 	authority, err := pki.NewDefaultAuthorityPemCAKey([]byte(caCert),
@@ -117,12 +139,12 @@ func (w *apiserverCertWatcher) setup() error {
 	}
 
 	_, err = authority.LeafGroupFromPemCertKey(pki.DefaultLeafGroup,
-		[]byte(info.Cert), []byte(info.PrivateKey))
+		[]byte(config.ControllerCert), []byte(config.ControllerPrivateKey))
 	if err != nil {
 		return errors.Annotate(err, "loading default certificate for controller")
 	}
 
-	_, signers, err := pki.UnmarshalPemData([]byte(info.PrivateKey))
+	_, signers, err := pki.UnmarshalPemData([]byte(config.ControllerPrivateKey))
 	if err != nil {
 		return errors.Annotate(err, "setting default certificate signing key")
 	}

@@ -229,7 +229,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:          modellife.NewWorker,
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
-			AgentName:        agentName,
+			ModelUUID:        modelUUID.String(),
 			LeaseManagerName: leaseManagerName,
 			Clock:            config.Clock,
 			Duration:         config.RunFlagDuration,
@@ -480,7 +480,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	manifolds := dependency.Manifolds{
-
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
 				ClockName:            clockName,

@@ -499,19 +499,26 @@ func (w *userdataConfig) configureBootstrap() error {
 	controllerAgentDir := path.Join(
 		w.icfg.DataDir, "agents", "controller-"+agent.BootstrapControllerId,
 	)
+	logSinkBurst, logSinkRefill, err := controllerruntimeconfig.ParseLogSinkRateLimits(w.icfg.AgentEnvironment)
+	if err != nil {
+		return errors.Annotate(err, "parsing log-sink rate limits")
+	}
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:          agent.BootstrapControllerId,
-		ControllerUUID:        w.icfg.ControllerTag.Id(),
-		ControllerModelUUID:   w.icfg.APIInfo.ModelTag.Id(),
-		DataDir:               w.icfg.DataDir,
-		LogDir:                w.icfg.LogDir,
-		QueryTracingEnabled:   w.icfg.ControllerConfig.QueryTracingEnabled(),
-		QueryTracingThreshold: w.icfg.ControllerConfig.QueryTracingThreshold(),
-		DqliteBusyTimeout:     w.icfg.ControllerConfig.DqliteBusyTimeout(),
-		CACert:                w.icfg.APIInfo.CACert,
-		ControllerCert:        w.icfg.Bootstrap.ControllerAgentInfo.Cert,
-		ControllerPrivateKey:  w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
-		SystemIdentity:        w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
+		ControllerID:           agent.BootstrapControllerId,
+		ControllerUUID:         w.icfg.ControllerTag.Id(),
+		ControllerModelUUID:    w.icfg.APIInfo.ModelTag.Id(),
+		DataDir:                w.icfg.DataDir,
+		LogDir:                 w.icfg.LogDir,
+		QueryTracingEnabled:    w.icfg.ControllerConfig.QueryTracingEnabled(),
+		QueryTracingThreshold:  w.icfg.ControllerConfig.QueryTracingThreshold(),
+		DqliteBusyTimeout:      w.icfg.ControllerConfig.DqliteBusyTimeout(),
+		CACert:                 w.icfg.APIInfo.CACert,
+		CAPrivateKey:           w.icfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
+		ControllerCert:         w.icfg.Bootstrap.ControllerAgentInfo.Cert,
+		ControllerPrivateKey:   w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		SystemIdentity:         w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
+		LogSinkRateLimitBurst:  logSinkBurst,
+		LogSinkRateLimitRefill: logSinkRefill,
 	}
 	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	if err != nil {

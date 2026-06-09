@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
+	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujuagentd/util"
 	"github.com/juju/juju/core/flightrecorder"
@@ -164,11 +165,42 @@ type ManifoldsConfig struct {
 	// through the legacy agent.Config.
 	ControllerRuntimeConfigPath string
 
+	// CACert is the TLS CA certificate PEM block for the controller.
+	// For the transitional controller-on-machine path it is sourced
+	// from agentConfig.CACert() at engine creation time and passed
+	// directly to the certificate-watcher manifold.
+	CACert string
+
+	// CAPrivateKey is the TLS CA private key PEM block. For the
+	// transitional path it is sourced from
+	// agentConfig.ControllerAgentInfo(). This field is sensitive.
+	CAPrivateKey string
+
+	// ControllerCert is the controller TLS certificate PEM block.
+	// Sourced from agentConfig.ControllerAgentInfo() for the
+	// transitional path.
+	ControllerCert string
+
+	// ControllerPrivateKey is the controller TLS private key PEM
+	// block. Sourced from agentConfig.ControllerAgentInfo(). This
+	// field is sensitive.
+	ControllerPrivateKey string
+
 	// ControllerAgentTag is the tag used for controller-agent log records.
 	ControllerAgentTag names.Tag
 
 	// LogDir is the controller process log directory.
 	LogDir string
+
+	// DataDir is the controller process data directory. It is passed
+	// directly to the api-server worker instead of being read from
+	// agent config at worker start.
+	DataDir string
+
+	// APIServerLogSinkConfig holds rate-limit parameters for the API
+	// server log sink. It is populated from controller-owned startup
+	// state and passed directly to the api-server manifold.
+	APIServerLogSinkConfig coreapiserver.LogSinkConfig
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
@@ -416,7 +448,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and offers the result to other manifolds. This is only
 		// run by state servers.
 		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-			AgentName: agentName,
+			CACert:               config.CACert,
+			CAPrivateKey:         config.CAPrivateKey,
+			ControllerCert:       config.ControllerCert,
+			ControllerPrivateKey: config.ControllerPrivateKey,
 		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -527,9 +562,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// attempt to claim responsibility for running certain workers
 		// that must not be run concurrently by multiple agents.
 		isPrimaryControllerFlagName: ifController(singular.Manifold(singular.ManifoldConfig{
-			AgentName:        agentName,
+			ModelUUID:        config.ControllerModelUUID,
 			LeaseManagerName: leaseManagerName,
-			Clock:            config.Clock,
+			Clock:            clock.WallClock,
 			Duration:         config.ControllerLeaseDuration,
 			Claimant:         agentTag,
 			Entity:           controllerTag,
@@ -569,7 +604,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		httpServerArgsName: ifBootstrapComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
-			ClockName:             clockName,
+			Clock:                 clock.WallClock,
 			DomainServicesName:    domainServicesName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		})),
@@ -597,9 +632,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
-			ClockName:              clockName,
+			Clock:                  clock.WallClock,
+			ControllerTag:          config.ControllerAgentTag,
+			DataDir:                config.DataDir,
+			LogDir:                 config.LogDir,
+			LogSinkConfig:          config.APIServerLogSinkConfig,
 			LogSinkName:            logSinkName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,

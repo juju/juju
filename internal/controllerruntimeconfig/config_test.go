@@ -36,6 +36,7 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		QueryTracingThreshold: time.Second,
 		DqliteBusyTimeout:     2 * time.Second,
 		CACert:                "ca-cert-pem",
+		CAPrivateKey:          "ca-private-key-pem",
 		ControllerCert:        "controller-cert-pem",
 		ControllerPrivateKey:  "controller-private-key-pem",
 	}
@@ -148,6 +149,13 @@ func (s *configSuite) TestValidate_EmptyCACert(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorMatches, `empty ca-cert not valid`)
 }
 
+// TestValidate_EmptyCAPrivateKey ensures an empty CA private key is rejected.
+func (s *configSuite) TestValidate_EmptyCAPrivateKey(c *tc.C) {
+	cfg := validConfig()
+	cfg.CAPrivateKey = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, `empty ca-private-key not valid`)
+}
+
 // TestValidate_EmptyControllerCert ensures an empty controller cert is
 // rejected.
 func (s *configSuite) TestValidate_EmptyControllerCert(c *tc.C) {
@@ -228,6 +236,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 		QueryTracingThreshold: 500 * time.Millisecond,
 		DqliteBusyTimeout:     3 * time.Second,
 		CACert:                "ca-cert-pem-data",
+		CAPrivateKey:          "ca-private-key-pem-data",
 		ControllerCert:        "controller-cert-pem-data",
 		ControllerPrivateKey:  "controller-private-key-pem-data",
 	}
@@ -243,6 +252,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	c.Check(got.DataDir, tc.Equals, cfg.DataDir)
 	c.Check(got.LogDir, tc.Equals, cfg.LogDir)
 	c.Check(got.CACert, tc.Equals, cfg.CACert)
+	c.Check(got.CAPrivateKey, tc.Equals, cfg.CAPrivateKey)
 	c.Check(got.ControllerCert, tc.Equals, cfg.ControllerCert)
 	c.Check(got.ControllerPrivateKey, tc.Equals, cfg.ControllerPrivateKey)
 	c.Check(got.DqliteBusyTimeout, tc.Equals, cfg.DqliteBusyTimeout)
@@ -322,6 +332,42 @@ controller-private-key: key-pem
 
 	_, err = controllerruntimeconfig.ReadControllerRuntimeConfig(path)
 	c.Assert(err, tc.ErrorMatches, `validating controller runtime config.*ca-cert.*`)
+}
+
+// TestWriteAndReadRoundTrip_LogSinkRateLimits ensures the log-sink rate-limit
+// fields are preserved in the write/read round trip when set.
+func (s *configSuite) TestWriteAndReadRoundTrip_LogSinkRateLimits(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	cfg.LogSinkRateLimitBurst = 2000
+	cfg.LogSinkRateLimitRefill = 5 * time.Millisecond
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LogSinkRateLimitBurst, tc.Equals, int64(2000))
+	c.Check(got.LogSinkRateLimitRefill, tc.Equals, 5*time.Millisecond)
+}
+
+// TestWriteAndReadRoundTrip_LogSinkRateLimitsOmittedWhenZero ensures that
+// zero-value log-sink rate-limit fields are omitted from YAML output and
+// read back as zero, signalling "use defaults".
+func (s *configSuite) TestWriteAndReadRoundTrip_LogSinkRateLimitsOmittedWhenZero(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	// LogSinkRateLimitBurst and LogSinkRateLimitRefill left at zero.
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LogSinkRateLimitBurst, tc.Equals, int64(0))
+	c.Check(got.LogSinkRateLimitRefill, tc.Equals, time.Duration(0))
 }
 
 // TestConfigPath ensures the path helper returns the expected path.

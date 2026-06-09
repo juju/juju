@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
-	"github.com/juju/juju/api/macaroon"
+	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/flightrecorder"
 	corehttp "github.com/juju/juju/core/http"
@@ -39,9 +39,6 @@ import (
 	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
-	"github.com/juju/juju/internal/s3client"
-	"github.com/juju/juju/internal/simplestreams"
-	sshimporter "github.com/juju/juju/internal/ssh/importer"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
@@ -144,11 +141,38 @@ type ManifoldsConfig struct {
 	// through the legacy agent.Config.
 	ControllerRuntimeConfigPath string
 
+	// CACert is the TLS CA certificate PEM block for the controller.
+	// It is sourced from controller runtime config at engine creation
+	// and passed directly to the certificate-watcher manifold.
+	CACert string
+
+	// CAPrivateKey is the TLS CA private key PEM block. It is sourced
+	// from controller runtime config. This field is sensitive.
+	CAPrivateKey string
+
+	// ControllerCert is the controller TLS certificate PEM block.
+	// Sourced from controller runtime config at engine creation.
+	ControllerCert string
+
+	// ControllerPrivateKey is the controller TLS private key PEM block.
+	// Sourced from controller runtime config. This field is sensitive.
+	ControllerPrivateKey string
+
 	// ControllerAgentTag is the tag used for controller-agent log records.
 	ControllerAgentTag names.Tag
 
 	// LogDir is the controller process log directory.
 	LogDir string
+
+	// DataDir is the controller process data directory. It is passed
+	// directly to the api-server worker instead of being read from
+	// agent config at worker start.
+	DataDir string
+
+	// APIServerLogSinkConfig holds rate-limit parameters for the API
+	// server log sink. It is populated from controller-owned startup
+	// state and passed directly to the api-server manifold.
+	APIServerLogSinkConfig coreapiserver.LogSinkConfig
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
@@ -365,7 +389,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// certificate in the agent config for changes, and parses and
 		// offers the result to other manifolds.
 		certificateWatcherName: apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-			AgentName: agentName,
+			CACert:               config.CACert,
+			CAPrivateKey:         config.CAPrivateKey,
+			ControllerCert:       config.ControllerCert,
+			ControllerPrivateKey: config.ControllerPrivateKey,
 		}),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -460,9 +487,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// responsibility for running certain workers that must not be
 		// run concurrently by multiple controller agents.
 		isPrimaryControllerFlagName: singular.Manifold(singular.ManifoldConfig{
-			AgentName:        agentName,
+			ModelUUID:        config.ControllerModelUUID,
 			LeaseManagerName: leaseManagerName,
-			Clock:            config.Clock,
+			Clock:            clock.WallClock,
 			Duration:         config.ControllerLeaseDuration,
 			Claimant:         agentTag,
 			Entity:           controllerTag,
@@ -502,7 +529,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		httpServerArgsName: ifBootstrapComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
-			ClockName:             clockName,
+			Clock:                 clock.WallClock,
 			DomainServicesName:    domainServicesName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		})),
@@ -530,9 +557,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
-			ClockName:              clockName,
+			Clock:                  clock.WallClock,
+			ControllerTag:          config.ControllerAgentTag,
+			DataDir:                config.DataDir,
+			LogDir:                 config.LogDir,
+			LogSinkConfig:          config.APIServerLogSinkConfig,
 			LogSinkName:            logSinkName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
@@ -802,32 +832,36 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
 				switch namespace {
 				case corehttp.CharmhubPurpose:
-					charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
-					return charmhub.DefaultHTTPClient(charmhubLogger)
+					logger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+					opts = append(opts,
+						internalhttp.WithLogger(logger),
+						internalhttp.WithRequestRetrier(charmhub.DefaultRetryPolicy()),
+					)
 
 				case corehttp.S3Purpose:
-					s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
-					return s3client.DefaultHTTPClient(s3Logger)
+					logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
+					opts = append(opts, internalhttp.WithLogger(logger))
 
 				case corehttp.SSHImporterPurpose:
-					sshImporterLogger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
-					return sshimporter.DefaultHTTPClient(sshImporterLogger)
+					logger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
+					opts = append(opts, internalhttp.WithLogger(logger))
 
 				case corehttp.MacaroonPurpose:
-					macaroonLogger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
-					return macaroon.DefaultHTTPClient(macaroonLogger)
+					logger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
+					opts = append(opts, internalhttp.WithLogger(logger))
 
 				case corehttp.SimpleStreamPurpose:
-					simplestreamLogger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
-					return simplestreams.DefaultHTTPClient(simplestreamLogger)
-
-				default:
-					return internalhttp.NewClient(opts...)
+					logger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
+					opts = append(opts, internalhttp.WithLogger(logger))
 				}
+
+				return internalhttp.NewClient(opts...)
 			},
-			NewHTTPClientWorker: httpclient.NewTrackedWorker,
-			Clock:               config.Clock,
-			Logger:              internallogger.GetLogger("juju.worker.httpclient"),
+			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewMetricsCollector:  httpclient.NewMetricsCollector,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
 		}),
 
 		apiRemoteCallerName: apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
