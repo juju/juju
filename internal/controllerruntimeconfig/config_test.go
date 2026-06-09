@@ -334,6 +334,42 @@ controller-private-key: key-pem
 	c.Assert(err, tc.ErrorMatches, `validating controller runtime config.*ca-cert.*`)
 }
 
+// TestWriteAndReadRoundTrip_LogSinkRateLimits ensures the log-sink rate-limit
+// fields are preserved in the write/read round trip when set.
+func (s *configSuite) TestWriteAndReadRoundTrip_LogSinkRateLimits(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	cfg.LogSinkRateLimitBurst = 2000
+	cfg.LogSinkRateLimitRefill = 5 * time.Millisecond
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LogSinkRateLimitBurst, tc.Equals, int64(2000))
+	c.Check(got.LogSinkRateLimitRefill, tc.Equals, 5*time.Millisecond)
+}
+
+// TestWriteAndReadRoundTrip_LogSinkRateLimitsOmittedWhenZero ensures that
+// zero-value log-sink rate-limit fields are omitted from YAML output and
+// read back as zero, signalling "use defaults".
+func (s *configSuite) TestWriteAndReadRoundTrip_LogSinkRateLimitsOmittedWhenZero(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	// LogSinkRateLimitBurst and LogSinkRateLimitRefill left at zero.
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LogSinkRateLimitBurst, tc.Equals, int64(0))
+	c.Check(got.LogSinkRateLimitRefill, tc.Equals, time.Duration(0))
+}
+
 // TestConfigPath ensures the path helper returns the expected path.
 func (s *configSuite) TestConfigPath(c *tc.C) {
 	got := controllerruntimeconfig.ConfigPath(

@@ -29,6 +29,7 @@ import (
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/base"
+	coreapiserver "github.com/juju/juju/apiserver"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
@@ -420,6 +421,8 @@ func (a *ControllerAgent) makeEngineCreator(
 			ControllerRuntimeConfigPath: controllerRuntimeConfigPath,
 			ControllerAgentTag:          a.agentTag,
 			LogDir:                      controllerRuntimeConfig.LogDir,
+			DataDir:                     controllerRuntimeConfig.DataDir,
+			APIServerLogSinkConfig:      logSinkConfigFromRuntimeConfig(controllerRuntimeConfig),
 			CACert:                      controllerRuntimeConfig.CACert,
 			CAPrivateKey:                controllerRuntimeConfig.CAPrivateKey,
 			ControllerCert:              controllerRuntimeConfig.ControllerCert,
@@ -589,4 +592,18 @@ func (a *ControllerAgent) startModelWorkers(
 		modelUUID: cfg.ModelUUID,
 		metrics:   cfg.ModelMetrics,
 	}, nil
+}
+
+// logSinkConfigFromRuntimeConfig builds an apiserver.LogSinkConfig from the
+// controller runtime config. Zero-value rate-limit fields in the runtime
+// config mean "use the default"; non-zero values override the default.
+func logSinkConfigFromRuntimeConfig(cfg controllerruntimeconfig.ControllerRuntimeConfig) coreapiserver.LogSinkConfig {
+	result := coreapiserver.DefaultLogSinkConfig()
+	if cfg.LogSinkRateLimitBurst != 0 {
+		result.RateLimitBurst = cfg.LogSinkRateLimitBurst
+	}
+	if cfg.LogSinkRateLimitRefill != 0 {
+		result.RateLimitRefill = cfg.LogSinkRateLimitRefill
+	}
+	return result
 }
