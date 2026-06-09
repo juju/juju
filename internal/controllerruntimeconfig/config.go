@@ -82,6 +82,16 @@ type ControllerRuntimeConfig struct {
 	// system identity file. An empty value means no system identity file
 	// is present. This field is sensitive and must not be logged.
 	SystemIdentity string `yaml:"system-identity,omitempty"`
+
+	// LogSinkRateLimitBurst is the number of log messages that will be
+	// let through before rate limiting begins. A zero value means use
+	// the default from apiserver.DefaultLogSinkConfig().
+	LogSinkRateLimitBurst int64 `yaml:"log-sink-rate-limit-burst,omitempty"`
+
+	// LogSinkRateLimitRefill is the rate at which log messages are let
+	// through once the initial burst is depleted. A zero value means use
+	// the default from apiserver.DefaultLogSinkConfig().
+	LogSinkRateLimitRefill time.Duration `yaml:"log-sink-rate-limit-refill,omitempty"`
 }
 
 // Validate returns an error if any required field is missing or invalid.
