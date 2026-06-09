@@ -8,13 +8,17 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	stderrors "errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
@@ -33,6 +37,11 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/repository"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
+)
+
+const (
+	controllerCharmDownloadRetryAttempts = 3
+	controllerCharmDownloadRetryDelay    = 20 * time.Second
 )
 
 // DeployCharmResult holds the result of deploying a charm.
@@ -336,7 +345,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	}
 
 	charmDownloader := b.charmDownloader(b.charmhubHTTPClient, b.logger)
-	downloadResult, err := charmDownloader.Download(ctx, downloadURL, resolved.Origin.Hash)
+	downloadResult, err := b.downloadControllerCharm(ctx, charmDownloader, downloadURL, resolved.Origin.Hash)
 	if err != nil {
 		return DeployCharmInfo{}, errors.Errorf("downloading %q: %w", downloadURL, err)
 	}
@@ -372,6 +381,61 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		ArchivePath:     result.ArchivePath,
 		ObjectStoreUUID: result.ObjectStoreUUID,
 	}, nil
+}
+
+func (b *baseDeployer) downloadControllerCharm(
+	ctx context.Context,
+	charmDownloader Downloader,
+	downloadURL *url.URL,
+	hash string,
+) (*charmdownloader.DownloadResult, error) {
+	var downloadResult *charmdownloader.DownloadResult
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			result, err := charmDownloader.Download(ctx, downloadURL, hash)
+			if err != nil {
+				return errors.Capture(err)
+			}
+			downloadResult = result
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !isTransientControllerCharmDownloadError(err)
+		},
+		Attempts: controllerCharmDownloadRetryAttempts,
+		Delay:    controllerCharmDownloadRetryDelay,
+		Clock:    b.clock,
+		NotifyFunc: func(err error, attempt int) {
+			b.logger.Warningf(
+				ctx,
+				"failed to download controller charm, attempt %d: %v",
+				attempt,
+				err,
+			)
+		},
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return downloadResult, nil
+}
+
+func isTransientControllerCharmDownloadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+
+	// TODO (stickupkid): We can add more transient error types here as we
+	// identify them, for example, errors related to temporary network issues.
+
+	var netErr net.Error
+	if stderrors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return false
 }
 
 // AddIAASControllerApplication adds the IAAS controller application.

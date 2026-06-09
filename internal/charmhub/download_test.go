@@ -9,7 +9,9 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	stderrors "errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -198,6 +200,31 @@ func (s *DownloadSuite) TestDownloadWithFailedStatusCode(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }
 
+func (s *DownloadSuite) TestDownloadPreservesHTTPClientErrorType(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	tmpFile, close := s.expectTmpFile(c)
+	defer close()
+
+	fileSystem := NewMockFileSystem(ctrl)
+	fileSystem.EXPECT().Create(tmpFile.Name()).Return(tmpFile, nil)
+
+	httpClient := NewMockHTTPClient(ctrl)
+	httpClient.EXPECT().Do(gomock.Any()).Return(nil, timeoutError{})
+
+	serverURL, err := url.Parse("http://meshuggah.rocks")
+	c.Assert(err, tc.ErrorIsNil)
+
+	client := NewDownloadClient(httpClient, fileSystem, s.logger)
+	_, err = client.Download(c.Context(), serverURL, tmpFile.Name())
+	c.Assert(err, tc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": cannot get archive: net/http: TLS handshake timeout`)
+
+	var netErr net.Error
+	c.Assert(stderrors.As(err, &netErr), tc.IsTrue)
+	c.Check(netErr.Timeout(), tc.IsTrue)
+}
+
 func (s *DownloadSuite) createCharmAchieve(c *tc.C) []byte {
 	tmpDir, err := os.MkdirTemp("", "charm")
 	c.Assert(err, tc.ErrorIsNil)
@@ -234,4 +261,18 @@ func readSHA384(c *tc.C, reader io.Reader) string {
 	c.Assert(err, tc.ErrorIsNil)
 
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+type timeoutError struct{}
+
+func (timeoutError) Error() string {
+	return "net/http: TLS handshake timeout"
+}
+
+func (timeoutError) Timeout() bool {
+	return true
+}
+
+func (timeoutError) Temporary() bool {
+	return true
 }
