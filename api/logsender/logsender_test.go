@@ -5,7 +5,6 @@ package logsender_test
 
 import (
 	"context"
-	stderrors "errors"
 	"io"
 	"net/url"
 	"testing"
@@ -54,7 +53,7 @@ func (s *LogSenderSuite) TestNewAPI(c *tc.C) {
 func (s *LogSenderSuite) TestNewAPIWriteLogError(c *tc.C) {
 	conn := &mockConnector{
 		c:            c,
-		connectError: stderrors.New("foo"),
+		connectError: errors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
@@ -65,7 +64,7 @@ func (s *LogSenderSuite) TestNewAPIWriteLogError(c *tc.C) {
 func (s *LogSenderSuite) TestNewAPIWriteError(c *tc.C) {
 	conn := &mockConnector{
 		c:          c,
-		writeError: stderrors.New("foo"),
+		writeError: errors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
@@ -80,7 +79,7 @@ func (s *LogSenderSuite) TestNewAPIWriteServiceUnavailableError(c *tc.C) {
 	conn := &mockConnector{
 		c: c,
 		writeError: errors.WithType(
-			stderrors.New("server returned HTTP status 503"),
+			errors.New("server returned HTTP status 503"),
 			api.HTTPStatusServiceUnavailable,
 		),
 	}
@@ -99,7 +98,7 @@ func (s *LogSenderSuite) testCleanCloseReturnsEOF(c *tc.C, code int) {
 		c:          c,
 		closed:     make(chan bool),
 		readError:  &gorillaws.CloseError{Code: code},
-		writeError: stderrors.New("use of closed network connection"),
+		writeError: errors.New("use of closed network connection"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
@@ -136,8 +135,8 @@ func (s *LogSenderSuite) TestNewAPIReadError(c *tc.C) {
 	conn := &mockConnector{
 		c:          c,
 		closed:     make(chan bool),
-		readError:  stderrors.New("read foo"),
-		writeError: stderrors.New("closed yo"),
+		readError:  errors.New("read foo"),
+		writeError: errors.New("closed yo"),
 	}
 	a := logsender.NewAPI(conn)
 	w, err := a.LogWriter(c.Context())
