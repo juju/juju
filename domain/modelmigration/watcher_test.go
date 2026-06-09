@@ -69,7 +69,7 @@ func (s *watcherSuite) SetUpTest(c *tc.C) {
 func (s *watcherSuite) TestWatchForMigration(c *tc.C) {
 	svc := s.setupService(c)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 

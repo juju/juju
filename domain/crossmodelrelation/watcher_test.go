@@ -60,7 +60,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationOfferers(c *tc.C) {
 
 	svc, _ := s.setupService(c, factory)
 
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := svc.WatchRemoteApplicationOfferers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -125,7 +125,7 @@ func (s *watcherSuite) TestWatchRemoteApplicationConsumers(c *tc.C) {
 
 	s.createLocalOfferForConsumer(c, db, offerUUID)
 
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	watcher, err := svc.WatchRemoteApplicationConsumers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -483,7 +483,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *tc.C) {
 	uri2.SourceUUID = s.modelUUID
 	realApplicationUUID, syntheticApplicationUUID := s.setupRemoteApplicationConsumer(c, db)
 
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchRemoteConsumedSecretsChanges(ctx, application.UUID(realApplicationUUID))
 	c.Assert(err, tc.IsNil)
 	c.Assert(w, tc.NotNil)
@@ -568,7 +568,7 @@ func (s *watcherSuite) TestWatchConsumerRelations(c *tc.C) {
 	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
 
 	// Start the watcher.
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchConsumerRelations(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -603,7 +603,7 @@ func (s *watcherSuite) TestWatchOffererRelations(c *tc.C) {
 	remoteRelationUUID := s.setupLocalOfferRemoteConsumerAndRelation(c, db, svc)
 
 	// Start the watcher.
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchOffererRelations(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -639,7 +639,7 @@ func (s *watcherSuite) TestWatchOffererRelationsCaching(c *tc.C) {
 	s.createLocalOfferForConsumer(c, db, localOfferUUID)
 
 	// Start the watcher before adding any remote consumers.
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchOffererRelations(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -994,7 +994,7 @@ func (s *watcherSuite) TestWatchRelationIngressNetworks(c *tc.C) {
 	err = svc.AddRelationNetworkIngress(c.Context(), remoteRelationUUID, saasIngressAllow, []string{"203.0.113.0/24"})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchRelationIngressNetworks(c.Context(), remoteRelationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1079,7 +1079,7 @@ func (s *watcherSuite) TestWatchRelationEgressNetworks(c *tc.C) {
 
 	remoteRelationUUID := s.setupRemoteOffererLocalAndRelation(c, db, svc)
 
-	s.modelIdler.AssertChangeStreamIdle(c)
+	s.modelIdler.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchRelationEgressNetworks(c.Context(), remoteRelationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 

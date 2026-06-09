@@ -56,7 +56,7 @@ func (s *watcherSuite) TestWatchWorkloadTracingConfigDelete(c *tc.C) {
 		CACertificate: "ca-cert",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchWorkloadTracingConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -81,7 +81,7 @@ func (s *watcherSuite) TestWatchWorkloadTracingConfigNoChange(c *tc.C) {
 	}
 	err := svc.SetWorkloadTracingConfig(c.Context(), cfg)
 	c.Assert(err, tc.ErrorIsNil)
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchWorkloadTracingConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

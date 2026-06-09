@@ -96,7 +96,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *tc.C) {
 	err = st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlappUUID), sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchObsoleteSecrets(ctx,
 		secret.CharmSecretOwner{
@@ -168,7 +168,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *tc.C) {
 	uri1 := uris[0]
 	uri2 := uris[1]
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchObsoleteSecrets(ctx,
 		secret.CharmSecretOwner{
@@ -226,7 +226,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *tc.C) {
 	uri1 := uris[0]
 	uri2 := uris[1]
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchObsoleteSecrets(ctx,
 		secret.CharmSecretOwner{
@@ -360,7 +360,7 @@ func (s *watcherSuite) TestWatchDeletedForAppOwnedSecret(c *tc.C) {
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, coreapplication.UUID(mysqlUUID), sp)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchDeletedSecrets(ctx,
 		secret.CharmSecretOwner{
@@ -434,7 +434,7 @@ func (s *watcherSuite) TestWatchDeletedSecretRemovesRevisionFromChangeSet(c *tc.
 	uri1 := uris[0]
 	uri2 := uris[1]
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchDeletedSecrets(ctx,
 		secret.CharmSecretOwner{
@@ -518,7 +518,7 @@ func (s *watcherSuite) TestWatchDeletedForUnitsOwnedSecret(c *tc.C) {
 	uri1 := uris[0]
 	uri2 := uris[1]
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchDeletedSecrets(ctx,
 		secret.CharmSecretOwner{
@@ -594,7 +594,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *tc.C) {
 	uri1 := uris[0]
 	uri2 := uris[1]
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, tc.IsNil)
@@ -718,7 +718,7 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 	uri2 := uris[1]
 	uri2.SourceUUID = sourceModelUUID.String()
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -779,7 +779,7 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *tc.C) {
 	uri1 := uris[0]
 	uri2 := uris[1]
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchSecretsRotationChanges(c.Context(),
 		secret.CharmSecretOwner{
@@ -892,7 +892,7 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	slices.SortFunc(uris, coresecrets.CompareURI)
 	c.Logf("uri1: %v, uri2: %v", uris[0], uris[1])
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	w, err := svc.WatchSecretRevisionsExpiryChanges(c.Context(),
 		secret.CharmSecretOwner{
