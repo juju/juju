@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,10 +15,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
 
+	authjwt "github.com/juju/juju/apiserver/authentication/jwt"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -169,6 +174,54 @@ func (s *putObjectsSuite) TestCannotUploadCharmhubCharm(c *gc.C) {
 	resp.Body.Close()
 }
 
+func (s *putObjectsSuite) TestUploadAllowsJWTUserWithModelWritePermission(c *gc.C) {
+	token, err := apitesting.NewJWT(apitesting.JWTParams{
+		Controller: s.State.ControllerUUID(),
+		User:       s.Owner.String(),
+		Access: map[string]any{
+			s.Model.ModelTag().String(): permission.WriteAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.restartServerWithJWT(c, token)
+
+	empty := strings.NewReader("")
+	resp := s.jwtUploadRequest(
+		c,
+		s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)),
+		"local:somecharm",
+		empty,
+	)
+	defer resp.Body.Close()
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, `.*zip: not a valid zip file$`)
+}
+
+func (s *putObjectsSuite) TestUploadRejectsJWTUserWithWritePermissionOnDifferentModel(c *gc.C) {
+	otherModel := s.Factory.MakeModel(c, nil)
+	defer otherModel.Close()
+
+	token, err := apitesting.NewJWT(apitesting.JWTParams{
+		Controller: s.State.ControllerUUID(),
+		User:       s.Owner.String(),
+		Access: map[string]any{
+			names.NewModelTag(otherModel.ModelUUID()).String(): permission.WriteAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.restartServerWithJWT(c, token)
+
+	empty := strings.NewReader("")
+	resp := s.jwtUploadRequest(
+		c,
+		s.objectsCharmsURI("somecharm-"+getCharmHash(c, empty)),
+		"local:somecharm",
+		empty,
+	)
+	defer resp.Body.Close()
+	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")
+	c.Assert(string(body), gc.Equals, "authorization failed: permission denied\n")
+}
+
 func (s *putObjectsSuite) TestUploadBumpsRevision(c *gc.C) {
 	// Add the dummy charm with revision 1.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -199,6 +252,32 @@ func (s *putObjectsSuite) TestUploadBumpsRevision(c *gc.C) {
 	// No more checks for the hash here, because it is
 	// verified in TestUploadRespectsLocalRevision.
 	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
+}
+
+func (s *putObjectsSuite) restartServerWithJWT(c *gc.C, token jwt.Token) {
+	s.config.JWTAuthenticator = authjwt.NewAuthenticator(fixedTokenParser{token: token})
+	s.newServer(c, s.config)
+}
+
+func (s *putObjectsSuite) jwtUploadRequest(c *gc.C, url, curl string, content io.Reader) *http.Response {
+	return apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Method:      "PUT",
+		URL:         url,
+		ContentType: "application/zip",
+		Body:        content,
+		ExtraHeaders: map[string]string{
+			"Authorization": "Bearer test-token",
+			"Juju-Curl":     curl,
+		},
+	})
+}
+
+type fixedTokenParser struct {
+	token jwt.Token
+}
+
+func (p fixedTokenParser) Parse(context.Context, string) (jwt.Token, error) {
+	return p.token, nil
 }
 
 func getCharmHash(c *gc.C, stream io.ReadSeeker) string {
