@@ -77,6 +77,7 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		QueryTracingThreshold: cs.pcfg.Controller.QueryTracingThreshold(),
 		DqliteBusyTimeout:     cs.pcfg.Controller.DqliteBusyTimeout(),
 		CACert:                cs.pcfg.APIInfo.CACert,
+		CAPrivateKey:          cs.pcfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
 		ControllerCert:        cs.pcfg.Bootstrap.ControllerAgentInfo.Cert,
 		ControllerPrivateKey:  cs.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
 	}

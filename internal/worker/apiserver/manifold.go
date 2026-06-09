@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
@@ -61,9 +61,7 @@ func GetModelService(getter dependency.Getter, name string) (ModelService, error
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName              string
 	AuthenticatorName      string
-	ClockName              string
 	MuxName                string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
@@ -80,6 +78,17 @@ type ManifoldConfig struct {
 	ObjectStoreName    string
 	JWTParserName      string
 
+	// Clock is the clock used for timekeeping within the manifold.
+	Clock clock.Clock
+	// ControllerTag is the tag of the controller running the API server.
+	ControllerTag names.Tag
+	// DataDir is the controller process data directory.
+	DataDir string
+	// LogDir is the controller process log directory.
+	LogDir string
+	// LogSinkConfig holds rate-limit parameters for the API server log sink.
+	LogSinkConfig apiserver.LogSinkConfig
+
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	GetControllerConfigService        GetControllerConfigServiceFunc
@@ -91,14 +100,20 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.ControllerTag == nil {
+		return errors.NotValidf("nil ControllerTag")
+	}
+	if config.DataDir == "" {
+		return errors.NotValidf("empty DataDir")
+	}
+	if config.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
 	}
 	if config.AuthenticatorName == "" {
 		return errors.NotValidf("empty AuthenticatorName")
-	}
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -170,9 +185,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.AuthenticatorName,
-			config.ClockName,
 			config.MuxName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
@@ -195,16 +208,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // start is a method on ManifoldConfig because it's more readable than a closure.
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var agent agent.Agent
-	if err := getter.Get(config.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var clock clock.Clock
-	if err := getter.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -309,8 +312,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	w, err := config.NewWorker(ctx, Config{
-		AgentConfig:                       agent.CurrentConfig(),
-		Clock:                             clock,
+		ControllerTag:                     config.ControllerTag,
+		DataDir:                           config.DataDir,
+		LogDir:                            config.LogDir,
+		LogSinkConfig:                     config.LogSinkConfig,
+		Clock:                             config.Clock,
 		Mux:                               mux,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,

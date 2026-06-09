@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/jwt"
@@ -31,7 +31,15 @@ import (
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
-	AgentConfig                       agent.Config
+	// ControllerTag is the tag of the controller running this API server.
+	ControllerTag names.Tag
+	// DataDir is the controller process data directory.
+	DataDir string
+	// LogDir is the controller process log directory.
+	LogDir string
+	// LogSinkConfig holds rate-limit parameters for the API server log sink.
+	LogSinkConfig apiserver.LogSinkConfig
+
 	Clock                             clock.Clock
 	Mux                               *apiserverhttp.Mux
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
@@ -68,8 +76,14 @@ type NewServerFunc func(context.Context, apiserver.ServerConfig) (worker.Worker,
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
-	if config.AgentConfig == nil {
-		return errors.NotValidf("nil AgentConfig")
+	if config.ControllerTag == nil {
+		return errors.NotValidf("nil ControllerTag")
+	}
+	if config.DataDir == "" {
+		return errors.NotValidf("empty DataDir")
+	}
+	if config.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -143,11 +157,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	logSinkConfig, err := getLogSinkConfig(config.AgentConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting log sink config")
-	}
-
 	controllerConfig, err := config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
@@ -159,7 +168,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	}
 
 	observerFactory, err := newObserverFn(
-		config.AgentConfig,
 		config.DomainServicesGetter,
 		config.Clock,
 		config.MetricsCollector,
@@ -170,9 +178,9 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 
 	serverConfig := apiserver.ServerConfig{
 		Clock:                         config.Clock,
-		Tag:                           config.AgentConfig.Tag(),
-		DataDir:                       config.AgentConfig.DataDir(),
-		LogDir:                        config.AgentConfig.LogDir(),
+		Tag:                           config.ControllerTag,
+		DataDir:                       config.DataDir,
+		LogDir:                        config.LogDir,
 		Mux:                           config.Mux,
 		ControllerUUID:                controllerConfig.ControllerUUID(),
 		ControllerModelUUID:           controllerModel.UUID,
@@ -184,7 +192,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		NewObserver:                   observerFactory,
 		RegisterIntrospectionHandlers: config.RegisterIntrospectionHTTPHandlers,
 		MetricsCollector:              config.MetricsCollector,
-		LogSinkConfig:                 &logSinkConfig,
+		LogSinkConfig:                 new(config.LogSinkConfig),
 		GetAuditConfig:                config.GetAuditConfig,
 		FlightRecorder:                config.FlightRecorder,
 		LeaseManager:                  config.LeaseManager,

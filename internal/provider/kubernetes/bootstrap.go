@@ -6,6 +6,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -496,6 +497,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 	if cfg == nil {
 		return spec, nil
 	}
+
 	if len(cfg.ControllerServiceType) > 0 {
 		if spec.ServiceType, err = CaasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
 			return nil, errors.Trace(err)
@@ -783,20 +785,26 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 	// Build and render the controller runtime config for the CAAS controller
 	// pod. This file provides Dqlite startup values before the database is
 	// available, without requiring access to machine-agent config.
+	logSinkBurst, logSinkRefill, err := parseLogSinkRateLimitsFromEnv(c.pcfg.AgentEnvironment)
+	if err != nil {
+		return errors.Annotate(err, "parsing log-sink rate limits")
+	}
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:          c.pcfg.ControllerId,
-		ControllerUUID:        c.pcfg.ControllerTag.Id(),
-		ControllerModelUUID:   c.pcfg.APIInfo.ModelTag.Id(),
-		DataDir:               c.pcfg.DataDir,
-		LogDir:                c.pcfg.LogDir,
-		QueryTracingEnabled:   c.pcfg.Controller.QueryTracingEnabled(),
-		QueryTracingThreshold: c.pcfg.Controller.QueryTracingThreshold(),
-		DqliteBusyTimeout:     c.pcfg.Controller.DqliteBusyTimeout(),
-		CACert:                c.pcfg.APIInfo.CACert,
-		CAPrivateKey:          c.pcfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
-		ControllerCert:        c.pcfg.Bootstrap.ControllerAgentInfo.Cert,
-		ControllerPrivateKey:  c.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
-		SystemIdentity:        c.pcfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
+		ControllerID:           c.pcfg.ControllerId,
+		ControllerUUID:         c.pcfg.ControllerTag.Id(),
+		ControllerModelUUID:    c.pcfg.APIInfo.ModelTag.Id(),
+		DataDir:                c.pcfg.DataDir,
+		LogDir:                 c.pcfg.LogDir,
+		QueryTracingEnabled:    c.pcfg.Controller.QueryTracingEnabled(),
+		QueryTracingThreshold:  c.pcfg.Controller.QueryTracingThreshold(),
+		DqliteBusyTimeout:      c.pcfg.Controller.DqliteBusyTimeout(),
+		CACert:                 c.pcfg.APIInfo.CACert,
+		CAPrivateKey:           c.pcfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
+		ControllerCert:         c.pcfg.Bootstrap.ControllerAgentInfo.Cert,
+		ControllerPrivateKey:   c.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		SystemIdentity:         c.pcfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
+		LogSinkRateLimitBurst:  logSinkBurst,
+		LogSinkRateLimitRefill: logSinkRefill,
 	}
 	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	if err != nil {
@@ -1537,4 +1545,25 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		spec.Containers[i] = ct
 	}
 	return spec, nil
+}
+
+// parseLogSinkRateLimitsFromEnv reads log-sink rate-limit overrides from the
+// agent environment map using the agent.LogSinkRateLimitBurst and
+// agent.LogSinkRateLimitRefill keys. Zero values are returned for keys that
+// are absent or unparseable, which signals "use defaults" to the controller
+// runtime config.
+func parseLogSinkRateLimitsFromEnv(agentEnv map[string]string) (burst int64, refill time.Duration, err error) {
+	if v := agentEnv[agent.LogSinkRateLimitBurst]; v != "" {
+		burst, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitBurst)
+		}
+	}
+	if v := agentEnv[agent.LogSinkRateLimitRefill]; v != "" {
+		refill, err = time.ParseDuration(v)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitRefill)
+		}
+	}
+	return burst, refill, nil
 }

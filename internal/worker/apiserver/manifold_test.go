@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/clock/testclock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -21,11 +21,9 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
 	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/flightrecorder"
@@ -51,10 +49,8 @@ type ManifoldSuite struct {
 
 	manifold dependency.Manifold
 
-	agent                   *mockAgent
 	auditConfig             stubAuditConfig
 	authenticator           *mockAuthenticator
-	clock                   *testclock.Clock
 	getter                  dependency.Getter
 	leaseManager            *lease.Manager
 	metricsCollector        *coreapiserver.Collector
@@ -91,9 +87,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.agent = &mockAgent{}
 	s.authenticator = &mockAuthenticator{}
-	s.clock = testclock.NewClock(time.Time{})
 	s.mux = apiserverhttp.NewMux()
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.upgradeGate = stubGateWaiter{}
@@ -115,9 +109,12 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
-		AgentName:                         "agent",
 		AuthenticatorName:                 "authenticator",
-		ClockName:                         "clock",
+		Clock:                             clock.WallClock,
+		ControllerTag:                     names.NewControllerAgentTag("0"),
+		DataDir:                           c.MkDir(),
+		LogDir:                            c.MkDir(),
+		LogSinkConfig:                     coreapiserver.DefaultLogSinkConfig(),
 		MuxName:                           "mux",
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
@@ -145,7 +142,6 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	})
 
 	c.Cleanup(func() {
-		s.agent = nil
 		s.authenticator = nil
 		s.mux = nil
 		s.upgradeGate = stubGateWaiter{}
@@ -167,9 +163,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"agent":               s.agent,
 		"authenticator":       s.authenticator,
-		"clock":               s.clock,
 		"mux":                 s.mux,
 		"upgrade":             &s.upgradeGate,
 		"auditconfig-updater": s.auditConfig.get,
@@ -212,7 +206,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 }
 
 var expectedInputs = []string{
-	"agent", "authenticator", "clock", "mux",
+	"authenticator", "mux",
 	"upgrade", "auditconfig-updater", "lease-manager",
 	"http-client", "change-stream",
 	"domain-services", "trace", "object-store", "log-sink",
@@ -252,10 +246,17 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(config.NewServer, tc.NotNil)
 	config.NewServer = nil
 
+	c.Assert(config.ControllerTag, tc.Equals, names.NewControllerAgentTag("0"))
+	c.Assert(config.Clock, tc.Equals, clock.WallClock)
+	c.Assert(config.DataDir, tc.Not(tc.Equals), "")
+	c.Assert(config.LogDir, tc.Not(tc.Equals), "")
+	config.ControllerTag = nil
+	config.Clock = nil
+	config.DataDir = ""
+	config.LogDir = ""
+
 	c.Assert(config, tc.DeepEquals, apiserver.Config{
-		AgentConfig:                &s.agent.conf,
 		LocalMacaroonAuthenticator: s.authenticator,
-		Clock:                      s.clock,
 		Mux:                        s.mux,
 		LeaseManager:               s.leaseManager,
 		MetricsCollector:           s.metricsCollector,
@@ -271,6 +272,7 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 		WatcherRegistryGetter:      s.watcherRegistryGetter,
 		FlightRecorder:             s.flightRecorder,
 		EphemeralProviderFactory:   s.providerFactory,
+		LogSinkConfig:              coreapiserver.DefaultLogSinkConfig(),
 	})
 }
 
@@ -312,46 +314,6 @@ func (s *ManifoldSuite) TestAddsAndRemovesMuxClients(c *tc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("didn't tell the mux we were finished")
 	}
-}
-
-type mockAgent struct {
-	agent.Agent
-	conf mockAgentConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-type mockAgentConfig struct {
-	agent.Config
-	dataDir string
-	logDir  string
-	info    *controller.ControllerAgentInfo
-	values  map[string]string
-}
-
-func (c *mockAgentConfig) Tag() names.Tag {
-	return names.NewMachineTag("123")
-}
-
-func (c *mockAgentConfig) LogDir() string {
-	return c.logDir
-}
-
-func (c *mockAgentConfig) DataDir() string {
-	return c.dataDir
-}
-
-func (c *mockAgentConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	if c.info != nil {
-		return *c.info, true
-	}
-	return controller.ControllerAgentInfo{}, false
-}
-
-func (c *mockAgentConfig) Value(key string) string {
-	return c.values[key]
 }
 
 type stubPrometheusRegisterer struct {
