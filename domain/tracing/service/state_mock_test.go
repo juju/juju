@@ -117,6 +117,44 @@ func (c *MockStateGetWorkloadTracingConfigCall) DoAndReturn(f func(context.Conte
 	return c
 }
 
+// NamespaceForWatchWorkloadTracingConfig mocks base method.
+func (m *MockState) NamespaceForWatchWorkloadTracingConfig() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamespaceForWatchWorkloadTracingConfig")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NamespaceForWatchWorkloadTracingConfig indicates an expected call of NamespaceForWatchWorkloadTracingConfig.
+func (mr *MockStateMockRecorder) NamespaceForWatchWorkloadTracingConfig() *MockStateNamespaceForWatchWorkloadTracingConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamespaceForWatchWorkloadTracingConfig", reflect.TypeOf((*MockState)(nil).NamespaceForWatchWorkloadTracingConfig))
+	return &MockStateNamespaceForWatchWorkloadTracingConfigCall{Call: call}
+}
+
+// MockStateNamespaceForWatchWorkloadTracingConfigCall wrap *gomock.Call
+type MockStateNamespaceForWatchWorkloadTracingConfigCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateNamespaceForWatchWorkloadTracingConfigCall) Return(arg0 string) *MockStateNamespaceForWatchWorkloadTracingConfigCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateNamespaceForWatchWorkloadTracingConfigCall) Do(f func() string) *MockStateNamespaceForWatchWorkloadTracingConfigCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateNamespaceForWatchWorkloadTracingConfigCall) DoAndReturn(f func() string) *MockStateNamespaceForWatchWorkloadTracingConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // SetCharmTracingConfig mocks base method.
 func (m *MockState) SetCharmTracingConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
 	m.ctrl.T.Helper()

@@ -181,7 +181,7 @@ func (s *watcherSuite) TestWatchObjectStoreBackend(c *tc.C) {
 		),
 	)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := svc.WatchObjectStoreBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

@@ -136,7 +136,7 @@ func (s *watcherSuite) TestWatchOfferStatusApplicationWithUnits(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "status")
 	svc := s.setupService(c, factory)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := svc.WatchOfferStatus(c.Context(), offerUUID)
 	c.Assert(err, tc.ErrorIsNil)

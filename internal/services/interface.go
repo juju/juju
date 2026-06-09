@@ -99,7 +99,7 @@ type ControllerDomainServices interface {
 	// ControllerChangeStream returns the global controller change stream.
 	ControllerChangeStream() *changestreamservice.Service
 	// Tracing returns the service for accessing tracing configuration.
-	Tracing() *tracingservice.Service
+	Tracing() *tracingservice.WatchableService
 	// Logging returns the service for accessing logging configuration.
 	Logging() *loggingservice.WatchableService
 }
@@ -263,6 +263,14 @@ type ObjectStoreServices interface {
 type ObjectStoreServicesGetter interface {
 	// ServicesForModel returns a ObjectStoreServices for the given model.
 	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
+}
+
+// TraceServices provides access to the services required by the trace worker.
+// This is a subset of the controller domain services, for use by trace workers
+// that need to operate before the full domain services graph is available.
+type TraceServices interface {
+	// Tracing returns the service for accessing tracing configuration.
+	Tracing() *tracingservice.WatchableService
 }
 
 // UpgradeServices represents a way to get a upgrade services for a controller.

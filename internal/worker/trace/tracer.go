@@ -18,7 +18,16 @@ import (
 )
 
 // NewClientFunc is the function signature for creating a new client.
-type NewClientFunc func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error)
+type NewClientFunc func(
+	context.Context,
+	coretrace.TaggedTracerNamespace,
+	string,
+	string,
+	bool,
+	float64,
+	time.Duration,
+	logger.Logger,
+) (Client, ClientTracerProvider, ClientTracer, error)
 
 type tracer struct {
 	tomb tomb.Tomb
@@ -36,6 +45,7 @@ func NewTracerWorker(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
 	endpoint string,
+	caCertificate string,
 	insecureSkipVerify bool,
 	stackTracesEnabled bool,
 	sampleRatio float64,
@@ -43,7 +53,15 @@ func NewTracerWorker(
 	logger logger.Logger,
 	newClient NewClientFunc,
 ) (TrackedTracer, error) {
-	client, clientProvider, clientTracer, err := newClient(ctx, namespace, endpoint, insecureSkipVerify, sampleRatio, tailSamplingThreshold, logger)
+	client, clientProvider, clientTracer, err := newClient(ctx,
+		namespace,
+		endpoint,
+		caCertificate,
+		insecureSkipVerify,
+		sampleRatio,
+		tailSamplingThreshold,
+		logger,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

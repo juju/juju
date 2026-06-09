@@ -115,6 +115,7 @@ import (
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/traceservices"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
 	"github.com/juju/juju/internal/worker/upgrader"
@@ -518,6 +519,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
+		traceServicesName: ifController(traceservices.Manifold(traceservices.ManifoldConfig{
+			ChangeStreamName: changeStreamName,
+			Logger:           internallogger.GetLogger("juju.worker.traceservices"),
+			NewWorker:        traceservices.NewWorker,
+			NewTraceServices: traceservices.NewTraceServices,
+		})),
+
+		controllerTraceName: trace.ControllerManifold(trace.ControllerManifoldConfig{
+			AgentName:         agentName,
+			TraceServicesName: traceServicesName,
+			Clock:             config.Clock,
+			Logger:            internallogger.GetLogger("juju.worker.trace"),
+			GetTracingService: trace.GetTracingService,
+			NewTracerWorker:   trace.NewTracerWorker,
+		}),
+
 		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
@@ -565,7 +582,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeGateName:        upgradeStepsGateName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			HTTPClientName:         httpClientName,
-			TraceName:              traceName,
+			TraceName:              controllerTraceName,
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
 			WatcherRegistryName:    watcherRegistryName,
@@ -672,7 +689,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
 			ClockName:      clockName,
 			DBAccessorName: dbAccessorName,
-			TraceName:      traceName,
+			TraceName:      controllerTraceName,
 			Logger:         internallogger.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
 			NewStore:       leaseexpiry.NewStore,
@@ -683,7 +700,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			ClockName:            clockName,
 			DBAccessorName:       dbAccessorName,
-			TraceName:            traceName,
+			TraceName:            controllerTraceName,
 			Logger:               internallogger.GetLogger("juju.worker.lease"),
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -772,7 +789,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,
-			TraceName:                  traceName,
+			TraceName:                  controllerTraceName,
 			ObjectStoreServicesName:    objectStoreServicesName,
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
@@ -974,7 +991,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                     agentName,
 			APICallerName:                 apiCallerName,
 			DomainServicesName:            domainServicesName,
-			TraceName:                     traceName,
+			TraceName:                     controllerTraceName,
 			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
 			IsControllerAgentFn:           agentconfigupdater.IAASIsControllerAgent,
 			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
@@ -1209,7 +1226,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                     agentName,
 			APICallerName:                 apiCallerName,
 			DomainServicesName:            domainServicesName,
-			TraceName:                     traceName,
+			TraceName:                     controllerTraceName,
 			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
 			IsControllerAgentFn:           agentconfigupdater.CAASIsControllerAgent,
 			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
@@ -1432,7 +1449,9 @@ const (
 	storageProvisionerName        = "storage-provisioner"
 	storageRegistryName           = "storage-registry"
 	toolsVersionCheckerName       = "tools-version-checker"
+	controllerTraceName           = "controller-trace"
 	traceName                     = "trace"
+	traceServicesName             = "trace-services"
 	validCredentialFlagName       = "valid-credential-flag"
 	undertakerName                = "undertaker"
 	machineSetupName              = "machine-setup"

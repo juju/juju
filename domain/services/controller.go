@@ -223,11 +223,12 @@ func (s *ControllerServices) ControllerChangeStream() *changestreamservice.Servi
 
 // Tracing returns the tracing service which provides access to tracing
 // configuration for charms.
-func (s *ControllerServices) Tracing() *tracingservice.Service {
-	return tracingservice.NewService(
+func (s *ControllerServices) Tracing() *tracingservice.WatchableService {
+	return tracingservice.NewWatchableService(
 		tracingstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
+		s.controllerWatcherFactory("tracing"),
 	)
 }
 

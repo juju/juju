@@ -285,7 +285,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	defer s.expectTimer(1)()
+	timerCh := s.setupTimer(PollInterval)
 
 	s.timer.EXPECT().Reset(gomock.Any()).Times(1)
 
@@ -314,6 +314,16 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c)
+
+	// The internal state channel is intentionally best-effort and has a single
+	// buffer slot. Trigger the poll only after startup has been observed so the
+	// replacement state cannot be dropped behind stateStarted.
+	select {
+	case timerCh <- time.Now():
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting to trigger DB verification")
+	}
+
 	s.ensureDBReplaced(c)
 
 	// There is a race potential race with the composition here, because

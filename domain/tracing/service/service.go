@@ -8,8 +8,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -35,6 +38,25 @@ type State interface {
 
 	// GetWorkloadTracingConfig returns the workload tracing config from the state.
 	GetWorkloadTracingConfig(ctx context.Context) (map[string]string, error)
+
+	// NamespaceForWatchWorkloadTracingConfig returns the namespace identifier
+	// used for watching workload tracing configuration changes.
+	NamespaceForWatchWorkloadTracingConfig() string
+}
+
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNotifyWatcher returns a new watcher that filters changes from the
+	// input base watcher's db/queue. Change-log events will be emitted
+	// only if the filter accepts them, and dispatching the notifications
+	// via the Changes channel. A filter option is required, though
+	// additional filter options can be provided.
+	NewNotifyWatcher(
+		ctx context.Context,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.NotifyWatcher, error)
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -46,6 +68,24 @@ type Service struct {
 func NewService(st State) *Service {
 	return &Service{
 		st: st,
+	}
+}
+
+// WatchableService defines a service for interacting with the underlying
+// state and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new Service for interacting with the
+// underlying state and the ability to create watchers.
+func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: wf,
 	}
 }
 
@@ -169,6 +209,21 @@ func (s *Service) GetWorkloadTracingConfig(ctx context.Context) (WorkloadTracing
 		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
 	}, nil
+}
+
+// WatchWorkloadTracingConfig returns a watcher that emits notifications
+// when the workload tracing configuration changes.
+func (s *WatchableService) WatchWorkloadTracingConfig(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	namespace := s.st.NamespaceForWatchWorkloadTracingConfig()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"workload tracing config watcher",
+		eventsource.NamespaceFilter(namespace, changestream.All),
+	)
 }
 
 func splitTracingConfig(httpEndpoint, grpcEndpoint, caCertificate string) (map[string]string, []string) {
