@@ -727,7 +727,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 	}
 
 	aCloud := cloudFromParams(cloudArgs.Name, cloudArgs.Cloud)
-	// All clouds must have at least one 'default' region, lp#1819409.
+	// All clouds must have at least one 'default' region.
 	if len(aCloud.Regions) == 0 {
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
@@ -778,7 +778,7 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 	}
 	for i, aCloud := range cloudArgs.Clouds {
 		aCloud := cloudFromParams(aCloud.Name, aCloud.Cloud)
-		// All clouds must have at least one 'default' region, lp#1819409.
+		// All clouds must have at least one 'default' region.
 		if len(aCloud.Regions) == 0 {
 			aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 		}
