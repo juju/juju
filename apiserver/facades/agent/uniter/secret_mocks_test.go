@@ -13,11 +13,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
-
 	secrets "github.com/juju/juju/core/secrets"
 	unit "github.com/juju/juju/core/unit"
 	secret "github.com/juju/juju/domain/secret"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretService is a mock of SecretService interface.

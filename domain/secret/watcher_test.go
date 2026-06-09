@@ -283,17 +283,17 @@ func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
 		err := st.CreateUserSecret(ctx, 1, uri1, secret.UpsertSecretParams{
-			CreateTime: time.Now(),
-			UpdateTime: time.Now(),
-			Data:       data,
+			CreateTime:   time.Now(),
+			UpdateTime:   time.Now(),
+			Data:         data,
 			RevisionUUID: new(uuid.MustNewUUID().String()),
 		})
 		c.Assert(err, tc.ErrorIsNil)
 		err = st.CreateUserSecret(ctx, 1, uri2, secret.UpsertSecretParams{
-			CreateTime: time.Now(),
-			UpdateTime: time.Now(),
-			Data:       data,
-			AutoPrune:  new(true),
+			CreateTime:   time.Now(),
+			UpdateTime:   time.Now(),
+			Data:         data,
+			AutoPrune:    new(true),
 			RevisionUUID: new(uuid.MustNewUUID().String()),
 		})
 		c.Assert(err, tc.ErrorIsNil)
@@ -911,10 +911,10 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
 	harness.AddTest(c, func(c *tc.C) {
 		err := st.CreateCharmUnitSecret(ctx, 1, uris[1], coreunit.UUID(wikiUnitUUIDs[0]), secret.UpsertSecretParams{
-			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
+			Data:         coresecrets.SecretData{"foo": "bar", "hello": "world"},
 			RevisionUUID: new(uuid.MustNewUUID().String()),
-			CreateTime: time.Now(),
-			UpdateTime: time.Now(),
+			CreateTime:   time.Now(),
+			UpdateTime:   time.Now(),
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
@@ -924,20 +924,20 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *tc.C) {
 	now := time.Now()
 	harness.AddTest(c, func(c *tc.C) {
 		err = st.CreateCharmApplicationSecret(ctx, 1, uris[0], coreapplication.UUID(mysqlAppUUID), secret.UpsertSecretParams{
-			Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
-			ExpireTime: new(now.Add(1 * time.Hour)),
+			Data:         coresecrets.SecretData{"foo": "bar", "hello": "world"},
+			ExpireTime:   new(now.Add(1 * time.Hour)),
 			RevisionUUID: new(uuid.MustNewUUID().String()),
-			CreateTime: time.Now(),
-			UpdateTime: time.Now(),
+			CreateTime:   time.Now(),
+			UpdateTime:   time.Now(),
 		})
 		c.Assert(err, tc.ErrorIsNil)
 
 		err = st.UpdateSecret(c.Context(), uris[1], secret.UpsertSecretParams{
-			Data:       coresecrets.SecretData{"foo-new": "bar-new"},
-			ExpireTime: new(now.Add(2 * time.Hour)),
+			Data:         coresecrets.SecretData{"foo-new": "bar-new"},
+			ExpireTime:   new(now.Add(2 * time.Hour)),
 			RevisionUUID: new(uuid.MustNewUUID().String()),
-			CreateTime: time.Now(),
-			UpdateTime: time.Now(),
+			CreateTime:   time.Now(),
+			UpdateTime:   time.Now(),
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]corewatcher.SecretTriggerChange]) {
@@ -1074,10 +1074,10 @@ func revID(uri *coresecrets.URI, rev int) string {
 
 func createNewRevision(c *tc.C, st *state.State, uri *coresecrets.URI) {
 	sp := secret.UpsertSecretParams{
-		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
+		Data:         coresecrets.SecretData{"foo-new": "bar-new"},
 		RevisionUUID: new(uuid.MustNewUUID().String()),
-		CreateTime: time.Now(),
-		UpdateTime: time.Now(),
+		CreateTime:   time.Now(),
+		UpdateTime:   time.Now(),
 	}
 	err := st.UpdateSecret(c.Context(), uri, sp)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1186,10 +1186,10 @@ func checkObsoleteUserSecretToPruneEvent(c *tc.C, st *state.State, harness *watc
 	uri *coresecrets.URI, changeCount int) {
 	harness.AddTest(c, func(c *tc.C) {
 		sp := secret.UpsertSecretParams{
-			Data:       coresecrets.SecretData{"foo-new": "bar-new"},
+			Data:         coresecrets.SecretData{"foo-new": "bar-new"},
 			RevisionUUID: new(uuid.MustNewUUID().String()),
-			CreateTime: time.Now(),
-			UpdateTime: time.Now(),
+			CreateTime:   time.Now(),
+			UpdateTime:   time.Now(),
 		}
 		err := st.UpdateSecret(c.Context(), uri, sp)
 		c.Assert(err, tc.ErrorIsNil)

@@ -113,16 +113,16 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		ExpireTime:     new(expireTime),
 	}, []domainsecret.UpsertRevisionParams{
 		{
-			Revision:   1,
-			CreateTime: revisions[0][0].CreateTime,
-			UpdateTime: revisions[0][0].UpdateTime,
+			Revision:     1,
+			CreateTime:   revisions[0][0].CreateTime,
+			UpdateTime:   revisions[0][0].UpdateTime,
 			RevisionUUID: new(s.fakeUUID.String()),
-			Data:       map[string]string{"foo": "bar"},
+			Data:         map[string]string{"foo": "bar"},
 		},
 		{
-			Revision:   2,
-			CreateTime: revisions[0][1].CreateTime,
-			UpdateTime: revisions[0][1].UpdateTime,
+			Revision:     2,
+			CreateTime:   revisions[0][1].CreateTime,
+			UpdateTime:   revisions[0][1].UpdateTime,
 			RevisionUUID: new(s.fakeUUID.String()),
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -172,12 +172,12 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		Checksum:    "checksum-1234",
 	}, []domainsecret.UpsertRevisionParams{
 		{
-			Revision:   5,
-			CreateTime: revisions[1][0].CreateTime,
-			UpdateTime: revisions[1][0].UpdateTime,
+			Revision:     5,
+			CreateTime:   revisions[1][0].CreateTime,
+			UpdateTime:   revisions[1][0].UpdateTime,
 			RevisionUUID: new(s.fakeUUID.String()),
-			Data:       map[string]string{"foo": "baz"},
-			Checksum:   "checksum-1234",
+			Data:         map[string]string{"foo": "baz"},
+			Checksum:     "checksum-1234",
 		},
 	}).Return(nil)
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String(), uri2.ID).

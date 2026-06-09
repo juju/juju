@@ -13,11 +13,12 @@ import (
 	context "context"
 	reflect "reflect"
 
+	gomock "go.uber.org/mock/gomock"
+
 	model "github.com/juju/juju/core/model"
 	secrets "github.com/juju/juju/core/secrets"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
 	provider "github.com/juju/juju/internal/secrets/provider"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretBackendState is a mock of SecretBackendState interface.
