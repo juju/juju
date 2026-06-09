@@ -6,12 +6,15 @@ package controllerruntimeconfig
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/juju/agent"
 )
 
 const (
@@ -190,4 +193,24 @@ func RenderControllerRuntimeConfig(cfg ControllerRuntimeConfig) ([]byte, error) 
 		return nil, errors.Annotate(err, "marshalling controller runtime config")
 	}
 	return data, nil
+}
+
+// ParseLogSinkRateLimits reads log-sink rate-limit overrides from the agent
+// environment map using the agent.LogSinkRateLimitBurst and
+// agent.LogSinkRateLimitRefill keys. Absent values return zeroes, which signal
+// "use defaults" in ControllerRuntimeConfig.
+func ParseLogSinkRateLimits(agentEnv map[string]string) (burst int64, refill time.Duration, err error) {
+	if v := agentEnv[agent.LogSinkRateLimitBurst]; v != "" {
+		burst, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitBurst)
+		}
+	}
+	if v := agentEnv[agent.LogSinkRateLimitRefill]; v != "" {
+		refill, err = time.ParseDuration(v)
+		if err != nil {
+			return 0, 0, errors.Annotatef(err, "parsing %s", agent.LogSinkRateLimitRefill)
+		}
+	}
+	return burst, refill, nil
 }
