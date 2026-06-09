@@ -26,6 +26,7 @@ import (
 	usertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/logging"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
@@ -1124,7 +1125,10 @@ func (s *workerSuite) TestAddS3CredentialsUnsupportedContentType(c *tc.C) {
 func (s *workerSuite) TestSetLokiEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.loggingService.EXPECT().SetLokiEndpoint(gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(nil)
+	s.loggingService.EXPECT().SetLokiConfig(gomock.Any(), logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	}).Return(nil)
 
 	socket := s.newSocket(c)
 
@@ -1134,7 +1138,7 @@ func (s *workerSuite) TestSetLokiEndpoint(c *tc.C) {
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/loki-endpoint",
-		body:       `{"url":"http://loki:3100/loki/api/v1/push"}`,
+		body:       `{"url":"http://loki:3100/loki/api/v1/push","ca_cert":"ca-cert"}`,
 		statusCode: http.StatusOK,
 		response:   ".*updated loki endpoint.*",
 	})
@@ -1143,7 +1147,7 @@ func (s *workerSuite) TestSetLokiEndpoint(c *tc.C) {
 func (s *workerSuite) TestSetLokiEndpointEmptyURL(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.loggingService.EXPECT().SetLokiEndpoint(gomock.Any(), "").Return(
+	s.loggingService.EXPECT().SetLokiConfig(gomock.Any(), logging.LokiConfig{}).Return(
 		internalerrors.Errorf("empty loki endpoint").Add(coreerrors.NotValid),
 	)
 
@@ -1181,7 +1185,7 @@ func (s *workerSuite) TestSetLokiEndpointMissingBody(c *tc.C) {
 func (s *workerSuite) TestRemoveLokiEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.loggingService.EXPECT().DeleteLokiEndpoint(gomock.Any()).Return(nil)
+	s.loggingService.EXPECT().DeleteLokiConfig(gomock.Any()).Return(nil)
 
 	socket := s.newSocket(c)
 
@@ -1199,7 +1203,7 @@ func (s *workerSuite) TestRemoveLokiEndpoint(c *tc.C) {
 func (s *workerSuite) TestRemoveLokiEndpointError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.loggingService.EXPECT().DeleteLokiEndpoint(gomock.Any()).Return(
+	s.loggingService.EXPECT().DeleteLokiConfig(gomock.Any()).Return(
 		internalerrors.New("database error"),
 	)
 
