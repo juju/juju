@@ -35,7 +35,6 @@ type MockStateMockRecorder struct {
 	deleteApplicationResourcesExpects                  []*gomock.Call2_1[context.Context, application.UUID, error]
 	deleteResourcesAddedBeforeApplicationExpects       []*gomock.Call2_1[context.Context, []resource.UUID, error]
 	deleteUnitResourcesExpects                         []*gomock.Call2_1[context.Context, unit.UUID, error]
-	exportResourcesExpects                             []*gomock.Call2_2[context.Context, string, resource1.ExportedResources, error]
 	getApplicationResourceIDExpects                    []*gomock.Call2_2[context.Context, resource1.GetApplicationResourceIDArgs, resource.UUID, error]
 	getResourceExpects                                 []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
 	getResourceNameAndTypeExpects                      []*gomock.Call2_3[context.Context, resource.UUID, string, string, error]
@@ -136,24 +135,6 @@ func (mr *MockStateMockRecorder) DeleteUnitResources(ctx, uuid any) *MockStateDe
 
 // MockStateDeleteUnitResourcesCall is the typed call wrapper for DeleteUnitResources.
 type MockStateDeleteUnitResourcesCall = gomock.Call2_1[context.Context, unit.UUID, error]
-
-// ExportResources mocks base method.
-func (m *MockState) ExportResources(ctx context.Context, name string) (resource1.ExportedResources, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.exportResourcesExpects, m.ctrl, m, "ExportResources", ctx, name)
-}
-
-// ExportResources indicates an expected call of ExportResources.
-func (mr *MockStateMockRecorder) ExportResources(ctx, name any) *MockStateExportResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, resource1.ExportedResources, error](mr.mock.ctrl.T, mr.mock, "ExportResources", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
-	mr.exportResourcesExpects = append(mr.exportResourcesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateExportResourcesCall is the typed call wrapper for ExportResources.
-type MockStateExportResourcesCall = gomock.Call2_2[context.Context, string, resource1.ExportedResources, error]
 
 // GetApplicationResourceID mocks base method.
 func (m *MockState) GetApplicationResourceID(ctx context.Context, args resource1.GetApplicationResourceIDArgs) (resource.UUID, error) {

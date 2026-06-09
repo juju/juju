@@ -3,4 +3,4 @@
 
 package modelmigration
 
-//go:generate go run github.com/canonical/gomock/mockgen -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/resource/modelmigration Coordinator,ImportService
+//go:generate go run github.com/canonical/gomock/mockgen -package modelmigration -destination migrations_mock_test.go github.com/juju/juju/domain/resource/modelmigration Coordinator,ExportState,ImportService

@@ -107,17 +107,6 @@ type State interface {
 		applicationID coreapplication.UUID,
 	) ([]coreresource.Resource, error)
 
-	// ExportResources returns the list of application and unit resources to
-	// export for the given application.
-	//
-	// The following error types can be expected to be returned:
-	//   - [resourceerrors.ApplicationNotFound] if the application UUID is not an
-	//     existing one.
-	//
-	// If the application exists but doesn't have any resources, no error are
-	// returned, the result just contains an empty list.
-	ExportResources(ctx context.Context, name string) (resource.ExportedResources, error)
-
 	// GetResourceType finds the type of the given resource from the resource table.
 	//
 	// The following error types can be expected to be returned:
@@ -343,20 +332,6 @@ func (s *Service) GetResourcesByApplicationUUID(ctx context.Context, application
 		return nil, errors.Errorf("%w: %w", err, applicationerrors.ApplicationUUIDNotValid)
 	}
 	return s.st.GetResourcesByApplicationUUID(ctx, applicationID)
-}
-
-// ExportResources retrieves resources associated with a specific
-// application name. Returns a slice of resources or an error if the operation
-// fails.
-//
-// If the application doesn't have any resources, no error are
-// returned, the result just contain an empty list.
-func (s *Service) ExportResources(ctx context.Context, appName string) (
-	resource.ExportedResources, error) {
-	if appName == "" {
-		return resource.ExportedResources{}, resourceerrors.ArgumentNotValid
-	}
-	return s.st.ExportResources(ctx, appName)
 }
 
 // GetResource returns the identified resource linked to an application.
