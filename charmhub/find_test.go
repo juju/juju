@@ -44,6 +44,50 @@ func (s *FindSuite) TestFind(c *gc.C) {
 	c.Assert(responses[0].Name, gc.Equals, name)
 }
 
+func (s *FindSuite) TestFindEmptyQueryDefaultsToFeaturedCategory(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	path := path.MakePath(baseURL)
+	query := ""
+
+	expect, err := path.Query("category", "featured")
+	c.Assert(err, jc.ErrorIsNil)
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectGet(c, restClient, expect, query)
+
+	client := NewFindClient(path, restClient, &FakeLogger{})
+	responses, err := client.Find(context.TODO(), query)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(responses), gc.Equals, 1)
+	c.Assert(responses[0].Name, gc.Equals, query)
+}
+
+func (s *FindSuite) TestFindEmptyQueryWithCategoryOption(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	baseURL := MustParseURL(c, "http://api.foo.bar")
+
+	path := path.MakePath(baseURL)
+	query := ""
+
+	expect, err := path.Query("category", "database")
+	c.Assert(err, jc.ErrorIsNil)
+
+	restClient := NewMockRESTClient(ctrl)
+	s.expectGet(c, restClient, expect, query)
+
+	client := NewFindClient(path, restClient, &FakeLogger{})
+	responses, err := client.Find(context.TODO(), query, WithFindCategory("database"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(responses), gc.Equals, 1)
+	c.Assert(responses[0].Name, gc.Equals, query)
+}
+
 func (s *FindSuite) TestFindWithOptions(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
