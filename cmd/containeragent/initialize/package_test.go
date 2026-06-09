@@ -60,6 +60,7 @@ func (*importSuite) TestImports(c *tc.C) {
 		"core/model",
 		"core/modelconfig",
 		"core/network",
+		"core/network/ipfamily",
 		"core/objectstore",
 		"core/os/ostype",
 		"core/paths",

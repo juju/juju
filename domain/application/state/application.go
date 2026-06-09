@@ -26,6 +26,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
@@ -3058,7 +3059,8 @@ ON CONFLICT (uuid) DO UPDATE SET
     container_type_id = excluded.container_type_id,
     virt_type = excluded.virt_type,
     allocate_public_ip = excluded.allocate_public_ip,
-    image_id = excluded.image_id
+    image_id = excluded.image_id,
+    ip_family = excluded.ip_family
 `
 	insertConstraintsStmt, err := st.Prepare(insertConstraintsQuery, setConstraint{})
 	if err != nil {
@@ -3411,6 +3413,10 @@ func decodeConstraints(cons applicationConstraints) constraints.Constraints {
 		if row.ImageID.Valid {
 			res.ImageID = &row.ImageID.String
 		}
+		if row.IPFamily.Valid {
+			f := ipfamily.IPFamily(row.IPFamily.String)
+			res.IPFamily = &f
+		}
 		if row.SpaceName.Valid {
 			if _, ok := seenSpaces[row.SpaceName.String]; !ok {
 				seenSpaces[row.SpaceName.String] = struct{}{}
@@ -3464,6 +3470,10 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 		VirtType:         cons.VirtType,
 		ImageID:          cons.ImageID,
 		AllocatePublicIP: cons.AllocatePublicIP,
+	}
+	if cons.IPFamily != nil {
+		s := cons.IPFamily.String()
+		res.IPFamily = &s
 	}
 	if cons.Container != nil {
 		res.ContainerTypeID = &containerTypeID

@@ -3298,6 +3298,9 @@
                         "instance-type": {
                             "type": "string"
                         },
+                        "ip-family": {
+                            "type": "string"
+                        },
                         "mem": {
                             "type": "integer"
                         },
@@ -9221,6 +9224,9 @@
                         "instance-type": {
                             "type": "string"
                         },
+                        "ip-family": {
+                            "type": "string"
+                        },
                         "mem": {
                             "type": "integer"
                         },
@@ -10293,6 +10299,9 @@
                         "instance-type": {
                             "type": "string"
                         },
+                        "ip-family": {
+                            "type": "string"
+                        },
                         "mem": {
                             "type": "integer"
                         },
@@ -10603,6 +10612,9 @@
                             "type": "string"
                         },
                         "instance-type": {
+                            "type": "string"
+                        },
+                        "ip-family": {
                             "type": "string"
                         },
                         "mem": {

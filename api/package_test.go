@@ -42,6 +42,7 @@ func (*ImportSuite) TestImports(c *tc.C) {
 		"core/migration",
 		"core/model",
 		"core/network",
+		"core/network/ipfamily",
 		"core/os/ostype",
 		"core/paths",
 		"core/permission",

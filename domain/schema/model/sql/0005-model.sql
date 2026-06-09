@@ -39,7 +39,8 @@ SELECT
     c.container_type,
     c.virt_type,
     c.allocate_public_ip,
-    c.image_id
+    c.image_id,
+    c.ip_family
 FROM model_constraint AS mc
 JOIN v_constraint AS c ON mc.constraint_uuid = c.uuid;
 

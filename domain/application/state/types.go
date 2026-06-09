@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	corerelation "github.com/juju/juju/core/relation"
 	corestorage "github.com/juju/juju/core/storage"
 	coreunit "github.com/juju/juju/core/unit"
@@ -808,6 +809,7 @@ type applicationConstraint struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 	SpaceName        sql.NullString  `db:"space_name"`
 	SpaceExclude     sql.NullBool    `db:"space_exclude"`
 	Tag              sql.NullString  `db:"tag"`
@@ -848,6 +850,7 @@ type setConstraint struct {
 	VirtType         *string `db:"virt_type"`
 	AllocatePublicIP *bool   `db:"allocate_public_ip"`
 	ImageID          *string `db:"image_id"`
+	IPFamily         *string `db:"ip_family"`
 }
 
 type containerTypeID struct {
@@ -1015,6 +1018,7 @@ type dbConstraint struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 }
 
 func (c dbConstraint) toValue(
@@ -1058,6 +1062,10 @@ func (c dbConstraint) toValue(
 	}
 	if c.ImageID.Valid {
 		rval.ImageID = &c.ImageID.String
+	}
+	if c.IPFamily.Valid {
+		f := ipfamily.IPFamily(c.IPFamily.String)
+		rval.IPFamily = &f
 	}
 	if c.ContainerType.Valid {
 		containerType := instance.ContainerType(c.ContainerType.String)

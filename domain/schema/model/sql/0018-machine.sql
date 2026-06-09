@@ -292,6 +292,7 @@ SELECT
     c.virt_type,
     c.allocate_public_ip,
     c.image_id,
+    c.ip_family,
     ctag.tag,
     cspace.space AS space_name,
     cspace."exclude" AS space_exclude,
