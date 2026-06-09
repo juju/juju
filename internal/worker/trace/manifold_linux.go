@@ -143,6 +143,7 @@ func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingCo
 	runtimeCfg := RuntimeConfig{
 		SampleRatio:           defaultOpenTelemetrySampleRatio,
 		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+		CACertificate:         cfg.CACertificate,
 	}
 
 	endpoint := cfg.GRPCEndpoint

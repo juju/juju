@@ -80,6 +80,73 @@ func (s *workerSuite) TestGetTracer(c *tc.C) {
 	close(done)
 }
 
+func (s *workerSuite) TestGetTracerPassesCACertificate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	done := make(chan struct{})
+	s.trackedTracer.EXPECT().Kill().AnyTimes()
+	s.trackedTracer.EXPECT().Wait().DoAndReturn(func() error {
+		<-done
+		return nil
+	}).AnyTimes()
+
+	const caCertificate = "trace-ca-certificate"
+	capturedCACertificate := make(chan string, 1)
+	w, err := newWorker(WorkerConfig{
+		Clock:  s.clock,
+		Logger: s.logger,
+		NewTracerWorker: func(
+			_ context.Context,
+			_ coretrace.TaggedTracerNamespace,
+			_ string,
+			caCertificate string,
+			_ bool,
+			_ bool,
+			_ float64,
+			_ time.Duration,
+			_ logger.Logger,
+			_ NewClientFunc,
+		) (TrackedTracer, error) {
+			capturedCACertificate <- caCertificate
+			return s.trackedTracer, nil
+		},
+		Tag:  names.NewMachineTag("0"),
+		Kind: coretrace.KindController,
+		RuntimeConfigProvider: testRuntimeConfigProvider{
+			getConfig: func(context.Context) (RuntimeConfig, error) {
+				return RuntimeConfig{
+					Enabled:               true,
+					Endpoint:              "https://meshuggah.com",
+					CACertificate:         caCertificate,
+					SampleRatio:           defaultOpenTelemetrySampleRatio,
+					TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+				}, nil
+			},
+			watchConfig: func(context.Context) (watcher.NotifyWatcher, error) {
+				return watcher.TODO[struct{}](), nil
+			},
+		},
+	}, s.states)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
+	_, err = w.GetTracer(c.Context(), coretrace.Namespace("agent", "anything"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case got := <-capturedCACertificate:
+		c.Check(got, tc.Equals, caCertificate)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for trace CA certificate")
+	}
+
+	close(done)
+}
+
 func (s *workerSuite) TestGetTracerIsCached(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -181,7 +248,7 @@ func (s *workerSuite) TestGetTracerDisabled(c *tc.C) {
 		Logger:   s.logger,
 		Enabled:  false,
 		Endpoint: "",
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			return s.trackedTracer, nil
 		},
 		Tag:  names.NewMachineTag("0"),
@@ -242,7 +309,7 @@ func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newTrackedTracerStub(func() {
 				select {
@@ -341,7 +408,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 		Logger:   s.logger,
 		Enabled:  true,
 		Endpoint: "https://meshuggah.com",
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},
@@ -369,7 +436,7 @@ func (s *workerSuite) newControllerWorker(c *tc.C, runtimeConfigProvider Runtime
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},

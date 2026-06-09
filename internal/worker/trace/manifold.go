@@ -29,7 +29,7 @@ type TracerGetter interface {
 type TracerWorkerFunc func(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
-	endpoint string,
+	endpoint, caCertificate string,
 	insecureSkipVerify bool,
 	showStackTraces bool,
 	sampleRatio float64,

@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	"crypto/x509"
 	"fmt"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
@@ -120,7 +122,7 @@ type ClientTracerProvider interface {
 func NewClient(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
-	endpoint string, insecureSkipVerify bool,
+	endpoint, caCertificate string, insecureSkipVerify bool,
 	sampleRatio float64, tailSamplingThreshold time.Duration,
 	logger logger.Logger,
 ) (Client, ClientTracerProvider, ClientTracer, error) {
@@ -130,6 +132,14 @@ func NewClient(
 	}
 	if insecureSkipVerify {
 		options = append(options, otlptracegrpc.WithInsecure())
+	} else if caCertificate != "" {
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM([]byte(caCertificate)) {
+			return nil, nil, nil, errors.New("failed to append trace CA cert to pool")
+		}
+		options = append(options, otlptracegrpc.WithTLSCredentials(
+			credentials.NewClientTLSFromCert(caCertPool, ""),
+		))
 	}
 
 	client := otlptracegrpc.NewClient(options...)

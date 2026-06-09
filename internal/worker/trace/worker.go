@@ -52,6 +52,7 @@ type WorkerConfig struct {
 
 	Enabled               bool
 	Endpoint              string
+	CACertificate         string
 	InsecureSkipVerify    bool
 	StackTracesEnabled    bool
 	SampleRatio           float64
@@ -98,6 +99,7 @@ func (c *WorkerConfig) Validate() error {
 type RuntimeConfig struct {
 	Enabled               bool
 	Endpoint              string
+	CACertificate         string
 	InsecureSkipVerify    bool
 	StackTracesEnabled    bool
 	SampleRatio           float64
@@ -161,6 +163,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, err
 		runtimeConfig: RuntimeConfig{
 			Enabled:               cfg.Enabled,
 			Endpoint:              cfg.Endpoint,
+			CACertificate:         cfg.CACertificate,
 			InsecureSkipVerify:    cfg.InsecureSkipVerify,
 			StackTracesEnabled:    cfg.StackTracesEnabled,
 			SampleRatio:           cfg.SampleRatio,
@@ -355,6 +358,7 @@ func (w *tracerWorker) initTracer(ctx context.Context, namespace coretrace.Tagge
 			ctx,
 			namespace,
 			runtimeCfg.Endpoint,
+			runtimeCfg.CACertificate,
 			runtimeCfg.InsecureSkipVerify,
 			runtimeCfg.StackTracesEnabled,
 			runtimeCfg.SampleRatio,
