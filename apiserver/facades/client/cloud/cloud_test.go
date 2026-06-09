@@ -30,6 +30,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/ec2"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -120,6 +121,33 @@ func (s *cloudSuite) TestCloudNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(params.IsCodeNotFound(results.Results[0].Error), tc.IsTrue)
+}
+
+func (s *cloudSuite) TestModelConfigSchema(c *tc.C) {
+	defer s.setup(c, names.NewUserTag("admin")).Finish()
+
+	api := &cloud.CloudAPIV8{CloudAPI: s.api}
+	result, err := api.ModelConfigSchema(c.Context(), params.ModelConfigSchemaArgs{CloudType: "dummy"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+
+	// The schema must include the provider specific attributes defined by the
+	// dummy provider as well as the base model config attributes.
+	c.Check(result.Schema["somebool"], tc.DeepEquals, params.ModelConfigSchemaField{
+		Description: "Used to test config validation",
+		Type:        "bool",
+	})
+	_, ok := result.Schema["agent-stream"]
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *cloudSuite) TestModelConfigSchemaUnknownCloudType(c *tc.C) {
+	defer s.setup(c, names.NewUserTag("admin")).Finish()
+
+	api := &cloud.CloudAPIV8{CloudAPI: s.api}
+	result, err := api.ModelConfigSchema(c.Context(), params.ModelConfigSchemaArgs{CloudType: "no-dice"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Error, tc.NotNil)
 }
 
 func (s *cloudSuite) TestClouds(c *tc.C) {

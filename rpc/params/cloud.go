@@ -96,6 +96,60 @@ type CloudInfoResults struct {
 	Results []CloudInfoResult `json:"results"`
 }
 
+// ModelConfigSchemaArgs holds the cloud type for a ModelConfigSchema call.
+type ModelConfigSchemaArgs struct {
+	CloudType string `json:"cloud-type"`
+}
+
+// ModelConfigSchemaResult holds the model config schema for a cloud, or an
+// error if the schema could not be retrieved.
+type ModelConfigSchemaResult struct {
+	// Schema maps a model config attribute name to its schema definition.
+	Schema map[string]ModelConfigSchemaField `json:"schema,omitempty"`
+	Error  *Error                            `json:"error,omitempty"`
+}
+
+// ModelConfigSchemaField describes a single model config attribute within the
+// schema for a cloud.
+type ModelConfigSchemaField struct {
+	// Description holds a human-readable description of the attribute.
+	Description string `json:"description,omitempty"`
+
+	// Type holds the type of the attribute value, e.g. "string", "bool" or
+	// "int".
+	Type string `json:"type,omitempty"`
+
+	// Group holds the group that the attribute belongs to, e.g. "environ"
+	// or "account".
+	Group string `json:"group,omitempty"`
+
+	// Immutable specifies whether the attribute cannot be changed once set.
+	Immutable bool `json:"immutable,omitempty"`
+
+	// Mandatory specifies whether the attribute must be provided.
+	Mandatory bool `json:"mandatory,omitempty"`
+
+	// Secret specifies whether the attribute should be considered secret.
+	Secret bool `json:"is-secret,omitempty"`
+
+	// EnvVar holds the environment variable that will be used to obtain the
+	// default value if it is not specified.
+	EnvVar string `json:"env-var,omitempty"`
+
+	// EnvVars holds additional environment variables to be used if the value in
+	// EnvVar is not available, from highest to lowest priority.
+	EnvVars []string `json:"env-vars,omitempty"`
+
+	// Example holds an example value for the attribute.
+	Example any `json:"example,omitempty"`
+
+	// Values holds the set of all possible values of the attribute.
+	Values []any `json:"values,omitempty"`
+
+	// Documentation holds the longform documentation for the attribute.
+	Documentation string `json:"documentation,omitempty"`
+}
+
 // ListCloudsRequest encapsulates how we request a list of cloud details for a user.
 type ListCloudsRequest struct {
 	UserTag string `json:"user-tag"`

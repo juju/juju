@@ -26,6 +26,7 @@ import (
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/configschema"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -44,6 +45,13 @@ type CloudV7 interface {
 	UpdateCredentialsCheckModels(ctx context.Context, args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
 	UserCredentials(ctx context.Context, args params.UserClouds) (params.StringsResults, error)
 	UpdateCloud(ctx context.Context, cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+}
+
+// CloudV8 defines the methods on the cloud API facade, version 8. It extends
+// version 7 with the ModelConfigSchema method.
+type CloudV8 interface {
+	CloudV7
+	ModelConfigSchema(ctx context.Context, arg params.ModelConfigSchemaArgs) (params.ModelConfigSchemaResult, error)
 }
 
 // CloudAPI implements the cloud interface and is the concrete implementation
@@ -66,7 +74,14 @@ type CloudAPI struct {
 
 var (
 	_ CloudV7 = (*CloudAPI)(nil)
+	_ CloudV8 = (*CloudAPIV8)(nil)
 )
+
+// CloudAPIV8 provides the cloud API facade, version 8. It embeds the version 7
+// facade and adds the ModelConfigSchema method.
+type CloudAPIV8 struct {
+	*CloudAPI
+}
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
@@ -280,7 +295,52 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	return &info, nil
 }
 
-// ListCloudInfo returns clouds that the specified user has access to.
+// ModelConfigSchema returns the model config schema for the specified cloud
+// type.
+// The schema describes the configuration attributes, including provider
+// specific ones, that may be set on a model hosted by that type of cloud.
+func (*CloudAPIV8) ModelConfigSchema(_ context.Context, arg params.ModelConfigSchemaArgs) (params.ModelConfigSchemaResult, error) {
+	var result params.ModelConfigSchemaResult
+	provider, err := environs.Provider(arg.CloudType)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
+	providerSchema, ok := provider.(environs.ProviderSchema)
+	if !ok {
+		result.Error = apiservererrors.ServerError(
+			errors.NotImplementedf("config schema for cloud type %q", arg.CloudType))
+		return result, nil
+	}
+
+	result.Schema = modelConfigSchemaFieldsToParams(providerSchema.Schema())
+	return result, nil
+}
+
+func modelConfigSchemaFieldsToParams(fields configschema.Fields) map[string]params.ModelConfigSchemaField {
+	result := make(map[string]params.ModelConfigSchemaField, len(fields))
+	for name, field := range fields {
+		result[name] = modelConfigSchemaFieldToParams(field)
+	}
+	return result
+}
+
+func modelConfigSchemaFieldToParams(field configschema.Attr) params.ModelConfigSchemaField {
+	return params.ModelConfigSchemaField{
+		Description:   field.Description,
+		Type:          string(field.Type),
+		Group:         string(field.Group),
+		Immutable:     field.Immutable,
+		Mandatory:     field.Mandatory,
+		Secret:        field.Secret,
+		EnvVar:        field.EnvVar,
+		EnvVars:       field.EnvVars,
+		Example:       field.Example,
+		Values:        field.Values,
+		Documentation: field.Documentation,
+	}
+}
+
 // Controller admins (superuser) can list clouds for any user.
 // Other users can only ask about their own clouds.
 func (api *CloudAPI) ListCloudInfo(ctx context.Context, req params.ListCloudsRequest) (params.ListCloudInfoResults, error) {
