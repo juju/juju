@@ -13,10 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
-
 	modelmigration "github.com/juju/juju/core/modelmigration"
 	resource "github.com/juju/juju/domain/resource"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCoordinator is a mock of Coordinator interface.

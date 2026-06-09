@@ -2622,34 +2622,6 @@ WHERE  name = $applicationNameAndID.name
 	return true, nil
 }
 
-// getApplicationUUID gets the application UUID from the name. It returns
-// [applicationerrors.ApplicationNotFound] if the application cannot be found.
-func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (application.UUID, error) {
-	appID := applicationNameAndID{
-		Name: appName,
-	}
-
-	// Prepare the SQL statement to retrieve the resource UUID.
-	stmt, err := st.Prepare(`
-SELECT &applicationNameAndID.uuid
-FROM   application            
-WHERE  name = $applicationNameAndID.name
-`, appID)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	// Execute the SQL transaction.
-	err = tx.Query(ctx, stmt, appID).Get(&appID)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.ApplicationNotFound
-	} else if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return appID.ApplicationID, nil
-}
-
 // VerifyApplicationExistsForResource returns whether an application
 // exists for the given resource UUID.
 //

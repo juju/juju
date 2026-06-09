@@ -9233,6 +9233,10 @@
                         "arch": {
                             "type": "string"
                         },
+                        "created-at": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
                         "image-id": {
                             "type": "string"
                         },

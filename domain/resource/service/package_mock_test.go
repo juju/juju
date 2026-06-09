@@ -13,14 +13,13 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
-
 	application "github.com/juju/juju/core/application"
 	resource "github.com/juju/juju/core/resource"
 	store "github.com/juju/juju/core/resource/store"
 	unit "github.com/juju/juju/core/unit"
 	resource0 "github.com/juju/juju/domain/deployment/charm/resource"
 	resource1 "github.com/juju/juju/domain/resource"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockState is a mock of State interface.
