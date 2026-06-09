@@ -174,7 +174,7 @@ func (s *tunnelSuite) TestForwardPortReportsPostReadyFailure(c *tc.C) {
 
 	close(release)
 	assertDone(c, done)
-	c.Check(tunnel.ForwardError(), tc.ErrorMatches, "lost connection to pod")
+	assertForwardError(c, tunnel, "lost connection to pod")
 }
 
 type fakePortForwarder struct {
@@ -230,5 +230,14 @@ func assertDone(c *tc.C, done <-chan struct{}) {
 	case <-done:
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for forwarding goroutine")
+	}
+}
+
+func assertForwardError(c *tc.C, tunnel *Tunnel, match string) {
+	select {
+	case err := <-tunnel.errChan:
+		c.Check(err, tc.ErrorMatches, match)
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for forwarding error")
 	}
 }
