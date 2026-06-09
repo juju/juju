@@ -5,9 +5,14 @@ package store
 
 import (
 	"context"
+	stderrors "errors"
+	"net"
 	"net/url"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -15,6 +20,11 @@ import (
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
+)
+
+const (
+	bundleDownloadRetryAttempts = 3
+	bundleDownloadRetryDelay    = 20 * time.Second
 )
 
 // DownloadBundleClient represents a way to download a bundle from a given
@@ -55,6 +65,8 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, downloadBundleClientFunc DownloadBundl
 				charmsAPI:                charmsAPI,
 				charmReader:              charmReader{},
 				downloadBundleClientFunc: downloadBundleClientFunc,
+				downloadRetryClock:       clock.WallClock,
+				downloadRetryDelay:       bundleDownloadRetryDelay,
 			}, nil
 		},
 	}
@@ -117,6 +129,8 @@ type chBundleFactory struct {
 	charmsAPI                CharmsAPI
 	charmReader              CharmReader
 	downloadBundleClientFunc DownloadBundleClientFunc
+	downloadRetryClock       clock.Clock
+	downloadRetryDelay       time.Duration
 }
 
 func (ch chBundleFactory) GetBundle(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, path string) (charm.Bundle, error) {
@@ -133,8 +147,7 @@ func (ch chBundleFactory) GetBundle(ctx context.Context, curl *charm.URL, origin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, err = client.Download(ctx, url, path)
-	if err != nil {
+	if err := ch.downloadBundle(ctx, client, url, path); err != nil {
 		return nil, errors.Trace(err)
 	}
 	bundle, err := ch.charmReader.ReadBundleArchive(path)
@@ -142,4 +155,55 @@ func (ch chBundleFactory) GetBundle(ctx context.Context, curl *charm.URL, origin
 		return nil, errors.Trace(err)
 	}
 	return bundle, nil
+}
+
+func (ch chBundleFactory) downloadBundle(ctx context.Context, client DownloadBundleClient, url *url.URL, path string) error {
+	return retry.Call(retry.CallArgs{
+		Func: func() error {
+			_, err := client.Download(ctx, url, path)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			return nil
+		},
+		IsFatalError: func(err error) bool {
+			return !isTransientBundleDownloadError(err)
+		},
+		Attempts: bundleDownloadRetryAttempts,
+		Clock:    ch.effectiveDownloadRetryClock(),
+		Delay:    ch.effectiveDownloadRetryDelay(),
+		Stop:     ctx.Done(),
+	})
+}
+
+func (ch chBundleFactory) effectiveDownloadRetryClock() clock.Clock {
+	if ch.downloadRetryClock != nil {
+		return ch.downloadRetryClock
+	}
+	return clock.WallClock
+}
+
+func (ch chBundleFactory) effectiveDownloadRetryDelay() time.Duration {
+	if ch.downloadRetryDelay > 0 {
+		return ch.downloadRetryDelay
+	}
+	return bundleDownloadRetryDelay
+}
+
+func isTransientBundleDownloadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if stderrors.Is(err, context.Canceled) || stderrors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+
+	// TODO (stickupkid): We can add more transient error types here as we
+	// identify them, for example, errors related to temporary network issues.
+
+	var netErr net.Error
+	if stderrors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return false
 }
