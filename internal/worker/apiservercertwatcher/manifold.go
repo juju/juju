@@ -59,13 +59,12 @@ func (c ManifoldConfig) Validate() error {
 	return nil
 }
 
-// The manifold is intended to be a dependency for the apiserver.
 // Manifold provides a worker for supplying a pki Authority to other
 // workers that want to create and modify certificates in a Juju
 // controller.
+// The manifold is intended to be a dependency for the apiserver.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: nil,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
