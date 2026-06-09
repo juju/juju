@@ -233,7 +233,12 @@ func (w *tracerWorker) loop() (err error) {
 
 		case _, ok := <-runtimeConfigWatcher.Changes():
 			if !ok {
-				return errors.New("runtime config watcher channel closed")
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("runtime config watcher channel closed")
+				}
 			}
 
 			if err := w.reloadRuntimeConfig(ctx); err != nil {
