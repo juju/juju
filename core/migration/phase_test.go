@@ -82,6 +82,14 @@ func (s *PhaseSuite) TestCanTransitionTo(c *tc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.PROCESSRELATIONS), tc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), tc.IsFalse)
 	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), tc.IsFalse)
+
+	// The new migration path skips the retired PROCESSRELATIONS phase: IMPORT
+	// transitions directly to VALIDATION. The PROCESSRELATIONS edge is retained
+	// transitionally for the legacy worker.
+	c.Check(migration.IMPORT.CanTransitionTo(migration.VALIDATION), tc.IsTrue)
+	c.Check(migration.IMPORT.CanTransitionTo(migration.PROCESSRELATIONS), tc.IsTrue)
+	c.Check(migration.IMPORT.CanTransitionTo(migration.ABORT), tc.IsTrue)
+	c.Check(migration.IMPORT.CanTransitionTo(migration.SUCCESS), tc.IsFalse)
 }
 
 // TestPhasePersistedIDRoundTrip asserts every phase that is stored in the

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/modelupgrader"
 	"github.com/juju/juju/api/jujuclient"
@@ -137,7 +138,8 @@ func (c *upgradeControllerCommand) getModelUpgraderAPI(ctx context.Context) (Mod
 	if c.modelUpgraderAPI != nil {
 		return c.modelUpgraderAPI, nil
 	}
-	root, err := c.NewModelAPIRoot(ctx, bootstrap.ControllerModelName)
+
+	root, err := modelUpgraderAPIRoot(ctx, c.apiRootFuncForController(), c.NewAPIRoot)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -148,12 +150,33 @@ func (c *upgradeControllerCommand) getModelConfigAPI(ctx context.Context) (Model
 	if c.modelConfigAPI != nil {
 		return c.modelConfigAPI, nil
 	}
-	api, err := c.NewModelAPIRoot(ctx, bootstrap.ControllerModelName)
+	api, err := c.apiRootFuncForController()(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return modelconfig.NewClient(api), nil
 }
+
+func (c *upgradeControllerCommand) apiRootFuncForController() newModelUpgraderRootFunc {
+	return func(ctx context.Context) (api.Connection, error) {
+		return c.NewModelAPIRoot(ctx, bootstrap.ControllerModelName)
+	}
+}
+
+// TODO(jujud-controller-snap): remove if not needed in final upgrade command.
+// type ClientAPI interface {
+// 	Status(args *apiclient.StatusArgs) (*params.FullStatus, error)
+// }
+// func (c *upgradeControllerCommand) getAPIClient() (ClientAPI, error) {
+// 	if c.clientAPI != nil {
+// 		return c.clientAPI, nil
+// 	}
+// 	api, err := c.NewModelAPIRoot(bootstrap.ControllerModelName)
+// 	if err != nil {
+// 		return nil, errors.Trace(err)
+// 	}
+// 	return apiclient.NewClient(api, logger), nil
+// }
 
 // Run changes the version proposed for the juju envtools.
 func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {

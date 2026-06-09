@@ -885,6 +885,8 @@ WHERE uuid IN (
 func (s *watcherSuite) getAppUnitAndMachineUUIDs(c *tc.C, appUUID string) (units []string, machines []string) {
 	result := make(map[string]string)
 	err := s.ModelTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		result = map[string]string{}
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT u.uuid, m.uuid
 FROM unit AS u

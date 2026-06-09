@@ -343,6 +343,8 @@ func (w *dbReplWorker) execModels(ctx context.Context) {
 func (w *dbReplWorker) execQueryForModels(ctx context.Context, args []string) {
 	var models []string
 	if err := w.controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		models = nil
+
 		rows, err := tx.QueryContext(ctx, "SELECT uuid FROM model")
 		if err != nil {
 			return err
@@ -456,6 +458,8 @@ func (w *dbReplWorker) getForeignKeyRelations(ctx context.Context, tableName, co
 	var relations []fkRelation
 
 	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		relations = nil
+
 		const fkListQuery = `
 WITH tbls(name) AS ( 
 	SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' 
@@ -514,6 +518,8 @@ func (w *dbReplWorker) displayForeignKeysWithCounts(ctx context.Context, relatio
 	var relationsWithCounts []fkRelationWithCount
 
 	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		relationsWithCounts = nil
+
 		for _, rel := range relations {
 			countQuery := fmt.Sprintf("SELECT COUNT(*) FROM `%s` WHERE `%s` = ?", rel.childTable, rel.childColumn)
 
@@ -608,6 +614,8 @@ func (w *dbReplWorker) changeLog(ctx context.Context) {
 	var changelogRows []row
 
 	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		changelogRows = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT c.id, t.edit_type, n.namespace, c.changed, c.created_at 
 FROM change_log AS c
@@ -665,6 +673,8 @@ func (w *dbReplWorker) changeStream(ctx context.Context) {
 	var changelogRows []row
 
 	err := w.currentDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		changelogRows = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT MAX(c.id), t.edit_type, n.namespace, changed, created_at
 FROM change_log AS c

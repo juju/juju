@@ -5,15 +5,16 @@ package logsender_test
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/url"
 	"testing"
 	"time"
 
 	gorillaws "github.com/gorilla/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
 	"github.com/juju/juju/internal/testhelpers"
@@ -71,6 +72,24 @@ func (s *LogSenderSuite) TestNewAPIWriteError(c *tc.C) {
 
 	err = w.WriteLog(new(params.LogRecord))
 	c.Assert(err, tc.ErrorMatches, "sending log message: foo")
+	c.Assert(conn.written, tc.HasLen, 0)
+}
+
+func (s *LogSenderSuite) TestNewAPIWriteServiceUnavailableError(c *tc.C) {
+	conn := &mockConnector{
+		c: c,
+		writeError: errors.WithType(
+			errors.New("server returned HTTP status 503"),
+			api.HTTPStatusServiceUnavailable,
+		),
+	}
+	a := logsender.NewAPI(conn)
+	w, err := a.LogWriter(c.Context())
+	c.Assert(err, tc.IsNil)
+
+	err = w.WriteLog(new(params.LogRecord))
+	c.Assert(err, tc.ErrorMatches, "sending log message: server returned HTTP status 503")
+	c.Assert(err, tc.ErrorIs, api.HTTPStatusServiceUnavailable)
 	c.Assert(conn.written, tc.HasLen, 0)
 }
 

@@ -188,6 +188,46 @@ func (c *MockMachineServiceGetMachineLifeCall) DoAndReturn(f func(context.Contex
 	return c
 }
 
+// GetMachineLifeAndIsManuallyProvisioned mocks base method.
+func (m *MockMachineService) GetMachineLifeAndIsManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (life.Value, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineLifeAndIsManuallyProvisioned", arg0, arg1)
+	ret0, _ := ret[0].(life.Value)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetMachineLifeAndIsManuallyProvisioned indicates an expected call of GetMachineLifeAndIsManuallyProvisioned.
+func (mr *MockMachineServiceMockRecorder) GetMachineLifeAndIsManuallyProvisioned(arg0, arg1 any) *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineLifeAndIsManuallyProvisioned", reflect.TypeOf((*MockMachineService)(nil).GetMachineLifeAndIsManuallyProvisioned), arg0, arg1)
+	return &MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall{Call: call}
+}
+
+// MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall wrap *gomock.Call
+type MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall) Return(arg0 life.Value, arg1 bool, arg2 error) *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall) Do(f func(context.Context, machine.Name) (life.Value, bool, error)) *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall) DoAndReturn(f func(context.Context, machine.Name) (life.Value, bool, error)) *MockMachineServiceGetMachineLifeAndIsManuallyProvisionedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetPollingInfos mocks base method.
 func (m *MockMachineService) GetPollingInfos(arg0 context.Context, arg1 []machine.Name) (machine0.PollingInfos, error) {
 	m.ctrl.T.Helper()
@@ -223,45 +263,6 @@ func (c *MockMachineServiceGetPollingInfosCall) Do(f func(context.Context, []mac
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineServiceGetPollingInfosCall) DoAndReturn(f func(context.Context, []machine.Name) (machine0.PollingInfos, error)) *MockMachineServiceGetPollingInfosCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsMachineManuallyProvisioned mocks base method.
-func (m *MockMachineService) IsMachineManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsMachineManuallyProvisioned", arg0, arg1)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsMachineManuallyProvisioned indicates an expected call of IsMachineManuallyProvisioned.
-func (mr *MockMachineServiceMockRecorder) IsMachineManuallyProvisioned(arg0, arg1 any) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMachineManuallyProvisioned", reflect.TypeOf((*MockMachineService)(nil).IsMachineManuallyProvisioned), arg0, arg1)
-	return &MockMachineServiceIsMachineManuallyProvisionedCall{Call: call}
-}
-
-// MockMachineServiceIsMachineManuallyProvisionedCall wrap *gomock.Call
-type MockMachineServiceIsMachineManuallyProvisionedCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineServiceIsMachineManuallyProvisionedCall) Return(arg0 bool, arg1 error) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceIsMachineManuallyProvisionedCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceIsMachineManuallyProvisionedCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceIsMachineManuallyProvisionedCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockMachineServiceIsMachineManuallyProvisionedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

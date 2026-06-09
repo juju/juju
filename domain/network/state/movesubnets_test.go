@@ -820,6 +820,8 @@ func (s *spaceMachineSuite) fetchSubnetSpace(c *tc.C) []subnetSpace {
 	// Verify the subnets were actually moved in the database
 	var result []subnetSpace
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		result = nil
+
 		rows, err := tx.QueryContext(ctx, `
 SELECT subnet.uuid, space.name
 FROM subnet
@@ -833,7 +835,9 @@ JOIN space ON space.uuid = subnet.space_uuid
 			var uuid string
 			var space string
 			err := rows.Scan(&uuid, &space)
-			c.Assert(err, tc.IsNil)
+			if err != nil {
+				return err
+			}
 			result = append(result, subnetSpace{
 				UUID:  uuid,
 				Space: space,

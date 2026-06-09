@@ -102,8 +102,80 @@ type ModelAgentService interface {
 	) (semversion.Number, error)
 }
 
-// ModelUpgraderAPI upgrades the model.
+// UpgraderAPI holds the common methods for upgrading agents in controllers
+// and models.
+type UpgraderAPI interface {
+	AbortModelUpgrade(ctx context.Context, arg params.ModelParam) error
+	UpgradeModel(
+		ctx context.Context,
+		arg params.UpgradeModelParams,
+	) (result params.UpgradeModelResult, err error)
+}
+
+type targetModelUpgraderGetter func(context.Context, names.ModelTag) (UpgraderAPI, error)
+
+// ModelUpgraderAPI upgrades controllers and models from a controller API
+// context.
 type ModelUpgraderAPI struct {
+	controllerModelTag names.ModelTag
+	controllerUpgrader UpgraderAPI
+	modelUpgrader      targetModelUpgraderGetter
+}
+
+// NewModelUpgraderAPI instantiates a new [ModelUpgraderAPI].
+func NewModelUpgraderAPI(
+	controllerModelTag names.ModelTag,
+	controllerUpgrader UpgraderAPI,
+	modelUpgrader targetModelUpgraderGetter,
+) *ModelUpgraderAPI {
+	return &ModelUpgraderAPI{
+		controllerModelTag: controllerModelTag,
+		controllerUpgrader: controllerUpgrader,
+		modelUpgrader:      modelUpgrader,
+	}
+}
+
+// AbortModelUpgrade aborts and archives the upgrade for the supplied model.
+func (m *ModelUpgraderAPI) AbortModelUpgrade(
+	ctx context.Context,
+	arg params.ModelParam,
+) error {
+	upgrader, err := m.upgraderForModel(ctx, arg.ModelTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return upgrader.AbortModelUpgrade(ctx, arg)
+}
+
+// UpgradeModel upgrades the supplied model. If the model is the controller
+// model, this upgrades the controller.
+func (m *ModelUpgraderAPI) UpgradeModel(
+	ctx context.Context,
+	arg params.UpgradeModelParams,
+) (params.UpgradeModelResult, error) {
+	upgrader, err := m.upgraderForModel(ctx, arg.ModelTag)
+	if err != nil {
+		return params.UpgradeModelResult{}, errors.Capture(err)
+	}
+	return upgrader.UpgradeModel(ctx, arg)
+}
+
+func (m *ModelUpgraderAPI) upgraderForModel(
+	ctx context.Context,
+	modelTagString string,
+) (UpgraderAPI, error) {
+	modelTag, err := names.ParseModelTag(modelTagString)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if modelTag.Id() == m.controllerModelTag.Id() {
+		return m.controllerUpgrader, nil
+	}
+	return m.modelUpgrader(ctx, modelTag)
+}
+
+// targetModelUpgraderAPI upgrades a single model.
+type targetModelUpgraderAPI struct {
 	authorizer facade.Authorizer
 	check      common.BlockCheckerInterface
 
@@ -113,15 +185,14 @@ type ModelUpgraderAPI struct {
 	modelTag      names.Tag
 }
 
-// NewModelUpgraderAPI instantiates a new [ModelUpgraderAPI].
-func NewModelUpgraderAPI(
+func newTargetModelUpgraderAPI(
 	controllerTag names.Tag,
 	modelTag names.Tag,
 	authorizer facade.Authorizer,
 	check common.BlockCheckerInterface,
 	modelAgentService ModelAgentService,
-) *ModelUpgraderAPI {
-	return &ModelUpgraderAPI{
+) *targetModelUpgraderAPI {
+	return &targetModelUpgraderAPI{
 		authorizer:        authorizer,
 		check:             check,
 		modelAgentService: modelAgentService,
@@ -132,7 +203,7 @@ func NewModelUpgraderAPI(
 
 // canUpgrade has the responsibility to determine whether there is sufficient
 // permission to perform an upgrade.
-func (m *ModelUpgraderAPI) canUpgrade(
+func (m *targetModelUpgraderAPI) canUpgrade(
 	ctx context.Context,
 	model names.ModelTag,
 ) (bool, error) {
@@ -168,7 +239,7 @@ func (m *ModelUpgraderAPI) canUpgrade(
 //   - a [params.Error] in which the call site has to assign to the [Error] field
 //     in [params.UpgradeModelResult] object, OR
 //   - a [error] return value
-func (m *ModelUpgraderAPI) mapError(
+func (m *targetModelUpgraderAPI) mapError(
 	inErr error,
 	targetVersion semversion.Number,
 	arg params.UpgradeModelParams,
@@ -218,7 +289,7 @@ func (m *ModelUpgraderAPI) mapError(
 
 // AbortModelUpgrade returns not supported, as it's not possible to move
 // back to a prior version.
-func (m *ModelUpgraderAPI) AbortModelUpgrade(
+func (m *targetModelUpgraderAPI) AbortModelUpgrade(
 	_ context.Context,
 	_ params.ModelParam,
 ) error {
@@ -230,7 +301,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(
 // It first validates that the caller has sufficient permissions and that
 // the model is allowed to change. Depending on the provided parameters,
 // it either performs a dry-run validation or executes the actual upgrade.
-func (m *ModelUpgraderAPI) UpgradeModel(
+func (m *targetModelUpgraderAPI) UpgradeModel(
 	ctx context.Context,
 	arg params.UpgradeModelParams,
 ) (params.UpgradeModelResult, error) {
@@ -263,7 +334,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(
 // service before an upgrade is performed. We don't perform the real upgrade
 // here but rather validation checks to ensure we are in a good condition before
 // should a real upgrade occur.
-func (m *ModelUpgraderAPI) dryRunUpgrade(
+func (m *targetModelUpgraderAPI) dryRunUpgrade(
 	ctx context.Context,
 	arg params.UpgradeModelParams,
 ) (params.UpgradeModelResult, error) {
@@ -338,7 +409,7 @@ func (m *ModelUpgraderAPI) dryRunUpgrade(
 // It determines which func to invoke by interrogating the values set in
 // [params.UpgradeModelParams]. A post-processing step is performed to map the
 // errors returned from the service to ones the existing API conforms to.
-func (m *ModelUpgraderAPI) runUpgrade(
+func (m *targetModelUpgraderAPI) runUpgrade(
 	ctx context.Context,
 	arg params.UpgradeModelParams,
 ) (params.UpgradeModelResult, error) {

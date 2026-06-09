@@ -106,6 +106,20 @@ type RevokeParams struct {
 	SubjectUUID   string
 }
 
+// RevokeResult holds a resolved RevokeParams or an error for one entry
+// in a batch resolution.
+type RevokeResult struct {
+	RevokeParams
+	Error error
+}
+
+// GrantResult holds a resolved GrantParams or an error for one entry
+// in a batch resolution.
+type GrantResult struct {
+	GrantParams
+	Error error
+}
+
 // AccessScope is the result of querying secret access scopes.
 type AccessScope struct {
 	ScopeTypeID GrantScopeType

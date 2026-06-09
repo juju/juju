@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/removal"
+	"github.com/juju/juju/domain/secret"
 )
 
 // charmSecretRemovalJobTypeID is used when scheduling deletion of unit- or
@@ -24,6 +25,33 @@ type secretRemovalJob struct {
 	ScheduledFor  time.Time      `db:"scheduled_for"`
 	Arg           sql.NullString `db:"arg"`
 }
+
+// secretPermissionRevoke holds the fields needed to delete a permission row
+// from the secret_permission table.
+type secretPermissionRevoke struct {
+	SecretID      string                  `db:"secret_id"`
+	SubjectUUID   string                  `db:"subject_uuid"`
+	SubjectTypeID secret.GrantSubjectType `db:"subject_type_id"`
+}
+
+// secretPermissionGrant holds the fields needed to upsert a permission row
+// into the secret_permission table.
+type secretPermissionGrant struct {
+	SecretID      string                  `db:"secret_id"`
+	RoleID        secret.Role             `db:"role_id"`
+	SubjectUUID   string                  `db:"subject_uuid"`
+	SubjectTypeID secret.GrantSubjectType `db:"subject_type_id"`
+	ScopeUUID     string                  `db:"scope_uuid"`
+	ScopeTypeID   secret.GrantScopeType   `db:"scope_type_id"`
+}
+
+// secretID is a simple wrapper for querying a secret_id.
+type secretID struct {
+	ID string `db:"secret_id"`
+}
+
+// secretIDs is a sqlair slice type for batch IN queries on secret_id.
+type secretIDs []string
 
 // entityUUID identifies an entity.
 type entityUUID struct {

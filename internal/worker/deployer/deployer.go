@@ -60,8 +60,10 @@ type Context interface {
 
 	// DeployUnit causes the agent for the specified unit to be started and run
 	// continuously until further notice without further intervention. It will
-	// return an error if the agent is already deployed.
-	DeployUnit(unitName, initialPassword string) error
+	// return an error if the agent is already deployed. The provided context
+	// can be used to cancel a pending deployment (e.g. on machine agent
+	// shutdown).
+	DeployUnit(ctx context.Context, unitName, initialPassword string) error
 
 	// RecallUnit causes the agent for the specified unit to be stopped, and
 	// the agent's data to be destroyed. It will return an error if the agent
@@ -203,7 +205,7 @@ func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 	if err := unit.SetPassword(ctx, initialPassword); err != nil {
 		return fmt.Errorf("cannot set password for unit %q: %v", unitName, err)
 	}
-	if err := d.ctx.DeployUnit(unitName, initialPassword); err != nil {
+	if err := d.ctx.DeployUnit(ctx, unitName, initialPassword); err != nil {
 		return err
 	}
 	d.deployed.Add(unitName)

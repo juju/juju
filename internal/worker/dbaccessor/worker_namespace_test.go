@@ -183,11 +183,9 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 	defer cancel()
 
 	var (
-		attempt int
-		num     int64
+		num int64
 	)
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		attempt++
 
 		stmt := "INSERT INTO namespace_list (namespace) VALUES (?);"
 		result, err := tx.ExecContext(ctx, stmt, "foo")
@@ -214,8 +212,6 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 	// The second query will be cached.
 	err = dbw.ensureNamespace(c.Context(), "foo")
 	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(attempt, tc.Equals, 1)
 
 	workertest.CleanKill(c, w)
 }

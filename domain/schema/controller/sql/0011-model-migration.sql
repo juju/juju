@@ -89,7 +89,7 @@ ON model_migration_import_external_controller_model (controller_uuid);
 -- model_uuid deliberately has no FK to model because source REAP deletes
 -- the model row while export history remains available for diagnostics.
 --
--- current_phase_id and phase_changed_at are denormalised from
+-- current_phase_id and updated_at are denormalised from
 -- model_migration_export_phase so that watchers and "is this migration
 -- active?" queries do not have to aggregate the history table on every read.
 -- The history table remains the source of truth.
@@ -98,9 +98,8 @@ CREATE TABLE model_migration_export (
     model_uuid TEXT NOT NULL,
     target_controller_uuid TEXT NOT NULL,
     current_phase_id INT NOT NULL,
-    phase_changed_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
     start_time TIMESTAMP NOT NULL,
-    end_time TIMESTAMP,
     CONSTRAINT fk_model_migration_export_target_controller
     FOREIGN KEY (target_controller_uuid)
     REFERENCES external_controller (uuid),
@@ -109,10 +108,11 @@ CREATE TABLE model_migration_export (
     REFERENCES model_migration_phase (id)
 );
 
--- At most one active (non-terminal) export migration per model.
+-- At most one active export migration per model. Persisted terminal phase ids
+-- are reap-failed (7), done (8), and abort-done (10).
 CREATE UNIQUE INDEX idx_model_migration_export_active_model
 ON model_migration_export (model_uuid)
-WHERE end_time IS NULL;
+WHERE current_phase_id NOT IN (7, 8, 10);
 
 CREATE INDEX idx_model_migration_export_model
 ON model_migration_export (model_uuid);
@@ -189,8 +189,12 @@ ON model_migration_export_target_auth (external_controller_uuid);
 -- Time-ordered record of which phases an export migration has entered.
 -- Each phase is entered at most once per migration, so (migration_uuid,
 -- phase_id) is the natural key.
+--
+-- model_uuid is denormalised from the parent model_migration_export row so the
+-- changestream trigger can emit the model-scoped key watched for phase changes.
 CREATE TABLE model_migration_export_phase (
     migration_uuid TEXT NOT NULL,
+    model_uuid TEXT NOT NULL,
     phase_id INT NOT NULL,
     changed_at TIMESTAMP NOT NULL,
     PRIMARY KEY (migration_uuid, phase_id),
@@ -205,12 +209,9 @@ CREATE TABLE model_migration_export_phase (
 CREATE INDEX idx_model_migration_export_phase_changed_at
 ON model_migration_export_phase (migration_uuid, changed_at);
 
--- Free-form status messages reported by the migration master. Multiple
--- messages may be recorded within a single phase, hence a separate table
--- from model_migration_export_phase.
+-- Current free-form status message reported by the migration master.
 CREATE TABLE model_migration_export_status (
-    uuid TEXT NOT NULL PRIMARY KEY,
-    migration_uuid TEXT NOT NULL,
+    migration_uuid TEXT NOT NULL PRIMARY KEY,
     message TEXT NOT NULL,
     recorded_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_model_migration_export_status_migration

@@ -1912,6 +1912,8 @@ func (s *watcherSuite) newStorageAttachmentsForInstances(
 	err := s.TxnRunner().StdTxn(
 		c.Context(),
 		func(ctx context.Context, tx *sql.Tx) error {
+			rval = nil
+
 			for _, instUUID := range instances {
 				attachmentUUID, err := domainstorage.NewStorageAttachmentUUID()
 				if err != nil {

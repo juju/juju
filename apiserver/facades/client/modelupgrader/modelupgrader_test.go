@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/names/v6"
@@ -75,7 +76,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStream(c *tc.C) {
 		domainagentbinary.AgentStreamReleased,
 	).Return(nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService,
@@ -118,7 +119,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionAndStreamDryRun(c *tc.C) 
 		domainagentbinary.AgentStreamReleased,
 	).Return(currentTargetVersion, nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -156,7 +157,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersion(c *tc.C) {
 		version,
 	).Return(nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -195,7 +196,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithVersionDryRun(c *tc.C) {
 		desiredTargetVersion,
 	).Return(currentTargetVersion, nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -233,7 +234,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStream(c *tc.C) {
 		domainagentbinary.AgentStreamReleased,
 	).Return(version, nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -269,7 +270,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithStreamDryRun(c *tc.C) {
 		gomock.Any(), domainagentbinary.AgentStreamReleased,
 	).Return(version, nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -304,7 +305,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStream(c *tc.C) {
 	u.modelAgentService.EXPECT().
 		UpgradeModelTargetAgentVersion(gomock.Any()).Return(version, nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -337,7 +338,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelWithoutVersionAndStreamDryRun(c *tc.
 	u.modelAgentService.EXPECT().
 		RunPreUpgradeChecks(gomock.Any()).Return(version, nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -373,7 +374,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrMissingAgentBinariesToNotFound
 			Add(modelagenterrors.MissingAgentBinaries),
 	)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -412,7 +413,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrModelUpgradeBlockerToNotSuppor
 		},
 	)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -450,7 +451,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrDowngradeNotSupportedToNotSupp
 		modelagenterrors.DowngradeNotSupported,
 	)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -488,7 +489,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrAgentVersionNotSupportedToNotV
 		modelagenterrors.AgentVersionNotSupported,
 	)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -520,7 +521,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapErrInvalidStreamToNotValid(c *tc.
 		modelagenterrors.AgentVersionNotSupported,
 	)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -552,7 +553,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelMapOtherErrorsToServerError(c *tc.C)
 		errors.New("crazy error occurred"),
 	)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -590,7 +591,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelNoWriteAccess(c *tc.C) {
 				Add(authentication.ErrorEntityMissingPermission),
 		)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -617,7 +618,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelChangeNotAllowed(c *tc.C) {
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.New("not allowed"))
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -637,7 +638,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrorBecauseOfDifferentModel(c *tc.C
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -657,7 +658,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrorModelTag(c *tc.C) {
 	ctrl := u.setup(c)
 	defer ctrl.Finish()
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -684,7 +685,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrorCanUpgrade(c *tc.C) {
 		u.controllerTag,
 	).Return(errors.New("unknown failure"))
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -711,7 +712,7 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.
 	).Return(nil)
 	u.check.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
-	api := NewModelUpgraderAPI(
+	api := newTargetModelUpgraderAPI(
 		u.controllerTag,
 		u.modelTag,
 		u.authorizer, u.check, u.modelAgentService)
@@ -723,4 +724,105 @@ func (u *modelUpgradeSuite) TestUpgradeModelErrUnknownStreamMapToNotValid(c *tc.
 
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(res, tc.DeepEquals, params.UpgradeModelResult{})
+}
+
+func (u *modelUpgradeSuite) TestRouteUpgradeModelControllerModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
+	targetVersion := semversion.MustParse("4.0.1")
+
+	controllerUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
+	controllerUpgrader.EXPECT().UpgradeModel(
+		gomock.Any(),
+		params.UpgradeModelParams{
+			ModelTag:      controllerModelTag.String(),
+			TargetVersion: targetVersion,
+		},
+	).Return(params.UpgradeModelResult{
+		ChosenVersion: targetVersion,
+	}, nil)
+
+	api := NewModelUpgraderAPI(
+		controllerModelTag,
+		controllerUpgrader,
+		func(context.Context, names.ModelTag) (UpgraderAPI, error) {
+			c.Fatalf("model getter should not be called")
+			return nil, nil
+		},
+	)
+
+	result, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
+		ModelTag:      controllerModelTag.String(),
+		TargetVersion: targetVersion,
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.ChosenVersion, tc.Equals, targetVersion)
+}
+
+func (u *modelUpgradeSuite) TestRouteUpgradeModelHostedModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
+	hostedModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
+	targetVersion := semversion.MustParse("4.0.1")
+
+	controllerUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
+	hostedUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
+	hostedUpgrader.EXPECT().UpgradeModel(
+		gomock.Any(),
+		params.UpgradeModelParams{
+			ModelTag:      hostedModelTag.String(),
+			TargetVersion: targetVersion,
+		},
+	).Return(params.UpgradeModelResult{
+		ChosenVersion: targetVersion,
+	}, nil)
+
+	modelGetterCalled := false
+	api := NewModelUpgraderAPI(
+		controllerModelTag,
+		controllerUpgrader,
+		func(ctx context.Context, tag names.ModelTag) (UpgraderAPI, error) {
+			modelGetterCalled = true
+			c.Check(tag, tc.Equals, hostedModelTag)
+			return hostedUpgrader, nil
+		},
+	)
+
+	result, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
+		ModelTag:      hostedModelTag.String(),
+		TargetVersion: targetVersion,
+	})
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.ChosenVersion, tc.Equals, targetVersion)
+	c.Check(modelGetterCalled, tc.IsTrue)
+}
+
+func (u *modelUpgradeSuite) TestRouteUpgradeModelInvalidModelTag(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	controllerModelTag := names.NewModelTag(tc.Must(c, uuid.NewUUID).String())
+	controllerUpgrader := modelupgradermocks.NewMockUpgraderAPI(ctrl)
+
+	api := NewModelUpgraderAPI(
+		controllerModelTag,
+		controllerUpgrader,
+		func(context.Context, names.ModelTag) (UpgraderAPI, error) {
+			c.Fatalf("model getter should not be called")
+			return nil, nil
+		},
+	)
+
+	result, err := api.UpgradeModel(c.Context(), params.UpgradeModelParams{
+		ModelTag: "not-a-model-tag",
+	})
+
+	c.Check(result, tc.DeepEquals, params.UpgradeModelResult{})
+	c.Check(err, tc.ErrorMatches, `"not-a-model-tag" is not a valid tag`)
 }

@@ -7,9 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/modelmigration"
 )
@@ -20,15 +18,11 @@ import (
 type ModelMigrationService interface {
 	// Migration returns status about migration of this model.
 	Migration(ctx context.Context) (modelmigration.Migration, error)
-	// WatchForMigration returns a notification watcher that fires when this model
-	// undergoes migration.
-	WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error)
-	// ReportFromUnit accepts a phase report from a migration minion for a unit
-	// agent.
-	ReportFromUnit(ctx context.Context, unitName unit.Name, phase migration.Phase) error
-	// ReportFromMachine accepts a phase report from a migration minion for a
-	// machine agent.
-	ReportFromMachine(ctx context.Context, machineName machine.Name, phase migration.Phase) error
+	// WatchMigrationPhase returns a notification watcher that fires on each
+	// migration phase transition for this model.
+	WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatcher, error)
+	// ReportMinion accepts a phase report from a migration minion agent.
+	ReportMinion(ctx context.Context, entityKey string, phase migration.Phase, success bool) error
 }
 
 // ControllerNodeService defines API address functionality required by the

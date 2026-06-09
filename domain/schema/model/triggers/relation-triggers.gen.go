@@ -32,7 +32,7 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.application_uuid != OLD.application_uuid OR
 	(NEW.space_uuid != OLD.space_uuid OR (NEW.space_uuid IS NOT NULL AND OLD.space_uuid IS NULL) OR (NEW.space_uuid IS NULL AND OLD.space_uuid IS NOT NULL)) OR
-	NEW.charm_relation_uuid != OLD.charm_relation_uuid 
+	NEW.charm_relation_uuid != OLD.charm_relation_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -72,7 +72,7 @@ WHEN
 	NEW.relation_id != OLD.relation_id OR
 	(NEW.suspended != OLD.suspended OR (NEW.suspended IS NOT NULL AND OLD.suspended IS NULL) OR (NEW.suspended IS NULL AND OLD.suspended IS NOT NULL)) OR
 	(NEW.suspended_reason != OLD.suspended_reason OR (NEW.suspended_reason IS NOT NULL AND OLD.suspended_reason IS NULL) OR (NEW.suspended_reason IS NULL AND OLD.suspended_reason IS NOT NULL)) OR
-	NEW.scope_id != OLD.scope_id 
+	NEW.scope_id != OLD.scope_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -108,7 +108,7 @@ CREATE TRIGGER trg_log_relation_application_settings_hash_update
 AFTER UPDATE ON relation_application_settings_hash FOR EACH ROW
 WHEN 
 	NEW.relation_endpoint_uuid != OLD.relation_endpoint_uuid OR
-	NEW.sha256 != OLD.sha256 
+	NEW.sha256 != OLD.sha256
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -145,7 +145,7 @@ AFTER UPDATE ON relation_unit FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
 	NEW.relation_endpoint_uuid != OLD.relation_endpoint_uuid OR
-	NEW.unit_uuid != OLD.unit_uuid 
+	NEW.unit_uuid != OLD.unit_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -181,7 +181,7 @@ CREATE TRIGGER trg_log_relation_unit_settings_hash_update
 AFTER UPDATE ON relation_unit_settings_hash FOR EACH ROW
 WHEN 
 	NEW.relation_unit_uuid != OLD.relation_unit_uuid OR
-	NEW.sha256 != OLD.sha256 
+	NEW.sha256 != OLD.sha256
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

@@ -69,6 +69,12 @@ func (*ValidateSuite) TestMissingCharmService(c *tc.C) {
 	checkNotValid(c, config, "nil CharmService not valid")
 }
 
+func (*ValidateSuite) TestMissingModelMigrationService(c *tc.C) {
+	config := validConfig()
+	config.ModelMigrationService = nil
+	checkNotValid(c, config, "nil ModelMigrationService not valid")
+}
+
 func (*ValidateSuite) TestMissingAgentBinaryStore(c *tc.C) {
 	config := validConfig()
 	config.AgentBinaryStore = nil
@@ -83,12 +89,15 @@ func (*ValidateSuite) TestMissingClock(c *tc.C) {
 
 func validConfig() migrationmaster.Config {
 	return migrationmaster.Config{
-		ModelUUID:        coretesting.ModelTag.Id(),
-		Guard:            struct{ fortress.Guard }{},
-		Facade:           struct{ migrationmaster.Facade }{},
-		APIOpen:          func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
-		UploadBinaries:   func(context.Context, migration.UploadBinariesConfig, logger.Logger) error { return nil },
-		CharmService:     struct{ migrationmaster.CharmService }{},
+		ModelUUID:      coretesting.ModelTag.Id(),
+		Guard:          struct{ fortress.Guard }{},
+		Facade:         struct{ migrationmaster.Facade }{},
+		APIOpen:        func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
+		UploadBinaries: func(context.Context, migration.UploadBinariesConfig, logger.Logger) error { return nil },
+		CharmService:   struct{ migrationmaster.CharmService }{},
+		ModelMigrationService: struct {
+			migrationmaster.ModelMigrationService
+		}{},
 		AgentBinaryStore: struct{ migration.AgentBinaryStore }{},
 		Clock:            struct{ clock.Clock }{},
 	}

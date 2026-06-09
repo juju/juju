@@ -229,11 +229,10 @@ func (c *nestedContext) Report(ctx context.Context) map[string]any {
 // The unit's agent.conf is still being used by the unit workers, so that
 // needs to be created, along with a link to the tools directory for the
 // unit.
-func (c *nestedContext) DeployUnit(unitName, initialPassword string) error {
-	ctx := context.TODO()
+func (c *nestedContext) DeployUnit(ctx context.Context, unitName, initialPassword string) error {
+	tag := names.NewUnitTag(unitName)
 
 	// Create unit agent config file.
-	tag := names.NewUnitTag(unitName)
 	_, err := c.createUnitAgentConfig(ctx, tag, initialPassword)
 	if err != nil {
 		// Any error here is indicative of a disk issue, potentially out of

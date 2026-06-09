@@ -240,22 +240,22 @@ WHERE  availability_zone.name = $availabilityZoneName.name
 		disName = sql.Null[string]{V: v, Valid: true}
 	}
 
-	instanceData := instanceData{
-		MachineUUID: mUUID,
-		InstanceID:  instID,
-		DisplayName: disName,
-	}
-	if hardwareCharacteristics != nil {
-		instanceData.Arch = hardwareCharacteristics.Arch
-		instanceData.Mem = hardwareCharacteristics.Mem
-		instanceData.RootDisk = hardwareCharacteristics.RootDisk
-		instanceData.RootDiskSource = hardwareCharacteristics.RootDiskSource
-		instanceData.CPUCores = hardwareCharacteristics.CpuCores
-		instanceData.CPUPower = hardwareCharacteristics.CpuPower
-		instanceData.VirtType = hardwareCharacteristics.VirtType
-	}
-
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		instanceData := instanceData{
+			MachineUUID: mUUID,
+			InstanceID:  instID,
+			DisplayName: disName,
+		}
+		if hardwareCharacteristics != nil {
+			instanceData.Arch = hardwareCharacteristics.Arch
+			instanceData.Mem = hardwareCharacteristics.Mem
+			instanceData.RootDisk = hardwareCharacteristics.RootDisk
+			instanceData.RootDiskSource = hardwareCharacteristics.RootDiskSource
+			instanceData.CPUCores = hardwareCharacteristics.CpuCores
+			instanceData.CPUPower = hardwareCharacteristics.CpuPower
+			instanceData.VirtType = hardwareCharacteristics.VirtType
+		}
+
 		// If the machine is not
 		_, err := st.getInstanceID(ctx, tx, mUUID)
 		if err != nil && !errors.Is(err, machineerrors.NotProvisioned) {

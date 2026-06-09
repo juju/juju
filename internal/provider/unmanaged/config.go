@@ -9,6 +9,7 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/configschema"
 )
 
 var (
@@ -34,6 +35,16 @@ func (p UnmanagedProvider) ConfigDefaults() schema.Defaults {
 // ConfigSchema returns the extra config attributes specific to this provider.
 func (p UnmanagedProvider) ConfigSchema() schema.Fields {
 	return schema.Fields{}
+}
+
+// Schema returns the configuration schema for the unmanaged provider.
+// The unmanaged provider has no provider-specific config attributes.
+func (p UnmanagedProvider) Schema() configschema.Fields {
+	fields, err := config.Schema(nil)
+	if err != nil {
+		panic(err)
+	}
+	return fields
 }
 
 // ModelConfigDefaults provides a set of default model config attributes that

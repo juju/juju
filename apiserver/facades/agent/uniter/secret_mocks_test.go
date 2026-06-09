@@ -236,78 +236,78 @@ func (c *MockSecretServiceGetSecretValueCall) DoAndReturn(f func(context.Context
 	return c
 }
 
-// GrantSecretAccess mocks base method.
-func (m *MockSecretService) GrantSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessParams) error {
+// ResolveGrantParams mocks base method.
+func (m *MockSecretService) ResolveGrantParams(arg0 context.Context, arg1 []secret.SecretAccessParams) []secret.GrantResult {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GrantSecretAccess", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "ResolveGrantParams", arg0, arg1)
+	ret0, _ := ret[0].([]secret.GrantResult)
 	return ret0
 }
 
-// GrantSecretAccess indicates an expected call of GrantSecretAccess.
-func (mr *MockSecretServiceMockRecorder) GrantSecretAccess(arg0, arg1, arg2 any) *MockSecretServiceGrantSecretAccessCall {
+// ResolveGrantParams indicates an expected call of ResolveGrantParams.
+func (mr *MockSecretServiceMockRecorder) ResolveGrantParams(arg0, arg1 any) *MockSecretServiceResolveGrantParamsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecretAccess", reflect.TypeOf((*MockSecretService)(nil).GrantSecretAccess), arg0, arg1, arg2)
-	return &MockSecretServiceGrantSecretAccessCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveGrantParams", reflect.TypeOf((*MockSecretService)(nil).ResolveGrantParams), arg0, arg1)
+	return &MockSecretServiceResolveGrantParamsCall{Call: call}
 }
 
-// MockSecretServiceGrantSecretAccessCall wrap *gomock.Call
-type MockSecretServiceGrantSecretAccessCall struct {
+// MockSecretServiceResolveGrantParamsCall wrap *gomock.Call
+type MockSecretServiceResolveGrantParamsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSecretServiceGrantSecretAccessCall) Return(arg0 error) *MockSecretServiceGrantSecretAccessCall {
+func (c *MockSecretServiceResolveGrantParamsCall) Return(arg0 []secret.GrantResult) *MockSecretServiceResolveGrantParamsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceGrantSecretAccessCall) Do(f func(context.Context, *secrets.URI, secret.SecretAccessParams) error) *MockSecretServiceGrantSecretAccessCall {
+func (c *MockSecretServiceResolveGrantParamsCall) Do(f func(context.Context, []secret.SecretAccessParams) []secret.GrantResult) *MockSecretServiceResolveGrantParamsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceGrantSecretAccessCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.SecretAccessParams) error) *MockSecretServiceGrantSecretAccessCall {
+func (c *MockSecretServiceResolveGrantParamsCall) DoAndReturn(f func(context.Context, []secret.SecretAccessParams) []secret.GrantResult) *MockSecretServiceResolveGrantParamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// RevokeSecretAccess mocks base method.
-func (m *MockSecretService) RevokeSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessParams) error {
+// ResolveRevokeParams mocks base method.
+func (m *MockSecretService) ResolveRevokeParams(arg0 context.Context, arg1 []secret.SecretAccessParams) []secret.RevokeResult {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevokeSecretAccess", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "ResolveRevokeParams", arg0, arg1)
+	ret0, _ := ret[0].([]secret.RevokeResult)
 	return ret0
 }
 
-// RevokeSecretAccess indicates an expected call of RevokeSecretAccess.
-func (mr *MockSecretServiceMockRecorder) RevokeSecretAccess(arg0, arg1, arg2 any) *MockSecretServiceRevokeSecretAccessCall {
+// ResolveRevokeParams indicates an expected call of ResolveRevokeParams.
+func (mr *MockSecretServiceMockRecorder) ResolveRevokeParams(arg0, arg1 any) *MockSecretServiceResolveRevokeParamsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecretAccess", reflect.TypeOf((*MockSecretService)(nil).RevokeSecretAccess), arg0, arg1, arg2)
-	return &MockSecretServiceRevokeSecretAccessCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveRevokeParams", reflect.TypeOf((*MockSecretService)(nil).ResolveRevokeParams), arg0, arg1)
+	return &MockSecretServiceResolveRevokeParamsCall{Call: call}
 }
 
-// MockSecretServiceRevokeSecretAccessCall wrap *gomock.Call
-type MockSecretServiceRevokeSecretAccessCall struct {
+// MockSecretServiceResolveRevokeParamsCall wrap *gomock.Call
+type MockSecretServiceResolveRevokeParamsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSecretServiceRevokeSecretAccessCall) Return(arg0 error) *MockSecretServiceRevokeSecretAccessCall {
+func (c *MockSecretServiceResolveRevokeParamsCall) Return(arg0 []secret.RevokeResult) *MockSecretServiceResolveRevokeParamsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceRevokeSecretAccessCall) Do(f func(context.Context, *secrets.URI, secret.SecretAccessParams) error) *MockSecretServiceRevokeSecretAccessCall {
+func (c *MockSecretServiceResolveRevokeParamsCall) Do(f func(context.Context, []secret.SecretAccessParams) []secret.RevokeResult) *MockSecretServiceResolveRevokeParamsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceRevokeSecretAccessCall) DoAndReturn(f func(context.Context, *secrets.URI, secret.SecretAccessParams) error) *MockSecretServiceRevokeSecretAccessCall {
+func (c *MockSecretServiceResolveRevokeParamsCall) DoAndReturn(f func(context.Context, []secret.SecretAccessParams) []secret.RevokeResult) *MockSecretServiceResolveRevokeParamsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

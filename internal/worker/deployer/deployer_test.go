@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
@@ -262,7 +263,7 @@ func (c *fakeContext) Wait() error {
 	return nil
 }
 
-func (c *fakeContext) DeployUnit(unitName, initialPassword string) error {
+func (c *fakeContext) DeployUnit(ctx context.Context, unitName, initialPassword string) error {
 	c.deployedMu.Lock()
 	defer c.deployedMu.Unlock()
 

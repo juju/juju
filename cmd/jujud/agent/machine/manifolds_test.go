@@ -85,6 +85,8 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"clock",
 			"control-socket",
 			"controller-agent-config",
+			"controller-agent-config-ready-flag",
+			"controller-agent-config-ready-gate",
 			"controller-presence",
 			"controller-trace",
 			"trace-services",
@@ -180,6 +182,8 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"clock",
 			"control-socket",
 			"controller-agent-config",
+			"controller-agent-config-ready-flag",
+			"controller-agent-config-ready-gate",
 			"controller-presence",
 			"controller-trace",
 			"trace-services",
@@ -278,6 +282,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"clock",
 		"control-socket",
 		"controller-agent-config",
+		"controller-agent-config-ready-flag",
+		"controller-agent-config-ready-gate",
 		"controller-presence",
 		"controller-trace",
 		"trace-services",
@@ -946,6 +952,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
+	"controller-agent-config-ready-gate": {},
+
+	"controller-agent-config-ready-flag": {
+		"controller-agent-config-ready-gate",
+	},
+
 	"controller-presence": {
 		"agent",
 		"api-remote-caller",
@@ -987,6 +999,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"controller-agent-config-ready-flag",
+		"controller-agent-config-ready-gate",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -2121,6 +2135,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
+	"controller-agent-config-ready-gate": {},
+
+	"controller-agent-config-ready-flag": {
+		"controller-agent-config-ready-gate",
+	},
+
 	"controller-presence": {
 		"agent",
 		"api-remote-caller",
@@ -2861,6 +2881,10 @@ func (mc *mockConfig) Controller() names.ControllerTag {
 }
 
 func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
+	return mc.ssi, mc.ssiSet
+}
+
+func (mc *mockConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
 	return mc.ssi, mc.ssiSet
 }
 

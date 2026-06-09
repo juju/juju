@@ -31,6 +31,7 @@ func (s *restrictControllerSuite) SetUpSuite(c *tc.C) {
 func (s *restrictControllerSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "CreateModel")
 	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "ListModels")
+	s.assertMethod(c, "ModelUpgrader", 2, "UpgradeModel")
 	s.assertMethod(c, "Pinger", pingerFacadeVersion, "Ping")
 	s.assertMethod(c, "Bundle", 8, "GetChangesMapArgs")
 	s.assertMethod(c, "ApplicationOffers", 5, "ApplicationOffers")
@@ -40,6 +41,12 @@ func (s *restrictControllerSuite) TestNotAllowed(c *tc.C) {
 	caller, err := s.root.FindMethod("Client", clientFacadeVersion, "FullStatus")
 	c.Assert(err, tc.ErrorMatches, `facade "Client" not supported for controller API connection`)
 	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+	c.Assert(caller, tc.IsNil)
+}
+
+func (s *restrictControllerSuite) TestModelUpgraderV1NotRegistered(c *tc.C) {
+	caller, err := s.root.FindMethod("ModelUpgrader", 1, "UpgradeModel")
+	c.Assert(err, tc.ErrorMatches, `unknown version 1 for facade type "ModelUpgrader"`)
 	c.Assert(caller, tc.IsNil)
 }
 

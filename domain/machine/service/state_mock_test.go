@@ -596,6 +596,46 @@ func (c *MockStateGetMachineLifeCall) DoAndReturn(f func(context.Context, machin
 	return c
 }
 
+// GetMachineLifeAndIsManuallyProvisioned mocks base method.
+func (m *MockState) GetMachineLifeAndIsManuallyProvisioned(arg0 context.Context, arg1 machine.Name) (life.Life, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMachineLifeAndIsManuallyProvisioned", arg0, arg1)
+	ret0, _ := ret[0].(life.Life)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetMachineLifeAndIsManuallyProvisioned indicates an expected call of GetMachineLifeAndIsManuallyProvisioned.
+func (mr *MockStateMockRecorder) GetMachineLifeAndIsManuallyProvisioned(arg0, arg1 any) *MockStateGetMachineLifeAndIsManuallyProvisionedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineLifeAndIsManuallyProvisioned", reflect.TypeOf((*MockState)(nil).GetMachineLifeAndIsManuallyProvisioned), arg0, arg1)
+	return &MockStateGetMachineLifeAndIsManuallyProvisionedCall{Call: call}
+}
+
+// MockStateGetMachineLifeAndIsManuallyProvisionedCall wrap *gomock.Call
+type MockStateGetMachineLifeAndIsManuallyProvisionedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetMachineLifeAndIsManuallyProvisionedCall) Return(arg0 life.Life, arg1 bool, arg2 error) *MockStateGetMachineLifeAndIsManuallyProvisionedCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetMachineLifeAndIsManuallyProvisionedCall) Do(f func(context.Context, machine.Name) (life.Life, bool, error)) *MockStateGetMachineLifeAndIsManuallyProvisionedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetMachineLifeAndIsManuallyProvisionedCall) DoAndReturn(f func(context.Context, machine.Name) (life.Life, bool, error)) *MockStateGetMachineLifeAndIsManuallyProvisionedCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineParentUUID mocks base method.
 func (m *MockState) GetMachineParentUUID(ctx context.Context, machineUUID string) (machine.UUID, error) {
 	m.ctrl.T.Helper()

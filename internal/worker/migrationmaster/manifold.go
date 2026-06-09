@@ -85,14 +85,15 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 	w, err := config.NewWorker(Config{
-		ModelUUID:        agent.CurrentConfig().Model().Id(),
-		Facade:           facade,
-		CharmService:     domainServices.Application(),
-		Guard:            guard,
-		APIOpen:          api.Open,
-		UploadBinaries:   migration.UploadBinaries,
-		AgentBinaryStore: domainServices.AgentBinaryStore(),
-		Clock:            config.Clock,
+		ModelUUID:             agent.CurrentConfig().Model().Id(),
+		Facade:                facade,
+		CharmService:          domainServices.Application(),
+		ModelMigrationService: domainServices.ModelMigration(),
+		Guard:                 guard,
+		APIOpen:               api.Open,
+		UploadBinaries:        migration.UploadBinaries,
+		AgentBinaryStore:      domainServices.AgentBinaryStore(),
+		Clock:                 config.Clock,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -94,7 +94,7 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
 		triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
 		triggers.ChangeLogTriggersForModelMigrationExport("model_uuid", tableModelMigrationExport),
-		triggers.ChangeLogTriggersForModelMigrationExportPhase("migration_uuid", tableModelMigrationExportPhase),
+		triggers.ChangeLogTriggersForModelMigrationExportPhase("model_uuid", tableModelMigrationExportPhase),
 		triggers.ChangeLogTriggersForModelMigrationExportMinionSync("migration_uuid", tableModelMigrationExportMinionSync),
 		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
 		triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),

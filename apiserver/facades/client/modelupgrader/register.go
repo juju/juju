@@ -12,20 +12,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/rpc/params"
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/errors"
 )
-
-// UpgraderAPI holds the common methods for upgrading agents in controllers and models.
-// At the moment it is used to dynamically register the facade because the facade names
-// are the same for both [ControllerUpgraderAPI] and [ModelUpgraderAPI].
-// See [Register] func.
-type UpgraderAPI interface {
-	AbortModelUpgrade(ctx context.Context, arg params.ModelParam) error
-	UpgradeModel(
-		ctx context.Context,
-		arg params.UpgradeModelParams,
-	) (result params.UpgradeModelResult, err error)
-}
 
 // UpgradeAPI represents the model upgrader facade. This type exist to sastify
 // registration requirements of providing a singular type to must register.
@@ -37,45 +26,65 @@ type UpgradeAPI struct {
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegisterForMultiModel("ModelUpgrader", 1, func(
+	registry.MustRegisterForMultiModel("ModelUpgrader", 2, func(
 		stdCtx context.Context,
 		ctx facade.MultiModelContext,
 	) (facade.Facade, error) {
-		return newUpgraderFacadeV1(ctx)
+		return newUpgraderFacadeV2(stdCtx, ctx)
 	}, reflect.TypeFor[UpgradeAPI]())
 }
 
-// newUpgraderFacadeV1 returns which facade to register.
-// It will return a [ControllerUpgraderAPI] if the current model hosts the controller.
-// Otherwise, it defaults to [ModelUpgraderAPI].
-func newUpgraderFacadeV1(ctx facade.MultiModelContext) (UpgradeAPI, error) {
+// newUpgraderFacadeV2 returns a controller-context upgrader facade that routes
+// each request to the target model's service backing.
+func newUpgraderFacadeV2(
+	stdCtx context.Context,
+	ctx facade.MultiModelContext,
+) (UpgradeAPI, error) {
 	auth := ctx.Auth()
 	if !auth.AuthClient() {
 		return UpgradeAPI{}, apiservererrors.ErrPerm
 	}
 
 	controllerTag := names.NewControllerTag(ctx.ControllerUUID())
-	modelTag := names.NewModelTag(ctx.ModelUUID().String())
-	domainServices := ctx.DomainServices()
-	checker := common.NewBlockChecker(domainServices.BlockCommand())
-
-	if ctx.IsControllerModelScoped() {
-		upgraderAPI := NewControllerUpgraderAPI(
+	controllerModelTag := names.NewModelTag(ctx.ControllerModelUUID().String())
+	controllerDomainServices, err := ctx.DomainServicesForModel(
+		stdCtx,
+		ctx.ControllerModelUUID(),
+	)
+	if err != nil {
+		return UpgradeAPI{}, errors.Capture(err)
+	}
+	controllerUpgrader := NewControllerUpgraderAPI(
+		controllerTag,
+		controllerModelTag,
+		auth,
+		common.NewBlockChecker(controllerDomainServices.BlockCommand()),
+		controllerDomainServices.ControllerUpgrader(),
+	)
+	modelUpgrader := func(
+		stdCtx context.Context,
+		modelTag names.ModelTag,
+	) (UpgraderAPI, error) {
+		domainServices, err := ctx.DomainServicesForModel(
+			stdCtx,
+			coremodel.UUID(modelTag.Id()),
+		)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return newTargetModelUpgraderAPI(
 			controllerTag,
 			modelTag,
 			auth,
-			checker,
-			domainServices.ControllerUpgrader(),
-		)
-		return UpgradeAPI{upgraderAPI}, nil
+			common.NewBlockChecker(domainServices.BlockCommand()),
+			domainServices.Agent(),
+		), nil
 	}
 
 	upgraderAPI := NewModelUpgraderAPI(
-		controllerTag,
-		modelTag,
-		auth,
-		checker,
-		domainServices.Agent(),
+		controllerModelTag,
+		controllerUpgrader,
+		modelUpgrader,
 	)
 	return UpgradeAPI{UpgraderAPI: upgraderAPI}, nil
 }

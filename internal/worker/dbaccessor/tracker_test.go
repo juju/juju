@@ -451,6 +451,8 @@ func readTableNames(c *tc.C, w coredatabase.TxnRunner) []string {
 	// db.
 	var tables []string
 	err := w.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		tables = nil
+
 		rows, err := tx.Query("SELECT tbl_name FROM sqlite_schema")
 		if err != nil {
 			return err

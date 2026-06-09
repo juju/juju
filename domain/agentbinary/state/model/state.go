@@ -136,10 +136,6 @@ func (s *ModelState) RegisterAgentBinary(ctx context.Context, arg agentbinary.Re
 	}
 
 	archVal := architectureRecord{Name: arg.Arch}
-	agentBinary := agentBinaryRecord{
-		Version:         arg.Version,
-		ObjectStoreUUID: arg.ObjectStoreUUID.String(),
-	}
 
 	archStmt, err := s.Prepare(`
 SELECT &architectureRecord.*
@@ -153,7 +149,7 @@ WHERE  name = $architectureRecord.name
 	insertStmt, err := s.Prepare(`
 INSERT INTO agent_binary_store (*)
 VALUES ($agentBinaryRecord.*)
-`, agentBinary)
+`, agentBinaryRecord{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -182,7 +178,11 @@ VALUES ($agentBinaryRecord.*)
 			return errors.Capture(err)
 		}
 
-		agentBinary.ArchitectureID = archVal.ID
+		agentBinary := agentBinaryRecord{
+			Version:         arg.Version,
+			ObjectStoreUUID: arg.ObjectStoreUUID.String(),
+			ArchitectureID:  archVal.ID,
+		}
 		err = tx.Query(ctx, insertStmt, agentBinary).Run()
 		if jujudb.IsErrConstraintPrimaryKey(err) {
 			// There must be an agent version for this version and arch already.
@@ -196,7 +196,6 @@ VALUES ($agentBinaryRecord.*)
 				ctx, tx, agentBinary.Version, agentBinary.ArchitectureID,
 			)
 			if errors.Is(err, coreerrors.NotFound) {
-				// This should never happen.
 				return errors.Capture(err)
 			}
 			if err != nil {
