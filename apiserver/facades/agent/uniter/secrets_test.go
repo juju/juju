@@ -239,15 +239,31 @@ func (s *UniterSecretsSuite) TestUpdateSecrets(c *tc.C) {
 	})
 }
 
-func (s *UniterSecretsSuite) TestUpdateTrackedRevisions(c *tc.C) {
+// --- prepareSecretTrackLatest tests ---
+
+func (s *UniterSecretsSuite) TestPrepareSecretTrackLatestEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uri := coresecrets.NewURI()
-	s.secretService.EXPECT().GetConsumedRevision(gomock.Any(), uri, unittesting.GenNewName(c, "mariadb/0"), true, false, nil).
-		Return(668, nil)
-	result, err := s.facade.updateTrackedRevisions(c.Context(), []string{uri.ID})
+	result, err := s.facade.prepareSecretTrackLatest(nil)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
+	c.Check(result, tc.HasLen, 0)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretTrackLatestInvalidURI(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.facade.prepareSecretTrackLatest([]string{"not-a-valid-uri-%%%"})
+	c.Assert(err, tc.ErrorMatches, `.*invalid URL escape.*`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretTrackLatestSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	result, err := s.facade.prepareSecretTrackLatest([]string{uri1.String(), uri2.String()})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []string{uri1.ID, uri2.ID})
 }
 
 // --- prepareSecretRevokes tests ---

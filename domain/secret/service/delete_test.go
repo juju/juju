@@ -31,8 +31,8 @@ func (s *serviceSuite) TestDeleteSecret(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return("", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 2).Return("", nil)
+	s.state.EXPECT().GetSecretRevisionUUID(gomock.Any(), uri, 1).Return("", nil)
+	s.state.EXPECT().GetSecretRevisionUUID(gomock.Any(), uri, 2).Return("", nil)
 	s.state.EXPECT().ScheduleUserSecretRemoval(gomock.Any(), gomock.Any(), uri, []int{1, 2}, gomock.Any()).Return(nil)
 
 	err := s.service.DeleteSecret(c.Context(), uri, domainsecret.DeleteSecretParams{

@@ -28,6 +28,8 @@ import (
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
+	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type commitHookSuite struct {
@@ -1097,4 +1099,353 @@ func (s *commitHookSuite) countRows(c *tc.C, query string, args ...any) int {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return count
+}
+
+// addSecretRevision inserts a secret_revision row for the given secret and
+// returns the revision UUID used.
+func (s *commitHookSuite) addSecretRevision(c *tc.C, secretID string, revision int) string {
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	s.query(c, `
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time)
+VALUES (?, ?, ?, DATETIME('now'))
+`, revUUID, secretID, revision)
+	return revUUID
+}
+
+// secretConsumerRow holds the fields we care about from secret_unit_consumer.
+type secretConsumerRow struct {
+	CurrentRevision int
+	SourceModelUUID string
+}
+
+// getSecretConsumer reads the secret_unit_consumer row for the given secret and
+// unit, returning the current_revision and source_model_uuid.
+func (s *commitHookSuite) getSecretConsumer(c *tc.C, secretID, unitUUID string) (secretConsumerRow, bool) {
+	var row secretConsumerRow
+	var found bool
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT current_revision, source_model_uuid
+FROM   secret_unit_consumer
+WHERE  secret_id = ? AND unit_uuid = ?
+`, secretID, unitUUID).Scan(&row.CurrentRevision, &row.SourceModelUUID)
+	})
+	if err == nil {
+		found = true
+	} else if errors.Is(err, sql.ErrNoRows) {
+		found = false
+		err = nil
+	}
+	c.Assert(err, tc.ErrorIsNil)
+	return row, found
+}
+
+// TestTrackSecretsEmpty verifies that trackSecrets is a no-op when the list
+// of secret IDs is empty.
+func (s *commitHookSuite) TestTrackSecretsEmpty(c *tc.C) {
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: nil,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestTrackSecretsUnknownID verifies that a secret ID that does not exist in
+// the database is silently skipped — trackSecrets must never fail for
+// non-existent secrets.
+func (s *commitHookSuite) TestTrackSecretsUnknownID(c *tc.C) {
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{"does-not-exist"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// No consumer row must have been created.
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM secret_unit_consumer WHERE unit_uuid = ?", s.unitUUID),
+		tc.Equals, 0,
+	)
+}
+
+// TestTrackSecretsNoRevisions verifies that a secret with no revisions is
+// silently skipped.
+func (s *commitHookSuite) TestTrackSecretsNoRevisions(c *tc.C) {
+	secretID := "tracktest-norev"
+	s.addSecret(c, secretID)
+
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// No consumer row because there are no revisions.
+	c.Check(
+		s.countRows(c, "SELECT count(*) FROM secret_unit_consumer WHERE secret_id = ?", secretID),
+		tc.Equals, 0,
+	)
+}
+
+// TestTrackSecretsCreatesConsumerRow verifies that a secret with revisions
+// gets a secret_unit_consumer row pointing to the latest revision.
+func (s *commitHookSuite) TestTrackSecretsCreatesConsumerRow(c *tc.C) {
+	secretID := "tracktest-create"
+	s.addSecret(c, secretID)
+	s.addSecretRevision(c, secretID, 1)
+	s.addSecretRevision(c, secretID, 2)
+
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	row, found := s.getSecretConsumer(c, secretID, s.unitUUID)
+	c.Assert(found, tc.IsTrue)
+	// Must track the latest (highest) revision.
+	c.Check(row.CurrentRevision, tc.Equals, 2)
+	// Local secrets store the model UUID as source_model_uuid, matching the
+	// invariant set by SaveSecretConsumer.
+	c.Check(row.SourceModelUUID, tc.Equals, s.modelUUID.String())
+}
+
+// TestTrackSecretsUpdatesConsumerRow verifies that calling trackSecrets when a
+// consumer row already exists updates current_revision to the latest value.
+func (s *commitHookSuite) TestTrackSecretsUpdatesConsumerRow(c *tc.C) {
+	secretID := "tracktest-update"
+	s.addSecret(c, secretID)
+	s.addSecretRevision(c, secretID, 1)
+
+	// Pre-insert a consumer row that tracks revision 1.
+	s.query(c, `
+INSERT INTO secret_unit_consumer (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES (?, '', ?, 'my-label', 1)
+`, secretID, s.unitUUID)
+
+	// Add a new revision.
+	s.addSecretRevision(c, secretID, 2)
+
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	row, found := s.getSecretConsumer(c, secretID, s.unitUUID)
+	c.Assert(found, tc.IsTrue)
+	// Revision must now be 2 (the latest).
+	c.Check(row.CurrentRevision, tc.Equals, 2)
+}
+
+// TestTrackSecretsPreservesLabel verifies that updating an existing consumer
+// row does NOT overwrite the label.
+func (s *commitHookSuite) TestTrackSecretsPreservesLabel(c *tc.C) {
+	secretID := "tracktest-label"
+	s.addSecret(c, secretID)
+	s.addSecretRevision(c, secretID, 1)
+	s.addSecretRevision(c, secretID, 2)
+	s.query(c, `
+INSERT INTO secret_unit_consumer (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES (?, '', ?, 'keep-this-label', 1)
+`, secretID, s.unitUUID)
+
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Label must be unchanged.
+	var label string
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT label FROM secret_unit_consumer WHERE secret_id = ? AND unit_uuid = ?",
+			secretID, s.unitUUID).Scan(&label)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label, tc.Equals, "keep-this-label")
+}
+
+// TestTrackSecretsMarksObsoleteRevisions verifies that after tracking the
+// latest revision, older revisions that are no longer consumed are marked
+// obsolete (pending_delete=true) in secret_revision_obsolete.
+func (s *commitHookSuite) TestTrackSecretsMarksObsoleteRevisions(c *tc.C) {
+	secretID := "tracktest-obsolete"
+	s.addSecret(c, secretID)
+	rev1UUID := s.addSecretRevision(c, secretID, 1)
+	// rev2 is the latest and will remain in-use.
+	_ = s.addSecretRevision(c, secretID, 2)
+
+	// Pre-insert consumer row tracking revision 1 — it will be moved to 2.
+	s.query(c, `
+INSERT INTO secret_unit_consumer (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES (?, '', ?, '', 1)
+`, secretID, s.unitUUID)
+
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Revision 1 is no longer consumed by anyone and is not the latest →
+	// it must appear in secret_revision_obsolete with pending_delete=true.
+	var obsolete, pendingDelete bool
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT obsolete, pending_delete FROM secret_revision_obsolete WHERE revision_uuid = ?",
+			rev1UUID).Scan(&obsolete, &pendingDelete)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obsolete, tc.IsTrue)
+	c.Check(pendingDelete, tc.IsTrue)
+
+	// Revision 2 (the latest and now consumed) must NOT be obsolete.
+	c.Check(
+		s.countRows(c,
+			"SELECT count(*) FROM secret_revision_obsolete ro "+
+				"JOIN secret_revision sr ON sr.uuid = ro.revision_uuid "+
+				"WHERE sr.secret_id = ? AND sr.revision = 2 AND ro.pending_delete = true",
+			secretID),
+		tc.Equals, 0,
+	)
+}
+
+// TestTrackSecretsMultiple verifies that multiple secrets are all tracked in
+// the same CommitHookChanges call.
+func (s *commitHookSuite) TestTrackSecretsMultiple(c *tc.C) {
+	secretID1 := "tracktest-multi-1"
+	secretID2 := "tracktest-multi-2"
+	s.addSecret(c, secretID1)
+	s.addSecret(c, secretID2)
+	s.addSecretRevision(c, secretID1, 1)
+	s.addSecretRevision(c, secretID1, 3)
+	s.addSecretRevision(c, secretID2, 1)
+
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID1, secretID2},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	row1, found1 := s.getSecretConsumer(c, secretID1, s.unitUUID)
+	c.Assert(found1, tc.IsTrue)
+	c.Check(row1.CurrentRevision, tc.Equals, 3)
+
+	row2, found2 := s.getSecretConsumer(c, secretID2, s.unitUUID)
+	c.Assert(found2, tc.IsTrue)
+	c.Check(row2.CurrentRevision, tc.Equals, 1)
+}
+
+// TestTrackSecretsMultiUnitObsoleteRevision verifies the critical safety
+// property of markSecretRevisionsObsolete: a revision that is still tracked by
+// a second consumer must NOT be marked obsolete when only the first consumer
+// advances to the latest revision.
+//
+// Scenario:
+//
+//	addSecret → 2 revisions
+//	consumer A (s.unitUUID) at rev 1, consumer B (unitB) at rev 1
+//	trackSecrets for A only  → A advances to rev 2
+//	assert rev 1 is NOT in secret_revision_obsolete  (B still tracks it)
+//	trackSecrets for B        → B advances to rev 2
+//	assert rev 1 IS now in secret_revision_obsolete
+func (s *commitHookSuite) TestTrackSecretsMultiUnitObsoleteRevision(c *tc.C) {
+	secretID := "tracktest-multiunit"
+	s.addSecret(c, secretID)
+	rev1UUID := s.addSecretRevision(c, secretID, 1)
+	_ = s.addSecretRevision(c, secretID, 2)
+
+	// Create a second unit in the same application.
+	unitBName := coreunit.Name(s.fakeApplicationName1 + "/9")
+	unitBUUID := s.addUnitAndNetNode(c, unitBName, s.fakeApplicationUUID1, s.fakeCharmUUID1).String()
+
+	// Both consumers start at revision 1.
+	s.query(c, `
+INSERT INTO secret_unit_consumer (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES (?, '', ?, '', 1)
+`, secretID, s.unitUUID)
+	s.query(c, `
+INSERT INTO secret_unit_consumer (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES (?, '', ?, '', 1)
+`, secretID, unitBUUID)
+
+	// Advance consumer A to the latest revision.
+	err := s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	rowA, found := s.getSecretConsumer(c, secretID, s.unitUUID)
+	c.Assert(found, tc.IsTrue)
+	c.Check(rowA.CurrentRevision, tc.Equals, 2)
+
+	// Revision 1 must NOT be obsolete yet — unit B still tracks it.
+	c.Check(
+		s.countRows(c,
+			"SELECT count(*) FROM secret_revision_obsolete WHERE revision_uuid = ?",
+			rev1UUID),
+		tc.Equals, 0,
+	)
+
+	// Now advance consumer B to the latest revision.
+	err = s.state.CommitHookChanges(c.Context(), internal.CommitHookChangesArg{
+		UnitUUID:           unitBUUID,
+		TrackLatestSecrets: []string{secretID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	rowB, found := s.getSecretConsumer(c, secretID, unitBUUID)
+	c.Assert(found, tc.IsTrue)
+	c.Check(rowB.CurrentRevision, tc.Equals, 2)
+
+	// Now revision 1 is no longer tracked by anyone → it must be obsolete.
+	var obsolete, pendingDelete bool
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT obsolete, pending_delete FROM secret_revision_obsolete WHERE revision_uuid = ?",
+			rev1UUID).Scan(&obsolete, &pendingDelete)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obsolete, tc.IsTrue)
+	c.Check(pendingDelete, tc.IsTrue)
+}
+
+// TestTrackSecretsIdempotent verifies that calling CommitHookChanges twice
+// with the same TrackLatestSecrets entry produces no spurious side-effects:
+//   - current_revision still reflects the latest revision
+//   - no revision that is still current ends up in secret_revision_obsolete
+//     with pending_delete=true
+func (s *commitHookSuite) TestTrackSecretsIdempotent(c *tc.C) {
+	secretID := "tracktest-idempotent"
+	s.addSecret(c, secretID)
+	s.addSecretRevision(c, secretID, 1)
+	_ = s.addSecretRevision(c, secretID, 2)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID:           s.unitUUID,
+		TrackLatestSecrets: []string{secretID},
+	}
+
+	// First call — creates the consumer row.
+	c.Assert(s.state.CommitHookChanges(c.Context(), arg), tc.ErrorIsNil)
+
+	// Second call — upserts the same row; must be a no-op.
+	c.Assert(s.state.CommitHookChanges(c.Context(), arg), tc.ErrorIsNil)
+
+	row, found := s.getSecretConsumer(c, secretID, s.unitUUID)
+	c.Assert(found, tc.IsTrue)
+	// Must still point to the latest revision.
+	c.Check(row.CurrentRevision, tc.Equals, 2)
+
+	// The current (latest) revision must NOT be marked pending_delete.
+	c.Check(
+		s.countRows(c,
+			"SELECT count(*) FROM secret_revision_obsolete ro "+
+				"JOIN secret_revision sr ON sr.uuid = ro.revision_uuid "+
+				"WHERE sr.secret_id = ? AND sr.revision = 2 AND ro.pending_delete = true",
+			secretID),
+		tc.Equals, 0,
+	)
 }
