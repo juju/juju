@@ -16,6 +16,7 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	service "github.com/juju/juju/domain/access/service"
+	logging "github.com/juju/juju/domain/logging"
 	objectstore "github.com/juju/juju/domain/objectstore"
 	service0 "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
@@ -362,78 +363,78 @@ func (m *MockLoggingService) EXPECT() *MockLoggingServiceMockRecorder {
 	return m.recorder
 }
 
-// DeleteLokiEndpoint mocks base method.
-func (m *MockLoggingService) DeleteLokiEndpoint(arg0 context.Context) error {
+// DeleteLokiConfig mocks base method.
+func (m *MockLoggingService) DeleteLokiConfig(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteLokiEndpoint", arg0)
+	ret := m.ctrl.Call(m, "DeleteLokiConfig", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteLokiEndpoint indicates an expected call of DeleteLokiEndpoint.
-func (mr *MockLoggingServiceMockRecorder) DeleteLokiEndpoint(arg0 any) *MockLoggingServiceDeleteLokiEndpointCall {
+// DeleteLokiConfig indicates an expected call of DeleteLokiConfig.
+func (mr *MockLoggingServiceMockRecorder) DeleteLokiConfig(arg0 any) *MockLoggingServiceDeleteLokiConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLokiEndpoint", reflect.TypeOf((*MockLoggingService)(nil).DeleteLokiEndpoint), arg0)
-	return &MockLoggingServiceDeleteLokiEndpointCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLokiConfig", reflect.TypeOf((*MockLoggingService)(nil).DeleteLokiConfig), arg0)
+	return &MockLoggingServiceDeleteLokiConfigCall{Call: call}
 }
 
-// MockLoggingServiceDeleteLokiEndpointCall wrap *gomock.Call
-type MockLoggingServiceDeleteLokiEndpointCall struct {
+// MockLoggingServiceDeleteLokiConfigCall wrap *gomock.Call
+type MockLoggingServiceDeleteLokiConfigCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockLoggingServiceDeleteLokiEndpointCall) Return(arg0 error) *MockLoggingServiceDeleteLokiEndpointCall {
+func (c *MockLoggingServiceDeleteLokiConfigCall) Return(arg0 error) *MockLoggingServiceDeleteLokiConfigCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockLoggingServiceDeleteLokiEndpointCall) Do(f func(context.Context) error) *MockLoggingServiceDeleteLokiEndpointCall {
+func (c *MockLoggingServiceDeleteLokiConfigCall) Do(f func(context.Context) error) *MockLoggingServiceDeleteLokiConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggingServiceDeleteLokiEndpointCall) DoAndReturn(f func(context.Context) error) *MockLoggingServiceDeleteLokiEndpointCall {
+func (c *MockLoggingServiceDeleteLokiConfigCall) DoAndReturn(f func(context.Context) error) *MockLoggingServiceDeleteLokiConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// SetLokiEndpoint mocks base method.
-func (m *MockLoggingService) SetLokiEndpoint(arg0 context.Context, arg1 string) error {
+// SetLokiConfig mocks base method.
+func (m *MockLoggingService) SetLokiConfig(arg0 context.Context, arg1 logging.LokiConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetLokiEndpoint", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetLokiConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetLokiEndpoint indicates an expected call of SetLokiEndpoint.
-func (mr *MockLoggingServiceMockRecorder) SetLokiEndpoint(arg0, arg1 any) *MockLoggingServiceSetLokiEndpointCall {
+// SetLokiConfig indicates an expected call of SetLokiConfig.
+func (mr *MockLoggingServiceMockRecorder) SetLokiConfig(arg0, arg1 any) *MockLoggingServiceSetLokiConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLokiEndpoint", reflect.TypeOf((*MockLoggingService)(nil).SetLokiEndpoint), arg0, arg1)
-	return &MockLoggingServiceSetLokiEndpointCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLokiConfig", reflect.TypeOf((*MockLoggingService)(nil).SetLokiConfig), arg0, arg1)
+	return &MockLoggingServiceSetLokiConfigCall{Call: call}
 }
 
-// MockLoggingServiceSetLokiEndpointCall wrap *gomock.Call
-type MockLoggingServiceSetLokiEndpointCall struct {
+// MockLoggingServiceSetLokiConfigCall wrap *gomock.Call
+type MockLoggingServiceSetLokiConfigCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockLoggingServiceSetLokiEndpointCall) Return(arg0 error) *MockLoggingServiceSetLokiEndpointCall {
+func (c *MockLoggingServiceSetLokiConfigCall) Return(arg0 error) *MockLoggingServiceSetLokiConfigCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockLoggingServiceSetLokiEndpointCall) Do(f func(context.Context, string) error) *MockLoggingServiceSetLokiEndpointCall {
+func (c *MockLoggingServiceSetLokiConfigCall) Do(f func(context.Context, logging.LokiConfig) error) *MockLoggingServiceSetLokiConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggingServiceSetLokiEndpointCall) DoAndReturn(f func(context.Context, string) error) *MockLoggingServiceSetLokiEndpointCall {
+func (c *MockLoggingServiceSetLokiConfigCall) DoAndReturn(f func(context.Context, logging.LokiConfig) error) *MockLoggingServiceSetLokiConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

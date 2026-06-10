@@ -30,7 +30,8 @@ CREATE TRIGGER trg_log_logging_loki_config_update
 AFTER UPDATE ON logging_loki_config FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
-	NEW.endpoint != OLD.endpoint
+	NEW.endpoint != OLD.endpoint OR
+	NEW.ca_cert != OLD.ca_cert
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

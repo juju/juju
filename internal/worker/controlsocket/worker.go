@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/logging"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/auth"
@@ -111,11 +112,11 @@ type TracingService interface {
 
 // LoggingService is the interface for the logging service.
 type LoggingService interface {
-	// SetLokiEndpoint sets the Loki push API endpoint.
-	SetLokiEndpoint(ctx context.Context, endpoint string) error
+	// SetLokiConfig sets the Loki push API endpoint and CA certificate.
+	SetLokiConfig(ctx context.Context, config logging.LokiConfig) error
 
-	// DeleteLokiEndpoint removes the configured Loki push API endpoint.
-	DeleteLokiEndpoint(ctx context.Context) error
+	// DeleteLokiConfig removes the configured Loki push API config.
+	DeleteLokiConfig(ctx context.Context) error
 }
 
 // Config represents configuration for the controlsocket worker.
@@ -599,7 +600,8 @@ func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.R
 }
 
 type lokiEndpointRequest struct {
-	URL string `json:"url"`
+	URL           string `json:"url"`
+	CACertificate string `json:"ca_cert"`
 }
 
 func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
@@ -622,7 +624,10 @@ func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	if err := w.loggingService.SetLokiEndpoint(ctx, parsedBody.URL); internalerrors.Is(err, coreerrors.NotValid) {
+	if err := w.loggingService.SetLokiConfig(ctx, logging.LokiConfig{
+		Endpoint:      parsedBody.URL,
+		CACertificate: parsedBody.CACertificate,
+	}); internalerrors.Is(err, coreerrors.NotValid) {
 		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid loki endpoint: %w", err))
 		return
 	} else if err != nil {
@@ -636,7 +641,7 @@ func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Reque
 func (w *Worker) handleRemoveLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 
-	if err := w.loggingService.DeleteLokiEndpoint(ctx); err != nil {
+	if err := w.loggingService.DeleteLokiConfig(ctx); err != nil {
 		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("removing loki endpoint: %w", err))
 		return
 	}

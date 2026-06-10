@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/domain/logging"
 	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,108 +25,122 @@ func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
 
-func (s *serviceSuite) TestSetLokiEndpoint(c *tc.C) {
+func (s *serviceSuite) TestSetLokiConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().SetLokiEndpoint(gomock.Any(), gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(nil)
+	config := logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	}
+	s.st.EXPECT().SetLokiConfig(gomock.Any(), gomock.Any(), config).Return(nil)
 
-	err := NewWatchableService(s.st, s.watcherFactory).SetLokiEndpoint(c.Context(), "http://loki:3100/loki/api/v1/push")
+	err := NewWatchableService(s.st, s.watcherFactory).SetLokiConfig(c.Context(), config)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetLokiEndpointEmptyReturnsError(c *tc.C) {
+func (s *serviceSuite) TestSetLokiConfigEmptyReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableService(s.st, s.watcherFactory).SetLokiEndpoint(c.Context(), "")
+	err := NewWatchableService(s.st, s.watcherFactory).SetLokiConfig(c.Context(), logging.LokiConfig{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestSetLokiEndpointInvalidURLReturnsError(c *tc.C) {
+func (s *serviceSuite) TestSetLokiConfigInvalidURLReturnsError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableService(s.st, s.watcherFactory).SetLokiEndpoint(c.Context(), "not-a-valid-url")
+	err := NewWatchableService(s.st, s.watcherFactory).SetLokiConfig(c.Context(), logging.LokiConfig{
+		Endpoint: "not-a-valid-url",
+	})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestSetLokiEndpointStateError(c *tc.C) {
+func (s *serviceSuite) TestSetLokiConfigStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().SetLokiEndpoint(gomock.Any(), gomock.Any(), "http://loki:3100/loki/api/v1/push").Return(
+	config := logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	}
+	s.st.EXPECT().SetLokiConfig(gomock.Any(), gomock.Any(), config).Return(
 		errors.Errorf("boom"),
 	)
 
-	err := NewWatchableService(s.st, s.watcherFactory).SetLokiEndpoint(c.Context(), "http://loki:3100/loki/api/v1/push")
+	err := NewWatchableService(s.st, s.watcherFactory).SetLokiConfig(c.Context(), config)
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *serviceSuite) TestGetLokiEndpoint(c *tc.C) {
+func (s *serviceSuite) TestGetLokiConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().GetLokiEndpoint(gomock.Any()).Return("http://loki:3100/loki/api/v1/push", nil)
+	s.st.EXPECT().GetLokiConfig(gomock.Any()).Return(logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	}, nil)
 
-	endpoint, err := NewWatchableService(s.st, s.watcherFactory).GetLokiEndpoint(c.Context())
+	config, err := NewWatchableService(s.st, s.watcherFactory).GetLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.Endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "ca-cert")
 }
 
-func (s *serviceSuite) TestGetLokiEndpointNotFound(c *tc.C) {
+func (s *serviceSuite) TestGetLokiConfigNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().GetLokiEndpoint(gomock.Any()).Return("", loggingerrors.LokiEndpointNotFound)
+	s.st.EXPECT().GetLokiConfig(gomock.Any()).Return(logging.LokiConfig{}, loggingerrors.LokiConfigNotFound)
 
-	_, err := NewWatchableService(s.st, s.watcherFactory).GetLokiEndpoint(c.Context())
-	c.Assert(err, tc.ErrorIs, loggingerrors.LokiEndpointNotFound)
+	_, err := NewWatchableService(s.st, s.watcherFactory).GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIs, loggingerrors.LokiConfigNotFound)
 }
 
-func (s *serviceSuite) TestGetLokiEndpointStateError(c *tc.C) {
+func (s *serviceSuite) TestGetLokiConfigStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().GetLokiEndpoint(gomock.Any()).Return("", errors.Errorf("boom"))
+	s.st.EXPECT().GetLokiConfig(gomock.Any()).Return(logging.LokiConfig{}, errors.Errorf("boom"))
 
-	_, err := NewWatchableService(s.st, s.watcherFactory).GetLokiEndpoint(c.Context())
+	_, err := NewWatchableService(s.st, s.watcherFactory).GetLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *serviceSuite) TestDeleteLokiEndpoint(c *tc.C) {
+func (s *serviceSuite) TestDeleteLokiConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().DeleteLokiEndpoint(gomock.Any()).Return(nil)
+	s.st.EXPECT().DeleteLokiConfig(gomock.Any()).Return(nil)
 
-	err := NewWatchableService(s.st, s.watcherFactory).DeleteLokiEndpoint(c.Context())
+	err := NewWatchableService(s.st, s.watcherFactory).DeleteLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteLokiEndpointStateError(c *tc.C) {
+func (s *serviceSuite) TestDeleteLokiConfigStateError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().DeleteLokiEndpoint(gomock.Any()).Return(errors.Errorf("boom"))
+	s.st.EXPECT().DeleteLokiConfig(gomock.Any()).Return(errors.Errorf("boom"))
 
-	err := NewWatchableService(s.st, s.watcherFactory).DeleteLokiEndpoint(c.Context())
+	err := NewWatchableService(s.st, s.watcherFactory).DeleteLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *serviceSuite) TestWatchLokiEndpoint(c *tc.C) {
+func (s *serviceSuite) TestWatchLokiConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().NamespaceForWatchLokiEndpoint().Return("logging_loki_config")
+	s.st.EXPECT().NamespaceForWatchLokiConfig().Return("logging_loki_config")
 	s.watcherFactory.EXPECT().NewNotifyWatcher(
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(s.notifyWatcher, nil)
 
-	w, err := NewWatchableService(s.st, s.watcherFactory).WatchLokiEndpoint(c.Context())
+	w, err := NewWatchableService(s.st, s.watcherFactory).WatchLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.Not(tc.IsNil))
 }
 
-func (s *serviceSuite) TestWatchLokiEndpointWatcherFactoryError(c *tc.C) {
+func (s *serviceSuite) TestWatchLokiConfigWatcherFactoryError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.st.EXPECT().NamespaceForWatchLokiEndpoint().Return("logging_loki_config")
+	s.st.EXPECT().NamespaceForWatchLokiConfig().Return("logging_loki_config")
 	s.watcherFactory.EXPECT().NewNotifyWatcher(
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(nil, errors.Errorf("watcher boom"))
 
-	_, err := NewWatchableService(s.st, s.watcherFactory).WatchLokiEndpoint(c.Context())
+	_, err := NewWatchableService(s.st, s.watcherFactory).WatchLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorMatches, "watcher boom")
 }
 
