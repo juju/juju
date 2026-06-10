@@ -846,10 +846,8 @@ func (*rpcSuite) TestClientRequestIDConcurrentRead(c *tc.C) {
 
 	const callCount = 64
 	var wg sync.WaitGroup
-	for i := 0; i < callCount; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range callCount {
+		wg.Go(func() {
 			var response stringVal
 			err := client.Call(c.Context(), rpc.Request{
 				Type:    "SimpleMethods",
@@ -859,7 +857,7 @@ func (*rpcSuite) TestClientRequestIDConcurrentRead(c *tc.C) {
 			}, nil, &response)
 			c.Check(err, tc.ErrorIsNil)
 			c.Check(response, tc.Equals, stringVal{Val: "Call0r1 ret"})
-		}()
+		})
 	}
 	wg.Wait()
 	close(stopReads)
@@ -1260,12 +1258,10 @@ func (*rpcSuite) TestClientCloseConcurrentIdempotent(c *tc.C) {
 	const closeCalls = 16
 	errs := make(chan error, closeCalls)
 	var wg sync.WaitGroup
-	for i := 0; i < closeCalls; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range closeCalls {
+		wg.Go(func() {
 			errs <- client.Close()
-		}()
+		})
 	}
 	wg.Wait()
 	close(errs)
