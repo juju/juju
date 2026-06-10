@@ -47,18 +47,40 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) newImportOperation() *importOperation {
-	return &importOperation{
-		service: s.service,
+func (s *importSuite) newStoragePoolImportOperation() *importStoragePoolOperation {
+	return &importStoragePoolOperation{
+		baseImportOperation: baseImportOperation{
+			service: s.service,
+		},
 	}
 }
 
-func (s *importSuite) TestRegisterImport(c *tc.C) {
+func (s *importSuite) newImportOperation() *importStorageOperation {
+	return &importStorageOperation{
+		baseImportOperation: baseImportOperation{
+			service: s.service,
+		},
+	}
+}
+
+func (s *importSuite) TestRegisterImportStoragePools(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(
+	RegisterImportStoragePools(
+		s.coordinator,
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+func (s *importSuite) TestRegisterImportStorage(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.coordinator.EXPECT().Add(gomock.Any())
+
+	RegisterImportStorage(
 		s.coordinator,
 		nil,
 		loggertesting.WrapCheckLog(c),
@@ -72,7 +94,6 @@ func (s *importSuite) TestImportEmpty(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
-	s.noopStoragePoolImport()
 
 	// Act
 	op := s.newImportOperation()
@@ -135,7 +156,7 @@ func (s *importSuite) TestNoUserDefinedStoragePools(c *tc.C) {
 			Return(nil),
 	)
 
-	op := s.newImportOperation()
+	op := s.newStoragePoolImportOperation()
 	err := op.Execute(ctx, model)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -193,7 +214,7 @@ func (s *importSuite) TestImportStoragePools(c *tc.C) {
 			Return(nil),
 	)
 
-	op := s.newImportOperation()
+	op := s.newStoragePoolImportOperation()
 	err := op.Execute(ctx, model)
 	c.Assert(err, tc.ErrorIsNil)
 }
@@ -212,7 +233,7 @@ func (s *importSuite) TestExecuteGetStoragePoolsToImportError(c *tc.C) {
 		GetStoragePoolsToImport(gomock.Any(), model.StoragePools()).
 		Return(nil, nil, expectedErr)
 
-	op := s.newImportOperation()
+	op := s.newStoragePoolImportOperation()
 	err := op.Execute(c.Context(), model)
 
 	c.Assert(err, tc.ErrorMatches, "getting pools to import: .*boom")
@@ -255,7 +276,7 @@ func (s *importSuite) TestExecuteImportStoragePoolsError(c *tc.C) {
 			Return(expectedErr),
 	)
 
-	op := s.newImportOperation()
+	op := s.newStoragePoolImportOperation()
 	err := op.Execute(c.Context(), model)
 
 	c.Assert(err, tc.ErrorMatches, "importing storage pools .*: .*import failed")
@@ -302,7 +323,7 @@ func (s *importSuite) TestExecuteSetRecommendedStoragePoolsError(c *tc.C) {
 			Return(expectedErr),
 	)
 
-	op := s.newImportOperation()
+	op := s.newStoragePoolImportOperation()
 	err := op.Execute(c.Context(), model)
 
 	c.Assert(err, tc.ErrorMatches, "setting recommended storage pools: .*recommendation failed")
@@ -323,7 +344,6 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 			AttachedUnitNames: []string{"foo/0", "bar/1"},
 		},
 	}
-	s.noopStoragePoolImport()
 	s.service.EXPECT().ImportStorageInstances(gomock.Any(), expected).Return(nil)
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
@@ -365,7 +385,6 @@ func (s *importSuite) TestImportStorageInstancesValidate(c *tc.C) {
 			Size: 1024,
 		},
 	})
-	s.noopStoragePoolImport()
 
 	// Act
 	op := s.newImportOperation()
@@ -408,7 +427,6 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 		MountPoint: "/opt",
 	})
 
-	s.noopStoragePoolImport()
 	s.service.EXPECT().ImportFilesystemsIAAS(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
 		ID:                "fs-1",
 		SizeInMiB:         2048,
@@ -498,7 +516,6 @@ func (s *importSuite) TestImportFilesystemsCAAS(c *tc.C) {
 		VolumeID:    "pvc-deadbeef-6d0d-4d2c-b1e5-e2b3c02284f9",
 	})
 
-	s.noopStoragePoolImport()
 	s.service.EXPECT().ImportFilesystemsCAAS(gomock.Any(), tc.Bind(tc.SameContents, []domainstorage.ImportFilesystemParams{{
 		ID:                "fs-1",
 		SizeInMiB:         1024,
@@ -639,7 +656,6 @@ func (s *importSuite) TestImportVolumes(c *tc.C) {
 		},
 	}
 	s.service.EXPECT().ImportVolumes(gomock.Any(), expected).Return(nil)
-	s.noopStoragePoolImport()
 
 	// Act
 	op := s.newImportOperation()
@@ -656,7 +672,6 @@ func (s *importSuite) TestImportVolumesZeroLength(c *tc.C) {
 	model := description.NewModel(description.ModelArgs{
 		Type: coremodel.IAAS.String(),
 	})
-	s.noopStoragePoolImport()
 
 	// Act
 	op := s.newImportOperation()
@@ -664,10 +679,4 @@ func (s *importSuite) TestImportVolumesZeroLength(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *importSuite) noopStoragePoolImport() {
-	s.service.EXPECT().GetStoragePoolsToImport(gomock.Any(), gomock.Any()).Return(nil, nil, nil)
-	s.service.EXPECT().ImportStoragePools(gomock.Any(), gomock.Any()).Return(nil)
-	s.service.EXPECT().SetRecommendedStoragePools(gomock.Any(), gomock.Any()).Return(nil)
 }
