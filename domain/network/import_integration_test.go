@@ -682,6 +682,71 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXDMissingSubnet(c 
 	s.checkSubnetExists(c, "10.136.55.0/24")
 }
 
+// TestImportLinkLayerDevicesWithAddressesLXDMissingSubnetDedup verifies that
+// when two addresses on the same device share the same missing /24 CIDR,
+// the import auto-creates only a single subnet row (no duplicate with a
+// different UUID).
+func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXDMissingSubnetDedup(c *tc.C) {
+	s.setModel(c, "lxd", model.IAAS.String())
+
+	machineSvc := s.setupMachineService(c)
+	res, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.IAAS),
+	})
+
+	desc.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:        "lxdbr0",
+		MTU:         1500,
+		ProviderID:  "net-lxdbr0",
+		MachineID:   res.MachineName.String(),
+		Type:        "bridge",
+		MACAddress:  "00:16:3e:00:00:01",
+		IsAutoStart: true,
+		IsUp:        true,
+	})
+
+	// Two addresses on the same device sharing the same missing /24 subnet.
+	desc.AddIPAddress(description.IPAddressArgs{
+		Value:            "10.136.55.1",
+		SubnetCIDR:       "10.136.55.0/24",
+		ProviderSubnetID: "subnet-lxdbr0-10.136.55.0/24",
+		Origin:           "machine",
+		MachineID:        res.MachineName.String(),
+		DeviceName:       "lxdbr0",
+		ConfigMethod:     string(network.ConfigStatic),
+	})
+	desc.AddIPAddress(description.IPAddressArgs{
+		Value:            "10.136.55.2",
+		SubnetCIDR:       "10.136.55.0/24",
+		ProviderSubnetID: "subnet-lxdbr0-10.136.55.0/24",
+		Origin:           "machine",
+		MachineID:        res.MachineName.String(),
+		DeviceName:       "lxdbr0",
+		ConfigMethod:     string(network.ConfigStatic),
+	})
+
+	networkmodelmigration.RegisterLinkLayerDevicesImport(s.coordinator, loggertesting.WrapCheckLog(c))
+
+	// Act
+	err = s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert: import succeeds; the missing subnet is auto-created only once.
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "lxdbr0")
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "lxdbr0", "10.136.55.1/24")
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "lxdbr0", "10.136.55.2/24")
+	s.checkSubnetExists(c, "10.136.55.0/24")
+}
+
 func (s *importSuite) TestImportK8sServices(c *tc.C) {
 	s.createCAASApplication(c, "foo")
 	s.createCAASApplication(c, "bar")

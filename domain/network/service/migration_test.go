@@ -317,6 +317,63 @@ func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnet
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnetDedup verifies that
+// when two addresses on the same device share the same missing /24 CIDR,
+// only a single subnet is created (no duplicate with a different UUID).
+func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderNoSubnetDedup(c *tc.C) {
+	// Arrange
+	defer s.setupMocks(c).Finish()
+	netNodeUUID := uuid.MustNewUUID().String()
+	nameMap := map[string]string{
+		"0": netNodeUUID,
+	}
+
+	s.st.EXPECT().AllMachinesAndNetNodes(gomock.Any()).Return(nameMap, nil)
+	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
+
+	// Expect a single /24 subnet to be auto-created (not two).
+	subnetInfo := corenetwork.SubnetInfo{
+		CIDR: "10.136.55.0/24",
+	}
+	matcher := &spaceInfoAsArgMatcher{
+		c:        c,
+		expected: subnetInfo,
+	}
+	s.st.EXPECT().AddSubnet(gomock.Any(), matcher).Return(nil)
+
+	args := []internal.ImportLinkLayerDevice{
+		{
+			MachineID: "0",
+			Name:      "lxdbr0",
+			Addresses: []internal.ImportIPAddress{
+				{
+					AddressValue: "10.136.55.1",
+					SubnetCIDR:   "10.136.55.0/24",
+				},
+				{
+					AddressValue: "10.136.55.2",
+					SubnetCIDR:   "10.136.55.0/24",
+				},
+			},
+		},
+	}
+
+	expectedArgs := make([]internal.ImportLinkLayerDevice, len(args))
+	copy(expectedArgs, args)
+	expectedArgs[0].NetNodeUUID = netNodeUUID
+	matcherTwo := &importLinkLayerDeviceArgMatcher{
+		c:        c,
+		expected: expectedArgs,
+	}
+	s.st.EXPECT().ImportLinkLayerDevices(gomock.Any(), matcherTwo).Return(nil)
+
+	// Act
+	err := s.migrationService(c).ImportLinkLayerDevices(c.Context(), args)
+
+	// Assert: no error; single subnet shared by both addresses.
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *migrationSuite) TestImportLinkLayerDevicesSubnetWithoutProviderTooMuchSubnet(c *tc.C) {
 	// Arrange
 	defer s.setupMocks(c).Finish()
