@@ -325,6 +325,17 @@ func Main(args []string) int {
 	switch commandName {
 	case jujunames.JujuAgentd:
 		code, err = jujuDMain(args, ctx)
+	case jujunames.JujuController:
+		// Compatibility shim for CAAS controllers bootstrapped before the
+		// agent binary was renamed from `jujud` to `jujuagentd`. Their
+		// StatefulSet args still exec `<tools-dir>/jujud machine ...`,
+		// where the file content is now this jujuagentd binary (placed
+		// there by the legacy `cp /opt/jujud ...` step in the same args,
+		// which dereferences the /opt/jujud → /opt/jujuagentd symlink in
+		// the image). Recognize the legacy invocation name so the agent
+		// still launches; once the controller has been upgraded once,
+		// fresh bootstraps use the new name and this branch is unused.
+		code, err = jujuDMain(args, ctx)
 	case jujunames.JujuExec:
 		lock, err := machinelock.New(machinelock.Config{
 			AgentName:   "juju-exec",
