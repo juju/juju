@@ -520,6 +520,23 @@ func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) 
 	return s.controllerState.SetPhase(ctx, mig.UUID, phase)
 }
 
+// MarkModelAsGone is called by the migration master during REAP, once the
+// target controller owns the model, to remove the migrated model from this
+// controller. It marks the active export migration as DONE.
+//
+// TODO(modelmigration): purge the migrated model from the source controller
+// and set up the durable login redirect before completing the export.
+func (s *Service) MarkModelAsGone(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	mig, err := s.controllerState.GetActiveExport(ctx, s.modelUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return s.controllerState.SetPhase(ctx, mig.UUID, migration.DONE)
+}
+
 // SetMigrationStatusMessage is called by the migration master to report on
 // migration status.
 func (s *Service) SetMigrationStatusMessage(ctx context.Context, message string) error {

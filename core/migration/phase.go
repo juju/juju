@@ -77,7 +77,6 @@ var phaseNames = []string{
 func SuccessfulMigrationPhases() []Phase {
 	return []Phase{
 		IMPORT,
-		PROCESSRELATIONS,
 		VALIDATION,
 		SUCCESS,
 		LOGTRANSFER,
@@ -120,7 +119,7 @@ func (p Phase) IsRunning() bool {
 		return false
 	}
 	switch p {
-	case QUIESCE, IMPORT, PROCESSRELATIONS, VALIDATION, SUCCESS:
+	case QUIESCE, IMPORT, VALIDATION, SUCCESS:
 		return true
 	default:
 		return false
@@ -144,17 +143,9 @@ func (p Phase) IsPostSuccess() bool {
 // The keys are the "from" states and the values enumerate the
 // possible "to" states.
 var validTransitions = map[Phase][]Phase{
-	QUIESCE: {IMPORT, ABORT},
-	// VALIDATION is the new-path successor of IMPORT: PROCESSRELATIONS is
-	// retired (it has no actions attached and no persisted lookup row, see
-	// PhasePersistedID). The PROCESSRELATIONS edges are retained transitionally
-	// so the legacy migrationmaster worker, which still emits PROCESSRELATIONS,
-	// keeps a non-terminal phase to walk through until it is rewritten to drive
-	// the de-stubbed domain service directly. New-path callers go
-	// IMPORT -> VALIDATION and never set PROCESSRELATIONS.
-	IMPORT:           {VALIDATION, PROCESSRELATIONS, ABORT},
-	PROCESSRELATIONS: {VALIDATION, ABORT},
-	VALIDATION:       {SUCCESS, ABORT},
+	QUIESCE:    {IMPORT, ABORT},
+	IMPORT:     {VALIDATION, ABORT},
+	VALIDATION: {SUCCESS, ABORT},
 	SUCCESS:          {LOGTRANSFER},
 	LOGTRANSFER:      {REAP},
 	REAP:             {DONE, REAPFAILED},

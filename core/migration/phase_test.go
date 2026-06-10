@@ -64,7 +64,7 @@ func (s *PhaseSuite) TestIsRunning(c *tc.C) {
 
 	c.Check(migration.QUIESCE.IsRunning(), tc.IsTrue)
 	c.Check(migration.IMPORT.IsRunning(), tc.IsTrue)
-	c.Check(migration.PROCESSRELATIONS.IsRunning(), tc.IsTrue)
+	c.Check(migration.PROCESSRELATIONS.IsRunning(), tc.IsFalse)
 	c.Check(migration.SUCCESS.IsRunning(), tc.IsTrue)
 
 	c.Check(migration.LOGTRANSFER.IsRunning(), tc.IsFalse)
@@ -83,11 +83,9 @@ func (s *PhaseSuite) TestCanTransitionTo(c *tc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), tc.IsFalse)
 	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), tc.IsFalse)
 
-	// The new migration path skips the retired PROCESSRELATIONS phase: IMPORT
-	// transitions directly to VALIDATION. The PROCESSRELATIONS edge is retained
-	// transitionally for the legacy worker.
+	// PROCESSRELATIONS is retired; IMPORT transitions directly to VALIDATION.
 	c.Check(migration.IMPORT.CanTransitionTo(migration.VALIDATION), tc.IsTrue)
-	c.Check(migration.IMPORT.CanTransitionTo(migration.PROCESSRELATIONS), tc.IsTrue)
+	c.Check(migration.IMPORT.CanTransitionTo(migration.PROCESSRELATIONS), tc.IsFalse)
 	c.Check(migration.IMPORT.CanTransitionTo(migration.ABORT), tc.IsTrue)
 	c.Check(migration.IMPORT.CanTransitionTo(migration.SUCCESS), tc.IsFalse)
 }

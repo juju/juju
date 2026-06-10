@@ -76,7 +76,11 @@ var facadeVersions = facades.FacadeVersions{
 	"MigrationMaster":              {4, 5},
 	"MigrationMinion":              {1},
 	"MigrationStatusWatcher":       {1},
-	"MigrationTarget":              {4, 5, 6, 7},
+	// Note that this version of Juju does not register version 8 of the
+	// MigrationTarget facade; it is the SerializedModelV2 import facade
+	// registered by 4.1+ targets. The migration master worker requires v8
+	// to negotiate the new model migration path against those targets.
+	"MigrationTarget":              {4, 5, 6, 7, 8},
 	"ModelConfig":                  {3, 4},
 	"ModelManager":                 {9, 10, 11},
 	"ModelSummaryWatcher":          {1},

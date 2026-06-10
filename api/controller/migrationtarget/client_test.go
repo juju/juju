@@ -103,6 +103,38 @@ func (s *ClientSuite) TestImport(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+func (s *ClientSuite) TestPrechecksV2(c *tc.C) {
+	client, stub := s.getClientAndStub()
+
+	envelope := params.SerializedModelV2{
+		PayloadVersion: semversion.MustParse("4.0.6"),
+		Payload:        []byte("payload"),
+		ModelInfo:      params.SerializedModelInfo{UUID: "uuid"},
+	}
+	err := client.PrechecksV2(c.Context(), envelope)
+
+	stub.CheckCalls(c, []testhelpers.StubCall{
+		{FuncName: "MigrationTarget.Prechecks", Args: []any{"", envelope}},
+	})
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *ClientSuite) TestImportV2(c *tc.C) {
+	client, stub := s.getClientAndStub()
+
+	envelope := params.SerializedModelV2{
+		PayloadVersion: semversion.MustParse("4.0.6"),
+		Payload:        []byte("payload"),
+		ModelInfo:      params.SerializedModelInfo{UUID: "uuid"},
+	}
+	err := client.ImportV2(c.Context(), envelope)
+
+	stub.CheckCalls(c, []testhelpers.StubCall{
+		{FuncName: "MigrationTarget.Import", Args: []any{"", envelope}},
+	})
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 func (s *ClientSuite) TestAbort(c *tc.C) {
 	client, stub := s.getClientAndStub()
 

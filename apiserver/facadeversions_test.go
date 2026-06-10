@@ -53,6 +53,18 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *tc.C) {
 		sorted := set.NewInts(versions...).SortedValues()
 		apiFacadeVersions[name] = sorted[len(sorted)-1]
 	}
+	// clientAheadOfServer lists facades whose client deliberately advertises
+	// a newer version than this controller registers. The migration master
+	// worker needs MigrationTarget v8 to negotiate the SerializedModelV2
+	// migration path against 4.1+ targets, while this controller registers
+	// up to v7 (the v8 import facade lands in 4.1).
+	clientAheadOfServer := map[string]int{
+		"MigrationTarget": 8,
+	}
+	for name, version := range clientAheadOfServer {
+		c.Check(apiFacadeVersions[name], tc.Equals, version)
+		apiFacadeVersions[name] = serverFacadeBestVersions[name]
+	}
 	c.Check(apiFacadeVersions, tc.DeepEquals, serverFacadeBestVersions)
 }
 

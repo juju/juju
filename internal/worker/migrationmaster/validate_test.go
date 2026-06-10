@@ -75,6 +75,30 @@ func (*ValidateSuite) TestMissingModelMigrationService(c *tc.C) {
 	checkNotValid(c, config, "nil ModelMigrationService not valid")
 }
 
+func (*ValidateSuite) TestMissingExportService(c *tc.C) {
+	config := validConfig()
+	config.ExportService = nil
+	checkNotValid(c, config, "nil ExportService not valid")
+}
+
+func (*ValidateSuite) TestMissingControllerConfigService(c *tc.C) {
+	config := validConfig()
+	config.ControllerConfigService = nil
+	checkNotValid(c, config, "nil ControllerConfigService not valid")
+}
+
+func (*ValidateSuite) TestMissingModelAgentService(c *tc.C) {
+	config := validConfig()
+	config.ModelAgentService = nil
+	checkNotValid(c, config, "nil ModelAgentService not valid")
+}
+
+func (*ValidateSuite) TestMissingResourceService(c *tc.C) {
+	config := validConfig()
+	config.ResourceService = nil
+	checkNotValid(c, config, "nil ResourceService not valid")
+}
+
 func (*ValidateSuite) TestMissingAgentBinaryStore(c *tc.C) {
 	config := validConfig()
 	config.AgentBinaryStore = nil
@@ -98,8 +122,14 @@ func validConfig() migrationmaster.Config {
 		ModelMigrationService: struct {
 			migrationmaster.ModelMigrationService
 		}{},
-		AgentBinaryStore: struct{ migration.AgentBinaryStore }{},
-		Clock:            struct{ clock.Clock }{},
+		ExportService: struct{ migrationmaster.ExportService }{},
+		ControllerConfigService: struct {
+			migrationmaster.ControllerConfigService
+		}{},
+		ModelAgentService: struct{ migrationmaster.ModelAgentService }{},
+		ResourceService:   struct{ migrationmaster.ResourceService }{},
+		AgentBinaryStore:  struct{ migration.AgentBinaryStore }{},
+		Clock:             struct{ clock.Clock }{},
 	}
 }
 

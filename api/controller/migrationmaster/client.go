@@ -21,10 +21,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/resource"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
-	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -201,57 +198,6 @@ func (c *Client) Prechecks(ctx context.Context) error {
 	return c.caller.FacadeCall(ctx, "Prechecks", params.PrechecksArgs{}, nil)
 }
 
-// Export returns a serialized representation of the model associated
-// with the API connection. The charms used by the model are also
-// returned.
-func (c *Client) Export(ctx context.Context) (migration.SerializedModel, error) {
-	var empty migration.SerializedModel
-	var serialized params.SerializedModel
-	err := c.caller.FacadeCall(ctx, "Export", nil, &serialized)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	// Convert tools info to output map.
-	tools := make(map[string]semversion.Binary, len(serialized.Tools))
-	for _, toolsInfo := range serialized.Tools {
-		v, err := semversion.ParseBinary(toolsInfo.Version)
-		if err != nil {
-			return migration.SerializedModel{}, errors.Annotate(err, "error parsing agent binary version")
-		}
-		tools[toolsInfo.SHA256] = v
-	}
-
-	resources, err := convertResources(serialized.Resources)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	return migration.SerializedModel{
-		Bytes:     serialized.Bytes,
-		Charms:    serialized.Charms,
-		Tools:     tools,
-		Resources: resources,
-	}, nil
-}
-
-// ProcessRelations runs a series of processes to ensure that the relations
-// of a given model are correct after a migrated model.
-func (c *Client) ProcessRelations(ctx context.Context, controllerAlias string) error {
-	param := params.ProcessRelations{
-		ControllerAlias: controllerAlias,
-	}
-	var result params.ErrorResult
-	err := c.caller.FacadeCall(ctx, "ProcessRelations", param, &result)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if result.Error != nil {
-		return errors.Trace(result.Error)
-	}
-	return nil
-}
-
 // OpenResource downloads the named resource for an application.
 func (c *Client) OpenResource(ctx context.Context, application, name string) (io.ReadCloser, error) {
 	httpClient, err := c.httpClientFactory(base.HTTPClientScopeModel)
@@ -377,52 +323,4 @@ func groupTagIds(tagStrs []string) ([]string, []string, []string, error) {
 		}
 	}
 	return machines, units, applications, nil
-}
-
-func convertResources(in []params.SerializedModelResource) ([]resource.Resource, error) {
-	if len(in) == 0 {
-		return nil, nil
-	}
-	out := make([]resource.Resource, 0, len(in))
-	for _, resource := range in {
-		outResource, err := convertResource(resource)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		out = append(out, outResource)
-	}
-	return out, nil
-}
-
-func convertResource(res params.SerializedModelResource) (resource.Resource, error) {
-	var empty resource.Resource
-	type_, err := charmresource.ParseType(res.Type)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	origin, err := charmresource.ParseOrigin(res.Origin)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	var fp charmresource.Fingerprint
-	if res.FingerprintHex != "" {
-		if fp, err = charmresource.ParseFingerprint(res.FingerprintHex); err != nil {
-			return empty, errors.Annotate(err, "invalid fingerprint")
-		}
-	}
-	return resource.Resource{
-		Resource: charmresource.Resource{
-			Meta: charmresource.Meta{
-				Name: res.Name,
-				Type: type_,
-			},
-			Origin:      origin,
-			Revision:    res.Revision,
-			Size:        res.Size,
-			Fingerprint: fp,
-		},
-		ApplicationName: res.Application,
-		RetrievedBy:     res.Username,
-		Timestamp:       res.Timestamp,
-	}, nil
 }
