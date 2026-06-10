@@ -96,9 +96,9 @@ type CloudInfoResults struct {
 	Results []CloudInfoResult `json:"results"`
 }
 
-// ModelConfigSchemaArgs holds the cloud type for a ModelConfigSchema call.
+// ModelConfigSchemaArgs holds the provider type for a ModelConfigSchema call.
 type ModelConfigSchemaArgs struct {
-	CloudType string `json:"cloud-type"`
+	ProviderType string `json:"provider-type"`
 }
 
 // ModelConfigSchemaResult holds the model config schema for a cloud, or an

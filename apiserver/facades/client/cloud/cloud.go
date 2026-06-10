@@ -60,6 +60,7 @@ type CloudAPI struct {
 	cloudService       CloudService
 	cloudAccessService CloudAccessService
 	credentialService  CredentialService
+	modelConfigService ModelConfigService
 
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
@@ -92,6 +93,7 @@ func NewCloudAPI(
 	cloudService CloudService,
 	cloudAccessService CloudAccessService,
 	credentialService CredentialService,
+	modelConfigService ModelConfigService,
 	authorizer facade.Authorizer, logger corelogger.Logger,
 ) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
@@ -119,6 +121,7 @@ func NewCloudAPI(
 		cloudService:           cloudService,
 		cloudAccessService:     cloudAccessService,
 		credentialService:      credentialService,
+		modelConfigService:     modelConfigService,
 		authorizer:             authorizer,
 		getCredentialsAuthFunc: getUserAuthFunc,
 		apiUser:                authUser,
@@ -295,25 +298,19 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	return &info, nil
 }
 
-// ModelConfigSchema returns the model config schema for the specified cloud
+// ModelConfigSchema returns the model config schema for the specified provider
 // type.
 // The schema describes the configuration attributes, including provider
 // specific ones, that may be set on a model hosted by that type of cloud.
-func (*CloudAPIV8) ModelConfigSchema(_ context.Context, arg params.ModelConfigSchemaArgs) (params.ModelConfigSchemaResult, error) {
+func (api *CloudAPIV8) ModelConfigSchema(ctx context.Context, arg params.ModelConfigSchemaArgs) (params.ModelConfigSchemaResult, error) {
 	var result params.ModelConfigSchemaResult
-	provider, err := environs.Provider(arg.CloudType)
+	fields, err := api.modelConfigService.GetModelConfigSchemaForCloudType(ctx, arg.ProviderType)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	providerSchema, ok := provider.(environs.ProviderSchema)
-	if !ok {
-		result.Error = apiservererrors.ServerError(
-			errors.NotImplementedf("config schema for cloud type %q", arg.CloudType))
-		return result, nil
-	}
 
-	result.Schema = modelConfigSchemaFieldsToParams(providerSchema.Schema())
+	result.Schema = modelConfigSchemaFieldsToParams(fields)
 	return result, nil
 }
 

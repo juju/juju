@@ -54,6 +54,7 @@ func newFacadeV7(stdCtx context.Context, context facade.ModelContext) (*CloudAPI
 		domainServices.Cloud(),
 		domainServices.Access(),
 		credentialService,
+		domainServices.Config(),
 		context.Auth(), context.Logger().Child("cloud"),
 	)
 }

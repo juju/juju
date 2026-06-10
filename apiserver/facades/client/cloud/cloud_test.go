@@ -28,6 +28,8 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	credentialservice "github.com/juju/juju/domain/credential/service"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/configschema"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	_ "github.com/juju/juju/internal/provider/ec2"
@@ -42,6 +44,7 @@ type cloudSuite struct {
 	cloudAccessService *mocks.MockCloudAccessService
 	cloudService       *mocks.MockCloudService
 	credService        *mocks.MockCredentialService
+	modelConfigService *mocks.MockModelConfigService
 	api                *cloud.CloudAPI
 	authorizer         *apiservertesting.FakeAuthorizer
 
@@ -58,12 +61,13 @@ func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 	s.cloudAccessService = mocks.NewMockCloudAccessService(ctrl)
 	s.cloudService = mocks.NewMockCloudService(ctrl)
 	s.credService = mocks.NewMockCredentialService(ctrl)
+	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
 	s.credentialValidator = mocks.NewMockCredentialValidator(ctrl)
 
 	api, err := cloud.NewCloudAPI(
 		c.Context(),
 		coretesting.ControllerTag, "dummy",
-		s.cloudService, s.cloudAccessService, s.credService,
+		s.cloudService, s.cloudAccessService, s.credService, s.modelConfigService,
 		s.authorizer, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	s.api = api
@@ -73,6 +77,7 @@ func (s *cloudSuite) setup(c *tc.C, userTag names.UserTag) *gomock.Controller {
 		s.cloudAccessService = nil
 		s.cloudService = nil
 		s.credService = nil
+		s.modelConfigService = nil
 		s.credentialValidator = nil
 		s.api = nil
 	})
@@ -125,9 +130,10 @@ func (s *cloudSuite) TestCloudNotFound(c *tc.C) {
 
 func (s *cloudSuite) TestModelConfigSchema(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
+	s.modelConfigService.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "dummy").Return(providerSchema(c, "dummy"), nil)
 
 	api := &cloud.CloudAPIV8{CloudAPI: s.api}
-	result, err := api.ModelConfigSchema(c.Context(), params.ModelConfigSchemaArgs{CloudType: "dummy"})
+	result, err := api.ModelConfigSchema(c.Context(), params.ModelConfigSchemaArgs{ProviderType: "dummy"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
 
@@ -141,13 +147,22 @@ func (s *cloudSuite) TestModelConfigSchema(c *tc.C) {
 	c.Check(ok, tc.IsTrue)
 }
 
-func (s *cloudSuite) TestModelConfigSchemaUnknownCloudType(c *tc.C) {
+func (s *cloudSuite) TestModelConfigSchemaUnknownProviderType(c *tc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
+	s.modelConfigService.EXPECT().GetModelConfigSchemaForCloudType(gomock.Any(), "no-dice").Return(nil, errors.NotFoundf("provider type %q", "no-dice"))
 
 	api := &cloud.CloudAPIV8{CloudAPI: s.api}
-	result, err := api.ModelConfigSchema(c.Context(), params.ModelConfigSchemaArgs{CloudType: "no-dice"})
+	result, err := api.ModelConfigSchema(c.Context(), params.ModelConfigSchemaArgs{ProviderType: "no-dice"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result.Error, tc.NotNil)
+}
+
+func providerSchema(c *tc.C, providerType string) configschema.Fields {
+	provider, err := environs.Provider(providerType)
+	c.Assert(err, tc.ErrorIsNil)
+	providerSchema, ok := provider.(environs.ProviderSchema)
+	c.Assert(ok, tc.IsTrue)
+	return providerSchema.Schema()
 }
 
 func (s *cloudSuite) TestClouds(c *tc.C) {

@@ -163,7 +163,7 @@ func (s *cloudSuite) TestModelConfigSchema(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	arg := params.ModelConfigSchemaArgs{CloudType: "dummy"}
+	arg := params.ModelConfigSchemaArgs{ProviderType: "dummy"}
 	res := new(params.ModelConfigSchemaResult)
 	results := params.ModelConfigSchemaResult{
 		Schema: map[string]params.ModelConfigSchemaField{
@@ -192,7 +192,7 @@ func (s *cloudSuite) TestModelConfigSchemaError(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	arg := params.ModelConfigSchemaArgs{CloudType: "no-dice"}
+	arg := params.ModelConfigSchemaArgs{ProviderType: "no-dice"}
 	res := new(params.ModelConfigSchemaResult)
 	results := params.ModelConfigSchemaResult{
 		Error: &params.Error{Message: `cloud provider type "no-dice" not found`},

@@ -126,18 +126,18 @@ func (c *Client) CloudInfo(ctx context.Context, tags []names.CloudTag) ([]CloudI
 	return infos, nil
 }
 
-// ModelConfigSchema returns the model config schema for the given cloud type.
+// ModelConfigSchema returns the model config schema for the given provider type.
 // The schema describes the configuration attributes, including
 // provider specific ones, that may be set on a model hosted by the cloud.
 //
 // This requires the controller to support at least version 8 of the Cloud
 // facade.
-func (c *Client) ModelConfigSchema(ctx context.Context, cloudType string) (map[string]params.ModelConfigSchemaField, error) {
+func (c *Client) ModelConfigSchema(ctx context.Context, providerType string) (map[string]params.ModelConfigSchemaField, error) {
 	if c.facade.BestAPIVersion() < 8 {
 		return nil, errors.NotSupportedf("ModelConfigSchema on Cloud facade version %d", c.facade.BestAPIVersion())
 	}
 	var result params.ModelConfigSchemaResult
-	arg := params.ModelConfigSchemaArgs{CloudType: cloudType}
+	arg := params.ModelConfigSchemaArgs{ProviderType: providerType}
 	if err := c.facade.FacadeCall(ctx, "ModelConfigSchema", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	}

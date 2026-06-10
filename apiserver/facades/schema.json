@@ -7584,13 +7584,13 @@
                 "ModelConfigSchemaArgs": {
                     "type": "object",
                     "properties": {
-                        "cloud-type": {
+                        "provider-type": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "cloud-type"
+                        "provider-type"
                     ]
                 },
                 "ModelConfigSchemaField": {
