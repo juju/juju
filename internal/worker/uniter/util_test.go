@@ -191,6 +191,9 @@ func (ctx *testContext) run(c tc.LikeC, steps []stepper) {
 			}
 		}
 	}()
+	for _, s := range steps {
+		s.prepare(c, ctx)
+	}
 	for i, s := range steps {
 		c.Logf("step %d:\n", i)
 		step(c, ctx, s)
@@ -324,6 +327,7 @@ func ut(summary string, steps ...stepper) uniterTest {
 }
 
 type stepper interface {
+	prepare(c tc.LikeC, ctx *testContext)
 	step(c tc.LikeC, ctx *testContext)
 }
 
@@ -345,7 +349,9 @@ func startupHooks(minion bool) []string {
 	return []string{"install", "leader-elected", "config-changed", "start"}
 }
 
-func (s createCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *createCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *createCharm) step(c tc.LikeC, ctx *testContext) {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	if s.customize != nil {
 		s.customize(c, ctx, base)
@@ -356,7 +362,7 @@ func (s createCharm) step(c tc.LikeC, ctx *testContext) {
 
 	dir, err := charmtesting.ReadCharmDir(base)
 	c.Assert(err, tc.ErrorIsNil)
-	step(c, ctx, addCharm{dir, curl(s.revision), s.revision})
+	step(c, ctx, &addCharm{dir, curl(s.revision), s.revision})
 }
 
 type addCharm struct {
@@ -365,7 +371,9 @@ type addCharm struct {
 	revision int
 }
 
-func (s addCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *addCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *addCharm) step(c tc.LikeC, ctx *testContext) {
 	var buf bytes.Buffer
 	err := s.dir.ArchiveTo(&buf)
 	c.Assert(err, tc.ErrorIsNil)
@@ -383,7 +391,9 @@ func (s addCharm) step(c tc.LikeC, ctx *testContext) {
 
 type serveCharm struct{}
 
-func (s serveCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *serveCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *serveCharm) step(c tc.LikeC, ctx *testContext) {
 	for storagePath, data := range ctx.charms {
 		ctx.servedCharms[storagePath] = data
 		delete(ctx.charms, storagePath)
@@ -396,18 +406,20 @@ type createApplicationAndUnit struct {
 	container       bool
 }
 
-func (csau createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
-	if csau.applicationName == "" {
-		csau.applicationName = "u"
+func (s *createApplicationAndUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
+	if s.applicationName == "" {
+		s.applicationName = "u"
 	}
-	unitTag := names.NewUnitTag(csau.applicationName + "/0")
+	unitTag := names.NewUnitTag(s.applicationName + "/0")
 	ctx.unit = ctx.makeUnit(c, unitTag, life.Alive)
 
-	appTag := names.NewApplicationTag(csau.applicationName)
+	appTag := names.NewApplicationTag(s.applicationName)
 	ctx.app = ctx.makeApplication(appTag)
 
 	ctx.storage = make(map[string]*storageAttachment)
-	for si, count := range csau.storage {
+	for si, count := range s.storage {
 		for n := range count {
 			tag := names.NewStorageTag(fmt.Sprintf("%s/%d", si, n))
 			ctx.storage[tag.Id()] = &storageAttachment{
@@ -417,7 +429,7 @@ func (csau createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 	}
 
 	// Assign the unit to a provisioned machine to match expected state.
-	if csau.container {
+	if s.container {
 		machineTag := names.NewMachineTag("0/lxd/0")
 		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
 	} else {
@@ -429,7 +441,9 @@ func (csau createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 
 type deleteUnit struct{}
 
-func (d deleteUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *deleteUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *deleteUnit) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.life = life.Dead
 	ctx.unit.mu.Unlock()
@@ -442,24 +456,28 @@ type createUniter struct {
 	translateResolverErr func(error) error
 }
 
-func (s createUniter) step(c tc.LikeC, ctx *testContext) {
+func (s *createUniter) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *createUniter) step(c tc.LikeC, ctx *testContext) {
 	ctx.startError = s.startError
-	step(c, ctx, createApplicationAndUnit{})
+	step(c, ctx, &createApplicationAndUnit{})
 	ctx.leaderTracker = newMockLeaderTracker(ctx, s.minion)
 	if s.minion {
-		step(c, ctx, forceMinion{})
+		step(c, ctx, &forceMinion{})
 	}
-	step(c, ctx, startUniter{
+	step(c, ctx, &startUniter{
 		newExecutorFunc:      s.executorFunc,
 		translateResolverErr: s.translateResolverErr,
 		unit:                 ctx.unit.Name(),
 	})
-	step(c, ctx, waitAddresses{})
+	step(c, ctx, &waitAddresses{})
 }
 
 type waitAddresses struct{}
 
-func (waitAddresses) step(c tc.LikeC, ctx *testContext) {
+func (s *waitAddresses) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitAddresses) step(c tc.LikeC, ctx *testContext) {
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -938,7 +956,9 @@ func (s startUniter) setupUniterHookExec(c tc.LikeC, ctx *testContext) {
 	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRelationStateMatcher{}).DoAndReturn(setState).AnyTimes()
 }
 
-func (s startUniter) step(c tc.LikeC, ctx *testContext) {
+func (s *startUniter) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *startUniter) step(c tc.LikeC, ctx *testContext) {
 	if s.unit == "" {
 		s.unit = "u/0"
 	}
@@ -1053,7 +1073,9 @@ type waitUniterDead struct {
 	err string
 }
 
-func (s waitUniterDead) step(c tc.LikeC, ctx *testContext) {
+func (s *waitUniterDead) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitUniterDead) step(c tc.LikeC, ctx *testContext) {
 	if s.err != "" {
 		err := s.waitDead(c, ctx)
 		c.Log(errors.ErrorStack(err))
@@ -1070,7 +1092,7 @@ func (s waitUniterDead) step(c tc.LikeC, ctx *testContext) {
 	// eventually, see the correct error and respond appropriately.
 	err := s.waitDead(c, ctx)
 	if err != jworker.ErrTerminateAgent {
-		step(c, ctx, startUniter{})
+		step(c, ctx, &startUniter{})
 		err = s.waitDead(c, ctx)
 	}
 	c.Assert(err, tc.Equals, jworker.ErrTerminateAgent)
@@ -1099,7 +1121,9 @@ type stopUniter struct {
 	err string
 }
 
-func (s stopUniter) step(c tc.LikeC, ctx *testContext) {
+func (s *stopUniter) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *stopUniter) step(c tc.LikeC, ctx *testContext) {
 	u := ctx.uniter
 	if u == nil {
 		c.Logf("uniter not started, skipping stopUniter{}")
@@ -1117,49 +1141,58 @@ func (s stopUniter) step(c tc.LikeC, ctx *testContext) {
 
 type verifyWaiting struct{}
 
-func (s verifyWaiting) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, stopUniter{})
-	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
-	step(c, ctx, waitHooks{})
+func (s *verifyWaiting) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyWaiting) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, &stopUniter{})
+	step(c, ctx, &startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
+	step(c, ctx, &waitHooks{})
 }
 
 type verifyRunning struct{}
 
-func (s verifyRunning) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, stopUniter{})
-	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
+func (s *verifyRunning) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyRunning) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, &stopUniter{})
+	step(c, ctx, &startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
 	var hooks []string
 	// We don't expect config-changed to always run on agent restart
 	// anymore.
-	step(c, ctx, waitHooks(hooks))
+	wh := waitHooks(hooks)
+	step(c, ctx, &wh)
 }
 
 type startupError struct {
 	badHook string
 }
 
-func (s startupError) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
-	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{
+func (s *startupError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *startupError) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, &createCharm{badHooks: []string{s.badHook}})
+	step(c, ctx, &serveCharm{})
+	step(c, ctx, &createUniter{})
+	step(c, ctx, &waitUnitAgent{
 		statusGetter: unitStatusGetter,
 		status:       status.Error,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
 	})
 	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
-			step(c, ctx, waitHooks{"fail-" + hook})
+			step(c, ctx, &waitHooks{"fail-" + hook})
 			break
 		}
-		step(c, ctx, waitHooks{hook})
+		step(c, ctx, &waitHooks{hook})
 	}
-	step(c, ctx, verifyCharm{})
+	step(c, ctx, &verifyCharm{})
 }
 
 type verifyDeployed struct{}
 
-func (s verifyDeployed) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyDeployed) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyDeployed) step(c tc.LikeC, ctx *testContext) {
 	c.Assert(ctx.deployer.staged, tc.DeepEquals, curl(0))
 	c.Assert(ctx.deployer.deployed, tc.IsTrue)
 }
@@ -1168,45 +1201,55 @@ type quickStart struct {
 	minion bool
 }
 
-func (s quickStart) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, createCharm{})
-	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{minion: s.minion})
-	step(c, ctx, waitUnitAgent{status: status.Idle})
-	step(c, ctx, waitHooks(startupHooks(s.minion)))
-	step(c, ctx, verifyCharm{})
+func (s *quickStart) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *quickStart) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, &createCharm{})
+	step(c, ctx, &serveCharm{})
+	step(c, ctx, &createUniter{minion: s.minion})
+	step(c, ctx, &waitUnitAgent{status: status.Idle})
+	wh := waitHooks(startupHooks(s.minion))
+	step(c, ctx, &wh)
+	step(c, ctx, &verifyCharm{})
 }
 
 type quickStartRelation struct{}
 
-func (s quickStartRelation) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, quickStart{})
-	step(c, ctx, addRelation{})
-	step(c, ctx, addRelationUnit{})
-	step(c, ctx, waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"})
-	step(c, ctx, verifyRunning{})
+func (s *quickStartRelation) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *quickStartRelation) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, &quickStart{})
+	step(c, ctx, &addRelation{})
+	step(c, ctx, &addRelationUnit{})
+	step(c, ctx, &waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"})
+	step(c, ctx, &verifyRunning{})
 }
 
 type startupRelationError struct {
 	badHook string
 }
 
-func (s startupRelationError) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
-	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{status: status.Idle})
-	step(c, ctx, waitHooks(startupHooks(false)))
-	step(c, ctx, verifyCharm{})
-	step(c, ctx, addRelation{})
-	step(c, ctx, addRelationUnit{})
+func (s *startupRelationError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *startupRelationError) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, &createCharm{badHooks: []string{s.badHook}})
+	step(c, ctx, &serveCharm{})
+	step(c, ctx, &createUniter{})
+	step(c, ctx, &waitUnitAgent{status: status.Idle})
+	wh := waitHooks(startupHooks(false))
+	step(c, ctx, &wh)
+	step(c, ctx, &verifyCharm{})
+	step(c, ctx, &addRelation{})
+	step(c, ctx, &addRelationUnit{})
 }
 
 type resolveError struct {
 	resolved params.ResolvedMode
 }
 
-func (s resolveError) step(c tc.LikeC, ctx *testContext) {
+func (s *resolveError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *resolveError) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.resolved = s.resolved
 	ctx.unit.mu.Unlock()
@@ -1243,7 +1286,9 @@ type waitUnitAgent struct {
 	resolved     params.ResolvedMode
 }
 
-func (s waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
+func (s *waitUnitAgent) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
 	if s.statusGetter == nil {
 		s.statusGetter = agentStatusGetter
 	}
@@ -1315,16 +1360,18 @@ func (s waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
 
 type waitHooks []string
 
-func (s waitHooks) step(c tc.LikeC, ctx *testContext) {
-	if len(s) == 0 {
+func (s *waitHooks) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitHooks) step(c tc.LikeC, ctx *testContext) {
+	if len(*s) == 0 {
 		// Give unwanted hooks a moment to run...
 
 		time.Sleep(coretesting.ShortWait)
 	}
-	ctx.hooks = append(ctx.hooks, s...)
+	ctx.hooks = append(ctx.hooks, *s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
 	match, cannotMatch, overshoot := ctx.matchHooks(c)
-	if overshoot && len(s) == 0 {
+	if overshoot && len(*s) == 0 {
 		c.Fatalf("ran more hooks than expected")
 	}
 	if cannotMatch {
@@ -1347,7 +1394,7 @@ func (s waitHooks) step(c tc.LikeC, ctx *testContext) {
 		releaser()
 	}
 	if match {
-		if len(s) > 0 {
+		if len(*s) > 0 {
 			// only check for lock release if there were hooks
 			// run; hooks *not* running may be due to the lock
 			// being held.
@@ -1380,7 +1427,9 @@ type waitActionInvocation struct {
 	expectedActions []actionData
 }
 
-func (s waitActionInvocation) step(c tc.LikeC, ctx *testContext) {
+func (s *waitActionInvocation) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitActionInvocation) step(c tc.LikeC, ctx *testContext) {
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -1423,7 +1472,9 @@ type fixHook struct {
 	name string
 }
 
-func (s fixHook) step(_ tc.LikeC, ctx *testContext) {
+func (s *fixHook) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *fixHook) step(_ tc.LikeC, ctx *testContext) {
 	if ctx.runner.hooksWithErrors != nil {
 		ctx.runner.hooksWithErrors.Remove(s.name)
 	}
@@ -1431,15 +1482,19 @@ func (s fixHook) step(_ tc.LikeC, ctx *testContext) {
 
 type updateStatusHookTick struct{}
 
-func (s updateStatusHookTick) step(c tc.LikeC, ctx *testContext) {
+func (s *updateStatusHookTick) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *updateStatusHookTick) step(c tc.LikeC, ctx *testContext) {
 	err := ctx.updateStatusHookTicker.Tick()
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 type changeConfig map[string]any
 
-func (s changeConfig) step(c tc.LikeC, ctx *testContext) {
-	ctx.sendStrings(c, ctx.configCh, "config change event", ctx.app.configHash(s))
+func (s *changeConfig) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *changeConfig) step(c tc.LikeC, ctx *testContext) {
+	ctx.sendStrings(c, ctx.configCh, "config change event", ctx.app.configHash(*s))
 }
 
 type addAction struct {
@@ -1447,7 +1502,9 @@ type addAction struct {
 	params map[string]any
 }
 
-func (s addAction) step(c tc.LikeC, ctx *testContext) {
+func (s *addAction) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *addAction) step(c tc.LikeC, ctx *testContext) {
 	tag := names.NewActionTag(strconv.Itoa(int(ctx.actionCounter.Add(1))))
 	a := apiuniter.NewAction(tag.Id(), s.name, s.params, false, "")
 	ctx.pendingActions = append(ctx.pendingActions, a)
@@ -1466,14 +1523,16 @@ type upgradeCharm struct {
 	forced   bool
 }
 
-func (s upgradeCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *upgradeCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *upgradeCharm) step(c tc.LikeC, ctx *testContext) {
 	ctx.app.mu.Lock()
 	defer ctx.app.mu.Unlock()
 	ctx.app.charmURL = curl(s.revision)
 	ctx.app.charmForced = s.forced
 	ctx.app.charmModifiedVersion++
 	// Make sure we upload the charm before changing it in the DB.
-	serveCharm{}.step(c, ctx)
+	(&serveCharm{}).step(c, ctx)
 	ctx.sendNotify(c, ctx.applicationCh, "application charm upgrade event")
 }
 
@@ -1483,7 +1542,9 @@ type verifyCharm struct {
 	checkFiles        filetesting.Entries
 }
 
-func (s verifyCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyCharm) step(c tc.LikeC, ctx *testContext) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
 	checkRevision := max(s.attemptedRevision, s.revision)
 	ctx.unit.mu.Lock()
@@ -1494,7 +1555,9 @@ func (s verifyCharm) step(c tc.LikeC, ctx *testContext) {
 
 type pushResource struct{}
 
-func (s pushResource) step(c tc.LikeC, ctx *testContext) {
+func (s *pushResource) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *pushResource) step(c tc.LikeC, ctx *testContext) {
 	ctx.app.mu.Lock()
 	ctx.app.charmModifiedVersion++
 	ctx.app.mu.Unlock()
@@ -1503,33 +1566,39 @@ func (s pushResource) step(c tc.LikeC, ctx *testContext) {
 
 type startUpgradeError struct{}
 
-func (s startUpgradeError) step(c tc.LikeC, ctx *testContext) {
+func (s *startUpgradeError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *startUpgradeError) step(c tc.LikeC, ctx *testContext) {
+	wh := waitHooks(startupHooks(false))
 	steps := []stepper{
-		createCharm{},
-		serveCharm{},
-		createUniter{},
-		waitUnitAgent{
+		&createCharm{},
+		&serveCharm{},
+		&createUniter{},
+		&waitUnitAgent{
 			status: status.Idle,
 		},
-		waitHooks(startupHooks(false)),
-		verifyCharm{},
+		&wh,
+		&verifyCharm{},
 
-		createCharm{
+		&createCharm{
 			revision: 1,
 			customize: func(c tc.LikeC, ctx *testContext, path string) {
 				ctx.deployer.err = charm.ErrConflict
 			},
 		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
-		waitUnitAgent{
+		&serveCharm{},
+		&upgradeCharm{revision: 1},
+		&waitUnitAgent{
 			statusGetter: unitStatusGetter,
 			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        1,
 		},
-		verifyWaiting{},
-		verifyCharm{attemptedRevision: 1},
+		&verifyWaiting{},
+		&verifyCharm{attemptedRevision: 1},
+	}
+	for _, s_ := range steps {
+		s_.prepare(c, ctx)
 	}
 	for _, s_ := range steps {
 		step(c, ctx, s_)
@@ -1540,19 +1609,21 @@ type verifyWaitingUpgradeError struct {
 	revision int
 }
 
-func (s verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyWaitingUpgradeError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
 	verifyCharmSteps := []stepper{
-		waitUnitAgent{
+		&waitUnitAgent{
 			statusGetter: unitStatusGetter,
 			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        s.revision,
 		},
-		verifyCharm{attemptedRevision: s.revision},
+		&verifyCharm{attemptedRevision: s.revision},
 	}
 	verifyWaitingSteps := []stepper{
-		stopUniter{},
-		custom{func(c tc.LikeC, ctx *testContext) {
+		&stopUniter{},
+		&custom{func(c tc.LikeC, ctx *testContext) {
 			// By setting status to Idle, and waiting for the restarted uniter
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
@@ -1563,10 +1634,13 @@ func (s verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
 			}
 			ctx.unit.mu.Unlock()
 		}},
-		startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
+		&startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
 	}
 	allSteps := append(verifyCharmSteps, verifyWaitingSteps...)
 	allSteps = append(allSteps, verifyCharmSteps...)
+	for _, s_ := range allSteps {
+		s_.prepare(c, ctx)
+	}
 	for _, s_ := range allSteps {
 		step(c, ctx, s_)
 	}
@@ -1574,14 +1648,18 @@ func (s verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
 
 type fixUpgradeError struct{}
 
-func (s fixUpgradeError) step(_ tc.LikeC, ctx *testContext) {
+func (s *fixUpgradeError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *fixUpgradeError) step(_ tc.LikeC, ctx *testContext) {
 	ctx.deployer.err = nil
 }
 
 type addRelation struct {
 }
 
-func (s addRelation) step(c tc.LikeC, ctx *testContext) {
+func (s *addRelation) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *addRelation) step(c tc.LikeC, ctx *testContext) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
@@ -1612,12 +1690,14 @@ func (s addRelation) step(c tc.LikeC, ctx *testContext) {
 
 	ctx.sendStrings(c, ctx.relCh, "relation event", relTag.Id())
 
-	step(c, ctx, waitHooks{"db-relation-created mysql db:0"})
+	step(c, ctx, &waitHooks{"db-relation-created mysql db:0"})
 }
 
 type addRelationUnit struct{}
 
-func (s addRelationUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *addRelationUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *addRelationUnit) step(c tc.LikeC, ctx *testContext) {
 	related := fmt.Sprintf("%s/%d", ctx.relatedApplication.Tag().Id(), ctx.relUnitCounter.Add(1))
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
@@ -1639,7 +1719,9 @@ type changeRelationUnit struct {
 	name string
 }
 
-func (s changeRelationUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *changeRelationUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *changeRelationUnit) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 
@@ -1661,7 +1743,9 @@ type removeRelationUnit struct {
 	name string
 }
 
-func (s removeRelationUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *removeRelationUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeRelationUnit) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 
@@ -1680,7 +1764,9 @@ type relationState struct {
 	life    life.Value
 }
 
-func (s relationState) step(c tc.LikeC, ctx *testContext) {
+func (s *relationState) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *relationState) step(c tc.LikeC, ctx *testContext) {
 	if s.removed {
 		c.Assert(ctx.relation.Life(), tc.Equals, life.Dying)
 		return
@@ -1692,7 +1778,9 @@ type addSubordinateRelation struct {
 	ifce string
 }
 
-func (s addSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
+func (s *addSubordinateRelation) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *addSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
 	relKey := subordinateRelationKey(s.ifce)
 	relTag := names.NewRelationTag(relKey)
 	ctx.subordRelation = ctx.makeRelation(c, relTag, life.Alive, "logging")
@@ -1715,7 +1803,9 @@ type removeSubordinateRelation struct {
 	ifce string
 }
 
-func (s removeSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
+func (s *removeSubordinateRelation) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
 	ctx.subordRelation.mu.Lock()
 	ctx.subordRelation.life = life.Dying
 	ctx.subordRelation.mu.Unlock()
@@ -1726,7 +1816,9 @@ type waitSubordinateExists struct {
 	name string
 }
 
-func (s waitSubordinateExists) step(c tc.LikeC, ctx *testContext) {
+func (s *waitSubordinateExists) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitSubordinateExists) step(c tc.LikeC, ctx *testContext) {
 	// First wait for the principal unit to enter scope.
 	// If subordinate is not alive, test does not allow the
 	// principal to enter scope.
@@ -1766,7 +1858,9 @@ func (s waitSubordinateExists) step(c tc.LikeC, ctx *testContext) {
 
 type waitSubordinateDying struct{}
 
-func (waitSubordinateDying) step(c tc.LikeC, ctx *testContext) {
+func (s *waitSubordinateDying) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitSubordinateDying) step(c tc.LikeC, ctx *testContext) {
 	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -1787,7 +1881,9 @@ func (waitSubordinateDying) step(c tc.LikeC, ctx *testContext) {
 
 type removeSubordinate struct{}
 
-func (removeSubordinate) step(c tc.LikeC, ctx *testContext) {
+func (s *removeSubordinate) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeSubordinate) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.subordinate = nil
 	ctx.unit.mu.Unlock()
@@ -1802,7 +1898,9 @@ type writeFile struct {
 	mode os.FileMode
 }
 
-func (s writeFile) step(c tc.LikeC, ctx *testContext) {
+func (s *writeFile) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *writeFile) step(c tc.LikeC, ctx *testContext) {
 	path := filepath.Join(ctx.path, s.path)
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0755)
@@ -1813,7 +1911,9 @@ func (s writeFile) step(c tc.LikeC, ctx *testContext) {
 
 type removeCharmDir struct{}
 
-func (s removeCharmDir) step(c tc.LikeC, ctx *testContext) {
+func (s *removeCharmDir) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeCharmDir) step(c tc.LikeC, ctx *testContext) {
 	path := filepath.Join(ctx.path, "charm")
 	err := os.RemoveAll(path)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1823,18 +1923,20 @@ type custom struct {
 	f func(tc.LikeC, *testContext)
 }
 
-func (s custom) step(c tc.LikeC, ctx *testContext) {
+func (s *custom) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *custom) step(c tc.LikeC, ctx *testContext) {
 	s.f(c, ctx)
 }
 
-var relationDying = custom{func(c tc.LikeC, ctx *testContext) {
+var relationDying = &custom{func(c tc.LikeC, ctx *testContext) {
 	ctx.relation.mu.Lock()
 	ctx.relation.life = life.Dying
 	ctx.relation.mu.Unlock()
 	ctx.sendStrings(c, ctx.relCh, "relation dying event", ctx.relation.Tag().Id())
 }}
 
-var unitDying = custom{func(c tc.LikeC, ctx *testContext) {
+var unitDying = &custom{func(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.life = life.Dying
 	ctx.unit.mu.Unlock()
@@ -1854,14 +1956,14 @@ var unitDying = custom{func(c tc.LikeC, ctx *testContext) {
 	ctx.sendUnitNotify(c, "send unit dying event")
 }}
 
-var unitDead = custom{func(c tc.LikeC, ctx *testContext) {
+var unitDead = &custom{func(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.life = life.Dead
 	ctx.unit.mu.Unlock()
 	ctx.sendUnitNotify(c, "send unit dead event")
 }}
 
-var subordinateDying = custom{func(c tc.LikeC, ctx *testContext) {
+var subordinateDying = &custom{func(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.subordinate.mu.Lock()
 	ctx.unit.subordinate.life = life.Dying
@@ -1884,6 +1986,8 @@ type hookLock struct {
 type hookStep struct {
 	stepFunc func(tc.LikeC, *testContext)
 }
+
+func (h *hookStep) prepare(_ tc.LikeC, _ *testContext) {}
 
 func (h *hookStep) step(c tc.LikeC, ctx *testContext) {
 	h.stepFunc(c, ctx)
@@ -1911,8 +2015,10 @@ func (h *hookLock) release() *hookStep {
 
 type runCommands []string
 
-func (cmds runCommands) step(c tc.LikeC, ctx *testContext) {
-	commands := strings.Join(cmds, "\n")
+func (s *runCommands) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *runCommands) step(c tc.LikeC, ctx *testContext) {
+	commands := strings.Join(*s, "\n")
 	args := uniter.RunCommandsArgs{
 		Commands:       commands,
 		RelationId:     -1,
@@ -1928,13 +2034,17 @@ func (cmds runCommands) step(c tc.LikeC, ctx *testContext) {
 
 type forceMinion struct{}
 
-func (forceMinion) step(c tc.LikeC, ctx *testContext) {
+func (s *forceMinion) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *forceMinion) step(c tc.LikeC, ctx *testContext) {
 	ctx.leaderTracker.setLeader(false)
 }
 
 type forceLeader struct{}
 
-func (forceLeader) step(c tc.LikeC, ctx *testContext) {
+func (s *forceLeader) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *forceLeader) step(c tc.LikeC, ctx *testContext) {
 	ctx.leaderTracker.setLeader(true)
 }
 
@@ -2049,7 +2159,9 @@ func (*mockCharmDirGuard) Lockdown(context.Context) error { return nil }
 
 type provisionStorage struct{}
 
-func (s provisionStorage) step(c tc.LikeC, ctx *testContext) {
+func (s *provisionStorage) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *provisionStorage) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 	for si := range ctx.storage {
@@ -2067,7 +2179,9 @@ func (s provisionStorage) step(c tc.LikeC, ctx *testContext) {
 
 type destroyStorageAttachment struct{}
 
-func (s destroyStorageAttachment) step(c tc.LikeC, ctx *testContext) {
+func (s *destroyStorageAttachment) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *destroyStorageAttachment) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	ctx.storage = make(map[string]*storageAttachment)
 	ctx.stateMu.Unlock()
@@ -2075,7 +2189,9 @@ func (s destroyStorageAttachment) step(c tc.LikeC, ctx *testContext) {
 
 type verifyStorageDetached struct{}
 
-func (s verifyStorageDetached) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyStorageDetached) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyStorageDetached) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 	c.Assert(ctx.storage, tc.HasLen, 0)
@@ -2083,7 +2199,9 @@ func (s verifyStorageDetached) step(c tc.LikeC, ctx *testContext) {
 
 type createSecret struct{}
 
-func (s createSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *createSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *createSecret) step(c tc.LikeC, ctx *testContext) {
 	uri := secrets.NewURI()
 	ctx.secretBackends.EXPECT().GetContent(gomock.Any(), uri, "foorbar", false, false).Return(
 		secrets.NewSecretValue(map[string]string{"foo": "bar"}), nil).AnyTimes()
@@ -2092,7 +2210,9 @@ func (s createSecret) step(c tc.LikeC, ctx *testContext) {
 
 type changeSecret struct{}
 
-func (s changeSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *changeSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *changeSecret) step(c tc.LikeC, ctx *testContext) {
 	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(
 		gomock.Any(),
 		ctx.unit.Name(), []string{ctx.createdSecretURI.String()},
@@ -2118,7 +2238,9 @@ func (s changeSecret) step(c tc.LikeC, ctx *testContext) {
 
 type getSecret struct{}
 
-func (s getSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *getSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *getSecret) step(c tc.LikeC, ctx *testContext) {
 	val, err := ctx.secretBackends.GetContent(c.Context(), ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), tc.DeepEquals, map[string]string{"foo": "bar"})
@@ -2128,7 +2250,9 @@ type rotateSecret struct {
 	rev int
 }
 
-func (s rotateSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *rotateSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *rotateSecret) step(c tc.LikeC, ctx *testContext) {
 	ctx.sendStrings(c, ctx.secretsRotateCh, "rotate secret change", ctx.createdSecretURI.String())
 	done := make(chan bool)
 	go func() {
@@ -2149,7 +2273,9 @@ func (s rotateSecret) step(c tc.LikeC, ctx *testContext) {
 
 type expireSecret struct{}
 
-func (s expireSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *expireSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *expireSecret) step(c tc.LikeC, ctx *testContext) {
 	ctx.sendStrings(c, ctx.secretsExpireCh, "expire secret change", ctx.createdSecretURI.String()+"/1")
 }
 
@@ -2157,7 +2283,9 @@ type expectError struct {
 	err string
 }
 
-func (s expectError) step(_ tc.LikeC, ctx *testContext) {
+func (s *expectError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *expectError) step(_ tc.LikeC, ctx *testContext) {
 	ctx.setExpectedError(s.err)
 }
 
@@ -2225,7 +2353,9 @@ type activateTestContainer struct {
 	containerName string
 }
 
-func (s activateTestContainer) step(c tc.LikeC, ctx *testContext) {
+func (s *activateTestContainer) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *activateTestContainer) step(c tc.LikeC, ctx *testContext) {
 	ctx.pebbleClients[s.containerName].TriggerStart()
 }
 
@@ -2233,7 +2363,9 @@ type injectTestContainer struct {
 	containerName string
 }
 
-func (s injectTestContainer) step(c tc.LikeC, ctx *testContext) {
+func (s *injectTestContainer) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *injectTestContainer) step(c tc.LikeC, ctx *testContext) {
 	c.Assert(ctx.uniter, tc.IsNil)
 	ctx.containerNames = append(ctx.containerNames, s.containerName)
 	if ctx.pebbleClients == nil {
@@ -2248,7 +2380,9 @@ func (s injectTestContainer) step(c tc.LikeC, ctx *testContext) {
 type triggerShutdown struct {
 }
 
-func (t triggerShutdown) step(c tc.LikeC, ctx *testContext) {
+func (s *triggerShutdown) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *triggerShutdown) step(c tc.LikeC, ctx *testContext) {
 	err := ctx.uniter.Terminate()
 	c.Assert(err, tc.ErrorIsNil)
 }
