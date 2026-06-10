@@ -7,11 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-logr/logr"
 	"github.com/juju/tc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-	"github.com/canonical/gomock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

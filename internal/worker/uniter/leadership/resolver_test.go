@@ -6,8 +6,8 @@ package leadership_test
 import (
 	"testing"
 
-	"github.com/juju/tc"
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/life"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

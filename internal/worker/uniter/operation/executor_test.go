@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/domain/deployment/charm/hooks"

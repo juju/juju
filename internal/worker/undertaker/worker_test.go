@@ -7,12 +7,12 @@ import (
 	"context"
 	stdtesting "testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "github.com/canonical/gomock/gomock"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"

@@ -6,10 +6,10 @@ package context_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"github.com/canonical/gomock/gomock"
 
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
