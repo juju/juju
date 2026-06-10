@@ -84,10 +84,16 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// machineControllerStartupValueProvider supplies current controller-local
+// startup values for the transitional controller-on-machine path. It re-reads
+// current agent config on each call so bounced workers do not keep stale
+// values.
 type machineControllerStartupValueProvider struct {
 	agent *MachineAgent
 }
 
+// CertMaterial returns the current controller certificate material from agent
+// config.
 func (p machineControllerStartupValueProvider) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
 	cfg := p.agent.CurrentConfig()
 	info, _ := cfg.ControllerAgentInfo()
@@ -99,6 +105,8 @@ func (p machineControllerStartupValueProvider) CertMaterial() (apiservercertwatc
 	}, nil
 }
 
+// LocalValues returns the current controller-local API server values from
+// agent config.
 func (p machineControllerStartupValueProvider) LocalValues() (apiserver.LocalValues, error) {
 	cfg := p.agent.CurrentConfig()
 	logSinkConfig, err := logSinkConfigFromAgentConfig(cfg)
@@ -112,6 +120,8 @@ func (p machineControllerStartupValueProvider) LocalValues() (apiserver.LocalVal
 	}, nil
 }
 
+// ObjectStoreRootDir returns the current local root dir for file-backed object
+// store workers.
 func (p machineControllerStartupValueProvider) ObjectStoreRootDir() (string, error) {
 	return p.agent.CurrentConfig().DataDir(), nil
 }
