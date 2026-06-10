@@ -31,7 +31,7 @@ func (s *Service) Export(ctx context.Context) (*domainexport.ModelExport, error)
 	}
 
 	return &domainexport.ModelExport{
-		Version: "4.0.6",
+		Version: domainexport.LatestSupportedPayloadVersion(),
 		Payload: payload,
 	}, nil
 }
