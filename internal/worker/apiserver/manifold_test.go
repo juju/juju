@@ -76,6 +76,15 @@ type ManifoldSuite struct {
 	stub testhelpers.Stub
 }
 
+type stubLocalConfigReader struct {
+	values apiserver.LocalValues
+	err    error
+}
+
+func (s stubLocalConfigReader) LocalValues() (apiserver.LocalValues, error) {
+	return s.values, s.err
+}
+
 func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
@@ -112,9 +121,7 @@ func (s *ManifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 		AuthenticatorName:                 "authenticator",
 		Clock:                             clock.WallClock,
 		ControllerTag:                     names.NewControllerAgentTag("0"),
-		DataDir:                           c.MkDir(),
-		LogDir:                            c.MkDir(),
-		LogSinkConfig:                     coreapiserver.DefaultLogSinkConfig(),
+		LocalConfigReader:                 stubLocalConfigReader{values: apiserver.LocalValues{DataDir: c.MkDir(), LogDir: c.MkDir(), LogSinkConfig: coreapiserver.DefaultLogSinkConfig()}},
 		MuxName:                           "mux",
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",

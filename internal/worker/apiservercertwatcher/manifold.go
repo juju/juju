@@ -19,41 +19,60 @@ type AuthorityWorker interface {
 	worker.Worker
 }
 
-// ManifoldConfig holds the certificate material needed to start the
-// certificate-watcher worker. All fields are controller-owned startup
-// values supplied at engine-creation time; the manifold does not read
-// any config file or look up values through the agent manifold.
-type ManifoldConfig struct {
-	// CACert is the TLS CA certificate PEM block.
+// CertMaterial holds the certificate material needed to construct the
+// controller authority.
+type CertMaterial struct {
+	// CACert is the TLS CA certificate PEM block for the controller.
 	CACert string
 
-	// CAPrivateKey is the TLS CA private key PEM block. This field
-	// is sensitive and must not be logged.
+	// CAPrivateKey is the TLS CA private key PEM block.
 	CAPrivateKey string
 
 	// ControllerCert is the controller TLS certificate PEM block.
 	ControllerCert string
 
-	// ControllerPrivateKey is the controller TLS private key PEM block.
-	// This field is sensitive and must not be logged.
+	// ControllerPrivateKey is the controller TLS private key PEM
+	// block.
 	ControllerPrivateKey string
+}
+
+// CertReader returns the current controller certificate material when the
+// manifold starts.
+type CertReader interface {
+	CertMaterial() (CertMaterial, error)
+}
+
+// ManifoldConfig holds the certificate material needed to start the
+// certificate-watcher worker. The reader is evaluated when the manifold starts
+// so bounced workers observe current controller certificate material.
+type ManifoldConfig struct {
+	// CertReader returns the current controller certificate material.
+	CertReader CertReader
 
 	// CertWatcherWorkerFn is an optional override for tests.
-	CertWatcherWorkerFn func(config ManifoldConfig) (AuthorityWorker, error)
+	CertWatcherWorkerFn func(material CertMaterial) (AuthorityWorker, error)
 }
 
 // Validate returns an error if the config is incomplete.
 func (c ManifoldConfig) Validate() error {
-	if c.CACert == "" {
+	if c.CertReader == nil {
+		return errors.NotValidf("nil CertReader")
+	}
+	return nil
+}
+
+// Validate returns an error if the cert material is incomplete.
+func (m CertMaterial) Validate() error {
+	if m.CACert == "" {
 		return errors.NotValidf("empty CACert")
 	}
-	if c.CAPrivateKey == "" {
+	if m.CAPrivateKey == "" {
 		return errors.NotValidf("empty CAPrivateKey")
 	}
-	if c.ControllerCert == "" {
+	if m.ControllerCert == "" {
 		return errors.NotValidf("empty ControllerCert")
 	}
-	if c.ControllerPrivateKey == "" {
+	if m.ControllerPrivateKey == "" {
 		return errors.NotValidf("empty ControllerPrivateKey")
 	}
 	return nil
@@ -70,12 +89,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			material, err := config.CertReader.CertMaterial()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err := material.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			if config.CertWatcherWorkerFn != nil {
-				return config.CertWatcherWorkerFn(config)
+				return config.CertWatcherWorkerFn(material)
 			}
 
 			w := &apiserverCertWatcher{}
-			if err := w.setup(config); err != nil {
+			if err := w.setup(material); err != nil {
 				return nil, errors.Annotate(err, "setting up initial ca authority")
 			}
 
@@ -121,13 +148,13 @@ func (w *apiserverCertWatcher) Kill() {
 	w.tomb.Kill(nil)
 }
 
-func (w *apiserverCertWatcher) setup(config ManifoldConfig) error {
-	caCert := config.CACert
+func (w *apiserverCertWatcher) setup(material CertMaterial) error {
+	caCert := material.CACert
 	if caCert == "" {
 		return errors.New("no ca certificate found in config")
 	}
 
-	caPrivateKey := config.CAPrivateKey
+	caPrivateKey := material.CAPrivateKey
 	if caPrivateKey == "" {
 		return errors.New("no CA private key found in config")
 	}
@@ -139,12 +166,12 @@ func (w *apiserverCertWatcher) setup(config ManifoldConfig) error {
 	}
 
 	_, err = authority.LeafGroupFromPemCertKey(pki.DefaultLeafGroup,
-		[]byte(config.ControllerCert), []byte(config.ControllerPrivateKey))
+		[]byte(material.ControllerCert), []byte(material.ControllerPrivateKey))
 	if err != nil {
 		return errors.Annotate(err, "loading default certificate for controller")
 	}
 
-	_, signers, err := pki.UnmarshalPemData([]byte(config.ControllerPrivateKey))
+	_, signers, err := pki.UnmarshalPemData([]byte(material.ControllerPrivateKey))
 	if err != nil {
 		return errors.Annotate(err, "setting default certificate signing key")
 	}

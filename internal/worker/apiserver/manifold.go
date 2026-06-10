@@ -58,6 +58,19 @@ func GetModelService(getter dependency.Getter, name string) (ModelService, error
 	})
 }
 
+// LocalValues are the controller-local values needed to start the API server.
+type LocalValues struct {
+	DataDir       string
+	LogDir        string
+	LogSinkConfig apiserver.LogSinkConfig
+}
+
+// LocalConfigReader returns the current controller-local values when the
+// manifold starts.
+type LocalConfigReader interface {
+	LocalValues() (LocalValues, error)
+}
+
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
@@ -82,12 +95,8 @@ type ManifoldConfig struct {
 	Clock clock.Clock
 	// ControllerTag is the tag of the controller running the API server.
 	ControllerTag names.Tag
-	// DataDir is the controller process data directory.
-	DataDir string
-	// LogDir is the controller process log directory.
-	LogDir string
-	// LogSinkConfig holds rate-limit parameters for the API server log sink.
-	LogSinkConfig apiserver.LogSinkConfig
+	// LocalConfigReader returns current controller-local startup values.
+	LocalConfigReader LocalConfigReader
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -106,11 +115,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.ControllerTag == nil {
 		return errors.NotValidf("nil ControllerTag")
 	}
-	if config.DataDir == "" {
-		return errors.NotValidf("empty DataDir")
-	}
-	if config.LogDir == "" {
-		return errors.NotValidf("empty LogDir")
+	if config.LocalConfigReader == nil {
+		return errors.NotValidf("nil LocalConfigReader")
 	}
 	if config.AuthenticatorName == "" {
 		return errors.NotValidf("empty AuthenticatorName")
@@ -209,6 +215,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	localValues, err := config.LocalConfigReader.LocalValues()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if localValues.DataDir == "" {
+		return nil, errors.NotValidf("empty DataDir")
+	}
+	if localValues.LogDir == "" {
+		return nil, errors.NotValidf("empty LogDir")
 	}
 
 	var mux *apiserverhttp.Mux
@@ -313,9 +330,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	w, err := config.NewWorker(ctx, Config{
 		ControllerTag:                     config.ControllerTag,
-		DataDir:                           config.DataDir,
-		LogDir:                            config.LogDir,
-		LogSinkConfig:                     config.LogSinkConfig,
+		DataDir:                           localValues.DataDir,
+		LogDir:                            localValues.LogDir,
+		LogSinkConfig:                     localValues.LogSinkConfig,
 		Clock:                             config.Clock,
 		Mux:                               mux,
 		LeaseManager:                      leaseManager,
