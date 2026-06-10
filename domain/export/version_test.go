@@ -26,14 +26,6 @@ func (s *versionSuite) TestExportVersionsParsed(c *tc.C) {
 	}
 }
 
-// TestExportVersionsAscending verifies the versions are listed in ascending
-// order, which LatestSupportedPayloadVersion relies on.
-func (s *versionSuite) TestExportVersionsAscending(c *tc.C) {
-	for i := 1; i < len(ExportVersions); i++ {
-		c.Check(ExportVersions[i-1].Compare(ExportVersions[i]) < 0, tc.IsTrue)
-	}
-}
-
 // TestLatestSupportedPayloadVersion documents the current highest supported
 // export schema version. Update this when adding a new export payload version.
 func (s *versionSuite) TestLatestSupportedPayloadVersionCurrent(c *tc.C) {

@@ -4,6 +4,8 @@
 package export
 
 import (
+	"slices"
+
 	"github.com/juju/juju/core/semversion"
 )
 
@@ -38,5 +40,5 @@ func parseExportVersions(versions []string) []semversion.Number {
 // ModelImporterV2); it is the model-export schema version, not the controller
 // binary version, and must not be confused with GetControllerTargetVersion.
 func LatestSupportedPayloadVersion() semversion.Number {
-	return ExportVersions[len(ExportVersions)-1]
+	return slices.MaxFunc(ExportVersions, semversion.Number.Compare)
 }
