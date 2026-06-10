@@ -226,6 +226,35 @@ func (s *resourceServiceSuite) TestListResources(c *tc.C) {
 	c.Assert(obtainedList, tc.DeepEquals, expectedList)
 }
 
+func (s *resourceServiceSuite) TestListAllModelResources(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := resource.ExportedResources{
+		Resources: []coreresource.Resource{{RetrievedBy: "a"}},
+		UnitResources: []coreresource.UnitResources{{
+			Name: "app/0",
+			Resources: []coreresource.Resource{{
+				RetrievedBy: "b",
+			}},
+		}},
+	}
+	s.state.EXPECT().ListAllModelResources(gomock.Any()).Return(expected, nil)
+
+	resources, err := s.service.ListAllModelResources(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resources, tc.DeepEquals, expected)
+}
+
+func (s *resourceServiceSuite) TestListAllModelResourcesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	boom := errors.New("boom")
+	s.state.EXPECT().ListAllModelResources(gomock.Any()).Return(resource.ExportedResources{}, boom)
+
+	_, err := s.service.ListAllModelResources(c.Context())
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
 func (s *resourceServiceSuite) TestGetResourcesByApplicationUUIDBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.GetResourcesByApplicationUUID(c.Context(), "")

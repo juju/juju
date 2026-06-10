@@ -68,6 +68,10 @@ type State interface {
 	// ListResources returns the list of resource for the given application.
 	ListResources(ctx context.Context, applicationID coreapplication.UUID) (coreresource.ApplicationResources, error)
 
+	// ListAllModelResources returns the application and unit resources to
+	// export for all applications in the model.
+	ListAllModelResources(ctx context.Context) (resource.ExportedResources, error)
+
 	// GetResource returns the identified resource linked to an application.
 	//
 	// The following error types can be expected to be returned:
@@ -312,6 +316,14 @@ func (s *Service) ListResources(
 		return coreresource.ApplicationResources{}, errors.Errorf("%w: %w", err, applicationerrors.ApplicationUUIDNotValid)
 	}
 	return s.st.ListResources(ctx, applicationID)
+}
+
+// ListAllModelResources returns the application and unit resources to export
+// for all applications in the model. This gives the migration worker the
+// resource references it needs for the binary transfer path.
+func (s *Service) ListAllModelResources(ctx context.Context) (resource.ExportedResources, error) {
+	resources, err := s.st.ListAllModelResources(ctx)
+	return resources, errors.Capture(err)
 }
 
 // GetResourcesByApplicationUUID retrieves resources associated with a specific
