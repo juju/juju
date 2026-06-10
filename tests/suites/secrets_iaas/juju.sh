@@ -237,8 +237,7 @@ juju ssh juju-qa-test/0 sh <<EOF
 juju_engine_report
 EOF
 	)
-	 out=$(echo "${yaml_out}" | sed 1d | yq -r -c ".manifolds.deployer.report.handler.units.workers.\"juju-qa-test/0\"
-	 .report.manifolds.uniter.report.secrets.\"obsolete-revisions\".\"${secret_id}\"")
+	 out=$(echo "${yaml_out}" | sed 1d | yq "..style=\"flow\" | .manifolds.deployer.report.handler.units.workers.\"juju-qa-test/0\".report.manifolds.uniter.report.secrets.\"obsolete-revisions\".\"${secret_id}\"")
 	 echo "${out}"
 }
 
