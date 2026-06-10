@@ -2981,6 +2981,8 @@ func (s *resourceSuite) TestListAllModelResources(c *tc.C) {
 	// - 1 with no unit
 	// - 1 associated with two units (state available)
 	// - 1 associated with one unit (state available)
+	// - 1 associated with one unit (state potential), which should not be
+	//   exported
 	resource1 := resourceData{
 		UUID:            "resource-1-uuid",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
@@ -3034,6 +3036,17 @@ func (s *resourceSuite) TestListAllModelResources(c *tc.C) {
 		Size:                     300,
 		SHA384:                   fp2.String(),
 	}
+	potentialResource := resourceData{
+		UUID:            "resource-4-potential-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-4-potential",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		OriginType:      "store",
+		Revision:        18,
+		State:           resource.StatePotential.String(),
+		UnitUUID:        s.constants.fakeUnitUUID3,
+	}
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{
@@ -3042,6 +3055,7 @@ func (s *resourceSuite) TestListAllModelResources(c *tc.C) {
 			unit2Resource1,
 			resource2,
 			resource3,
+			potentialResource,
 		} {
 			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
@@ -3073,7 +3087,7 @@ func (s *resourceSuite) TestListAllModelResources(c *tc.C) {
 		},
 		{
 			Name: unit.Name(s.constants.fakeUnitName3),
-			// No resources.
+			// No resources: the linked potential resource is not exported.
 		},
 	})
 }

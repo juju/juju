@@ -2379,6 +2379,7 @@ ORDER BY name`, unitUUIDAndName{})
 	getUnitResourcesStmt, err := st.Prepare(`
 SELECT &unitResourceView.*
 FROM v_unit_resource
+WHERE state = 'available'
 ORDER BY unit_name, name`, unitResourceView{})
 	if err != nil {
 		return resource.ExportedResources{}, errors.Capture(err)
