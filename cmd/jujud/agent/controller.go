@@ -49,14 +49,74 @@ import (
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgradesteps"
 	internalworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apiserver"
+	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/identityfilewriter"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/wrench"
 )
+
+type controllerStartupValueProvider struct {
+	agent                 *ControllerAgent
+	controllerRuntimePath string
+}
+
+func (p controllerStartupValueProvider) readRuntimeConfig() (controllerruntimeconfig.ControllerRuntimeConfig, error) {
+	return controllerruntimeconfig.ReadControllerRuntimeConfig(p.controllerRuntimePath)
+}
+
+func (p controllerStartupValueProvider) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return apiservercertwatcher.CertMaterial{}, errors.Trace(err)
+	}
+	return apiservercertwatcher.CertMaterial{
+		CACert:               cfg.CACert,
+		CAPrivateKey:         cfg.CAPrivateKey,
+		ControllerCert:       cfg.ControllerCert,
+		ControllerPrivateKey: cfg.ControllerPrivateKey,
+	}, nil
+}
+
+func (p controllerStartupValueProvider) LocalValues() (apiserver.LocalValues, error) {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return apiserver.LocalValues{}, errors.Trace(err)
+	}
+	return apiserver.LocalValues{
+		DataDir:       cfg.DataDir,
+		LogDir:        cfg.LogDir,
+		LogSinkConfig: logSinkConfigFromRuntimeConfig(cfg),
+	}, nil
+}
+
+func (p controllerStartupValueProvider) ObjectStoreRootDir() (string, error) {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return cfg.DataDir, nil
+}
+
+func (p controllerStartupValueProvider) LoggingOverride() (string, error) {
+	return p.agent.CurrentConfig().LoggingConfig(), nil
+}
+
+func (p controllerStartupValueProvider) SystemIdentityValues() (identityfilewriter.SystemIdentityValues, error) {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return identityfilewriter.SystemIdentityValues{}, errors.Trace(err)
+	}
+	return identityfilewriter.SystemIdentityValues{
+		SystemIdentity:     cfg.SystemIdentity,
+		SystemIdentityPath: p.agent.CurrentConfig().SystemIdentityPath(),
+	}, nil
+}
 
 type controllerAgentFactoryFnType func(names.Tag) (*ControllerAgent, error)
 
@@ -406,6 +466,10 @@ func (a *ControllerAgent) makeEngineCreator(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		startupValueProvider := controllerStartupValueProvider{
+			agent:                 a,
+			controllerRuntimePath: controllerRuntimeConfigPath,
+		}
 		flightRecorder := workerflightrecorder.New(
 			flightrecorder.NewRecorder(c), "",
 			internallogger.GetLogger("juju.flightrecorder"),
@@ -415,18 +479,14 @@ func (a *ControllerAgent) makeEngineCreator(
 			PreviousAgentVersion:        previousAgentVersion,
 			AgentName:                   agentName,
 			ControllerID:                a.agentTag.Id(),
-			ObjectStoreRootDir:          controllerRuntimeConfig.DataDir,
+			ObjectStoreRootDirReader:    startupValueProvider,
 			ControllerUUID:              controllerRuntimeConfig.ControllerUUID,
 			ControllerModelUUID:         controllerRuntimeConfig.ControllerModelUUID,
 			ControllerRuntimeConfigPath: controllerRuntimeConfigPath,
 			ControllerAgentTag:          a.agentTag,
 			LogDir:                      controllerRuntimeConfig.LogDir,
-			DataDir:                     controllerRuntimeConfig.DataDir,
-			APIServerLogSinkConfig:      logSinkConfigFromRuntimeConfig(controllerRuntimeConfig),
-			CACert:                      controllerRuntimeConfig.CACert,
-			CAPrivateKey:                controllerRuntimeConfig.CAPrivateKey,
-			ControllerCert:              controllerRuntimeConfig.ControllerCert,
-			ControllerPrivateKey:        controllerRuntimeConfig.ControllerPrivateKey,
+			CertReader:                  startupValueProvider,
+			APIServerLocalConfigReader:  startupValueProvider,
 			ConfigChangeSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "configchange.socket",
 			),
@@ -459,7 +519,8 @@ func (a *ControllerAgent) makeEngineCreator(
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			DependencyEngineMetrics:           metrics,
 			NewEnvironFunc:                    newEnvirons,
-			SystemIdentity:                    controllerRuntimeConfig.SystemIdentity,
+			LoggingOverrideReader:             startupValueProvider,
+			SystemIdentityReader:              startupValueProvider,
 		}
 		manifolds := agentcontroller.IAASManifolds(manifoldsCfg)
 		if agentConfig.Value(agent.ProviderType) == k8sconstants.CAASProviderType {

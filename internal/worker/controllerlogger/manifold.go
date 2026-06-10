@@ -33,6 +33,12 @@ type ModelService interface {
 	GetControllerModelUUID(ctx context.Context) (coremodel.UUID, error)
 }
 
+// LoggingOverrideReader returns the current persisted logging override when the
+// manifold starts.
+type LoggingOverrideReader interface {
+	LoggingOverride() (string, error)
+}
+
 // ManifoldConfig defines the configuration for a controller-only logging
 // worker manifold.
 type ManifoldConfig struct {
@@ -48,9 +54,9 @@ type ManifoldConfig struct {
 	// Tag is the controller agent tag.
 	Tag names.Tag
 
-	// LoggingOverride is the persisted logging override from the controller
-	// agent config.
-	LoggingOverride string
+	// LoggingOverrideReader returns the current persisted logging override from
+	// the controller agent config.
+	LoggingOverrideReader LoggingOverrideReader
 
 	// UpdateAgentFunc persists the current logging config.
 	UpdateAgentFunc func(string) error
@@ -69,6 +75,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Tag == nil {
 		return errors.NotValidf("nil Tag")
+	}
+	if config.LoggingOverrideReader == nil {
+		return errors.NotValidf("nil LoggingOverrideReader")
 	}
 	return nil
 }
@@ -104,12 +113,17 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	loggingOverride, err := config.LoggingOverrideReader.LoggingOverride()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	workerConfig := Config{
 		Context:         config.LoggerContext,
 		ModelConfigSvc:  modelConfigService,
 		Tag:             config.Tag,
 		Logger:          config.Logger,
-		Override:        config.LoggingOverride,
+		Override:        loggingOverride,
 		UpdateAgentFunc: config.UpdateAgentFunc,
 	}
 	return NewWorker(ctx, workerConfig)

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
-	coreapiserver "github.com/juju/juju/apiserver"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujuagentd/util"
 	"github.com/juju/juju/core/flightrecorder"
@@ -145,11 +144,9 @@ type ManifoldsConfig struct {
 	// through the agent manifold.
 	ControllerID string
 
-	// ObjectStoreRootDir is the local filesystem root used by the
-	// file-backed object-store worker. It is sourced from
-	// agentConfig.DataDir() and passed directly to object-store
-	// manifolds instead of being read from agent config.
-	ObjectStoreRootDir string
+	// ObjectStoreRootDirReader returns the current local filesystem root used by
+	// object-store workers.
+	ObjectStoreRootDirReader objectstore.RootDirReader
 
 	// ControllerUUID is the controller entity UUID. It is sourced from
 	// agentConfig.Controller().Id() in makeEngineCreator and passed
@@ -170,42 +167,18 @@ type ManifoldsConfig struct {
 	// through the legacy agent.Config.
 	ControllerRuntimeConfigPath string
 
-	// CACert is the TLS CA certificate PEM block for the controller.
-	// For the transitional controller-on-machine path it is sourced
-	// from agentConfig.CACert() at engine creation time and passed
-	// directly to the certificate-watcher manifold.
-	CACert string
-
-	// CAPrivateKey is the TLS CA private key PEM block. For the
-	// transitional path it is sourced from
-	// agentConfig.ControllerAgentInfo(). This field is sensitive.
-	CAPrivateKey string
-
-	// ControllerCert is the controller TLS certificate PEM block.
-	// Sourced from agentConfig.ControllerAgentInfo() for the
-	// transitional path.
-	ControllerCert string
-
-	// ControllerPrivateKey is the controller TLS private key PEM
-	// block. Sourced from agentConfig.ControllerAgentInfo(). This
-	// field is sensitive.
-	ControllerPrivateKey string
+	// CertReader returns the current controller certificate material.
+	CertReader apiservercertwatcher.CertReader
 
 	// ControllerAgentTag is the tag used for controller-agent log records.
 	ControllerAgentTag names.Tag
 
-	// LogDir is the controller process log directory.
+	// LogDir is the controller process log directory for workers in this change
+	// area that still take a fixed local path.
 	LogDir string
 
-	// DataDir is the controller process data directory. It is passed
-	// directly to the api-server worker instead of being read from
-	// agent config at worker start.
-	DataDir string
-
-	// APIServerLogSinkConfig holds rate-limit parameters for the API
-	// server log sink. It is populated from controller-owned startup
-	// state and passed directly to the api-server manifold.
-	APIServerLogSinkConfig coreapiserver.LogSinkConfig
+	// APIServerLocalConfigReader returns the current API-server local values.
+	APIServerLocalConfigReader apiserver.LocalConfigReader
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
@@ -481,10 +454,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and offers the result to other manifolds. This is only
 		// run by state servers.
 		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-			CACert:               config.CACert,
-			CAPrivateKey:         config.CAPrivateKey,
-			ControllerCert:       config.ControllerCert,
-			ControllerPrivateKey: config.ControllerPrivateKey,
+			CertReader: config.CertReader,
 		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -712,9 +682,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
 			ControllerTag:          config.ControllerAgentTag,
-			DataDir:                config.DataDir,
-			LogDir:                 config.LogDir,
-			LogSinkConfig:          config.APIServerLogSinkConfig,
+			LocalConfigReader:      config.APIServerLocalConfigReader,
 			LogSinkName:            logSinkName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
@@ -918,7 +886,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			S3ClientName:                    objectStoreS3CallerName,
 			ObjectStoreName:                 objectStoreName,
 			ObjectStoreServicesName:         objectStoreServicesName,
-			ObjectStoreRootDir:              config.ObjectStoreRootDir,
+			RootDirReader:                   config.ObjectStoreRootDirReader,
 			FortressName:                    objectStoreFortressName,
 			GetControllerService:            objectstoredrainer.GetControllerService,
 			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
@@ -939,7 +907,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
 			APIRemoteCallerName:        apiRemoteCallerName,
-			ObjectStoreRootDir:         config.ObjectStoreRootDir,
+			RootDirReader:              config.ObjectStoreRootDirReader,
 			ControllerNodeID:           config.ControllerID,
 			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
