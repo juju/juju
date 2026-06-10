@@ -149,7 +149,7 @@ func parseTLAConfig(cfgText string) (tlaConfig, error) {
 	cfg := tlaConfig{}
 	section := ""
 
-	for _, raw := range strings.Split(cfgText, "\n") {
+	for raw := range strings.SplitSeq(cfgText, "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, `\*`) {
 			continue
