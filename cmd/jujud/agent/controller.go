@@ -61,15 +61,20 @@ import (
 	"github.com/juju/juju/internal/wrench"
 )
 
+// controllerStartupValueProvider supplies current controller-local startup
+// values to workers when they start. It re-reads runtime.conf and current
+// agent config on each call so bounced workers do not keep stale values.
 type controllerStartupValueProvider struct {
 	agent                 *ControllerAgent
 	controllerRuntimePath string
 }
 
+// readRuntimeConfig returns the current controller runtime config from disk.
 func (p controllerStartupValueProvider) readRuntimeConfig() (controllerruntimeconfig.ControllerRuntimeConfig, error) {
 	return controllerruntimeconfig.ReadControllerRuntimeConfig(p.controllerRuntimePath)
 }
 
+// CertMaterial returns the current controller certificate material.
 func (p controllerStartupValueProvider) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
 	cfg, err := p.readRuntimeConfig()
 	if err != nil {
@@ -83,6 +88,7 @@ func (p controllerStartupValueProvider) CertMaterial() (apiservercertwatcher.Cer
 	}, nil
 }
 
+// LocalValues returns the current controller-local API server values.
 func (p controllerStartupValueProvider) LocalValues() (apiserver.LocalValues, error) {
 	cfg, err := p.readRuntimeConfig()
 	if err != nil {
@@ -95,6 +101,8 @@ func (p controllerStartupValueProvider) LocalValues() (apiserver.LocalValues, er
 	}, nil
 }
 
+// ObjectStoreRootDir returns the current local root dir for file-backed object
+// store workers.
 func (p controllerStartupValueProvider) ObjectStoreRootDir() (string, error) {
 	cfg, err := p.readRuntimeConfig()
 	if err != nil {
@@ -103,10 +111,13 @@ func (p controllerStartupValueProvider) ObjectStoreRootDir() (string, error) {
 	return cfg.DataDir, nil
 }
 
+// LoggingOverride returns the current persisted logging override.
 func (p controllerStartupValueProvider) LoggingOverride() (string, error) {
 	return p.agent.CurrentConfig().LoggingConfig(), nil
 }
 
+// SystemIdentityValues returns the current system identity file contents and
+// path used by the controller identity writer.
 func (p controllerStartupValueProvider) SystemIdentityValues() (identityfilewriter.SystemIdentityValues, error) {
 	cfg, err := p.readRuntimeConfig()
 	if err != nil {
