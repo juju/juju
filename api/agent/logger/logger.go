@@ -5,13 +5,13 @@ package logger
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -27,10 +27,16 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
+// ControllerLokiConfig holds the controller-wide Loki push API configuration.
+type ControllerLokiConfig struct {
+	Endpoint string
+	CACert   string
+}
+
 // NewClient returns a version of the logger client that provides functionality
 // required by the logger worker.
 func NewClient(caller base.APICaller, options ...Option) *Client {
-	return &Client{base.NewFacadeCaller(caller, "Logger", options...)}
+	return &Client{facade: base.NewFacadeCaller(caller, "Logger", options...)}
 }
 
 // LoggingConfig returns the loggo configuration string for the agent
@@ -42,18 +48,44 @@ func (c *Client) LoggingConfig(ctx context.Context, agentTag names.Tag) (string,
 	}
 	err := c.facade.FacadeCall(ctx, "LoggingConfig", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
-		return "", err
+		return "", internalerrors.Capture(err)
 	}
 	if len(results.Results) != 1 {
-		// TODO: Not directly tested
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return "", internalerrors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return "", err
+		return "", internalerrors.Capture(err)
 	}
 	return result.Result, nil
+}
+
+// GetControllerLokiConfig returns the controller-wide Loki configuration for
+// the agent specified by agentTag.
+func (c *Client) GetControllerLokiConfig(ctx context.Context, agentTag names.Tag) (ControllerLokiConfig, error) {
+	var results params.LokiConfigResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: agentTag.String()}},
+	}
+	err := c.facade.FacadeCall(ctx, "GetControllerLokiConfig", args, &results)
+	if err != nil {
+		return ControllerLokiConfig{}, internalerrors.Capture(err)
+	}
+	if len(results.Results) != 1 {
+		return ControllerLokiConfig{}, internalerrors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return ControllerLokiConfig{}, internalerrors.Capture(err)
+	}
+	var caCert string
+	if result.CACert != nil {
+		caCert = *result.CACert
+	}
+	return ControllerLokiConfig{
+		Endpoint: result.Endpoint,
+		CACert:   caCert,
+	}, nil
 }
 
 // WatchLoggingConfig returns a notify watcher that looks for changes in the
@@ -65,18 +97,35 @@ func (c *Client) WatchLoggingConfig(ctx context.Context, agentTag names.Tag) (wa
 	}
 	err := c.facade.FacadeCall(ctx, "WatchLoggingConfig", args, &results)
 	if err != nil {
-		// TODO: Not directly tested
-		return nil, err
+		return nil, internalerrors.Capture(err)
 	}
 	if len(results.Results) != 1 {
-		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, internalerrors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		//  TODO: Not directly tested
-		return nil, result.Error
+		return nil, internalerrors.Capture(result.Error)
 	}
-	w := apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
+	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
+}
+
+// WatchControllerLokiConfig returns a notify watcher that looks for changes in
+// the controller-wide Loki configuration for the agent specified by agentTag.
+func (c *Client) WatchControllerLokiConfig(ctx context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: agentTag.String()}},
+	}
+	err := c.facade.FacadeCall(ctx, "WatchControllerLokiConfig", args, &results)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, internalerrors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, internalerrors.Capture(result.Error)
+	}
+	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }

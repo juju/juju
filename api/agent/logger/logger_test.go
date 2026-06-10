@@ -46,6 +46,34 @@ func (s *loggerSuite) TestLoggingConfig(c *tc.C) {
 	c.Assert(result, tc.Equals, "juju.worker=TRACE")
 }
 
+func (s *loggerSuite) TestGetControllerLokiConfig(c *tc.C) {
+	caCert := "ca-cert"
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		c.Check(objType, tc.Equals, "Logger")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "GetControllerLokiConfig")
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "machine-666",
+		}}})
+		c.Assert(result, tc.FitsTypeOf, &params.LokiConfigResults{})
+		*(result.(*params.LokiConfigResults)) = params.LokiConfigResults{
+			Results: []params.LokiConfigResult{{
+				Endpoint: "https://loki.example.com/loki/api/v1/push",
+				CACert:   &caCert,
+			}},
+		}
+		return nil
+	})
+
+	client := logger.NewClient(apiCaller)
+	tag := names.NewMachineTag("666")
+	result, err := client.GetControllerLokiConfig(c.Context(), tag)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.Endpoint, tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(result.CACert, tc.Equals, "ca-cert")
+}
+
 func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
 		c.Check(objType, tc.Equals, "Logger")
@@ -67,5 +95,29 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *tc.C) {
 	client := logger.NewClient(apiCaller)
 	tag := names.NewMachineTag("666")
 	_, err := client.WatchLoggingConfig(c.Context(), tag)
+	c.Assert(err, tc.ErrorMatches, "FAIL")
+}
+
+func (s *loggerSuite) TestWatchControllerLokiConfig(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		c.Check(objType, tc.Equals, "Logger")
+		c.Check(version, tc.Equals, 0)
+		c.Check(id, tc.Equals, "")
+		c.Check(request, tc.Equals, "WatchControllerLokiConfig")
+		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
+			Tag: "machine-666",
+		}}})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
+		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	client := logger.NewClient(apiCaller)
+	tag := names.NewMachineTag("666")
+	_, err := client.WatchControllerLokiConfig(c.Context(), tag)
 	c.Assert(err, tc.ErrorMatches, "FAIL")
 }
