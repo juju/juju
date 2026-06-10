@@ -88,6 +88,12 @@ type GetMetadataServiceFunc func(getter dependency.Getter, name string) (Metadat
 // is the initial bootstrap controller.
 type IsBootstrapControllerFunc func(dataDir string) bool
 
+// RootDirReader returns the current local object-store root dir when the
+// manifold starts.
+type RootDirReader interface {
+	ObjectStoreRootDir() (string, error)
+}
+
 // ManifoldConfig defines the configuration for the objectstore manifold.
 type ManifoldConfig struct {
 	TraceName               string
@@ -96,10 +102,9 @@ type ManifoldConfig struct {
 	S3ClientName            string
 	APIRemoteCallerName     string
 
-	// ObjectStoreRootDir is the local filesystem root used by the
-	// file-backed object-store. It is a controller-local startup value
-	// passed explicitly instead of being read from agent config.
-	ObjectStoreRootDir string
+	// RootDirReader returns the current local filesystem root used by the
+	// file-backed object-store.
+	RootDirReader RootDirReader
 
 	// ControllerNodeID is the numeric controller node identifier
 	// (e.g. "0") passed explicitly instead of being derived from
@@ -123,8 +128,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
 	}
-	if cfg.ObjectStoreRootDir == "" {
-		return errors.NotValidf("empty ObjectStoreRootDir")
+	if cfg.RootDirReader == nil {
+		return errors.NotValidf("nil RootDirReader")
 	}
 	if cfg.ControllerNodeID == "" {
 		return errors.NotValidf("empty ControllerNodeID")
@@ -176,6 +181,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
+			}
+
+			rootDir, err := config.RootDirReader.ObjectStoreRootDir()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if rootDir == "" {
+				return nil, errors.NotValidf("empty ObjectStoreRootDir")
 			}
 
 			var tracerGetter trace.TracerGetter
@@ -232,7 +245,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:              tracerGetter,
-				RootDir:                   config.ObjectStoreRootDir,
+				RootDir:                   rootDir,
 				RootBucket:                rootBucketName,
 				Clock:                     config.Clock,
 				Logger:                    config.Logger,
@@ -252,7 +265,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ModelClaimGetter: modelClaimGetter{
 					manager: leaseManager,
 				},
-				AllowDraining:    AllowDraining(backendInfo, config.IsBootstrapController(config.ObjectStoreRootDir)),
+				AllowDraining:    AllowDraining(backendInfo, config.IsBootstrapController(rootDir)),
 				ControllerNodeID: config.ControllerNodeID,
 			})
 			return w, errors.Trace(err)

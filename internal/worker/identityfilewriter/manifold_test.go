@@ -108,15 +108,26 @@ type ManifoldSuite struct {
 	testhelpers.IsolationSuite
 }
 
+type stubSystemIdentityReader struct {
+	values identityfilewriter.SystemIdentityValues
+	err    error
+}
+
+func (s stubSystemIdentityReader) SystemIdentityValues() (identityfilewriter.SystemIdentityValues, error) {
+	return s.values, s.err
+}
+
 func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
 
 func validManifoldConfig(identityPath string) identityfilewriter.ManifoldConfig {
 	return identityfilewriter.ManifoldConfig{
-		SystemIdentity:     "test-ssh-key",
-		SystemIdentityPath: identityPath,
-		NewWorker:          identityfilewriter.NewWorker,
+		SystemIdentityReader: stubSystemIdentityReader{values: identityfilewriter.SystemIdentityValues{
+			SystemIdentity:     "test-ssh-key",
+			SystemIdentityPath: identityPath,
+		}},
+		NewWorker: identityfilewriter.NewWorker,
 	}
 }
 
@@ -133,19 +144,24 @@ func (s *ManifoldSuite) TestManifold_NoInputs(c *tc.C) {
 // SystemIdentityPath.
 func (s *ManifoldSuite) TestManifold_Validate_EmptyPath(c *tc.C) {
 	cfg := identityfilewriter.ManifoldConfig{
-		SystemIdentity:     "some-key",
-		SystemIdentityPath: "",
-		NewWorker:          identityfilewriter.NewWorker,
+		SystemIdentityReader: stubSystemIdentityReader{values: identityfilewriter.SystemIdentityValues{
+			SystemIdentity:     "some-key",
+			SystemIdentityPath: "",
+		}},
+		NewWorker: identityfilewriter.NewWorker,
 	}
-	c.Check(cfg.Validate(), tc.ErrorMatches, `empty SystemIdentityPath not valid`)
+	c.Check(cfg.Validate(), tc.ErrorIsNil)
+	c.Check(cfg.SystemIdentityReader.(stubSystemIdentityReader).values.Validate(), tc.ErrorMatches, `empty SystemIdentityPath not valid`)
 }
 
 // TestManifold_Validate_NilNewWorker ensures Validate rejects a nil NewWorker.
 func (s *ManifoldSuite) TestManifold_Validate_NilNewWorker(c *tc.C) {
 	cfg := identityfilewriter.ManifoldConfig{
-		SystemIdentity:     "some-key",
-		SystemIdentityPath: "/tmp/system-identity",
-		NewWorker:          nil,
+		SystemIdentityReader: stubSystemIdentityReader{values: identityfilewriter.SystemIdentityValues{
+			SystemIdentity:     "some-key",
+			SystemIdentityPath: "/tmp/system-identity",
+		}},
+		NewWorker: nil,
 	}
 	c.Check(cfg.Validate(), tc.ErrorMatches, `nil NewWorker not valid`)
 }
@@ -184,9 +200,11 @@ func (s *ManifoldSuite) TestManifold_Start_EmptyIdentityRemovesFile(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	cfg := identityfilewriter.ManifoldConfig{
-		SystemIdentity:     "",
-		SystemIdentityPath: identityPath,
-		NewWorker:          identityfilewriter.NewWorker,
+		SystemIdentityReader: stubSystemIdentityReader{values: identityfilewriter.SystemIdentityValues{
+			SystemIdentity:     "",
+			SystemIdentityPath: identityPath,
+		}},
+		NewWorker: identityfilewriter.NewWorker,
 	}
 	manifold := identityfilewriter.Manifold(cfg)
 
@@ -208,9 +226,11 @@ func (s *ManifoldSuite) TestManifold_Start_EmptyIdentityNoFileIsIdempotent(c *tc
 	// File does not exist — no pre-creation.
 
 	cfg := identityfilewriter.ManifoldConfig{
-		SystemIdentity:     "",
-		SystemIdentityPath: identityPath,
-		NewWorker:          identityfilewriter.NewWorker,
+		SystemIdentityReader: stubSystemIdentityReader{values: identityfilewriter.SystemIdentityValues{
+			SystemIdentity:     "",
+			SystemIdentityPath: identityPath,
+		}},
+		NewWorker: identityfilewriter.NewWorker,
 	}
 	manifold := identityfilewriter.Manifold(cfg)
 
@@ -228,8 +248,10 @@ func (s *ManifoldSuite) TestManifold_Start_InjectableWorker(c *tc.C) {
 	identityPath := filepath.Join(dir, "system-identity")
 	called := false
 	cfg := identityfilewriter.ManifoldConfig{
-		SystemIdentity:     "test-key",
-		SystemIdentityPath: identityPath,
+		SystemIdentityReader: stubSystemIdentityReader{values: identityfilewriter.SystemIdentityValues{
+			SystemIdentity:     "test-key",
+			SystemIdentityPath: identityPath,
+		}},
 		NewWorker: func(cfg identityfilewriter.ManifoldConfig) (worker.Worker, error) {
 			called = true
 			return nil, nil

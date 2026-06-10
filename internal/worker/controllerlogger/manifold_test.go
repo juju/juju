@@ -25,6 +25,15 @@ type ManifoldSuite struct {
 	config controllerlogger.ManifoldConfig
 }
 
+type stubLoggingOverrideReader struct {
+	override string
+	err      error
+}
+
+func (s stubLoggingOverrideReader) LoggingOverride() (string, error) {
+	return s.override, s.err
+}
+
 func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
@@ -36,12 +45,12 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func validManifoldConfig(c *tc.C) controllerlogger.ManifoldConfig {
 	return controllerlogger.ManifoldConfig{
-		DomainServicesName: "domain-services",
-		LoggerContext:      internallogger.WrapLoggoContext(loggo.NewContext(loggo.DEBUG)),
-		Logger:             loggertesting.WrapCheckLog(c),
-		Tag:                names.NewControllerAgentTag("0"),
-		LoggingOverride:    "",
-		UpdateAgentFunc:    func(string) error { return nil },
+		DomainServicesName:    "domain-services",
+		LoggerContext:         internallogger.WrapLoggoContext(loggo.NewContext(loggo.DEBUG)),
+		Logger:                loggertesting.WrapCheckLog(c),
+		Tag:                   names.NewControllerAgentTag("0"),
+		LoggingOverrideReader: stubLoggingOverrideReader{},
+		UpdateAgentFunc:       func(string) error { return nil },
 	}
 }
 
