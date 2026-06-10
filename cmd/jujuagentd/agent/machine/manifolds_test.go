@@ -555,6 +555,16 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		checkNotContains(c, httpServerArgsManifold.Inputs, "clock")
 		checkNotContains(c, httpServerArgsManifold.Inputs, "agent")
 
+		httpServerManifold, ok := manifolds["http-server"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(httpServerManifold.Inputs, tc.SameContents, []string{
+			"certificate-watcher",
+			"domain-services",
+			"http-server-args",
+			"api-server",
+		})
+		checkNotContains(c, httpServerManifold.Inputs, "agent")
+
 		apiServerManifold, ok := manifolds["api-server"]
 		c.Assert(ok, tc.IsTrue)
 		checkNotContains(c, apiServerManifold.Inputs, "clock")
