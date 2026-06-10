@@ -20,8 +20,26 @@ import (
 // endpoint because our rpc mechanism panics.  However, I still feel that this
 // provides a useful documentation purpose.
 type Logger interface {
+	// WatchLoggingConfig starts watchers for model logging-config changes for
+	// the requested agent entities.
 	WatchLoggingConfig(ctx context.Context, args params.Entities) params.NotifyWatchResults
+
+	// LoggingConfig reports the model logging-config value for the requested
+	// agent entities.
 	LoggingConfig(ctx context.Context, args params.Entities) params.StringResults
+}
+
+// LoggerV2 defines the methods on the v2 logger API end point.
+type LoggerV2 interface {
+	Logger
+
+	// GetControllerLokiConfig reports the controller-wide Loki configuration
+	// for the requested agent entities.
+	GetControllerLokiConfig(ctx context.Context, args params.Entities) params.LokiConfigResults
+
+	// WatchControllerLokiConfig starts watchers for controller-wide Loki
+	// configuration changes for the requested agent entities.
+	WatchControllerLokiConfig(ctx context.Context, args params.Entities) params.NotifyWatchResults
 }
 
 // LoggerAPI implements the Logger interface and is the concrete
@@ -34,6 +52,15 @@ type LoggerAPI struct {
 }
 
 var _ Logger = (*LoggerAPI)(nil)
+
+// LoggerAPIV2 implements version 2 of the Logger facade.
+type LoggerAPIV2 struct {
+	*LoggerAPI
+
+	controllerLokiConfigService ControllerLokiConfigService
+}
+
+var _ LoggerV2 = (*LoggerAPIV2)(nil)
 
 // NewLoggerAPI returns a LoggerAPI facade.
 func NewLoggerAPI(authorizer facade.Authorizer,
@@ -50,6 +77,21 @@ func NewLoggerAPI(authorizer facade.Authorizer,
 		authorizer:         authorizer,
 		watcherRegistry:    watcherRegistry,
 		modelConfigService: modelConfigService,
+	}, nil
+}
+
+// NewLoggerAPIV2 returns a v2 LoggerAPI facade.
+func NewLoggerAPIV2(authorizer facade.Authorizer,
+	watcherRegistry facade.WatcherRegistry,
+	modelConfigService ModelConfigService,
+	controllerLokiConfigService ControllerLokiConfigService) (*LoggerAPIV2, error) {
+	loggerAPI, err := NewLoggerAPI(authorizer, watcherRegistry, modelConfigService)
+	if err != nil {
+		return nil, err
+	}
+	return &LoggerAPIV2{
+		LoggerAPI:                   loggerAPI,
+		controllerLokiConfigService: controllerLokiConfigService,
 	}, nil
 }
 
@@ -116,4 +158,76 @@ func (api *LoggerAPI) LoggingConfig(ctx context.Context, arg params.Entities) pa
 		results[i].Result = config.LoggingConfig()
 	}
 	return params.StringResults{Results: results}
+}
+
+// GetControllerLokiConfig reports the controller-wide Loki configuration for
+// the agents specified.
+func (api *LoggerAPIV2) GetControllerLokiConfig(ctx context.Context, arg params.Entities) params.LokiConfigResults {
+	if len(arg.Entities) == 0 {
+		return params.LokiConfigResults{}
+	}
+
+	results := make([]params.LokiConfigResult, len(arg.Entities))
+	authorized := false
+	for i, entity := range arg.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if !api.authorizer.AuthOwner(tag) {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+		authorized = true
+	}
+	if !authorized {
+		return params.LokiConfigResults{Results: results}
+	}
+
+	config, configErr := api.controllerLokiConfigService.GetLokiConfig(ctx)
+	for i := range results {
+		if results[i].Error != nil {
+			continue
+		}
+		if configErr != nil {
+			results[i].Error = apiservererrors.ServerError(configErr)
+			continue
+		}
+		results[i].Endpoint = config.Endpoint
+		if config.CACertificate != "" {
+			results[i].CACert = &config.CACertificate
+		}
+	}
+	return params.LokiConfigResults{Results: results}
+}
+
+// WatchControllerLokiConfig starts a watcher to track changes to the
+// controller-wide Loki configuration for the agents specified.
+func (api *LoggerAPIV2) WatchControllerLokiConfig(ctx context.Context, arg params.Entities) params.NotifyWatchResults {
+	result := make([]params.NotifyWatchResult, len(arg.Entities))
+	for i, entity := range arg.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if !api.authorizer.AuthOwner(tag) {
+			result[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
+		}
+
+		watch, err := api.controllerLokiConfigService.WatchLokiConfig(ctx)
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](ctx, api.watcherRegistry, watch)
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+	}
+	return params.NotifyWatchResults{Results: result}
 }
