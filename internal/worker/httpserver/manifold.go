@@ -34,10 +34,8 @@ type ManifoldConfig struct {
 	// their handlers are registered.
 	APIServerName string
 
-	AgentName       string
 	Clock           clock.Clock
 	MuxShutdownWait time.Duration
-	LogDir          string
 
 	Logger logger.Logger
 
@@ -60,9 +58,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.APIServerName == "" {
 		return errors.NotValidf("empty APIServerName")
 	}
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -80,9 +75,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.MuxShutdownWait < 1*time.Minute {
 		return errors.NotValidf("MuxShutdownWait %v", config.MuxShutdownWait)
-	}
-	if config.LogDir == "" {
-		return errors.NotValidf("empty LogDir")
 	}
 	return nil
 }
@@ -145,12 +137,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	)
 
 	w, err := config.NewWorker(Config{
-		AgentName:              config.AgentName,
 		Clock:                  config.Clock,
 		TLSConfig:              tlsConfig,
 		Mux:                    mux,
 		MuxShutdownWait:        config.MuxShutdownWait,
-		LogDir:                 config.LogDir,
 		Logger:                 config.Logger,
 		APIPort:                controllerConfig.APIPort(),
 		IdleConnectionTimeout:  controllerConfig.IdleConnectionTimeout(),
