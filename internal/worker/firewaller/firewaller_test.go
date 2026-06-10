@@ -293,10 +293,12 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *tc.C, expected firewall.Ingr
 // assertModelIngressRules retrieves the ingress rules from the model firewall
 // and compares them to the expected value
 func (s *firewallerBaseSuite) assertModelIngressRules(c *tc.C, expected firewall.IngressRules) {
+	expected = slices.Clone(expected)
 	start := time.Now()
 	for {
 		s.mu.Lock()
-		got := s.envModelPorts
+		got := slices.Clone(s.envModelPorts)
+		s.mu.Unlock()
 		if got.EqualTo(expected) {
 			s.mu.Unlock()
 			return
