@@ -6,6 +6,7 @@ package firewaller_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -300,10 +301,8 @@ func (s *firewallerBaseSuite) assertModelIngressRules(c *tc.C, expected firewall
 		got := slices.Clone(s.envModelPorts)
 		s.mu.Unlock()
 		if got.EqualTo(expected) {
-			s.mu.Unlock()
 			return
 		}
-		s.mu.Unlock()
 		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
 		}
@@ -316,6 +315,24 @@ func (s *firewallerBaseSuite) waitForMachineFlush(c *tc.C) {
 	case <-s.machineFlushed:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for firewaller worker machine flush")
+	}
+}
+
+// waitForSpecificMachineFlush waits until a flush event for the given machine
+// name is received, draining any earlier flush events for other machines.
+func (s *firewallerBaseSuite) waitForSpecificMachineFlush(c *tc.C, id machine.Name) {
+	timer := time.NewTimer(coretesting.LongWait)
+	defer timer.Stop()
+	for {
+		select {
+		case got := <-s.machineFlushed:
+			if got == id {
+				return
+			}
+			// Flush event for a different machine; keep draining.
+		case <-timer.C:
+			c.Fatalf("timed out waiting for machine %v to flush", id)
+		}
 	}
 }
 
@@ -450,8 +467,8 @@ func (s *firewallerBaseSuite) activateUnit(u *mocks.MockUnit, unitsCh chan []str
 func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) worker.Worker {
 	s.modelFlushed = make(chan bool, 1)
 	s.modelFlushSkipped = make(chan bool, 1)
-	s.machineFlushed = make(chan machine.Name, 1)
-	s.watchingMachine = make(chan machine.Name, 1)
+	s.machineFlushed = make(chan machine.Name, 20)
+	s.watchingMachine = make(chan machine.Name, 20)
 
 	flushMachineNotify := func(id machine.Name) {
 		select {
@@ -639,7 +656,12 @@ func (s *firewallerBaseSuite) startInstance(c *tc.C, m *mocks.MockMachine) {
 	// Start the machine.
 	s.machinesCh <- []string{m.Tag().Id()}
 	if s.firewallerStarted {
-		s.waitForMachineFlush(c)
+		// Wait for the specific machine's flush rather than any machine's
+		// flush. A generic wait can consume a stale flush event from a
+		// different machine (e.g. triggered by a concurrent port change),
+		// causing the test to proceed before this machine's units are
+		// registered and Life() has been called.
+		s.waitForSpecificMachineFlush(c, machine.Name(m.Tag().Id()))
 	}
 }
 
@@ -2959,7 +2981,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *tc.C) {
 	// Stop firewaller and add another application using the port.
 	err := worker.Stop(fw)
 	c.Assert(err, tc.ErrorIsNil)
-
+	s.firewallerStarted = false
 	app2, _ := s.setupApplicationMocks(ctrl, "mysql")
 	s.activateApplication("mysql", true)
 	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app2)
