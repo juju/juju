@@ -562,7 +562,7 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 	// Mark obsolete revisions for all tracked secrets, chunked to stay within
 	// SQLite's 32766 bind-variable limit (the query uses the slice in 4 places).
 	for chunk := range slices.Chunk(toMark, maxSecretsPerObsoleteQuery) {
-		if err := st.markSecretRevisionsObsolete(ctx, tx, secretIDs(chunk)); err != nil {
+		if err := st.markSecretRevisionsObsolete(ctx, tx, chunk); err != nil {
 			return errors.Capture(err)
 		}
 	}
