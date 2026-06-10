@@ -1031,6 +1031,51 @@ func terminalPhaseIDs() (terminalPhaseIDArgs, error) {
 	}, nil
 }
 
+type grantOnList []string
+type uuidList []string
+type nameList []string
+
+type controllerModelInfoStatements struct {
+	identityStmt           *sqlair.Statement
+	namespaceStmt          *sqlair.Statement
+	modelPermStmt          *sqlair.Statement
+	offerPermStmt          *sqlair.Statement
+	credStmt               *sqlair.Statement
+	credAttrStmt           *sqlair.Statement
+	authKeyStmt            *sqlair.Statement
+	secretBackendStmt      *sqlair.Statement
+	secretBackendRefStmt   *sqlair.Statement
+	leaseStmt              *sqlair.Statement
+	leasePinStmt           *sqlair.Statement
+	lastLoginStmt          *sqlair.Statement
+	cloudImageMetadataStmt *sqlair.Statement
+	usersStmt              *sqlair.Statement
+	extControllerStmt      *sqlair.Statement
+	extAddressStmt         *sqlair.Statement
+	extModelStmt           *sqlair.Statement
+	controllerUUIDs        []string
+}
+
+type controllerModelInfoRows struct {
+	identity           modelIdentityRow
+	namespace          namespaceRow
+	modelPerms         []permissionRow
+	offerPerms         []permissionRow
+	users              []userProfileRow
+	credIdent          []credentialIdentRow
+	credAttrs          []credentialAttrRow
+	authKeys           []authorizedKeyRow
+	secretBackend      []modelSecretBackendRow
+	secretBackendRef   []secretBackendRefRow
+	leases             []leaseRow
+	leasePins          []leasePinRow
+	lastLogins         []lastLoginRow
+	cloudImageMetadata []cloudImageMetadataRow
+	extControllers     []externalControllerRow
+	extAddresses       []externalControllerAddressRow
+	extModels          []externalModelRow
+}
+
 // GetControllerModelInfo reads the controller-database facts scoped to the
 // given migrating model and returns them in target-portable semantic form.
 // offerUUIDs are the model's hosted offer UUIDs, used to select offer-scoped
@@ -1044,18 +1089,43 @@ func (s *State) GetControllerModelInfo(
 	offerUUIDs []string,
 	offererModels []modelmigrationinternal.OffererModel,
 ) (modelmigration.ControllerModelInfo, error) {
-	type grantOnList []string
-	type uuidList []string
-	type nameList []string
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 
-	db, err := s.DB(ctx)
+	stmts, err := s.prepareControllerModelInfoStatements(mUUID, offerUUIDs, offererModels)
 	if err != nil {
 		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
 	}
 
-	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	rows, err := s.readControllerModelInfoRows(ctx, modelUUID, mUUID, offerUUIDs, stmts)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+	}
 
-	identityStmt, err := s.Prepare(`
+	matchedExtModels, err := matchingExternalModels(offererModels, rows.extControllers, rows.extModels)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+	}
+
+	return assembleControllerModelInfo(
+		rows.identity, rows.namespace, rows.modelPerms, rows.offerPerms,
+		rows.users, rows.credIdent, rows.credAttrs, rows.authKeys,
+		rows.secretBackend, rows.secretBackendRef, rows.leases,
+		rows.leasePins, rows.lastLogins, rows.cloudImageMetadata,
+		rows.extControllers, rows.extAddresses, matchedExtModels,
+	), nil
+}
+
+func (s *State) prepareControllerModelInfoStatements(
+	mUUID modelUUIDArg,
+	offerUUIDs []string,
+	offererModels []modelmigrationinternal.OffererModel,
+) (controllerModelInfoStatements, error) {
+	var (
+		stmts controllerModelInfoStatements
+		err   error
+	)
+
+	stmts.identityStmt, err = s.Prepare(`
 SELECT m.uuid AS &modelIdentityRow.uuid,
        m.name AS &modelIdentityRow.name,
        m.qualifier AS &modelIdentityRow.qualifier,
@@ -1075,19 +1145,19 @@ LEFT JOIN user AS cco ON cco.uuid = cc.owner_uuid
 WHERE  m.uuid = $modelUUIDArg.model_uuid
 `, mUUID, modelIdentityRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	namespaceStmt, err := s.Prepare(`
+	stmts.namespaceStmt, err = s.Prepare(`
 SELECT &namespaceRow.namespace
 FROM   model_namespace
 WHERE  model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, namespaceRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	modelPermStmt, err := s.Prepare(`
+	stmts.modelPermStmt, err = s.Prepare(`
 SELECT pot.type AS &permissionRow.object_type,
        p.grant_on AS &permissionRow.grant_on,
        u.name AS &permissionRow.subject_name,
@@ -1099,10 +1169,10 @@ JOIN   user AS u ON u.uuid = p.grant_to
 WHERE  pot.type = 'model' AND p.grant_on = $modelUUIDArg.model_uuid
 `, mUUID, permissionRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	credStmt, err := s.Prepare(`
+	stmts.credStmt, err = s.Prepare(`
 SELECT vcc.cloud_name AS &credentialIdentRow.cloud,
        vcc.owner_name AS &credentialIdentRow.owner,
        vcc.name AS &credentialIdentRow.name,
@@ -1115,10 +1185,10 @@ JOIN   model AS m ON m.cloud_credential_uuid = vcc.uuid
 WHERE  m.uuid = $modelUUIDArg.model_uuid
 `, mUUID, credentialIdentRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	credAttrStmt, err := s.Prepare(`
+	stmts.credAttrStmt, err = s.Prepare(`
 SELECT cca."key" AS &credentialAttrRow.key,
        cca.value AS &credentialAttrRow.value
 FROM   cloud_credential_attribute AS cca
@@ -1126,10 +1196,10 @@ JOIN   model AS m ON m.cloud_credential_uuid = cca.cloud_credential_uuid
 WHERE  m.uuid = $modelUUIDArg.model_uuid
 `, mUUID, credentialAttrRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	authKeyStmt, err := s.Prepare(`
+	stmts.authKeyStmt, err = s.Prepare(`
 SELECT u.name AS &authorizedKeyRow.username,
        vak.public_key AS &authorizedKeyRow.public_key
 FROM   v_model_authorized_keys AS vak
@@ -1137,10 +1207,10 @@ JOIN   user AS u ON u.uuid = vak.user_uuid
 WHERE  vak.model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, authorizedKeyRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	secretBackendStmt, err := s.Prepare(`
+	stmts.secretBackendStmt, err = s.Prepare(`
 SELECT sb.name AS &modelSecretBackendRow.name,
        sbt.type AS &modelSecretBackendRow.backend_type
 FROM   model_secret_backend AS msb
@@ -1149,10 +1219,10 @@ JOIN   secret_backend_type AS sbt ON sbt.id = sb.backend_type_id
 WHERE  msb.model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, modelSecretBackendRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	secretBackendRefStmt, err := s.Prepare(`
+	stmts.secretBackendRefStmt, err = s.Prepare(`
 SELECT sb.name AS &secretBackendRefRow.backend_name,
        sbr.secret_revision_uuid AS &secretBackendRefRow.secret_revision_uuid,
        COALESCE(sbr.secret_id, sbr.secret_revision_uuid) AS &secretBackendRefRow.secret_id
@@ -1161,10 +1231,10 @@ JOIN   secret_backend AS sb ON sb.uuid = sbr.secret_backend_uuid
 WHERE  sbr.model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, secretBackendRefRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	leaseStmt, err := s.Prepare(`
+	stmts.leaseStmt, err = s.Prepare(`
 SELECT lt.type AS &leaseRow.type,
        l.name AS &leaseRow.name,
        l.holder AS &leaseRow.holder,
@@ -1175,10 +1245,10 @@ JOIN   lease_type AS lt ON lt.id = l.lease_type_id
 WHERE  l.model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, leaseRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	leasePinStmt, err := s.Prepare(`
+	stmts.leasePinStmt, err = s.Prepare(`
 SELECT lt.type AS &leasePinRow.lease_type,
        l.name AS &leasePinRow.lease_name,
        lp.entity_id AS &leasePinRow.entity_id
@@ -1188,10 +1258,10 @@ JOIN   lease_type AS lt ON lt.id = l.lease_type_id
 WHERE  l.model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, leasePinRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	lastLoginStmt, err := s.Prepare(`
+	stmts.lastLoginStmt, err = s.Prepare(`
 SELECT u.name AS &lastLoginRow.username,
        mll.time AS &lastLoginRow.time
 FROM   model_last_login AS mll
@@ -1199,10 +1269,10 @@ JOIN   user AS u ON u.uuid = mll.user_uuid
 WHERE  mll.model_uuid = $modelUUIDArg.model_uuid
 `, mUUID, lastLoginRow{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	cloudImageMetadataStmt, err := s.Prepare(`
+	stmts.cloudImageMetadataStmt, err = s.Prepare(`
 SELECT cim.stream AS &cloudImageMetadataRow.stream,
        cim.region AS &cloudImageMetadataRow.region,
        cim.version AS &cloudImageMetadataRow.version,
@@ -1219,10 +1289,10 @@ JOIN   architecture AS a ON a.id = cim.architecture_id
 WHERE  cim.source = $cloudImageMetadataSource.source
 `, cloudImageMetadataRow{}, cloudImageMetadataSource{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	usersStmt, err := s.Prepare(`
+	stmts.usersStmt, err = s.Prepare(`
 SELECT u.name AS &userProfileRow.name,
        u.display_name AS &userProfileRow.display_name,
        cb.name AS &userProfileRow.created_by,
@@ -1232,14 +1302,11 @@ LEFT JOIN user AS cb ON cb.uuid = u.created_by_uuid
 WHERE  u.removed = FALSE AND u.name IN ($nameList[:])
 `, userProfileRow{}, nameList{})
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoStatements{}, errors.Capture(err)
 	}
 
-	// Statements whose IN clause depends on caller-supplied input are only
-	// prepared and run when there is input.
-	var offerPermStmt *sqlair.Statement
 	if len(offerUUIDs) > 0 {
-		offerPermStmt, err = s.Prepare(`
+		stmts.offerPermStmt, err = s.Prepare(`
 SELECT pot.type AS &permissionRow.object_type,
        p.grant_on AS &permissionRow.grant_on,
        u.name AS &permissionRow.subject_name,
@@ -1251,164 +1318,135 @@ JOIN   user AS u ON u.uuid = p.grant_to
 WHERE  pot.type = 'offer' AND p.grant_on IN ($grantOnList[:])
 `, permissionRow{}, grantOnList{})
 		if err != nil {
-			return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+			return controllerModelInfoStatements{}, errors.Capture(err)
 		}
 	}
 
-	controllerUUIDs := distinctControllerUUIDs(offererModels)
-	var extControllerStmt, extAddressStmt, extModelStmt *sqlair.Statement
-	if len(controllerUUIDs) > 0 {
-		extControllerStmt, err = s.Prepare(`
+	stmts.controllerUUIDs = distinctControllerUUIDs(offererModels)
+	if len(stmts.controllerUUIDs) > 0 {
+		stmts.extControllerStmt, err = s.Prepare(`
 SELECT &externalControllerRow.*
 FROM   external_controller
 WHERE  uuid IN ($uuidList[:])
 `, externalControllerRow{}, uuidList{})
 		if err != nil {
-			return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+			return controllerModelInfoStatements{}, errors.Capture(err)
 		}
-		extAddressStmt, err = s.Prepare(`
+		stmts.extAddressStmt, err = s.Prepare(`
 SELECT controller_uuid AS &externalControllerAddressRow.controller_uuid,
        address AS &externalControllerAddressRow.address
 FROM   external_controller_address
 WHERE  controller_uuid IN ($uuidList[:])
 `, externalControllerAddressRow{}, uuidList{})
 		if err != nil {
-			return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+			return controllerModelInfoStatements{}, errors.Capture(err)
 		}
-		extModelStmt, err = s.Prepare(`
+		stmts.extModelStmt, err = s.Prepare(`
 SELECT controller_uuid AS &externalModelRow.controller_uuid,
        uuid AS &externalModelRow.model_uuid
 FROM   external_model
 WHERE  controller_uuid IN ($uuidList[:])
 `, externalModelRow{}, uuidList{})
 		if err != nil {
-			return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+			return controllerModelInfoStatements{}, errors.Capture(err)
 		}
 	}
 
-	var (
-		identity           modelIdentityRow
-		namespace          namespaceRow
-		modelPerms         []permissionRow
-		offerPerms         []permissionRow
-		users              []userProfileRow
-		credIdent          []credentialIdentRow
-		credAttrs          []credentialAttrRow
-		authKeys           []authorizedKeyRow
-		secretBackend      []modelSecretBackendRow
-		secretBackendRef   []secretBackendRefRow
-		leases             []leaseRow
-		leasePins          []leasePinRow
-		lastLogins         []lastLoginRow
-		cloudImageMetadata []cloudImageMetadataRow
-		extControllers     []externalControllerRow
-		extAddresses       []externalControllerAddressRow
-		extModels          []externalModelRow
-	)
+	return stmts, nil
+}
+
+func (s *State) readControllerModelInfoRows(
+	ctx context.Context,
+	modelUUID string,
+	mUUID modelUUIDArg,
+	offerUUIDs []string,
+	stmts controllerModelInfoStatements,
+) (controllerModelInfoRows, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return controllerModelInfoRows{}, errors.Capture(err)
+	}
 
 	customImageMetadataSource := cloudImageMetadataSource{
 		Source: cloudimagemetadata.CustomSource,
 	}
 
+	var rows controllerModelInfoRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		identity = modelIdentityRow{}
-		namespace = namespaceRow{}
-		modelPerms = nil
-		offerPerms = nil
-		users = nil
-		credIdent = nil
-		credAttrs = nil
-		authKeys = nil
-		secretBackend = nil
-		secretBackendRef = nil
-		leases = nil
-		leasePins = nil
-		lastLogins = nil
-		cloudImageMetadata = nil
-		extControllers = nil
-		extAddresses = nil
-		extModels = nil
+		rows = controllerModelInfoRows{}
 
-		if err := tx.Query(ctx, identityStmt, mUUID).Get(&identity); err != nil {
+		if err := tx.Query(ctx, stmts.identityStmt, mUUID).Get(&rows.identity); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("model %q not found", modelUUID)
 			}
 			return errors.Errorf("querying model identity: %w", err)
 		}
-		if err := tx.Query(ctx, namespaceStmt, mUUID).Get(&namespace); err != nil &&
+		if err := tx.Query(ctx, stmts.namespaceStmt, mUUID).Get(&rows.namespace); err != nil &&
 			!errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying model namespace: %w", err)
 		}
-		if err := getAll(ctx, tx, modelPermStmt, &modelPerms, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.modelPermStmt, &rows.modelPerms, mUUID); err != nil {
 			return errors.Errorf("querying model permissions: %w", err)
 		}
-		if offerPermStmt != nil {
-			if err := getAll(ctx, tx, offerPermStmt, &offerPerms, grantOnList(offerUUIDs)); err != nil {
+		if stmts.offerPermStmt != nil {
+			if err := getAll(ctx, tx, stmts.offerPermStmt, &rows.offerPerms, grantOnList(offerUUIDs)); err != nil {
 				return errors.Errorf("querying offer permissions: %w", err)
 			}
 		}
-		if err := getAll(ctx, tx, credStmt, &credIdent, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.credStmt, &rows.credIdent, mUUID); err != nil {
 			return errors.Errorf("querying model credential: %w", err)
 		}
-		if err := getAll(ctx, tx, credAttrStmt, &credAttrs, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.credAttrStmt, &rows.credAttrs, mUUID); err != nil {
 			return errors.Errorf("querying model credential attributes: %w", err)
 		}
-		extraNames := append([]string{identity.Qualifier}, credentialOwnerNames(credIdent)...)
-		if names := distinctSubjectNames(extraNames, modelPerms, offerPerms); len(names) > 0 {
-			if err := getAll(ctx, tx, usersStmt, &users, nameList(names)); err != nil {
+		extraNames := append([]string{rows.identity.Qualifier}, credentialOwnerNames(rows.credIdent)...)
+		if names := distinctSubjectNames(extraNames, rows.modelPerms, rows.offerPerms); len(names) > 0 {
+			if err := getAll(ctx, tx, stmts.usersStmt, &rows.users, nameList(names)); err != nil {
 				return errors.Errorf("querying model users: %w", err)
 			}
 		}
-		if err := getAll(ctx, tx, authKeyStmt, &authKeys, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.authKeyStmt, &rows.authKeys, mUUID); err != nil {
 			return errors.Errorf("querying authorized keys: %w", err)
 		}
-		if err := getAll(ctx, tx, secretBackendStmt, &secretBackend, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.secretBackendStmt, &rows.secretBackend, mUUID); err != nil {
 			return errors.Errorf("querying model secret backend: %w", err)
 		}
-		if err := getAll(ctx, tx, secretBackendRefStmt, &secretBackendRef, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.secretBackendRefStmt, &rows.secretBackendRef, mUUID); err != nil {
 			return errors.Errorf("querying secret backend references: %w", err)
 		}
-		if err := getAll(ctx, tx, leaseStmt, &leases, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.leaseStmt, &rows.leases, mUUID); err != nil {
 			return errors.Errorf("querying leases: %w", err)
 		}
-		if err := getAll(ctx, tx, leasePinStmt, &leasePins, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.leasePinStmt, &rows.leasePins, mUUID); err != nil {
 			return errors.Errorf("querying lease pins: %w", err)
 		}
-		if err := getAll(ctx, tx, lastLoginStmt, &lastLogins, mUUID); err != nil {
+		if err := getAll(ctx, tx, stmts.lastLoginStmt, &rows.lastLogins, mUUID); err != nil {
 			return errors.Errorf("querying last logins: %w", err)
 		}
 		if err := getAll(
-			ctx, tx, cloudImageMetadataStmt, &cloudImageMetadata,
+			ctx, tx, stmts.cloudImageMetadataStmt, &rows.cloudImageMetadata,
 			customImageMetadataSource,
 		); err != nil {
 			return errors.Errorf("querying cloud image metadata: %w", err)
 		}
-		if extControllerStmt != nil {
-			if err := getAll(ctx, tx, extControllerStmt, &extControllers, uuidList(controllerUUIDs)); err != nil {
+		if stmts.extControllerStmt != nil {
+			controllerUUIDs := uuidList(stmts.controllerUUIDs)
+			if err := getAll(ctx, tx, stmts.extControllerStmt, &rows.extControllers, controllerUUIDs); err != nil {
 				return errors.Errorf("querying external controllers: %w", err)
 			}
-			if err := getAll(ctx, tx, extAddressStmt, &extAddresses, uuidList(controllerUUIDs)); err != nil {
+			if err := getAll(ctx, tx, stmts.extAddressStmt, &rows.extAddresses, controllerUUIDs); err != nil {
 				return errors.Errorf("querying external controller addresses: %w", err)
 			}
-			if err := getAll(ctx, tx, extModelStmt, &extModels, uuidList(controllerUUIDs)); err != nil {
+			if err := getAll(ctx, tx, stmts.extModelStmt, &rows.extModels, controllerUUIDs); err != nil {
 				return errors.Errorf("querying external models: %w", err)
 			}
 		}
 		return nil
 	}); err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return controllerModelInfoRows{}, errors.Capture(err)
 	}
 
-	matchedExtModels, err := matchingExternalModels(offererModels, extControllers, extModels)
-	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
-	}
-
-	return assembleControllerModelInfo(
-		identity, namespace, modelPerms, offerPerms, users, credIdent, credAttrs,
-		authKeys, secretBackend, secretBackendRef, leases, leasePins, lastLogins,
-		cloudImageMetadata, extControllers, extAddresses, matchedExtModels,
-	), nil
+	return rows, nil
 }
 
 // distinctSubjectNames returns the distinct usernames from the extra names and
