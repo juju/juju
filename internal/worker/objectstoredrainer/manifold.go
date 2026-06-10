@@ -60,6 +60,12 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// RootDirReader returns the current local object-store root dir when the
+// manifold starts.
+type RootDirReader interface {
+	ObjectStoreRootDir() (string, error)
+}
+
 // ManifoldConfig holds the dependencies and configuration for a
 // Worker manifold.
 type ManifoldConfig struct {
@@ -77,7 +83,7 @@ type ManifoldConfig struct {
 	NewHashFileSystemAccessor       NewHashFileSystemAccessorFunc
 	NewDrainerWorker                NewDrainerWorkerFunc
 	SelectFileHash                  SelectFileHashFunc
-	ObjectStoreRootDir              string
+	RootDirReader                   RootDirReader
 	Clock                           clock.Clock
 
 	Logger logger.Logger
@@ -121,8 +127,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.SelectFileHash == nil {
 		return errors.NotValidf("nil SelectFileHash")
 	}
-	if config.ObjectStoreRootDir == "" {
-		return errors.NotValidf("empty ObjectStoreRootDir")
+	if config.RootDirReader == nil {
+		return errors.NotValidf("nil RootDirReader")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -137,6 +143,14 @@ func (config ManifoldConfig) Validate() error {
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	rootDir, err := config.RootDirReader.ObjectStoreRootDir()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if rootDir == "" {
+		return nil, errors.NotValidf("empty ObjectStoreRootDir")
 	}
 
 	controllerConfigService, err := config.GetControllerConfigService(getter, config.ObjectStoreServicesName)
@@ -199,7 +213,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		NewDrainerWorker:             config.NewDrainerWorker,
 		SelectFileHash:               config.SelectFileHash,
 		S3Client:                     s3Client,
-		RootDir:                      config.ObjectStoreRootDir,
+		RootDir:                      rootDir,
 		RootBucketName:               rootBucketName,
 		Logger:                       config.Logger,
 		Clock:                        config.Clock,
