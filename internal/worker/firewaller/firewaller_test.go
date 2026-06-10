@@ -2088,12 +2088,30 @@ func (s *InstanceModeSuite) setupIngressCidrsMocks(c *tc.C, ctrl *gomock.Control
 	s.crossModelRelationService.EXPECT().IsApplicationSynthetic(gomock.Any(), "mysql").Return(false, nil).AnyTimes()
 
 	localIngressCh := make(chan []string, 1)
-	notifyCh := make(chan struct{}, 1)
-	remoteIngressWatch := watchertest.NewMockNotifyWatcher(notifyCh)
-	s.crossModelRelationService.EXPECT().WatchRelationIngressNetworks(gomock.Any(), relUUID).Return(remoteIngressWatch, nil).MinTimes(1)
 
 	var mu sync.Mutex
 	var currentCIDRs []string
+	// activeNotifyChans holds one channel per WatchRelationIngressNetworks
+	// call. Each watcher instance gets its own channel so that a dying old
+	// watcher cannot steal a notification that was intended for a newly
+	// started replacement watcher.
+	var activeNotifyChans []chan struct{}
+
+	s.crossModelRelationService.EXPECT().WatchRelationIngressNetworks(gomock.Any(), relUUID).DoAndReturn(
+		func(_ context.Context, _ relation.UUID) (watcher.NotifyWatcher, error) {
+			mu.Lock()
+			ch := make(chan struct{}, 1)
+			// Send an immediate notification when the watcher starts if
+			// ingress data already exists, so the new watcher loop does
+			// not miss the current state (e.g. after a relation resume).
+			if len(currentCIDRs) > 0 {
+				ch <- struct{}{}
+			}
+			activeNotifyChans = append(activeNotifyChans, ch)
+			mu.Unlock()
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		}).MinTimes(1)
+
 	s.crossModelRelationService.EXPECT().GetRelationNetworkIngress(gomock.Any(), relUUID).DoAndReturn(
 		func(_ context.Context, _ relation.UUID) ([]string, error) {
 			mu.Lock()
@@ -2106,11 +2124,13 @@ func (s *InstanceModeSuite) setupIngressCidrsMocks(c *tc.C, ctrl *gomock.Control
 		for cidrs := range localIngressCh {
 			mu.Lock()
 			currentCIDRs = cidrs
-			mu.Unlock()
-			select {
-			case notifyCh <- struct{}{}:
-			default:
+			for _, ch := range activeNotifyChans {
+				select {
+				case ch <- struct{}{}:
+				default:
+				}
 			}
+			mu.Unlock()
 		}
 	}()
 
