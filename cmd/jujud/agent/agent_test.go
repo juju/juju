@@ -4,8 +4,10 @@
 package agent
 
 import (
+	"path/filepath"
 	"testing"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -97,4 +100,114 @@ func (f *fakeLoggingConfig) Value(key string) string {
 		return f.loggingOverride
 	}
 	return ""
+}
+
+type controllerStartupValueProviderSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func TestControllerStartupValueProviderSuite(t *testing.T) {
+	tc.Run(t, &controllerStartupValueProviderSuite{})
+}
+
+func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentAgentConfig(c *tc.C) {
+	provider := controllerStartupValueProvider{
+		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
+			config: &fakeControllerConfig{loggingConfig: "first"},
+		}},
+	}
+
+	override, err := provider.LoggingOverride()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(override, tc.Equals, "first")
+
+	provider.agent.AgentConfigWriter = &fakeAgentConfigWriter{
+		config: &fakeControllerConfig{loggingConfig: "second"},
+	}
+	override, err = provider.LoggingOverride()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(override, tc.Equals, "second")
+}
+
+func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrentRuntimeAndAgentConfig(c *tc.C) {
+	runtimeDir := c.MkDir()
+	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-one"),
+		LogDir:               filepath.Join(runtimeDir, "log-one"),
+		CACert:               "ca-cert",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+		SystemIdentity:       "identity-one",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	provider := controllerStartupValueProvider{
+		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
+			config: &fakeControllerConfig{systemIdentityPath: "/path/one"},
+		}},
+		controllerRuntimePath: runtimePath,
+	}
+
+	values, err := provider.SystemIdentityValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.SystemIdentity, tc.Equals, "identity-one")
+	c.Check(values.SystemIdentityPath, tc.Equals, "/path/one")
+
+	err = controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-two"),
+		LogDir:               filepath.Join(runtimeDir, "log-two"),
+		CACert:               "ca-cert",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+		SystemIdentity:       "identity-two",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	provider.agent.AgentConfigWriter = &fakeAgentConfigWriter{
+		config: &fakeControllerConfig{systemIdentityPath: "/path/two"},
+	}
+
+	values, err = provider.SystemIdentityValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.SystemIdentity, tc.Equals, "identity-two")
+	c.Check(values.SystemIdentityPath, tc.Equals, "/path/two")
+}
+
+type fakeAgentConfigWriter struct {
+	agentconf.AgentConf
+	config agent.Config
+}
+
+func (f *fakeAgentConfigWriter) CurrentConfig() agent.Config {
+	return f.config
+}
+
+type fakeControllerConfig struct {
+	agent.Config
+	loggingConfig      string
+	systemIdentityPath string
+}
+
+func (f *fakeControllerConfig) LoggingConfig() string {
+	return f.loggingConfig
+}
+
+func (f *fakeControllerConfig) SystemIdentityPath() string {
+	return f.systemIdentityPath
+}
+
+func (f *fakeControllerConfig) Tag() names.Tag {
+	return names.NewControllerAgentTag("0")
+}
+
+func (f *fakeControllerConfig) Model() names.ModelTag {
+	return names.NewModelTag("model-uuid")
 }
