@@ -277,7 +277,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"install hook fail and resolve",
-			&startupError{"install"},
+			&startupError{badHook: "install"},
 			&verifyWaiting{},
 
 			&resolveError{params.ResolvedNoHooks},
@@ -291,7 +291,7 @@ func (s *UniterSuite) TestUniterInstallHook(c *tc.C) {
 			&waitHooks{"leader-elected", "config-changed", "start"},
 		), ut(
 			"install hook fail and retry",
-			&startupError{"install"},
+			&startupError{badHook: "install"},
 			&verifyWaiting{},
 
 			&resolveError{params.ResolvedRetryHooks},
@@ -338,7 +338,7 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"update status hook doesn't run if in error",
-			&startupError{"start"},
+			&startupError{badHook: "start"},
 			&waitHooks{},
 			&updateStatusHookTick{},
 			&waitHooks{},
@@ -378,7 +378,7 @@ func (s *UniterSuite) TestUniterStartHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"start hook fail and resolve",
-			&startupError{"start"},
+			&startupError{badHook: "start"},
 			&verifyWaiting{},
 
 			&resolveError{params.ResolvedNoHooks},
@@ -394,7 +394,7 @@ func (s *UniterSuite) TestUniterStartHook(c *tc.C) {
 			&verifyRunning{},
 		), ut(
 			"start hook fail and retry",
-			&startupError{"start"},
+			&startupError{badHook: "start"},
 			&verifyWaiting{},
 
 			&resolveError{params.ResolvedRetryHooks},
@@ -539,7 +539,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"config-changed hook fail and resolve",
-			&startupError{"config-changed"},
+			&startupError{badHook: "config-changed"},
 			&verifyWaiting{},
 
 			// Note: we'll run another config-changed as soon as we hit the
@@ -561,7 +561,7 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *tc.C) {
 			&verifyRunning{},
 		), ut(
 			"config-changed hook fail and retry",
-			&startupError{"config-changed"},
+			&startupError{badHook: "config-changed"},
 			&verifyWaiting{},
 
 			&resolveError{params.ResolvedRetryHooks},
@@ -632,7 +632,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *tc.C) {
 			&waitHooks{},
 		), ut(
 			"hook error unit dying",
-			&startupError{"start"},
+			&startupError{badHook: "start"},
 			unitDying,
 			&verifyWaiting{},
 			&fixHook{"start"},
@@ -641,7 +641,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *tc.C) {
 			&waitUniterDead{},
 		), ut(
 			"hook error unit dead",
-			&startupError{"start"},
+			&startupError{badHook: "start"},
 			unitDead,
 			&waitUniterDead{},
 			&waitHooks{},
@@ -824,7 +824,7 @@ func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *tc.C) {
 		// Upgrade scenarios from error state.
 		ut(
 			"error state unforced upgrade (ignored until started state)",
-			&startupError{"start"},
+			&startupError{badHook: "start"},
 			&createCharm{revision: 1},
 			&upgradeCharm{revision: 1},
 			&waitUnitAgent{
@@ -860,7 +860,7 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"error state forced upgrade",
-			&startupError{"start"},
+			&startupError{badHook: "start"},
 			&createCharm{revision: 1},
 			&upgradeCharm{revision: 1, forced: true},
 			// It's not possible to tell directly from state when the upgrade is
@@ -974,7 +974,7 @@ func (s *UniterSuite) TestUniterRelationsSimpleJoinedChangedDeparted(c *tc.C) {
 
 func (s *UniterSuite) TestUniterRelations(c *tc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	waitDyingHooks := &custom{func(c tc.LikeC, ctx *testContext) {
+	waitDyingHooks := &custom{f: func(c tc.LikeC, ctx *testContext) {
 		// There is no ordering relationship between relation hooks and
 		// leader-settings-changed hooks; and while we're dying we may
 		// never get to leader-settings-changed before it's time to run
@@ -1074,7 +1074,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"hook error during join of a relation",
-			&startupRelationError{"db-relation-joined"},
+			&startupRelationError{badHook: "db-relation-joined"},
 			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
@@ -1087,7 +1087,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 			},
 		), ut(
 			"hook error during change of a relation",
-			&startupRelationError{"db-relation-changed"},
+			&startupRelationError{badHook: "db-relation-changed"},
 			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
@@ -1100,7 +1100,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 			},
 		), ut(
 			"hook error after a unit departed",
-			&startupRelationError{"db-relation-departed"},
+			&startupRelationError{badHook: "db-relation-departed"},
 			&waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 			&removeRelationUnit{"mysql/0"},
 			&waitUnitAgent{
@@ -1116,7 +1116,7 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 		),
 		ut(
 			"hook error after a relation died",
-			&startupRelationError{"db-relation-broken"},
+			&startupRelationError{badHook: "db-relation-broken"},
 			&waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 			relationDying,
 			&waitUnitAgent{
@@ -1138,7 +1138,7 @@ func (s *UniterSuite) TestUniterRelationErrorsLostRelation(c *tc.C) {
 			"ignore pending relation hook when relation deleted while stopped",
 			&quickStart{},
 			&stopUniter{},
-			&custom{func(c tc.LikeC, ctx *testContext) {
+			&custom{f: func(c tc.LikeC, ctx *testContext) {
 				opState := operation.State{}
 				opState.Kind = operation.RunHook
 				opState.Step = operation.Pending
@@ -1193,7 +1193,7 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 			},
 			&waitHooks{"install", "leader-elected", "config-changed", "start"},
 			&verifyCharm{},
-			&addAction{"fakeaction", map[string]any{"foo": "bar"}},
+			&addAction{name: "fakeaction", params: map[string]any{"foo": "bar"}},
 			&waitActionInvocation{[]actionData{{
 				actionName: "fakeaction",
 				args:       []string{"foo=bar"},
@@ -1208,9 +1208,9 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 			&createCharm{},
 			&serveCharm{},
 			&createApplicationAndUnit{},
-			&addAction{"fakeaction", map[string]any{"foo": "bar"}},
-			&addAction{"fakeaction", nil},
-			&addAction{"fakeaction", nil},
+			&addAction{name: "fakeaction", params: map[string]any{"foo": "bar"}},
+			&addAction{name: "fakeaction", params: nil},
+			&addAction{name: "fakeaction", params: nil},
 			&startUniter{},
 			&waitAddresses{},
 			&waitUnitAgent{status: status.Idle},
@@ -1238,7 +1238,7 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 			&startupError{
 				badHook: "start",
 			},
-			&addAction{"fakeaction", nil},
+			&addAction{name: "fakeaction", params: nil},
 			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
@@ -1272,7 +1272,7 @@ func (s *UniterSuite) TestUniterSubordinates(c *tc.C) {
 		ut(
 			"unit becomes dying while subordinates exist",
 			&quickStart{},
-			&addSubordinateRelation{corerelation.JujuInfo},
+			&addSubordinateRelation{ifce: corerelation.JujuInfo},
 			&waitSubordinateExists{"logging/0"},
 			unitDying,
 			&waitSubordinateDying{},
@@ -1283,12 +1283,12 @@ func (s *UniterSuite) TestUniterSubordinates(c *tc.C) {
 		), ut(
 			"new subordinate becomes necessary while old one is dying",
 			&quickStart{},
-			&addSubordinateRelation{corerelation.JujuInfo},
+			&addSubordinateRelation{ifce: corerelation.JujuInfo},
 			&waitSubordinateExists{"logging/0"},
 			&removeSubordinateRelation{corerelation.JujuInfo},
 			// The subordinate Uniter would usually set Dying in this situation.
 			subordinateDying,
-			&addSubordinateRelation{"logging-dir"},
+			&addSubordinateRelation{ifce: "logging-dir"},
 			&verifyRunning{},
 			&removeSubordinate{},
 			&waitSubordinateExists{"logging/1"},
