@@ -1204,8 +1204,9 @@ func (s *commitHookSuite) TestTrackSecretsCreatesConsumerRow(c *tc.C) {
 	c.Assert(found, tc.IsTrue)
 	// Must track the latest (highest) revision.
 	c.Check(row.CurrentRevision, tc.Equals, 2)
-	// Local secrets have no source model UUID.
-	c.Check(row.SourceModelUUID, tc.Equals, "")
+	// Local secrets store the model UUID as source_model_uuid, matching the
+	// invariant set by SaveSecretConsumer.
+	c.Check(row.SourceModelUUID, tc.Equals, s.modelUUID.String())
 }
 
 // TestTrackSecretsUpdatesConsumerRow verifies that calling trackSecrets when a

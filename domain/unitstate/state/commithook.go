@@ -450,6 +450,20 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []int
 // is 4. Safe maximum: 32766/4 = 8191.
 const maxSecretsPerObsoleteQuery = 8191
 
+// getModelUUID returns the UUID of the model stored in the model table,
+// within the supplied transaction.
+func (st *State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
+	stmt, err := st.Prepare("SELECT &entityUUID.uuid FROM model", entityUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var result entityUUID
+	if err := tx.Query(ctx, stmt).Get(&result); err != nil {
+		return "", errors.Errorf("querying model UUID: %w", err)
+	}
+	return result.UUID, nil
+}
+
 // trackSecrets updates secret_unit_consumer rows so that the specified unit
 // tracks the latest revision for each supplied secret. Secrets that no longer
 // exist are silently skipped (idempotent). After updating each consumer row,
@@ -471,6 +485,13 @@ func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, unitUUID strin
 	}
 	if len(existing) == 0 {
 		return nil
+	}
+
+	// Local secrets store the model UUID as their source_model_uuid, matching
+	// the invariant set by SaveSecretConsumer. Fetch it once for the upsert.
+	modelUUID, err := st.getModelUUID(ctx, tx)
+	if err != nil {
+		return errors.Errorf("getting model UUID for secret tracking: %w", err)
 	}
 
 	// Build the sorted slice of IDs that are confirmed to exist.
@@ -510,7 +531,7 @@ GROUP BY secret_id
 		}
 		consumers = append(consumers, secretUnitConsumerLatest{
 			SecretID:        r.SecretID,
-			SourceModelUUID: "", // local secrets have no source model UUID
+			SourceModelUUID: modelUUID,
 			UnitUUID:        unitUUID,
 			CurrentRevision: r.Revision,
 		})
