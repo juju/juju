@@ -1992,16 +1992,25 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller, ingress []string, expected []string) {
+// ingressCidrsSetup holds the state produced by setupIngressCidrsMocks that
+// assertIngressCidrs needs to drive its assertions.
+type ingressCidrsSetup struct {
+	machineID      string
+	localIngressCh chan []string
+	relUUID        relation.UUID
+	// suspended points to the bool captured by the GetRelationDetails mock
+	// closure, so that assertIngressCidrs can toggle the suspended state.
+	suspended *bool
+}
+
+// setupIngressCidrsMocks registers all mock expectations required by the
+// ingress-CIDR test scenarios. It must be called before newFirewaller.
+func (s *InstanceModeSuite) setupIngressCidrsMocks(c *tc.C, ctrl *gomock.Controller) *ingressCidrsSetup {
 	// Set up the offering model - create the local app.
 	app, _ := s.setupApplicationMocks(ctrl, "mysql")
 	s.activateApplication("mysql", false)
 	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
 	s.activateUnit(u, unitsCh)
-
-	// Create the firewaller facade on the offering model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
 
 	s.startInstance(c, ctrl, m)
 
@@ -2009,36 +2018,25 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 		network.MustParsePortRange("3306/tcp"),
 	})
 
-	// Set up the offering model - create the remote app.
-	remoteRelParams := params.RemoteRelation{
-		Life:            "alive",
-		Suspended:       false,
-		Id:              666,
-		Key:             "remote-wordpress:db mysql:server",
-		ApplicationName: "mysql",
-		Endpoint: params.RemoteEndpoint{
-			Role: "provider",
-		},
-		UnitCount:             2,
-		RemoteApplicationName: "remote-wordpress",
-		RemoteEndpointName:    "db",
-		SourceModelUUID:       coretesting.ModelTag.Id(),
-	}
-
 	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
 	relKey, err := relation.NewKeyFromString(relTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := relation.UUID("rel-token")
 
-	// Mock GetRelationDetails - this is called when processing the offerer relation event
-	// We need to return different states for suspended/resumed/alive
+	// suspended is captured by the GetRelationDetails mock closure so that
+	// assertIngressCidrs can toggle it between calls.
+	suspended := false
+
+	// Mock GetRelationDetails - this is called when processing the offerer
+	// relation event. We need to return different states for
+	// suspended/resumed/alive.
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).DoAndReturn(
 		func(_ context.Context, _ relation.UUID) (domainrelation.RelationDetails, error) {
 			return domainrelation.RelationDetails{
 				Life:      life.Alive,
 				UUID:      relUUID,
 				Key:       relKey,
-				Suspended: remoteRelParams.Suspended,
+				Suspended: suspended,
 				Endpoints: []domainrelation.Endpoint{
 					{
 						ApplicationName: "mysql",
@@ -2076,7 +2074,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 			return currentCIDRs, nil
 		}).AnyTimes()
 
-	// Helper goroutine to bridge test control channel to watcher notifications
+	// Helper goroutine to bridge test control channel to watcher notifications.
 	go func() {
 		for cidrs := range localIngressCh {
 			mu.Lock()
@@ -2089,47 +2087,56 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 		}
 	}()
 
+	return &ingressCidrsSetup{
+		machineID:      m.Tag().Id(),
+		localIngressCh: localIngressCh,
+		relUUID:        relUUID,
+		suspended:      &suspended,
+	}
+}
+
+func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, setup *ingressCidrsSetup, ingress []string, expected []string) {
 	// No port changes yet.
 	s.waitForMachineFlush(c)
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	s.assertIngressRules(c, setup.machineID, nil)
 
 	// Save a new ingress network against the relation.
-	s.offererRelCh <- []string{relUUID.String()}
-	localIngressCh <- ingress
+	s.offererRelCh <- []string{setup.relUUID.String()}
+	setup.localIngressCh <- ingress
 
 	// Ports opened.
-	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+	s.assertIngressRules(c, setup.machineID, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// Change should be sent when ingress networks disappear.
-	localIngressCh <- nil
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	setup.localIngressCh <- nil
+	s.assertIngressRules(c, setup.machineID, nil)
 
-	localIngressCh <- ingress
-	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+	setup.localIngressCh <- ingress
+	s.assertIngressRules(c, setup.machineID, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is suspended.
-	remoteRelParams.Suspended = true
+	*setup.suspended = true
 
-	s.offererRelCh <- []string{relUUID.String()}
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	s.offererRelCh <- []string{setup.relUUID.String()}
+	s.assertIngressRules(c, setup.machineID, nil)
 
 	// And again when relation is resumed.
-	remoteRelParams.Suspended = false
+	*setup.suspended = false
 
-	s.offererRelCh <- []string{relUUID.String()}
-	localIngressCh <- ingress
-	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+	s.offererRelCh <- []string{setup.relUUID.String()}
+	setup.localIngressCh <- ingress
+	s.assertIngressRules(c, setup.machineID, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is destroyed.
-	localIngressCh <- nil
+	setup.localIngressCh <- nil
 	s.waitForMachineFlush(c)
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	s.assertIngressRules(c, setup.machineID, nil)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
@@ -2137,8 +2144,10 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.ensureMocks(c, ctrl)
-
-	s.assertIngressCidrs(c, ctrl, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
+	setup := s.setupIngressCidrsMocks(c, ctrl)
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+	s.assertIngressCidrs(c, setup, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C) {
@@ -2160,7 +2169,10 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C
 	for i := 1; i < 30; i++ {
 		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
 	}
-	s.assertIngressCidrs(c, ctrl, ingress, []string{"192.168.1.0/16"})
+	setup := s.setupIngressCidrsMocks(c, ctrl)
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+	s.assertIngressCidrs(c, setup, ingress, []string{"192.168.1.0/16"})
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *tc.C) {
@@ -2200,7 +2212,10 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *tc.C) {
 		"192.0.5.0/28",
 		"192.0.6.0/28",
 	}
-	s.assertIngressCidrs(c, ctrl, ingress, expected)
+	setup := s.setupIngressCidrsMocks(c, ctrl)
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+	s.assertIngressCidrs(c, setup, ingress, expected)
 }
 
 func (s *InstanceModeSuite) TestConsumerRelationNotFound(c *tc.C) {
