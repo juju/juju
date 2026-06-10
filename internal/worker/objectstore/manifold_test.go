@@ -30,6 +30,15 @@ type manifoldSuite struct {
 	baseSuite
 }
 
+type stubRootDirReader struct {
+	rootDir string
+	err     error
+}
+
+func (s stubRootDirReader) ObjectStoreRootDir() (string, error) {
+	return s.rootDir, s.err
+}
+
 func TestManifoldSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &manifoldSuite{})
@@ -62,7 +71,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.ObjectStoreRootDir = ""
+	cfg.RootDirReader = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -105,7 +114,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		LeaseManagerName:        "lease-manager",
 		S3ClientName:            "s3-client",
 		APIRemoteCallerName:     "api-remote-caller",
-		ObjectStoreRootDir:      "/var/lib/juju",
+		RootDirReader:           stubRootDirReader{rootDir: "/var/lib/juju"},
 		ControllerNodeID:        "0",
 		Clock:                   clock.WallClock,
 		Logger:                  s.logger,

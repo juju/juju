@@ -73,17 +73,26 @@ var NewLegacyWorker = func(agentConfig agent.Config) (worker.Worker, error) {
 	return jworker.NewSimpleWorker(inner), nil
 }
 
-// ManifoldConfig defines the explicit controller-owned inputs needed to write
-// the controller system identity file in the jujud-only path. Values are
-// sourced from controller runtime config at wiring time and do not require a
-// running api-caller or an IsController API lookup.
-type ManifoldConfig struct {
-	// SystemIdentity is the SSH private key written to the system identity
-	// file. An empty value removes the file instead of writing it.
-	SystemIdentity string
-
-	// SystemIdentityPath is the absolute path of the system identity file.
+// SystemIdentityValues are the current system identity values used by the
+// jujud-only worker when the manifold starts.
+type SystemIdentityValues struct {
+	SystemIdentity     string
 	SystemIdentityPath string
+}
+
+// SystemIdentityReader returns the current system identity values when the
+// manifold starts.
+type SystemIdentityReader interface {
+	SystemIdentityValues() (SystemIdentityValues, error)
+}
+
+// ManifoldConfig defines the explicit controller-owned inputs needed to write
+// the controller system identity file in the jujud-only path. The reader is
+// evaluated when the manifold starts so bounced workers observe current
+// values without reintroducing broad agent dependencies.
+type ManifoldConfig struct {
+	// SystemIdentityReader returns the current identity values.
+	SystemIdentityReader SystemIdentityReader
 
 	// NewWorker is the constructor for the identity file writer worker. It
 	// is exported for injection in unit tests.
@@ -92,11 +101,19 @@ type ManifoldConfig struct {
 
 // Validate returns an error if the config is incomplete.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.SystemIdentityPath == "" {
-		return errors.NotValidf("empty SystemIdentityPath")
+	if cfg.SystemIdentityReader == nil {
+		return errors.NotValidf("nil SystemIdentityReader")
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
+	}
+	return nil
+}
+
+// Validate returns an error if the values are incomplete.
+func (v SystemIdentityValues) Validate() error {
+	if v.SystemIdentityPath == "" {
+		return errors.NotValidf("empty SystemIdentityPath")
 	}
 	return nil
 }
@@ -112,17 +129,38 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
+			values, err := config.SystemIdentityReader.SystemIdentityValues()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err := values.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+			config := config
+			config.SystemIdentityReader = staticSystemIdentityReader{values: values}
 			return config.NewWorker(config)
 		},
 	}
+}
+
+type staticSystemIdentityReader struct {
+	values SystemIdentityValues
+}
+
+func (r staticSystemIdentityReader) SystemIdentityValues() (SystemIdentityValues, error) {
+	return r.values, nil
 }
 
 // NewWorker is the default constructor for the jujud-only SSH identity file
 // writer worker. It writes or removes the system identity file based on the
 // SystemIdentity value in cfg.
 var NewWorker = func(cfg ManifoldConfig) (worker.Worker, error) {
+	values, err := cfg.SystemIdentityReader.SystemIdentityValues()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	inner := func(ctx context.Context) error {
-		return writeSystemIdentityFile(cfg.SystemIdentity, cfg.SystemIdentityPath)
+		return writeSystemIdentityFile(values.SystemIdentity, values.SystemIdentityPath)
 	}
 	return jworker.NewSimpleWorker(inner), nil
 }
