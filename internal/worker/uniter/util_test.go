@@ -2481,7 +2481,7 @@ func (s *changeSecret) step(c tc.LikeC, ctx *testContext) {
 	go func() {
 		for {
 			ctx.stateMu.Lock()
-			if strings.Contains(fmt.Sprintf("secret-revisions: %s: 666\n", ctx.createdSecretURI), ctx.secretsState) {
+			if strings.Contains(ctx.secretsState, fmt.Sprintf("  %s: 666\n", ctx.createdSecretURI)) {
 				ctx.stateMu.Unlock()
 				close(done)
 				return
