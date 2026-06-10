@@ -11,6 +11,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
@@ -131,7 +132,7 @@ func (s *httpSuite) TestRetry(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	recorder := NewMockRequestRecorder(ctrl)
-	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(&http.Response{}), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)
+	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(reflect.TypeFor[*http.Response]()), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)
 
 	client := NewClient(
 		// We can use the request recorder to monitor how many retries have been
@@ -164,7 +165,7 @@ func (s *httpSuite) TestRetryExceeded(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	recorder := NewMockRequestRecorder(ctrl)
-	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(&http.Response{}), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)
+	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(reflect.TypeFor[*http.Response]()), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)
 
 	client := NewClient(
 		// We can use the request recorder to monitor how many retries have been
