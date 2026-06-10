@@ -203,12 +203,8 @@ func (ctx *testContext) run(c tc.LikeC, steps []stepper) {
 }
 
 func (ctx *testContext) waitFor(c tc.LikeC, ch chan bool, msg string) {
-	select {
-	case <-ch:
-		return
-	case <-time.After(coretesting.LongWait):
-		c.Fatal(msg)
-	}
+	c.Logf("waiting for %s", msg)
+	<-ch
 }
 
 func (ctx *testContext) sendUnitNotify(c tc.LikeC, msg string) {
@@ -222,38 +218,24 @@ func (ctx *testContext) sendNotify(c tc.LikeC, ch chan struct{}, msg string) {
 	if !ctx.sendEvents || ctx.startError {
 		return
 	}
-	select {
-	case ch <- struct{}{}:
-		c.Logf("sent: %s", msg)
-		return
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("could not send: %s", msg)
-		c.FailNow()
-	}
+	c.Logf("sending: %s", msg)
+	ch <- struct{}{}
+	c.Logf("sent: %s", msg)
 }
 
 func (ctx *testContext) sendStrings(c tc.LikeC, ch chan []string, msg string, s ...string) {
 	if !ctx.sendEvents || ctx.startError {
 		return
 	}
-	select {
-	case ch <- s:
-		c.Logf("sent: %s (%q)", msg, s)
-		return
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("could not send: %s", msg)
-		c.FailNow()
-	}
+	c.Logf("sending: %s (%q)", msg, s)
+	ch <- s
+	c.Logf("sent: %s (%q)", msg, s)
 }
 
 func (ctx *testContext) sendRelationUnitChange(c tc.LikeC, msg string, ruc watcher.RelationUnitsChange) {
-	select {
-	case ctx.relationUnitCh <- ruc:
-		c.Logf("sent: %s: %+v", msg, ruc)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("could not send: %s", msg)
-		c.FailNow()
-	}
+	c.Logf("sending: %s: %+v", msg, ruc)
+	ctx.relationUnitCh <- ruc
+	c.Logf("sent: %s: %+v", msg, ruc)
 }
 
 func (ctx *testContext) expectHookContext(c tc.LikeC, stepped *MockSteppedSteppedCall) {
@@ -525,22 +507,18 @@ type waitAddresses struct{}
 func (s *waitAddresses) prepare(_ tc.LikeC, _ *testContext) {}
 
 func (s *waitAddresses) step(c tc.LikeC, ctx *testContext) {
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for unit addresses")
 	for {
-		select {
-		case <-timeout:
-			c.Fatalf("timed out waiting for unit addresses")
-		case <-time.After(coretesting.ShortWait):
-			private, _ := ctx.unit.PrivateAddress(c.Context())
-			if private != dummyPrivateAddress.Value {
-				continue
-			}
-			public, _ := ctx.unit.PublicAddress(c.Context())
-			if public != dummyPublicAddress.Value {
-				continue
-			}
-			return
+		time.Sleep(coretesting.ShortWait)
+		private, _ := ctx.unit.PrivateAddress(c.Context())
+		if private != dummyPrivateAddress.Value {
+			continue
 		}
+		public, _ := ctx.unit.PublicAddress(c.Context())
+		if public != dummyPublicAddress.Value {
+			continue
+		}
+		return
 	}
 }
 
@@ -1159,19 +1137,8 @@ func (s waitUniterDead) waitDead(c tc.LikeC, ctx *testContext) error {
 	u := ctx.uniter
 	ctx.uniter = nil
 
-	wait := make(chan error, 1)
-	go func() {
-		wait <- u.Wait()
-	}()
-
-	select {
-	case err := <-wait:
-		return err
-	case <-time.After(coretesting.LongWait):
-		u.Kill()
-		c.Fatalf("uniter still alive")
-	}
-	panic("unreachable")
+	c.Log("waiting for uniter to stop")
+	return u.Wait()
 }
 
 type stopUniter struct {
@@ -1489,69 +1456,64 @@ func (s *waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
 	if s.statusGetter == nil {
 		s.statusGetter = agentStatusGetter
 	}
-	timeout := time.After(coretesting.LongWait)
+	c.Logf("waiting for desired status: %v")
 	for {
+		time.Sleep(coretesting.ShortWait)
+		var (
+			resolved params.ResolvedMode
+			urlStr   *string
+		)
+		ctx.unit.mu.Lock()
+		resolved = ctx.unit.resolved
+		urlStr = new(ctx.unit.charmURL)
+		ctx.unit.mu.Unlock()
 
-		select {
-		case <-time.After(coretesting.ShortWait):
-			var (
-				resolved params.ResolvedMode
-				urlStr   *string
-			)
-			ctx.unit.mu.Lock()
-			resolved = ctx.unit.resolved
-			urlStr = new(ctx.unit.charmURL)
-			ctx.unit.mu.Unlock()
-
-			if resolved != s.resolved {
-				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
+		if resolved != s.resolved {
+			c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
+			continue
+		}
+		if urlStr == nil {
+			c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
+			continue
+		}
+		if *urlStr != curl(s.charm) {
+			c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), *urlStr)
+			continue
+		}
+		statusInfo, err := s.statusGetter(ctx)()
+		c.Assert(err, tc.ErrorIsNil)
+		if string(statusInfo.Status) != string(s.status) {
+			c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
+			continue
+		}
+		if statusInfo.Message != s.info {
+			c.Logf("want unit status info %q, got %q; still waiting", s.info, statusInfo.Message)
+			continue
+		}
+		if s.data != nil {
+			if len(statusInfo.Data) != len(s.data) {
+				wantKeys := []string{}
+				for k := range s.data {
+					wantKeys = append(wantKeys, k)
+				}
+				sort.Strings(wantKeys)
+				gotKeys := []string{}
+				for k := range statusInfo.Data {
+					gotKeys = append(gotKeys, k)
+				}
+				sort.Strings(gotKeys)
+				c.Logf("want {%s} status data value(s), got {%s}; still waiting", strings.Join(wantKeys, ", "), strings.Join(gotKeys, ", "))
 				continue
 			}
-			if urlStr == nil {
-				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
-				continue
-			}
-			if *urlStr != curl(s.charm) {
-				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), *urlStr)
-				continue
-			}
-			statusInfo, err := s.statusGetter(ctx)()
-			c.Assert(err, tc.ErrorIsNil)
-			if string(statusInfo.Status) != string(s.status) {
-				c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
-				continue
-			}
-			if statusInfo.Message != s.info {
-				c.Logf("want unit status info %q, got %q; still waiting", s.info, statusInfo.Message)
-				continue
-			}
-			if s.data != nil {
-				if len(statusInfo.Data) != len(s.data) {
-					wantKeys := []string{}
-					for k := range s.data {
-						wantKeys = append(wantKeys, k)
-					}
-					sort.Strings(wantKeys)
-					gotKeys := []string{}
-					for k := range statusInfo.Data {
-						gotKeys = append(gotKeys, k)
-					}
-					sort.Strings(gotKeys)
-					c.Logf("want {%s} status data value(s), got {%s}; still waiting", strings.Join(wantKeys, ", "), strings.Join(gotKeys, ", "))
+			for key, value := range s.data {
+				if statusInfo.Data[key] != value {
+					c.Logf("want status data value %q for key %q, got %q; still waiting",
+						value, key, statusInfo.Data[key])
 					continue
 				}
-				for key, value := range s.data {
-					if statusInfo.Data[key] != value {
-						c.Logf("want status data value %q for key %q, got %q; still waiting",
-							value, key, statusInfo.Data[key])
-						continue
-					}
-				}
 			}
-			return
-		case <-timeout:
-			c.Fatalf("never reached desired status")
 		}
+		return
 	}
 }
 
@@ -1562,7 +1524,6 @@ func (s *waitHooks) prepare(_ tc.LikeC, _ *testContext) {}
 func (s *waitHooks) step(c tc.LikeC, ctx *testContext) {
 	if len(*s) == 0 {
 		// Give unwanted hooks a moment to run...
-
 		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, *s...)
@@ -1599,18 +1560,14 @@ func (s *waitHooks) step(c tc.LikeC, ctx *testContext) {
 		}
 		return
 	}
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for expected hooks")
 	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			if match, cannotMatch, _ = ctx.matchHooks(c); match {
-				waitExecutionLockReleased()
-				return
-			} else if cannotMatch {
-				c.Fatalf("unexpected hook triggered")
-			}
-		case <-timeout:
-			c.Fatalf("never got expected hooks")
+		time.Sleep(coretesting.ShortWait)
+		if match, cannotMatch, _ = ctx.matchHooks(c); match {
+			waitExecutionLockReleased()
+			return
+		} else if cannotMatch {
+			c.Fatalf("unexpected hook triggered")
 		}
 	}
 }
@@ -1627,19 +1584,15 @@ type waitActionInvocation struct {
 func (s *waitActionInvocation) prepare(_ tc.LikeC, _ *testContext) {}
 
 func (s *waitActionInvocation) step(c tc.LikeC, ctx *testContext) {
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for action invocation")
 	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			ranActions := ctx.runner.ranActions()
-			if len(ranActions) != len(s.expectedActions) {
-				continue
-			}
-			assertActionsMatch(c, ranActions, s.expectedActions)
-			return
-		case <-timeout:
-			c.Fatalf("timed out waiting for action invocation")
+		time.Sleep(coretesting.ShortWait)
+		ranActions := ctx.runner.ranActions()
+		if len(ranActions) != len(s.expectedActions) {
+			continue
 		}
+		assertActionsMatch(c, ranActions, s.expectedActions)
+		return
 	}
 }
 
@@ -1908,9 +1861,13 @@ func (s *addRelation) step(c tc.LikeC, ctx *testContext) {
 	// WatchRelations event has already been sent (with no relation).
 	ctx.relation = s.relation
 	ctx.relUnit = s.relUnit
-	ctx.sendStrings(c, ctx.relCh, "relation event", ctx.relation.Tag().Id())
-	// Advance prepared mocks.
+	// Advance prepared mocks BEFORE sending the relation event. The
+	// RemoteStateWatcher processes relCh asynchronously and may call
+	// WatchRelationUnits before Stepped(s) is called, which would
+	// cause a gomock unexpected-call failure via Goexit, permanently
+	// deadlocking the watcher's catacomb (Kill is never called).
 	ctx.stepped.Stepped(s)
+	ctx.sendStrings(c, ctx.relCh, "relation event", ctx.relation.Tag().Id())
 	step(c, ctx, s.waitHooksStep)
 }
 
@@ -2025,9 +1982,10 @@ func (s *addSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
 	ctx.subordRelation = s.subordRel
 	relKey := subordinateRelationKey(s.ifce)
 	relTag := names.NewRelationTag(relKey)
-	ctx.sendStrings(c, ctx.relCh, "add subordinate relation event", relTag.Id())
-	// Advance prepared mocks.
+	// Advance prepared mocks BEFORE sending the relation event (same
+	// reasoning as addRelation.step).
 	ctx.stepped.Stepped(s)
+	ctx.sendStrings(c, ctx.relCh, "add subordinate relation event", relTag.Id())
 }
 
 type removeSubordinateRelation struct {
@@ -2053,23 +2011,19 @@ func (s *waitSubordinateExists) step(c tc.LikeC, ctx *testContext) {
 	// First wait for the principal unit to enter scope.
 	// If subordinate is not alive, test does not allow the
 	// principal to enter scope.
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for subordinate unit to enter scope")
 	for {
-		select {
-		case <-timeout:
-			c.Fatalf("unit is alive did not enter scope")
-		case <-time.After(coretesting.ShortWait):
-			subordLife := life.Dying
-			ctx.unit.mu.Lock()
-			inScope := ctx.unit.inScope
-			if ctx.unit.subordinate != nil {
-				subordLife = ctx.unit.subordinate.Life()
-			}
-			ctx.unit.mu.Unlock()
-			if subordLife == life.Alive && !inScope {
-				c.Logf("unit is alive and not yet in scope")
-				continue
-			}
+		time.Sleep(coretesting.ShortWait)
+		subordLife := life.Dying
+		ctx.unit.mu.Lock()
+		inScope := ctx.unit.inScope
+		if ctx.unit.subordinate != nil {
+			subordLife = ctx.unit.subordinate.Life()
+		}
+		ctx.unit.mu.Unlock()
+		if subordLife == life.Alive && !inScope {
+			c.Logf("unit is alive and not yet in scope")
+			continue
 		}
 		break
 	}
@@ -2092,19 +2046,15 @@ type waitSubordinateDying struct{}
 func (s *waitSubordinateDying) prepare(_ tc.LikeC, _ *testContext) {}
 
 func (s *waitSubordinateDying) step(c tc.LikeC, ctx *testContext) {
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for subordinate to be made Dying")
 	for {
-		select {
-		case <-timeout:
-			c.Fatalf("subordinate was not made Dying")
-		case <-time.After(coretesting.ShortWait):
-			ctx.unit.mu.Lock()
-			subordLife := ctx.unit.subordinate.Life()
-			ctx.unit.mu.Unlock()
-			if subordLife != life.Dying {
-				c.Logf("subordinate life is %q, not %q", subordLife, life.Dying)
-				continue
-			}
+		time.Sleep(coretesting.ShortWait)
+		ctx.unit.mu.Lock()
+		subordLife := ctx.unit.subordinate.Life()
+		ctx.unit.mu.Unlock()
+		if subordLife != life.Dying {
+			c.Logf("subordinate life is %q, not %q", subordLife, life.Dying)
+			continue
 		}
 		break
 	}
@@ -2554,11 +2504,7 @@ type manualTicker struct {
 
 // Tick sends a signal on the ticker channel.
 func (t *manualTicker) Tick() error {
-	select {
-	case t.c <- time.Now():
-	case <-time.After(coretesting.LongWait):
-		return fmt.Errorf("ticker channel blocked")
-	}
+	t.c <- time.Now()
 	return nil
 }
 

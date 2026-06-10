@@ -336,6 +336,14 @@ func (ctx *testContext) makeRelationUnit(c tc.LikeC, rel *relation, u *unit) *re
 	ru.EXPECT().Endpoint().Return(*ep).AnyTimes()
 
 	ru.EXPECT().EnterScope(gomock.Any()).DoAndReturn(func(context.Context) error {
+		u.mu.Lock()
+		alreadyInScope := u.inScope
+		u.mu.Unlock()
+		// EnterScope is idempotent in production: if the unit is already
+		// in scope, the call succeeds regardless of relation/unit life.
+		if alreadyInScope {
+			return nil
+		}
 		if u.Life() != life.Alive || rel.Life() != life.Alive {
 			return &params.Error{Code: params.CodeCannotEnterScope, Message: "cannot enter scope: unit or relation is not alive"}
 		}
