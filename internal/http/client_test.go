@@ -132,6 +132,7 @@ func (s *httpSuite) TestRetry(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	recorder := NewMockRequestRecorder(ctrl)
+	//nolint:bodyclose
 	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(reflect.TypeFor[*http.Response]()), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)
 
 	client := NewClient(
@@ -165,6 +166,7 @@ func (s *httpSuite) TestRetryExceeded(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	recorder := NewMockRequestRecorder(ctrl)
+	//nolint:bodyclose
 	recorder.EXPECT().Record("GET", validTargetURL, gomock.AssignableToTypeOf(reflect.TypeFor[*http.Response]()), gomock.AssignableToTypeOf(time.Duration(42))).Times(retries)
 
 	client := NewClient(
