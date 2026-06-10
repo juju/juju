@@ -69,6 +69,8 @@ import (
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	internalworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apiserver"
+	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
@@ -80,6 +82,38 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 )
+
+type machineControllerStartupValueProvider struct {
+	agent *MachineAgent
+}
+
+func (p machineControllerStartupValueProvider) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
+	cfg := p.agent.CurrentConfig()
+	info, _ := cfg.ControllerAgentInfo()
+	return apiservercertwatcher.CertMaterial{
+		CACert:               cfg.CACert(),
+		CAPrivateKey:         info.CAPrivateKey,
+		ControllerCert:       info.Cert,
+		ControllerPrivateKey: info.PrivateKey,
+	}, nil
+}
+
+func (p machineControllerStartupValueProvider) LocalValues() (apiserver.LocalValues, error) {
+	cfg := p.agent.CurrentConfig()
+	logSinkConfig, err := logSinkConfigFromAgentConfig(cfg)
+	if err != nil {
+		return apiserver.LocalValues{}, errors.Annotate(err, "getting log sink config")
+	}
+	return apiserver.LocalValues{
+		DataDir:       cfg.DataDir(),
+		LogDir:        cfg.LogDir(),
+		LogSinkConfig: logSinkConfig,
+	}, nil
+}
+
+func (p machineControllerStartupValueProvider) ObjectStoreRootDir() (string, error) {
+	return p.agent.CurrentConfig().DataDir(), nil
+}
 
 type (
 	// The following allows the upgrade steps to be overridden by brittle
@@ -552,46 +586,20 @@ func (a *MachineAgent) makeEngineCreator(
 			filepath.Join(agentConfig.DataDir(), "agents", "controller-"+agentConfig.Tag().Id()),
 		)
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
-
-		// Read controller certificate material from the agent config for
-		// the transitional controller-on-machine path. The values are
-		// supplied as explicit startup fields so that the cert-watcher
-		// manifold does not need to read the controller runtime config
-		// file or depend on the agent manifold at worker start.
-		controllerAgentInfo, hasControllerInfo := agentConfig.ControllerAgentInfo()
-		var (
-			caCert               = agentConfig.CACert()
-			caPrivateKey         string
-			controllerCert       string
-			controllerPrivateKey string
-		)
-		if hasControllerInfo {
-			caPrivateKey = controllerAgentInfo.CAPrivateKey
-			controllerCert = controllerAgentInfo.Cert
-			controllerPrivateKey = controllerAgentInfo.PrivateKey
-		}
-
-		logSinkConfig, err := logSinkConfigFromAgentConfig(agentConfig)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting log sink config")
-		}
+		startupValueProvider := machineControllerStartupValueProvider{agent: a}
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
 			ControllerID:                      agentConfig.Tag().Id(),
-			ObjectStoreRootDir:                agentConfig.DataDir(),
+			ObjectStoreRootDirReader:          startupValueProvider,
 			ControllerUUID:                    agentConfig.Controller().Id(),
 			ControllerModelUUID:               agentConfig.Model().Id(),
 			ControllerRuntimeConfigPath:       controllerRuntimeConfigPath,
 			ControllerAgentTag:                agentConfig.Tag(),
 			LogDir:                            agentConfig.LogDir(),
-			DataDir:                           agentConfig.DataDir(),
-			APIServerLogSinkConfig:            logSinkConfig,
-			CACert:                            caCert,
-			CAPrivateKey:                      caPrivateKey,
-			ControllerCert:                    controllerCert,
-			ControllerPrivateKey:              controllerPrivateKey,
+			CertReader:                        startupValueProvider,
+			APIServerLocalConfigReader:        startupValueProvider,
 			ConfigChangeSocketPath:            path.Join(agentConfig.DataDir(), "configchange.socket"),
 			ControlSocketPath:                 path.Join(agentConfig.DataDir(), "control.socket"),
 			Agent:                             agent.APIHostPortsSetter{Agent: a},
