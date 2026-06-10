@@ -3,7 +3,11 @@
 
 package controller
 
-import "time"
+import (
+	"time"
+
+	"github.com/canonical/sqlair"
+)
 
 // entityUUID represents a generic uuid column from a given table in the
 // model's database.
@@ -238,6 +242,47 @@ type lastLoginRow struct {
 	Time     time.Time `db:"time"`
 }
 
+type controllerModelInfoStatements struct {
+	identityStmt           *sqlair.Statement
+	namespaceStmt          *sqlair.Statement
+	modelPermStmt          *sqlair.Statement
+	offerPermStmt          *sqlair.Statement
+	credStmt               *sqlair.Statement
+	credAttrStmt           *sqlair.Statement
+	authKeyStmt            *sqlair.Statement
+	secretBackendStmt      *sqlair.Statement
+	secretBackendRefStmt   *sqlair.Statement
+	leaseStmt              *sqlair.Statement
+	leasePinStmt           *sqlair.Statement
+	lastLoginStmt          *sqlair.Statement
+	cloudImageMetadataStmt *sqlair.Statement
+	usersStmt              *sqlair.Statement
+	extControllerStmt      *sqlair.Statement
+	extAddressStmt         *sqlair.Statement
+	extModelStmt           *sqlair.Statement
+	controllerUUIDs        []string
+}
+
+type controllerModelInfoRows struct {
+	identity           modelIdentityRow
+	namespace          namespaceRow
+	modelPerms         []permissionRow
+	offerPerms         []permissionRow
+	users              []userProfileRow
+	credIdent          []credentialIdentRow
+	credAttrs          []credentialAttrRow
+	authKeys           []authorizedKeyRow
+	secretBackend      []modelSecretBackendRow
+	secretBackendRef   []secretBackendRefRow
+	leases             []leaseRow
+	leasePins          []leasePinRow
+	lastLogins         []lastLoginRow
+	cloudImageMetadata []cloudImageMetadataRow
+	extControllers     []externalControllerRow
+	extAddresses       []externalControllerAddressRow
+	extModels          []externalModelRow
+}
+
 // cloudImageMetadataSource is the source selector for cloud image metadata.
 type cloudImageMetadataSource struct {
 	Source string `db:"source"`
@@ -277,4 +322,9 @@ type externalControllerAddressRow struct {
 type externalModelRow struct {
 	ControllerUUID string `db:"controller_uuid"`
 	ModelUUID      string `db:"model_uuid"`
+}
+
+type externalModelKey struct {
+	controllerUUID string
+	modelUUID      string
 }

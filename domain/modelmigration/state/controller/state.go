@@ -1035,47 +1035,6 @@ type grantOnList []string
 type uuidList []string
 type nameList []string
 
-type controllerModelInfoStatements struct {
-	identityStmt           *sqlair.Statement
-	namespaceStmt          *sqlair.Statement
-	modelPermStmt          *sqlair.Statement
-	offerPermStmt          *sqlair.Statement
-	credStmt               *sqlair.Statement
-	credAttrStmt           *sqlair.Statement
-	authKeyStmt            *sqlair.Statement
-	secretBackendStmt      *sqlair.Statement
-	secretBackendRefStmt   *sqlair.Statement
-	leaseStmt              *sqlair.Statement
-	leasePinStmt           *sqlair.Statement
-	lastLoginStmt          *sqlair.Statement
-	cloudImageMetadataStmt *sqlair.Statement
-	usersStmt              *sqlair.Statement
-	extControllerStmt      *sqlair.Statement
-	extAddressStmt         *sqlair.Statement
-	extModelStmt           *sqlair.Statement
-	controllerUUIDs        []string
-}
-
-type controllerModelInfoRows struct {
-	identity           modelIdentityRow
-	namespace          namespaceRow
-	modelPerms         []permissionRow
-	offerPerms         []permissionRow
-	users              []userProfileRow
-	credIdent          []credentialIdentRow
-	credAttrs          []credentialAttrRow
-	authKeys           []authorizedKeyRow
-	secretBackend      []modelSecretBackendRow
-	secretBackendRef   []secretBackendRefRow
-	leases             []leaseRow
-	leasePins          []leasePinRow
-	lastLogins         []lastLoginRow
-	cloudImageMetadata []cloudImageMetadataRow
-	extControllers     []externalControllerRow
-	extAddresses       []externalControllerAddressRow
-	extModels          []externalModelRow
-}
-
 // GetControllerModelInfo reads the controller-database facts scoped to the
 // given migrating model and returns them in target-portable semantic form.
 // offerUUIDs are the model's hosted offer UUIDs, used to select offer-scoped
@@ -1509,11 +1468,6 @@ func distinctControllerUUIDs(offererModels []modelmigrationinternal.OffererModel
 		out = append(out, om.ControllerUUID)
 	}
 	return out
-}
-
-type externalModelKey struct {
-	controllerUUID string
-	modelUUID      string
 }
 
 // matchingExternalModels returns the external_model rows selected by the model
