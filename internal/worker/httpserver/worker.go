@@ -30,12 +30,10 @@ var (
 
 // Config is the configuration required for running an API server worker.
 type Config struct {
-	AgentName              string
 	Clock                  clock.Clock
 	TLSConfig              *tls.Config
 	Mux                    *apiserverhttp.Mux
 	MuxShutdownWait        time.Duration
-	LogDir                 string
 	Logger                 logger.Logger
 	APIPort                int
 	IdleConnectionTimeout  time.Duration
@@ -45,9 +43,6 @@ type Config struct {
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.TLSConfig == nil {
 		return errors.NotValidf("nil TLSConfig")
 	}
