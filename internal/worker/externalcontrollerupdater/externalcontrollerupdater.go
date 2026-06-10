@@ -329,51 +329,53 @@ func (w *controllerWatcher) loop() error {
 }
 
 // connectAndWatch connects to the specified controller and watches for changes.
-// It aborts if signalled, which prevents the watcher loop from blocking any shutdown
-// of the watcher the may be requested by the parent worker.
+// The connection is established in a separate goroutine so that the watcher loop
+// can abort promptly if signalled, rather than blocking shutdown on a slow dial.
 func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, string, error) {
 	type result struct {
 		client ExternalControllerWatcherClientCloser
 		nw     watcher.NotifyWatcher
 		ipAddr string
+		err    error
 	}
 
-	response := make(chan result)
-	errs := make(chan error)
+	// Buffered so the goroutine can always deliver its result without
+	// blocking, even when we have already selected the dying branch below.
+	// This guarantees the connection is never leaked: an opened client is
+	// either returned to the caller (which closes it on exit) or closed here.
+	resultCh := make(chan result, 1)
 
 	go func() {
 		client, ipAddr, err := w.newExternalControllerWatcherClient(apiInfo)
 		if err != nil {
-			select {
-			case <-w.catacomb.Dying():
-			case errs <- errors.Annotate(err, "getting external controller client"):
-			}
+			resultCh <- result{err: errors.Annotate(err, "getting external controller client")}
 			return
 		}
 
 		nw, err := client.WatchControllerInfo()
 		if err != nil {
 			_ = client.Close()
-			select {
-			case <-w.catacomb.Dying():
-			case errs <- errors.Annotate(err, "watching external controller"):
-			}
+			resultCh <- result{err: errors.Annotate(err, "watching external controller")}
 			return
 		}
 
-		select {
-		case <-w.catacomb.Dying():
-			_ = client.Close()
-		case response <- result{client: client, nw: nw, ipAddr: ipAddr}:
-		}
+		resultCh <- result{client: client, nw: nw, ipAddr: ipAddr}
 	}()
 
 	select {
 	case <-w.catacomb.Dying():
+		// The worker is dying. Reaping the goroutine is bounded; close the
+		// client if one was opened so we don't leave a connection dangling
+		// after the worker has reported itself stopped.
+		r := <-resultCh
+		if r.client != nil {
+			_ = r.client.Close()
+		}
 		return nil, nil, "", w.catacomb.ErrDying()
-	case err := <-errs:
-		return nil, nil, "", errors.Trace(err)
-	case r := <-response:
+	case r := <-resultCh:
+		if r.err != nil {
+			return nil, nil, "", errors.Trace(r.err)
+		}
 		return r.client, r.nw, r.ipAddr, nil
 	}
 }
