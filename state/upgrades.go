@@ -338,6 +338,7 @@ func ExposeControllerApplication(pool *StatePool) error {
 	if err == mgo.ErrNotFound {
 		// If there was a problem deploying the controller charm at bootstrap
 		// then there won't be a record to update.
+		logger.Warningf("controller application not found, skipping expose controller application upgrade")
 		return nil
 	}
 	if err != nil {
