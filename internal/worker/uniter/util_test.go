@@ -74,6 +74,7 @@ type testContext struct {
 	path    string
 	dataDir string
 	s       *UniterSuite
+	stepped *MockStepped
 
 	// API clients.
 	api           *apimocks.MockUniterClient
@@ -406,7 +407,17 @@ type createApplicationAndUnit struct {
 	container       bool
 }
 
-func (s *createApplicationAndUnit) prepare(_ tc.LikeC, _ *testContext) {}
+func (s *createApplicationAndUnit) prepare(_ tc.LikeC, ctx *testContext) {
+	stepped := ctx.stepped.EXPECT().Stepped(s)
+	// Assign the unit to a provisioned machine to match expected state.
+	if s.container {
+		machineTag := names.NewMachineTag("0/lxd/0")
+		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes().After(stepped)
+	} else {
+		machineTag := names.NewMachineTag("0")
+		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes().After(stepped)
+	}
+}
 
 func (s *createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 	if s.applicationName == "" {
@@ -428,14 +439,8 @@ func (s *createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 		}
 	}
 
-	// Assign the unit to a provisioned machine to match expected state.
-	if s.container {
-		machineTag := names.NewMachineTag("0/lxd/0")
-		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
-	} else {
-		machineTag := names.NewMachineTag("0")
-		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
-	}
+	// Advance prepared mocks.
+	ctx.stepped.Stepped(s)
 	ctx.sendNotify(c, ctx.applicationCh, "application created event")
 }
 

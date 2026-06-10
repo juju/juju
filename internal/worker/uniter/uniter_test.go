@@ -92,6 +92,7 @@ func (s *UniterSuite) newContext(c tc.LikeC) (*testContext, *gomock.Controller) 
 	ctrl := gomock.NewController(c)
 	ctx := &testContext{
 		ctrl:                   ctrl,
+		stepped:                NewMockStepped(ctrl),
 		s:                      s,
 		uuid:                   coretesting.ModelTag.Id(),
 		path:                   s.unitDir,
