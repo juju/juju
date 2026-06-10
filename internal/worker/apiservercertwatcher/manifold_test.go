@@ -25,6 +25,15 @@ type ManifoldSuite struct {
 	getter   dependency.Getter
 }
 
+type stubCertReader struct {
+	material apiservercertwatcher.CertMaterial
+	err      error
+}
+
+func (s stubCertReader) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
+	return s.material, s.err
+}
+
 func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &ManifoldSuite{})
 }
@@ -34,10 +43,12 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	s.getter = dt.StubGetter(map[string]any{})
 	s.manifold = apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-		CACert:               coretesting.OtherCACert,
-		CAPrivateKey:         coretesting.OtherCAKey,
-		ControllerCert:       coretesting.ServerCert,
-		ControllerPrivateKey: coretesting.ServerKey,
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
 	})
 }
 
@@ -47,38 +58,52 @@ func (s *ManifoldSuite) TestInputs(c *tc.C) {
 
 func (s *ManifoldSuite) TestValidate_EmptyCACert(c *tc.C) {
 	cfg := apiservercertwatcher.ManifoldConfig{
-		CAPrivateKey:         coretesting.OtherCAKey,
-		ControllerCert:       coretesting.ServerCert,
-		ControllerPrivateKey: coretesting.ServerKey,
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
 	}
-	c.Assert(cfg.Validate(), tc.ErrorMatches, `.*CACert.*not valid`)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	_, err := cfg.CertReader.CertMaterial()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*CACert.*not valid`)
 }
 
 func (s *ManifoldSuite) TestValidate_EmptyCAPrivateKey(c *tc.C) {
 	cfg := apiservercertwatcher.ManifoldConfig{
-		CACert:               coretesting.OtherCACert,
-		ControllerCert:       coretesting.ServerCert,
-		ControllerPrivateKey: coretesting.ServerKey,
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
 	}
-	c.Assert(cfg.Validate(), tc.ErrorMatches, `.*CAPrivateKey.*not valid`)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*CAPrivateKey.*not valid`)
 }
 
 func (s *ManifoldSuite) TestValidate_EmptyControllerCert(c *tc.C) {
 	cfg := apiservercertwatcher.ManifoldConfig{
-		CACert:               coretesting.OtherCACert,
-		CAPrivateKey:         coretesting.OtherCAKey,
-		ControllerPrivateKey: coretesting.ServerKey,
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
 	}
-	c.Assert(cfg.Validate(), tc.ErrorMatches, `.*ControllerCert.*not valid`)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*ControllerCert.*not valid`)
 }
 
 func (s *ManifoldSuite) TestValidate_EmptyControllerPrivateKey(c *tc.C) {
 	cfg := apiservercertwatcher.ManifoldConfig{
-		CACert:         coretesting.OtherCACert,
-		CAPrivateKey:   coretesting.OtherCAKey,
-		ControllerCert: coretesting.ServerCert,
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:         coretesting.OtherCACert,
+			CAPrivateKey:   coretesting.OtherCAKey,
+			ControllerCert: coretesting.ServerCert,
+		}},
 	}
-	c.Assert(cfg.Validate(), tc.ErrorMatches, `.*ControllerPrivateKey.*not valid`)
+	c.Assert(cfg.Validate(), tc.ErrorIsNil)
+	c.Assert(cfg.CertReader.(stubCertReader).material.Validate(), tc.ErrorMatches, `.*ControllerPrivateKey.*not valid`)
 }
 
 func (s *ManifoldSuite) TestStart(c *tc.C) {
@@ -109,15 +134,17 @@ func (s *ManifoldSuite) TestStart_NoAgentDependency(c *tc.C) {
 func (s *ManifoldSuite) TestStart_CertFieldsPassedToWorker(c *tc.C) {
 	var gotCACert, gotCAKey, gotCert, gotKey string
 	manifold := apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-		CACert:               coretesting.OtherCACert,
-		CAPrivateKey:         coretesting.OtherCAKey,
-		ControllerCert:       coretesting.ServerCert,
-		ControllerPrivateKey: coretesting.ServerKey,
-		CertWatcherWorkerFn: func(cfg apiservercertwatcher.ManifoldConfig) (apiservercertwatcher.AuthorityWorker, error) {
-			gotCACert = cfg.CACert
-			gotCAKey = cfg.CAPrivateKey
-			gotCert = cfg.ControllerCert
-			gotKey = cfg.ControllerPrivateKey
+		CertReader: stubCertReader{material: apiservercertwatcher.CertMaterial{
+			CACert:               coretesting.OtherCACert,
+			CAPrivateKey:         coretesting.OtherCAKey,
+			ControllerCert:       coretesting.ServerCert,
+			ControllerPrivateKey: coretesting.ServerKey,
+		}},
+		CertWatcherWorkerFn: func(material apiservercertwatcher.CertMaterial) (apiservercertwatcher.AuthorityWorker, error) {
+			gotCACert = material.CACert
+			gotCAKey = material.CAPrivateKey
+			gotCert = material.ControllerCert
+			gotKey = material.ControllerPrivateKey
 			return nil, dependency.ErrUninstall
 		},
 	})

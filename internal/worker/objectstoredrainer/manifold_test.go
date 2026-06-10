@@ -32,6 +32,15 @@ type manifoldSuite struct {
 	baseSuite
 }
 
+type stubRootDirReader struct {
+	rootDir string
+	err     error
+}
+
+func (s stubRootDirReader) ObjectStoreRootDir() (string, error) {
+	return s.rootDir, s.err
+}
+
 func TestManifoldSuite(t *testing.T) {
 	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
 		tc.Run(t, &manifoldSuite{})
@@ -85,7 +94,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.ObjectStoreRootDir = ""
+	cfg.RootDirReader = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -136,9 +145,9 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		NewWorker: func(config Config) (worker.Worker, error) {
 			return workertest.NewErrorWorker(nil), nil
 		},
-		ObjectStoreRootDir: "/var/lib/juju",
-		Clock:              clock.WallClock,
-		Logger:             loggertesting.WrapCheckLog(c),
+		RootDirReader: stubRootDirReader{rootDir: "/var/lib/juju"},
+		Clock:         clock.WallClock,
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -222,10 +231,10 @@ func (s *manifoldSuite) getConfigWithRealWorker(c *tc.C) ManifoldConfig {
 		NewDrainerWorker: func(completed chan<- drainResult, fileSystem HashFileSystemAccessor, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, rootBucket, namespace string, selectFileHash SelectFileHashFunc, clk clock.Clock, logger logger.Logger) worker.Worker {
 			return newTestWorker(completed)
 		},
-		NewWorker:          NewWorker,
-		ObjectStoreRootDir: "/var/lib/juju",
-		Clock:              clock.WallClock,
-		Logger:             loggertesting.WrapCheckLog(c),
+		NewWorker:     NewWorker,
+		RootDirReader: stubRootDirReader{rootDir: "/var/lib/juju"},
+		Clock:         clock.WallClock,
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -241,7 +250,7 @@ func (s *manifoldSuite) TestStartUsesExplicitRootDirAndWallClock(c *tc.C) {
 
 	rootDir := c.MkDir()
 	cfg := s.getConfig(c)
-	cfg.ObjectStoreRootDir = rootDir
+	cfg.RootDirReader = stubRootDirReader{rootDir: rootDir}
 
 	newWorkerCalled := false
 	cfg.NewWorker = func(workerConfig Config) (worker.Worker, error) {
