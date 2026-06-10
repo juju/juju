@@ -79,12 +79,18 @@ func ImportOperations(
 	network.RegisterImportSubnets(coordinator, logger.Child("subnets"))
 	machine.RegisterImport(coordinator, clock, logger.Child("machine"))
 	network.RegisterLinkLayerDevicesImport(coordinator, logger.Child("linklayerdevices"))
+	// Storage pools must be imported before applications so that application
+	// storage directives are able to resolve their pools.
+	storage.RegisterImportStoragePools(
+		coordinator, configGetter, logger.Child("storagepool"),
+	)
 	application.RegisterImport(coordinator, clock, logger.Child("application"))
 	// BlockDevice requires machines to be imported first.
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	// Storage requires the following domains be imported first:
-	// block devices, machines, application (for units), and model config.
-	storage.RegisterImport(
+	// block devices, machines, application (for units), storage pools and
+	// model config.
+	storage.RegisterImportStorage(
 		coordinator, configGetter, logger.Child("storage"),
 	)
 	network.RegisterImportK8sService(coordinator, logger.Child("k8sservice"))

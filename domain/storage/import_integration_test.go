@@ -248,7 +248,12 @@ func (s *importSuite) TestIAASImportStorageInstancesVolumeBackedFilesystems(c *t
 		WWN:         "wwn-cache-1",
 	})
 
-	storagemodelmigration.RegisterImport(
+	storagemodelmigration.RegisterImportStoragePools(
+		s.coordinator,
+		s.ephemeralConfigGetter,
+		s.logger,
+	)
+	storagemodelmigration.RegisterImportStorage(
 		s.coordinator,
 		s.ephemeralConfigGetter,
 		s.logger,
@@ -496,7 +501,12 @@ func (s *importSuite) TestIAASImportStorageInstancesNonVolumeBackedFilesystems(c
 		MountPoint:  "/srv/scratch",
 	})
 
-	storagemodelmigration.RegisterImport(
+	storagemodelmigration.RegisterImportStoragePools(
+		s.coordinator,
+		s.ephemeralConfigGetter,
+		s.logger,
+	)
+	storagemodelmigration.RegisterImportStorage(
 		s.coordinator,
 		s.ephemeralConfigGetter,
 		s.logger,
@@ -739,7 +749,12 @@ func (s *importSuite) TestIAASImportStorageInstancesVolumesOnly(c *tc.C) {
 		},
 	})
 
-	storagemodelmigration.RegisterImport(
+	storagemodelmigration.RegisterImportStoragePools(
+		s.coordinator,
+		s.ephemeralConfigGetter,
+		s.logger,
+	)
+	storagemodelmigration.RegisterImportStorage(
 		s.coordinator,
 		s.ephemeralConfigGetter,
 		s.logger,
