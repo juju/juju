@@ -57,4 +57,5 @@ jobs:
 
       - name: "Test"
         run: |
+          export GOEXPERIMENT=goroutineleakprofile
           make race-test TEST_PACKAGE_LIST="${TEST_PACKAGE_LIST}"
