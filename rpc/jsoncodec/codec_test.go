@@ -306,13 +306,10 @@ func (*suite) TestNetJSONConnConcurrentSend(c *tc.C) {
 	start := make(chan struct{})
 	errs := make(chan error, goroutines*sendsPerGoroutine)
 	var wg sync.WaitGroup
-	for i := 0; i < goroutines; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for i := range goroutines {
+		wg.Go(func() {
 			<-start
-			for j := 0; j < sendsPerGoroutine; j++ {
+			for j := range sendsPerGoroutine {
 				errs <- conn.Send(struct {
 					G int `json:"g"`
 					S int `json:"s"`
@@ -321,7 +318,7 @@ func (*suite) TestNetJSONConnConcurrentSend(c *tc.C) {
 					S: j,
 				})
 			}
-		}()
+		})
 	}
 	close(start)
 	wg.Wait()
