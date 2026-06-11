@@ -33,12 +33,9 @@ type ManifoldsConfig struct {
 	// NewDBWorkerFunc returns a tracked db worker.
 	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
-	// ControllerRuntimeConfigPath is the absolute path to the
-	// controller runtime config file (runtime.conf) written at
-	// bootstrap. It is passed to the db-accessor manifold so that the
-	// worker can read its own connection parameters without going
-	// through the legacy agent.Config.
-	ControllerRuntimeConfigPath string
+	// ControllerStartupValues provides the controller-local startup values
+	// needed by dbaccessor.
+	ControllerStartupValues dbaccessor.ControllerStartupValuesProvider
 
 	// ControllerID is the numeric ID of the controller.
 	ControllerID string
@@ -92,15 +89,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:             queryLoggerName,
-			ControllerAgentConfigName:   controllerAgentConfigName,
-			ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
-			Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:        noopPrometheusRegisterer{},
-			NewApp:                      dbaccessor.NewApp,
-			NewDBWorker:                 config.NewDBWorkerFunc,
-			NewNodeManager:              dbaccessor.IAASNodeManager,
-			NewMetricsCollector:         dbaccessor.NewMetricsCollector,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewNodeManager:            dbaccessor.IAASNodeManager,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
 		}),
 	})
 }
@@ -109,15 +106,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:             queryLoggerName,
-			ControllerAgentConfigName:   controllerAgentConfigName,
-			ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
-			Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:        noopPrometheusRegisterer{},
-			NewApp:                      dbaccessor.NewApp,
-			NewDBWorker:                 config.NewDBWorkerFunc,
-			NewNodeManager:              dbaccessor.CAASNodeManager,
-			NewMetricsCollector:         dbaccessor.NewMetricsCollector,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewNodeManager:            dbaccessor.CAASNodeManager,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
 		}),
 	})
 }
