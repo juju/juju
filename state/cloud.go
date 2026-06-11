@@ -261,6 +261,13 @@ func (st *State) UpdateCloud(c cloud.Cloud) error {
 	if err := validateCloud(c); err != nil {
 		return errors.Trace(err)
 	}
+	existingCloud, err := st.Cloud(c.Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if existingCloud.Type != c.Type {
+		return errors.Errorf("cannot change cloud %q type from %q to %q", c.Name, existingCloud.Type, c.Type)
+	}
 
 	if err := st.db().RunTransaction([]txn.Op{updateCloudOps(c)}); err != nil {
 		if err == txn.ErrAborted {

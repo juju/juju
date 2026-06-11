@@ -288,22 +288,22 @@ func (m *ModelManagerAPI) createModel(args params.ModelCreateArgs, withDefaultOS
 			return result, errors.Trace(err)
 		}
 	} else {
-		if ownerTag == controllerModel.Owner() {
-			cloudCredentialTag, _ = controllerModel.CloudCredentialTag()
-		} else {
-			// TODO(axw) check if the user has one and only one
-			// cloud credential, and if so, use it? For now, we
-			// require the user to specify a credential unless
-			// the cloud does not require one.
-			var hasEmpty bool
-			for _, authType := range cloud.AuthTypes {
-				if authType != jujucloud.EmptyAuthType {
-					continue
-				}
-				hasEmpty = true
-				break
+		var hasEmpty bool
+		for _, authType := range cloud.AuthTypes {
+			if authType != jujucloud.EmptyAuthType {
+				continue
 			}
-			if !hasEmpty {
+			hasEmpty = true
+			break
+		}
+		if !hasEmpty {
+			if ownerTag == controllerModel.Owner() {
+				cloudCredentialTag, _ = controllerModel.CloudCredentialTag()
+			} else {
+				// TODO(axw) check if the user has one and only one
+				// cloud credential, and if so, use it? For now, we
+				// require the user to specify a credential unless
+				// the cloud does not require one.
 				return result, errors.NewNotValid(nil, "no credential specified")
 			}
 		}
