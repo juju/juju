@@ -2981,8 +2981,7 @@ func (s *resourceSuite) TestListAllModelResources(c *tc.C) {
 	// - 1 with no unit
 	// - 1 associated with two units (state available)
 	// - 1 associated with one unit (state available)
-	// - 1 associated with one unit (state potential), which should not be
-	//   exported
+	// - 1 in state potential, which should not be exported
 	resource1 := resourceData{
 		UUID:            "resource-1-uuid",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
@@ -3067,52 +3066,20 @@ func (s *resourceSuite) TestListAllModelResources(c *tc.C) {
 
 	allResources, err := s.state.ListAllModelResources(c.Context())
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list all resources: %v", errors.ErrorStack(err)))
-	c.Check(allResources.Resources, tc.DeepEquals, []coreresource.Resource{
+	c.Check(allResources, tc.DeepEquals, []coreresource.Resource{
 		resource1.toResource(s, c),
 		resource2.toResource(s, c),
 		resource3.toResource(s, c),
-	})
-	c.Check(allResources.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
-		{
-			Name: unit.Name(s.constants.fakeUnitName1),
-			Resources: []coreresource.Resource{
-				resource1.toResource(s, c),
-			},
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName2),
-			Resources: []coreresource.Resource{
-				resource1.toResource(s, c),
-			},
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName3),
-			// No resources: the linked potential resource is not exported.
-		},
 	})
 }
 
 func (s *resourceSuite) TestListAllModelResourcesNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	exportedResources, err := s.state.ListAllModelResources(c.Context())
+	allResources, err := s.state.ListAllModelResources(c.Context())
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Check(exportedResources.Resources, tc.IsNil)
-	c.Check(exportedResources.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
-		{
-			Name: unit.Name(s.constants.fakeUnitName1),
-			// No resources
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName2),
-			// No resources
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName3),
-			// No resources
-		},
-	})
+	c.Check(allResources, tc.HasLen, 0)
 }
 
 func (s *resourceSuite) addLocalCharmAndApp(c *tc.C, charmUUID, appName, appUUID string) {

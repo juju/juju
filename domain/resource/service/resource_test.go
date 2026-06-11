@@ -229,15 +229,7 @@ func (s *resourceServiceSuite) TestListResources(c *tc.C) {
 func (s *resourceServiceSuite) TestListAllModelResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expected := resource.ExportedResources{
-		Resources: []coreresource.Resource{{RetrievedBy: "a"}},
-		UnitResources: []coreresource.UnitResources{{
-			Name: "app/0",
-			Resources: []coreresource.Resource{{
-				RetrievedBy: "b",
-			}},
-		}},
-	}
+	expected := []coreresource.Resource{{RetrievedBy: "a"}, {RetrievedBy: "b"}}
 	s.state.EXPECT().ListAllModelResources(gomock.Any()).Return(expected, nil)
 
 	resources, err := s.service.ListAllModelResources(c.Context())
@@ -249,7 +241,7 @@ func (s *resourceServiceSuite) TestListAllModelResourcesError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	boom := errors.New("boom")
-	s.state.EXPECT().ListAllModelResources(gomock.Any()).Return(resource.ExportedResources{}, boom)
+	s.state.EXPECT().ListAllModelResources(gomock.Any()).Return(nil, boom)
 
 	_, err := s.service.ListAllModelResources(c.Context())
 	c.Assert(err, tc.ErrorIs, boom)

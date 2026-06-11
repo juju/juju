@@ -77,26 +77,6 @@ type resourceView struct {
 	State           string    `db:"state"`
 }
 
-type unitResourceView struct {
-	UUID            string    `db:"uuid"`
-	ApplicationUUID string    `db:"application_uuid"`
-	ApplicationName string    `db:"application_name"`
-	Name            string    `db:"name"`
-	CreatedAt       time.Time `db:"created_at"`
-	Revision        *int      `db:"revision"`
-	OriginType      string    `db:"origin_type"`
-	RetrievedBy     string    `db:"retrieved_by"`
-	RetrievedByType string    `db:"retrieved_by_type"`
-	Path            string    `db:"path"`
-	Description     string    `db:"description"`
-	Kind            string    `db:"kind_name"`
-	Size            int64     `db:"size"`
-	SHA384          string    `db:"sha384"`
-	State           string    `db:"state"`
-	UnitUUID        string    `db:"unit_uuid"`
-	UnitName        string    `db:"unit_name"`
-}
-
 // toCharmResource converts the resourceView struct to a
 // charmresource.Resource, populating its fields accordingly.
 func (rv resourceView) toCharmResource() (charmresource.Resource, error) {
@@ -148,26 +128,6 @@ func (rv resourceView) toResource() (coreresource.Resource, error) {
 		RetrievedBy:     rv.RetrievedBy,
 		Timestamp:       rv.CreatedAt,
 	}, nil
-}
-
-func (rv unitResourceView) toResource() (coreresource.Resource, error) {
-	return resourceView{
-		UUID:            rv.UUID,
-		ApplicationUUID: rv.ApplicationUUID,
-		ApplicationName: rv.ApplicationName,
-		Name:            rv.Name,
-		CreatedAt:       rv.CreatedAt,
-		Revision:        rv.Revision,
-		OriginType:      rv.OriginType,
-		RetrievedBy:     rv.RetrievedBy,
-		RetrievedByType: rv.RetrievedByType,
-		Path:            rv.Path,
-		Description:     rv.Description,
-		Kind:            rv.Kind,
-		Size:            rv.Size,
-		SHA384:          rv.SHA384,
-		State:           rv.State,
-	}.toResource()
 }
 
 // unitResource represents the mapping of a resource to a unit.

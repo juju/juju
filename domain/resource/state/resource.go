@@ -350,10 +350,12 @@ func (st *State) listApplicationResources(
 	if err != nil {
 		return nil, nil, errors.Capture(err)
 	}
+	// Prepare the application UUID to query resources by application.
 	appID := resourceIdentity{
 		ApplicationUUID: applicationID.String(),
 	}
 
+	// Prepare the statement to get resources for the given application.
 	getResourcesQuery := `
 SELECT &resourceView.*
 FROM v_application_resource
@@ -376,6 +378,7 @@ WHERE application_uuid = $resourceIdentity.application_uuid`
 		// Resources found linked to the application.
 		var resources []resourceView
 
+		// Query to get all resources for the given application.
 		err = tx.Query(ctx, getResourcesStmt, appID).GetAll(&resources)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil // nothing found
@@ -427,6 +430,7 @@ func (st *State) listUnitResources(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
+	// Prepare the application UUID to query resources by application.
 	appID := resourceIdentity{
 		ApplicationUUID: applicationID.String(),
 	}
@@ -457,6 +461,7 @@ func (st *State) listUnitResources(
 		// Units linked to the application.
 		var units []unitUUIDAndName
 
+		// Query to get all units for the given application.
 		err = tx.Query(ctx, getApplicationUnitsStmt, appID).GetAll(&units)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil // nothing found
@@ -2351,12 +2356,14 @@ AND    charm_uuid = $charmResource.charm_uuid
 	return kind, nil
 }
 
-// ListAllModelResources returns the application and unit resources to export
-// for all applications in the model.
-func (st *State) ListAllModelResources(ctx context.Context) (resource.ExportedResources, error) {
+// ListAllModelResources returns the application resources to export for all
+// applications in the model. Only available resources are returned since they
+// are the only ones with an associated blob to transfer; the full resource
+// metadata (including unit resources) is migrated with the model database.
+func (st *State) ListAllModelResources(ctx context.Context) ([]coreresource.Resource, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
 	getResourcesStmt, err := st.Prepare(`
@@ -2365,57 +2372,17 @@ FROM v_application_resource
 WHERE state = 'available'
 ORDER BY application_name, name`, resourceView{})
 	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	getUnitsStmt, err := st.Prepare(`
-SELECT &unitUUIDAndName.*
-FROM unit
-ORDER BY name`, unitUUIDAndName{})
-	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
-	}
-
-	getUnitResourcesStmt, err := st.Prepare(`
-SELECT &unitResourceView.*
-FROM v_unit_resource
-WHERE state = 'available'
-ORDER BY unit_name, name`, unitResourceView{})
-	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
-	}
-
-	var exportedResources resource.ExportedResources
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		resources, err := st.listAllApplicationResources(ctx, tx, getResourcesStmt)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		unitResources, err := st.listAllUnitResources(ctx, tx, getUnitsStmt, getUnitResourcesStmt)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		exportedResources = resource.ExportedResources{
-			Resources:     resources,
-			UnitResources: unitResources,
-		}
-		return nil
-	})
-	return exportedResources, errors.Capture(err)
-}
-
-func (st *State) listAllApplicationResources(
-	ctx context.Context,
-	tx *sqlair.TX,
-	getResourcesStmt *sqlair.Statement,
-) ([]coreresource.Resource, error) {
 	var resourceViews []resourceView
-	err := tx.Query(ctx, getResourcesStmt).GetAll(&resourceViews)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, nil
-	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, getResourcesStmt).GetAll(&resourceViews)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil // nothing found
+		}
+		return errors.Capture(err)
+	})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2429,46 +2396,6 @@ func (st *State) listAllApplicationResources(
 		resources = append(resources, r)
 	}
 	return resources, nil
-}
-
-func (st *State) listAllUnitResources(
-	ctx context.Context,
-	tx *sqlair.TX,
-	getUnitsStmt *sqlair.Statement,
-	getResourcesStmt *sqlair.Statement,
-) ([]coreresource.UnitResources, error) {
-	var units []unitUUIDAndName
-	err := tx.Query(ctx, getUnitsStmt).GetAll(&units)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-
-	var resourceViews []unitResourceView
-	err = tx.Query(ctx, getResourcesStmt).GetAll(&resourceViews)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Capture(err)
-	}
-
-	resourcesByUnitName := make(map[string][]coreresource.Resource)
-	for _, res := range resourceViews {
-		r, err := res.toResource()
-		if err != nil {
-			return nil, errors.Errorf("transform resource %q for unit %q: %w", res.Name, res.UnitName, err)
-		}
-		resourcesByUnitName[res.UnitName] = append(resourcesByUnitName[res.UnitName], r)
-	}
-
-	unitResources := make([]coreresource.UnitResources, 0, len(units))
-	for _, unit := range units {
-		unitResources = append(unitResources, coreresource.UnitResources{
-			Name:      coreunit.Name(unit.Name),
-			Resources: resourcesByUnitName[unit.Name],
-		})
-	}
-	return unitResources, nil
 }
 
 // getAppplicationAndCharmUUID returns gets the application UUID and charm UUID
