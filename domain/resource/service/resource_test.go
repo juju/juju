@@ -226,6 +226,27 @@ func (s *resourceServiceSuite) TestListResources(c *tc.C) {
 	c.Assert(obtainedList, tc.DeepEquals, expectedList)
 }
 
+func (s *resourceServiceSuite) TestListAllModelResources(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := []coreresource.Resource{{RetrievedBy: "a"}, {RetrievedBy: "b"}}
+	s.state.EXPECT().ListAllModelResources(gomock.Any()).Return(expected, nil)
+
+	resources, err := s.service.ListAllModelResources(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resources, tc.DeepEquals, expected)
+}
+
+func (s *resourceServiceSuite) TestListAllModelResourcesError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	boom := errors.New("boom")
+	s.state.EXPECT().ListAllModelResources(gomock.Any()).Return(nil, boom)
+
+	_, err := s.service.ListAllModelResources(c.Context())
+	c.Assert(err, tc.ErrorIs, boom)
+}
+
 func (s *resourceServiceSuite) TestGetResourcesByApplicationUUIDBadID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service.GetResourcesByApplicationUUID(c.Context(), "")
@@ -1512,35 +1533,6 @@ func (s *resourceServiceSuite) TestImportResourcesDuplicateResourceNamesDifferen
 
 	// Assert:
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *resourceServiceSuite) TestExportResource(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	expected := resource.ExportedResources{
-		Resources: []coreresource.Resource{{
-			RetrievedBy: "admin",
-		}},
-		UnitResources: []coreresource.UnitResources{{
-			Name: "unit1",
-			Resources: []coreresource.Resource{{
-				RetrievedBy: "admin",
-			}},
-		}},
-	}
-
-	s.state.EXPECT().ExportResources(gomock.Any(), "app-name").Return(expected, nil)
-
-	exportedResources, err := s.service.ExportResources(c.Context(), "app-name")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(exportedResources, tc.DeepEquals, expected)
-}
-
-func (s *resourceServiceSuite) TestExportResourceEmptyName(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.service.ExportResources(c.Context(), "")
-	c.Assert(err, tc.ErrorIs, resourceerrors.ArgumentNotValid)
 }
 
 func (s *resourceServiceSuite) setupMocks(c *tc.C) *gomock.Controller {

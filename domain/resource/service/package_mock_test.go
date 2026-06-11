@@ -35,7 +35,6 @@ type MockStateMockRecorder struct {
 	deleteApplicationResourcesExpects                  []*gomock.Call2_1[context.Context, application.UUID, error]
 	deleteResourcesAddedBeforeApplicationExpects       []*gomock.Call2_1[context.Context, []resource.UUID, error]
 	deleteUnitResourcesExpects                         []*gomock.Call2_1[context.Context, unit.UUID, error]
-	exportResourcesExpects                             []*gomock.Call2_2[context.Context, string, resource1.ExportedResources, error]
 	getApplicationResourceIDExpects                    []*gomock.Call2_2[context.Context, resource1.GetApplicationResourceIDArgs, resource.UUID, error]
 	getResourceExpects                                 []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
 	getResourceNameAndTypeExpects                      []*gomock.Call2_3[context.Context, resource.UUID, string, string, error]
@@ -44,6 +43,7 @@ type MockStateMockRecorder struct {
 	getResourceWithoutApplicationExpects               []*gomock.Call2_2[context.Context, resource.UUID, resource.Resource, error]
 	getResourcesByApplicationUUIDExpects               []*gomock.Call2_2[context.Context, application.UUID, []resource.Resource, error]
 	importResourcesExpects                             []*gomock.Call2_1[context.Context, resource1.ImportResourcesArgs, error]
+	listAllModelResourcesExpects                       []*gomock.Call1_2[context.Context, []resource.Resource, error]
 	listResourcesExpects                               []*gomock.Call2_2[context.Context, application.UUID, resource.ApplicationResources, error]
 	recordStoredResourceExpects                        []*gomock.Call2_1[context.Context, resource1.RecordStoredResourceArgs, error]
 	setRepositoryResourcesExpects                      []*gomock.Call2_1[context.Context, resource1.SetRepositoryResourcesArgs, error]
@@ -136,24 +136,6 @@ func (mr *MockStateMockRecorder) DeleteUnitResources(ctx, uuid any) *MockStateDe
 
 // MockStateDeleteUnitResourcesCall is the typed call wrapper for DeleteUnitResources.
 type MockStateDeleteUnitResourcesCall = gomock.Call2_1[context.Context, unit.UUID, error]
-
-// ExportResources mocks base method.
-func (m *MockState) ExportResources(ctx context.Context, name string) (resource1.ExportedResources, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.exportResourcesExpects, m.ctrl, m, "ExportResources", ctx, name)
-}
-
-// ExportResources indicates an expected call of ExportResources.
-func (mr *MockStateMockRecorder) ExportResources(ctx, name any) *MockStateExportResourcesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, resource1.ExportedResources, error](mr.mock.ctrl.T, mr.mock, "ExportResources", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
-	mr.exportResourcesExpects = append(mr.exportResourcesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateExportResourcesCall is the typed call wrapper for ExportResources.
-type MockStateExportResourcesCall = gomock.Call2_2[context.Context, string, resource1.ExportedResources, error]
 
 // GetApplicationResourceID mocks base method.
 func (m *MockState) GetApplicationResourceID(ctx context.Context, args resource1.GetApplicationResourceIDArgs) (resource.UUID, error) {
@@ -298,6 +280,24 @@ func (mr *MockStateMockRecorder) ImportResources(ctx, args any) *MockStateImport
 
 // MockStateImportResourcesCall is the typed call wrapper for ImportResources.
 type MockStateImportResourcesCall = gomock.Call2_1[context.Context, resource1.ImportResourcesArgs, error]
+
+// ListAllModelResources mocks base method.
+func (m *MockState) ListAllModelResources(ctx context.Context) ([]resource.Resource, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.listAllModelResourcesExpects, m.ctrl, m, "ListAllModelResources", ctx)
+}
+
+// ListAllModelResources indicates an expected call of ListAllModelResources.
+func (mr *MockStateMockRecorder) ListAllModelResources(ctx any) *MockStateListAllModelResourcesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, []resource.Resource, error](mr.mock.ctrl.T, mr.mock, "ListAllModelResources", gomock.EnsureMatcher(ctx))
+	mr.listAllModelResourcesExpects = append(mr.listAllModelResourcesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateListAllModelResourcesCall is the typed call wrapper for ListAllModelResources.
+type MockStateListAllModelResourcesCall = gomock.Call1_2[context.Context, []resource.Resource, error]
 
 // ListResources mocks base method.
 func (m *MockState) ListResources(ctx context.Context, applicationID application.UUID) (resource.ApplicationResources, error) {
