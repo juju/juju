@@ -713,12 +713,29 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 	}).AnyTimes().After(s.stepped)
 
 	ctx.app.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
+		// Drain any stale event that arrived between startUniter draining
+		// the channel and this goroutine being scheduled (e.g. an
+		// upgradeCharm event). The RSW will refresh application state via
+		// applicationChanged when it processes the initial event below.
+		select {
+		case <-ctx.applicationCh:
+		default:
+		}
 		ctx.sendNotify(c, ctx.applicationCh, "initial application event")
 		w := watchertest.NewMockNotifyWatcher(ctx.applicationCh)
 		return w, nil
 	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchResolveMode(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
+		// Drain any stale event that arrived between startUniter draining
+		// the channel and this goroutine being scheduled (e.g. a
+		// resolveError event). The RSW reads the current resolved mode via
+		// Resolved() when it processes the initial event below, so no
+		// information is lost by discarding the stale entry.
+		select {
+		case <-ctx.unitResolveCh:
+		default:
+		}
 		ctx.sendNotify(c, ctx.unitResolveCh, "initial resolve event")
 		w := watchertest.NewMockNotifyWatcher(ctx.unitResolveCh)
 		return w, nil
