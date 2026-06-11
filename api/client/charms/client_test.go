@@ -5,12 +5,14 @@ package charms_test
 
 import (
 	"archive/zip"
+	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
@@ -88,7 +90,12 @@ func (s *charmsMockSuite) TestResolveCharms(c *tc.C) {
 		}}
 
 	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResolveCharms", facadeArgs, resolve).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ResolveCharms", facadeArgs, resolve,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, mockClientFacade)
 
@@ -155,7 +162,12 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *tc.C) {
 		}},
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetDownloadInfos", facadeArgs, &resolve).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "GetDownloadInfos", facadeArgs, &resolve,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
@@ -196,7 +208,12 @@ func (s *addCharmSuite) TestAddCharm(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddCharm", facadeArgs, result).SetArg(3, actualResult).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "AddCharm", facadeArgs, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(actualResult))
+		return nil
+	})
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	got, err := client.AddCharm(c.Context(), curl, origin, false)
@@ -234,7 +251,12 @@ func (s *charmsMockSuite) TestListCharmResources(c *tc.C) {
 		}}},
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListCharmResources", facadeArgs, &resolve).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListCharmResources", facadeArgs, &resolve,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)

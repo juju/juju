@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/application"

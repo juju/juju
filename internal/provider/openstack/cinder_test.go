@@ -8,6 +8,7 @@ import (
 	"fmt"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-goose/goose/v5/cinder"
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/go-goose/goose/v5/identity"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -1010,7 +1010,7 @@ func (s *cinderVolumeSourceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		gomock.Any(), []instance.Id{mockServerId},
 	).Return(map[instance.Id]string{mockServerId: "zone-1"}, nil).AnyTimes()
 	invalidator := mocks.NewMockCredentialInvalidator(ctrl)
-	invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).Do(func(ctx context.Context, reason environs.CredentialInvalidReason) error {
+	invalidator.EXPECT().InvalidateCredentials(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, reason environs.CredentialInvalidReason) error {
 		s.invalidCredential = true
 		return nil
 	}).AnyTimes()

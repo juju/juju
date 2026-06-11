@@ -4,8 +4,8 @@
 package action
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facade"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
@@ -13,11 +13,11 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action ApplicationService,ModelInfoService,OperationService
-//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
-//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
-//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination watcherregistry_mock_test.go github.com/juju/juju/internal/worker/watcherregistry WatcherRegistry
-//go:generate go run go.uber.org/mock/mockgen -typed -package action -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
+//go:generate go run github.com/canonical/gomock/mockgen -package action -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/action ApplicationService,ModelInfoService,OperationService
+//go:generate go run github.com/canonical/gomock/mockgen -package action -destination leader_mock_test.go github.com/juju/juju/core/leadership Reader
+//go:generate go run github.com/canonical/gomock/mockgen -package action -destination blockservices_mock_test.go github.com/juju/juju/apiserver/common BlockCommandService
+//go:generate go run github.com/canonical/gomock/mockgen -package action -destination watcherregistry_mock_test.go github.com/juju/juju/internal/worker/watcherregistry WatcherRegistry
+//go:generate go run github.com/canonical/gomock/mockgen -package action -destination watcher_mock_test.go github.com/juju/juju/core/watcher StringsWatcher
 
 type MockBaseSuite struct {
 	Authorizer      *facademocks.MockAuthorizer

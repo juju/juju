@@ -296,7 +296,7 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 			removeErr := r.stateMgr.RemoveRelation(ctx, id, r.client, knownUnits)
 			if !params.IsCodeCannotEnterScope(joinErr) {
 				return errors.Trace(joinErr)
-			} else if errors.Is(joinErr, errors.NotFound) {
+			} else if errors.Is(removeErr, errors.NotFound) {
 				continue
 			} else if removeErr != nil {
 				return errors.Trace(removeErr)

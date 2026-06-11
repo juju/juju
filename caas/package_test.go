@@ -3,5 +3,5 @@
 
 package caas_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/application_mock.go github.com/juju/juju/caas Application
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/caas Application

@@ -4,8 +4,8 @@
 package service
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"

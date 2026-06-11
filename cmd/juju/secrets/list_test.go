@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	"github.com/juju/juju/api/jujuclient"

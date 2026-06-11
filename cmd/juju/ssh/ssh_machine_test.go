@@ -12,12 +12,12 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"

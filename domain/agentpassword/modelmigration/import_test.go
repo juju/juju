@@ -6,9 +6,9 @@ package modelmigration
 import (
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/unit"

@@ -8,9 +8,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corebase "github.com/juju/juju/core/base"

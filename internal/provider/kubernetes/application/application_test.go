@@ -10,12 +10,12 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
-	"go.uber.org/mock/gomock"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

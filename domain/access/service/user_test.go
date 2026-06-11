@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
 
 	coreerrors "github.com/juju/juju/core/errors"

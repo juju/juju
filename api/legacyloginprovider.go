@@ -261,3 +261,15 @@ func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) 
 	loginResult.EnsureTag(p.tag)
 	return loginResult, nil
 }
+
+// RootAPI defines the root-level RPC calls available on a
+// connection, used for testing the legacy login provider.
+type RootAPI interface {
+	Admin(id string) (AdminAPI, error)
+}
+
+// AdminAPI defines the admin-level RPC calls available on a
+// connection, used for testing the legacy login provider.
+type AdminAPI interface {
+	Login(req params.LoginRequest) (params.LoginResult, error)
+}

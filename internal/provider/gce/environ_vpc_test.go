@@ -8,9 +8,9 @@ import (
 	stdtesting "testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/environs/testing"
 )

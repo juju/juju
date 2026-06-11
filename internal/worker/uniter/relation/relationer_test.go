@@ -7,16 +7,16 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/relation"
 	"github.com/juju/juju/internal/worker/uniter/relation/mocks"
@@ -25,8 +25,8 @@ import (
 
 type relationerSuite struct {
 	stateManager *mocks.MockStateManager
-	relationUnit *api.MockRelationUnit
-	relation     *api.MockRelation
+	relationUnit *apimocks.MockRelationUnit
+	relation     *apimocks.MockRelation
 	unitGetter   *mocks.MockUnitGetter
 }
 
@@ -228,8 +228,8 @@ func (s *relationerSuite) newRelationer(c *tc.C) relation.Relationer {
 func (s *relationerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.stateManager = mocks.NewMockStateManager(ctrl)
-	s.relationUnit = api.NewMockRelationUnit(ctrl)
-	s.relation = api.NewMockRelation(ctrl)
+	s.relationUnit = apimocks.NewMockRelationUnit(ctrl)
+	s.relation = apimocks.NewMockRelation(ctrl)
 	s.unitGetter = mocks.NewMockUnitGetter(ctrl)
 	// Setup for NewRelationer
 	s.expectRelationUnitRelation()

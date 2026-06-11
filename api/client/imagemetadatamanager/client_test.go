@@ -4,12 +4,14 @@
 package imagemetadatamanager_test
 
 import (
+	"context"
+	"reflect"
 	"regexp"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/imagemetadatamanager"
@@ -70,7 +72,12 @@ func (s *imagemetadataSuite) TestList(c *tc.C) {
 		Result: instances,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "List", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 	found, err := client.List(
 		c.Context(),
@@ -119,7 +126,12 @@ func (s *imagemetadataSuite) TestSave(c *tc.C) {
 		Results: []params.ErrorResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Save", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save(c.Context(), []params.CloudImageMetadata{m, m})
@@ -164,7 +176,12 @@ func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *tc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Save", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save(c.Context(), m)
@@ -184,7 +201,12 @@ func (s *imagemetadataSuite) TestDelete(c *tc.C) {
 		Results: []params.ErrorResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Delete", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(c.Context(), imageId)
@@ -204,7 +226,12 @@ func (s *imagemetadataSuite) TestDeleteMultipleResult(c *tc.C) {
 		Results: []params.ErrorResult{{}, {}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Delete", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(c.Context(), imageId)
@@ -224,7 +251,12 @@ func (s *imagemetadataSuite) TestDeleteFailure(c *tc.C) {
 		Results: []params.ErrorResult{{&params.Error{Message: msg}}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Delete", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(c.Context(), "tst12345")

@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"
 

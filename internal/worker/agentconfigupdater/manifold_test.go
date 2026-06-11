@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -15,7 +16,6 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"

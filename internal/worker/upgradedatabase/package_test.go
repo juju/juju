@@ -4,19 +4,19 @@
 package upgradedatabase
 
 import (
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/services UpgradeServices,UpgradeServicesGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination database_mock_test.go github.com/juju/juju/core/database DBGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/internal/worker/upgradedatabase UpgradeService,ControllerNodeService
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v5 Worker
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradedatabase -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/services UpgradeServices,UpgradeServicesGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradedatabase -destination database_mock_test.go github.com/juju/juju/core/database DBGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/internal/worker/upgradedatabase UpgradeService,ControllerNodeService
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v5 Worker
 
 type baseSuite struct {
 	lock        *MockLock

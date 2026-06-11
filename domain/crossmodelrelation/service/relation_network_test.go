@@ -6,8 +6,8 @@ package service
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	corerelation "github.com/juju/juju/core/relation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"

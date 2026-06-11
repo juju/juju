@@ -3,4 +3,4 @@
 
 package offererrelations
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package offererrelations -destination client_mock_test.go -source worker.go
+//go:generate go run github.com/canonical/gomock/mockgen -package offererrelations -destination client_mock_test.go github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations RemoteModelRelationsClient,ReportableWorker

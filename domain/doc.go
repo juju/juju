@@ -96,7 +96,7 @@
 //
 // eg
 //
-//	//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination service_mock_test.go github.com/juju/juju/domain/foo/service FooState
+//	//go:generate go run github.com/canonical/gomock/mockgen -package service -destination service_mock_test.go github.com/juju/juju/domain/foo/service FooState
 //
 // # Implementation notes
 //

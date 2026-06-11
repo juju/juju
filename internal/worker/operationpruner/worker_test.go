@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
 
 	coretesting "github.com/juju/juju/core/testing"
 	corewatcher "github.com/juju/juju/core/watcher"

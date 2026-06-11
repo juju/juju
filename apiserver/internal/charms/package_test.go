@@ -3,4 +3,4 @@
 
 package charms_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mocks.go github.com/juju/juju/apiserver/internal/charms CharmService,ApplicationService
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/mocks.go github.com/juju/juju/apiserver/internal/charms CharmService,ApplicationService

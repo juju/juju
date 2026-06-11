@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
@@ -160,7 +160,7 @@ func (s *sshServerSuite) TestSSHServer(c *tc.C) {
 	terminatingSession, err := terminatingClient.NewSession()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.sessionHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).DoAndReturn(
+	s.sessionHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).Do(
 		func(session ssh.Session, destination virtualhostname.Info) {
 			c.Check(destination.String(), tc.Equals, testVirtualHostname)
 			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", destination.String()))

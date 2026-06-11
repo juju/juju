@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package diskmanager -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/diskmanager MachineService,BlockDeviceService
+//go:generate go run github.com/canonical/gomock/mockgen -package diskmanager -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/diskmanager MachineService,BlockDeviceService
 
 type MachineService interface {
 	// GetMachineUUID returns the UUID of a machine identified by its name.

@@ -3,4 +3,4 @@
 
 package modellife
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package modellife -destination services_mock_test.go github.com/juju/juju/internal/worker/modellife ModelService
+//go:generate go run github.com/canonical/gomock/mockgen -package modellife -destination services_mock_test.go github.com/juju/juju/internal/worker/modellife ModelService

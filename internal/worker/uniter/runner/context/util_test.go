@@ -8,11 +8,11 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	runnercontext "github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
@@ -105,9 +105,9 @@ type BaseHookContextSuite struct {
 	secrets        *runnertesting.SecretsContextAccessor
 	clock          *testclock.Clock
 
-	uniter   *uniterapi.MockUniterClient
-	unit     *uniterapi.MockUnit
-	relunits map[int]*uniterapi.MockRelationUnit
+	uniter   *apimocks.MockUniterClient
+	unit     *apimocks.MockUnit
+	relunits map[int]*apimocks.MockRelationUnit
 
 	// Initial hook context data.
 	machinePortRanges map[names.UnitTag]network.GroupedPortRanges
@@ -116,7 +116,7 @@ type BaseHookContextSuite struct {
 func (s *BaseHookContextSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.relunits = map[int]*uniterapi.MockRelationUnit{}
+	s.relunits = map[int]*apimocks.MockRelationUnit{}
 	s.secrets = &runnertesting.SecretsContextAccessor{}
 	s.machinePortRanges = make(map[names.UnitTag]network.GroupedPortRanges)
 	s.clock = testclock.NewClock(time.Time{})
@@ -130,13 +130,13 @@ func (s *BaseHookContextSuite) GetContext(c *tc.C, ctrl *gomock.Controller, relI
 
 func (s *BaseHookContextSuite) AddContextRelation(c *tc.C, ctrl *gomock.Controller, name string) {
 	num := len(s.relunits)
-	rel := uniterapi.NewMockRelation(ctrl)
+	rel := apimocks.NewMockRelation(ctrl)
 	rel.EXPECT().Id().Return(num).AnyTimes()
 	rel.EXPECT().Tag().Return(names.NewRelationTag("mysql:server wordpress:" + name)).AnyTimes()
 	rel.EXPECT().Life().Return(life.Alive).AnyTimes()
 	rel.EXPECT().Suspended().Return(false).AnyTimes()
 
-	relUnit := uniterapi.NewMockRelationUnit(ctrl)
+	relUnit := apimocks.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
 	relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "db"}}).AnyTimes()
 	relUnit.EXPECT().Settings(gomock.Any()).Return(
@@ -148,7 +148,7 @@ func (s *BaseHookContextSuite) AddContextRelation(c *tc.C, ctrl *gomock.Controll
 
 func (s *BaseHookContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineTag {
 	unitTag := names.NewUnitTag("u/0")
-	s.unit = uniterapi.NewMockUnit(ctrl)
+	s.unit = apimocks.NewMockUnit(ctrl)
 	s.unit.EXPECT().Tag().Return(unitTag).AnyTimes()
 	s.unit.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
 	s.unit.EXPECT().PublicAddress(gomock.Any()).Return("u-0.testing.invalid", nil).AnyTimes()
@@ -162,7 +162,7 @@ func (s *BaseHookContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineT
 
 func (s *BaseHookContextSuite) setupUniter(ctrl *gomock.Controller) names.MachineTag {
 	machineTag := s.setupUnit(ctrl)
-	s.uniter = uniterapi.NewMockUniterClient(ctrl)
+	s.uniter = apimocks.NewMockUniterClient(ctrl)
 	s.uniter.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), machineTag).DoAndReturn(func(_ context.Context, _ names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 		return s.machinePortRanges, nil
 	}).AnyTimes()

@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 	gossh "golang.org/x/crypto/ssh"
 
 	network "github.com/juju/juju/core/network"

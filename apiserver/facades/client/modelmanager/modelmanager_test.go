@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"

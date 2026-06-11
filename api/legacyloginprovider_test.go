@@ -8,12 +8,12 @@ import (
 	"net/http"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -37,15 +37,7 @@ func TestLegacyLoginProviderSuite(t *stdtesting.T) {
 	tc.Run(t, &legacyLoginProviderSuite{})
 }
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package api_test -destination api_mock_test.go -source legacyloginprovider_test.go RootAPI,AdminAPI
-
-type RootAPI interface {
-	Admin(id string) (AdminAPI, error)
-}
-
-type AdminAPI interface {
-	Login(req params.LoginRequest) (params.LoginResult, error)
-}
+//go:generate go run github.com/canonical/gomock/mockgen -package api_test -destination api_mock_test.go github.com/juju/juju/api RootAPI,AdminAPI
 
 func (s *legacyLoginProviderSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

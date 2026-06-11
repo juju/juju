@@ -6,9 +6,9 @@ package bootstrap
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	network "github.com/juju/juju/core/network"
 	unit "github.com/juju/juju/core/unit"

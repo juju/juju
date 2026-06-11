@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package lxd -destination net_mock_test.go net Addr
+//go:generate go run github.com/canonical/gomock/mockgen -package lxd -destination net_mock_test.go net Addr
 
 type credentialsSuite struct {
 	lxd.BaseSuite

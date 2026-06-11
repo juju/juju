@@ -9,9 +9,9 @@ import (
 	"regexp"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"

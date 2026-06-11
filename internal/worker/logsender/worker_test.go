@@ -14,13 +14,13 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

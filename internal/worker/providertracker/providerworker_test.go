@@ -11,6 +11,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/providertracker"

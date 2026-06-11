@@ -4,14 +4,14 @@
 package querylogger
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package querylogger -destination logger_mock_test.go github.com/juju/juju/core/logger Logger
-//go:generate go run go.uber.org/mock/mockgen -typed -package querylogger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/canonical/gomock/mockgen -package querylogger -destination logger_mock_test.go github.com/juju/juju/core/logger Logger
+//go:generate go run github.com/canonical/gomock/mockgen -package querylogger -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

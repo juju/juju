@@ -6,9 +6,9 @@ package storage
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	domainstorage "github.com/juju/juju/domain/storage"

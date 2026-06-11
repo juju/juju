@@ -3,6 +3,6 @@
 
 package apiserver_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/apiserver ControllerConfigService,ModelService
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination service_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiserver_test -destination provider_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory,Provider
+//go:generate go run github.com/canonical/gomock/mockgen -package apiserver_test -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/apiserver ControllerConfigService,ModelService
+//go:generate go run github.com/canonical/gomock/mockgen -package apiserver_test -destination service_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package apiserver_test -destination provider_mock_test.go github.com/juju/juju/core/providertracker ProviderFactory,Provider

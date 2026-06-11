@@ -6,9 +6,9 @@ package eventsource
 import (
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/testing"

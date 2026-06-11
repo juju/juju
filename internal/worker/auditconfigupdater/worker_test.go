@@ -7,10 +7,10 @@ import (
 	stdtesting "testing"
 	time "time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"

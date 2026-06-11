@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/osarch"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"

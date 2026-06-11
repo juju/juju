@@ -4,15 +4,15 @@
 package units3caller
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package units3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Session
-//go:generate go run go.uber.org/mock/mockgen -typed -package units3caller -destination api_mocks_test.go github.com/juju/juju/api Connection
+//go:generate go run github.com/canonical/gomock/mockgen -package units3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Session
+//go:generate go run github.com/canonical/gomock/mockgen -package units3caller -destination api_mocks_test.go github.com/juju/juju/api Connection
 
 type baseSuite struct {
 	logger  logger.Logger

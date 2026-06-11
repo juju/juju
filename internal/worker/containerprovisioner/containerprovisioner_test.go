@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"github.com/kr/pretty"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

@@ -3,4 +3,4 @@
 
 package observer_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package observer -destination services_mock_test.go github.com/juju/juju/apiserver/observer DomainServicesGetter,ModelService,StatusService
+//go:generate go run github.com/canonical/gomock/mockgen -package observer -destination services_mock_test.go github.com/juju/juju/apiserver/observer DomainServicesGetter,ModelService,StatusService

@@ -5,11 +5,12 @@ package annotations_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
-	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/annotations"
@@ -51,17 +52,20 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *tc.C) {
 		Results: nil,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Set", annotationsSetMatcher{c, args}, result).SetArg(3, results).DoAndReturn(
-		func(ctx context.Context, arg0 string, args params.AnnotationsSet, results *params.ErrorResults) []error {
-			for _, aParam := range args.Annotations {
-				// Since sometimes arrays returned on some
-				// architectures vary the order within params.AnnotationsSet,
-				// simply assert that each entity has its own annotations.
-				// Bug 1409141
-				c.Assert(aParam.Annotations, tc.DeepEquals, setParams[aParam.EntityTag])
-			}
-			return nil
-		})
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Set", annotationsSetMatcher{c, args}, result,
+	).DoAndReturn(func(_ context.Context, _ string, argsRaw any, resultRaw any) error {
+		args := argsRaw.(params.AnnotationsSet)
+		reflect.ValueOf(resultRaw).Elem().Set(reflect.ValueOf(results))
+		for _, aParam := range args.Annotations {
+			// Since sometimes arrays returned on some
+			// architectures vary the order within
+			// params.AnnotationsSet, simply assert that each
+			// entity has its own annotations. Bug 1409141
+			c.Assert(aParam.Annotations, tc.DeepEquals, setParams[aParam.EntityTag])
+		}
+		return nil
+	})
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
 	callErrs, err := annotationsClient.Set(c.Context(), setParams)
@@ -89,7 +93,12 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Get", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "Get", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
 	found, err := annotationsClient.Get(c.Context(), []string{"charm"})

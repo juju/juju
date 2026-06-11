@@ -11,9 +11,8 @@ package mocks
 
 import (
 	context "context"
-	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 	v1 "k8s.io/api/core/v1"
 	v10 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -27,17 +26,35 @@ import (
 type MockCoreV1Interface struct {
 	ctrl     *gomock.Controller
 	recorder *MockCoreV1InterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockCoreV1InterfaceMockRecorder is the mock recorder for MockCoreV1Interface.
 type MockCoreV1InterfaceMockRecorder struct {
-	mock *MockCoreV1Interface
+	mock                          *MockCoreV1Interface
+	componentStatusesExpects      []*gomock.Call0_1[v12.ComponentStatusInterface]
+	configMapsExpects             []*gomock.Call1_1[string, v12.ConfigMapInterface]
+	endpointsExpects              []*gomock.Call1_1[string, v12.EndpointsInterface]
+	eventsExpects                 []*gomock.Call1_1[string, v12.EventInterface]
+	limitRangesExpects            []*gomock.Call1_1[string, v12.LimitRangeInterface]
+	namespacesExpects             []*gomock.Call0_1[v12.NamespaceInterface]
+	nodesExpects                  []*gomock.Call0_1[v12.NodeInterface]
+	persistentVolumeClaimsExpects []*gomock.Call1_1[string, v12.PersistentVolumeClaimInterface]
+	persistentVolumesExpects      []*gomock.Call0_1[v12.PersistentVolumeInterface]
+	podTemplatesExpects           []*gomock.Call1_1[string, v12.PodTemplateInterface]
+	podsExpects                   []*gomock.Call1_1[string, v12.PodInterface]
+	rESTClientExpects             []*gomock.Call0_1[rest.Interface]
+	replicationControllersExpects []*gomock.Call1_1[string, v12.ReplicationControllerInterface]
+	resourceQuotasExpects         []*gomock.Call1_1[string, v12.ResourceQuotaInterface]
+	secretsExpects                []*gomock.Call1_1[string, v12.SecretInterface]
+	serviceAccountsExpects        []*gomock.Call1_1[string, v12.ServiceAccountInterface]
+	servicesExpects               []*gomock.Call1_1[string, v12.ServiceInterface]
 }
 
 // NewMockCoreV1Interface creates a new mock instance.
 func NewMockCoreV1Interface(ctrl *gomock.Controller) *MockCoreV1Interface {
 	mock := &MockCoreV1Interface{ctrl: ctrl}
-	mock.recorder = &MockCoreV1InterfaceMockRecorder{mock}
+	mock.recorder = &MockCoreV1InterfaceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -49,256 +66,334 @@ func (m *MockCoreV1Interface) EXPECT() *MockCoreV1InterfaceMockRecorder {
 // ComponentStatuses mocks base method.
 func (m *MockCoreV1Interface) ComponentStatuses() v12.ComponentStatusInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ComponentStatuses")
-	ret0, _ := ret[0].(v12.ComponentStatusInterface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.componentStatusesExpects, m.ctrl, m, "ComponentStatuses")
 }
 
 // ComponentStatuses indicates an expected call of ComponentStatuses.
-func (mr *MockCoreV1InterfaceMockRecorder) ComponentStatuses() *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) ComponentStatuses() *MockCoreV1InterfaceComponentStatusesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComponentStatuses", reflect.TypeOf((*MockCoreV1Interface)(nil).ComponentStatuses))
+	call := gomock.NewCall0_1[v12.ComponentStatusInterface](mr.mock.ctrl.T, mr.mock, "ComponentStatuses")
+	mr.componentStatusesExpects = append(mr.componentStatusesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceComponentStatusesCall is the typed call wrapper for ComponentStatuses.
+type MockCoreV1InterfaceComponentStatusesCall = gomock.Call0_1[v12.ComponentStatusInterface]
+
 // ConfigMaps mocks base method.
-func (m *MockCoreV1Interface) ConfigMaps(arg0 string) v12.ConfigMapInterface {
+func (m *MockCoreV1Interface) ConfigMaps(namespace string) v12.ConfigMapInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConfigMaps", arg0)
-	ret0, _ := ret[0].(v12.ConfigMapInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.configMapsExpects, m.ctrl, m, "ConfigMaps", namespace)
 }
 
 // ConfigMaps indicates an expected call of ConfigMaps.
-func (mr *MockCoreV1InterfaceMockRecorder) ConfigMaps(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) ConfigMaps(namespace any) *MockCoreV1InterfaceConfigMapsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigMaps", reflect.TypeOf((*MockCoreV1Interface)(nil).ConfigMaps), arg0)
+	call := gomock.NewCall1_1[string, v12.ConfigMapInterface](mr.mock.ctrl.T, mr.mock, "ConfigMaps", gomock.EnsureMatcher(namespace))
+	mr.configMapsExpects = append(mr.configMapsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceConfigMapsCall is the typed call wrapper for ConfigMaps.
+type MockCoreV1InterfaceConfigMapsCall = gomock.Call1_1[string, v12.ConfigMapInterface]
+
 // Endpoints mocks base method.
-func (m *MockCoreV1Interface) Endpoints(arg0 string) v12.EndpointsInterface {
+func (m *MockCoreV1Interface) Endpoints(namespace string) v12.EndpointsInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Endpoints", arg0)
-	ret0, _ := ret[0].(v12.EndpointsInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.endpointsExpects, m.ctrl, m, "Endpoints", namespace)
 }
 
 // Endpoints indicates an expected call of Endpoints.
-func (mr *MockCoreV1InterfaceMockRecorder) Endpoints(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) Endpoints(namespace any) *MockCoreV1InterfaceEndpointsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoints", reflect.TypeOf((*MockCoreV1Interface)(nil).Endpoints), arg0)
+	call := gomock.NewCall1_1[string, v12.EndpointsInterface](mr.mock.ctrl.T, mr.mock, "Endpoints", gomock.EnsureMatcher(namespace))
+	mr.endpointsExpects = append(mr.endpointsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceEndpointsCall is the typed call wrapper for Endpoints.
+type MockCoreV1InterfaceEndpointsCall = gomock.Call1_1[string, v12.EndpointsInterface]
+
 // Events mocks base method.
-func (m *MockCoreV1Interface) Events(arg0 string) v12.EventInterface {
+func (m *MockCoreV1Interface) Events(namespace string) v12.EventInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Events", arg0)
-	ret0, _ := ret[0].(v12.EventInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.eventsExpects, m.ctrl, m, "Events", namespace)
 }
 
 // Events indicates an expected call of Events.
-func (mr *MockCoreV1InterfaceMockRecorder) Events(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) Events(namespace any) *MockCoreV1InterfaceEventsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Events", reflect.TypeOf((*MockCoreV1Interface)(nil).Events), arg0)
+	call := gomock.NewCall1_1[string, v12.EventInterface](mr.mock.ctrl.T, mr.mock, "Events", gomock.EnsureMatcher(namespace))
+	mr.eventsExpects = append(mr.eventsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceEventsCall is the typed call wrapper for Events.
+type MockCoreV1InterfaceEventsCall = gomock.Call1_1[string, v12.EventInterface]
+
 // LimitRanges mocks base method.
-func (m *MockCoreV1Interface) LimitRanges(arg0 string) v12.LimitRangeInterface {
+func (m *MockCoreV1Interface) LimitRanges(namespace string) v12.LimitRangeInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LimitRanges", arg0)
-	ret0, _ := ret[0].(v12.LimitRangeInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.limitRangesExpects, m.ctrl, m, "LimitRanges", namespace)
 }
 
 // LimitRanges indicates an expected call of LimitRanges.
-func (mr *MockCoreV1InterfaceMockRecorder) LimitRanges(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) LimitRanges(namespace any) *MockCoreV1InterfaceLimitRangesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LimitRanges", reflect.TypeOf((*MockCoreV1Interface)(nil).LimitRanges), arg0)
+	call := gomock.NewCall1_1[string, v12.LimitRangeInterface](mr.mock.ctrl.T, mr.mock, "LimitRanges", gomock.EnsureMatcher(namespace))
+	mr.limitRangesExpects = append(mr.limitRangesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockCoreV1InterfaceLimitRangesCall is the typed call wrapper for LimitRanges.
+type MockCoreV1InterfaceLimitRangesCall = gomock.Call1_1[string, v12.LimitRangeInterface]
 
 // Namespaces mocks base method.
 func (m *MockCoreV1Interface) Namespaces() v12.NamespaceInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Namespaces")
-	ret0, _ := ret[0].(v12.NamespaceInterface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.namespacesExpects, m.ctrl, m, "Namespaces")
 }
 
 // Namespaces indicates an expected call of Namespaces.
-func (mr *MockCoreV1InterfaceMockRecorder) Namespaces() *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) Namespaces() *MockCoreV1InterfaceNamespacesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Namespaces", reflect.TypeOf((*MockCoreV1Interface)(nil).Namespaces))
+	call := gomock.NewCall0_1[v12.NamespaceInterface](mr.mock.ctrl.T, mr.mock, "Namespaces")
+	mr.namespacesExpects = append(mr.namespacesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockCoreV1InterfaceNamespacesCall is the typed call wrapper for Namespaces.
+type MockCoreV1InterfaceNamespacesCall = gomock.Call0_1[v12.NamespaceInterface]
 
 // Nodes mocks base method.
 func (m *MockCoreV1Interface) Nodes() v12.NodeInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Nodes")
-	ret0, _ := ret[0].(v12.NodeInterface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.nodesExpects, m.ctrl, m, "Nodes")
 }
 
 // Nodes indicates an expected call of Nodes.
-func (mr *MockCoreV1InterfaceMockRecorder) Nodes() *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) Nodes() *MockCoreV1InterfaceNodesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nodes", reflect.TypeOf((*MockCoreV1Interface)(nil).Nodes))
+	call := gomock.NewCall0_1[v12.NodeInterface](mr.mock.ctrl.T, mr.mock, "Nodes")
+	mr.nodesExpects = append(mr.nodesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceNodesCall is the typed call wrapper for Nodes.
+type MockCoreV1InterfaceNodesCall = gomock.Call0_1[v12.NodeInterface]
+
 // PersistentVolumeClaims mocks base method.
-func (m *MockCoreV1Interface) PersistentVolumeClaims(arg0 string) v12.PersistentVolumeClaimInterface {
+func (m *MockCoreV1Interface) PersistentVolumeClaims(namespace string) v12.PersistentVolumeClaimInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PersistentVolumeClaims", arg0)
-	ret0, _ := ret[0].(v12.PersistentVolumeClaimInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.persistentVolumeClaimsExpects, m.ctrl, m, "PersistentVolumeClaims", namespace)
 }
 
 // PersistentVolumeClaims indicates an expected call of PersistentVolumeClaims.
-func (mr *MockCoreV1InterfaceMockRecorder) PersistentVolumeClaims(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) PersistentVolumeClaims(namespace any) *MockCoreV1InterfacePersistentVolumeClaimsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PersistentVolumeClaims", reflect.TypeOf((*MockCoreV1Interface)(nil).PersistentVolumeClaims), arg0)
+	call := gomock.NewCall1_1[string, v12.PersistentVolumeClaimInterface](mr.mock.ctrl.T, mr.mock, "PersistentVolumeClaims", gomock.EnsureMatcher(namespace))
+	mr.persistentVolumeClaimsExpects = append(mr.persistentVolumeClaimsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockCoreV1InterfacePersistentVolumeClaimsCall is the typed call wrapper for PersistentVolumeClaims.
+type MockCoreV1InterfacePersistentVolumeClaimsCall = gomock.Call1_1[string, v12.PersistentVolumeClaimInterface]
 
 // PersistentVolumes mocks base method.
 func (m *MockCoreV1Interface) PersistentVolumes() v12.PersistentVolumeInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PersistentVolumes")
-	ret0, _ := ret[0].(v12.PersistentVolumeInterface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.persistentVolumesExpects, m.ctrl, m, "PersistentVolumes")
 }
 
 // PersistentVolumes indicates an expected call of PersistentVolumes.
-func (mr *MockCoreV1InterfaceMockRecorder) PersistentVolumes() *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) PersistentVolumes() *MockCoreV1InterfacePersistentVolumesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PersistentVolumes", reflect.TypeOf((*MockCoreV1Interface)(nil).PersistentVolumes))
+	call := gomock.NewCall0_1[v12.PersistentVolumeInterface](mr.mock.ctrl.T, mr.mock, "PersistentVolumes")
+	mr.persistentVolumesExpects = append(mr.persistentVolumesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfacePersistentVolumesCall is the typed call wrapper for PersistentVolumes.
+type MockCoreV1InterfacePersistentVolumesCall = gomock.Call0_1[v12.PersistentVolumeInterface]
+
 // PodTemplates mocks base method.
-func (m *MockCoreV1Interface) PodTemplates(arg0 string) v12.PodTemplateInterface {
+func (m *MockCoreV1Interface) PodTemplates(namespace string) v12.PodTemplateInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PodTemplates", arg0)
-	ret0, _ := ret[0].(v12.PodTemplateInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.podTemplatesExpects, m.ctrl, m, "PodTemplates", namespace)
 }
 
 // PodTemplates indicates an expected call of PodTemplates.
-func (mr *MockCoreV1InterfaceMockRecorder) PodTemplates(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) PodTemplates(namespace any) *MockCoreV1InterfacePodTemplatesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PodTemplates", reflect.TypeOf((*MockCoreV1Interface)(nil).PodTemplates), arg0)
+	call := gomock.NewCall1_1[string, v12.PodTemplateInterface](mr.mock.ctrl.T, mr.mock, "PodTemplates", gomock.EnsureMatcher(namespace))
+	mr.podTemplatesExpects = append(mr.podTemplatesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfacePodTemplatesCall is the typed call wrapper for PodTemplates.
+type MockCoreV1InterfacePodTemplatesCall = gomock.Call1_1[string, v12.PodTemplateInterface]
+
 // Pods mocks base method.
-func (m *MockCoreV1Interface) Pods(arg0 string) v12.PodInterface {
+func (m *MockCoreV1Interface) Pods(namespace string) v12.PodInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Pods", arg0)
-	ret0, _ := ret[0].(v12.PodInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.podsExpects, m.ctrl, m, "Pods", namespace)
 }
 
 // Pods indicates an expected call of Pods.
-func (mr *MockCoreV1InterfaceMockRecorder) Pods(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) Pods(namespace any) *MockCoreV1InterfacePodsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pods", reflect.TypeOf((*MockCoreV1Interface)(nil).Pods), arg0)
+	call := gomock.NewCall1_1[string, v12.PodInterface](mr.mock.ctrl.T, mr.mock, "Pods", gomock.EnsureMatcher(namespace))
+	mr.podsExpects = append(mr.podsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockCoreV1InterfacePodsCall is the typed call wrapper for Pods.
+type MockCoreV1InterfacePodsCall = gomock.Call1_1[string, v12.PodInterface]
 
 // RESTClient mocks base method.
 func (m *MockCoreV1Interface) RESTClient() rest.Interface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RESTClient")
-	ret0, _ := ret[0].(rest.Interface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.rESTClientExpects, m.ctrl, m, "RESTClient")
 }
 
 // RESTClient indicates an expected call of RESTClient.
-func (mr *MockCoreV1InterfaceMockRecorder) RESTClient() *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) RESTClient() *MockCoreV1InterfaceRESTClientCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RESTClient", reflect.TypeOf((*MockCoreV1Interface)(nil).RESTClient))
+	call := gomock.NewCall0_1[rest.Interface](mr.mock.ctrl.T, mr.mock, "RESTClient")
+	mr.rESTClientExpects = append(mr.rESTClientExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceRESTClientCall is the typed call wrapper for RESTClient.
+type MockCoreV1InterfaceRESTClientCall = gomock.Call0_1[rest.Interface]
+
 // ReplicationControllers mocks base method.
-func (m *MockCoreV1Interface) ReplicationControllers(arg0 string) v12.ReplicationControllerInterface {
+func (m *MockCoreV1Interface) ReplicationControllers(namespace string) v12.ReplicationControllerInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReplicationControllers", arg0)
-	ret0, _ := ret[0].(v12.ReplicationControllerInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.replicationControllersExpects, m.ctrl, m, "ReplicationControllers", namespace)
 }
 
 // ReplicationControllers indicates an expected call of ReplicationControllers.
-func (mr *MockCoreV1InterfaceMockRecorder) ReplicationControllers(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) ReplicationControllers(namespace any) *MockCoreV1InterfaceReplicationControllersCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplicationControllers", reflect.TypeOf((*MockCoreV1Interface)(nil).ReplicationControllers), arg0)
+	call := gomock.NewCall1_1[string, v12.ReplicationControllerInterface](mr.mock.ctrl.T, mr.mock, "ReplicationControllers", gomock.EnsureMatcher(namespace))
+	mr.replicationControllersExpects = append(mr.replicationControllersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceReplicationControllersCall is the typed call wrapper for ReplicationControllers.
+type MockCoreV1InterfaceReplicationControllersCall = gomock.Call1_1[string, v12.ReplicationControllerInterface]
+
 // ResourceQuotas mocks base method.
-func (m *MockCoreV1Interface) ResourceQuotas(arg0 string) v12.ResourceQuotaInterface {
+func (m *MockCoreV1Interface) ResourceQuotas(namespace string) v12.ResourceQuotaInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResourceQuotas", arg0)
-	ret0, _ := ret[0].(v12.ResourceQuotaInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.resourceQuotasExpects, m.ctrl, m, "ResourceQuotas", namespace)
 }
 
 // ResourceQuotas indicates an expected call of ResourceQuotas.
-func (mr *MockCoreV1InterfaceMockRecorder) ResourceQuotas(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) ResourceQuotas(namespace any) *MockCoreV1InterfaceResourceQuotasCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResourceQuotas", reflect.TypeOf((*MockCoreV1Interface)(nil).ResourceQuotas), arg0)
+	call := gomock.NewCall1_1[string, v12.ResourceQuotaInterface](mr.mock.ctrl.T, mr.mock, "ResourceQuotas", gomock.EnsureMatcher(namespace))
+	mr.resourceQuotasExpects = append(mr.resourceQuotasExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceResourceQuotasCall is the typed call wrapper for ResourceQuotas.
+type MockCoreV1InterfaceResourceQuotasCall = gomock.Call1_1[string, v12.ResourceQuotaInterface]
+
 // Secrets mocks base method.
-func (m *MockCoreV1Interface) Secrets(arg0 string) v12.SecretInterface {
+func (m *MockCoreV1Interface) Secrets(namespace string) v12.SecretInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Secrets", arg0)
-	ret0, _ := ret[0].(v12.SecretInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.secretsExpects, m.ctrl, m, "Secrets", namespace)
 }
 
 // Secrets indicates an expected call of Secrets.
-func (mr *MockCoreV1InterfaceMockRecorder) Secrets(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) Secrets(namespace any) *MockCoreV1InterfaceSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Secrets", reflect.TypeOf((*MockCoreV1Interface)(nil).Secrets), arg0)
+	call := gomock.NewCall1_1[string, v12.SecretInterface](mr.mock.ctrl.T, mr.mock, "Secrets", gomock.EnsureMatcher(namespace))
+	mr.secretsExpects = append(mr.secretsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceSecretsCall is the typed call wrapper for Secrets.
+type MockCoreV1InterfaceSecretsCall = gomock.Call1_1[string, v12.SecretInterface]
+
 // ServiceAccounts mocks base method.
-func (m *MockCoreV1Interface) ServiceAccounts(arg0 string) v12.ServiceAccountInterface {
+func (m *MockCoreV1Interface) ServiceAccounts(namespace string) v12.ServiceAccountInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServiceAccounts", arg0)
-	ret0, _ := ret[0].(v12.ServiceAccountInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.serviceAccountsExpects, m.ctrl, m, "ServiceAccounts", namespace)
 }
 
 // ServiceAccounts indicates an expected call of ServiceAccounts.
-func (mr *MockCoreV1InterfaceMockRecorder) ServiceAccounts(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) ServiceAccounts(namespace any) *MockCoreV1InterfaceServiceAccountsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceAccounts", reflect.TypeOf((*MockCoreV1Interface)(nil).ServiceAccounts), arg0)
+	call := gomock.NewCall1_1[string, v12.ServiceAccountInterface](mr.mock.ctrl.T, mr.mock, "ServiceAccounts", gomock.EnsureMatcher(namespace))
+	mr.serviceAccountsExpects = append(mr.serviceAccountsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCoreV1InterfaceServiceAccountsCall is the typed call wrapper for ServiceAccounts.
+type MockCoreV1InterfaceServiceAccountsCall = gomock.Call1_1[string, v12.ServiceAccountInterface]
+
 // Services mocks base method.
-func (m *MockCoreV1Interface) Services(arg0 string) v12.ServiceInterface {
+func (m *MockCoreV1Interface) Services(namespace string) v12.ServiceInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Services", arg0)
-	ret0, _ := ret[0].(v12.ServiceInterface)
-	return ret0
+	return gomock.Dispatch1_1(&m.recorder.servicesExpects, m.ctrl, m, "Services", namespace)
 }
 
 // Services indicates an expected call of Services.
-func (mr *MockCoreV1InterfaceMockRecorder) Services(arg0 any) *gomock.Call {
+func (mr *MockCoreV1InterfaceMockRecorder) Services(namespace any) *MockCoreV1InterfaceServicesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Services", reflect.TypeOf((*MockCoreV1Interface)(nil).Services), arg0)
+	call := gomock.NewCall1_1[string, v12.ServiceInterface](mr.mock.ctrl.T, mr.mock, "Services", gomock.EnsureMatcher(namespace))
+	mr.servicesExpects = append(mr.servicesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockCoreV1InterfaceServicesCall is the typed call wrapper for Services.
+type MockCoreV1InterfaceServicesCall = gomock.Call1_1[string, v12.ServiceInterface]
 
 // MockSecretInterface is a mock of SecretInterface interface.
 type MockSecretInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockSecretInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockSecretInterfaceMockRecorder is the mock recorder for MockSecretInterface.
 type MockSecretInterfaceMockRecorder struct {
-	mock *MockSecretInterface
+	mock                    *MockSecretInterface
+	applyExpects            []*gomock.Call3_2[context.Context, *v11.SecretApplyConfiguration, v10.ApplyOptions, *v1.Secret, error]
+	createExpects           []*gomock.Call3_2[context.Context, *v1.Secret, v10.CreateOptions, *v1.Secret, error]
+	deleteExpects           []*gomock.Call3_1[context.Context, string, v10.DeleteOptions, error]
+	deleteCollectionExpects []*gomock.Call3_1[context.Context, v10.DeleteOptions, v10.ListOptions, error]
+	getExpects              []*gomock.Call3_2[context.Context, string, v10.GetOptions, *v1.Secret, error]
+	listExpects             []*gomock.Call2_2[context.Context, v10.ListOptions, *v1.SecretList, error]
+	patchExpects            []*gomock.Call5V_2[context.Context, string, types.PatchType, []byte, v10.PatchOptions, string, *v1.Secret, error]
+	updateExpects           []*gomock.Call3_2[context.Context, *v1.Secret, v10.UpdateOptions, *v1.Secret, error]
+	watchExpects            []*gomock.Call2_2[context.Context, v10.ListOptions, watch.Interface, error]
 }
 
 // NewMockSecretInterface creates a new mock instance.
 func NewMockSecretInterface(ctrl *gomock.Controller) *MockSecretInterface {
 	mock := &MockSecretInterface{ctrl: ctrl}
-	mock.recorder = &MockSecretInterfaceMockRecorder{mock}
+	mock.recorder = &MockSecretInterfaceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -308,139 +403,164 @@ func (m *MockSecretInterface) EXPECT() *MockSecretInterfaceMockRecorder {
 }
 
 // Apply mocks base method.
-func (m *MockSecretInterface) Apply(arg0 context.Context, arg1 *v11.SecretApplyConfiguration, arg2 v10.ApplyOptions) (*v1.Secret, error) {
+func (m *MockSecretInterface) Apply(ctx context.Context, secret *v11.SecretApplyConfiguration, opts v10.ApplyOptions) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Apply", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*v1.Secret)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.applyExpects, m.ctrl, m, "Apply", ctx, secret, opts)
 }
 
 // Apply indicates an expected call of Apply.
-func (mr *MockSecretInterfaceMockRecorder) Apply(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) Apply(ctx, secret, opts any) *MockSecretInterfaceApplyCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apply", reflect.TypeOf((*MockSecretInterface)(nil).Apply), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, *v11.SecretApplyConfiguration, v10.ApplyOptions, *v1.Secret, error](mr.mock.ctrl.T, mr.mock, "Apply", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(secret), gomock.EnsureMatcher(opts))
+	mr.applyExpects = append(mr.applyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfaceApplyCall is the typed call wrapper for Apply.
+type MockSecretInterfaceApplyCall = gomock.Call3_2[context.Context, *v11.SecretApplyConfiguration, v10.ApplyOptions, *v1.Secret, error]
+
 // Create mocks base method.
-func (m *MockSecretInterface) Create(arg0 context.Context, arg1 *v1.Secret, arg2 v10.CreateOptions) (*v1.Secret, error) {
+func (m *MockSecretInterface) Create(ctx context.Context, secret *v1.Secret, opts v10.CreateOptions) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*v1.Secret)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.createExpects, m.ctrl, m, "Create", ctx, secret, opts)
 }
 
 // Create indicates an expected call of Create.
-func (mr *MockSecretInterfaceMockRecorder) Create(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) Create(ctx, secret, opts any) *MockSecretInterfaceCreateCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSecretInterface)(nil).Create), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, *v1.Secret, v10.CreateOptions, *v1.Secret, error](mr.mock.ctrl.T, mr.mock, "Create", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(secret), gomock.EnsureMatcher(opts))
+	mr.createExpects = append(mr.createExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfaceCreateCall is the typed call wrapper for Create.
+type MockSecretInterfaceCreateCall = gomock.Call3_2[context.Context, *v1.Secret, v10.CreateOptions, *v1.Secret, error]
+
 // Delete mocks base method.
-func (m *MockSecretInterface) Delete(arg0 context.Context, arg1 string, arg2 v10.DeleteOptions) error {
+func (m *MockSecretInterface) Delete(ctx context.Context, name string, opts v10.DeleteOptions) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch3_1(&m.recorder.deleteExpects, m.ctrl, m, "Delete", ctx, name, opts)
 }
 
 // Delete indicates an expected call of Delete.
-func (mr *MockSecretInterfaceMockRecorder) Delete(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) Delete(ctx, name, opts any) *MockSecretInterfaceDeleteCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockSecretInterface)(nil).Delete), arg0, arg1, arg2)
+	call := gomock.NewCall3_1[context.Context, string, v10.DeleteOptions, error](mr.mock.ctrl.T, mr.mock, "Delete", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(opts))
+	mr.deleteExpects = append(mr.deleteExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfaceDeleteCall is the typed call wrapper for Delete.
+type MockSecretInterfaceDeleteCall = gomock.Call3_1[context.Context, string, v10.DeleteOptions, error]
+
 // DeleteCollection mocks base method.
-func (m *MockSecretInterface) DeleteCollection(arg0 context.Context, arg1 v10.DeleteOptions, arg2 v10.ListOptions) error {
+func (m *MockSecretInterface) DeleteCollection(ctx context.Context, opts v10.DeleteOptions, listOpts v10.ListOptions) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteCollection", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch3_1(&m.recorder.deleteCollectionExpects, m.ctrl, m, "DeleteCollection", ctx, opts, listOpts)
 }
 
 // DeleteCollection indicates an expected call of DeleteCollection.
-func (mr *MockSecretInterfaceMockRecorder) DeleteCollection(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) DeleteCollection(ctx, opts, listOpts any) *MockSecretInterfaceDeleteCollectionCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockSecretInterface)(nil).DeleteCollection), arg0, arg1, arg2)
+	call := gomock.NewCall3_1[context.Context, v10.DeleteOptions, v10.ListOptions, error](mr.mock.ctrl.T, mr.mock, "DeleteCollection", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(opts), gomock.EnsureMatcher(listOpts))
+	mr.deleteCollectionExpects = append(mr.deleteCollectionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfaceDeleteCollectionCall is the typed call wrapper for DeleteCollection.
+type MockSecretInterfaceDeleteCollectionCall = gomock.Call3_1[context.Context, v10.DeleteOptions, v10.ListOptions, error]
+
 // Get mocks base method.
-func (m *MockSecretInterface) Get(arg0 context.Context, arg1 string, arg2 v10.GetOptions) (*v1.Secret, error) {
+func (m *MockSecretInterface) Get(ctx context.Context, name string, opts v10.GetOptions) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*v1.Secret)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.getExpects, m.ctrl, m, "Get", ctx, name, opts)
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockSecretInterfaceMockRecorder) Get(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) Get(ctx, name, opts any) *MockSecretInterfaceGetCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockSecretInterface)(nil).Get), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, string, v10.GetOptions, *v1.Secret, error](mr.mock.ctrl.T, mr.mock, "Get", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(opts))
+	mr.getExpects = append(mr.getExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfaceGetCall is the typed call wrapper for Get.
+type MockSecretInterfaceGetCall = gomock.Call3_2[context.Context, string, v10.GetOptions, *v1.Secret, error]
+
 // List mocks base method.
-func (m *MockSecretInterface) List(arg0 context.Context, arg1 v10.ListOptions) (*v1.SecretList, error) {
+func (m *MockSecretInterface) List(ctx context.Context, opts v10.ListOptions) (*v1.SecretList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", arg0, arg1)
-	ret0, _ := ret[0].(*v1.SecretList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.listExpects, m.ctrl, m, "List", ctx, opts)
 }
 
 // List indicates an expected call of List.
-func (mr *MockSecretInterfaceMockRecorder) List(arg0, arg1 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) List(ctx, opts any) *MockSecretInterfaceListCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSecretInterface)(nil).List), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, v10.ListOptions, *v1.SecretList, error](mr.mock.ctrl.T, mr.mock, "List", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(opts))
+	mr.listExpects = append(mr.listExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfaceListCall is the typed call wrapper for List.
+type MockSecretInterfaceListCall = gomock.Call2_2[context.Context, v10.ListOptions, *v1.SecretList, error]
+
 // Patch mocks base method.
-func (m *MockSecretInterface) Patch(arg0 context.Context, arg1 string, arg2 types.PatchType, arg3 []byte, arg4 v10.PatchOptions, arg5 ...string) (*v1.Secret, error) {
+func (m *MockSecretInterface) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v10.PatchOptions, subresources ...string) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2, arg3, arg4}
-	for _, a := range arg5 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "Patch", varargs...)
-	ret0, _ := ret[0].(*v1.Secret)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch5V_2(&m.recorder.patchExpects, m.ctrl, m, "Patch", ctx, name, pt, data, opts, subresources...)
 }
 
 // Patch indicates an expected call of Patch.
-func (mr *MockSecretInterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3, arg4 any, arg5 ...any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) Patch(ctx, name, pt, data, opts any, subresources ...any) *MockSecretInterfacePatchCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2, arg3, arg4}, arg5...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockSecretInterface)(nil).Patch), varargs...)
+	varArgs := gomock.EnsureVariadicMatcher(subresources)
+	call := gomock.NewCall5V_2[context.Context, string, types.PatchType, []byte, v10.PatchOptions, string, *v1.Secret, error](mr.mock.ctrl.T, mr.mock, "Patch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(pt), gomock.EnsureMatcher(data), gomock.EnsureMatcher(opts), varArgs)
+	mr.patchExpects = append(mr.patchExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfacePatchCall is the typed call wrapper for Patch.
+type MockSecretInterfacePatchCall = gomock.Call5V_2[context.Context, string, types.PatchType, []byte, v10.PatchOptions, string, *v1.Secret, error]
+
 // Update mocks base method.
-func (m *MockSecretInterface) Update(arg0 context.Context, arg1 *v1.Secret, arg2 v10.UpdateOptions) (*v1.Secret, error) {
+func (m *MockSecretInterface) Update(ctx context.Context, secret *v1.Secret, opts v10.UpdateOptions) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*v1.Secret)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.updateExpects, m.ctrl, m, "Update", ctx, secret, opts)
 }
 
 // Update indicates an expected call of Update.
-func (mr *MockSecretInterfaceMockRecorder) Update(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) Update(ctx, secret, opts any) *MockSecretInterfaceUpdateCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockSecretInterface)(nil).Update), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, *v1.Secret, v10.UpdateOptions, *v1.Secret, error](mr.mock.ctrl.T, mr.mock, "Update", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(secret), gomock.EnsureMatcher(opts))
+	mr.updateExpects = append(mr.updateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretInterfaceUpdateCall is the typed call wrapper for Update.
+type MockSecretInterfaceUpdateCall = gomock.Call3_2[context.Context, *v1.Secret, v10.UpdateOptions, *v1.Secret, error]
+
 // Watch mocks base method.
-func (m *MockSecretInterface) Watch(arg0 context.Context, arg1 v10.ListOptions) (watch.Interface, error) {
+func (m *MockSecretInterface) Watch(ctx context.Context, opts v10.ListOptions) (watch.Interface, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch", arg0, arg1)
-	ret0, _ := ret[0].(watch.Interface)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.watchExpects, m.ctrl, m, "Watch", ctx, opts)
 }
 
 // Watch indicates an expected call of Watch.
-func (mr *MockSecretInterfaceMockRecorder) Watch(arg0, arg1 any) *gomock.Call {
+func (mr *MockSecretInterfaceMockRecorder) Watch(ctx, opts any) *MockSecretInterfaceWatchCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockSecretInterface)(nil).Watch), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, v10.ListOptions, watch.Interface, error](mr.mock.ctrl.T, mr.mock, "Watch", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(opts))
+	mr.watchExpects = append(mr.watchExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockSecretInterfaceWatchCall is the typed call wrapper for Watch.
+type MockSecretInterfaceWatchCall = gomock.Call2_2[context.Context, v10.ListOptions, watch.Interface, error]

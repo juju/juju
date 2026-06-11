@@ -13,10 +13,10 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent/tools"
@@ -28,7 +28,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter"
-	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -92,6 +92,7 @@ func (s *UniterSuite) newContext(c tc.LikeC) (*testContext, *gomock.Controller) 
 	ctrl := gomock.NewController(c)
 	ctx := &testContext{
 		ctrl:                   ctrl,
+		stepped:                NewMockStepped(ctrl),
 		s:                      s,
 		uuid:                   coretesting.ModelTag.Id(),
 		path:                   s.unitDir,
@@ -106,10 +107,10 @@ func (s *UniterSuite) newContext(c tc.LikeC) (*testContext, *gomock.Controller) 
 		deployer:               s.deployer,
 	}
 	ctx.runner.ctx = ctx
-	ctx.api = uniterapi.NewMockUniterClient(ctx.ctrl)
+	ctx.api = apimocks.NewMockUniterClient(ctx.ctrl)
 	ctx.resources = contextmocks.NewMockOpenedResourceClient(ctx.ctrl)
-	ctx.secretsClient = uniterapi.NewMockSecretsClient(ctx.ctrl)
-	ctx.secretBackends = uniterapi.NewMockSecretsBackend(ctx.ctrl)
+	ctx.secretsClient = apimocks.NewMockSecretsClient(ctx.ctrl)
+	ctx.secretBackends = apimocks.NewMockSecretsBackend(ctx.ctrl)
 
 	ctx.unitWatchCounter.Store(-1)
 	ctx.relUnitCounter.Store(-1)
@@ -161,19 +162,19 @@ func (s *UniterSuite) TestUniterStartup(c *tc.C) {
 			// We still need to create a unit, because that's when we also
 			// connect to the API, but here we use a different application
 			// (and hence unit) name.
-			createCharm{},
-			createApplicationAndUnit{applicationName: "w"},
-			startUniter{unit: "u/0"},
-			waitUniterDead{err: `failed to initialize uniter for "unit-u-0": permission denied`},
+			&createCharm{},
+			&createApplicationAndUnit{applicationName: "w"},
+			&startUniter{unit: "u/0"},
+			&waitUniterDead{err: `failed to initialize uniter for "unit-u-0": permission denied`},
 		),
 		ut(
 			"unit not found",
-			createCharm{},
-			createApplicationAndUnit{},
+			&createCharm{},
+			&createApplicationAndUnit{},
 			// Remove the unit after the API login.
-			deleteUnit{},
-			startUniter{},
-			waitUniterDead{err: worker.ErrTerminateAgent.Error()},
+			&deleteUnit{},
+			&startUniter{},
+			&waitUniterDead{err: worker.ErrTerminateAgent.Error()},
 		),
 	})
 }
@@ -182,13 +183,13 @@ func (s *UniterSuite) TestPreviousDownloadsCleared(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"Ensure stale download files are cleared on uniter startup",
-			createCharm{},
-			serveCharm{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			verifyDeployed{},
+			&createCharm{},
+			&serveCharm{},
+			&createApplicationAndUnit{},
+			&startUniter{},
+			&waitAddresses{},
+			&waitUnitAgent{status: status.Idle},
+			&verifyDeployed{},
 		),
 	})
 }
@@ -198,17 +199,17 @@ func (s *UniterSuite) TestUniterBootstrap(c *tc.C) {
 		// Check error conditions during unit bootstrap phase.
 		ut(
 			"insane deployment",
-			createCharm{},
-			serveCharm{},
-			writeFile{"charm", 0644},
-			createUniter{startError: true},
-			waitUniterDead{err: `executing operation "install ch:quantal/wordpress-0" for u/0: .*` + errNotDir},
+			&createCharm{},
+			&serveCharm{},
+			&writeFile{"charm", 0644},
+			&createUniter{startError: true},
+			&waitUniterDead{err: `executing operation "install ch:quantal/wordpress-0" for u/0: .*` + errNotDir},
 		), ut(
 			"charm cannot be downloaded",
-			createCharm{},
+			&createCharm{},
 			// don't serve charm
-			createUniter{startError: true},
-			waitUniterDead{err: `preparing operation "install ch:quantal/wordpress-0" for u/0: failed to download charm .* not found`},
+			&createUniter{startError: true},
+			&waitUniterDead{err: `preparing operation "install ch:quantal/wordpress-0" for u/0: failed to download charm .* not found`},
 		),
 	})
 }
@@ -217,33 +218,33 @@ func (s *UniterSuite) TestUniterRestartWithCharmDirInvalidThenRecover(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"re-downloaded charm if it is missing after restart",
-			quickStart{},
-			createCharm{revision: 1},
-			upgradeCharm{revision: 1},
-			waitUnitAgent{
+			&quickStart{},
+			&createCharm{revision: 1},
+			&upgradeCharm{revision: 1},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 				charm:        1,
 			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			verifyCharm{revision: 1},
-			verifyRunning{},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&verifyCharm{revision: 1},
+			&verifyRunning{},
 
-			stopUniter{},
-			removeCharmDir{}, // charm dir has been removed, restart will re-download the charm.
-			startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
-			waitUnitAgent{
+			&stopUniter{},
+			&removeCharmDir{}, // charm dir has been removed, restart will re-download the charm.
+			&startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitHooks{},
-			verifyCharm{revision: 1},
-			verifyRunning{},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&waitHooks{},
+			&verifyCharm{revision: 1},
+			&verifyRunning{},
 		),
 	})
 }
@@ -252,22 +253,22 @@ func (s *UniterSuite) TestUniterStartupStatus(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"unit status and message at startup",
-			createCharm{},
-			serveCharm{},
-			createApplicationAndUnit{},
-			startUniter{
+			&createCharm{},
+			&serveCharm{},
+			&createApplicationAndUnit{},
+			&startUniter{
 				newExecutorFunc: executorFunc(c),
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Waiting,
 				info:         status.MessageInitializingAgent,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				status: status.Failed,
 				info:   "resolver loop error",
 			},
-			expectError{".*some error occurred.*"},
+			&expectError{".*some error occurred.*"},
 		),
 	})
 }
@@ -276,25 +277,25 @@ func (s *UniterSuite) TestUniterInstallHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"install hook fail and resolve",
-			startupError{"install"},
-			verifyWaiting{},
+			&startupError{badHook: "install"},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 			},
-			waitHooks{"leader-elected", "config-changed", "start"},
+			&waitHooks{"leader-elected", "config-changed", "start"},
 		), ut(
 			"install hook fail and retry",
-			startupError{"install"},
-			verifyWaiting{},
+			&startupError{badHook: "install"},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "install"`,
@@ -302,31 +303,34 @@ func (s *UniterSuite) TestUniterInstallHook(c *tc.C) {
 					"hook": "install",
 				},
 			},
-			waitHooks{"fail-install"},
-			fixHook{"install"},
-			verifyWaiting{},
+			&waitHooks{"fail-install"},
+			&fixHook{"install"},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
+			&waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
 	})
 }
 
 func (s *UniterSuite) TestUniterUpdateStatusHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
-		ut(
-			"update status hook runs on timer",
-			createCharm{},
-			serveCharm{},
-			createUniter{},
-			waitHooks(startupHooks(false)),
-			waitUnitAgent{status: status.Idle},
-			updateStatusHookTick{},
-			waitHooks{"update-status"},
-		),
+		func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"update status hook runs on timer",
+				&createCharm{},
+				&serveCharm{},
+				&createUniter{},
+				&wh,
+				&waitUnitAgent{status: status.Idle},
+				&updateStatusHookTick{},
+				&waitHooks{"update-status"},
+			)
+		}(),
 	})
 }
 
@@ -334,36 +338,39 @@ func (s *UniterSuite) TestNoUniterUpdateStatusHookInError(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"update status hook doesn't run if in error",
-			startupError{"start"},
-			waitHooks{},
-			updateStatusHookTick{},
-			waitHooks{},
+			&startupError{badHook: "start"},
+			&waitHooks{},
+			&updateStatusHookTick{},
+			&waitHooks{},
 
 			// Resolve and hook should run.
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 			},
-			waitHooks{},
-			updateStatusHookTick{},
-			waitHooks{"update-status"},
+			&waitHooks{},
+			&updateStatusHookTick{},
+			&waitHooks{"update-status"},
 		),
 	})
 }
 
 func (s *UniterSuite) TestUniterWorkloadReadyHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
-		ut(
-			"update status hook runs on timer",
-			createCharm{},
-			serveCharm{},
-			injectTestContainer{"test"},
-			createUniter{},
-			waitHooks(startupHooks(false)),
-			waitUnitAgent{status: status.Idle},
-			activateTestContainer{"test"},
-			waitHooks{"test-pebble-ready"},
-		),
+		func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"update status hook runs on timer",
+				&createCharm{},
+				&serveCharm{},
+				&injectTestContainer{"test"},
+				&createUniter{},
+				&wh,
+				&waitUnitAgent{status: status.Idle},
+				&activateTestContainer{"test"},
+				&waitHooks{"test-pebble-ready"},
+			)
+		}(),
 	})
 }
 
@@ -371,27 +378,27 @@ func (s *UniterSuite) TestUniterStartHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"start hook fail and resolve",
-			startupError{"start"},
-			verifyWaiting{},
+			&startupError{badHook: "start"},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Maintenance,
 				info:         status.MessageInstallingCharm,
 			},
-			waitHooks{},
-			verifyRunning{},
+			&waitHooks{},
+			&verifyRunning{},
 		), ut(
 			"start hook fail and retry",
-			startupError{"start"},
-			verifyWaiting{},
+			&startupError{badHook: "start"},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
@@ -399,77 +406,86 @@ func (s *UniterSuite) TestUniterStartHook(c *tc.C) {
 					"hook": "start",
 				},
 			},
-			waitHooks{"fail-start"},
-			verifyWaiting{},
+			&waitHooks{"fail-start"},
+			&verifyWaiting{},
 
-			fixHook{"start"},
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&fixHook{"start"},
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 			},
-			waitHooks{"start"},
-			verifyRunning{},
+			&waitHooks{"start"},
+			&verifyRunning{},
 		), ut(
 			"start hook after reboot",
-			quickStart{},
-			stopUniter{},
-			startUniter{},
+			&quickStart{},
+			&stopUniter{},
+			&startUniter{},
 			// Since the unit has already been started before and
 			// a reboot was detected, we expect the uniter to
 			// queue a start hook to notify the charms about the
 			// reboot.
-			waitHooks{"start"},
-			verifyRunning{},
+			&waitHooks{"start"},
+			&verifyRunning{},
 		),
 	})
 }
 
 func (s *UniterSuite) TestUniterRotateSecretHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
-		ut(
-			"rotate secret hook runs when there are secrets to be rotated",
-			createCharm{},
-			serveCharm{},
-			createUniter{},
-			waitHooks(startupHooks(false)),
-			waitUnitAgent{status: status.Idle},
-			createSecret{},
-			rotateSecret{rev: 1},
-			waitHooks{"secret-rotate"},
-		),
+		func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"rotate secret hook runs when there are secrets to be rotated",
+				&createCharm{},
+				&serveCharm{},
+				&createUniter{},
+				&wh,
+				&waitUnitAgent{status: status.Idle},
+				&createSecret{},
+				&rotateSecret{rev: 1},
+				&waitHooks{"secret-rotate"},
+			)
+		}(),
 	})
 }
 
 func (s *UniterSuite) TestUniterSecretExpiredHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
-		ut(
-			"secret expired hook runs when there are secret revisions to be expired",
-			createCharm{},
-			serveCharm{},
-			createUniter{},
-			waitHooks(startupHooks(false)),
-			waitUnitAgent{status: status.Idle},
-			createSecret{},
-			expireSecret{},
-			waitHooks{"secret-expired"},
-		),
+		func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"secret expired hook runs when there are secret revisions to be expired",
+				&createCharm{},
+				&serveCharm{},
+				&createUniter{},
+				&wh,
+				&waitUnitAgent{status: status.Idle},
+				&createSecret{},
+				&expireSecret{},
+				&waitHooks{"secret-expired"},
+			)
+		}(),
 	})
 }
 
 func (s *UniterSuite) TestUniterSecretChangedHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
-		ut(
-			"change secret hook runs when there are secret changes",
-			createCharm{},
-			serveCharm{},
-			createUniter{},
-			waitHooks(startupHooks(false)),
-			waitUnitAgent{status: status.Idle},
-			createSecret{},
-			getSecret{},
-			changeSecret{},
-			waitHooks{"secret-changed"},
-		),
+		func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"change secret hook runs when there are secret changes",
+				&createCharm{},
+				&serveCharm{},
+				&createUniter{},
+				&wh,
+				&waitUnitAgent{status: status.Idle},
+				&createSecret{},
+				&getSecret{},
+				&changeSecret{},
+				&waitHooks{"secret-changed"},
+			)
+		}(),
 	})
 }
 
@@ -477,10 +493,10 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"resolved is cleared before moving on to next hook",
-			createCharm{badHooks: []string{"install", "leader-elected", "config-changed", "start"}},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{
+			&createCharm{badHooks: []string{"install", "leader-elected", "config-changed", "start"}},
+			&serveCharm{},
+			&createUniter{},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "install"`,
@@ -488,8 +504,8 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 					"hook": "install",
 				},
 			},
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "leader-elected"`,
@@ -497,8 +513,8 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 					"hook": "leader-elected",
 				},
 			},
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "config-changed"`,
@@ -506,8 +522,8 @@ func (s *UniterSuite) TestUniterMultipleErrors(c *tc.C) {
 					"hook": "config-changed",
 				},
 			},
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
@@ -523,33 +539,33 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"config-changed hook fail and resolve",
-			startupError{"config-changed"},
-			verifyWaiting{},
+			&startupError{badHook: "config-changed"},
+			&verifyWaiting{},
 
 			// Note: we'll run another config-changed as soon as we hit the
 			// started state, so the broken hook would actually prevent us
 			// from advancing at all if we didn't fix it.
-			fixHook{"config-changed"},
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&fixHook{"config-changed"},
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 			},
-			waitHooks{"start"},
+			&waitHooks{"start"},
 			// If we'd accidentally retried that hook, somehow, we would get
 			// an extra config-changed as we entered started; see that we don't.
-			waitHooks{},
-			verifyRunning{},
+			&waitHooks{},
+			&verifyRunning{},
 		), ut(
 			"config-changed hook fail and retry",
-			startupError{"config-changed"},
-			verifyWaiting{},
+			&startupError{badHook: "config-changed"},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "config-changed"`,
@@ -557,16 +573,16 @@ func (s *UniterSuite) TestUniterConfigChangedHook(c *tc.C) {
 					"hook": "config-changed",
 				},
 			},
-			waitHooks{"fail-config-changed"},
-			verifyWaiting{},
+			&waitHooks{"fail-config-changed"},
+			&verifyWaiting{},
 
-			fixHook{"config-changed"},
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&fixHook{"config-changed"},
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 			},
-			waitHooks{"config-changed", "start"},
-			verifyRunning{},
+			&waitHooks{"config-changed", "start"},
+			&verifyRunning{},
 		),
 	})
 }
@@ -576,25 +592,25 @@ func (s *UniterSuite) TestUniterHookSynchronisation(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"verify config change hook not run while lock held",
-			quickStart{},
+			&quickStart{},
 			lock.acquire(),
-			changeConfig{"blog-title": "Goodness Gracious Me"},
-			waitHooks{},
+			&changeConfig{"blog-title": "Goodness Gracious Me"},
+			&waitHooks{},
 			lock.release(),
-			waitHooks{"config-changed"},
+			&waitHooks{"config-changed"},
 		), ut(
 			"verify held lock by another unit is not broken",
 			lock.acquire(),
 			// Can't use quickstart as it has a built in waitHooks.
-			createCharm{},
-			serveCharm{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitHooks{},
+			&createCharm{},
+			&serveCharm{},
+			&createApplicationAndUnit{},
+			&startUniter{},
+			&waitAddresses{},
+			&waitHooks{},
 			lock.release(),
-			waitUnitAgent{status: status.Idle},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
+			&waitUnitAgent{status: status.Idle},
+			&waitHooks{"install", "leader-elected", "config-changed", "start"},
 		),
 	})
 }
@@ -604,31 +620,31 @@ func (s *UniterSuite) TestUniterDyingReaction(c *tc.C) {
 		// Reaction to entity deaths.
 		ut(
 			"steady state unit dying",
-			quickStart{},
-			unitDying,
-			waitHooks{"stop"},
-			waitUniterDead{},
+			&quickStart{},
+			&unitDying{},
+			&waitHooks{"stop"},
+			&waitUniterDead{},
 		), ut(
 			"steady state unit dead",
-			quickStart{},
+			&quickStart{},
 			unitDead,
-			waitUniterDead{},
-			waitHooks{},
+			&waitUniterDead{},
+			&waitHooks{},
 		), ut(
 			"hook error unit dying",
-			startupError{"start"},
-			unitDying,
-			verifyWaiting{},
-			fixHook{"start"},
-			resolveError{params.ResolvedRetryHooks},
-			waitHooks{"start", "stop"},
-			waitUniterDead{},
+			&startupError{badHook: "start"},
+			&unitDying{},
+			&verifyWaiting{},
+			&fixHook{"start"},
+			&resolveError{params.ResolvedRetryHooks},
+			&waitHooks{"start", "stop"},
+			&waitUniterDead{},
 		), ut(
 			"hook error unit dead",
-			startupError{"start"},
+			&startupError{badHook: "start"},
 			unitDead,
-			waitUniterDead{},
-			waitHooks{},
+			&waitUniterDead{},
+			&waitHooks{},
 		),
 	})
 }
@@ -638,21 +654,21 @@ func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *tc.C) {
 		// Upgrade scenarios from steady state.
 		ut(
 			"steady state upgrade",
-			quickStart{},
-			createCharm{revision: 1},
-			upgradeCharm{revision: 1},
-			waitUnitAgent{
+			&quickStart{},
+			&createCharm{revision: 1},
+			&upgradeCharm{revision: 1},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 				charm:        1,
 			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			verifyCharm{revision: 1},
-			verifyRunning{},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&verifyCharm{revision: 1},
+			&verifyRunning{},
 		),
 	})
 }
@@ -661,21 +677,21 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeForce(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"steady state forced upgrade (identical behaviour)",
-			quickStart{},
-			createCharm{revision: 1},
-			upgradeCharm{revision: 1, forced: true},
-			waitUnitAgent{
+			&quickStart{},
+			&createCharm{revision: 1},
+			&upgradeCharm{revision: 1, forced: true},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 				charm:        1,
 			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			verifyCharm{revision: 1},
-			verifyRunning{},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&verifyCharm{revision: 1},
+			&verifyRunning{},
 		),
 	})
 }
@@ -684,10 +700,10 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeResolve(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"steady state upgrade hook fail and resolve",
-			quickStart{},
-			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
-			upgradeCharm{revision: 1},
-			waitUnitAgent{
+			&quickStart{},
+			&createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
+			&upgradeCharm{revision: 1},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "upgrade-charm"`,
@@ -696,22 +712,22 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeResolve(c *tc.C) {
 				},
 				charm: 1,
 			},
-			waitHooks{"fail-upgrade-charm"},
-			verifyCharm{revision: 1},
-			verifyWaiting{},
+			&waitHooks{"fail-upgrade-charm"},
+			&verifyCharm{revision: 1},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 				charm:        1,
 			},
-			waitHooks{"config-changed"},
-			verifyRunning{},
+			&waitHooks{"config-changed"},
+			&verifyRunning{},
 		),
 	})
 }
@@ -720,10 +736,10 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"steady state upgrade hook fail and retry",
-			quickStart{},
-			createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
-			upgradeCharm{revision: 1},
-			waitUnitAgent{
+			&quickStart{},
+			&createCharm{revision: 1, badHooks: []string{"upgrade-charm"}},
+			&upgradeCharm{revision: 1},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "upgrade-charm"`,
@@ -732,12 +748,12 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *tc.C) {
 				},
 				charm: 1,
 			},
-			waitHooks{"fail-upgrade-charm"},
-			verifyCharm{revision: 1},
-			verifyWaiting{},
+			&waitHooks{"fail-upgrade-charm"},
+			&verifyCharm{revision: 1},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "upgrade-charm"`,
@@ -746,17 +762,17 @@ func (s *UniterSuite) TestUniterSteadyStateUpgradeRetry(c *tc.C) {
 				},
 				charm: 1,
 			},
-			waitHooks{"fail-upgrade-charm"},
-			verifyWaiting{},
+			&waitHooks{"fail-upgrade-charm"},
+			&verifyWaiting{},
 
-			fixHook{"upgrade-charm"},
-			resolveError{params.ResolvedRetryHooks},
-			waitUnitAgent{
+			&fixHook{"upgrade-charm"},
+			&resolveError{params.ResolvedRetryHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			verifyRunning{},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&verifyRunning{},
 		),
 	})
 }
@@ -782,21 +798,24 @@ resources:
 		c.Assert(err, tc.ErrorIsNil)
 	}
 	s.runUniterTests(c, []uniterTest{
-		ut(
-			"update resource causes upgrade",
+		func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"update resource causes upgrade",
 
-			// These steps are just copied from quickstart with a customized
-			// createCharm.
-			createCharm{customize: appendResource},
-			serveCharm{},
-			createUniter{},
-			waitUnitAgent{status: status.Idle},
-			waitHooks(startupHooks(false)),
-			verifyCharm{},
+				// These steps are just copied from quickstart with a customized
+				// createCharm.
+				&createCharm{customize: appendResource},
+				&serveCharm{},
+				&createUniter{},
+				&waitUnitAgent{status: status.Idle},
+				&wh,
+				&verifyCharm{},
 
-			pushResource{},
-			waitHooks{"upgrade-charm", "config-changed"},
-		),
+				&pushResource{},
+				&waitHooks{"upgrade-charm", "config-changed"},
+			)
+		}(),
 	})
 }
 
@@ -805,10 +824,10 @@ func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *tc.C) {
 		// Upgrade scenarios from error state.
 		ut(
 			"error state unforced upgrade (ignored until started state)",
-			startupError{"start"},
-			createCharm{revision: 1},
-			upgradeCharm{revision: 1},
-			waitUnitAgent{
+			&startupError{badHook: "start"},
+			&createCharm{revision: 1},
+			&upgradeCharm{revision: 1},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
@@ -816,24 +835,24 @@ func (s *UniterSuite) TestUniterErrorStateUnforcedUpgrade(c *tc.C) {
 					"hook": "start",
 				},
 			},
-			waitHooks{},
-			verifyCharm{},
-			verifyWaiting{},
+			&waitHooks{},
+			&verifyCharm{},
+			&verifyWaiting{},
 
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Maintenance,
 				info:         status.MessageInstallingCharm,
 				charm:        1,
 			},
-			waitHooks{"upgrade-charm", "config-changed"},
-			verifyCharm{revision: 1},
-			verifyRunning{},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&verifyCharm{revision: 1},
+			&verifyRunning{},
 		)})
 }
 
@@ -841,15 +860,15 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"error state forced upgrade",
-			startupError{"start"},
-			createCharm{revision: 1},
-			upgradeCharm{revision: 1, forced: true},
+			&startupError{badHook: "start"},
+			&createCharm{revision: 1},
+			&upgradeCharm{revision: 1, forced: true},
 			// It's not possible to tell directly from state when the upgrade is
 			// complete, because the new unit charm URL is set at the upgrade
 			// process's point of no return (before actually deploying, but after
 			// the charm has been downloaded and verified). However, it's still
 			// useful to wait until that point...
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
@@ -862,16 +881,16 @@ func (s *UniterSuite) TestUniterErrorStateForcedUpgrade(c *tc.C) {
 			// we stop it from outside. So, by stopping and starting, we can be
 			// sure that the operation has completed and can safely verify that
 			// the charm state on disk is as we expect.
-			verifyWaiting{},
-			verifyCharm{revision: 1},
+			&verifyWaiting{},
+			&verifyCharm{revision: 1},
 
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitHooks{"config-changed"},
-			verifyRunning{},
+			&waitHooks{"config-changed"},
+			&verifyRunning{},
 		),
 	})
 }
@@ -881,81 +900,81 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *tc.C) {
 		// Upgrade scenarios - handling conflicts.
 		ut(
 			"upgrade: resolving doesn't help until underlying problem is fixed",
-			startUpgradeError{},
-			resolveError{params.ResolvedNoHooks},
-			verifyWaitingUpgradeError{revision: 1},
-			fixUpgradeError{},
-			resolveError{params.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
+			&startUpgradeError{},
+			&resolveError{params.ResolvedNoHooks},
+			&verifyWaitingUpgradeError{revision: 1},
+			&fixUpgradeError{},
+			&resolveError{params.ResolvedNoHooks},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  1,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 				charm:        1,
 			},
-			verifyCharm{revision: 1},
+			&verifyCharm{revision: 1},
 		), ut(
 			`upgrade: forced upgrade does work without explicit resolution if underlying problem was fixed`,
-			startUpgradeError{},
-			resolveError{params.ResolvedNoHooks},
-			verifyWaitingUpgradeError{revision: 1},
-			fixUpgradeError{},
-			createCharm{revision: 2},
-			serveCharm{},
-			upgradeCharm{revision: 2, forced: true},
-			waitHooks{"upgrade-charm", "config-changed"},
-			waitUnitAgent{
+			&startUpgradeError{},
+			&resolveError{params.ResolvedNoHooks},
+			&verifyWaitingUpgradeError{revision: 1},
+			&fixUpgradeError{},
+			&createCharm{revision: 2},
+			&serveCharm{},
+			&upgradeCharm{revision: 2, forced: true},
+			&waitHooks{"upgrade-charm", "config-changed"},
+			&waitUnitAgent{
 				status: status.Idle,
 				charm:  2,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 				charm:        2,
 			},
-			verifyCharm{revision: 2},
+			&verifyCharm{revision: 2},
 		), ut(
 			"upgrade conflict unit dying",
-			startUpgradeError{},
-			unitDying,
-			verifyWaitingUpgradeError{revision: 1},
-			fixUpgradeError{},
-			resolveError{params.ResolvedNoHooks},
-			waitHooks{"upgrade-charm", "config-changed", "stop"},
-			waitUniterDead{},
+			&startUpgradeError{},
+			&unitDying{},
+			&verifyWaitingUpgradeError{revision: 1},
+			&fixUpgradeError{},
+			&resolveError{params.ResolvedNoHooks},
+			&waitHooks{"upgrade-charm", "config-changed", "stop"},
+			&waitUniterDead{},
 		), ut(
 			"upgrade conflict unit dead",
-			startUpgradeError{},
+			&startUpgradeError{},
 			unitDead,
-			waitUniterDead{},
-			waitHooks{},
-			fixUpgradeError{},
+			&waitUniterDead{},
+			&waitHooks{},
+			&fixUpgradeError{},
 		),
 	})
 }
 
 func (s *UniterSuite) TestUniterRelationsSimpleJoinedChangedDeparted(c *tc.C) {
 	s.runUniterTest(c,
-		quickStartRelation{},
-		addRelationUnit{},
-		waitHooks{
+		&quickStartRelation{},
+		&addRelationUnit{},
+		&waitHooks{
 			"db-relation-joined mysql/1 db:0",
 			"db-relation-changed mysql/1 db:0",
 		},
-		changeRelationUnit{"mysql/0"},
-		waitHooks{"db-relation-changed mysql/0 db:0"},
-		removeRelationUnit{"mysql/1"},
-		waitHooks{"db-relation-departed mysql/1 db:0"},
-		verifyRunning{},
+		&changeRelationUnit{"mysql/0"},
+		&waitHooks{"db-relation-changed mysql/0 db:0"},
+		&removeRelationUnit{"mysql/1"},
+		&waitHooks{"db-relation-departed mysql/1 db:0"},
+		&verifyRunning{},
 	)
 }
 
 func (s *UniterSuite) TestUniterRelations(c *tc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	waitDyingHooks := custom{func(c tc.LikeC, ctx *testContext) {
+	waitDyingHooks := &custom{f: func(c tc.LikeC, ctx *testContext) {
 		// There is no ordering relationship between relation hooks and
 		// leader-settings-changed hooks; and while we're dying we may
 		// never get to leader-settings-changed before it's time to run
@@ -994,43 +1013,43 @@ func (s *UniterSuite) TestUniterRelations(c *tc.C) {
 		// Relations.
 		ut(
 			"relation becomes dying; unit is not last remaining member",
-			quickStartRelation{},
+			&quickStartRelation{},
 			relationDying,
-			waitHooks{
+			&waitHooks{
 				"db-relation-departed mysql/0 db:0",
 				"db-relation-broken db:0",
 			},
-			verifyRunning{},
-			relationState{life: life.Dying},
-			removeRelationUnit{"mysql/0"},
-			verifyRunning{},
-			relationState{removed: true},
-			verifyRunning{},
+			&verifyRunning{},
+			&relationState{life: life.Dying},
+			&removeRelationUnit{"mysql/0"},
+			&verifyRunning{},
+			&relationState{removed: true},
+			&verifyRunning{},
 		), ut(
 			"relation becomes dying; unit is last remaining member",
-			quickStartRelation{},
-			removeRelationUnit{"mysql/0"},
-			waitHooks{"db-relation-departed mysql/0 db:0"},
+			&quickStartRelation{},
+			&removeRelationUnit{"mysql/0"},
+			&waitHooks{"db-relation-departed mysql/0 db:0"},
 			relationDying,
-			waitHooks{"db-relation-broken db:0"},
-			verifyRunning{},
-			relationState{removed: true},
-			verifyRunning{},
+			&waitHooks{"db-relation-broken db:0"},
+			&verifyRunning{},
+			&relationState{removed: true},
+			&verifyRunning{},
 		), ut(
 			"unit becomes dying while in a relation",
-			quickStartRelation{},
-			unitDying,
-			waitUniterDead{},
+			&quickStartRelation{},
+			&unitDying{},
+			&waitUniterDead{},
 			waitDyingHooks,
-			relationState{life: life.Alive},
-			removeRelationUnit{"mysql/0"},
-			relationState{life: life.Alive},
+			&relationState{life: life.Alive},
+			&removeRelationUnit{"mysql/0"},
+			&relationState{life: life.Alive},
 		), ut(
 			"unit becomes dead while in a relation",
-			quickStartRelation{},
+			&quickStartRelation{},
 			unitDead,
-			waitUniterDead{},
-			waitHooks{},
+			&waitUniterDead{},
+			&waitHooks{},
 			// TODO BUG(?): the unit doesn't leave the scope, leaving the relation
 			// unkillable without direct intervention. I'm pretty sure it's not a
 			// uniter bug -- it should be the responsibility of `juju remove-unit
@@ -1038,15 +1057,15 @@ func (s *UniterSuite) TestUniterRelations(c *tc.C) {
 			// in -- but it's worth noting here all the same.
 		), ut(
 			"unknown local relation dir is removed",
-			quickStartRelation{},
-			stopUniter{},
-			startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
+			&quickStartRelation{},
+			&stopUniter{},
+			&startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
 			// We need some synchronisation point here to ensure that the uniter
 			// has entered the correct place in the resolving loop. Now that we are
 			// no longer always executing config-changed, we poke the config just so
 			// we can get the event to give us the synchronisation point.
-			changeConfig{"blog-title": "Goodness Gracious Me"},
-			waitHooks{"config-changed"},
+			&changeConfig{"blog-title": "Goodness Gracious Me"},
+			&waitHooks{"config-changed"},
 		),
 	})
 }
@@ -1055,8 +1074,8 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"hook error during join of a relation",
-			startupRelationError{"db-relation-joined"},
-			waitUnitAgent{
+			&startupRelationError{badHook: "db-relation-joined"},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-joined"`,
@@ -1068,8 +1087,8 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 			},
 		), ut(
 			"hook error during change of a relation",
-			startupRelationError{"db-relation-changed"},
-			waitUnitAgent{
+			&startupRelationError{badHook: "db-relation-changed"},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-changed"`,
@@ -1081,10 +1100,10 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 			},
 		), ut(
 			"hook error after a unit departed",
-			startupRelationError{"db-relation-departed"},
-			waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
-			removeRelationUnit{"mysql/0"},
-			waitUnitAgent{
+			&startupRelationError{badHook: "db-relation-departed"},
+			&waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
+			&removeRelationUnit{"mysql/0"},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-departed"`,
@@ -1097,10 +1116,10 @@ func (s *UniterSuite) TestUniterRelationErrors(c *tc.C) {
 		),
 		ut(
 			"hook error after a relation died",
-			startupRelationError{"db-relation-broken"},
-			waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
+			&startupRelationError{badHook: "db-relation-broken"},
+			&waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"},
 			relationDying,
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "db-relation-broken"`,
@@ -1117,9 +1136,9 @@ func (s *UniterSuite) TestUniterRelationErrorsLostRelation(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"ignore pending relation hook when relation deleted while stopped",
-			quickStart{},
-			stopUniter{},
-			custom{func(c tc.LikeC, ctx *testContext) {
+			&quickStart{},
+			&stopUniter{},
+			&custom{f: func(c tc.LikeC, ctx *testContext) {
 				opState := operation.State{}
 				opState.Kind = operation.RunHook
 				opState.Step = operation.Pending
@@ -1133,8 +1152,8 @@ func (s *UniterSuite) TestUniterRelationErrorsLostRelation(c *tc.C) {
 				c.Assert(err, tc.ErrorIsNil)
 				ctx.uniterState = string(newData)
 			}},
-			startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
-			waitUnitAgent{
+			&startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "relation-joined: relation: 1337 not found"`,
@@ -1152,8 +1171,8 @@ func (s *UniterSuite) TestRunCommand(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"run commands",
-			quickStart{},
-			runCommands{"test"},
+			&quickStart{},
+			&runCommands{"test"},
 		),
 	})
 }
@@ -1162,46 +1181,46 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"simple action",
-			createCharm{},
-			serveCharm{},
-			createApplicationAndUnit{},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
+			&createCharm{},
+			&serveCharm{},
+			&createApplicationAndUnit{},
+			&startUniter{},
+			&waitAddresses{},
+			&waitUnitAgent{status: status.Idle},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			addAction{"fakeaction", map[string]any{"foo": "bar"}},
-			waitActionInvocation{[]actionData{{
+			&waitHooks{"install", "leader-elected", "config-changed", "start"},
+			&verifyCharm{},
+			&addAction{name: "fakeaction", params: map[string]any{"foo": "bar"}},
+			&waitActionInvocation{[]actionData{{
 				actionName: "fakeaction",
 				args:       []string{"foo=bar"},
 			}}},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
+			&waitUnitAgent{status: status.Idle},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 			},
 		), ut(
 			"pending expectedActions get consumed",
-			createCharm{},
-			serveCharm{},
-			createApplicationAndUnit{},
-			addAction{"fakeaction", map[string]any{"foo": "bar"}},
-			addAction{"fakeaction", nil},
-			addAction{"fakeaction", nil},
-			startUniter{},
-			waitAddresses{},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
+			&createCharm{},
+			&serveCharm{},
+			&createApplicationAndUnit{},
+			&addAction{name: "fakeaction", params: map[string]any{"foo": "bar"}},
+			&addAction{name: "fakeaction", params: nil},
+			&addAction{name: "fakeaction", params: nil},
+			&startUniter{},
+			&waitAddresses{},
+			&waitUnitAgent{status: status.Idle},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 			},
-			waitHooks{"install", "leader-elected", "config-changed", "start"},
-			verifyCharm{},
-			waitActionInvocation{[]actionData{{
+			&waitHooks{"install", "leader-elected", "config-changed", "start"},
+			&verifyCharm{},
+			&waitActionInvocation{[]actionData{{
 				actionName: "fakeaction",
 				args:       []string{"foo=bar"},
 			}, {
@@ -1209,36 +1228,36 @@ func (s *UniterSuite) TestRunAction(c *tc.C) {
 			}, {
 				actionName: "fakeaction",
 			}}},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
+			&waitUnitAgent{status: status.Idle},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Unknown,
 			},
 		), ut(
 			"expectedActions may run from ModeHookError, but do not clear the error",
-			startupError{
+			&startupError{
 				badHook: "start",
 			},
-			addAction{"fakeaction", nil},
-			waitUnitAgent{
+			&addAction{name: "fakeaction", params: nil},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
 				data:         map[string]any{"hook": "start"},
 			},
-			waitActionInvocation{[]actionData{{
+			&waitActionInvocation{[]actionData{{
 				actionName: "fakeaction",
 			}}},
-			waitUnitAgent{
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Error,
 				info:         `hook failed: "start"`,
 				data:         map[string]any{"hook": "start"},
 			},
-			verifyWaiting{},
-			resolveError{params.ResolvedNoHooks},
-			waitUnitAgent{status: status.Idle},
-			waitUnitAgent{
+			&verifyWaiting{},
+			&resolveError{params.ResolvedNoHooks},
+			&waitUnitAgent{status: status.Idle},
+			&waitUnitAgent{
 				statusGetter: unitStatusGetter,
 				status:       status.Maintenance,
 				info:         status.MessageInstallingCharm,
@@ -1252,27 +1271,27 @@ func (s *UniterSuite) TestUniterSubordinates(c *tc.C) {
 		// Subordinates.
 		ut(
 			"unit becomes dying while subordinates exist",
-			quickStart{},
-			addSubordinateRelation{corerelation.JujuInfo},
-			waitSubordinateExists{"logging/0"},
-			unitDying,
-			waitSubordinateDying{},
-			waitHooks{"stop", "remove"},
-			verifyWaiting{},
-			removeSubordinate{},
-			waitUniterDead{},
+			&quickStart{},
+			&addSubordinateRelation{ifce: corerelation.JujuInfo},
+			&waitSubordinateExists{"logging/0"},
+			&unitDying{},
+			&waitSubordinateDying{},
+			&waitHooks{"stop", "remove"},
+			&verifyWaiting{},
+			&removeSubordinate{},
+			&waitUniterDead{},
 		), ut(
 			"new subordinate becomes necessary while old one is dying",
-			quickStart{},
-			addSubordinateRelation{corerelation.JujuInfo},
-			waitSubordinateExists{"logging/0"},
-			removeSubordinateRelation{corerelation.JujuInfo},
+			&quickStart{},
+			&addSubordinateRelation{ifce: corerelation.JujuInfo},
+			&waitSubordinateExists{"logging/0"},
+			&removeSubordinateRelation{corerelation.JujuInfo},
 			// The subordinate Uniter would usually set Dying in this situation.
 			subordinateDying,
-			addSubordinateRelation{"logging-dir"},
-			verifyRunning{},
-			removeSubordinate{},
-			waitSubordinateExists{"logging/1"},
+			&addSubordinateRelation{ifce: "logging-dir"},
+			&verifyRunning{},
+			&removeSubordinate{},
+			&waitSubordinateExists{"logging/1"},
 		),
 	})
 }
@@ -1281,9 +1300,9 @@ func (s *UniterSuite) TestLeadership(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"leader-elected triggers when elected",
-			quickStart{minion: true},
-			forceLeader{},
-			waitHooks{"leader-elected"},
+			&quickStart{minion: true},
+			&forceLeader{},
+			&waitHooks{"leader-elected"},
 		),
 	})
 }
@@ -1296,8 +1315,8 @@ func (s *UniterSuite) TestLeadershipUnexpectedDepose(c *tc.C) {
 			// it depends on an artificially shortened tracker refresh time to
 			// run in a reasonable amount of time.
 			"leader-settings-changed triggers when deposed (while running)",
-			quickStart{},
-			forceMinion{},
+			&quickStart{},
+			&forceMinion{},
 		),
 	})
 }
@@ -1327,68 +1346,80 @@ storage:
 		"wp-content": 1,
 	}
 	s.runUniterTests(c, []uniterTest{
-		ut(
-			"test that storage-attached is called",
-			createCharm{customize: appendStorageMetadata},
-			serveCharm{},
-			createApplicationAndUnit{storage: storageDirectives},
-			provisionStorage{},
-			startUniter{},
-			waitAddresses{},
-			waitHooks{"wp-content-storage-attached"},
-			waitHooks(startupHooks(false)),
-		), ut(
-			"test that storage-detaching is called before stop",
-			createCharm{customize: appendStorageMetadata},
-			serveCharm{},
-			createApplicationAndUnit{storage: storageDirectives},
-			provisionStorage{},
-			startUniter{},
-			waitAddresses{},
-			waitHooks{"wp-content-storage-attached"},
-			waitHooks(startupHooks(false)),
-			unitDying,
-			// "stop" hook is not called until storage is detached
-			waitHooks{"wp-content-storage-detaching", "stop"},
-			verifyStorageDetached{},
-			waitUniterDead{},
-		), ut(
-			"test that storage-detaching is called only if previously attached",
-			createCharm{customize: appendStorageMetadata},
-			serveCharm{},
-			createApplicationAndUnit{storage: storageDirectives},
-			// provision and destroy the storage before the uniter starts,
-			// to ensure it never sees the storage as attached
-			provisionStorage{},
-			destroyStorageAttachment{},
-			startUniter{},
-			waitHooks(startupHooks(false)),
-			unitDying,
-			// storage-detaching is not called because it was never attached
-			waitHooks{"stop"},
-			verifyStorageDetached{},
-			waitUniterDead{},
-		), ut(
-			"test that delay-provisioned storage does not block forever",
-			createCharm{customize: appendStorageMetadata},
-			serveCharm{},
-			createApplicationAndUnit{storage: storageDirectives},
-			startUniter{},
-			// no hooks should be run, as storage isn't provisioned
-			waitHooks{},
-			provisionStorage{},
-			waitHooks{"wp-content-storage-attached"},
-			waitHooks(startupHooks(false)),
-		), ut(
+		func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"test that storage-attached is called",
+				&createCharm{customize: appendStorageMetadata},
+				&serveCharm{},
+				&createApplicationAndUnit{storage: storageDirectives},
+				&provisionStorage{},
+				&startUniter{},
+				&waitAddresses{},
+				&waitHooks{"wp-content-storage-attached"},
+				&wh,
+			)
+		}(), func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"test that storage-detaching is called before stop",
+				&createCharm{customize: appendStorageMetadata},
+				&serveCharm{},
+				&createApplicationAndUnit{storage: storageDirectives},
+				&provisionStorage{},
+				&startUniter{},
+				&waitAddresses{},
+				&waitHooks{"wp-content-storage-attached"},
+				&wh,
+				&unitDying{},
+				// "stop" hook is not called until storage is detached
+				&waitHooks{"wp-content-storage-detaching", "stop"},
+				&verifyStorageDetached{},
+				&waitUniterDead{},
+			)
+		}(), func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"test that storage-detaching is called only if previously attached",
+				&createCharm{customize: appendStorageMetadata},
+				&serveCharm{},
+				&createApplicationAndUnit{storage: storageDirectives},
+				// provision and destroy the storage before the uniter starts,
+				// to ensure it never sees the storage as attached
+				&provisionStorage{},
+				&destroyStorageAttachment{},
+				&startUniter{},
+				&wh,
+				&unitDying{},
+				// storage-detaching is not called because it was never attached
+				&waitHooks{"stop"},
+				&verifyStorageDetached{},
+				&waitUniterDead{},
+			)
+		}(), func() uniterTest {
+			wh := waitHooks(startupHooks(false))
+			return ut(
+				"test that delay-provisioned storage does not block forever",
+				&createCharm{customize: appendStorageMetadata},
+				&serveCharm{},
+				&createApplicationAndUnit{storage: storageDirectives},
+				&startUniter{},
+				// no hooks should be run, as storage isn't provisioned
+				&waitHooks{},
+				&provisionStorage{},
+				&waitHooks{"wp-content-storage-attached"},
+				&wh,
+			)
+		}(), ut(
 			"test that unprovisioned storage does not block unit termination",
-			createCharm{customize: appendStorageMetadata},
-			serveCharm{},
-			createApplicationAndUnit{storage: storageDirectives},
-			unitDying,
-			startUniter{},
+			&createCharm{customize: appendStorageMetadata},
+			&serveCharm{},
+			&createApplicationAndUnit{storage: storageDirectives},
+			&unitDying{},
+			&startUniter{},
 			// no hooks should be run, and unit agent should terminate
-			waitHooks{},
-			waitUniterDead{},
+			&waitHooks{},
+			&waitUniterDead{},
 		),
 		// TODO(axw) test that storage-attached is run for new
 		// storage attachments before refresh is run. This
@@ -1416,14 +1447,14 @@ func (s *UniterSuite) TestOperationErrorReported(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"error running operations are reported",
-			createCharm{},
-			serveCharm{},
-			createUniter{executorFunc: executorFunc(c)},
-			waitUnitAgent{
+			&createCharm{},
+			&serveCharm{},
+			&createUniter{executorFunc: executorFunc(c)},
+			&waitUnitAgent{
 				status: status.Failed,
 				info:   "resolver loop error",
 			},
-			expectError{".*some error occurred.*"},
+			&expectError{".*some error occurred.*"},
 		),
 	})
 }
@@ -1436,17 +1467,17 @@ func (s *UniterSuite) TestTranslateResolverError(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"resolver errors are translated",
-			createCharm{},
-			serveCharm{},
-			createUniter{
+			&createCharm{},
+			&serveCharm{},
+			&createUniter{
 				executorFunc:         executorFunc(c),
 				translateResolverErr: translateResolverErr,
 			},
-			waitUnitAgent{
+			&waitUnitAgent{
 				status: status.Failed,
 				info:   "resolver loop error",
 			},
-			expectError{".*some other error.*"},
+			&expectError{".*some other error.*"},
 		),
 	})
 }
@@ -1463,10 +1494,10 @@ func (s *UniterSuite) TestShutdown(c *tc.C) {
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"shutdown",
-			quickStart{},
-			triggerShutdown{},
-			waitHooks{"stop"},
-			expectError{"agent should be terminated"},
+			&quickStart{},
+			&triggerShutdown{},
+			&waitHooks{"stop"},
+			&expectError{"agent should be terminated"},
 		),
 	})
 }

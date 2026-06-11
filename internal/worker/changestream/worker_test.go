@@ -6,13 +6,13 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"

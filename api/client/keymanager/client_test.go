@@ -4,13 +4,15 @@
 package keymanager_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
-	"go.uber.org/mock/gomock"
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/keymanager"
@@ -43,7 +45,12 @@ func (s *keymanagerSuite) TestListKeys(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListKeys", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListKeys", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	keyResults, err := client.ListKeys(c.Context(), ssh.Fingerprints, tag.Name())
@@ -75,7 +82,12 @@ func (s *keymanagerSuite) TestAddKeys(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddKeys", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "AddKeys", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.AddKeys(c.Context(), tag.Name(), newKeys...)
@@ -106,7 +118,12 @@ func (s *keymanagerSuite) TestDeleteKeys(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DeleteKeys", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "DeleteKeys", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.DeleteKeys(c.Context(), tag.Name(), sshtesting.ValidKeyTwo.Fingerprint, "user@host", "missing")
@@ -137,7 +154,12 @@ func (s *keymanagerSuite) TestImportKeys(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ImportKeys", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ImportKeys", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	client := keymanager.NewClientFromCaller(mockFacadeCaller)
 	errResults, err := client.ImportKeys(c.Context(), tag.Name(), keyIds...)

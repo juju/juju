@@ -3,4 +3,4 @@
 
 package config
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package config -destination agent_config_mock_test.go github.com/juju/juju/agent/config AgentConfigReader
+//go:generate go run github.com/canonical/gomock/mockgen -package config -destination agent_config_mock_test.go github.com/juju/juju/agent/config AgentConfigReader

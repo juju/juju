@@ -4,16 +4,16 @@
 package objectstorefacade
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstorefacade -destination service_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreGetter,ObjectStore
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstorefacade -destination fortress_mock_test.go github.com/juju/juju/internal/worker/fortress Guest
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstorefacade -destination service_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreGetter,ObjectStore
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstorefacade -destination fortress_mock_test.go github.com/juju/juju/internal/worker/fortress Guest
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

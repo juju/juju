@@ -3,5 +3,5 @@
 
 package upgradeservices
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradeservices -destination servicefactory_mock_test.go github.com/juju/juju/internal/services UpgradeServices,UpgradeServicesGetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradeservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradeservices -destination servicefactory_mock_test.go github.com/juju/juju/internal/services UpgradeServices,UpgradeServicesGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradeservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter

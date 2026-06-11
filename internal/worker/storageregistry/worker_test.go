@@ -11,11 +11,11 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/providertracker"
 	corestorage "github.com/juju/juju/core/storage"
@@ -121,10 +121,15 @@ func (s *workerSuite) TestGetStorageRegistryIsNotCachedForDifferentNamespaces(c 
 
 	s.expectClock()
 
-	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
+	const count = 10
+	for i := range count {
+		name := fmt.Sprintf("anything-%d", i)
 
-	s.ensureStartup(c)
+		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
+			atomic.AddInt64(&s.called, 1)
+			return providerTrackerProvider{}, nil
+		})
+	}
 
 	done := make(chan struct{})
 	s.trackedWorker.EXPECT().Kill().AnyTimes()
@@ -133,15 +138,14 @@ func (s *workerSuite) TestGetStorageRegistryIsNotCachedForDifferentNamespaces(c 
 		return nil
 	}).AnyTimes()
 
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
 	worker := w.(*storageRegistryWorker)
-	for i := range 10 {
+	for i := range count {
 		name := fmt.Sprintf("anything-%d", i)
-
-		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
-			atomic.AddInt64(&s.called, 1)
-			return providerTrackerProvider{}, nil
-		})
-
 		_, err := worker.GetStorageRegistry(c.Context(), name)
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -158,11 +162,6 @@ func (s *workerSuite) TestGetStorageRegistryConcurrently(c *tc.C) {
 
 	s.expectClock()
 
-	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
-
-	s.ensureStartup(c)
-
 	done := make(chan struct{})
 	s.trackedWorker.EXPECT().Kill().AnyTimes()
 	s.trackedWorker.EXPECT().Wait().DoAndReturn(func() error {
@@ -170,24 +169,29 @@ func (s *workerSuite) TestGetStorageRegistryConcurrently(c *tc.C) {
 		return nil
 	}).AnyTimes()
 
+	const count = 10
+	for i := range count {
+		name := fmt.Sprintf("anything-%d", i)
+		s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
+			atomic.AddInt64(&s.called, 1)
+			return providerTrackerProvider{}, nil
+		})
+	}
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.ensureStartup(c)
+
 	var wg sync.WaitGroup
-	wg.Add(10)
 
 	worker := w.(*storageRegistryWorker)
-	for i := range 10 {
-		go func(i int) {
-			defer wg.Done()
-
-			name := fmt.Sprintf("anything-%d", i)
-
-			s.providerFactory.EXPECT().ProviderForModel(gomock.Any(), name).DoAndReturn(func(context.Context, string) (providertracker.Provider, error) {
-				atomic.AddInt64(&s.called, 1)
-				return providerTrackerProvider{}, nil
-			})
-
+	for i := range count {
+		name := fmt.Sprintf("anything-%d", i)
+		wg.Go(func() {
 			_, err := worker.GetStorageRegistry(c.Context(), name)
-			c.Assert(err, tc.ErrorIsNil)
-		}(i)
+			c.Check(err, tc.ErrorIsNil)
+		})
 	}
 
 	assertWait(c, wg.Wait)

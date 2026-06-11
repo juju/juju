@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
@@ -201,7 +201,7 @@ func (s *importSuite) TestImportUnitStatus(c *tc.C) {
 		Updated: now,
 	})
 
-	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", gomock.Any()).Do(func(_ context.Context, _ string, status corestatus.StatusInfo) error {
+	s.importService.EXPECT().SetApplicationStatus(gomock.Any(), "foo", gomock.Any()).DoAndReturn(func(_ context.Context, _ string, status corestatus.StatusInfo) error {
 		c.Assert(status.Status, tc.Equals, corestatus.Unset)
 		c.Assert(status.Since, tc.NotNil, tc.Commentf("Since field should not be nil for NeverSet status"))
 		return nil

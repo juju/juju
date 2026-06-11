@@ -12,9 +12,9 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	coreresource "github.com/juju/juju/core/resource"
 	coreresourcetesting "github.com/juju/juju/core/resource/testing"
-	coretesting "github.com/juju/juju/core/testing"
 	coreunit "github.com/juju/juju/core/unit"
 	coreunittesting "github.com/juju/juju/core/unit/testing"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
@@ -369,16 +368,18 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 		}, nil,
 	)
 
-	s.unleash.Lock()
-	start := sync.WaitGroup{}
-	finished := sync.WaitGroup{}
+	// Set up all mock expectations before spawning goroutines to avoid
+	// data races between expectation writes and concurrent mock reads.
 	for range numConcurrentRequests {
-		start.Add(1)
-		finished.Add(1)
 		s.expectNewUnitResourceOpener(c)
-		go func() {
-			defer finished.Done()
-			start.Done()
+	}
+
+	s.unleash.Lock()
+	start := make(chan struct{})
+	wg := sync.WaitGroup{}
+	for range numConcurrentRequests {
+		wg.Go(func() {
+			<-start
 			opened, err := s.newUnitResourceOpener(
 				c,
 				maxConcurrentRequests,
@@ -391,22 +392,13 @@ func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 				res.Fingerprint.String(),
 			)
 			c.Assert(opened.Close(), tc.ErrorIsNil)
-		}()
+		})
 	}
 	// Let all the test routines queue up then unleash.
-	start.Wait()
+	close(start)
 	s.unleash.Unlock()
 
-	done := make(chan bool)
-	go func() {
-		finished.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timeout waiting for resources to be fetched")
-	}
+	wg.Wait()
 }
 
 func (s *OpenerSuite) TestOpenResourceApplication(c *tc.C) {

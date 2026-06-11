@@ -4,18 +4,18 @@
 package objectstoredrainer
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination service_mock_test.go github.com/juju/juju/internal/worker/objectstoredrainer ObjectStoreService,ObjectStoreServicesGetter,GuardService,ControllerService,ControllerConfigService,HashFileSystemAccessor
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination fortress_mock_test.go github.com/juju/juju/internal/worker/fortress Guard
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstoredrainer -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore Client,Session,ObjectStoreMetadata,ObjectStoreFlusher
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstoredrainer -destination service_mock_test.go github.com/juju/juju/internal/worker/objectstoredrainer ObjectStoreService,ObjectStoreServicesGetter,GuardService,ControllerService,ControllerConfigService,HashFileSystemAccessor
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstoredrainer -destination fortress_mock_test.go github.com/juju/juju/internal/worker/fortress Guard
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstoredrainer -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstoredrainer -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore Client,Session,ObjectStoreMetadata,ObjectStoreFlusher
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

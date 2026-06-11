@@ -6,10 +6,10 @@ package spaces_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/core/network"

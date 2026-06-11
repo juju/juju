@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	pebbleclient "github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v5"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -50,6 +50,7 @@ import (
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -73,9 +74,10 @@ type testContext struct {
 	path    string
 	dataDir string
 	s       *UniterSuite
+	stepped *MockStepped
 
 	// API clients.
-	api           *uniterapi.MockUniterClient
+	api           *apimocks.MockUniterClient
 	resources     *contextmocks.MockOpenedResourceClient
 	leaderTracker *mockLeaderTracker
 	charmDirGuard *mockCharmDirGuard
@@ -94,6 +96,7 @@ type testContext struct {
 	// Remote watcher artefacts.
 	startError           bool
 	sendEvents           bool
+	channelMu            sync.Mutex // protects unitResolveCh and applicationCh
 	unitWatchCounter     atomic.Int32
 	unitCh               sync.Map
 	unitResolveCh        chan struct{}
@@ -107,9 +110,10 @@ type testContext struct {
 	relationUnitCh       chan watcher.RelationUnitsChange
 
 	// Stateful domain entities.
-	unit  *unit
-	app   *application
-	charm *uniterapi.MockCharm
+	unit     *unit
+	app      *application
+	charm    *apimocks.MockCharm
+	charmURL string // set in addCharm.prepare for use in setupUniter
 
 	relCounter atomic.Int32
 	relation   *relation
@@ -117,7 +121,7 @@ type testContext struct {
 	relUnitCounter atomic.Int32
 	relUnit        *relationUnit
 
-	relatedApplication *uniterapi.MockApplication
+	relatedApplication *apimocks.MockApplication
 
 	subordRelation *relation
 
@@ -133,8 +137,8 @@ type testContext struct {
 	secretsRotateCh  chan []string
 	secretsExpireCh  chan []string
 	secretRevisions  map[string]int
-	secretsClient    *uniterapi.MockSecretsClient
-	secretBackends   *uniterapi.MockSecretsBackend
+	secretsClient    *apimocks.MockSecretsClient
+	secretBackends   *apimocks.MockSecretsBackend
 
 	// Uniter state attributes (the ones we care about).
 	uniterState   string
@@ -190,6 +194,9 @@ func (ctx *testContext) run(c tc.LikeC, steps []stepper) {
 			}
 		}
 	}()
+	for _, s := range steps {
+		s.prepare(c, ctx)
+	}
 	for i, s := range steps {
 		c.Logf("step %d:\n", i)
 		step(c, ctx, s)
@@ -197,12 +204,8 @@ func (ctx *testContext) run(c tc.LikeC, steps []stepper) {
 }
 
 func (ctx *testContext) waitFor(c tc.LikeC, ch chan bool, msg string) {
-	select {
-	case <-ch:
-		return
-	case <-time.After(coretesting.LongWait):
-		c.Fatal(msg)
-	}
+	c.Logf("waiting for %s", msg)
+	<-ch
 }
 
 func (ctx *testContext) sendUnitNotify(c tc.LikeC, msg string) {
@@ -216,47 +219,33 @@ func (ctx *testContext) sendNotify(c tc.LikeC, ch chan struct{}, msg string) {
 	if !ctx.sendEvents || ctx.startError {
 		return
 	}
-	select {
-	case ch <- struct{}{}:
-		c.Logf("sent: %s", msg)
-		return
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("could not send: %s", msg)
-		c.FailNow()
-	}
+	c.Logf("sending: %s", msg)
+	ch <- struct{}{}
+	c.Logf("sent: %s", msg)
 }
 
 func (ctx *testContext) sendStrings(c tc.LikeC, ch chan []string, msg string, s ...string) {
 	if !ctx.sendEvents || ctx.startError {
 		return
 	}
-	select {
-	case ch <- s:
-		c.Logf("sent: %s (%q)", msg, s)
-		return
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("could not send: %s", msg)
-		c.FailNow()
-	}
+	c.Logf("sending: %s (%q)", msg, s)
+	ch <- s
+	c.Logf("sent: %s (%q)", msg, s)
 }
 
 func (ctx *testContext) sendRelationUnitChange(c tc.LikeC, msg string, ruc watcher.RelationUnitsChange) {
-	select {
-	case ctx.relationUnitCh <- ruc:
-		c.Logf("sent: %s: %+v", msg, ruc)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("could not send: %s", msg)
-		c.FailNow()
-	}
+	c.Logf("sending: %s: %+v", msg, ruc)
+	ctx.relationUnitCh <- ruc
+	c.Logf("sent: %s: %+v", msg, ruc)
 }
 
-func (ctx *testContext) expectHookContext(c tc.LikeC) {
+func (ctx *testContext) expectHookContext(c tc.LikeC, stepped *MockSteppedSteppedCall) {
 	ctx.api.EXPECT().GetUnitContext(gomock.Any(), gomock.Any()).Return(apiuniter.UnitContext{
 		APIAddresses:    []string{"10.6.6.6"},
 		CloudAPIVersion: "6.6.6",
-	}, nil).AnyTimes()
+	}, nil).AnyTimes().After(stepped)
 
-	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes()
+	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes().After(stepped)
 }
 
 func (ctx *testContext) matchHooks(c tc.LikeC) (match, cannotMatch, overshoot bool) {
@@ -323,6 +312,7 @@ func ut(summary string, steps ...stepper) uniterTest {
 }
 
 type stepper interface {
+	prepare(c tc.LikeC, ctx *testContext)
 	step(c tc.LikeC, ctx *testContext)
 }
 
@@ -332,9 +322,11 @@ func step(c tc.LikeC, ctx *testContext, s stepper) {
 }
 
 type createCharm struct {
-	revision  int
-	badHooks  []string
-	customize func(tc.LikeC, *testContext, string)
+	revision            int
+	badHooks            []string
+	customize           func(tc.LikeC, *testContext, string)
+	charm               *addCharm
+	deferredDeployerErr error // saved if customize changed ctx.deployer.err at prepare time
 }
 
 func startupHooks(minion bool) []string {
@@ -344,45 +336,70 @@ func startupHooks(minion bool) []string {
 	return []string{"install", "leader-elected", "config-changed", "start"}
 }
 
-func (s createCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *createCharm) prepare(c tc.LikeC, ctx *testContext) {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	if s.customize != nil {
+		// Save and restore ctx.deployer.err: some customize functions set
+		// ctx.deployer.err which is a runtime state that must only take
+		// effect at step time (e.g. after the initial charm install completes).
+		savedErr := ctx.deployer.err
 		s.customize(c, ctx, base)
+		if ctx.deployer.err != savedErr {
+			s.deferredDeployerErr = ctx.deployer.err
+			ctx.deployer.err = savedErr
+		}
 	}
 	if len(s.badHooks) > 0 {
 		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
-
 	dir, err := charmtesting.ReadCharmDir(base)
 	c.Assert(err, tc.ErrorIsNil)
-	step(c, ctx, addCharm{dir, curl(s.revision), s.revision})
+	s.charm = &addCharm{dir: dir, curl: curl(s.revision), revision: s.revision}
+	s.charm.prepare(c, ctx)
+}
+
+func (s *createCharm) step(c tc.LikeC, ctx *testContext) {
+	if s.deferredDeployerErr != nil {
+		// Re-apply the deployer error that was deferred from prepare time.
+		ctx.deployer.err = s.deferredDeployerErr
+	}
+	step(c, ctx, s.charm)
 }
 
 type addCharm struct {
 	dir      *charmtesting.CharmDir
 	curl     string
 	revision int
+	body     []byte
 }
 
-func (s addCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *addCharm) prepare(c tc.LikeC, ctx *testContext) {
 	var buf bytes.Buffer
 	err := s.dir.ArchiveTo(&buf)
 	c.Assert(err, tc.ErrorIsNil)
-	body := buf.Bytes()
+	s.body = buf.Bytes()
 	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, tc.ErrorIsNil)
+	ctx.charm = apimocks.NewMockCharm(ctx.ctrl)
+	ctx.charmURL = s.curl
+	stepped := ctx.stepped.EXPECT().Stepped(s)
+	ctx.charm.EXPECT().URL().Return(s.curl).AnyTimes().After(stepped)
+	ctx.charm.EXPECT().ArchiveSha256(gomock.Any()).Return(hash, nil).AnyTimes().After(stepped)
+	ctx.api.EXPECT().Charm(s.curl).Return(ctx.charm, nil).AnyTimes().After(stepped)
+}
 
+func (s *addCharm) step(_ tc.LikeC, ctx *testContext) {
 	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.revision)
-	ctx.charms[storagePath] = body
-	ctx.charm = uniterapi.NewMockCharm(ctx.ctrl)
-	ctx.charm.EXPECT().URL().Return(s.curl).AnyTimes()
-	ctx.charm.EXPECT().ArchiveSha256(gomock.Any()).Return(hash, nil).AnyTimes()
-	ctx.api.EXPECT().Charm(s.curl).Return(ctx.charm, nil).AnyTimes()
+	ctx.charms[storagePath] = s.body
+	// Advance prepared mocks.
+	ctx.stepped.Stepped(s)
 }
 
 type serveCharm struct{}
 
-func (s serveCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *serveCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *serveCharm) step(c tc.LikeC, ctx *testContext) {
 	for storagePath, data := range ctx.charms {
 		ctx.servedCharms[storagePath] = data
 		delete(ctx.charms, storagePath)
@@ -395,18 +412,18 @@ type createApplicationAndUnit struct {
 	container       bool
 }
 
-func (csau createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
-	if csau.applicationName == "" {
-		csau.applicationName = "u"
+func (s *createApplicationAndUnit) prepare(c tc.LikeC, ctx *testContext) {
+	if s.applicationName == "" {
+		s.applicationName = "u"
 	}
-	unitTag := names.NewUnitTag(csau.applicationName + "/0")
+	unitTag := names.NewUnitTag(s.applicationName + "/0")
 	ctx.unit = ctx.makeUnit(c, unitTag, life.Alive)
 
-	appTag := names.NewApplicationTag(csau.applicationName)
+	appTag := names.NewApplicationTag(s.applicationName)
 	ctx.app = ctx.makeApplication(appTag)
 
 	ctx.storage = make(map[string]*storageAttachment)
-	for si, count := range csau.storage {
+	for si, count := range s.storage {
 		for n := range count {
 			tag := names.NewStorageTag(fmt.Sprintf("%s/%d", si, n))
 			ctx.storage[tag.Id()] = &storageAttachment{
@@ -415,20 +432,31 @@ func (csau createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 		}
 	}
 
+	stepped := ctx.stepped.EXPECT().Stepped(s)
 	// Assign the unit to a provisioned machine to match expected state.
-	if csau.container {
+	if s.container {
 		machineTag := names.NewMachineTag("0/lxd/0")
-		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
+		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes().After(stepped)
 	} else {
 		machineTag := names.NewMachineTag("0")
-		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
+		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes().After(stepped)
 	}
-	ctx.sendNotify(c, ctx.applicationCh, "application created event")
+}
+
+func (s *createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
+	// Advance prepared mocks.
+	ctx.stepped.Stepped(s)
+	ctx.channelMu.Lock()
+	ch := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "application created event")
 }
 
 type deleteUnit struct{}
 
-func (d deleteUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *deleteUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *deleteUnit) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.life = life.Dead
 	ctx.unit.mu.Unlock()
@@ -439,42 +467,62 @@ type createUniter struct {
 	startError           bool
 	executorFunc         uniter.NewOperationExecutorFunc
 	translateResolverErr func(error) error
+	// sub-steppers
+	createAppUnit     *createApplicationAndUnit
+	forceMinionStep   *forceMinion
+	startUniterStep   *startUniter
+	waitAddressesStep *waitAddresses
 }
 
-func (s createUniter) step(c tc.LikeC, ctx *testContext) {
-	ctx.startError = s.startError
-	step(c, ctx, createApplicationAndUnit{})
+func (s *createUniter) prepare(c tc.LikeC, ctx *testContext) {
+	s.createAppUnit = &createApplicationAndUnit{}
+	s.createAppUnit.prepare(c, ctx)
+
 	ctx.leaderTracker = newMockLeaderTracker(ctx, s.minion)
+
 	if s.minion {
-		step(c, ctx, forceMinion{})
+		s.forceMinionStep = &forceMinion{}
+		s.forceMinionStep.prepare(c, ctx)
 	}
-	step(c, ctx, startUniter{
+
+	s.startUniterStep = &startUniter{
 		newExecutorFunc:      s.executorFunc,
 		translateResolverErr: s.translateResolverErr,
 		unit:                 ctx.unit.Name(),
-	})
-	step(c, ctx, waitAddresses{})
+	}
+	s.startUniterStep.prepare(c, ctx)
+
+	s.waitAddressesStep = &waitAddresses{}
+	s.waitAddressesStep.prepare(c, ctx)
+}
+
+func (s *createUniter) step(c tc.LikeC, ctx *testContext) {
+	ctx.startError = s.startError
+	step(c, ctx, s.createAppUnit)
+	if s.minion {
+		step(c, ctx, s.forceMinionStep)
+	}
+	step(c, ctx, s.startUniterStep)
+	step(c, ctx, s.waitAddressesStep)
 }
 
 type waitAddresses struct{}
 
-func (waitAddresses) step(c tc.LikeC, ctx *testContext) {
-	timeout := time.After(coretesting.LongWait)
+func (s *waitAddresses) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitAddresses) step(c tc.LikeC, ctx *testContext) {
+	c.Log("waiting for unit addresses")
 	for {
-		select {
-		case <-timeout:
-			c.Fatalf("timed out waiting for unit addresses")
-		case <-time.After(coretesting.ShortWait):
-			private, _ := ctx.unit.PrivateAddress(c.Context())
-			if private != dummyPrivateAddress.Value {
-				continue
-			}
-			public, _ := ctx.unit.PublicAddress(c.Context())
-			if public != dummyPublicAddress.Value {
-				continue
-			}
-			return
+		time.Sleep(coretesting.ShortWait)
+		private, _ := ctx.unit.PrivateAddress(c.Context())
+		if private != dummyPrivateAddress.Value {
+			continue
 		}
+		public, _ := ctx.unit.PublicAddress(c.Context())
+		if public != dummyPublicAddress.Value {
+			continue
+		}
+		return
 	}
 }
 
@@ -483,6 +531,7 @@ type startUniter struct {
 	newExecutorFunc      uniter.NewOperationExecutorFunc
 	translateResolverErr func(error) error
 	rebootQuerier        uniter.RebootQuerier
+	stepped              *MockSteppedSteppedCall
 }
 
 type fakeRebootQuerier struct {
@@ -654,23 +703,6 @@ func (w *unitWatcher) Kill() {
 }
 
 func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
-	ctx.sendEvents = true
-	// Drain stale events from shared channels. When a previous RSW is
-	// stopped (e.g. after ErrRestart or stopUniter), its setup goroutine
-	// may have sent an initial event before the RSW's select loop started
-	// reading. That event stays buffered and would block the next RSW's
-	// setup DoAndReturn, causing a flaky hang.
-	drainNotify := func(ch chan struct{}) {
-		for {
-			select {
-			case <-ch:
-			default:
-				return
-			}
-		}
-	}
-	drainNotify(ctx.unitResolveCh)
-	drainNotify(ctx.applicationCh)
 	ctx.unit.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		num := int(ctx.unitWatchCounter.Add(1))
 		ch := make(chan struct{}, 3)
@@ -682,53 +714,69 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 			ctx:               ctx,
 			id:                num,
 		}, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.app.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		ctx.sendNotify(c, ctx.applicationCh, "initial application event")
-		w := watchertest.NewMockNotifyWatcher(ctx.applicationCh)
-		return w, nil
-	}).AnyTimes()
+		// Close the old channel and open a new one so the RSW always
+		// starts with a clean, empty channel. All senders obtain the
+		// lock before reading ctx.applicationCh so they will pick up
+		// the new channel on their next call.
+		ctx.channelMu.Lock()
+		ctx.applicationCh = make(chan struct{}, 1)
+		ch := ctx.applicationCh
+		ctx.channelMu.Unlock()
+		// Fresh channel: this blocking send always succeeds immediately.
+		ch <- struct{}{}
+		return watchertest.NewMockNotifyWatcher(ch), nil
+	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchResolveMode(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		ctx.sendNotify(c, ctx.unitResolveCh, "initial resolve event")
-		w := watchertest.NewMockNotifyWatcher(ctx.unitResolveCh)
-		return w, nil
-	}).AnyTimes()
+		// Close the old channel and open a new one so the RSW always
+		// starts with a clean, empty channel. All senders obtain the
+		// lock before reading ctx.unitResolveCh so they will pick up
+		// the new channel on their next call.
+		ctx.channelMu.Lock()
+		ctx.unitResolveCh = make(chan struct{}, 1)
+		ch := ctx.unitResolveCh
+		ctx.channelMu.Unlock()
+		// Fresh channel: this blocking send always succeeds immediately.
+		ch <- struct{}{}
+		return watchertest.NewMockNotifyWatcher(ch), nil
+	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchInstanceData(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
 		w := watchertest.NewMockNotifyWatcher(ch)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.api.EXPECT().WatchUpdateStatusHookInterval(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
 		w := watchertest.NewMockNotifyWatcher(ch)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchConfigSettingsHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		ctx.sendStrings(c, ctx.configCh, "initial config event", ctx.app.configHash(nil))
 		w := watchertest.NewMockStringsWatcher(ctx.configCh)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchTrustConfigSettingsHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		ch := make(chan []string, 1)
 		ch <- []string{"trust-hash"}
 		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchAddressesHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		ch := make(chan []string, 1)
 		ch <- []string{"address-hash"}
 		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchRelations(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		var relations []string
@@ -738,38 +786,54 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		ctx.sendStrings(c, ctx.relCh, "initial relation event", relations...)
 		w := watchertest.NewMockStringsWatcher(ctx.relCh)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
+
+	ctx.api.EXPECT().WatchStorageAttachment(gomock.Any(), gomock.Any(), ctx.unit.Tag()).DoAndReturn(
+		func(_ context.Context, storageTag names.StorageTag, _ names.UnitTag) (watcher.NotifyWatcher, error) {
+			ctx.stateMu.Lock()
+			attachment, ok := ctx.storage[storageTag.Id()]
+			ctx.stateMu.Unlock()
+			if !ok {
+				return nil, errors.NotFoundf("storage %s", storageTag.Id())
+			}
+			return watchertest.NewMockNotifyWatcher(attachment.eventCh), nil
+		}).AnyTimes().After(s.stepped)
+
+	ctx.api.EXPECT().StorageAttachment(gomock.Any(), gomock.Any(), ctx.unit.Tag()).DoAndReturn(
+		func(_ context.Context, storageTag names.StorageTag, _ names.UnitTag) (params.StorageAttachment, error) {
+			ctx.stateMu.Lock()
+			defer ctx.stateMu.Unlock()
+			if attachment, ok := ctx.storage[storageTag.Id()]; !attachment.attached || !ok {
+				return params.StorageAttachment{}, errors.NotProvisioned
+			}
+			return params.StorageAttachment{
+				StorageTag: storageTag.String(),
+				UnitTag:    ctx.unit.Tag().String(),
+				Kind:       params.StorageKindFilesystem,
+				Location:   "/path/to/nowhere",
+				Life:       "alive",
+			}, nil
+		}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchStorage(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		var storages []string
 		for si, attachment := range ctx.storage {
 			tag := names.NewStorageTag(si)
 			storages = append(storages, tag.Id())
-			storageW := watchertest.NewMockNotifyWatcher(attachment.eventCh)
-			ctx.api.EXPECT().WatchStorageAttachment(gomock.Any(), tag, ctx.unit.Tag()).Return(storageW, nil)
-			ctx.api.EXPECT().StorageAttachment(gomock.Any(), tag, ctx.unit.Tag()).DoAndReturn(func(_ context.Context, _ names.StorageTag, _ names.UnitTag) (params.StorageAttachment, error) {
-				ctx.stateMu.Lock()
-				defer ctx.stateMu.Unlock()
-				if attachment, ok := ctx.storage[tag.Id()]; !attachment.attached || !ok {
-					return params.StorageAttachment{}, errors.NotProvisioned
-				}
-				return params.StorageAttachment{
-					StorageTag: tag.String(),
-					UnitTag:    ctx.unit.Tag().String(),
-					Kind:       params.StorageKindFilesystem,
-					Location:   "/path/to/nowhere",
-					Life:       "alive",
-				}, nil
-			}).AnyTimes()
 			ctx.sendNotify(c, attachment.eventCh, "storage attach event")
 		}
 		ctx.sendStrings(c, ctx.storageCh, "initial storage event", storages...)
 
 		w := watchertest.NewMockStringsWatcher(ctx.storageCh)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchActionNotifications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
+		// Reset the channel so any stale buffered event from a previous
+		// watcher that was killed before draining it cannot block the send
+		// below (the send happens in this goroutine, which is also the only
+		// future receiver — a full buffer would deadlock).
+		ctx.actionsCh = make(chan []string, 1)
 		var actions []string
 		for _, a := range ctx.pendingActions {
 			actions = append(actions, a.ID())
@@ -777,13 +841,17 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		ctx.sendStrings(c, ctx.actionsCh, "initial action event", actions...)
 		w := watchertest.NewMockStringsWatcher(ctx.actionsCh)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.secretsClient.EXPECT().WatchConsumedSecretsChanges(gomock.Any(), ctx.unit.Name()).DoAndReturn(func(context.Context, string) (watcher.StringsWatcher, error) {
+		// Reset the channel for the same reason as actionsCh above: the
+		// buffer is 1, and a previous watcher killed before reading its
+		// initial event leaves the buffer full, blocking this send.
+		ctx.consumedSecretsCh = make(chan []string, 1)
 		ctx.sendStrings(c, ctx.consumedSecretsCh, "initial consumed secrets event")
 		w := watchertest.NewMockStringsWatcher(ctx.consumedSecretsCh)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.secretsClient.EXPECT().WatchObsolete(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, owners ...names.Tag) (watcher.StringsWatcher, error) {
 		ownerNames := set.NewStrings()
@@ -799,7 +867,7 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		ch <- []string(nil)
 		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	ctx.secretsClient.EXPECT().WatchDeleted(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, owners ...names.Tag) (watcher.StringsWatcher, error) {
 		ownerNames := set.NewStrings()
@@ -815,10 +883,10 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		ch <- []string(nil)
 		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 }
 
-func (s startUniter) setupUniter(c tc.LikeC, ctx *testContext) {
+func (s *startUniter) setupUniter(c tc.LikeC, ctx *testContext) {
 	ctx.api.EXPECT().StorageAttachmentLife(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
@@ -842,12 +910,12 @@ func (s startUniter) setupUniter(c tc.LikeC, ctx *testContext) {
 			}
 		}
 		return result, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	// Consumed secrets initial event.
-	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(gomock.Any(), ctx.unit.Name(), []string(nil)).Return(nil, nil).AnyTimes()
+	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(gomock.Any(), ctx.unit.Name(), []string(nil)).Return(nil, nil).AnyTimes().After(s.stepped)
 
-	ctx.api.EXPECT().UpdateStatusHookInterval(gomock.Any()).Return(time.Minute, nil).AnyTimes()
+	ctx.api.EXPECT().UpdateStatusHookInterval(gomock.Any()).Return(time.Minute, nil).AnyTimes().After(s.stepped)
 
 	// Storage attachments init.
 	var attachments []params.StorageAttachmentId
@@ -863,56 +931,56 @@ func (s startUniter) setupUniter(c tc.LikeC, ctx *testContext) {
 	}
 	ctx.stateMu.Unlock()
 	tag := names.NewUnitTag(s.unit)
-	ctx.api.EXPECT().UnitStorageAttachments(gomock.Any(), tag).Return(attachments, nil).AnyTimes()
+	ctx.api.EXPECT().UnitStorageAttachments(gomock.Any(), tag).Return(attachments, nil).AnyTimes().After(s.stepped)
 	ctx.api.EXPECT().Unit(gomock.Any(), tag).DoAndReturn(func(_ context.Context, tag names.UnitTag) (uniterapi.Unit, error) {
 		if tag.Id() != ctx.unit.Tag().Id() {
 			return nil, errors.New("permission denied")
 		}
 		return ctx.unit, nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	// Secrets init.
-	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes()
+	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes().After(s.stepped)
 	ctx.secretsClient.EXPECT().SecretRotated(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, uri string, rev int) error {
 		ctx.stateMu.Lock()
 		ctx.secretRevisions[uri] = rev + 1
 		ctx.stateMu.Unlock()
 		return nil
-	}).AnyTimes()
+	}).AnyTimes().After(s.stepped)
 
 	// Context factory init.
 	ctx.api.EXPECT().Model(gomock.Any()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: types.IAAS,
-	}, nil).AnyTimes()
+	}, nil).AnyTimes().After(s.stepped)
 
 	// Set up the initial install op.
 	data, err := yaml.Marshal(operation.State{
-		CharmURL: ctx.charm.URL(),
+		CharmURL: ctx.charmURL,
 		Kind:     "install",
 		Step:     "pending",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	st := string(data)
-	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
+	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1).After(s.stepped)
 
 	data, err = yaml.Marshal(operation.State{
-		CharmURL: ctx.charm.URL(),
+		CharmURL: ctx.charmURL,
 		Kind:     "install",
 		Step:     "done",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	st = string(data)
-	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
+	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1).After(s.stepped)
 
 	// Termination.
-	ctx.secretsClient.EXPECT().UnitOwnedSecretsAndRevisions(gomock.Any(), ctx.unit.Tag()).Return(nil, nil).AnyTimes()
+	ctx.secretsClient.EXPECT().UnitOwnedSecretsAndRevisions(gomock.Any(), ctx.unit.Tag()).Return(nil, nil).AnyTimes().After(s.stepped)
 }
 
-func (s startUniter) setupUniterHookExec(c tc.LikeC, ctx *testContext) {
-	ctx.api.EXPECT().Application(gomock.Any(), ctx.app.Tag()).Return(ctx.app, nil).AnyTimes()
-	ctx.expectHookContext(c)
+func (s *startUniter) setupUniterHookExec(c tc.LikeC, ctx *testContext) {
+	ctx.api.EXPECT().Application(gomock.Any(), ctx.app.Tag()).Return(ctx.app, nil).AnyTimes().After(s.stepped)
+	ctx.expectHookContext(c, s.stepped)
 
 	setState := func(_ context.Context, unitState params.SetUnitStateArg) error {
 		ctx.stateMu.Lock()
@@ -928,16 +996,26 @@ func (s startUniter) setupUniterHookExec(c tc.LikeC, ctx *testContext) {
 		}
 		return nil
 	}
-	ctx.unit.EXPECT().SetState(gomock.Any(), uniterCharmUpgradeStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRunHookStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRunActionStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(gomock.Any(), uniterContinueStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(gomock.Any(), uniterSecretsStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(gomock.Any(), uniterStorageStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRelationStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterCharmUpgradeStateMatcher{}).DoAndReturn(setState).AnyTimes().After(s.stepped)
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRunHookStateMatcher{}).DoAndReturn(setState).AnyTimes().After(s.stepped)
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRunActionStateMatcher{}).DoAndReturn(setState).AnyTimes().After(s.stepped)
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterContinueStateMatcher{}).DoAndReturn(setState).AnyTimes().After(s.stepped)
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterSecretsStateMatcher{}).DoAndReturn(setState).AnyTimes().After(s.stepped)
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterStorageStateMatcher{}).DoAndReturn(setState).AnyTimes().After(s.stepped)
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRelationStateMatcher{}).DoAndReturn(setState).AnyTimes().After(s.stepped)
 }
 
-func (s startUniter) step(c tc.LikeC, ctx *testContext) {
+func (s *startUniter) prepare(c tc.LikeC, ctx *testContext) {
+	if s.unit == "" {
+		s.unit = "u/0"
+	}
+	s.stepped = ctx.stepped.EXPECT().Stepped(s)
+	s.setupUniter(c, ctx)
+	s.setupUniterHookExec(c, ctx)
+	s.expectRemoteStateWatchers(c, ctx)
+}
+
+func (s *startUniter) step(c tc.LikeC, ctx *testContext) {
 	if s.unit == "" {
 		s.unit = "u/0"
 	}
@@ -978,9 +1056,26 @@ func (s startUniter) step(c tc.LikeC, ctx *testContext) {
 		operationExecutor = s.newExecutorFunc
 	}
 
-	s.setupUniter(c, ctx)
-	s.setupUniterHookExec(c, ctx)
-	s.expectRemoteStateWatchers(c, ctx)
+	// Drain stale events from shared channels before starting the uniter.
+	// The Watch and WatchResolveMode callbacks replace these channels on
+	// every RSW start, but during a stopUniter/startUniter sequence there
+	// may be a leftover event on the current channel.
+	drainNotify := func(ch chan struct{}) {
+		for {
+			select {
+			case <-ch:
+			default:
+				return
+			}
+		}
+	}
+	ctx.channelMu.Lock()
+	unitResolveCh := ctx.unitResolveCh
+	applicationCh := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	drainNotify(unitResolveCh)
+	drainNotify(applicationCh)
+	ctx.sendEvents = true
 
 	if ctx.leaderTracker == nil {
 		ctx.leaderTracker = newMockLeaderTracker(ctx, false)
@@ -1043,6 +1138,8 @@ func (s startUniter) step(c tc.LikeC, ctx *testContext) {
 			return ctx.secretBackends, nil
 		},
 	}
+	// Advance prepared mocks.
+	ctx.stepped.Stepped(s)
 	var err error
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1052,7 +1149,9 @@ type waitUniterDead struct {
 	err string
 }
 
-func (s waitUniterDead) step(c tc.LikeC, ctx *testContext) {
+func (s *waitUniterDead) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitUniterDead) step(c tc.LikeC, ctx *testContext) {
 	if s.err != "" {
 		err := s.waitDead(c, ctx)
 		c.Log(errors.ErrorStack(err))
@@ -1069,7 +1168,9 @@ func (s waitUniterDead) step(c tc.LikeC, ctx *testContext) {
 	// eventually, see the correct error and respond appropriately.
 	err := s.waitDead(c, ctx)
 	if err != jworker.ErrTerminateAgent {
-		step(c, ctx, startUniter{})
+		su := &startUniter{}
+		su.prepare(c, ctx)
+		step(c, ctx, su)
 		err = s.waitDead(c, ctx)
 	}
 	c.Assert(err, tc.Equals, jworker.ErrTerminateAgent)
@@ -1079,26 +1180,17 @@ func (s waitUniterDead) waitDead(c tc.LikeC, ctx *testContext) error {
 	u := ctx.uniter
 	ctx.uniter = nil
 
-	wait := make(chan error, 1)
-	go func() {
-		wait <- u.Wait()
-	}()
-
-	select {
-	case err := <-wait:
-		return err
-	case <-time.After(coretesting.LongWait):
-		u.Kill()
-		c.Fatalf("uniter still alive")
-	}
-	panic("unreachable")
+	c.Log("waiting for uniter to stop")
+	return u.Wait()
 }
 
 type stopUniter struct {
 	err string
 }
 
-func (s stopUniter) step(c tc.LikeC, ctx *testContext) {
+func (s *stopUniter) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *stopUniter) step(c tc.LikeC, ctx *testContext) {
 	u := ctx.uniter
 	if u == nil {
 		c.Logf("uniter not started, skipping stopUniter{}")
@@ -1114,102 +1206,264 @@ func (s stopUniter) step(c tc.LikeC, ctx *testContext) {
 	ctx.unitCh = sync.Map{}
 }
 
-type verifyWaiting struct{}
-
-func (s verifyWaiting) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, stopUniter{})
-	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
-	step(c, ctx, waitHooks{})
+type verifyWaiting struct {
+	// sub-steppers
+	stopUniterStep  *stopUniter
+	startUniterStep *startUniter
+	waitHooksStep   *waitHooks
 }
 
-type verifyRunning struct{}
+func (s *verifyWaiting) prepare(c tc.LikeC, ctx *testContext) {
+	s.stopUniterStep = &stopUniter{}
+	s.stopUniterStep.prepare(c, ctx)
 
-func (s verifyRunning) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, stopUniter{})
-	step(c, ctx, startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}})
-	var hooks []string
-	// We don't expect config-changed to always run on agent restart
-	// anymore.
-	step(c, ctx, waitHooks(hooks))
+	s.startUniterStep = &startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}}
+	s.startUniterStep.prepare(c, ctx)
+
+	wh := waitHooks(nil)
+	s.waitHooksStep = &wh
+	s.waitHooksStep.prepare(c, ctx)
+}
+
+func (s *verifyWaiting) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, s.stopUniterStep)
+	step(c, ctx, s.startUniterStep)
+	step(c, ctx, s.waitHooksStep)
+}
+
+type verifyRunning struct {
+	// sub-steppers
+	stopUniterStep  *stopUniter
+	startUniterStep *startUniter
+	waitHooksStep   *waitHooks
+}
+
+func (s *verifyRunning) prepare(c tc.LikeC, ctx *testContext) {
+	s.stopUniterStep = &stopUniter{}
+	s.stopUniterStep.prepare(c, ctx)
+
+	s.startUniterStep = &startUniter{rebootQuerier: fakeRebootQuerier{rebootNotDetected}}
+	s.startUniterStep.prepare(c, ctx)
+
+	wh := waitHooks(nil)
+	s.waitHooksStep = &wh
+	s.waitHooksStep.prepare(c, ctx)
+}
+
+func (s *verifyRunning) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, s.stopUniterStep)
+	step(c, ctx, s.startUniterStep)
+	step(c, ctx, s.waitHooksStep)
 }
 
 type startupError struct {
 	badHook string
+	// sub-steppers
+	createCharmStep   *createCharm
+	serveCharmStep    *serveCharm
+	createUniterStep  *createUniter
+	waitUnitAgentStep *waitUnitAgent
+	hooksBefore       []*waitHooks
+	failHook          *waitHooks
+	verifyCharmStep   *verifyCharm
 }
 
-func (s startupError) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
-	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{
+func (s *startupError) prepare(c tc.LikeC, ctx *testContext) {
+	s.createCharmStep = &createCharm{badHooks: []string{s.badHook}}
+	s.createCharmStep.prepare(c, ctx)
+
+	s.serveCharmStep = &serveCharm{}
+	s.serveCharmStep.prepare(c, ctx)
+
+	s.createUniterStep = &createUniter{}
+	s.createUniterStep.prepare(c, ctx)
+
+	s.waitUnitAgentStep = &waitUnitAgent{
 		statusGetter: unitStatusGetter,
 		status:       status.Error,
 		info:         fmt.Sprintf(`hook failed: %q`, s.badHook),
-	})
+	}
+	s.waitUnitAgentStep.prepare(c, ctx)
+
 	for _, hook := range startupHooks(false) {
 		if hook == s.badHook {
-			step(c, ctx, waitHooks{"fail-" + hook})
+			wh := waitHooks{"fail-" + hook}
+			s.failHook = &wh
+			s.failHook.prepare(c, ctx)
 			break
 		}
-		step(c, ctx, waitHooks{hook})
+		wh := waitHooks{hook}
+		whp := &wh
+		whp.prepare(c, ctx)
+		s.hooksBefore = append(s.hooksBefore, whp)
 	}
-	step(c, ctx, verifyCharm{})
+
+	s.verifyCharmStep = &verifyCharm{}
+	s.verifyCharmStep.prepare(c, ctx)
+}
+
+func (s *startupError) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, s.createCharmStep)
+	step(c, ctx, s.serveCharmStep)
+	step(c, ctx, s.createUniterStep)
+	step(c, ctx, s.waitUnitAgentStep)
+	for _, wh := range s.hooksBefore {
+		step(c, ctx, wh)
+	}
+	step(c, ctx, s.failHook)
+	step(c, ctx, s.verifyCharmStep)
 }
 
 type verifyDeployed struct{}
 
-func (s verifyDeployed) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyDeployed) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyDeployed) step(c tc.LikeC, ctx *testContext) {
 	c.Assert(ctx.deployer.staged, tc.DeepEquals, curl(0))
 	c.Assert(ctx.deployer.deployed, tc.IsTrue)
 }
 
 type quickStart struct {
 	minion bool
+	// sub-steppers
+	createCharmStep   *createCharm
+	serveCharmStep    *serveCharm
+	createUniterStep  *createUniter
+	waitUnitAgentStep *waitUnitAgent
+	waitHooksStep     *waitHooks
+	verifyCharmStep   *verifyCharm
 }
 
-func (s quickStart) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, createCharm{})
-	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{minion: s.minion})
-	step(c, ctx, waitUnitAgent{status: status.Idle})
-	step(c, ctx, waitHooks(startupHooks(s.minion)))
-	step(c, ctx, verifyCharm{})
+func (s *quickStart) prepare(c tc.LikeC, ctx *testContext) {
+	s.createCharmStep = &createCharm{}
+	s.createCharmStep.prepare(c, ctx)
+
+	s.serveCharmStep = &serveCharm{}
+	s.serveCharmStep.prepare(c, ctx)
+
+	s.createUniterStep = &createUniter{minion: s.minion}
+	s.createUniterStep.prepare(c, ctx)
+
+	s.waitUnitAgentStep = &waitUnitAgent{status: status.Idle}
+	s.waitUnitAgentStep.prepare(c, ctx)
+
+	wh := waitHooks(startupHooks(s.minion))
+	s.waitHooksStep = &wh
+	s.waitHooksStep.prepare(c, ctx)
+
+	s.verifyCharmStep = &verifyCharm{}
+	s.verifyCharmStep.prepare(c, ctx)
 }
 
-type quickStartRelation struct{}
+func (s *quickStart) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, s.createCharmStep)
+	step(c, ctx, s.serveCharmStep)
+	step(c, ctx, s.createUniterStep)
+	step(c, ctx, s.waitUnitAgentStep)
+	step(c, ctx, s.waitHooksStep)
+	step(c, ctx, s.verifyCharmStep)
+}
 
-func (s quickStartRelation) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, quickStart{})
-	step(c, ctx, addRelation{})
-	step(c, ctx, addRelationUnit{})
-	step(c, ctx, waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"})
-	step(c, ctx, verifyRunning{})
+type quickStartRelation struct {
+	// sub-steppers
+	quickStartStep    *quickStart
+	addRelationStep   *addRelation
+	addRelUnitStep    *addRelationUnit
+	waitHooksStep     *waitHooks
+	verifyRunningStep *verifyRunning
+}
+
+func (s *quickStartRelation) prepare(c tc.LikeC, ctx *testContext) {
+	s.quickStartStep = &quickStart{}
+	s.quickStartStep.prepare(c, ctx)
+
+	s.addRelationStep = &addRelation{}
+	s.addRelationStep.prepare(c, ctx)
+
+	s.addRelUnitStep = &addRelationUnit{}
+	s.addRelUnitStep.prepare(c, ctx)
+
+	wh := waitHooks{"db-relation-joined mysql/0 db:0", "db-relation-changed mysql/0 db:0"}
+	s.waitHooksStep = &wh
+	s.waitHooksStep.prepare(c, ctx)
+
+	s.verifyRunningStep = &verifyRunning{}
+	s.verifyRunningStep.prepare(c, ctx)
+}
+
+func (s *quickStartRelation) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, s.quickStartStep)
+	step(c, ctx, s.addRelationStep)
+	step(c, ctx, s.addRelUnitStep)
+	step(c, ctx, s.waitHooksStep)
+	step(c, ctx, s.verifyRunningStep)
 }
 
 type startupRelationError struct {
 	badHook string
+	// sub-steppers
+	createCharmStep   *createCharm
+	serveCharmStep    *serveCharm
+	createUniterStep  *createUniter
+	waitUnitAgentStep *waitUnitAgent
+	waitHooksStep     *waitHooks
+	verifyCharmStep   *verifyCharm
+	addRelationStep   *addRelation
+	addRelUnitStep    *addRelationUnit
 }
 
-func (s startupRelationError) step(c tc.LikeC, ctx *testContext) {
-	step(c, ctx, createCharm{badHooks: []string{s.badHook}})
-	step(c, ctx, serveCharm{})
-	step(c, ctx, createUniter{})
-	step(c, ctx, waitUnitAgent{status: status.Idle})
-	step(c, ctx, waitHooks(startupHooks(false)))
-	step(c, ctx, verifyCharm{})
-	step(c, ctx, addRelation{})
-	step(c, ctx, addRelationUnit{})
+func (s *startupRelationError) prepare(c tc.LikeC, ctx *testContext) {
+	s.createCharmStep = &createCharm{badHooks: []string{s.badHook}}
+	s.createCharmStep.prepare(c, ctx)
+
+	s.serveCharmStep = &serveCharm{}
+	s.serveCharmStep.prepare(c, ctx)
+
+	s.createUniterStep = &createUniter{}
+	s.createUniterStep.prepare(c, ctx)
+
+	s.waitUnitAgentStep = &waitUnitAgent{status: status.Idle}
+	s.waitUnitAgentStep.prepare(c, ctx)
+
+	wh := waitHooks(startupHooks(false))
+	s.waitHooksStep = &wh
+	s.waitHooksStep.prepare(c, ctx)
+
+	s.verifyCharmStep = &verifyCharm{}
+	s.verifyCharmStep.prepare(c, ctx)
+
+	s.addRelationStep = &addRelation{}
+	s.addRelationStep.prepare(c, ctx)
+
+	s.addRelUnitStep = &addRelationUnit{}
+	s.addRelUnitStep.prepare(c, ctx)
+}
+
+func (s *startupRelationError) step(c tc.LikeC, ctx *testContext) {
+	step(c, ctx, s.createCharmStep)
+	step(c, ctx, s.serveCharmStep)
+	step(c, ctx, s.createUniterStep)
+	step(c, ctx, s.waitUnitAgentStep)
+	step(c, ctx, s.waitHooksStep)
+	step(c, ctx, s.verifyCharmStep)
+	step(c, ctx, s.addRelationStep)
+	step(c, ctx, s.addRelUnitStep)
 }
 
 type resolveError struct {
 	resolved params.ResolvedMode
 }
 
-func (s resolveError) step(c tc.LikeC, ctx *testContext) {
+func (s *resolveError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *resolveError) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.resolved = s.resolved
 	ctx.unit.mu.Unlock()
-	ctx.sendNotify(c, ctx.unitResolveCh, "resolved event")
+	ctx.channelMu.Lock()
+	ch := ctx.unitResolveCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "resolved event")
 }
 
 type statusfunc func() (status.StatusInfo, error)
@@ -1242,88 +1496,86 @@ type waitUnitAgent struct {
 	resolved     params.ResolvedMode
 }
 
-func (s waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
+func (s *waitUnitAgent) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
 	if s.statusGetter == nil {
 		s.statusGetter = agentStatusGetter
 	}
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for desired status")
 	for {
+		time.Sleep(coretesting.ShortWait)
+		var (
+			resolved params.ResolvedMode
+			urlStr   *string
+		)
+		ctx.unit.mu.Lock()
+		resolved = ctx.unit.resolved
+		urlStr = new(ctx.unit.charmURL)
+		ctx.unit.mu.Unlock()
 
-		select {
-		case <-time.After(coretesting.ShortWait):
-			var (
-				resolved params.ResolvedMode
-				urlStr   *string
-			)
-			ctx.unit.mu.Lock()
-			resolved = ctx.unit.resolved
-			urlStr = new(ctx.unit.charmURL)
-			ctx.unit.mu.Unlock()
-
-			if resolved != s.resolved {
-				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
+		if resolved != s.resolved {
+			c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
+			continue
+		}
+		if urlStr == nil {
+			c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
+			continue
+		}
+		if *urlStr != curl(s.charm) {
+			c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), *urlStr)
+			continue
+		}
+		statusInfo, err := s.statusGetter(ctx)()
+		c.Assert(err, tc.ErrorIsNil)
+		if string(statusInfo.Status) != string(s.status) {
+			c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
+			continue
+		}
+		if statusInfo.Message != s.info {
+			c.Logf("want unit status info %q, got %q; still waiting", s.info, statusInfo.Message)
+			continue
+		}
+		if s.data != nil {
+			if len(statusInfo.Data) != len(s.data) {
+				wantKeys := []string{}
+				for k := range s.data {
+					wantKeys = append(wantKeys, k)
+				}
+				sort.Strings(wantKeys)
+				gotKeys := []string{}
+				for k := range statusInfo.Data {
+					gotKeys = append(gotKeys, k)
+				}
+				sort.Strings(gotKeys)
+				c.Logf("want {%s} status data value(s), got {%s}; still waiting", strings.Join(wantKeys, ", "), strings.Join(gotKeys, ", "))
 				continue
 			}
-			if urlStr == nil {
-				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
-				continue
-			}
-			if *urlStr != curl(s.charm) {
-				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), *urlStr)
-				continue
-			}
-			statusInfo, err := s.statusGetter(ctx)()
-			c.Assert(err, tc.ErrorIsNil)
-			if string(statusInfo.Status) != string(s.status) {
-				c.Logf("want unit status %q, got %q; still waiting", s.status, statusInfo.Status)
-				continue
-			}
-			if statusInfo.Message != s.info {
-				c.Logf("want unit status info %q, got %q; still waiting", s.info, statusInfo.Message)
-				continue
-			}
-			if s.data != nil {
-				if len(statusInfo.Data) != len(s.data) {
-					wantKeys := []string{}
-					for k := range s.data {
-						wantKeys = append(wantKeys, k)
-					}
-					sort.Strings(wantKeys)
-					gotKeys := []string{}
-					for k := range statusInfo.Data {
-						gotKeys = append(gotKeys, k)
-					}
-					sort.Strings(gotKeys)
-					c.Logf("want {%s} status data value(s), got {%s}; still waiting", strings.Join(wantKeys, ", "), strings.Join(gotKeys, ", "))
+			for key, value := range s.data {
+				if statusInfo.Data[key] != value {
+					c.Logf("want status data value %q for key %q, got %q; still waiting",
+						value, key, statusInfo.Data[key])
 					continue
 				}
-				for key, value := range s.data {
-					if statusInfo.Data[key] != value {
-						c.Logf("want status data value %q for key %q, got %q; still waiting",
-							value, key, statusInfo.Data[key])
-						continue
-					}
-				}
 			}
-			return
-		case <-timeout:
-			c.Fatalf("never reached desired status")
 		}
+		return
 	}
 }
 
 type waitHooks []string
 
-func (s waitHooks) step(c tc.LikeC, ctx *testContext) {
-	if len(s) == 0 {
-		// Give unwanted hooks a moment to run...
+func (s *waitHooks) prepare(_ tc.LikeC, _ *testContext) {}
 
+func (s *waitHooks) step(c tc.LikeC, ctx *testContext) {
+	if len(*s) == 0 {
+		// Give unwanted hooks a moment to run...
 		time.Sleep(coretesting.ShortWait)
 	}
-	ctx.hooks = append(ctx.hooks, s...)
+	ctx.hooks = append(ctx.hooks, *s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
 	match, cannotMatch, overshoot := ctx.matchHooks(c)
-	if overshoot && len(s) == 0 {
+	if overshoot && len(*s) == 0 {
 		c.Fatalf("ran more hooks than expected")
 	}
 	if cannotMatch {
@@ -1346,7 +1598,7 @@ func (s waitHooks) step(c tc.LikeC, ctx *testContext) {
 		releaser()
 	}
 	if match {
-		if len(s) > 0 {
+		if len(*s) > 0 {
 			// only check for lock release if there were hooks
 			// run; hooks *not* running may be due to the lock
 			// being held.
@@ -1354,18 +1606,14 @@ func (s waitHooks) step(c tc.LikeC, ctx *testContext) {
 		}
 		return
 	}
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for expected hooks")
 	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			if match, cannotMatch, _ = ctx.matchHooks(c); match {
-				waitExecutionLockReleased()
-				return
-			} else if cannotMatch {
-				c.Fatalf("unexpected hook triggered")
-			}
-		case <-timeout:
-			c.Fatalf("never got expected hooks")
+		time.Sleep(coretesting.ShortWait)
+		if match, cannotMatch, _ = ctx.matchHooks(c); match {
+			waitExecutionLockReleased()
+			return
+		} else if cannotMatch {
+			c.Fatalf("unexpected hook triggered")
 		}
 	}
 }
@@ -1379,20 +1627,18 @@ type waitActionInvocation struct {
 	expectedActions []actionData
 }
 
-func (s waitActionInvocation) step(c tc.LikeC, ctx *testContext) {
-	timeout := time.After(coretesting.LongWait)
+func (s *waitActionInvocation) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitActionInvocation) step(c tc.LikeC, ctx *testContext) {
+	c.Log("waiting for action invocation")
 	for {
-		select {
-		case <-time.After(coretesting.ShortWait):
-			ranActions := ctx.runner.ranActions()
-			if len(ranActions) != len(s.expectedActions) {
-				continue
-			}
-			assertActionsMatch(c, ranActions, s.expectedActions)
-			return
-		case <-timeout:
-			c.Fatalf("timed out waiting for action invocation")
+		time.Sleep(coretesting.ShortWait)
+		ranActions := ctx.runner.ranActions()
+		if len(ranActions) != len(s.expectedActions) {
+			continue
 		}
+		assertActionsMatch(c, ranActions, s.expectedActions)
+		return
 	}
 }
 
@@ -1422,7 +1668,9 @@ type fixHook struct {
 	name string
 }
 
-func (s fixHook) step(_ tc.LikeC, ctx *testContext) {
+func (s *fixHook) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *fixHook) step(_ tc.LikeC, ctx *testContext) {
 	if ctx.runner.hooksWithErrors != nil {
 		ctx.runner.hooksWithErrors.Remove(s.name)
 	}
@@ -1430,34 +1678,48 @@ func (s fixHook) step(_ tc.LikeC, ctx *testContext) {
 
 type updateStatusHookTick struct{}
 
-func (s updateStatusHookTick) step(c tc.LikeC, ctx *testContext) {
+func (s *updateStatusHookTick) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *updateStatusHookTick) step(c tc.LikeC, ctx *testContext) {
 	err := ctx.updateStatusHookTicker.Tick()
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 type changeConfig map[string]any
 
-func (s changeConfig) step(c tc.LikeC, ctx *testContext) {
-	ctx.sendStrings(c, ctx.configCh, "config change event", ctx.app.configHash(s))
+func (s *changeConfig) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *changeConfig) step(c tc.LikeC, ctx *testContext) {
+	ctx.sendStrings(c, ctx.configCh, "config change event", ctx.app.configHash(*s))
 }
 
 type addAction struct {
 	name   string
 	params map[string]any
+	tag    names.ActionTag
+	action *apiuniter.Action
 }
 
-func (s addAction) step(c tc.LikeC, ctx *testContext) {
-	tag := names.NewActionTag(strconv.Itoa(int(ctx.actionCounter.Add(1))))
-	a := apiuniter.NewAction(tag.Id(), s.name, s.params, false, "")
-	ctx.pendingActions = append(ctx.pendingActions, a)
-	ctx.api.EXPECT().Action(gomock.Any(), tag).Return(a, nil).AnyTimes()
-	c.Logf("beginning action %s", tag)
-	ctx.api.EXPECT().ActionBegin(gomock.Any(), tag).DoAndReturn(func(_ context.Context, tag names.ActionTag) error {
+func (s *addAction) prepare(_ tc.LikeC, ctx *testContext) {
+	s.tag = names.NewActionTag(strconv.Itoa(int(ctx.actionCounter.Add(1))))
+	s.action = apiuniter.NewAction(s.tag.Id(), s.name, s.params, false, "")
+	stepped := ctx.stepped.EXPECT().Stepped(s)
+	ctx.api.EXPECT().Action(gomock.Any(), s.tag).Return(s.action, nil).AnyTimes().After(stepped)
+	ctx.api.EXPECT().ActionBegin(gomock.Any(), s.tag).DoAndReturn(func(_ context.Context, tag names.ActionTag) error {
 		ctx.actionsCh <- []string{tag.Id()}
 		return nil
-	}).MaxTimes(2)
-	ctx.api.EXPECT().ActionStatus(gomock.Any(), tag).Return("completed", nil).AnyTimes()
-	ctx.sendStrings(c, ctx.actionsCh, "action begin event", tag.Id())
+	}).MaxTimes(2).After(stepped)
+	ctx.api.EXPECT().ActionStatus(gomock.Any(), s.tag).Return("completed", nil).AnyTimes().After(stepped)
+}
+
+func (s *addAction) step(c tc.LikeC, ctx *testContext) {
+	// Add to pendingActions in step (not prepare) so it's not included in the
+	// WatchActionNotifications initial event before the action gate is released.
+	ctx.pendingActions = append(ctx.pendingActions, s.action)
+	c.Logf("beginning action %s", s.tag)
+	// Advance prepared mocks.
+	ctx.stepped.Stepped(s)
+	ctx.sendStrings(c, ctx.actionsCh, "action begin event", s.tag.Id())
 }
 
 type upgradeCharm struct {
@@ -1465,15 +1727,20 @@ type upgradeCharm struct {
 	forced   bool
 }
 
-func (s upgradeCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *upgradeCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *upgradeCharm) step(c tc.LikeC, ctx *testContext) {
 	ctx.app.mu.Lock()
 	defer ctx.app.mu.Unlock()
 	ctx.app.charmURL = curl(s.revision)
 	ctx.app.charmForced = s.forced
 	ctx.app.charmModifiedVersion++
 	// Make sure we upload the charm before changing it in the DB.
-	serveCharm{}.step(c, ctx)
-	ctx.sendNotify(c, ctx.applicationCh, "application charm upgrade event")
+	(&serveCharm{}).step(c, ctx)
+	ctx.channelMu.Lock()
+	ch := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "application charm upgrade event")
 }
 
 type verifyCharm struct {
@@ -1482,7 +1749,9 @@ type verifyCharm struct {
 	checkFiles        filetesting.Entries
 }
 
-func (s verifyCharm) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyCharm) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyCharm) step(c tc.LikeC, ctx *testContext) {
 	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
 	checkRevision := max(s.attemptedRevision, s.revision)
 	ctx.unit.mu.Lock()
@@ -1493,65 +1762,80 @@ func (s verifyCharm) step(c tc.LikeC, ctx *testContext) {
 
 type pushResource struct{}
 
-func (s pushResource) step(c tc.LikeC, ctx *testContext) {
+func (s *pushResource) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *pushResource) step(c tc.LikeC, ctx *testContext) {
 	ctx.app.mu.Lock()
 	ctx.app.charmModifiedVersion++
 	ctx.app.mu.Unlock()
-	ctx.sendNotify(c, ctx.applicationCh, "resource change event")
+	ctx.channelMu.Lock()
+	ch := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "resource change event")
 }
 
-type startUpgradeError struct{}
+type startUpgradeError struct {
+	steps []stepper
+}
 
-func (s startUpgradeError) step(c tc.LikeC, ctx *testContext) {
-	steps := []stepper{
-		createCharm{},
-		serveCharm{},
-		createUniter{},
-		waitUnitAgent{
+func (s *startUpgradeError) prepare(c tc.LikeC, ctx *testContext) {
+	wh := waitHooks(startupHooks(false))
+	s.steps = []stepper{
+		&createCharm{},
+		&serveCharm{},
+		&createUniter{},
+		&waitUnitAgent{
 			status: status.Idle,
 		},
-		waitHooks(startupHooks(false)),
-		verifyCharm{},
+		&wh,
+		&verifyCharm{},
 
-		createCharm{
+		&createCharm{
 			revision: 1,
 			customize: func(c tc.LikeC, ctx *testContext, path string) {
 				ctx.deployer.err = charm.ErrConflict
 			},
 		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
-		waitUnitAgent{
+		&serveCharm{},
+		&upgradeCharm{revision: 1},
+		&waitUnitAgent{
 			statusGetter: unitStatusGetter,
 			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        1,
 		},
-		verifyWaiting{},
-		verifyCharm{attemptedRevision: 1},
+		&verifyWaiting{},
+		&verifyCharm{attemptedRevision: 1},
 	}
-	for _, s_ := range steps {
+	for _, s_ := range s.steps {
+		s_.prepare(c, ctx)
+	}
+}
+
+func (s *startUpgradeError) step(c tc.LikeC, ctx *testContext) {
+	for _, s_ := range s.steps {
 		step(c, ctx, s_)
 	}
 }
 
 type verifyWaitingUpgradeError struct {
 	revision int
+	allSteps []stepper
 }
 
-func (s verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyWaitingUpgradeError) prepare(c tc.LikeC, ctx *testContext) {
 	verifyCharmSteps := []stepper{
-		waitUnitAgent{
+		&waitUnitAgent{
 			statusGetter: unitStatusGetter,
 			status:       status.Error,
 			info:         "upgrade failed",
 			charm:        s.revision,
 		},
-		verifyCharm{attemptedRevision: s.revision},
+		&verifyCharm{attemptedRevision: s.revision},
 	}
 	verifyWaitingSteps := []stepper{
-		stopUniter{},
-		custom{func(c tc.LikeC, ctx *testContext) {
+		&stopUniter{},
+		&custom{f: func(c tc.LikeC, ctx *testContext) {
 			// By setting status to Idle, and waiting for the restarted uniter
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
@@ -1562,61 +1846,93 @@ func (s verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
 			}
 			ctx.unit.mu.Unlock()
 		}},
-		startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
+		&startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
 	}
-	allSteps := append(verifyCharmSteps, verifyWaitingSteps...)
-	allSteps = append(allSteps, verifyCharmSteps...)
-	for _, s_ := range allSteps {
+	s.allSteps = append(verifyCharmSteps, verifyWaitingSteps...)
+	s.allSteps = append(s.allSteps, verifyCharmSteps...)
+	for _, s_ := range s.allSteps {
+		s_.prepare(c, ctx)
+	}
+}
+
+func (s *verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
+	for _, s_ := range s.allSteps {
 		step(c, ctx, s_)
 	}
 }
 
 type fixUpgradeError struct{}
 
-func (s fixUpgradeError) step(_ tc.LikeC, ctx *testContext) {
+func (s *fixUpgradeError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *fixUpgradeError) step(_ tc.LikeC, ctx *testContext) {
 	ctx.deployer.err = nil
 }
 
 type addRelation struct {
+	waitHooksStep *waitHooks
+	relation      *relation     // set in prepare, assigned to ctx.relation in step
+	relUnit       *relationUnit // set in prepare, assigned to ctx.relUnit in step
 }
 
-func (s addRelation) step(c tc.LikeC, ctx *testContext) {
+func (s *addRelation) prepare(c tc.LikeC, ctx *testContext) {
 	if ctx.relation != nil {
 		panic("don't add two relations!")
 	}
 	if ctx.relatedApplication == nil {
-		ctx.relatedApplication = uniterapi.NewMockApplication(ctx.ctrl)
+		ctx.relatedApplication = apimocks.NewMockApplication(ctx.ctrl)
 		ctx.relatedApplication.EXPECT().Tag().Return(names.NewApplicationTag("mysql")).AnyTimes()
 	}
 
 	relTag := names.NewRelationTag("wordpress:db mysql:db")
-	ctx.relation = ctx.makeRelation(c, relTag, life.Alive, "mysql")
+	// Store in s.relation (not ctx.relation) so WatchRelations initial event
+	// does not include this relation before the gate is released.
+	s.relation = ctx.makeRelation(c, relTag, life.Alive, "mysql")
+	s.relUnit = ctx.makeRelationUnit(c, s.relation, ctx.unit)
 
-	ctx.relUnit = ctx.makeRelationUnit(c, ctx.relation, ctx.unit)
-	ctx.relation.EXPECT().Unit(gomock.Any(), ctx.unit.Tag()).Return(ctx.relUnit, nil).AnyTimes()
+	stepped := ctx.stepped.EXPECT().Stepped(s)
+	s.relation.EXPECT().Unit(gomock.Any(), ctx.unit.Tag()).Return(s.relUnit, nil).AnyTimes().After(stepped)
 
+	rel := s.relation // capture for closure
 	ctx.api.EXPECT().WatchRelationUnits(gomock.Any(), relTag, ctx.unit.Tag()).DoAndReturn(func(_ context.Context, _ names.RelationTag, _ names.UnitTag) (watcher.RelationUnitsWatcher, error) {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
 
 		changes := watcher.RelationUnitsChange{Changed: make(map[string]watcher.UnitSettings)}
-		relUnits := ctx.relationUnits[ctx.relation.Id()]
+		relUnits := ctx.relationUnits[rel.Id()]
 		for u, vers := range relUnits {
 			changes.Changed[u] = watcher.UnitSettings{Version: vers}
 		}
 		ctx.sendRelationUnitChange(c, "initial relation unit change", changes)
 		w := newMockRelationUnitsWatcher(ctx.relationUnitCh)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(stepped)
 
-	ctx.sendStrings(c, ctx.relCh, "relation event", relTag.Id())
+	wh := waitHooks{"db-relation-created mysql db:0"}
+	s.waitHooksStep = &wh
+	s.waitHooksStep.prepare(c, ctx)
+}
 
-	step(c, ctx, waitHooks{"db-relation-created mysql db:0"})
+func (s *addRelation) step(c tc.LikeC, ctx *testContext) {
+	// Assign to ctx now that the uniter is running and the initial
+	// WatchRelations event has already been sent (with no relation).
+	ctx.relation = s.relation
+	ctx.relUnit = s.relUnit
+	// Advance prepared mocks BEFORE sending the relation event. The
+	// RemoteStateWatcher processes relCh asynchronously and may call
+	// WatchRelationUnits before Stepped(s) is called, which would
+	// cause a gomock unexpected-call failure via Goexit, permanently
+	// deadlocking the watcher's catacomb (Kill is never called).
+	ctx.stepped.Stepped(s)
+	ctx.sendStrings(c, ctx.relCh, "relation event", ctx.relation.Tag().Id())
+	step(c, ctx, s.waitHooksStep)
 }
 
 type addRelationUnit struct{}
 
-func (s addRelationUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *addRelationUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *addRelationUnit) step(c tc.LikeC, ctx *testContext) {
 	related := fmt.Sprintf("%s/%d", ctx.relatedApplication.Tag().Id(), ctx.relUnitCounter.Add(1))
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
@@ -1638,7 +1954,9 @@ type changeRelationUnit struct {
 	name string
 }
 
-func (s changeRelationUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *changeRelationUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *changeRelationUnit) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 
@@ -1660,7 +1978,9 @@ type removeRelationUnit struct {
 	name string
 }
 
-func (s removeRelationUnit) step(c tc.LikeC, ctx *testContext) {
+func (s *removeRelationUnit) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeRelationUnit) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 
@@ -1679,7 +1999,9 @@ type relationState struct {
 	life    life.Value
 }
 
-func (s relationState) step(c tc.LikeC, ctx *testContext) {
+func (s *relationState) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *relationState) step(c tc.LikeC, ctx *testContext) {
 	if s.removed {
 		c.Assert(ctx.relation.Life(), tc.Equals, life.Dying)
 		return
@@ -1688,16 +2010,20 @@ func (s relationState) step(c tc.LikeC, ctx *testContext) {
 }
 
 type addSubordinateRelation struct {
-	ifce string
+	ifce      string
+	subordRel *relation // set in prepare, assigned to ctx.subordRelation in step
 }
 
-func (s addSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
+func (s *addSubordinateRelation) prepare(c tc.LikeC, ctx *testContext) {
 	relKey := subordinateRelationKey(s.ifce)
 	relTag := names.NewRelationTag(relKey)
-	ctx.subordRelation = ctx.makeRelation(c, relTag, life.Alive, "logging")
+	// Store in s.subordRel (not ctx.subordRelation) so WatchRelations initial
+	// event does not include this relation before the gate is released.
+	s.subordRel = ctx.makeRelation(c, relTag, life.Alive, "logging")
 
-	ru := ctx.makeRelationUnit(c, ctx.subordRelation, ctx.unit)
-	ctx.subordRelation.EXPECT().Unit(gomock.Any(), ctx.unit.Tag()).Return(ru, nil).AnyTimes()
+	ru := ctx.makeRelationUnit(c, s.subordRel, ctx.unit)
+	stepped := ctx.stepped.EXPECT().Stepped(s)
+	s.subordRel.EXPECT().Unit(gomock.Any(), ctx.unit.Tag()).Return(ru, nil).AnyTimes().After(stepped)
 
 	ctx.api.EXPECT().WatchRelationUnits(gomock.Any(), relTag, ctx.unit.Tag()).DoAndReturn(func(_ context.Context, _ names.RelationTag, _ names.UnitTag) (watcher.RelationUnitsWatcher, error) {
 		changes := watcher.RelationUnitsChange{Changed: make(map[string]watcher.UnitSettings)}
@@ -1705,8 +2031,17 @@ func (s addSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
 		ctx.sendRelationUnitChange(c, "initial subordinate relation unit change", changes)
 		w := newMockRelationUnitsWatcher(ctx.relationUnitCh)
 		return w, nil
-	}).AnyTimes()
+	}).AnyTimes().After(stepped)
+}
 
+func (s *addSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
+	// Assign to ctx now that the uniter is running.
+	ctx.subordRelation = s.subordRel
+	relKey := subordinateRelationKey(s.ifce)
+	relTag := names.NewRelationTag(relKey)
+	// Advance prepared mocks BEFORE sending the relation event (same
+	// reasoning as addRelation.step).
+	ctx.stepped.Stepped(s)
 	ctx.sendStrings(c, ctx.relCh, "add subordinate relation event", relTag.Id())
 }
 
@@ -1714,7 +2049,9 @@ type removeSubordinateRelation struct {
 	ifce string
 }
 
-func (s removeSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
+func (s *removeSubordinateRelation) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeSubordinateRelation) step(c tc.LikeC, ctx *testContext) {
 	ctx.subordRelation.mu.Lock()
 	ctx.subordRelation.life = life.Dying
 	ctx.subordRelation.mu.Unlock()
@@ -1725,27 +2062,25 @@ type waitSubordinateExists struct {
 	name string
 }
 
-func (s waitSubordinateExists) step(c tc.LikeC, ctx *testContext) {
+func (s *waitSubordinateExists) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitSubordinateExists) step(c tc.LikeC, ctx *testContext) {
 	// First wait for the principal unit to enter scope.
 	// If subordinate is not alive, test does not allow the
 	// principal to enter scope.
-	timeout := time.After(coretesting.LongWait)
+	c.Log("waiting for subordinate unit to enter scope")
 	for {
-		select {
-		case <-timeout:
-			c.Fatalf("unit is alive did not enter scope")
-		case <-time.After(coretesting.ShortWait):
-			subordLife := life.Dying
-			ctx.unit.mu.Lock()
-			inScope := ctx.unit.inScope
-			if ctx.unit.subordinate != nil {
-				subordLife = ctx.unit.subordinate.Life()
-			}
-			ctx.unit.mu.Unlock()
-			if subordLife == life.Alive && !inScope {
-				c.Logf("unit is alive and not yet in scope")
-				continue
-			}
+		time.Sleep(coretesting.ShortWait)
+		subordLife := life.Dying
+		ctx.unit.mu.Lock()
+		inScope := ctx.unit.inScope
+		if ctx.unit.subordinate != nil {
+			subordLife = ctx.unit.subordinate.Life()
+		}
+		ctx.unit.mu.Unlock()
+		if subordLife == life.Alive && !inScope {
+			c.Logf("unit is alive and not yet in scope")
+			continue
 		}
 		break
 	}
@@ -1765,20 +2100,18 @@ func (s waitSubordinateExists) step(c tc.LikeC, ctx *testContext) {
 
 type waitSubordinateDying struct{}
 
-func (waitSubordinateDying) step(c tc.LikeC, ctx *testContext) {
-	timeout := time.After(coretesting.LongWait)
+func (s *waitSubordinateDying) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *waitSubordinateDying) step(c tc.LikeC, ctx *testContext) {
+	c.Log("waiting for subordinate to be made Dying")
 	for {
-		select {
-		case <-timeout:
-			c.Fatalf("subordinate was not made Dying")
-		case <-time.After(coretesting.ShortWait):
-			ctx.unit.mu.Lock()
-			subordLife := ctx.unit.subordinate.Life()
-			ctx.unit.mu.Unlock()
-			if subordLife != life.Dying {
-				c.Logf("subordinate life is %q, not %q", subordLife, life.Dying)
-				continue
-			}
+		time.Sleep(coretesting.ShortWait)
+		ctx.unit.mu.Lock()
+		subordLife := ctx.unit.subordinate.Life()
+		ctx.unit.mu.Unlock()
+		if subordLife != life.Dying {
+			c.Logf("subordinate life is %q, not %q", subordLife, life.Dying)
+			continue
 		}
 		break
 	}
@@ -1786,7 +2119,9 @@ func (waitSubordinateDying) step(c tc.LikeC, ctx *testContext) {
 
 type removeSubordinate struct{}
 
-func (removeSubordinate) step(c tc.LikeC, ctx *testContext) {
+func (s *removeSubordinate) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeSubordinate) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.subordinate = nil
 	ctx.unit.mu.Unlock()
@@ -1801,7 +2136,9 @@ type writeFile struct {
 	mode os.FileMode
 }
 
-func (s writeFile) step(c tc.LikeC, ctx *testContext) {
+func (s *writeFile) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *writeFile) step(c tc.LikeC, ctx *testContext) {
 	path := filepath.Join(ctx.path, s.path)
 	dir := filepath.Dir(path)
 	err := os.MkdirAll(dir, 0755)
@@ -1812,55 +2149,80 @@ func (s writeFile) step(c tc.LikeC, ctx *testContext) {
 
 type removeCharmDir struct{}
 
-func (s removeCharmDir) step(c tc.LikeC, ctx *testContext) {
+func (s *removeCharmDir) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *removeCharmDir) step(c tc.LikeC, ctx *testContext) {
 	path := filepath.Join(ctx.path, "charm")
 	err := os.RemoveAll(path)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 type custom struct {
-	f func(tc.LikeC, *testContext)
+	prepareFn func(tc.LikeC, *testContext)
+	f         func(tc.LikeC, *testContext)
 }
 
-func (s custom) step(c tc.LikeC, ctx *testContext) {
+func (s *custom) prepare(c tc.LikeC, ctx *testContext) {
+	if s.prepareFn != nil {
+		s.prepareFn(c, ctx)
+	}
+}
+
+func (s *custom) step(c tc.LikeC, ctx *testContext) {
 	s.f(c, ctx)
 }
 
-var relationDying = custom{func(c tc.LikeC, ctx *testContext) {
+var relationDying = &custom{f: func(c tc.LikeC, ctx *testContext) {
 	ctx.relation.mu.Lock()
 	ctx.relation.life = life.Dying
 	ctx.relation.mu.Unlock()
 	ctx.sendStrings(c, ctx.relCh, "relation dying event", ctx.relation.Tag().Id())
 }}
 
-var unitDying = custom{func(c tc.LikeC, ctx *testContext) {
+type unitDying struct {
+	stepped *MockSteppedSteppedCall
+}
+
+// prepare registers mock expectations for the unit dying scenario.
+//
+// All expectations are gated on the stepped call to prevent a race: the outer
+// resolver loop can restart via ErrRestart, calling restartWatcher and
+// unit.Watch, which sends an initial unit event. If that event is processed
+// after ctx.unit.life is set to Dying but before the gate is opened, the
+// storage resolver would call DestroyUnitStorageAttachments with no active
+// expectation; gomock calls FailNow → runtime.Goexit in the uniter goroutine,
+// permanently deadlocking the catacomb WaitGroup. Gating on stepped ensures
+// the expectations are active before life is set. Each resolver restart
+// creates a fresh storageResolver (s.dying = false), so calls can occur any
+// number of times; AnyTimes() handles all cases.
+func (s *unitDying) prepare(_ tc.LikeC, ctx *testContext) {
+	s.stepped = ctx.stepped.EXPECT().Stepped(s)
+	ctx.api.EXPECT().DestroyUnitStorageAttachments(gomock.Any(), ctx.unit.Tag()).Return(nil).AnyTimes().After(s.stepped)
+	ctx.api.EXPECT().RemoveStorageAttachment(gomock.Any(), gomock.Any(), ctx.unit.Tag()).DoAndReturn(
+		func(_ context.Context, tag names.StorageTag, _ names.UnitTag) error {
+			ctx.stateMu.Lock()
+			delete(ctx.storage, tag.Id())
+			ctx.stateMu.Unlock()
+			return nil
+		}).AnyTimes().After(s.stepped)
+}
+
+func (s *unitDying) step(c tc.LikeC, ctx *testContext) {
+	ctx.stepped.Stepped(s)
 	ctx.unit.mu.Lock()
 	ctx.unit.life = life.Dying
 	ctx.unit.mu.Unlock()
-	ctx.api.EXPECT().DestroyUnitStorageAttachments(gomock.Any(), ctx.unit.Tag()).Return(nil).MaxTimes(2)
-
-	ctx.stateMu.Lock()
-	for id := range ctx.storage {
-		// Could be twice due to short circuit.
-		ctx.api.EXPECT().RemoveStorageAttachment(gomock.Any(), names.NewStorageTag(id), ctx.unit.Tag()).DoAndReturn(func(_ context.Context, tag names.StorageTag, _ names.UnitTag) error {
-			ctx.stateMu.Lock()
-			delete(ctx.storage, id)
-			ctx.stateMu.Unlock()
-			return nil
-		}).MaxTimes(3) // detaching hook, then short circuit remove called twice
-	}
-	ctx.stateMu.Unlock()
 	ctx.sendUnitNotify(c, "send unit dying event")
-}}
+}
 
-var unitDead = custom{func(c tc.LikeC, ctx *testContext) {
+var unitDead = &custom{f: func(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.life = life.Dead
 	ctx.unit.mu.Unlock()
 	ctx.sendUnitNotify(c, "send unit dead event")
 }}
 
-var subordinateDying = custom{func(c tc.LikeC, ctx *testContext) {
+var subordinateDying = &custom{f: func(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.subordinate.mu.Lock()
 	ctx.unit.subordinate.life = life.Dying
@@ -1883,6 +2245,8 @@ type hookLock struct {
 type hookStep struct {
 	stepFunc func(tc.LikeC, *testContext)
 }
+
+func (h *hookStep) prepare(_ tc.LikeC, _ *testContext) {}
 
 func (h *hookStep) step(c tc.LikeC, ctx *testContext) {
 	h.stepFunc(c, ctx)
@@ -1910,8 +2274,10 @@ func (h *hookLock) release() *hookStep {
 
 type runCommands []string
 
-func (cmds runCommands) step(c tc.LikeC, ctx *testContext) {
-	commands := strings.Join(cmds, "\n")
+func (s *runCommands) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *runCommands) step(c tc.LikeC, ctx *testContext) {
+	commands := strings.Join(*s, "\n")
 	args := uniter.RunCommandsArgs{
 		Commands:       commands,
 		RelationId:     -1,
@@ -1927,13 +2293,17 @@ func (cmds runCommands) step(c tc.LikeC, ctx *testContext) {
 
 type forceMinion struct{}
 
-func (forceMinion) step(c tc.LikeC, ctx *testContext) {
+func (s *forceMinion) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *forceMinion) step(c tc.LikeC, ctx *testContext) {
 	ctx.leaderTracker.setLeader(false)
 }
 
 type forceLeader struct{}
 
-func (forceLeader) step(c tc.LikeC, ctx *testContext) {
+func (s *forceLeader) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *forceLeader) step(c tc.LikeC, ctx *testContext) {
 	ctx.leaderTracker.setLeader(true)
 }
 
@@ -2048,7 +2418,9 @@ func (*mockCharmDirGuard) Lockdown(context.Context) error { return nil }
 
 type provisionStorage struct{}
 
-func (s provisionStorage) step(c tc.LikeC, ctx *testContext) {
+func (s *provisionStorage) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *provisionStorage) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 	for si := range ctx.storage {
@@ -2066,7 +2438,9 @@ func (s provisionStorage) step(c tc.LikeC, ctx *testContext) {
 
 type destroyStorageAttachment struct{}
 
-func (s destroyStorageAttachment) step(c tc.LikeC, ctx *testContext) {
+func (s *destroyStorageAttachment) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *destroyStorageAttachment) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	ctx.storage = make(map[string]*storageAttachment)
 	ctx.stateMu.Unlock()
@@ -2074,36 +2448,52 @@ func (s destroyStorageAttachment) step(c tc.LikeC, ctx *testContext) {
 
 type verifyStorageDetached struct{}
 
-func (s verifyStorageDetached) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyStorageDetached) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *verifyStorageDetached) step(c tc.LikeC, ctx *testContext) {
 	ctx.stateMu.Lock()
 	defer ctx.stateMu.Unlock()
 	c.Assert(ctx.storage, tc.HasLen, 0)
 }
 
-type createSecret struct{}
+type createSecret struct {
+	uri *secrets.URI
+}
 
-func (s createSecret) step(c tc.LikeC, ctx *testContext) {
-	uri := secrets.NewURI()
-	ctx.secretBackends.EXPECT().GetContent(gomock.Any(), uri, "foorbar", false, false).Return(
-		secrets.NewSecretValue(map[string]string{"foo": "bar"}), nil).AnyTimes()
-	ctx.createdSecretURI = uri
+func (s *createSecret) prepare(_ tc.LikeC, ctx *testContext) {
+	s.uri = secrets.NewURI()
+	ctx.createdSecretURI = s.uri
+	stepped := ctx.stepped.EXPECT().Stepped(s)
+	ctx.secretBackends.EXPECT().GetContent(gomock.Any(), s.uri, "foorbar", false, false).Return(
+		secrets.NewSecretValue(map[string]string{"foo": "bar"}), nil).AnyTimes().After(stepped)
+}
+
+func (s *createSecret) step(_ tc.LikeC, ctx *testContext) {
+	// Advance prepared mocks.
+	ctx.stepped.Stepped(s)
 }
 
 type changeSecret struct{}
 
-func (s changeSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *changeSecret) prepare(_ tc.LikeC, ctx *testContext) {
+	stepped := ctx.stepped.EXPECT().Stepped(s)
 	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(
 		gomock.Any(),
 		ctx.unit.Name(), []string{ctx.createdSecretURI.String()},
 	).Return(map[string]secrets.SecretRevisionInfo{
 		ctx.createdSecretURI.String(): {LatestRevision: 666},
-	}, nil)
+	}, nil).After(stepped)
+}
+
+func (s *changeSecret) step(c tc.LikeC, ctx *testContext) {
+	// Advance prepared mocks.
+	ctx.stepped.Stepped(s)
 	ctx.sendStrings(c, ctx.consumedSecretsCh, "secret change", ctx.createdSecretURI.String())
 	done := make(chan bool)
 	go func() {
 		for {
 			ctx.stateMu.Lock()
-			if strings.Contains(fmt.Sprintf("secret-revisions: %s: 666\n", ctx.createdSecretURI), ctx.secretsState) {
+			if strings.Contains(ctx.secretsState, fmt.Sprintf("  %s: 666\n", ctx.createdSecretURI)) {
 				ctx.stateMu.Unlock()
 				close(done)
 				return
@@ -2117,7 +2507,9 @@ func (s changeSecret) step(c tc.LikeC, ctx *testContext) {
 
 type getSecret struct{}
 
-func (s getSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *getSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *getSecret) step(c tc.LikeC, ctx *testContext) {
 	val, err := ctx.secretBackends.GetContent(c.Context(), ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), tc.DeepEquals, map[string]string{"foo": "bar"})
@@ -2127,7 +2519,9 @@ type rotateSecret struct {
 	rev int
 }
 
-func (s rotateSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *rotateSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *rotateSecret) step(c tc.LikeC, ctx *testContext) {
 	ctx.sendStrings(c, ctx.secretsRotateCh, "rotate secret change", ctx.createdSecretURI.String())
 	done := make(chan bool)
 	go func() {
@@ -2148,7 +2542,9 @@ func (s rotateSecret) step(c tc.LikeC, ctx *testContext) {
 
 type expireSecret struct{}
 
-func (s expireSecret) step(c tc.LikeC, ctx *testContext) {
+func (s *expireSecret) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *expireSecret) step(c tc.LikeC, ctx *testContext) {
 	ctx.sendStrings(c, ctx.secretsExpireCh, "expire secret change", ctx.createdSecretURI.String()+"/1")
 }
 
@@ -2156,7 +2552,9 @@ type expectError struct {
 	err string
 }
 
-func (s expectError) step(_ tc.LikeC, ctx *testContext) {
+func (s *expectError) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *expectError) step(_ tc.LikeC, ctx *testContext) {
 	ctx.setExpectedError(s.err)
 }
 
@@ -2168,11 +2566,7 @@ type manualTicker struct {
 
 // Tick sends a signal on the ticker channel.
 func (t *manualTicker) Tick() error {
-	select {
-	case t.c <- time.Now():
-	case <-time.After(coretesting.LongWait):
-		return fmt.Errorf("ticker channel blocked")
-	}
+	t.c <- time.Now()
 	return nil
 }
 
@@ -2224,7 +2618,9 @@ type activateTestContainer struct {
 	containerName string
 }
 
-func (s activateTestContainer) step(c tc.LikeC, ctx *testContext) {
+func (s *activateTestContainer) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *activateTestContainer) step(c tc.LikeC, ctx *testContext) {
 	ctx.pebbleClients[s.containerName].TriggerStart()
 }
 
@@ -2232,7 +2628,9 @@ type injectTestContainer struct {
 	containerName string
 }
 
-func (s injectTestContainer) step(c tc.LikeC, ctx *testContext) {
+func (s *injectTestContainer) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *injectTestContainer) step(c tc.LikeC, ctx *testContext) {
 	c.Assert(ctx.uniter, tc.IsNil)
 	ctx.containerNames = append(ctx.containerNames, s.containerName)
 	if ctx.pebbleClients == nil {
@@ -2247,7 +2645,9 @@ func (s injectTestContainer) step(c tc.LikeC, ctx *testContext) {
 type triggerShutdown struct {
 }
 
-func (t triggerShutdown) step(c tc.LikeC, ctx *testContext) {
+func (s *triggerShutdown) prepare(_ tc.LikeC, _ *testContext) {}
+
+func (s *triggerShutdown) step(c tc.LikeC, ctx *testContext) {
 	err := ctx.uniter.Terminate()
 	c.Assert(err, tc.ErrorIsNil)
 }

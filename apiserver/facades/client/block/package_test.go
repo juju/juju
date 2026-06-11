@@ -3,4 +3,4 @@
 
 package block
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package block -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/block BlockCommandService,Authorizer
+//go:generate go run github.com/canonical/gomock/mockgen -package block -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/block BlockCommandService,Authorizer

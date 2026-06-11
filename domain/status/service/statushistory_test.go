@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/statushistory"
@@ -73,10 +73,9 @@ func (s *statusHistorySuite) TestGetStatusHistoryError(c *tc.C) {
 func (s *statusHistorySuite) TestGetStatusHistoryErrorWalk(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.historyReader.EXPECT().Walk(gomock.Any()).DoAndReturn(
-		func(fn func(statushistory.HistoryRecord) (bool, error)) error {
-			_, err := fn(statushistory.HistoryRecord{})
-			return err
+	s.historyReader.EXPECT().Walk(gomock.Any()).Do(
+		func(fn func(statushistory.HistoryRecord) (bool, error)) {
+			_, _ = fn(statushistory.HistoryRecord{})
 		},
 	).Return(fmt.Errorf("foo"))
 	service := s.newService()

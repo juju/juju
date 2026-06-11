@@ -6,9 +6,9 @@ package upgradesteps
 import (
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/semversion"
@@ -18,11 +18,11 @@ import (
 	"github.com/juju/juju/internal/upgrades"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination api_mock_test.go github.com/juju/juju/api/base APICaller
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradesteps -destination api_mock_test.go github.com/juju/juju/api/base APICaller
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradesteps -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
+//go:generate go run github.com/canonical/gomock/mockgen -package upgradesteps -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

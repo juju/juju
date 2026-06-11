@@ -3,6 +3,6 @@
 
 package refresher
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package refresher -destination refresher_mock_test.go github.com/juju/juju/cmd/juju/application/refresher RefresherFactory,Refresher,CharmResolver,CharmRepository
-//go:generate go run go.uber.org/mock/mockgen -typed -package refresher -destination store_mock_test.go github.com/juju/juju/cmd/juju/application/store CharmAdder
-//go:generate go run go.uber.org/mock/mockgen -typed -package refresher -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
+//go:generate go run github.com/canonical/gomock/mockgen -package refresher -destination refresher_mock_test.go github.com/juju/juju/cmd/juju/application/refresher RefresherFactory,Refresher,CharmResolver,CharmRepository
+//go:generate go run github.com/canonical/gomock/mockgen -package refresher -destination store_mock_test.go github.com/juju/juju/cmd/juju/application/store CharmAdder
+//go:generate go run github.com/canonical/gomock/mockgen -package refresher -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
