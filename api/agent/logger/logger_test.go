@@ -53,15 +53,13 @@ func (s *loggerSuite) TestGetControllerLokiConfig(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "GetControllerLokiConfig")
-		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entity{
 			Tag: "machine-666",
-		}}})
-		c.Assert(result, tc.FitsTypeOf, &params.LokiConfigResults{})
-		*(result.(*params.LokiConfigResults)) = params.LokiConfigResults{
-			Results: []params.LokiConfigResult{{
-				Endpoint: "https://loki.example.com/loki/api/v1/push",
-				CACert:   &caCert,
-			}},
+		})
+		c.Assert(result, tc.FitsTypeOf, &params.LokiConfigResult{})
+		*(result.(*params.LokiConfigResult)) = params.LokiConfigResult{
+			Endpoint: "https://loki.example.com/loki/api/v1/push",
+			CACert:   &caCert,
 		}
 		return nil
 	})
@@ -104,14 +102,12 @@ func (s *loggerSuite) TestWatchControllerLokiConfig(c *tc.C) {
 		c.Check(version, tc.Equals, 0)
 		c.Check(id, tc.Equals, "")
 		c.Check(request, tc.Equals, "WatchControllerLokiConfig")
-		c.Check(arg, tc.DeepEquals, params.Entities{Entities: []params.Entity{{
+		c.Check(arg, tc.DeepEquals, params.Entity{
 			Tag: "machine-666",
-		}}})
-		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResults{})
-		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{{
-				Error: &params.Error{Message: "FAIL"},
-			}},
+		})
+		c.Assert(result, tc.FitsTypeOf, &params.NotifyWatchResult{})
+		*(result.(*params.NotifyWatchResult)) = params.NotifyWatchResult{
+			Error: &params.Error{Message: "FAIL"},
 		}
 		return nil
 	})

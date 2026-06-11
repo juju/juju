@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/watcher"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -33,13 +35,13 @@ type Logger interface {
 type LoggerV2 interface {
 	Logger
 
-	// GetControllerLokiConfig reports the controller-wide Loki configuration
-	// for the requested agent entities.
-	GetControllerLokiConfig(ctx context.Context, args params.Entities) params.LokiConfigResults
+	// GetControllerLokiConfig reports the controller-wide Loki configuration for
+	// the requested agent entity.
+	GetControllerLokiConfig(ctx context.Context, args params.Entity) params.LokiConfigResult
 
-	// WatchControllerLokiConfig starts watchers for controller-wide Loki
-	// configuration changes for the requested agent entities.
-	WatchControllerLokiConfig(ctx context.Context, args params.Entities) params.NotifyWatchResults
+	// WatchControllerLokiConfig starts a watcher for controller-wide Loki
+	// configuration changes for the requested agent entity.
+	WatchControllerLokiConfig(ctx context.Context, args params.Entity) params.NotifyWatchResult
 }
 
 // LoggerAPI implements the Logger interface and is the concrete
@@ -161,73 +163,53 @@ func (api *LoggerAPI) LoggingConfig(ctx context.Context, arg params.Entities) pa
 }
 
 // GetControllerLokiConfig reports the controller-wide Loki configuration for
-// the agents specified.
-func (api *LoggerAPIV2) GetControllerLokiConfig(ctx context.Context, arg params.Entities) params.LokiConfigResults {
-	if len(arg.Entities) == 0 {
-		return params.LokiConfigResults{}
+// the agent specified.
+func (api *LoggerAPIV2) GetControllerLokiConfig(ctx context.Context, arg params.Entity) params.LokiConfigResult {
+	tag, err := names.ParseTag(arg.Tag)
+	if err != nil {
+		return params.LokiConfigResult{Error: apiservererrors.ServerError(err)}
+	}
+	if !api.authorizer.AuthOwner(tag) {
+		return params.LokiConfigResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
 	}
 
-	results := make([]params.LokiConfigResult, len(arg.Entities))
-	authorized := false
-	for i, entity := range arg.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
+	config, err := api.controllerLokiConfigService.GetLokiConfig(ctx)
+	if internalerrors.Is(err, loggingerrors.LokiConfigNotFound) {
+		return params.LokiConfigResult{
+			Error: apiservererrors.ParamsErrorf(params.CodeNotFound, "loki config not found"),
 		}
-		if !api.authorizer.AuthOwner(tag) {
-			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		authorized = true
 	}
-	if !authorized {
-		return params.LokiConfigResults{Results: results}
+	if err != nil {
+		return params.LokiConfigResult{Error: apiservererrors.ServerError(err)}
 	}
 
-	config, configErr := api.controllerLokiConfigService.GetLokiConfig(ctx)
-	for i := range results {
-		if results[i].Error != nil {
-			continue
-		}
-		if configErr != nil {
-			results[i].Error = apiservererrors.ServerError(configErr)
-			continue
-		}
-		results[i].Endpoint = config.Endpoint
-		if config.CACertificate != "" {
-			results[i].CACert = &config.CACertificate
-		}
+	result := params.LokiConfigResult{Endpoint: config.Endpoint}
+	if config.CACertificate != "" {
+		result.CACert = &config.CACertificate
 	}
-	return params.LokiConfigResults{Results: results}
+	return result
 }
 
 // WatchControllerLokiConfig starts a watcher to track changes to the
-// controller-wide Loki configuration for the agents specified.
-func (api *LoggerAPIV2) WatchControllerLokiConfig(ctx context.Context, arg params.Entities) params.NotifyWatchResults {
-	result := make([]params.NotifyWatchResult, len(arg.Entities))
-	for i, entity := range arg.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if !api.authorizer.AuthOwner(tag) {
-			result[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		watch, err := api.controllerLokiConfigService.WatchLokiConfig(ctx)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		result[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](ctx, api.watcherRegistry, watch)
-		if err != nil {
-			result[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
+// controller-wide Loki configuration for the agent specified.
+func (api *LoggerAPIV2) WatchControllerLokiConfig(ctx context.Context, arg params.Entity) params.NotifyWatchResult {
+	tag, err := names.ParseTag(arg.Tag)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}
 	}
-	return params.NotifyWatchResults{Results: result}
+	if !api.authorizer.AuthOwner(tag) {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}
+	}
+
+	watch, err := api.controllerLokiConfigService.WatchLokiConfig(ctx)
+	if err != nil {
+		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}
+	}
+
+	result := params.NotifyWatchResult{}
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, api.watcherRegistry, watch)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+	}
+	return result
 }

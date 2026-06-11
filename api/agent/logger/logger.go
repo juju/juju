@@ -63,18 +63,12 @@ func (c *Client) LoggingConfig(ctx context.Context, agentTag names.Tag) (string,
 // GetControllerLokiConfig returns the controller-wide Loki configuration for
 // the agent specified by agentTag.
 func (c *Client) GetControllerLokiConfig(ctx context.Context, agentTag names.Tag) (ControllerLokiConfig, error) {
-	var results params.LokiConfigResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: agentTag.String()}},
-	}
-	err := c.facade.FacadeCall(ctx, "GetControllerLokiConfig", args, &results)
+	var result params.LokiConfigResult
+	args := params.Entity{Tag: agentTag.String()}
+	err := c.facade.FacadeCall(ctx, "GetControllerLokiConfig", args, &result)
 	if err != nil {
 		return ControllerLokiConfig{}, internalerrors.Capture(err)
 	}
-	if len(results.Results) != 1 {
-		return ControllerLokiConfig{}, internalerrors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
 	if err := result.Error; err != nil {
 		return ControllerLokiConfig{}, internalerrors.Capture(err)
 	}
@@ -112,18 +106,12 @@ func (c *Client) WatchLoggingConfig(ctx context.Context, agentTag names.Tag) (wa
 // WatchControllerLokiConfig returns a notify watcher that looks for changes in
 // the controller-wide Loki configuration for the agent specified by agentTag.
 func (c *Client) WatchControllerLokiConfig(ctx context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: agentTag.String()}},
-	}
-	err := c.facade.FacadeCall(ctx, "WatchControllerLokiConfig", args, &results)
+	var result params.NotifyWatchResult
+	args := params.Entity{Tag: agentTag.String()}
+	err := c.facade.FacadeCall(ctx, "WatchControllerLokiConfig", args, &result)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
-	if len(results.Results) != 1 {
-		return nil, internalerrors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
 	if result.Error != nil {
 		return nil, internalerrors.Capture(result.Error)
 	}

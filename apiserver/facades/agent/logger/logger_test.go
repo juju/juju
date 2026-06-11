@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -207,27 +208,13 @@ func (s *loggerSuite) TestLoggingConfigForAgent(c *tc.C) {
 	c.Assert(result.Result, tc.Equals, "<root>=WARN;juju.log.test=DEBUG;unit=INFO")
 }
 
-func (s *loggerSuite) TestGetControllerLokiConfigForNoone(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPIV2(c)
-
-	results := s.loggerV2.GetControllerLokiConfig(c.Context(), params.Entities{})
-	c.Assert(results.Results, tc.HasLen, 0)
-	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 0)
-}
-
 func (s *loggerSuite) TestGetControllerLokiConfigRefusesWrongAgent(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPIV2(c)
 
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "machine-12354"}},
-	}
-	results := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
-	c.Assert(results.Results, tc.HasLen, 1)
-	result := results.Results[0]
+	args := params.Entity{Tag: "machine-12354"}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
 	c.Assert(result.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 0)
 }
@@ -242,12 +229,8 @@ func (s *loggerSuite) TestGetControllerLokiConfigForAgent(c *tc.C) {
 		CACertificate: "ca-cert",
 	}
 
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: defaultMachineTag.String()}},
-	}
-	results := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
-	c.Assert(results.Results, tc.HasLen, 1)
-	result := results.Results[0]
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
 	c.Assert(result.Error, tc.IsNil)
 	c.Check(result.Endpoint, tc.Equals, "https://loki.example.com/loki/api/v1/push")
 	c.Assert(result.CACert, tc.NotNil)
@@ -255,14 +238,20 @@ func (s *loggerSuite) TestGetControllerLokiConfigForAgent(c *tc.C) {
 	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 1)
 }
 
-func (s *loggerSuite) TestWatchControllerLokiConfigNothing(c *tc.C) {
+func (s *loggerSuite) TestGetControllerLokiConfigReturnsNotFoundError(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPIV2(c)
 
-	results := s.loggerV2.WatchControllerLokiConfig(c.Context(), params.Entities{})
-	c.Assert(results.Results, tc.HasLen, 0)
-	c.Check(s.controllerLokiConfigService.watchCalls, tc.Equals, 0)
+	s.controllerLokiConfigService.getErr = loggingerrors.LokiConfigNotFound
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.ErrorMatches, "loki config not found")
+	c.Check(result.Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(result.Endpoint, tc.Equals, "")
+	c.Check(result.CACert, tc.IsNil)
+	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 1)
 }
 
 func (s *loggerSuite) TestWatchControllerLokiConfig(c *tc.C) {
@@ -275,13 +264,10 @@ func (s *loggerSuite) TestWatchControllerLokiConfig(c *tc.C) {
 	s.controllerLokiConfigService.watcher = watchertest.NewMockNotifyWatcher(notifyCh)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
 
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: defaultMachineTag.String()}},
-	}
-	results := s.loggerV2.WatchControllerLokiConfig(c.Context(), args)
-	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].NotifyWatcherId, tc.Not(tc.Equals), "")
-	c.Assert(results.Results[0].Error, tc.IsNil)
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.WatchControllerLokiConfig(c.Context(), args)
+	c.Assert(result.NotifyWatcherId, tc.Not(tc.Equals), "")
+	c.Assert(result.Error, tc.IsNil)
 	c.Check(s.controllerLokiConfigService.watchCalls, tc.Equals, 1)
 }
 
@@ -290,13 +276,10 @@ func (s *loggerSuite) TestWatchControllerLokiConfigRefusesWrongAgent(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupAPIV2(c)
 
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "machine-12354"}},
-	}
-	results := s.loggerV2.WatchControllerLokiConfig(c.Context(), args)
-	c.Assert(results.Results, tc.HasLen, 1)
-	c.Assert(results.Results[0].NotifyWatcherId, tc.Equals, "")
-	c.Assert(results.Results[0].Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+	args := params.Entity{Tag: "machine-12354"}
+	result := s.loggerV2.WatchControllerLokiConfig(c.Context(), args)
+	c.Assert(result.NotifyWatcherId, tc.Equals, "")
+	c.Assert(result.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
 	c.Check(s.controllerLokiConfigService.watchCalls, tc.Equals, 0)
 }
 

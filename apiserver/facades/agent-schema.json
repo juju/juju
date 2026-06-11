@@ -3069,10 +3069,10 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/LokiConfigResults"
+                            "$ref": "#/definitions/LokiConfigResult"
                         }
                     }
                 },
@@ -3091,10 +3091,10 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/Entity"
                         },
                         "Result": {
-                            "$ref": "#/definitions/NotifyWatchResults"
+                            "$ref": "#/definitions/NotifyWatchResult"
                         }
                     }
                 },
@@ -3179,21 +3179,6 @@
                     "additionalProperties": false,
                     "required": [
                         "endpoint"
-                    ]
-                },
-                "LokiConfigResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/LokiConfigResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "NotifyWatchResult": {
