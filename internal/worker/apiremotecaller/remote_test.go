@@ -14,7 +14,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -32,8 +31,9 @@ type RemoteSuite struct {
 }
 
 func TestRemoteSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &RemoteSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &RemoteSuite{})
+	})
 }
 
 func (s *RemoteSuite) TestControllerID(c *tc.C) {

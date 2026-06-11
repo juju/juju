@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -25,8 +24,9 @@ type registrySuite struct {
 }
 
 func TestRegistrySuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &registrySuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &registrySuite{})
+	})
 }
 
 func (s *registrySuite) TestRegisterCount(c *tc.C) {

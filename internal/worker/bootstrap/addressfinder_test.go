@@ -10,7 +10,6 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/instance"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	instances "github.com/juju/juju/environs/instances"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type iaasAddressFinderSuite struct {
@@ -27,8 +27,9 @@ type iaasAddressFinderSuite struct {
 }
 
 func TestIAASAddressFinderSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &iaasAddressFinderSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &iaasAddressFinderSuite{})
+	})
 }
 
 func (s *iaasAddressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {
@@ -108,8 +109,9 @@ type caasAddressFinderSuite struct {
 }
 
 func TestCAASAddressFinderSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &caasAddressFinderSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &caasAddressFinderSuite{})
+	})
 }
 
 func (s *caasAddressFinderSuite) setupMocks(c *tc.C) *gomock.Controller {

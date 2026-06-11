@@ -11,13 +11,13 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 const (
@@ -33,8 +33,9 @@ type eventMultiplexerSuite struct {
 }
 
 func TestEventMultiplexerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &eventMultiplexerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &eventMultiplexerSuite{})
+	})
 }
 
 func (s *eventMultiplexerSuite) TestSubscribe(c *tc.C) {

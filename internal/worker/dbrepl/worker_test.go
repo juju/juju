@@ -9,11 +9,11 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/domain/schema"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type dbReplSuite struct {
@@ -21,8 +21,9 @@ type dbReplSuite struct {
 }
 
 func TestDbReplSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &dbReplSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &dbReplSuite{})
+	})
 }
 
 func (s *dbReplSuite) SetUpTest(c *tc.C) {

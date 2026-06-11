@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/controller"
@@ -20,8 +19,9 @@ import (
 )
 
 func TestCrossControllerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &CrossControllerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &CrossControllerSuite{})
+	})
 }
 
 type CrossControllerSuite struct {

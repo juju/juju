@@ -12,9 +12,9 @@ import (
 	dqlite "github.com/canonical/go-dqlite/v3/driver"
 	"github.com/juju/tc"
 	"github.com/mattn/go-sqlite3"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type asError struct {
@@ -28,8 +28,9 @@ func (a asError) Error() string {
 type errorsSuite struct{}
 
 func TestErrorsSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &errorsSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &errorsSuite{})
+	})
 }
 
 // TestCoerceForNilError checks that if you pass a nil error to CoerceError you

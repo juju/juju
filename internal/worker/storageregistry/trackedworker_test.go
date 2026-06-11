@@ -9,9 +9,9 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type trackedWorkerSuite struct {
@@ -23,8 +23,9 @@ type trackedWorkerSuite struct {
 }
 
 func TestTrackedWorkerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &trackedWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &trackedWorkerSuite{})
+	})
 }
 
 // TestTrackedWorkerImplementsProviderRegistry is a regression test to make sure
