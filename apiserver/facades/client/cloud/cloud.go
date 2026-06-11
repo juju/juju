@@ -326,12 +326,8 @@ func modelConfigSchemaFieldToParams(field configschema.Attr) params.ModelConfigS
 	return params.ModelConfigSchemaField{
 		Description:   field.Description,
 		Type:          string(field.Type),
-		Group:         string(field.Group),
 		Immutable:     field.Immutable,
 		Mandatory:     field.Mandatory,
-		Secret:        field.Secret,
-		EnvVar:        field.EnvVar,
-		EnvVars:       field.EnvVars,
 		Example:       field.Example,
 		Values:        field.Values,
 		Documentation: field.Documentation,

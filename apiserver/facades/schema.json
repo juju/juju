@@ -7602,26 +7602,11 @@
                         "documentation": {
                             "type": "string"
                         },
-                        "env-var": {
-                            "type": "string"
-                        },
-                        "env-vars": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
                         "example": {
                             "type": "object",
                             "additionalProperties": true
                         },
-                        "group": {
-                            "type": "string"
-                        },
                         "immutable": {
-                            "type": "boolean"
-                        },
-                        "is-secret": {
                             "type": "boolean"
                         },
                         "mandatory": {

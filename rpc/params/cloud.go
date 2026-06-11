@@ -119,26 +119,11 @@ type ModelConfigSchemaField struct {
 	// "int".
 	Type string `json:"type,omitempty"`
 
-	// Group holds the group that the attribute belongs to, e.g. "environ"
-	// or "account".
-	Group string `json:"group,omitempty"`
-
 	// Immutable specifies whether the attribute cannot be changed once set.
 	Immutable bool `json:"immutable,omitempty"`
 
 	// Mandatory specifies whether the attribute must be provided.
 	Mandatory bool `json:"mandatory,omitempty"`
-
-	// Secret specifies whether the attribute should be considered secret.
-	Secret bool `json:"is-secret,omitempty"`
-
-	// EnvVar holds the environment variable that will be used to obtain the
-	// default value if it is not specified.
-	EnvVar string `json:"env-var,omitempty"`
-
-	// EnvVars holds additional environment variables to be used if the value in
-	// EnvVar is not available, from highest to lowest priority.
-	EnvVars []string `json:"env-vars,omitempty"`
 
 	// Example holds an example value for the attribute.
 	Example any `json:"example,omitempty"`
