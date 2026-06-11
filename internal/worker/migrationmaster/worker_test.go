@@ -1667,10 +1667,10 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 type stubConnection struct {
 	c *tc.C
 	api.Connection
-	stub                *testhelpers.Stub
-	prechecksErr        error
-	importErr           error
-	controllerTag       names.ControllerTag
+	stub          *testhelpers.Stub
+	prechecksErr  error
+	importErr     error
+	controllerTag names.ControllerTag
 
 	streamErr error
 	logStream *mockStream
@@ -1771,7 +1771,6 @@ func makeStubUploadBinaries(stub *testhelpers.Stub) func(context.Context, migrat
 func nullUploadBinaries(context.Context, migration.UploadBinariesConfig, logger.Logger) error {
 	panic("should not get called")
 }
-
 
 var fakeAgentBinaryStore = struct{ migration.AgentBinaryStore }{}
 

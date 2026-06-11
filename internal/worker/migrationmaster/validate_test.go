@@ -126,10 +126,14 @@ func validConfig() migrationmaster.Config {
 		ControllerConfigService: struct {
 			migrationmaster.ControllerConfigService
 		}{},
-		ModelAgentService: struct{ migrationmaster.ModelAgentService }{},
-		ResourceService:   struct{ migrationmaster.ResourceService }{},
-		AgentBinaryStore:  struct{ migration.AgentBinaryStore }{},
-		Clock:             struct{ clock.Clock }{},
+		ModelAgentService: struct {
+			migrationmaster.ModelAgentService
+		}{},
+		ResourceService: struct {
+			migrationmaster.ResourceService
+		}{},
+		AgentBinaryStore: struct{ migration.AgentBinaryStore }{},
+		Clock:            struct{ clock.Clock }{},
 	}
 }
 

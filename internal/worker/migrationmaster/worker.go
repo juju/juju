@@ -36,7 +36,6 @@ import (
 	modelagentservice "github.com/juju/juju/domain/modelagent/service"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
-	coreresource "github.com/juju/juju/core/resource"
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
@@ -168,7 +167,7 @@ type ModelAgentService interface {
 type ResourceService interface {
 	// ListAllModelResources returns the application and unit resources to
 	// export for all applications in the model.
-	ListAllModelResources(context.Context) ([]coreresource.Resource, error)
+	ListAllModelResources(context.Context) ([]resource.Resource, error)
 }
 
 var (

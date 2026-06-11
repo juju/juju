@@ -29,12 +29,9 @@ func (s *PhaseInternalSuite) TestForUnused(c *tc.C) {
 		}
 	}
 
-	// PROCESSRELATIONS is retired (no transition edges) but kept in the enum
-	// for wire/string compatibility.
 	specialPhases := set.NewStrings(
 		UNKNOWN.String(),
 		NONE.String(),
-		PROCESSRELATIONS.String(),
 	)
 	allValidPhases := set.NewStrings(phaseNames...).Difference(specialPhases)
 	c.Check(allValidPhases.Difference(usedPhases), tc.HasLen, 0)
