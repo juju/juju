@@ -197,6 +197,17 @@ func (s *CloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *CloudSuite) TestUpdateCloudTypeImmutable(c *gc.C) {
+	cloudToAdd := lowCloud
+	err := s.State.AddCloud(cloudToAdd, s.Owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	updatedCloud := lowCloud
+	updatedCloud.Type = "another"
+	err = s.State.UpdateCloud(updatedCloud)
+	c.Assert(err, gc.ErrorMatches, `cannot change cloud "stratus" type from "low" to "another"`)
+}
+
 func (s *CloudSuite) TestRemoveNonExistentCloud(c *gc.C) {
 	err := s.State.RemoveCloud("foo")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
