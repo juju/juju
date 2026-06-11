@@ -1482,7 +1482,7 @@ func (s *waitUnitAgent) step(c tc.LikeC, ctx *testContext) {
 	if s.statusGetter == nil {
 		s.statusGetter = agentStatusGetter
 	}
-	c.Logf("waiting for desired status: %v")
+	c.Log("waiting for desired status")
 	for {
 		time.Sleep(coretesting.ShortWait)
 		var (
