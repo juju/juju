@@ -35,4 +35,8 @@ const (
 	// no usable API addresses for a target controller to dial back during model
 	// activation, so the migration cannot complete.
 	ErrSourceControllerNoAPIAddresses = errors.ConstError("source controller has no usable API addresses")
+
+	// ErrImportNotFound indicates that no target-side import claim
+	// (model_migration_import row) exists for the model.
+	ErrImportNotFound = errors.ConstError("import claim not found")
 )

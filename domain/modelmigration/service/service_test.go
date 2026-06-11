@@ -17,6 +17,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -873,4 +874,62 @@ func (i *instanceStub) Status(context.Context) instance.Status {
 
 func (i *instanceStub) Addresses(context.Context) (network.ProviderAddresses, error) {
 	return network.ProviderAddresses{}, nil
+}
+
+// TestCheckTargetImportSchema asserts the schema guard is delegated to state.
+func (s *serviceSuite) TestCheckTargetImportSchema(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().CheckImportSchema(gomock.Any()).Return(nil)
+
+	err := s.service().CheckTargetImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.controllerState.EXPECT().CheckImportSchema(gomock.Any()).Return(
+		errors.Errorf("target schema not ready for migrationtarget v8 %w", coreerrors.NotSupported))
+
+	err = s.service().CheckTargetImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+// TestGetImportClaim asserts the import claim read is delegated to state with
+// the explicit model UUID.
+func (s *serviceSuite) TestGetImportClaim(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	claim := modelmigration.ImportClaim{
+		SourceMigrationUUID: "source-migration-uuid",
+		Phase:               modelmigration.ImportPhaseImporting,
+	}
+	s.controllerState.EXPECT().GetImportClaim(gomock.Any(), modelUUID.String()).Return(claim, nil)
+
+	got, err := s.service().GetImportClaim(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, claim)
+}
+
+// TestGetImportClaimNotFound asserts the not-found error is passed through.
+func (s *serviceSuite) TestGetImportClaimNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	s.controllerState.EXPECT().GetImportClaim(gomock.Any(), modelUUID.String()).Return(
+		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
+
+	_, err := s.service().GetImportClaim(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
+}
+
+// TestModelNamespaceExists asserts the namespace check is delegated to state
+// with the explicit model UUID.
+func (s *serviceSuite) TestModelNamespaceExists(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	s.controllerState.EXPECT().ModelNamespaceExists(gomock.Any(), modelUUID.String()).Return(true, nil)
+
+	exists, err := s.service().ModelNamespaceExists(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
 }

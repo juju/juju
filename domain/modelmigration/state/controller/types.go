@@ -289,3 +289,20 @@ type sourceAPIAddress struct {
 	Scope        string `db:"scope"`
 	IsAgent      bool   `db:"is_agent"`
 }
+
+// importSchemaCapability is the projection of the v8 import schema guard
+// query: the number of required model_migration_import columns and required
+// companion tables found in the controller schema.
+type importSchemaCapability struct {
+	ColumnsFound int `db:"columns_found"`
+	TablesFound  int `db:"tables_found"`
+}
+
+// importClaimRow maps a model_migration_import row joined to its phase type.
+// UpdatedAt is read as text because model_migration_import.updated_at is a
+// TEXT column; the query canonicalises it to RFC3339 via strftime.
+type importClaimRow struct {
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+	PhaseType           string `db:"phase_type"`
+	UpdatedAt           string `db:"updated_at"`
+}

@@ -5,11 +5,14 @@ package controller
 
 import (
 	"context"
+	"sync/atomic"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/domain"
@@ -34,6 +37,153 @@ func New(factory coredatabase.TxnRunnerFactory, clock clock.Clock) *State {
 		StateBase: domain.NewStateBase(factory),
 		clock:     clock,
 	}
+}
+
+// importSchemaReady caches a successful v8 import schema guard check for the
+// lifetime of the controller process. The State value is rebuilt per request,
+// so the cache is package-scoped. Only success is cached: a controller whose
+// schema is upgraded in place recovers on the next check without a restart.
+var importSchemaReady atomic.Bool
+
+// resetImportSchemaCache clears the cached schema guard result. It exists for
+// tests only.
+func resetImportSchemaCache() {
+	importSchemaReady.Store(false)
+}
+
+// CheckImportSchema verifies that the controller database schema carries the
+// objects required by the migrationtarget v8 import path: the
+// model_migration_import columns source_migration_uuid, phase_type_id and
+// updated_at, plus the model_migration_import_offer and
+// model_migration_import_external_controller_model companion tables. A
+// successful check is cached for the lifetime of the process; failure is
+// never cached. On failure it returns an error satisfying
+// [coreerrors.NotSupported] reporting that the target schema is not ready for
+// migrationtarget v8.
+func (s *State) CheckImportSchema(ctx context.Context) error {
+	if importSchemaReady.Load() {
+		return nil
+	}
+
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var capability importSchemaCapability
+	stmt, err := s.Prepare(`
+SELECT &importSchemaCapability.*
+FROM (
+    SELECT (SELECT COUNT(*)
+            FROM   pragma_table_info('model_migration_import')
+            WHERE  name IN ('source_migration_uuid', 'phase_type_id', 'updated_at')
+           ) AS columns_found,
+           (SELECT COUNT(*)
+            FROM   sqlite_master
+            WHERE  type = 'table'
+            AND    name IN ('model_migration_import_offer',
+                            'model_migration_import_external_controller_model')
+           ) AS tables_found
+)
+`, capability)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&capability)
+	})
+	if err != nil {
+		return errors.Errorf("checking v8 import schema capability: %w", err)
+	}
+
+	if capability.ColumnsFound != 3 || capability.TablesFound != 2 {
+		return errors.Errorf(
+			"target schema not ready for migrationtarget v8 %w", coreerrors.NotSupported)
+	}
+
+	importSchemaReady.Store(true)
+	return nil
+}
+
+// GetImportClaim returns the target-side import claim for the given model
+// UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim exists.
+func (s *State) GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return modelmigration.ImportClaim{}, errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+
+	var row importClaimRow
+	stmt, err := s.Prepare(`
+SELECT mmi.source_migration_uuid AS &importClaimRow.source_migration_uuid,
+       mmipt.type                AS &importClaimRow.phase_type,
+       strftime('%Y-%m-%dT%H:%M:%fZ', mmi.updated_at)
+                                 AS &importClaimRow.updated_at
+FROM   model_migration_import mmi
+JOIN   model_migration_import_phase_type mmipt ON mmipt.id = mmi.phase_type_id
+WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
+`, row, mUUID)
+	if err != nil {
+		return modelmigration.ImportClaim{}, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, mUUID).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return modelmigration.ImportClaim{}, errors.Capture(err)
+	}
+
+	updatedAt, err := time.Parse(time.RFC3339, row.UpdatedAt)
+	if err != nil {
+		return modelmigration.ImportClaim{}, errors.Errorf(
+			"parsing import claim updated_at for model %q: %w", modelUUID, err)
+	}
+
+	return modelmigration.ImportClaim{
+		SourceMigrationUUID: row.SourceMigrationUUID,
+		Phase:               modelmigration.ImportPhase(row.PhaseType),
+		UpdatedAt:           updatedAt,
+	}, nil
+}
+
+// ModelNamespaceExists reports whether a model_namespace row exists for the
+// given model UUID.
+func (s *State) ModelNamespaceExists(ctx context.Context, modelUUID string) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+
+	var count countResult
+	stmt, err := s.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM   model_namespace
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+`, count, mUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, mUUID).Get(&count)
+	})
+	if err != nil {
+		return false, errors.Errorf(
+			"checking model namespace existence for model %q: %w", modelUUID, err)
+	}
+
+	return count.Count > 0, nil
 }
 
 // DeleteModelImportingStatus removes the entry from the model_migration_import

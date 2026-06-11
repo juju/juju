@@ -449,6 +449,20 @@ func (s *Service) GetBuiltInKubernetesBackendID(ctx context.Context) (string, er
 	return result.ID, nil
 }
 
+// GetSecretBackendByName returns the secret backend with the given name.
+// It returns an error satisfying [secretbackenderrors.NotFound] when no
+// backend with that name exists.
+func (s *Service) GetSecretBackendByName(ctx context.Context, name string) (*secretbackend.SecretBackend, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	result, err := s.st.GetSecretBackend(ctx, secretbackend.BackendIdentifier{Name: name})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return result, nil
+}
+
 // ListBackendIDs returns the IDs of all the secret backends.
 func (s *Service) ListBackendIDs(ctx context.Context) ([]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

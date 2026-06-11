@@ -187,3 +187,35 @@ type ExternalController struct {
 	Addresses      []string
 	ConsumedModels []string
 }
+
+// ImportPhase is the phase of a target-side import claim, mirroring the
+// model_migration_import_phase_type lookup table.
+type ImportPhase string
+
+const (
+	// ImportPhaseImporting reflects an import claim whose model content is
+	// still being written; Abort is allowed.
+	ImportPhaseImporting = ImportPhase("importing")
+
+	// ImportPhaseActivating reflects an import claim that has crossed the
+	// activation point of no return; Abort is forbidden.
+	ImportPhaseActivating = ImportPhase("activating")
+
+	// ImportPhaseAborting reflects an import claim whose partial state is
+	// being cleaned up; Import and Activate are forbidden.
+	ImportPhaseAborting = ImportPhase("aborting")
+)
+
+// ImportClaim describes an existing target-side import claim
+// (model_migration_import row) for a model UUID.
+type ImportClaim struct {
+	// SourceMigrationUUID is the migration UUID recorded by the source side
+	// when the claim was created. It is diagnostic only.
+	SourceMigrationUUID string
+
+	// Phase is the claim's current import phase.
+	Phase ImportPhase
+
+	// UpdatedAt is when the claim last changed phase.
+	UpdatedAt time.Time
+}

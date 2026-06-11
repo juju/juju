@@ -18,6 +18,7 @@ import (
 	corecloud "github.com/juju/juju/core/cloud"
 	cloudtesting "github.com/juju/juju/core/cloud/testing"
 	corecredential "github.com/juju/juju/core/credential"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -1501,4 +1502,123 @@ type preparer struct{}
 
 func (p preparer) Prepare(query string, args ...any) (*sqlair.Statement, error) {
 	return sqlair.Prepare(query, args...)
+}
+
+// TestCheckImportSchemaReady verifies that the schema guard passes against the
+// fully migrated controller schema.
+func (s *stateSuite) TestCheckImportSchemaReady(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	resetImportSchemaCache()
+	defer resetImportSchemaCache()
+
+	err := st.CheckImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestCheckImportSchemaCachesSuccess verifies that a successful schema guard
+// result is cached for the process: a subsequently broken schema is not
+// re-checked until the cache is reset, after which the guard fails with a
+// NotSupported error.
+func (s *stateSuite) TestCheckImportSchemaCachesSuccess(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	resetImportSchemaCache()
+	defer resetImportSchemaCache()
+
+	err := st.CheckImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Break the schema by dropping a companion table. The cached success means
+	// the guard does not notice.
+	_, err = db.ExecContext(c.Context(), "DROP TABLE model_migration_import_offer")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.CheckImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// After a cache reset the guard sees the broken schema.
+	resetImportSchemaCache()
+	err = st.CheckImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Assert(err, tc.ErrorMatches, "target schema not ready for migrationtarget v8.*")
+}
+
+// TestCheckImportSchemaFailureNotCached verifies that a failed schema guard
+// check is never cached: once the schema is repaired, the guard recovers
+// without a process restart.
+func (s *stateSuite) TestCheckImportSchemaFailureNotCached(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	resetImportSchemaCache()
+	defer resetImportSchemaCache()
+
+	_, err := db.ExecContext(c.Context(), "ALTER TABLE model_migration_import_external_controller_model RENAME TO mmiecm_backup")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.CheckImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+
+	_, err = db.ExecContext(c.Context(), "ALTER TABLE mmiecm_backup RENAME TO model_migration_import_external_controller_model")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.CheckImportSchema(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestGetImportClaim verifies the claim projection for each import phase.
+func (s *stateSuite) TestGetImportClaim(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	migratingUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		migratingUUID, s.modelUUID, sourceMigrationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	claim, err := st.GetImportClaim(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(claim.SourceMigrationUUID, tc.Equals, sourceMigrationUUID)
+	c.Check(claim.Phase, tc.Equals, modelmigration.ImportPhaseImporting)
+	c.Check(claim.UpdatedAt.IsZero(), tc.IsFalse)
+
+	for phaseID, phase := range map[int]modelmigration.ImportPhase{
+		1: modelmigration.ImportPhaseActivating,
+		2: modelmigration.ImportPhaseAborting,
+	} {
+		_, err = db.ExecContext(c.Context(),
+			"UPDATE model_migration_import SET phase_type_id = ? WHERE uuid = ?",
+			phaseID, migratingUUID)
+		c.Assert(err, tc.ErrorIsNil)
+
+		claim, err = st.GetImportClaim(c.Context(), s.modelUUID.String())
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(claim.Phase, tc.Equals, phase)
+	}
+}
+
+// TestGetImportClaimNotFound verifies that a model without an import claim
+// returns ErrImportNotFound.
+func (s *stateSuite) TestGetImportClaimNotFound(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	_, err := st.GetImportClaim(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
+}
+
+// TestModelNamespaceExists verifies the namespace existence check for a model
+// with a registered namespace and for an unknown model UUID.
+func (s *stateSuite) TestModelNamespaceExists(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// The suite's model is created through the model state and has a
+	// registered namespace.
+	exists, err := st.ModelNamespaceExists(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsTrue)
+
+	exists, err = st.ModelNamespaceExists(c.Context(), tc.Must(c, coremodel.NewUUID).String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
 }

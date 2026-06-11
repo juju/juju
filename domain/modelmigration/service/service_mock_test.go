@@ -120,15 +120,18 @@ type MockControllerState struct {
 type MockControllerStateMockRecorder struct {
 	mock                               *MockControllerState
 	aggregateMinionReportsExpects      []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+	checkImportSchemaExpects           []*gomock.Call1_1[context.Context, error]
 	deleteModelImportingStatusExpects  []*gomock.Call2_1[context.Context, string, error]
 	getActiveExportExpects             []*gomock.Call2_2[context.Context, string, internal.Migration, error]
 	getActiveExportUUIDExpects         []*gomock.Call2_2[context.Context, string, string, error]
 	getControllerModelInfoExpects      []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
 	getControllerTargetVersionExpects  []*gomock.Call1_2[context.Context, string, error]
+	getImportClaimExpects              []*gomock.Call2_2[context.Context, string, modelmigration.ImportClaim, error]
 	getMigrationModeExpects            []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
 	getSourceControllerInfoExpects     []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 	insertExportExpects                []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects          []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	modelNamespaceExistsExpects        []*gomock.Call2_2[context.Context, string, bool, error]
 	namespaceForWatchExportExpects     []*gomock.Call0_1[string]
 	namespaceForWatchMinionSyncExpects []*gomock.Call0_1[string]
 	namespaceForWatchPhaseExpects      []*gomock.Call0_1[string]
@@ -165,6 +168,24 @@ func (mr *MockControllerStateMockRecorder) AggregateMinionReports(ctx, migration
 
 // MockControllerStateAggregateMinionReportsCall is the typed call wrapper for AggregateMinionReports.
 type MockControllerStateAggregateMinionReportsCall = gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+
+// CheckImportSchema mocks base method.
+func (m *MockControllerState) CheckImportSchema(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_1(&m.recorder.checkImportSchemaExpects, m.ctrl, m, "CheckImportSchema", ctx)
+}
+
+// CheckImportSchema indicates an expected call of CheckImportSchema.
+func (mr *MockControllerStateMockRecorder) CheckImportSchema(ctx any) *MockControllerStateCheckImportSchemaCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "CheckImportSchema", gomock.EnsureMatcher(ctx))
+	mr.checkImportSchemaExpects = append(mr.checkImportSchemaExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateCheckImportSchemaCall is the typed call wrapper for CheckImportSchema.
+type MockControllerStateCheckImportSchemaCall = gomock.Call1_1[context.Context, error]
 
 // DeleteModelImportingStatus mocks base method.
 func (m *MockControllerState) DeleteModelImportingStatus(ctx context.Context, modelUUID string) error {
@@ -256,6 +277,24 @@ func (mr *MockControllerStateMockRecorder) GetControllerTargetVersion(ctx any) *
 // MockControllerStateGetControllerTargetVersionCall is the typed call wrapper for GetControllerTargetVersion.
 type MockControllerStateGetControllerTargetVersionCall = gomock.Call1_2[context.Context, string, error]
 
+// GetImportClaim mocks base method.
+func (m *MockControllerState) GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getImportClaimExpects, m.ctrl, m, "GetImportClaim", ctx, modelUUID)
+}
+
+// GetImportClaim indicates an expected call of GetImportClaim.
+func (mr *MockControllerStateMockRecorder) GetImportClaim(ctx, modelUUID any) *MockControllerStateGetImportClaimCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, modelmigration.ImportClaim, error](mr.mock.ctrl.T, mr.mock, "GetImportClaim", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getImportClaimExpects = append(mr.getImportClaimExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetImportClaimCall is the typed call wrapper for GetImportClaim.
+type MockControllerStateGetImportClaimCall = gomock.Call2_2[context.Context, string, modelmigration.ImportClaim, error]
+
 // GetMigrationMode mocks base method.
 func (m *MockControllerState) GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error) {
 	m.ctrl.T.Helper()
@@ -327,6 +366,24 @@ func (mr *MockControllerStateMockRecorder) InsertMinionReport(ctx, migrationUUID
 
 // MockControllerStateInsertMinionReportCall is the typed call wrapper for InsertMinionReport.
 type MockControllerStateInsertMinionReportCall = gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+
+// ModelNamespaceExists mocks base method.
+func (m *MockControllerState) ModelNamespaceExists(ctx context.Context, modelUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.modelNamespaceExistsExpects, m.ctrl, m, "ModelNamespaceExists", ctx, modelUUID)
+}
+
+// ModelNamespaceExists indicates an expected call of ModelNamespaceExists.
+func (mr *MockControllerStateMockRecorder) ModelNamespaceExists(ctx, modelUUID any) *MockControllerStateModelNamespaceExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "ModelNamespaceExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.modelNamespaceExistsExpects = append(mr.modelNamespaceExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateModelNamespaceExistsCall is the typed call wrapper for ModelNamespaceExists.
+type MockControllerStateModelNamespaceExistsCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // NamespaceForWatchExport mocks base method.
 func (m *MockControllerState) NamespaceForWatchExport() string {
