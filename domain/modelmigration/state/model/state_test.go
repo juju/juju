@@ -443,20 +443,21 @@ func (s *migrationSuite) TestGetOfferUUIDs(c *tc.C) {
 	c.Check(uuids, tc.SameContents, []string{offer1, offer2})
 }
 
-// TestGetOffererModelsEmpty verifies that a model with no remote applications
-// returns an empty slice and no error.
-func (s *migrationSuite) TestGetOffererModelsEmpty(c *tc.C) {
+// TestGetThirdPartyOffererModelsEmpty verifies that a model with no remote
+// applications returns an empty slice and no error.
+func (s *migrationSuite) TestGetThirdPartyOffererModelsEmpty(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), s.modelUUID)
 
-	models, err := st.GetOffererModels(c.Context())
+	models, err := st.GetThirdPartyOffererModels(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(models, tc.HasLen, 0)
 }
 
-// TestGetOffererModels verifies non-null offerer controller/model pairs are
-// returned once, even when multiple remote applications reference the same
-// third-party offerer model.
-func (s *migrationSuite) TestGetOffererModels(c *tc.C) {
+// TestGetThirdPartyOffererModels verifies non-null offerer controller/model
+// pairs are returned once, even when multiple remote applications reference
+// the same third-party offerer model, and that pairs offered by this model's
+// own controller are excluded.
+func (s *migrationSuite) TestGetThirdPartyOffererModels(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), s.modelUUID)
 	db := s.DB()
 
@@ -495,9 +496,10 @@ INSERT INTO application_remote_offerer (
 	addRemoteOfferer("remote-a", controllerUUID, modelUUID)
 	addRemoteOfferer("remote-b", controllerUUID, modelUUID)
 	addRemoteOfferer("remote-c", otherControllerUUID, otherModelUUID)
-	addRemoteOfferer("remote-local", nil, uuid.MustNewUUID().String())
+	addRemoteOfferer("remote-null", nil, uuid.MustNewUUID().String())
+	addRemoteOfferer("remote-local", s.controllerUUID.String(), uuid.MustNewUUID().String())
 
-	models, err := st.GetOffererModels(c.Context())
+	models, err := st.GetThirdPartyOffererModels(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(models, tc.SameContents, []modelmigrationinternal.OffererModel{
 		{ControllerUUID: controllerUUID, ModelUUID: modelUUID},

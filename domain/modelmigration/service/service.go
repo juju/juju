@@ -136,11 +136,12 @@ type ControllerState interface {
 	// reported for the given migration and phase.
 	AggregateMinionReports(ctx context.Context, migrationUUID string, phase migration.Phase) (modelmigrationinternal.MinionReports, error)
 
-	// GetControllerModelInfo reads the controller-database facts scoped to the
-	// given migrating model in target-portable semantic form. offerUUIDs are the
-	// model's hosted offer UUIDs and offererModels are the distinct (offerer
-	// controller, offerer model) pairs referenced by the model's remote
-	// applications, both read from the model database by the caller.
+	// GetControllerModelInfo reads the controller-database records scoped to
+	// the given migrating model in target-portable semantic form. offerUUIDs
+	// are the model's hosted offer UUIDs and offererModels are the distinct
+	// third-party (offerer controller, offerer model) pairs referenced by the
+	// model's remote applications, both read from the model database by the
+	// caller.
 	GetControllerModelInfo(
 		ctx context.Context,
 		modelUUID string,
@@ -181,10 +182,11 @@ type ModelState interface {
 	// to select the offer-scoped permission rows that travel with the migration.
 	GetOfferUUIDs(ctx context.Context) ([]string, error)
 
-	// GetOffererModels returns the distinct (offerer controller, offerer model)
-	// pairs referenced by this model's remote applications, used to select the
-	// third-party external controllers that travel with the migration.
-	GetOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
+	// GetThirdPartyOffererModels returns the distinct (offerer controller,
+	// offerer model) pairs referenced by this model's remote applications,
+	// excluding pairs offered by this model's own controller, used to select
+	// the third-party external controllers that travel with the migration.
+	GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -334,10 +336,10 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 	return decodeMigration(mig)
 }
 
-// GetControllerModelInfo reads the controller-database facts scoped to this
+// GetControllerModelInfo reads the controller-database records scoped to this
 // migrating model and returns them in target-portable semantic form. It first
-// reads the model's hosted offer UUIDs and remote-offerer pairs from the model
-// database, then reads the matching controller-database rows.
+// reads the model's hosted offer UUIDs and third-party remote-offerer pairs
+// from the model database, then reads the matching controller-database rows.
 func (s *Service) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -346,35 +348,16 @@ func (s *Service) GetControllerModelInfo(ctx context.Context) (modelmigration.Co
 	if err != nil {
 		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offer UUIDs: %w", err)
 	}
-	offererModels, err := s.modelState.GetOffererModels(ctx)
+	offererModels, err := s.modelState.GetThirdPartyOffererModels(ctx)
 	if err != nil {
 		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offerer models: %w", err)
 	}
-	sourceControllerUUID, err := s.modelState.GetControllerUUID(ctx)
-	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading source controller UUID: %w", err)
-	}
-	offererModels = thirdPartyOffererModels(offererModels, sourceControllerUUID)
 
 	info, err := s.controllerState.GetControllerModelInfo(ctx, s.modelUUID, offerUUIDs, offererModels)
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading controller facts for model %q: %w", s.modelUUID, err)
+		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading controller model info for %q: %w", s.modelUUID, err)
 	}
 	return info, nil
-}
-
-func thirdPartyOffererModels(
-	offererModels []modelmigrationinternal.OffererModel,
-	sourceControllerUUID string,
-) []modelmigrationinternal.OffererModel {
-	out := offererModels[:0]
-	for _, offererModel := range offererModels {
-		if offererModel.ControllerUUID == sourceControllerUUID {
-			continue
-		}
-		out = append(out, offererModel)
-	}
-	return out
 }
 
 // InitiateMigration kicks off migrating this model to the target controller,

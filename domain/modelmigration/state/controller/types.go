@@ -5,8 +5,6 @@ package controller
 
 import (
 	"time"
-
-	"github.com/canonical/sqlair"
 )
 
 // entityUUID represents a generic uuid column from a given table in the
@@ -156,11 +154,6 @@ type modelIdentityRow struct {
 	Life            string  `db:"life"`
 }
 
-// namespaceRow is the dqlite namespace name for a model.
-type namespaceRow struct {
-	Namespace string `db:"namespace"`
-}
-
 // permissionRow is a single model or offer permission grant with the grantee
 // resolved to a username and the object/access types resolved to their string
 // values.
@@ -171,16 +164,20 @@ type permissionRow struct {
 	Access      string `db:"access"`
 }
 
-// userProfileRow is the non-authentication profile of a user.
-type userProfileRow struct {
-	Name        string    `db:"name"`
-	DisplayName *string   `db:"display_name"`
-	CreatedBy   *string   `db:"created_by"`
-	CreatedAt   time.Time `db:"created_at"`
+// userRow is the non-authentication profile of a user, with the user's
+// last login against the model joined in (null when never logged in).
+type userRow struct {
+	Name        string     `db:"name"`
+	DisplayName *string    `db:"display_name"`
+	CreatedBy   *string    `db:"created_by"`
+	CreatedAt   time.Time  `db:"created_at"`
+	LastLogin   *time.Time `db:"last_login"`
 }
 
-// credentialIdentRow is a model cloud credential's natural key plus auth type.
-type credentialIdentRow struct {
+// credentialRow is a model cloud credential's natural key, auth type and
+// status, joined with its auth attributes (one row per attribute; the
+// attribute columns are null for a credential without attributes).
+type credentialRow struct {
 	Cloud         string  `db:"cloud"`
 	Owner         string  `db:"owner"`
 	Name          string  `db:"name"`
@@ -188,12 +185,8 @@ type credentialIdentRow struct {
 	Revoked       *bool   `db:"revoked"`
 	Invalid       *bool   `db:"invalid"`
 	InvalidReason *string `db:"invalid_reason"`
-}
-
-// credentialAttrRow is a single cloud credential auth attribute.
-type credentialAttrRow struct {
-	Key   string  `db:"key"`
-	Value *string `db:"value"`
+	AttrKey       *string `db:"attr_key"`
+	AttrValue     *string `db:"attr_value"`
 }
 
 // authorizedKeyRow is a single SSH public key authorised for the model, with
@@ -217,70 +210,16 @@ type secretBackendRefRow struct {
 	SecretID           string `db:"secret_id"`
 }
 
-// leaseRow is a model-scoped lease with its type resolved to a string. Name and
-// holder are nullable in the schema.
-type leaseRow struct {
-	Type   string    `db:"type"`
-	Name   *string   `db:"name"`
-	Holder *string   `db:"holder"`
-	Start  time.Time `db:"start"`
-	Expiry time.Time `db:"expiry"`
+// leadershipRow is an application-leadership lease holder. Name and holder are
+// nullable in the schema.
+type leadershipRow struct {
+	Name   *string `db:"name"`
+	Holder *string `db:"holder"`
 }
 
-// leasePinRow is an expiry pin for a lease, referencing its lease by natural
-// key.
-type leasePinRow struct {
-	LeaseType string  `db:"lease_type"`
-	LeaseName *string `db:"lease_name"`
-	EntityID  *string `db:"entity_id"`
-}
-
-// lastLoginRow is a per-user last-login timestamp for the model, with the user
-// resolved to a username.
-type lastLoginRow struct {
-	Username string    `db:"username"`
-	Time     time.Time `db:"time"`
-}
-
-type controllerModelInfoStatements struct {
-	identityStmt           *sqlair.Statement
-	namespaceStmt          *sqlair.Statement
-	modelPermStmt          *sqlair.Statement
-	offerPermStmt          *sqlair.Statement
-	credStmt               *sqlair.Statement
-	credAttrStmt           *sqlair.Statement
-	authKeyStmt            *sqlair.Statement
-	secretBackendStmt      *sqlair.Statement
-	secretBackendRefStmt   *sqlair.Statement
-	leaseStmt              *sqlair.Statement
-	leasePinStmt           *sqlair.Statement
-	lastLoginStmt          *sqlair.Statement
-	cloudImageMetadataStmt *sqlair.Statement
-	usersStmt              *sqlair.Statement
-	extControllerStmt      *sqlair.Statement
-	extAddressStmt         *sqlair.Statement
-	extModelStmt           *sqlair.Statement
-	controllerUUIDs        []string
-}
-
-type controllerModelInfoRows struct {
-	identity           modelIdentityRow
-	namespace          namespaceRow
-	modelPerms         []permissionRow
-	offerPerms         []permissionRow
-	users              []userProfileRow
-	credIdent          []credentialIdentRow
-	credAttrs          []credentialAttrRow
-	authKeys           []authorizedKeyRow
-	secretBackend      []modelSecretBackendRow
-	secretBackendRef   []secretBackendRefRow
-	leases             []leaseRow
-	leasePins          []leasePinRow
-	lastLogins         []lastLoginRow
-	cloudImageMetadata []cloudImageMetadataRow
-	extControllers     []externalControllerRow
-	extAddresses       []externalControllerAddressRow
-	extModels          []externalModelRow
+// leaseTypeArg selects leases by their type name.
+type leaseTypeArg struct {
+	Type string `db:"type"`
 }
 
 // cloudImageMetadataSource is the source selector for cloud image metadata.

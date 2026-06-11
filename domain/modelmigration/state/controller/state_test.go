@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -808,9 +809,9 @@ func (s *stateSuite) TestGetMigrationMode(c *tc.C) {
 }
 
 // TestGetControllerModelInfoIdentity verifies that the model bootstrap
-// identity, credential, model namespace, the seeded admin model permission and
-// the model secret backend are read back in target-portable form for a model
-// created by the test fixture.
+// identity, credential, the seeded admin model permission and the model secret
+// backend are read back in target-portable form for a model created by the
+// test fixture.
 func (s *stateSuite) TestGetControllerModelInfoIdentity(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
@@ -826,8 +827,6 @@ func (s *stateSuite) TestGetControllerModelInfoIdentity(c *tc.C) {
 	c.Check(info.ModelInfo.CredentialName, tc.Equals, "foobar")
 	c.Check(info.ModelInfo.CredentialOwner, tc.Equals, "test-user")
 	c.Check(info.ModelInfo.Life, tc.Equals, "alive")
-
-	c.Check(info.ModelNamespace, tc.Not(tc.Equals), "")
 
 	// The model was created with an admin user; that permission must travel.
 	var foundAdmin bool
@@ -973,11 +972,59 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesModelQualifierUser(c *tc.
 	}
 }
 
-// TestGetControllerModelInfoFacts inserts a representative row for each
-// remaining controller-scoped fact and verifies they are all read back,
+// TestGetControllerModelInfoIncludesAuthorizedKeyOwner verifies the user
+// profile set includes the owner of a model authorized key even when that user
+// has no model or offer permission grant, so the target can resolve the key
+// owner on import.
+func (s *stateSuite) TestGetControllerModelInfoIncludesAuthorizedKeyOwner(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	ownerName := usertesting.GenNewName(c, "key-owner")
+	ownerUUID := usertesting.GenUserUUID(c)
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := accessState.AddUser(
+		c.Context(),
+		ownerUUID,
+		ownerName,
+		ownerName.Name(),
+		false,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(c.Context(),
+		`INSERT OR IGNORE INTO user_authentication (user_uuid, disabled) VALUES (?, FALSE)`,
+		ownerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	var keyID int64
+	err = db.QueryRowContext(c.Context(),
+		`INSERT INTO user_public_ssh_key (comment, fingerprint_hash_algorithm_id, fingerprint, public_key, user_uuid)
+		 VALUES ('comment', 1, 'fp-owner', 'ssh-ed25519 AAAAownerkey', ?) RETURNING id`,
+		ownerUUID.String()).Scan(&keyID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		`INSERT INTO model_authorized_keys (model_uuid, user_public_ssh_key_id) VALUES (?, ?)`,
+		s.modelUUID.String(), keyID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var foundOwner bool
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			foundOwner = true
+		}
+	}
+	c.Check(foundOwner, tc.IsTrue, tc.Commentf("expected key owner in users, got %#v", info.Users))
+}
+
+// TestGetControllerModelInfoFullSet inserts a representative row for each
+// remaining controller-scoped record and verifies they are all read back,
 // including offer-scoped permissions and third-party external controllers
 // selected from the caller-supplied inputs.
-func (s *stateSuite) TestGetControllerModelInfoFacts(c *tc.C) {
+func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 	db := s.DB()
 	modelUUID := s.modelUUID.String()
@@ -1005,7 +1052,9 @@ func (s *stateSuite) TestGetControllerModelInfoFacts(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	exec(`INSERT INTO model_authorized_keys (model_uuid, user_public_ssh_key_id) VALUES (?, ?)`, modelUUID, keyID)
 
-	// Lease + lease pin.
+	// Leases: an application-leadership lease must surface as a leader; a
+	// singular-controller lease and a lease pin are source-local runtime state
+	// and must not travel.
 	leaseUUID := uuid.MustNewUUID().String()
 	start := time.Now().UTC().Truncate(time.Second)
 	expiry := start.Add(time.Hour)
@@ -1013,6 +1062,9 @@ func (s *stateSuite) TestGetControllerModelInfoFacts(c *tc.C) {
 	      VALUES (?, 1, ?, 'app', 'app/0', ?, ?)`, leaseUUID, modelUUID, start, expiry)
 	exec(`INSERT INTO lease_pin (uuid, lease_uuid, entity_id) VALUES (?, ?, 'machine-0')`,
 		uuid.MustNewUUID().String(), leaseUUID)
+	exec(`INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
+	      VALUES (?, 0, ?, ?, 'controller-0', ?, ?)`,
+		uuid.MustNewUUID().String(), modelUUID, modelUUID, start, expiry)
 
 	// Secret backend reference for the model, against the internal backend.
 	var backendUUID string
@@ -1081,13 +1133,8 @@ func (s *stateSuite) TestGetControllerModelInfoFacts(c *tc.C) {
 		{Username: "test-user", PublicKey: "ssh-ed25519 AAAAkey"},
 	})
 
-	c.Assert(info.Leases, tc.HasLen, 1)
-	c.Check(info.Leases[0].Type, tc.Equals, "application-leadership")
-	c.Check(info.Leases[0].Name, tc.Equals, "app")
-	c.Check(info.Leases[0].Holder, tc.Equals, "app/0")
-
-	c.Check(info.LeasePins, tc.DeepEquals, []modelmigration.LeasePin{
-		{LeaseType: "application-leadership", LeaseName: "app", EntityID: "machine-0"},
+	c.Check(info.Leaders, tc.DeepEquals, []modelmigration.ApplicationLeadership{
+		{Application: "app", Leader: "app/0"},
 	})
 
 	c.Check(info.SecretBackendRefs, tc.DeepEquals, []modelmigration.SecretBackendReference{
@@ -1098,8 +1145,16 @@ func (s *stateSuite) TestGetControllerModelInfoFacts(c *tc.C) {
 	c.Check(info.ModelCredential.Invalid, tc.IsTrue)
 	c.Check(info.ModelCredential.InvalidReason, tc.Equals, "expired")
 
-	c.Assert(info.LastLogins, tc.HasLen, 1)
-	c.Check(info.LastLogins[0].Username, tc.Equals, "test-user")
+	var lastLogin *time.Time
+	for _, u := range info.Users {
+		if u.Name == "test-user" {
+			lastLogin = u.LastLogin
+		}
+	}
+	c.Assert(lastLogin, tc.NotNil)
+	c.Check(lastLogin.Equal(loginTime), tc.IsTrue, tc.Commentf(
+		"expected last login %v, got %v", loginTime, lastLogin,
+	))
 
 	c.Assert(info.CloudImageMetadata, tc.HasLen, 1)
 	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, modelmigration.CloudImageMetadata{
@@ -1147,8 +1202,9 @@ func (s *stateSuite) TestGetControllerModelInfoExternalModelMissing(c *tc.C) {
 			ModelUUID:      consumedModelUUID,
 		}},
 	)
-	c.Assert(err, tc.ErrorMatches,
-		`external model "`+consumedModelUUID+`" for controller "`+extCtrlUUID+`" not found`)
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
+		`external model %q for controller %q not found`, consumedModelUUID, extCtrlUUID,
+	))
 }
 
 // TestGetControllerModelInfoExternalControllerMissing verifies model DB offerer
@@ -1167,8 +1223,9 @@ func (s *stateSuite) TestGetControllerModelInfoExternalControllerMissing(c *tc.C
 			ModelUUID:      consumedModelUUID,
 		}},
 	)
-	c.Assert(err, tc.ErrorMatches,
-		`external controller "`+extCtrlUUID+`" for offerer model "`+consumedModelUUID+`" not found`)
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
+		`external controller %q for offerer model %q not found`, extCtrlUUID, consumedModelUUID,
+	))
 }
 
 // TestGetControllerModelInfoModelNotFound verifies a clear error for an unknown

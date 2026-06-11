@@ -50,7 +50,7 @@ type Migration struct {
 	Target           migration.TargetInfo
 }
 
-// ControllerModelInfo aggregates the controller-database facts scoped to a
+// ControllerModelInfo aggregates the controller-database records scoped to a
 // single migrating model, in target-portable semantic form. Source-local
 // integer IDs and un-translated source UUID foreign keys are never present:
 // users are identified by username, SSH keys by their material, clouds, regions
@@ -58,8 +58,6 @@ type Migration struct {
 type ControllerModelInfo struct {
 	// ModelInfo is the model's bootstrap identity.
 	ModelInfo ModelBootstrapInfo
-	// ModelNamespace is the dqlite namespace name for the model's database.
-	ModelNamespace string
 	// Users are the external users with access to the model or its hosted offers.
 	Users []ModelUser
 	// ModelCredential is the model's cloud credential, or nil if it has none.
@@ -72,12 +70,11 @@ type ControllerModelInfo struct {
 	SecretBackend *ModelSecretBackend
 	// SecretBackendRefs maps the model's secret revisions to their backends.
 	SecretBackendRefs []SecretBackendReference
-	// Leases are the model-scoped leases.
-	Leases []Lease
-	// LeasePins are the expiry pins for the model's leases.
-	LeasePins []LeasePin
-	// LastLogins are the per-user last-login timestamps for the model.
-	LastLogins []ModelLastLogin
+	// Leaders are the application-leadership holders for the model. The target
+	// claims fresh leases from these on import; lease times, pins and
+	// singular-controller leases are source-local runtime state and do not
+	// travel.
+	Leaders []ApplicationLeadership
 	// CloudImageMetadata is custom cloud image metadata that must be recreated
 	// on the target controller.
 	CloudImageMetadata []CloudImageMetadata
@@ -101,12 +98,14 @@ type ModelBootstrapInfo struct {
 }
 
 // ModelUser is the non-authentication profile of an external user with access
-// to the model or its hosted offers.
+// to the model or its hosted offers. LastLogin is the user's last login time
+// against this model, or nil if the user never logged in to it.
 type ModelUser struct {
 	Name        string
 	DisplayName string
 	CreatedBy   string
 	CreatedAt   time.Time
+	LastLogin   *time.Time
 }
 
 // ModelCloudCredential is the model's cloud credential, carried by natural key
@@ -152,27 +151,12 @@ type SecretBackendReference struct {
 	SecretID           string
 }
 
-// Lease is a model-scoped lease, carried by its natural key (Type + Name).
-type Lease struct {
-	Type   string
-	Name   string
-	Holder string
-	Start  time.Time
-	Expiry time.Time
-}
-
-// LeasePin pins a lease so it cannot expire, referencing its lease by natural
-// key.
-type LeasePin struct {
-	LeaseType string
-	LeaseName string
-	EntityID  string
-}
-
-// ModelLastLogin is a per-user last-login timestamp for the model, by username.
-type ModelLastLogin struct {
-	Username string
-	Time     time.Time
+// ApplicationLeadership records which unit holds leadership for an application
+// in the model. It is the only lease state that travels with a migration: the
+// target claims a fresh lease for the leader on import.
+type ApplicationLeadership struct {
+	Application string
+	Leader      string
 }
 
 // CloudImageMetadata is one custom cloud image metadata row, carried by

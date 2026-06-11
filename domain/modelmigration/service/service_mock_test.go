@@ -123,6 +123,7 @@ type MockControllerStateMockRecorder struct {
 	deleteModelImportingStatusExpects  []*gomock.Call2_1[context.Context, string, error]
 	getActiveExportExpects             []*gomock.Call2_2[context.Context, string, internal.Migration, error]
 	getActiveExportUUIDExpects         []*gomock.Call2_2[context.Context, string, string, error]
+	getControllerModelInfoExpects      []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
 	getControllerTargetVersionExpects  []*gomock.Call1_2[context.Context, string, error]
 	getMigrationModeExpects            []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
 	insertExportExpects                []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
@@ -219,43 +220,22 @@ func (mr *MockControllerStateMockRecorder) GetActiveExportUUID(ctx, modelUUID an
 type MockControllerStateGetActiveExportUUIDCall = gomock.Call2_2[context.Context, string, string, error]
 
 // GetControllerModelInfo mocks base method.
-func (m *MockControllerState) GetControllerModelInfo(arg0 context.Context, arg1 string, arg2 []string, arg3 []internal.OffererModel) (modelmigration.ControllerModelInfo, error) {
+func (m *MockControllerState) GetControllerModelInfo(ctx context.Context, modelUUID string, offerUUIDs []string, offererModels []internal.OffererModel) (modelmigration.ControllerModelInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControllerModelInfo", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(modelmigration.ControllerModelInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch4_2(&m.recorder.getControllerModelInfoExpects, m.ctrl, m, "GetControllerModelInfo", ctx, modelUUID, offerUUIDs, offererModels)
 }
 
 // GetControllerModelInfo indicates an expected call of GetControllerModelInfo.
-func (mr *MockControllerStateMockRecorder) GetControllerModelInfo(arg0, arg1, arg2, arg3 any) *MockControllerStateGetControllerModelInfoCall {
+func (mr *MockControllerStateMockRecorder) GetControllerModelInfo(ctx, modelUUID, offerUUIDs, offererModels any) *MockControllerStateGetControllerModelInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControllerModelInfo", reflect.TypeOf((*MockControllerState)(nil).GetControllerModelInfo), arg0, arg1, arg2, arg3)
-	return &MockControllerStateGetControllerModelInfoCall{Call: call}
+	call := gomock.NewCall4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error](mr.mock.ctrl.T, mr.mock, "GetControllerModelInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(offerUUIDs), gomock.EnsureMatcher(offererModels))
+	mr.getControllerModelInfoExpects = append(mr.getControllerModelInfoExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
-// MockControllerStateGetControllerModelInfoCall wrap *gomock.Call
-type MockControllerStateGetControllerModelInfoCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockControllerStateGetControllerModelInfoCall) Return(arg0 modelmigration.ControllerModelInfo, arg1 error) *MockControllerStateGetControllerModelInfoCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockControllerStateGetControllerModelInfoCall) Do(f func(context.Context, string, []string, []internal.OffererModel) (modelmigration.ControllerModelInfo, error)) *MockControllerStateGetControllerModelInfoCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerStateGetControllerModelInfoCall) DoAndReturn(f func(context.Context, string, []string, []internal.OffererModel) (modelmigration.ControllerModelInfo, error)) *MockControllerStateGetControllerModelInfoCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
+// MockControllerStateGetControllerModelInfoCall is the typed call wrapper for GetControllerModelInfo.
+type MockControllerStateGetControllerModelInfoCall = gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
 
 // GetControllerTargetVersion mocks base method.
 func (m *MockControllerState) GetControllerTargetVersion(ctx context.Context) (string, error) {
@@ -434,6 +414,8 @@ type MockModelStateMockRecorder struct {
 	getControllerUUIDExpects          []*gomock.Call1_2[context.Context, string, error]
 	getMigrationAgentsExpects         []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
 	getModelTargetAgentVersionExpects []*gomock.Call1_2[context.Context, string, error]
+	getOfferUUIDsExpects              []*gomock.Call1_2[context.Context, []string, error]
+	getThirdPartyOffererModelsExpects []*gomock.Call1_2[context.Context, []internal.OffererModel, error]
 	setModelTargetAgentVersionExpects []*gomock.Call3_1[context.Context, string, string, error]
 }
 
@@ -540,82 +522,40 @@ func (mr *MockModelStateMockRecorder) GetModelTargetAgentVersion(arg0 any) *Mock
 type MockModelStateGetModelTargetAgentVersionCall = gomock.Call1_2[context.Context, string, error]
 
 // GetOfferUUIDs mocks base method.
-func (m *MockModelState) GetOfferUUIDs(arg0 context.Context) ([]string, error) {
+func (m *MockModelState) GetOfferUUIDs(ctx context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOfferUUIDs", arg0)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.getOfferUUIDsExpects, m.ctrl, m, "GetOfferUUIDs", ctx)
 }
 
 // GetOfferUUIDs indicates an expected call of GetOfferUUIDs.
-func (mr *MockModelStateMockRecorder) GetOfferUUIDs(arg0 any) *MockModelStateGetOfferUUIDsCall {
+func (mr *MockModelStateMockRecorder) GetOfferUUIDs(ctx any) *MockModelStateGetOfferUUIDsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOfferUUIDs", reflect.TypeOf((*MockModelState)(nil).GetOfferUUIDs), arg0)
-	return &MockModelStateGetOfferUUIDsCall{Call: call}
+	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetOfferUUIDs", gomock.EnsureMatcher(ctx))
+	mr.getOfferUUIDsExpects = append(mr.getOfferUUIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
-// MockModelStateGetOfferUUIDsCall wrap *gomock.Call
-type MockModelStateGetOfferUUIDsCall struct {
-	*gomock.Call
-}
+// MockModelStateGetOfferUUIDsCall is the typed call wrapper for GetOfferUUIDs.
+type MockModelStateGetOfferUUIDsCall = gomock.Call1_2[context.Context, []string, error]
 
-// Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetOfferUUIDsCall) Return(arg0 []string, arg1 error) *MockModelStateGetOfferUUIDsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetOfferUUIDsCall) Do(f func(context.Context) ([]string, error)) *MockModelStateGetOfferUUIDsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetOfferUUIDsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockModelStateGetOfferUUIDsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// GetOffererModels mocks base method.
-func (m *MockModelState) GetOffererModels(arg0 context.Context) ([]internal.OffererModel, error) {
+// GetThirdPartyOffererModels mocks base method.
+func (m *MockModelState) GetThirdPartyOffererModels(ctx context.Context) ([]internal.OffererModel, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetOffererModels", arg0)
-	ret0, _ := ret[0].([]internal.OffererModel)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.getThirdPartyOffererModelsExpects, m.ctrl, m, "GetThirdPartyOffererModels", ctx)
 }
 
-// GetOffererModels indicates an expected call of GetOffererModels.
-func (mr *MockModelStateMockRecorder) GetOffererModels(arg0 any) *MockModelStateGetOffererModelsCall {
+// GetThirdPartyOffererModels indicates an expected call of GetThirdPartyOffererModels.
+func (mr *MockModelStateMockRecorder) GetThirdPartyOffererModels(ctx any) *MockModelStateGetThirdPartyOffererModelsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOffererModels", reflect.TypeOf((*MockModelState)(nil).GetOffererModels), arg0)
-	return &MockModelStateGetOffererModelsCall{Call: call}
+	call := gomock.NewCall1_2[context.Context, []internal.OffererModel, error](mr.mock.ctrl.T, mr.mock, "GetThirdPartyOffererModels", gomock.EnsureMatcher(ctx))
+	mr.getThirdPartyOffererModelsExpects = append(mr.getThirdPartyOffererModelsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
-// MockModelStateGetOffererModelsCall wrap *gomock.Call
-type MockModelStateGetOffererModelsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelStateGetOffererModelsCall) Return(arg0 []internal.OffererModel, arg1 error) *MockModelStateGetOffererModelsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelStateGetOffererModelsCall) Do(f func(context.Context) ([]internal.OffererModel, error)) *MockModelStateGetOffererModelsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelStateGetOffererModelsCall) DoAndReturn(f func(context.Context) ([]internal.OffererModel, error)) *MockModelStateGetOffererModelsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
+// MockModelStateGetThirdPartyOffererModelsCall is the typed call wrapper for GetThirdPartyOffererModels.
+type MockModelStateGetThirdPartyOffererModelsCall = gomock.Call1_2[context.Context, []internal.OffererModel, error]
 
 // SetModelTargetAgentVersion mocks base method.
 func (m *MockModelState) SetModelTargetAgentVersion(ctx context.Context, preCondition, toVersion string) error {

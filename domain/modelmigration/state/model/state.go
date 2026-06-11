@@ -140,11 +140,13 @@ func (s *State) GetOfferUUIDs(ctx context.Context) ([]string, error) {
 	return uuids, nil
 }
 
-// GetOffererModels returns the distinct (offerer controller, offerer model)
-// pairs referenced by this model's remote applications, excluding rows with a
-// null offerer controller UUID. The controller-DB side reads the matching
-// third-party external_controller and external_model rows from these pairs.
-func (s *State) GetOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error) {
+// GetThirdPartyOffererModels returns the distinct (offerer controller, offerer
+// model) pairs referenced by this model's remote applications, excluding rows
+// with a null offerer controller UUID and rows offered by this model's own
+// controller (that path is handled by Activate's source-controller
+// registration). The controller-DB side reads the matching third-party
+// external_controller and external_model rows from these pairs.
+func (s *State) GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Errorf("cannot get database to retrieve offerer models: %w", err)
@@ -154,6 +156,7 @@ func (s *State) GetOffererModels(ctx context.Context) ([]modelmigrationinternal.
 SELECT DISTINCT (offerer_controller_uuid, offerer_model_uuid) AS (&offererModel.*)
 FROM   application_remote_offerer
 WHERE  offerer_controller_uuid IS NOT NULL
+AND    offerer_controller_uuid != (SELECT controller_uuid FROM model)
 `, offererModel{})
 	if err != nil {
 		return nil, errors.Errorf("preparing retrieve offerer models statement: %w", err)
