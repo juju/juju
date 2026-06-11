@@ -156,7 +156,10 @@ func (ctx *testContext) makeUnit(c tc.LikeC, unitTag names.UnitTag, l life.Value
 		u.mu.Lock()
 		u.resolved = params.ResolvedNone
 		u.mu.Unlock()
-		ctx.sendNotify(c, ctx.unitResolveCh, "send clear resolved event")
+		ctx.channelMu.Lock()
+		ch := ctx.unitResolveCh
+		ctx.channelMu.Unlock()
+		ctx.sendNotify(c, ch, "send clear resolved event")
 		return nil
 	}).AnyTimes()
 

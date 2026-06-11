@@ -96,6 +96,7 @@ type testContext struct {
 	// Remote watcher artefacts.
 	startError           bool
 	sendEvents           bool
+	channelMu            sync.Mutex // protects unitResolveCh and applicationCh
 	unitWatchCounter     atomic.Int32
 	unitCh               sync.Map
 	unitResolveCh        chan struct{}
@@ -445,7 +446,10 @@ func (s *createApplicationAndUnit) prepare(c tc.LikeC, ctx *testContext) {
 func (s *createApplicationAndUnit) step(c tc.LikeC, ctx *testContext) {
 	// Advance prepared mocks.
 	ctx.stepped.Stepped(s)
-	ctx.sendNotify(c, ctx.applicationCh, "application created event")
+	ctx.channelMu.Lock()
+	ch := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "application created event")
 }
 
 type deleteUnit struct{}
@@ -713,32 +717,31 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 	}).AnyTimes().After(s.stepped)
 
 	ctx.app.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		// Drain any stale event that arrived between startUniter draining
-		// the channel and this goroutine being scheduled (e.g. an
-		// upgradeCharm event). The RSW will refresh application state via
-		// applicationChanged when it processes the initial event below.
-		select {
-		case <-ctx.applicationCh:
-		default:
-		}
-		ctx.sendNotify(c, ctx.applicationCh, "initial application event")
-		w := watchertest.NewMockNotifyWatcher(ctx.applicationCh)
-		return w, nil
+		// Close the old channel and open a new one so the RSW always
+		// starts with a clean, empty channel. All senders obtain the
+		// lock before reading ctx.applicationCh so they will pick up
+		// the new channel on their next call.
+		ctx.channelMu.Lock()
+		ctx.applicationCh = make(chan struct{}, 1)
+		ch := ctx.applicationCh
+		ctx.channelMu.Unlock()
+		// Fresh channel: this blocking send always succeeds immediately.
+		ch <- struct{}{}
+		return watchertest.NewMockNotifyWatcher(ch), nil
 	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchResolveMode(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
-		// Drain any stale event that arrived between startUniter draining
-		// the channel and this goroutine being scheduled (e.g. a
-		// resolveError event). The RSW reads the current resolved mode via
-		// Resolved() when it processes the initial event below, so no
-		// information is lost by discarding the stale entry.
-		select {
-		case <-ctx.unitResolveCh:
-		default:
-		}
-		ctx.sendNotify(c, ctx.unitResolveCh, "initial resolve event")
-		w := watchertest.NewMockNotifyWatcher(ctx.unitResolveCh)
-		return w, nil
+		// Close the old channel and open a new one so the RSW always
+		// starts with a clean, empty channel. All senders obtain the
+		// lock before reading ctx.unitResolveCh so they will pick up
+		// the new channel on their next call.
+		ctx.channelMu.Lock()
+		ctx.unitResolveCh = make(chan struct{}, 1)
+		ch := ctx.unitResolveCh
+		ctx.channelMu.Unlock()
+		// Fresh channel: this blocking send always succeeds immediately.
+		ch <- struct{}{}
+		return watchertest.NewMockNotifyWatcher(ch), nil
 	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchInstanceData(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
@@ -1042,11 +1045,10 @@ func (s *startUniter) step(c tc.LikeC, ctx *testContext) {
 		operationExecutor = s.newExecutorFunc
 	}
 
-	// Drain stale events from shared channels. When a previous RSW is
-	// stopped (e.g. after ErrRestart or stopUniter), its setup goroutine
-	// may have sent an initial event before the RSW's select loop started
-	// reading. That event stays buffered and would block the next RSW's
-	// setup DoAndReturn, causing a flaky hang.
+	// Drain stale events from shared channels before starting the uniter.
+	// The Watch and WatchResolveMode callbacks replace these channels on
+	// every RSW start, but during a stopUniter/startUniter sequence there
+	// may be a leftover event on the current channel.
 	drainNotify := func(ch chan struct{}) {
 		for {
 			select {
@@ -1056,8 +1058,12 @@ func (s *startUniter) step(c tc.LikeC, ctx *testContext) {
 			}
 		}
 	}
-	drainNotify(ctx.unitResolveCh)
-	drainNotify(ctx.applicationCh)
+	ctx.channelMu.Lock()
+	unitResolveCh := ctx.unitResolveCh
+	applicationCh := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	drainNotify(unitResolveCh)
+	drainNotify(applicationCh)
 	ctx.sendEvents = true
 
 	if ctx.leaderTracker == nil {
@@ -1443,7 +1449,10 @@ func (s *resolveError) step(c tc.LikeC, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.resolved = s.resolved
 	ctx.unit.mu.Unlock()
-	ctx.sendNotify(c, ctx.unitResolveCh, "resolved event")
+	ctx.channelMu.Lock()
+	ch := ctx.unitResolveCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "resolved event")
 }
 
 type statusfunc func() (status.StatusInfo, error)
@@ -1717,7 +1726,10 @@ func (s *upgradeCharm) step(c tc.LikeC, ctx *testContext) {
 	ctx.app.charmModifiedVersion++
 	// Make sure we upload the charm before changing it in the DB.
 	(&serveCharm{}).step(c, ctx)
-	ctx.sendNotify(c, ctx.applicationCh, "application charm upgrade event")
+	ctx.channelMu.Lock()
+	ch := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "application charm upgrade event")
 }
 
 type verifyCharm struct {
@@ -1745,7 +1757,10 @@ func (s *pushResource) step(c tc.LikeC, ctx *testContext) {
 	ctx.app.mu.Lock()
 	ctx.app.charmModifiedVersion++
 	ctx.app.mu.Unlock()
-	ctx.sendNotify(c, ctx.applicationCh, "resource change event")
+	ctx.channelMu.Lock()
+	ch := ctx.applicationCh
+	ctx.channelMu.Unlock()
+	ctx.sendNotify(c, ch, "resource change event")
 }
 
 type startUpgradeError struct {
@@ -1794,11 +1809,10 @@ func (s *startUpgradeError) step(c tc.LikeC, ctx *testContext) {
 
 type verifyWaitingUpgradeError struct {
 	revision int
+	allSteps []stepper
 }
 
-func (s *verifyWaitingUpgradeError) prepare(_ tc.LikeC, _ *testContext) {}
-
-func (s *verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
+func (s *verifyWaitingUpgradeError) prepare(c tc.LikeC, ctx *testContext) {
 	verifyCharmSteps := []stepper{
 		&waitUnitAgent{
 			statusGetter: unitStatusGetter,
@@ -1823,12 +1837,15 @@ func (s *verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
 		}},
 		&startUniter{rebootQuerier: &fakeRebootQuerier{rebootNotDetected}},
 	}
-	allSteps := append(verifyCharmSteps, verifyWaitingSteps...)
-	allSteps = append(allSteps, verifyCharmSteps...)
-	for _, s_ := range allSteps {
+	s.allSteps = append(verifyCharmSteps, verifyWaitingSteps...)
+	s.allSteps = append(s.allSteps, verifyCharmSteps...)
+	for _, s_ := range s.allSteps {
 		s_.prepare(c, ctx)
 	}
-	for _, s_ := range allSteps {
+}
+
+func (s *verifyWaitingUpgradeError) step(c tc.LikeC, ctx *testContext) {
+	for _, s_ := range s.allSteps {
 		step(c, ctx, s_)
 	}
 }
