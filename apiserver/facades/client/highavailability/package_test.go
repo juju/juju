@@ -3,5 +3,5 @@
 
 package highavailability
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package highavailability -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/highavailability ControllerNodeService
-//go:generate go run go.uber.org/mock/mockgen -typed -package highavailability -destination auth_mock_test.go github.com/juju/juju/apiserver/facade Authorizer
+//go:generate go run github.com/canonical/gomock/mockgen -package highavailability -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/highavailability ControllerNodeService
+//go:generate go run github.com/canonical/gomock/mockgen -package highavailability -destination auth_mock_test.go github.com/juju/juju/apiserver/facade Authorizer

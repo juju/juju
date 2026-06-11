@@ -4,10 +4,12 @@
 package secretsdrain_test
 
 import (
+	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/common/secretsdrain"
 	"github.com/juju/juju/api/common/secretsdrain/mocks"
@@ -40,8 +42,10 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *tc.C) {
 	apiCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	uri := coresecrets.NewURI()
-	apiCaller.EXPECT().FacadeCall(gomock.Any(), "GetSecretsToDrain", nil, gomock.Any()).SetArg(
-		3, params.SecretRevisionsToDrainResults{
+	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(), "GetSecretsToDrain", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.SecretRevisionsToDrainResults{
 			Results: []params.SecretRevisionsToDrainResult{{
 				URI: uri.String(),
 				Revisions: []params.SecretRevision{{
@@ -54,8 +58,9 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *tc.C) {
 					Revision: 667,
 				}},
 			}},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretsdrain.NewClient(apiCaller)
 	result, err := client.GetSecretsToDrain(c.Context())
@@ -103,13 +108,14 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *tc.C) {
 			},
 		},
 		gomock.Any(),
-	).SetArg(
-		3, params.ErrorResults{
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ErrorResults{
 			Results: []params.ErrorResult{
 				{Error: nil},
 			},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretsdrain.NewClient(apiCaller)
 	result, err := client.ChangeSecretBackend(
@@ -136,11 +142,14 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *tc.C) {
 
 	apiCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	apiCaller.EXPECT().FacadeCall(gomock.Any(), "WatchSecretBackendChanged", nil, gomock.Any()).SetArg(
-		3, params.NotifyWatchResult{
+	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(), "WatchSecretBackendChanged", nil, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.NotifyWatchResult{
 			Error: &params.Error{Message: "FAIL"},
-		},
-	).Return(nil)
+		}))
+		return nil
+	})
 
 	client := secretsdrain.NewClient(apiCaller)
 	_, err := client.WatchSecretBackendChanged(c.Context())

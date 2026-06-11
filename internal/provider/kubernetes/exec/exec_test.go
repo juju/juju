@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -97,7 +97,7 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
-	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+	s.mockRemoteCMDGetter.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	// failed - completed pod.
 	params := exec.ExecParams{
@@ -297,7 +297,7 @@ func (s *execSuite) TestExec(c *tc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
-	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+	s.mockRemoteCMDGetter.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	var stdin, stdout, stderr bytes.Buffer
 	params := exec.ExecParams{
@@ -439,7 +439,7 @@ func (s *execSuite) TestExecCancel(c *tc.C) {
 		c.Assert(callNum, tc.LessThan, len(requests))
 		return requests[callNum]
 	})
-	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+	s.mockRemoteCMDGetter.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		DoAndReturn(func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
 			mut.Lock()
 			defer mut.Unlock()

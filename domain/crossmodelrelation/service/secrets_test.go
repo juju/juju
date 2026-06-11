@@ -5,8 +5,8 @@ package service
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corerelation "github.com/juju/juju/core/relation"

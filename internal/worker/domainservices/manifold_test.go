@@ -6,13 +6,13 @@ package domainservices
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"

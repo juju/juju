@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -76,7 +76,7 @@ func (s *subnetSuite) TestAddSubnet(c *tc.C) {
 	var expectedUUID network.Id
 	// Verify that the passed subnetInfo matches and don't return an error.
 	s.st.EXPECT().AddSubnet(gomock.Any(), gomock.Any()).
-		Do(
+		DoAndReturn(
 			func(
 				ctx context.Context,
 				subnet network.SubnetInfo,

@@ -10,11 +10,11 @@ import (
 	"testing"
 	time "time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
@@ -208,7 +208,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChanges(c *tc.C) {
 		},
 	}, nil)
 
-	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).DoAndReturn(func(s []string) {
+	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).Do(func(s []string) {
 		close(done)
 	})
 	s.remote.EXPECT().Connection(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, fn func(context.Context, api.Connection) error) error {
@@ -287,7 +287,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 				"192.168.0.17",
 			},
 		}, nil),
-		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
 		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
@@ -298,7 +298,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesUpdatesAddress(c *tc.C) {
 				"192.168.0.18",
 			},
 		}, nil),
-		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.18"}).DoAndReturn(func(s []string) {
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.18"}).Do(func(s []string) {
 			close(done2)
 		}),
 	)
@@ -365,7 +365,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 				"192.168.0.17",
 			},
 		}, nil),
-		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
 		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
@@ -376,7 +376,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesRemovesOldAddress(c *tc.C) {
 				"192.168.0.18",
 			},
 		}, nil),
-		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.18"}).DoAndReturn(func(s []string) {
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.18"}).Do(func(s []string) {
 			close(done2)
 		}),
 	)
@@ -460,7 +460,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 				"192.168.0.17",
 			},
 		}, nil),
-		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done1)
 		}),
 		s.controllerNodeService.EXPECT().GetAPIAddressesByControllerIDForAgents(gomock.Any()).Return(map[string][]string{
@@ -471,7 +471,7 @@ func (s *WorkerSuite) TestWorkerAPIServerChangesWithSameAddress(c *tc.C) {
 				"192.168.0.17",
 			},
 		}, nil),
-		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).DoAndReturn(func(s []string) {
+		s.remote.EXPECT().UpdateAddresses([]string{"192.168.0.17"}).Do(func(s []string) {
 			close(done2)
 		}),
 	)
@@ -575,7 +575,7 @@ func (s *WorkerSuite) TestSubscribeWithNotify(c *tc.C) {
 
 	done := make(chan struct{})
 	addr := &url.URL{Scheme: "wss", Host: "10.0.0.1:17070"}
-	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).DoAndReturn(func(s []string) {
+	s.remote.EXPECT().UpdateAddresses([]string{addr.Host}).Do(func(s []string) {
 		close(done)
 	})
 

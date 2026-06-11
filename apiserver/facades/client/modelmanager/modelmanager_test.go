@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -635,7 +635,7 @@ func (s *modelManagerSuite) TestDumpModel(c *tc.C) {
 
 	modelUUID, modelTag := generateModelUUIDAndTag(c)
 	expected := &domainexport.ModelExport{
-		Version: "4.0.4",
+		Version: semversion.MustParse("4.0.4"),
 		Payload: &v4_0_4.ModelExport{
 			AgentBinaryStore: []v4_0_4.AgentBinaryStore{{
 				Version:         "4.0.4",
@@ -695,7 +695,7 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
 	defer s.setUpAPIWithUser(c, user).Finish()
 
 	expected := &domainexport.ModelExport{
-		Version: "4.0.4",
+		Version: semversion.MustParse("4.0.4"),
 		Payload: &v4_0_4.ModelExport{},
 	}
 

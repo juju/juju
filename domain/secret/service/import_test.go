@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/relation"
@@ -113,17 +113,17 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		ExpireTime:     new(expireTime),
 	}, []domainsecret.UpsertRevisionParams{
 		{
-			Revision:   1,
-			CreateTime: revisions[0][0].CreateTime,
-			UpdateTime: revisions[0][0].UpdateTime,
-			RevisionID: new(s.fakeUUID.String()),
-			Data:       map[string]string{"foo": "bar"},
+			Revision:     1,
+			CreateTime:   revisions[0][0].CreateTime,
+			UpdateTime:   revisions[0][0].UpdateTime,
+			RevisionUUID: new(s.fakeUUID.String()),
+			Data:         map[string]string{"foo": "bar"},
 		},
 		{
-			Revision:   2,
-			CreateTime: revisions[0][1].CreateTime,
-			UpdateTime: revisions[0][1].UpdateTime,
-			RevisionID: new(s.fakeUUID.String()),
+			Revision:     2,
+			CreateTime:   revisions[0][1].CreateTime,
+			UpdateTime:   revisions[0][1].UpdateTime,
+			RevisionUUID: new(s.fakeUUID.String()),
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
 				RevisionID: "revision-id",
@@ -172,12 +172,12 @@ func (s *serviceSuite) TestImportSecrets(c *tc.C) {
 		Checksum:    "checksum-1234",
 	}, []domainsecret.UpsertRevisionParams{
 		{
-			Revision:   5,
-			CreateTime: revisions[1][0].CreateTime,
-			UpdateTime: revisions[1][0].UpdateTime,
-			RevisionID: new(s.fakeUUID.String()),
-			Data:       map[string]string{"foo": "baz"},
-			Checksum:   "checksum-1234",
+			Revision:     5,
+			CreateTime:   revisions[1][0].CreateTime,
+			UpdateTime:   revisions[1][0].UpdateTime,
+			RevisionUUID: new(s.fakeUUID.String()),
+			Data:         map[string]string{"foo": "baz"},
+			Checksum:     "checksum-1234",
 		},
 	}).Return(nil)
 	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelID, s.fakeUUID.String(), uri2.ID).

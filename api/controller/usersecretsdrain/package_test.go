@@ -3,4 +3,4 @@
 
 package usersecretsdrain
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/facade_mock.go github.com/juju/juju/api/base APICaller
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/api/base APICaller

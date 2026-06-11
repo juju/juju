@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
-	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v3"
 

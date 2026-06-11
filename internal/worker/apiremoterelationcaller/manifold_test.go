@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -15,7 +16,6 @@ import (
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/crossmodel"

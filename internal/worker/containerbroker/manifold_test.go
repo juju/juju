@@ -5,12 +5,13 @@ package containerbroker_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
@@ -186,8 +187,16 @@ func (s *manifoldSuite) TestNewTrackerReturnsError(c *tc.C) {
 
 func (s *manifoldSuite) behaviourContext() {
 	cExp := s.getter.EXPECT()
-	cExp.Get("moon", gomock.Any()).SetArg(1, s.agent).Return(nil)
-	cExp.Get("baz", gomock.Any()).SetArg(1, s.apiCaller).Return(nil)
+	cExp.Get("moon", gomock.Any()).DoAndReturn(
+		func(_ string, result any) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(s.agent))
+			return nil
+		})
+	cExp.Get("baz", gomock.Any()).DoAndReturn(
+		func(_ string, result any) error {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(s.apiCaller))
+			return nil
+		})
 }
 
 func (s *manifoldSuite) behaviourAgent() {

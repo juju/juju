@@ -8,8 +8,8 @@ import (
 	"io"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coretesting "github.com/juju/juju/internal/testing"
 )

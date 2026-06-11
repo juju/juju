@@ -10,11 +10,11 @@ import (
 	stdtesting "testing"
 	time "time"
 
+	"github.com/canonical/gomock/gomock"
 	sqlair "github.com/canonical/sqlair"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/internal/testing"
 )

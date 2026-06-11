@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	corebase "github.com/juju/juju/core/base"

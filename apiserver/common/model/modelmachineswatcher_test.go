@@ -6,9 +6,9 @@ package model_test
 import (
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/common/model"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"

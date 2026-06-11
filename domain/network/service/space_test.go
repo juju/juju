@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
@@ -149,7 +149,7 @@ func (s *spaceSuite) TestAddSpace(c *tc.C) {
 	var expectedUUID network.SpaceUUID
 	// Verify that the passed UUID is also returned.
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("space0"), network.Id("provider-id"), []string(nil)).
-		Do(
+		DoAndReturn(
 			func(
 				ctx context.Context,
 				uuid network.SpaceUUID,
@@ -346,7 +346,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *tc.C) {
 
 	s.st.EXPECT().UpsertSubnets(
 		gomock.Any(),
-		gomock.Any()).Do(
+		gomock.Any()).DoAndReturn(
 		func(cxt context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].ProviderId, tc.Equals, twoSubnets[0].ProviderId)
@@ -378,7 +378,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *tc.C) {
 		},
 	}
 
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].ProviderId, tc.Equals, twoSubnets[0].ProviderId)
@@ -402,7 +402,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyAddsSubnets(c *tc.C) {
 		},
 	}
 
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].ProviderId, tc.Equals, anotherSubnet[0].ProviderId)
@@ -427,7 +427,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *tc.C) {
 		},
 	}
 
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].ProviderId, tc.Equals, oneSubnet[0].ProviderId)
@@ -441,7 +441,7 @@ func (s *spaceSuite) TestSaveProviderSubnetsOnlyIdempotent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// We expect the same subnets to be passed to the state methods.
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].ProviderId, tc.Equals, oneSubnet[0].ProviderId)
@@ -569,16 +569,16 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *tc.C) {
 		spUUID0, spUUID1 network.SpaceUUID
 	)
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[0].Name, twoSpaces[0].ProviderId, []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
+		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			spUUID0 = uuid
 			return nil
 		})
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), twoSpaces[1].Name, twoSpaces[1].ProviderId, []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
+		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			spUUID1 = uuid
 			return nil
 		})
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].CIDR, tc.Equals, twoSpaces[0].Subnets[0].CIDR)
@@ -588,7 +588,7 @@ func (s *spaceSuite) TestReloadSpacesFromProvider(c *tc.C) {
 			return nil
 		},
 	)
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].CIDR, tc.Equals, twoSpaces[1].Subnets[0].CIDR)
@@ -615,7 +615,7 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *tc.C) {
 	s.providerWithNetworking.EXPECT().SupportsSpaceDiscovery().Return(false, nil)
 	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), nil).Return(twoSubnets, nil)
 
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].CIDR, tc.Equals, twoSubnets[0].CIDR)
@@ -641,11 +641,10 @@ func (s *spaceSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *tc.C) {
 	s.providerWithNetworking.EXPECT().Subnets(gomock.Any(), nil).Return(twoSubnets, nil)
 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
-		func(ctx context.Context, subnets []network.SubnetInfo) error {
+		func(ctx context.Context, subnets []network.SubnetInfo) {
 			c.Check(subnets, tc.HasLen, 2)
 			c.Check(subnets[0].CIDR, tc.Equals, twoSubnets[0].CIDR)
 			c.Check(subnets[1].CIDR, tc.Equals, twoSubnets[1].CIDR)
-			return nil
 		},
 	).Return(errors.New("boom"))
 
@@ -687,7 +686,7 @@ func (s *spaceSuite) TestSaveProviderSpaces(c *tc.C) {
 	spaces := []network.SpaceInfo{
 		{ProviderId: network.Id("1"), Subnets: oneSubnet},
 	}
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].CIDR, tc.Equals, oneSubnet[0].CIDR)
@@ -728,12 +727,11 @@ func (s *spaceSuite) TestSaveProviderSpacesWithoutProviderId(c *tc.C) {
 
 	var receivedSpaceID network.SpaceUUID
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
+		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			receivedSpaceID = uuid
 			return nil
-		}).
-		Return(nil)
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		})
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].CIDR, tc.Equals, oneSubnet[0].CIDR)
@@ -787,7 +785,7 @@ func (s *spaceSuite) TestSaveProviderSpacesDeltaSpacesAfterNotUpdated(c *tc.C) {
 
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
 		Return(nil)
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].CIDR, tc.Equals, oneSubnet[0].CIDR)
@@ -920,12 +918,11 @@ func (s *spaceSuite) TestProviderSpacesRun(c *tc.C) {
 
 	var receivedSpaceID network.SpaceUUID
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), network.SpaceName("empty"), network.Id("2"), []string(nil)).
-		Do(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
+		DoAndReturn(func(ctx context.Context, uuid network.SpaceUUID, name network.SpaceName, providerID network.Id, subnetIDs []string) error {
 			receivedSpaceID = uuid
 			return nil
-		}).
-		Return(nil)
-	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		})
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, subnets []network.SubnetInfo) error {
 			c.Check(subnets, tc.HasLen, 1)
 			c.Check(subnets[0].CIDR, tc.Equals, oneSubnet[0].CIDR)

@@ -9,12 +9,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-goose/goose/v5/identity"
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"

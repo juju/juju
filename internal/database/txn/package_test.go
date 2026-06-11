@@ -3,4 +3,4 @@
 
 package txn
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package txn_test -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/canonical/gomock/mockgen -package txn_test -destination clock_mock_test.go github.com/juju/clock Clock,Timer

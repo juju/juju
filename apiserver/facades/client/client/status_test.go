@@ -6,10 +6,10 @@ package client
 import (
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"

@@ -11,11 +11,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/fs"
-	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
@@ -25,7 +25,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
@@ -46,29 +46,29 @@ type ContextSuite struct {
 	contextFactory context.ContextFactory
 	membership     map[int][]string
 
-	uniter  *uniterapi.MockUniterClient
-	unit    *uniterapi.MockUnit
+	uniter  *apimocks.MockUniterClient
+	unit    *apimocks.MockUnit
 	secrets *runnertesting.SecretsContextAccessor
 
-	relunits map[int]*uniterapi.MockRelationUnit
+	relunits map[int]*apimocks.MockRelationUnit
 }
 
 func (s *ContextSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.relunits = map[int]*uniterapi.MockRelationUnit{}
+	s.relunits = map[int]*apimocks.MockRelationUnit{}
 	s.secrets = &runnertesting.SecretsContextAccessor{}
 }
 
 func (s *ContextSuite) AddContextRelation(c *tc.C, ctrl *gomock.Controller, name string) {
 	num := len(s.relunits)
-	rel := uniterapi.NewMockRelation(ctrl)
+	rel := apimocks.NewMockRelation(ctrl)
 	rel.EXPECT().Id().Return(num).AnyTimes()
 	rel.EXPECT().Tag().Return(names.NewRelationTag("mysql:server wordpress:" + name)).AnyTimes()
 	rel.EXPECT().Life().Return(life.Alive).AnyTimes()
 	rel.EXPECT().Suspended().Return(false).AnyTimes()
 
-	relUnit := uniterapi.NewMockRelationUnit(ctrl)
+	relUnit := apimocks.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
 	relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "db"}}).AnyTimes()
 	relUnit.EXPECT().Settings(gomock.Any()).Return(
@@ -80,7 +80,7 @@ func (s *ContextSuite) AddContextRelation(c *tc.C, ctrl *gomock.Controller, name
 
 func (s *ContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineTag {
 	unitTag := names.NewUnitTag("u/0")
-	s.unit = uniterapi.NewMockUnit(ctrl)
+	s.unit = apimocks.NewMockUnit(ctrl)
 	s.unit.EXPECT().Tag().Return(unitTag).AnyTimes()
 	s.unit.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
 	s.unit.EXPECT().PublicAddress(gomock.Any()).Return("u-0.testing.invalid", nil).AnyTimes()
@@ -94,7 +94,7 @@ func (s *ContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineTag {
 
 func (s *ContextSuite) setupUniter(ctrl *gomock.Controller) names.MachineTag {
 	machineTag := s.setupUnit(ctrl)
-	s.uniter = uniterapi.NewMockUniterClient(ctrl)
+	s.uniter = apimocks.NewMockUniterClient(ctrl)
 	s.uniter.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), machineTag).DoAndReturn(func(_ stdcontext.Context, _ names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 		return nil, nil
 	}).AnyTimes()

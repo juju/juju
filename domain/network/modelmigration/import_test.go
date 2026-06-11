@@ -8,10 +8,10 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network"

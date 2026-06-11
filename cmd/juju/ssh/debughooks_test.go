@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	goyaml "gopkg.in/yaml.v2"
 
 	apicharm "github.com/juju/juju/api/common/charm"

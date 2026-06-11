@@ -11,28 +11,30 @@ package proxyupdater_test
 
 import (
 	context "context"
-	reflect "reflect"
 
+	gomock "github.com/canonical/gomock/gomock"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockControllerNodeService is a mock of ControllerNodeService interface.
 type MockControllerNodeService struct {
 	ctrl     *gomock.Controller
 	recorder *MockControllerNodeServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockControllerNodeServiceMockRecorder is the mock recorder for MockControllerNodeService.
 type MockControllerNodeServiceMockRecorder struct {
-	mock *MockControllerNodeService
+	mock                                      *MockControllerNodeService
+	getAllNoProxyAPIAddressesForAgentsExpects []*gomock.Call1_2[context.Context, string, error]
+	watchControllerAPIAddressesExpects        []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 }
 
 // NewMockControllerNodeService creates a new mock instance.
 func NewMockControllerNodeService(ctrl *gomock.Controller) *MockControllerNodeService {
 	mock := &MockControllerNodeService{ctrl: ctrl}
-	mock.recorder = &MockControllerNodeServiceMockRecorder{mock}
+	mock.recorder = &MockControllerNodeServiceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -42,50 +44,59 @@ func (m *MockControllerNodeService) EXPECT() *MockControllerNodeServiceMockRecor
 }
 
 // GetAllNoProxyAPIAddressesForAgents mocks base method.
-func (m *MockControllerNodeService) GetAllNoProxyAPIAddressesForAgents(arg0 context.Context) (string, error) {
+func (m *MockControllerNodeService) GetAllNoProxyAPIAddressesForAgents(ctx context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllNoProxyAPIAddressesForAgents", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.getAllNoProxyAPIAddressesForAgentsExpects, m.ctrl, m, "GetAllNoProxyAPIAddressesForAgents", ctx)
 }
 
 // GetAllNoProxyAPIAddressesForAgents indicates an expected call of GetAllNoProxyAPIAddressesForAgents.
-func (mr *MockControllerNodeServiceMockRecorder) GetAllNoProxyAPIAddressesForAgents(arg0 any) *gomock.Call {
+func (mr *MockControllerNodeServiceMockRecorder) GetAllNoProxyAPIAddressesForAgents(ctx any) *MockControllerNodeServiceGetAllNoProxyAPIAddressesForAgentsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllNoProxyAPIAddressesForAgents", reflect.TypeOf((*MockControllerNodeService)(nil).GetAllNoProxyAPIAddressesForAgents), arg0)
+	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "GetAllNoProxyAPIAddressesForAgents", gomock.EnsureMatcher(ctx))
+	mr.getAllNoProxyAPIAddressesForAgentsExpects = append(mr.getAllNoProxyAPIAddressesForAgentsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockControllerNodeServiceGetAllNoProxyAPIAddressesForAgentsCall is the typed call wrapper for GetAllNoProxyAPIAddressesForAgents.
+type MockControllerNodeServiceGetAllNoProxyAPIAddressesForAgentsCall = gomock.Call1_2[context.Context, string, error]
+
 // WatchControllerAPIAddresses mocks base method.
-func (m *MockControllerNodeService) WatchControllerAPIAddresses(arg0 context.Context) (watcher.Watcher[struct{}], error) {
+func (m *MockControllerNodeService) WatchControllerAPIAddresses(arg0 context.Context) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchControllerAPIAddresses", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[struct{}])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.watchControllerAPIAddressesExpects, m.ctrl, m, "WatchControllerAPIAddresses", arg0)
 }
 
 // WatchControllerAPIAddresses indicates an expected call of WatchControllerAPIAddresses.
-func (mr *MockControllerNodeServiceMockRecorder) WatchControllerAPIAddresses(arg0 any) *gomock.Call {
+func (mr *MockControllerNodeServiceMockRecorder) WatchControllerAPIAddresses(arg0 any) *MockControllerNodeServiceWatchControllerAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerAPIAddresses", reflect.TypeOf((*MockControllerNodeService)(nil).WatchControllerAPIAddresses), arg0)
+	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchControllerAPIAddresses", gomock.EnsureMatcher(arg0))
+	mr.watchControllerAPIAddressesExpects = append(mr.watchControllerAPIAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockControllerNodeServiceWatchControllerAPIAddressesCall is the typed call wrapper for WatchControllerAPIAddresses.
+type MockControllerNodeServiceWatchControllerAPIAddressesCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 
 // MockModelConfigService is a mock of ModelConfigService interface.
 type MockModelConfigService struct {
 	ctrl     *gomock.Controller
 	recorder *MockModelConfigServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockModelConfigServiceMockRecorder is the mock recorder for MockModelConfigService.
 type MockModelConfigServiceMockRecorder struct {
-	mock *MockModelConfigService
+	mock               *MockModelConfigService
+	modelConfigExpects []*gomock.Call1_2[context.Context, *config.Config, error]
+	watchExpects       []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockModelConfigService creates a new mock instance.
 func NewMockModelConfigService(ctrl *gomock.Controller) *MockModelConfigService {
 	mock := &MockModelConfigService{ctrl: ctrl}
-	mock.recorder = &MockModelConfigServiceMockRecorder{mock}
+	mock.recorder = &MockModelConfigServiceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -97,29 +108,35 @@ func (m *MockModelConfigService) EXPECT() *MockModelConfigServiceMockRecorder {
 // ModelConfig mocks base method.
 func (m *MockModelConfigService) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.modelConfigExpects, m.ctrl, m, "ModelConfig", arg0)
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockModelConfigServiceMockRecorder) ModelConfig(arg0 any) *gomock.Call {
+func (mr *MockModelConfigServiceMockRecorder) ModelConfig(arg0 any) *MockModelConfigServiceModelConfigCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModelConfigService)(nil).ModelConfig), arg0)
+	call := gomock.NewCall1_2[context.Context, *config.Config, error](mr.mock.ctrl.T, mr.mock, "ModelConfig", gomock.EnsureMatcher(arg0))
+	mr.modelConfigExpects = append(mr.modelConfigExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockModelConfigServiceModelConfigCall is the typed call wrapper for ModelConfig.
+type MockModelConfigServiceModelConfigCall = gomock.Call1_2[context.Context, *config.Config, error]
+
 // Watch mocks base method.
-func (m *MockModelConfigService) Watch(arg0 context.Context) (watcher.Watcher[[]string], error) {
+func (m *MockModelConfigService) Watch(arg0 context.Context) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.watchExpects, m.ctrl, m, "Watch", arg0)
 }
 
 // Watch indicates an expected call of Watch.
-func (mr *MockModelConfigServiceMockRecorder) Watch(arg0 any) *gomock.Call {
+func (mr *MockModelConfigServiceMockRecorder) Watch(arg0 any) *MockModelConfigServiceWatchCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockModelConfigService)(nil).Watch), arg0)
+	call := gomock.NewCall1_2[context.Context, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "Watch", gomock.EnsureMatcher(arg0))
+	mr.watchExpects = append(mr.watchExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockModelConfigServiceWatchCall is the typed call wrapper for Watch.
+type MockModelConfigServiceWatchCall = gomock.Call1_2[context.Context, watcher.StringsWatcher, error]

@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export/types/v4_0_6"
 	"github.com/juju/juju/internal/errors"
 )
@@ -32,7 +33,7 @@ func (s *exportServiceSuiteV4_0_6) TestExport(c *tc.C) {
 
 	modelExport, err := svc.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelExport.Version, tc.Equals, "4.0.6")
+	c.Assert(modelExport.Version, tc.Equals, semversion.MustParse("4.0.6"))
 	c.Assert(modelExport.Payload, tc.Equals, expectedPayload)
 }
 

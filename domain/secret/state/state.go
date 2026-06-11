@@ -405,12 +405,12 @@ func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *co
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
 		return errors.Errorf("cannot create a secret revision without content")
 	}
-	if secret.RevisionID == nil {
+	if secret.RevisionUUID == nil {
 		return errors.Errorf("revision ID must be provided")
 	}
 
 	dbRevision := &secretRevision{
-		ID:         *secret.RevisionID,
+		UUID:       *secret.RevisionUUID,
 		SecretID:   uri.ID,
 		Revision:   revision,
 		CreateTime: secret.CreateTime.UTC(),
@@ -422,19 +422,19 @@ func (st State) createSecretRevision(ctx context.Context, tx *sqlair.TX, uri *co
 	}
 
 	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.UUID, *secret.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry: %w", err)
 		}
 	}
 
 	if len(secret.Data) > 0 {
-		if err := st.updateSecretContent(ctx, tx, dbRevision.ID, secret.Data); err != nil {
+		if err := st.updateSecretContent(ctx, tx, dbRevision.UUID, secret.Data); err != nil {
 			return errors.Errorf("updating content: %w", err)
 		}
 	}
 
 	if secret.ValueRef != nil {
-		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.ID, secret.ValueRef); err != nil {
+		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.UUID, secret.ValueRef); err != nil {
 			return errors.Errorf("updating backend value reference: %w", err)
 		}
 	}
@@ -681,13 +681,13 @@ func (st State) createSecret(
 	}
 
 	revParams := domainsecret.UpsertRevisionParams{
-		Revision:   1,
-		RevisionID: secret.RevisionID,
-		Data:       secret.Data,
-		ValueRef:   secret.ValueRef,
-		ExpireTime: secret.ExpireTime,
-		CreateTime: secret.UpdateTime,
-		UpdateTime: secret.UpdateTime,
+		Revision:     1,
+		RevisionUUID: secret.RevisionUUID,
+		Data:         secret.Data,
+		ValueRef:     secret.ValueRef,
+		ExpireTime:   secret.ExpireTime,
+		CreateTime:   secret.UpdateTime,
+		UpdateTime:   secret.UpdateTime,
 	}
 
 	if err := st.createSecretRevision(ctx, tx, uri, 1, revParams); err != nil {
@@ -859,37 +859,37 @@ GROUP BY sm.secret_id`
 		// migrated charm-owned secrets from old models.
 		secret.Checksum == "" && existing.LatestRevisionChecksum == "")
 	dbRevision = &secretRevision{
-		ID:         dbSecrets[0].LatestRevisionUUID,
+		UUID:       dbSecrets[0].LatestRevisionUUID,
 		SecretID:   uri.ID,
 		Revision:   existing.LatestRevision + 1,
 		CreateTime: secret.UpdateTime.UTC(),
-		// Note: if the revision is updated (no new ID), only the UpdateTime will be set
+		// Note: if the revision is updated (no new UUID), only the UpdateTime will be set
 		UpdateTime: secret.UpdateTime.UTC(),
 	}
 	if shouldCreateNewRevision {
-		if secret.RevisionID == nil {
+		if secret.RevisionUUID == nil {
 			return errors.Errorf("revision ID must be provided")
 		}
-		dbRevision.ID = *secret.RevisionID
+		dbRevision.UUID = *secret.RevisionUUID
 	}
 
 	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
 		return errors.Errorf("inserting revision for secret %q: %w", uri, err)
 	}
 	if secret.ExpireTime != nil {
-		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, *secret.ExpireTime); err != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.UUID, *secret.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry for secret %q: %w", uri, err)
 		}
 	}
 
 	if len(secret.Data) > 0 && shouldCreateNewRevision {
-		if err := st.updateSecretContent(ctx, tx, dbRevision.ID, secret.Data); err != nil {
+		if err := st.updateSecretContent(ctx, tx, dbRevision.UUID, secret.Data); err != nil {
 			return errors.Errorf("updating content for secret %q: %w", uri, err)
 		}
 	}
 
 	if secret.ValueRef != nil && shouldCreateNewRevision {
-		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.ID, secret.ValueRef); err != nil {
+		if err := st.upsertSecretValueRef(ctx, tx, dbRevision.UUID, secret.ValueRef); err != nil {
 			return errors.Errorf("updating backend value reference for secret %q: %w", uri, err)
 		}
 	}
@@ -900,10 +900,10 @@ GROUP BY sm.secret_id`
 	return nil
 }
 
-// markObsoleteRevisions obsoletes the revisions and sets the pending_delete
-// to true in the secret_revision table for the specified secret if the
-// revision is not the latest revision and there are no consumers for the
-// revision.
+// markObsoleteRevisions marks secret revisions that are no longer in use as
+// obsolete with pending_delete=true. A revision is considered "in use" if at
+// least one local or remote consumer currently tracks it, or if it is the
+// latest revision for the secret.
 func (st State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
 	query, err := st.Prepare(`
 SELECT sr.uuid AS &secretRevision.uuid
@@ -948,19 +948,15 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
-	for _, revisionUUID := range revisionUUIIDs {
-		// TODO: use bulk insert.
-		obsolete := secretRevisionObsolete{
-			ID:            revisionUUID.ID,
+	obsoletes := make([]secretRevisionObsolete, len(revisionUUIIDs))
+	for i, rev := range revisionUUIIDs {
+		obsoletes[i] = secretRevisionObsolete{
+			UUID:          rev.UUID,
 			Obsolete:      true,
 			PendingDelete: true,
 		}
-		err = tx.Query(ctx, stmt, obsolete).Run()
-		if err != nil {
-			return errors.Capture(err)
-		}
 	}
-	return nil
+	return errors.Capture(tx.Query(ctx, stmt, obsoletes).Run())
 }
 
 func (st State) upsertSecretLabel(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, label string, owner secretOwner) error {
@@ -3231,9 +3227,9 @@ AND    (sp.subject_type_id = $secretAccessorType.unit_type_id AND suu.name IN ($
 	return revisionResult, nil
 }
 
-// GetSecretRevisionID returns the revision UUID for the specified secret URI and revision,
+// GetSecretRevisionUUID returns the revision UUID for the specified secret URI and revision,
 // or an error satisfying [secreterrors.SecretRevisionNotFound] if the revision is not found.
-func (st State) GetSecretRevisionID(ctx context.Context, uri *coresecrets.URI, revision int) (string, error) {
+func (st State) GetSecretRevisionUUID(ctx context.Context, uri *coresecrets.URI, revision int) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -3261,7 +3257,7 @@ WHERE  secret_id = $secretRevision.secret_id
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return secretRev.ID, nil
+	return secretRev.UUID, nil
 }
 
 type dbrevisionUUIDs []revisionUUID
@@ -3873,7 +3869,7 @@ GROUP BY sr.secret_id`
 	result := make([]domainsecret.ExpiryInfo, len(data))
 	for i, d := range data {
 		result[i] = domainsecret.ExpiryInfo{
-			RevisionID:      d.RevisionUUID,
+			RevisionUUID:    d.RevisionUUID,
 			Revision:        d.Revision,
 			NextTriggerTime: d.ExpireTime,
 		}
@@ -3898,7 +3894,7 @@ func (st State) InitialWatchStatementForSecretsRevisionExpiryChanges(
 		}
 		revisionUUIDs := make([]string, len(result))
 		for i, d := range result {
-			revisionUUIDs[i] = d.RevisionID
+			revisionUUIDs[i] = d.RevisionUUID
 		}
 		return revisionUUIDs, nil
 	}

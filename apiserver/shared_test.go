@@ -8,11 +8,11 @@ import (
 	"net/http"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/flightrecorder"
 	"github.com/juju/juju/core/model"

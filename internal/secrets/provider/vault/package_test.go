@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/http_mock.go net/http RoundTripper
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
 
 func MountPath(b provider.SecretsBackend) string {
 	return b.(*vaultBackend).mountPath

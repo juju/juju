@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package state -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
+//go:generate go run github.com/canonical/gomock/mockgen -package state -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
 
 type baseSuite struct {
 	schematesting.ModelSuite

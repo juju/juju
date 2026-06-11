@@ -114,11 +114,11 @@ func (s *SecretService) importSecretWithRevisions(
 			return errors.Capture(err)
 		}
 		params := secret.UpsertSecretParams{
-			ValueRef:   rev.ValueRef,
-			CreateTime: rev.CreateTime,
-			UpdateTime: rev.UpdateTime,
-			RevisionID: new(revisionID.String()),
-			ExpireTime: rev.ExpireTime,
+			ValueRef:     rev.ValueRef,
+			CreateTime:   rev.CreateTime,
+			UpdateTime:   rev.UpdateTime,
+			RevisionUUID: new(revisionID.String()),
+			ExpireTime:   rev.ExpireTime,
 		}
 		if i == len(revisions)-1 {
 			params.Checksum = md.LatestRevisionChecksum
@@ -140,14 +140,14 @@ func (s *SecretService) importSecretWithRevisions(
 		rollbackReferences = append(rollbackReferences, rollBack)
 
 		importRevisions[i] = secret.UpsertRevisionParams{
-			Revision:   rev.Revision,
-			RevisionID: params.RevisionID,
-			CreateTime: params.CreateTime,
-			UpdateTime: params.UpdateTime,
-			ExpireTime: params.ExpireTime,
-			ValueRef:   params.ValueRef,
-			Data:       params.Data,
-			Checksum:   params.Checksum,
+			Revision:     rev.Revision,
+			RevisionUUID: params.RevisionUUID,
+			CreateTime:   params.CreateTime,
+			UpdateTime:   params.UpdateTime,
+			ExpireTime:   params.ExpireTime,
+			ValueRef:     params.ValueRef,
+			Data:         params.Data,
+			Checksum:     params.Checksum,
 		}
 	}
 

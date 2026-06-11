@@ -6,11 +6,11 @@ package secretspruner_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	dt "github.com/juju/worker/v5/dependency/testing"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

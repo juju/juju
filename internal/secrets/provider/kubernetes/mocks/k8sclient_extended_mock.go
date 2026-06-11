@@ -10,9 +10,7 @@
 package mocks
 
 import (
-	reflect "reflect"
-
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	discovery "k8s.io/client-go/discovery"
@@ -22,17 +20,21 @@ import (
 type ExtendedInterface struct {
 	ctrl     *gomock.Controller
 	recorder *ExtendedInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // ExtendedInterfaceMockRecorder is the mock recorder for ExtendedInterface.
 type ExtendedInterfaceMockRecorder struct {
-	mock *ExtendedInterface
+	mock                        *ExtendedInterface
+	apiextensionsV1Expects      []*gomock.Call0_1[v1.ApiextensionsV1Interface]
+	apiextensionsV1beta1Expects []*gomock.Call0_1[v1beta1.ApiextensionsV1beta1Interface]
+	discoveryExpects            []*gomock.Call0_1[discovery.DiscoveryInterface]
 }
 
 // NewExtendedInterface creates a new mock instance.
 func NewExtendedInterface(ctrl *gomock.Controller) *ExtendedInterface {
 	mock := &ExtendedInterface{ctrl: ctrl}
-	mock.recorder = &ExtendedInterfaceMockRecorder{mock}
+	mock.recorder = &ExtendedInterfaceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -44,41 +46,53 @@ func (m *ExtendedInterface) EXPECT() *ExtendedInterfaceMockRecorder {
 // ApiextensionsV1 mocks base method.
 func (m *ExtendedInterface) ApiextensionsV1() v1.ApiextensionsV1Interface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApiextensionsV1")
-	ret0, _ := ret[0].(v1.ApiextensionsV1Interface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.apiextensionsV1Expects, m.ctrl, m, "ApiextensionsV1")
 }
 
 // ApiextensionsV1 indicates an expected call of ApiextensionsV1.
-func (mr *ExtendedInterfaceMockRecorder) ApiextensionsV1() *gomock.Call {
+func (mr *ExtendedInterfaceMockRecorder) ApiextensionsV1() *ExtendedInterfaceApiextensionsV1Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1", reflect.TypeOf((*ExtendedInterface)(nil).ApiextensionsV1))
+	call := gomock.NewCall0_1[v1.ApiextensionsV1Interface](mr.mock.ctrl.T, mr.mock, "ApiextensionsV1")
+	mr.apiextensionsV1Expects = append(mr.apiextensionsV1Expects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// ExtendedInterfaceApiextensionsV1Call is the typed call wrapper for ApiextensionsV1.
+type ExtendedInterfaceApiextensionsV1Call = gomock.Call0_1[v1.ApiextensionsV1Interface]
 
 // ApiextensionsV1beta1 mocks base method.
 func (m *ExtendedInterface) ApiextensionsV1beta1() v1beta1.ApiextensionsV1beta1Interface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApiextensionsV1beta1")
-	ret0, _ := ret[0].(v1beta1.ApiextensionsV1beta1Interface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.apiextensionsV1beta1Expects, m.ctrl, m, "ApiextensionsV1beta1")
 }
 
 // ApiextensionsV1beta1 indicates an expected call of ApiextensionsV1beta1.
-func (mr *ExtendedInterfaceMockRecorder) ApiextensionsV1beta1() *gomock.Call {
+func (mr *ExtendedInterfaceMockRecorder) ApiextensionsV1beta1() *ExtendedInterfaceApiextensionsV1beta1Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1beta1", reflect.TypeOf((*ExtendedInterface)(nil).ApiextensionsV1beta1))
+	call := gomock.NewCall0_1[v1beta1.ApiextensionsV1beta1Interface](mr.mock.ctrl.T, mr.mock, "ApiextensionsV1beta1")
+	mr.apiextensionsV1beta1Expects = append(mr.apiextensionsV1beta1Expects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// ExtendedInterfaceApiextensionsV1beta1Call is the typed call wrapper for ApiextensionsV1beta1.
+type ExtendedInterfaceApiextensionsV1beta1Call = gomock.Call0_1[v1beta1.ApiextensionsV1beta1Interface]
 
 // Discovery mocks base method.
 func (m *ExtendedInterface) Discovery() discovery.DiscoveryInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Discovery")
-	ret0, _ := ret[0].(discovery.DiscoveryInterface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.discoveryExpects, m.ctrl, m, "Discovery")
 }
 
 // Discovery indicates an expected call of Discovery.
-func (mr *ExtendedInterfaceMockRecorder) Discovery() *gomock.Call {
+func (mr *ExtendedInterfaceMockRecorder) Discovery() *ExtendedInterfaceDiscoveryCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Discovery", reflect.TypeOf((*ExtendedInterface)(nil).Discovery))
+	call := gomock.NewCall0_1[discovery.DiscoveryInterface](mr.mock.ctrl.T, mr.mock, "Discovery")
+	mr.discoveryExpects = append(mr.discoveryExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// ExtendedInterfaceDiscoveryCall is the typed call wrapper for Discovery.
+type ExtendedInterfaceDiscoveryCall = gomock.Call0_1[discovery.DiscoveryInterface]

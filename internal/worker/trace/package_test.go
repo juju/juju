@@ -7,21 +7,21 @@ import (
 	"context"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-logr/logr"
 	"github.com/juju/tc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-//go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination tracer_mock_test.go github.com/juju/juju/internal/worker/trace TrackedTracer,Client,ClientTracer,ClientTracerProvider
-//go:generate go run go.uber.org/mock/mockgen -typed -package trace -destination trace_mock_test.go go.opentelemetry.io/otel/trace Span
+//go:generate go run github.com/canonical/gomock/mockgen -package trace -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/canonical/gomock/mockgen -package trace -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
+//go:generate go run github.com/canonical/gomock/mockgen -package trace -destination tracer_mock_test.go github.com/juju/juju/internal/worker/trace TrackedTracer,Client,ClientTracer,ClientTracerProvider
+//go:generate go run github.com/canonical/gomock/mockgen -package trace -destination trace_mock_test.go go.opentelemetry.io/otel/trace Span
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

@@ -4,18 +4,18 @@
 package providertracker
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker DomainServicesGetter,DomainServices,ModelService,CloudService,ConfigService,CredentialService
-//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination environs_mock_test.go github.com/juju/juju/environs Environ,CloudDestroyer,CloudSpecSetter
-//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
-//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination caas_mock_test.go github.com/juju/juju/caas Broker
+//go:generate go run github.com/canonical/gomock/mockgen -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker DomainServicesGetter,DomainServices,ModelService,CloudService,ConfigService,CredentialService
+//go:generate go run github.com/canonical/gomock/mockgen -package providertracker -destination environs_mock_test.go github.com/juju/juju/environs Environ,CloudDestroyer,CloudSpecSetter
+//go:generate go run github.com/canonical/gomock/mockgen -package providertracker -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
+//go:generate go run github.com/canonical/gomock/mockgen -package providertracker -destination caas_mock_test.go github.com/juju/juju/caas Broker
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

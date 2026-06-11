@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -165,6 +165,70 @@ func (s *importSuite) TestApplicationImportWithMinimalCharmForCAAS(c *tc.C) {
 			AddressOrigin: new(network.OriginProvider),
 			Ports:         new([]string{"6666"}),
 		}),
+	}})
+}
+
+func (s *importSuite) TestApplicationImportStorageDirectivesForCAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	model := description.NewModel(description.ModelArgs{
+		Type: coremodel.CAAS.String(),
+	})
+
+	appArgs := description.ApplicationArgs{
+		Name:     "prometheus",
+		CharmURL: "ch:prometheus-1",
+		StorageDirectives: map[string]description.StorageDirectiveArgs{
+			"pgdata": {
+				Pool:  "fast",
+				Size:  2048,
+				Count: 3,
+			},
+		},
+	}
+	app := model.AddApplication(appArgs)
+	app.SetCharmMetadata(description.CharmMetadataArgs{
+		Name: "prometheus",
+	})
+	app.SetCharmManifest(description.CharmManifestArgs{
+		Bases: []description.CharmManifestBase{baseType{
+			name:          "ubuntu",
+			channel:       "24.04",
+			architectures: []string{"amd64"},
+		}},
+	})
+	app.SetCharmOrigin(description.CharmOriginArgs{
+		Source:   "charm-hub",
+		ID:       "1234",
+		Hash:     "deadbeef",
+		Revision: 1,
+		Channel:  "666/stable",
+		Platform: "arm64/ubuntu/24.04",
+	})
+
+	var importArgs service.ImportCAASApplicationArgs
+	s.importService.EXPECT().ImportCAASApplication(
+		gomock.Any(),
+		"prometheus",
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, args service.ImportCAASApplicationArgs) error {
+		importArgs = args
+		return nil
+	})
+
+	importOp := importOperation{
+		service: s.importService,
+		logger:  loggertesting.WrapCheckLog(c),
+	}
+
+	err := importOp.Execute(c.Context(), model)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(importArgs.StorageDirectives, tc.DeepEquals, []service.ImportStorageDirectiveArg{{
+		Name:  "pgdata",
+		Pool:  "fast",
+		Size:  2048,
+		Count: 3,
 	}})
 }
 

@@ -3014,14 +3014,14 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 			return errors.Annotate(err, "updating secrets")
 		}
 	}
+	// Convert track-latest URIs to validated secret IDs; the actual consumer
+	// revision update happens inside the CommitHookChanges transaction.
 	if len(changes.TrackLatest) > 0 {
-		result, err := u.updateTrackedRevisions(ctx, changes.TrackLatest)
-		if err == nil {
-			err = result.Combine()
-		}
+		trackLatest, err := u.prepareSecretTrackLatest(changes.TrackLatest)
 		if err != nil {
-			return errors.Annotate(err, "updating secret tracked revisions")
+			return apiservererrors.ServerError(err)
 		}
+		arg.TrackLatestSecrets = trackLatest
 	}
 	// Convert secret grants to domain types, filtering out any the unit
 	// does not have manage access on.

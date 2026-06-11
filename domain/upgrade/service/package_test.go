@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/upgrade/service State,WatcherFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/upgrade/service State,WatcherFactory
 
 type baseServiceSuite struct {
 	testhelpers.IsolationSuite

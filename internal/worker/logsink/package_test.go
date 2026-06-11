@@ -3,4 +3,4 @@
 
 package logsink
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package logsink -destination logger_mock_test.go github.com/juju/juju/core/logger Logger,LogWriter,LoggerContextGetter,ModelLogger,LogSink
+//go:generate go run github.com/canonical/gomock/mockgen -package logsink -destination logger_mock_test.go github.com/juju/juju/core/logger Logger,LogWriter,LoggerContextGetter,ModelLogger,LogSink

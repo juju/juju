@@ -3,4 +3,4 @@
 
 package caasapplication_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package caasapplication -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/caasapplication ControllerConfigService,ApplicationService,ModelAgentService,ControllerNodeService
+//go:generate go run github.com/canonical/gomock/mockgen -package caasapplication -destination package_mock_test.go github.com/juju/juju/apiserver/facades/agent/caasapplication ControllerConfigService,ApplicationService,ModelAgentService,ControllerNodeService

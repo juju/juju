@@ -4,6 +4,7 @@
 package resources_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,10 +13,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/kr/pretty"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/errgo.v1"
 
 	"github.com/juju/juju/api/base/mocks"
@@ -177,7 +178,12 @@ func (s *UploadSuite) TestAddPendingResources(c *tc.C) {
 	results := params.AddPendingResourcesResult{
 		PendingIDs: expected,
 	}
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, result).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "AddPendingResources", &addArgs, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	cURL := "ch:spam"
 	pendingIDs, err := s.client.AddPendingResources(c.Context(),
@@ -224,7 +230,12 @@ func (s *UploadSuite) TestUploadPendingResource(c *tc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := c.Context()
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	s.mockHTTPClient.EXPECT().Do(gomock.Any(), reqMatcher{c, req}, gomock.Any())
 
 	uploadArgs := newUploadPendingResourceArgs(res, data)
@@ -244,7 +255,12 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *tc.C) {
 	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 
 	uploadArgs := newUploadPendingResourceArgsNoData(res)
 	uploadID, err := s.client.UploadPendingResource(c.Context(), uploadArgs)
@@ -283,7 +299,12 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *tc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := c.Context()
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	s.mockHTTPClient.EXPECT().Do(gomock.Any(), reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 
 	uploadArgs := newUploadPendingResourceArgs(res, data)
@@ -319,7 +340,12 @@ func (s *UploadSuite) TestUploadPendingResourceAuthError(c *tc.C) {
 		Code:    params.CodeUnauthorized,
 		Message: "user unauthorized",
 	})
-	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &addArgs, gomock.Any()).SetArg(3, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "AddPendingResources", &addArgs, gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(results))
+		return nil
+	})
 	s.mockHTTPClient.EXPECT().Do(gomock.Any(), reqMatcher{c, req}, gomock.Any()).Return(authErr)
 
 	uploadArgs := newUploadPendingResourceArgs(res, data)

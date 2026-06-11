@@ -6,8 +6,8 @@ package service
 import (
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 	"golang.org/x/crypto/acme/autocert"
 
 	coreerrors "github.com/juju/juju/core/errors"

@@ -6,10 +6,10 @@ package service
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"

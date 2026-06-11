@@ -248,6 +248,26 @@ type ImportApplicationArgs struct {
 
 	// ExposedEndpoints is the exposed endpoints for the application.
 	ExposedEndpoints map[string]application.ExposedEndpoint
+
+	// StorageDirectives are the storage directives for the application. The
+	// Name values must match the storage defined in the charm.
+	StorageDirectives []ImportStorageDirectiveArg
+}
+
+// ImportStorageDirectiveArg contains the arguments for importing a single
+// application storage directive during model migration.
+type ImportStorageDirectiveArg struct {
+	// Name is the charm storage name the directive applies to.
+	Name string
+
+	// Pool is the name of the storage pool the directive uses.
+	Pool string
+
+	// Size is the size of the storage directive in MiB.
+	Size uint64
+
+	// Count is the number of storage instances the directive requests.
+	Count uint64
 }
 
 // ImportIAASApplicationArgs contains arguments for importing an IAAS

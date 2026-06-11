@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package sync_test -destination simplestreams_mock_test.go github.com/juju/juju/environs/tools SimplestreamsFetcher
+//go:generate go run github.com/canonical/gomock/mockgen -package sync_test -destination simplestreams_mock_test.go github.com/juju/juju/environs/tools SimplestreamsFetcher
 
 func TestMain(m *testing.M) {
 	testhelpers.ExecHelperProcess()

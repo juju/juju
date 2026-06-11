@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"

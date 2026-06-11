@@ -13,7 +13,15 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/access"
 	credentialservice "github.com/juju/juju/domain/credential/service"
+	"github.com/juju/juju/internal/configschema"
 )
+
+// ModelConfigService provides access to model config schema data.
+type ModelConfigService interface {
+	// GetModelConfigSchemaForCloudType returns the schema of the model config for
+	// a given cloud provider.
+	GetModelConfigSchemaForCloudType(context.Context, string) (configschema.Fields, error)
+}
 
 // CloudService provides access to clouds.
 type CloudService interface {

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/interface_mock.go github.com/juju/juju/internal/worker/uniter/operation Operation,Factory,Callbacks
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/interface_mock.go github.com/juju/juju/internal/worker/uniter/operation Operation,Factory,Callbacks
 
 // Operation encapsulates the stages of the various things the uniter can do,
 // and the state changes that need to be recorded as they happen. Operations

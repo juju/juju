@@ -7,8 +7,8 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/charm"

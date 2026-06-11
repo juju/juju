@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent/addons"
 	internaldependency "github.com/juju/juju/internal/dependency"
@@ -144,7 +144,7 @@ func (s *registerSuite) TestRegisterEngineMetrics(c *tc.C) {
 
 	registry := NewMockRegisterer(ctrl)
 	registry.EXPECT().Register(collector)
-	registry.EXPECT().Unregister(collector).Do(func(_ prometheus.Collector) bool {
+	registry.EXPECT().Unregister(collector).DoAndReturn(func(_ prometheus.Collector) bool {
 		close(done)
 		return false
 	})

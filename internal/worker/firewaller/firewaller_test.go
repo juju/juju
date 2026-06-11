@@ -6,11 +6,13 @@ package firewaller_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
@@ -19,7 +21,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -146,9 +147,11 @@ func (s *firewallerBaseSuite) ensureMocks(c *tc.C, ctrl *gomock.Controller) {
 	s.modelFwRulesCh = make(chan struct{}, 5)
 
 	// This is the controller machine.
-	m, _ := s.addMachine(ctrl)
-	inst := s.startInstance(c, ctrl, m)
+	m, unitsCh := s.setupMachineMocks(ctrl)
+	s.activateMachine(unitsCh)
+	inst := s.setupInstanceMocks(c, ctrl, m)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).AnyTimes()
+	s.startInstance(c, m)
 
 	s.envFirewaller.EXPECT().IngressRules(gomock.Any()).DoAndReturn(func(ctx context.Context) (firewall.IngressRules, error) {
 		return s.envPorts, nil
@@ -291,15 +294,15 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *tc.C, expected firewall.Ingr
 // assertModelIngressRules retrieves the ingress rules from the model firewall
 // and compares them to the expected value
 func (s *firewallerBaseSuite) assertModelIngressRules(c *tc.C, expected firewall.IngressRules) {
+	expected = slices.Clone(expected)
 	start := time.Now()
 	for {
 		s.mu.Lock()
-		got := s.envModelPorts
+		got := slices.Clone(s.envModelPorts)
+		s.mu.Unlock()
 		if got.EqualTo(expected) {
-			s.mu.Unlock()
 			return
 		}
-		s.mu.Unlock()
 		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
 		}
@@ -312,6 +315,24 @@ func (s *firewallerBaseSuite) waitForMachineFlush(c *tc.C) {
 	case <-s.machineFlushed:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for firewaller worker machine flush")
+	}
+}
+
+// waitForSpecificMachineFlush waits until a flush event for the given machine
+// name is received, draining any earlier flush events for other machines.
+func (s *firewallerBaseSuite) waitForSpecificMachineFlush(c *tc.C, id machine.Name) {
+	timer := time.NewTimer(coretesting.LongWait)
+	defer timer.Stop()
+	for {
+		select {
+		case got := <-s.machineFlushed:
+			if got == id {
+				return
+			}
+			// Flush event for a different machine; keep draining.
+		case <-timer.C:
+			c.Fatalf("timed out waiting for machine %v to flush", id)
+		}
 	}
 }
 
@@ -340,11 +361,15 @@ func (s *firewallerBaseSuite) waitForMachine(c *tc.C, id machine.Name) {
 	}
 }
 
-func (s *firewallerBaseSuite) addMachine(ctrl *gomock.Controller) (*mocks.MockMachine, chan []string) {
-	return s.addModelMachine(ctrl, false)
+func (s *firewallerBaseSuite) setupMachineMocks(ctrl *gomock.Controller) (*mocks.MockMachine, chan []string) {
+	return s.setupModelMachineMocks(ctrl, false)
 }
 
-func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bool) (*mocks.MockMachine, chan []string) {
+func (s *firewallerBaseSuite) activateMachine(unitsCh chan []string) {
+	s.activateModelMachine(unitsCh)
+}
+
+func (s *firewallerBaseSuite) setupModelMachineMocks(ctrl *gomock.Controller, manual bool) (*mocks.MockMachine, chan []string) {
 	id := strconv.Itoa(s.nextMachineId)
 	s.nextMachineId++
 
@@ -369,32 +394,40 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 		unitsCh = make(chan []string, 5)
 		unitWatch := watchertest.NewMockStringsWatcher(unitsCh)
 		s.applicationService.EXPECT().WatchUnitAddRemoveOnMachine(gomock.Any(), machineName).Return(unitWatch, nil).AnyTimes()
-		// Initial event.
-		unitsCh <- nil
 	}
 
 	return m, unitsCh
 }
 
-func (s *firewallerBaseSuite) addApplication(ctrl *gomock.Controller, appName string, exposed bool) (*mocks.MockApplication, chan struct{}) {
+func (s *firewallerBaseSuite) activateModelMachine(unitsCh chan []string) {
+	if unitsCh != nil {
+		// Initial event.
+		unitsCh <- nil
+	}
+}
+
+func (s *firewallerBaseSuite) setupApplicationMocks(ctrl *gomock.Controller, appName string) (*mocks.MockApplication, chan struct{}) {
 	app := mocks.NewMockApplication(ctrl)
 	appCh := make(chan struct{}, 5)
 	appWatch := watchertest.NewMockNotifyWatcher(appCh)
 	s.applicationService.EXPECT().WatchApplicationExposed(gomock.Any(), appName).Return(appWatch, nil).AnyTimes()
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), appName).Return(exposed, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), appName).Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	app.EXPECT().Name().Return(appName).AnyTimes()
 	app.EXPECT().Tag().Return(names.NewApplicationTag(appName)).AnyTimes()
 	return app, appCh
 }
 
-func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *mocks.MockApplication) (coreunit.UUID, *mocks.MockUnit, *mocks.MockMachine, chan []string) {
+func (s *firewallerBaseSuite) activateApplication(appName string, exposed bool) {
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), appName).Return(exposed, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), appName).Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
+}
+
+func (s *firewallerBaseSuite) setupUnitMocks(c *tc.C, ctrl *gomock.Controller, app *mocks.MockApplication) (coreunit.UUID, *mocks.MockUnit, *mocks.MockMachine, chan []string) {
 	unitID := s.nextUnitId[app.Name()]
 	s.nextUnitId[app.Name()] = unitID + 1
 	unitName, err := coreunit.NewNameFromParts(app.Name(), unitID)
 	c.Assert(err, tc.ErrorIsNil)
-	m, unitsCh := s.addMachine(ctrl)
+	m, unitsCh := s.setupMachineMocks(ctrl)
 	u := mocks.NewMockUnit(ctrl)
 	s.firewaller.EXPECT().Unit(gomock.Any(), names.NewUnitTag(unitName.String())).Return(u, nil).AnyTimes()
 	u.EXPECT().Life().Return(life.Alive)
@@ -423,16 +456,19 @@ func (s *firewallerBaseSuite) addUnit(c *tc.C, ctrl *gomock.Controller, app *moc
 		},
 	).AnyTimes()
 
-	unitsCh <- []string{unitName.String()}
-
 	return unitUUID, u, m, unitsCh
+}
+
+func (s *firewallerBaseSuite) activateUnit(u *mocks.MockUnit, unitsCh chan []string) {
+	unitsCh <- nil
+	unitsCh <- []string{u.Name()}
 }
 
 func (s *firewallerBaseSuite) newFirewaller(c *tc.C, ctrl *gomock.Controller) worker.Worker {
 	s.modelFlushed = make(chan bool, 1)
 	s.modelFlushSkipped = make(chan bool, 1)
-	s.machineFlushed = make(chan machine.Name, 1)
-	s.watchingMachine = make(chan machine.Name, 1)
+	s.machineFlushed = make(chan machine.Name, 20)
+	s.watchingMachine = make(chan machine.Name, 20)
 
 	flushMachineNotify := func(id machine.Name) {
 		select {
@@ -582,8 +618,9 @@ func closePorts(existing, rules firewall.IngressRules) firewall.IngressRules {
 	return existing
 }
 
-// startInstance starts a new instance for the given machine.
-func (s *firewallerBaseSuite) startInstance(c *tc.C, ctrl *gomock.Controller, m *mocks.MockMachine) *mocks.MockEnvironInstance {
+// setupInstanceMocks sets up EXPECT calls for the given machine instance.
+// It must be called before newFirewaller.
+func (s *firewallerBaseSuite) setupInstanceMocks(c *tc.C, ctrl *gomock.Controller, m *mocks.MockMachine) *mocks.MockEnvironInstance {
 	instID := instance.Id("inst-" + m.Tag().Id())
 	m.EXPECT().InstanceId(gomock.Any()).Return(instID, nil).AnyTimes()
 	inst := mocks.NewMockEnvironInstance(ctrl)
@@ -611,13 +648,21 @@ func (s *firewallerBaseSuite) startInstance(c *tc.C, ctrl *gomock.Controller, m 
 		return nil
 	}).AnyTimes()
 
+	return inst
+}
+
+// startInstance starts a new instance for the given machine.
+func (s *firewallerBaseSuite) startInstance(c *tc.C, m *mocks.MockMachine) {
 	// Start the machine.
 	s.machinesCh <- []string{m.Tag().Id()}
 	if s.firewallerStarted {
-		s.waitForMachineFlush(c)
+		// Wait for the specific machine's flush rather than any machine's
+		// flush. A generic wait can consume a stale flush event from a
+		// different machine (e.g. triggered by a concurrent port change),
+		// causing the test to proceed before this machine's units are
+		// registered and Life() has been called.
+		s.waitForSpecificMachineFlush(c, machine.Name(m.Tag().Id()))
 	}
-
-	return inst
 }
 
 type InstanceModeSuite struct {
@@ -666,11 +711,14 @@ func (s *InstanceModeSuite) TestNotExposedApplication(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	_, _, m, _ := s.addUnit(c, ctrl, app)
 	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachineFlush(c)
 }
@@ -731,9 +779,11 @@ func (s *InstanceModeSuite) assertModelFlushRetriesOnParamsNotFound(c *tc.C, mod
 		return nil
 	})
 
-	m, _ := s.addMachine(ctrl)
-	inst := s.startInstance(c, ctrl, m)
+	m, unitsCh := s.setupMachineMocks(ctrl)
+	s.activateMachine(unitsCh)
+	inst := s.setupInstanceMocks(c, ctrl, m)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).AnyTimes()
+	s.startInstance(c, m)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -769,11 +819,14 @@ func (s *InstanceModeSuite) TestNotExposedApplicationWithoutModelFirewaller(c *t
 	s.ensureMocks(c, ctrl)
 
 	s.withModelFirewaller = false
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", false)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", false)
-	_, _, m, _ := s.addUnit(c, ctrl, app)
 	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachineFlush(c)
 }
@@ -784,12 +837,16 @@ func (s *InstanceModeSuite) TestExposedApplication(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80-90/tcp"),
@@ -816,16 +873,23 @@ func (s *InstanceModeSuite) TestMultipleExposedApplications(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app1, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	u1UUID, u1, m1, unitsCh1 := s.setupUnitMocks(c, ctrl, app1)
+	s.activateUnit(u1, unitsCh1)
+
+	app2, _ := s.setupApplicationMocks(ctrl, "mysql")
+	s.activateApplication("mysql", true)
+	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app2)
+	s.activateUnit(u2, unitsCh2)
+	s.setupInstanceMocks(c, ctrl, m1)
+	s.setupInstanceMocks(c, ctrl, m2)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app1, _ := s.addApplication(ctrl, "wordpress", true)
-	u1UUID, u1, m1, _ := s.addUnit(c, ctrl, app1)
-	s.startInstance(c, ctrl, m1)
-
-	app2, _ := s.addApplication(ctrl, "mysql", true)
-	u2UUID, u2, m2, _ := s.addUnit(c, ctrl, app2)
-	s.startInstance(c, ctrl, m2)
+	s.startInstance(c, m1)
+	s.startInstance(c, m2)
 
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -864,17 +928,23 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
-	app, _ := s.addApplication(ctrl, "wordpress", true)
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
 	// add a unit but don't start its instance yet.
-	u1UUID, u1, m1, _ := s.addUnit(c, ctrl, app)
+	u1UUID, u1, m1, unitsCh1 := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u1, unitsCh1)
 
 	// add another unit and start its instance, so that
 	// we're sure the firewaller has seen the first instance.
-	u2UUID, u2, m2, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m2)
+	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u2, unitsCh2)
+	s.setupInstanceMocks(c, ctrl, m1)
+	s.setupInstanceMocks(c, ctrl, m2)
+
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m2)
 	s.mustOpenPortRanges(c, u2UUID, u2, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
@@ -882,7 +952,7 @@ func (s *InstanceModeSuite) TestMachineWithoutInstanceId(c *tc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
-	s.startInstance(c, ctrl, m1)
+	s.startInstance(c, m1)
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("8080/tcp"),
 	})
@@ -897,18 +967,25 @@ func (s *InstanceModeSuite) TestMultipleUnits(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	u1UUID, u1, m1, unitsCh1 := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u1, unitsCh1)
+
+	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u2, unitsCh2)
+	s.setupInstanceMocks(c, ctrl, m1)
+	s.setupInstanceMocks(c, ctrl, m2)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	u1UUID, u1, m1, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m1)
+	s.startInstance(c, m1)
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	u2UUID, u2, m2, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m2)
+	s.startInstance(c, m2)
 	s.mustOpenPortRanges(c, u2UUID, u2, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
@@ -937,9 +1014,12 @@ func (s *InstanceModeSuite) TestStartWithState(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -965,7 +1045,12 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	s.setupInstanceMocks(c, ctrl, m)
 
 	// Starting the firewaller, no open ports.
 	fw := s.newFirewaller(c, ctrl)
@@ -974,8 +1059,7 @@ func (s *InstanceModeSuite) TestStartWithPartialState(c *tc.C) {
 	s.assertIngressRules(c, "1", nil)
 
 	// Complete steps to open port.
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
@@ -991,13 +1075,21 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	app, appCh := s.addApplication(ctrl, "wordpress", false)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", false)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
+
+	// Expose service.
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 
 	// Starting the firewaller, no open ports.
 	fw := s.newFirewaller(c, ctrl)
@@ -1005,10 +1097,6 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *tc.C) {
 
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
-	// Expose service.
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	appCh <- struct{}{}
 
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
@@ -1022,14 +1110,18 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	manualM, manualUnitsCh := s.setupModelMachineMocks(ctrl, true)
+	s.activateModelMachine(manualUnitsCh)
+	m, unitsCh := s.setupMachineMocks(ctrl)
+	s.activateMachine(unitsCh)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
 	// Wait for controller (started by setUpTest)
 	s.waitForMachine(c, "0")
 
-	m, _ := s.addModelMachine(ctrl, true)
-	s.machinesCh <- []string{m.Tag().Id()}
+	s.machinesCh <- []string{manualM.Tag().Id()}
 
 	select {
 	case tag := <-s.watchingMachine:
@@ -1037,7 +1129,6 @@ func (s *InstanceModeSuite) TestStartMachineWithManualMachine(c *tc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	m, _ = s.addMachine(ctrl)
 	s.machinesCh <- []string{m.Tag().Id()}
 	s.waitForMachine(c, machine.Name(m.Tag().Id()))
 }
@@ -1097,12 +1188,25 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", false)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	// Expose service.
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
+	// ClearExposed closes the ports again.
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(false, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
+	s.setupInstanceMocks(c, ctrl, m)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, appCh := s.addApplication(ctrl, "wordpress", false)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 		network.MustParsePortRange("8080/tcp"),
@@ -1111,10 +1215,6 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *tc.C) {
 	// Not exposed application, so no open port.
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
-	// Expose service.
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	appCh <- struct{}{}
 
 	rules := firewall.IngressRules{
@@ -1123,10 +1223,6 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *tc.C) {
 	}
 	s.assertIngressRules(c, m.Tag().Id(), rules)
 
-	// ClearExposed closes the ports again.
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(false, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	appCh <- struct{}{}
 
 	s.assertIngressRules(c, m.Tag().Id(), nil)
@@ -1138,19 +1234,29 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	u1UUID, u1, m1, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u1, unitsCh)
+
+	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u2, unitsCh2)
+
+	// Remove unit.
+	u1.EXPECT().Life().Return(life.Dead)
+	s.setupInstanceMocks(c, ctrl, m1)
+	s.setupInstanceMocks(c, ctrl, m2)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	u1UUID, u1, m1, unitsCh := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m1)
+	s.startInstance(c, m1)
 
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	u2UUID, u2, m2, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m2)
+	s.startInstance(c, m2)
 	s.mustOpenPortRanges(c, u2UUID, u2, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
@@ -1162,8 +1268,6 @@ func (s *InstanceModeSuite) TestRemoveUnit(c *tc.C) {
 		firewall.NewIngressRule(network.MustParsePortRange("80/tcp"), firewall.AllNetworksIPV4CIDR),
 	})
 
-	// Remove unit.
-	u1.EXPECT().Life().Return(life.Dead)
 	unitsCh <- []string{u1.Name()}
 
 	s.assertIngressRules(c, m1.Tag().Id(), nil)
@@ -1178,12 +1282,21 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	// Remove application.
+	u.EXPECT().Life().Return(life.Dead)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
+		Return(false, errors.NotFoundf("wordpress")).MaxTimes(1)
+	s.setupInstanceMocks(c, ctrl, m)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, unitsCh := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -1194,12 +1307,8 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *tc.C) {
 	}
 	s.assertIngressRules(c, m.Tag().Id(), rules1)
 
-	// Remove application.
-	u.EXPECT().Life().Return(life.Dead)
 	unitsCh <- []string{u.Name()}
 
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
-		Return(false, errors.NotFoundf("wordpress")).MaxTimes(1)
 	appCh <- struct{}{}
 
 	s.waitForMachineFlush(c)
@@ -1212,19 +1321,41 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app1, appCh1 := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	u1UUID, u1, m1, unitsCh1 := s.setupUnitMocks(c, ctrl, app1)
+	s.activateUnit(u1, unitsCh1)
+
+	app2, appCh2 := s.setupApplicationMocks(ctrl, "mysql")
+	s.activateApplication("mysql", true)
+	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app2)
+	s.activateUnit(u2, unitsCh2)
+
+	// Let the wordpress application watcher observe the removal event before
+	// the last unit is removed and tears it down.
+	removed1 := make(chan struct{})
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
+		DoAndReturn(func(context.Context, string) (bool, error) {
+			defer close(removed1)
+			return false, errors.NotFoundf(app1.Name())
+		})
+	// Remove applications.
+	u1.EXPECT().Life().Return(life.Dead)
+	u2.EXPECT().Life().Return(life.Dead)
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "mysql").
+		Return(false, errors.NotFoundf(app2.Name())).MaxTimes(1)
+	s.setupInstanceMocks(c, ctrl, m1)
+	s.setupInstanceMocks(c, ctrl, m2)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app1, appCh1 := s.addApplication(ctrl, "wordpress", true)
-	u1UUID, u1, m1, unitsCh1 := s.addUnit(c, ctrl, app1)
-	s.startInstance(c, ctrl, m1)
+	s.startInstance(c, m1)
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	app2, appCh2 := s.addApplication(ctrl, "mysql", true)
-	u2UUID, u2, m2, unitsCh2 := s.addUnit(c, ctrl, app2)
-	s.startInstance(c, ctrl, m2)
+	s.startInstance(c, m2)
 	s.mustOpenPortRanges(c, u2UUID, u2, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("3306/tcp"),
 	})
@@ -1238,26 +1369,13 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *tc.C) {
 	}
 	s.assertIngressRules(c, m2.Tag().Id(), rules2)
 
-	// Let the wordpress application watcher observe the removal event before
-	// the last unit is removed and tears it down.
-	removed1 := make(chan struct{})
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
-		DoAndReturn(func(context.Context, string) (bool, error) {
-			defer close(removed1)
-			return false, errors.NotFoundf(app1.Name())
-		})
 	appCh1 <- struct{}{}
 	<-removed1
 
-	// Remove applications.
-	u1.EXPECT().Life().Return(life.Dead)
 	unitsCh1 <- []string{u1.Name()}
 
-	u2.EXPECT().Life().Return(life.Dead)
 	unitsCh2 <- []string{u2.Name()}
 
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "mysql").
-		Return(false, errors.NotFoundf(app2.Name())).MaxTimes(1)
 	appCh2 <- struct{}{}
 
 	s.assertIngressRules(c, m1.Tag().Id(), nil)
@@ -1271,12 +1389,21 @@ func (s *InstanceModeSuite) TestDeadMachine(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	// Remove unit and application, also tested without. Has no effect.
+	u.EXPECT().Life().Return(life.Dead).AnyTimes()
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
+		Return(false, errors.NotFoundf("wordpress")).MaxTimes(1)
+	s.setupInstanceMocks(c, ctrl, m)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, unitsCh := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -1287,12 +1414,8 @@ func (s *InstanceModeSuite) TestDeadMachine(c *tc.C) {
 	}
 	s.assertIngressRules(c, m.Tag().Id(), rules1)
 
-	// Remove unit and application, also tested without. Has no effect.
-	u.EXPECT().Life().Return(life.Dead).AnyTimes()
 	unitsCh <- []string{u.Name()}
 
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").
-		Return(false, errors.NotFoundf("wordpress")).MaxTimes(1)
 	appCh <- struct{}{}
 	s.waitForMachineFlush(c)
 
@@ -1312,12 +1435,17 @@ func (s *InstanceModeSuite) TestRemoveMachine(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	s.setupInstanceMocks(c, ctrl, m)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.DirtyKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
@@ -1348,8 +1476,10 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
 
 	instId := instance.Id("inst-" + m.Tag().Id())
 	m.EXPECT().InstanceId(gomock.Any()).Return(instId, nil).AnyTimes()
@@ -1530,15 +1660,12 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C)
 
 	s.ensureMocks(c, ctrl)
 
-	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
 	published := make(chan bool)
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	_, _, m, _ := s.addUnit(c, ctrl, app)
-	s.machinesCh <- []string{m.Tag().Id()}
-	s.waitForMachineFlush(c)
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
 	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
@@ -1555,14 +1682,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C)
 		return nil
 	})
 
-	relSubnetCh <- []string{"10.0.0.0/24"}
-
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("time out waiting for ingress change to be published on enter scope")
-	case <-published:
-	}
-
 	// Trigger watcher for unit on the consuming app (leave the relation scope).
 	event.IngressRequired = false
 	event.Networks = []string{}
@@ -1570,6 +1689,21 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *tc.C)
 		published <- true
 		return nil
 	})
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
+
+	relSubnetCh <- []string{"10.0.0.0/24"}
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for ingress change to be published on enter scope")
+	case <-published:
+	}
 
 	relSubnetCh <- []string{}
 
@@ -1586,19 +1720,13 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSideAlreadyEx
 
 	s.ensureMocks(c, ctrl)
 
-	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
 	published := make(chan bool)
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	_, _, m, _ := s.addUnit(c, ctrl, app)
-	s.machinesCh <- []string{m.Tag().Id()}
-	s.waitForMachineFlush(c)
-	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
 
-	// Force the trigger of the worker again.
-	s.consumerRelCh <- []string{"rel-token"}
+	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
 	// This will trigger the firewaller to publish the changes.
@@ -1614,6 +1742,21 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSideAlreadyEx
 		return nil
 	})
 
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
+		published <- true
+		return nil
+	})
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
+
+	// Force the trigger of the worker again.
+	s.consumerRelCh <- []string{"rel-token"}
+
 	relSubnetCh <- []string{"10.0.0.0/24"}
 
 	select {
@@ -1621,11 +1764,6 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSideAlreadyEx
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
 	case <-published:
 	}
-
-	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
-		published <- true
-		return nil
-	})
 
 	relSubnetCh <- []string{"10.0.0.0/24"}
 
@@ -1642,14 +1780,12 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
 	published := make(chan bool)
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	_, _, m, _ := s.addUnit(c, ctrl, app)
-	s.machinesCh <- []string{m.Tag().Id()}
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
 	relSubnetCh, mac := s.setupRemoteRelationRequirerRoleConsumingSide(c)
 
 	// Have a unit on the consuming app enter the relation scope.
@@ -1665,6 +1801,17 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
 		return errors.New("fail")
 	})
 
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
+		published <- true
+		return nil
+	})
+
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.machinesCh <- []string{m.Tag().Id()}
+
 	relSubnetCh <- []string{"10.0.0.0/24"}
 
 	select {
@@ -1672,11 +1819,6 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *tc.C) {
 		c.Fatal("time out waiting for ingress change to be published on enter scope")
 	case <-published:
 	}
-
-	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
-		published <- true
-		return nil
-	})
 
 	relSubnetCh <- []string{"10.0.0.0/24"}
 
@@ -1693,14 +1835,10 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 
 	s.ensureMocks(c, ctrl)
 
-	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
-	app, _ := s.addApplication(ctrl, "mysql", true)
-	_, _, m, _ := s.addUnit(c, ctrl, app)
-	s.machinesCh <- []string{m.Tag().Id()}
-	s.waitForMachineFlush(c)
+	app, _ := s.setupApplicationMocks(ctrl, "mysql")
+	s.activateApplication("mysql", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1763,6 +1901,13 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *tc.C)
 	})
 	s.crossmodelFirewaller.EXPECT().Close().AnyTimes()
 
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
+
 	s.consumerRelCh <- []string{relUUID.String()}
 	localEgressCh <- []string{"10.0.0.0/24"}
 
@@ -1779,15 +1924,11 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
 	published := make(chan bool)
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	_, _, m, _ := s.addUnit(c, ctrl, app)
-	s.machinesCh <- []string{m.Tag().Id()}
-	s.waitForMachineFlush(c)
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	_, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, tc.ErrorIsNil)
@@ -1842,8 +1983,6 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
-	s.consumerRelCh <- []string{relUUID.String()}
-
 	// Send initial watcher event - expect the initial empty publish.
 	initialEvent := params.IngressNetworksChangeEvent{
 		RelationToken:   "rel-token",
@@ -1856,14 +1995,6 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 		published <- true
 		return nil
 	})
-
-	localEgressCh <- []string{}
-
-	select {
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("time out waiting for initial ingress change to be published")
-	case <-published:
-	}
 
 	updated := make(chan bool)
 
@@ -1885,6 +2016,23 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 		return nil
 	})
 
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.machinesCh <- []string{m.Tag().Id()}
+	s.waitForMachineFlush(c)
+
+	s.consumerRelCh <- []string{relUUID.String()}
+
+	localEgressCh <- []string{}
+
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("time out waiting for initial ingress change to be published")
+	case <-published:
+	}
+
 	localEgressCh <- []string{"10.0.0.0/24"}
 
 	select {
@@ -1894,50 +2042,52 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *tc.C) {
 	}
 }
 
-func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller, ingress []string, expected []string) {
-	// Create the firewaller facade on the offering model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
+// ingressCidrsSetup holds the state produced by setupIngressCidrsMocks that
+// assertIngressCidrs needs to drive its assertions.
+type ingressCidrsSetup struct {
+	machineID      string
+	localIngressCh chan []string
+	relUUID        relation.UUID
+	// suspended points to the bool captured by the GetRelationDetails mock
+	// closure, so that assertIngressCidrs can toggle the suspended state.
+	suspended *bool
+}
 
+// setupIngressCidrsMocks registers all mock expectations required by the
+// ingress-CIDR test scenarios. It must be called before newFirewaller.
+func (s *InstanceModeSuite) setupIngressCidrsMocks(c *tc.C, ctrl *gomock.Controller) *ingressCidrsSetup {
 	// Set up the offering model - create the local app.
-	app, _ := s.addApplication(ctrl, "mysql", false)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	app, _ := s.setupApplicationMocks(ctrl, "mysql")
+	s.activateApplication("mysql", false)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	s.setupInstanceMocks(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("3306/tcp"),
 	})
-
-	// Set up the offering model - create the remote app.
-	remoteRelParams := params.RemoteRelation{
-		Life:            "alive",
-		Suspended:       false,
-		Id:              666,
-		Key:             "remote-wordpress:db mysql:server",
-		ApplicationName: "mysql",
-		Endpoint: params.RemoteEndpoint{
-			Role: "provider",
-		},
-		UnitCount:             2,
-		RemoteApplicationName: "remote-wordpress",
-		RemoteEndpointName:    "db",
-		SourceModelUUID:       coretesting.ModelTag.Id(),
-	}
 
 	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
 	relKey, err := relation.NewKeyFromString(relTag.Id())
 	c.Assert(err, tc.ErrorIsNil)
 	relUUID := relation.UUID("rel-token")
 
-	// Mock GetRelationDetails - this is called when processing the offerer relation event
-	// We need to return different states for suspended/resumed/alive
+	// suspended is captured by the GetRelationDetails mock closure so that
+	// assertIngressCidrs can toggle it between calls.
+	suspended := false
+
+	// Mock GetRelationDetails - this is called when processing the offerer
+	// relation event. We need to return different states for
+	// suspended/resumed/alive.
 	s.relationService.EXPECT().GetRelationDetails(gomock.Any(), relUUID).DoAndReturn(
 		func(_ context.Context, _ relation.UUID) (domainrelation.RelationDetails, error) {
 			return domainrelation.RelationDetails{
 				Life:      life.Alive,
 				UUID:      relUUID,
 				Key:       relKey,
-				Suspended: remoteRelParams.Suspended,
+				Suspended: suspended,
 				Endpoints: []domainrelation.Endpoint{
 					{
 						ApplicationName: "mysql",
@@ -1962,12 +2112,30 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 	s.crossModelRelationService.EXPECT().IsApplicationSynthetic(gomock.Any(), "mysql").Return(false, nil).AnyTimes()
 
 	localIngressCh := make(chan []string, 1)
-	notifyCh := make(chan struct{}, 1)
-	remoteIngressWatch := watchertest.NewMockNotifyWatcher(notifyCh)
-	s.crossModelRelationService.EXPECT().WatchRelationIngressNetworks(gomock.Any(), relUUID).Return(remoteIngressWatch, nil).MinTimes(1)
 
 	var mu sync.Mutex
 	var currentCIDRs []string
+	// activeNotifyChans holds one channel per WatchRelationIngressNetworks
+	// call. Each watcher instance gets its own channel so that a dying old
+	// watcher cannot steal a notification that was intended for a newly
+	// started replacement watcher.
+	var activeNotifyChans []chan struct{}
+
+	s.crossModelRelationService.EXPECT().WatchRelationIngressNetworks(gomock.Any(), relUUID).DoAndReturn(
+		func(_ context.Context, _ relation.UUID) (watcher.NotifyWatcher, error) {
+			mu.Lock()
+			ch := make(chan struct{}, 1)
+			// Send an immediate notification when the watcher starts if
+			// ingress data already exists, so the new watcher loop does
+			// not miss the current state (e.g. after a relation resume).
+			if len(currentCIDRs) > 0 {
+				ch <- struct{}{}
+			}
+			activeNotifyChans = append(activeNotifyChans, ch)
+			mu.Unlock()
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		}).MinTimes(1)
+
 	s.crossModelRelationService.EXPECT().GetRelationNetworkIngress(gomock.Any(), relUUID).DoAndReturn(
 		func(_ context.Context, _ relation.UUID) ([]string, error) {
 			mu.Lock()
@@ -1975,60 +2143,71 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, ctrl *gomock.Controller,
 			return currentCIDRs, nil
 		}).AnyTimes()
 
-	// Helper goroutine to bridge test control channel to watcher notifications
+	// Helper goroutine to bridge test control channel to watcher notifications.
 	go func() {
 		for cidrs := range localIngressCh {
 			mu.Lock()
 			currentCIDRs = cidrs
-			mu.Unlock()
-			select {
-			case notifyCh <- struct{}{}:
-			default:
+			for _, ch := range activeNotifyChans {
+				select {
+				case ch <- struct{}{}:
+				default:
+				}
 			}
+			mu.Unlock()
 		}
 	}()
 
+	return &ingressCidrsSetup{
+		machineID:      m.Tag().Id(),
+		localIngressCh: localIngressCh,
+		relUUID:        relUUID,
+		suspended:      &suspended,
+	}
+}
+
+func (s *InstanceModeSuite) assertIngressCidrs(c *tc.C, setup *ingressCidrsSetup, ingress []string, expected []string) {
 	// No port changes yet.
 	s.waitForMachineFlush(c)
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	s.assertIngressRules(c, setup.machineID, nil)
 
 	// Save a new ingress network against the relation.
-	s.offererRelCh <- []string{relUUID.String()}
-	localIngressCh <- ingress
+	s.offererRelCh <- []string{setup.relUUID.String()}
+	setup.localIngressCh <- ingress
 
 	// Ports opened.
-	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+	s.assertIngressRules(c, setup.machineID, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// Change should be sent when ingress networks disappear.
-	localIngressCh <- nil
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	setup.localIngressCh <- nil
+	s.assertIngressRules(c, setup.machineID, nil)
 
-	localIngressCh <- ingress
-	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+	setup.localIngressCh <- ingress
+	s.assertIngressRules(c, setup.machineID, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is suspended.
-	remoteRelParams.Suspended = true
+	*setup.suspended = true
 
-	s.offererRelCh <- []string{relUUID.String()}
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	s.offererRelCh <- []string{setup.relUUID.String()}
+	s.assertIngressRules(c, setup.machineID, nil)
 
 	// And again when relation is resumed.
-	remoteRelParams.Suspended = false
+	*setup.suspended = false
 
-	s.offererRelCh <- []string{relUUID.String()}
-	localIngressCh <- ingress
-	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
+	s.offererRelCh <- []string{setup.relUUID.String()}
+	setup.localIngressCh <- ingress
+	s.assertIngressRules(c, setup.machineID, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})
 
 	// And again when relation is destroyed.
-	localIngressCh <- nil
+	setup.localIngressCh <- nil
 	s.waitForMachineFlush(c)
-	s.assertIngressRules(c, m.Tag().Id(), nil)
+	s.assertIngressRules(c, setup.machineID, nil)
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
@@ -2036,8 +2215,10 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleOffering(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.ensureMocks(c, ctrl)
-
-	s.assertIngressCidrs(c, ctrl, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
+	setup := s.setupIngressCidrsMocks(c, ctrl)
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+	s.assertIngressCidrs(c, setup, []string{"10.0.0.4/16"}, []string{"10.0.0.4/16"})
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C) {
@@ -2059,7 +2240,10 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *tc.C
 	for i := 1; i < 30; i++ {
 		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))
 	}
-	s.assertIngressCidrs(c, ctrl, ingress, []string{"192.168.1.0/16"})
+	setup := s.setupIngressCidrsMocks(c, ctrl)
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+	s.assertIngressCidrs(c, setup, ingress, []string{"192.168.1.0/16"})
 }
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *tc.C) {
@@ -2099,7 +2283,10 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressMergesCIDRS(c *tc.C) {
 		"192.0.5.0/28",
 		"192.0.6.0/28",
 	}
-	s.assertIngressCidrs(c, ctrl, ingress, expected)
+	setup := s.setupIngressCidrsMocks(c, ctrl)
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+	s.assertIngressCidrs(c, setup, ingress, expected)
 }
 
 func (s *InstanceModeSuite) TestConsumerRelationNotFound(c *tc.C) {
@@ -2107,10 +2294,6 @@ func (s *InstanceModeSuite) TestConsumerRelationNotFound(c *tc.C) {
 	defer ctrl.Finish()
 
 	s.ensureMocksWithoutMachine(ctrl)
-
-	// Create the firewaller facade on the consuming model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
 
 	relUUID := relation.UUID("non-existent-consumer-relation")
 
@@ -2125,6 +2308,10 @@ func (s *InstanceModeSuite) TestConsumerRelationNotFound(c *tc.C) {
 				relationerrors.RelationNotFound
 		})
 
+	// Create the firewaller facade on the consuming model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
 	// Trigger the consumer relation change event with a non-existent relation.
 	s.consumerRelCh <- []string{relUUID.String()}
 
@@ -2138,10 +2325,6 @@ func (s *InstanceModeSuite) TestOffererRelationNotFound(c *tc.C) {
 
 	s.ensureMocksWithoutMachine(ctrl)
 
-	// Create the firewaller facade on the offering model.
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
 	relUUID := relation.UUID("non-existent-offerer-relation")
 
 	// Mock GetRelationDetails to return RelationNotFound error.
@@ -2154,6 +2337,11 @@ func (s *InstanceModeSuite) TestOffererRelationNotFound(c *tc.C) {
 			return domainrelation.RelationDetails{},
 				relationerrors.RelationNotFound
 		})
+
+	// Create the firewaller facade on the offering model.
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
 	// Trigger the offerer relation change event with a non-existent relation.
 	s.offererRelCh <- []string{relUUID.String()}
 
@@ -2166,6 +2354,32 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *tc.C) 
 	defer ctrl.Finish()
 
 	s.ensureMocks(c, ctrl)
+
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToCIDRs: set.NewStrings("10.0.0.0/24"),
+		},
+		"url": {
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
+		},
+	}, nil)
+
+	// Change the expose settings and remove the entry for the wildcard endpoint
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		"url": {
+			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
+		},
+	}, nil)
+	s.setupInstanceMocks(c, ctrl, m)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2181,12 +2395,9 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *tc.C) 
 			SpaceName: "myspace",
 		}},
 	}}, nil)
-
 	s.subnetsCh <- []string{}
 
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -2195,17 +2406,6 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *tc.C) 
 		network.MustParsePortRange("1337/tcp"),
 		network.MustParsePortRange("1337/udp"),
 	})
-
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {
-			ExposeToCIDRs: set.NewStrings("10.0.0.0/24"),
-		},
-		"url": {
-			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
-			ExposeToSpaceIDs: set.NewStrings("sp-1"),
-		},
-	}, nil)
 
 	appCh <- struct{}{}
 
@@ -2233,14 +2433,6 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *tc.C) 
 			"42.42.0.0/16"),
 	})
 
-	// Change the expose settings and remove the entry for the wildcard endpoint
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		"url": {
-			ExposeToCIDRs:    set.NewStrings("192.168.0.0/24", "192.168.1.0/24"),
-			ExposeToSpaceIDs: set.NewStrings("sp-1"),
-		},
-	}, nil)
 	appCh <- struct{}{}
 
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
@@ -2263,6 +2455,20 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	defer ctrl.Finish()
 
 	s.ensureMocks(c, ctrl)
+
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	// Expose app to space-1
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
+		},
+	}, nil)
+	s.setupInstanceMocks(c, ctrl, m)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2287,24 +2493,13 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 			SpaceName: "myspace2",
 		}},
 	}}, nil)
-
 	s.subnetsCh <- []string{}
 
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
-
-	// Expose app to space-1
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {
-			ExposeToSpaceIDs: set.NewStrings("sp-1"),
-		},
-	}, nil)
 
 	appCh <- struct{}{}
 
@@ -2333,7 +2528,6 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 		Name:    "myspace2",
 		Subnets: network.SubnetInfos{}},
 	}, nil)
-
 	s.subnetsCh <- []string{}
 
 	// Check that worker picked up the change and updated the rules
@@ -2348,6 +2542,20 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	defer ctrl.Finish()
 
 	s.ensureMocks(c, ctrl)
+
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	// Expose app to space-1
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {
+			ExposeToSpaceIDs: set.NewStrings("sp-1"),
+		},
+	}, nil)
+	s.setupInstanceMocks(c, ctrl, m)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2372,24 +2580,13 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 			SpaceName: "myspace2",
 		}},
 	}}, nil)
-
 	s.subnetsCh <- []string{}
 
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
-
-	// Expose app to space-1
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {
-			ExposeToSpaceIDs: set.NewStrings("sp-1"),
-		},
-	}, nil)
 
 	appCh <- struct{}{}
 
@@ -2409,7 +2606,6 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 			SpaceName: "myspace2",
 		}},
 	}}, nil)
-
 	s.subnetsCh <- []string{}
 
 	// We expect to see NO ingress rules as the referenced space does not exist.
@@ -2421,6 +2617,19 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	defer ctrl.Finish()
 
 	s.ensureMocks(c, ctrl)
+
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+
+	// Expose app to space-1.
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToSpaceIDs: set.NewStrings("sp-1")},
+		"url":        {ExposeToSpaceIDs: set.NewStrings("sp-1")},
+	}, nil)
+	s.setupInstanceMocks(c, ctrl, m)
 
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
@@ -2436,12 +2645,9 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 			SpaceName: "myspace",
 		}},
 	}}, nil)
-
 	s.subnetsCh <- []string{}
 
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -2449,13 +2655,6 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	s.mustOpenPortRanges(c, unitUUID, u, "url", []network.PortRange{
 		network.MustParsePortRange("1337/tcp"),
 	})
-
-	// Expose app to space-1.
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {ExposeToSpaceIDs: set.NewStrings("sp-1")},
-		"url":        {ExposeToSpaceIDs: set.NewStrings("sp-1")},
-	}, nil)
 
 	appCh <- struct{}{}
 
@@ -2472,7 +2671,6 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 		Name:    "myspace",
 		Subnets: network.SubnetInfos{},
 	}}, nil)
-
 	s.subnetsCh <- []string{}
 
 	// We expect to see NO ingress rules (and warnings in the logs) as
@@ -2487,22 +2685,26 @@ func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *tc.C) {
 	s.ensureMocks(c, ctrl)
 
 	s.withIpv6 = false
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
-
-	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
-		network.MustParsePortRange("80/tcp"),
-	})
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
 
 	// Expose app to space-1.
 	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
 	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64")},
 	}, nil)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m)
+
+	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
 
 	appCh <- struct{}{}
 
@@ -2546,21 +2748,29 @@ func (s *GlobalModeSuite) TestGlobalMode(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app1, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	u1UUID, u1, m1, unitsCh1 := s.setupUnitMocks(c, ctrl, app1)
+	s.activateUnit(u1, unitsCh1)
+
+	app2, _ := s.setupApplicationMocks(ctrl, "mysql")
+	s.activateApplication("mysql", true)
+	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app2)
+	s.activateUnit(u2, unitsCh2)
+	s.setupInstanceMocks(c, ctrl, m1)
+	s.setupInstanceMocks(c, ctrl, m2)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app1, _ := s.addApplication(ctrl, "wordpress", true)
-	u1UUID, u1, m1, _ := s.addUnit(c, ctrl, app1)
-	s.startInstance(c, ctrl, m1)
+	s.startInstance(c, m1)
 
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80-90/tcp"),
 		network.MustParsePortRange("8080/tcp"),
 	})
 
-	app2, _ := s.addApplication(ctrl, "mysql", true)
-	u2UUID, u2, m2, _ := s.addUnit(c, ctrl, app2)
-	s.startInstance(c, ctrl, m2)
+	s.startInstance(c, m2)
 
 	s.mustOpenPortRanges(c, u2UUID, u2, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80-90/tcp"),
@@ -2601,13 +2811,21 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
-	app, appCh := s.addApplication(ctrl, "wordpress", false)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", false)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
+
+	// Expose service.
+	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
+	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
+		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 
 	// Starting the firewaller, no open ports.
 	fw := s.newFirewaller(c, ctrl)
@@ -2615,10 +2833,6 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *tc.C) {
 
 	s.assertEnvironPorts(c, nil)
 
-	// Expose service.
-	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
-	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
-		allEndpoints: {ExposeToCIDRs: set.NewStrings(firewall.AllNetworksIPV4CIDR)}}, nil)
 	appCh <- struct{}{}
 
 	s.assertEnvironPorts(c, firewall.IngressRules{
@@ -2633,12 +2847,16 @@ func (s *GlobalModeSuite) TestRestart(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, unitsCh := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80-90/tcp"),
@@ -2690,12 +2908,16 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
+	s.setupInstanceMocks(c, ctrl, m)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.CleanKill(c, fw)
 
-	app, _ := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, unitsCh := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
+	s.startInstance(c, m)
 
 	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80-90/tcp"),
@@ -2735,12 +2957,16 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *tc.C) {
 
 	s.ensureMocks(c, ctrl)
 
+	app1, _ := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	u1UUID, u1, m1, unitsCh1 := s.setupUnitMocks(c, ctrl, app1)
+	s.activateUnit(u1, unitsCh1)
+	s.setupInstanceMocks(c, ctrl, m1)
+
 	fw := s.newFirewaller(c, ctrl)
 	defer workertest.DirtyKill(c, fw)
 
-	app1, _ := s.addApplication(ctrl, "wordpress", true)
-	u1UUID, u1, m1, unitsCh1 := s.addUnit(c, ctrl, app1)
-	s.startInstance(c, ctrl, m1)
+	s.startInstance(c, m1)
 
 	s.mustOpenPortRanges(c, u1UUID, u1, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
@@ -2755,10 +2981,13 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *tc.C) {
 	// Stop firewaller and add another application using the port.
 	err := worker.Stop(fw)
 	c.Assert(err, tc.ErrorIsNil)
-
-	app2, _ := s.addApplication(ctrl, "mysql", true)
-	u2UUID, u2, m2, unitsCh2 := s.addUnit(c, ctrl, app2)
-	s.startInstance(c, ctrl, m2)
+	s.firewallerStarted = false
+	app2, _ := s.setupApplicationMocks(ctrl, "mysql")
+	s.activateApplication("mysql", true)
+	u2UUID, u2, m2, unitsCh2 := s.setupUnitMocks(c, ctrl, app2)
+	s.activateUnit(u2, unitsCh2)
+	s.setupInstanceMocks(c, ctrl, m2)
+	s.startInstance(c, m2)
 	s.mustOpenPortRanges(c, u2UUID, u2, allEndpoints, []network.PortRange{
 		network.MustParsePortRange("80/tcp"),
 	})
@@ -2813,22 +3042,26 @@ func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *tc.C) {
 	s.ensureMocks(c, ctrl)
 
 	s.withIpv6 = false
-	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
-
-	app, appCh := s.addApplication(ctrl, "wordpress", true)
-	unitUUID, u, m, _ := s.addUnit(c, ctrl, app)
-	s.startInstance(c, ctrl, m)
-
-	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
-		network.MustParsePortRange("80/tcp"),
-	})
+	app, appCh := s.setupApplicationMocks(ctrl, "wordpress")
+	s.activateApplication("wordpress", true)
+	unitUUID, u, m, unitsCh := s.setupUnitMocks(c, ctrl, app)
+	s.activateUnit(u, unitsCh)
 
 	// Expose app to space-1.
 	s.applicationService.EXPECT().IsApplicationExposed(gomock.Any(), "wordpress").Return(true, nil)
 	s.applicationService.EXPECT().GetExposedEndpoints(gomock.Any(), "wordpress").Return(map[string]application.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: set.NewStrings("10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64")},
 	}, nil)
+	s.setupInstanceMocks(c, ctrl, m)
+
+	fw := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw)
+
+	s.startInstance(c, m)
+
+	s.mustOpenPortRanges(c, unitUUID, u, allEndpoints, []network.PortRange{
+		network.MustParsePortRange("80/tcp"),
+	})
 
 	appCh <- struct{}{}
 

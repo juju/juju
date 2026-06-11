@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -22,6 +23,7 @@ import (
 	"github.com/canonical/sqlair"
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/schema"
@@ -75,11 +77,10 @@ func main() {
 }
 
 func generate(ctx context.Context, runner *txnRunner) error {
-	// Use the last listed export version string (e.g., "4.0.1").
 	if len(export.ExportVersions) == 0 {
 		return fmt.Errorf("no export versions defined")
 	}
-	semanticVersion := export.ExportVersions[len(export.ExportVersions)-1]
+	semanticVersion := slices.MaxFunc(export.ExportVersions, semversion.Number.Compare).String()
 
 	// Transform dots to underscores for use in package and directory names.
 	versionToken := strings.ReplaceAll(semanticVersion, ".", "_")

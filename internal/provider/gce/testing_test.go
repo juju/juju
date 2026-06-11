@@ -8,9 +8,9 @@ import (
 	"net/url"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"

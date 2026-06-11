@@ -11,8 +11,8 @@ package crossmodelsecrets_test
 
 import (
 	context "context"
-	reflect "reflect"
 
+	gomock "github.com/canonical/gomock/gomock"
 	application "github.com/juju/juju/core/application"
 	relation "github.com/juju/juju/core/relation"
 	secrets "github.com/juju/juju/core/secrets"
@@ -20,24 +20,26 @@ import (
 	secret "github.com/juju/juju/domain/secret"
 	service "github.com/juju/juju/domain/secretbackend/service"
 	provider "github.com/juju/juju/internal/secrets/provider"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockSecretService is a mock of SecretService interface.
 type MockSecretService struct {
 	ctrl     *gomock.Controller
 	recorder *MockSecretServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockSecretServiceMockRecorder is the mock recorder for MockSecretService.
 type MockSecretServiceMockRecorder struct {
-	mock *MockSecretService
+	mock                                *MockSecretService
+	getSecretAccessRelationScopeExpects []*gomock.Call3_2[context.Context, *secrets.URI, secret.SecretAccessor, relation.UUID, error]
+	listGrantedSecretsForBackendExpects []*gomock.Call3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
 }
 
 // NewMockSecretService creates a new mock instance.
 func NewMockSecretService(ctrl *gomock.Controller) *MockSecretService {
 	mock := &MockSecretService{ctrl: ctrl}
-	mock.recorder = &MockSecretServiceMockRecorder{mock}
+	mock.recorder = &MockSecretServiceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -47,55 +49,59 @@ func (m *MockSecretService) EXPECT() *MockSecretServiceMockRecorder {
 }
 
 // GetSecretAccessRelationScope mocks base method.
-func (m *MockSecretService) GetSecretAccessRelationScope(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessor) (relation.UUID, error) {
+func (m *MockSecretService) GetSecretAccessRelationScope(ctx context.Context, uri *secrets.URI, accessor secret.SecretAccessor) (relation.UUID, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretAccessRelationScope", arg0, arg1, arg2)
-	ret0, _ := ret[0].(relation.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.getSecretAccessRelationScopeExpects, m.ctrl, m, "GetSecretAccessRelationScope", ctx, uri, accessor)
 }
 
 // GetSecretAccessRelationScope indicates an expected call of GetSecretAccessRelationScope.
-func (mr *MockSecretServiceMockRecorder) GetSecretAccessRelationScope(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretServiceMockRecorder) GetSecretAccessRelationScope(ctx, uri, accessor any) *MockSecretServiceGetSecretAccessRelationScopeCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccessRelationScope", reflect.TypeOf((*MockSecretService)(nil).GetSecretAccessRelationScope), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, *secrets.URI, secret.SecretAccessor, relation.UUID, error](mr.mock.ctrl.T, mr.mock, "GetSecretAccessRelationScope", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(accessor))
+	mr.getSecretAccessRelationScopeExpects = append(mr.getSecretAccessRelationScopeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockSecretServiceGetSecretAccessRelationScopeCall is the typed call wrapper for GetSecretAccessRelationScope.
+type MockSecretServiceGetSecretAccessRelationScopeCall = gomock.Call3_2[context.Context, *secrets.URI, secret.SecretAccessor, relation.UUID, error]
+
 // ListGrantedSecretsForBackend mocks base method.
-func (m *MockSecretService) ListGrantedSecretsForBackend(arg0 context.Context, arg1 string, arg2 secrets.SecretRole, arg3 ...secret.SecretAccessor) ([]*secrets.SecretRevisionRef, error) {
+func (m *MockSecretService) ListGrantedSecretsForBackend(ctx context.Context, backendID string, role secrets.SecretRole, consumers ...secret.SecretAccessor) ([]*secrets.SecretRevisionRef, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ListGrantedSecretsForBackend", varargs...)
-	ret0, _ := ret[0].([]*secrets.SecretRevisionRef)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3V_2(&m.recorder.listGrantedSecretsForBackendExpects, m.ctrl, m, "ListGrantedSecretsForBackend", ctx, backendID, role, consumers...)
 }
 
 // ListGrantedSecretsForBackend indicates an expected call of ListGrantedSecretsForBackend.
-func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
+func (mr *MockSecretServiceMockRecorder) ListGrantedSecretsForBackend(ctx, backendID, role any, consumers ...any) *MockSecretServiceListGrantedSecretsForBackendCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListGrantedSecretsForBackend", reflect.TypeOf((*MockSecretService)(nil).ListGrantedSecretsForBackend), varargs...)
+	varArgs := gomock.EnsureVariadicMatcher(consumers)
+	call := gomock.NewCall3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error](mr.mock.ctrl.T, mr.mock, "ListGrantedSecretsForBackend", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(backendID), gomock.EnsureMatcher(role), varArgs)
+	mr.listGrantedSecretsForBackendExpects = append(mr.listGrantedSecretsForBackendExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockSecretServiceListGrantedSecretsForBackendCall is the typed call wrapper for ListGrantedSecretsForBackend.
+type MockSecretServiceListGrantedSecretsForBackendCall = gomock.Call3V_2[context.Context, string, secrets.SecretRole, secret.SecretAccessor, []*secrets.SecretRevisionRef, error]
 
 // MockSecretBackendService is a mock of SecretBackendService interface.
 type MockSecretBackendService struct {
 	ctrl     *gomock.Controller
 	recorder *MockSecretBackendServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockSecretBackendServiceMockRecorder is the mock recorder for MockSecretBackendService.
 type MockSecretBackendServiceMockRecorder struct {
-	mock *MockSecretBackendService
+	mock                     *MockSecretBackendService
+	backendConfigInfoExpects []*gomock.Call2_2[context.Context, service.BackendConfigParams, *provider.ModelBackendConfigInfo, error]
 }
 
 // NewMockSecretBackendService creates a new mock instance.
 func NewMockSecretBackendService(ctrl *gomock.Controller) *MockSecretBackendService {
 	mock := &MockSecretBackendService{ctrl: ctrl}
-	mock.recorder = &MockSecretBackendServiceMockRecorder{mock}
+	mock.recorder = &MockSecretBackendServiceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -105,35 +111,42 @@ func (m *MockSecretBackendService) EXPECT() *MockSecretBackendServiceMockRecorde
 }
 
 // BackendConfigInfo mocks base method.
-func (m *MockSecretBackendService) BackendConfigInfo(arg0 context.Context, arg1 service.BackendConfigParams) (*provider.ModelBackendConfigInfo, error) {
+func (m *MockSecretBackendService) BackendConfigInfo(ctx context.Context, p service.BackendConfigParams) (*provider.ModelBackendConfigInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BackendConfigInfo", arg0, arg1)
-	ret0, _ := ret[0].(*provider.ModelBackendConfigInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.backendConfigInfoExpects, m.ctrl, m, "BackendConfigInfo", ctx, p)
 }
 
 // BackendConfigInfo indicates an expected call of BackendConfigInfo.
-func (mr *MockSecretBackendServiceMockRecorder) BackendConfigInfo(arg0, arg1 any) *gomock.Call {
+func (mr *MockSecretBackendServiceMockRecorder) BackendConfigInfo(ctx, p any) *MockSecretBackendServiceBackendConfigInfoCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackendConfigInfo", reflect.TypeOf((*MockSecretBackendService)(nil).BackendConfigInfo), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, service.BackendConfigParams, *provider.ModelBackendConfigInfo, error](mr.mock.ctrl.T, mr.mock, "BackendConfigInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(p))
+	mr.backendConfigInfoExpects = append(mr.backendConfigInfoExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockSecretBackendServiceBackendConfigInfoCall is the typed call wrapper for BackendConfigInfo.
+type MockSecretBackendServiceBackendConfigInfoCall = gomock.Call2_2[context.Context, service.BackendConfigParams, *provider.ModelBackendConfigInfo, error]
 
 // MockCrossModelRelationService is a mock of CrossModelRelationService interface.
 type MockCrossModelRelationService struct {
 	ctrl     *gomock.Controller
 	recorder *MockCrossModelRelationServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockCrossModelRelationServiceMockRecorder is the mock recorder for MockCrossModelRelationService.
 type MockCrossModelRelationServiceMockRecorder struct {
-	mock *MockCrossModelRelationService
+	mock                                           *MockCrossModelRelationService
+	getRemoteConsumerApplicationNameExpects        []*gomock.Call2_2[context.Context, application.UUID, string, error]
+	isCrossModelRelationValidForApplicationExpects []*gomock.Call3_2[context.Context, relation.Key, string, bool, error]
+	processRemoteConsumerGetSecretExpects          []*gomock.Call6_4[context.Context, *secrets.URI, unit.Name, *int, bool, bool, secrets.SecretValue, *secrets.ValueRef, int, error]
 }
 
 // NewMockCrossModelRelationService creates a new mock instance.
 func NewMockCrossModelRelationService(ctrl *gomock.Controller) *MockCrossModelRelationService {
 	mock := &MockCrossModelRelationService{ctrl: ctrl}
-	mock.recorder = &MockCrossModelRelationServiceMockRecorder{mock}
+	mock.recorder = &MockCrossModelRelationServiceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -143,48 +156,55 @@ func (m *MockCrossModelRelationService) EXPECT() *MockCrossModelRelationServiceM
 }
 
 // GetRemoteConsumerApplicationName mocks base method.
-func (m *MockCrossModelRelationService) GetRemoteConsumerApplicationName(arg0 context.Context, arg1 application.UUID) (string, error) {
+func (m *MockCrossModelRelationService) GetRemoteConsumerApplicationName(ctx context.Context, consumingAppUUID application.UUID) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRemoteConsumerApplicationName", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch2_2(&m.recorder.getRemoteConsumerApplicationNameExpects, m.ctrl, m, "GetRemoteConsumerApplicationName", ctx, consumingAppUUID)
 }
 
 // GetRemoteConsumerApplicationName indicates an expected call of GetRemoteConsumerApplicationName.
-func (mr *MockCrossModelRelationServiceMockRecorder) GetRemoteConsumerApplicationName(arg0, arg1 any) *gomock.Call {
+func (mr *MockCrossModelRelationServiceMockRecorder) GetRemoteConsumerApplicationName(ctx, consumingAppUUID any) *MockCrossModelRelationServiceGetRemoteConsumerApplicationNameCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteConsumerApplicationName", reflect.TypeOf((*MockCrossModelRelationService)(nil).GetRemoteConsumerApplicationName), arg0, arg1)
+	call := gomock.NewCall2_2[context.Context, application.UUID, string, error](mr.mock.ctrl.T, mr.mock, "GetRemoteConsumerApplicationName", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(consumingAppUUID))
+	mr.getRemoteConsumerApplicationNameExpects = append(mr.getRemoteConsumerApplicationNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCrossModelRelationServiceGetRemoteConsumerApplicationNameCall is the typed call wrapper for GetRemoteConsumerApplicationName.
+type MockCrossModelRelationServiceGetRemoteConsumerApplicationNameCall = gomock.Call2_2[context.Context, application.UUID, string, error]
+
 // IsCrossModelRelationValidForApplication mocks base method.
-func (m *MockCrossModelRelationService) IsCrossModelRelationValidForApplication(arg0 context.Context, arg1 relation.Key, arg2 string) (bool, error) {
+func (m *MockCrossModelRelationService) IsCrossModelRelationValidForApplication(ctx context.Context, key relation.Key, appName string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsCrossModelRelationValidForApplication", arg0, arg1, arg2)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch3_2(&m.recorder.isCrossModelRelationValidForApplicationExpects, m.ctrl, m, "IsCrossModelRelationValidForApplication", ctx, key, appName)
 }
 
 // IsCrossModelRelationValidForApplication indicates an expected call of IsCrossModelRelationValidForApplication.
-func (mr *MockCrossModelRelationServiceMockRecorder) IsCrossModelRelationValidForApplication(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockCrossModelRelationServiceMockRecorder) IsCrossModelRelationValidForApplication(ctx, key, appName any) *MockCrossModelRelationServiceIsCrossModelRelationValidForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCrossModelRelationValidForApplication", reflect.TypeOf((*MockCrossModelRelationService)(nil).IsCrossModelRelationValidForApplication), arg0, arg1, arg2)
+	call := gomock.NewCall3_2[context.Context, relation.Key, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsCrossModelRelationValidForApplication", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(key), gomock.EnsureMatcher(appName))
+	mr.isCrossModelRelationValidForApplicationExpects = append(mr.isCrossModelRelationValidForApplicationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockCrossModelRelationServiceIsCrossModelRelationValidForApplicationCall is the typed call wrapper for IsCrossModelRelationValidForApplication.
+type MockCrossModelRelationServiceIsCrossModelRelationValidForApplicationCall = gomock.Call3_2[context.Context, relation.Key, string, bool, error]
+
 // ProcessRemoteConsumerGetSecret mocks base method.
-func (m *MockCrossModelRelationService) ProcessRemoteConsumerGetSecret(arg0 context.Context, arg1 *secrets.URI, arg2 unit.Name, arg3 *int, arg4, arg5 bool) (secrets.SecretValue, *secrets.ValueRef, int, error) {
+func (m *MockCrossModelRelationService) ProcessRemoteConsumerGetSecret(ctx context.Context, uri *secrets.URI, unitName unit.Name, revision *int, peek, refresh bool) (secrets.SecretValue, *secrets.ValueRef, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProcessRemoteConsumerGetSecret", arg0, arg1, arg2, arg3, arg4, arg5)
-	ret0, _ := ret[0].(secrets.SecretValue)
-	ret1, _ := ret[1].(*secrets.ValueRef)
-	ret2, _ := ret[2].(int)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
+	return gomock.Dispatch6_4(&m.recorder.processRemoteConsumerGetSecretExpects, m.ctrl, m, "ProcessRemoteConsumerGetSecret", ctx, uri, unitName, revision, peek, refresh)
 }
 
 // ProcessRemoteConsumerGetSecret indicates an expected call of ProcessRemoteConsumerGetSecret.
-func (mr *MockCrossModelRelationServiceMockRecorder) ProcessRemoteConsumerGetSecret(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
+func (mr *MockCrossModelRelationServiceMockRecorder) ProcessRemoteConsumerGetSecret(ctx, uri, unitName, revision, peek, refresh any) *MockCrossModelRelationServiceProcessRemoteConsumerGetSecretCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessRemoteConsumerGetSecret", reflect.TypeOf((*MockCrossModelRelationService)(nil).ProcessRemoteConsumerGetSecret), arg0, arg1, arg2, arg3, arg4, arg5)
+	call := gomock.NewCall6_4[context.Context, *secrets.URI, unit.Name, *int, bool, bool, secrets.SecretValue, *secrets.ValueRef, int, error](mr.mock.ctrl.T, mr.mock, "ProcessRemoteConsumerGetSecret", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(revision), gomock.EnsureMatcher(peek), gomock.EnsureMatcher(refresh))
+	mr.processRemoteConsumerGetSecretExpects = append(mr.processRemoteConsumerGetSecretExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockCrossModelRelationServiceProcessRemoteConsumerGetSecretCall is the typed call wrapper for ProcessRemoteConsumerGetSecret.
+type MockCrossModelRelationServiceProcessRemoteConsumerGetSecretCall = gomock.Call6_4[context.Context, *secrets.URI, unit.Name, *int, bool, bool, secrets.SecretValue, *secrets.ValueRef, int, error]

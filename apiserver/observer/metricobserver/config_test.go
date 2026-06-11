@@ -6,9 +6,9 @@ package metricobserver_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver"
 	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"

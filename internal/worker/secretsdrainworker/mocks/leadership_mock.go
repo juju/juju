@@ -11,28 +11,36 @@ package mocks
 
 import (
 	context "context"
-	reflect "reflect"
 	time "time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	leadership "github.com/juju/juju/core/leadership"
-	gomock "go.uber.org/mock/gomock"
 )
 
 // MockTrackerWorker is a mock of TrackerWorker interface.
 type MockTrackerWorker struct {
 	ctrl     *gomock.Controller
 	recorder *MockTrackerWorkerMockRecorder
+	isgomock struct{}
 }
 
 // MockTrackerWorkerMockRecorder is the mock recorder for MockTrackerWorker.
 type MockTrackerWorkerMockRecorder struct {
-	mock *MockTrackerWorker
+	mock                        *MockTrackerWorker
+	applicationNameExpects      []*gomock.Call0_1[string]
+	claimDurationExpects        []*gomock.Call0_1[time.Duration]
+	claimLeaderExpects          []*gomock.Call0_1[leadership.Ticket]
+	killExpects                 []*gomock.Call0_0
+	waitExpects                 []*gomock.Call0_1[error]
+	waitLeaderExpects           []*gomock.Call0_1[leadership.Ticket]
+	waitMinionExpects           []*gomock.Call0_1[leadership.Ticket]
+	withStableLeadershipExpects []*gomock.Call2_1[context.Context, func(context.Context) error, error]
 }
 
 // NewMockTrackerWorker creates a new mock instance.
 func NewMockTrackerWorker(ctrl *gomock.Controller) *MockTrackerWorker {
 	mock := &MockTrackerWorker{ctrl: ctrl}
-	mock.recorder = &MockTrackerWorkerMockRecorder{mock}
+	mock.recorder = &MockTrackerWorkerMockRecorder{mock: mock}
 	return mock
 }
 
@@ -44,109 +52,143 @@ func (m *MockTrackerWorker) EXPECT() *MockTrackerWorkerMockRecorder {
 // ApplicationName mocks base method.
 func (m *MockTrackerWorker) ApplicationName() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationName")
-	ret0, _ := ret[0].(string)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.applicationNameExpects, m.ctrl, m, "ApplicationName")
 }
 
 // ApplicationName indicates an expected call of ApplicationName.
-func (mr *MockTrackerWorkerMockRecorder) ApplicationName() *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) ApplicationName() *MockTrackerWorkerApplicationNameCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationName", reflect.TypeOf((*MockTrackerWorker)(nil).ApplicationName))
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "ApplicationName")
+	mr.applicationNameExpects = append(mr.applicationNameExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockTrackerWorkerApplicationNameCall is the typed call wrapper for ApplicationName.
+type MockTrackerWorkerApplicationNameCall = gomock.Call0_1[string]
 
 // ClaimDuration mocks base method.
 func (m *MockTrackerWorker) ClaimDuration() time.Duration {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClaimDuration")
-	ret0, _ := ret[0].(time.Duration)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.claimDurationExpects, m.ctrl, m, "ClaimDuration")
 }
 
 // ClaimDuration indicates an expected call of ClaimDuration.
-func (mr *MockTrackerWorkerMockRecorder) ClaimDuration() *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) ClaimDuration() *MockTrackerWorkerClaimDurationCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimDuration", reflect.TypeOf((*MockTrackerWorker)(nil).ClaimDuration))
+	call := gomock.NewCall0_1[time.Duration](mr.mock.ctrl.T, mr.mock, "ClaimDuration")
+	mr.claimDurationExpects = append(mr.claimDurationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockTrackerWorkerClaimDurationCall is the typed call wrapper for ClaimDuration.
+type MockTrackerWorkerClaimDurationCall = gomock.Call0_1[time.Duration]
 
 // ClaimLeader mocks base method.
 func (m *MockTrackerWorker) ClaimLeader() leadership.Ticket {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClaimLeader")
-	ret0, _ := ret[0].(leadership.Ticket)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.claimLeaderExpects, m.ctrl, m, "ClaimLeader")
 }
 
 // ClaimLeader indicates an expected call of ClaimLeader.
-func (mr *MockTrackerWorkerMockRecorder) ClaimLeader() *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) ClaimLeader() *MockTrackerWorkerClaimLeaderCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimLeader", reflect.TypeOf((*MockTrackerWorker)(nil).ClaimLeader))
+	call := gomock.NewCall0_1[leadership.Ticket](mr.mock.ctrl.T, mr.mock, "ClaimLeader")
+	mr.claimLeaderExpects = append(mr.claimLeaderExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockTrackerWorkerClaimLeaderCall is the typed call wrapper for ClaimLeader.
+type MockTrackerWorkerClaimLeaderCall = gomock.Call0_1[leadership.Ticket]
 
 // Kill mocks base method.
 func (m *MockTrackerWorker) Kill() {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Kill")
+	gomock.Dispatch0_0(&m.recorder.killExpects, m.ctrl, m, "Kill")
 }
 
 // Kill indicates an expected call of Kill.
-func (mr *MockTrackerWorkerMockRecorder) Kill() *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) Kill() *MockTrackerWorkerKillCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockTrackerWorker)(nil).Kill))
+	call := gomock.NewCall0_0(mr.mock.ctrl.T, mr.mock, "Kill")
+	mr.killExpects = append(mr.killExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockTrackerWorkerKillCall is the typed call wrapper for Kill.
+type MockTrackerWorkerKillCall = gomock.Call0_0
 
 // Wait mocks base method.
 func (m *MockTrackerWorker) Wait() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Wait")
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.waitExpects, m.ctrl, m, "Wait")
 }
 
 // Wait indicates an expected call of Wait.
-func (mr *MockTrackerWorkerMockRecorder) Wait() *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) Wait() *MockTrackerWorkerWaitCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockTrackerWorker)(nil).Wait))
+	call := gomock.NewCall0_1[error](mr.mock.ctrl.T, mr.mock, "Wait")
+	mr.waitExpects = append(mr.waitExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockTrackerWorkerWaitCall is the typed call wrapper for Wait.
+type MockTrackerWorkerWaitCall = gomock.Call0_1[error]
 
 // WaitLeader mocks base method.
 func (m *MockTrackerWorker) WaitLeader() leadership.Ticket {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WaitLeader")
-	ret0, _ := ret[0].(leadership.Ticket)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.waitLeaderExpects, m.ctrl, m, "WaitLeader")
 }
 
 // WaitLeader indicates an expected call of WaitLeader.
-func (mr *MockTrackerWorkerMockRecorder) WaitLeader() *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) WaitLeader() *MockTrackerWorkerWaitLeaderCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitLeader", reflect.TypeOf((*MockTrackerWorker)(nil).WaitLeader))
+	call := gomock.NewCall0_1[leadership.Ticket](mr.mock.ctrl.T, mr.mock, "WaitLeader")
+	mr.waitLeaderExpects = append(mr.waitLeaderExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockTrackerWorkerWaitLeaderCall is the typed call wrapper for WaitLeader.
+type MockTrackerWorkerWaitLeaderCall = gomock.Call0_1[leadership.Ticket]
 
 // WaitMinion mocks base method.
 func (m *MockTrackerWorker) WaitMinion() leadership.Ticket {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WaitMinion")
-	ret0, _ := ret[0].(leadership.Ticket)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.waitMinionExpects, m.ctrl, m, "WaitMinion")
 }
 
 // WaitMinion indicates an expected call of WaitMinion.
-func (mr *MockTrackerWorkerMockRecorder) WaitMinion() *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) WaitMinion() *MockTrackerWorkerWaitMinionCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitMinion", reflect.TypeOf((*MockTrackerWorker)(nil).WaitMinion))
+	call := gomock.NewCall0_1[leadership.Ticket](mr.mock.ctrl.T, mr.mock, "WaitMinion")
+	mr.waitMinionExpects = append(mr.waitMinionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockTrackerWorkerWaitMinionCall is the typed call wrapper for WaitMinion.
+type MockTrackerWorkerWaitMinionCall = gomock.Call0_1[leadership.Ticket]
+
 // WithStableLeadership mocks base method.
-func (m *MockTrackerWorker) WithStableLeadership(arg0 context.Context, arg1 func(context.Context) error) error {
+func (m *MockTrackerWorker) WithStableLeadership(ctx context.Context, fn func(context.Context) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithStableLeadership", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch2_1(&m.recorder.withStableLeadershipExpects, m.ctrl, m, "WithStableLeadership", ctx, fn)
 }
 
 // WithStableLeadership indicates an expected call of WithStableLeadership.
-func (mr *MockTrackerWorkerMockRecorder) WithStableLeadership(arg0, arg1 any) *gomock.Call {
+func (mr *MockTrackerWorkerMockRecorder) WithStableLeadership(ctx, fn any) *MockTrackerWorkerWithStableLeadershipCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithStableLeadership", reflect.TypeOf((*MockTrackerWorker)(nil).WithStableLeadership), arg0, arg1)
+	call := gomock.NewCall2_1[context.Context, func(context.Context) error, error](mr.mock.ctrl.T, mr.mock, "WithStableLeadership", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(fn))
+	mr.withStableLeadershipExpects = append(mr.withStableLeadershipExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockTrackerWorkerWithStableLeadershipCall is the typed call wrapper for WithStableLeadership.
+type MockTrackerWorkerWithStableLeadershipCall = gomock.Call2_1[context.Context, func(context.Context) error, error]

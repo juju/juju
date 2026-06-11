@@ -36,21 +36,22 @@ type baseSuite struct {
 	schematesting.ModelSuite
 	state *State
 
-	unitUUID string
-	unitName string
+	modelUUID model.UUID
+	unitUUID  string
+	unitName  string
 }
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 	s.state = NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 
-	modelUUID := tc.Must(c, model.NewUUID)
+	s.modelUUID = tc.Must(c, model.NewUUID)
 	s.query(c, `
 			INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
 			VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
-		`, modelUUID, coretesting.ControllerTag.Id())
+		`, s.modelUUID, coretesting.ControllerTag.Id())
 
-	appState := applicationstate.NewState(s.TxnRunnerFactory(), modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+	appState := applicationstate.NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
 
 	appArg := application.AddIAASApplicationArg{
 		BaseAddApplicationArg: application.BaseAddApplicationArg{
@@ -87,6 +88,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 
 	c.Cleanup(func() {
 		s.state = nil
+		s.modelUUID = ""
 		s.unitName = ""
 		s.unitUUID = ""
 	})

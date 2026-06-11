@@ -3,4 +3,4 @@
 
 package hostkeyreporter
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package hostkeyreporter -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/agent/hostkeyreporter MachineService
+//go:generate go run github.com/canonical/gomock/mockgen -package hostkeyreporter -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/agent/hostkeyreporter MachineService

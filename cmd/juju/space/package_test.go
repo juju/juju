@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
 
 // BaseSpaceSuite is used for embedding in other suites.
 type BaseSpaceSuite struct {

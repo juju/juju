@@ -462,6 +462,30 @@ type InsertApplicationArgs struct {
 	// EndpointBindings is a map to bind application endpoint by name to a
 	// specific space. The default space is referenced by an empty key, if any.
 	EndpointBindings map[string]network.SpaceName
+	// StorageDirectives defines the list of storage directives to add to an
+	// application during migration import. The Name values must match the
+	// storage defined in the Charm. The pool is referenced by name and is
+	// resolved to a storage pool UUID by the state layer.
+	StorageDirectives []MigratingStorageDirectiveArg
+}
+
+// MigratingStorageDirectiveArg describes a storage directive to be inserted
+// during migration import. Unlike [domainstorage.DirectiveArg], the storage
+// pool is referenced by name; the state layer resolves it to a storage pool
+// UUID.
+type MigratingStorageDirectiveArg struct {
+	// Name relates to the charm storage name definition and must match up.
+	Name string
+
+	// PoolName is the name of the storage pool the directive uses.
+	PoolName string
+
+	// Size defines the size of the storage directive in MiB.
+	Size uint64
+
+	// Count represents the number of storage instances that should be made for
+	// this directive.
+	Count uint32
 }
 
 // SetCharmParams contains the parameters for updating

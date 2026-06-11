@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apihttp "github.com/juju/juju/api/http"
 	"github.com/juju/juju/api/http/mocks"

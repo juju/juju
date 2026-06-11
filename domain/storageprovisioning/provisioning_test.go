@@ -6,8 +6,8 @@ package storageprovisioning
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"

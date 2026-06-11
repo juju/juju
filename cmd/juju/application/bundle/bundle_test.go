@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/juju/application/bundle/mocks"
@@ -169,15 +169,15 @@ func (s *buildModelRepSuite) expectGetAnnotations(c *tc.C, tags []string) {
 }
 
 func (s *buildModelRepSuite) expectEmptyGetConstraints() {
-	s.modelExtractor.EXPECT().GetConstraints(gomock.Any(), []string{}).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConstraints(gomock.Any()).Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectGetConstraintsWordpress() {
-	s.modelExtractor.EXPECT().GetConstraints(gomock.Any(), []string{"wordpress"}).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConstraints(gomock.Any(), "wordpress").Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectEmptyGetConfig() {
-	s.modelExtractor.EXPECT().GetConfig(gomock.Any(), []string{}).Return(nil, nil)
+	s.modelExtractor.EXPECT().GetConfig(gomock.Any()).Return(nil, nil)
 }
 
 func (s *buildModelRepSuite) expectGetConfigSubWordpress() {

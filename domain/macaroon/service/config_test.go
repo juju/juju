@@ -6,9 +6,9 @@ package service
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 )
 
 type configServiceSuite struct {

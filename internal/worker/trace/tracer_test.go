@@ -8,12 +8,12 @@ import (
 	"testing"
 	time "time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.opentelemetry.io/otel/trace"
-	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"

@@ -3,4 +3,4 @@
 
 package agent_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package agent -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/agent CredentialService,AgentPasswordService
+//go:generate go run github.com/canonical/gomock/mockgen -package agent -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/agent CredentialService,AgentPasswordService

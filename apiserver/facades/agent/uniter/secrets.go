@@ -25,9 +25,6 @@ type SecretService interface {
 	CreateCharmSecret(context.Context, *coresecrets.URI, secret.CreateCharmSecretParams) error
 	UpdateCharmSecret(context.Context, *coresecrets.URI, secret.UpdateCharmSecretParams) error
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
-	GetConsumedRevision(
-		ctx context.Context, uri *coresecrets.URI, unitName coreunit.Name,
-		refresh, peek bool, labelToUpdate *string) (int, error)
 
 	// CheckSecretManageAccess verifies the unit has RoleManage access on
 	// the given secret, including app-owned secrets if the unit is the
@@ -218,26 +215,19 @@ func accessScopeFromTag(tag names.Tag) (secret.SecretAccessScope, error) {
 	return result, nil
 }
 
-// updateTrackedRevisions updates the consumer info to track the latest
-// revisions for the specified secrets.
-func (u *UniterAPI) updateTrackedRevisions(ctx context.Context, uris []string) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(uris)),
-	}
-	authTag := u.auth.GetAuthTag()
-	for i, uriStr := range uris {
+// prepareSecretTrackLatest validates the URI strings for secrets whose latest
+// revision the unit wants to track. The input strings may be full URI strings
+// (secret:<id>) or bare secret IDs (xid format); ParseURI accepts both. The
+// function validates each URI and returns the corresponding IDs ready to be
+// passed into the CommitHookChanges transaction.
+func (u *UniterAPI) prepareSecretTrackLatest(uris []string) ([]string, error) {
+	result := make([]string, 0, len(uris))
+	for _, uriStr := range uris {
 		uri, err := coresecrets.ParseURI(uriStr)
 		if err != nil {
-			result.Results[i].Error = apiServerErrors.ServerError(err)
-			continue
+			return nil, internalerrors.Capture(err)
 		}
-		unitName, err := coreunit.NewName(authTag.Id())
-		if err != nil {
-			result.Results[i].Error = apiServerErrors.ServerError(err)
-			continue
-		}
-		_, err = u.secretService.GetConsumedRevision(ctx, uri, unitName, true, false, nil)
-		result.Results[i].Error = apiServerErrors.ServerError(err)
+		result = append(result, uri.ID)
 	}
 	return result, nil
 }

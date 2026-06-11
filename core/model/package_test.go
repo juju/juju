@@ -3,4 +3,4 @@
 
 package model_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package model_test -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm CharmMeta
+//go:generate go run github.com/canonical/gomock/mockgen -package model_test -destination charm_mock_test.go github.com/juju/juju/domain/deployment/charm CharmMeta

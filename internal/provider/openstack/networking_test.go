@@ -6,11 +6,11 @@ package openstack
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"

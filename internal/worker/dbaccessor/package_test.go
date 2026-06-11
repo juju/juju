@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor DBApp,NodeManager,TrackedDB,Client,ClusterConfig
-//go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
-//go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
+//go:generate go run github.com/canonical/gomock/mockgen -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor DBApp,NodeManager,TrackedDB,Client,ClusterConfig
+//go:generate go run github.com/canonical/gomock/mockgen -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/canonical/gomock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
+//go:generate go run github.com/canonical/gomock/mockgen -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
 
 type baseSuite struct {
 	logger logger.Logger

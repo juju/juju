@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/semversion"
