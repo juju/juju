@@ -3061,10 +3061,21 @@
     {
         "Name": "Logger",
         "Description": "",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
+                "GetControllerLokiConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/LokiConfigResult"
+                        }
+                    }
+                },
                 "LoggingConfig": {
                     "type": "object",
                     "properties": {
@@ -3073,6 +3084,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/StringResults"
+                        }
+                    }
+                },
+                "WatchControllerLokiConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
                         }
                     }
                 },
@@ -3139,6 +3161,24 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "LokiConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "endpoint"
                     ]
                 },
                 "NotifyWatchResult": {

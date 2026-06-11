@@ -65,7 +65,7 @@ var facadeVersions = facades.FacadeVersions{
 	"KeyManager":                   {1},
 	"KeyUpdater":                   {1},
 	"LeadershipService":            {2},
-	"Logger":                       {1},
+	"Logger":                       {1, 2},
 	"MachineActions":               {1},
 	// Note that this version of Juju does not implement version 10
 	// of the facade, but 3.6 does. Care must be taken not to break

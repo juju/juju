@@ -96,6 +96,13 @@ type StringResults struct {
 	Results []StringResult `json:"results"`
 }
 
+// LokiConfigResult holds a controller Loki configuration or an error.
+type LokiConfigResult struct {
+	Error    *Error  `json:"error,omitempty"`
+	Endpoint string  `json:"endpoint"`
+	CACert   *string `json:"ca-cert,omitempty"`
+}
+
 // MapResult holds a generic map or an error.
 type MapResult struct {
 	Result map[string]any `json:"result"`
