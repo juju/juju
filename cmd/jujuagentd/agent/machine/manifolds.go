@@ -162,12 +162,9 @@ type ManifoldsConfig struct {
 	// up from agent config at worker start.
 	ControllerModelUUID string
 
-	// ControllerRuntimeConfigPath is the absolute path to the
-	// controller runtime config file (runtime.conf) written at
-	// bootstrap. It is passed to the db-accessor manifold so that the
-	// worker can read its own connection parameters without going
-	// through the legacy agent.Config.
-	ControllerRuntimeConfigPath string
+	// ControllerStartupValues provides the controller-local startup values
+	// needed by dbaccessor from agent config.
+	ControllerStartupValues dbaccessor.ControllerStartupValuesProvider
 
 	// CertReader returns the current controller certificate material.
 	CertReader apiservercertwatcher.CertReader
@@ -1217,15 +1214,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// DBAccessor is a manifold that provides a DBAccessor worker
 		// that can be used to access the database.
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:             queryLoggerName,
-			ControllerAgentConfigName:   controllerAgentConfigName,
-			ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
-			Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:        config.PrometheusRegisterer,
-			NewApp:                      dbaccessor.NewApp,
-			NewDBWorker:                 config.NewDBWorkerFunc,
-			NewMetricsCollector:         dbaccessor.NewMetricsCollector,
-			NewNodeManager:              dbaccessor.IAASNodeManager,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.IAASNodeManager,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -1454,15 +1451,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// DBAccessor is a manifold that provides a DBAccessor worker
 		// that can be used to access the database.
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:             queryLoggerName,
-			ControllerAgentConfigName:   controllerAgentConfigName,
-			ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
-			Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:        config.PrometheusRegisterer,
-			NewApp:                      dbaccessor.NewApp,
-			NewDBWorker:                 config.NewDBWorkerFunc,
-			NewMetricsCollector:         dbaccessor.NewMetricsCollector,
-			NewNodeManager:              dbaccessor.CAASNodeManager,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.CAASNodeManager,
 		})),
 	})
 }

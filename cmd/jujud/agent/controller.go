@@ -69,6 +69,26 @@ type controllerStartupValueProvider struct {
 	controllerRuntimePath string
 }
 
+// ControllerStartupValues returns the current controller-local dbaccessor
+// startup values from runtime.conf.
+func (p controllerStartupValueProvider) ControllerStartupValues() (dbaccessor.ControllerStartupValues, error) {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return dbaccessor.ControllerStartupValues{}, errors.Trace(err)
+	}
+	return dbaccessor.ControllerStartupValues{
+		ControllerID:          cfg.ControllerID,
+		DataDir:               cfg.DataDir,
+		DqlitePort:            cfg.DqlitePort,
+		QueryTracingEnabled:   cfg.QueryTracingEnabled,
+		QueryTracingThreshold: cfg.QueryTracingThreshold,
+		DqliteBusyTimeout:     cfg.DqliteBusyTimeout,
+		CACert:                cfg.CACert,
+		ControllerCert:        cfg.ControllerCert,
+		ControllerPrivateKey:  cfg.ControllerPrivateKey,
+	}, nil
+}
+
 // readRuntimeConfig returns the current controller runtime config from disk.
 func (p controllerStartupValueProvider) readRuntimeConfig() (controllerruntimeconfig.ControllerRuntimeConfig, error) {
 	return controllerruntimeconfig.ReadControllerRuntimeConfig(p.controllerRuntimePath)
@@ -487,17 +507,17 @@ func (a *ControllerAgent) makeEngineCreator(
 		)
 
 		manifoldsCfg := agentcontroller.ManifoldsConfig{
-			PreviousAgentVersion:        previousAgentVersion,
-			AgentName:                   agentName,
-			ControllerID:                a.agentTag.Id(),
-			ObjectStoreRootDirReader:    startupValueProvider,
-			ControllerUUID:              controllerRuntimeConfig.ControllerUUID,
-			ControllerModelUUID:         controllerRuntimeConfig.ControllerModelUUID,
-			ControllerRuntimeConfigPath: controllerRuntimeConfigPath,
-			ControllerAgentTag:          a.agentTag,
-			LogDir:                      controllerRuntimeConfig.LogDir,
-			CertReader:                  startupValueProvider,
-			APIServerLocalConfigReader:  startupValueProvider,
+			PreviousAgentVersion:       previousAgentVersion,
+			AgentName:                  agentName,
+			ControllerID:               a.agentTag.Id(),
+			ObjectStoreRootDirReader:   startupValueProvider,
+			ControllerUUID:             controllerRuntimeConfig.ControllerUUID,
+			ControllerModelUUID:        controllerRuntimeConfig.ControllerModelUUID,
+			ControllerStartupValues:    startupValueProvider,
+			ControllerAgentTag:         a.agentTag,
+			LogDir:                     controllerRuntimeConfig.LogDir,
+			CertReader:                 startupValueProvider,
+			APIServerLocalConfigReader: startupValueProvider,
 			ConfigChangeSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "configchange.socket",
 			),

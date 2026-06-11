@@ -230,6 +230,29 @@ type SafeModeControllerAgent struct {
 	isCaasAgent bool
 }
 
+type safeModeControllerStartupValueProvider struct {
+	agent                 *SafeModeControllerAgent
+	controllerRuntimePath string
+}
+
+func (p safeModeControllerStartupValueProvider) ControllerStartupValues() (dbaccessor.ControllerStartupValues, error) {
+	runtimeCfg, err := controllerruntimeconfig.ReadControllerRuntimeConfig(p.controllerRuntimePath)
+	if err != nil {
+		return dbaccessor.ControllerStartupValues{}, errors.Trace(err)
+	}
+	return dbaccessor.ControllerStartupValues{
+		ControllerID:          runtimeCfg.ControllerID,
+		DataDir:               runtimeCfg.DataDir,
+		DqlitePort:            runtimeCfg.DqlitePort,
+		QueryTracingEnabled:   runtimeCfg.QueryTracingEnabled,
+		QueryTracingThreshold: runtimeCfg.QueryTracingThreshold,
+		DqliteBusyTimeout:     runtimeCfg.DqliteBusyTimeout,
+		CACert:                runtimeCfg.CACert,
+		ControllerCert:        runtimeCfg.ControllerCert,
+		ControllerPrivateKey:  runtimeCfg.ControllerPrivateKey,
+	}, nil
+}
+
 // Wait waits for the safe-mode controller agent to finish.
 func (a *SafeModeControllerAgent) Wait() error {
 	<-a.dead
@@ -305,17 +328,21 @@ func (a *SafeModeControllerAgent) makeEngineCreator(
 		}
 
 		agentConfig := a.CurrentConfig()
-		manifoldsCfg := safemode.ManifoldsConfig{
-			Agent:              agent.APIHostPortsSetter{Agent: a},
-			AgentConfigChanged: a.configChangedVal,
-			NewDBWorkerFunc:    a.newDBWorkerFunc,
-			ControllerRuntimeConfigPath: controllerruntimeconfig.ConfigPath(
+		safeModeStartupValueProvider := safeModeControllerStartupValueProvider{
+			agent: a,
+			controllerRuntimePath: controllerruntimeconfig.ConfigPath(
 				filepath.Join(agentConfig.DataDir(), "agents", "controller-"+a.Tag().Id()),
 			),
-			ControllerID:           a.Tag().Id(),
-			LogDir:                 agentConfig.LogDir(),
-			ConfigChangeSocketPath: path.Join(agentConfig.DataDir(), "configchange.socket"),
-			Clock:                  clock.WallClock,
+		}
+		manifoldsCfg := safemode.ManifoldsConfig{
+			Agent:                   agent.APIHostPortsSetter{Agent: a},
+			AgentConfigChanged:      a.configChangedVal,
+			NewDBWorkerFunc:         a.newDBWorkerFunc,
+			ControllerStartupValues: safeModeStartupValueProvider,
+			ControllerID:            a.Tag().Id(),
+			LogDir:                  agentConfig.LogDir(),
+			ConfigChangeSocketPath:  path.Join(agentConfig.DataDir(), "configchange.socket"),
+			Clock:                   clock.WallClock,
 		}
 
 		var manifolds dependency.Manifolds
