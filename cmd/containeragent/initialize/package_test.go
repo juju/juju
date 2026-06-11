@@ -108,7 +108,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"internal/worker/apicaller",
 		"internal/worker/introspection",
 		"internal/worker/introspection/flightrecorder",
-		"internal/worker/introspection/pprof",
 		"juju/osenv",
 		"juju/sockets",
 		"rpc",
