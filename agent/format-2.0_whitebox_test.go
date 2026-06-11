@@ -55,11 +55,14 @@ func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *tc.C) {
 
 func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
 	loggingConfig := "juju=INFO;unit=INFO"
+	lokiEndpoint := "https://loki.example.com/loki/api/v1/push"
+	lokiCACert := "ca-cert"
 	config := newTestConfig(c)
 	// configFilePath is not serialized as it is the location of the file.
 	config.configFilePath = ""
 
 	config.SetLoggingConfig(loggingConfig)
+	config.SetLokiConfig(lokiEndpoint, lokiCACert)
 
 	data, err := format_2_0.marshal(config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -68,6 +71,8 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
 
 	c.Check(newConfig, tc.DeepEquals, config)
 	c.Check(newConfig.LoggingConfig(), tc.Equals, loggingConfig)
+	c.Check(newConfig.LokiEndpoint(), tc.Equals, lokiEndpoint)
+	c.Check(newConfig.LokiCACert(), tc.Equals, lokiCACert)
 }
 
 func (*format_2_0Suite) TestQueryTracing(c *tc.C) {
