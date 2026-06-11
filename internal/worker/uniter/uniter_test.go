@@ -621,7 +621,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *tc.C) {
 		ut(
 			"steady state unit dying",
 			&quickStart{},
-			unitDying,
+			&unitDying{},
 			&waitHooks{"stop"},
 			&waitUniterDead{},
 		), ut(
@@ -633,7 +633,7 @@ func (s *UniterSuite) TestUniterDyingReaction(c *tc.C) {
 		), ut(
 			"hook error unit dying",
 			&startupError{badHook: "start"},
-			unitDying,
+			&unitDying{},
 			&verifyWaiting{},
 			&fixHook{"start"},
 			&resolveError{params.ResolvedRetryHooks},
@@ -939,7 +939,7 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *tc.C) {
 		), ut(
 			"upgrade conflict unit dying",
 			&startUpgradeError{},
-			unitDying,
+			&unitDying{},
 			&verifyWaitingUpgradeError{revision: 1},
 			&fixUpgradeError{},
 			&resolveError{params.ResolvedNoHooks},
@@ -1038,7 +1038,7 @@ func (s *UniterSuite) TestUniterRelations(c *tc.C) {
 		), ut(
 			"unit becomes dying while in a relation",
 			&quickStartRelation{},
-			unitDying,
+			&unitDying{},
 			&waitUniterDead{},
 			waitDyingHooks,
 			&relationState{life: life.Alive},
@@ -1274,7 +1274,7 @@ func (s *UniterSuite) TestUniterSubordinates(c *tc.C) {
 			&quickStart{},
 			&addSubordinateRelation{ifce: corerelation.JujuInfo},
 			&waitSubordinateExists{"logging/0"},
-			unitDying,
+			&unitDying{},
 			&waitSubordinateDying{},
 			&waitHooks{"stop", "remove"},
 			&verifyWaiting{},
@@ -1371,7 +1371,7 @@ storage:
 				&waitAddresses{},
 				&waitHooks{"wp-content-storage-attached"},
 				&wh,
-				unitDying,
+				&unitDying{},
 				// "stop" hook is not called until storage is detached
 				&waitHooks{"wp-content-storage-detaching", "stop"},
 				&verifyStorageDetached{},
@@ -1390,7 +1390,7 @@ storage:
 				&destroyStorageAttachment{},
 				&startUniter{},
 				&wh,
-				unitDying,
+				&unitDying{},
 				// storage-detaching is not called because it was never attached
 				&waitHooks{"stop"},
 				&verifyStorageDetached{},
@@ -1415,7 +1415,7 @@ storage:
 			&createCharm{customize: appendStorageMetadata},
 			&serveCharm{},
 			&createApplicationAndUnit{storage: storageDirectives},
-			unitDying,
+			&unitDying{},
 			&startUniter{},
 			// no hooks should be run, and unit agent should terminate
 			&waitHooks{},

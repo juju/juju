@@ -1731,13 +1731,13 @@ func (s *pushResource) step(c tc.LikeC, ctx *testContext) {
 	ctx.sendNotify(c, ctx.applicationCh, "resource change event")
 }
 
-type startUpgradeError struct{}
+type startUpgradeError struct {
+	steps []stepper
+}
 
-func (s *startUpgradeError) prepare(_ tc.LikeC, _ *testContext) {}
-
-func (s *startUpgradeError) step(c tc.LikeC, ctx *testContext) {
+func (s *startUpgradeError) prepare(c tc.LikeC, ctx *testContext) {
 	wh := waitHooks(startupHooks(false))
-	steps := []stepper{
+	s.steps = []stepper{
 		&createCharm{},
 		&serveCharm{},
 		&createUniter{},
@@ -1764,10 +1764,13 @@ func (s *startUpgradeError) step(c tc.LikeC, ctx *testContext) {
 		&verifyWaiting{},
 		&verifyCharm{attemptedRevision: 1},
 	}
-	for _, s_ := range steps {
+	for _, s_ := range s.steps {
 		s_.prepare(c, ctx)
 	}
-	for _, s_ := range steps {
+}
+
+func (s *startUpgradeError) step(c tc.LikeC, ctx *testContext) {
+	for _, s_ := range s.steps {
 		step(c, ctx, s_)
 	}
 }
@@ -2131,35 +2134,40 @@ var relationDying = &custom{f: func(c tc.LikeC, ctx *testContext) {
 	ctx.sendStrings(c, ctx.relCh, "relation dying event", ctx.relation.Tag().Id())
 }}
 
-var unitDying = newUnitDyingStep()
+type unitDying struct {
+	stepped *MockSteppedSteppedCall
+}
 
-// newUnitDyingStep creates the unitDying stepper. The EXPECT calls are kept in
-// the step function (f) rather than in prepareFn because unitDying may follow
-// steppers like startUpgradeError whose own prepare is empty and only sets
-// ctx.unit inside their step — so ctx.unit is nil during the outer prepare
-// loop when prepareFn would run.
-func newUnitDyingStep() *custom {
-	c := &custom{}
-	c.f = func(lc tc.LikeC, ctx *testContext) {
-		ctx.unit.mu.Lock()
-		ctx.unit.life = life.Dying
-		ctx.unit.mu.Unlock()
-		ctx.api.EXPECT().DestroyUnitStorageAttachments(gomock.Any(), ctx.unit.Tag()).Return(nil).MaxTimes(2)
+// prepare registers mock expectations for the unit dying scenario.
+//
+// All expectations are gated on the stepped call to prevent a race: the outer
+// resolver loop can restart via ErrRestart, calling restartWatcher and
+// unit.Watch, which sends an initial unit event. If that event is processed
+// after ctx.unit.life is set to Dying but before the gate is opened, the
+// storage resolver would call DestroyUnitStorageAttachments with no active
+// expectation; gomock calls FailNow → runtime.Goexit in the uniter goroutine,
+// permanently deadlocking the catacomb WaitGroup. Gating on stepped ensures
+// the expectations are active before life is set. Each resolver restart
+// creates a fresh storageResolver (s.dying = false), so calls can occur any
+// number of times; AnyTimes() handles all cases.
+func (s *unitDying) prepare(_ tc.LikeC, ctx *testContext) {
+	s.stepped = ctx.stepped.EXPECT().Stepped(s)
+	ctx.api.EXPECT().DestroyUnitStorageAttachments(gomock.Any(), ctx.unit.Tag()).Return(nil).AnyTimes().After(s.stepped)
+	ctx.api.EXPECT().RemoveStorageAttachment(gomock.Any(), gomock.Any(), ctx.unit.Tag()).DoAndReturn(
+		func(_ context.Context, tag names.StorageTag, _ names.UnitTag) error {
+			ctx.stateMu.Lock()
+			delete(ctx.storage, tag.Id())
+			ctx.stateMu.Unlock()
+			return nil
+		}).AnyTimes().After(s.stepped)
+}
 
-		ctx.stateMu.Lock()
-		for id := range ctx.storage {
-			// Could be twice due to short circuit.
-			ctx.api.EXPECT().RemoveStorageAttachment(gomock.Any(), names.NewStorageTag(id), ctx.unit.Tag()).DoAndReturn(func(_ context.Context, tag names.StorageTag, _ names.UnitTag) error {
-				ctx.stateMu.Lock()
-				delete(ctx.storage, id)
-				ctx.stateMu.Unlock()
-				return nil
-			}).MaxTimes(3) // detaching hook, then short circuit remove called twice
-		}
-		ctx.stateMu.Unlock()
-		ctx.sendUnitNotify(lc, "send unit dying event")
-	}
-	return c
+func (s *unitDying) step(c tc.LikeC, ctx *testContext) {
+	ctx.stepped.Stepped(s)
+	ctx.unit.mu.Lock()
+	ctx.unit.life = life.Dying
+	ctx.unit.mu.Unlock()
+	ctx.sendUnitNotify(c, "send unit dying event")
 }
 
 var unitDead = &custom{f: func(c tc.LikeC, ctx *testContext) {
