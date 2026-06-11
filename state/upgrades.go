@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
@@ -334,6 +335,12 @@ func ExposeControllerApplication(pool *StatePool) error {
 	defer closer()
 	var appData bson.M
 	err = appsColl.Find(bson.M{"_id": controllerAppName}).Select(bson.M{"exposed": 1}).One(&appData)
+	if err == mgo.ErrNotFound {
+		// If there was a problem deploying the controller charm at bootstrap
+		// then there won't be a record to update.
+		logger.Warningf("controller application not found, skipping expose controller application upgrade")
+		return nil
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

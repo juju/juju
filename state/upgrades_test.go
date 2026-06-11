@@ -306,6 +306,11 @@ func (s *upgradesSuite) TestExposeControllerApplication(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestExposeControllerApplicationMissing(c *gc.C) {
+	err := ExposeControllerApplication(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	state1 := s.makeModel(c, "m1", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
 	state2 := s.makeModel(c, "m2", coretesting.Attrs{}, ModelArgs{Type: ModelTypeCAAS})
