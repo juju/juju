@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
@@ -16,6 +17,22 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 )
+
+type stubStartupValuesProvider struct{}
+
+func (stubStartupValuesProvider) ControllerStartupValues() (ControllerStartupValues, error) {
+	return ControllerStartupValues{
+		ControllerID:          "0",
+		DataDir:               "/var/lib/juju",
+		DqlitePort:            17666,
+		QueryTracingEnabled:   true,
+		QueryTracingThreshold: time.Second,
+		DqliteBusyTimeout:     time.Second,
+		CACert:                "ca-cert",
+		ControllerCert:        "controller-cert",
+		ControllerPrivateKey:  "controller-key",
+	}, nil
+}
 
 type manifoldSuite struct {
 	baseSuite
@@ -41,7 +58,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.ControllerRuntimeConfigPath = ""
+	cfg.ControllerStartupValues = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -71,11 +88,11 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		QueryLoggerName:             "query-logger",
-		ControllerAgentConfigName:   "controller-agent-config",
-		ControllerRuntimeConfigPath: "/var/lib/juju/agents/controller-0/runtime.conf",
-		Logger:                      s.logger,
-		PrometheusRegisterer:        s.prometheusRegisterer,
+		QueryLoggerName:           "query-logger",
+		ControllerAgentConfigName: "controller-agent-config",
+		ControllerStartupValues:   stubStartupValuesProvider{},
+		Logger:                    s.logger,
+		PrometheusRegisterer:      s.prometheusRegisterer,
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
