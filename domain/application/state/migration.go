@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -190,12 +191,87 @@ func (st *State) InsertMigratingApplication(ctx context.Context, name string, ar
 				return errors.Errorf("inserting channel row for application %q: %w", name, err)
 			}
 		}
+
+		if err := st.insertMigratingApplicationStorageDirectives(
+			ctx, tx, applicationDetails.UUID, charmUUID, args.StorageDirectives,
+		); err != nil {
+			return errors.Errorf("inserting storage directives for application %q: %w", name, err)
+		}
 		return nil
 	})
 	if err != nil {
 		return errors.Errorf("creating application %q: %w", name, err)
 	}
 	return nil
+}
+
+// insertMigratingApplicationStorageDirectives resolves the storage pool for
+// each migrating storage directive by name and inserts the directives for the
+// application. It must run after the application and charm (including charm
+// storage) rows have been inserted, and after the storage pools have been
+// imported.
+func (st *State) insertMigratingApplicationStorageDirectives(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appUUID, charmUUID string,
+	directives []application.MigratingStorageDirectiveArg,
+) error {
+	if len(directives) == 0 {
+		return nil
+	}
+
+	poolUUIDsByName, err := st.getStoragePoolUUIDsByName(ctx, tx)
+	if err != nil {
+		return errors.Errorf("getting storage pool UUIDs: %w", err)
+	}
+
+	resolved := make([]domainstorage.DirectiveArg, 0, len(directives))
+	for _, d := range directives {
+		if d.PoolName == "" {
+			return errors.Errorf(
+				"storage directive %q has no storage pool", d.Name)
+		}
+		poolUUID, ok := poolUUIDsByName[d.PoolName]
+		if !ok {
+			return errors.Errorf(
+				"storage pool %q not found for storage directive %q",
+				d.PoolName, d.Name)
+		}
+		resolved = append(resolved, domainstorage.DirectiveArg{
+			Name:     domainstorage.Name(d.Name),
+			PoolUUID: domainstorage.StoragePoolUUID(poolUUID),
+			Size:     d.Size,
+			Count:    d.Count,
+		})
+	}
+
+	return st.insertApplicationStorageDirectives(ctx, tx, appUUID, charmUUID, resolved)
+}
+
+// getStoragePoolUUIDsByName returns a mapping of storage pool name to UUID for
+// all storage pools in the model.
+func (st *State) getStoragePoolUUIDsByName(
+	ctx context.Context,
+	tx *sqlair.TX,
+) (map[string]string, error) {
+	stmt, err := st.Prepare(`
+SELECT &storagePoolNameUUID.*
+FROM   storage_pool
+`, storagePoolNameUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []storagePoolNameUUID
+	if err := tx.Query(ctx, stmt).GetAll(&rows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Capture(err)
+	}
+
+	result := make(map[string]string, len(rows))
+	for _, row := range rows {
+		result[row.Name] = row.UUID
+	}
+	return result, nil
 }
 
 // InsertMigratingIAASUnits imports the fully formed units for the specified IAAS

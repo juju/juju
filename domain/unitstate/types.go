@@ -347,6 +347,8 @@ func (c CommitHookChangesArg) RequiresLeadership() bool {
 	if len(c.SecretUpdates) > 0 {
 		return true
 	}
+	// TrackLatestSecrets is a per-unit consumer operation; leadership is not
+	// required.
 	return false
 }
 

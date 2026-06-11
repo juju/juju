@@ -79,11 +79,11 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		// provided (currently a no-op in domain/secret/state).
 
 		if err := st.deleteSecrets(ctx, tx, arg.SecretDeletes); err != nil {
-			return errors.Errorf("delete secrets:%w", err)
+			return errors.Errorf("delete secrets: %w", err)
 		}
 
-		if err := st.trackSecrets(ctx, tx, arg.TrackLatestSecrets); err != nil {
-			return errors.Errorf("track latest secrets:%w", err)
+		if err := st.trackSecrets(ctx, tx, arg.UnitUUID, arg.TrackLatestSecrets); err != nil {
+			return errors.Errorf("track latest secrets: %w", err)
 		}
 
 		if err := st.addStorage(ctx, tx, arg); err != nil {
@@ -440,7 +440,208 @@ func (st *State) deleteSecrets(ctx context.Context, tx *sqlair.TX, deletes []int
 	return nil
 }
 
-func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, secrets []string) error {
+// maxSecretsPerObsoleteQuery is the maximum number of secret IDs that can be
+// passed to markSecretRevisionsObsolete in a single call. SQLite/DQLite limits
+// bind variables to 32766 per statement (SQLITE_MAX_VARIABLE_NUMBER); the
+// obsolete-revision query expands the secretIDs slice independently in 4 IN
+// clauses, producing 4N bind variables for N secrets. Sqlair expands each
+// $secretIDs[:] occurrence as an independent set of bind variables (it does
+// not use SQLite's named ?N shared references), so the effective multiplier
+// is 4. Safe maximum: 32766/4 = 8191.
+const maxSecretsPerObsoleteQuery = 8191
+
+// getModelUUID returns the UUID of the model stored in the model table,
+// within the supplied transaction.
+func (st *State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
+	stmt, err := st.Prepare("SELECT &entityUUID.uuid FROM model", entityUUID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	var result entityUUID
+	if err := tx.Query(ctx, stmt).Get(&result); err != nil {
+		return "", errors.Errorf("querying model UUID: %w", err)
+	}
+	return result.UUID, nil
+}
+
+// trackSecrets updates secret_unit_consumer rows so that the specified unit
+// tracks the latest revision for each supplied secret. Secrets that no longer
+// exist are silently skipped (idempotent). After updating each consumer row,
+// revisions that are no longer in use are marked obsolete so the removal
+// worker can clean them up.
+//
+// The ids slice contains bare secret ID strings (xid format), as stored
+// in CommitHookChangesArg.TrackLatestSecrets. Only local secrets are tracked
+// here; cross-model secrets are never added to
+// CommitHookChangesArg.TrackLatestSecrets by the uniter context.
+func (st *State) trackSecrets(ctx context.Context, tx *sqlair.TX, unitUUID string, ids secretIDs) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	existing, err := st.filterExistingSecrets(ctx, tx, ids)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if len(existing) == 0 {
+		return nil
+	}
+
+	// Local secrets store the model UUID as their source_model_uuid, matching
+	// the invariant set by SaveSecretConsumer. Fetch it once for the upsert.
+	modelUUID, err := st.getModelUUID(ctx, tx)
+	if err != nil {
+		return errors.Errorf("getting model UUID for secret tracking: %w", err)
+	}
+
+	// Build the sorted slice of IDs that are confirmed to exist.
+	existingIDs := secretIDs(slices.Sorted(maps.Keys(existing)))
+
+	// Batch-fetch the latest (MAX) revision for every existing secret in one
+	// GROUP BY query. Secrets with no revisions are absent from the result.
+	latestRevStmt, err := st.Prepare(`
+SELECT secret_id AS &secretIDAndRevision.secret_id,
+       MAX(revision) AS &secretIDAndRevision.revision
+FROM   secret_revision
+WHERE  secret_id IN ($secretIDs[:])
+GROUP BY secret_id
+`, secretIDAndRevision{}, secretIDs{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var latestRevs []secretIDAndRevision
+	if err := tx.Query(ctx, latestRevStmt, existingIDs).GetAll(&latestRevs); err != nil &&
+		!errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("batch-querying latest revisions: %w", err)
+	}
+
+	if len(latestRevs) == 0 {
+		return nil
+	}
+
+	// Build the consumer upsert slice, skipping any secret with revision 0
+	// (should not happen after filtering above, but guard defensively).
+	consumers := make([]secretUnitConsumerLatest, 0, len(latestRevs))
+	toMark := make(secretIDs, 0, len(latestRevs))
+	for _, r := range latestRevs {
+		if r.Revision == 0 {
+			st.logger.Debugf(ctx, "secret %q has no revisions, skipping track", r.SecretID)
+			continue
+		}
+		consumers = append(consumers, secretUnitConsumerLatest{
+			SecretID:        r.SecretID,
+			SourceModelUUID: modelUUID,
+			UnitUUID:        unitUUID,
+			CurrentRevision: r.Revision,
+		})
+		toMark = append(toMark, r.SecretID)
+	}
+
+	if len(consumers) == 0 {
+		return nil
+	}
+
+	// Upsert all consumer rows in one bulk statement. On conflict, only
+	// current_revision is updated so the existing label is preserved.
+	upsertStmt, err := st.Prepare(`
+INSERT INTO secret_unit_consumer (secret_id, source_model_uuid, unit_uuid, label, current_revision)
+VALUES ($secretUnitConsumerLatest.secret_id, $secretUnitConsumerLatest.source_model_uuid,
+        $secretUnitConsumerLatest.unit_uuid, '',
+        $secretUnitConsumerLatest.current_revision)
+ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
+    current_revision = excluded.current_revision
+`, secretUnitConsumerLatest{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, upsertStmt, consumers).Run(); err != nil {
+		return errors.Errorf("bulk-upserting secret consumers: %w", err)
+	}
+
+	// Mark obsolete revisions for all tracked secrets, chunked to stay within
+	// SQLite's 32766 bind-variable limit (the query uses the slice in 4 places).
+	for chunk := range slices.Chunk(toMark, maxSecretsPerObsoleteQuery) {
+		if err := st.markSecretRevisionsObsolete(ctx, tx, chunk); err != nil {
+			return errors.Capture(err)
+		}
+	}
+	return nil
+}
+
+// markSecretRevisionsObsolete marks secret revisions that are no longer in use
+// as obsolete with pending_delete=true across all supplied secret IDs in two
+// queries: one to identify obsolete revision UUIDs, one bulk INSERT to mark
+// them.
+//
+// A revision is considered "in use" if at least one local or remote consumer
+// currently tracks it, or if it is the latest revision for the secret.
+//
+// The caller must ensure len(ids) <= maxSecretsPerObsoleteQuery to stay within
+// SQLite's 32766 bind-variable limit (the query uses ids in 4 IN clauses).
+//
+// This mirrors (*State).markObsoleteRevisions in domain/secret/state but
+// operates inside the unitstate commit-hook transaction to avoid a separate
+// round-trip.
+func (st *State) markSecretRevisionsObsolete(ctx context.Context, tx *sqlair.TX, ids secretIDs) error {
+	findObsoleteStmt, err := st.Prepare(`
+SELECT sr.uuid AS &secretRevisionUUID.uuid
+FROM   secret_revision sr
+       LEFT JOIN (
+           SELECT DISTINCT current_revision AS revision, secret_id
+           FROM   secret_unit_consumer
+           WHERE  secret_id IN ($secretIDs[:])
+           UNION
+           SELECT DISTINCT current_revision AS revision, secret_id
+           FROM   secret_remote_unit_consumer
+           WHERE  secret_id IN ($secretIDs[:])
+           UNION
+           SELECT MAX(revision) AS revision, secret_id
+           FROM   secret_revision
+           WHERE  secret_id IN ($secretIDs[:])
+           GROUP BY secret_id
+       ) in_use ON sr.revision = in_use.revision
+              AND sr.secret_id = in_use.secret_id
+WHERE  sr.secret_id IN ($secretIDs[:])
+AND    (in_use.revision IS NULL OR in_use.revision = 0)
+`, secretRevisionUUID{}, secretIDs{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var obsoleteUUIDs []secretRevisionUUID
+	err = tx.Query(ctx, findObsoleteStmt, ids).GetAll(&obsoleteUUIDs)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("querying obsolete revisions: %w", err)
+	}
+	if len(obsoleteUUIDs) == 0 {
+		return nil
+	}
+
+	markStmt, err := st.Prepare(`
+INSERT INTO secret_revision_obsolete (revision_uuid, obsolete, pending_delete)
+VALUES ($secretRevisionObsolete.revision_uuid,
+        $secretRevisionObsolete.obsolete,
+        $secretRevisionObsolete.pending_delete)
+ON CONFLICT(revision_uuid) DO UPDATE SET
+    obsolete       = excluded.obsolete,
+    pending_delete = excluded.pending_delete
+`, secretRevisionObsolete{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	recs := make([]secretRevisionObsolete, len(obsoleteUUIDs))
+	for i, rev := range obsoleteUUIDs {
+		recs[i] = secretRevisionObsolete{
+			UUID:          rev.UUID,
+			Obsolete:      true,
+			PendingDelete: true,
+		}
+	}
+	if err := tx.Query(ctx, markStmt, recs).Run(); err != nil {
+		return errors.Errorf("bulk-marking revisions obsolete: %w", err)
+	}
 	return nil
 }
 

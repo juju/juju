@@ -5,10 +5,12 @@ package bootstrap
 
 import (
 	"bytes"
+	stderrors "errors"
 	"net/url"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
@@ -189,6 +191,54 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *tc.C) {
 		},
 	})
 	c.Assert(info.Charm, tc.NotNil)
+}
+
+func (s *deployerSuite) TestDeployCharmhubCharmRetriesTransientDownloadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+	cfg.Clock = s.clock
+
+	downloadURL := s.expectCharmhubResolve(c, "juju-controller")
+	s.expectRetryDelay()
+
+	downloadResult := &charmdownloader.DownloadResult{
+		SHA256: "sha-256",
+		SHA384: "sha-384",
+		Path:   "path",
+		Size:   42,
+	}
+	gomock.InOrder(
+		s.charmDownloader.EXPECT().Download(gomock.Any(), downloadURL, "sha-256").
+			Return(nil, timeoutError{}),
+		s.charmDownloader.EXPECT().Download(gomock.Any(), downloadURL, "sha-256").
+			Return(downloadResult, nil),
+	)
+	s.expectResolveControllerCharmDownload(c, downloadResult)
+
+	deployer := s.newBaseDeployer(c, cfg)
+
+	info, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Charm, tc.NotNil)
+}
+
+func (s *deployerSuite) TestDeployCharmhubCharmDoesNotRetryPermanentDownloadError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+	cfg.Clock = s.clock
+
+	downloadURL := s.expectCharmhubResolve(c, "juju-controller")
+	s.expectRetryClockNow()
+
+	s.charmDownloader.EXPECT().Download(gomock.Any(), downloadURL, "sha-256").
+		Return(nil, stderrors.New("invalid digest"))
+
+	deployer := s.newBaseDeployer(c, cfg)
+
+	_, err := deployer.DeployCharmhubCharm(c.Context(), "arm64", corebase.MakeDefaultBase("ubuntu", "22.04"))
+	c.Assert(err, tc.ErrorMatches, `downloading "https://inferi.com": invalid digest`)
 }
 
 func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *tc.C) {
@@ -387,6 +437,19 @@ func (s *deployerSuite) newBaseDeployer(c *tc.C, cfg BaseDeployerConfig) baseDep
 }
 
 func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {
+	downloadURL := s.expectCharmhubResolve(c, name)
+
+	downloadResult := &charmdownloader.DownloadResult{
+		SHA256: "sha-256",
+		SHA384: "sha-384",
+		Path:   "path",
+		Size:   42,
+	}
+	s.charmDownloader.EXPECT().Download(gomock.Any(), downloadURL, "sha-256").Return(downloadResult, nil)
+	s.expectResolveControllerCharmDownload(c, downloadResult)
+}
+
+func (s *deployerSuite) expectCharmhubResolve(c *tc.C, name string) *url.URL {
 	uuid := testing.ModelTag.Id()
 	cfg, err := config.New(config.UseDefaults, map[string]any{
 		"name":         "model",
@@ -439,26 +502,51 @@ func (s *deployerSuite) expectDownloadAndResolve(c *tc.C, name string) {
 
 	url, err := url.Parse("https://inferi.com")
 	c.Assert(err, tc.ErrorIsNil)
+	return url
+}
 
-	s.charmDownloader.EXPECT().Download(gomock.Any(), url, "sha-256").Return(&charmdownloader.DownloadResult{
-		SHA256: "sha-256",
-		SHA384: "sha-384",
-		Path:   "path",
-		Size:   42,
-	}, nil)
-
+func (s *deployerSuite) expectResolveControllerCharmDownload(c *tc.C, result *charmdownloader.DownloadResult) {
 	objectStoreUUID := objectstoretesting.GenObjectStoreUUID(c)
 
 	s.applicationService.EXPECT().ResolveControllerCharmDownload(gomock.Any(), domainapplication.ResolveControllerCharmDownload{
 		SHA256: "sha-256",
-		SHA384: "sha-384",
-		Path:   "path",
-		Size:   42,
+		SHA384: result.SHA384,
+		Path:   result.Path,
+		Size:   result.Size,
 	}).Return(domainapplication.ResolvedControllerCharmDownload{
 		Charm:           s.charm,
-		ArchivePath:     "path",
+		ArchivePath:     result.Path,
 		ObjectStoreUUID: objectStoreUUID,
 	}, nil)
+}
+
+func (s *deployerSuite) expectRetryDelay() {
+	s.expectRetryClockNow()
+	s.clock.EXPECT().After(controllerCharmDownloadRetryDelay).Return(closedTimeChannel())
+}
+
+func (s *deployerSuite) expectRetryClockNow() {
+	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+}
+
+func closedTimeChannel() <-chan time.Time {
+	ch := make(chan time.Time)
+	close(ch)
+	return ch
+}
+
+type timeoutError struct{}
+
+func (timeoutError) Error() string {
+	return "net/http: TLS handshake timeout"
+}
+
+func (timeoutError) Timeout() bool {
+	return true
+}
+
+func (timeoutError) Temporary() bool {
+	return true
 }
 
 func (s *deployerSuite) setupMocks(c *tc.C) *gomock.Controller {

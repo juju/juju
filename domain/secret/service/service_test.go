@@ -121,13 +121,13 @@ func (s *serviceSuite) assertCreateUserSecret(c *tc.C, isInternal, finalStepFail
 	uri := coresecrets.NewURI()
 
 	params := domainsecret.UpsertSecretParams{
-		Description: new("a secret"),
-		Label:       new("my secret"),
-		AutoPrune:   new(true),
-		Checksum:    "checksum-1234",
-		RevisionID:  new(s.fakeUUID.String()),
-		CreateTime:  s.clock.Now(),
-		UpdateTime:  s.clock.Now(),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
+		AutoPrune:    new(true),
+		Checksum:     "checksum-1234",
+		RevisionUUID: new(s.fakeUUID.String()),
+		CreateTime:   s.clock.Now(),
+		UpdateTime:   s.clock.Now(),
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -278,13 +278,13 @@ func (s *serviceSuite) TestCreateUserSecretNoExistingSecrets(c *tc.C) {
 	uri := coresecrets.NewURI()
 
 	params := domainsecret.UpsertSecretParams{
-		Description: new("a secret"),
-		Label:       new("my secret"),
-		AutoPrune:   new(true),
-		Checksum:    "checksum-1234",
-		RevisionID:  new(s.fakeUUID.String()),
-		CreateTime:  s.clock.Now(),
-		UpdateTime:  s.clock.Now(),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
+		AutoPrune:    new(true),
+		Checksum:     "checksum-1234",
+		RevisionUUID: new(s.fakeUUID.String()),
+		CreateTime:   s.clock.Now(),
+		UpdateTime:   s.clock.Now(),
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
@@ -485,12 +485,12 @@ func (s *serviceSuite) assertUpdateUserSecret(c *tc.C, isInternal, finalStepFail
 	}
 
 	params := domainsecret.UpsertSecretParams{
-		Description: new("a secret"),
-		Label:       new("my secret"),
-		AutoPrune:   new(true),
-		Checksum:    "checksum-1234",
-		RevisionID:  new(s.fakeUUID.String()),
-		UpdateTime:  s.clock.Now(),
+		Description:  new("a secret"),
+		Label:        new("my secret"),
+		AutoPrune:    new(true),
+		Checksum:     "checksum-1234",
+		RevisionUUID: new(s.fakeUUID.String()),
+		UpdateTime:   s.clock.Now(),
 	}
 	if isInternal {
 		params.Data = map[string]string{"foo": "bar"}
@@ -561,7 +561,7 @@ func (s *serviceSuite) TestCreateCharmUnitSecret(c *tc.C) {
 		Checksum:       "checksum-1234",
 		ExpireTime:     new(exipreTime),
 		NextRotateTime: new(rotateTime),
-		RevisionID:     new(s.fakeUUID.String()),
+		RevisionUUID:   new(s.fakeUUID.String()),
 		CreateTime:     s.clock.Now(),
 		UpdateTime:     s.clock.Now(),
 	}
@@ -667,7 +667,7 @@ func (s *serviceSuite) TestCreateCharmApplicationSecret(c *tc.C) {
 		Checksum:       "checksum-1234",
 		ExpireTime:     new(exipreTime),
 		NextRotateTime: new(rotateTime),
-		RevisionID:     new(s.fakeUUID.String()),
+		RevisionUUID:   new(s.fakeUUID.String()),
 		CreateTime:     s.clock.Now(),
 		UpdateTime:     s.clock.Now(),
 	}
@@ -778,7 +778,7 @@ func (s *serviceSuite) TestUpdateCharmSecretNoRotate(c *tc.C) {
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		Checksum:     "checksum-1234",
 		ExpireTime:   new(expireTime),
-		RevisionID:   new(s.fakeUUID.String()),
+		RevisionUUID: new(s.fakeUUID.String()),
 		UpdateTime:   s.clock.Now(),
 	}
 
@@ -861,7 +861,7 @@ func (s *serviceSuite) runRotatePolicyUpdateCase(c *tc.C, uri *coresecrets.URI, 
 		Label:        new("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		RotatePolicy: new(domainsecret.MarshallRotatePolicy(newPol)),
-		RevisionID:   new(s.fakeUUID.String()),
+		RevisionUUID: new(s.fakeUUID.String()),
 		UpdateTime:   s.clock.Now(),
 	}
 	var expectedNext *time.Time
@@ -932,7 +932,7 @@ func (s *serviceSuite) TestUpdateCharmSecretDoNotRecomputeNextRotateTimeIfLessFr
 		Label:        new("my secret"),
 		Data:         coresecrets.SecretData{"foo": "bar"},
 		Checksum:     "checksum-1234",
-		RevisionID:   new(s.fakeUUID.String()),
+		RevisionUUID: new(s.fakeUUID.String()),
 		UpdateTime:   s.clock.Now(),
 	}
 
@@ -981,7 +981,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *tc.C) {
 		Data:           coresecrets.SecretData{"foo": "bar"},
 		Checksum:       "checksum-1234",
 		NextRotateTime: new(s.clock.Now().AddDate(0, 0, 1)),
-		RevisionID:     new(s.fakeUUID.String()),
+		RevisionUUID:   new(s.fakeUUID.String()),
 		CreateTime:     s.clock.Now(),
 		UpdateTime:     s.clock.Now(),
 	}
@@ -1979,7 +1979,7 @@ func (s *serviceSuite) TestChangeSecretBackendToExternalBackend(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
+	s.state.EXPECT().GetSecretRevisionUUID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, valueRef, nil).Return(nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
@@ -2009,7 +2009,7 @@ func (s *serviceSuite) TestChangeSecretBackendToInternalBackend(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
+	s.state.EXPECT().GetSecretRevisionUUID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(nil)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
@@ -2039,7 +2039,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedAndRollback(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
+	s.state.EXPECT().GetSecretRevisionUUID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(errors.New("boom"))
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false
@@ -2092,7 +2092,7 @@ func (s *serviceSuite) TestChangeSecretBackendFailedSecretNotFound(c *tc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecretRevisionID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
+	s.state.EXPECT().GetSecretRevisionUUID(gomock.Any(), uri, 1).Return(s.fakeUUID.String(), nil)
 	s.state.EXPECT().ChangeSecretBackend(gomock.Any(), s.fakeUUID, nil, map[string]string{"foo": "bar"}).Return(secreterrors.SecretNotFound)
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(s.modelID, nil)
 	rollbackCalled := false

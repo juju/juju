@@ -27,15 +27,35 @@ type Coordinator interface {
 	Add(modelmigration.Operation)
 }
 
-// RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(
+// RegisterImportStoragePools registers the storage pool import operation with
+// the given coordinator. Storage pools must be imported before applications so
+// that application storage directives are able to resolve their pools.
+func RegisterImportStoragePools(
 	coordinator Coordinator,
 	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter,
 	logger logger.Logger,
 ) {
-	coordinator.Add(&importOperation{
-		ephemeralProviderConfigGetter: ephemeralProviderConfigGetter,
-		logger:                        logger,
+	coordinator.Add(&importStoragePoolOperation{
+		baseImportOperation: baseImportOperation{
+			ephemeralProviderConfigGetter: ephemeralProviderConfigGetter,
+			logger:                        logger,
+		},
+	})
+}
+
+// RegisterImportStorage registers the storage import operation with the given
+// coordinator. This imports storage instances, volumes and filesystems and
+// must run after applications (for units) and storage pools are imported.
+func RegisterImportStorage(
+	coordinator Coordinator,
+	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter,
+	logger logger.Logger,
+) {
+	coordinator.Add(&importStorageOperation{
+		baseImportOperation: baseImportOperation{
+			ephemeralProviderConfigGetter: ephemeralProviderConfigGetter,
+			logger:                        logger,
+		},
 	})
 }
 
@@ -111,7 +131,7 @@ func (g *ephemeralStorageRegistryGetter) GetStorageRegistry(
 	return registry, nil
 }
 
-type importOperation struct {
+type baseImportOperation struct {
 	modelmigration.BaseOperation
 
 	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter
@@ -120,13 +140,8 @@ type importOperation struct {
 	logger  logger.Logger
 }
 
-// Name returns the name of this operation.
-func (i *importOperation) Name() string {
-	return "import storage"
-}
-
-// Setup implements Operation.
-func (i *importOperation) Setup(scope modelmigration.Scope) error {
+// setup creates the storage service used by the import operations.
+func (i *baseImportOperation) setup(scope modelmigration.Scope) error {
 	// Create a storage registry getter from the ephemeral provider.
 	// This ensures the registry matches the model being imported, rather than matching
 	// by the controller model's cloud type. For example, this is useful when importing
@@ -146,8 +161,25 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	return nil
 }
 
+// importStoragePoolOperation imports the storage pools contained in the model.
+// It runs before applications are imported so that application storage
+// directives can resolve their pools.
+type importStoragePoolOperation struct {
+	baseImportOperation
+}
+
+// Name returns the name of this operation.
+func (i *importStoragePoolOperation) Name() string {
+	return "import storage pools"
+}
+
+// Setup implements Operation.
+func (i *importStoragePoolOperation) Setup(scope modelmigration.Scope) error {
+	return i.setup(scope)
+}
+
 // Execute the import on the storage pools contained in the model.
-func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
+func (i *importStoragePoolOperation) Execute(ctx context.Context, model description.Model) error {
 	// TODO: Combine the storage pool import calls into a single service call,
 	// and stop passing through a description entity into the service layer.
 	// This must be done ASAP
@@ -166,6 +198,29 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("setting recommended storage pools: %w", err)
 	}
 
+	return nil
+}
+
+// importStorageOperation imports the storage instances, volumes and filesystems
+// contained in the model. It runs after applications (for units) and storage
+// pools have been imported.
+type importStorageOperation struct {
+	baseImportOperation
+}
+
+// Name returns the name of this operation.
+func (i *importStorageOperation) Name() string {
+	return "import storage"
+}
+
+// Setup implements Operation.
+func (i *importStorageOperation) Setup(scope modelmigration.Scope) error {
+	return i.setup(scope)
+}
+
+// Execute the import on the storage instances, volumes and filesystems
+// contained in the model.
+func (i *importStorageOperation) Execute(ctx context.Context, model description.Model) error {
 	if err := i.importStorageInstances(ctx, model.Storages()); err != nil {
 		return errors.Errorf("importing storage instances: %w", err)
 	}
@@ -189,7 +244,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	return nil
 }
 
-func (i *importOperation) importStorageInstances(ctx context.Context, instances []description.Storage) error {
+func (i *importStorageOperation) importStorageInstances(ctx context.Context, instances []description.Storage) error {
 	if len(instances) == 0 {
 		return nil
 	}
@@ -224,7 +279,7 @@ func (i *importOperation) importStorageInstances(ctx context.Context, instances 
 	return i.service.ImportStorageInstances(ctx, args)
 }
 
-func (i *importOperation) importFilesystemsIAAS(ctx context.Context, filesystems []description.Filesystem) error {
+func (i *importStorageOperation) importFilesystemsIAAS(ctx context.Context, filesystems []description.Filesystem) error {
 	if len(filesystems) == 0 {
 		return nil
 	}
@@ -258,7 +313,7 @@ func (i *importOperation) importFilesystemsIAAS(ctx context.Context, filesystems
 // importVolumesAndFilesystemsCAAS imports CAAS storage a filesystems and
 // filesystem attachments. In previous version of juju these were volumes
 // and filesystems.
-func (i *importOperation) importVolumesAndFilesystemsCAAS(
+func (i *importStorageOperation) importVolumesAndFilesystemsCAAS(
 	ctx context.Context,
 	filesystems []description.Filesystem,
 	volumes []description.Volume) error {
@@ -332,7 +387,7 @@ func getCAASFilesystemAttachment(
 	}, nil
 }
 
-func (i *importOperation) importVolumes(ctx context.Context, volumes []description.Volume) error {
+func (i *importStorageOperation) importVolumes(ctx context.Context, volumes []description.Volume) error {
 	if len(volumes) == 0 {
 		return nil
 	}

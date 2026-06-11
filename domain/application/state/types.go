@@ -1319,6 +1319,12 @@ type insertApplicationStorageDirective struct {
 	StoragePoolUUID string `db:"storage_pool_uuid"`
 }
 
+// storagePoolNameUUID represents a storage pool name and its UUID.
+type storagePoolNameUUID struct {
+	Name string `db:"name"`
+	UUID string `db:"uuid"`
+}
+
 // insertStorageUnitOwner represents the set of values required for creating a
 // new storage_unit_owner record.
 type insertStorageUnitOwner struct {

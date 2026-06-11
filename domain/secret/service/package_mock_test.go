@@ -66,7 +66,7 @@ type MockStateMockRecorder struct {
 	getSecretConsumerExpects                                    []*gomock.Call3_3[context.Context, *secrets.URI, unit.Name, *secrets.SecretConsumerMetadata, int, error]
 	getSecretGrantsExpects                                      []*gomock.Call3_2[context.Context, *secrets.URI, secrets.SecretRole, []secret.GrantDetails, error]
 	getSecretOwnerKindsExpects                                  []*gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
-	getSecretRevisionIDExpects                                  []*gomock.Call3_2[context.Context, *secrets.URI, int, string, error]
+	getSecretRevisionUUIDExpects                                []*gomock.Call3_2[context.Context, *secrets.URI, int, string, error]
 	getSecretValueExpects                                       []*gomock.Call3_3[context.Context, *secrets.URI, int, secrets.SecretData, *secrets.ValueRef, error]
 	getSecretsRevisionExpiryChangesExpects                      []*gomock.Call3V_2[context.Context, secret.ApplicationOwners, secret.UnitOwners, string, []secret.ExpiryInfo, error]
 	getSecretsRotationChangesExpects                            []*gomock.Call3V_2[context.Context, secret.ApplicationOwners, secret.UnitOwners, string, []secret.RotationInfo, error]
@@ -633,23 +633,23 @@ func (mr *MockStateMockRecorder) GetSecretOwnerKinds(ctx, uris any) *MockStateGe
 // MockStateGetSecretOwnerKindsCall is the typed call wrapper for GetSecretOwnerKinds.
 type MockStateGetSecretOwnerKindsCall = gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
 
-// GetSecretRevisionID mocks base method.
-func (m *MockState) GetSecretRevisionID(ctx context.Context, uri *secrets.URI, revision int) (string, error) {
+// GetSecretRevisionUUID mocks base method.
+func (m *MockState) GetSecretRevisionUUID(ctx context.Context, uri *secrets.URI, revision int) (string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.getSecretRevisionIDExpects, m.ctrl, m, "GetSecretRevisionID", ctx, uri, revision)
+	return gomock.Dispatch3_2(&m.recorder.getSecretRevisionUUIDExpects, m.ctrl, m, "GetSecretRevisionUUID", ctx, uri, revision)
 }
 
-// GetSecretRevisionID indicates an expected call of GetSecretRevisionID.
-func (mr *MockStateMockRecorder) GetSecretRevisionID(ctx, uri, revision any) *MockStateGetSecretRevisionIDCall {
+// GetSecretRevisionUUID indicates an expected call of GetSecretRevisionUUID.
+func (mr *MockStateMockRecorder) GetSecretRevisionUUID(ctx, uri, revision any) *MockStateGetSecretRevisionUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, *secrets.URI, int, string, error](mr.mock.ctrl.T, mr.mock, "GetSecretRevisionID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(revision))
-	mr.getSecretRevisionIDExpects = append(mr.getSecretRevisionIDExpects, call)
+	call := gomock.NewCall3_2[context.Context, *secrets.URI, int, string, error](mr.mock.ctrl.T, mr.mock, "GetSecretRevisionUUID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(revision))
+	mr.getSecretRevisionUUIDExpects = append(mr.getSecretRevisionUUIDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateGetSecretRevisionIDCall is the typed call wrapper for GetSecretRevisionID.
-type MockStateGetSecretRevisionIDCall = gomock.Call3_2[context.Context, *secrets.URI, int, string, error]
+// MockStateGetSecretRevisionUUIDCall is the typed call wrapper for GetSecretRevisionUUID.
+type MockStateGetSecretRevisionUUIDCall = gomock.Call3_2[context.Context, *secrets.URI, int, string, error]
 
 // GetSecretValue mocks base method.
 func (m *MockState) GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error) {

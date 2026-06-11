@@ -30,7 +30,6 @@ type MockSecretServiceMockRecorder struct {
 	mock                           *MockSecretService
 	checkSecretManageAccessExpects []*gomock.Call3_1[context.Context, *secrets.URI, unit.Name, error]
 	createCharmSecretExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error]
-	getConsumedRevisionExpects     []*gomock.Call6_2[context.Context, *secrets.URI, unit.Name, bool, bool, *string, int, error]
 	getSecretOwnerKindsExpects     []*gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
 	getSecretValueExpects          []*gomock.Call4_3[context.Context, *secrets.URI, int, secret.SecretAccessor, secrets.SecretValue, *secrets.ValueRef, error]
 	resolveGrantParamsExpects      []*gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.GrantResult]
@@ -85,24 +84,6 @@ func (mr *MockSecretServiceMockRecorder) CreateCharmSecret(arg0, arg1, arg2 any)
 
 // MockSecretServiceCreateCharmSecretCall is the typed call wrapper for CreateCharmSecret.
 type MockSecretServiceCreateCharmSecretCall = gomock.Call3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error]
-
-// GetConsumedRevision mocks base method.
-func (m *MockSecretService) GetConsumedRevision(ctx context.Context, uri *secrets.URI, unitName unit.Name, refresh, peek bool, labelToUpdate *string) (int, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch6_2(&m.recorder.getConsumedRevisionExpects, m.ctrl, m, "GetConsumedRevision", ctx, uri, unitName, refresh, peek, labelToUpdate)
-}
-
-// GetConsumedRevision indicates an expected call of GetConsumedRevision.
-func (mr *MockSecretServiceMockRecorder) GetConsumedRevision(ctx, uri, unitName, refresh, peek, labelToUpdate any) *MockSecretServiceGetConsumedRevisionCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall6_2[context.Context, *secrets.URI, unit.Name, bool, bool, *string, int, error](mr.mock.ctrl.T, mr.mock, "GetConsumedRevision", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uri), gomock.EnsureMatcher(unitName), gomock.EnsureMatcher(refresh), gomock.EnsureMatcher(peek), gomock.EnsureMatcher(labelToUpdate))
-	mr.getConsumedRevisionExpects = append(mr.getConsumedRevisionExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockSecretServiceGetConsumedRevisionCall is the typed call wrapper for GetConsumedRevision.
-type MockSecretServiceGetConsumedRevisionCall = gomock.Call6_2[context.Context, *secrets.URI, unit.Name, bool, bool, *string, int, error]
 
 // GetSecretOwnerKinds mocks base method.
 func (m *MockSecretService) GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]secret.SecretOwnerInfo, error) {

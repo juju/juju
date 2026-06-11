@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,12 @@ const websocketTimeout = 30 * time.Second
 // WebsocketDial is called instead of dialer.Dial so we can override it in
 // tests.
 var WebsocketDial = WebsocketDialWithErrors
+
+const (
+	// HTTPStatusServiceUnavailable is added to websocket handshake errors
+	// when the API response status code is 503.
+	HTTPStatusServiceUnavailable = errors.ConstError("http status service unavailable")
+)
 
 // WebsocketDialer is something that can make a websocket connection. Enables
 // testing the error unpacking in websocketDialWithErrors.
@@ -52,13 +59,13 @@ func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 			if readErr != nil {
 				return nil, err
 			}
-			if resp.Header.Get("Content-Type") == "application/json" {
+			if isJSONContentType(resp.Header.Get("Content-Type")) {
 				var result params.ErrorResult
 				jsonErr := json.Unmarshal(body, &result)
 				if jsonErr != nil {
 					return nil, errors.Annotate(jsonErr, "reading error response")
 				}
-				return nil, result.Error
+				return nil, addHTTPStatusError(result.Error, resp.StatusCode)
 			}
 
 			err = errors.Errorf(
@@ -66,11 +73,32 @@ func WebsocketDialWithErrors(dialer WebsocketDialer, urlStr string, requestHeade
 				strings.TrimSpace(string(body)),
 				http.StatusText(resp.StatusCode),
 			)
+			return nil, addHTTPStatusError(err, resp.StatusCode)
 		}
 		return nil, err
 	}
 	result := DeadlineStream{Conn: c, Timeout: websocketTimeout}
 	return &result, nil
+}
+
+func addHTTPStatusError(err error, statusCode int) error {
+	switch statusCode {
+	case http.StatusServiceUnavailable:
+		if err == nil {
+			return HTTPStatusServiceUnavailable
+		}
+		return errors.WithType(err, HTTPStatusServiceUnavailable)
+	default:
+		return err
+	}
+}
+
+func isJSONContentType(contentType string) bool {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return mediaType == "application/json"
 }
 
 // DeadlineStream wraps a websocket connection and applies a write

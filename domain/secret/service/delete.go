@@ -45,7 +45,7 @@ func (s *SecretService) DeleteSecret(ctx context.Context, uri *secrets.URI, para
 		// validate if provided revisions exist before scheduling job
 		if len(params.Revisions) > 0 {
 			for _, revision := range params.Revisions {
-				if _, err := s.secretState.GetSecretRevisionID(ctx, uri, revision); err != nil {
+				if _, err := s.secretState.GetSecretRevisionUUID(ctx, uri, revision); err != nil {
 					return errors.Capture(err)
 				}
 			}

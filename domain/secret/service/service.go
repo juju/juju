@@ -294,7 +294,7 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	if err != nil {
 		return errors.Capture(err)
 	}
-	p.RevisionID = new(revisionID.String())
+	p.RevisionUUID = new(revisionID.String())
 
 	modelID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
@@ -357,7 +357,7 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 	if err != nil {
 		return errors.Capture(err)
 	}
-	p.RevisionID = new(revisionID.String())
+	p.RevisionUUID = new(revisionID.String())
 
 	modelID, err := s.secretState.GetModelUUID(ctx)
 	if err != nil {
@@ -468,7 +468,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 			if err != nil {
 				return errors.Capture(err)
 			}
-			p.RevisionID = new(revisionID.String())
+			p.RevisionUUID = new(revisionID.String())
 
 			modelID, err := s.secretState.GetModelUUID(innerCtx)
 			if err != nil {
@@ -545,7 +545,7 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 			if err != nil {
 				return errors.Capture(err)
 			}
-			p.RevisionID = new(revisionID.String())
+			p.RevisionUUID = new(revisionID.String())
 
 			modelID, err := s.secretState.GetModelUUID(innerCtx)
 			if err != nil {
@@ -999,7 +999,7 @@ func (s *SecretService) ChangeSecretBackend(
 		return errors.Capture(err)
 	}
 
-	revisionIDStr, err := s.secretState.GetSecretRevisionID(ctx, uri, revision)
+	revisionIDStr, err := s.secretState.GetSecretRevisionUUID(ctx, uri, revision)
 	if err != nil {
 		return errors.Capture(err)
 	}
