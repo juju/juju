@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/clock"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/cmd/jujuagentd/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujuagentd/util"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
@@ -312,18 +310,17 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 		}
 
 		agentConfig := a.CurrentConfig()
+		startupValueProvider := safeModeControllerStartupValuesProvider{agent: a}
 		manifoldsCfg := safemode.ManifoldsConfig{
-			Agent:              agent.APIHostPortsSetter{Agent: a},
-			AgentConfigChanged: a.configChangedVal,
-			NewDBWorkerFunc:    a.newDBWorkerFunc,
-			ControllerRuntimeConfigPath: controllerruntimeconfig.ConfigPath(
-				filepath.Join(agentConfig.DataDir(), "agents", "controller-"+a.Tag().Id()),
-			),
-			ControllerID:           a.Tag().Id(),
-			LogDir:                 agentConfig.LogDir(),
-			ConfigChangeSocketPath: path.Join(agentConfig.DataDir(), "configchange.socket"),
-			Clock:                  clock.WallClock,
-			IsCaasConfig:           a.isCaasAgent,
+			Agent:                   agent.APIHostPortsSetter{Agent: a},
+			AgentConfigChanged:      a.configChangedVal,
+			NewDBWorkerFunc:         a.newDBWorkerFunc,
+			ControllerStartupValues: startupValueProvider,
+			ControllerID:            a.Tag().Id(),
+			LogDir:                  agentConfig.LogDir(),
+			ConfigChangeSocketPath:  path.Join(agentConfig.DataDir(), "configchange.socket"),
+			Clock:                   clock.WallClock,
+			IsCaasConfig:            a.isCaasAgent,
 		}
 
 		var manifolds dependency.Manifolds
@@ -341,6 +338,27 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 		}
 		return eng, err
 	}
+}
+
+type safeModeControllerStartupValuesProvider struct {
+	agent *SafeModeMachineAgent
+}
+
+func (p safeModeControllerStartupValuesProvider) ControllerStartupValues() (dbaccessor.ControllerStartupValues, error) {
+	cfg := p.agent.CurrentConfig()
+	info, _ := cfg.ControllerAgentInfo()
+	dqlitePort, _ := cfg.DqlitePort()
+	return dbaccessor.ControllerStartupValues{
+		ControllerID:          cfg.Tag().Id(),
+		DataDir:               cfg.DataDir(),
+		DqlitePort:            dqlitePort,
+		QueryTracingEnabled:   cfg.QueryTracingEnabled(),
+		QueryTracingThreshold: cfg.QueryTracingThreshold(),
+		DqliteBusyTimeout:     cfg.DqliteBusyTimeout(),
+		CACert:                cfg.CACert(),
+		ControllerCert:        info.Cert,
+		ControllerPrivateKey:  info.PrivateKey,
+	}, nil
 }
 
 func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
