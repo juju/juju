@@ -54,6 +54,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"is-responsible-flag",
 		"lease-manager",
 		"logging-config-updater",
+		"loki-endpoint-updater",
 		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -101,6 +102,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"lease-manager",
 		"log-sink",
 		"logging-config-updater",
+		"loki-endpoint-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
@@ -323,6 +325,17 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"lease-manager": {},
 
 	"logging-config-updater": {
+		"agent",
+		"api-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"loki-endpoint-updater": {
 		"agent",
 		"api-caller",
 		"domain-services",
@@ -556,6 +569,17 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"lease-manager": {},
 
 	"logging-config-updater": {
+		"agent",
+		"api-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"loki-endpoint-updater": {
 		"agent",
 		"api-caller",
 		"domain-services",

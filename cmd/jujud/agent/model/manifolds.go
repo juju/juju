@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modellife"
@@ -217,6 +218,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			LoggerContext: config.LoggingContext,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.logger"),
+		})),
+
+		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
 		// All other manifolds should depend on at least one of these, which
@@ -623,6 +631,7 @@ const (
 	operationPrunerName          = "operation-pruner"
 	leaseManagerName             = "lease-manager"
 	loggingConfigUpdaterName     = "logging-config-updater"
+	lokiEndpointUpdaterName      = "loki-endpoint-updater"
 	machineUndertakerName        = "machine-undertaker"
 	providerServiceFactoriesName = "provider-service-factories"
 	providerTrackerName          = "provider-tracker"
