@@ -798,6 +798,11 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 	}).AnyTimes().After(s.stepped)
 
 	ctx.unit.EXPECT().WatchActionNotifications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
+		// Reset the channel so any stale buffered event from a previous
+		// watcher that was killed before draining it cannot block the send
+		// below (the send happens in this goroutine, which is also the only
+		// future receiver — a full buffer would deadlock).
+		ctx.actionsCh = make(chan []string, 1)
 		var actions []string
 		for _, a := range ctx.pendingActions {
 			actions = append(actions, a.ID())
@@ -808,6 +813,10 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 	}).AnyTimes().After(s.stepped)
 
 	ctx.secretsClient.EXPECT().WatchConsumedSecretsChanges(gomock.Any(), ctx.unit.Name()).DoAndReturn(func(context.Context, string) (watcher.StringsWatcher, error) {
+		// Reset the channel for the same reason as actionsCh above: the
+		// buffer is 1, and a previous watcher killed before reading its
+		// initial event leaves the buffer full, blocking this send.
+		ctx.consumedSecretsCh = make(chan []string, 1)
 		ctx.sendStrings(c, ctx.consumedSecretsCh, "initial consumed secrets event")
 		w := watchertest.NewMockStringsWatcher(ctx.consumedSecretsCh)
 		return w, nil
