@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/internal/worker/muxhttpserver"
 )
 
+// ManifoldConfig holds the configuration required to build the set of
+// manifolds that form a model operator agent.
 type ManifoldConfig struct {
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
@@ -40,9 +42,16 @@ type ManifoldConfig struct {
 
 	// NewContainerBrokerFunc is a function opens a CAAS provider.
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
-	Port                   string
-	ServiceName            string
-	ServiceNamespace       string
+
+	// Port is the port on which the model HTTP server will listen.
+	Port string
+
+	// ServiceName is the Kubernetes service name for the model operator.
+	ServiceName string
+
+	// ServiceNamespace is the Kubernetes namespace in which the model
+	// operator service resides.
+	ServiceNamespace string
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
