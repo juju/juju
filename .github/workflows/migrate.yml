@@ -16,6 +16,7 @@ jobs:
       - arm64
       - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
       - xlarge
+    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +36,7 @@ jobs:
         run: ./.github/squid.sh
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
           cache: true
@@ -69,7 +70,10 @@ jobs:
       - name: Bootstrap a ${{ matrix.channel }} controller and model
         run: |
           /snap/bin/juju version
-          /snap/bin/juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
+          /snap/bin/juju bootstrap lxd source-controller \
+            --constraints "arch=$(go env GOARCH)" \
+            --model-default logging-config="#migration=TRACE" \
+            --model-default enable-os-upgrade=false
           /snap/bin/juju add-model test-migrate
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
           /snap/bin/juju deploy ubuntu --base ubuntu@20.04
@@ -83,31 +87,43 @@ jobs:
           juju version
           juju bootstrap lxd target-controller \
             --constraints "arch=$(go env GOARCH)" \
+            --model-default logging-config="#migration=TRACE" \
             --model-default enable-os-upgrade=false
           juju switch controller
           juju wait-for application controller
 
-      - name: Migrate model to target controller
+      - name: Determine which Juju client to use
+        shell: bash
         run: |
-          # Determine which Juju client to use
-          JUJU='juju'
+          JUJU_CLIENT='juju'
           if [[ ${{ matrix.client }} == 'source' ]]; then
-            JUJU='/snap/bin/juju'
+            JUJU_CLIENT='/snap/bin/juju'
           fi
+          echo "JUJU_CLIENT=$JUJU_CLIENT" >> $GITHUB_ENV
 
-          $JUJU switch source-controller
+      - name: Wait for everything to reach a steady state
+        shell: bash
+        run: |
+          export JUJU_CLIENT
+          
+          $JUJU_CLIENT switch source-controller
 
           # Ensure application is fully deployed
           # We have to use the old client to speak to the new controller, as
           # this is blocked otherwise.
-          $JUJU wait-for application ubuntu
+          $JUJU_CLIENT wait-for application ubuntu
 
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
 
-          $JUJU version
-          $JUJU migrate test-migrate target-controller
+      - name: Migrate model to target controller
+        shell: bash
+        run: |
+          $JUJU_CLIENT switch source-controller
+          $JUJU_CLIENT version
+          $JUJU_CLIENT status -m source-controller:test-migrate --format json || true
+          $JUJU_CLIENT migrate test-migrate target-controller
 
       - name: Check the migration was successful
         run: |
@@ -121,6 +137,25 @@ jobs:
             if [[ -n $RES ]]; then
               break
             fi
+
+            juju status -m target-controller:test-migrate || true
+
+            sleep 5
+            attempt=$((attempt+1))
+            if [ "$attempt" -eq 10 ]; then
+              echo "Migration timed out"
+              exit 1
+            fi
+          done
+
+          # Ensure that the model is finished migrating.
+          attempt=0
+          while true; do
+            RES=$(juju status -m target-controller:test-migrate || true)
+            if [[ -n $RES ]]; then
+              break
+            fi
+
             sleep 5
             attempt=$((attempt+1))
             if [ "$attempt" -eq 10 ]; then
@@ -134,3 +169,21 @@ jobs:
 
           juju deploy ubuntu yet-another-ubuntu --base ubuntu@20.04
           juju wait-for application yet-another-ubuntu
+
+      - name: Get debug info
+        if: failure()
+        run: |
+          set -x
+          echo " - Migration source status"
+          juju status -m source-controller:controller --format json | jq || true
+          juju status -m source-controller:test-migrate --format json | jq  || true
+          
+          echo " - Migration source controller logs"
+          juju debug-log -m source-controller:controller --lines 200 || true
+          
+          echo " - Migration target status"
+          juju status -m target-controller:controller --format json | jq  || true
+          juju status -m target-controller:test-migrate --format json | jq  || true
+          
+          echo " - Migration target controller logs"
+          juju debug-log -m target-controller:controller --lines 200 || true

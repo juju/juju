@@ -35,7 +35,7 @@ jobs:
       run: ./.github/squid.sh
 
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: 'go.mod'
         cache: true
@@ -142,7 +142,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload debug log
-      uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v2
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v2
       with:
         name: juju-debug-actions
         path: juju-debug.log
@@ -170,7 +170,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload inspect tarball
-      uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v2
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v2
       with:
         name: inspection-report-actions
         path: ./inspection-report-${{ strategy.job-index }}.tar.gz
@@ -186,7 +186,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload kubectl describe
-      uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v2
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v2
       with:
         name: kubectl-describe-actions
         path: describe/*.describe
@@ -204,7 +204,7 @@ jobs:
       if: ${{ failure() }}
 
     - name: Upload kubeflow pod logs
-      uses: actions/upload-artifact@604373da6381bf24206979c74d06a550515601b9 # v2
+      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v2
       with:
         name: kubectl-stdout-actions
         path: stdout/*.log
