@@ -114,5 +114,5 @@ func (c *Collector) RecordError(method string, url *url.URL, err error) {
 	// Note: Do not log url.Path as REST queries _can_ include the name of the
 	// entities (charms, architectures, etc).
 	c.TotalRequests.WithLabelValues(url.Host, "unknown").Inc()
-	c.TotalRequestErrors.WithLabelValues(url.Host).Inc()
+	c.TotalRequestErrors.WithLabelValues(url.Host, "unknown").Inc()
 }
