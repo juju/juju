@@ -57,9 +57,6 @@ The following table shows how GCE abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(gce-cloud-definition)=
-### Definition
-
 Type in Juju: `gce`
 
 Name in Juju: `google` (predefined)

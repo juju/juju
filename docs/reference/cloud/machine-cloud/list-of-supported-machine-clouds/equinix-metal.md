@@ -15,6 +15,18 @@ In Juju, [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/) is a
 3. Bootstrap with `juju bootstrap equinix equinix-controller`.
 ```
 
+(equinix-cloud-limitations)=
+## Limitations
+
+#### Firewall limitations
+
+Equinix Metal does not implement firewall support. As a result:
+
+- Workloads deployed to machines under the same project ID can reach each other even across Juju models.
+- Deployed machines are always assigned both a public and a private IP address.
+- Any deployed charms are implicitly exposed.
+- Proper access control mechanisms need to be implemented at the application level to prevent unauthorized access to deployed workloads.
+
 (equinix-cloud-concepts)=
 ## Concepts
 
@@ -36,25 +48,9 @@ The following table shows how Equinix Metal abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(equinix-cloud-definition)=
-### Definition
-
 Type in Juju: `equinix`
 
 Name in Juju: `equinix`
-
-(equinix-cloud-other)=
-### Other
-
-(equinix-cloud-firewall-limitations)=
-#### Firewall limitations
-
-Equinix Metal does not implement firewall support. As a result:
-
-- Workloads deployed to machines under the same project ID can reach each other even across Juju models.
-- Deployed machines are always assigned both a public and a private IP address.
-- Any deployed charms are implicitly exposed.
-- Proper access control mechanisms need to be implemented at the application level to prevent unauthorized access to deployed workloads.
 
 (equinix-credential)=
 ## Credentials

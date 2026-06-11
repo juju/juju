@@ -49,9 +49,6 @@ The following table shows how vSphere abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(vsphere-cloud-definition)=
-### Definition
-
 Type in Juju: `vsphere`
 
 Name in Juju: User-defined

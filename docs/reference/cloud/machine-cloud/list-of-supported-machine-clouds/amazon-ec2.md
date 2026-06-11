@@ -55,9 +55,6 @@ The following table shows how EC2 abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(ec2-cloud-definition)=
-### Definition
-
 Type in Juju: `ec2`
 
 Name in Juju: `aws` (predefined)

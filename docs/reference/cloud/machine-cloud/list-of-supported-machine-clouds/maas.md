@@ -42,9 +42,6 @@ The following table shows how MAAS abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(maas-cloud-definition)=
-### Definition
-
 Type in Juju: `maas`
 
 Name in Juju: User-defined.

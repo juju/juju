@@ -49,8 +49,6 @@ On Kubernetes clouds, both the cloud definition and the credentials are typicall
 ```
 
 (kubernetes-definition)=
-### Definition
-
 A Kubernetes cloud in Juju represents an existing Kubernetes cluster. Juju connects to the cluster via the Kubernetes API and manages application deployments within namespaces.
 
 A Kubernetes cloud definition can be supplied through `juju add-k8s` flows, either interactively (from kubeconfig) or as YAML:

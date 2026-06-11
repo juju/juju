@@ -57,9 +57,6 @@ If this collection of machines is composed solely of bare metal you might opt fo
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(manual-cloud-definition)=
-### Definition
-
 Type in Juju: `manual`
 
 Name in Juju: User-defined

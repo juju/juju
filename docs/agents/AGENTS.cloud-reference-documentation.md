@@ -36,10 +36,19 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 <Short intro describing this as a {ref}`machine cloud <machine-cloud>`>
 
 ## Cloud definition
-  ### Requirements
-  ### Definition
-  ### Cloud definition file (for generic cloud type docs)
-  ### Other (cloud-specific items like Concepts)
+   <Cloud definition details>
+
+## Requirements
+   <Prerequisites for using this cloud>
+
+## Limitations
+   <Optional cloud caveats, when they are important enough to document>
+
+## Concepts
+   <Map provider abstractions to Juju entities>
+
+## Other
+   <Cloud-specific items that do not fit the general template>
 
 ## Credential
   ### Supported authentication types
@@ -74,7 +83,8 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 - **Introduction**: Start with "In Juju, <Cloud> is a {ref}`machine cloud <machine-cloud>`."
 - **Entity-based structure**: Organize by Juju entities (Cloud, Credential, Controller, Model, Machine, Storage)
 - **Sections describe cloud properties**: "Requirements this cloud has", "Constraints this cloud understands"
-- **"Other" subsections**: For cloud-specific features that don't fit standard template
+- **"Limitations" section**: Use when a cloud has meaningful caveats that benefit from a dedicated section; place it after Requirements and before Concepts
+- **"Other" subsections**: For cloud-specific features that don't fit standard template; keep the subsection title specific
 - **"Supported" prefix**: Make clear when only showing supported items (e.g., "Supported constraints")
 - **Anchor pattern**: Use `<cloud>-section-subsection` for uniqueness (e.g., `azure-cloud-requirements`)
 - **Appendices for workflows**: Keep command sequences separate from attribute reference
@@ -85,9 +95,11 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 
 **Cloud Reference Style Notes:**
 - In cloud-specific docs, place requirements content in a top-level `## Requirements` section before `## Concepts`.
+- If a cloud has meaningful caveats, document them in a top-level `## Limitations` section after `## Requirements` and before `## Concepts`.
 - For embedded requirement labels, prefer real subheadings (for example `#### VPC requirements`) so they appear in page TOCs.
 - Add an `Example workflow` dropdown immediately after the intro, using a short sequence from cloud registration to bootstrap.
 - Add a top-level `## Concepts` section near the top of each cloud-specific doc to map provider abstractions to Juju entities.
+- Reserve `## Other` for items that do not fit the common entity-based sections, and use a specific child heading inside it.
 
 ---
 
@@ -279,16 +291,16 @@ Type and name as recognized by Juju.
 
 
 (<cloud>-cloud-definition)=
-### Definition
+## Cloud definition
 
 Type in Juju: `<cloud-type>`
 
 Name in Juju: `<cloud-name>`
+```
 
-### Requirements
+## Requirements
 
 **Purpose**: Document prerequisites for using this cloud (API permissions, accounts, etc.)
-
 **Template**:
 ```markdown
 (<cloud>-cloud-requirements)=

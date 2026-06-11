@@ -50,9 +50,6 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(azure-cloud-definition)=
-### Definition
-
 Type in Juju: `azure`
 
 Name in Juju: `azure`

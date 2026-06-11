@@ -44,20 +44,9 @@ The following table shows how OCI abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-(oci-cloud-definition)=
-### Definition
-
 Type in Juju: `oci`
 
 Name in Juju: `oracle` (predefined)
-
-(oci-cloud-other)=
-### Other
-
-(oci-cloud-availability-domains)=
-#### Availability domains
-
-OCI organizes resources into availability domains (ADs) within each region. Juju creates one subnet per availability domain during bootstrap. Machines are launched in the first available AD unless constrained otherwise.
 
 (oci-credential)=
 ## Credentials
@@ -103,6 +92,7 @@ Creates a controller instance on OCI by provisioning the required network and co
 - **Internet gateway**: Enables public internet routing for the VCN.
 - **Route table**: Default route `0.0.0.0/0` to Internet Gateway. Name: `juju-rt-<controller-uuid>-<model-uuid>`.
 - **Subnets**: One per availability domain. CIDR `/24` auto-selected from VCN address space. Name: `juju-<availability-domain>-<controller-uuid>-<model-uuid>`.
+- **Availability-domain layout**: Bootstrap discovers region availability domains and prepares network resources for each one.
 - **Controller instance**: Boot volume (minimum 50 GiB), VNIC with optional public IP, and instance type from constraints (default flexible shape).
 - **Freeform tags**: All resources tagged with `JujuController=<controller-uuid>`, `JujuModel=<model-uuid>`. Controller instances also tagged `JujuIsController=true`.
 
@@ -173,6 +163,7 @@ Oracle OCI supports the following placement directives:
 Each machine (controller or application) receives:
 
 - **Compute instance**: Shape from constraint (default flexible shape). Image auto-selected by OS and architecture.
+- **Availability-domain selection**: Without `zones` constraints, Juju launches machines in the first available AD. With `zones`, Juju targets the specified AD.
 - **Boot volume**: Created during instance launch. Size: minimum 50 GiB, maximum 16 TiB. From `root-disk` constraint or default 50 GiB. Lifecycle tied to instance.
 - **VNIC**: Created during instance launch. Subnet: first subnet of target availability domain. Private IP auto-assigned. Public IP optional (default enabled).
 - **Flexible shape configuration** (if applicable): For flexible shapes (e.g., `VM.Standard.A1.Flex`), OCPUs and memory are set from constraints or defaults.
