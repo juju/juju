@@ -5,6 +5,30 @@
 ```{note}
 Juju 2.9 series is LTS
 ```
+### 🔸 **Juju 2.9.60**
+🗓️ 11 Jun 2026
+
+🛠️ Fixes:
+
+#### OCI image repository authentication
+Auth to OCI image repositories was broken due to a couple of issues,
+which are fixed in this release.
+
+fix: include trailing / in oci repo paths when needed by @wallyworld in https://github.com/juju/juju/pull/22554
+fix: token transport for bearer token auth had a typo by @wallyworld in https://github.com/juju/juju/pull/22569
+
+#### Model migration
+When migrating a model containing cross model relations to offers hostsed on the
+same controller, the relations would break because the source controller address
+was not being migrated to the target controller. The fix ensures that cross model
+relations to offers hosted on the original source controller continue to work
+after migration.
+
+fix: ensure external controller addresses are always migrated by @wallyworld in https://github.com/juju/juju/pull/22518
+
+#### Other fixes
+fix: update charmhub find featured query by @wallyworld in https://github.com/juju/juju/pull/22587
+
 ### 🔸 **Juju 2.9.59**
 🗓️ 29 Apr 2026
 
