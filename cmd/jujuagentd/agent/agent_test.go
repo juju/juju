@@ -5,6 +5,7 @@ package agent
 
 import (
 	"testing"
+	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -169,6 +170,63 @@ func (s *machineControllerStartupValueProviderSuite) TestCertMaterialReadsCurren
 	c.Check(material.ControllerPrivateKey, tc.Equals, "key-two")
 }
 
+func (s *machineControllerStartupValueProviderSuite) TestControllerStartupValuesReadCurrentAgentConfig(c *tc.C) {
+	provider := machineControllerStartupValueProvider{
+		agent: &MachineAgent{AgentConfigWriter: &fakeMachineAgentConfigWriter{
+			config: &fakeMachineConfig{
+				dataDir:               "/data/one",
+				caCert:                "ca-one",
+				queryTracingEnabled:   true,
+				queryTracingThreshold: time.Second,
+				dqliteBusyTimeout:     2 * time.Second,
+				dqlitePort:            17666,
+				tag:                   names.NewControllerAgentTag("0"),
+				controllerAgentInfo: controller.ControllerAgentInfo{
+					Cert:       "cert-one",
+					PrivateKey: "key-one",
+				},
+			},
+		}},
+	}
+
+	values, err := provider.ControllerStartupValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.ControllerID, tc.Equals, "0")
+	c.Check(values.DataDir, tc.Equals, "/data/one")
+	c.Check(values.CACert, tc.Equals, "ca-one")
+	c.Check(values.QueryTracingEnabled, tc.Equals, true)
+	c.Check(values.QueryTracingThreshold, tc.Equals, time.Second)
+	c.Check(values.DqliteBusyTimeout, tc.Equals, 2*time.Second)
+	c.Check(values.DqlitePort, tc.Equals, 17666)
+	c.Check(values.ControllerCert, tc.Equals, "cert-one")
+	c.Check(values.ControllerPrivateKey, tc.Equals, "key-one")
+
+	provider.agent.AgentConfigWriter = &fakeMachineAgentConfigWriter{
+		config: &fakeMachineConfig{
+			dataDir:               "/data/two",
+			caCert:                "ca-two",
+			queryTracingThreshold: 3 * time.Second,
+			dqliteBusyTimeout:     4 * time.Second,
+			tag:                   names.NewControllerAgentTag("7"),
+			controllerAgentInfo: controller.ControllerAgentInfo{
+				Cert:       "cert-two",
+				PrivateKey: "key-two",
+			},
+		},
+	}
+	values, err = provider.ControllerStartupValues()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values.ControllerID, tc.Equals, "7")
+	c.Check(values.DataDir, tc.Equals, "/data/two")
+	c.Check(values.CACert, tc.Equals, "ca-two")
+	c.Check(values.QueryTracingEnabled, tc.Equals, false)
+	c.Check(values.QueryTracingThreshold, tc.Equals, 3*time.Second)
+	c.Check(values.DqliteBusyTimeout, tc.Equals, 4*time.Second)
+	c.Check(values.DqlitePort, tc.Equals, 0)
+	c.Check(values.ControllerCert, tc.Equals, "cert-two")
+	c.Check(values.ControllerPrivateKey, tc.Equals, "key-two")
+}
+
 type fakeMachineAgentConfigWriter struct {
 	agentconf.AgentConf
 	config agent.Config
@@ -180,10 +238,15 @@ func (f *fakeMachineAgentConfigWriter) CurrentConfig() agent.Config {
 
 type fakeMachineConfig struct {
 	agent.Config
-	dataDir             string
-	logDir              string
-	caCert              string
-	controllerAgentInfo controller.ControllerAgentInfo
+	dataDir               string
+	logDir                string
+	caCert                string
+	queryTracingEnabled   bool
+	queryTracingThreshold time.Duration
+	dqliteBusyTimeout     time.Duration
+	dqlitePort            int
+	tag                   names.Tag
+	controllerAgentInfo   controller.ControllerAgentInfo
 }
 
 func (f *fakeMachineConfig) DataDir() string {
@@ -196,6 +259,22 @@ func (f *fakeMachineConfig) LogDir() string {
 
 func (f *fakeMachineConfig) CACert() string {
 	return f.caCert
+}
+
+func (f *fakeMachineConfig) QueryTracingEnabled() bool {
+	return f.queryTracingEnabled
+}
+
+func (f *fakeMachineConfig) QueryTracingThreshold() time.Duration {
+	return f.queryTracingThreshold
+}
+
+func (f *fakeMachineConfig) DqliteBusyTimeout() time.Duration {
+	return f.dqliteBusyTimeout
+}
+
+func (f *fakeMachineConfig) DqlitePort() (int, bool) {
+	return f.dqlitePort, f.dqlitePort > 0
 }
 
 func (f *fakeMachineConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
@@ -213,5 +292,8 @@ func (f *fakeMachineConfig) Value(key string) string {
 }
 
 func (f *fakeMachineConfig) Tag() names.Tag {
+	if f.tag != nil {
+		return f.tag
+	}
 	return names.NewMachineTag("0")
 }

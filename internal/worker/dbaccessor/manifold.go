@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"path"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -15,7 +16,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
@@ -23,26 +23,46 @@ import (
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
+// ControllerStartupValues contains the controller-local startup values needed
+// by dbaccessor.
+type ControllerStartupValues struct {
+	ControllerID          string
+	DataDir               string
+	DqlitePort            int
+	QueryTracingEnabled   bool
+	QueryTracingThreshold time.Duration
+	DqliteBusyTimeout     time.Duration
+	CACert                string
+	ControllerCert        string
+	ControllerPrivateKey  string
+}
+
+// ControllerStartupValuesProvider provides controller-local startup values for
+// dbaccessor without dictating where they are sourced from.
+type ControllerStartupValuesProvider interface {
+	ControllerStartupValues() (ControllerStartupValues, error)
+}
+
 // NewDBWorkerFunc creates a tracked db worker.
 type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
-// NewNodeManagerFunc creates a NodeManager from an explicit controller
-// runtime config value object.
+// NewNodeManagerFunc creates a NodeManager from explicit controller startup
+// values.
 type NewNodeManagerFunc func(database.NodeManagerConfig, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
 
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
-	QueryLoggerName             string
-	ControllerAgentConfigName   string
-	ControllerRuntimeConfigPath string
-	Logger                      logger.Logger
-	PrometheusRegisterer        prometheus.Registerer
-	NewApp                      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker                 NewDBWorkerFunc
-	NewNodeManager              NewNodeManagerFunc
-	NewMetricsCollector         func() *Collector
+	QueryLoggerName           string
+	ControllerAgentConfigName string
+	ControllerStartupValues   ControllerStartupValuesProvider
+	Logger                    logger.Logger
+	PrometheusRegisterer      prometheus.Registerer
+	NewApp                    func(string, ...app.Option) (DBApp, error)
+	NewDBWorker               NewDBWorkerFunc
+	NewNodeManager            NewNodeManagerFunc
+	NewMetricsCollector       func() *Collector
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -52,8 +72,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.ControllerAgentConfigName == "" {
 		return errors.NotValidf("empty ControllerAgentConfigName")
 	}
-	if cfg.ControllerRuntimeConfigPath == "" {
-		return errors.NotValidf("empty ControllerRuntimeConfigPath")
+	if cfg.ControllerStartupValues == nil {
+		return errors.NotValidf("nil ControllerStartupValues")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -90,13 +110,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			runtimeCfg, err := controllerruntimeconfig.ReadControllerRuntimeConfig(config.ControllerRuntimeConfigPath)
+			startupValues, err := config.ControllerStartupValues.ControllerStartupValues()
 			if err != nil {
-				return nil, errors.Annotate(err, "reading controller runtime config")
+				return nil, errors.Annotate(err, "reading controller startup values")
 			}
 
-			controllerID := runtimeCfg.ControllerID
-			configPath := path.Join(runtimeCfg.DataDir, "agents", "controller-"+controllerID, "controller.conf")
+			controllerID := startupValues.ControllerID
+			configPath := path.Join(startupValues.DataDir, "agents", "controller-"+controllerID, "controller.conf")
 			controllerConf := controllerConfigReader{configPath: configPath}
 
 			var controllerConfigWatcher controlleragentconfig.ConfigWatcher
@@ -117,14 +137,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			nodeManagerCfg := database.NodeManagerConfig{
-				DataDir:               runtimeCfg.DataDir,
-				DqlitePort:            runtimeCfg.DqlitePort,
-				QueryTracingEnabled:   runtimeCfg.QueryTracingEnabled,
-				QueryTracingThreshold: runtimeCfg.QueryTracingThreshold,
-				DqliteBusyTimeout:     runtimeCfg.DqliteBusyTimeout,
-				CACert:                runtimeCfg.CACert,
-				ControllerCert:        runtimeCfg.ControllerCert,
-				ControllerPrivateKey:  runtimeCfg.ControllerPrivateKey,
+				DataDir:               startupValues.DataDir,
+				DqlitePort:            startupValues.DqlitePort,
+				QueryTracingEnabled:   startupValues.QueryTracingEnabled,
+				QueryTracingThreshold: startupValues.QueryTracingThreshold,
+				DqliteBusyTimeout:     startupValues.DqliteBusyTimeout,
+				CACert:                startupValues.CACert,
+				ControllerCert:        startupValues.ControllerCert,
+				ControllerPrivateKey:  startupValues.ControllerPrivateKey,
 			}
 
 			cfg := WorkerConfig{
