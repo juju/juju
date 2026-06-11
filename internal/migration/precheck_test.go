@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/migration"
@@ -1040,4 +1041,58 @@ func (s *checkTargetSupportsEnvelopeSuite) TestTargetNotRecentEnough(c *tc.C) {
 func (s *checkTargetSupportsEnvelopeSuite) TestTargetSupported(c *tc.C) {
 	err := migration.CheckTargetSupportsEnvelope(migration.MinTargetEnvelopeFacadeVersion)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+type ImportPayloadPrecheckSuite struct{}
+
+func TestImportPayloadPrecheckSuite(t *stdtesting.T) {
+	tc.Run(t, &ImportPayloadPrecheckSuite{})
+}
+
+func (s *ImportPayloadPrecheckSuite) TestEmptyView(c *tc.C) {
+	view := export.StaticCheckView{
+		Applications:                map[string]string{},
+		CharmUUIDsWithManifestBases: set.NewStrings(),
+		ModelConfig:                 map[string]any{},
+	}
+	err := migration.ImportPayloadPrecheck(c.Context(), view)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *ImportPayloadPrecheckSuite) TestCharmsWithNoManifest(c *tc.C) {
+	view := export.StaticCheckView{
+		Applications: map[string]string{
+			"no-manifest-app":    "charm-1",
+			"valid-manifest-app": "charm-2",
+			"also-missing-app":   "charm-3",
+		},
+		CharmUUIDsWithManifestBases: set.NewStrings("charm-2"),
+		ModelConfig:                 map[string]any{},
+	}
+	err := migration.ImportPayloadPrecheck(c.Context(), view)
+	c.Assert(err, tc.ErrorMatches, ".* all charms now require a manifest.yaml file, this model hosts charm\\(s\\) with no manifest.yaml file: also-missing-app, no-manifest-app")
+}
+
+func (s *ImportPayloadPrecheckSuite) TestFanConfig(c *tc.C) {
+	view := export.StaticCheckView{
+		Applications:                map[string]string{},
+		CharmUUIDsWithManifestBases: set.NewStrings(),
+		ModelConfig: map[string]any{
+			"fan-config": "10.0.0.0/8=252.0.0.0/8",
+		},
+	}
+	err := migration.ImportPayloadPrecheck(c.Context(), view)
+	c.Assert(err, tc.ErrorMatches, ".*fan networking not supported, remove fan-config .* from migrating model config")
+}
+
+func (s *ImportPayloadPrecheckSuite) TestContainerNetworkingFan(c *tc.C) {
+	view := export.StaticCheckView{
+		Applications:                map[string]string{},
+		CharmUUIDsWithManifestBases: set.NewStrings(),
+		ModelConfig: map[string]any{
+			"container-networking-method": "fan",
+		},
+	}
+	err := migration.ImportPayloadPrecheck(c.Context(), view)
+	c.Assert(err, tc.ErrorMatches, ".*fan networking not supported, remove container-networking-method \"fan\" from migrating model config")
 }
