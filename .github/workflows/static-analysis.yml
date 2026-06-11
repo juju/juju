@@ -27,7 +27,7 @@ jobs:
         run: ./.github/squid.sh
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
 
@@ -44,7 +44,7 @@ jobs:
             libsqlite3-dev \
             sqlite3
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.6.1
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/main/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.11.3
           sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
           sudo chmod +x /usr/bin/shfmt
 
@@ -61,6 +61,51 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: wagoid/commitlint-github-action@v6
         with:
-          configFile: .github/commitlint.config.mjs
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install commitlint
+        run: |
+          npm install --global @commitlint/cli@19.8.1 @commitlint/config-conventional@19.8.1
+
+      - name: Run commitlint
+        run: |
+          # For PRs, use the base branch to determine which commits to lint
+          # For push events, use the previous commit
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          # Get commits that are in HEAD but not in BASE
+          # Use --first-parent to follow only the first parent of merge commits
+          # This excludes commits brought in by merging other branches
+          COMMITS=$(git rev-list --first-parent --no-merges "${BASE_SHA}..${HEAD_SHA}")
+
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to lint"
+            exit 0
+          fi
+
+          echo "Linting commits:"
+          echo "$COMMITS"
+
+          # Lint each commit
+          EXIT_CODE=0
+          for commit in $COMMITS; do
+            echo ""
+            echo "⧗   input: $(git log -1 --pretty=format:'%s' "$commit")"
+            if ! git log -1 --pretty=format:'%B' "$commit" | commitlint --config "${{ github.workspace }}/.github/commitlint.config.mjs" 2>&1; then
+              EXIT_CODE=1
+            fi
+          done
+
+          exit $EXIT_CODE

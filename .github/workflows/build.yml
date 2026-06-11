@@ -11,7 +11,7 @@ jobs:
       - linux
       - ${{ matrix.platform.host_arch }}
       - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
-      - large
+      - ${{ (github.repository_owner == 'juju' && 'xxlarge') || (github.repository_owner == 'canonical' && 'xlarge') }}
     strategy:
       fail-fast: false
       matrix:
@@ -32,7 +32,7 @@ jobs:
         run: ./.github/squid.sh
 
       - name: "Set up Go"
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
           cache: false
