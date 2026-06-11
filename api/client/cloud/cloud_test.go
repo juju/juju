@@ -159,6 +159,73 @@ func (s *cloudSuite) TestCloudInfo(c *tc.C) {
 	}})
 }
 
+func (s *cloudSuite) TestModelConfigSchema(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	arg := params.ModelConfigSchemaArgs{ProviderType: "dummy"}
+	res := new(params.ModelConfigSchemaResult)
+	results := params.ModelConfigSchemaResult{
+		Schema: map[string]params.ModelConfigSchemaField{
+			"somebool": {
+				Description: "Used to test config validation",
+				Type:        "bool",
+			},
+		},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(8)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelConfigSchema", arg, res).Do(
+		func(_ context.Context, _ string, _ any, result any) {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
+		}).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
+	schema, err := client.ModelConfigSchema(c.Context(), "dummy")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(schema, tc.DeepEquals, map[string]params.ModelConfigSchemaField{
+		"somebool": {
+			Description: "Used to test config validation",
+			Type:        "bool",
+		},
+	})
+}
+
+func (s *cloudSuite) TestModelConfigSchemaError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	arg := params.ModelConfigSchemaArgs{ProviderType: "no-dice"}
+	res := new(params.ModelConfigSchemaResult)
+	results := params.ModelConfigSchemaResult{
+		Error: &params.Error{Message: `cloud provider type "no-dice" not found`},
+	}
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(8)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelConfigSchema", arg, res).Do(
+		func(_ context.Context, _ string, _ any, result any) {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
+		}).Return(nil)
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
+	schema, err := client.ModelConfigSchema(c.Context(), "no-dice")
+	c.Assert(err, tc.ErrorMatches, `cloud provider type "no-dice" not found`)
+	c.Assert(schema, tc.IsNil)
+}
+
+func (s *cloudSuite) TestModelConfigSchemaUnsupported(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(7).AnyTimes()
+	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
+
+	schema, err := client.ModelConfigSchema(c.Context(), "dummy")
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+	c.Assert(schema, tc.IsNil)
+}
+
 func (s *cloudSuite) TestClouds(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

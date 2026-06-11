@@ -96,6 +96,45 @@ type CloudInfoResults struct {
 	Results []CloudInfoResult `json:"results"`
 }
 
+// ModelConfigSchemaArgs holds the provider type for a ModelConfigSchema call.
+type ModelConfigSchemaArgs struct {
+	ProviderType string `json:"provider-type"`
+}
+
+// ModelConfigSchemaResult holds the model config schema for a cloud, or an
+// error if the schema could not be retrieved.
+type ModelConfigSchemaResult struct {
+	// Schema maps a model config attribute name to its schema definition.
+	Schema map[string]ModelConfigSchemaField `json:"schema,omitempty"`
+	Error  *Error                            `json:"error,omitempty"`
+}
+
+// ModelConfigSchemaField describes a single model config attribute within the
+// schema for a cloud.
+type ModelConfigSchemaField struct {
+	// Description holds a human-readable description of the attribute.
+	Description string `json:"description,omitempty"`
+
+	// Type holds the type of the attribute value, e.g. "string", "bool" or
+	// "int".
+	Type string `json:"type,omitempty"`
+
+	// Immutable specifies whether the attribute cannot be changed once set.
+	Immutable bool `json:"immutable,omitempty"`
+
+	// Mandatory specifies whether the attribute must be provided.
+	Mandatory bool `json:"mandatory,omitempty"`
+
+	// Example holds an example value for the attribute.
+	Example any `json:"example,omitempty"`
+
+	// Values holds the set of all possible values of the attribute.
+	Values []any `json:"values,omitempty"`
+
+	// Documentation holds the longform documentation for the attribute.
+	Documentation string `json:"documentation,omitempty"`
+}
+
 // ListCloudsRequest encapsulates how we request a list of cloud details for a user.
 type ListCloudsRequest struct {
 	UserTag string `json:"user-tag"`
