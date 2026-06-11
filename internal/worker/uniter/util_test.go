@@ -788,27 +788,38 @@ func (s *startUniter) expectRemoteStateWatchers(c tc.LikeC, ctx *testContext) {
 		return w, nil
 	}).AnyTimes().After(s.stepped)
 
+	ctx.api.EXPECT().WatchStorageAttachment(gomock.Any(), gomock.Any(), ctx.unit.Tag()).DoAndReturn(
+		func(_ context.Context, storageTag names.StorageTag, _ names.UnitTag) (watcher.NotifyWatcher, error) {
+			ctx.stateMu.Lock()
+			attachment, ok := ctx.storage[storageTag.Id()]
+			ctx.stateMu.Unlock()
+			if !ok {
+				return nil, errors.NotFoundf("storage %s", storageTag.Id())
+			}
+			return watchertest.NewMockNotifyWatcher(attachment.eventCh), nil
+		}).AnyTimes().After(s.stepped)
+
+	ctx.api.EXPECT().StorageAttachment(gomock.Any(), gomock.Any(), ctx.unit.Tag()).DoAndReturn(
+		func(_ context.Context, storageTag names.StorageTag, _ names.UnitTag) (params.StorageAttachment, error) {
+			ctx.stateMu.Lock()
+			defer ctx.stateMu.Unlock()
+			if attachment, ok := ctx.storage[storageTag.Id()]; !attachment.attached || !ok {
+				return params.StorageAttachment{}, errors.NotProvisioned
+			}
+			return params.StorageAttachment{
+				StorageTag: storageTag.String(),
+				UnitTag:    ctx.unit.Tag().String(),
+				Kind:       params.StorageKindFilesystem,
+				Location:   "/path/to/nowhere",
+				Life:       "alive",
+			}, nil
+		}).AnyTimes().After(s.stepped)
+
 	ctx.unit.EXPECT().WatchStorage(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		var storages []string
 		for si, attachment := range ctx.storage {
 			tag := names.NewStorageTag(si)
 			storages = append(storages, tag.Id())
-			storageW := watchertest.NewMockNotifyWatcher(attachment.eventCh)
-			ctx.api.EXPECT().WatchStorageAttachment(gomock.Any(), tag, ctx.unit.Tag()).Return(storageW, nil)
-			ctx.api.EXPECT().StorageAttachment(gomock.Any(), tag, ctx.unit.Tag()).DoAndReturn(func(_ context.Context, _ names.StorageTag, _ names.UnitTag) (params.StorageAttachment, error) {
-				ctx.stateMu.Lock()
-				defer ctx.stateMu.Unlock()
-				if attachment, ok := ctx.storage[tag.Id()]; !attachment.attached || !ok {
-					return params.StorageAttachment{}, errors.NotProvisioned
-				}
-				return params.StorageAttachment{
-					StorageTag: tag.String(),
-					UnitTag:    ctx.unit.Tag().String(),
-					Kind:       params.StorageKindFilesystem,
-					Location:   "/path/to/nowhere",
-					Life:       "alive",
-				}, nil
-			}).AnyTimes()
 			ctx.sendNotify(c, attachment.eventCh, "storage attach event")
 		}
 		ctx.sendStrings(c, ctx.storageCh, "initial storage event", storages...)
