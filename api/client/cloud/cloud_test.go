@@ -175,7 +175,10 @@ func (s *cloudSuite) TestModelConfigSchema(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().BestAPIVersion().Return(8)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelConfigSchema", arg, res).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelConfigSchema", arg, res).Do(
+		func(_ context.Context, _ string, _ any, result any) {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
+		}).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	schema, err := client.ModelConfigSchema(c.Context(), "dummy")
@@ -199,7 +202,10 @@ func (s *cloudSuite) TestModelConfigSchemaError(c *tc.C) {
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().BestAPIVersion().Return(8)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelConfigSchema", arg, res).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelConfigSchema", arg, res).Do(
+		func(_ context.Context, _ string, _ any, result any) {
+			reflect.ValueOf(result).Elem().Set(reflect.ValueOf(results))
+		}).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	schema, err := client.ModelConfigSchema(c.Context(), "no-dice")
