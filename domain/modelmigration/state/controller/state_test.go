@@ -917,6 +917,8 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesCredentialOwner(c *tc.C) 
 	for _, u := range info.Users {
 		if u.Name == ownerName.String() {
 			foundOwner = true
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsFalse)
 		}
 	}
 	c.Check(foundOwner, tc.IsTrue, tc.Commentf("expected credential owner in users, got %#v", info.Users))
@@ -924,8 +926,69 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesCredentialOwner(c *tc.C) 
 	c.Check(info.ModelCredential.Owner, tc.Equals, ownerName.String())
 }
 
+// TestGetControllerModelInfoIncludesExternalCredentialOwner verifies the user
+// profile set keeps the external flag for an external credential owner.
+func (s *stateSuite) TestGetControllerModelInfoIncludesExternalCredentialOwner(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	ownerName, err := user.NewName("credential-owner@external")
+	c.Assert(err, tc.ErrorIsNil)
+	ownerUUID := usertesting.GenUserUUID(c)
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	err = accessState.AddUser(
+		c.Context(),
+		ownerUUID,
+		ownerName,
+		ownerName.Name(),
+		true,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	err = credSt.UpsertCloudCredential(
+		c.Context(), corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: ownerName,
+			Name:  "owner-only-external",
+		},
+		credential.CloudCredentialInfo{
+			Label:    "owner-only-external",
+			AuthType: "access-key",
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var credUUID string
+	err = db.QueryRowContext(c.Context(),
+		`SELECT uuid FROM cloud_credential WHERE owner_uuid = ? AND name = ? AND cloud_uuid = ?`,
+		ownerUUID, "owner-only-external", s.cloudUUID).Scan(&credUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		`UPDATE model SET cloud_credential_uuid = ? WHERE uuid = ?`,
+		credUUID, s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var foundOwner bool
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			foundOwner = true
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsTrue)
+		}
+	}
+	c.Check(foundOwner, tc.IsTrue, tc.Commentf("expected external credential owner in users, got %#v", info.Users))
+}
+
 // TestGetControllerModelInfoIncludesModelQualifierUser verifies the user
-// profile set includes the model qualifier when it exists as an active user.
+// profile set includes the model qualifier when it exists as a user.
 func (s *stateSuite) TestGetControllerModelInfoIncludesModelQualifierUser(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 	db := s.DB()
@@ -967,9 +1030,50 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesModelQualifierUser(c *tc.
 	info, err = st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
+	foundQualifier = false
 	for _, u := range info.Users {
-		c.Check(u.Name, tc.Not(tc.Equals), ownerName.String())
+		if u.Name == ownerName.String() {
+			foundQualifier = true
+			c.Check(u.Removed, tc.IsTrue)
+		}
 	}
+	c.Check(foundQualifier, tc.IsTrue, tc.Commentf(
+		"expected removed qualifier user in users, got %#v", info.Users,
+	))
+
+	replacementUUID := usertesting.GenUserUUID(c)
+	err = accessState.AddUser(
+		c.Context(),
+		replacementUUID,
+		ownerName,
+		"replacement",
+		false,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err = st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var qualifierUsers []modelmigration.ModelUser
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			qualifierUsers = append(qualifierUsers, u)
+		}
+	}
+	c.Assert(qualifierUsers, tc.HasLen, 2)
+	var foundRemoved, foundReplacement bool
+	for _, u := range qualifierUsers {
+		if u.Removed {
+			foundRemoved = true
+			continue
+		}
+		if u.DisplayName == "replacement" {
+			foundReplacement = true
+		}
+	}
+	c.Check(foundRemoved, tc.IsTrue)
+	c.Check(foundReplacement, tc.IsTrue)
 }
 
 // TestGetControllerModelInfoIncludesAuthorizedKeyOwner verifies the user
@@ -1015,6 +1119,8 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesAuthorizedKeyOwner(c *tc.
 	for _, u := range info.Users {
 		if u.Name == ownerName.String() {
 			foundOwner = true
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsFalse)
 		}
 	}
 	c.Check(foundOwner, tc.IsTrue, tc.Commentf("expected key owner in users, got %#v", info.Users))
@@ -1149,6 +1255,8 @@ func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	for _, u := range info.Users {
 		if u.Name == "test-user" {
 			lastLogin = u.LastLogin
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsFalse)
 		}
 	}
 	c.Assert(lastLogin, tc.NotNil)

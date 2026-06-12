@@ -1101,7 +1101,7 @@ func (s *State) GetControllerModelInfo(
 // credential and life resolved to natural keys.
 func (s *State) getModelIdentity(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) (modelmigration.ModelBootstrapInfo, error) {
+) (modelmigration.ModelIdentityInfo, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	stmt, err := s.Prepare(`
 SELECT m.uuid AS &modelIdentityRow.uuid,
@@ -1123,18 +1123,18 @@ LEFT JOIN user AS cco ON cco.uuid = cc.owner_uuid
 WHERE  m.uuid = $modelUUIDArg.model_uuid
 `, mUUID, modelIdentityRow{})
 	if err != nil {
-		return modelmigration.ModelBootstrapInfo{}, errors.Capture(err)
+		return modelmigration.ModelIdentityInfo{}, errors.Capture(err)
 	}
 
 	var identity modelIdentityRow
 	if err := tx.Query(ctx, stmt, mUUID).Get(&identity); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return modelmigration.ModelBootstrapInfo{}, errors.Errorf("model %q not found", modelUUID)
+			return modelmigration.ModelIdentityInfo{}, errors.Errorf("model %q not found", modelUUID)
 		}
-		return modelmigration.ModelBootstrapInfo{}, errors.Errorf("querying model identity: %w", err)
+		return modelmigration.ModelIdentityInfo{}, errors.Errorf("querying model identity: %w", err)
 	}
 
-	return modelmigration.ModelBootstrapInfo{
+	return modelmigration.ModelIdentityInfo{
 		UUID:            identity.UUID,
 		Name:            identity.Name,
 		Qualifier:       identity.Qualifier,
@@ -1296,7 +1296,9 @@ WHERE  vak.model_uuid = $modelUUIDArg.model_uuid
 }
 
 // getUsers reads the non-authentication profiles of the named users, with each
-// user's last login against the model joined in. Removed users are ignored.
+// user's last login against the model joined in. Usernames are semantic keys in
+// the migration payload, but export preserves every referenced controller user
+// row for a name so removed rows continue to carry provenance and FK support.
 func (s *State) getUsers(
 	ctx context.Context, tx *sqlair.TX, modelUUID string, names []string,
 ) ([]modelmigration.ModelUser, error) {
@@ -1310,12 +1312,14 @@ SELECT u.name AS &userRow.name,
        u.display_name AS &userRow.display_name,
        cb.name AS &userRow.created_by,
        u.created_at AS &userRow.created_at,
+       u.removed AS &userRow.removed,
+       u.external AS &userRow.external,
        mll.time AS &userRow.last_login
 FROM   user AS u
 LEFT JOIN user AS cb ON cb.uuid = u.created_by_uuid
 LEFT JOIN model_last_login AS mll
        ON mll.user_uuid = u.uuid AND mll.model_uuid = $modelUUIDArg.model_uuid
-WHERE  u.removed = FALSE AND u.name IN ($nameList[:])
+WHERE  u.name IN ($nameList[:])
 `, mUUID, userRow{}, nameList{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1333,6 +1337,8 @@ WHERE  u.removed = FALSE AND u.name IN ($nameList[:])
 			DisplayName: derefString(u.DisplayName),
 			CreatedBy:   derefString(u.CreatedBy),
 			CreatedAt:   u.CreatedAt,
+			Removed:     u.Removed,
+			External:    u.External,
 			LastLogin:   u.LastLogin,
 		})
 	}
@@ -1575,7 +1581,7 @@ WHERE  controller_uuid IN ($uuidList[:])
 // qualifier, the credential owner, permission subjects and authorized-key
 // owners. First-seen order is preserved.
 func modelUserNames(
-	identity modelmigration.ModelBootstrapInfo,
+	identity modelmigration.ModelIdentityInfo,
 	perms []modelmigration.ModelPermission,
 	authKeys []modelmigration.ModelAuthorizedKey,
 ) []string {

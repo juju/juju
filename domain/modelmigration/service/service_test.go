@@ -515,7 +515,7 @@ func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
 		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
 	}
 	expected := modelmigration.ControllerModelInfo{
-		ModelInfo: modelmigration.ModelBootstrapInfo{UUID: s.modelUUID, Name: "prod"},
+		ModelInfo: modelmigration.ModelIdentityInfo{UUID: s.modelUUID, Name: "prod"},
 	}
 
 	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(offerUUIDs, nil)

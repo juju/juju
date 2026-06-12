@@ -171,6 +171,8 @@ type userRow struct {
 	DisplayName *string    `db:"display_name"`
 	CreatedBy   *string    `db:"created_by"`
 	CreatedAt   time.Time  `db:"created_at"`
+	Removed     bool       `db:"removed"`
+	External    bool       `db:"external"`
 	LastLogin   *time.Time `db:"last_login"`
 }
 

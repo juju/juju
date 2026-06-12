@@ -157,8 +157,9 @@ type SerializedModelV2 struct {
 	// ModelNamespace maps the model UUID to its dqlite namespace name.
 	ModelNamespace ModelNamespace `json:"model-namespace"`
 
-	// Users are the external model users/access principals to recreate or
-	// compare on the target. Authentication material is never carried.
+	// Users are the controller users referenced by the migrated model, carried
+	// by username for recreation or comparison on the target. Authentication
+	// material is never carried.
 	Users []ModelUser `json:"users,omitempty"`
 
 	// ModelCredential is the model's cloud credential, carried by natural key
@@ -247,9 +248,9 @@ type ModelNamespace struct {
 	Namespace string `json:"namespace"`
 }
 
-// ModelUser is the non-authentication profile of an external user with access
-// to the model or its hosted offers, used by the target to recreate a missing
-// user or compare an existing one by username.
+// ModelUser is the non-authentication profile of a controller user referenced
+// by the migrated model, used by the target to recreate a missing user or
+// compare an existing one by username.
 type ModelUser struct {
 	// Name is the username (natural key).
 	Name string `json:"name"`
@@ -259,6 +260,10 @@ type ModelUser struct {
 	CreatedBy string `json:"created-by,omitempty"`
 	// CreatedAt is when the user was created.
 	CreatedAt time.Time `json:"created-at,omitempty"`
+	// Removed reports whether the source controller user row was marked removed.
+	Removed bool `json:"removed,omitempty"`
+	// External reports whether the source controller user row is external.
+	External bool `json:"external,omitempty"`
 }
 
 // ModelCloudCredential is the model's cloud credential carried by natural key

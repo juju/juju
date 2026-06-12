@@ -57,8 +57,8 @@ type Migration struct {
 // and credentials by natural key, and secret backends by name.
 type ControllerModelInfo struct {
 	// ModelInfo is the model's bootstrap identity.
-	ModelInfo ModelBootstrapInfo
-	// Users are the external users with access to the model or its hosted offers.
+	ModelInfo ModelIdentityInfo
+	// Users are the controller users referenced by the migrated model.
 	Users []ModelUser
 	// ModelCredential is the model's cloud credential, or nil if it has none.
 	ModelCredential *ModelCloudCredential
@@ -83,9 +83,9 @@ type ControllerModelInfo struct {
 	ExternalControllers []ExternalController
 }
 
-// ModelBootstrapInfo is the model's bootstrap identity, with cloud, region and
+// ModelIdentityInfo is the model's bootstrap identity, with cloud, region and
 // credential carried by natural key.
-type ModelBootstrapInfo struct {
+type ModelIdentityInfo struct {
 	UUID            string
 	Name            string
 	Qualifier       string
@@ -97,14 +97,16 @@ type ModelBootstrapInfo struct {
 	Life            string
 }
 
-// ModelUser is the non-authentication profile of an external user with access
-// to the model or its hosted offers. LastLogin is the user's last login time
-// against this model, or nil if the user never logged in to it.
+// ModelUser is the non-authentication profile of a controller user referenced
+// by the migrated model. LastLogin is the user's last login time against this
+// model, or nil if the user never logged in to it.
 type ModelUser struct {
 	Name        string
 	DisplayName string
 	CreatedBy   string
 	CreatedAt   time.Time
+	Removed     bool
+	External    bool
 	LastLogin   *time.Time
 }
 
