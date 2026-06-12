@@ -33,6 +33,7 @@ import (
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -215,6 +216,8 @@ type replMachineAgent struct {
 
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
+	controllerUnlocker gate.Lock
+
 	isCaasAgent bool
 }
 
@@ -247,6 +250,9 @@ func (a *replMachineAgent) Run(ctx *cmd.Context) (err error) {
 	agentConfig := a.CurrentConfig()
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
+
+	a.controllerUnlocker = gate.NewLock()
+	a.controllerUnlocker.Unlock()
 
 	createEngine := a.makeEngineCreator(ctx.Stdout, ctx.Stderr, ctx.Stdin)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
@@ -292,6 +298,7 @@ func (a *replMachineAgent) makeEngineCreator(
 			Agent:               agent.APIHostPortsSetter{Agent: a},
 			AgentConfigChanged:  a.configChangedVal,
 			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
+			ControllerUnlocker:  a.controllerUnlocker,
 			Clock:               clock.WallClock,
 
 			Stdout: stdout,

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbrepl"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
@@ -36,6 +37,12 @@ type ManifoldsConfig struct {
 
 	// NewDBReplWorkerFunc returns a tracked db worker.
 	NewDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
+
+	// ControllerUnlocker is passed to allow the controller agent config
+	// manifold to unlock the controller agent config ready lock when the
+	// controller agent config is ready. This isn't strictly required for
+	// the db-repl, but it is a dependency.
+	ControllerUnlocker gate.Lock
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
@@ -93,6 +100,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
+			ReadyUnlocker:     config.ControllerUnlocker,
 		})),
 
 		// The db-repl manifold is responsible for managing the
