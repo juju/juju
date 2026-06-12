@@ -12,15 +12,14 @@ package auditconfigupdater
 import (
 	time "time"
 
-	names "github.com/juju/names/v6"
-	shell "github.com/juju/utils/v4/shell"
-	gomock "go.uber.org/mock/gomock"
-
+	gomock "github.com/canonical/gomock/gomock"
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	semversion "github.com/juju/juju/core/semversion"
+	names "github.com/juju/names/v6"
+	shell "github.com/juju/utils/v4/shell"
 )
 
 // MockAgent is a mock of Agent interface.
@@ -109,6 +108,8 @@ type MockConfigMockRecorder struct {
 	jobsExpects                               []*gomock.Call0_1[[]model.MachineJob]
 	logDirExpects                             []*gomock.Call0_1[string]
 	loggingConfigExpects                      []*gomock.Call0_1[string]
+	lokiCACertExpects                         []*gomock.Call0_1[string]
+	lokiEndpointExpects                       []*gomock.Call0_1[string]
 	metricsSpoolDirExpects                    []*gomock.Call0_1[string]
 	modelExpects                              []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                              []*gomock.Call0_1[string]
@@ -396,78 +397,38 @@ type MockConfigLoggingConfigCall = gomock.Call0_1[string]
 // LokiCACert mocks base method.
 func (m *MockConfig) LokiCACert() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LokiCACert")
-	ret0, _ := ret[0].(string)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.lokiCACertExpects, m.ctrl, m, "LokiCACert")
 }
 
 // LokiCACert indicates an expected call of LokiCACert.
 func (mr *MockConfigMockRecorder) LokiCACert() *MockConfigLokiCACertCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LokiCACert", reflect.TypeOf((*MockConfig)(nil).LokiCACert))
-	return &MockConfigLokiCACertCall{Call: call}
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiCACert")
+	mr.lokiCACertExpects = append(mr.lokiCACertExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
-// MockConfigLokiCACertCall wrap *gomock.Call
-type MockConfigLokiCACertCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigLokiCACertCall) Return(arg0 string) *MockConfigLokiCACertCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigLokiCACertCall) Do(f func() string) *MockConfigLokiCACertCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigLokiCACertCall) DoAndReturn(f func() string) *MockConfigLokiCACertCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
+// MockConfigLokiCACertCall is the typed call wrapper for LokiCACert.
+type MockConfigLokiCACertCall = gomock.Call0_1[string]
 
 // LokiEndpoint mocks base method.
 func (m *MockConfig) LokiEndpoint() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LokiEndpoint")
-	ret0, _ := ret[0].(string)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.lokiEndpointExpects, m.ctrl, m, "LokiEndpoint")
 }
 
 // LokiEndpoint indicates an expected call of LokiEndpoint.
 func (mr *MockConfigMockRecorder) LokiEndpoint() *MockConfigLokiEndpointCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LokiEndpoint", reflect.TypeOf((*MockConfig)(nil).LokiEndpoint))
-	return &MockConfigLokiEndpointCall{Call: call}
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiEndpoint")
+	mr.lokiEndpointExpects = append(mr.lokiEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
-// MockConfigLokiEndpointCall wrap *gomock.Call
-type MockConfigLokiEndpointCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockConfigLokiEndpointCall) Return(arg0 string) *MockConfigLokiEndpointCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockConfigLokiEndpointCall) Do(f func() string) *MockConfigLokiEndpointCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockConfigLokiEndpointCall) DoAndReturn(f func() string) *MockConfigLokiEndpointCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
+// MockConfigLokiEndpointCall is the typed call wrapper for LokiEndpoint.
+type MockConfigLokiEndpointCall = gomock.Call0_1[string]
 
 // MetricsSpoolDir mocks base method.
 func (m *MockConfig) MetricsSpoolDir() string {
