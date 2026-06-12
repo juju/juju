@@ -332,7 +332,7 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 }
 
 func (w *Worker) withMetrics(endpoint string, handler http.Handler) http.Handler {
-	return metricsMiddleware(handler, w.metrics, endpoint)
+	return loggingMiddleware(metricsMiddleware(handler, w.metrics, endpoint), w.logger)
 }
 
 type addMetricsUserBody struct {

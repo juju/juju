@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -63,6 +64,13 @@ func contentLengthMiddleware(next http.Handler, errorWriter MiddlewareErrorWrite
 
 		r.Body = http.MaxBytesReader(resp, r.Body, maxPayloadBytes)
 
+		next.ServeHTTP(resp, r)
+	})
+}
+
+func loggingMiddleware(next http.Handler, logger logger.Logger) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, r *http.Request) {
+		logger.Debugf(r.Context(), "Received request: %s %s", r.Method, r.URL.Path)
 		next.ServeHTTP(resp, r)
 	})
 }
