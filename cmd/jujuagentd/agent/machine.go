@@ -57,7 +57,6 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/container/broker"
-	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -89,6 +88,25 @@ import (
 // values.
 type machineControllerStartupValueProvider struct {
 	agent *MachineAgent
+}
+
+// ControllerStartupValues returns the current controller-local dbaccessor
+// startup values from agent config.
+func (p machineControllerStartupValueProvider) ControllerStartupValues() (dbaccessor.ControllerStartupValues, error) {
+	cfg := p.agent.CurrentConfig()
+	info, _ := cfg.ControllerAgentInfo()
+	dqlitePort, _ := cfg.DqlitePort()
+	return dbaccessor.ControllerStartupValues{
+		ControllerID:          cfg.Tag().Id(),
+		DataDir:               cfg.DataDir(),
+		DqlitePort:            dqlitePort,
+		QueryTracingEnabled:   cfg.QueryTracingEnabled(),
+		QueryTracingThreshold: cfg.QueryTracingThreshold(),
+		DqliteBusyTimeout:     cfg.DqliteBusyTimeout(),
+		CACert:                cfg.CACert(),
+		ControllerCert:        info.Cert,
+		ControllerPrivateKey:  info.PrivateKey,
+	}, nil
 }
 
 // CertMaterial returns the current controller certificate material from agent
@@ -592,9 +610,6 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 
 		clock := clock.WallClock
-		controllerRuntimeConfigPath := controllerruntimeconfig.ConfigPath(
-			filepath.Join(agentConfig.DataDir(), "agents", "controller-"+agentConfig.Tag().Id()),
-		)
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
 		startupValueProvider := machineControllerStartupValueProvider{agent: a}
 
@@ -605,7 +620,7 @@ func (a *MachineAgent) makeEngineCreator(
 			ObjectStoreRootDirReader:          startupValueProvider,
 			ControllerUUID:                    agentConfig.Controller().Id(),
 			ControllerModelUUID:               agentConfig.Model().Id(),
-			ControllerRuntimeConfigPath:       controllerRuntimeConfigPath,
+			ControllerStartupValues:           startupValueProvider,
 			ControllerAgentTag:                agentConfig.Tag(),
 			LogDir:                            agentConfig.LogDir(),
 			CertReader:                        startupValueProvider,

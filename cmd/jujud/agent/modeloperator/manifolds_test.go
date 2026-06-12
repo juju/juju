@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujuagentd/agent/modeloperator"
+	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	"github.com/juju/juju/internal/testing"
 )
 

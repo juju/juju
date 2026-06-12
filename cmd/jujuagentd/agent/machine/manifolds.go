@@ -156,12 +156,9 @@ type ManifoldsConfig struct {
 	// up from agent config at worker start.
 	ControllerModelUUID string
 
-	// ControllerRuntimeConfigPath is the absolute path to the
-	// controller runtime config file (runtime.conf) written at
-	// bootstrap. It is passed to the db-accessor manifold so that the
-	// worker can read its own connection parameters without going
-	// through the legacy agent.Config.
-	ControllerRuntimeConfigPath string
+	// ControllerStartupValues provides the controller-local startup values
+	// needed by dbaccessor from agent config.
+	ControllerStartupValues dbaccessor.ControllerStartupValuesProvider
 
 	// CertReader returns the current controller certificate material.
 	CertReader apiservercertwatcher.CertReader
@@ -619,10 +616,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:  domainServicesName,
 			MuxName:             httpServerArgsName,
 			APIServerName:       apiServerName,
-			AgentName:           config.AgentName,
 			Clock:               config.Clock,
 			MuxShutdownWait:     config.MuxShutdownWait,
-			LogDir:              agentConfig.LogDir(),
 			Logger:              internallogger.GetLogger("juju.worker.httpserver"),
 			GetControllerConfig: httpserver.GetControllerConfig,
 			NewTLSConfig:        httpserver.NewTLSConfig,
@@ -695,7 +690,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogSinkName:                 logSinkName,
 			Logger:                      internallogger.GetLogger("juju.worker.services"),
 			Clock:                       config.Clock,
-			LogDir:                      agentConfig.LogDir(),
+			LogDir:                      config.LogDir,
 			NewWorker:                   workerdomainservices.NewWorker,
 			NewDomainServicesGetter:     workerdomainservices.NewDomainServicesGetter,
 			NewControllerDomainServices: workerdomainservices.NewControllerDomainServices,
@@ -1104,15 +1099,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// DBAccessor is a manifold that provides a DBAccessor worker
 		// that can be used to access the database.
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:             queryLoggerName,
-			ControllerAgentConfigName:   controllerAgentConfigName,
-			ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
-			Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:        config.PrometheusRegisterer,
-			NewApp:                      dbaccessor.NewApp,
-			NewDBWorker:                 config.NewDBWorkerFunc,
-			NewMetricsCollector:         dbaccessor.NewMetricsCollector,
-			NewNodeManager:              dbaccessor.IAASNodeManager,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.IAASNodeManager,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -1339,15 +1334,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// DBAccessor is a manifold that provides a DBAccessor worker
 		// that can be used to access the database.
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:             queryLoggerName,
-			ControllerAgentConfigName:   controllerAgentConfigName,
-			ControllerRuntimeConfigPath: config.ControllerRuntimeConfigPath,
-			Logger:                      internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:        config.PrometheusRegisterer,
-			NewApp:                      dbaccessor.NewApp,
-			NewDBWorker:                 config.NewDBWorkerFunc,
-			NewMetricsCollector:         dbaccessor.NewMetricsCollector,
-			NewNodeManager:              dbaccessor.CAASNodeManager,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.CAASNodeManager,
 		})),
 	})
 }
@@ -1474,68 +1469,68 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	apiAddressSetterName          = "api-address-setter"
-	apiAddressUpdaterName         = "api-address-updater"
-	apiServerName                 = "api-server"
-	apiRemoteCallerName           = "api-remote-caller"
-	apiRemoteRelationCallerName   = "api-remote-relation-caller"
-	auditConfigUpdaterName        = "audit-config-updater"
-	authenticationWorkerName      = "ssh-authkeys-updater"
-	brokerTrackerName             = "broker-tracker"
-	certificateUpdaterName        = "certificate-updater"
-	certificateWatcherName        = "certificate-watcher"
-	changeStreamName              = "change-stream"
-	changeStreamPrunerName        = "change-stream-pruner"
-	controllerAgentConfigName     = "controller-agent-config"
+	apiAddressSetterName               = "api-address-setter"
+	apiAddressUpdaterName              = "api-address-updater"
+	apiServerName                      = "api-server"
+	apiRemoteCallerName                = "api-remote-caller"
+	apiRemoteRelationCallerName        = "api-remote-relation-caller"
+	auditConfigUpdaterName             = "audit-config-updater"
+	authenticationWorkerName           = "ssh-authkeys-updater"
+	brokerTrackerName                  = "broker-tracker"
+	certificateUpdaterName             = "certificate-updater"
+	certificateWatcherName             = "certificate-watcher"
+	changeStreamName                   = "change-stream"
+	changeStreamPrunerName             = "change-stream-pruner"
+	controllerAgentConfigName          = "controller-agent-config"
 	controllerAgentConfigReadyGateName = "controller-agent-config-ready-gate"
 	controllerAgentConfigReadyFlagName = "controller-agent-config-ready-flag"
-	controllerPresenceName        = "controller-presence"
-	controlSocketName             = "control-socket"
-	dbAccessorName                = "db-accessor"
-	deployerName                  = "deployer"
-	diskManagerName               = "disk-manager"
-	domainServicesName            = "domain-services"
-	externalControllerUpdaterName = "external-controller-updater"
-	fileNotifyWatcherName         = "file-notify-watcher"
-	hostKeyReporterName           = "host-key-reporter"
-	httpClientName                = "http-client"
-	httpServerArgsName            = "http-server-args"
-	httpServerName                = "http-server"
-	identityFileWriterName        = "ssh-identity-writer"
-	isControllerFlagName          = "is-controller-flag"
-	isNotControllerFlagName       = "is-not-controller-flag"
-	isPrimaryControllerFlagName   = "is-primary-controller-flag"
-	jwtParserName                 = "jwt-parser"
-	leaseExpiryName               = "lease-expiry"
-	leaseManagerName              = "lease-manager"
-	loggingConfigUpdaterName      = "logging-config-updater"
-	logSinkName                   = "log-sink"
-	lxdContainerProvisioner       = "lxd-container-provisioner"
-	machineActionName             = "machine-action-runner"
-	machinerName                  = "machiner"
-	modelWorkerManagerName        = "model-worker-manager"
-	objectStoreName               = "object-store"
-	objectStoreS3CallerName       = "object-store-s3-caller"
-	objectStoreServicesName       = "object-store-services"
-	objectStoreFortressName       = "object-store-fortress"
-	objectStoreFacadeName         = "object-store-facade"
-	objectStoreDrainerName        = "object-store-drainer"
-	providerDomainServicesName    = "provider-services"
-	providerTrackerName           = "provider-tracker"
-	proxyConfigUpdater            = "proxy-config-updater"
-	queryLoggerName               = "query-logger"
-	rebootName                    = "reboot-executor"
-	secretBackendRotateName       = "secret-backend-rotate"
-	sshServerName                 = "ssh-server"
-	machineConverterName          = "machine-converter"
-	storageProvisionerName        = "storage-provisioner"
-	storageRegistryName           = "storage-registry"
-	toolsVersionCheckerName       = "tools-version-checker"
+	controllerPresenceName             = "controller-presence"
+	controlSocketName                  = "control-socket"
+	dbAccessorName                     = "db-accessor"
+	deployerName                       = "deployer"
+	diskManagerName                    = "disk-manager"
+	domainServicesName                 = "domain-services"
+	externalControllerUpdaterName      = "external-controller-updater"
+	fileNotifyWatcherName              = "file-notify-watcher"
+	hostKeyReporterName                = "host-key-reporter"
+	httpClientName                     = "http-client"
+	httpServerArgsName                 = "http-server-args"
+	httpServerName                     = "http-server"
+	identityFileWriterName             = "ssh-identity-writer"
+	isControllerFlagName               = "is-controller-flag"
+	isNotControllerFlagName            = "is-not-controller-flag"
+	isPrimaryControllerFlagName        = "is-primary-controller-flag"
+	jwtParserName                      = "jwt-parser"
+	leaseExpiryName                    = "lease-expiry"
+	leaseManagerName                   = "lease-manager"
+	loggingConfigUpdaterName           = "logging-config-updater"
+	logSinkName                        = "log-sink"
+	lxdContainerProvisioner            = "lxd-container-provisioner"
+	machineActionName                  = "machine-action-runner"
+	machinerName                       = "machiner"
+	modelWorkerManagerName             = "model-worker-manager"
+	objectStoreName                    = "object-store"
+	objectStoreS3CallerName            = "object-store-s3-caller"
+	objectStoreServicesName            = "object-store-services"
+	objectStoreFortressName            = "object-store-fortress"
+	objectStoreFacadeName              = "object-store-facade"
+	objectStoreDrainerName             = "object-store-drainer"
+	providerDomainServicesName         = "provider-services"
+	providerTrackerName                = "provider-tracker"
+	proxyConfigUpdater                 = "proxy-config-updater"
+	queryLoggerName                    = "query-logger"
+	rebootName                         = "reboot-executor"
+	secretBackendRotateName            = "secret-backend-rotate"
+	sshServerName                      = "ssh-server"
+	machineConverterName               = "machine-converter"
+	storageProvisionerName             = "storage-provisioner"
+	storageRegistryName                = "storage-registry"
+	toolsVersionCheckerName            = "tools-version-checker"
 	controllerTraceName                = "controller-trace"
-	traceName                     = "trace"
+	traceName                          = "trace"
 	traceServicesName                  = "trace-services"
-	validCredentialFlagName       = "valid-credential-flag"
-	undertakerName                = "undertaker"
-	machineSetupName              = "machine-setup"
-	watcherRegistryName           = "watcher-registry"
+	validCredentialFlagName            = "valid-credential-flag"
+	undertakerName                     = "undertaker"
+	machineSetupName                   = "machine-setup"
+	watcherRegistryName                = "watcher-registry"
 )
