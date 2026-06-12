@@ -234,28 +234,6 @@ const (
 	// same database.
 	DqliteBusyTimeout = "dqlite-busy-timeout"
 
-	// OpenTelemetryEnabled returns whether open telemetry is enabled.
-	OpenTelemetryEnabled = "open-telemetry-enabled"
-
-	// OpenTelemetryEndpoint returns the endpoint at which the telemetry will
-	// be pushed to.
-	OpenTelemetryEndpoint = "open-telemetry-endpoint"
-
-	// OpenTelemetryInsecure returns if the telemetry collector endpoint is
-	// insecure or not. Useful for debug or local testing.
-	OpenTelemetryInsecure = "open-telemetry-insecure"
-
-	// OpenTelemetryStackTraces return whether stack traces should be added per
-	// span.
-	OpenTelemetryStackTraces = "open-telemetry-stack-traces"
-
-	// OpenTelemetrySampleRatio returns the sample ratio for open telemetry.
-	OpenTelemetrySampleRatio = "open-telemetry-sample-ratio"
-
-	// OpenTelemetryTailSamplingThreshold returns the tail sampling threshold
-	// for open telemetry as a duration.
-	OpenTelemetryTailSamplingThreshold = "open-telemetry-tail-sampling-threshold"
-
 	// SystemSSHKeys returns the set of ssh keys that should be trusted by
 	// agents of this controller regardless of the model.
 	SystemSSHKeys = "system-ssh-keys"
@@ -416,27 +394,6 @@ const (
 	// listed in apiserver/observer/auditfilter.go
 	DefaultAuditLogExcludeMethods = ReadOnlyMethodsWildcard
 
-	// DefaultOpenTelemetryEnabled is the default value for if the open
-	// telemetry tracing is enabled or not.
-	DefaultOpenTelemetryEnabled = false
-
-	// DefaultOpenTelemetryInsecure is the default value for it the open
-	// telemetry tracing endpoint is insecure or not.
-	DefaultOpenTelemetryInsecure = false
-
-	// DefaultOpenTelemetryStackTraces is the default value for it the open
-	// telemetry tracing has stack traces or not.
-	DefaultOpenTelemetryStackTraces = false
-
-	// DefaultOpenTelemetrySampleRatio is the default value for the sample
-	// ratio for open telemetry.
-	// By default we only want to trace 10% of the requests.
-	DefaultOpenTelemetrySampleRatio = 0.1
-
-	// DefaultOpenTelemetryTailSamplingThreshold is the default value for the
-	// tail sampling threshold for open telemetry.
-	DefaultOpenTelemetryTailSamplingThreshold = 1 * time.Millisecond
-
 	// DefaultJujudControllerSnapSource is the default value for the jujud controller
 	// snap source, which is the snapstore.
 	// TODO(jujud-controller-snap): change this to "snapstore" once it is implemented.
@@ -506,12 +463,6 @@ var (
 		QueryTracingEnabled,
 		QueryTracingThreshold,
 		DqliteBusyTimeout,
-		OpenTelemetryEnabled,
-		OpenTelemetryEndpoint,
-		OpenTelemetryInsecure,
-		OpenTelemetryStackTraces,
-		OpenTelemetrySampleRatio,
-		OpenTelemetryTailSamplingThreshold,
 		SystemSSHKeys,
 		JujudControllerSnapSource,
 		SSHMaxConcurrentConnections,
@@ -557,12 +508,6 @@ var (
 		MigrationMinionWaitMax,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
-		OpenTelemetryEnabled,
-		OpenTelemetryEndpoint,
-		OpenTelemetryInsecure,
-		OpenTelemetryStackTraces,
-		OpenTelemetrySampleRatio,
-		OpenTelemetryTailSamplingThreshold,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		PublicDNSAddress,
@@ -1028,44 +973,6 @@ func (c Config) DqliteBusyTimeout() time.Duration {
 	return c.durationOrDefault(DqliteBusyTimeout, DefaultDqliteBusyTimeout)
 }
 
-// OpenTelemetryEnabled returns whether open telemetry tracing is enabled.
-func (c Config) OpenTelemetryEnabled() bool {
-	return c.boolOrDefault(OpenTelemetryEnabled, DefaultOpenTelemetryEnabled)
-}
-
-// OpenTelemetryEndpoint returns the open telemetry endpoint.
-func (c Config) OpenTelemetryEndpoint() string {
-	return c.asString(OpenTelemetryEndpoint)
-}
-
-// OpenTelemetryInsecure returns whether open telemetry tracing endpoint is
-// insecure or not.
-func (c Config) OpenTelemetryInsecure() bool {
-	return c.boolOrDefault(OpenTelemetryInsecure, DefaultOpenTelemetryInsecure)
-}
-
-// OpenTelemetryStackTraces returns whether open telemetry tracing spans
-// requires to have stack traces.
-func (c Config) OpenTelemetryStackTraces() bool {
-	return c.boolOrDefault(OpenTelemetryStackTraces, DefaultOpenTelemetryStackTraces)
-}
-
-// OpenTelemetrySampleRatio returns whether open telemetry tracing spans
-// requires to have stack traces.
-func (c Config) OpenTelemetrySampleRatio() float64 {
-	f, err := parseRatio(c, OpenTelemetrySampleRatio)
-	if err == nil {
-		return f
-	}
-	return DefaultOpenTelemetrySampleRatio
-}
-
-// OpenTelemetryTailSamplingThreshold returns the tail sampling threshold
-// for open telemetry tracing spans.
-func (c Config) OpenTelemetryTailSamplingThreshold() time.Duration {
-	return c.durationOrDefault(OpenTelemetryTailSamplingThreshold, DefaultOpenTelemetryTailSamplingThreshold)
-}
-
 // SSHServerPort returns the port the SSH server listens on.
 func (c Config) SSHServerPort() int {
 	return c.intOrDefault(SSHServerPort, DefaultSSHServerPort)
@@ -1302,22 +1209,6 @@ func Validate(c Config) error {
 	} else if err == nil {
 		if v < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", DqliteBusyTimeout, v)
-		}
-	}
-
-	if v, err := parseRatio(c, OpenTelemetrySampleRatio); err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Annotatef(err, "%s", OpenTelemetrySampleRatio)
-	} else if err == nil {
-		if v < 0 || v > 1 {
-			return errors.Errorf("%s value %f must be a ratio between 0 and 1", OpenTelemetrySampleRatio, v)
-		}
-	}
-
-	if v, err := parseDuration(c, OpenTelemetryTailSamplingThreshold); err != nil && !errors.Is(err, errors.NotFound) {
-		return errors.Annotatef(err, "parsing %s in configuration", OpenTelemetryTailSamplingThreshold)
-	} else if err == nil {
-		if v < 0 {
-			return errors.Errorf("%s value %q must be a positive duration", OpenTelemetryTailSamplingThreshold, v)
 		}
 	}
 
