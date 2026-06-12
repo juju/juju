@@ -420,6 +420,7 @@ func modelOperatorDeployment(
 	volumeMounts []core.VolumeMount,
 ) (o *apps.Deployment, err error) {
 	jujudCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/%s model --model-uuid=%s", jujunames.JujuAgentd, modelUUID)
+	jujuLegacyCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/%s model --model-uuid=%s", jujunames.JujuController, modelUUID)
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	o = &apps.Deployment{
@@ -455,10 +456,11 @@ func modelOperatorDeployment(
 						Args: []string{
 							"-c",
 							fmt.Sprintf(
-								caas.JujudStartUpSh,
+								caas.ModelOperatorStartUpSh,
 								jujuDataDir,
 								"tools",
 								jujudCmd,
+								jujuLegacyCmd,
 							),
 						},
 						Env: []core.EnvVar{
