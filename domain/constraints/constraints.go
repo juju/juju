@@ -6,6 +6,7 @@ package constraints
 import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/ipfamily"
 )
 
 // Constraints represents the application constraints.
@@ -82,6 +83,13 @@ type Constraints struct {
 	// image. This is provider specific, and for the moment is only
 	// implemented on MAAS clouds.
 	ImageID *string
+
+	// IPFamily, if not nil, indicates the IP address family for the machine's
+	// network interfaces. Valid values are "ipv4", "ipv6", and "dual".
+	// On providers that do not support this constraint, it is ignored with a
+	// warning. If this constraint is not present, the default behavior is
+	// provider-specific.
+	IPFamily *ipfamily.IPFamily
 }
 
 // SpaceConstraint represents a single space constraint for an application.
@@ -112,6 +120,7 @@ func DecodeConstraints(coreCons constraints.Value) Constraints {
 		Zones:            coreCons.Zones,
 		AllocatePublicIP: coreCons.AllocatePublicIP,
 		ImageID:          coreCons.ImageID,
+		IPFamily:         coreCons.IPFamily,
 	}
 
 	if coreCons.Spaces == nil {
@@ -157,6 +166,7 @@ func EncodeConstraints(cons Constraints) constraints.Value {
 		Zones:            cons.Zones,
 		AllocatePublicIP: cons.AllocatePublicIP,
 		ImageID:          cons.ImageID,
+		IPFamily:         cons.IPFamily,
 	}
 
 	if cons.Spaces == nil {

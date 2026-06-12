@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -37,6 +38,7 @@ const (
 	Zones            = "zones"
 	AllocatePublicIP = "allocate-public-ip"
 	ImageID          = "image-id"
+	IPFamily         = "ip-family"
 
 	// excludedPrefix is the prefix Juju expects to be in front of a value when
 	// it is to be considered excluded as part of constraints.
@@ -120,6 +122,13 @@ type Value struct {
 	// image. This is provider specific, and for the moment is only
 	// implemented on MAAS clouds.
 	ImageID *string `json:"image-id,omitempty" yaml:"image-id,omitempty"`
+
+	// IPFamily, if not nil, indicates the IP address family for the machine's
+	// network interfaces. Valid values are "ipv4", "ipv6", and "dual".
+	// On providers that do not support this constraint, it is ignored with a
+	// warning. If this constraint is not present, the default behavior is
+	// provider-specific.
+	IPFamily *ipfamily.IPFamily `json:"ip-family,omitempty" yaml:"ip-family,omitempty"`
 }
 
 var rawAliases = map[string]string{
@@ -264,6 +273,11 @@ func (v *Value) HasImageID() bool {
 	return v.ImageID != nil && *v.ImageID != ""
 }
 
+// HasIPFamily returns true if the constraints.Value specifies an ip-family.
+func (v *Value) HasIPFamily() bool {
+	return v.IPFamily != nil && *v.IPFamily != ""
+}
+
 // String expresses a constraints.Value in the language in which it was specified.
 func (v Value) String() string {
 	var strs []string
@@ -284,6 +298,9 @@ func (v Value) String() string {
 	}
 	if v.InstanceType != nil {
 		strs = append(strs, "instance-type="+(*v.InstanceType))
+	}
+	if v.IPFamily != nil {
+		strs = append(strs, "ip-family="+v.IPFamily.String())
 	}
 	if v.Mem != nil {
 		s := uintStr(*v.Mem)
@@ -384,6 +401,9 @@ func (v Value) GoString() string {
 	}
 	if v.ImageID != nil {
 		values = append(values, fmt.Sprintf("ImageID: %q", *v.ImageID))
+	}
+	if v.IPFamily != nil {
+		values = append(values, fmt.Sprintf("IPFamily: %q", *v.IPFamily))
 	}
 	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
@@ -560,6 +580,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setAllocatePublicIP(str)
 	case ImageID:
 		err = v.setImageID(str)
+	case IPFamily:
+		err = v.setIPFamily(str)
 	default:
 		return errors.Errorf("unknown constraint %q", name)
 	}
@@ -633,6 +655,13 @@ func (v *Value) UnmarshalYAML(unmarshal func(any) error) error {
 			v.AllocatePublicIP, err = parseBool(vstr)
 		case ImageID:
 			v.ImageID = &vstr
+		case IPFamily:
+			parsed, parseErr := ipfamily.ParseIPFamily(vstr)
+			if parseErr != nil {
+				err = parseErr
+			} else {
+				v.IPFamily = &parsed
+			}
 		default:
 			return errors.Errorf("unknown constraint value: %v", k)
 		}
@@ -798,6 +827,18 @@ func (v *Value) setImageID(str string) (err error) {
 	}
 	v.ImageID = &str
 	return
+}
+
+func (v *Value) setIPFamily(str string) error {
+	if v.IPFamily != nil {
+		return errors.Errorf("already set")
+	}
+	parsed, err := ipfamily.ParseIPFamily(str)
+	if err != nil {
+		return err
+	}
+	v.IPFamily = &parsed
+	return nil
 }
 
 func parseBool(str string) (*bool, error) {

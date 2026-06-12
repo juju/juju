@@ -15,6 +15,7 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -346,6 +347,7 @@ INSERT INTO space (uuid, name) VALUES
 		Zones:            new([]string{"zone1", "zone2"}),
 		AllocatePublicIP: new(true),
 		ImageID:          new("image-id"),
+		IPFamily:         new(ipfamily.Dual),
 	}
 
 	err = state.SetModelConstraints(c.Context(), cons)
@@ -354,6 +356,46 @@ INSERT INTO space (uuid, name) VALUES
 	getCons, err := state.GetModelConstraints(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(getCons, tc.DeepEquals, cons)
+}
+
+// TestSetModelConstraintsIPFamily asserts that the ip-family constraint is
+// correctly persisted and retrieved, including the nil (unset) case.
+func (s *modelSuite) TestSetModelConstraintsIPFamily(c *tc.C) {
+	s.createTestModel(c)
+
+	runner := s.TxnRunnerFactory()
+	state := NewState(runner, loggertesting.WrapCheckLog(c))
+
+	// Nil ip-family: should round-trip as nil.
+	cons := constraints.Constraints{
+		IPFamily: nil,
+	}
+	err := state.SetModelConstraints(c.Context(), cons)
+	c.Assert(err, tc.ErrorIsNil)
+
+	getCons, err := state.GetModelConstraints(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(getCons.IPFamily, tc.IsNil)
+
+	// Set ip-family to "dual".
+	cons.IPFamily = new(ipfamily.Dual)
+	err = state.SetModelConstraints(c.Context(), cons)
+	c.Assert(err, tc.ErrorIsNil)
+
+	getCons, err = state.GetModelConstraints(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(getCons.IPFamily, tc.Not(tc.IsNil))
+	c.Check(*getCons.IPFamily, tc.Equals, ipfamily.Dual)
+
+	// Set ip-family to "ipv4".
+	cons.IPFamily = new(ipfamily.IPv4)
+	err = state.SetModelConstraints(c.Context(), cons)
+	c.Assert(err, tc.ErrorIsNil)
+
+	getCons, err = state.GetModelConstraints(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(getCons.IPFamily, tc.Not(tc.IsNil))
+	c.Check(*getCons.IPFamily, tc.Equals, ipfamily.IPv4)
 }
 
 // TestSetModelConstraintsNullBools is a regression test for constraints to

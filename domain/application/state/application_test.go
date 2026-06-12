@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
@@ -3224,6 +3225,7 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 		InstanceType:   new("instance-type"),
 		Container:      new(instance.LXD),
 		VirtType:       new("virt-type"),
+		IPFamily:       new(ipfamily.Dual),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3247,6 +3249,7 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 	c.Check(cons.VirtType, tc.DeepEquals, new("virt-type"))
 	c.Check(cons.AllocatePublicIP, tc.DeepEquals, new(true))
 	c.Check(cons.ImageID, tc.DeepEquals, new("image-id"))
+	c.Check(cons.IPFamily, tc.DeepEquals, new(ipfamily.Dual))
 }
 
 func (s *applicationStateSuite) TestConstraintPartial(c *tc.C) {
@@ -3574,6 +3577,42 @@ func (s *applicationStateSuite) TestGetConstraintsPreservesInsertionOrder(c *tc.
 		{SpaceName: "aaa", Exclude: false},
 	})
 	c.Check(*cons.Zones, tc.DeepEquals, []string{"zone-c", "zone-a", "zone-b"})
+}
+
+func (s *applicationStateSuite) TestSetApplicationConstraintsIPFamily(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	// nil ip-family is persisted and retrieved as nil.
+	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		IPFamily: nil,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err := s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cons.IPFamily, tc.IsNil)
+
+	// Set ip-family to "dual".
+	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		IPFamily: new(ipfamily.Dual),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err = s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons.IPFamily, tc.Not(tc.IsNil))
+	c.Check(*cons.IPFamily, tc.Equals, ipfamily.Dual)
+
+	// Set ip-family to "ipv4".
+	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		IPFamily: new(ipfamily.IPv4),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err = s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons.IPFamily, tc.Not(tc.IsNil))
+	c.Check(*cons.IPFamily, tc.Equals, ipfamily.IPv4)
 }
 
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *tc.C) {

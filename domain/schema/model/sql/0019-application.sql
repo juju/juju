@@ -298,6 +298,7 @@ SELECT
     c.virt_type,
     c.allocate_public_ip,
     c.image_id,
+    c.ip_family,
     ctag.tag,
     ctag.rowid AS tag_order,
     cspace.space AS space_name,
