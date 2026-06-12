@@ -514,13 +514,12 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
 		configParams.DqliteBusyTimeout = cfg.ControllerConfig.DqliteBusyTimeout()
-		configParams.OpenTelemetryEnabled = cfg.ControllerConfig.OpenTelemetryEnabled()
-		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
-		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
-		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
-		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
-		configParams.OpenTelemetryTailSamplingThreshold = cfg.ControllerConfig.OpenTelemetryTailSamplingThreshold()
 	}
+	configParams.OpenTelemetryEnabled = agent.DefaultOpenTelemetryEnabled
+	configParams.OpenTelemetryInsecure = agent.DefaultOpenTelemetryInsecure
+	configParams.OpenTelemetryStackTraces = agent.DefaultOpenTelemetryStackTraces
+	configParams.OpenTelemetrySampleRatio = agent.DefaultOpenTelemetrySampleRatio
+	configParams.OpenTelemetryTailSamplingThreshold = agent.DefaultOpenTelemetryTailSamplingThreshold
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}

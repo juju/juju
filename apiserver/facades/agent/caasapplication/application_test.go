@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -40,6 +41,7 @@ type CAASApplicationSuite struct {
 	controllerNodeService   *caasapplication.MockControllerNodeService
 	applicationService      *caasapplication.MockApplicationService
 	modelAgentService       *caasapplication.MockModelAgentService
+	tracingService          *caasapplication.MockTracingService
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *tc.C) {
@@ -61,10 +63,12 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 	s.controllerNodeService = caasapplication.NewMockControllerNodeService(ctrl)
 	s.applicationService = caasapplication.NewMockApplicationService(ctrl)
 	s.modelAgentService = caasapplication.NewMockModelAgentService(ctrl)
+	s.tracingService = caasapplication.NewMockTracingService(ctrl)
 
 	s.facade = caasapplication.NewFacade(s.authorizer,
 		coretesting.ControllerTag.Id(), s.modelUUID,
-		s.controllerConfigService, s.controllerNodeService, s.applicationService, s.modelAgentService, loggertesting.WrapCheckLog(c))
+		s.controllerConfigService, s.controllerNodeService, s.applicationService,
+		s.modelAgentService, s.tracingService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -107,6 +111,15 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
 	vers := semversion.MustParse("6.6.6")
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(vers, nil)
+	stackTraces := true
+	sampleRatio := 0.5
+	tailSamplingThreshold := "123ms"
+	s.tracingService.EXPECT().GetWorkloadTracingConfig(gomock.Any()).Return(tracingservice.WorkloadTracingConfig{
+		GRPCEndpoint:                       "localhost:4317",
+		OpenTelemetryStackTraces:           &stackTraces,
+		OpenTelemetrySampleRatio:           &sampleRatio,
+		OpenTelemetryTailSamplingThreshold: &tailSamplingThreshold,
+	}, nil)
 
 	s.applicationService.EXPECT().RegisterCAASUnit(gomock.Any(), application.RegisterCAASUnitParams{
 		ApplicationName: "gitlab",
@@ -126,8 +139,11 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 			CACert:                             coretesting.CACert,
 			Password:                           "secret",
 			UpgradedToVersion:                  vers,
-			OpenTelemetrySampleRatio:           0.1000,
-			OpenTelemetryTailSamplingThreshold: time.Millisecond,
+			OpenTelemetryEnabled:               true,
+			OpenTelemetryEndpoint:              "localhost:4317",
+			OpenTelemetryStackTraces:           true,
+			OpenTelemetrySampleRatio:           0.5,
+			OpenTelemetryTailSamplingThreshold: 123 * time.Millisecond,
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)

@@ -37,6 +37,7 @@ func newStateFacade(ctx facade.ModelContext) (*Facade, error) {
 		domainServices.ControllerNode(),
 		applicationService,
 		domainServices.Agent(),
+		domainServices.Tracing(),
 		ctx.Logger().Child("caasapplication"),
 	), nil
 }
