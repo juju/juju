@@ -20,11 +20,23 @@ import (
 // a controller config service from the manifold.
 type GetControllerConfigServiceFunc = func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
+// GetSSHHostKeyServiceFunc is a helper function that gets the SSH host key
+// service from the manifold.
+type GetSSHHostKeyServiceFunc = func(getter dependency.Getter, name string) (SSHHostKeyService, error)
+
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
 	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerConfigService {
 		return factory.ControllerConfig()
+	})
+}
+
+// GetSSHHostKeyService gets the SSH host key service from the controller domain
+// services dependency.
+func GetSSHHostKeyService(getter dependency.Getter, name string) (SSHHostKeyService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) SSHHostKeyService {
+		return factory.SSH()
 	})
 }
 
@@ -40,6 +52,8 @@ type ManifoldConfig struct {
 	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 	// GetControllerConfigService is used to get a service from the manifold.
 	GetControllerConfigService GetControllerConfigServiceFunc
+	// GetSSHHostKeyService is used to get the SSH host key service from the manifold.
+	GetSSHHostKeyService GetSSHHostKeyServiceFunc
 	// Logger is the logger to use for the worker.
 	Logger logger.Logger
 }
@@ -57,6 +71,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
+	}
+	if config.GetSSHHostKeyService == nil {
+		return errors.NotValidf("nil GetSSHHostKeyService")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -91,9 +108,14 @@ func (config ManifoldConfig) startWrapperWorker(_ context.Context, getter depend
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	sshHostKeyService, err := config.GetSSHHostKeyService(getter, config.DomainServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	return config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
+		SSHHostKeyService:       sshHostKeyService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
 		SessionHandler:          &stubSessionHandler{},

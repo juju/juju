@@ -189,6 +189,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"unit_state",
 		"unit_workload_status",
 		"unit_workload_version",
+		"unit_virtual_ssh_host_key",
 		"unit",
 
 		// Resolve
@@ -220,6 +221,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_placement",
 		"machine_requires_reboot",
 		"machine_ssh_host_key",
+		"machine_virtual_ssh_host_key",
 		"machine_status_value",
 		"machine_status",
 		"machine_volume",

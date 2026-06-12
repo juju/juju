@@ -788,6 +788,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewServerWrapperWorker:     sshserver.NewServerWrapperWorker,
 			NewServerWorker:            sshserver.NewServerWorker,
 			GetControllerConfigService: sshserver.GetControllerConfigService,
+			GetSSHHostKeyService:       sshserver.GetSSHHostKeyService,
 		})),
 
 		// The objectstore drainer runs on the singular primary controller to

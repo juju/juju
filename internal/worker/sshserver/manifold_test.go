@@ -29,6 +29,7 @@ type manifoldSuite struct {
 	testhelpers.IsolationSuite
 
 	controllerConfigService *MockControllerConfigService
+	sshHostKeyService       SSHHostKeyService
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -56,6 +57,7 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 		cfg.NewServerWrapperWorker = nil
 		cfg.NewServerWorker = nil
 		cfg.GetControllerConfigService = nil
+		cfg.GetSSHHostKeyService = nil
 		cfg.Logger = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
@@ -90,6 +92,12 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
+	// Missing GetSSHHostKeyService.
+	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
+		cfg.GetSSHHostKeyService = nil
+	})
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
+
 }
 
 func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
@@ -104,6 +112,9 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetSSHHostKeyService: func(getter dependency.Getter, name string) (SSHHostKeyService, error) {
+			return s.sshHostKeyService, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})
@@ -127,6 +138,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.sshHostKeyService = stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey}
 
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
@@ -145,6 +157,9 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetSSHHostKeyService: func(getter dependency.Getter, name string) (SSHHostKeyService, error) {
+			return s.sshHostKeyService, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	}
@@ -170,6 +185,9 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetSSHHostKeyService: func(getter dependency.Getter, name string) (SSHHostKeyService, error) {
+			return s.sshHostKeyService, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})

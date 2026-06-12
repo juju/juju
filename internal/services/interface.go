@@ -53,6 +53,7 @@ import (
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	sshservice "github.com/juju/juju/domain/ssh/service"
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
@@ -102,6 +103,8 @@ type ControllerDomainServices interface {
 	Tracing() *tracingservice.WatchableService
 	// Logging returns the service for accessing logging configuration.
 	Logging() *loggingservice.WatchableService
+	// SSH returns the service for controller and virtual SSH host keys.
+	SSH() *sshservice.Service
 }
 
 // ModelDomainServices provides access to the services required by the

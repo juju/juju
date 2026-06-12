@@ -5,8 +5,6 @@ package sshserver
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"net"
 	"strconv"
 	"sync/atomic"
@@ -49,6 +47,9 @@ type ServerWorkerConfig struct {
 	// we accept for our ssh server.
 	MaxConcurrentConnections int
 
+	// HostKeyService resolves terminating SSH host keys for virtual destinations.
+	HostKeyService SSHHostKeyService
+
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
 
@@ -63,6 +64,9 @@ func (c ServerWorkerConfig) Validate() error {
 	}
 	if c.JumpHostKey == "" {
 		return errors.NotValidf("empty JumpHostKey")
+	}
+	if c.HostKeyService == nil {
+		return errors.NotValidf("missing HostKeyService")
 	}
 	if c.SessionHandler == nil {
 		return errors.NotValidf("missing SessionHandler")
@@ -227,15 +231,16 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
-	// TODO(ale8k): Update later to generate host keys per unit.
-	terminatingHostKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	terminatingHostKey, err := s.config.HostKeyService.VirtualHostKey(ctx, info)
 	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to generate host key: %v", err)
+		s.config.Logger.Errorf(ctx, "failed to resolve host key: %v", err)
+		ch.Close()
 		return
 	}
-	signer, err := gossh.NewSignerFromKey(terminatingHostKey)
+	signer, err := gossh.ParsePrivateKey([]byte(terminatingHostKey))
 	if err != nil {
-		s.config.Logger.Errorf(ctx, "failed to create signer: %v", err)
+		s.config.Logger.Errorf(ctx, "failed to parse host key: %v", err)
+		ch.Close()
 		return
 	}
 

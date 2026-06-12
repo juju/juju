@@ -265,6 +265,7 @@ func NewControllerDomainServices(
 	loggerContextGetter logger.LoggerContextGetter,
 ) services.ControllerDomainServices {
 	return domainservices.NewControllerServices(
+		dbGetter,
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		controllerObjectStoreGetter,
 		clock,

@@ -218,6 +218,9 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 
 		// Logging config
 		"logging_loki_config",
+
+		// SSH host keys
+		"controller_ssh_host_key",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
