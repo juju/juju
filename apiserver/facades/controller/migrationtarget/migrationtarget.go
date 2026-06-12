@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/crossmodel"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -601,4 +602,80 @@ func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
+}
+
+// APIV8 implements the MigrationTarget v8 facade: typed-envelope
+// (params.SerializedModelV2) prechecks and import. It embeds the v7 API for
+// the methods that are unchanged (Abort, Activate, AdoptResources, etc.) and
+// shadows Prechecks and Import with the v8 envelope signatures — the inverse
+// of the legacy.go adapter pattern, because Go cannot overload method names
+// by parameter type.
+//
+// The v8 methods are envelope-validating no-op shells for now, registered so
+// that the new-path migrationmaster worker can be exercised end to end while
+// the rest of the v8 pipeline is developed: the runtime schema guard, payload
+// version/decode guards, full prechecks and the real import path (durable
+// claim, controller-fact application and the V2 model-DB import) land in
+// follow-up work. The real import path must land before a 4.1 release ships.
+type APIV8 struct {
+	*API
+}
+
+// NewAPIV8 returns a new MigrationTarget v8 facade wrapping the given v7 API.
+func NewAPIV8(api *API) (*APIV8, error) {
+	return &APIV8{API: api}, nil
+}
+
+// Prechecks ensures that the target controller is ready to accept the model
+// described by the v8 envelope. Only envelope identity validation is
+// implemented so far; the rest of the routine is a no-op shell.
+func (api *APIV8) Prechecks(ctx context.Context, envelope params.SerializedModelV2) error {
+	if err := validateEnvelopeModelInfo(envelope.ModelInfo); err != nil {
+		return errors.Capture(err)
+	}
+
+	// TODO(modelmigration): run the runtime schema guard, payload
+	// version/decode guards and the static/environmental v8 prechecks.
+	api.logger.Warningf(ctx,
+		"MigrationTarget v8 Prechecks for model %q is a no-op shell; the v8 precheck routine is not implemented yet",
+		envelope.ModelInfo.UUID)
+	return nil
+}
+
+// Import accepts a v8 model migration envelope. Only envelope identity
+// validation is implemented so far; the import itself is a no-op shell that
+// reports success WITHOUT importing anything, so the source-side migration
+// worker can be exercised against this facade during development.
+func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2) error {
+	if err := validateEnvelopeModelInfo(envelope.ModelInfo); err != nil {
+		return errors.Capture(err)
+	}
+
+	// TODO(modelmigration): run the pre-write guards (runtime schema guard,
+	// payload version/decode), then implement the v8 import path: durable
+	// model_migration_import claim, target-local model bootstrap,
+	// controller-fact application and the V2 model-DB import. This must land
+	// before a 4.1 release ships.
+	api.logger.Warningf(ctx,
+		"MigrationTarget v8 Import for model %q is a no-op shell; the model was NOT imported",
+		envelope.ModelInfo.UUID)
+	return nil
+}
+
+// validateEnvelopeModelInfo validates the bootstrap identity fields of the v8
+// envelope.
+func validateEnvelopeModelInfo(info params.SerializedModelInfo) error {
+	if err := coremodel.UUID(info.UUID).Validate(); err != nil {
+		return errors.Errorf("model UUID %q %w", info.UUID, coreerrors.NotValid)
+	}
+	if info.Name == "" {
+		return errors.Errorf("empty model name %w", coreerrors.NotValid)
+	}
+	if info.Qualifier == "" {
+		return errors.Errorf("empty model qualifier %w", coreerrors.NotValid)
+	}
+	if info.SourceMigrationUUID == "" {
+		return errors.Errorf("empty source migration UUID %w", coreerrors.NotValid)
+	}
+	return nil
 }
