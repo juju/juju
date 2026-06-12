@@ -393,7 +393,7 @@ func (mc *mockConfig) SetOpenTelemetryStackTraces(enabled bool) {
 
 func (mc *mockConfig) OpenTelemetrySampleRatio() float64 {
 	if mc.openTelemetrySampleRatio == 0 {
-		return controller.DefaultOpenTelemetrySampleRatio
+		return agent.DefaultOpenTelemetrySampleRatio
 	}
 	return mc.openTelemetrySampleRatio
 }
@@ -404,7 +404,7 @@ func (mc *mockConfig) SetOpenTelemetrySampleRatio(ratio float64) {
 
 func (mc *mockConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
 	if mc.openTelemetryTailSamplingThreshold == 0 {
-		return controller.DefaultOpenTelemetryTailSamplingThreshold
+		return agent.DefaultOpenTelemetryTailSamplingThreshold
 	}
 	return mc.openTelemetryTailSamplingThreshold
 }
