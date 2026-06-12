@@ -62,11 +62,11 @@ require (
 	github.com/juju/gojsonschema v1.0.0
 	github.com/juju/gomaasapi/v2 v2.3.0
 	github.com/juju/idmclient/v2 v2.0.1
-	github.com/juju/jsonschema v1.0.0
+	github.com/juju/jsonschema v1.0.1
 	github.com/juju/loggo/v2 v2.2.0
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mutex/v2 v2.0.0
-	github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137
+	github.com/juju/names/v6 v6.0.0
 	github.com/juju/os/v2 v2.2.5
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
@@ -74,7 +74,7 @@ require (
 	github.com/juju/retry v1.0.1
 	github.com/juju/schema v1.2.0
 	github.com/juju/tc v0.0.0-20251023013639-77c6a1d20e5a
-	github.com/juju/testing v1.2.0
+	github.com/juju/testing v1.2.1
 	github.com/juju/utils/v4 v4.0.5
 	github.com/juju/webbrowser v1.0.0
 	github.com/juju/worker/v5 v5.0.0
@@ -212,7 +212,6 @@ require (
 	github.com/juju/loggo v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/usso v1.0.1 // indirect
-	github.com/juju/utils/v3 v3.2.2 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
