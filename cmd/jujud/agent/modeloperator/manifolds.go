@@ -4,9 +4,6 @@
 package modeloperator
 
 import (
-	"net/http"
-
-	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
 
@@ -25,7 +22,6 @@ import (
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/logger"
-	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
 )
@@ -94,17 +90,12 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),
 
-		// The log router owns the buffered log stream and forwards records to
-		// one active backend at a time.
-		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
-			AgentName:          agentName,
-			APICallerName:      apiCallerName,
-			LogSource:          config.LogSource,
-			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
-			Clock:              clock.WallClock,
-			HTTPClient:         http.DefaultClient,
-			NewBackendFunc:     logrouter.NewBackend,
+		// The log sender is a leaf worker that sends log messages to some
+		// API server, when configured so to do. We should only need one of
+		// these in a consolidated agent.
+		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+			APICallerName: apiCallerName,
+			LogSource:     config.LogSource,
 		}),
 
 		caasAdmissionName: caasadmission.Manifold(caasadmission.ManifoldConfig{
@@ -179,5 +170,5 @@ const (
 	modelHTTPServerName      = "model-http-server"
 	upgraderName             = "upgrader"
 	upgradeStepsGateName     = "upgrade-steps-gate"
-	logRouterName            = "log-router"
+	logSenderName            = "log-sender"
 )

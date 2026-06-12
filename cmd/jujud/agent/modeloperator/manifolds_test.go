@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujuagentd/agent/modeloperator"
+	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -47,7 +47,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	c.Check(keys, tc.SameContents, []string{
 		"caas-broker-tracker",
 		"api-caller",
-		"log-router",
+		"log-sender",
 		"caas-admission",
 		"caas-rbac-mapper",
 		"certificate-watcher",
@@ -75,7 +75,7 @@ var expectedManifoldsWithDependencies = map[string][]string{
 
 	"api-caller": {"agent", "api-config-watcher"},
 
-	"log-router": {"agent", "api-caller", "api-config-watcher"},
+	"log-sender": {"agent", "api-caller", "api-config-watcher"},
 
 	"caas-admission": {
 		"agent",
