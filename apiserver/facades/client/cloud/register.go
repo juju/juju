@@ -18,6 +18,18 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Cloud", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV7(stdCtx, ctx) // Do not set error if forcing credential update.
 	}, reflect.TypeFor[*CloudAPI]())
+	registry.MustRegister("Cloud", 8, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newFacadeV8(stdCtx, ctx) // Adds the ModelConfigSchema method.
+	}, reflect.TypeFor[*CloudAPIV8]())
+}
+
+// newFacadeV8 is used for API registration.
+func newFacadeV8(stdCtx context.Context, context facade.ModelContext) (*CloudAPIV8, error) {
+	api, err := newFacadeV7(stdCtx, context)
+	if err != nil {
+		return nil, err
+	}
+	return &CloudAPIV8{CloudAPI: api}, nil
 }
 
 // newFacadeV7 is used for API registration.
@@ -42,6 +54,7 @@ func newFacadeV7(stdCtx context.Context, context facade.ModelContext) (*CloudAPI
 		domainServices.Cloud(),
 		domainServices.Access(),
 		credentialService,
+		domainServices.Config(),
 		context.Auth(), context.Logger().Child("cloud"),
 	)
 }

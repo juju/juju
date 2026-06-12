@@ -10,10 +10,10 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/common/charms"
@@ -384,7 +384,7 @@ func (s *sshContainerSuite) TestSSHCancelled(c *tc.C) {
 	buffer := bytes.NewBuffer(nil)
 
 	gomock.InOrder(
-		ctx.EXPECT().InterruptNotify(gomock.Any()).DoAndReturn(
+		ctx.EXPECT().InterruptNotify(gomock.Any()).Do(
 			func(ch chan<- os.Signal) {
 				ch <- os.Interrupt
 			},
@@ -428,7 +428,7 @@ func (s *sshContainerSuite) TestGetInterruptAbortChanInterrupted(c *tc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		ctx.EXPECT().InterruptNotify(gomock.Any()).DoAndReturn(
+		ctx.EXPECT().InterruptNotify(gomock.Any()).Do(
 			func(ch chan<- os.Signal) {
 				ch <- os.Interrupt
 			},

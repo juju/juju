@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 

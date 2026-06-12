@@ -4,16 +4,16 @@
 package apiremoterelationcaller
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiremoterelationcaller -destination service_mock_test.go github.com/juju/juju/internal/worker/apiremoterelationcaller DomainServicesGetter,DomainServices,APIInfoGetter,ConnectionGetter,ExternalControllerService,ControllerConfigService,ModelService,ControllerNodeService
-//go:generate go run go.uber.org/mock/mockgen -typed -package apiremoterelationcaller -destination api_mock_test.go github.com/juju/juju/api Connection
+//go:generate go run github.com/canonical/gomock/mockgen -package apiremoterelationcaller -destination service_mock_test.go github.com/juju/juju/internal/worker/apiremoterelationcaller DomainServicesGetter,DomainServices,APIInfoGetter,ConnectionGetter,ExternalControllerService,ControllerConfigService,ModelService,ControllerNodeService
+//go:generate go run github.com/canonical/gomock/mockgen -package apiremoterelationcaller -destination api_mock_test.go github.com/juju/juju/api Connection
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

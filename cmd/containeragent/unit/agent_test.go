@@ -11,10 +11,10 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/voyeur"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"

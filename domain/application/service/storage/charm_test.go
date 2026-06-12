@@ -6,8 +6,8 @@ package storage
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/domain/deployment/charm"

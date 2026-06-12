@@ -10,8 +10,8 @@ import (
 	"go.uber.org/goleak"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package toolsversionchecker -destination service_mock_test.go github.com/juju/juju/internal/worker/toolsversionchecker ModelConfigService,ModelAgentService,MachineService
-//go:generate go run go.uber.org/mock/mockgen -typed -package toolsversionchecker -destination environs_mock_test.go github.com/juju/juju/environs BootstrapEnviron
+//go:generate go run github.com/canonical/gomock/mockgen -package toolsversionchecker -destination service_mock_test.go github.com/juju/juju/internal/worker/toolsversionchecker ModelConfigService,ModelAgentService,MachineService
+//go:generate go run github.com/canonical/gomock/mockgen -package toolsversionchecker -destination environs_mock_test.go github.com/juju/juju/environs BootstrapEnviron
 
 func TestManifoldSuite(t *testing.T) {
 	defer goleak.VerifyNone(t)

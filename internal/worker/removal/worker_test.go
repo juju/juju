@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/removal"

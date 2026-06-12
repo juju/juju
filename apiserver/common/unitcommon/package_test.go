@@ -3,4 +3,4 @@
 
 package unitcommon
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package unitcommon -destination service_mock_test.go github.com/juju/juju/apiserver/common/unitcommon ApplicationService
+//go:generate go run github.com/canonical/gomock/mockgen -package unitcommon -destination service_mock_test.go github.com/juju/juju/apiserver/common/unitcommon ApplicationService

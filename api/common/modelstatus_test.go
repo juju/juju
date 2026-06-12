@@ -4,12 +4,14 @@
 package common_test
 
 import (
+	"context"
 	"errors"
+	"reflect"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/mocks"
@@ -43,25 +45,33 @@ func (s *ModelStatusSuite) TestModelStatusLegacy(c *tc.C) {
 	ctrl, api := s.setup(c, true)
 	defer ctrl.Finish()
 
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", params.Entities{
-		Entities: []params.Entity{
-			{Tag: coretesting.ModelTag.String()},
-		},
-	}, gomock.Any()).SetArg(3, params.ModelStatusResultsLegacy{
-		Results: []params.ModelStatusLegacy{
-			{
-				ModelTag:           coretesting.ModelTag.String(),
-				OwnerTag:           names.NewUserTag("alice").String(),
-				ApplicationCount:   3,
-				HostedMachineCount: 2,
-				Life:               "alive",
-				Machines: []params.ModelMachineInfo{{
-					Id:         "0",
-					InstanceId: "inst-ance",
-					Status:     "pending",
-				}},
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(),
+		"ModelStatus",
+		params.Entities{
+			Entities: []params.Entity{
+				{Tag: coretesting.ModelTag.String()},
 			},
 		},
+		gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{
+			Results: []params.ModelStatusLegacy{
+				{
+					ModelTag:           coretesting.ModelTag.String(),
+					OwnerTag:           names.NewUserTag("alice").String(),
+					ApplicationCount:   3,
+					HostedMachineCount: 2,
+					Life:               "alive",
+					Machines: []params.ModelMachineInfo{{
+						Id:         "0",
+						InstanceId: "inst-ance",
+						Status:     "pending",
+					}},
+				},
+			},
+		}))
+		return nil
 	})
 
 	results, err := api.ModelStatus(c.Context(), coretesting.ModelTag)
@@ -80,10 +90,15 @@ func (s *ModelStatusSuite) TestModelStatusLegacyError(c *tc.C) {
 	ctrl, api := s.setup(c, true)
 	defer ctrl.Finish()
 
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any()).SetArg(3, params.ModelStatusResultsLegacy{
-		Results: []params.ModelStatusLegacy{
-			{Error: apiservererrors.ServerError(errors.New("model error"))},
-		},
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{
+			Results: []params.ModelStatusLegacy{
+				{Error: apiservererrors.ServerError(errors.New("model error"))},
+			},
+		}))
+		return nil
 	})
 
 	results, err := api.ModelStatus(c.Context(), coretesting.ModelTag)
@@ -96,7 +111,12 @@ func (s *ModelStatusSuite) TestModelStatusLegacyEmpty(c *tc.C) {
 	ctrl, api := s.setup(c, true)
 	defer ctrl.Finish()
 
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any()).SetArg(3, params.ModelStatusResultsLegacy{})
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{}))
+		return nil
+	})
 
 	results, err := api.ModelStatus(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -107,13 +127,18 @@ func (s *ModelStatusSuite) TestModelStatusLegacyParseUserTagError(c *tc.C) {
 	ctrl, api := s.setup(c, true)
 	defer ctrl.Finish()
 
-	s.facade.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any()).SetArg(3, params.ModelStatusResultsLegacy{
-		Results: []params.ModelStatusLegacy{
-			{
-				ModelTag: coretesting.ModelTag.String(),
-				OwnerTag: "invalid-tag",
+	s.facade.EXPECT().FacadeCall(
+		gomock.Any(), "ModelStatus", gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(params.ModelStatusResultsLegacy{
+			Results: []params.ModelStatusLegacy{
+				{
+					ModelTag: coretesting.ModelTag.String(),
+					OwnerTag: "invalid-tag",
+				},
 			},
-		},
+		}))
+		return nil
 	})
 
 	results, err := api.ModelStatus(c.Context(), coretesting.ModelTag)

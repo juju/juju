@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	domainnetwork "github.com/juju/juju/domain/network"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -90,6 +91,145 @@ func (s *migrationStateSuite) TestInsertMigratingApplication(c *tc.C) {
 		},
 	})
 	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{Trust: true})
+}
+
+func (s *migrationStateSuite) TestInsertMigratingApplicationStorageDirectives(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	poolUUID := tc.Must(c, domainstorage.NewStoragePoolUUID)
+	_, err := s.DB().Exec(`
+INSERT INTO storage_pool (uuid, name, type) VALUES (?, ?, ?)`,
+		poolUUID, "fast", "kubernetes")
+	c.Assert(err, tc.ErrorIsNil)
+
+	metadata := s.minimalMetadata(c, "666")
+	metadata.Storage = map[string]charm.Storage{
+		"pgdata": {
+			Name:     "pgdata",
+			Type:     charm.StorageFilesystem,
+			CountMin: 1,
+			CountMax: 1,
+		},
+	}
+
+	id := tc.Must(c, coreapplication.NewUUID)
+	args := application.InsertApplicationArgs{
+		ApplicationUUID: id.String(),
+		Platform: deployment.Platform{
+			Channel:      "666",
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.ARM64,
+		},
+		Charm: charm.Charm{
+			Metadata:      metadata,
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		Scale: 1,
+		StorageDirectives: []application.MigratingStorageDirectiveArg{{
+			Name:     "pgdata",
+			PoolName: "fast",
+			Size:     2048,
+			Count:    3,
+		}},
+	}
+
+	err = st.InsertMigratingApplication(c.Context(), "666", args)
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("%s", errors.ErrorStack(err)))
+
+	directives := s.getApplicationStorageDirectives(c, id)
+	c.Check(directives, tc.DeepEquals, []storageDirectiveRow{{
+		StorageName:     "pgdata",
+		StoragePoolUUID: poolUUID.String(),
+		SizeMiB:         2048,
+		Count:           3,
+	}})
+}
+
+func (s *migrationStateSuite) TestInsertMigratingApplicationStorageDirectivesPoolNotFound(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	metadata := s.minimalMetadata(c, "666")
+	metadata.Storage = map[string]charm.Storage{
+		"pgdata": {
+			Name:     "pgdata",
+			Type:     charm.StorageFilesystem,
+			CountMin: 1,
+			CountMax: 1,
+		},
+	}
+
+	id := tc.Must(c, coreapplication.NewUUID)
+	args := application.InsertApplicationArgs{
+		ApplicationUUID: id.String(),
+		Platform: deployment.Platform{
+			Channel:      "666",
+			OSType:       deployment.Ubuntu,
+			Architecture: architecture.ARM64,
+		},
+		Charm: charm.Charm{
+			Metadata:      metadata,
+			Manifest:      s.minimalManifest(c),
+			Source:        charm.CharmHubSource,
+			ReferenceName: "666",
+			Revision:      42,
+			Architecture:  architecture.ARM64,
+		},
+		Scale: 1,
+		StorageDirectives: []application.MigratingStorageDirectiveArg{{
+			Name:     "pgdata",
+			PoolName: "missing",
+			Size:     2048,
+			Count:    1,
+		}},
+	}
+
+	err := st.InsertMigratingApplication(c.Context(), "666", args)
+	c.Assert(err, tc.ErrorMatches, `.*storage pool "missing" not found for storage directive "pgdata".*`)
+}
+
+type storageDirectiveRow struct {
+	StorageName     string
+	StoragePoolUUID string
+	SizeMiB         int
+	Count           int
+}
+
+func (s *migrationStateSuite) getApplicationStorageDirectives(
+	c *tc.C, appID coreapplication.UUID,
+) []storageDirectiveRow {
+	var rows []storageDirectiveRow
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		queryRows, err := tx.QueryContext(ctx, `
+SELECT   storage_name, storage_pool_uuid, size_mib, count
+FROM     application_storage_directive
+WHERE    application_uuid = ?
+ORDER BY storage_name`, appID.String())
+		if err != nil {
+			return err
+		}
+		defer queryRows.Close()
+		var result []storageDirectiveRow
+		for queryRows.Next() {
+			var row storageDirectiveRow
+			if err := queryRows.Scan(
+				&row.StorageName, &row.StoragePoolUUID, &row.SizeMiB, &row.Count,
+			); err != nil {
+				return err
+			}
+			result = append(result, row)
+		}
+		if err := queryRows.Err(); err != nil {
+			return err
+		}
+		rows = result
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return rows
 }
 
 func (s *migrationStateSuite) assertDownloadProvenance(c *tc.C, appID coreapplication.UUID, expectedProvenance charm.Provenance) {

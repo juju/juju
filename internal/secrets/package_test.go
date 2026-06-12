@@ -3,5 +3,5 @@
 
 package secrets
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/jujuapi_mocks.go github.com/juju/juju/internal/secrets JujuAPIClient,SecretsState
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/backend_mocks.go github.com/juju/juju/internal/secrets/provider SecretsBackend
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/jujuapi_mocks.go github.com/juju/juju/internal/secrets JujuAPIClient,SecretsState
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/backend_mocks.go github.com/juju/juju/internal/secrets/provider SecretsBackend

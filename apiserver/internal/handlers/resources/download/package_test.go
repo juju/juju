@@ -3,4 +3,4 @@
 
 package download_test
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package download_test -destination filesystem_mock_test.go github.com/juju/juju/apiserver/internal/handlers/resources/download FileSystem
+//go:generate go run github.com/canonical/gomock/mockgen -package download_test -destination filesystem_mock_test.go github.com/juju/juju/apiserver/internal/handlers/resources/download FileSystem

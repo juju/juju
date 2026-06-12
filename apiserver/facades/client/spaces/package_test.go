@@ -6,16 +6,16 @@ package spaces
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	coremodel "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces BlockChecker,Constraints,NetworkService,ControllerConfigService,ApplicationService,MachineService
+//go:generate go run github.com/canonical/gomock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces BlockChecker,Constraints,NetworkService,ControllerConfigService,ApplicationService,MachineService
 
 // APIBaseSuite is used to test API calls using mocked model operations.
 type APIBaseSuite struct {

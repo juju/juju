@@ -6,8 +6,8 @@ package statushistory
 import (
 	"testing"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"

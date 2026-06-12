@@ -10,13 +10,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
 	"github.com/juju/utils/v4/shell"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/service"

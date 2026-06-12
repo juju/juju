@@ -6,18 +6,18 @@ package httpclient
 import (
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination http_mock_test.go github.com/juju/juju/core/http HTTPClient
-//go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
-//go:generate go run go.uber.org/mock/mockgen -typed -package httpclient -destination httpclient_mock_test.go github.com/juju/juju/internal/worker/httpclient HTTPClientWorker
+//go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination http_mock_test.go github.com/juju/juju/core/http HTTPClient
+//go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
+//go:generate go run github.com/canonical/gomock/mockgen -package httpclient -destination httpclient_mock_test.go github.com/juju/juju/internal/worker/httpclient HTTPClientWorker
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

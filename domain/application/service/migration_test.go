@@ -7,9 +7,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
@@ -36,6 +36,28 @@ type migrationServiceSuite struct {
 
 func TestMigrationServiceSuite(t *testing.T) {
 	tc.Run(t, &migrationServiceSuite{})
+}
+
+func (s *migrationServiceSuite) TestMakeMigratingStorageDirectiveArgs(c *tc.C) {
+	result, err := makeMigratingStorageDirectiveArgs([]ImportStorageDirectiveArg{{
+		Name:  "pgdata",
+		Pool:  "fast",
+		Size:  2048,
+		Count: 3,
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []application.MigratingStorageDirectiveArg{{
+		Name:     "pgdata",
+		PoolName: "fast",
+		Size:     2048,
+		Count:    3,
+	}})
+}
+
+func (s *migrationServiceSuite) TestMakeMigratingStorageDirectiveArgsEmpty(c *tc.C) {
+	result, err := makeMigratingStorageDirectiveArgs(nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.IsNil)
 }
 
 func (s *migrationServiceSuite) TestGetCharmIDWithoutRevision(c *tc.C) {

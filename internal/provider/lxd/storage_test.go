@@ -6,11 +6,11 @@ package lxd_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"

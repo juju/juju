@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package state -destination package_mock_test.go github.com/juju/juju/domain/relation/state InsertIAASUnitState
+//go:generate go run github.com/canonical/gomock/mockgen -package state -destination package_mock_test.go github.com/juju/juju/domain/relation/state InsertIAASUnitState
 
 // baseRelationSuite is a struct embedding ModelSuite for testing relation
 // between application. It provides a set of builder function to create all

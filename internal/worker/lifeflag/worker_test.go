@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
 
 	apilifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/core/life"

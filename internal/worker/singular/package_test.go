@@ -3,6 +3,6 @@
 
 package singular
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package singular -destination lease_mock_test.go github.com/juju/juju/core/lease Manager,Claimer
-//go:generate go run go.uber.org/mock/mockgen -typed -package singular -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package singular -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
+//go:generate go run github.com/canonical/gomock/mockgen -package singular -destination lease_mock_test.go github.com/juju/juju/core/lease Manager,Claimer
+//go:generate go run github.com/canonical/gomock/mockgen -package singular -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package singular -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config

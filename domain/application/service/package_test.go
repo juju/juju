@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/model"
@@ -20,12 +20,12 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service AgentVersionGetter,CAASProvider,CharmStore,Provider,CloudInfoProvider,State,StatusHistory,WatcherFactory
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination internal_charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageService
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination package_mock_test.go github.com/juju/juju/domain/application/service AgentVersionGetter,CAASProvider,CharmStore,Provider,CloudInfoProvider,State,StatusHistory,WatcherFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination internal_charm_mock_test.go github.com/juju/juju/domain/deployment/charm Charm
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination constraints_mock_test.go github.com/juju/juju/core/constraints Validator
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination leader_mock_test.go github.com/juju/juju/core/leadership Ensurer
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination caas_mock_test.go github.com/juju/juju/caas Application
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination storage_mock_test.go github.com/juju/juju/domain/application/service StorageService
 
 type baseSuite struct {
 	testhelpers.IsolationSuite

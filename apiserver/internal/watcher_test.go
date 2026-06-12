@@ -6,9 +6,9 @@ package internal_test
 import (
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/tomb.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"

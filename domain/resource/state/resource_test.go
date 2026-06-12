@@ -2966,19 +2966,22 @@ func (s *resourceSuite) TestImportResourcesOriginNotValid(c *tc.C) {
 	c.Check(err, tc.ErrorIs, resourceerrors.OriginNotValid)
 }
 
-// TestExportResources tests the retrieval and organization of resources from the
-// database.
-func (s *resourceSuite) TestExportResources(c *tc.C) {
+// TestListAllModelResources tests the retrieval and organization of resources
+// from the database.
+func (s *resourceSuite) TestListAllModelResources(c *tc.C) {
 	// Arrange
 	now := time.Now().Truncate(time.Second).UTC()
 
 	fp, err := charmresource.NewFingerprint(fingerprint)
+	c.Assert(err, tc.ErrorIsNil)
+	fp2, err := charmresource.NewFingerprint([]byte("223456789012345678901234567890123456789012345678"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Arrange : Insert several resources
 	// - 1 with no unit
 	// - 1 associated with two units (state available)
 	// - 1 associated with one unit (state available)
+	// - 1 in state potential, which should not be exported
 	resource1 := resourceData{
 		UUID:            "resource-1-uuid",
 		ApplicationUUID: s.constants.fakeApplicationUUID1,
@@ -3020,6 +3023,29 @@ func (s *resourceSuite) TestExportResources(c *tc.C) {
 		Size:                     200,
 		SHA384:                   fp.String(),
 	}
+	resource3 := resourceData{
+		UUID:                     "resource-3",
+		ApplicationUUID:          s.constants.fakeApplicationUUID2,
+		Name:                     "resource-3",
+		CreatedAt:                now,
+		Type:                     charmresource.TypeContainerImage,
+		OriginType:               "upload",
+		RetrievedByName:          "retrieved-by-name",
+		ContainerImageStorageKey: "container-image-store-uuid-3",
+		Size:                     300,
+		SHA384:                   fp2.String(),
+	}
+	potentialResource := resourceData{
+		UUID:            "resource-4-potential-uuid",
+		ApplicationUUID: s.constants.fakeApplicationUUID1,
+		Name:            "resource-4-potential",
+		CreatedAt:       now,
+		Type:            charmresource.TypeFile,
+		OriginType:      "store",
+		Revision:        18,
+		State:           resource.StatePotential.String(),
+		UnitUUID:        s.constants.fakeUnitUUID3,
+	}
 
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		for _, input := range []resourceData{
@@ -3027,6 +3053,8 @@ func (s *resourceSuite) TestExportResources(c *tc.C) {
 			unit1Resource1,
 			unit2Resource1,
 			resource2,
+			resource3,
+			potentialResource,
 		} {
 			if err := input.insert(c.Context(), tx); err != nil {
 				return errors.Capture(err)
@@ -3036,67 +3064,22 @@ func (s *resourceSuite) TestExportResources(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Arrange) failed to populate DB: %v", errors.ErrorStack(err)))
 
-	// Act
-	exportedResources, err := s.state.ExportResources(c.Context(), s.constants.fakeApplicationName1)
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Check(exportedResources.Resources, tc.DeepEquals, []coreresource.Resource{
+	allResources, err := s.state.ListAllModelResources(c.Context())
+	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list all resources: %v", errors.ErrorStack(err)))
+	c.Check(allResources, tc.DeepEquals, []coreresource.Resource{
 		resource1.toResource(s, c),
 		resource2.toResource(s, c),
-	})
-	c.Check(exportedResources.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
-		{
-			Name: unit.Name(s.constants.fakeUnitName1),
-			Resources: []coreresource.Resource{
-				resource1.toResource(s, c),
-			},
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName2),
-			Resources: []coreresource.Resource{
-				resource1.toResource(s, c),
-			},
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName3),
-			// No resources.
-		},
+		resource3.toResource(s, c),
 	})
 }
 
-// TestExportResourcesNoResources verifies that no resources are returned for an
-// application when no resources exist. It checks that the resulting lists for
-// unit resources, general resources, and repository resources are all empty.
-func (s *resourceSuite) TestExportResourcesNoResources(c *tc.C) {
+func (s *resourceSuite) TestListAllModelResourcesNoResources(c *tc.C) {
 	// Arrange: No resources
 	// Act
-	exportedResources, err := s.state.ExportResources(c.Context(), s.constants.fakeApplicationName1)
+	allResources, err := s.state.ListAllModelResources(c.Context())
 	// Assert
 	c.Assert(err, tc.ErrorIsNil, tc.Commentf("(Assert) failed to list resources: %v", errors.ErrorStack(err)))
-	c.Check(exportedResources.Resources, tc.IsNil)
-	c.Check(exportedResources.UnitResources, tc.DeepEquals, []coreresource.UnitResources{
-		{
-			Name: unit.Name(s.constants.fakeUnitName1),
-			// No resources
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName2),
-			// No resources
-		},
-		{
-			Name: unit.Name(s.constants.fakeUnitName3),
-			// No resources
-		},
-	})
-}
-
-func (s *resourceSuite) TestExportResourcesApplicationNotFound(c *tc.C) {
-	// Arrange: No resources
-	// Act
-	_, err := s.state.ExportResources(c.Context(), "bad-app-name")
-	// Assert
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+	c.Check(allResources, tc.HasLen, 0)
 }
 
 func (s *resourceSuite) addLocalCharmAndApp(c *tc.C, charmUUID, appName, appUUID string) {

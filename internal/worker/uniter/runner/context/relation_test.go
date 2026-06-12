@@ -6,22 +6,22 @@ package context_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/internal/testhelpers"
-	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
+	apimocks "github.com/juju/juju/internal/worker/uniter/api/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
 )
 
 type ContextRelationSuite struct {
 	testhelpers.IsolationSuite
-	rel     *uniterapi.MockRelation
-	relUnit *uniterapi.MockRelationUnit
+	rel     *apimocks.MockRelation
+	relUnit *apimocks.MockRelationUnit
 }
 
 func TestContextRelationSuite(t *testing.T) {
@@ -31,9 +31,9 @@ func TestContextRelationSuite(t *testing.T) {
 func (s *ContextRelationSuite) setUp(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.rel = uniterapi.NewMockRelation(ctrl)
+	s.rel = apimocks.NewMockRelation(ctrl)
 	s.rel.EXPECT().Id().Return(666)
-	s.relUnit = uniterapi.NewMockRelationUnit(ctrl)
+	s.relUnit = apimocks.NewMockRelationUnit(ctrl)
 	s.relUnit.EXPECT().Relation().Return(s.rel).AnyTimes()
 	s.relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "server"}})
 	return ctrl

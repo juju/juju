@@ -11,9 +11,9 @@ import (
 	stdtesting "testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	environs "github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"

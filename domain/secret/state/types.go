@@ -130,7 +130,7 @@ type secretRotationChange struct {
 }
 
 type secretRevision struct {
-	ID         string    `db:"uuid"`
+	UUID       string    `db:"uuid"`
 	SecretID   string    `db:"secret_id"`
 	Revision   int       `db:"revision"`
 	CreateTime time.Time `db:"create_time"`
@@ -138,7 +138,7 @@ type secretRevision struct {
 }
 
 type secretRevisionObsolete struct {
-	ID            string `db:"revision_uuid"`
+	UUID          string `db:"revision_uuid"`
 	Obsolete      bool   `db:"obsolete"`
 	PendingDelete bool   `db:"pending_delete"`
 }

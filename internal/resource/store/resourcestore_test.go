@@ -6,9 +6,9 @@ package store
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/core/resource/store"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"

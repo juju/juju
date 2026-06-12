@@ -10,10 +10,8 @@
 package mocks
 
 import (
-	reflect "reflect"
-
+	gomock "github.com/canonical/gomock/gomock"
 	openapi_v2 "github.com/google/gnostic-models/openapiv2"
-	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	version "k8s.io/apimachinery/pkg/version"
 	discovery "k8s.io/client-go/discovery"
@@ -25,17 +23,28 @@ import (
 type MockDiscoveryInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockDiscoveryInterfaceMockRecorder
+	isgomock struct{}
 }
 
 // MockDiscoveryInterfaceMockRecorder is the mock recorder for MockDiscoveryInterface.
 type MockDiscoveryInterfaceMockRecorder struct {
-	mock *MockDiscoveryInterface
+	mock                                      *MockDiscoveryInterface
+	openAPISchemaExpects                      []*gomock.Call0_2[*openapi_v2.Document, error]
+	openAPIV3Expects                          []*gomock.Call0_1[openapi.Client]
+	rESTClientExpects                         []*gomock.Call0_1[rest.Interface]
+	serverGroupsExpects                       []*gomock.Call0_2[*v1.APIGroupList, error]
+	serverGroupsAndResourcesExpects           []*gomock.Call0_3[[]*v1.APIGroup, []*v1.APIResourceList, error]
+	serverPreferredNamespacedResourcesExpects []*gomock.Call0_2[[]*v1.APIResourceList, error]
+	serverPreferredResourcesExpects           []*gomock.Call0_2[[]*v1.APIResourceList, error]
+	serverResourcesForGroupVersionExpects     []*gomock.Call1_2[string, *v1.APIResourceList, error]
+	serverVersionExpects                      []*gomock.Call0_2[*version.Info, error]
+	withLegacyExpects                         []*gomock.Call0_1[discovery.DiscoveryInterface]
 }
 
 // NewMockDiscoveryInterface creates a new mock instance.
 func NewMockDiscoveryInterface(ctrl *gomock.Controller) *MockDiscoveryInterface {
 	mock := &MockDiscoveryInterface{ctrl: ctrl}
-	mock.recorder = &MockDiscoveryInterfaceMockRecorder{mock}
+	mock.recorder = &MockDiscoveryInterfaceMockRecorder{mock: mock}
 	return mock
 }
 
@@ -47,147 +56,179 @@ func (m *MockDiscoveryInterface) EXPECT() *MockDiscoveryInterfaceMockRecorder {
 // OpenAPISchema mocks base method.
 func (m *MockDiscoveryInterface) OpenAPISchema() (*openapi_v2.Document, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenAPISchema")
-	ret0, _ := ret[0].(*openapi_v2.Document)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch0_2(&m.recorder.openAPISchemaExpects, m.ctrl, m, "OpenAPISchema")
 }
 
 // OpenAPISchema indicates an expected call of OpenAPISchema.
-func (mr *MockDiscoveryInterfaceMockRecorder) OpenAPISchema() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) OpenAPISchema() *MockDiscoveryInterfaceOpenAPISchemaCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenAPISchema", reflect.TypeOf((*MockDiscoveryInterface)(nil).OpenAPISchema))
+	call := gomock.NewCall0_2[*openapi_v2.Document, error](mr.mock.ctrl.T, mr.mock, "OpenAPISchema")
+	mr.openAPISchemaExpects = append(mr.openAPISchemaExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceOpenAPISchemaCall is the typed call wrapper for OpenAPISchema.
+type MockDiscoveryInterfaceOpenAPISchemaCall = gomock.Call0_2[*openapi_v2.Document, error]
 
 // OpenAPIV3 mocks base method.
 func (m *MockDiscoveryInterface) OpenAPIV3() openapi.Client {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenAPIV3")
-	ret0, _ := ret[0].(openapi.Client)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.openAPIV3Expects, m.ctrl, m, "OpenAPIV3")
 }
 
 // OpenAPIV3 indicates an expected call of OpenAPIV3.
-func (mr *MockDiscoveryInterfaceMockRecorder) OpenAPIV3() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) OpenAPIV3() *MockDiscoveryInterfaceOpenAPIV3Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenAPIV3", reflect.TypeOf((*MockDiscoveryInterface)(nil).OpenAPIV3))
+	call := gomock.NewCall0_1[openapi.Client](mr.mock.ctrl.T, mr.mock, "OpenAPIV3")
+	mr.openAPIV3Expects = append(mr.openAPIV3Expects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceOpenAPIV3Call is the typed call wrapper for OpenAPIV3.
+type MockDiscoveryInterfaceOpenAPIV3Call = gomock.Call0_1[openapi.Client]
 
 // RESTClient mocks base method.
 func (m *MockDiscoveryInterface) RESTClient() rest.Interface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RESTClient")
-	ret0, _ := ret[0].(rest.Interface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.rESTClientExpects, m.ctrl, m, "RESTClient")
 }
 
 // RESTClient indicates an expected call of RESTClient.
-func (mr *MockDiscoveryInterfaceMockRecorder) RESTClient() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) RESTClient() *MockDiscoveryInterfaceRESTClientCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RESTClient", reflect.TypeOf((*MockDiscoveryInterface)(nil).RESTClient))
+	call := gomock.NewCall0_1[rest.Interface](mr.mock.ctrl.T, mr.mock, "RESTClient")
+	mr.rESTClientExpects = append(mr.rESTClientExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceRESTClientCall is the typed call wrapper for RESTClient.
+type MockDiscoveryInterfaceRESTClientCall = gomock.Call0_1[rest.Interface]
 
 // ServerGroups mocks base method.
 func (m *MockDiscoveryInterface) ServerGroups() (*v1.APIGroupList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerGroups")
-	ret0, _ := ret[0].(*v1.APIGroupList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch0_2(&m.recorder.serverGroupsExpects, m.ctrl, m, "ServerGroups")
 }
 
 // ServerGroups indicates an expected call of ServerGroups.
-func (mr *MockDiscoveryInterfaceMockRecorder) ServerGroups() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) ServerGroups() *MockDiscoveryInterfaceServerGroupsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerGroups", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerGroups))
+	call := gomock.NewCall0_2[*v1.APIGroupList, error](mr.mock.ctrl.T, mr.mock, "ServerGroups")
+	mr.serverGroupsExpects = append(mr.serverGroupsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceServerGroupsCall is the typed call wrapper for ServerGroups.
+type MockDiscoveryInterfaceServerGroupsCall = gomock.Call0_2[*v1.APIGroupList, error]
 
 // ServerGroupsAndResources mocks base method.
 func (m *MockDiscoveryInterface) ServerGroupsAndResources() ([]*v1.APIGroup, []*v1.APIResourceList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerGroupsAndResources")
-	ret0, _ := ret[0].([]*v1.APIGroup)
-	ret1, _ := ret[1].([]*v1.APIResourceList)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	return gomock.Dispatch0_3(&m.recorder.serverGroupsAndResourcesExpects, m.ctrl, m, "ServerGroupsAndResources")
 }
 
 // ServerGroupsAndResources indicates an expected call of ServerGroupsAndResources.
-func (mr *MockDiscoveryInterfaceMockRecorder) ServerGroupsAndResources() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) ServerGroupsAndResources() *MockDiscoveryInterfaceServerGroupsAndResourcesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerGroupsAndResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerGroupsAndResources))
+	call := gomock.NewCall0_3[[]*v1.APIGroup, []*v1.APIResourceList, error](mr.mock.ctrl.T, mr.mock, "ServerGroupsAndResources")
+	mr.serverGroupsAndResourcesExpects = append(mr.serverGroupsAndResourcesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceServerGroupsAndResourcesCall is the typed call wrapper for ServerGroupsAndResources.
+type MockDiscoveryInterfaceServerGroupsAndResourcesCall = gomock.Call0_3[[]*v1.APIGroup, []*v1.APIResourceList, error]
 
 // ServerPreferredNamespacedResources mocks base method.
 func (m *MockDiscoveryInterface) ServerPreferredNamespacedResources() ([]*v1.APIResourceList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerPreferredNamespacedResources")
-	ret0, _ := ret[0].([]*v1.APIResourceList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch0_2(&m.recorder.serverPreferredNamespacedResourcesExpects, m.ctrl, m, "ServerPreferredNamespacedResources")
 }
 
 // ServerPreferredNamespacedResources indicates an expected call of ServerPreferredNamespacedResources.
-func (mr *MockDiscoveryInterfaceMockRecorder) ServerPreferredNamespacedResources() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) ServerPreferredNamespacedResources() *MockDiscoveryInterfaceServerPreferredNamespacedResourcesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerPreferredNamespacedResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerPreferredNamespacedResources))
+	call := gomock.NewCall0_2[[]*v1.APIResourceList, error](mr.mock.ctrl.T, mr.mock, "ServerPreferredNamespacedResources")
+	mr.serverPreferredNamespacedResourcesExpects = append(mr.serverPreferredNamespacedResourcesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceServerPreferredNamespacedResourcesCall is the typed call wrapper for ServerPreferredNamespacedResources.
+type MockDiscoveryInterfaceServerPreferredNamespacedResourcesCall = gomock.Call0_2[[]*v1.APIResourceList, error]
 
 // ServerPreferredResources mocks base method.
 func (m *MockDiscoveryInterface) ServerPreferredResources() ([]*v1.APIResourceList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerPreferredResources")
-	ret0, _ := ret[0].([]*v1.APIResourceList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch0_2(&m.recorder.serverPreferredResourcesExpects, m.ctrl, m, "ServerPreferredResources")
 }
 
 // ServerPreferredResources indicates an expected call of ServerPreferredResources.
-func (mr *MockDiscoveryInterfaceMockRecorder) ServerPreferredResources() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) ServerPreferredResources() *MockDiscoveryInterfaceServerPreferredResourcesCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerPreferredResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerPreferredResources))
+	call := gomock.NewCall0_2[[]*v1.APIResourceList, error](mr.mock.ctrl.T, mr.mock, "ServerPreferredResources")
+	mr.serverPreferredResourcesExpects = append(mr.serverPreferredResourcesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockDiscoveryInterfaceServerPreferredResourcesCall is the typed call wrapper for ServerPreferredResources.
+type MockDiscoveryInterfaceServerPreferredResourcesCall = gomock.Call0_2[[]*v1.APIResourceList, error]
+
 // ServerResourcesForGroupVersion mocks base method.
-func (m *MockDiscoveryInterface) ServerResourcesForGroupVersion(arg0 string) (*v1.APIResourceList, error) {
+func (m *MockDiscoveryInterface) ServerResourcesForGroupVersion(groupVersion string) (*v1.APIResourceList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerResourcesForGroupVersion", arg0)
-	ret0, _ := ret[0].(*v1.APIResourceList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch1_2(&m.recorder.serverResourcesForGroupVersionExpects, m.ctrl, m, "ServerResourcesForGroupVersion", groupVersion)
 }
 
 // ServerResourcesForGroupVersion indicates an expected call of ServerResourcesForGroupVersion.
-func (mr *MockDiscoveryInterfaceMockRecorder) ServerResourcesForGroupVersion(arg0 any) *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) ServerResourcesForGroupVersion(groupVersion any) *MockDiscoveryInterfaceServerResourcesForGroupVersionCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerResourcesForGroupVersion", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerResourcesForGroupVersion), arg0)
+	call := gomock.NewCall1_2[string, *v1.APIResourceList, error](mr.mock.ctrl.T, mr.mock, "ServerResourcesForGroupVersion", gomock.EnsureMatcher(groupVersion))
+	mr.serverResourcesForGroupVersionExpects = append(mr.serverResourcesForGroupVersionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceServerResourcesForGroupVersionCall is the typed call wrapper for ServerResourcesForGroupVersion.
+type MockDiscoveryInterfaceServerResourcesForGroupVersionCall = gomock.Call1_2[string, *v1.APIResourceList, error]
 
 // ServerVersion mocks base method.
 func (m *MockDiscoveryInterface) ServerVersion() (*version.Info, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerVersion")
-	ret0, _ := ret[0].(*version.Info)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	return gomock.Dispatch0_2(&m.recorder.serverVersionExpects, m.ctrl, m, "ServerVersion")
 }
 
 // ServerVersion indicates an expected call of ServerVersion.
-func (mr *MockDiscoveryInterfaceMockRecorder) ServerVersion() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) ServerVersion() *MockDiscoveryInterfaceServerVersionCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerVersion", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerVersion))
+	call := gomock.NewCall0_2[*version.Info, error](mr.mock.ctrl.T, mr.mock, "ServerVersion")
+	mr.serverVersionExpects = append(mr.serverVersionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceServerVersionCall is the typed call wrapper for ServerVersion.
+type MockDiscoveryInterfaceServerVersionCall = gomock.Call0_2[*version.Info, error]
 
 // WithLegacy mocks base method.
 func (m *MockDiscoveryInterface) WithLegacy() discovery.DiscoveryInterface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WithLegacy")
-	ret0, _ := ret[0].(discovery.DiscoveryInterface)
-	return ret0
+	return gomock.Dispatch0_1(&m.recorder.withLegacyExpects, m.ctrl, m, "WithLegacy")
 }
 
 // WithLegacy indicates an expected call of WithLegacy.
-func (mr *MockDiscoveryInterfaceMockRecorder) WithLegacy() *gomock.Call {
+func (mr *MockDiscoveryInterfaceMockRecorder) WithLegacy() *MockDiscoveryInterfaceWithLegacyCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithLegacy", reflect.TypeOf((*MockDiscoveryInterface)(nil).WithLegacy))
+	call := gomock.NewCall0_1[discovery.DiscoveryInterface](mr.mock.ctrl.T, mr.mock, "WithLegacy")
+	mr.withLegacyExpects = append(mr.withLegacyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockDiscoveryInterfaceWithLegacyCall is the typed call wrapper for WithLegacy.
+type MockDiscoveryInterfaceWithLegacyCall = gomock.Call0_1[discovery.DiscoveryInterface]

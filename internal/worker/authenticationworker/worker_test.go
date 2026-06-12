@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -96,15 +96,17 @@ func (s *workerSuite) TestKeyUpdateRetainsExisting(c *tc.C) {
 
 	tag := names.NewMachineTag("666")
 	client := mocks.NewMockClient(ctrl)
-	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return(s.existingModelKeys, nil)
+
+	newKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:user@host"
+	gomock.InOrder(
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return(s.existingModelKeys, nil),
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{newKeyWithCommentPrefix}, nil),
+	)
 	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
 
 	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, authWorker)
-
-	newKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:user@host"
-	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{newKeyWithCommentPrefix}, nil)
 
 	ch <- struct{}{}
 
@@ -122,15 +124,17 @@ func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *tc.C) {
 
 	tag := names.NewMachineTag("666")
 	client := mocks.NewMockClient(ctrl)
-	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{existingKey}, nil)
+
+	newKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:user@host"
+	gomock.InOrder(
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{existingKey}, nil),
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{newKeyWithCommentPrefix}, nil),
+	)
 	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
 
 	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, authWorker)
-
-	newKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:user@host"
-	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{newKeyWithCommentPrefix}, nil)
 
 	ch <- struct{}{}
 
@@ -177,18 +181,20 @@ func (s *workerSuite) TestMultipleChanges(c *tc.C) {
 
 	tag := names.NewMachineTag("666")
 	client := mocks.NewMockClient(ctrl)
-	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return(s.existingModelKeys, nil)
-	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
-
-	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
-	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, authWorker)
 
 	// Perform a set to add a key and delete a key.
 	// added: key 3
 	// deleted: key 1 (existing env key)
 	yetAnotherKeyWithComment := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
-	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{yetAnotherKeyWithComment}, nil)
+	gomock.InOrder(
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return(s.existingModelKeys, nil),
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{yetAnotherKeyWithComment}, nil),
+	)
+	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
+
+	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, authWorker)
 
 	ch <- struct{}{}
 

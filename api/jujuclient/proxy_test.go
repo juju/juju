@@ -6,8 +6,8 @@ package jujuclient_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/api/jujuclient"

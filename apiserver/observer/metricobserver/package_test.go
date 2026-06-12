@@ -4,14 +4,14 @@
 package metricobserver_test
 
 import (
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/apiserver/observer/metricobserver/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
 
 func createMockMetrics(c *tc.C, labels any) (*mocks.MockMetricsCollector, func()) {
 	ctrl := gomock.NewController(c)

@@ -153,11 +153,26 @@ func (r *relationsResolver) maybeDestroySubordinates(ctx context.Context, remote
 	for relationId, relationSnapshot := range remoteState.Relations {
 		if relationSnapshot.Life != life.Alive {
 			continue
-		} else if hasContainerScope, err := r.stateTracker.HasContainerScope(relationId); err != nil || !hasContainerScope {
+		}
+		hasContainerScope, err := r.stateTracker.HasContainerScope(relationId)
+		if err != nil {
+			if !errors.Is(err, errors.NotFound) {
+				return errors.Trace(err)
+			}
+			// The relation is not tracked by the state manager. This can
+			// happen when joinRelation fails because the unit became Dying
+			// before it could enter scope (a race between the remote-state
+			// snapshot and the actual unit life). Treat the relation as
+			// potentially container-scoped so that subordinates are still
+			// destroyed — DestroyAllSubordinates is idempotent.
+			destroyAllSubordinates = true
+			continue
+		}
+		if !hasContainerScope {
 			continue
 		}
 
-		// Found alive relation to a subordinate
+		// Found alive relation to a subordinate.
 		relationSnapshot.Life = life.Dying
 		remoteState.Relations[relationId] = relationSnapshot
 		destroyAllSubordinates = true
@@ -417,7 +432,12 @@ func (r *createdRelationsResolver) NextOp(
 }
 
 func (r *createdRelationsResolver) nextHookForRelation(relationId int) (hook.Info, error) {
-	isImplicit, _ := r.stateTracker.IsImplicit(relationId)
+	isImplicit, err := r.stateTracker.IsImplicit(relationId)
+	if err != nil {
+		// Relation not tracked (e.g. joinRelation failed while the unit was
+		// becoming Dying). Skip until the relation is successfully tracked.
+		return hook.Info{}, resolver.ErrNoOperation
+	}
 	if r.stateTracker.RelationCreated(relationId) || isImplicit {
 		return hook.Info{}, resolver.ErrNoOperation
 	}

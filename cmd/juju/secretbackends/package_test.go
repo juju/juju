@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/api/jujuclient"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package secretbackends -destination secretbackendsapi_mock_test.go github.com/juju/juju/cmd/juju/secretbackends ListSecretBackendsAPI,AddSecretBackendsAPI,RemoveSecretBackendsAPI,UpdateSecretBackendsAPI,ModelSecretBackendAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package secretbackends -destination secretbackendsapi_mock_test.go github.com/juju/juju/cmd/juju/secretbackends ListSecretBackendsAPI,AddSecretBackendsAPI,RemoveSecretBackendsAPI,UpdateSecretBackendsAPI,ModelSecretBackendAPI
 
 // NewListCommandForTest returns a secret backends command for testing.
 func NewListCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecretBackendsAPI) *listSecretBackendsCommand {

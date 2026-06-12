@@ -7,8 +7,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"

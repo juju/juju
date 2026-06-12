@@ -7,11 +7,11 @@ import (
 	ctx "context"
 	stdtesting "testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	ociCommon "github.com/oracle/oci-go-sdk/v65/common"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/oci/testing"

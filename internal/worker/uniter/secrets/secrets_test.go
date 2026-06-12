@@ -6,9 +6,9 @@ package secrets_test
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 	"gopkg.in/yaml.v2"
 
 	coresecrets "github.com/juju/juju/core/secrets"

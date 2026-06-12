@@ -3,4 +3,4 @@
 
 package s3client
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package s3client -destination session_mock_test.go github.com/juju/juju/internal/s3client Session
+//go:generate go run github.com/canonical/gomock/mockgen -package s3client -destination session_mock_test.go github.com/juju/juju/internal/s3client Session

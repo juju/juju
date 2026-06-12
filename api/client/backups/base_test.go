@@ -6,8 +6,8 @@ package backups
 import (
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/core/backups"

@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	apimacaroon "github.com/juju/juju/api/macaroon"

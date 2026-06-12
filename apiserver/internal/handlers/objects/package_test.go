@@ -3,4 +3,4 @@
 
 package objects
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package objects -destination service_mock_test.go github.com/juju/juju/apiserver/internal/handlers/objects ApplicationServiceGetter,ApplicationService,ObjectStoreServiceGetter,ObjectStoreService
+//go:generate go run github.com/canonical/gomock/mockgen -package objects -destination service_mock_test.go github.com/juju/juju/apiserver/internal/handlers/objects ApplicationServiceGetter,ApplicationService,ObjectStoreServiceGetter,ObjectStoreService

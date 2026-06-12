@@ -9,7 +9,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package secretbackends -destination mock_service.go github.com/juju/juju/apiserver/facades/client/secretbackends SecretBackendService
+//go:generate go run github.com/canonical/gomock/mockgen -package secretbackends -destination service_mocks_test.go github.com/juju/juju/apiserver/facades/client/secretbackends SecretBackendService
 
 func NewTestAPI(
 	authorizer facade.Authorizer,

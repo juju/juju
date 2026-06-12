@@ -42,7 +42,7 @@ type Owner struct {
 // UpsertSecretParams are used to upsert a secret.
 // Only non-nil values are used.
 type UpsertSecretParams struct {
-	RevisionID     *string
+	RevisionUUID   *string
 	RotatePolicy   *RotatePolicy
 	ExpireTime     *time.Time
 	NextRotateTime *time.Time
@@ -72,14 +72,14 @@ func (u *UpsertSecretParams) HasUpdate() bool {
 
 // UpsertRevisionParams holds information about a secret revision to be inserted.
 type UpsertRevisionParams struct {
-	Revision   int
-	RevisionID *string
-	CreateTime time.Time
-	UpdateTime time.Time
-	ExpireTime *time.Time
-	ValueRef   *secrets.ValueRef
-	Data       secrets.SecretData
-	Checksum   string
+	Revision     int
+	RevisionUUID *string
+	CreateTime   time.Time
+	UpdateTime   time.Time
+	ExpireTime   *time.Time
+	ValueRef     *secrets.ValueRef
+	Data         secrets.SecretData
+	Checksum     string
 }
 
 // GrantParams are used when granting access to a secret.
@@ -162,7 +162,7 @@ type RotationInfo struct {
 type ExpiryInfo struct {
 	URI             *secrets.URI
 	Revision        int
-	RevisionID      string
+	RevisionUUID    string
 	NextTriggerTime time.Time
 }
 

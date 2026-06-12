@@ -6,9 +6,9 @@ package migration
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/description/v12"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"

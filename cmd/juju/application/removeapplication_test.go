@@ -9,9 +9,9 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/jujuclient"

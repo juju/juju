@@ -11,27 +11,29 @@ package leadership_test
 
 import (
 	context "context"
-	reflect "reflect"
 	time "time"
 
-	gomock "go.uber.org/mock/gomock"
+	gomock "github.com/canonical/gomock/gomock"
 )
 
 // MockClaimer is a mock of Claimer interface.
 type MockClaimer struct {
 	ctrl     *gomock.Controller
 	recorder *MockClaimerMockRecorder
+	isgomock struct{}
 }
 
 // MockClaimerMockRecorder is the mock recorder for MockClaimer.
 type MockClaimerMockRecorder struct {
-	mock *MockClaimer
+	mock                                *MockClaimer
+	blockUntilLeadershipReleasedExpects []*gomock.Call2_1[context.Context, string, error]
+	claimLeadershipExpects              []*gomock.Call4_1[context.Context, string, string, time.Duration, error]
 }
 
 // NewMockClaimer creates a new mock instance.
 func NewMockClaimer(ctrl *gomock.Controller) *MockClaimer {
 	mock := &MockClaimer{ctrl: ctrl}
-	mock.recorder = &MockClaimerMockRecorder{mock}
+	mock.recorder = &MockClaimerMockRecorder{mock: mock}
 	return mock
 }
 
@@ -41,29 +43,37 @@ func (m *MockClaimer) EXPECT() *MockClaimerMockRecorder {
 }
 
 // BlockUntilLeadershipReleased mocks base method.
-func (m *MockClaimer) BlockUntilLeadershipReleased(arg0 context.Context, arg1 string) error {
+func (m *MockClaimer) BlockUntilLeadershipReleased(ctx context.Context, applicationId string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockUntilLeadershipReleased", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch2_1(&m.recorder.blockUntilLeadershipReleasedExpects, m.ctrl, m, "BlockUntilLeadershipReleased", ctx, applicationId)
 }
 
 // BlockUntilLeadershipReleased indicates an expected call of BlockUntilLeadershipReleased.
-func (mr *MockClaimerMockRecorder) BlockUntilLeadershipReleased(arg0, arg1 any) *gomock.Call {
+func (mr *MockClaimerMockRecorder) BlockUntilLeadershipReleased(ctx, applicationId any) *MockClaimerBlockUntilLeadershipReleasedCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockUntilLeadershipReleased", reflect.TypeOf((*MockClaimer)(nil).BlockUntilLeadershipReleased), arg0, arg1)
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "BlockUntilLeadershipReleased", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationId))
+	mr.blockUntilLeadershipReleasedExpects = append(mr.blockUntilLeadershipReleasedExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
 
+// MockClaimerBlockUntilLeadershipReleasedCall is the typed call wrapper for BlockUntilLeadershipReleased.
+type MockClaimerBlockUntilLeadershipReleasedCall = gomock.Call2_1[context.Context, string, error]
+
 // ClaimLeadership mocks base method.
-func (m *MockClaimer) ClaimLeadership(arg0 context.Context, arg1, arg2 string, arg3 time.Duration) error {
+func (m *MockClaimer) ClaimLeadership(ctx context.Context, applicationId, unitId string, duration time.Duration) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClaimLeadership", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	return gomock.Dispatch4_1(&m.recorder.claimLeadershipExpects, m.ctrl, m, "ClaimLeadership", ctx, applicationId, unitId, duration)
 }
 
 // ClaimLeadership indicates an expected call of ClaimLeadership.
-func (mr *MockClaimerMockRecorder) ClaimLeadership(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockClaimerMockRecorder) ClaimLeadership(ctx, applicationId, unitId, duration any) *MockClaimerClaimLeadershipCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimLeadership", reflect.TypeOf((*MockClaimer)(nil).ClaimLeadership), arg0, arg1, arg2, arg3)
+	call := gomock.NewCall4_1[context.Context, string, string, time.Duration, error](mr.mock.ctrl.T, mr.mock, "ClaimLeadership", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationId), gomock.EnsureMatcher(unitId), gomock.EnsureMatcher(duration))
+	mr.claimLeadershipExpects = append(mr.claimLeadershipExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
 }
+
+// MockClaimerClaimLeadershipCall is the typed call wrapper for ClaimLeadership.
+type MockClaimerClaimLeadershipCall = gomock.Call4_1[context.Context, string, string, time.Duration, error]

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	corelife "github.com/juju/juju/core/life"

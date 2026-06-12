@@ -6,8 +6,8 @@ package objectstores3caller
 import (
 	"context"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
@@ -17,10 +17,10 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Client,Session
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ObjectStoreService
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
-//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination httpclient_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstores3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Client,Session
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ObjectStoreService
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
+//go:generate go run github.com/canonical/gomock/mockgen -package objectstores3caller -destination httpclient_mock_test.go github.com/juju/juju/core/http HTTPClientGetter
 
 type baseSuite struct {
 	states chan string

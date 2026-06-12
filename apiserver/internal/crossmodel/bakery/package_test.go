@@ -4,17 +4,17 @@
 package bakery
 
 import (
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/tc"
-	gomock "go.uber.org/mock/gomock"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/model"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package bakery -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package bakery -destination service_mock_test.go github.com/juju/juju/apiserver/internal/crossmodel/bakery BakeryStore,Oven,MacaroonChecker,HTTPClient
-//go:generate go run go.uber.org/mock/mockgen -typed -package bakery -destination bakery_mock_test.go github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery OpsAuthorizer
+//go:generate go run github.com/canonical/gomock/mockgen -package bakery -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package bakery -destination service_mock_test.go github.com/juju/juju/apiserver/internal/crossmodel/bakery BakeryStore,Oven,MacaroonChecker,HTTPClient
+//go:generate go run github.com/canonical/gomock/mockgen -package bakery -destination bakery_mock_test.go github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery OpsAuthorizer
 
 type baseBakerySuite struct {
 	modelUUID model.UUID

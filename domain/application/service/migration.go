@@ -417,16 +417,44 @@ func makeInsertApplicationArg(
 		return application.InsertApplicationArgs{}, errors.Errorf("encoding application config: %w", err)
 	}
 
+	storageDirectives, err := makeMigratingStorageDirectiveArgs(args.StorageDirectives)
+	if err != nil {
+		return application.InsertApplicationArgs{}, errors.Errorf("encoding storage directives: %w", err)
+	}
+
 	return application.InsertApplicationArgs{
-		ApplicationUUID:  args.UUID.String(),
-		Charm:            ch,
-		Platform:         platformArg,
-		Channel:          channelArg,
-		EndpointBindings: args.EndpointBindings,
-		Resources:        makeResourcesArgs(args.ResolvedResources),
-		Config:           applicationConfig,
-		Settings:         args.ApplicationSettings,
+		ApplicationUUID:   args.UUID.String(),
+		Charm:             ch,
+		Platform:          platformArg,
+		Channel:           channelArg,
+		EndpointBindings:  args.EndpointBindings,
+		Resources:         makeResourcesArgs(args.ResolvedResources),
+		Config:            applicationConfig,
+		Settings:          args.ApplicationSettings,
+		StorageDirectives: storageDirectives,
 	}, nil
+}
+
+// makeMigratingStorageDirectiveArgs converts the imported storage directive
+// arguments into the migrating storage directive arguments understood by the
+// state layer. The storage pool is left as a name; the state layer resolves it
+// to a storage pool UUID.
+func makeMigratingStorageDirectiveArgs(
+	directives []ImportStorageDirectiveArg,
+) ([]application.MigratingStorageDirectiveArg, error) {
+	if len(directives) == 0 {
+		return nil, nil
+	}
+	result := make([]application.MigratingStorageDirectiveArg, 0, len(directives))
+	for _, d := range directives {
+		result = append(result, application.MigratingStorageDirectiveArg{
+			Name:     d.Name,
+			PoolName: d.Pool,
+			Size:     d.Size,
+			Count:    uint32(d.Count),
+		})
+	}
+	return result, nil
 }
 
 // IsApplicationExposed returns whether the provided application is exposed or not.

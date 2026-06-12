@@ -357,7 +357,7 @@ func (st *State) listApplicationResources(
 
 	// Prepare the statement to get resources for the given application.
 	getResourcesQuery := `
-SELECT &resourceView.* 
+SELECT &resourceView.*
 FROM v_application_resource
 WHERE application_uuid = $resourceIdentity.application_uuid`
 	getResourcesStmt, err := st.Prepare(getResourcesQuery, appID, resourceView{})
@@ -525,7 +525,7 @@ func (st *State) GetResourcesByApplicationUUID(
 
 	// Prepare the statement to get resources for the given application.
 	getResourcesQuery := `
-SELECT &resourceView.* 
+SELECT &resourceView.*
 FROM v_application_resource
 WHERE application_uuid = $resourceIdentity.application_uuid
 AND state = 'available'`
@@ -2356,44 +2356,46 @@ AND    charm_uuid = $charmResource.charm_uuid
 	return kind, nil
 }
 
-// ExportResources returns the application and unit resources to export for a
-// particular application.
-func (st *State) ExportResources(ctx context.Context, appName string) (resource.ExportedResources, error) {
+// ListAllModelResources returns the application resources to export for all
+// applications in the model. Only available resources are returned since they
+// are the only ones with an associated blob to transfer; the full resource
+// metadata (including unit resources) is migrated with the model database.
+func (st *State) ListAllModelResources(ctx context.Context) ([]coreresource.Resource, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	var appID application.UUID
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		appID, err = st.getApplicationUUID(ctx, tx, appName)
-		if err != nil {
-			return errors.Errorf("getting application %s: %w", appName, err)
-		}
+	getResourcesStmt, err := st.Prepare(`
+SELECT &resourceView.*
+FROM v_application_resource
+WHERE state = 'available'
+ORDER BY application_name, name`, resourceView{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
 
-		return err
+	var resourceViews []resourceView
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, getResourcesStmt).GetAll(&resourceViews)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil // nothing found
+		}
+		return errors.Capture(err)
 	})
 	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
+		return nil, errors.Capture(err)
 	}
 
-	var exportedResources resource.ExportedResources
-
-	// Get the available application resources.
-	_, resources, err := st.listApplicationResources(ctx, appID)
-	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
+	resources := make([]coreresource.Resource, 0, len(resourceViews))
+	for _, res := range resourceViews {
+		r, err := res.toResource()
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		resources = append(resources, r)
 	}
-	exportedResources.Resources = resources
-
-	// Get the unit resources.
-	unitResources, err := st.listUnitResources(ctx, appID)
-	if err != nil {
-		return resource.ExportedResources{}, errors.Capture(err)
-	}
-	exportedResources.UnitResources = unitResources
-
-	return exportedResources, nil
+	return resources, nil
 }
 
 // getAppplicationAndCharmUUID returns gets the application UUID and charm UUID
@@ -2544,34 +2546,6 @@ WHERE  name = $applicationNameAndID.name
 		return false, errors.Capture(err)
 	}
 	return true, nil
-}
-
-// getApplicationUUID gets the application UUID from the name. It returns
-// [applicationerrors.ApplicationNotFound] if the application cannot be found.
-func (st *State) getApplicationUUID(ctx context.Context, tx *sqlair.TX, appName string) (application.UUID, error) {
-	appID := applicationNameAndID{
-		Name: appName,
-	}
-
-	// Prepare the SQL statement to retrieve the resource UUID.
-	stmt, err := st.Prepare(`
-SELECT &applicationNameAndID.uuid
-FROM   application            
-WHERE  name = $applicationNameAndID.name
-`, appID)
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	// Execute the SQL transaction.
-	err = tx.Query(ctx, stmt, appID).Get(&appID)
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", applicationerrors.ApplicationNotFound
-	} else if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	return appID.ApplicationID, nil
 }
 
 // VerifyApplicationExistsForResource returns whether an application

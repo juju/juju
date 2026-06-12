@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/lestrrat-go/jwx/v2/jwt"
-	gomock "go.uber.org/mock/gomock"
 )
 
 type authenticationSuite struct {

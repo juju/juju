@@ -6,10 +6,10 @@ package machineconverter
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	names "github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	agent "github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"

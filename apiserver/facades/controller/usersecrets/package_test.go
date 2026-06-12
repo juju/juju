@@ -8,8 +8,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/service.go github.com/juju/juju/apiserver/facades/controller/usersecrets SecretService
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher.go github.com/juju/juju/core/watcher NotifyWatcher
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/service.go github.com/juju/juju/apiserver/facades/controller/usersecrets SecretService
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/watcher.go github.com/juju/juju/core/watcher NotifyWatcher
 
 func NewTestAPI(
 	authorizer facade.Authorizer,

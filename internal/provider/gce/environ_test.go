@@ -8,8 +8,8 @@ import (
 	stdtesting "testing"
 
 	"cloud.google.com/go/compute/apiv1/computepb"
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"

@@ -185,9 +185,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		// Investigate how device constraints for an application are
 		// migrated and implemented if necessary.
 
-		// TODO hml 04-30-2024
-		// Investigate how storage directives for an application are
-		// migrated and implemented if necessary.
 		args := service.ImportApplicationArgs{
 			UUID:                   appUUID,
 			Charm:                  charm,
@@ -197,6 +194,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			ApplicationConstraints: constraintsmigration.DecodeConstraints(app.Constraints()),
 			EndpointBindings:       endpointBindings,
 			ExposedEndpoints:       exposedEndpoints,
+			StorageDirectives:      importStorageDirectives(app.StorageDirectives()),
 
 			// ReferenceName is the name of the charm URL, not the application
 			// name and not the charm name in the metadata, but the name of
@@ -249,6 +247,26 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	return nil
+}
+
+// importStorageDirectives converts the storage directives from the description
+// model into the import arguments understood by the application service. The
+// pool is referenced by name and is resolved to a storage pool UUID later, in
+// the state layer.
+func importStorageDirectives(directives map[string]description.StorageDirective) []service.ImportStorageDirectiveArg {
+	if len(directives) == 0 {
+		return nil
+	}
+	result := make([]service.ImportStorageDirectiveArg, 0, len(directives))
+	for name, directive := range directives {
+		result = append(result, service.ImportStorageDirectiveArg{
+			Name:  name,
+			Pool:  directive.Pool(),
+			Size:  directive.Size(),
+			Count: directive.Count(),
+		})
+	}
+	return result
 }
 
 func (i *importOperation) importApplicationConfig(app description.Application) (internalcharm.Config, error) {

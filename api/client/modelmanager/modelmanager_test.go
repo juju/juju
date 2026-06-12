@@ -4,14 +4,16 @@
 package modelmanager_test
 
 import (
+	"context"
+	"reflect"
 	"regexp"
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
-	"go.uber.org/mock/gomock"
 
 	"github.com/juju/juju/api/base"
 	basemocks "github.com/juju/juju/api/base/mocks"
@@ -67,7 +69,12 @@ func (s *modelmanagerSuite) TestCreateModel(c *tc.C) {
 	ress.Life = "alive"
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CreateModel", args, result).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "CreateModel", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	newModel, err := client.CreateModel(
@@ -126,7 +133,12 @@ func (s *modelmanagerSuite) TestCreateModelLegacy(c *tc.C) {
 	ress.Life = "alive"
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CreateModel", args, result).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "CreateModel", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 
 	client := modelmanager.NewLegacyClientFromCaller(mockFacadeCaller)
 
@@ -196,7 +208,12 @@ func (s *modelmanagerSuite) TestListModels(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModels", args, result).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListModels", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	models, err := client.ListModels(c.Context(), "user@remote")
@@ -235,7 +252,12 @@ func (s *modelmanagerSuite) testDestroyModel(c *tc.C, destroyStorage, force *boo
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DestroyModels", args, result).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "DestroyModels", args, result,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.DestroyModel(c.Context(), coretesting.ModelTag, destroyStorage, force, maxWait, &timeout)
@@ -276,7 +298,12 @@ func (s *modelmanagerSuite) TestModelDefaults(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelDefaultsForClouds", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ModelDefaultsForClouds", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.ModelDefaults(c.Context(), "aws")
@@ -309,7 +336,12 @@ func (s *modelmanagerSuite) TestSetModelDefaults(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetModelDefaults", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "SetModelDefaults", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.SetModelDefaults(c.Context(), "mycloud", "region", map[string]any{
@@ -336,7 +368,12 @@ func (s *modelmanagerSuite) TestUnsetModelDefaults(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UnsetModelDefaults", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "UnsetModelDefaults", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.UnsetModelDefaults(c.Context(), "mycloud", "region", "foo", "bar")
@@ -376,7 +413,12 @@ func (s *modelmanagerSuite) TestModelStatus(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ModelStatus", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := common.NewModelStatusAPI(mockFacadeCaller, false)
 
 	results, err := client.ModelStatus(c.Context(), coretesting.ModelTag, coretesting.ModelTag)
@@ -405,7 +447,12 @@ func (s *modelmanagerSuite) TestModelStatusEmpty(c *tc.C) {
 	ress := params.ModelStatusResults{}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ModelStatus", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := common.NewModelStatusAPI(mockFacadeCaller, false)
 
 	results, err := client.ModelStatus(c.Context())
@@ -473,7 +520,12 @@ func (s *modelmanagerSuite) TestListModelSummaries(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListModelSummaries", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.ListModelSummaries(c.Context(), userTag.Id(), true)
@@ -524,7 +576,12 @@ func (s *modelmanagerSuite) TestListModelSummariesParsingErrors(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListModelSummaries", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ListModelSummaries", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 	results, err := client.ListModelSummaries(c.Context(), "commander", true)
 	c.Assert(err, tc.ErrorIsNil)
@@ -580,7 +637,12 @@ func (s *modelmanagerSuite) TestChangeModelCredential(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ChangeModelCredential", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ChangeModelCredential", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.ChangeModelCredential(c.Context(), coretesting.ModelTag, credentialTag)
@@ -605,7 +667,12 @@ func (s *modelmanagerSuite) TestChangeModelCredentialManyResults(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ChangeModelCredential", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ChangeModelCredential", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.ChangeModelCredential(c.Context(), coretesting.ModelTag, credentialTag)
@@ -649,7 +716,12 @@ func (s *modelmanagerSuite) TestChangeModelCredentialUpdateFailed(c *tc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ChangeModelCredential", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ChangeModelCredential", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.ChangeModelCredential(c.Context(), coretesting.ModelTag, credentialTag)
@@ -686,7 +758,12 @@ func (s *dumpModelSuite) TestDumpModelDB(c *tc.C) {
 	}}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DumpModelsDB", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "DumpModelsDB", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	out, err := client.DumpModelDB(c.Context(), coretesting.ModelTag)
@@ -706,7 +783,12 @@ func (s *dumpModelSuite) TestDumpModelDBError(c *tc.C) {
 	}}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DumpModelsDB", args, res).SetArg(3, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "DumpModelsDB", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	out, err := client.DumpModelDB(c.Context(), coretesting.ModelTag)
@@ -730,7 +812,10 @@ func (s *dumpModelSuite) TestDumpModel(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "DumpModels", args, res,
-	).SetArg(3, ress).Return(nil)
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	out, err := client.DumpModel(c.Context(), coretesting.ModelTag)
@@ -756,7 +841,10 @@ func (s *dumpModelSuite) TestDumpModelError(c *tc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(
 		gomock.Any(), "DumpModels", args, res,
-	).SetArg(3, ress).Return(nil)
+	).DoAndReturn(func(_ context.Context, _ string, _ any, result any) error {
+		reflect.ValueOf(result).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
 	client := modelmanager.NewClientFromCaller(mockFacadeCaller)
 
 	out, err := client.DumpModel(c.Context(), coretesting.ModelTag)
