@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
+	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
@@ -74,6 +75,13 @@ const (
 	ExitStatusCodeErr = 2
 	// ExitStatusCodePanic is the value that is returned when we exit due to an unhandled panic.
 	ExitStatusCodePanic = 3
+
+	// bufferedLogWriterMaxLength is the maximum number of bytes that the
+	// buffered log writer will keep in memory before it starts dropping
+	// log messages. This is a safeguard to prevent unbounded memory usage
+	// if the agent produces a large amount of log output before the unit
+	// agent can read it.
+	bufferedLogWriterMaxLength = 1048576
 )
 
 func getenv(name string) (string, error) {
@@ -249,6 +257,12 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {
 		return &jujudWriter{target: target}
 	}
+
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), bufferedLogWriterMaxLength)
+	if err != nil {
+		return 1, errors.Trace(err)
+	}
+	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 
 	jujud.Register(agentcmd.NewBootstrapCommand())
 
