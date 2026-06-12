@@ -11,25 +11,36 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/externalcontrollerupdater"
+	"github.com/juju/juju/internal/services"
 )
 
-// ManifoldConfig describes the resources used by an
-// externalcontrollerupdater worker.
+// ManifoldConfig holds the dependencies for an external-controller-updater
+// worker.
 type ManifoldConfig struct {
-	APICallerName string
+	// DomainServicesName is the manifold dependency that provides controller
+	// domain services, used to access the external controller service for
+	// watching, reading, and updating local external controller records.
+	DomainServicesName string
 
+	// Clock is used to set the runner's restart delay between peer-controller
+	// connection attempts.
+	Clock clock.Clock
+
+	// NewExternalControllerWatcherClient returns a client for watching a peer
+	// controller's published address changes over a direct API connection.
 	NewExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
 }
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.NewExternalControllerWatcherClient == nil {
 		return errors.NotValidf("nil NewExternalControllerWatcherClient")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -38,36 +49,26 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
+			config.DomainServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
-			var apiCaller base.APICaller
-			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
-				return nil, err
+			var controllerDomainServices services.ControllerDomainServices
+			if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
+				return nil, errors.Trace(err)
 			}
-			return manifoldStart(apiCaller, config.NewExternalControllerWatcherClient)
+			w, err := New(
+				controllerDomainServices.ExternalController(),
+				config.NewExternalControllerWatcherClient,
+				config.Clock,
+				nil,
+			)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return w, nil
 		},
 	}
-}
-
-// manifoldStart returns a externalcontrollerupdater worker using the supplied
-// APICaller.
-func manifoldStart(
-	apiCaller base.APICaller,
-	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc,
-) (worker.Worker, error) {
-	client := externalcontrollerupdater.New(apiCaller)
-	worker, err := New(
-		client,
-		newExternalControllerWatcherClient,
-		clock.WallClock,
-		nil,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return worker, nil
 }

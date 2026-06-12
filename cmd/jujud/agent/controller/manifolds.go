@@ -484,7 +484,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
 			externalcontrollerupdater.ManifoldConfig{
-				APICallerName:                      apiCallerName,
+				DomainServicesName:                 domainServicesName,
+				Clock:                              config.Clock,
 				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
 			},
 		))),
