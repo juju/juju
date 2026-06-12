@@ -46,8 +46,7 @@ type assembledModel struct {
 // assembleEnvelope builds a fresh params.SerializedModelV2 envelope for this
 // model from the local domain services: the model-DB export payload, the
 // controller-DB semantic facts, and the charm/tools/resources binary
-// references. The payload size is validated against the serialized-model
-// payload limit before the envelope is handed to any RPC.
+// references.
 func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (assembledModel, error) {
 	var empty assembledModel
 
@@ -98,28 +97,12 @@ func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (as
 	}
 	envelope.Resources = resourcesForEnvelope(exported)
 
-	if err := validateEnvelopeSize(envelope); err != nil {
-		return empty, errors.Trace(err)
-	}
 	return assembledModel{
 		envelope:  envelope,
 		charms:    charms,
 		tools:     tools,
 		resources: exported,
 	}, nil
-}
-
-// validateEnvelopeSize rejects envelopes whose model-DB payload exceeds the
-// serialized-model payload limit. The source validates locally before RPC so
-// an oversized payload never travels to the target.
-func validateEnvelopeSize(envelope params.SerializedModelV2) error {
-	if size := len(envelope.Payload); size > params.SerializedModelV2PayloadLimit {
-		return errors.Errorf(
-			"model payload is %d bytes which exceeds the %d byte limit",
-			size, params.SerializedModelV2PayloadLimit,
-		)
-	}
-	return nil
 }
 
 // envelopeFromControllerModelInfo converts the controller-DB semantic facts

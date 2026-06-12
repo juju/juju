@@ -346,14 +346,3 @@ func (*EnvelopeSuite) TestResourcesForEnvelope(c *tc.C) {
 func (*EnvelopeSuite) TestResourcesForEnvelopeEmpty(c *tc.C) {
 	c.Check(resourcesForEnvelope(nil), tc.IsNil)
 }
-
-func (*EnvelopeSuite) TestValidateEnvelopeSize(c *tc.C) {
-	c.Check(validateEnvelopeSize(params.SerializedModelV2{
-		Payload: make([]byte, params.SerializedModelV2PayloadLimit),
-	}), tc.ErrorIsNil)
-
-	err := validateEnvelopeSize(params.SerializedModelV2{
-		Payload: make([]byte, params.SerializedModelV2PayloadLimit+1),
-	})
-	c.Assert(err, tc.ErrorMatches, "model payload is .* bytes which exceeds the .* byte limit")
-}

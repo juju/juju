@@ -29,14 +29,8 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
-	applicationservice "github.com/juju/juju/domain/application/service"
-	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	domainexport "github.com/juju/juju/domain/export"
-	exportservice "github.com/juju/juju/domain/export/service"
-	modelagentservice "github.com/juju/juju/domain/modelagent/service"
 	"github.com/juju/juju/domain/modelmigration"
-	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
-	resourceservice "github.com/juju/juju/domain/resource/service"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
@@ -169,15 +163,6 @@ type ResourceService interface {
 	// export for all applications in the model.
 	ListAllModelResources(context.Context) ([]resource.Resource, error)
 }
-
-var (
-	_ ModelMigrationService   = (*modelmigrationservice.Service)(nil)
-	_ CharmService            = (*applicationservice.WatchableService)(nil)
-	_ ExportService           = (*exportservice.Service)(nil)
-	_ ControllerConfigService = (*controllerconfigservice.WatchableService)(nil)
-	_ ModelAgentService       = (*modelagentservice.WatchableService)(nil)
-	_ ResourceService         = (*resourceservice.Service)(nil)
-)
 
 // AgentBinaryStore provides an interface for interacting with the stored agent
 // binaries within a controller and model.
