@@ -4,17 +4,13 @@
 package modeloperator
 
 import (
-	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
-	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
-	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/semversion"
-	internalhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -25,9 +21,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/gate"
-	"github.com/juju/juju/internal/worker/httpclient"
 	"github.com/juju/juju/internal/worker/logger"
-	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
 )
@@ -96,35 +90,12 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),
 
-		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
-			NewHTTPClient: func(purpose corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
-				if purpose == corehttp.LokiPurpose {
-					l := internallogger.GetLogger("juju.loki")
-					opts = append(opts, internalhttp.WithLogger(l))
-				}
-				return internalhttp.NewClient(opts...)
-			},
-			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
-			PrometheusRegisterer: noopPrometheusRegisterer{},
-			NewMetricsCollector:  httpclient.NewMetricsCollector,
-			Clock:                clock.WallClock,
-			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
-		}),
-
-		// The log router owns the buffered log stream and forwards records to
-		// one active backend at a time.
-		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
-			AgentName:                 agentName,
-			APICallerName:             apiCallerName,
-			HTTPClientName:            httpClientName,
-			LogSource:                 config.LogSource,
-			AgentConfigChanged:        config.AgentConfigChanged,
-			Logger:                    internallogger.GetLogger("juju.worker.logrouter"),
-			Clock:                     clock.WallClock,
-			PrometheusRegisterer:      noopPrometheusRegisterer{},
-			NewBackendFunc:            logrouter.NewBackend,
-			RemoveLegacyLogSinkWriter: func() {},
-			AddLegacyLogSinkWriter:    func() error { return nil },
+		// The log sender is a leaf worker that sends log messages to some
+		// API server, when configured so to do. We should only need one of
+		// these in a consolidated agent.
+		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
+			APICallerName: apiCallerName,
+			LogSource:     config.LogSource,
 		}),
 
 		caasAdmissionName: caasadmission.Manifold(caasadmission.ManifoldConfig{
@@ -191,7 +162,6 @@ const (
 	agentName                = "agent"
 	apiCallerName            = "api-caller"
 	apiConfigWatcherName     = "api-config-watcher"
-	httpClientName           = "http-client"
 	caasAdmissionName        = "caas-admission"
 	caasBrokerTrackerName    = "caas-broker-tracker"
 	caasRBACMapperName       = "caas-rbac-mapper"
@@ -200,11 +170,5 @@ const (
 	modelHTTPServerName      = "model-http-server"
 	upgraderName             = "upgrader"
 	upgradeStepsGateName     = "upgrade-steps-gate"
-	logRouterName            = "log-router"
+	logSenderName            = "log-sender"
 )
-
-type noopPrometheusRegisterer struct{}
-
-func (noopPrometheusRegisterer) Register(prometheus.Collector) error  { return nil }
-func (noopPrometheusRegisterer) MustRegister(...prometheus.Collector) {}
-func (noopPrometheusRegisterer) Unregister(prometheus.Collector) bool { return false }
