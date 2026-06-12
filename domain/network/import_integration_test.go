@@ -618,6 +618,135 @@ func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXD(c *tc.C) {
 	s.checkSubnetExists(c, "203.0.113.0/32")
 }
 
+// TestImportLinkLayerDevicesWithAddressesLXDMissingSubnet reproduces
+// the failure reported in GitHub issue juju/juju#22224 (JUJU-9647): a 3.6 LXD
+// model migrated to 4.0 fails when the host machine has a bridge device (e.g.
+// lxdbr0) whose /24 subnet was never formally registered in the 3.6 model's
+// subnet topology.
+//
+// In 3.6, the SubnetCIDR was stored as a plain string with no FK constraint,
+// so the import succeeded silently. In 4.0 the ip_address table has a proper
+// FK to subnet_uuid, requiring the subnet to exist. The fix auto-creates a
+// minimal subnet record (in the default space) and emits a warning.
+func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXDMissingSubnet(c *tc.C) {
+	s.setModel(c, "lxd", model.IAAS.String())
+
+	// Arrange: machine with no pre-seeded subnets (simulates a 3.6 model
+	// where the lxdbr0 bridge subnet was never registered).
+	machineSvc := s.setupMachineService(c)
+	res, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.IAAS),
+	})
+
+	// lxdbr0 on the host machine; its /24 subnet is deliberately absent from
+	// the description (and therefore absent from the DB after subnet import).
+	desc.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:        "lxdbr0",
+		MTU:         1500,
+		ProviderID:  "net-lxdbr0",
+		MachineID:   res.MachineName.String(),
+		Type:        "bridge",
+		MACAddress:  "00:16:3e:00:00:01",
+		IsAutoStart: true,
+		IsUp:        true,
+	})
+
+	desc.AddIPAddress(description.IPAddressArgs{
+		Value:            "10.136.55.1",
+		SubnetCIDR:       "10.136.55.0/24",
+		ProviderSubnetID: "subnet-lxdbr0-10.136.55.0/24",
+		Origin:           "machine",
+		MachineID:        res.MachineName.String(),
+		DeviceName:       "lxdbr0",
+		ConfigMethod:     string(network.ConfigStatic),
+	})
+
+	networkmodelmigration.RegisterLinkLayerDevicesImport(s.coordinator, loggertesting.WrapCheckLog(c))
+
+	// Act
+	err = s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert: import succeeds; the missing subnet is auto-created.
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "lxdbr0")
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "lxdbr0", "10.136.55.1/24")
+	s.checkSubnetExists(c, "10.136.55.0/24")
+}
+
+// TestImportLinkLayerDevicesWithAddressesLXDMissingSubnetDedup verifies that
+// when two addresses on the same device share the same missing /24 CIDR,
+// the import auto-creates only a single subnet row (no duplicate with a
+// different UUID).
+func (s *importSuite) TestImportLinkLayerDevicesWithAddressesLXDMissingSubnetDedup(c *tc.C) {
+	s.setModel(c, "lxd", model.IAAS.String())
+
+	machineSvc := s.setupMachineService(c)
+	res, err := machineSvc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	desc := description.NewModel(description.ModelArgs{
+		Type: string(model.IAAS),
+	})
+
+	desc.AddLinkLayerDevice(description.LinkLayerDeviceArgs{
+		Name:        "lxdbr0",
+		MTU:         1500,
+		ProviderID:  "net-lxdbr0",
+		MachineID:   res.MachineName.String(),
+		Type:        "bridge",
+		MACAddress:  "00:16:3e:00:00:01",
+		IsAutoStart: true,
+		IsUp:        true,
+	})
+
+	// Two addresses on the same device sharing the same missing /24 subnet.
+	desc.AddIPAddress(description.IPAddressArgs{
+		Value:            "10.136.55.1",
+		SubnetCIDR:       "10.136.55.0/24",
+		ProviderSubnetID: "subnet-lxdbr0-10.136.55.0/24",
+		Origin:           "machine",
+		MachineID:        res.MachineName.String(),
+		DeviceName:       "lxdbr0",
+		ConfigMethod:     string(network.ConfigStatic),
+	})
+	desc.AddIPAddress(description.IPAddressArgs{
+		Value:            "10.136.55.2",
+		SubnetCIDR:       "10.136.55.0/24",
+		ProviderSubnetID: "subnet-lxdbr0-10.136.55.0/24",
+		Origin:           "machine",
+		MachineID:        res.MachineName.String(),
+		DeviceName:       "lxdbr0",
+		ConfigMethod:     string(network.ConfigStatic),
+	})
+
+	networkmodelmigration.RegisterLinkLayerDevicesImport(s.coordinator, loggertesting.WrapCheckLog(c))
+
+	// Act
+	err = s.coordinator.Perform(c.Context(), s.scope, desc)
+
+	// Assert: import succeeds; the missing subnet is auto-created only once.
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.checkLinkLayerDeviceExistsOnMachine(c, res.MachineName, "lxdbr0")
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "lxdbr0", "10.136.55.1/24")
+	s.checkAddressExistsForDeviceOnMachine(c, res.MachineName, "lxdbr0", "10.136.55.2/24")
+	s.checkSubnetExists(c, "10.136.55.0/24")
+}
+
 func (s *importSuite) TestImportK8sServices(c *tc.C) {
 	s.createCAASApplication(c, "foo")
 	s.createCAASApplication(c, "bar")
