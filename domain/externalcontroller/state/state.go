@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	coredatabase "github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain"
+	externalcontrollererrors "github.com/juju/juju/domain/externalcontroller/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -63,7 +63,7 @@ WHERE  ctrl.uuid = $Controller.uuid`
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Capture(tx.Query(ctx, s, controller).GetAll(&rows))
 	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
-		return nil, errors.Errorf("external controller %q %w", controllerUUID, coreerrors.NotFound)
+		return nil, errors.Errorf("%w for uuid %q", externalcontrollererrors.NotFound, controllerUUID)
 	} else if err != nil {
 		return nil, errors.Errorf("querying external controller: %w", err)
 	}
