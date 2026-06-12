@@ -3,7 +3,9 @@
 
 package controller
 
-import "time"
+import (
+	"time"
+)
 
 // entityUUID represents a generic uuid column from a given table in the
 // model's database.
@@ -135,4 +137,135 @@ type addressValue struct {
 // countResult holds a COUNT(*) projection.
 type countResult struct {
 	Count int `db:"count"`
+}
+
+// modelIdentityRow is the model's bootstrap identity with cloud, region,
+// credential and life resolved to natural keys. Region and credential columns
+// are nullable.
+type modelIdentityRow struct {
+	UUID            string  `db:"uuid"`
+	Name            string  `db:"name"`
+	Qualifier       string  `db:"qualifier"`
+	Type            string  `db:"model_type"`
+	Cloud           string  `db:"cloud"`
+	CloudRegion     *string `db:"cloud_region"`
+	CredentialName  *string `db:"credential_name"`
+	CredentialOwner *string `db:"credential_owner"`
+	Life            string  `db:"life"`
+}
+
+// permissionRow is a single model or offer permission grant with the grantee
+// resolved to a username and the object/access types resolved to their string
+// values.
+type permissionRow struct {
+	ObjectType  string `db:"object_type"`
+	GrantOn     string `db:"grant_on"`
+	SubjectName string `db:"subject_name"`
+	Access      string `db:"access"`
+}
+
+// userRow is the non-authentication profile of a user, with the user's
+// last login against the model joined in (null when never logged in).
+type userRow struct {
+	Name        string     `db:"name"`
+	DisplayName *string    `db:"display_name"`
+	CreatedBy   *string    `db:"created_by"`
+	CreatedAt   time.Time  `db:"created_at"`
+	Removed     bool       `db:"removed"`
+	External    bool       `db:"external"`
+	LastLogin   *time.Time `db:"last_login"`
+}
+
+// credentialRow is a model cloud credential's natural key, auth type and
+// status, joined with its auth attributes (one row per attribute; the
+// attribute columns are null for a credential without attributes).
+type credentialRow struct {
+	Cloud         string  `db:"cloud"`
+	Owner         string  `db:"owner"`
+	Name          string  `db:"name"`
+	AuthType      string  `db:"auth_type"`
+	Revoked       *bool   `db:"revoked"`
+	Invalid       *bool   `db:"invalid"`
+	InvalidReason *string `db:"invalid_reason"`
+	AttrKey       *string `db:"attr_key"`
+	AttrValue     *string `db:"attr_value"`
+}
+
+// authorizedKeyRow is a single SSH public key authorised for the model, with
+// its owner resolved to a username.
+type authorizedKeyRow struct {
+	Username  string `db:"username"`
+	PublicKey string `db:"public_key"`
+}
+
+// modelSecretBackendRow is the model's secret backend resolved to its name and
+// type.
+type modelSecretBackendRow struct {
+	Name        string `db:"name"`
+	BackendType string `db:"backend_type"`
+}
+
+// secretBackendRefRow maps a model secret revision to its backend, by name.
+type secretBackendRefRow struct {
+	BackendName        string `db:"backend_name"`
+	SecretRevisionUUID string `db:"secret_revision_uuid"`
+	SecretID           string `db:"secret_id"`
+}
+
+// leadershipRow is an application-leadership lease holder. Name and holder are
+// nullable in the schema.
+type leadershipRow struct {
+	Name   *string `db:"name"`
+	Holder *string `db:"holder"`
+}
+
+// leaseTypeArg selects leases by their type name.
+type leaseTypeArg struct {
+	Type string `db:"type"`
+}
+
+// cloudImageMetadataSource is the source selector for cloud image metadata.
+type cloudImageMetadataSource struct {
+	Source string `db:"source"`
+}
+
+// cloudImageMetadataRow is a custom cloud image metadata row with the
+// architecture resolved to its name.
+type cloudImageMetadataRow struct {
+	Stream          string    `db:"stream"`
+	Region          string    `db:"region"`
+	Version         string    `db:"version"`
+	Arch            string    `db:"arch"`
+	VirtType        string    `db:"virt_type"`
+	RootStorageType string    `db:"root_storage_type"`
+	RootStorageSize *uint64   `db:"root_storage_size"`
+	Source          string    `db:"source"`
+	Priority        int       `db:"priority"`
+	ImageID         string    `db:"image_id"`
+	CreatedAt       time.Time `db:"created_at"`
+}
+
+// externalControllerRow is a third-party external controller's connection
+// identity.
+type externalControllerRow struct {
+	UUID   string  `db:"uuid"`
+	Alias  *string `db:"alias"`
+	CACert string  `db:"ca_cert"`
+}
+
+// externalControllerAddressRow is a single address for an external controller.
+type externalControllerAddressRow struct {
+	ControllerUUID string `db:"controller_uuid"`
+	Address        string `db:"address"`
+}
+
+// externalModelRow is a third-party model hosted by an external controller.
+type externalModelRow struct {
+	ControllerUUID string `db:"controller_uuid"`
+	ModelUUID      string `db:"model_uuid"`
+}
+
+type externalModelKey struct {
+	controllerUUID string
+	modelUUID      string
 }

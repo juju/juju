@@ -135,6 +135,19 @@ type ControllerState interface {
 	// AggregateMinionReports returns the succeeded and failed entity keys
 	// reported for the given migration and phase.
 	AggregateMinionReports(ctx context.Context, migrationUUID string, phase migration.Phase) (modelmigrationinternal.MinionReports, error)
+
+	// GetControllerModelInfo reads the controller-database records scoped to
+	// the given migrating model in target-portable semantic form. offerUUIDs
+	// are the model's hosted offer UUIDs and offererModels are the distinct
+	// third-party (offerer controller, offerer model) pairs referenced by the
+	// model's remote applications, both read from the model database by the
+	// caller.
+	GetControllerModelInfo(
+		ctx context.Context,
+		modelUUID string,
+		offerUUIDs []string,
+		offererModels []modelmigrationinternal.OffererModel,
+	) (modelmigration.ControllerModelInfo, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -164,6 +177,16 @@ type ModelState interface {
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
 	GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error)
+
+	// GetOfferUUIDs returns the UUIDs of all offers hosted by this model, used
+	// to select the offer-scoped permission rows that travel with the migration.
+	GetOfferUUIDs(ctx context.Context) ([]string, error)
+
+	// GetThirdPartyOffererModels returns the distinct (offerer controller,
+	// offerer model) pairs referenced by this model's remote applications,
+	// excluding pairs offered by this model's own controller, used to select
+	// the third-party external controllers that travel with the migration.
+	GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -311,6 +334,30 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 		return modelmigration.Migration{}, errors.Capture(err)
 	}
 	return decodeMigration(mig)
+}
+
+// GetControllerModelInfo reads the controller-database records scoped to this
+// migrating model and returns them in target-portable semantic form. It first
+// reads the model's hosted offer UUIDs and third-party remote-offerer pairs
+// from the model database, then reads the matching controller-database rows.
+func (s *Service) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	offerUUIDs, err := s.modelState.GetOfferUUIDs(ctx)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offer UUIDs: %w", err)
+	}
+	offererModels, err := s.modelState.GetThirdPartyOffererModels(ctx)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offerer models: %w", err)
+	}
+
+	info, err := s.controllerState.GetControllerModelInfo(ctx, s.modelUUID, offerUUIDs, offererModels)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading controller model info for %q: %w", s.modelUUID, err)
+	}
+	return info, nil
 }
 
 // InitiateMigration kicks off migrating this model to the target controller,
