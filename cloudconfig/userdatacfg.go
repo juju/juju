@@ -96,7 +96,9 @@ func (c *baseConfigure) addAgentInfo(tag names.Tag) (agent.Config, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to write commands")
 	}
+	c.conf.AddScripts(fmt.Sprintf("if [ ! -e %s ]; then", shquote(agent.ConfigPath(c.icfg.DataDir, tag))))
 	c.conf.AddScripts(cmds...)
+	c.conf.AddScripts("fi")
 	return acfg, nil
 }
 
