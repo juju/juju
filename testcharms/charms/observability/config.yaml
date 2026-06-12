@@ -1,0 +1,17 @@
+options:
+  http-endpoint:
+    type: string
+    default: http://trace:4318
+    description: OTLP HTTP endpoint advertised to Juju.
+  grpc-endpoint:
+    type: string
+    default: trace:4317
+    description: OTLP gRPC endpoint advertised to Juju.
+  ca-cert:
+    type: string
+    default: ""
+    description: CA certificate advertised to Juju.
+  loki-url:
+    type: string
+    default: http://loki:3100/loki/api/v1/push
+    description: Loki push API URL advertised to Juju.
