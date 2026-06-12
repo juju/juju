@@ -31,7 +31,6 @@ var commonModelFacadeNames = set.NewStrings(
 	"CrossController",
 	"CrossModelRelations",
 	"CrossModelSecrets",
-	"ExternalControllerUpdater",
 	"FilesystemAttachmentsWatcher",
 	"LeadershipService",
 	"LifeFlag",

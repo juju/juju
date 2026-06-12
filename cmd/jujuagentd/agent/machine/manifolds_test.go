@@ -60,7 +60,8 @@ func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds)
 }
 
 func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
-	s.assertManifoldNames(c,
+	s.assertManifoldNames(
+		c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
@@ -160,7 +161,8 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 }
 
 func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
-	s.assertManifoldNames(c,
+	s.assertManifoldNames(
+		c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
@@ -567,6 +569,22 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		c.Assert(ok, tc.IsTrue)
 		checkNotContains(c, apiServerManifold.Inputs, "clock")
 		checkNotContains(c, apiServerManifold.Inputs, "agent")
+
+		// external-controller-updater must consume only domain-services directly
+		// (plus the inputs added by the ifNotMigrating and ifPrimaryController
+		// housing wrappers). In particular, it must not list api-caller as a
+		// direct input; this guards against a regression that would re-introduce
+		// loopback API wiring for the controller-only worker.
+		externalControllerUpdaterManifold, ok := manifolds["external-controller-updater"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(externalControllerUpdaterManifold.Inputs, tc.SameContents, []string{
+			"domain-services",
+			"is-primary-controller-flag",
+			"migration-fortress",
+			"migration-inactive-flag",
+		})
+		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "api-caller")
+		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "agent")
 	}
 }
 
@@ -755,7 +773,8 @@ func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 }
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
-	agenttest.AssertManifoldsDependencies(c,
+	agenttest.AssertManifoldsDependencies(
+		c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
@@ -765,7 +784,8 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 }
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
-	agenttest.AssertManifoldsDependencies(c,
+	agenttest.AssertManifoldsDependencies(
+		c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
@@ -775,7 +795,6 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 }
 
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
-
 	"agent": {},
 
 	"agent-config-updater": {
@@ -1188,21 +1207,35 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
+		"domain-services",
 		"file-notify-watcher",
+		"http-client",
 		"is-controller-flag",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"object-store",
+		"object-store-facade",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
 		"query-logger",
 		"state-config-watcher",
-		"controller-trace",
+		"storage-registry",
 		"trace-services",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
@@ -2003,7 +2036,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 }
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
-
 	"agent": {},
 
 	"agent-config-updater": {
@@ -2335,21 +2367,35 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
+		"domain-services",
 		"file-notify-watcher",
+		"http-client",
 		"is-controller-flag",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"object-store",
+		"object-store-facade",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
 		"query-logger",
 		"state-config-watcher",
-		"controller-trace",
+		"storage-registry",
 		"trace-services",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},

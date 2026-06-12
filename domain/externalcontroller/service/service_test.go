@@ -126,7 +126,7 @@ func (s *serviceSuite) TestRetrieveExternalControllerForModelNotFound(c *tc.C) {
 	s.state.EXPECT().ControllersForModels(gomock.Any(), modelUUID).Return(nil, nil)
 
 	_, err := NewService(s.state).ControllerForModel(c.Context(), modelUUID)
-	c.Assert(err, tc.ErrorMatches, "external controller for model \"model1\" not found")
+	c.Assert(err, tc.ErrorMatches, `external controller not found for model "model1"`)
 }
 
 func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {

@@ -399,6 +399,22 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		c.Assert(ok, tc.IsTrue)
 		checkNotContains(c, apiServerManifold.Inputs, "clock")
 		checkNotContains(c, apiServerManifold.Inputs, "agent")
+
+		// external-controller-updater must consume only domain-services directly
+		// (plus the inputs added by the ifNotMigrating and ifPrimaryController
+		// housing wrappers). In particular, it must not list api-caller as a
+		// direct input; this guards against a regression that would re-introduce
+		// loopback API wiring for the controller-only worker.
+		externalControllerUpdaterManifold, ok := manifolds["external-controller-updater"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(externalControllerUpdaterManifold.Inputs, tc.SameContents, []string{
+			"domain-services",
+			"is-primary-controller-flag",
+			"migration-fortress",
+			"migration-inactive-flag",
+		})
+		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "api-caller")
+		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "agent")
 	}
 }
 
@@ -635,7 +651,8 @@ func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 }
 
 func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
-	agenttest.AssertManifoldsDependencies(c,
+	agenttest.AssertManifoldsDependencies(
+		c,
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
@@ -645,7 +662,6 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 }
 
 var expectedControllerManifoldsWithDependencies = map[string][]string{
-
 	"agent": {},
 
 	"agent-config-updater": {
@@ -988,14 +1004,30 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"api-remote-caller",
+		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
+		"domain-services",
+		"file-notify-watcher",
+		"http-client",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"object-store",
+		"object-store-facade",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
 		"query-logger",
+		"storage-registry",
 		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"file-notify-watcher": {},
