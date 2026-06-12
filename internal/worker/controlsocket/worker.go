@@ -137,6 +137,9 @@ type Config struct {
 	Logger logger.Logger
 	// ControllerModelUUID is the uuid of the controller model.
 	ControllerModelUUID model.UUID
+	// MetricsCollector is the collector used by the worker to record request
+	// metrics.
+	MetricsCollector *Collector
 }
 
 // Validate returns an error if config cannot drive the Worker.
@@ -174,7 +177,8 @@ type Worker struct {
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
 
-	logger logger.Logger
+	logger  logger.Logger
+	metrics *Collector
 }
 
 // NewWorker returns a controlsocket worker with the given config.
@@ -196,7 +200,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
 
-		logger: config.Logger,
+		logger:  config.Logger,
+		metrics: config.MetricsCollector,
 	}
 
 	sl, err := config.NewSocketListener(socketlistener.Config{
@@ -254,9 +259,9 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//
 	// A user created by this endpoint can be removed by sending a DELETE
 	// request to the /metrics-users/{username} endpoint.
-	r.Handle("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser)).
+	r.Handle("/metrics-users", w.withMetrics("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/metrics-users/{username}", w.handleRemoveMetricsUser).
+	r.Handle("/metrics-users/{username}", w.withMetrics("/metrics-users/{username}", http.HandlerFunc(w.handleRemoveMetricsUser))).
 		Methods(http.MethodDelete)
 
 	// charm-tracing-config endpoint for managing charm tracing configuration.
@@ -272,7 +277,7 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// The worker will update the charm tracing configuration with the provided
 	// values. Any field that are omitted or empty will be removed from the
 	// charm tracing configuration.
-	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
+	r.Handle("/charm-tracing-config", w.withMetrics("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig))).
 		Methods(http.MethodPost)
 
 	// workload-tracing-config endpoint for managing workload tracing
@@ -291,7 +296,7 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// The worker will update the workload tracing configuration with the
 	// provided values. Any field that are omitted or empty will be removed from
 	// the workload tracing configuration.
-	r.Handle("/workload-tracing-config", w.handleJSONPost(w.handleSetWorkloadTracingConfig)).
+	r.Handle("/workload-tracing-config", w.withMetrics("/workload-tracing-config", w.handleJSONPost(w.handleSetWorkloadTracingConfig))).
 		Methods(http.MethodPost)
 
 	// s3-credentials endpoint for managing object store credentials when S3 is
@@ -306,9 +311,9 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//
 	// The worker will update the object store configuration with the provided
 	// S3 credentials.
-	r.Handle("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials)).
+	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
+	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", http.HandlerFunc(w.handleRemoveS3Credentials))).
 		Methods(http.MethodDelete)
 
 	// loki-endpoint endpoint for managing the Loki push API endpoint. This
@@ -320,10 +325,14 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//
 	// The worker will persist the Loki endpoint in the controller database
 	// so it can be distributed to agents for direct log shipping.
-	r.Handle("/loki-endpoint", w.handleJSONPost(w.handleSetLokiEndpoint)).
+	r.Handle("/loki-endpoint", w.withMetrics("/loki-endpoint", w.handleJSONPost(w.handleSetLokiEndpoint))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/loki-endpoint", w.handleRemoveLokiEndpoint).
+	r.Handle("/loki-endpoint", w.withMetrics("/loki-endpoint", http.HandlerFunc(w.handleRemoveLokiEndpoint))).
 		Methods(http.MethodDelete)
+}
+
+func (w *Worker) withMetrics(endpoint string, handler http.Handler) http.Handler {
+	return metricsMiddleware(handler, w.metrics, endpoint)
 }
 
 type addMetricsUserBody struct {

@@ -17,6 +17,7 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -126,6 +127,38 @@ func (s *workerSuite) TestWorkerKillAndWait(c *tc.C) {
 
 	w := s.newWorker(c, socket)
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestRequestMetrics(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggingService.EXPECT().SetLokiConfig(gomock.Any(), logging.LokiConfig{
+		Endpoint: "http://loki:3100",
+	}).Return(nil)
+
+	socket := s.newSocket(c)
+	collector := NewMetricsCollector()
+	cfg := s.newValidConfig(c)
+	cfg.SocketName = socket
+	cfg.MetricsCollector = collector
+	w, err := NewWorker(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/loki-endpoint",
+		body:       `{"url":"http://loki:3100"}`,
+		statusCode: http.StatusOK,
+		response:   `.*updated loki endpoint.*`,
+	})
+
+	c.Check(testutil.ToFloat64(collector.Requests.WithLabelValues(
+		"/loki-endpoint", http.MethodPost, "200",
+	)), tc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(collector.RequestErrors.WithLabelValues(
+		"/loki-endpoint", http.MethodPost, "200",
+	)), tc.Equals, float64(0))
 }
 
 func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *tc.C) {
