@@ -5,6 +5,8 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -280,4 +282,54 @@ func (m *ModelOperatorSuite) TestDefaultImageRepo(c *tc.C) {
 
 func (m *ModelOperatorSuite) TestPrivateImageRepo(c *tc.C) {
 	m.assertEnsure(c, true)
+}
+
+// TestModelOperatorDeploymentStartUpScript verifies that the generated
+// container startup script falls back to the legacy jujud binary when
+// jujuagentd is not present in the image. This is the upgrade-compatibility
+// path: when a controller is upgraded its model operators in model namespaces
+// may still be running an older image that only ships /opt/jujud.
+func (m *ModelOperatorSuite) TestModelOperatorDeploymentStartUpScript(c *tc.C) {
+	modelUUID := "abcd-efff-face"
+	deployment, err := modelOperatorDeployment(
+		modelOperatorName,
+		"test-namespace",
+		map[string]string{},
+		map[string]string{},
+		resource.DockerImageDetails{RegistryPath: "juju/juju:123"},
+		int32(5497),
+		modelUUID,
+		modelOperatorName,
+		modelOperatorName+"-sa",
+		nil,
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	containers := deployment.Spec.Template.Spec.Containers
+	c.Assert(containers, tc.HasLen, 1)
+
+	args := containers[0].Args
+	c.Assert(args, tc.HasLen, 2)
+	c.Assert(args[0], tc.Equals, "-c")
+
+	script := args[1]
+
+	// The script must detect which binary is present and branch accordingly.
+	c.Check(strings.Contains(script, "[ -x /opt/jujuagentd ]"), tc.IsTrue,
+		tc.Commentf("script should test for /opt/jujuagentd: %s", script))
+
+	// New-image branch: copies and execs jujuagentd.
+	c.Check(strings.Contains(script, "cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd"), tc.IsTrue,
+		tc.Commentf("script should copy jujuagentd: %s", script))
+	c.Check(strings.Contains(script, fmt.Sprintf(
+		"exec $JUJU_TOOLS_DIR/jujuagentd model --model-uuid=%s", modelUUID,
+	)), tc.IsTrue, tc.Commentf("script should exec jujuagentd model: %s", script))
+
+	// Old-image fallback branch: copies and execs jujud.
+	c.Check(strings.Contains(script, "cp /opt/jujud $JUJU_TOOLS_DIR/jujud"), tc.IsTrue,
+		tc.Commentf("script should copy jujud as fallback: %s", script))
+	c.Check(strings.Contains(script, fmt.Sprintf(
+		"exec $JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID,
+	)), tc.IsTrue, tc.Commentf("script should exec jujud model as fallback: %s", script))
 }
