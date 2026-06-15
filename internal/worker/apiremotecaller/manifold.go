@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/services"
@@ -46,11 +46,27 @@ type Subscription interface {
 	Close()
 }
 
+// APIInfoProvider returns the current API connection details. It is
+// called each time the worker starts so that bounced workers do not
+// keep stale values.
+type APIInfoProvider interface {
+	APIInfo() (*api.Info, error)
+}
+
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
 type ManifoldConfig struct {
-	AgentName               string
 	ObjectStoreServicesName string
+
+	// APIInfo returns the current API connection details. It is called
+	// each time the worker starts so that bounced workers do not keep
+	// stale values.
+	APIInfo APIInfoProvider
+
+	// Origin is the tag identifying the calling controller. It is
+	// passed directly because it never changes during the lifetime
+	// of the agent.
+	Origin names.Tag
 
 	Clock  clock.Clock
 	Logger logger.Logger
@@ -58,10 +74,12 @@ type ManifoldConfig struct {
 	NewWorker func(WorkerConfig) (worker.Worker, error)
 }
 
-// Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if config.APIInfo == nil {
+		return errors.NotValidf("missing APIInfo")
+	}
+	if config.Origin == nil {
+		return errors.NotValidf("missing Origin")
 	}
 	if config.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
@@ -78,12 +96,9 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-// Manifold returns a dependency manifold that runs an API remote caller worker,
-// using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.ObjectStoreServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -91,27 +106,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var agent coreagent.Agent
-			if err := getter.Get(config.AgentName, &agent); err != nil {
-				return nil, err
-			}
-
-			agentConfig := agent.CurrentConfig()
-			apiInfo, ready := agentConfig.APIInfo()
-			if !ready {
-				return nil, dependency.ErrMissing
-			}
-
 			var services services.ControllerObjectStoreServices
 			if err := getter.Get(config.ObjectStoreServicesName, &services); err != nil {
 				return nil, errors.Trace(err)
+			}
+
+			apiInfo, err := config.APIInfo.APIInfo()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if apiInfo == nil {
+				return nil, errors.NotValidf("APIInfo provider returned nil")
 			}
 
 			cfg := WorkerConfig{
 				ControllerNodeService: services.ControllerNode(),
 				APIInfo:               apiInfo,
 				APIOpener:             api.Open,
-				Origin:                agentConfig.Tag(),
+				Origin:                config.Origin,
 				NewRemote:             NewRemoteServer,
 				Logger:                config.Logger,
 				Clock:                 config.Clock,
