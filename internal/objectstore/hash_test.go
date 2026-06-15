@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type hashFileStoreSuite struct {
@@ -22,8 +22,9 @@ type hashFileStoreSuite struct {
 }
 
 func TestHashFileStoreSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &hashFileStoreSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &hashFileStoreSuite{})
+	})
 }
 
 func (s *hashFileStoreSuite) TestHashExistsNotFound(c *tc.C) {

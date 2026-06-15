@@ -11,7 +11,6 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
@@ -30,8 +29,9 @@ type leaseServiceSuite struct {
 }
 
 func TestLeaseServiceSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &leaseServiceSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &leaseServiceSuite{})
+	})
 }
 
 func (s *leaseServiceSuite) TestApplicationLeader(c *tc.C) {

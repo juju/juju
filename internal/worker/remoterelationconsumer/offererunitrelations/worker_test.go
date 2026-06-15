@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/watcher"
@@ -22,6 +21,7 @@ import (
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -38,8 +38,9 @@ type offererUnitRelationsWorker struct {
 }
 
 func TestOffererUnitRelationsWorker(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &offererUnitRelationsWorker{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &offererUnitRelationsWorker{})
+	})
 }
 
 func (s *offererUnitRelationsWorker) SetUpTest(c *tc.C) {

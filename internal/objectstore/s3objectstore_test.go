@@ -19,13 +19,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/objectstore"
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	domainobjectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -44,8 +44,9 @@ type s3ObjectStoreSuite struct {
 var _ TrackedObjectStore = (*s3ObjectStore)(nil)
 
 func TestS3ObjectStoreSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &s3ObjectStoreSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &s3ObjectStoreSuite{})
+	})
 }
 
 func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {

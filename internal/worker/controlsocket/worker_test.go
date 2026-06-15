@@ -17,7 +17,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
@@ -28,6 +27,7 @@ import (
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujujujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/sockets"
 )
@@ -41,8 +41,9 @@ type workerSuite struct {
 }
 
 func TestWorkerSuite(t *testing.T) {
-	goleak.VerifyNone(t)
-	tc.Run(t, &workerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &workerSuite{})
+	})
 }
 
 func (s *workerSuite) SetUpTest(c *tc.C) {

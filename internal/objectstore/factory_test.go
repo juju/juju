@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type objectStoreFactorySuite struct {
@@ -27,8 +27,9 @@ type objectStoreFactorySuite struct {
 }
 
 func TestObjectStoreFactorySuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &objectStoreFactorySuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &objectStoreFactorySuite{})
+	})
 }
 
 func (s *objectStoreFactorySuite) TestNewObjectStore(c *tc.C) {

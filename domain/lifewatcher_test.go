@@ -8,12 +8,12 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type lifeWatcherSuite struct {
@@ -21,8 +21,9 @@ type lifeWatcherSuite struct {
 }
 
 func TestLifeWatcherSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &lifeWatcherSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &lifeWatcherSuite{})
+	})
 }
 
 func (s *lifeWatcherSuite) lifeGetter(ctx context.Context, ids []string) (map[string]life.Life, error) {

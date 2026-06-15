@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
-	"go.uber.org/goleak"
 
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/errors"
@@ -26,8 +25,9 @@ type manifoldConfigSuite struct {
 }
 
 func TestManifoldConfigSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &manifoldConfigSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &manifoldConfigSuite{})
+	})
 }
 
 func (s *manifoldConfigSuite) SetUpTest(c *tc.C) {
@@ -87,8 +87,9 @@ type manifoldSuite struct {
 }
 
 func TestManifoldSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &manifoldSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &manifoldSuite{})
+	})
 }
 
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {

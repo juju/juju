@@ -13,11 +13,11 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/fortress"
 )
 
@@ -29,9 +29,9 @@ var _ coreobjectstore.ObjectStore = (*objectStoreFacade)(nil)
 var _ coreobjectstore.ObjectStoreRemover = (*objectStoreFacade)(nil)
 
 func TestWorkerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.Run(t, &workerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &workerSuite{})
+	})
 }
 
 func (s *workerSuite) TestObjectStoreGetObjectStore(c *tc.C) {

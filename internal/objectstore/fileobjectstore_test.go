@@ -19,7 +19,6 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/objectstore"
@@ -30,6 +29,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	objectstoreerrors "github.com/juju/juju/internal/objectstore/errors"
 	"github.com/juju/juju/internal/objectstore/remote"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type fileObjectStoreSuite struct {
@@ -39,8 +39,9 @@ type fileObjectStoreSuite struct {
 }
 
 func TestFileObjectStoreSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &fileObjectStoreSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &fileObjectStoreSuite{})
+	})
 }
 
 var _ TrackedObjectStore = (*fileObjectStore)(nil)
