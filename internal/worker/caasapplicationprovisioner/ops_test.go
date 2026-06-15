@@ -232,7 +232,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 	})
 }
 
-func (s *OpsSuite) TestRefreshApplicationStatusChurning(c *tc.C) {
+func (s *OpsSuite) TestRefreshOperatorStatusChurningAllocating(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -267,7 +267,7 @@ func (s *OpsSuite) TestRefreshApplicationStatusChurning(c *tc.C) {
 		}),
 	)
 
-	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus(c.Context(), "test", appId, app, appLife, statusService, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.RefreshOperatorStatus(c.Context(), "test", appId, app, appLife, statusService, clk, s.logger)
 	c.Assert(errors.Is(err, errors.ConstError("units churning")), tc.IsTrue)
 }
 
@@ -286,10 +286,13 @@ func (s *OpsSuite) TestRefreshApplicationStatusSettled(c *tc.C) {
 	}
 	units := map[unit.Name]status.StatusInfo{
 		"test/0": {
-			Status: status.Idle,
+			Status: status.Active,
 		},
 		"test/1": {
 			Status: status.Executing,
+		},
+		"test/2": {
+			Status: status.Waiting,
 		},
 	}
 	gomock.InOrder(
@@ -305,8 +308,47 @@ func (s *OpsSuite) TestRefreshApplicationStatusSettled(c *tc.C) {
 		}),
 	)
 
-	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus(c.Context(), "test", appId, app, appLife, statusService, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.RefreshOperatorStatus(c.Context(), "test", appId, app, appLife, statusService, clk, s.logger)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *OpsSuite) TestRefreshOperatorStatusChurningWaitingInitialising(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	appLife := life.Alive
+	appId, _ := application.NewUUID()
+	app := caasmocks.NewMockApplication(ctrl)
+	statusService := mocks.NewMockStatusService(ctrl)
+	clk := testclock.NewDilatedWallClock(coretesting.ShortWait)
+
+	appState := caas.ApplicationState{
+		DesiredReplicas: 2,
+	}
+	units := map[unit.Name]status.StatusInfo{
+		"test/0": {
+			Status: status.Active,
+		},
+		"test/1": {
+			Status: status.Waiting, Message: "agent initialising",
+		},
+	}
+	gomock.InOrder(
+		app.EXPECT().State().Return(appState, nil),
+		statusService.EXPECT().GetUnitAgentStatusesForApplication(gomock.Any(), appId).Return(units, nil),
+		statusService.EXPECT().SetOperatorStatus(gomock.Any(), "test", gomock.Any()).DoAndReturn(func(ctx context.Context, name string, si status.StatusInfo) error {
+			mc := tc.NewMultiChecker()
+			mc.AddExpr("_.Since", tc.NotNil)
+			c.Check(si, mc, status.StatusInfo{
+				Status:  status.Waiting,
+				Message: "waiting for units to settle down",
+			})
+			return nil
+		}),
+	)
+
+	err := caasapplicationprovisioner.AppOps.RefreshOperatorStatus(c.Context(), "test", appId, app, appLife, statusService, clk, s.logger)
+	c.Assert(errors.Is(err, errors.ConstError("units churning")), tc.IsTrue)
 }
 
 func (s *OpsSuite) TestWaitForTerminated(c *tc.C) {

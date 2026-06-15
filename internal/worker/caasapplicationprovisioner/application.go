@@ -535,7 +535,7 @@ func (a *appWorker) loop() error {
 			return nil
 		}
 		if shouldRefresh {
-			err := a.ops.RefreshApplicationStatus(ctx, name, a.appUUID, app, appLife,
+			err := a.ops.RefreshOperatorStatus(ctx, name, a.appUUID, app, appLife,
 				a.statusService, a.clock, a.logger)
 			if errors.Is(err, unitsChurning) {
 				refreshTimer.Reset(refreshInterval)

@@ -4,6 +4,7 @@
 package blockdevice
 
 import (
+	"path"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -67,6 +68,19 @@ func SameDevice(left, right blockdevice.BlockDevice) bool {
 	if left.HardwareId != "" && right.HardwareId != "" {
 		return left.HardwareId == right.HardwareId
 	}
+	// MAAS/KVM often reports hardware IDs like
+	// "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1" while discovered devices carry
+	// serial IDs like "lxd_disk1". We need the follow rules to account for that.
+	if left.HardwareId != "" || right.HardwareId != "" {
+		if match := serialMatchesHardwareID(left.HardwareId, right.SerialId) ||
+			serialMatchesHardwareID(right.HardwareId, left.SerialId); match {
+			return true
+		}
+		if match := devLinkMatchesHardwareID(left.HardwareId, right.DeviceLinks) ||
+			devLinkMatchesHardwareID(right.HardwareId, left.DeviceLinks); match {
+			return true
+		}
+	}
 	// SerialId is the serial id of the disk block device derived from lsblk/
 	// udevadm `ID_SERIAL`.
 	if left.SerialId != "" && right.SerialId != "" {
@@ -78,6 +92,32 @@ func SameDevice(left, right blockdevice.BlockDevice) bool {
 		return left.BusAddress == right.BusAddress
 	}
 	return false
+}
+
+func devLinkMatchesHardwareID(hardwareID string, devLinks []string) bool {
+	if hardwareID == "" || len(devLinks) == 0 {
+		return false
+	}
+	for _, link := range devLinks {
+		linkID := path.Base(link)
+		if hardwareID == linkID || serialMatchesHardwareID(hardwareID, linkID) {
+			return true
+		}
+	}
+	return false
+}
+
+func serialMatchesHardwareID(hardwareID, serial string) bool {
+	if hardwareID == "" || serial == "" {
+		return false
+	}
+	if hardwareID == serial {
+		return true
+	}
+	// MAAS/KVM often reports hardware IDs like
+	// "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1" while discovered devices carry
+	// serial IDs like "lxd_disk1".
+	return strings.HasSuffix(hardwareID, "_"+serial) || strings.HasSuffix(hardwareID, "-"+serial)
 }
 
 // IsPartition returns true if the block device contains any device links that

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 )
@@ -93,6 +94,28 @@ func (s *comparisonSuite) TestSameDeviceByHardwareId(c *tc.C) {
 	}
 	right := blockdevice.BlockDevice{
 		HardwareId: "abc",
+	}
+	res := SameDevice(left, right)
+	c.Assert(res, tc.IsTrue)
+}
+
+func (s *comparisonSuite) TestSameDeviceByHardwareIDAndSerialSuffix(c *gc.C) {
+	left := blockdevice.BlockDevice{
+		HardwareId: "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1",
+	}
+	right := blockdevice.BlockDevice{
+		SerialId: "lxd_disk1",
+	}
+	res := SameDevice(left, right)
+	c.Assert(res, tc.IsTrue)
+}
+
+func (s *comparisonSuite) TestSameDeviceByHardwareIDAndDeviceLink(c *gc.C) {
+	left := blockdevice.BlockDevice{
+		HardwareId: "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1",
+	}
+	right := blockdevice.BlockDevice{
+		DeviceLinks: []string{"scsi-SQEMU_QEMU_HARDDISK_lxd_disk1"},
 	}
 	res := SameDevice(left, right)
 	c.Assert(res, tc.IsTrue)

@@ -443,6 +443,21 @@ func (s *addSuite) TestForceAddToController(c *tc.C) {
 	s.asssertAddToController(c, true)
 }
 
+func (s *addSuite) TestAddToControllerSingleEmptyAuthSkipsCredential(c *tc.C) {
+	const emptyAuthCloudYAML = `
+        clouds:
+          local-manual:
+            type: unmanaged
+            auth-types: [empty]
+            endpoint: "http://dummy"`
+
+	cloudFileName, command, _, api, _, _ := s.setupControllerCloudScenarioWithFile(c, emptyAuthCloudYAML)
+	ctx, err := cmdtesting.RunCommand(c, command, "local-manual", cloudFileName, "-c", "mycontroller")
+	c.Assert(err, tc.ErrorIsNil)
+	api.CheckCallNames(c, "AddCloud", "Close")
+	c.Assert(cmdtesting.Stderr(ctx), tc.DeepEquals, "Cloud \"local-manual\" added to controller \"mycontroller\".\n")
+}
+
 func (s *addSuite) TestAddLocal(c *tc.C) {
 	cloudFileName, command, _, api, _, numCalls := s.setupControllerCloudScenario(c)
 
@@ -499,7 +514,7 @@ To upload a credential to the controller for cloud "garage-maas", use
 * 'add-model' with --credential option or
 * 'add-credential -c garage-maas'.
 `[1:])
-	//c.Assert(c.GetTestLog(), tc.Contains, `loading credentials: credentials for cloud garage-maas not found`)
+	// c.Assert(c.GetTestLog(), tc.Contains, `loading credentials: credentials for cloud garage-maas not found`)
 }
 
 func (s *addSuite) TestAddToControllerAmbiguousCredential(c *tc.C) {
@@ -512,7 +527,7 @@ func (s *addSuite) TestAddToControllerAmbiguousCredential(c *tc.C) {
 		"To upload a credential to the controller for cloud \"garage-maas\", use \n"+
 		"* 'add-model' with --credential option or\n"+
 		"* 'add-credential -c garage-maas'.\n")
-	//c.Assert(c.GetTestLog(), tc.Contains, `more than one credential is available`)
+	// c.Assert(c.GetTestLog(), tc.Contains, `more than one credential is available`)
 }
 
 func (*addSuite) TestInteractive(c *tc.C) {

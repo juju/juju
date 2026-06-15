@@ -258,7 +258,9 @@ if self.unit.is_leader():
 
 When the hook returns, `bar` will receive a `relation-changed` event.
 
-Note that units only receive `relation-changed` events for **other** units' changes. This can matter in a peer relation, where the application leader will not receive a `relation-changed` event for the changes that it writes to the peer relation's application data bag. If all units, including the leader, need to react to a change in that application data, charm authors may include an inline `.emit()` for the `<name>_relation_changed` event on the leader.
+Note that units only receive `relation-changed` events for **other** units' changes. The one exception to this rule is for peer relations' application data bags.
+The application leader will receive a `relation-changed` event for the changes that it writes to a peer relation's application data bag. This allows all units
+of an application to use a common event handler to react to changes in the peer relation's application data bag, independent of whether the unit is the current leader.
 
 > **When is data synchronized?** <br>
 > Relation data is sent to the controller at the end of the hook's execution. If a charm author writes to local relation data multiple times during the a single hook run, the net change will be sent to the controller after the local code has finished executing. The controller inspects the data and determines whether the relation data has been changed. Related units then get the `relation-changed` event the next time they check in with the controller.

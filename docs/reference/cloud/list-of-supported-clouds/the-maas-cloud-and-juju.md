@@ -46,24 +46,25 @@ Attributes:
 
 ## Supported constraints
 
-| {ref}`CONSTRAINT <constraint>`         |                                                     |
-|----------------------------------------|-----------------------------------------------------|
-| conflicting:                           | TBA                                                 |
-| supported?                             |                                                     |
-| - {ref}`constraint-allocate-public-ip` | &#10005;                                            |
-| - {ref}`constraint-arch`               | &#10003; <br> Valid values: See cloud provider.     |
-| - {ref}`constraint-cores`              | &#10003;                                            |
-| - {ref}`constraint-cpu-power`          | &#10005;                                            |
-| - {ref}`constraint-image-id`           | &#10005; <br> An image name from MAAS.              |
-| - {ref}`constraint-instance-role`      | &#10005;                                            |
-| - {ref}`constraint-instance-type`      | &#10005;                                            |
-| - {ref}`constraint-mem`                | &#10003;                                            |
-| - {ref}`constraint-root-disk`          | &#10003;                                            |
-| - {ref}`constraint-root-disk-source`   | &#10005;                                            |
-| - {ref}`constraint-spaces`             | &#10003;                                            |
-| - {ref}`constraint-tags`               | &#10003;                                            |
-| - {ref}`constraint-virt-type`          | &#10005;                                            |
-| - {ref}`constraint-zones`              | &#10003;                                            |
+| {ref}`CONSTRAINT <constraint>`         |                                                                                                                                   |
+|----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| conflicting:                           | TBA                                                                                                                               |
+| supported?                             |                                                                                                                                   |
+| - {ref}`constraint-allocate-public-ip` | &#10005;                                                                                                                          |
+| - {ref}`constraint-arch`               | &#10003; <br> Valid values: See cloud provider.                                                                                   |
+| - {ref}`constraint-container`          | &#10003;                                                                                                                          |
+| - {ref}`constraint-cores`              | &#10003;                                                                                                                          |
+| - {ref}`constraint-cpu-power`          | &#10005;                                                                                                                          |
+| - {ref}`constraint-image-id`           | &#10003; <br> An image name from MAAS.                                                                                            |
+| - {ref}`constraint-instance-role`      | &#10005;                                                                                                                          |
+| - {ref}`constraint-instance-type`      | &#10005;                                                                                                                          |
+| - {ref}`constraint-mem`                | &#10003;                                                                                                                          |
+| - {ref}`constraint-root-disk`          | &#10003;                                                                                                                          |
+| - {ref}`constraint-root-disk-source`   | &#10005;                                                                                                                          |
+| - {ref}`constraint-spaces`             | &#10003;                                                                                                                          |
+| - {ref}`constraint-tags`               | &#10003;                                                                                                                          |
+| - {ref}`constraint-virt-type`          | &#10003; <br> Valid values: `[virtual-machine]`. <br> Default value: "". <br> Use `virtual-machine` to provision a VM from a pod. |
+| - {ref}`constraint-zones`              | &#10003;                                                                                                                          |
 
 ## Supported placement directives
 
