@@ -810,6 +810,12 @@ type MachineStatusValue struct {
 	Status string `db:"status" json:"status" yaml:"status"`
 }
 
+type MachineVirtualSshHostKey struct {
+	MachineUUID     string `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
+	AlgorithmTypeID int64  `db:"algorithm_type_id" json:"algorithm_type_id" yaml:"algorithm_type_id"`
+	SshKey          string `db:"ssh_key" json:"ssh_key" yaml:"ssh_key"`
+}
+
 type MachineVolume struct {
 	MachineUUID string `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
 	VolumeUUID  string `db:"volume_uuid" json:"volume_uuid" yaml:"volume_uuid"`
@@ -1331,6 +1337,11 @@ type Space struct {
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
+type SshKeyAlgorithmType struct {
+	ID   *int64 `db:"id" json:"id" yaml:"id"`
+	Type string `db:"type" json:"type" yaml:"type"`
+}
+
 type StorageAttachment struct {
 	UUID                string `db:"uuid" json:"uuid" yaml:"uuid"`
 	StorageInstanceUUID string `db:"storage_instance_uuid" json:"storage_instance_uuid" yaml:"storage_instance_uuid"`
@@ -1568,6 +1579,12 @@ type UnitStorageDirective struct {
 	Count           int64  `db:"count" json:"count" yaml:"count"`
 }
 
+type UnitVirtualSshHostKey struct {
+	UnitUUID        string `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
+	AlgorithmTypeID int64  `db:"algorithm_type_id" json:"algorithm_type_id" yaml:"algorithm_type_id"`
+	SshKey          string `db:"ssh_key" json:"ssh_key" yaml:"ssh_key"`
+}
+
 type UnitWorkloadStatus struct {
 	UnitUUID  string     `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
 	StatusID  int64      `db:"status_id" json:"status_id" yaml:"status_id"`
@@ -1712,6 +1729,7 @@ type ModelExport struct {
 	MachineSshHostKey                        []MachineSshHostKey                        `json:"machine_ssh_host_key" yaml:"machine_ssh_host_key"`
 	MachineStatus                            []MachineStatus                            `json:"machine_status" yaml:"machine_status"`
 	MachineStatusValue                       []MachineStatusValue                       `json:"machine_status_value" yaml:"machine_status_value"`
+	MachineVirtualSshHostKey                 []MachineVirtualSshHostKey                 `json:"machine_virtual_ssh_host_key" yaml:"machine_virtual_ssh_host_key"`
 	MachineVolume                            []MachineVolume                            `json:"machine_volume" yaml:"machine_volume"`
 	Model                                    []Model                                    `json:"model" yaml:"model"`
 	ModelAgent                               []ModelAgent                               `json:"model_agent" yaml:"model_agent"`
@@ -1798,6 +1816,7 @@ type ModelExport struct {
 	SecretValueRef                           []SecretValueRef                           `json:"secret_value_ref" yaml:"secret_value_ref"`
 	Sequence                                 []Sequence                                 `json:"sequence" yaml:"sequence"`
 	Space                                    []Space                                    `json:"space" yaml:"space"`
+	SshKeyAlgorithmType                      []SshKeyAlgorithmType                      `json:"ssh_key_algorithm_type" yaml:"ssh_key_algorithm_type"`
 	StorageAttachment                        []StorageAttachment                        `json:"storage_attachment" yaml:"storage_attachment"`
 	StorageFilesystem                        []StorageFilesystem                        `json:"storage_filesystem" yaml:"storage_filesystem"`
 	StorageFilesystemAttachment              []StorageFilesystemAttachment              `json:"storage_filesystem_attachment" yaml:"storage_filesystem_attachment"`
@@ -1832,6 +1851,7 @@ type ModelExport struct {
 	UnitStateCharm                           []UnitStateCharm                           `json:"unit_state_charm" yaml:"unit_state_charm"`
 	UnitStateRelation                        []UnitStateRelation                        `json:"unit_state_relation" yaml:"unit_state_relation"`
 	UnitStorageDirective                     []UnitStorageDirective                     `json:"unit_storage_directive" yaml:"unit_storage_directive"`
+	UnitVirtualSshHostKey                    []UnitVirtualSshHostKey                    `json:"unit_virtual_ssh_host_key" yaml:"unit_virtual_ssh_host_key"`
 	UnitWorkloadStatus                       []UnitWorkloadStatus                       `json:"unit_workload_status" yaml:"unit_workload_status"`
 	UnitWorkloadVersion                      []UnitWorkloadVersion                      `json:"unit_workload_version" yaml:"unit_workload_version"`
 	VirtualPortType                          []VirtualPortType                          `json:"virtual_port_type" yaml:"virtual_port_type"`
