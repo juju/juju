@@ -9,6 +9,10 @@ const (
 	// ErrTerminalPhase is the error returned when the object store is already
 	// in a terminal phase.
 	ErrTerminalPhase = errors.ConstError("object store is already in a terminal phase")
+
+	// ErrInvalidTransition is the error returned when the transition from the
+	// current phase to the new phase is not allowed.
+	ErrInvalidTransition = errors.ConstError("invalid transition from current phase to new phase")
 )
 
 // Phase is the type to identify the phase of the object store.
@@ -84,7 +88,7 @@ func (p Phase) TransitionTo(newPhase Phase) (Phase, error) {
 			return p, ErrTerminalPhase
 		}
 	}
-	return "", errors.Errorf("invalid transition from %q to %q", p, newPhase)
+	return "", errors.Errorf("invalid transition from %q to %q", p, newPhase).Add(ErrInvalidTransition)
 }
 
 // IsValid returns true if the phase is a valid phase.
