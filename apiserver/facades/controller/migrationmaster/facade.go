@@ -41,8 +41,8 @@ type API struct {
 	statusServiceGetter         func(context.Context, coremodel.UUID) (StatusService, error)
 	modelAgentServiceGetter     func(context.Context, coremodel.UUID) (ModelAgentService, error)
 	machineServiceGetter        func(context.Context, coremodel.UUID) (MachineService, error)
-	controllerConfigService ControllerConfigService
-	modelInfoService        ModelInfoService
+	controllerConfigService     ControllerConfigService
+	modelInfoService            ModelInfoService
 	modelService                ModelService
 	modelMigrationService       ModelMigrationService
 	store                       objectstore.ObjectStore
@@ -88,8 +88,8 @@ func NewAPI(
 		statusServiceGetter:         statusServiceGetter,
 		modelAgentServiceGetter:     modelAgentServiceGetter,
 		machineServiceGetter:        machineServiceGetter,
-		controllerConfigService: controllerConfigService,
-		modelInfoService:        modelInfoService,
+		controllerConfigService:     controllerConfigService,
+		modelInfoService:            modelInfoService,
 		modelService:                modelService,
 		modelMigrationService:       modelMigrationService,
 	}, nil

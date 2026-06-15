@@ -380,10 +380,22 @@ func (s *Service) SourceControllerInfo(ctx context.Context) (migration.SourceCon
 	if err != nil {
 		return migration.SourceControllerInfo{}, errors.Capture(err)
 	}
+
+	// A target controller dials these addresses back to advance the migration
+	// state machine and ultimately reap the source model. Without at least one
+	// usable address the migration can never complete, so refuse to act as a
+	// source rather than proceed into a stuck state.
+	addrs := sourceControllerAddrsForClients(info.Addrs)
+	if len(addrs) == 0 {
+		return migration.SourceControllerInfo{}, errors.Errorf(
+			"controller %q cannot be a migration source: %w",
+			info.ControllerUUID, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
+	}
+
 	return migration.SourceControllerInfo{
 		ControllerTag:   names.NewControllerTag(info.ControllerUUID),
 		ControllerAlias: info.ControllerAlias,
-		Addrs:           sourceControllerAddrsForClients(info.Addrs),
+		Addrs:           addrs,
 		CACert:          info.CACert,
 	}, nil
 }

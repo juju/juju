@@ -570,6 +570,82 @@ func (s *serviceSuite) TestSourceControllerInfoArrangesRawStateAddresses(c *tc.C
 	c.Check(info.CACert, tc.Equals, "ca-cert")
 }
 
+// TestSourceControllerInfoSingleAddress asserts a single raw address is
+// surfaced unchanged.
+func (s *serviceSuite) TestSourceControllerInfoSingleAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+		Addrs: []modelmigrationinternal.SourceControllerAddress{{
+			ControllerID: "1",
+			Address:      "10.0.0.1:17070",
+			Scope:        string(network.ScopeCloudLocal),
+			IsAgent:      true,
+		}},
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	info, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Addrs, tc.DeepEquals, []string{"10.0.0.1:17070"})
+}
+
+// TestSourceControllerInfoNoAddresses asserts that a controller with no
+// recorded API addresses cannot act as a migration source: the target would
+// have nothing to dial back to advance the migration.
+func (s *serviceSuite) TestSourceControllerInfoNoAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	_, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
+}
+
+// TestSourceControllerInfoOnlyUnusableAddresses asserts that raw addresses that
+// do not survive scope prioritization (e.g. machine-local only) are treated the
+// same as having no addresses: the guard sits on the arranged client-facing
+// list, not on the raw state rows.
+func (s *serviceSuite) TestSourceControllerInfoOnlyUnusableAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+		Addrs: []modelmigrationinternal.SourceControllerAddress{{
+			ControllerID: "1",
+			Address:      "127.0.0.1:17070",
+			Scope:        string(network.ScopeMachineLocal),
+			IsAgent:      true,
+		}},
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	_, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
+}
+
+// TestSourceControllerInfoError asserts a controller-state read failure is
+// surfaced.
+func (s *serviceSuite) TestSourceControllerInfoError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).
+		Return(modelmigrationinternal.SourceControllerInfo{}, errors.New("boom"))
+
+	_, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
 // TestGetControllerModelInfoOffererModelsError asserts offerer-pair read
 // failures are surfaced and the controller-state read is not attempted.
 func (s *serviceSuite) TestGetControllerModelInfoOffererModelsError(c *tc.C) {

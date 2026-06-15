@@ -270,8 +270,10 @@ type externalModelKey struct {
 	modelUUID      string
 }
 
-// caCertRow projects the CA certificate column from the controller table.
-type caCertRow struct {
+// controllerIdentityRow projects the uuid and CA certificate columns from the
+// controller table.
+type controllerIdentityRow struct {
+	UUID   string `db:"uuid"`
 	CACert string `db:"ca_cert"`
 }
 

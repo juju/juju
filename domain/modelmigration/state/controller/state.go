@@ -1697,11 +1697,7 @@ func (s *State) GetSourceControllerInfo(ctx context.Context) (modelmigrationinte
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
 	}
 
-	stmtUUID, err := s.Prepare("SELECT &entityUUID.* FROM controller", entityUUID{})
-	if err != nil {
-		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
-	}
-	stmtCACert, err := s.Prepare("SELECT &caCertRow.* FROM controller", caCertRow{})
+	stmtIdentity, err := s.Prepare("SELECT &controllerIdentityRow.* FROM controller", controllerIdentityRow{})
 	if err != nil {
 		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
 	}
@@ -1722,26 +1718,19 @@ FROM   controller_api_address
 	}
 
 	var (
-		uuidRow  entityUUID
-		certRow  caCertRow
-		nameRow  controllerNameRow
-		addrRows []sourceAPIAddress
+		identityRow controllerIdentityRow
+		nameRow     controllerNameRow
+		addrRows    []sourceAPIAddress
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		uuidRow = entityUUID{}
-		certRow = caCertRow{}
+		identityRow = controllerIdentityRow{}
 		nameRow = controllerNameRow{}
 		addrRows = nil
 
-		if err := tx.Query(ctx, stmtUUID).Get(&uuidRow); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("internal error: controller uuid not found")
+		if err := tx.Query(ctx, stmtIdentity).Get(&identityRow); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("internal error: controller identity not found")
 		} else if err != nil {
-			return errors.Errorf("getting controller uuid: %w", err)
-		}
-		if err := tx.Query(ctx, stmtCACert).Get(&certRow); errors.Is(err, sqlair.ErrNoRows) {
-			return errors.New("internal error: controller ca cert not found")
-		} else if err != nil {
-			return errors.Errorf("getting controller ca cert: %w", err)
+			return errors.Errorf("getting controller identity: %w", err)
 		}
 		// controller-name may not be set; treat absent as empty alias.
 		if err := tx.Query(ctx, stmtName).Get(&nameRow); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -1767,10 +1756,10 @@ FROM   controller_api_address
 	}
 
 	return modelmigrationinternal.SourceControllerInfo{
-		ControllerUUID:  uuidRow.UUID,
+		ControllerUUID:  identityRow.UUID,
 		ControllerAlias: nameRow.Name,
 		Addrs:           addrs,
-		CACert:          certRow.CACert,
+		CACert:          identityRow.CACert,
 	}, nil
 }
 

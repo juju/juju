@@ -20,6 +20,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -863,6 +865,57 @@ func (s *stateSuite) TestGetControllerModelInfoIdentity(c *tc.C) {
 	c.Check(info.SecretBackend.Name, tc.Not(tc.Equals), "")
 }
 
+// TestGetSourceControllerInfo asserts the source controller's identity, alias,
+// CA certificate and raw API addresses are all returned.
+func (s *stateSuite) TestGetSourceControllerInfo(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	s.seedControllerName(c, "source-controller")
+	s.seedControllerAPIAddresses(c, []sourceAPIAddress{{
+		ControllerID: "0",
+		Address:      "10.0.0.1:17070",
+		Scope:        string(network.ScopeCloudLocal),
+		IsAgent:      true,
+	}, {
+		ControllerID: "0",
+		Address:      "192.0.2.1:17070",
+		Scope:        string(network.ScopePublic),
+		IsAgent:      false,
+	}})
+
+	info, err := st.GetSourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.ControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
+	c.Check(info.ControllerAlias, tc.Equals, "source-controller")
+	c.Check(info.CACert, tc.Equals, "test-ca-cert")
+	c.Check(info.Addrs, tc.SameContents, []modelmigrationinternal.SourceControllerAddress{{
+		ControllerID: "0",
+		Address:      "10.0.0.1:17070",
+		Scope:        string(network.ScopeCloudLocal),
+		IsAgent:      true,
+	}, {
+		ControllerID: "0",
+		Address:      "192.0.2.1:17070",
+		Scope:        string(network.ScopePublic),
+		IsAgent:      false,
+	}})
+}
+
+// TestGetSourceControllerInfoNoOptionalData asserts the call succeeds when the
+// controller name is unset and no API addresses are recorded.
+func (s *stateSuite) TestGetSourceControllerInfoNoOptionalData(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	info, err := st.GetSourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.ControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
+	c.Check(info.ControllerAlias, tc.Equals, "")
+	c.Check(info.CACert, tc.Equals, "test-ca-cert")
+	c.Check(info.Addrs, tc.HasLen, 0)
+}
+
 // TestGetControllerModelInfoIncludesCredentialOwner verifies the user profile
 // set includes the model credential owner even when that user has no model or
 // offer permission grant.
@@ -1346,6 +1399,41 @@ func (s *stateSuite) TestGetControllerModelInfoModelNotFound(c *tc.C) {
 }
 
 // createControllerModel creates a the database for use in tests.
+// seedControllerName records the controller-name controller config value used
+// as the source controller alias.
+func (s *stateSuite) seedControllerName(c *tc.C, name string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO controller_config (key, value) VALUES ('controller-name', ?)`, name)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// seedControllerAPIAddresses inserts the supplied controller API addresses,
+// ensuring the referenced controller node rows exist first.
+func (s *stateSuite) seedControllerAPIAddresses(c *tc.C, addrs []sourceAPIAddress) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		seenNodes := make(map[string]bool)
+		for _, addr := range addrs {
+			if !seenNodes[addr.ControllerID] {
+				if _, err := tx.ExecContext(ctx,
+					`INSERT INTO controller_node (controller_id) VALUES (?) ON CONFLICT DO NOTHING`, addr.ControllerID); err != nil {
+					return err
+				}
+				seenNodes[addr.ControllerID] = true
+			}
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO controller_api_address (controller_id, address, is_agent, scope) VALUES (?, ?, ?, ?)`,
+				addr.ControllerID, addr.Address, addr.IsAgent, addr.Scope); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *stateSuite) createControllerModel(c *tc.C, controllerModelUUID coremodel.UUID, userUUID user.UUID) uuid.UUID {
 	// Before we can create the model, we need to create a controller model.
 	// This ensures that we
