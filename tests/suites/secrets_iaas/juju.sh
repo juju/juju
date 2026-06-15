@@ -424,9 +424,6 @@ test_secret_nonleader_unit_owned() {
 run_track_latest_revision() {
 	echo
 
-	juju --show-log deploy juju-qa-test
-	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
-
 	# Step 1: create secret at rev 1 and read it.
 	# Reading establishes a consumer record at current_revision=1.
 	secret_uri=$(juju exec --unit juju-qa-test/0 -- secret-add val=one)
@@ -464,9 +461,87 @@ run_track_latest_revision() {
 	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri")" 'val: two'
 }
 
-test_track_latest_revision() {
-	if [ "$(skip 'test_track_latest_revision')" ]; then
-		echo "==> TEST SKIPPED: test_track_latest_revision"
+# run_atomic_secret_update verifies that a unit-owned secret update applied
+# through CommitHookChanges (JUJU-9962) commits atomically with other hook
+# changes. Secret updates now flow through the CommitHookChanges domain
+# transaction rather than a dedicated facade method.
+#
+# Scenarios:
+#   1. content + metadata update in a single hook -> new revision persisted,
+#      label/rotate applied, old revision marked obsolete.
+run_atomic_secret_update() {
+	echo
+
+	# Step 1: create a secret at rev 1.
+	secret_uri=$(juju exec --unit juju-qa-test/0 -- secret-add val=one)
+	secret_id=${secret_uri##*/}
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri")" 'val: one'
+
+	# Step 2: update content and metadata in a single hook execution (one
+	# CommitHookChanges call). The content update creates rev 2 and the
+	# metadata changes (label, rotate) must be applied in the same
+	# transaction.
+	echo "Checking: content + metadata update in one hook"
+	check_contains "$(juju exec --unit juju-qa-test/0 \
+		-- "secret-set $secret_uri val=two --label=mylabel --rotate=daily; secret-get $secret_uri --refresh")" 'val: two'
+
+	# The metadata changes must have been persisted by the same transaction.
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-info-get "$secret_uri" --format json | yq ".${secret_id}.label")" 'mylabel'
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-info-get "$secret_uri" --format json | yq ".${secret_id}.revision")" '2'
+	check_contains "$(juju show-secret "$secret_uri" --format json | yq ".[].rotation")" 'daily'
+
+	# Fresh hook with no --refresh: the consumer record must already track
+	# rev 2, proving the update was committed.
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri")" 'val: two'
+
+	# Rev 1 must be marked obsolete after the update.
+	echo "Checking: revision 1 is marked obsolete after the update"
+	attempt=0
+	while true; do
+		obsolete=$(obsolete_secret_revisions "${secret_id}")
+		if [ "$obsolete" = "[1]" ]; then break; fi
+		attempt=$((attempt + 1))
+		if [ $attempt -eq 10 ]; then
+			# shellcheck disable=SC2046
+			echo $(red "expected '[1]' in obsolete-revisions, got '$obsolete'")
+			exit 1
+		fi
+		sleep 2
+	done
+
+	echo "Cleaning up atomic update secret"
+	juju exec --unit juju-qa-test/0 -- secret-remove "$secret_uri"
+}
+
+# run_atomic_secret_update_grant verifies that a content update and a grant
+# applied in the same hook execution commit together through
+# CommitHookChanges (JUJU-9962): the consumer must be able to read the
+# updated revision. Uses the dummy-source/dummy-sink pair which has a
+# compatible relation for granting.
+run_atomic_secret_update_grant() {
+	echo
+
+	secret_uri=$(juju exec --unit dummy-source/0 -- secret-add --owner unit val=one)
+	relation_id=$(juju --show-log show-unit dummy-source/0 --format json | yq '."dummy-source/0"."relation-info"[0]."relation-id"')
+
+	# Update the content and grant to the consumer in a single hook. The
+	# secret update and the grant must commit together so the consumer can
+	# read the new revision.
+	echo "Checking: content update + grant in one hook"
+	juju exec --unit dummy-source/0 -- "secret-set $secret_uri val=two; secret-grant $secret_uri -r $relation_id"
+	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_uri")" 'val: two'
+
+	echo "Cleaning up atomic update grant secret"
+	juju exec --unit dummy-source/0 -- secret-remove "$secret_uri"
+}
+
+# test_secrets_hook_commit deploys the charms once and runs all
+# CommitHookChanges-based secret scenarios against the same model, to avoid
+# the cost of redeploying for each scenario. Each scenario uses its own
+# secret URI for isolation.
+test_secrets_hook_commit() {
+	if [ "$(skip 'test_secrets_hook_commit')" ]; then
+		echo "==> TEST SKIPPED: test_secrets_hook_commit"
 		return
 	fi
 
@@ -475,9 +550,21 @@ test_track_latest_revision() {
 
 		cd .. || exit
 
-		model_name='model-secrets-track-latest'
+		model_name='model-secrets-hook-commit'
 		add_model "$model_name"
+
+		juju --show-log deploy juju-qa-test
+		juju --show-log deploy juju-qa-dummy-source
+		juju --show-log deploy juju-qa-dummy-sink
+		juju --show-log integrate dummy-sink dummy-source
+		wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+		wait_for "dummy-source" "$(idle_condition "dummy-source" 0)"
+		wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
+
 		run_track_latest_revision
+		run_atomic_secret_update
+		run_atomic_secret_update_grant
+
 		destroy_model "$model_name"
 	)
 }
