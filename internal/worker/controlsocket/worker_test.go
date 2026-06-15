@@ -920,6 +920,8 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccess(c *tc.C) {
 func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	insecureSkipVerify := new(bool)
+	*insecureSkipVerify = true
 	openTelemetryStackTraces := new(bool)
 	*openTelemetryStackTraces = true
 	openTelemetrySampleRatio := new(float64)
@@ -931,6 +933,7 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c
 		HTTPEndpoint:                       "http://localhost:4318",
 		GRPCEndpoint:                       "localhost:4317",
 		CACertificate:                      "ca-data",
+		InsecureSkipVerify:                 insecureSkipVerify,
 		OpenTelemetryStackTraces:           openTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
@@ -945,6 +948,7 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c
 		method:   http.MethodPost,
 		endpoint: "/workload-tracing-config",
 		body: `{"http_endpoint":"http://localhost:4318","grpc_endpoint":"localhost:4317","ca_cert":"ca-data",` +
+			`"insecure_skip_verify":true,` +
 			`"open_telemetry_stack_traces":true,"open_telemetry_sample_ratio":0.5,` +
 			`"open_telemetry_tail_sampling_threshold":"250ms"}`,
 		statusCode: http.StatusOK,

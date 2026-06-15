@@ -159,6 +159,10 @@ func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingCo
 		runtimeCfg.StackTracesEnabled = *cfg.OpenTelemetryStackTraces
 	}
 
+	if cfg.InsecureSkipVerify != nil {
+		runtimeCfg.InsecureSkipVerify = *cfg.InsecureSkipVerify
+	}
+
 	if cfg.OpenTelemetrySampleRatio != nil {
 		if *cfg.OpenTelemetrySampleRatio < 0 || *cfg.OpenTelemetrySampleRatio > 1 {
 			return RuntimeConfig{}, errors.NotValidf("open telemetry sample ratio %.4f", *cfg.OpenTelemetrySampleRatio)

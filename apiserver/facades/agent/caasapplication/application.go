@@ -181,7 +181,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 
 			OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "",
 			OpenTelemetryEndpoint:              tracingConfig.GRPCEndpoint,
-			OpenTelemetryInsecure:              agent.DefaultOpenTelemetryInsecure,
+			OpenTelemetryInsecure:              openTelemetryInsecure(tracingConfig),
 			OpenTelemetryStackTraces:           openTelemetryStackTraces(tracingConfig),
 			OpenTelemetrySampleRatio:           openTelemetrySampleRatio(tracingConfig),
 			OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
@@ -202,6 +202,13 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		},
 	}
 	return res, nil
+}
+
+func openTelemetryInsecure(config tracingservice.WorkloadTracingConfig) bool {
+	if config.InsecureSkipVerify == nil {
+		return agent.DefaultOpenTelemetryInsecure
+	}
+	return *config.InsecureSkipVerify
 }
 
 func openTelemetryStackTraces(config tracingservice.WorkloadTracingConfig) bool {

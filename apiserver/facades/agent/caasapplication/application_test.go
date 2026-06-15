@@ -111,11 +111,13 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 	s.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
 	vers := semversion.MustParse("6.6.6")
 	s.modelAgentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(vers, nil)
+	insecureSkipVerify := true
 	stackTraces := true
 	sampleRatio := 0.5
 	tailSamplingThreshold := "123ms"
 	s.tracingService.EXPECT().GetWorkloadTracingConfig(gomock.Any()).Return(tracingservice.WorkloadTracingConfig{
 		GRPCEndpoint:                       "localhost:4317",
+		InsecureSkipVerify:                 &insecureSkipVerify,
 		OpenTelemetryStackTraces:           &stackTraces,
 		OpenTelemetrySampleRatio:           &sampleRatio,
 		OpenTelemetryTailSamplingThreshold: &tailSamplingThreshold,
@@ -141,6 +143,7 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 			UpgradedToVersion:                  vers,
 			OpenTelemetryEnabled:               true,
 			OpenTelemetryEndpoint:              "localhost:4317",
+			OpenTelemetryInsecure:              true,
 			OpenTelemetryStackTraces:           true,
 			OpenTelemetrySampleRatio:           0.5,
 			OpenTelemetryTailSamplingThreshold: 123 * time.Millisecond,

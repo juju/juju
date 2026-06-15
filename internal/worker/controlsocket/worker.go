@@ -291,6 +291,7 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//   "open_telemetry_stack_traces": <bool>,
 	//   "open_telemetry_sample_ratio": <float>,
 	//   "open_telemetry_tail_sampling_threshold": <string>,
+	//   "open_telemetry_insecure_skip_verify": <bool>,
 	// }
 	//
 	// The worker will update the workload tracing configuration with the
@@ -515,6 +516,7 @@ type setWorkloadTracingConfig struct {
 	HTTPEndpoint                       string   `json:"http_endpoint"`
 	GRPCEndpoint                       string   `json:"grpc_endpoint"`
 	CACert                             string   `json:"ca_cert"`
+	InsecureSkipVerify                 *bool    `json:"insecure_skip_verify"`
 	OpenTelemetryStackTraces           *bool    `json:"open_telemetry_stack_traces"`
 	OpenTelemetrySampleRatio           *float64 `json:"open_telemetry_sample_ratio"`
 	OpenTelemetryTailSamplingThreshold *string  `json:"open_telemetry_tail_sampling_threshold"`
@@ -544,6 +546,7 @@ func (w *Worker) handleSetWorkloadTracingConfig(resp http.ResponseWriter, req *h
 		HTTPEndpoint:                       parsedBody.HTTPEndpoint,
 		GRPCEndpoint:                       parsedBody.GRPCEndpoint,
 		CACertificate:                      parsedBody.CACert,
+		InsecureSkipVerify:                 parsedBody.InsecureSkipVerify,
 		OpenTelemetryStackTraces:           parsedBody.OpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           parsedBody.OpenTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: parsedBody.OpenTelemetryTailSamplingThreshold,
