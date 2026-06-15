@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -1302,26 +1301,6 @@ func parseDuration(c Config, name string) (time.Duration, error) {
 		return value, err
 	case time.Duration:
 		return t, nil
-	case nil:
-		return 0, nil
-	default:
-		return 0, errors.Errorf("unexpected type %T", c[name])
-	}
-}
-
-func parseRatio(c Config, name string) (float64, error) {
-	if _, ok := c[name]; !ok {
-		return 0, errors.NotFoundf("config key %q", name)
-	}
-
-	switch t := c[name].(type) {
-	case float64:
-		return t, nil
-	case float32:
-		return float64(t), nil
-	case string:
-		value, err := strconv.ParseFloat(t, 64)
-		return value, err
 	case nil:
 		return 0, nil
 	default:
