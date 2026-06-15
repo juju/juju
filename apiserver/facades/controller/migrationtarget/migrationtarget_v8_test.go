@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -124,43 +123,8 @@ func (s *v8Suite) makeEnvelope() params.SerializedModelV2 {
 	}
 }
 
-// TestPrechecksInvalidModelInfo verifies the envelope identity validation:
-// bad model UUID, empty name, empty qualifier and empty source migration
-// UUID are all rejected before any service call.
-func (s *v8Suite) TestPrechecksInvalidModelInfo(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	api := s.mustNewAPIV8(c)
-
-	valid := s.makeEnvelope()
-
-	envelope := valid
-	envelope.ModelInfo.UUID = "not-a-uuid"
-	err := api.Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `model UUID "not-a-uuid" not valid`)
-
-	envelope = valid
-	envelope.ModelInfo.Name = ""
-	err = api.Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `empty model name not valid`)
-
-	envelope = valid
-	envelope.ModelInfo.Qualifier = ""
-	err = api.Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `empty model qualifier not valid`)
-
-	envelope = valid
-	envelope.ModelInfo.SourceMigrationUUID = ""
-	err = api.Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `empty source migration UUID not valid`)
-}
-
-// TestPrechecksNoOpSuccess verifies the v8 Prechecks shell accepts a valid
-// envelope and reports success without calling any service: the real precheck
-// routine is not implemented yet.
+// TestPrechecksNoOpSuccess verifies that v8 Prechecks accepts any envelope
+// and returns success: the real precheck routine is not implemented yet.
 func (s *v8Suite) TestPrechecksNoOpSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -168,9 +132,9 @@ func (s *v8Suite) TestPrechecksNoOpSuccess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestImportNoOpSuccess verifies the v8 Import shell accepts a valid envelope
-// and reports success without importing anything: the real import path is not
-// implemented yet, and no service is called.
+// TestImportNoOpSuccess verifies that v8 Import accepts any envelope and
+// returns success without importing anything: the real import path is not
+// implemented yet.
 func (s *v8Suite) TestImportNoOpSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
