@@ -75,7 +75,7 @@ var expectedManifoldsWithDependencies = map[string][]string{
 
 	"api-caller": {"agent", "api-config-watcher"},
 
-	"log-sender": {"agent", "api-caller", "api-config-watcher"},
+	"log-sender": {"agent"},
 
 	"caas-admission": {
 		"agent",
