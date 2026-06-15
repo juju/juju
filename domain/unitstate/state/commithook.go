@@ -119,7 +119,211 @@ func (st *State) createSecrets(ctx context.Context, tx *sqlair.TX, creates []uni
 	return nil
 }
 
-func (st *State) updateSecrets(ctx context.Context, tx *sqlair.TX, updates []unitstate.UpdateSecretArg) error {
+func (st *State) updateSecrets(ctx context.Context, tx *sqlair.TX, updates []internal.UpdateSecretArg) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	ids := make(secretIDs, 0, len(updates))
+	for _, u := range updates {
+		ids = append(ids, u.SecretID)
+	}
+	existing, err := st.filterExistingSecrets(ctx, tx, ids)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, update := range updates {
+		if _, ok := existing[update.SecretID]; !ok {
+			st.logger.Debugf(ctx, "secret %q no longer exists, skipping update", update.SecretID)
+			continue
+		}
+
+		if err := st.updateCharmSecret(ctx, tx, update); err != nil {
+			return errors.Errorf("updating secret %q: %w", update.SecretID, err)
+		}
+	}
+
+	idsToUpdate := make(secretIDs, 0, len(updates))
+	for id := range existing {
+		idsToUpdate = append(idsToUpdate, id)
+	}
+	return st.markSecretRevisionsObsolete(ctx, tx, idsToUpdate)
+}
+
+func (st *State) updateCharmSecret(ctx context.Context, tx *sqlair.TX, update internal.UpdateSecretArg) error {
+	existingQuery := `
+SELECT sm.secret_id AS &secretInfo.secret_id,
+       sm.version AS &secretInfo.version,
+       sm.description AS &secretInfo.description,
+       sm.rotate_policy_id AS &secretInfo.rotate_policy_id,
+       sm.auto_prune AS &secretInfo.auto_prune,
+       sm.latest_revision_checksum AS &secretInfo.latest_revision_checksum,
+       sm.update_time AS &secretInfo.update_time,
+       MAX(sr.revision) AS &secretInfo.latest_revision
+FROM   secret_metadata sm
+       LEFT JOIN secret_revision sr ON sr.secret_id = sm.secret_id
+WHERE  sm.secret_id = $secretID.secret_id
+GROUP BY sm.secret_id`
+	existingStmt, err := st.Prepare(existingQuery, secretID{}, secretInfo{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var existing []secretInfo
+	err = tx.Query(ctx, existingStmt, secretID{ID: update.SecretID}).GetAll(&existing)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return errors.Capture(err)
+	}
+	info := existing[0]
+
+	rotatePolicyID := info.RotatePolicyID
+	if update.RotatePolicy != nil {
+		rotatePolicyID = int(*update.RotatePolicy)
+	}
+
+	upsertMdStmt, err := st.Prepare(`
+INSERT INTO secret_metadata (secret_id, version, description, rotate_policy_id, auto_prune, latest_revision_checksum, update_time)
+VALUES ($secretInfo.secret_id, $secretInfo.version, $secretInfo.description, $secretInfo.rotate_policy_id, $secretInfo.auto_prune, $secretInfo.latest_revision_checksum, $secretInfo.update_time)
+ON CONFLICT(secret_id) DO UPDATE SET
+    description=excluded.description,
+    rotate_policy_id=excluded.rotate_policy_id,
+    latest_revision_checksum=excluded.latest_revision_checksum,
+    update_time=excluded.update_time
+`, secretInfo{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	updatedInfo := secretInfo{
+		ID:                     update.SecretID,
+		Version:                info.Version,
+		Description:            info.Description,
+		RotatePolicyID:         rotatePolicyID,
+		AutoPrune:              info.AutoPrune,
+		LatestRevisionChecksum: update.Checksum,
+		UpdateTime:             st.clock.Now().UTC(),
+	}
+	if update.Description != nil {
+		updatedInfo.Description = *update.Description
+	}
+
+	if err := tx.Query(ctx, upsertMdStmt, updatedInfo).Run(); err != nil {
+		return errors.Capture(err)
+	}
+
+	if update.Label != nil {
+		label := *update.Label
+		switch update.OwnerKind {
+		case secret.ApplicationCharmSecretOwner:
+			ownerStmt, err := st.Prepare(`
+INSERT INTO secret_application_owner (secret_id, application_uuid, label)
+SELECT $secretID.secret_id, owner_uuid, $secretApplicationOwner.label
+FROM   v_secret_owner
+WHERE  secret_id = $secretID.secret_id
+ON CONFLICT(secret_id, application_uuid) DO UPDATE SET label=excluded.label
+`, secretID{}, secretApplicationOwner{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+			if err := tx.Query(ctx, ownerStmt, secretID{ID: update.SecretID}, secretApplicationOwner{Label: label}).Run(); err != nil {
+				return errors.Errorf("updating application secret label: %w", err)
+			}
+		case secret.UnitCharmSecretOwner:
+			ownerStmt, err := st.Prepare(`
+INSERT INTO secret_unit_owner (secret_id, unit_uuid, label)
+SELECT $secretID.secret_id, owner_uuid, $secretUnitOwner.label
+FROM   v_secret_owner
+WHERE  secret_id = $secretID.secret_id
+ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET label=excluded.label
+`, secretID{}, secretUnitOwner{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+			if err := tx.Query(ctx, ownerStmt, secretID{ID: update.SecretID}, secretUnitOwner{Label: label}).Run(); err != nil {
+				return errors.Errorf("updating unit secret label: %w", err)
+			}
+		}
+	}
+
+	shouldCreateNewRevision := update.RevisionUUID != "" &&
+		(update.Checksum != info.LatestRevisionChecksum ||
+			update.Checksum == "" && info.LatestRevisionChecksum == "")
+	if shouldCreateNewRevision {
+		rev := secretRevision{
+			UUID:       update.RevisionUUID,
+			SecretID:   update.SecretID,
+			Revision:   info.LatestRevision + 1,
+			CreateTime: st.clock.Now().UTC(),
+			UpdateTime: st.clock.Now().UTC(),
+		}
+		upsertRevStmt, err := st.Prepare(`
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time)
+VALUES ($secretRevision.*)
+ON CONFLICT(uuid) DO UPDATE SET update_time=excluded.update_time
+`, secretRevision{})
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if err := tx.Query(ctx, upsertRevStmt, rev).Run(); err != nil {
+			return errors.Errorf("inserting revision: %w", err)
+		}
+
+		if update.ExpireTime != nil {
+			expStmt, err := st.Prepare(`
+INSERT INTO secret_revision_expire (revision_uuid, expire_time)
+VALUES ($secretRevisionExpire.*)
+ON CONFLICT(revision_uuid) DO UPDATE SET expire_time=excluded.expire_time
+`, secretRevisionExpire{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+			exp := secretRevisionExpire{RevisionUUID: rev.UUID, ExpireTime: *update.ExpireTime}
+			if err := tx.Query(ctx, expStmt, exp).Run(); err != nil {
+				return errors.Errorf("setting revision expiry: %w", err)
+			}
+		}
+
+		if len(update.Data) > 0 {
+			contentStmt, err := st.Prepare(`
+INSERT INTO secret_content (revision_uuid, name, content)
+VALUES ($secretContent.*)
+ON CONFLICT(revision_uuid, name) DO UPDATE SET content=excluded.content
+`, secretContent{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+			for name, val := range update.Data {
+				content := secretContent{RevisionUUID: rev.UUID, Name: name, Content: val}
+				if err := tx.Query(ctx, contentStmt, content).Run(); err != nil {
+					return errors.Errorf("inserting secret content: %w", err)
+				}
+			}
+		}
+
+		if update.ValueRefBackendID != "" {
+			refStmt, err := st.Prepare(`
+INSERT INTO secret_value_ref (revision_uuid, backend_uuid, revision_id)
+VALUES ($secretValueRef.*)
+ON CONFLICT(revision_uuid) DO UPDATE SET backend_uuid=excluded.backend_uuid, revision_id=excluded.revision_id
+`, secretValueRef{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+			ref := secretValueRef{
+				RevisionUUID: rev.UUID,
+				BackendUUID:  update.ValueRefBackendID,
+				RevisionID:   update.ValueRefRevisionID,
+			}
+			if err := tx.Query(ctx, refStmt, ref).Run(); err != nil {
+				return errors.Errorf("setting revision value ref: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 

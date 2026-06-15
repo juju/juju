@@ -6,7 +6,9 @@ package service
 import (
 	"context"
 
+	coremodel "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/environs"
@@ -50,6 +52,9 @@ type CommitHookState interface {
 	// returning an error satisfying
 	// [applicationerrors.UnitNotFound] if the unit doesn't exist.
 	GetCommitHookUnitInfo(ctx context.Context, unitName string) (internal.CommitHookUnitInfo, error)
+
+	// GetModelUUID returns the UUID of the model for the unit state domain.
+	GetModelUUID(ctx context.Context) (string, error)
 }
 
 // UnitStateState defines a persistence layer interface for retrieving
@@ -71,4 +76,15 @@ type UnitStateState interface {
 // support networking capabilities.
 type ProviderWithNetworking interface {
 	environs.Networking
+}
+
+// SecretBackendReferenceMutator describes methods for modifying secret
+// backend references in the controller database.
+type SecretBackendReferenceMutator interface {
+	// AddSecretBackendReference adds a reference to the secret backend
+	// for the given secret revision. It returns a rollback function which
+	// can be used to revert the changes.
+	AddSecretBackendReference(
+		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
+	) (func() error, error)
 }

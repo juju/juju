@@ -1449,3 +1449,383 @@ func (s *commitHookSuite) TestTrackSecretsIdempotent(c *tc.C) {
 		tc.Equals, 0,
 	)
 }
+
+// TestUpdateSecretsMetadata verifies that updating secret metadata (without new
+// content) correctly updates description, rotate policy, and checksum.
+func (s *commitHookSuite) TestUpdateSecretsMetadata(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-metadata"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	policy := secret.RotateDaily
+	desc := "updated description"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			RotatePolicy: &policy,
+			Description:  &desc,
+			Checksum:     "new-checksum",
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotDesc string
+	var gotPolicyID int
+	var gotChecksum string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT description, rotate_policy_id, latest_revision_checksum FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotDesc, &gotPolicyID, &gotChecksum)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotDesc, tc.Equals, desc)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+	c.Check(gotChecksum, tc.Equals, "new-checksum")
+}
+
+// TestUpdateSecretsWithNewData verifies that updating with new data creates a
+// new revision with the correct content.
+func (s *commitHookSuite) TestUpdateSecretsWithNewData(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-data"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	data := map[string]string{"key1": "value1", "key2": "value2"}
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         data,
+			Checksum:     "checksum-with-data",
+			RevisionUUID: revUUID,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify revision was created
+	var revCount int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 2)
+
+	// Verify content
+	var contentCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_content WHERE revision_uuid = ?",
+			revUUID).Scan(&contentCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(contentCount, tc.Equals, 2)
+}
+
+// TestUpdateSecretsApplicationOwned verifies that updating an application-owned
+// secret works correctly.
+func (s *commitHookSuite) TestUpdateSecretsApplicationOwned(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-app-owned"
+	s.addSecretWithOwner(c, secretID, s.fakeApplicationUUID1, "application")
+	s.addSecretRevision(c, secretID, 1)
+
+	policy := secret.RotateWeekly
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			RotatePolicy: &policy,
+			Checksum:     "app-checksum",
+			OwnerKind:    secret.ApplicationCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+}
+
+// TestUpdateSecretsSecretNotFoundIsSkipped verifies that attempting to update a
+// non-existent secret is skipped without error.
+func (s *commitHookSuite) TestUpdateSecretsSecretNotFoundIsSkipped(c *tc.C) {
+	ctx := c.Context()
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:  "nonexistent-secret",
+			Checksum:  "checksum",
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+}
+
+// TestUpdateSecretsWithLabel verifies that updating a secret label works for
+// both unit and application owners.
+func (s *commitHookSuite) TestUpdateSecretsWithLabel(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-label"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	newLabel := "new-label"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:  secretID,
+			Label:     &newLabel,
+			Checksum:  "checksum",
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotLabel string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT label FROM secret_unit_owner WHERE secret_id = ?",
+			secretID).Scan(&gotLabel)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotLabel, tc.Equals, newLabel)
+}
+
+// TestUpdateSecretsMarksObsolete verifies that after updating a secret, the old
+// revision is marked obsolete.
+func (s *commitHookSuite) TestUpdateSecretsMarksObsolete(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-obsolete"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	rev1UUID := s.addSecretRevision(c, secretID, 1)
+
+	rev2UUID := tc.Must(c, uuid.NewUUID).String()
+	data := map[string]string{"key": "value"}
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         data,
+			Checksum:     "checksum-obsolete",
+			RevisionUUID: rev2UUID,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var obsolete, pendingDelete bool
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT obsolete, pending_delete FROM secret_revision_obsolete WHERE revision_uuid = ?",
+			rev1UUID).Scan(&obsolete, &pendingDelete)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obsolete, tc.IsTrue)
+	c.Check(pendingDelete, tc.IsTrue)
+}
+
+// TestUpdateSecretsWithValueRef verifies that updating a secret with an external
+// backend ValueRef creates a revision without in-band secret_content rows.
+func (s *commitHookSuite) TestUpdateSecretsWithValueRef(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-valueref"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:           secretID,
+			ValueRefBackendID:  "backend-123",
+			ValueRefRevisionID: "rev-ext-456",
+			Checksum:           "checksum-external",
+			RevisionUUID:       revUUID,
+			OwnerKind:          secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify revision was created with value_ref
+	var gotBackendID, gotRevisionID string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT backend_uuid, revision_id
+FROM   secret_value_ref
+WHERE  revision_uuid = ?
+`, revUUID).Scan(&gotBackendID, &gotRevisionID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotBackendID, tc.Equals, "backend-123")
+	c.Check(gotRevisionID, tc.Equals, "rev-ext-456")
+
+	// Verify no secret_content rows for this revision
+	var contentCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_content WHERE revision_uuid = ?",
+			revUUID).Scan(&contentCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(contentCount, tc.Equals, 0)
+}
+
+// TestUpdateSecretsChecksumDeduplication verifies that updating a secret with
+// the same checksum does not create a new revision.
+func (s *commitHookSuite) TestUpdateSecretsChecksumDeduplication(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-checksum-dedup"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	data := map[string]string{"key": "value"}
+	checksum := "same-checksum"
+
+	revUUID1 := tc.Must(c, uuid.NewUUID).String()
+	arg1 := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         data,
+			Checksum:     checksum,
+			RevisionUUID: revUUID1,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg1), tc.ErrorIsNil)
+
+	var revCountAfterFirst int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCountAfterFirst)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCountAfterFirst, tc.Equals, 2)
+
+	revUUID2 := tc.Must(c, uuid.NewUUID).String()
+	arg2 := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         data,
+			Checksum:     checksum,
+			RevisionUUID: revUUID2,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg2), tc.ErrorIsNil)
+
+	var revCountAfterSecond int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCountAfterSecond)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCountAfterSecond, tc.Equals, 2)
+
+	var latestChecksum string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT latest_revision_checksum FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&latestChecksum)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(latestChecksum, tc.Equals, checksum)
+
+	var pendingDeleteForRev2 bool
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		scanErr := tx.QueryRowContext(ctx, `
+SELECT COALESCE(pending_delete, false)
+FROM   secret_revision_obsolete ro
+JOIN   secret_revision sr ON sr.uuid = ro.revision_uuid
+WHERE  sr.secret_id = ? AND sr.revision = 2
+`, secretID).Scan(&pendingDeleteForRev2)
+		if scanErr == sql.ErrNoRows {
+			return nil
+		}
+		return scanErr
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pendingDeleteForRev2, tc.IsFalse)
+}
+
+func (s *commitHookSuite) TestUpdateSecretsDifferentChecksumCreatesNewRevision(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-different-checksum"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	revUUID1 := tc.Must(c, uuid.NewUUID).String()
+	arg1 := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         map[string]string{"key": "value1"},
+			Checksum:     "checksum-1",
+			RevisionUUID: revUUID1,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg1), tc.ErrorIsNil)
+
+	revUUID2 := tc.Must(c, uuid.NewUUID).String()
+	arg2 := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         map[string]string{"key": "value2"},
+			Checksum:     "checksum-2",
+			RevisionUUID: revUUID2,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg2), tc.ErrorIsNil)
+
+	var revCount int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 3)
+}
+
+// addSecretWithOwner inserts a secret with an owner row.
+func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, ownerKind string) {
+	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)
+	s.query(c, `INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, 1, 0)`, secretID)
+	switch ownerKind {
+	case "unit":
+		s.query(c, `INSERT INTO secret_unit_owner (secret_id, unit_uuid) VALUES (?, ?)`, secretID, ownerUUID)
+	case "application":
+		s.query(c, `INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)`, secretID, ownerUUID)
+	}
+}

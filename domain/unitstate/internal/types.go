@@ -5,6 +5,7 @@ package internal
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
@@ -87,7 +88,7 @@ type CommitHookChangesArg struct {
 	TrackLatestSecrets []string
 
 	// SecretUpdates contains charm secrets to update.
-	SecretUpdates []unitstate.UpdateSecretArg
+	SecretUpdates []UpdateSecretArg
 
 	// SecretGrants contains pre-resolved charm secret grant requests.
 	SecretGrants []GrantSecretArg
@@ -152,6 +153,48 @@ type RevokeSecretArg struct {
 	SubjectTypeID secret.GrantSubjectType
 }
 
+// UpdateSecretArg holds a pre-resolved secret update request ready for the
+// state layer. All fields are scalar types suitable for transactional DB
+// writes.
+type UpdateSecretArg struct {
+	// SecretID is the secret identifier (the URI ID component).
+	SecretID string
+
+	// RotatePolicy is the new rotation policy (nil if unchanged).
+	RotatePolicy *secret.RotatePolicy
+
+	// ExpireTime is the expiry time (nil if unchanged).
+	ExpireTime *time.Time
+
+	// Description is the new description (nil if unchanged).
+	Description *string
+
+	// Label is the new label (nil if unchanged).
+	Label *string
+
+	// Params are the backend-specific parameters.
+	Params map[string]string
+
+	// Data is the secret content (nil if using external backend).
+	Data map[string]string
+
+	// ValueRefBackendID is the backend ID for external storage (empty if internal).
+	ValueRefBackendID string
+
+	// ValueRefRevisionID is the revision ID from the external backend (empty if
+	// internal).
+	ValueRefRevisionID string
+
+	// Checksum is the sha256 checksum of the secret content.
+	Checksum string
+
+	// RevisionUUID is the UUID for the new revision.
+	RevisionUUID string
+
+	// OwnerKind indicates whether the secret is owned by application or unit.
+	OwnerKind secret.CharmSecretOwnerKind
+}
+
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
 // struct and return an internal package CommitHookChangesArg struct. Does not
 // include RelationSettings.
@@ -182,7 +225,7 @@ func TransformCommitHookChangesArg(
 		CharmState:         in.CharmState,
 		SecretCreates:      in.SecretCreates,
 		TrackLatestSecrets: in.TrackLatestSecrets,
-		SecretUpdates:      in.SecretUpdates,
+		SecretUpdates:      nil, // will be populated outside this function
 		SecretGrants:       secretGrants,
 		SecretRevokes:      secretRevokes,
 		SecretDeletes:      secretDeletes,

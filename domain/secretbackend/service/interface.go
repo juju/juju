@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/secret"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -35,6 +36,8 @@ type State interface {
 	InitialWatchStatementForSecretBackendRotationChanges() (string, string)
 	GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)
 	NamespaceForWatchModelSecretBackend() string
+
+	AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string) (func() error, error)
 }
 
 // AdminBackendConfigGetterFunc returns a function that gets the

@@ -310,3 +310,25 @@ func (st *State) getUnitUUIDForName(ctx context.Context, tx *sqlair.TX, name str
 
 	return uuid, nil
 }
+
+// GetModelUUID returns the UUID of the model for the unit state domain.
+func (st *State) GetModelUUID(ctx context.Context) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result entityUUID
+	stmt, err := st.Prepare("SELECT &entityUUID.uuid FROM model", result)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&result)
+	})
+	if err != nil {
+		return "", errors.Errorf("querying model UUID: %w", err)
+	}
+	return result.UUID, nil
+}

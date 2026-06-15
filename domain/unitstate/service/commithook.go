@@ -10,10 +10,13 @@ import (
 
 	"github.com/juju/collections/transform"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
@@ -21,7 +24,7 @@ import (
 
 // CommitHookChanges persists a set of changes after a hook successfully
 // completes and executes them in a single transaction.
-func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate.CommitHookChangesArg) error {
+func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate.CommitHookChangesArg) (err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -52,20 +55,46 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return errors.Capture(err)
 	}
 
+	// Pre-compute secret updates outside the transaction because
+	// AddSecretBackendReference writes to the controller DB (a separate
+	// DQLite database from the model DB), so it cannot run inside a model
+	// DB transaction. If any part of the commit-hook transaction fails,
+	// the deferred rollback function below calls all accumulated rollback
+	// functions to undo the backend references. Rollback is best-effort:
+	// failures are logged as warnings but the original error is returned,
+	// since a stuck controller-DB reference can be cleaned up later while
+	// losing the model-DB error would be unrecoverable.
+	var rollbacks []func() error
+	defer func() {
+		if err != nil {
+			s.rollbackAll(ctx, rollbacks)
+		}
+	}()
+	secretUpdates, updateRollbacks, err := s.prepareSecretUpdates(ctx, arg.SecretUpdates)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	rollbacks = append(rollbacks, updateRollbacks...)
+
 	newArgs, err := internal.TransformCommitHookChangesArg(arg, unitInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	newArgs.RelationSettings = relationSettings
+	newArgs.SecretUpdates = secretUpdates
 
 	withCaveat, err := s.getManagementCaveat(arg)
 	if err != nil {
 		return err
 	}
-	return withCaveat(ctx, func(innerCtx context.Context) error {
+	if err := withCaveat(ctx, func(innerCtx context.Context) error {
 		err := s.st.CommitHookChanges(innerCtx, newArgs)
 		return errors.Capture(err)
-	})
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *LeadershipService) getManagementCaveat(
@@ -83,6 +112,111 @@ func (s *LeadershipService) getManagementCaveat(
 	return func(ctx context.Context, fn func(context.Context) error) error {
 		return fn(ctx)
 	}, nil
+}
+
+// prepareSecretUpdates pre-computes all data needed for secret updates
+// outside the main transaction: generates revision UUIDs (if new data),
+// timestamps, and calls AddSecretBackendReference on the controller DB.
+func (s *LeadershipService) prepareSecretUpdates(
+	ctx context.Context,
+	updates []unitstate.UpdateSecretArg,
+) (result []internal.UpdateSecretArg, rollbacks []func() error, err error) {
+	if len(updates) == 0 {
+		return nil, nil, nil
+	}
+
+	modelID, err := s.st.GetModelUUID(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting model uuid: %w", err)
+	}
+
+	result = make([]internal.UpdateSecretArg, 0, len(updates))
+	// Roll back accumulated backend references on any error during
+	// preparation. Failures are logged, not propagated — see rollbackAll.
+	defer func() {
+		if err != nil {
+			s.rollbackAll(ctx, rollbacks)
+		}
+	}()
+
+	for i, update := range updates {
+		arg := internal.UpdateSecretArg{
+			SecretID:  update.URI.ID,
+			Checksum:  update.Checksum,
+			OwnerKind: update.OwnerKind,
+		}
+
+		if update.RotatePolicy != nil {
+			p := domainsecret.MarshallRotatePolicy(update.RotatePolicy)
+			arg.RotatePolicy = &p
+		}
+		if update.ExpireTime != nil {
+			arg.ExpireTime = update.ExpireTime
+		}
+		if update.Description != nil {
+			arg.Description = update.Description
+		}
+		if update.Label != nil {
+			arg.Label = update.Label
+		}
+		if len(update.Params) > 0 {
+			arg.Params = make(map[string]string, len(update.Params))
+			for k, v := range update.Params {
+				if s, ok := v.(string); ok {
+					arg.Params[k] = s
+				}
+			}
+		}
+		if len(update.Data) > 0 {
+			arg.Data = make(map[string]string, len(update.Data))
+			maps.Copy(arg.Data, update.Data)
+		}
+		if update.ValueRef != nil {
+			arg.ValueRefBackendID = update.ValueRef.BackendID
+			arg.ValueRefRevisionID = update.ValueRef.RevisionID
+		}
+
+		// Generate revision UUID and add backend reference if new data.
+		if arg.ValueRefBackendID != "" || arg.ValueRefRevisionID != "" || len(arg.Data) != 0 {
+			revisionID, err := s.uuidGenerator()
+			if err != nil {
+				return nil, nil, errors.Errorf("generating revision UUID for update[%d]: %w", i, err)
+			}
+			arg.RevisionUUID = revisionID.String()
+
+			var valueRef *secrets.ValueRef
+			if arg.ValueRefBackendID != "" {
+				valueRef = &secrets.ValueRef{
+					BackendID:  arg.ValueRefBackendID,
+					RevisionID: arg.ValueRefRevisionID,
+				}
+			}
+
+			rollBack, err := s.secretBackendState.AddSecretBackendReference(
+				ctx, valueRef, coremodel.UUID(modelID), revisionID.String(), update.URI.ID)
+			if err != nil {
+				return nil, nil, errors.Errorf("adding backend reference for update[%d]: %w", i, err)
+			}
+			rollbacks = append(rollbacks, rollBack)
+		}
+
+		result = append(result, arg)
+	}
+
+	return result, rollbacks, nil
+}
+
+// rollbackAll executes all rollback functions, logging warnings on failure.
+// Rollback failures are logged but not propagated because the original error
+// that triggered the rollback is more important: losing the model-DB error
+// would be unrecoverable, while a stuck controller-DB backend reference is
+// cleaned up by the removal worker when the secret is eventually deleted.
+func (s *LeadershipService) rollbackAll(ctx context.Context, rollbacks []func() error) {
+	for _, rb := range rollbacks {
+		if err := rb(); err != nil {
+			s.logger.Warningf(ctx, "failed to roll back secret backend reference: %v", err)
+		}
+	}
 }
 
 func (s *Service) transformRelationSettings(

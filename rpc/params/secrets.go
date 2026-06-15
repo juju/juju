@@ -80,6 +80,14 @@ type UpsertSecretArg struct {
 	Content SecretContentParams `json:"content,omitempty"`
 }
 
+// HasUpdate returns true if arg contains at least one attribute to update.
+func (a UpsertSecretArg) HasUpdate() bool {
+	return a.RotatePolicy != nil || a.ExpireTime != nil ||
+		a.Description != nil || a.Label != nil ||
+		len(a.Params) != 0 ||
+		len(a.Content.Data) != 0 || a.Content.ValueRef != nil
+}
+
 // CreateSecretURIsArg holds args for creating secret URIs.
 type CreateSecretURIsArg struct {
 	Count int `json:"count"`
@@ -153,9 +161,7 @@ func (arg UpdateUserSecretArg) Validate() error {
 
 // HasUpdate returns true if arg contains at least one attribute to update.
 func (arg UpdateUserSecretArg) HasUpdate() bool {
-	return arg.AutoPrune != nil || arg.Description != nil || arg.Label != nil ||
-		arg.RotatePolicy != nil || arg.ExpireTime != nil ||
-		len(arg.Content.Data) != 0 || arg.Content.ValueRef != nil
+	return arg.UpsertSecretArg.HasUpdate() || arg.AutoPrune != nil
 }
 
 // DeleteSecretArgs holds args for deleting secrets.
