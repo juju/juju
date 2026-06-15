@@ -513,12 +513,46 @@ func (s *unitServiceSuite) TestGetUnitNamesOnMachine(c *tc.C) {
 }
 
 func (s *unitServiceSuite) TestSetUnitWorkloadVersion(c *tc.C) {
-	defer s.setupMocks(c).Finish()
+	var statusHistory *MockStatusHistory
+	defer s.setupMocksWithStatusHistory(c, func(ctrl *gomock.Controller) StatusHistory {
+		statusHistory = NewMockStatusHistory(ctrl)
+		return statusHistory
+	}).Finish()
 
 	unitName := coreunit.Name("foo/666")
 	workloadVersion := "v1.0.0"
 
 	s.state.EXPECT().SetUnitWorkloadVersion(gomock.Any(), unitName, workloadVersion).Return(nil)
+	statusHistory.EXPECT().RecordStatus(
+		gomock.Any(),
+		status.UnitWorkloadVersionNamespace.WithID(unitName.String()),
+		corestatus.StatusInfo{
+			Message: workloadVersion,
+		},
+	).Return(nil)
+
+	err := s.service.SetUnitWorkloadVersion(c.Context(), unitName, workloadVersion)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *unitServiceSuite) TestSetUnitWorkloadVersionHistoryError(c *tc.C) {
+	var statusHistory *MockStatusHistory
+	defer s.setupMocksWithStatusHistory(c, func(ctrl *gomock.Controller) StatusHistory {
+		statusHistory = NewMockStatusHistory(ctrl)
+		return statusHistory
+	}).Finish()
+
+	unitName := coreunit.Name("foo/666")
+	workloadVersion := "v1.0.0"
+
+	s.state.EXPECT().SetUnitWorkloadVersion(gomock.Any(), unitName, workloadVersion).Return(nil)
+	statusHistory.EXPECT().RecordStatus(
+		gomock.Any(),
+		status.UnitWorkloadVersionNamespace.WithID(unitName.String()),
+		corestatus.StatusInfo{
+			Message: workloadVersion,
+		},
+	).Return(errors.Errorf("boom"))
 
 	err := s.service.SetUnitWorkloadVersion(c.Context(), unitName, workloadVersion)
 	c.Assert(err, tc.ErrorIsNil)
