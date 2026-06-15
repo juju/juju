@@ -158,24 +158,6 @@ Controller configuration keys:
       type: string
       description: The maximum size of the log file written out by the controller on behalf
         of workers running for a model
-    open-telemetry-enabled:
-      type: bool
-      description: Enable open telemetry tracing
-    open-telemetry-endpoint:
-      type: string
-      description: Endpoint open telemetry tracing
-    open-telemetry-insecure:
-      type: bool
-      description: Allows insecure endpoint for open telemetry tracing
-    open-telemetry-sample-ratio:
-      type: string
-      description: Allows defining a sample ratio open telemetry tracing
-    open-telemetry-stack-traces:
-      type: bool
-      description: Allows stack traces open telemetry tracing per span
-    open-telemetry-tail-sampling-threshold:
-      type: string
-      description: Allows defining a tail sampling threshold open telemetry tracing
     prune-txn-query-count:
       type: int
       description: The number of transactions to read in a single query
