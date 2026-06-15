@@ -415,6 +415,14 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		})
 		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "api-caller")
 		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "agent")
+
+		apiRemoteCallerManifold, ok := manifolds["api-remote-caller"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(apiRemoteCallerManifold.Inputs, tc.SameContents, []string{
+			"object-store-services",
+		})
+		checkNotContains(c, apiRemoteCallerManifold.Inputs, "agent")
+		checkNotContains(c, apiRemoteCallerManifold.Inputs, "api-caller")
 	}
 }
 
@@ -724,7 +732,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"api-config-watcher": {"agent"},
 
 	"api-remote-caller": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
@@ -1002,8 +1009,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"external-controller-updater": {
 		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
@@ -1160,8 +1165,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"logging-controller-config-updater": {
 		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
@@ -1189,19 +1192,11 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"migration-fortress": {},
 
-	"migration-inactive-flag": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-	},
+	"migration-inactive-flag": {},
 
 	"migration-minion": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
-		"migration-fortress",
 	},
 
 	"model-worker-manager": {
@@ -1336,8 +1331,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"secret-backend-rotate": {
 		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
@@ -1365,9 +1358,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"ssh-identity-writer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
 	},
@@ -1445,18 +1435,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"upgrade-database-gate": {},
 
-	"upgrade-database-runner": {
-		"agent",
-		"change-stream",
-		"controller-agent-config",
-		"controller-upgrade-flag",
-		"controller-upgrade-gate",
-		"db-accessor",
-		"file-notify-watcher",
-		"query-logger",
-		"upgrade-database-gate",
-		"upgrade-services",
-	},
+	"upgrade-database-runner": {},
 
 	"upgrade-services": {
 		"change-stream",
@@ -1473,43 +1452,13 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"upgrade-steps-gate": {"controller-upgrade-flag", "controller-upgrade-gate"},
 
 	"upgrade-controller-steps-runner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"api-remote-caller",
-		"change-stream",
-		"controller-agent-config",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
-		"db-accessor",
-		"domain-services",
-		"file-notify-watcher",
-		"http-client",
-		"lease-manager",
-		"log-sink",
-		"object-store",
-		"object-store-facade",
-		"object-store-fortress",
-		"object-store-s3-caller",
-		"object-store-services",
-		"provider-services",
-		"provider-tracker",
-		"query-logger",
-		"storage-registry",
-		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-		"upgrade-steps-gate",
 	},
 
 	"upgrader": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
-		"upgrade-check-gate",
-		"upgrade-steps-gate",
 	},
 
 	"watcher-registry": {},
