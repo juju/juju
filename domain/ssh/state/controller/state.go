@@ -64,30 +64,6 @@ WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHos
 	return key.SSHKey, true, nil
 }
 
-// SetSSHServerHostKey persists the controller jump host key.
-func (st *State) SetSSHServerHostKey(ctx context.Context, sshKey string) error {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	record := controllerSSHHostKey{ID: sshServerHostKeyID, SSHKey: sshKey}
-	stmt, err := st.Prepare(`
-INSERT INTO controller_ssh_host_key (id, ssh_key)
-VALUES ($controllerSSHHostKey.*)
-ON CONFLICT(id) DO UPDATE SET ssh_key = excluded.ssh_key`, controllerSSHHostKey{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, record).Run(); err != nil {
-			return errors.Errorf("persisting controller SSH host key: %w", err)
-		}
-		return nil
-	}))
-}
-
 type controllerSSHHostKey struct {
 	ID     string `db:"id"`
 	SSHKey string `db:"ssh_key"`

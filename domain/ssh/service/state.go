@@ -14,9 +14,6 @@ type ControllerState interface {
 	// GetSSHServerHostKey returns the stored controller jump host key.
 	// The boolean indicates whether a key row exists.
 	GetSSHServerHostKey(context.Context) (string, bool, error)
-
-	// SetSSHServerHostKey persists the controller jump host key.
-	SetSSHServerHostKey(context.Context, string) error
 }
 
 // ModelState describes model-scoped persistence for SSH virtual host keys.

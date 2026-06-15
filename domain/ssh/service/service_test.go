@@ -34,18 +34,14 @@ func (s *serviceSuite) TestSSHServerHostKeyReturnsExisting(c *tc.C) {
 	key, err := svc.SSHServerHostKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(key, tc.Equals, testPrivateKey)
-	c.Check(controllerState.setCalls, tc.Equals, 0)
 }
 
-func (s *serviceSuite) TestSSHServerHostKeyGeneratesMissing(c *tc.C) {
-	controllerState := &stubControllerState{}
+func (s *serviceSuite) TestSSHServerHostKeyErrorsWhenMissing(c *tc.C) {
+	svc := sshservice.NewService(&stubControllerState{}, nil)
 
-	svc := sshservice.NewService(controllerState, nil)
 	key, err := svc.SSHServerHostKey(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(controllerState.setCalls, tc.Equals, 1)
-	c.Check(controllerState.key, tc.Equals, key)
-	assertPrivateKey(c, key)
+	c.Check(key, tc.Equals, "")
+	c.Assert(err, tc.ErrorMatches, `controller SSH server host key not found`)
 }
 
 func (s *serviceSuite) TestMachineVirtualHostKeyGeneratesMissing(c *tc.C) {
@@ -116,25 +112,13 @@ func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
 }
 
 type stubControllerState struct {
-	key      string
-	found    bool
-	getErr   error
-	setErr   error
-	setCalls int
+	key    string
+	found  bool
+	getErr error
 }
 
 func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, bool, error) {
 	return s.key, s.found, s.getErr
-}
-
-func (s *stubControllerState) SetSSHServerHostKey(_ context.Context, key string) error {
-	if s.setErr != nil {
-		return s.setErr
-	}
-	s.key = key
-	s.found = true
-	s.setCalls++
-	return nil
 }
 
 type stubModelState struct {

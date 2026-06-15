@@ -31,8 +31,7 @@ func NewService(controllerSt ControllerState, modelStateGetter ModelStateGetter)
 	}
 }
 
-// SSHServerHostKey returns the controller jump host key, generating and
-// persisting it if it is missing.
+// SSHServerHostKey returns the controller jump host key.
 func (s *Service) SSHServerHostKey(ctx context.Context) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -45,16 +44,8 @@ func (s *Service) SSHServerHostKey(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", errors.Errorf("getting controller SSH server host key: %w", err)
 	}
-	if found {
-		return key, nil
-	}
-
-	key, err = generateHostKey()
-	if err != nil {
-		return "", errors.Errorf("generating controller SSH server host key: %w", err)
-	}
-	if err := s.controllerSt.SetSSHServerHostKey(ctx, key); err != nil {
-		return "", errors.Errorf("persisting controller SSH server host key: %w", err)
+	if !found {
+		return "", errors.Errorf("controller SSH server host key not found")
 	}
 	return key, nil
 }

@@ -11,6 +11,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	sshbootstrap "github.com/juju/juju/domain/ssh/bootstrap"
 	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
 )
 
@@ -31,11 +32,11 @@ func (s *stateSuite) TestGetSSHServerHostKeyMissing(c *tc.C) {
 	c.Check(key, tc.Equals, "")
 }
 
-func (s *stateSuite) TestSetAndGetSSHServerHostKey(c *tc.C) {
-	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
-
-	err := st.SetSSHServerHostKey(c.Context(), testPrivateKey)
+func (s *stateSuite) TestGetSSHServerHostKeyExisting(c *tc.C) {
+	err := sshbootstrap.InsertInitialSSHServerHostKey(testPrivateKey)(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
+
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
 
 	key, found, err := st.GetSSHServerHostKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
