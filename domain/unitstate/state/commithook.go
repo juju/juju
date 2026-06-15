@@ -47,31 +47,31 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		}
 
 		if err := st.updateRelationSettings(ctx, tx, unitUUID, arg.RelationSettings); err != nil {
-			return errors.Errorf("update relation settings:%w", err)
+			return errors.Errorf("update relation settings: %w", err)
 		}
 
 		if err := st.updateUnitPorts(ctx, tx, unitUUID, arg.OpenPorts, arg.ClosePorts); err != nil {
-			return errors.Errorf("update ports:%w", err)
+			return errors.Errorf("update ports: %w", err)
 		}
 
 		if err := st.updateCharmState(ctx, tx, entityUUID{UUID: unitUUID}, arg.CharmState); err != nil {
-			return errors.Errorf("update charm state:%w", err)
+			return errors.Errorf("update charm state: %w", err)
 		}
 
 		if err := st.createSecrets(ctx, tx, arg.SecretCreates); err != nil {
-			return errors.Errorf("create secrets:%w", err)
+			return errors.Errorf("create secrets: %w", err)
 		}
 
 		if err := st.updateSecrets(ctx, tx, arg.SecretUpdates); err != nil {
-			return errors.Errorf("update secrets:%w", err)
+			return errors.Errorf("update secrets: %w", err)
 		}
 
 		if err := st.grantSecretsAccess(ctx, tx, arg.SecretGrants); err != nil {
-			return errors.Errorf("grant secrets access:%w", err)
+			return errors.Errorf("grant secrets access: %w", err)
 		}
 
 		if err := st.revokeSecretsAccess(ctx, tx, arg.SecretRevokes); err != nil {
-			return errors.Errorf("revoke secrets access:%w", err)
+			return errors.Errorf("revoke secrets access: %w", err)
 		}
 
 		// TODO(secrets): clean up unit secret reservations and tokens here,
@@ -87,7 +87,7 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 		}
 
 		if err := st.addStorage(ctx, tx, arg); err != nil {
-			return errors.Errorf("add storage:%w", err)
+			return errors.Errorf("add storage: %w", err)
 		}
 
 		return nil
