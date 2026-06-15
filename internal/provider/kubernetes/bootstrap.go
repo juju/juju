@@ -741,6 +741,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		SystemIdentity:         c.pcfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
 		LogSinkRateLimitBurst:  logSinkBurst,
 		LogSinkRateLimitRefill: logSinkRefill,
+		APIAddresses:           c.pcfg.APIInfo.Addrs,
 	}
 	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	if err != nil {
