@@ -47,7 +47,7 @@ func (st *State) DeleteApplicationOwnedSecretContent(ctx context.Context, aUUID 
 	q := `
 WITH revisions AS (
     SELECT r.uuid
-    FROM   secret_application_owner o JOIN secret_revision r ON o.secret_id = o.secret_id
+    FROM   secret_application_owner o JOIN secret_revision r ON o.secret_id = r.secret_id
     WHERE  application_uuid = $entityUUID.uuid
 )
 DELETE FROM secret_content WHERE revision_uuid IN (SELECT uuid FROM revisions)`
@@ -79,7 +79,7 @@ func (st *State) DeleteUnitOwnedSecretContent(ctx context.Context, uUUID string)
 	q := `
 WITH revisions AS (
     SELECT r.uuid
-    FROM   secret_unit_owner o JOIN secret_revision r ON o.secret_id = o.secret_id
+    FROM   secret_unit_owner o JOIN secret_revision r ON o.secret_id = r.secret_id
     WHERE  unit_uuid = $entityUUID.uuid
 )
 DELETE FROM secret_content WHERE revision_uuid IN (SELECT uuid FROM revisions)`

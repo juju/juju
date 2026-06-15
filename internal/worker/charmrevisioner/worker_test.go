@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/charm"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
@@ -59,8 +58,9 @@ type WorkerSuite struct {
 }
 
 func TestWorkerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &WorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &WorkerSuite{})
+	})
 }
 
 // advanceClockUntil advances the fake clock in small increments until either

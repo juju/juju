@@ -580,6 +580,34 @@ func (s *serviceSuite) TestSetMigrationPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestMarkModelAsGone asserts the active migration is resolved and moved to
+// DONE.
+func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	gomock.InOrder(
+		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
+			modelmigrationinternal.Migration{UUID: migUUID}, nil),
+		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.DONE).Return(nil),
+	)
+
+	err := s.service().MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMarkModelAsGoneNoActiveMigration asserts the active export lookup error
+// is surfaced.
+func (s *serviceSuite) TestMarkModelAsGoneNoActiveMigration(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
+		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
+
+	err := s.service().MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
+}
+
 // TestSetMigrationStatusMessage asserts the message is recorded against the
 // active migration.
 func (s *serviceSuite) TestSetMigrationStatusMessage(c *tc.C) {

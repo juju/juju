@@ -102,7 +102,7 @@ machines:
       message: Running
       since: 27 Oct 2022 09:36:10+02:00
     modification-status:
-      current: applied
+      current: idle
       since: 27 Oct 2022 09:36:07+02:00
     base:
       name: ubuntu
@@ -228,7 +228,7 @@ machines:
       message: Running
       since: 07 Feb 2023 13:53:20+01:00
     modification-status:
-      current: applied
+      current: idle
       since: 20 Mar 2023 08:53:12+01:00
     base:
       name: ubuntu

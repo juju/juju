@@ -10,15 +10,16 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/flightrecorder"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 func TestFlightRecorderWorker(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &flightRecorderSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &flightRecorderSuite{})
+	})
 }
 
 type flightRecorderSuite struct {

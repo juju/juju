@@ -15,7 +15,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -51,8 +51,9 @@ type workerSuite struct {
 }
 
 func TestWorkerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &workerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &workerSuite{})
+	})
 }
 
 func (s *workerSuite) SetUpTest(c *tc.C) {

@@ -14,8 +14,8 @@ import (
 	sqlair "github.com/canonical/sqlair"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -26,8 +26,9 @@ type trackedDBReplWorkerSuite struct {
 }
 
 func TestTrackedDBReplWorkerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &trackedDBReplWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &trackedDBReplWorkerSuite{})
+	})
 }
 
 func (s *trackedDBReplWorkerSuite) TestWorkerStartup(c *tc.C) {

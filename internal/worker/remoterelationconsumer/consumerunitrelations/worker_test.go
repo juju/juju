@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/macaroon.v2"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	relation "github.com/juju/juju/domain/relation"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type localUnitRelationsWorker struct {
@@ -36,8 +36,9 @@ type localUnitRelationsWorker struct {
 }
 
 func TestLocalUnitRelationsWorker(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &localUnitRelationsWorker{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &localUnitRelationsWorker{})
+	})
 }
 
 func (s *localUnitRelationsWorker) SetUpTest(c *tc.C) {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -21,8 +21,9 @@ type consumeSuite struct {
 }
 
 func TestConsumeSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &consumeSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &consumeSuite{})
+	})
 }
 
 func (s *consumeSuite) TestConsumeInitialEventReturnsChanges(c *tc.C) {

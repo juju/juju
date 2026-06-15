@@ -13,13 +13,13 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/eventsource"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -31,8 +31,9 @@ type watcherSuite struct {
 }
 
 func TestWatcherSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &watcherSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &watcherSuite{})
+	})
 }
 
 func (*watcherSuite) TestNewUUIDsWatcherFail(c *tc.C) {

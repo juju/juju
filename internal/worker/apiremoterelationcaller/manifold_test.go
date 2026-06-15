@@ -15,7 +15,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/crossmodel"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 )
 
@@ -33,8 +33,9 @@ type manifoldSuite struct {
 }
 
 func TestManifoldSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &manifoldSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &manifoldSuite{})
+	})
 }
 
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
@@ -102,8 +103,9 @@ type connectionSuite struct {
 }
 
 func TestConnectionSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &connectionSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &connectionSuite{})
+	})
 }
 
 func (s *connectionSuite) TestGetConnectionForModel(c *tc.C) {
@@ -269,8 +271,9 @@ type apiInfoSuite struct {
 }
 
 func TestAPIInfoSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &apiInfoSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &apiInfoSuite{})
+	})
 }
 
 func (s *apiInfoSuite) TestGetAPIInfoForModelLocalModel(c *tc.C) {

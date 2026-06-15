@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
@@ -21,37 +20,51 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 	"gopkg.in/macaroon.v2"
+	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/controller"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/unit"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/application/architecture"
+	applicationcharm "github.com/juju/juju/domain/application/charm"
+	domainexport "github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/rpc/params"
 )
 
 type Suite struct {
 	coretesting.BaseSuite
-	clock                 *testclock.Clock
-	stub                  *testhelpers.Stub
-	connection            *stubConnection
-	connectionErr         error
-	facade                *stubMasterFacade
-	modelMigrationService *stubModelMigrationService
-	config                migrationmaster.Config
+	clock                   *testclock.Clock
+	stub                    *testhelpers.Stub
+	connection              *stubConnection
+	connectionErr           error
+	facade                  *stubMasterFacade
+	modelMigrationService   *stubModelMigrationService
+	exportService           *stubExportService
+	controllerConfigService *stubControllerConfigService
+	modelAgentService       *stubModelAgentService
+	resourceService         *stubResourceService
+	charmService            *stubCharmService
+	config                  migrationmaster.Config
 }
 
 func TestSuite(t *testing.T) {
@@ -59,14 +72,53 @@ func TestSuite(t *testing.T) {
 }
 
 var (
-	fakeModelBytes      = []byte("model")
 	sourceControllerTag = names.NewControllerTag("source-controller-uuid")
 	targetControllerTag = names.NewControllerTag("controller-uuid")
-	modelUUID           = "model-uuid"
+	modelUUID           = "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 	modelTag            = names.NewModelTag(modelUUID)
 	modelName           = "model-name"
 	modelQualifier      = model.Qualifier("prod")
-	modelVersion        = semversion.MustParse("1.2.4")
+
+	fakeExportVersion = semversion.MustParse("4.0.6")
+	fakeExportPayload = map[string]string{"model": "data"}
+
+	fakeCharmLocators = []applicationcharm.CharmLocator{{
+		Name:         "charm0",
+		Revision:     0,
+		Source:       applicationcharm.CharmHubSource,
+		Architecture: architecture.AMD64,
+	}, {
+		Name:         "charm1",
+		Revision:     1,
+		Source:       applicationcharm.LocalSource,
+		Architecture: architecture.Unknown,
+	}}
+	fakeCharmURLs = []string{"ch:amd64/charm0-0", "local:charm1-1"}
+
+	fakeToolsSHA256  = "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e"
+	fakeMachineTools = map[machine.Name]coreagentbinary.Metadata{
+		"0": {
+			Version: coreagentbinary.Version{
+				Number: semversion.MustParse("2.1.0"),
+				Arch:   arch.AMD64,
+			},
+			SHA256: fakeToolsSHA256,
+		},
+	}
+	fakeUploadTools = map[string]semversion.Binary{
+		fakeToolsSHA256: semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
+	}
+
+	fakeControllerModelInfo = modelmigration.ControllerModelInfo{
+		ModelInfo: modelmigration.ModelIdentityInfo{
+			UUID:      modelUUID,
+			Name:      modelName,
+			Qualifier: modelQualifier.String(),
+			Type:      "iaas",
+			Cloud:     "aws",
+			Life:      "alive",
+		},
+	}
 
 	// Define stub calls that commonly appear in tests here to allow reuse.
 	apiOpenControllerCall = testhelpers.StubCall{
@@ -79,12 +131,6 @@ var (
 				Password: "secret",
 			},
 			migration.ControllerDialOpts(nil),
-		},
-	}
-	importCall = testhelpers.StubCall{
-		FuncName: "MigrationTarget.Import",
-		Args: []any{
-			params.SerializedModel{Bytes: fakeModelBytes},
 		},
 	}
 	activateCall = testhelpers.StubCall{
@@ -129,36 +175,24 @@ var (
 		},
 	}
 	watchStatusLockdownCalls = []testhelpers.StubCall{
-		{FuncName: "facade.Watch", Args: nil},
-		{FuncName: "facade.MigrationStatus", Args: nil},
+		{FuncName: "modelMigrationService.WatchForMigration", Args: nil},
+		{FuncName: "modelMigrationService.Migration", Args: nil},
 		{FuncName: "guard.Lockdown", Args: nil},
 	}
-	prechecksCalls = []testhelpers.StubCall{
-		{FuncName: "facade.ModelInfo", Args: nil},
-		{FuncName: "facade.Prechecks", Args: []any{}},
-		apiOpenControllerCall,
-		{FuncName: "MigrationTarget.Prechecks", Args: []any{params.MigrationModelInfo{
-			UUID:         modelUUID,
-			Name:         modelName,
-			Qualifier:    modelQualifier.String(),
-			AgentVersion: modelVersion,
-			ModelDescription: func() []byte {
-				modelDescription := description.NewModel(description.ModelArgs{})
-				bytes, err := description.Serialize(modelDescription)
-				if err != nil {
-					panic(err)
-				}
-				return bytes
-			}(),
-		}}},
-		apiCloseCall,
+	// assembleCalls are the service calls recorded by one envelope assembly.
+	assembleCalls = []testhelpers.StubCall{
+		{FuncName: "exportService.Export", Args: nil},
+		{FuncName: "modelMigrationService.GetControllerModelInfo", Args: nil},
+		{FuncName: "charmService.ListCharmLocators", Args: nil},
+		{FuncName: "modelAgentService.GetModelAgentBinaryMetadata", Args: nil},
+		{FuncName: "resourceService.ListAllModelResources", Args: nil},
 	}
 	abortCalls = []testhelpers.StubCall{
-		{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORT}},
+		{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.ABORT}},
 		apiOpenControllerCall,
 		abortCall,
 		apiCloseCall,
-		{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
+		{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.ABORTDONE}},
 	}
 	openDestLogStreamCall = testhelpers.StubCall{FuncName: "ConnectControllerStream", Args: []any{
 		"/migrate/logtransfer",
@@ -182,25 +216,71 @@ func (s *Suite) SetUpTest(c *tc.C) {
 		controllerVersion: params.ControllerVersionResults{
 			Version: "2.9.99",
 		},
-		facadeVersion: 7,
+		facadeVersion: 8,
 	}
 	s.connectionErr = nil
 
 	s.facade = newStubMasterFacade(s.stub)
 	s.modelMigrationService = newStubModelMigrationService(s.stub)
+	s.exportService = &stubExportService{stub: s.stub}
+	s.controllerConfigService = &stubControllerConfigService{stub: s.stub}
+	s.modelAgentService = &stubModelAgentService{stub: s.stub}
+	s.resourceService = &stubResourceService{stub: s.stub}
+	s.charmService = &stubCharmService{stub: s.stub}
 
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
 	s.config = migrationmaster.Config{
-		ModelUUID:             uuid.MustNewUUID().String(),
-		Facade:                s.facade,
-		CharmService:          fakeCharmService,
-		ModelMigrationService: s.modelMigrationService,
-		Guard:                 newStubGuard(s.stub),
-		APIOpen:               s.apiOpen,
-		UploadBinaries:        nullUploadBinaries,
-		AgentBinaryStore:      fakeAgentBinaryStore,
-		Clock:                 s.clock,
+		ModelUUID:               modelUUID,
+		Facade:                  s.facade,
+		CharmService:            s.charmService,
+		ModelMigrationService:   s.modelMigrationService,
+		ExportService:           s.exportService,
+		ControllerConfigService: s.controllerConfigService,
+		ModelAgentService:       s.modelAgentService,
+		ResourceService:         s.resourceService,
+		Guard:                   newStubGuard(s.stub),
+		APIOpen:                 s.apiOpen,
+		UploadBinaries:          nullUploadBinaries,
+		AgentBinaryStore:        fakeAgentBinaryStore,
+		Clock:                   s.clock,
+	}
+}
+
+// expectedEnvelope builds the SerializedModelV2 envelope the worker is
+// expected to assemble from the suite's stub services.
+func (s *Suite) expectedEnvelope(c *tc.C) params.SerializedModelV2 {
+	payload, err := goyaml.Marshal(fakeExportPayload)
+	c.Assert(err, tc.ErrorIsNil)
+	envelope := migrationmaster.EnvelopeFromControllerModelInfo(fakeControllerModelInfo, "model-uuid:2")
+	envelope.PayloadVersion = fakeExportVersion
+	envelope.Payload = payload
+	envelope.Charms = fakeCharmURLs
+	_, envelope.Tools = migrationmaster.ToolsForEnvelope(fakeMachineTools, nil)
+	envelope.Resources = migrationmaster.ResourcesForEnvelope(s.resourceService.resources)
+	return envelope
+}
+
+// prechecksCalls are the stub calls recorded by one worker prechecks pass.
+func (s *Suite) prechecksCalls(c *tc.C) []testhelpers.StubCall {
+	return joinCalls(
+		[]testhelpers.StubCall{
+			{FuncName: "facade.Prechecks", Args: []any{}},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
+			apiOpenControllerCall,
+			{FuncName: "MigrationTarget.Prechecks", Args: []any{s.expectedEnvelope(c)}},
+			apiCloseCall,
+		},
+	)
+}
+
+// importCall is the v8 import of the authoritative envelope.
+func (s *Suite) importCall(c *tc.C) testhelpers.StubCall {
+	return testhelpers.StubCall{
+		FuncName: "MigrationTarget.Import",
+		Args:     []any{s.expectedEnvelope(c)},
 	}
 }
 
@@ -229,11 +309,11 @@ func (s *Suite) makeStatus(phase coremigration.Phase) coremigration.MigrationSta
 }
 
 func (s *Suite) TestSuccessfulMigration(c *tc.C) {
-	s.facade.exportedResources = []coreresource.Resource{
+	s.resourceService.resources = []coreresource.Resource{
 		resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
 	}
 
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.QUIESCE))
 	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
 	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.SUCCESS))
@@ -248,40 +328,35 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 		},
 
 		// QUIESCE
-		prechecksCalls,
+		s.prechecksCalls(c),
 		[]testhelpers.StubCall{
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 		},
-		prechecksCalls,
+		s.prechecksCalls(c),
 		[]testhelpers.StubCall{
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.IMPORT}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.IMPORT}},
+		},
 
-			//IMPORT
-			{FuncName: "facade.Export", Args: nil},
+		//IMPORT
+		assembleCalls,
+		[]testhelpers.StubCall{
 			apiOpenControllerCall,
-			importCall,
+			s.importCall(c),
 			{FuncName: "UploadBinaries", Args: []any{
-				[]string{"charm0", "charm1"},
-				fakeCharmService,
-				map[string]semversion.Binary{
-					//semversion.MustParseBinary("2.1.0-ubuntu-amd64"): "/tools/0",
-					"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
-				},
+				fakeCharmURLs,
+				s.charmService,
+				fakeUploadTools,
 				fakeAgentBinaryStore,
-				s.facade.exportedResources,
+				s.resourceService.resources,
 				s.facade,
 			}},
 			apiCloseCall, // for target controller
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.PROCESSRELATIONS}},
-
-			// PROCESSRELATIONS
-			{FuncName: "facade.ProcessRelations", Args: []any{""}},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.VALIDATION}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.VALIDATION}},
 
 			// VALIDATION
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
@@ -291,7 +366,7 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			{FuncName: "facade.SourceControllerInfo", Args: nil},
 			activateCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.SUCCESS}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.SUCCESS}},
 
 			// SUCCESS
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
@@ -299,7 +374,7 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
 
 			// LOGTRANSFER
 			apiOpenControllerCall,
@@ -307,150 +382,143 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.REAP}},
 
 			// REAP
-			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
+			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		}),
 	)
 }
 
 func (s *Suite) TestIncompatibleTarget(c *tc.C) {
-	s.connection.facadeVersion = 1
-	s.facade.exportedResources = []coreresource.Resource{
-		resourcetesting.NewResource(c, nil, "blob", "app", "").Resource,
-	}
+	// The target controller only offers the legacy migrationtarget
+	// facade (v7); the new envelope path requires v8 and hard-errors.
+	s.connection.facadeVersion = 7
 
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
-	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.QUIESCE))
-	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
-	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.SUCCESS))
-	s.config.UploadBinaries = makeStubUploadBinaries(s.stub)
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
-
-	// Observe that the migration was seen, the model exported, an API
-	// connection to the target controller was made, the model was
-	// imported and then the migration completed.
 	s.stub.CheckCalls(c, joinCalls(
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 		},
 
 		// QUIESCE
 		[]testhelpers.StubCall{
-			{FuncName: "facade.ModelInfo", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []any{}},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
 			apiOpenControllerCall,
-			{FuncName: "facade.SourceControllerInfo", Args: nil},
 			apiCloseCall,
 		},
 		abortCalls,
 	))
+	lastMessages := s.modelMigrationService.statuses[len(s.modelMigrationService.statuses)-2:]
+	c.Assert(lastMessages[0], tc.Matches,
+		"(?s)target controller does not support the model migration envelope format.*")
 }
 
 func (s *Suite) TestMigrationResume(c *tc.C) {
 	// Test that a partially complete migration can be resumed.
-	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.SUCCESS))
 
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
-			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.REAP}},
+			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		},
 	))
 }
 
 func (s *Suite) TestPreviouslyAbortedMigration(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.ABORTDONE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.ABORTDONE))
 
 	w, err := migrationmaster.New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
-		"facade.Watch",
-		"facade.MigrationStatus",
+		"modelMigrationService.WatchForMigration",
+		"modelMigrationService.Migration",
 		"guard.Unlock",
 	})
 }
 
 func (s *Suite) TestPreviouslyCompletedMigration(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.DONE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.DONE))
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "facade.Watch", Args: nil},
-		{FuncName: "facade.MigrationStatus", Args: nil},
+		{FuncName: "modelMigrationService.WatchForMigration", Args: nil},
+		{FuncName: "modelMigrationService.Migration", Args: nil},
 	})
 }
 
 func (s *Suite) TestWatchFailure(c *tc.C) {
-	s.facade.watchErr = errors.New("boom")
+	s.modelMigrationService.watchErr = errors.New("boom")
 	s.checkWorkerErr(c, "watching for migration: boom")
 }
 
 func (s *Suite) TestStatusError(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
-	s.facade.statusErr = errors.New("splat")
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.statusErr = errors.New("splat")
 
 	s.checkWorkerErr(c, "retrieving migration status: splat")
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "facade.Watch", Args: nil},
-		{FuncName: "facade.MigrationStatus", Args: nil},
+		{FuncName: "modelMigrationService.WatchForMigration", Args: nil},
+		{FuncName: "modelMigrationService.Migration", Args: nil},
 	})
 }
 
-func (s *Suite) TestStatusNotFound(c *tc.C) {
-	s.facade.statusErr = &params.Error{Code: params.CodeNotFound}
-	s.facade.triggerWatcher()
+func (s *Suite) TestStatusNone(c *tc.C) {
+	// A migration with phase NONE means the model has never been
+	// migrated: the worker keeps waiting with the fortress unlocked.
+	s.modelMigrationService.queueStatus(coremigration.MigrationStatus{Phase: coremigration.NONE})
 
 	w, err := migrationmaster.New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
 	s.waitForStubCalls(c, []string{
-		"facade.Watch",
-		"facade.MigrationStatus",
+		"modelMigrationService.WatchForMigration",
+		"modelMigrationService.Migration",
 		"guard.Unlock",
 	})
 }
 
 func (s *Suite) TestUnlockError(c *tc.C) {
-	s.facade.statusErr = &params.Error{Code: params.CodeNotFound}
-	s.facade.triggerWatcher()
+	s.modelMigrationService.queueStatus(coremigration.MigrationStatus{Phase: coremigration.NONE})
 	guard := newStubGuard(s.stub)
 	guard.unlockErr = errors.New("pow")
 	s.config.Guard = guard
 
 	s.checkWorkerErr(c, "pow")
 	s.stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "facade.Watch", Args: nil},
-		{FuncName: "facade.MigrationStatus", Args: nil},
+		{FuncName: "modelMigrationService.WatchForMigration", Args: nil},
+		{FuncName: "modelMigrationService.Migration", Args: nil},
 		{FuncName: "guard.Unlock", Args: nil},
 	})
 }
 
 func (s *Suite) TestLockdownError(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	guard := newStubGuard(s.stub)
 	guard.lockdownErr = errors.New("biff")
 	s.config.Guard = guard
@@ -468,7 +536,7 @@ func (s *Suite) TestQUIESCEMinionWaitGetError(c *tc.C) {
 }
 
 func (s *Suite) TestQUIESCEFailedAgent(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.modelMigrationService.queueMinionReports(coremigration.MinionReports{
 		MigrationId:    "model-uuid:2",
 		Phase:          coremigration.QUIESCE,
@@ -481,9 +549,9 @@ func (s *Suite) TestQUIESCEFailedAgent(c *tc.C) {
 	expectedCalls := joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 		},
-		prechecksCalls,
+		s.prechecksCalls(c),
 		[]testhelpers.StubCall{
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
@@ -495,16 +563,18 @@ func (s *Suite) TestQUIESCEFailedAgent(c *tc.C) {
 }
 
 func (s *Suite) TestQUIESCEWrongController(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.connection.controllerTag = names.NewControllerTag("another-controller")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.ModelInfo", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []any{}},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
 			apiOpenControllerCall,
 			apiCloseCall,
 		},
@@ -513,111 +583,176 @@ func (s *Suite) TestQUIESCEWrongController(c *tc.C) {
 }
 
 func (s *Suite) TestQUIESCESourceChecksFail(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.facade.prechecksErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.ModelInfo", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []any{}},
 		},
 		abortCalls,
 	))
 }
 
-func (s *Suite) TestQUIESCEModelInfoFail(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
-	s.facade.modelInfoErr = errors.New("boom")
+func (s *Suite) TestQUIESCEControllerModelInfoFail(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.controllerModelInfoErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.ModelInfo", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			{FuncName: "facade.Prechecks", Args: []any{}},
+			{FuncName: "exportService.Export", Args: nil},
+			{FuncName: "modelMigrationService.GetControllerModelInfo", Args: nil},
 		},
 		abortCalls,
 	))
 }
 
 func (s *Suite) TestQUIESCETargetChecksFail(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.QUIESCE))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
 	s.connection.prechecksErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	assertExpectedCallArgs(c, s.stub, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 		},
-		prechecksCalls,
-		abortCalls,
-	))
-}
-
-func (s *Suite) TestProcessRelationsFailure(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.PROCESSRELATIONS))
-	s.facade.processRelationsErr = errors.New("boom")
-
-	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
-	s.stub.CheckCalls(c, joinCalls(
-		watchStatusLockdownCalls,
-		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.ProcessRelations", Args: []any{""}},
-		},
+		s.prechecksCalls(c),
 		abortCalls,
 	))
 }
 
 func (s *Suite) TestExportFailure(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.IMPORT))
-	s.facade.exportErr = errors.New("boom")
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
+	s.exportService.exportErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.Export", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			{FuncName: "exportService.Export", Args: nil},
 		},
 		abortCalls,
 	))
 }
 
 func (s *Suite) TestAPIOpenFailure(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.IMPORT))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.connectionErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.Export", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
 			apiOpenControllerCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORT}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.ABORT}},
 			apiOpenControllerCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.ABORTDONE}},
 		},
 	))
 }
 
 func (s *Suite) TestImportFailure(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.IMPORT))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.connection.importErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
-			{FuncName: "facade.Export", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
 			apiOpenControllerCall,
-			importCall,
+			s.importCall(c),
+			apiCloseCall,
+		},
+		abortCalls,
+	))
+}
+
+func (s *Suite) TestImportFailureAlreadyExistsActivating(c *tc.C) {
+	// Preserve the activation resume path until Import v8 exposes structured
+	// target state for duplicate imports.
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
+	s.connection.importErr = &params.Error{
+		Code:    params.CodeAlreadyExists,
+		Message: "model import for " + modelUUID + ": activation in progress",
+	}
+	// Terminate the worker at the VALIDATION minion wait so the test
+	// only exercises the IMPORT decision.
+	s.modelMigrationService.minionReportsWatchErr = errors.New("boom")
+
+	s.checkWorkerErr(c, "boom")
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]testhelpers.StubCall{
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
+			apiOpenControllerCall,
+			s.importCall(c),
+			apiCloseCall,
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.VALIDATION}},
+			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
+		},
+	))
+}
+
+func (s *Suite) TestImportFailureAlreadyExistsImporting(c *tc.C) {
+	// The target reports the model UUID is occupied by another import
+	// that has not started activating: the worker must abort.
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
+	s.connection.importErr = &params.Error{
+		Code:    params.CodeAlreadyExists,
+		Message: "model import for " + modelUUID,
+	}
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]testhelpers.StubCall{
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
+			apiOpenControllerCall,
+			s.importCall(c),
+			apiCloseCall,
+		},
+		abortCalls,
+	))
+}
+
+func (s *Suite) TestIncompatibleTargetImport(c *tc.C) {
+	// A v8-incapable target discovered at IMPORT (e.g. after a worker
+	// restart skipped QUIESCE) is also a hard error and aborts.
+	s.connection.facadeVersion = 7
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]testhelpers.StubCall{
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+		},
+		assembleCalls,
+		[]testhelpers.StubCall{
+			apiOpenControllerCall,
 			apiCloseCall,
 		},
 		abortCalls,
@@ -637,7 +772,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *tc.C) {
 	// in time than the max wait time for minion reports.
 	sts := s.makeStatus(coremigration.VALIDATION)
 	sts.PhaseChangedTime = time.Now().Add(-20 * time.Minute)
-	s.facade.queueStatus(sts)
+	s.modelMigrationService.queueStatus(sts)
 
 	w, err := migrationmaster.New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -657,7 +792,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 		},
@@ -666,7 +801,7 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *tc.C) {
 }
 
 func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
 	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
 
 	s.connection.machineErrs = []string{"been so strange"}
@@ -674,7 +809,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 			apiOpenControllerCall,
@@ -683,7 +818,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *tc.C) {
 		},
 		abortCalls,
 	))
-	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
+	lastMessages := s.modelMigrationService.statuses[len(s.modelMigrationService.statuses)-2:]
 	c.Assert(lastMessages, tc.DeepEquals, []string{
 		"machine sanity check failed, 1 error found",
 		"aborted, removing model from target controller: machine sanity check failed, 1 error found",
@@ -691,14 +826,14 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *tc.C) {
 }
 
 func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
 	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
 	s.connection.machineErrs = []string{"been so strange", "lit up"}
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 			apiOpenControllerCall,
@@ -707,7 +842,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *tc.C) {
 		},
 		abortCalls,
 	))
-	lastMessages := s.facade.statuses[len(s.facade.statuses)-2:]
+	lastMessages := s.modelMigrationService.statuses[len(s.modelMigrationService.statuses)-2:]
 	c.Assert(lastMessages, tc.DeepEquals, []string{
 		"machine sanity check failed, 2 errors found",
 		"aborted, removing model from target controller: machine sanity check failed, 2 errors found",
@@ -715,7 +850,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *tc.C) {
 }
 
 func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
 	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
 	s.connection.checkMachineErr = errors.Errorf("something went bang")
 
@@ -723,7 +858,7 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 			apiOpenControllerCall,
@@ -744,7 +879,7 @@ func (s *Suite) TestSUCCESSMinionWaitGetError(c *tc.C) {
 func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *tc.C) {
 	// With the SUCCESS phase the master should wait for all reports,
 	// continuing even if some minions report failure.
-	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.modelMigrationService.queueMinionReports(coremigration.MinionReports{
 		MigrationId:    "model-uuid:2",
 		Phase:          coremigration.SUCCESS,
@@ -756,28 +891,27 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
-			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.REAP}},
+			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		},
 	))
 }
 
 func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *tc.C) {
 	// See note for TestMinionWaitFailedMachine above.
-	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.modelMigrationService.queueMinionReports(coremigration.MinionReports{
 		MigrationId:        "model-uuid:2",
 		Phase:              coremigration.SUCCESS,
@@ -790,21 +924,20 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
-			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.REAP}},
+			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		},
 	))
 }
@@ -813,7 +946,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 	// The SUCCESS phase is special in that even if some minions fail
 	// to report the migration should continue. There's no turning
 	// back from SUCCESS.
-	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.SUCCESS))
 
 	w, err := migrationmaster.New(s.config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -834,26 +967,25 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.LOGTRANSFER}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
-			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.REAP}},
+			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		},
 	))
 }
 
 func (s *Suite) TestMinionWaitWrongPhase(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.SUCCESS))
 
 	// Have the phase in the minion reports be different from the
 	// migration status. This shouldn't happen but the migrationmaster
@@ -865,7 +997,7 @@ func (s *Suite) TestMinionWaitWrongPhase(c *tc.C) {
 }
 
 func (s *Suite) TestMinionWaitMigrationIdChanged(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.SUCCESS))
 
 	// Have the migration id in the minion reports be different from
 	// the migration status. This shouldn't happen but the
@@ -880,7 +1012,7 @@ func (s *Suite) TestMinionWaitMigrationIdChanged(c *tc.C) {
 }
 
 func (s *Suite) TestMinionWaitInvalidReportCounts(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.SUCCESS))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.SUCCESS))
 	s.modelMigrationService.queueMinionReports(coremigration.MinionReports{
 		MigrationId:    "model-uuid:2",
 		Phase:          coremigration.SUCCESS,
@@ -906,7 +1038,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 	status.TargetInfo.Password = ""
 	status.TargetInfo.Macaroons = macs
 
-	s.facade.queueStatus(status)
+	s.modelMigrationService.queueStatus(status)
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	var apiUser names.Tag
@@ -916,7 +1048,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{
 				FuncName: "apiOpen",
 				Args: []any{
@@ -931,7 +1063,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *tc.C, authUser names.UserTag) {
 			},
 			abortCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.ABORTDONE}},
 		},
 	))
 }
@@ -955,14 +1087,14 @@ func (s *Suite) TestAPIConnectionWithToken(c *tc.C) {
 	status.TargetInfo.Macaroons = nil
 	status.TargetInfo.Token = "token"
 
-	s.facade.queueStatus(status)
+	s.modelMigrationService.queueStatus(status)
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	expectedLoginProvider := api.NewSessionTokenLoginProvider("token", nil, nil)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{
 				FuncName: "apiOpen",
 				Args: []any{
@@ -976,34 +1108,34 @@ func (s *Suite) TestAPIConnectionWithToken(c *tc.C) {
 			},
 			abortCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.ABORTDONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.ABORTDONE}},
 		},
 	))
 }
 
 func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connectionErr = errors.New("people of earth")
 
 	s.checkWorkerReturns(c, s.connectionErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			apiOpenControllerCall,
 		},
 	))
 }
 
 func (s *Suite) TestLogTransferErrorGettingStartTime(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connection.latestLogErr = errors.New("tender vittles")
 
 	s.checkWorkerReturns(c, s.connection.latestLogErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			apiCloseCall,
@@ -1012,14 +1144,14 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *tc.C) {
 }
 
 func (s *Suite) TestLogTransferErrorOpeningLogSource(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.facade.streamErr = errors.New("chicken bones")
 
 	s.checkWorkerReturns(c, s.facade.streamErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1029,14 +1161,14 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *tc.C) {
 }
 
 func (s *Suite) TestLogTransferErrorOpeningLogDest(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.connection.streamErr = errors.New("tule lake shuffle")
 
 	s.checkWorkerReturns(c, s.connection.streamErr)
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1047,7 +1179,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *tc.C) {
 }
 
 func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	s.facade.logMessages = func(d chan<- common.LogMessage) {
 		safeSend(c, d, common.LogMessage{Message: "the go team"})
 	}
@@ -1056,7 +1188,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1070,7 +1202,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 	t1, err := time.Parse("2006-01-02 15:04", "2016-11-28 16:11")
 	c.Assert(err, tc.ErrorIsNil)
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	messages := []common.LogMessage{
 		{Message: "the go team"},
 		{Message: "joan as police woman"},
@@ -1093,15 +1225,14 @@ func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
-			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.REAP}},
+			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		},
 	))
 	c.Assert(s.connection.logStream.written, tc.DeepEquals, []params.LogRecord{
@@ -1120,7 +1251,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 }
 
 func (s *Suite) TestLogTransferReportsProgress(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	messages := []common.LogMessage{
 		{Message: "captain beefheart"},
 		{Message: "super furry animals"},
@@ -1156,7 +1287,7 @@ func (s *Suite) TestLogTransferReportsProgress(c *tc.C) {
 }
 
 func (s *Suite) TestLogTransferChecksLatestTime(c *tc.C) {
-	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	t := time.Date(2016, 12, 2, 10, 39, 10, 20, time.UTC)
 	s.connection.latestLogTime = t
 
@@ -1164,15 +1295,14 @@ func (s *Suite) TestLogTransferChecksLatestTime(c *tc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
-			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{t}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.REAP}},
-			{FuncName: "facade.Reap", Args: nil},
-			{FuncName: "facade.SetPhase", Args: []any{coremigration.DONE}},
+			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.REAP}},
+			{FuncName: "modelMigrationService.MarkModelAsGone", Args: nil},
 		},
 	))
 }
@@ -1216,13 +1346,13 @@ func (s *Suite) waitForStubCalls(c *tc.C, expectedCallNames []string) {
 
 func (s *Suite) checkMinionWaitWatchError(c *tc.C, phase coremigration.Phase) {
 	s.modelMigrationService.minionReportsWatchErr = errors.New("boom")
-	s.facade.queueStatus(s.makeStatus(phase))
+	s.modelMigrationService.queueStatus(s.makeStatus(phase))
 
 	s.checkWorkerErr(c, "boom")
 }
 
 func (s *Suite) checkMinionWaitGetError(c *tc.C, phase coremigration.Phase) {
-	s.facade.queueStatus(s.makeStatus(phase))
+	s.modelMigrationService.queueStatus(s.makeStatus(phase))
 
 	s.modelMigrationService.minionReportsErr = errors.New("boom")
 	s.modelMigrationService.triggerMinionReports()
@@ -1280,9 +1410,7 @@ func (g *stubGuard) Unlock(ctx context.Context) error {
 
 func newStubMasterFacade(stub *testhelpers.Stub) *stubMasterFacade {
 	return &stubMasterFacade{
-		stub:                stub,
-		watcherChanges:      make(chan struct{}, 999),
-		minionReportTimeout: 15 * time.Minute,
+		stub: stub,
 	}
 }
 
@@ -1291,63 +1419,16 @@ type stubMasterFacade struct {
 
 	stub *testhelpers.Stub
 
-	watcherChanges chan struct{}
-	watchErr       error
-	status         []coremigration.MigrationStatus
-	statusErr      error
-
-	prechecksErr        error
-	modelInfoErr        error
-	exportErr           error
-	processRelationsErr error
+	prechecksErr error
 
 	logMessages func(chan<- common.LogMessage)
 	streamErr   error
-
-	minionReportTimeout time.Duration
-
-	exportedResources []coreresource.Resource
-
-	statuses []string
-}
-
-func (f *stubMasterFacade) triggerWatcher() {
-	select {
-	case f.watcherChanges <- struct{}{}:
-	default:
-		panic("migration watcher channel unexpectedly closed")
-	}
-}
-
-func (f *stubMasterFacade) queueStatus(status coremigration.MigrationStatus) {
-	f.status = append(f.status, status)
-	f.triggerWatcher()
-}
-
-func (f *stubMasterFacade) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
-	f.stub.AddCall("facade.Watch")
-	if f.watchErr != nil {
-		return nil, f.watchErr
-	}
-	return newMockWatcher(f.watcherChanges), nil
-}
-
-func (f *stubMasterFacade) MigrationStatus(ctx context.Context) (coremigration.MigrationStatus, error) {
-	f.stub.AddCall("facade.MigrationStatus")
-	if f.statusErr != nil {
-		return coremigration.MigrationStatus{}, f.statusErr
-	}
-	if len(f.status) == 0 {
-		panic("no status queued to report")
-	}
-	out := f.status[0]
-	f.status = f.status[1:]
-	return out, nil
 }
 
 func newStubModelMigrationService(stub *testhelpers.Stub) *stubModelMigrationService {
 	return &stubModelMigrationService{
-		stub: stub,
+		stub:           stub,
+		watcherChanges: make(chan struct{}, 999),
 		// Give minionReportsChanges a larger-than-required buffer to
 		// support waits at a number of phases.
 		minionReportsChanges: make(chan struct{}, 999),
@@ -1357,10 +1438,81 @@ func newStubModelMigrationService(stub *testhelpers.Stub) *stubModelMigrationSer
 type stubModelMigrationService struct {
 	stub *testhelpers.Stub
 
+	watcherChanges chan struct{}
+	watchErr       error
+	status         []coremigration.MigrationStatus
+	statusErr      error
+
+	controllerModelInfoErr error
+
 	minionReportsChanges  chan struct{}
 	minionReportsWatchErr error
 	minionReports         []coremigration.MinionReports
 	minionReportsErr      error
+
+	statuses []string
+}
+
+func (s *stubModelMigrationService) triggerWatcher() {
+	select {
+	case s.watcherChanges <- struct{}{}:
+	default:
+		panic("migration watcher channel unexpectedly closed")
+	}
+}
+
+func (s *stubModelMigrationService) queueStatus(status coremigration.MigrationStatus) {
+	s.status = append(s.status, status)
+	s.triggerWatcher()
+}
+
+func (s *stubModelMigrationService) WatchForMigration(ctx context.Context) (watcher.NotifyWatcher, error) {
+	s.stub.AddCall("modelMigrationService.WatchForMigration")
+	if s.watchErr != nil {
+		return nil, s.watchErr
+	}
+	return newMockWatcher(s.watcherChanges), nil
+}
+
+func (s *stubModelMigrationService) Migration(ctx context.Context) (modelmigration.Migration, error) {
+	s.stub.AddCall("modelMigrationService.Migration")
+	if s.statusErr != nil {
+		return modelmigration.Migration{}, s.statusErr
+	}
+	if len(s.status) == 0 {
+		panic("no status queued to report")
+	}
+	out := s.status[0]
+	s.status = s.status[1:]
+	return modelmigration.Migration{
+		UUID:             out.MigrationId,
+		Phase:            out.Phase,
+		PhaseChangedTime: out.PhaseChangedTime,
+		Target:           out.TargetInfo,
+	}, nil
+}
+
+func (s *stubModelMigrationService) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
+	s.stub.AddCall("modelMigrationService.GetControllerModelInfo")
+	if s.controllerModelInfoErr != nil {
+		return modelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
+	}
+	return fakeControllerModelInfo, nil
+}
+
+func (s *stubModelMigrationService) SetMigrationPhase(ctx context.Context, phase coremigration.Phase) error {
+	s.stub.AddCall("modelMigrationService.SetMigrationPhase", phase)
+	return nil
+}
+
+func (s *stubModelMigrationService) SetMigrationStatusMessage(ctx context.Context, message string) error {
+	s.statuses = append(s.statuses, message)
+	return nil
+}
+
+func (s *stubModelMigrationService) MarkModelAsGone(ctx context.Context) error {
+	s.stub.AddCall("modelMigrationService.MarkModelAsGone")
+	return nil
 }
 
 func (s *stubModelMigrationService) triggerMinionReports() {
@@ -1397,28 +1549,9 @@ func (s *stubModelMigrationService) MinionReports(ctx context.Context) (coremigr
 	return r, nil
 }
 
-func (f *stubMasterFacade) MinionReportTimeout(ctx context.Context) (time.Duration, error) {
-	f.stub.AddCall("facade.MinionReportTimeout")
-	return f.minionReportTimeout, nil
-}
-
 func (f *stubMasterFacade) Prechecks(ctx context.Context) error {
 	f.stub.AddCall("facade.Prechecks")
 	return f.prechecksErr
-}
-
-func (f *stubMasterFacade) ModelInfo(ctx context.Context) (coremigration.ModelInfo, error) {
-	f.stub.AddCall("facade.ModelInfo")
-	if f.modelInfoErr != nil {
-		return coremigration.ModelInfo{}, f.modelInfoErr
-	}
-	return coremigration.ModelInfo{
-		UUID:             modelUUID,
-		Name:             modelName,
-		Qualifier:        modelQualifier,
-		AgentVersion:     modelVersion,
-		ModelDescription: description.NewModel(description.ModelArgs{}),
-	}, nil
 }
 
 func (f *stubMasterFacade) SourceControllerInfo(ctx context.Context) (coremigration.SourceControllerInfo, []string, error) {
@@ -1431,42 +1564,63 @@ func (f *stubMasterFacade) SourceControllerInfo(ctx context.Context) (coremigrat
 	}, []string{"related-model-uuid"}, nil
 }
 
-func (f *stubMasterFacade) Export(ctx context.Context) (coremigration.SerializedModel, error) {
-	f.stub.AddCall("facade.Export")
-	if f.exportErr != nil {
-		return coremigration.SerializedModel{}, f.exportErr
+type stubExportService struct {
+	stub      *testhelpers.Stub
+	exportErr error
+}
+
+func (s *stubExportService) Export(ctx context.Context) (*domainexport.ModelExport, error) {
+	s.stub.AddCall("exportService.Export")
+	if s.exportErr != nil {
+		return nil, s.exportErr
 	}
-	return coremigration.SerializedModel{
-		Bytes:  fakeModelBytes,
-		Charms: []string{"charm0", "charm1"},
-		Tools: map[string]semversion.Binary{
-			"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
-		},
-		Resources: f.exportedResources,
+	return &domainexport.ModelExport{
+		Version: fakeExportVersion,
+		Payload: fakeExportPayload,
 	}, nil
 }
 
-func (f *stubMasterFacade) ProcessRelations(ctx context.Context, controllerAlias string) error {
-	f.stub.AddCall("facade.ProcessRelations", controllerAlias)
-	if f.processRelationsErr != nil {
-		return f.processRelationsErr
-	}
-	return nil
+type stubControllerConfigService struct {
+	stub *testhelpers.Stub
 }
 
-func (f *stubMasterFacade) SetPhase(ctx context.Context, phase coremigration.Phase) error {
-	f.stub.AddCall("facade.SetPhase", phase)
-	return nil
+func (s *stubControllerConfigService) ControllerConfig(ctx context.Context) (controller.Config, error) {
+	s.stub.AddCall("controllerConfigService.ControllerConfig")
+	// An empty config falls back to defaults, including the 15 minute
+	// migration minion wait maximum the tests rely on.
+	return controller.Config{}, nil
 }
 
-func (f *stubMasterFacade) SetStatusMessage(ctx context.Context, message string) error {
-	f.statuses = append(f.statuses, message)
-	return nil
+type stubModelAgentService struct {
+	stub *testhelpers.Stub
 }
 
-func (f *stubMasterFacade) Reap(ctx context.Context) error {
-	f.stub.AddCall("facade.Reap")
-	return nil
+func (s *stubModelAgentService) GetModelAgentBinaryMetadata(
+	ctx context.Context,
+) (map[machine.Name]coreagentbinary.Metadata, map[unit.Name]coreagentbinary.Metadata, error) {
+	s.stub.AddCall("modelAgentService.GetModelAgentBinaryMetadata")
+	return fakeMachineTools, nil, nil
+}
+
+type stubResourceService struct {
+	stub      *testhelpers.Stub
+	resources []coreresource.Resource
+}
+
+func (s *stubResourceService) ListAllModelResources(ctx context.Context) ([]coreresource.Resource, error) {
+	s.stub.AddCall("resourceService.ListAllModelResources")
+	return s.resources, nil
+}
+
+type stubCharmService struct {
+	migrationmaster.CharmService
+
+	stub *testhelpers.Stub
+}
+
+func (s *stubCharmService) ListCharmLocators(ctx context.Context, names ...string) ([]applicationcharm.CharmLocator, error) {
+	s.stub.AddCall("charmService.ListCharmLocators")
+	return fakeCharmLocators, nil
 }
 
 func (f *stubMasterFacade) StreamModelLog(_ context.Context, start time.Time) (<-chan common.LogMessage, error) {
@@ -1505,11 +1659,10 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 type stubConnection struct {
 	c *tc.C
 	api.Connection
-	stub                *testhelpers.Stub
-	prechecksErr        error
-	importErr           error
-	processRelationsErr error
-	controllerTag       names.ControllerTag
+	stub          *testhelpers.Stub
+	prechecksErr  error
+	importErr     error
+	controllerTag names.ControllerTag
 
 	streamErr error
 	logStream *mockStream
@@ -1538,8 +1691,6 @@ func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, 
 			return c.prechecksErr
 		case "Import":
 			return c.importErr
-		case "ProcessRelations":
-			return c.processRelationsErr
 		case "Activate", "AdoptResources":
 			return nil
 		case "LatestLogTime":
@@ -1612,8 +1763,6 @@ func makeStubUploadBinaries(stub *testhelpers.Stub) func(context.Context, migrat
 func nullUploadBinaries(context.Context, migration.UploadBinariesConfig, logger.Logger) error {
 	panic("should not get called")
 }
-
-var fakeCharmService = struct{ migrationmaster.CharmService }{}
 
 var fakeAgentBinaryStore = struct{ migration.AgentBinaryStore }{}
 

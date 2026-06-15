@@ -1364,7 +1364,18 @@ func (s *Service) SetUnitWorkloadVersion(ctx context.Context, unitName coreunit.
 		return errors.Capture(err)
 	}
 
-	return s.st.SetUnitWorkloadVersion(ctx, unitName, version)
+	if err := s.st.SetUnitWorkloadVersion(ctx, unitName, version); err != nil {
+		return errors.Capture(err)
+	}
+
+	namespace := status.UnitWorkloadVersionNamespace.WithID(unitName.String())
+	statusInfo := corestatus.StatusInfo{
+		Message: version,
+	}
+	if err := s.statusHistory.RecordStatus(ctx, namespace, statusInfo); err != nil {
+		s.logger.Warningf(ctx, "recording workload version history for unit %q: %v", unitName, err)
+	}
+	return nil
 }
 
 // GetUnitWorkloadVersion returns the workload version for the given unit.

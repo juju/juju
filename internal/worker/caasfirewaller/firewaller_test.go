@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
-	"go.uber.org/goleak"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
@@ -32,8 +32,9 @@ type firewallerSuite struct {
 
 // TestFirewallerSuite runs the tests defined in [firewallerSuite].
 func TestFirewallerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &firewallerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &firewallerSuite{})
+	})
 }
 
 func (s *firewallerSuite) setupMocks(c *testing.T) *gomock.Controller {

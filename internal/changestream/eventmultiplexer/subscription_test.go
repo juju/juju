@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	changestreamtesting "github.com/juju/juju/core/changestream/testing"
 	"github.com/juju/juju/core/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type subscriptionSuite struct {
@@ -21,8 +21,9 @@ type subscriptionSuite struct {
 }
 
 func TestSubscriptionSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &subscriptionSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &subscriptionSuite{})
+	})
 }
 
 func (s *subscriptionSuite) TestSubscriptionIsDone(c *tc.C) {

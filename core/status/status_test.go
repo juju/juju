@@ -24,11 +24,6 @@ func (s *StatusSuite) TestModification(c *tc.C) {
 		valid  bool
 	}{
 		{
-			name:   "applied",
-			status: status.Applied,
-			valid:  true,
-		},
-		{
 			name:   "error",
 			status: status.Error,
 			valid:  true,
@@ -71,7 +66,6 @@ func (s *StatusSuite) TestInvalidModelStatus(c *tc.C) {
 	for _, v := range []status.Status{
 		status.Active,
 		status.Allocating,
-		status.Applied,
 		status.Attached,
 		status.Attaching,
 		status.Blocked,
@@ -208,7 +202,6 @@ func (s *StatusSuite) TestKnownMachineStatus(c *tc.C) {
 		known  bool
 	}{
 		{status.Active, false},
-		{status.Applied, false},
 		{status.Attached, false},
 		{status.Attaching, false},
 		{status.Available, false},

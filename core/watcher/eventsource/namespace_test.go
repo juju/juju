@@ -11,13 +11,13 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -28,8 +28,9 @@ type namespaceSuite struct {
 }
 
 func TestNamespaceSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &namespaceSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &namespaceSuite{})
+	})
 }
 
 func (s *namespaceSuite) SetUpTest(c *tc.C) {

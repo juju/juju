@@ -9,9 +9,9 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	internalhttp "github.com/juju/juju/internal/http"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type trackedWorkerSuite struct {
@@ -22,8 +22,9 @@ type trackedWorkerSuite struct {
 }
 
 func TestTrackedWorkerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &trackedWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &trackedWorkerSuite{})
+	})
 }
 
 func (s *trackedWorkerSuite) TestKilled(c *tc.C) {

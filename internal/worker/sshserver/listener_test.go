@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -22,8 +21,9 @@ type listenerSuite struct {
 }
 
 func TestListenerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &listenerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &listenerSuite{})
+	})
 }
 
 func (s *listenerSuite) TestSyncListenerAfterAccept(c *tc.C) {

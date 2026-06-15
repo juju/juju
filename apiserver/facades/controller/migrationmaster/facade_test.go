@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	coreerrors "github.com/juju/juju/core/errors"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -271,34 +270,6 @@ func (s *Suite) TestPrechecksModelError(c *tc.C) {
 
 	err := s.mustMakeAPI(c).Prechecks(c.Context(), params.PrechecksArgs{TargetControllerVersion: semversion.MustParse("2.9.32")})
 	c.Assert(err, tc.ErrorMatches, "retrieving model info: boom")
-}
-
-func (s *Suite) TestProcessRelations(c *tc.C) {
-	api := s.mustMakeAPI(c)
-	err := api.ProcessRelations(c.Context(), params.ProcessRelations{ControllerAlias: "foo"})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *Suite) TestExportIAAS(c *tc.C) {
-	s.assertExport(c, "iaas")
-}
-
-func (s *Suite) TestExportCAAS(c *tc.C) {
-	s.model = description.NewModel(description.ModelArgs{
-		Type:               "caas",
-		Config:             map[string]any{"uuid": s.modelUUID},
-		Owner:              "admin",
-		LatestToolsVersion: jujuversion.Current.String(),
-	})
-	s.assertExport(c, "caas")
-}
-
-func (s *Suite) assertExport(c *tc.C, modelType string) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.mustMakeAPI(c).Export(c.Context())
-	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-
 }
 
 func (s *Suite) TestReap(c *tc.C) {

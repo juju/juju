@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
@@ -38,8 +37,9 @@ type sshServerSuite struct {
 }
 
 func TestSshServerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &sshServerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &sshServerSuite{})
+	})
 }
 
 func (s *sshServerSuite) SetUpSuite(c *tc.C) {

@@ -19,13 +19,18 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
+	"github.com/juju/juju/controller"
+	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
-	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
+	domainexport "github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/modelmigration"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
@@ -57,53 +62,20 @@ var (
 // to the newly-migrated model.
 const progressUpdateInterval = 30 * time.Second
 
-// Facade exposes controller functionality to a Worker.
+// Facade exposes the controller facade functionality the Worker still needs.
+// These are the operations shared with remote callers; everything that is
+// worker-private is reached directly through the domain services instead.
 type Facade interface {
-	// Watch returns a watcher which reports when a migration is
-	// active for the model associated with the API connection.
-	Watch(context.Context) (watcher.NotifyWatcher, error)
-
-	// MigrationStatus returns the details and progress of the latest
-	// model migration.
-	MigrationStatus(context.Context) (coremigration.MigrationStatus, error)
-
-	// SetPhase updates the phase of the currently active model
-	// migration.
-	SetPhase(context.Context, coremigration.Phase) error
-
-	// SetStatusMessage sets a human readable message regarding the
-	// progress of a migration.
-	SetStatusMessage(context.Context, string) error
-
 	// Prechecks performs pre-migration checks on the model and
 	// (source) controller.
 	Prechecks(context.Context) error
-
-	// ModelInfo return basic information about the model to migrated.
-	ModelInfo(context.Context) (coremigration.ModelInfo, error)
 
 	// SourceControllerInfo returns connection information about the source controller
 	// and uuids of any other hosted models involved in cross model relations.
 	SourceControllerInfo(context.Context) (coremigration.SourceControllerInfo, []string, error)
 
-	// Export returns a serialized representation of the model
-	// associated with the API connection.
-	Export(context.Context) (coremigration.SerializedModel, error)
-
-	// ProcessRelations runs a series of processes to ensure that the relations
-	// of a given model are correct after a migrated model.
-	ProcessRelations(context.Context, string) error
-
 	// OpenResource downloads a single resource for an application.
 	OpenResource(context.Context, string, string) (io.ReadCloser, error)
-
-	// Reap removes all documents of the model associated with the API
-	// connection.
-	Reap(context.Context) error
-
-	// MinionReportTimeout returns the maximum time to wait for minion workers
-	// to report on a migration phase.
-	MinionReportTimeout(context.Context) (time.Duration, error)
 
 	// StreamModelLog takes a starting time and returns a channel that
 	// will yield the logs on or after that time - these are the logs
@@ -117,13 +89,41 @@ type CharmService interface {
 	// charm id, along with the hash of the charm archive. Clients can use the hash
 	// to verify the integrity of the charm archive.
 	GetCharmArchive(context.Context, charm.CharmLocator) (io.ReadCloser, string, error)
+
+	// ListCharmLocators returns a list of charm locators. The locator allows
+	// the charm URL to be reconstructed. If no names are provided, all the
+	// model's charms are listed.
+	ListCharmLocators(context.Context, ...string) ([]charm.CharmLocator, error)
 }
 
-// ModelMigrationService exposes model migration domain operations that the
-// worker needs locally. Minion report validation needs the model agent
-// inventory, so the worker uses the domain service instead of the controller
-// facade for this path.
+// ModelMigrationService exposes the model migration domain operations the
+// worker uses to drive the source side of a migration: the export lifecycle,
+// phase and status reporting, controller-fact export, and minion reports.
 type ModelMigrationService interface {
+	// WatchForMigration returns a notification watcher that fires when this
+	// model starts or stops undergoing migration.
+	WatchForMigration(context.Context) (watcher.NotifyWatcher, error)
+
+	// Migration returns status about migration of this model. If the model is
+	// not currently being migrated, a migration with phase
+	// [coremigration.NONE] is returned.
+	Migration(context.Context) (modelmigration.Migration, error)
+
+	// GetControllerModelInfo reads the controller-database information scoped to
+	// this migrating model in target-portable semantic form.
+	GetControllerModelInfo(context.Context) (modelmigration.ControllerModelInfo, error)
+
+	// SetMigrationPhase progresses the active migration to the given phase.
+	SetMigrationPhase(context.Context, coremigration.Phase) error
+
+	// SetMigrationStatusMessage records a human readable message regarding
+	// the progress of the active migration.
+	SetMigrationStatusMessage(context.Context, string) error
+
+	// MarkModelAsGone removes the migrated model from this controller once
+	// the target controller owns it, completing the export migration.
+	MarkModelAsGone(context.Context) error
+
 	// WatchMinionReports returns a notification watcher that fires when any
 	// minion reports an update to their phase.
 	WatchMinionReports(context.Context) (watcher.NotifyWatcher, error)
@@ -132,7 +132,35 @@ type ModelMigrationService interface {
 	MinionReports(context.Context) (coremigration.MinionReports, error)
 }
 
-var _ ModelMigrationService = (*modelmigrationservice.Service)(nil)
+// ExportService exposes the model-database export used as the envelope
+// payload.
+type ExportService interface {
+	// Export returns the model-database contents at the latest supported
+	// payload schema version.
+	Export(context.Context) (*domainexport.ModelExport, error)
+}
+
+// ControllerConfigService provides access to the controller configuration.
+type ControllerConfigService interface {
+	// ControllerConfig returns the config values for the controller.
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ModelAgentService reports the agent binaries in use by the model's agents.
+type ModelAgentService interface {
+	// GetModelAgentBinaryMetadata reports the agent binary metadata that each
+	// machine and unit in the model is running.
+	GetModelAgentBinaryMetadata(
+		context.Context,
+	) (map[machine.Name]coreagentbinary.Metadata, map[unit.Name]coreagentbinary.Metadata, error)
+}
+
+// ResourceService lists the model resources that need binary transfer.
+type ResourceService interface {
+	// ListAllModelResources returns the application and unit resources to
+	// export for all applications in the model.
+	ListAllModelResources(context.Context) ([]resource.Resource, error)
+}
 
 // AgentBinaryStore provides an interface for interacting with the stored agent
 // binaries within a controller and model.
@@ -146,15 +174,19 @@ type AgentBinaryStore interface {
 
 // Config defines the operation of a Worker.
 type Config struct {
-	ModelUUID             string
-	Facade                Facade
-	CharmService          CharmService
-	ModelMigrationService ModelMigrationService
-	Guard                 fortress.Guard
-	APIOpen               func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
-	UploadBinaries        func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
-	AgentBinaryStore      AgentBinaryStore
-	Clock                 clock.Clock
+	ModelUUID               string
+	Facade                  Facade
+	CharmService            CharmService
+	ModelMigrationService   ModelMigrationService
+	ExportService           ExportService
+	ControllerConfigService ControllerConfigService
+	ModelAgentService       ModelAgentService
+	ResourceService         ResourceService
+	Guard                   fortress.Guard
+	APIOpen                 func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
+	UploadBinaries          func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
+	AgentBinaryStore        AgentBinaryStore
+	Clock                   clock.Clock
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -170,6 +202,18 @@ func (config Config) Validate() error {
 	}
 	if config.ModelMigrationService == nil {
 		return errors.NotValidf("nil ModelMigrationService")
+	}
+	if config.ExportService == nil {
+		return errors.NotValidf("nil ExportService")
+	}
+	if config.ControllerConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
+	}
+	if config.ModelAgentService == nil {
+		return errors.NotValidf("nil ModelAgentService")
+	}
+	if config.ResourceService == nil {
+		return errors.NotValidf("nil ResourceService")
 	}
 	if config.Guard == nil {
 		return errors.NotValidf("nil Guard")
@@ -253,9 +297,11 @@ func (w *Worker) run() error {
 		return errors.Trace(err)
 	}
 
-	if w.minionReportTimeout, err = w.config.Facade.MinionReportTimeout(ctx); err != nil {
-		return errors.Trace(err)
+	controllerConfig, err := w.config.ControllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return errors.Annotate(err, "retrieving controller config")
 	}
+	w.minionReportTimeout = controllerConfig.MigrationMinionWaitMax()
 
 	phase := status.Phase
 
@@ -265,9 +311,7 @@ func (w *Worker) run() error {
 		case coremigration.QUIESCE:
 			phase, err = w.doQUIESCE(ctx, status)
 		case coremigration.IMPORT:
-			phase, err = w.doIMPORT(ctx, status.TargetInfo, status.ModelUUID)
-		case coremigration.PROCESSRELATIONS:
-			phase, err = w.doPROCESSRELATIONS(ctx, status)
+			phase, err = w.doIMPORT(ctx, status)
 		case coremigration.VALIDATION:
 			phase, err = w.doVALIDATION(ctx, status)
 		case coremigration.SUCCESS:
@@ -295,8 +339,15 @@ func (w *Worker) run() error {
 			return w.catacomb.ErrDying()
 		}
 
+		if phase == coremigration.DONE {
+			// MarkModelAsGone has already moved the export to DONE;
+			// setting the phase again would fail as the export is no
+			// longer active.
+			return ErrMigrated
+		}
+
 		w.logger.Infof(ctx, "setting migration phase to %s", phase)
-		if err := w.config.Facade.SetPhase(ctx, phase); err != nil {
+		if err := w.config.ModelMigrationService.SetMigrationPhase(ctx, phase); err != nil {
 			return errors.Annotate(err, "failed to set phase")
 		}
 		status.Phase = phase
@@ -341,7 +392,7 @@ func (w *Worker) setStatusAndLog(ctx context.Context, log func(context.Context, 
 }
 
 func (w *Worker) setStatus(ctx context.Context, message string) error {
-	err := w.config.Facade.SetStatusMessage(ctx, message)
+	err := w.config.ModelMigrationService.SetMigrationStatusMessage(ctx, message)
 	return errors.Annotate(err, "failed to set status message")
 }
 
@@ -371,24 +422,35 @@ func (w *Worker) doQUIESCE(ctx context.Context, status coremigration.MigrationSt
 	return coremigration.IMPORT, nil
 }
 
+// incompatibleTargetMessage is the hard error reported when the source is on
+// the new SerializedModelV2 migration path but the target controller does not
+// expose the v8 migrationtarget facade that accepts it.
 var incompatibleTargetMessage = `
-target controller must be upgraded to 2.9.43 or later
-to be able to migrate models with cross model relations
-to other models hosted on the source controller
+target controller does not support the model migration envelope format;
+upgrade the target controller to Juju 4.1 or later
 `[1:]
 
-func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationStatus) error {
-	model, err := w.config.Facade.ModelInfo(ctx)
-	if err != nil {
-		return errors.Annotate(err, "failed to obtain model info during prechecks")
+// checkTargetSupportsEnvelope hard-errors when the target controller does not
+// advertise migrationtarget v8, the first version able to accept the
+// SerializedModelV2 envelope. There is no fallback to a legacy path.
+func checkTargetSupportsEnvelope(targetClient *migrationtarget.Client) error {
+	if targetClient.BestFacadeVersion() < 8 {
+		return errors.New(incompatibleTargetMessage)
 	}
+	return nil
+}
 
+func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationStatus) error {
 	w.setInfoStatus(ctx, "performing source prechecks")
 	if err := w.config.Facade.Prechecks(ctx); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}
 
 	w.setInfoStatus(ctx, "performing target prechecks")
+	model, err := w.assembleEnvelope(ctx, status.MigrationId)
+	if err != nil {
+		return errors.Annotate(err, "failed to assemble model envelope during prechecks")
+	}
 	targetConn, err := w.openAPIConn(ctx, status.TargetInfo)
 	if err != nil {
 		return errors.Annotate(err, "failed to connect to target controller during prechecks")
@@ -399,28 +461,20 @@ func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationSt
 			targetConn.ControllerTag().Id(), status.TargetInfo.ControllerUUID)
 	}
 	targetClient := migrationtarget.NewClient(targetConn)
-	// If we have cross model relations to other models on this controller,
-	// we need to ensure the target controller is recent enough to process those.
-	if targetClient.BestFacadeVersion() < 2 {
-		_, localRelatedModels, err := w.config.Facade.SourceControllerInfo(ctx)
-		if err != nil {
-			return errors.Annotate(err, "cannot get local model info")
-		}
-		if len(localRelatedModels) > 0 {
-			return errors.New(incompatibleTargetMessage)
-		}
+	if err := checkTargetSupportsEnvelope(targetClient); err != nil {
+		return errors.Trace(err)
 	}
-	err = targetClient.Prechecks(ctx, model)
+	err = targetClient.PrechecksV2(ctx, model.envelope)
 	return errors.Annotate(err, "target prechecks failed")
 }
 
-func (w *Worker) doIMPORT(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	err := w.transferModel(ctx, targetInfo, modelUUID)
+func (w *Worker) doIMPORT(ctx context.Context, status coremigration.MigrationStatus) (coremigration.Phase, error) {
+	phase, err := w.transferModel(ctx, status)
 	if err != nil {
 		w.setErrorStatus(ctx, "model data transfer failed, %v", err)
 		return coremigration.ABORT, nil
 	}
-	return coremigration.PROCESSRELATIONS, nil
+	return phase, nil
 }
 
 type uploadWrapper struct {
@@ -443,67 +497,80 @@ func (w *uploadWrapper) UploadResource(ctx context.Context, res resource.Resourc
 	return w.client.UploadResource(ctx, w.modelUUID, res, content)
 }
 
-func (w *Worker) transferModel(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) error {
+func importErrIsActivating(err error) bool {
+	// TODO(modelmigration): remove this string match when target-side Import v8
+	// is implemented. Import v8 needs to return structured duplicate-import
+	// state so the source can tell whether the target is still safely
+	// importing, or has crossed into activation where aborting is no longer
+	// correct. Until then, keep the existing resume path for the placeholder
+	// activation wording and do not add a public RPC error code.
+	return err != nil && strings.Contains(err.Error(), "activation in progress")
+}
+
+// transferModel assembles the authoritative import envelope, imports it into
+// the target controller, and uploads the model binaries. It returns the phase
+// the migration should move to next; any error moves the migration to ABORT.
+func (w *Worker) transferModel(ctx context.Context, status coremigration.MigrationStatus) (coremigration.Phase, error) {
 	w.setInfoStatus(ctx, "exporting model")
-	serialized, err := w.config.Facade.Export(ctx)
+	model, err := w.assembleEnvelope(ctx, status.MigrationId)
 	if err != nil {
-		return errors.Annotate(err, "model export failed")
+		return coremigration.UNKNOWN, errors.Annotate(err, "model export failed")
 	}
 
 	w.setInfoStatus(ctx, "importing model into target controller")
-	conn, err := w.openAPIConn(ctx, targetInfo)
+	conn, err := w.openAPIConn(ctx, status.TargetInfo)
 	if err != nil {
-		return errors.Annotate(err, "failed to connect to target controller")
+		return coremigration.UNKNOWN, errors.Annotate(err, "failed to connect to target controller")
 	}
 	defer conn.Close()
 	targetClient := migrationtarget.NewClient(conn)
-	err = targetClient.Import(ctx, serialized.Bytes)
-	if err != nil {
-		return errors.Annotate(err, "failed to import model into target controller")
+	if err := checkTargetSupportsEnvelope(targetClient); err != nil {
+		return coremigration.UNKNOWN, errors.Trace(err)
+	}
+
+	err = targetClient.ImportV2(ctx, model.envelope)
+	switch {
+	case params.IsCodeAlreadyExists(err):
+		if importErrIsActivating(err) {
+			// A previous import of this model has crossed the activation
+			// point of no return on the target. Skip the binary uploads
+			// (they completed before activation started) and continue to
+			// VALIDATION so activation is retried and completed.
+			w.setInfoStatus(ctx, "target reports model activation in progress, continuing to validation")
+			return coremigration.VALIDATION, nil
+		}
+		return coremigration.UNKNOWN, errors.New("target controller already has an import for this model")
+	case err != nil:
+		return coremigration.UNKNOWN, errors.Annotate(err, "failed to import model into target controller")
 	}
 
 	if wrench.IsActive("migrationmaster", "die-in-export") {
 		// Simulate a abort causing failure to test last status not over written.
-		return errors.New("wrench in the transferModel works")
+		return coremigration.UNKNOWN, errors.New("wrench in the transferModel works")
 	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
 	w.setInfoStatus(ctx, "uploading model binaries into target controller")
-	wrapper := &uploadWrapper{targetClient, modelUUID}
+	wrapper := &uploadWrapper{targetClient, status.ModelUUID}
 	err = w.config.UploadBinaries(ctx, migration.UploadBinariesConfig{
-		Charms:        serialized.Charms,
+		Charms:        model.charms,
 		CharmService:  w.config.CharmService,
 		CharmUploader: wrapper,
 
-		Tools:            serialized.Tools,
+		Tools:            model.tools,
 		AgentBinaryStore: w.config.AgentBinaryStore,
 		ToolsUploader:    wrapper,
 
-		Resources:          serialized.Resources,
+		Resources:          model.resources,
 		ResourceDownloader: w.config.Facade,
 		ResourceUploader:   wrapper,
 	}, w.logger)
-	return errors.Annotate(err, "failed to migrate binaries")
-}
-
-func (w *Worker) doPROCESSRELATIONS(ctx context.Context, status coremigration.MigrationStatus) (coremigration.Phase, error) {
-	err := w.processRelations(ctx, status.TargetInfo, status.ModelUUID)
 	if err != nil {
-		w.setErrorStatus(ctx, "processing relations failed, %v", err)
-		return coremigration.ABORT, nil
+		return coremigration.UNKNOWN, errors.Annotate(err, "failed to migrate binaries")
 	}
 	return coremigration.VALIDATION, nil
-}
-
-func (w *Worker) processRelations(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) error {
-	w.setInfoStatus(ctx, "processing relations")
-	err := w.config.Facade.ProcessRelations(ctx, targetInfo.ControllerAlias)
-	if err != nil {
-		return errors.Annotate(err, "processing relations failed")
-	}
-	return nil
 }
 
 func (w *Worker) doVALIDATION(ctx context.Context, status coremigration.MigrationStatus) (coremigration.Phase, error) {
@@ -691,11 +758,11 @@ func (w *Worker) transferLogs(ctx context.Context, targetInfo coremigration.Targ
 
 func (w *Worker) doREAP(ctx context.Context) (coremigration.Phase, error) {
 	w.setInfoStatus(ctx, "successful, removing model from source controller")
-	// NOTE(babbageclunk): Calling Reap will set the migration phase
-	// to DONE if successful - this avoids a race where this worker is
+	// NOTE(babbageclunk): MarkModelAsGone sets the migration phase to
+	// DONE if successful - this avoids a race where this worker is
 	// killed by the model going away before it can update the phase
 	// itself.
-	err := w.config.Facade.Reap(ctx)
+	err := w.config.ModelMigrationService.MarkModelAsGone(ctx)
 	if err != nil {
 		w.setErrorStatus(ctx, "removing exported model failed: %s", err.Error())
 		return coremigration.REAPFAILED, nil
@@ -728,7 +795,7 @@ func (w *Worker) removeImportedModel(ctx context.Context, targetInfo coremigrati
 func (w *Worker) waitForActiveMigration(ctx context.Context) (coremigration.MigrationStatus, error) {
 	var empty coremigration.MigrationStatus
 
-	watcher, err := w.config.Facade.Watch(ctx)
+	watcher, err := w.config.ModelMigrationService.WatchForMigration(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "watching for migration")
 	}
@@ -744,20 +811,26 @@ func (w *Worker) waitForActiveMigration(ctx context.Context) (coremigration.Migr
 		case <-watcher.Changes():
 		}
 
-		status, err := w.config.Facade.MigrationStatus(ctx)
+		mig, err := w.config.ModelMigrationService.Migration(ctx)
 		switch {
-		case params.IsCodeNotFound(err):
-			// There's never been a migration.
-		case err == nil && status.Phase.IsTerminal():
-			// No migration in progress.
-			if modelHasMigrated(status.Phase) {
-				return empty, ErrMigrated
-			}
 		case err != nil:
 			return empty, errors.Annotate(err, "retrieving migration status")
+		case mig.Phase == coremigration.NONE:
+			// There's never been a migration.
+		case mig.Phase.IsTerminal():
+			// No migration in progress.
+			if modelHasMigrated(mig.Phase) {
+				return empty, ErrMigrated
+			}
 		default:
 			// Migration is in progress.
-			return status, nil
+			return coremigration.MigrationStatus{
+				MigrationId:      mig.UUID,
+				ModelUUID:        w.config.ModelUUID,
+				Phase:            mig.Phase,
+				PhaseChangedTime: mig.PhaseChangedTime,
+				TargetInfo:       mig.Target,
+			}, nil
 		}
 
 		// While waiting for a migration, ensure the fortress is open.
