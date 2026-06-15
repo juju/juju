@@ -2655,7 +2655,7 @@ func (s *serviceSuite) TestSetRemoteRelationStatus(c *tc.C) {
 func (s *serviceSuite) TestSetRemoteRelationStatusInvalidStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	newStatus := corestatus.StatusInfo{Status: corestatus.Applied}
+	newStatus := corestatus.StatusInfo{Status: corestatus.Active}
 
 	err := s.modelService.SetRemoteRelationStatus(c.Context(), corerelation.UUID("relation-uuid"), newStatus)
 	c.Check(err, tc.ErrorMatches, ".*unknown relation status.*")
