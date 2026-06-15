@@ -12,8 +12,7 @@ import (
 // ErrPhaseNotPersisted indicates a phase has no representation in the
 // model_migration_phase lookup table and therefore cannot be converted to or
 // from a persisted phase id. This covers the code-only sentinels UNKNOWN and
-// NONE, and the retired PROCESSRELATIONS phase, none of which are ever written
-// to the database.
+// NONE, none of which are ever written to the database.
 const ErrPhaseNotPersisted = errors.ConstError("migration phase is not persisted")
 
 // persistedPhaseIDs maps each migration phase to the primary key it is stored
@@ -21,9 +20,8 @@ const ErrPhaseNotPersisted = errors.ConstError("migration phase is not persisted
 // (domain/schema/controller/sql/0031-model-migration.PATCH.sql). It is the
 // single source of truth for Go<->SQL phase conversion. The mapping is explicit
 // and deliberately does NOT track the enum ordinal: the lookup omits the
-// code-only sentinels UNKNOWN/NONE and the retired PROCESSRELATIONS phase, so
-// the Go enum and the persisted ids must be reconciled by name/value here
-// rather than by position.
+// code-only sentinels UNKNOWN and NONE, so the Go enum and the persisted ids
+// must be reconciled by name/value here rather than by position.
 var persistedPhaseIDs = map[Phase]int{
 	QUIESCE:     1,
 	IMPORT:      2,
@@ -46,7 +44,6 @@ const (
 	NONE
 	QUIESCE
 	IMPORT
-	PROCESSRELATIONS
 	VALIDATION
 	SUCCESS
 	LOGTRANSFER
@@ -62,7 +59,6 @@ var phaseNames = []string{
 	"NONE",    // For watchers to indicate there's never been a migration attempt.
 	"QUIESCE",
 	"IMPORT",
-	"PROCESSRELATIONS",
 	"VALIDATION",
 	"SUCCESS",
 	"LOGTRANSFER",
@@ -77,7 +73,6 @@ var phaseNames = []string{
 func SuccessfulMigrationPhases() []Phase {
 	return []Phase{
 		IMPORT,
-		PROCESSRELATIONS,
 		VALIDATION,
 		SUCCESS,
 		LOGTRANSFER,
@@ -120,7 +115,7 @@ func (p Phase) IsRunning() bool {
 		return false
 	}
 	switch p {
-	case QUIESCE, IMPORT, PROCESSRELATIONS, VALIDATION, SUCCESS:
+	case QUIESCE, IMPORT, VALIDATION, SUCCESS:
 		return true
 	default:
 		return false
@@ -144,21 +139,13 @@ func (p Phase) IsPostSuccess() bool {
 // The keys are the "from" states and the values enumerate the
 // possible "to" states.
 var validTransitions = map[Phase][]Phase{
-	QUIESCE: {IMPORT, ABORT},
-	// VALIDATION is the new-path successor of IMPORT: PROCESSRELATIONS is
-	// retired (it has no actions attached and no persisted lookup row, see
-	// PhasePersistedID). The PROCESSRELATIONS edges are retained transitionally
-	// so the legacy migrationmaster worker, which still emits PROCESSRELATIONS,
-	// keeps a non-terminal phase to walk through until it is rewritten to drive
-	// the de-stubbed domain service directly. New-path callers go
-	// IMPORT -> VALIDATION and never set PROCESSRELATIONS.
-	IMPORT:           {VALIDATION, PROCESSRELATIONS, ABORT},
-	PROCESSRELATIONS: {VALIDATION, ABORT},
-	VALIDATION:       {SUCCESS, ABORT},
-	SUCCESS:          {LOGTRANSFER},
-	LOGTRANSFER:      {REAP},
-	REAP:             {DONE, REAPFAILED},
-	ABORT:            {ABORTDONE},
+	QUIESCE:     {IMPORT, ABORT},
+	IMPORT:      {VALIDATION, ABORT},
+	VALIDATION:  {SUCCESS, ABORT},
+	SUCCESS:     {LOGTRANSFER},
+	LOGTRANSFER: {REAP},
+	REAP:        {DONE, REAPFAILED},
+	ABORT:       {ABORTDONE},
 }
 
 var terminalPhases []Phase
@@ -186,9 +173,9 @@ func ParsePhase(target string) (Phase, bool) {
 
 // PhasePersistedID returns the primary key under which the phase is stored in
 // the model_migration_phase lookup table. Phases that are never persisted
-// (UNKNOWN, NONE and the retired PROCESSRELATIONS) return ErrPhaseNotPersisted.
-// Callers that persist or read the current migration phase must use this
-// conversion rather than the enum ordinal or Phase.String().
+// (UNKNOWN and NONE) return ErrPhaseNotPersisted. Callers that persist or read
+// the current migration phase must use this conversion rather than the enum
+// ordinal or Phase.String().
 func PhasePersistedID(p Phase) (int, error) {
 	id, ok := persistedPhaseIDs[p]
 	if !ok {

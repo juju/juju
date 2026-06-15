@@ -64,7 +64,6 @@ func (s *PhaseSuite) TestIsRunning(c *tc.C) {
 
 	c.Check(migration.QUIESCE.IsRunning(), tc.IsTrue)
 	c.Check(migration.IMPORT.IsRunning(), tc.IsTrue)
-	c.Check(migration.PROCESSRELATIONS.IsRunning(), tc.IsTrue)
 	c.Check(migration.SUCCESS.IsRunning(), tc.IsTrue)
 
 	c.Check(migration.LOGTRANSFER.IsRunning(), tc.IsFalse)
@@ -79,15 +78,10 @@ func (s *PhaseSuite) TestCanTransitionTo(c *tc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), tc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), tc.IsTrue)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.IMPORT), tc.IsTrue)
-	c.Check(migration.QUIESCE.CanTransitionTo(migration.PROCESSRELATIONS), tc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), tc.IsFalse)
 	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), tc.IsFalse)
 
-	// The new migration path skips the retired PROCESSRELATIONS phase: IMPORT
-	// transitions directly to VALIDATION. The PROCESSRELATIONS edge is retained
-	// transitionally for the legacy worker.
 	c.Check(migration.IMPORT.CanTransitionTo(migration.VALIDATION), tc.IsTrue)
-	c.Check(migration.IMPORT.CanTransitionTo(migration.PROCESSRELATIONS), tc.IsTrue)
 	c.Check(migration.IMPORT.CanTransitionTo(migration.ABORT), tc.IsTrue)
 	c.Check(migration.IMPORT.CanTransitionTo(migration.SUCCESS), tc.IsFalse)
 }
@@ -120,15 +114,12 @@ func (s *PhaseSuite) TestPhasePersistedIDRoundTrip(c *tc.C) {
 	}
 }
 
-// TestPhasePersistedIDRejectsNonPersisted asserts the code-only sentinels and
-// the retired PROCESSRELATIONS phase have no persisted representation. This is
-// the reconciliation guard that keeps the Go enum and the SQL lookup in sync
-// while PROCESSRELATIONS still exists in the enum.
+// TestPhasePersistedIDRejectsNonPersisted asserts the code-only sentinels have
+// no persisted representation, keeping the Go enum and SQL lookup in sync.
 func (s *PhaseSuite) TestPhasePersistedIDRejectsNonPersisted(c *tc.C) {
 	for _, phase := range []migration.Phase{
 		migration.UNKNOWN,
 		migration.NONE,
-		migration.PROCESSRELATIONS,
 		migration.Phase(-1),
 	} {
 		_, err := migration.PhasePersistedID(phase)

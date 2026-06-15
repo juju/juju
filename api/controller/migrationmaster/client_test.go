@@ -24,10 +24,8 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/migrationmaster"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
-	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -287,99 +285,6 @@ func (s *ClientSuite) TestPrechecks(c *tc.C) {
 	stub.CheckCalls(c, []testhelpers.StubCall{
 		{FuncName: "MigrationMaster.Prechecks", Args: []any{"", expectedArg}},
 	})
-}
-
-func (s *ClientSuite) TestProcessRelations(c *tc.C) {
-	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
-		stub.AddCall(objType+"."+request, id, arg)
-		return nil
-	})
-
-	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.ProcessRelations(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *ClientSuite) TestProcessRelationsError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
-		return errors.New("blam")
-	})
-	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.ProcessRelations(c.Context(), "foo")
-	c.Assert(err, tc.ErrorMatches, "blam")
-}
-
-func (s *ClientSuite) TestExport(c *tc.C) {
-	var stub testhelpers.Stub
-
-	fpHash := charmresource.NewFingerprintHash()
-	appFp := fpHash.Fingerprint()
-
-	appTs := time.Now()
-
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
-		stub.AddCall(objType+"."+request, id, arg)
-		out := result.(*params.SerializedModel)
-		*out = params.SerializedModel{
-			Bytes:  []byte("foo"),
-			Charms: []string{"ch:foo-1"},
-			Tools: []params.SerializedModelTools{{
-				Version: "2.0.0-ubuntu-amd64",
-				URI:     "/tools/0",
-				SHA256:  "439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e",
-			}},
-			Resources: []params.SerializedModelResource{{
-				Application:    "fooapp",
-				Name:           "bin",
-				Revision:       2,
-				Type:           "file",
-				Origin:         "upload",
-				FingerprintHex: appFp.Hex(),
-				Size:           123,
-				Timestamp:      appTs,
-				Username:       "bob",
-			}},
-		}
-		return nil
-	})
-	client := migrationmaster.NewClient(apiCaller, nil)
-	out, err := client.Export(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.Export", Args: []any{"", nil}},
-	})
-	c.Assert(out, tc.DeepEquals, migration.SerializedModel{
-		Bytes:  []byte("foo"),
-		Charms: []string{"ch:foo-1"},
-		Tools: map[string]semversion.Binary{
-			"439c9ea02f8561c5a152d7cf4818d72cd5f2916b555d82c5eee599f5e8f3d09e": semversion.MustParseBinary("2.0.0-ubuntu-amd64"),
-		},
-		Resources: []resource.Resource{{
-			Resource: charmresource.Resource{
-				Meta: charmresource.Meta{
-					Name: "bin",
-					Type: charmresource.TypeFile,
-				},
-				Origin:      charmresource.OriginUpload,
-				Revision:    2,
-				Fingerprint: appFp,
-				Size:        123,
-			},
-			ApplicationName: "fooapp",
-			RetrievedBy:     "bob",
-			Timestamp:       appTs,
-		}},
-	})
-}
-
-func (s *ClientSuite) TestExportError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
-		return errors.New("blam")
-	})
-	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.Export(c.Context())
-	c.Assert(err, tc.ErrorMatches, "blam")
 }
 
 const resourceContent = "resourceful"

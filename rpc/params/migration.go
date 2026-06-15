@@ -122,15 +122,8 @@ type SerializedModelResource struct {
 	Username       string    `json:"username,omitempty"`
 }
 
-// SerializedModelV2PayloadLimit is the default maximum size, in bytes, of the
-// model-DB YAML payload carried in [SerializedModelV2.Payload]. It is validated
-// by the source before RPC and by the target's v8 Prechecks/Import before the
-// YAML is decoded. It bounds the model-DB payload only, not the API websocket
-// frame or the binary-transfer HTTP endpoints.
-const SerializedModelV2PayloadLimit = 200 * 1024 * 1024 // 200 MiB
-
 // SerializedModelV2 is the wire envelope for the new (v8) model-migration
-// import/precheck path. Controller-scoped facts ride as typed semantic fields;
+// import/precheck path. Controller-scoped data ride as typed semantic fields;
 // only the model-DB content is a serialized YAML payload that flows through the
 // transformer chain. The typed fields evolve additively only (the standard
 // rpc/params rule) and must never carry source-local integer IDs or
@@ -145,8 +138,7 @@ type SerializedModelV2 struct {
 	// Payload is the YAML-encoded concrete generated
 	// domain/export/types/vX_Y_Z.ModelExport at PayloadVersion. It is the only
 	// field the transformer chain walks. The domain/export.ModelExport wrapper
-	// is NOT serialized into this field. Its size is validated against
-	// SerializedModelV2PayloadLimit before decode.
+	// is NOT serialized into this field.
 	Payload []byte `json:"payload"`
 
 	// ModelInfo carries the bootstrap identity for the migrating model. It is

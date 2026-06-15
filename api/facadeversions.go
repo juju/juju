@@ -70,13 +70,17 @@ var facadeVersions = facades.FacadeVersions{
 	// Note that this version of Juju does not implement version 10
 	// of the facade, but 3.6 does. Care must be taken not to break
 	// client compatibility with the prior version.
-	"MachineManager":               {10, 11},
-	"Machiner":                     {5, 6},
-	"MigrationFlag":                {1},
-	"MigrationMaster":              {4, 5},
-	"MigrationMinion":              {1},
-	"MigrationStatusWatcher":       {1},
-	"MigrationTarget":              {4, 5, 6, 7},
+	"MachineManager":         {10, 11},
+	"Machiner":               {5, 6},
+	"MigrationFlag":          {1},
+	"MigrationMaster":        {4, 5},
+	"MigrationMinion":        {1},
+	"MigrationStatusWatcher": {1},
+	// Note that this version of Juju does not register version 8 of the
+	// MigrationTarget facade; it is the SerializedModelV2 import facade
+	// registered by 4.1+ targets. The migration master worker requires v8
+	// to negotiate the new model migration path against those targets.
+	"MigrationTarget":              {4, 5, 6, 7, 8},
 	"ModelConfig":                  {3, 4},
 	"ModelManager":                 {9, 10, 11},
 	"ModelSummaryWatcher":          {1},

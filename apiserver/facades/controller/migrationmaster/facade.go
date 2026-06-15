@@ -13,12 +13,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/rpc/params"
@@ -279,17 +277,6 @@ func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationSt
 	if err != nil {
 		return errors.Annotate(err, "failed to set status message")
 	}
-	return nil
-}
-
-// Export serializes the model associated with the API connection.
-func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
-	return params.SerializedModel{}, internalerrors.New("export not supported in this API version").Add(coreerrors.NotSupported)
-}
-
-// ProcessRelations processes any relations that need updating after an export.
-// This should help fix any remoteApplications that have been migrated.
-func (api *API) ProcessRelations(ctx context.Context, args params.ProcessRelations) error {
 	return nil
 }
 
