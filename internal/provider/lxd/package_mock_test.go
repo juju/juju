@@ -54,6 +54,7 @@ type MockServerMockRecorder struct {
 	getInstanceExpects                  []*gomock.Call1_3[string, *api.Instance, string, error]
 	getInstanceStateExpects             []*gomock.Call1_3[string, *api.InstanceState, string, error]
 	getNICsFromProfileExpects           []*gomock.Call1_2[string, map[string]map[string]string, error]
+	getNetworkNamesExpects              []*gomock.Call0_2[[]string, error]
 	getNetworkStateExpects              []*gomock.Call1_2[string, *api.NetworkState, error]
 	getNetworksExpects                  []*gomock.Call0_2[[]api.Network, error]
 	getProfileExpects                   []*gomock.Call1_3[string, *api.Profile, string, error]
@@ -493,6 +494,24 @@ func (mr *MockServerMockRecorder) GetNICsFromProfile(profName any) *MockServerGe
 
 // MockServerGetNICsFromProfileCall is the typed call wrapper for GetNICsFromProfile.
 type MockServerGetNICsFromProfileCall = gomock.Call1_2[string, map[string]map[string]string, error]
+
+// GetNetworkNames mocks base method.
+func (m *MockServer) GetNetworkNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.getNetworkNamesExpects, m.ctrl, m, "GetNetworkNames")
+}
+
+// GetNetworkNames indicates an expected call of GetNetworkNames.
+func (mr *MockServerMockRecorder) GetNetworkNames() *MockServerGetNetworkNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[[]string, error](mr.mock.ctrl.T, mr.mock, "GetNetworkNames")
+	mr.getNetworkNamesExpects = append(mr.getNetworkNamesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockServerGetNetworkNamesCall is the typed call wrapper for GetNetworkNames.
+type MockServerGetNetworkNamesCall = gomock.Call0_2[[]string, error]
 
 // GetNetworkState mocks base method.
 func (m *MockServer) GetNetworkState(name string) (*api.NetworkState, error) {

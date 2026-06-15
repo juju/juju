@@ -83,6 +83,7 @@ type Server interface {
 	Name() string
 	HasExtension(extension string) (exists bool)
 	GetNetworks() ([]lxdapi.Network, error)
+	GetNetworkNames() ([]string, error)
 	GetNetworkState(name string) (*lxdapi.NetworkState, error)
 	GetInstance(name string) (*lxdapi.Instance, string, error)
 	GetInstanceState(name string) (*lxdapi.InstanceState, string, error)

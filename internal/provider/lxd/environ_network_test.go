@@ -45,28 +45,16 @@ func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 		},
 	}, nil)
 
-	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{
-		{
-			Name: "ovs-system",
-			Type: "bridge",
-		},
-		{
-			Name: "lxdbr0",
-			Type: "bridge",
-		},
-		// This should be filtered, as it is not a bridge.
-		{
-			Name: "phys-nic-0",
-			Type: "physical",
-		},
-	}, nil)
+	srv.EXPECT().GetNetworkNames().Return([]string{"ovs-system", "lxdbr0", "phys-nic-0"}, nil)
 	srv.EXPECT().GetNetworkState("ovs-system").Return(&lxdapi.NetworkState{
-		Type:  "broadcast",
-		State: "down", // should be filtered out because it's down
+		Type:   "broadcast",
+		State:  "down", // should be filtered out because it's down
+		Bridge: &lxdapi.NetworkStateBridge{},
 	}, nil)
 	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
-		Type:  "broadcast",
-		State: "up",
+		Type:   "broadcast",
+		State:  "up",
+		Bridge: &lxdapi.NetworkStateBridge{},
 		Addresses: []lxdapi.NetworkStateAddress{
 			{
 				Family:  "inet",
@@ -87,6 +75,11 @@ func (s *environNetSuite) TestSubnetsForClustered(c *tc.C) {
 				Scope:   "link", // ignored because it has link scope
 			},
 		},
+	}, nil)
+	// This should be filtered, as it is not a bridge.
+	srv.EXPECT().GetNetworkState("phys-nic-0").Return(&lxdapi.NetworkState{
+		Type:  "broadcast",
+		State: "up",
 	}, nil)
 
 	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
@@ -119,13 +112,11 @@ func (s *environNetSuite) TestSubnetsForSubnetFiltering(c *tc.C) {
 	defer ctrl.Finish()
 
 	srv := lxd.NewMockServer(ctrl)
-	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{{
-		Name: "lxdbr0",
-		Type: "bridge",
-	}}, nil)
+	srv.EXPECT().GetNetworkNames().Return([]string{"lxdbr0"}, nil)
 	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
-		Type:  "broadcast",
-		State: "up",
+		Type:   "broadcast",
+		State:  "up",
+		Bridge: &lxdapi.NetworkStateBridge{},
 		Addresses: []lxdapi.NetworkStateAddress{
 			{
 				Family:  "inet",

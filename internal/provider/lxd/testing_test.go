@@ -709,6 +709,10 @@ func (*StubClient) HasExtension(_ string) bool {
 	panic("this stub is deprecated; use mocks instead")
 }
 
+func (conn *StubClient) GetNetworkNames() ([]string, error) {
+	panic("this stub is deprecated; use mocks instead")
+}
+
 func (conn *StubClient) GetNetworks() ([]api.Network, error) {
 	panic("this stub is deprecated; use mocks instead")
 }

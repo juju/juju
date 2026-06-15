@@ -32,11 +32,8 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 		return nil, errors.Annotate(err, "retrieving lxd availability zones")
 	}
 
-	networks, err := srv.GetNetworks()
+	networkStates, err := providerNetworkStates(srv)
 	if err != nil {
-		if isErrMissingAPIExtension(err, "network") {
-			return nil, errors.NewNotSupported(nil, `subnet discovery requires the "network" extension to be enabled on the lxd server`)
-		}
 		return nil, errors.Trace(err)
 	}
 
@@ -52,18 +49,10 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 		subnets       []network.SubnetInfo
 		uniqueSubnets = set.NewStrings()
 	)
-	for _, networkDetails := range networks {
-		if networkDetails.Type != "bridge" {
+	for _, networkDetails := range networkStates {
+		state := networkDetails.state
+		if state.Bridge == nil {
 			continue
-		}
-
-		networkName := networkDetails.Name
-		state, err := srv.GetNetworkState(networkName)
-		if err != nil {
-			if isErrMissingAPIExtension(err, "network_state") {
-				return nil, errors.Errorf("network_state extension unsupported; upgrade to a newer version of LXD")
-			}
-			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", networkName)
 		}
 
 		// We are only interested in networks that are up.
@@ -90,11 +79,42 @@ func (e *environ) Subnets(ctx context.Context, subnetIDs []network.Id) ([]networ
 			}
 
 			uniqueSubnets.Add(cidr)
-			subnets = append(subnets, makeSubnetInfo(cidr, networkName, availabilityZones))
+			subnets = append(subnets, makeSubnetInfo(cidr, networkDetails.name, availabilityZones))
 		}
 	}
 
 	return subnets, nil
+}
+
+type providerNetworkState struct {
+	name  string
+	state *lxdapi.NetworkState
+}
+
+func providerNetworkStates(srv Server) ([]providerNetworkState, error) {
+	networkNames, err := srv.GetNetworkNames()
+	if err != nil {
+		if isErrMissingAPIExtension(err, "network") {
+			return nil, errors.NewNotSupported(nil, `subnet discovery requires the "network" extension to be enabled on the lxd server`)
+		}
+		return nil, errors.Trace(err)
+	}
+
+	networkStates := make([]providerNetworkState, 0, len(networkNames))
+	for _, networkName := range networkNames {
+		state, err := srv.GetNetworkState(networkName)
+		if err != nil {
+			if isErrMissingAPIExtension(err, "network_state") {
+				return nil, errors.Errorf("network_state extension unsupported; upgrade to a newer version of LXD")
+			}
+			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", networkName)
+		}
+		if state == nil {
+			return nil, errors.Errorf("network state %q not found", networkName)
+		}
+		networkStates = append(networkStates, providerNetworkState{name: networkName, state: state})
+	}
+	return networkStates, nil
 }
 
 func makeSubnetInfo(cidr, networkName string, availabilityZones network.AvailabilityZones) network.SubnetInfo {
