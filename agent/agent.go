@@ -252,6 +252,14 @@ type Config interface {
 	// changes this value is saved.
 	LoggingConfig() string
 
+	// LokiEndpoint returns the Loki endpoint for this agent. Empty means
+	// logs are sent through the controller logsink.
+	LokiEndpoint() string
+
+	// LokiCACert returns the CA certificate used to validate the Loki
+	// endpoint.
+	LokiCACert() string
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -348,6 +356,10 @@ type configSetterOnly interface {
 
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
+
+	// SetLokiConfig sets the Loki config values for the agent. The endpoint
+	// and CA certificate are updated together.
+	SetLokiConfig(endpoint, caCert string)
 
 	// SetQueryTracingEnabled sets whether query tracing is enabled.
 	SetQueryTracingEnabled(bool)
@@ -451,6 +463,8 @@ type configInternal struct {
 	oldPassword                        string
 	controllerAgentInfo                *controller.ControllerAgentInfo
 	loggingConfig                      string
+	lokiEndpoint                       string
+	lokiCACert                         string
 	values                             map[string]string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
@@ -711,6 +725,22 @@ func (c *configInternal) LoggingConfig() string {
 // SetLoggingConfig implements configSetterOnly.
 func (c *configInternal) SetLoggingConfig(value string) {
 	c.loggingConfig = value
+}
+
+// LokiEndpoint implements Config.
+func (c *configInternal) LokiEndpoint() string {
+	return c.lokiEndpoint
+}
+
+// LokiCACert implements Config.
+func (c *configInternal) LokiCACert() string {
+	return c.lokiCACert
+}
+
+// SetLokiConfig implements configSetterOnly.
+func (c *configInternal) SetLokiConfig(endpoint, caCert string) {
+	c.lokiEndpoint = endpoint
+	c.lokiCACert = caCert
 }
 
 func (c *configInternal) SetOldPassword(oldPassword string) {

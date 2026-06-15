@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+http_endpoint="$(config-get http-endpoint)"
+grpc_endpoint="$(config-get grpc-endpoint)"
+ca_cert="$(config-get ca-cert)"
+loki_url="$(config-get loki-url)"
+loki_endpoint="$(printf '{"url":"%s"}' "${loki_url}")"
+
+relation-set \
+    http_endpoint="${http_endpoint}" \
+    grpc_endpoint="${grpc_endpoint}" \
+    ca_cert="${ca_cert}" \
+    url="${loki_url}" \
+    endpoint="${loki_endpoint}"
+
+if is-leader; then
+    relation-set --app \
+        http_endpoint="${http_endpoint}" \
+        grpc_endpoint="${grpc_endpoint}" \
+        ca_cert="${ca_cert}" \
+        url="${loki_url}" \
+        endpoint="${loki_endpoint}"
+fi
+
+status-set active "published endpoints"

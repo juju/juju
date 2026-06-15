@@ -623,6 +623,7 @@ const (
 	operationPrunerName          = "operation-pruner"
 	leaseManagerName             = "lease-manager"
 	loggingConfigUpdaterName     = "logging-config-updater"
+	lokiEndpointUpdaterName      = "loki-endpoint-updater"
 	machineUndertakerName        = "machine-undertaker"
 	providerServiceFactoriesName = "provider-service-factories"
 	providerTrackerName          = "provider-tracker"

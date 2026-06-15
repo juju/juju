@@ -90,6 +90,7 @@ import (
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsink"
+	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machineconverter"
 	"github.com/juju/juju/internal/worker/machiner"
@@ -523,6 +524,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LoggerContext:   internallogger.DefaultContext(),
 			Logger:          internallogger.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
+		})),
+
+		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
@@ -1467,6 +1475,7 @@ const (
 	leaseExpiryName                    = "lease-expiry"
 	leaseManagerName                   = "lease-manager"
 	loggingConfigUpdaterName           = "logging-config-updater"
+	lokiEndpointUpdaterName            = "loki-endpoint-updater"
 	logSinkName                        = "log-sink"
 	lxdContainerProvisioner            = "lxd-container-provisioner"
 	machineActionName                  = "machine-action-runner"

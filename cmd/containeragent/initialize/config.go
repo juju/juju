@@ -95,6 +95,14 @@ func (c *configFromEnv) LoggingConfig() string {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) LokiEndpoint() string {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) LokiCACert() string {
+	panic("not implemented")
+}
+
 func (c *configFromEnv) Value(key string) string {
 	panic("not implemented")
 }

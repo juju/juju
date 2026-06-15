@@ -58,6 +58,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"leadership-tracker",
 		"log-sender",
 		"logging-config-updater",
+		"loki-endpoint-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -155,6 +156,14 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	"log-sender": {"agent", "api-caller", "api-config-watcher"},
 
 	"logging-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+	},
+
+	"loki-endpoint-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

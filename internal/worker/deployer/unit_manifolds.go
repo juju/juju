@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/worker/leadership"
 	loggerworker "github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/retrystrategy"
@@ -186,6 +187,13 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
+		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             config.LoggerContext.GetLogger("juju.worker.lokiendpointupdater"),
+		})),
+
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
@@ -289,6 +297,7 @@ const (
 	migrationMinionName       = "migration-minion"
 
 	loggingConfigUpdaterName = "logging-config-updater"
+	lokiEndpointUpdaterName  = "loki-endpoint-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 
 	charmDirName          = "charm-dir"

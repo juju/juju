@@ -48,6 +48,8 @@ type format_2_0Serialization struct {
 
 	OldPassword   string            `yaml:"oldpassword,omitempty"`
 	LoggingConfig string            `yaml:"loggingconfig,omitempty"`
+	LokiEndpoint  string            `yaml:"lokiendpoint,omitempty"`
+	LokiCACert    string            `yaml:"lokicacert,omitempty"`
 	Values        map[string]string `yaml:"values"`
 
 	AgentLogfileMaxSizeMB  int `yaml:"agent-logfile-max-size"`
@@ -117,6 +119,8 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		statePassword:     format.StatePassword,
 		oldPassword:       format.OldPassword,
 		loggingConfig:     format.LoggingConfig,
+		lokiEndpoint:      format.LokiEndpoint,
+		lokiCACert:        format.LokiCACert,
 		values:            format.Values,
 
 		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
@@ -179,6 +183,8 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		CACert:            config.caCert,
 		OldPassword:       config.oldPassword,
 		LoggingConfig:     config.loggingConfig,
+		LokiEndpoint:      config.lokiEndpoint,
+		LokiCACert:        config.lokiCACert,
 		Values:            config.values,
 
 		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,

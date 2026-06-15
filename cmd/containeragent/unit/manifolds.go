@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/internal/worker/lifeflag"
 	wlogger "github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
@@ -317,6 +318,13 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
+		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
+		})),
+
 		// Probe HTTP server is a http server for handling probe requests from
 		// Kubernetes. It provides a mux that is used by the caas prober to
 		// register handlers.
@@ -475,6 +483,7 @@ const (
 
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
+	lokiEndpointUpdaterName  = "loki-endpoint-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 
 	caasUnitTerminationWorker = "caas-unit-termination-worker"
