@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 
@@ -527,6 +528,46 @@ func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
 	info, err := s.service().GetControllerModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info, tc.DeepEquals, expected)
+}
+
+// TestSourceControllerInfoArrangesRawStateAddresses asserts the service
+// arranges raw controller API address rows into the client-facing order.
+func (s *serviceSuite) TestSourceControllerInfoArrangesRawStateAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+		Addrs: []modelmigrationinternal.SourceControllerAddress{{
+			ControllerID: "2",
+			Address:      "10.0.0.2:17070",
+			Scope:        string(network.ScopeCloudLocal),
+			IsAgent:      true,
+		}, {
+			ControllerID: "1",
+			Address:      "10.0.0.1:17070",
+			Scope:        string(network.ScopeCloudLocal),
+			IsAgent:      true,
+		}, {
+			ControllerID: "1",
+			Address:      "192.0.2.1:17070",
+			Scope:        string(network.ScopePublic),
+			IsAgent:      true,
+		}},
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	info, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerTag, tc.DeepEquals, names.NewControllerTag(s.controllerUUID))
+	c.Check(info.ControllerAlias, tc.Equals, "source")
+	c.Check(info.Addrs, tc.DeepEquals, []string{
+		"192.0.2.1:17070",
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+	})
+	c.Check(info.CACert, tc.Equals, "ca-cert")
 }
 
 // TestGetControllerModelInfoOffererModelsError asserts offerer-pair read

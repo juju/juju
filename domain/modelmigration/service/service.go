@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -15,11 +16,13 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
@@ -153,7 +156,7 @@ type ControllerState interface {
 	// GetSourceControllerInfo returns the source controller's identity and
 	// client connection details used by the target controller to dial back
 	// during model activation.
-	GetSourceControllerInfo(ctx context.Context) (modelmigration.SourceControllerInfo, error)
+	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -380,9 +383,55 @@ func (s *Service) SourceControllerInfo(ctx context.Context) (migration.SourceCon
 	return migration.SourceControllerInfo{
 		ControllerTag:   names.NewControllerTag(info.ControllerUUID),
 		ControllerAlias: info.ControllerAlias,
-		Addrs:           info.Addrs,
+		Addrs:           sourceControllerAddrsForClients(info.Addrs),
 		CACert:          info.CACert,
 	}, nil
+}
+
+func sourceControllerAddrsForClients(addrs []modelmigrationinternal.SourceControllerAddress) []string {
+	clientAddrs := sourceControllerAddrsByControllerID(addrs)
+	controllerIDs := sourceControllerAddressKeyOrder(clientAddrs)
+
+	orderedAddrs := make([]string, 0)
+	for _, id := range controllerIDs {
+		addrs := clientAddrs[id]
+		if len(addrs) == 0 {
+			continue
+		}
+		orderedAddrs = append(
+			orderedAddrs,
+			addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...,
+		)
+	}
+	return orderedAddrs
+}
+
+func sourceControllerAddrsByControllerID(
+	addrs []modelmigrationinternal.SourceControllerAddress,
+) map[string]controllernode.APIAddresses {
+	grouped := make(map[string]controllernode.APIAddresses)
+	for _, addr := range addrs {
+		grouped[addr.ControllerID] = append(grouped[addr.ControllerID], controllernode.APIAddress{
+			Address: addr.Address,
+			IsAgent: addr.IsAgent,
+			Scope:   network.Scope(addr.Scope),
+		})
+	}
+	return grouped
+}
+
+func sourceControllerAddressKeyOrder(m map[string]controllernode.APIAddresses) []string {
+	if len(m) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(m))
+	for controllerID := range m {
+		ids = append(ids, controllerID)
+	}
+
+	sort.Strings(ids)
+	return ids
 }
 
 // InitiateMigration kicks off migrating this model to the target controller,
