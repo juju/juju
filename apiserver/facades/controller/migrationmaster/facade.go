@@ -41,9 +41,8 @@ type API struct {
 	statusServiceGetter         func(context.Context, coremodel.UUID) (StatusService, error)
 	modelAgentServiceGetter     func(context.Context, coremodel.UUID) (ModelAgentService, error)
 	machineServiceGetter        func(context.Context, coremodel.UUID) (MachineService, error)
-	controllerConfigService     ControllerConfigService
-	controllerNodeService       ControllerNodeService
-	modelInfoService            ModelInfoService
+	controllerConfigService ControllerConfigService
+	modelInfoService        ModelInfoService
 	modelService                ModelService
 	modelMigrationService       ModelMigrationService
 	store                       objectstore.ObjectStore
@@ -67,7 +66,6 @@ func NewAPI(
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
 	controllerConfigService ControllerConfigService,
-	controllerNodeService ControllerNodeService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
 	modelMigrationService ModelMigrationService,
@@ -90,9 +88,8 @@ func NewAPI(
 		statusServiceGetter:         statusServiceGetter,
 		modelAgentServiceGetter:     modelAgentServiceGetter,
 		machineServiceGetter:        machineServiceGetter,
-		controllerConfigService:     controllerConfigService,
-		controllerNodeService:       controllerNodeService,
-		modelInfoService:            modelInfoService,
+		controllerConfigService: controllerConfigService,
+		modelInfoService:        modelInfoService,
 		modelService:                modelService,
 		modelMigrationService:       modelMigrationService,
 	}, nil
@@ -176,30 +173,6 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		Name:         modelInfo.Name,
 		Qualifier:    modelInfo.Qualifier.String(),
 		AgentVersion: modelInfo.AgentVersion,
-	}, nil
-}
-
-// SourceControllerInfo returns the details required to connect to
-// the source controller for model migration.
-func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourceInfo, error) {
-	empty := params.MigrationSourceInfo{}
-
-	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving controller config")
-	}
-	cacert, _ := cfg.CACert()
-
-	apiAddresses, err := api.controllerNodeService.GetAllAPIAddressesForClients(ctx)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	return params.MigrationSourceInfo{
-		ControllerTag:   names.NewControllerTag(cfg.ControllerUUID()).String(),
-		ControllerAlias: cfg.ControllerName(),
-		Addrs:           apiAddresses,
-		CACert:          cacert,
 	}, nil
 }
 

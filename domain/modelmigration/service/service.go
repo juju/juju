@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/changestream"
@@ -148,6 +149,11 @@ type ControllerState interface {
 		offerUUIDs []string,
 		offererModels []modelmigrationinternal.OffererModel,
 	) (modelmigration.ControllerModelInfo, error)
+
+	// GetSourceControllerInfo returns the source controller's identity and
+	// client connection details used by the target controller to dial back
+	// during model activation.
+	GetSourceControllerInfo(ctx context.Context) (modelmigration.SourceControllerInfo, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -358,6 +364,25 @@ func (s *Service) GetControllerModelInfo(ctx context.Context) (modelmigration.Co
 		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading controller model info for %q: %w", s.modelUUID, err)
 	}
 	return info, nil
+}
+
+// SourceControllerInfo returns this (source) controller's identity and the
+// client connection details a target controller uses to dial back during model
+// activation.
+func (s *Service) SourceControllerInfo(ctx context.Context) (migration.SourceControllerInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	info, err := s.controllerState.GetSourceControllerInfo(ctx)
+	if err != nil {
+		return migration.SourceControllerInfo{}, errors.Capture(err)
+	}
+	return migration.SourceControllerInfo{
+		ControllerTag:   names.NewControllerTag(info.ControllerUUID),
+		ControllerAlias: info.ControllerAlias,
+		Addrs:           info.Addrs,
+		CACert:          info.CACert,
+	}, nil
 }
 
 // InitiateMigration kicks off migrating this model to the target controller,

@@ -269,3 +269,21 @@ type externalModelKey struct {
 	controllerUUID string
 	modelUUID      string
 }
+
+// caCertRow projects the CA certificate column from the controller table.
+type caCertRow struct {
+	CACert string `db:"ca_cert"`
+}
+
+// controllerNameRow projects the controller-name value from v_controller_config.
+type controllerNameRow struct {
+	Name string `db:"name"`
+}
+
+// sourceAPIAddress projects one row from the controller_api_address table.
+type sourceAPIAddress struct {
+	ControllerID string `db:"controller_id"`
+	Address      string `db:"address"`
+	Scope        string `db:"scope"`
+	IsAgent      bool   `db:"is_agent"`
+}

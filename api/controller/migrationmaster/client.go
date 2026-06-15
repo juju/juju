@@ -172,26 +172,6 @@ func (c *Client) ModelInfo(ctx context.Context) (migration.ModelInfo, error) {
 	}, nil
 }
 
-// SourceControllerInfo returns connection information about the source controller
-// and uuids of any other hosted models involved in cross model relations.
-func (c *Client) SourceControllerInfo(ctx context.Context) (migration.SourceControllerInfo, []string, error) {
-	var info params.MigrationSourceInfo
-	err := c.caller.FacadeCall(ctx, "SourceControllerInfo", nil, &info)
-	if err != nil {
-		return migration.SourceControllerInfo{}, nil, errors.Trace(err)
-	}
-	sourceTag, err := names.ParseControllerTag(info.ControllerTag)
-	if err != nil {
-		return migration.SourceControllerInfo{}, nil, errors.Trace(err)
-	}
-	return migration.SourceControllerInfo{
-		ControllerTag:   sourceTag,
-		ControllerAlias: info.ControllerAlias,
-		Addrs:           info.Addrs,
-		CACert:          info.CACert,
-	}, info.LocalRelatedModels, nil
-}
-
 // Prechecks verifies that the source controller and model are healthy
 // and able to participate in a migration.
 func (c *Client) Prechecks(ctx context.Context) error {

@@ -70,10 +70,6 @@ type Facade interface {
 	// (source) controller.
 	Prechecks(context.Context) error
 
-	// SourceControllerInfo returns connection information about the source controller
-	// and uuids of any other hosted models involved in cross model relations.
-	SourceControllerInfo(context.Context) (coremigration.SourceControllerInfo, []string, error)
-
 	// OpenResource downloads a single resource for an application.
 	OpenResource(context.Context, string, string) (io.ReadCloser, error)
 
@@ -130,6 +126,11 @@ type ModelMigrationService interface {
 
 	// MinionReports returns phase information about minions in this model.
 	MinionReports(context.Context) (coremigration.MinionReports, error)
+
+	// SourceControllerInfo returns this (source) controller's identity and
+	// client connection details used by the target controller to dial back
+	// during model activation.
+	SourceControllerInfo(context.Context) (coremigration.SourceControllerInfo, error)
 }
 
 // ExportService exposes the model-database export used as the envelope
@@ -631,11 +632,11 @@ func (w *Worker) checkTargetMachines(ctx context.Context, targetClient *migratio
 
 func (w *Worker) activateModel(ctx context.Context, targetClient *migrationtarget.Client, modelUUID string) error {
 	w.setInfoStatus(ctx, "activating model in target controller")
-	info, localRelatedModels, err := w.config.Facade.SourceControllerInfo(ctx)
+	info, err := w.config.ModelMigrationService.SourceControllerInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(targetClient.Activate(ctx, modelUUID, info, localRelatedModels))
+	return errors.Trace(targetClient.Activate(ctx, modelUUID, info, nil))
 }
 
 func (w *Worker) doSUCCESS(ctx context.Context, status coremigration.MigrationStatus) (coremigration.Phase, error) {

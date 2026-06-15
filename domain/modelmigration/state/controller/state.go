@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"sort"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -12,8 +13,10 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/cloudimagemetadata"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
@@ -1686,6 +1689,98 @@ func matchingExternalModels(
 		matched = append(matched, model)
 	}
 	return matched, nil
+}
+
+// GetSourceControllerInfo returns the source controller's identity and client
+// connection details used by the target controller to dial back during model
+// activation.
+func (s *State) GetSourceControllerInfo(ctx context.Context) (modelmigration.SourceControllerInfo, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return modelmigration.SourceControllerInfo{}, errors.Capture(err)
+	}
+
+	stmtUUID, err := s.Prepare("SELECT &entityUUID.* FROM controller", entityUUID{})
+	if err != nil {
+		return modelmigration.SourceControllerInfo{}, errors.Capture(err)
+	}
+	stmtCACert, err := s.Prepare("SELECT &caCertRow.* FROM controller", caCertRow{})
+	if err != nil {
+		return modelmigration.SourceControllerInfo{}, errors.Capture(err)
+	}
+	stmtName, err := s.Prepare(`
+SELECT value AS &controllerNameRow.name
+FROM   v_controller_config
+WHERE  key = 'controller-name'
+`, controllerNameRow{})
+	if err != nil {
+		return modelmigration.SourceControllerInfo{}, errors.Capture(err)
+	}
+	stmtAddrs, err := s.Prepare(`
+SELECT &sourceAPIAddress.*
+FROM   controller_api_address
+`, sourceAPIAddress{})
+	if err != nil {
+		return modelmigration.SourceControllerInfo{}, errors.Capture(err)
+	}
+
+	var (
+		uuidRow  entityUUID
+		certRow  caCertRow
+		nameRow  controllerNameRow
+		addrRows []sourceAPIAddress
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmtUUID).Get(&uuidRow); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("internal error: controller uuid not found")
+		} else if err != nil {
+			return errors.Errorf("getting controller uuid: %w", err)
+		}
+		if err := tx.Query(ctx, stmtCACert).Get(&certRow); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("internal error: controller ca cert not found")
+		} else if err != nil {
+			return errors.Errorf("getting controller ca cert: %w", err)
+		}
+		// controller-name may not be set; treat absent as empty alias.
+		if err := tx.Query(ctx, stmtName).Get(&nameRow); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting controller name: %w", err)
+		}
+		if err := tx.Query(ctx, stmtAddrs).GetAll(&addrRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting api addresses: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return modelmigration.SourceControllerInfo{}, errors.Capture(err)
+	}
+
+	// Group addresses by controller node ID, sort IDs for stable ordering,
+	// then prioritise each group for public scope — matching the ordering
+	// applied by the controllernode service's GetAllAPIAddressesForClients.
+	grouped := make(map[string]controllernode.APIAddresses)
+	for _, addr := range addrRows {
+		grouped[addr.ControllerID] = append(grouped[addr.ControllerID], controllernode.APIAddress{
+			Address: addr.Address,
+			IsAgent: addr.IsAgent,
+			Scope:   network.Scope(addr.Scope),
+		})
+	}
+	controllerIDs := make([]string, 0, len(grouped))
+	for id := range grouped {
+		controllerIDs = append(controllerIDs, id)
+	}
+	sort.Strings(controllerIDs)
+	var addrs []string
+	for _, id := range controllerIDs {
+		addrs = append(addrs, grouped[id].PrioritizedForScope(controllernode.ScopeMatchPublic)...)
+	}
+
+	return modelmigration.SourceControllerInfo{
+		ControllerUUID:  uuidRow.UUID,
+		ControllerAlias: nameRow.Name,
+		Addrs:           addrs,
+		CACert:          certRow.CACert,
+	}, nil
 }
 
 // derefString returns the pointed-to string or empty when nil.

@@ -187,3 +187,13 @@ type ExternalController struct {
 	Addresses      []string
 	ConsumedModels []string
 }
+
+// SourceControllerInfo holds this (source) controller's identity and the
+// client connection details a target controller uses to dial back during a
+// model migration.
+type SourceControllerInfo struct {
+	ControllerUUID  string
+	ControllerAlias string
+	Addrs           []string
+	CACert          string
+}
