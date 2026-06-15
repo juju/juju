@@ -64,9 +64,9 @@ WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHos
 }
 
 type controllerSSHHostKey struct {
-	ID             string `db:"id"`
-	EncodingTypeID int    `db:"encoding_type_id"`
-	SSHKey         string `db:"ssh_key"`
+	ID              string `db:"id"`
+	AlgorithmTypeID int    `db:"algorithm_type_id"`
+	SSHKey          string `db:"ssh_key"`
 }
 
 type controllerSSHHostKeyID struct {

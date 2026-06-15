@@ -15,9 +15,20 @@ const (
 	// key row.
 	SSHServerHostKeyUUID = "dcbfd8fd-773d-52e3-8d64-fbd27483b072"
 
-	// SSHKeyEncodingTypeOpenSSHID identifies PEM-wrapped OpenSSH private keys.
-	SSHKeyEncodingTypeOpenSSHID = 0
-	// SSHKeyEncodingTypeOpenSSH is the stored key encoding for current SSH host
+	// SSHKeyAlgorithmTypeRSAID identifies RSA SSH private keys.
+	SSHKeyAlgorithmTypeRSAID = 0
+	// SSHKeyAlgorithmTypeRSA is the stored algorithm for RSA SSH private keys.
+	SSHKeyAlgorithmTypeRSA = "ssh-rsa"
+
+	// SSHKeyAlgorithmTypeECDSA256ID identifies P-256 ECDSA SSH private keys.
+	SSHKeyAlgorithmTypeECDSA256ID = 1
+	// SSHKeyAlgorithmTypeECDSA256 is the stored algorithm for P-256 ECDSA SSH
+	// private keys.
+	SSHKeyAlgorithmTypeECDSA256 = "ecdsa-sha2-nistp256"
+
+	// SSHKeyAlgorithmTypeED25519ID identifies ED25519 SSH private keys.
+	SSHKeyAlgorithmTypeED25519ID = 2
+	// SSHKeyAlgorithmTypeED25519 is the stored algorithm for ED25519 SSH private
 	// keys.
-	SSHKeyEncodingTypeOpenSSH = "openssh"
+	SSHKeyAlgorithmTypeED25519 = "ssh-ed25519"
 )

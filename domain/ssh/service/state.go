@@ -23,14 +23,14 @@ type ModelState interface {
 	GetMachineVirtualHostKeyByMachineName(context.Context, string) (string, bool, error)
 
 	// SetMachineVirtualHostKeyByMachineName persists the machine virtual host key.
-	SetMachineVirtualHostKeyByMachineName(context.Context, string, string) error
+	SetMachineVirtualHostKeyByMachineName(context.Context, string, int, string) error
 
 	// GetUnitVirtualHostKeyByUnitName returns the unit virtual host key.
 	// The boolean indicates whether a key row exists.
 	GetUnitVirtualHostKeyByUnitName(context.Context, string) (string, bool, error)
 
 	// SetUnitVirtualHostKeyByUnitName persists the unit virtual host key.
-	SetUnitVirtualHostKeyByUnitName(context.Context, string, string) error
+	SetUnitVirtualHostKeyByUnitName(context.Context, string, int, string) error
 
 	// GetMachineNameForUnit returns the machine name for an IAAS unit.
 	// The boolean indicates whether the unit is machine backed.

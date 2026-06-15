@@ -13,6 +13,7 @@ import (
 	domainssh "github.com/juju/juju/domain/ssh"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
+	pkissh "github.com/juju/juju/internal/pki/ssh"
 )
 
 // InsertInitialSSHServerHostKey inserts the controller jump host key into the
@@ -23,13 +24,18 @@ func InsertInitialSSHServerHostKey(sshServerHostKey string) internaldatabase.Boo
 			return errors.Errorf("empty SSHServerHostKey").Add(coreerrors.NotValid)
 		}
 
+		algorithmTypeID, err := sshKeyAlgorithmTypeID(sshServerHostKey)
+		if err != nil {
+			return errors.Errorf("determining controller SSH host key algorithm: %w", err)
+		}
+
 		record := controllerSSHHostKey{
-			ID:             domainssh.SSHServerHostKeyUUID,
-			EncodingTypeID: domainssh.SSHKeyEncodingTypeOpenSSHID,
-			SSHKey:         sshServerHostKey,
+			ID:              domainssh.SSHServerHostKeyUUID,
+			AlgorithmTypeID: algorithmTypeID,
+			SSHKey:          sshServerHostKey,
 		}
 		stmt, err := sqlair.Prepare(`
-INSERT INTO controller_ssh_host_key (id, encoding_type_id, ssh_key)
+INSERT INTO controller_ssh_host_key (id, algorithm_type_id, ssh_key)
 VALUES ($controllerSSHHostKey.*)`, controllerSSHHostKey{})
 		if err != nil {
 			return errors.Capture(err)
@@ -45,7 +51,24 @@ VALUES ($controllerSSHHostKey.*)`, controllerSSHHostKey{})
 }
 
 type controllerSSHHostKey struct {
-	ID             string `db:"id"`
-	EncodingTypeID int    `db:"encoding_type_id"`
-	SSHKey         string `db:"ssh_key"`
+	ID              string `db:"id"`
+	AlgorithmTypeID int    `db:"algorithm_type_id"`
+	SSHKey          string `db:"ssh_key"`
+}
+
+func sshKeyAlgorithmTypeID(sshKey string) (int, error) {
+	algorithm, err := pkissh.PrivateKeyAlgorithm([]byte(sshKey))
+	if err != nil {
+		return 0, errors.Capture(err)
+	}
+	switch algorithm {
+	case pkissh.AlgorithmRSA:
+		return domainssh.SSHKeyAlgorithmTypeRSAID, nil
+	case pkissh.AlgorithmECDSA256:
+		return domainssh.SSHKeyAlgorithmTypeECDSA256ID, nil
+	case pkissh.AlgorithmED25519:
+		return domainssh.SSHKeyAlgorithmTypeED25519ID, nil
+	default:
+		return 0, errors.Errorf("unsupported SSH key algorithm %q", algorithm)
+	}
 }

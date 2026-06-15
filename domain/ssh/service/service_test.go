@@ -124,8 +124,10 @@ func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, bo
 type stubModelState struct {
 	machineExists   map[string]bool
 	machineKeys     map[string]string
+	machineAlgos    map[string]int
 	unitExists      map[string]bool
 	unitKeys        map[string]string
+	unitAlgos       map[string]int
 	unitMachines    map[string]string
 	machineSetCalls int
 	unitSetCalls    int
@@ -135,8 +137,10 @@ func newStubModelState() *stubModelState {
 	return &stubModelState{
 		machineExists: make(map[string]bool),
 		machineKeys:   make(map[string]string),
+		machineAlgos:  make(map[string]int),
 		unitExists:    make(map[string]bool),
 		unitKeys:      make(map[string]string),
+		unitAlgos:     make(map[string]int),
 		unitMachines:  make(map[string]string),
 	}
 }
@@ -149,11 +153,12 @@ func (s *stubModelState) GetMachineVirtualHostKeyByMachineName(_ context.Context
 	return key, found, nil
 }
 
-func (s *stubModelState) SetMachineVirtualHostKeyByMachineName(_ context.Context, machineName, key string) error {
+func (s *stubModelState) SetMachineVirtualHostKeyByMachineName(_ context.Context, machineName string, algorithmTypeID int, key string) error {
 	if !s.machineExists[machineName] {
 		return errors.Errorf("machine %q not found", machineName)
 	}
 	s.machineKeys[machineName] = key
+	s.machineAlgos[machineName] = algorithmTypeID
 	s.machineSetCalls++
 	return nil
 }
@@ -166,11 +171,12 @@ func (s *stubModelState) GetUnitVirtualHostKeyByUnitName(_ context.Context, unit
 	return key, found, nil
 }
 
-func (s *stubModelState) SetUnitVirtualHostKeyByUnitName(_ context.Context, unitName, key string) error {
+func (s *stubModelState) SetUnitVirtualHostKeyByUnitName(_ context.Context, unitName string, algorithmTypeID int, key string) error {
 	if !s.unitExists[unitName] {
 		return errors.Errorf("unit %q not found", unitName)
 	}
 	s.unitKeys[unitName] = key
+	s.unitAlgos[unitName] = algorithmTypeID
 	s.unitSetCalls++
 	return nil
 }

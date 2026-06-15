@@ -14,6 +14,7 @@ import (
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshbootstrap "github.com/juju/juju/domain/ssh/bootstrap"
 	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type stateSuite struct {
@@ -34,7 +35,7 @@ func (s *stateSuite) TestGetSSHServerHostKeyMissing(c *tc.C) {
 }
 
 func (s *stateSuite) TestGetSSHServerHostKeyExisting(c *tc.C) {
-	err := sshbootstrap.InsertInitialSSHServerHostKey(testPrivateKey)(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := sshbootstrap.InsertInitialSSHServerHostKey(jujutesting.SSHServerHostKey)(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
@@ -42,12 +43,16 @@ func (s *stateSuite) TestGetSSHServerHostKeyExisting(c *tc.C) {
 	key, found, err := st.GetSSHServerHostKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found, tc.IsTrue)
-	c.Check(key, tc.Equals, testPrivateKey)
+	c.Check(key, tc.Equals, jujutesting.SSHServerHostKey)
 
-	var storedID string
-	row := s.DB().QueryRow(`SELECT id FROM controller_ssh_host_key`)
-	c.Assert(row.Scan(&storedID), tc.ErrorIsNil)
+	var (
+		storedID        string
+		algorithmTypeID int
+	)
+	row := s.DB().QueryRow(`SELECT id, algorithm_type_id FROM controller_ssh_host_key`)
+	c.Assert(row.Scan(&storedID, &algorithmTypeID), tc.ErrorIsNil)
 	c.Check(storedID, tc.Equals, domainssh.SSHServerHostKeyUUID)
+	c.Check(algorithmTypeID, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
 }
 
 func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactory {
@@ -55,5 +60,3 @@ func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactor
 		return runner, nil
 	}
 }
-
-const testPrivateKey = "test-private-key"

@@ -220,7 +220,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"logging_loki_config",
 
 		// SSH host keys
-		"ssh_key_encoding_type",
+		"ssh_key_algorithm_type",
 		"controller_ssh_host_key",
 	)
 	got := readEntityNames(c, s.DB(), "table")

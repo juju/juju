@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/virtualhostname"
+	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 )
@@ -141,7 +142,7 @@ func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, state ModelSt
 	if err != nil {
 		return "", errors.Errorf("generating machine virtual SSH host key for %q: %w", machineName, err)
 	}
-	if err := state.SetMachineVirtualHostKeyByMachineName(ctx, machineName, key); err != nil {
+	if err := state.SetMachineVirtualHostKeyByMachineName(ctx, machineName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
 		return "", errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 	}
 	return key, nil
@@ -160,7 +161,7 @@ func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, state ModelState
 	if err != nil {
 		return "", errors.Errorf("generating unit virtual SSH host key for %q: %w", unitName, err)
 	}
-	if err := state.SetUnitVirtualHostKeyByUnitName(ctx, unitName, key); err != nil {
+	if err := state.SetUnitVirtualHostKeyByUnitName(ctx, unitName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
 		return "", errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 	}
 	return key, nil

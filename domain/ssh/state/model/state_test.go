@@ -13,6 +13,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainssh "github.com/juju/juju/domain/ssh"
 	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -49,19 +50,24 @@ func (s *stateSuite) TestSetAndGetMachineVirtualHostKey(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addMachine(c, "1")
 
-	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "1", testPrivateKey)
+	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIsNil)
 
 	key, found, err := st.GetMachineVirtualHostKeyByMachineName(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found, tc.IsTrue)
 	c.Check(key, tc.Equals, testPrivateKey)
+
+	var algorithmTypeID int
+	row := s.DB().QueryRow(`SELECT algorithm_type_id FROM machine_virtual_ssh_host_key WHERE machine_uuid = (SELECT uuid FROM machine WHERE name = ?)`, "1")
+	c.Assert(row.Scan(&algorithmTypeID), tc.ErrorIsNil)
+	c.Check(algorithmTypeID, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
 }
 
 func (s *stateSuite) TestSetMachineVirtualHostKeyMissingMachine(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 
-	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "99", testPrivateKey)
+	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "99", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
@@ -77,7 +83,7 @@ func (s *stateSuite) TestGetUnitVirtualHostKeyMissingUnit(c *tc.C) {
 func (s *stateSuite) TestSetUnitVirtualHostKeyMissingUnit(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 
-	err := st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", testPrivateKey)
+	err := st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
@@ -88,6 +94,24 @@ func (s *stateSuite) TestGetMachineNameForUnitMissingUnit(c *tc.C) {
 	c.Check(machineName, tc.Equals, "")
 	c.Check(machineBacked, tc.IsFalse)
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestSetAndGetUnitVirtualHostKey(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	s.addUnit(c, "postgresql/0")
+
+	err := st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	c.Assert(err, tc.ErrorIsNil)
+
+	key, found, err := st.GetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(found, tc.IsTrue)
+	c.Check(key, tc.Equals, testPrivateKey)
+
+	var algorithmTypeID int
+	row := s.DB().QueryRow(`SELECT algorithm_type_id FROM unit_virtual_ssh_host_key WHERE unit_uuid = (SELECT uuid FROM unit WHERE name = ?)`, "postgresql/0")
+	c.Assert(row.Scan(&algorithmTypeID), tc.ErrorIsNil)
+	c.Check(algorithmTypeID, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
 }
 
 func (s *stateSuite) addMachine(c *tc.C, name string) string {
@@ -101,6 +125,32 @@ VALUES (?, ?, ?, (SELECT id FROM life WHERE value = 'alive'))
 `, machineUUID, name, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	return machineUUID
+}
+
+func (s *stateSuite) addUnit(c *tc.C, name string) string {
+	unitUUID := uuid.MustNewUUID().String()
+	applicationUUID := uuid.MustNewUUID().String()
+	charmUUID := uuid.MustNewUUID().String()
+	netNodeUUID := uuid.MustNewUUID().String()
+	spaceUUID := uuid.MustNewUUID().String()
+
+	_, err := s.DB().ExecContext(c.Context(), `INSERT INTO space (uuid, name) VALUES (?, ?)`, spaceUUID, "space-"+spaceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `INSERT INTO charm (uuid, source_id, reference_name, revision, architecture_id) VALUES (?, 0, 'postgresql', 0, 0)`, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `INSERT INTO charm_metadata (charm_uuid, name) VALUES (?, 'postgresql')`, charmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)`, applicationUUID, "postgresql", charmUUID, spaceUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(), `
+INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid)
+VALUES (?, ?, 0, ?, ?, ?)
+`, unitUUID, name, applicationUUID, charmUUID, netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	return unitUUID
 }
 
 func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactory {

@@ -85,7 +85,7 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 
 // SetMachineVirtualHostKeyByMachineName persists the virtual host key for the
 // named machine.
-func (st *State) SetMachineVirtualHostKeyByMachineName(ctx context.Context, machineName, sshKey string) error {
+func (st *State) SetMachineVirtualHostKeyByMachineName(ctx context.Context, machineName string, algorithmTypeID int, sshKey string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -100,9 +100,9 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 		return errors.Capture(err)
 	}
 	upsertStmt, err := st.Prepare(`
-INSERT INTO machine_virtual_ssh_host_key (machine_uuid, ssh_key)
+INSERT INTO machine_virtual_ssh_host_key (machine_uuid, algorithm_type_id, ssh_key)
 VALUES ($machineVirtualSSHHostKey.*)
-ON CONFLICT(machine_uuid) DO UPDATE SET ssh_key = excluded.ssh_key`, machineVirtualSSHHostKey{})
+ON CONFLICT(machine_uuid) DO UPDATE SET algorithm_type_id = excluded.algorithm_type_id, ssh_key = excluded.ssh_key`, machineVirtualSSHHostKey{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -117,7 +117,7 @@ ON CONFLICT(machine_uuid) DO UPDATE SET ssh_key = excluded.ssh_key`, machineVirt
 			return errors.Errorf("querying machine %q: %w", machineName, err)
 		}
 
-		record := machineVirtualSSHHostKey{MachineUUID: machineUUID.UUID, SSHKey: sshKey}
+		record := machineVirtualSSHHostKey{MachineUUID: machineUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
 		if err := tx.Query(ctx, upsertStmt, record).Run(); err != nil {
 			return errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 		}
@@ -185,7 +185,7 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 
 // SetUnitVirtualHostKeyByUnitName persists the virtual host key for the named
 // unit.
-func (st *State) SetUnitVirtualHostKeyByUnitName(ctx context.Context, unitName, sshKey string) error {
+func (st *State) SetUnitVirtualHostKeyByUnitName(ctx context.Context, unitName string, algorithmTypeID int, sshKey string) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -200,9 +200,9 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 		return errors.Capture(err)
 	}
 	upsertStmt, err := st.Prepare(`
-INSERT INTO unit_virtual_ssh_host_key (unit_uuid, ssh_key)
+INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
 VALUES ($unitVirtualSSHHostKey.*)
-ON CONFLICT(unit_uuid) DO UPDATE SET ssh_key = excluded.ssh_key`, unitVirtualSSHHostKey{})
+ON CONFLICT(unit_uuid) DO UPDATE SET algorithm_type_id = excluded.algorithm_type_id, ssh_key = excluded.ssh_key`, unitVirtualSSHHostKey{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -217,7 +217,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET ssh_key = excluded.ssh_key`, unitVirtualSSH
 			return errors.Errorf("querying unit %q: %w", unitName, err)
 		}
 
-		record := unitVirtualSSHHostKey{UnitUUID: unitUUID.UUID, SSHKey: sshKey}
+		record := unitVirtualSSHHostKey{UnitUUID: unitUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
 		if err := tx.Query(ctx, upsertStmt, record).Run(); err != nil {
 			return errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 		}

@@ -11,6 +11,7 @@ import (
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type bootstrapSuite struct {
@@ -22,13 +23,17 @@ func TestBootstrapSuite(t *stdtesting.T) {
 }
 
 func (s *bootstrapSuite) TestInsertInitialSSHServerHostKey(c *tc.C) {
-	err := InsertInitialSSHServerHostKey(testPrivateKey)(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	err := InsertInitialSSHServerHostKey(jujutesting.SSHServerHostKey)(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorIsNil)
 
-	var key string
-	row := s.DB().QueryRow(`SELECT ssh_key FROM controller_ssh_host_key WHERE id = ?`, domainssh.SSHServerHostKeyUUID)
-	c.Assert(row.Scan(&key), tc.ErrorIsNil)
-	c.Check(key, tc.Equals, testPrivateKey)
+	var (
+		algorithmTypeID int
+		key             string
+	)
+	row := s.DB().QueryRow(`SELECT algorithm_type_id, ssh_key FROM controller_ssh_host_key WHERE id = ?`, domainssh.SSHServerHostKeyUUID)
+	c.Assert(row.Scan(&algorithmTypeID, &key), tc.ErrorIsNil)
+	c.Check(algorithmTypeID, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
+	c.Check(key, tc.Equals, jujutesting.SSHServerHostKey)
 }
 
 func (s *bootstrapSuite) TestSSHServerHostKeyUUID(c *tc.C) {
@@ -43,5 +48,3 @@ func (s *bootstrapSuite) TestInsertInitialSSHServerHostKeyValidatesEmpty(c *tc.C
 	err := InsertInitialSSHServerHostKey("")(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, tc.ErrorMatches, `empty SSHServerHostKey`)
 }
-
-const testPrivateKey = "test-private-key"

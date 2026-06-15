@@ -18,13 +18,15 @@ type sshPrivateKey struct {
 }
 
 type machineVirtualSSHHostKey struct {
-	MachineUUID string `db:"machine_uuid"`
-	SSHKey      string `db:"ssh_key"`
+	MachineUUID     string `db:"machine_uuid"`
+	AlgorithmTypeID int    `db:"algorithm_type_id"`
+	SSHKey          string `db:"ssh_key"`
 }
 
 type unitVirtualSSHHostKey struct {
-	UnitUUID string `db:"unit_uuid"`
-	SSHKey   string `db:"ssh_key"`
+	UnitUUID        string `db:"unit_uuid"`
+	AlgorithmTypeID int    `db:"algorithm_type_id"`
+	SSHKey          string `db:"ssh_key"`
 }
 
 type unitMachine struct {

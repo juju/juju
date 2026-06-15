@@ -16,6 +16,12 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+const (
+	AlgorithmRSA      = gossh.KeyAlgoRSA
+	AlgorithmECDSA256 = gossh.KeyAlgoECDSA256
+	AlgorithmED25519  = gossh.KeyAlgoED25519
+)
+
 type KeyProfile func() (crypto.PrivateKey, error)
 
 // ECDSAP256 returns a ECDSA 256 private key
@@ -95,4 +101,13 @@ func NewMarshalledED25519() ([]byte, error) {
 		return nil, err
 	}
 	return MarshalPrivateKey(privateKey)
+}
+
+// PrivateKeyAlgorithm returns the SSH algorithm for a marshalled private key.
+func PrivateKeyAlgorithm(data []byte) (string, error) {
+	signer, err := gossh.ParsePrivateKey(data)
+	if err != nil {
+		return "", errors.Annotate(err, "failed to parse private key")
+	}
+	return signer.PublicKey().Type(), nil
 }

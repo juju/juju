@@ -189,6 +189,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"unit_state",
 		"unit_workload_status",
 		"unit_workload_version",
+		"ssh_key_algorithm_type",
 		"unit_virtual_ssh_host_key",
 		"unit",
 
