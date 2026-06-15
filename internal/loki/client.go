@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/retry"
 	"gopkg.in/tomb.v2"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
@@ -50,6 +50,11 @@ type Record struct {
 
 	// SpanID is the OpenTelemetry span ID for this record, if present.
 	SpanID string
+}
+
+// HTTPClient is the HTTP client surface used by the Loki push client.
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
 }
 
 // Config holds configuration for the Loki push client.
@@ -83,7 +88,7 @@ type Config struct {
 
 	// HTTPClient is an optional HTTP client. If nil, a
 	// default client with a 10s timeout is used.
-	HTTPClient *http.Client
+	HTTPClient HTTPClient
 
 	// AsyncFlush controls whether batches are pushed in a
 	// background goroutine. When true (the default), the
@@ -103,6 +108,33 @@ type Config struct {
 	// Clock is passed to the retry logic for testing.
 	// If nil, the wall clock is used.
 	Clock clock.Clock
+}
+
+// Validate checks that the Config has valid values and returns an
+// error if any field is invalid.
+func (c Config) Validate() error {
+	if c.BatchSize <= 0 {
+		return internalerrors.Errorf("BatchSize must be positive")
+	}
+	if c.BufferSize <= 0 {
+		return internalerrors.Errorf("BufferSize must be positive")
+	}
+	if c.FlushInterval <= 0 {
+		return internalerrors.Errorf("FlushInterval must be positive")
+	}
+	if c.MaxRetries < 0 {
+		return internalerrors.Errorf("MaxRetries must not be negative")
+	}
+	if c.InitialBackoff <= 0 {
+		return internalerrors.Errorf("InitialBackoff must be positive")
+	}
+	if c.MaxBackoff <= 0 {
+		return internalerrors.Errorf("MaxBackoff must be positive")
+	}
+	if c.Clock == nil {
+		return internalerrors.Errorf("Clock must not be nil")
+	}
+	return nil
 }
 
 // DefaultConfig returns a Config with sensible defaults.
@@ -126,7 +158,7 @@ func DefaultConfig() Config {
 type Client struct {
 	endpoint   string
 	cfg        Config
-	http       *http.Client
+	http       HTTPClient
 	asyncFlush bool
 	onError    func(error)
 	onDrop     func(int)
@@ -147,57 +179,21 @@ type report struct {
 // NewClient creates and starts a new Loki push client worker.
 // The endpoint should be the full URL to the Loki push API
 // (e.g. http://loki:3100/loki/api/v1/push).
-// Invalid and unset fields in cfg are replaced with defaults.
-// MaxRetries follows retry-count semantics: 0 disables retries.
 func NewClient(endpoint string, cfg Config) (*Client, error) {
 	if endpoint == "" {
-		return nil, internalerrors.Errorf("endpoint must not be empty")
+		return nil, internalerrors.Errorf("endpoint must not be empty").Add(coreerrors.NotValid)
 	}
-	if cfg.BatchSize <= 0 {
-		cfg.BatchSize = 100
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
-	if cfg.BufferSize <= 0 {
-		cfg.BufferSize = 500
-	}
-	if cfg.FlushInterval <= 0 {
-		cfg.FlushInterval = 10 * time.Second
-	}
-	if cfg.MaxRetries < 0 {
-		cfg.MaxRetries = 3
-	}
-	if cfg.InitialBackoff <= 0 {
-		cfg.InitialBackoff = 500 * time.Millisecond
-	}
-	if cfg.MaxBackoff <= 0 {
-		cfg.MaxBackoff = 30 * time.Second
-	}
-	if cfg.Clock == nil {
-		cfg.Clock = clock.WallClock
-	}
-	httpClient := cfg.HTTPClient
-	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 10 * time.Second}
-	}
-	onError := cfg.OnError
-	if onError == nil {
-		onError = func(err error) {
-			fmt.Fprintf(os.Stderr, "loki push failed: %v\n", err)
-		}
-	}
-	onDrop := cfg.OnDrop
-	if onDrop == nil {
-		onDrop = func(count int) {
-			fmt.Fprintf(os.Stderr, "dropped %d loki log records\n", count)
-		}
-	}
-	asyncFlush := cfg.AsyncFlush == nil || *cfg.AsyncFlush
+
 	c := &Client{
 		endpoint:   endpoint,
 		cfg:        cfg,
-		http:       httpClient,
-		asyncFlush: asyncFlush,
-		onError:    onError,
-		onDrop:     onDrop,
+		http:       cfg.HTTPClient,
+		asyncFlush: cfg.AsyncFlush == nil || *cfg.AsyncFlush,
+		onError:    cfg.OnError,
+		onDrop:     cfg.OnDrop,
 		records:    make(chan Record, cfg.BufferSize),
 	}
 	c.tomb.Go(c.loop)
@@ -257,8 +253,8 @@ func (c *Client) Report(context.Context) map[string]any {
 // Kill requests the client to stop. Any buffered records are
 // flushed on a best-effort basis before the client exits.
 // Records in-flight during shutdown may be dropped.
-func (c *Client) Kill(reason error) {
-	c.tomb.Kill(reason)
+func (c *Client) Kill() {
+	c.tomb.Kill(nil)
 }
 
 // Wait blocks until the client has stopped.
@@ -283,11 +279,14 @@ func (c *Client) loop() error {
 		case <-c.tomb.Dying():
 			c.drainChannel(&buffer)
 			if len(buffer) > 0 {
-				ctx, cancel := context.WithTimeout(
-					ctx, 5*time.Second,
-				)
-				defer cancel()
-				c.pushAll(ctx, buffer)
+				func() {
+					// Don't use the tomb context here, because we want to give
+					// the flush a chance to complete even if the tomb is dying.
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+
+					c.pushAll(ctx, buffer)
+				}()
 			}
 			return tomb.ErrDying
 

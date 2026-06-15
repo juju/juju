@@ -51,10 +51,31 @@ func (s *clientSuite) TestNewClientDefaults(c *tc.C) {
 }
 
 func (s *clientSuite) TestNewClientZeroRetriesIsValid(c *tc.C) {
-	client, err := NewClient("http://loki:3100", Config{})
+	cfg := testConfig()
+	cfg.MaxRetries = 0
+	client, err := NewClient("http://loki:3100", cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer killAndWait(c, client)
 	c.Check(client.cfg.MaxRetries, tc.Equals, 0)
+}
+
+func (s *clientSuite) TestConfigValidateRejectsEmptyConfig(c *tc.C) {
+	err := Config{}.Validate()
+	c.Assert(err, tc.ErrorMatches, "BatchSize must be positive")
+}
+
+func (s *clientSuite) TestConfigValidateRejectsNegativeMaxRetries(c *tc.C) {
+	cfg := testConfig()
+	cfg.MaxRetries = -1
+	err := cfg.Validate()
+	c.Assert(err, tc.ErrorMatches, "MaxRetries must not be negative")
+}
+
+func (s *clientSuite) TestConfigValidateRejectsNilClock(c *tc.C) {
+	cfg := testConfig()
+	cfg.Clock = nil
+	err := cfg.Validate()
+	c.Assert(err, tc.ErrorMatches, "Clock must not be nil")
 }
 
 func (s *clientSuite) TestPushNoRetriesWhenMaxRetriesZero(c *tc.C) {
@@ -94,13 +115,12 @@ func (s *clientSuite) TestPushNoRetriesWhenMaxRetriesZero(c *tc.C) {
 	c.Check(attempts.Load(), tc.Equals, int32(1))
 }
 
-func (s *clientSuite) TestPushUsesWallClockWhenUnset(c *tc.C) {
+func (s *clientSuite) TestPushUsesWallClock(c *tc.C) {
 	srv, payloads := newTestServer(c)
 	defer srv.Close()
 
 	cfg := testConfig()
 	cfg.BatchSize = 1
-	cfg.Clock = nil
 
 	client, err := NewClient(srv.URL, cfg)
 	c.Assert(err, tc.ErrorIsNil)
@@ -662,7 +682,7 @@ func waitError(c *tc.C, ch <-chan error) error {
 }
 
 func killAndWait(c *tc.C, client *Client) {
-	client.Kill(nil)
+	client.Kill()
 	err := client.Wait()
 	c.Assert(err, tc.ErrorIsNil)
 }
