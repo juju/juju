@@ -45,7 +45,7 @@ type assembledModel struct {
 
 // assembleEnvelope builds a fresh params.SerializedModelV2 envelope for this
 // model from the local domain services: the model-DB export payload, the
-// controller-DB semantic facts, and the charm/tools/resources binary
+// controller-DB data, and the charm/tools/resources binary
 // references.
 func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (assembledModel, error) {
 	var empty assembledModel
@@ -64,7 +64,7 @@ func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (as
 
 	info, err := w.config.ModelMigrationService.GetControllerModelInfo(ctx)
 	if err != nil {
-		return empty, errors.Annotate(err, "reading controller facts for model")
+		return empty, errors.Annotate(err, "reading controller-db data for model")
 	}
 	envelope := envelopeFromControllerModelInfo(info, migrationUUID)
 	envelope.PayloadVersion = export.Version
@@ -105,7 +105,7 @@ func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (as
 	}, nil
 }
 
-// envelopeFromControllerModelInfo converts the controller-DB semantic facts
+// envelopeFromControllerModelInfo converts the controller-DB information
 // for the migrating model into their wire envelope form. The migration UUID
 // of the active source migration is recorded as the envelope's
 // SourceMigrationUUID.

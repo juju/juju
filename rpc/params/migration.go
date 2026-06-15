@@ -123,7 +123,7 @@ type SerializedModelResource struct {
 }
 
 // SerializedModelV2 is the wire envelope for the new (v8) model-migration
-// import/precheck path. Controller-scoped facts ride as typed semantic fields;
+// import/precheck path. Controller-scoped data ride as typed semantic fields;
 // only the model-DB content is a serialized YAML payload that flows through the
 // transformer chain. The typed fields evolve additively only (the standard
 // rpc/params rule) and must never carry source-local integer IDs or

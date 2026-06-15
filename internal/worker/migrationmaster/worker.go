@@ -109,7 +109,7 @@ type ModelMigrationService interface {
 	// [coremigration.NONE] is returned.
 	Migration(context.Context) (modelmigration.Migration, error)
 
-	// GetControllerModelInfo reads the controller-database facts scoped to
+	// GetControllerModelInfo reads the controller-database information scoped to
 	// this migrating model in target-portable semantic form.
 	GetControllerModelInfo(context.Context) (modelmigration.ControllerModelInfo, error)
 
