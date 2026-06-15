@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -3138,6 +3139,15 @@ func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) 
 
 func (mc *mockConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
 	return mc.ssi, mc.ssiSet
+}
+
+func (mc *mockConfig) APIInfo() (*api.Info, bool) {
+	return &api.Info{
+		Addrs:    []string{"0.1.2.3:1234"},
+		CACert:   "mock-ca-cert",
+		Tag:      mc.Tag(),
+		Password: "mock-password",
+	}, true
 }
 
 func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {

@@ -95,6 +95,11 @@ type ControllerRuntimeConfig struct {
 	// through once the initial burst is depleted. A zero value means use
 	// the default from apiserver.DefaultLogSinkConfig().
 	LogSinkRateLimitRefill time.Duration `yaml:"log-sink-rate-limit-refill,omitempty"`
+
+	// APIAddresses holds the API server addresses that the controller
+	// uses to connect to other controllers. These are written at
+	// bootstrap time and used by the api-remote-caller worker.
+	APIAddresses []string `yaml:"api-addresses,omitempty"`
 }
 
 // Validate returns an error if any required field is missing or invalid.
