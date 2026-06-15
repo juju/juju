@@ -686,10 +686,8 @@ func (s *Suite) TestImportFailure(c *tc.C) {
 }
 
 func (s *Suite) TestImportFailureAlreadyExistsActivating(c *tc.C) {
-	// The target reports an existing import claim that has crossed the
-	// activation point of no return: the worker must continue to
-	// VALIDATION (and retry activation) rather than abort, and must not
-	// re-upload binaries.
+	// Preserve the activation resume path until ImportV2 exposes structured
+	// target state for duplicate imports.
 	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.connection.importErr = &params.Error{
 		Code:    params.CodeAlreadyExists,
@@ -1448,8 +1446,6 @@ type stubModelMigrationService struct {
 
 	controllerModelInfoErr error
 
-	markModelAsGoneErr error
-
 	minionReportsChanges  chan struct{}
 	minionReportsWatchErr error
 	minionReports         []coremigration.MinionReports
@@ -1517,7 +1513,7 @@ func (s *stubModelMigrationService) SetMigrationStatusMessage(ctx context.Contex
 
 func (s *stubModelMigrationService) MarkModelAsGone(ctx context.Context) error {
 	s.stub.AddCall("modelMigrationService.MarkModelAsGone")
-	return s.markModelAsGoneErr
+	return nil
 }
 
 func (s *stubModelMigrationService) triggerMinionReports() {

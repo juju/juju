@@ -114,7 +114,6 @@ func (s *PhaseSuite) TestPhasePersistedIDRoundTrip(c *tc.C) {
 	}
 }
 
-// TestPhasePersistedIDRejectsNonPersisted asserts the code-only sentinels and
 // TestPhasePersistedIDRejectsNonPersisted asserts the code-only sentinels have
 // no persisted representation, keeping the Go enum and SQL lookup in sync.
 func (s *PhaseSuite) TestPhasePersistedIDRejectsNonPersisted(c *tc.C) {

@@ -499,13 +499,13 @@ func (w *uploadWrapper) UploadResource(ctx context.Context, res resource.Resourc
 	return w.client.UploadResource(ctx, w.modelUUID, res, content)
 }
 
-// importErrIsActivating reports whether a coded AlreadyExists error from the
-// target's v8 Import carries the activation-in-progress wording. The target
-// includes "activation in progress" in the error message when the existing
-// import claim for the model has phase 'activating' (the migrationtarget v8
-// contract): activation has crossed the point of no return, so the source
-// must resume activation rather than abort.
 func importErrIsActivating(err error) bool {
+	// TODO(modelmigration): remove this string match when target-side ImportV2
+	// is implemented. ImportV2 needs to return structured duplicate-import
+	// state so the source can tell whether the target is still safely
+	// importing, or has crossed into activation where aborting is no longer
+	// correct. Until then, keep the existing resume path for the placeholder
+	// activation wording and do not add a public RPC error code.
 	return err != nil && strings.Contains(err.Error(), "activation in progress")
 }
 
@@ -541,8 +541,7 @@ func (w *Worker) transferModel(ctx context.Context, status coremigration.Migrati
 			w.setInfoStatus(ctx, "target reports model activation in progress, continuing to validation")
 			return coremigration.VALIDATION, nil
 		}
-		return coremigration.UNKNOWN, errors.Annotate(err,
-			"target controller already has an import for this model; abort the existing migration and retry")
+		return coremigration.UNKNOWN, errors.New("target controller already has an import for this model")
 	case err != nil:
 		return coremigration.UNKNOWN, errors.Annotate(err, "failed to import model into target controller")
 	}
