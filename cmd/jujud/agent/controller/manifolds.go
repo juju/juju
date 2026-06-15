@@ -73,7 +73,6 @@ import (
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logsink"
-	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
@@ -114,9 +113,9 @@ type ManifoldsConfig struct {
 	// the lookup.
 	ControllerID string
 
-	// ObjectStoreRootDirReader returns the current local filesystem root used by
-	// object-store workers.
-	ObjectStoreRootDirReader objectstore.RootDirReader
+	// StartupValueProvider is used to read values from the controller runtime
+	// config file, which is passed to the manifolds in the config.
+	StartupValueProvider ControllerStartupValueProvider
 
 	// ControllerUUID is the controller entity UUID. It is sourced from
 	// agentConfig.Controller().Id() in makeEngineCreator and passed
@@ -130,22 +129,12 @@ type ManifoldsConfig struct {
 	// up from agent config at worker start.
 	ControllerModelUUID string
 
-	// ControllerStartupValues provides the controller-local startup values
-	// needed by dbaccessor.
-	ControllerStartupValues dbaccessor.ControllerStartupValuesProvider
-
-	// CertReader returns the current controller certificate material.
-	CertReader apiservercertwatcher.CertReader
-
 	// ControllerAgentTag is the tag used for controller-agent log records.
 	ControllerAgentTag names.Tag
 
 	// LogDir is the controller process log directory for workers in this change
 	// area that still take a fixed local path.
 	LogDir string
-
-	// APIServerLocalConfigReader returns the current API-server local values.
-	APIServerLocalConfigReader apiserver.LocalConfigReader
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
@@ -270,12 +259,6 @@ type ManifoldsConfig struct {
 	// NewEnvironFunc is a function that opens a provider
 	// "environment" (typically environs.New).
 	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
-
-	// LoggingOverrideReader returns the current persisted logging override.
-	LoggingOverrideReader controllerlogger.LoggingOverrideReader
-
-	// SystemIdentityReader returns the current system identity values.
-	SystemIdentityReader identityfilewriter.SystemIdentityReader
 }
 
 // commonManifolds returns the shared controller manifolds.
@@ -362,7 +345,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// certificate in the agent config for changes, and parses and
 		// offers the result to other manifolds.
 		certificateWatcherName: apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-			CertReader: config.CertReader,
+			CertReader: config.StartupValueProvider,
 		}),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -389,8 +372,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The upgrade-database worker runs soon after the controller
 		// agent starts and runs any steps required to upgrade the
 		// database to the current version.
-		upgradeDatabaseName: upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
-			AgentName:           agentName,
+		upgradeDatabaseName: disabledManifold(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
+			// AgentName:           agentName,
 			UpgradeDBGateName:   upgradeDatabaseGateName,
 			UpgradeServicesName: upgradeDomainServicesName,
 			DBAccessorName:      dbAccessorName,
@@ -398,7 +381,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:              internallogger.GetLogger("juju.worker.upgradedatabase"),
 			Clock:               config.Clock,
 			UpgradeSteps:        upgradedatabase.UpgradeSteps,
-		}),
+		})),
 
 		// The upgrade services worker provides domain services for
 		// upgrading the controller. This worker MUST never take on a
@@ -435,15 +418,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// a mechanism for running other workers so they can't
 		// accidentally interfere with a migration in progress.
 		migrationFortressName: fortress.Manifold(),
-		migrationInactiveFlagName: migrationflag.Manifold(migrationflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Check:         migrationflag.IsTerminal,
-			NewFacade:     migrationflag.NewFacade,
-			NewWorker:     migrationflag.NewWorker,
-		}),
-		migrationMinionName: ifControllerUpgradeComplete(migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
+		// migration-inactive-flag is out of scope for Phase 1;
+		// migration is never active in the standalone controller,
+		// so this unconditionally reports "inactive". Replace
+		// with migrationflag.Manifold when controller migration
+		// is implemented.
+		migrationInactiveFlagName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewStaticFlagWorker(true), nil
+			},
+			Output: engine.FlagOutput,
+		},
+		migrationMinionName: ifControllerUpgradeComplete(disabledManifold(migrationminion.Manifold(migrationminion.ManifoldConfig{
+			// AgentName:         agentName,
+			// APICallerName:     apiCallerName,
 			FortressName:      migrationFortressName,
 			Clock:             config.Clock,
 			APIOpen:           api.Open,
@@ -451,7 +439,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
 			Logger:            internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
-		})),
+		}))),
 
 		// The primary controller flag manifold will attempt to claim
 		// responsibility for running certain workers that must not be
@@ -473,12 +461,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LoggerContext:         internallogger.DefaultContext(),
 			Logger:                internallogger.GetLogger("juju.worker.logger"),
 			Tag:                   agentTag,
-			LoggingOverrideReader: config.LoggingOverrideReader,
+			LoggingOverrideReader: config.StartupValueProvider,
 			UpdateAgentFunc:       config.UpdateLoggerConfig,
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
-			SystemIdentityReader: config.SystemIdentityReader,
+			SystemIdentityReader: config.StartupValueProvider,
 			NewWorker:            identityfilewriter.NewWorker,
 		})),
 
@@ -528,7 +516,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
 			ControllerTag:          config.ControllerAgentTag,
-			LocalConfigReader:      config.APIServerLocalConfigReader,
+			LocalConfigReader:      config.StartupValueProvider,
 			LogSinkName:            logSinkName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
@@ -704,7 +692,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			S3ClientName:                    objectStoreS3CallerName,
 			ObjectStoreName:                 objectStoreName,
 			ObjectStoreServicesName:         objectStoreServicesName,
-			RootDirReader:                   config.ObjectStoreRootDirReader,
+			RootDirReader:                   config.StartupValueProvider,
 			FortressName:                    objectStoreFortressName,
 			GetControllerService:            objectstoredrainer.GetControllerService,
 			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
@@ -725,7 +713,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
 			APIRemoteCallerName:        apiRemoteCallerName,
-			RootDirReader:              config.ObjectStoreRootDirReader,
+			RootDirReader:              config.StartupValueProvider,
 			ControllerNodeID:           config.ControllerID,
 			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
@@ -799,7 +787,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				switch namespace {
 				case corehttp.CharmhubPurpose:
 					logger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
-					opts = append(opts,
+					opts = append(
+						opts,
 						internalhttp.WithLogger(logger),
 						internalhttp.WithRequestRetrier(charmhub.DefaultRetryPolicy()),
 					)
@@ -831,8 +820,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiRemoteCallerName: apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
-			AgentName:               agentName,
 			ObjectStoreServicesName: objectStoreServicesName,
+			APIInfo:                 config.StartupValueProvider,
+			Origin:                  config.ControllerAgentTag,
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.apiremotecaller"),
 			NewWorker:               apiremotecaller.NewWorker,
@@ -915,23 +905,23 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// type recognised by the controller agent, causing other workers
 		// to be stopped and the agent to be restarted running the new
 		// tools.
-		upgraderName: ifControllerUpgradeComplete(upgrader.Manifold(upgrader.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
+		upgraderName: ifControllerUpgradeComplete(disabledManifold(upgrader.Manifold(upgrader.ManifoldConfig{
+			// AgentName:            agentName,
+			// APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
 			Logger:               internallogger.GetLogger("juju.worker.upgrader"),
 			Clock:                config.Clock,
-		})),
+		}))),
 
 		// The upgradestepscontroller worker runs soon after the
 		// controller agent starts and runs any steps required to
 		// upgrade to the running jujud version. Once upgrade steps have
 		// run, the upgradesteps gate is unlocked and the worker exits.
-		upgradeControllerStepsName: ifControllerUpgradeComplete(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
+		upgradeControllerStepsName: ifControllerUpgradeComplete(disabledManifold(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
+			// AgentName:            agentName,
+			// APICallerName:        apiCallerName,
 			DomainServicesName:   domainServicesName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreUpgradeSteps:      config.PreUpgradeSteps(model.IAAS),
@@ -941,7 +931,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetUpgradeService:    upgradestepscontroller.GetUpgradeService,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
 			Clock:                config.Clock,
-		})),
+		}))),
 	})
 }
 
@@ -963,19 +953,19 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		dbAccessorName: dbaccessor.Manifold(NewCAASDBAccessorManifoldConfig(config)),
 
-		upgraderName: ifControllerUpgradeComplete(upgrader.Manifold(upgrader.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
+		upgraderName: ifControllerUpgradeComplete(disabledManifold(upgrader.Manifold(upgrader.ManifoldConfig{
+			// AgentName:            agentName,
+			// APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
 			Logger:               internallogger.GetLogger("juju.worker.upgrader"),
 			Clock:                config.Clock,
-		})),
+		}))),
 
-		upgradeControllerStepsName: ifControllerUpgradeComplete(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
+		upgradeControllerStepsName: ifControllerUpgradeComplete(disabledManifold(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
+			// AgentName:            agentName,
+			// APICallerName:        apiCallerName,
 			DomainServicesName:   domainServicesName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreUpgradeSteps:      config.PreUpgradeSteps(model.IAAS),
@@ -985,7 +975,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetUpgradeService:    upgradestepscontroller.GetUpgradeService,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
 			Clock:                config.Clock,
-		})),
+		}))),
 	})
 }
 
@@ -1066,7 +1056,7 @@ func NewIAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.Manifold
 	return dbaccessor.ManifoldConfig{
 		QueryLoggerName:           queryLoggerName,
 		ControllerAgentConfigName: controllerAgentConfigName,
-		ControllerStartupValues:   config.ControllerStartupValues,
+		ControllerStartupValues:   config.StartupValueProvider,
 		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
 		PrometheusRegisterer:      config.PrometheusRegisterer,
 		NewApp:                    dbaccessor.NewApp,
@@ -1081,7 +1071,7 @@ func NewCAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.Manifold
 	return dbaccessor.ManifoldConfig{
 		QueryLoggerName:           queryLoggerName,
 		ControllerAgentConfigName: controllerAgentConfigName,
-		ControllerStartupValues:   config.ControllerStartupValues,
+		ControllerStartupValues:   config.StartupValueProvider,
 		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
 		PrometheusRegisterer:      config.PrometheusRegisterer,
 		NewApp:                    dbaccessor.NewApp,
@@ -1103,6 +1093,17 @@ func clockManifold(clk clock.Clock) dependency.Manifold {
 			return engine.NewValueWorker(clk)
 		},
 		Output: engine.ValueWorkerOutput,
+	}
+}
+
+func disabledManifold(manifold dependency.Manifold) dependency.Manifold {
+	return dependency.Manifold{
+		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+			return jworker.NewSimpleWorker(func(ctx context.Context) error {
+				<-ctx.Done()
+				return nil
+			}), nil
+		},
 	}
 }
 
@@ -1146,6 +1147,19 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 		upgradeDatabaseFlagName,
 	},
 }.Decorate
+
+// ControllerStartupValueProvider is the set of methods required to provide
+// startup values to controller-only workers. This is implemented by the
+// config.StartupValueProvider, which is passed to the manifolds in the config.
+type ControllerStartupValueProvider interface {
+	objectstore.RootDirReader
+	dbaccessor.ControllerStartupValuesProvider
+	apiservercertwatcher.CertReader
+	apiserver.LocalConfigReader
+	apiremotecaller.APIInfoProvider
+	controllerlogger.LoggingOverrideReader
+	identityfilewriter.SystemIdentityReader
+}
 
 const (
 	agentName              = "agent"
