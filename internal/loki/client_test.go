@@ -634,6 +634,7 @@ func testConfig() Config {
 		Clock:          clock.WallClock,
 		OnError:        func(error) {},
 		OnDrop:         func(int) {},
+		HTTPClient:     http.DefaultClient,
 	}
 }
 
