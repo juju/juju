@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+
+	coremodel "github.com/juju/juju/core/model"
 )
 
 type HostnameSuite struct{}
@@ -29,7 +31,7 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 				container:       "charm",
 				unitNumber:      1,
 				applicationName: "postgresql",
-				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				modelUUID:       coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				target:          ContainerTarget,
 			},
 		},
@@ -39,7 +41,7 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 			result: Info{
 				unitNumber:      1,
 				applicationName: "postgresql",
-				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				modelUUID:       coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				target:          UnitTarget,
 			},
 		},
@@ -49,7 +51,7 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 			result: Info{
 				// Machine and unit are both set and disambiguated by the target type.
 				machine:   1,
-				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
+				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				target:    MachineTarget,
 			},
 		},
@@ -60,7 +62,7 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 				container:       "my-charm-container",
 				applicationName: "postgresql-k8s",
 				unitNumber:      20,
-				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				modelUUID:       coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				target:          ContainerTarget,
 			},
 		},
@@ -112,7 +114,7 @@ func (s *HostnameSuite) TestNewInfoMachineTarget(c *tc.C) {
 			machine:   "1",
 			expected: Info{
 				target:    MachineTarget,
-				modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
+				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				machine:   1,
 			},
 		},
@@ -162,7 +164,7 @@ func (s *HostnameSuite) TestNewInfoUnitTarget(c *tc.C) {
 			unit:      "postgresql/1",
 			expected: Info{
 				target:          UnitTarget,
-				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				modelUUID:       coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				unitNumber:      1,
 				applicationName: "postgresql",
 			},
@@ -209,7 +211,7 @@ func (s *HostnameSuite) TestNewInfoContainerTarget(c *tc.C) {
 			container: "charm",
 			expected: Info{
 				target:          ContainerTarget,
-				modelUUID:       "8419cd78-4993-4c3a-928e-c646226beeee",
+				modelUUID:       coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				unitNumber:      1,
 				applicationName: "postgresql",
 				container:       "charm",

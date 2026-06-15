@@ -10,11 +10,10 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	domainssh "github.com/juju/juju/domain/ssh"
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
-
-const sshServerHostKeyID = "sshServerHostKey"
 
 // InsertInitialSSHServerHostKey inserts the controller jump host key into the
 // controller database during bootstrap.
@@ -24,9 +23,13 @@ func InsertInitialSSHServerHostKey(sshServerHostKey string) internaldatabase.Boo
 			return errors.Errorf("empty SSHServerHostKey").Add(coreerrors.NotValid)
 		}
 
-		record := controllerSSHHostKey{ID: sshServerHostKeyID, SSHKey: sshServerHostKey}
+		record := controllerSSHHostKey{
+			ID:             domainssh.SSHServerHostKeyUUID,
+			EncodingTypeID: domainssh.SSHKeyEncodingTypeOpenSSHID,
+			SSHKey:         sshServerHostKey,
+		}
 		stmt, err := sqlair.Prepare(`
-INSERT INTO controller_ssh_host_key (id, ssh_key)
+INSERT INTO controller_ssh_host_key (id, encoding_type_id, ssh_key)
 VALUES ($controllerSSHHostKey.*)`, controllerSSHHostKey{})
 		if err != nil {
 			return errors.Capture(err)
@@ -42,6 +45,7 @@ VALUES ($controllerSSHHostKey.*)`, controllerSSHHostKey{})
 }
 
 type controllerSSHHostKey struct {
-	ID     string `db:"id"`
-	SSHKey string `db:"ssh_key"`
+	ID             string `db:"id"`
+	EncodingTypeID int    `db:"encoding_type_id"`
+	SSHKey         string `db:"ssh_key"`
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/names/v6"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -97,16 +98,16 @@ func newInfo(target HostnameTarget, modelUUID string, machine int, unitNumber in
 	switch target {
 	case MachineTarget:
 		info.target = MachineTarget
-		info.modelUUID = modelUUID
+		info.modelUUID = coremodel.UUID(modelUUID)
 		info.machine = machine
 	case UnitTarget:
 		info.target = UnitTarget
-		info.modelUUID = modelUUID
+		info.modelUUID = coremodel.UUID(modelUUID)
 		info.unitNumber = unitNumber
 		info.applicationName = applicationName
 	case ContainerTarget:
 		info.target = ContainerTarget
-		info.modelUUID = modelUUID
+		info.modelUUID = coremodel.UUID(modelUUID)
 		info.unitNumber = unitNumber
 		info.applicationName = applicationName
 		info.container = container
@@ -123,7 +124,7 @@ func newInfo(target HostnameTarget, modelUUID string, machine int, unitNumber in
 // that some fields are empty.
 type Info struct {
 	target          HostnameTarget
-	modelUUID       string
+	modelUUID       coremodel.UUID
 	machine         int
 	applicationName string
 	unitNumber      int
@@ -143,7 +144,7 @@ func (i Info) Container() (string, bool) {
 }
 
 // ModelUUID returns the model UUID.
-func (i Info) ModelUUID() string {
+func (i Info) ModelUUID() coremodel.UUID {
 	return i.modelUUID
 }
 
@@ -213,7 +214,7 @@ func Parse(hostname string) (Info, error) {
 
 	res := Info{}
 	appName := result["appname"]
-	res.modelUUID = result["modeluuid"]
+	res.modelUUID = coremodel.UUID(result["modeluuid"])
 	res.container = result["containername"]
 	if res.container != "" {
 		res.target = ContainerTarget

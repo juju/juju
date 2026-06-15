@@ -10,10 +10,9 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 )
-
-const sshServerHostKeyID = "sshServerHostKey"
 
 // State represents controller-scoped SSH host key state.
 type State struct {
@@ -33,7 +32,7 @@ func (st *State) GetSSHServerHostKey(ctx context.Context) (string, bool, error) 
 		return "", false, errors.Capture(err)
 	}
 
-	id := controllerSSHHostKeyID{ID: sshServerHostKeyID}
+	id := controllerSSHHostKeyID{ID: domainssh.SSHServerHostKeyUUID}
 	stmt, err := st.Prepare(`
 SELECT &controllerSSHHostKey.ssh_key
 FROM controller_ssh_host_key
@@ -65,8 +64,9 @@ WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHos
 }
 
 type controllerSSHHostKey struct {
-	ID     string `db:"id"`
-	SSHKey string `db:"ssh_key"`
+	ID             string `db:"id"`
+	EncodingTypeID int    `db:"encoding_type_id"`
+	SSHKey         string `db:"ssh_key"`
 }
 
 type controllerSSHHostKeyID struct {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
 )
 
@@ -34,7 +35,7 @@ func (s *HostnameSuite) TestParseContainerHostname(c *tc.C) {
 	c.Check(valid, tc.Equals, false)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.ContainerTarget)
-	c.Check(res.ModelUUID(), tc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
+	c.Check(res.ModelUUID(), tc.Equals, coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"))
 }
 
 func (s *HostnameSuite) TestParseUnitHostname(c *tc.C) {
@@ -54,7 +55,7 @@ func (s *HostnameSuite) TestParseUnitHostname(c *tc.C) {
 	c.Check(valid, tc.Equals, false)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.UnitTarget)
-	c.Check(res.ModelUUID(), tc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
+	c.Check(res.ModelUUID(), tc.Equals, coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"))
 }
 
 func (s *HostnameSuite) TestParseMachineHostname(c *tc.C) {
@@ -74,5 +75,5 @@ func (s *HostnameSuite) TestParseMachineHostname(c *tc.C) {
 	c.Check(valid, tc.Equals, true)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.MachineTarget)
-	c.Check(res.ModelUUID(), tc.Equals, "8419cd78-4993-4c3a-928e-c646226beeee")
+	c.Check(res.ModelUUID(), tc.Equals, coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"))
 }

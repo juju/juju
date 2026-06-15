@@ -5,13 +5,13 @@ package model
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -61,7 +61,7 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 
 		err := tx.Query(ctx, getMachineUUIDStmt, nameRec).Get(&machineUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q %w", machineName, coreerrors.NotFound)
+			return errors.Errorf("machine %q %w", machineName, machineerrors.MachineNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying machine %q: %w", machineName, err)
@@ -111,7 +111,7 @@ ON CONFLICT(machine_uuid) DO UPDATE SET ssh_key = excluded.ssh_key`, machineVirt
 		machineUUID := entityUUID{}
 		err := tx.Query(ctx, getMachineUUIDStmt, nameRec).Get(&machineUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q %w", machineName, coreerrors.NotFound)
+			return errors.Errorf("machine %q %w", machineName, machineerrors.MachineNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying machine %q: %w", machineName, err)
@@ -161,7 +161,7 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 
 		err := tx.Query(ctx, getUnitUUIDStmt, nameRec).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %q %w", unitName, coreerrors.NotFound)
+			return errors.Errorf("unit %q %w", unitName, applicationerrors.UnitNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying unit %q: %w", unitName, err)
@@ -211,7 +211,7 @@ ON CONFLICT(unit_uuid) DO UPDATE SET ssh_key = excluded.ssh_key`, unitVirtualSSH
 		unitUUID := entityUUID{}
 		err := tx.Query(ctx, getUnitUUIDStmt, nameRec).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %q %w", unitName, coreerrors.NotFound)
+			return errors.Errorf("unit %q %w", unitName, applicationerrors.UnitNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying unit %q: %w", unitName, err)
@@ -249,7 +249,7 @@ WHERE u.name = $entityName.name`, unitMachine{}, entityName{})
 
 		err := tx.Query(ctx, stmt, nameRec).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("unit %q %w", unitName, coreerrors.NotFound)
+			return errors.Errorf("unit %q %w", unitName, applicationerrors.UnitNotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying backing machine for unit %q: %w", unitName, err)
@@ -263,30 +263,4 @@ WHERE u.name = $entityName.name`, unitMachine{}, entityName{})
 		return "", false, nil
 	}
 	return result.MachineName.String, true, nil
-}
-
-type entityName struct {
-	Name string `db:"name"`
-}
-
-type entityUUID struct {
-	UUID string `db:"uuid"`
-}
-
-type sshPrivateKey struct {
-	SSHKey string `db:"ssh_key"`
-}
-
-type machineVirtualSSHHostKey struct {
-	MachineUUID string `db:"machine_uuid"`
-	SSHKey      string `db:"ssh_key"`
-}
-
-type unitVirtualSSHHostKey struct {
-	UnitUUID string `db:"unit_uuid"`
-	SSHKey   string `db:"ssh_key"`
-}
-
-type unitMachine struct {
-	MachineName sql.NullString `db:"machine_name"`
 }

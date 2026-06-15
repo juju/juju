@@ -36,10 +36,6 @@ func (s *Service) SSHServerHostKey(ctx context.Context) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if s.controllerSt == nil {
-		return "", errors.Errorf("missing controller SSH state")
-	}
-
 	key, found, err := s.controllerSt.GetSSHServerHostKey(ctx)
 	if err != nil {
 		return "", errors.Errorf("getting controller SSH server host key: %w", err)
@@ -55,7 +51,7 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	modelUUID := coremodel.UUID(info.ModelUUID())
+	modelUUID := info.ModelUUID()
 	if err := modelUUID.Validate(); err != nil {
 		return "", errors.Errorf("validating model UUID %q: %w", modelUUID, err)
 	}
@@ -96,9 +92,9 @@ func (s *Service) MachineVirtualHostKey(ctx context.Context, modelUUID coremodel
 		return "", errors.Errorf("validating machine name %q: %w", machineName, err)
 	}
 
-	state, err := s.modelState(modelUUID)
-	if err != nil {
-		return "", err
+	state := s.modelStateGetter.GetModelState(modelUUID)
+	if state == nil {
+		return "", errors.Errorf("missing model SSH state for model %q", modelUUID)
 	}
 	return s.ensureMachineVirtualHostKey(ctx, state, machineName.String())
 }
@@ -117,9 +113,9 @@ func (s *Service) UnitVirtualHostKey(ctx context.Context, modelUUID coremodel.UU
 		return "", errors.Errorf("validating unit name %q: %w", unitName, err)
 	}
 
-	state, err := s.modelState(modelUUID)
-	if err != nil {
-		return "", err
+	state := s.modelStateGetter.GetModelState(modelUUID)
+	if state == nil {
+		return "", errors.Errorf("missing model SSH state for model %q", modelUUID)
 	}
 
 	machineName, machineBacked, err := state.GetMachineNameForUnit(ctx, unitName.String())
@@ -130,17 +126,6 @@ func (s *Service) UnitVirtualHostKey(ctx context.Context, modelUUID coremodel.UU
 		return s.ensureMachineVirtualHostKey(ctx, state, machineName)
 	}
 	return s.ensureUnitVirtualHostKey(ctx, state, unitName.String())
-}
-
-func (s *Service) modelState(modelUUID coremodel.UUID) (ModelState, error) {
-	if s.modelStateGetter == nil {
-		return nil, errors.Errorf("missing model SSH state getter")
-	}
-	state := s.modelStateGetter.GetModelState(modelUUID)
-	if state == nil {
-		return nil, errors.Errorf("missing model SSH state for model %q", modelUUID)
-	}
-	return state, nil
 }
 
 func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, state ModelState, machineName string) (string, error) {

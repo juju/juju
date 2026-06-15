@@ -11,6 +11,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainssh "github.com/juju/juju/domain/ssh"
 	sshbootstrap "github.com/juju/juju/domain/ssh/bootstrap"
 	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
 )
@@ -42,6 +43,11 @@ func (s *stateSuite) TestGetSSHServerHostKeyExisting(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(found, tc.IsTrue)
 	c.Check(key, tc.Equals, testPrivateKey)
+
+	var storedID string
+	row := s.DB().QueryRow(`SELECT id FROM controller_ssh_host_key`)
+	c.Assert(row.Scan(&storedID), tc.ErrorIsNil)
+	c.Check(storedID, tc.Equals, domainssh.SSHServerHostKeyUUID)
 }
 
 func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactory {

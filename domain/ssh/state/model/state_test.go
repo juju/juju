@@ -10,6 +10,8 @@ import (
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
 	"github.com/juju/juju/internal/uuid"
@@ -34,6 +36,15 @@ func (s *stateSuite) TestGetMachineVirtualHostKeyMissing(c *tc.C) {
 	c.Check(key, tc.Equals, "")
 }
 
+func (s *stateSuite) TestGetMachineVirtualHostKeyMissingMachine(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+
+	key, found, err := st.GetMachineVirtualHostKeyByMachineName(c.Context(), "99")
+	c.Check(key, tc.Equals, "")
+	c.Check(found, tc.IsFalse)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *stateSuite) TestSetAndGetMachineVirtualHostKey(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addMachine(c, "1")
@@ -51,7 +62,32 @@ func (s *stateSuite) TestSetMachineVirtualHostKeyMissingMachine(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 
 	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "99", testPrivateKey)
-	c.Assert(err, tc.ErrorMatches, `machine "99" not found`)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestGetUnitVirtualHostKeyMissingUnit(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+
+	key, found, err := st.GetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0")
+	c.Check(key, tc.Equals, "")
+	c.Check(found, tc.IsFalse)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestSetUnitVirtualHostKeyMissingUnit(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+
+	err := st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", testPrivateKey)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
+}
+
+func (s *stateSuite) TestGetMachineNameForUnitMissingUnit(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+
+	machineName, machineBacked, err := st.GetMachineNameForUnit(c.Context(), "postgresql/0")
+	c.Check(machineName, tc.Equals, "")
+	c.Check(machineBacked, tc.IsFalse)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
 func (s *stateSuite) addMachine(c *tc.C, name string) string {
