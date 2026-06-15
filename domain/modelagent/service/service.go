@@ -345,6 +345,25 @@ func (s *Service) GetMachinesAgentBinaryMetadata(
 	return s.modelSt.GetMachinesAgentBinaryMetadata(ctx)
 }
 
+// GetModelAgentBinaryMetadata returns the agent binary metadata currently
+// running for each machine and unit in the model.
+func (s *Service) GetModelAgentBinaryMetadata(
+	ctx context.Context,
+) (map[machine.Name]agentbinary.Metadata, map[coreunit.Name]agentbinary.Metadata, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	machineMetadata, err := s.modelSt.GetMachinesAgentBinaryMetadata(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting machine agent binary metadata: %w", err)
+	}
+	unitMetadata, err := s.modelSt.GetUnitsAgentBinaryMetadata(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting unit agent binary metadata: %w", err)
+	}
+	return machineMetadata, unitMetadata, nil
+}
+
 // GetMachineTargetAgentVersion reports the target agent version that should be
 // running on the provided machine identified by name. The following errors are
 // possible:

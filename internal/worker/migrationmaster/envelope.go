@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+const agentBinaryRelease = "ubuntu"
+
 // assembledModel carries the v8 wire envelope for the migrating model plus the
 // binary-transfer references the worker feeds to UploadBinaries. Both are
 // produced by the same assembly pass so they cannot diverge.
@@ -80,13 +82,9 @@ func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (as
 	}
 	envelope.Charms = charms
 
-	machineTools, err := w.config.ModelAgentService.GetMachinesAgentBinaryMetadata(ctx)
+	machineTools, unitTools, err := w.config.ModelAgentService.GetModelAgentBinaryMetadata(ctx)
 	if err != nil {
-		return empty, errors.Annotate(err, "listing machine agent binaries")
-	}
-	unitTools, err := w.config.ModelAgentService.GetUnitsAgentBinaryMetadata(ctx)
-	if err != nil {
-		return empty, errors.Annotate(err, "listing unit agent binaries")
+		return empty, errors.Annotate(err, "listing model agent binaries")
 	}
 	tools, envelopeTools := toolsForEnvelope(machineTools, unitTools)
 	envelope.Tools = envelopeTools
@@ -284,7 +282,8 @@ func archFromArchitecture(a architecture.Architecture) (string, error) {
 // toolsForEnvelope merges the agent binaries reported for machines and units,
 // deduplicated by SHA256, into the upload map keyed on SHA256 and the wire
 // envelope references. coreagentbinary.Version carries no OS release; 4.x
-// agents are ubuntu-only so the binary version release is always "ubuntu".
+// agents are ubuntu-only so the binary version release is always
+// agentBinaryRelease.
 func toolsForEnvelope(
 	machineTools map[machine.Name]coreagentbinary.Metadata,
 	unitTools map[unit.Name]coreagentbinary.Metadata,
@@ -293,7 +292,7 @@ func toolsForEnvelope(
 	addTool := func(metadata coreagentbinary.Metadata) {
 		tools[metadata.SHA256] = semversion.Binary{
 			Number:  metadata.Version.Number,
-			Release: "ubuntu",
+			Release: agentBinaryRelease,
 			Arch:    metadata.Version.Arch,
 		}
 	}

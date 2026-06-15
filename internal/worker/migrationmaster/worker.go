@@ -148,13 +148,11 @@ type ControllerConfigService interface {
 
 // ModelAgentService reports the agent binaries in use by the model's agents.
 type ModelAgentService interface {
-	// GetMachinesAgentBinaryMetadata reports the agent binary metadata that
-	// each machine in the model is running.
-	GetMachinesAgentBinaryMetadata(context.Context) (map[machine.Name]coreagentbinary.Metadata, error)
-
-	// GetUnitsAgentBinaryMetadata reports the agent binary metadata that each
-	// unit in the model is running.
-	GetUnitsAgentBinaryMetadata(context.Context) (map[unit.Name]coreagentbinary.Metadata, error)
+	// GetModelAgentBinaryMetadata reports the agent binary metadata that each
+	// machine and unit in the model is running.
+	GetModelAgentBinaryMetadata(
+		context.Context,
+	) (map[machine.Name]coreagentbinary.Metadata, map[unit.Name]coreagentbinary.Metadata, error)
 }
 
 // ResourceService lists the model resources that need binary transfer.
@@ -500,8 +498,8 @@ func (w *uploadWrapper) UploadResource(ctx context.Context, res resource.Resourc
 }
 
 func importErrIsActivating(err error) bool {
-	// TODO(modelmigration): remove this string match when target-side ImportV2
-	// is implemented. ImportV2 needs to return structured duplicate-import
+	// TODO(modelmigration): remove this string match when target-side Import v8
+	// is implemented. Import v8 needs to return structured duplicate-import
 	// state so the source can tell whether the target is still safely
 	// importing, or has crossed into activation where aborting is no longer
 	// correct. Until then, keep the existing resume path for the placeholder

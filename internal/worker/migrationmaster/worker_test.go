@@ -184,8 +184,7 @@ var (
 		{FuncName: "exportService.Export", Args: nil},
 		{FuncName: "modelMigrationService.GetControllerModelInfo", Args: nil},
 		{FuncName: "charmService.ListCharmLocators", Args: nil},
-		{FuncName: "modelAgentService.GetMachinesAgentBinaryMetadata", Args: nil},
-		{FuncName: "modelAgentService.GetUnitsAgentBinaryMetadata", Args: nil},
+		{FuncName: "modelAgentService.GetModelAgentBinaryMetadata", Args: nil},
 		{FuncName: "resourceService.ListAllModelResources", Args: nil},
 	}
 	abortCalls = []testhelpers.StubCall{
@@ -686,7 +685,7 @@ func (s *Suite) TestImportFailure(c *tc.C) {
 }
 
 func (s *Suite) TestImportFailureAlreadyExistsActivating(c *tc.C) {
-	// Preserve the activation resume path until ImportV2 exposes structured
+	// Preserve the activation resume path until Import v8 exposes structured
 	// target state for duplicate imports.
 	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.connection.importErr = &params.Error{
@@ -1596,14 +1595,11 @@ type stubModelAgentService struct {
 	stub *testhelpers.Stub
 }
 
-func (s *stubModelAgentService) GetMachinesAgentBinaryMetadata(ctx context.Context) (map[machine.Name]coreagentbinary.Metadata, error) {
-	s.stub.AddCall("modelAgentService.GetMachinesAgentBinaryMetadata")
-	return fakeMachineTools, nil
-}
-
-func (s *stubModelAgentService) GetUnitsAgentBinaryMetadata(ctx context.Context) (map[unit.Name]coreagentbinary.Metadata, error) {
-	s.stub.AddCall("modelAgentService.GetUnitsAgentBinaryMetadata")
-	return nil, nil
+func (s *stubModelAgentService) GetModelAgentBinaryMetadata(
+	ctx context.Context,
+) (map[machine.Name]coreagentbinary.Metadata, map[unit.Name]coreagentbinary.Metadata, error) {
+	s.stub.AddCall("modelAgentService.GetModelAgentBinaryMetadata")
+	return fakeMachineTools, nil, nil
 }
 
 type stubResourceService struct {
