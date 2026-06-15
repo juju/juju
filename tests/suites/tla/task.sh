@@ -115,6 +115,18 @@ run_objectstore_transition_phases() {
 		"core/objectstore/tla/ObjectStoreTransitionPhases.cfg"
 }
 
+run_migration_transition_phases() {
+	run_tla_model \
+		"core/migration/tla/MigrationTransitionPhases.tla" \
+		"core/migration/tla/MigrationTransitionPhases.cfg"
+}
+
+run_migration_import_claim_phases() {
+	run_tla_model \
+		"core/migration/tla/ImportClaimPhases.tla" \
+		"core/migration/tla/ImportClaimPhases.cfg"
+}
+
 test_tla() {
 	if [ "$(skip 'test_tla')" ]; then
 		echo "==> TEST SKIPPED: tla checks"
@@ -131,5 +143,7 @@ test_tla() {
 
 		run "run_prepare_tla_tools"
 		run "run_objectstore_transition_phases"
+		run "run_migration_transition_phases"
+		run "run_migration_import_claim_phases"
 	)
 }
