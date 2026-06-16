@@ -320,6 +320,7 @@ func (w *dbWorker) Report() map[string]any {
 		leaderID   uint64
 	)
 	if client, err := w.dbApp.Client(ctx); err == nil {
+		defer func() { _ = client.Close() }()
 		if nodeInfo, err := client.Leader(ctx); err == nil {
 			leaderID = nodeInfo.ID
 			leader = nodeInfo.Address
@@ -477,6 +478,7 @@ func (w *dbWorker) startDqliteNode(options ...app.Option) error {
 	w.cfg.Logger.Infof("serving Dqlite application (ID: %v)", w.dbApp.ID())
 
 	if c, err := w.dbApp.Client(ctx); err == nil {
+		defer func() { _ = c.Close() }()
 		if info, err := c.Cluster(ctx); err == nil {
 			w.cfg.Logger.Infof("current cluster: %#v", info)
 		}
@@ -625,11 +627,16 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 		}
 
 		// If we are an existing, previously clustered node,
-		// and the node is running, we have nothing to do.
+		// and the node is running, the only thing left to reconcile is
+		// whether any nodes have been removed from the controller and so
+		// need to be removed from the Dqlite cluster.
 		w.mu.RLock()
 		running := w.dbApp != nil
 		w.mu.RUnlock()
 		if running {
+			if err := w.removeStaleClusterNodes(ctx, apiDetails); err != nil {
+				return errors.Trace(err)
+			}
 			return nil
 		}
 
@@ -655,6 +662,79 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 	// Otherwise this is a node added by enabling HA,
 	// and we need to join to an existing cluster.
 	return errors.Trace(w.joinNodeToCluster(apiDetails))
+}
+
+// removeStaleClusterNodes removes nodes from the Dqlite cluster that are no
+// longer represented in the latest API server details.
+func (w *dbWorker) removeStaleClusterNodes(ctx context.Context, apiDetails apiserver.Details) error {
+	w.mu.RLock()
+	dbApp := w.dbApp
+	w.mu.RUnlock()
+	if dbApp == nil {
+		return nil
+	}
+
+	client, err := dbApp.Client(ctx)
+	if err != nil {
+		w.cfg.Logger.Warningf("cannot get Dqlite client: %v", err)
+		return nil
+	}
+	defer func() { _ = client.Close() }()
+
+	// Only the leader can reconfigure cluster membership.
+	leader, err := client.Leader(ctx)
+	if err != nil {
+		w.cfg.Logger.Warningf("cannot determine Dqlite cluster leader: %v", err)
+		return nil
+	}
+	if leader == nil || leader.ID != dbApp.ID() {
+		return nil
+	}
+
+	cluster, err := client.Cluster(ctx)
+	if err != nil {
+		w.cfg.Logger.Warningf("cannot retrieve Dqlite cluster details: %v", err)
+		return nil
+	}
+
+	desiredHosts := make(map[string]struct{}, len(apiDetails.Servers))
+	for _, server := range apiDetails.Servers {
+		if host, _, err := net.SplitHostPort(server.InternalAddress); err == nil {
+			desiredHosts[host] = struct{}{}
+		}
+		// InternalAddress can be empty during topology transitions even for
+		// live nodes, so we utilize Addresses of servers as well to decide
+		// whether we have stale nodes in the cluster or not.
+		for _, hostPort := range server.Addresses {
+			if host, _, err := net.SplitHostPort(hostPort); err == nil {
+				desiredHosts[host] = struct{}{}
+			}
+		}
+	}
+
+	localID := dbApp.ID()
+	for _, node := range cluster {
+		if node.ID == localID {
+			continue
+		}
+
+		host, _, err := net.SplitHostPort(node.Address)
+		if err != nil {
+			w.cfg.Logger.Warningf("skipping stale-node check for malformed Dqlite address %q", node.Address)
+			continue
+		}
+
+		if _, ok := desiredHosts[host]; ok {
+			continue
+		}
+
+		if err := client.Remove(ctx, node.ID); err != nil {
+			w.cfg.Logger.Warningf("cannot remove stale Dqlite node %d (%s) from cluster: %v", node.ID, node.Address, err)
+			continue
+		}
+	}
+
+	return nil
 }
 
 // rebindAddress stops the current node, reconfigures the cluster so that
