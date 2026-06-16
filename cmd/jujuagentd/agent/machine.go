@@ -624,6 +624,7 @@ func (a *MachineAgent) makeEngineCreator(
 		c := clock.WallClock
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(c), "", internallogger.GetLogger("juju.flightrecorder"))
 		startupValueProvider := machineControllerStartupValueProvider{agent: a}
+		bootstrapAPIPort, bootstrapAgentPassword := bootstrapStartupValues(agentConfig)
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
@@ -636,6 +637,9 @@ func (a *MachineAgent) makeEngineCreator(
 			StartupValueProvider:              startupValueProvider,
 			ConfigChangeSocketPath:            path.Join(agentConfig.DataDir(), "configchange.socket"),
 			ControlSocketPath:                 path.Join(agentConfig.DataDir(), "control.socket"),
+			DataDir:                           agentConfig.DataDir(),
+			APIPort:                           bootstrapAPIPort,
+			AgentPassword:                     bootstrapAgentPassword,
 			Agent:                             agent.APIHostPortsSetter{Agent: a},
 			RootDir:                           a.rootDir,
 			AgentConfigChanged:                a.configChangedVal,
@@ -713,6 +717,20 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 		return eng, nil
 	}
+}
+
+func bootstrapStartupValues(config agent.Config) (int, string) {
+	var apiPort int
+	if servingInfo, ok := config.ControllerAgentInfo(); ok {
+		apiPort = servingInfo.APIPort
+	}
+
+	var password string
+	if apiInfo, ok := config.APIInfo(); ok {
+		password = apiInfo.Password
+	}
+
+	return apiPort, password
 }
 
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {

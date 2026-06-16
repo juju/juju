@@ -143,6 +143,16 @@ type ManifoldsConfig struct {
 	// ControlSocketPath is the path to the local controller control socket.
 	ControlSocketPath string
 
+	// DataDir is the controller agent data directory used by bootstrap.
+	DataDir string
+
+	// APIPort is the controller API port advertised during bootstrap.
+	APIPort int
+
+	// AgentPassword is the controller agent password used during bootstrap
+	// finalization.
+	AgentPassword string
+
 	// RootDir is the root directory that any worker that needs to
 	// access local filesystems should use as a base. In actual use it
 	// will be "" but it may be overridden in tests.
@@ -316,6 +326,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The upgrade-database worker runs soon after the controller
 		// agent starts and runs any steps required to upgrade the
 		// database to the current version.
+		// TODO: remove disabledManifold wrapper once upgrade-database manifold is
+		// reworked for standalone controller.
 		upgradeDatabaseName: disabledManifold(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
 			// AgentName:           agentName,
 			UpgradeDBGateName:   upgradeDatabaseGateName,
@@ -362,17 +374,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// a mechanism for running other workers so they can't
 		// accidentally interfere with a migration in progress.
 		migrationFortressName: fortress.Manifold(),
-		// migration-inactive-flag is out of scope for Phase 1;
-		// migration is never active in the standalone controller,
-		// so this unconditionally reports "inactive". Replace
-		// with migrationflag.Manifold when controller migration
-		// is implemented.
+
+		// migration-inactive-flag is out of scope for Phase 1; migration is never
+		// active in the standalone controller, so this unconditionally reports
+		// "inactive".
+		// TODO: replace with migrationflag.Manifold when controller migration is
+		// implemented.
 		migrationInactiveFlagName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 				return engine.NewStaticFlagWorker(true), nil
 			},
 			Output: engine.FlagOutput,
 		},
+
+		// TODO: remove disabledManifold wrapper once migration-minion manifold is
+		// reworked for standalone controller.
 		migrationMinionName: ifControllerUpgradeComplete(disabledManifold(migrationminion.Manifold(migrationminion.ManifoldConfig{
 			// AgentName:         agentName,
 			// APICallerName:     apiCallerName,
@@ -859,6 +875,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// type recognised by the controller agent, causing other workers
 		// to be stopped and the agent to be restarted running the new
 		// tools.
+		// TODO: remove disabledManifold wrapper once upgrader manifold is reworked
+		// for standalone controller.
 		upgraderName: ifControllerUpgradeComplete(disabledManifold(upgrader.Manifold(upgrader.ManifoldConfig{
 			// AgentName:            agentName,
 			// APICallerName:        apiCallerName,
@@ -873,6 +891,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// controller agent starts and runs any steps required to
 		// upgrade to the running jujud version. Once upgrade steps have
 		// run, the upgradesteps gate is unlocked and the worker exits.
+		// TODO: remove disabledManifold wrapper once upgrade-steps controller
+		// manifold is reworked for standalone controller.
 		upgradeControllerStepsName: ifControllerUpgradeComplete(disabledManifold(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
 			// AgentName:            agentName,
 			// APICallerName:        apiCallerName,
@@ -905,6 +925,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		dbAccessorName: dbaccessor.Manifold(NewCAASDBAccessorManifoldConfig(config)),
 
+		// TODO: remove disabledManifold wrapper once upgrader manifold is reworked
+		// for standalone controller.
 		upgraderName: ifControllerUpgradeComplete(disabledManifold(upgrader.Manifold(upgrader.ManifoldConfig{
 			// AgentName:            agentName,
 			// APICallerName:        apiCallerName,
@@ -914,7 +936,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.upgrader"),
 			Clock:                config.Clock,
 		}))),
-
+		// TODO: remove disabledManifold wrapper once upgrade-steps controller
+		// manifold is reworked for standalone controller.
 		upgradeControllerStepsName: ifControllerUpgradeComplete(disabledManifold(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
 			// AgentName:            agentName,
 			// APICallerName:        apiCallerName,
@@ -934,12 +957,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // NewIAASBootstrapManifoldConfig returns the IAAS-specific bootstrap config.
 func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
 	return bootstrap.ManifoldConfig{
-		AgentName:                    agentName,
 		ObjectStoreName:              objectStoreFacadeName,
 		DomainServicesName:           domainServicesName,
 		HTTPClientName:               httpClientName,
 		BootstrapGateName:            isBootstrapGateName,
 		ProviderFactoryName:          providerTrackerName,
+		DataDir:                      config.DataDir,
+		APIPort:                      config.APIPort,
+		AgentPassword:                config.AgentPassword,
 		RequiresBootstrap:            bootstrap.RequiresBootstrap,
 		PopulateControllerCharm:      bootstrap.PopulateIAASControllerCharm,
 		StatusHistory:                domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
@@ -956,12 +981,14 @@ func NewIAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 // NewCAASBootstrapManifoldConfig returns the CAAS-specific bootstrap config.
 func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldConfig {
 	return bootstrap.ManifoldConfig{
-		AgentName:                    agentName,
 		ObjectStoreName:              objectStoreFacadeName,
 		DomainServicesName:           domainServicesName,
 		HTTPClientName:               httpClientName,
 		BootstrapGateName:            isBootstrapGateName,
 		ProviderFactoryName:          providerTrackerName,
+		DataDir:                      config.DataDir,
+		APIPort:                      config.APIPort,
+		AgentPassword:                config.AgentPassword,
 		RequiresBootstrap:            bootstrap.RequiresBootstrap,
 		PopulateControllerCharm:      bootstrap.PopulateCAASControllerCharm,
 		StatusHistory:                domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
@@ -1011,9 +1038,13 @@ func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) depe
 	return result
 }
 
-// disabledManifold helps keeping the manifolds that are out-of-scope in this
-// file so that they're not forgotten. Those manifolds will be reworked in
-// next phases of the standalone controller project.
+// disabledManifold wraps an existing manifold definition so that its call site
+// and configuration are preserved in the source while the manifold itself is
+// replaced with a no-op worker. This keeps the wiring visible and makes it
+// easy to re-enable manifolds once their dependencies (e.g. agent, api-caller)
+// are reworked in a later phase of the standalone controller project. Remove
+// disabledManifold and unwrap the call sites when each manifold is brought
+// back in scope.
 func disabledManifold(_ dependency.Manifold) dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
@@ -1080,7 +1111,6 @@ type ControllerStartupValueProvider interface {
 }
 
 const (
-	agentName          = "agent"
 	terminationName    = "termination-signal-handler"
 	flightRecorderName = "flight-recorder"
 
