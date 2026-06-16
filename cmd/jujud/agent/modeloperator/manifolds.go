@@ -4,16 +4,18 @@
 package modeloperator
 
 import (
-	"net/http"
-
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
+	corehttp "github.com/juju/juju/core/http"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
+	internalhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -24,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/httpclient"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -39,6 +42,9 @@ type ManifoldConfig struct {
 
 	// LogSource will be read from by the logsender component.
 	LogSource logsender.LogRecordCh
+
+	// PrometheusRegisterer is used by workers to register metrics collectors.
+	PrometheusRegisterer prometheus.Registerer
 
 	// AgentConfigChanged is set whenever the unit agent's config
 	// is updated.
@@ -77,6 +83,22 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 	return dependency.Manifolds{
 		agentName: agent.Manifold(config.Agent),
 
+		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
+			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
+				switch namespace {
+				case corehttp.LokiPurpose:
+					logger := internallogger.GetLogger("juju.loki", corelogger.HTTP)
+					opts = append(opts, internalhttp.WithLogger(logger))
+				}
+				return internalhttp.NewClient(opts...)
+			},
+			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewMetricsCollector:  httpclient.NewMetricsCollector,
+			Clock:                clock.WallClock,
+			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
+		}),
+
 		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
@@ -99,7 +121,7 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
 			Clock:              clock.WallClock,
-			HTTPClient:         http.DefaultClient,
+			HTTPClientName:     httpClientName,
 			NewAPIOpen:         api.Open,
 			NewBackendFunc:     logrouter.NewBackend,
 		}),
@@ -169,6 +191,7 @@ const (
 	agentName                = "agent"
 	apiCallerName            = "api-caller"
 	apiConfigWatcherName     = "api-config-watcher"
+	httpClientName           = "http-client"
 	caasAdmissionName        = "caas-admission"
 	caasBrokerTrackerName    = "caas-broker-tracker"
 	caasRBACMapperName       = "caas-rbac-mapper"

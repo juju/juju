@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent/tools"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
@@ -20,6 +22,12 @@ import (
 
 type BaseSuite struct {
 	testhelpers.IsolationSuite
+}
+
+type stubHTTPClientGetter struct{}
+
+func (stubHTTPClientGetter) GetHTTPClient(context.Context, corehttp.Purpose) (corehttp.HTTPClient, error) {
+	return nil, nil
 }
 
 func (s *BaseSuite) InitializeCurrentToolsDir(c *tc.C, dataDir string) {

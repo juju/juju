@@ -914,6 +914,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				case corehttp.SimpleStreamPurpose:
 					logger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
 					opts = append(opts, internalhttp.WithLogger(logger))
+
+				case corehttp.LokiPurpose:
+					logger := internallogger.GetLogger("juju.loki", corelogger.HTTP)
+					opts = append(opts, internalhttp.WithLogger(logger))
 				}
 
 				return internalhttp.NewClient(opts...)
@@ -1159,6 +1163,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		deployerName: ifControllerAgentConfigNeededAndReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
+			HTTPClientName: httpClientName,
 			FlightRecorder: config.FlightRecorder,
 			Clock:          config.Clock,
 			Logger:         internallogger.GetLogger("juju.worker.deployer"),

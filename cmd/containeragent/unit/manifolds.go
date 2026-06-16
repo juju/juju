@@ -5,7 +5,6 @@ package unit
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	agentlifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/api/base"
 	proxy "github.com/juju/juju/api/proxy/config"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
+	internalhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/observability/probe"
 	"github.com/juju/juju/internal/upgrades"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/httpclient"
 	"github.com/juju/juju/internal/worker/leadership"
 	"github.com/juju/juju/internal/worker/lifeflag"
 	wlogger "github.com/juju/juju/internal/worker/logger"
@@ -175,6 +177,22 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
 
+		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
+			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
+				switch namespace {
+				case corehttp.LokiPurpose:
+					logger := internallogger.GetLogger("juju.loki", corelogger.HTTP)
+					opts = append(opts, internalhttp.WithLogger(logger))
+				}
+				return internalhttp.NewClient(opts...)
+			},
+			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewMetricsCollector:  httpclient.NewMetricsCollector,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
+		}),
+
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
 		// change. It's required as part of model migrations.
@@ -232,7 +250,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
 			Clock:              config.Clock,
-			HTTPClient:         http.DefaultClient,
+			HTTPClientName:     httpClientName,
 			NewAPIOpen:         api.Open,
 			NewBackendFunc:     logrouter.NewBackend,
 		})),
@@ -465,6 +483,7 @@ const (
 	agentName            = "agent"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
+	httpClientName       = "http-client"
 	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
 	logSenderName        = "log-sender"

@@ -49,6 +49,8 @@ const (
 	MacaroonPurpose Purpose = "macaroon"
 	// SimpleStreamPurpose is the namespace for the simplestream http client.
 	SimpleStreamPurpose Purpose = "simplestream"
+	// LokiPurpose is the namespace for the loki http client.
+	LokiPurpose Purpose = "loki"
 )
 
 func (n Purpose) String() string {

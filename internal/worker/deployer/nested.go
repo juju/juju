@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/core/flightrecorder"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common/reboot"
@@ -65,6 +66,7 @@ type ContextConfig struct {
 	FlightRecorder           flightrecorder.FlightRecorder
 	Clock                    clock.Clock
 	Logger                   logger.Logger
+	HTTPClientGetter         corehttp.HTTPClientGetter
 	UnitEngineConfig         func() dependency.EngineConfig
 	SetupLogging             func(logger.LoggerContext, agent.Config)
 	UnitManifolds            func(config UnitManifoldsConfig) dependency.Manifolds
@@ -84,6 +86,9 @@ func (c *ContextConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing Logger")
+	}
+	if c.HTTPClientGetter == nil {
+		return errors.NotValidf("missing HTTPClientGetter")
 	}
 	if c.SetupLogging == nil {
 		return errors.NotValidf("missing SetupLogging")
@@ -126,6 +131,7 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			FlightRecorder:   config.FlightRecorder,
 			Clock:            config.Clock,
 			Logger:           config.Logger,
+			HTTPClientGetter: config.HTTPClientGetter,
 			UnitEngineConfig: config.UnitEngineConfig,
 			UnitManifolds:    config.UnitManifolds,
 			SetupLogging:     config.SetupLogging,

@@ -16,8 +16,8 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	corehttp "github.com/juju/juju/core/http"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/loki"
 )
 
 type manifoldSuite struct{}
@@ -28,10 +28,11 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
-		AgentName: "agent",
+		AgentName:      "agent",
+		HTTPClientName: "http-client",
 	})
 
-	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "http-client"})
 }
 
 func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
@@ -86,20 +87,21 @@ func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 		AgentConfigChanged: fixture.configChanged,
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
-		HTTPClient:         http.DefaultClient,
+		HTTPClientName:     "http-client",
 		NewAPIOpen: func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
 			return nil, nil
 		},
-		NewBackendFunc: func(coreagent.Agent, func(context.Context, *api.Info, api.DialOpts) (api.Connection, error), loki.HTTPClient, clock.Clock) BackendFunc {
+		NewBackendFunc: func(coreagent.Agent, func(context.Context, *api.Info, api.DialOpts) (api.Connection, error), corehttp.HTTPClientGetter, clock.Clock) BackendFunc {
 			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
 		},
 	}
 }
 
 type manifoldGetter struct {
-	agent  coreagent.Agent
-	called *atomic.Bool
-	err    error
+	agent            coreagent.Agent
+	httpClientGetter corehttp.HTTPClientGetter
+	called           *atomic.Bool
+	err              error
 }
 
 func (g manifoldGetter) Get(_ string, out any) error {
@@ -112,8 +114,22 @@ func (g manifoldGetter) Get(_ string, out any) error {
 	switch out := out.(type) {
 	case *coreagent.Agent:
 		*out = g.agent
+	case *corehttp.HTTPClientGetter:
+		httpClientGetter := g.httpClientGetter
+		if httpClientGetter == nil {
+			httpClientGetter = stubHTTPClientGetter{client: http.DefaultClient}
+		}
+		*out = httpClientGetter
 	default:
 		return stderrors.New("unexpected dependency request")
 	}
 	return nil
+}
+
+type stubHTTPClientGetter struct {
+	client corehttp.HTTPClient
+}
+
+func (g stubHTTPClientGetter) GetHTTPClient(context.Context, corehttp.Purpose) (corehttp.HTTPClient, error) {
+	return g.client, nil
 }

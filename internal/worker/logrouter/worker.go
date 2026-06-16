@@ -48,7 +48,7 @@ type Backend interface {
 }
 
 // BackendFunc constructs a backend worker.
-type BackendFunc func(BackendType, ConfigSnapshot) (Backend, error)
+type BackendFunc func(context.Context, BackendType, ConfigSnapshot) (Backend, error)
 
 // Metrics records logrouter events that are exported elsewhere.
 type Metrics interface {
@@ -304,8 +304,8 @@ func (w *logRouter) currentSnapshot() ConfigSnapshot {
 }
 
 func (w *logRouter) startBackend(ctx context.Context, id string, snapshot ConfigSnapshot) (logsender.LogRecordCh, error) {
-	err := w.runner.StartWorker(ctx, id, func(context.Context) (worker.Worker, error) {
-		return w.newBackend(snapshot)
+	err := w.runner.StartWorker(ctx, id, func(ctx context.Context) (worker.Worker, error) {
+		return w.newBackend(ctx, snapshot)
 	})
 	if err != nil {
 		return nil, internalerrors.Capture(err)
@@ -326,8 +326,8 @@ func (w *logRouter) startBackend(ctx context.Context, id string, snapshot Config
 	return recordBackend.LogRecords(), nil
 }
 
-func (w *logRouter) newBackend(snapshot ConfigSnapshot) (Backend, error) {
-	return w.config.NewBackend(snapshot.Mode, snapshot)
+func (w *logRouter) newBackend(ctx context.Context, snapshot ConfigSnapshot) (Backend, error) {
+	return w.config.NewBackend(ctx, snapshot.Mode, snapshot)
 }
 
 func (w *logRouter) send(

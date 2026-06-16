@@ -50,6 +50,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"charm-dir",
 		"dead-flag",
 		"hook-retry-strategy",
+		"http-client",
 		"leadership-tracker",
 		"log-sender",
 		"logging-config-updater",
@@ -94,6 +95,7 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *tc.C) {
 		"charm-dir",
 		"dead-flag",
 		"hook-retry-strategy",
+		"http-client",
 		"leadership-tracker",
 		"log-sender",
 		"logging-config-updater",
@@ -127,6 +129,7 @@ func (*ManifoldsSuite) TestMigrationGuards(c *tc.C) {
 		"agent",
 		"api-config-watcher",
 		"api-caller",
+		"http-client",
 		"s3-caller",
 		"caas-prober",
 		"probe-http-server",
@@ -192,6 +195,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"agent",
 		"api-config-watcher",
 	},
+	"http-client": {},
 	"s3-caller": {
 		"agent",
 		"api-caller",
@@ -213,6 +217,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 
 	"log-sender": {
 		"agent",
+		"http-client",
 		"api-caller",
 		"api-config-watcher",
 		"not-dead-flag",

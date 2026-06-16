@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apilogsender "github.com/juju/juju/api/logsender"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
@@ -32,7 +33,7 @@ import (
 type BackendFuncFactory func(
 	agent.Agent,
 	func(context.Context, *api.Info, api.DialOpts) (api.Connection, error),
-	loki.HTTPClient,
+	corehttp.HTTPClientGetter,
 	clock.Clock,
 ) BackendFunc
 
@@ -43,7 +44,7 @@ type ManifoldConfig struct {
 	AgentConfigChanged *voyeur.Value
 	Logger             corelogger.Logger
 	Clock              clock.Clock
-	HTTPClient         loki.HTTPClient
+	HTTPClientName     string
 	DrainOnly          bool
 
 	NewAPIOpen     func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
@@ -67,6 +68,9 @@ func (c ManifoldConfig) Validate() error {
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if c.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
+	}
 	if c.NewAPIOpen == nil {
 		return errors.NotValidf("nil NewAPIOpen")
 	}
@@ -79,7 +83,10 @@ func (c ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the logrouter worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.AgentName},
+		Inputs: []string{
+			config.AgentName,
+			config.HTTPClientName,
+		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, internalerrors.Capture(err)
@@ -87,6 +94,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var a agent.Agent
 			if err := getter.Get(config.AgentName, &a); err != nil {
+				return nil, err
+			}
+
+			var httpClientGetter corehttp.HTTPClientGetter
+			if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
 				return nil, err
 			}
 
@@ -98,7 +110,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:              config.Clock,
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
-				NewBackend:         config.NewBackendFunc(a, config.NewAPIOpen, config.HTTPClient, config.Clock),
+				NewBackend:         config.NewBackendFunc(a, config.NewAPIOpen, httpClientGetter, config.Clock),
 			})
 		},
 	}
@@ -108,16 +120,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 func NewBackend(
 	agent agent.Agent,
 	open func(context.Context, *api.Info, api.DialOpts) (api.Connection, error),
-	httpClient loki.HTTPClient,
+	httpClientGetter corehttp.HTTPClientGetter,
 	clock clock.Clock,
 ) BackendFunc {
-	return func(backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
+	return func(ctx context.Context, backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
 		switch backendType {
 		case BackendTypeLogSink:
 			logSenderAPI := apilogsender.NewAPI(newAgentAPICaller(agent, open))
 			return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
 
 		case BackendTypeLoki:
+			httpClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.LokiPurpose)
+			if err != nil {
+				return nil, internalerrors.Capture(err)
+			}
+
 			lokiConfig := loki.DefaultConfig()
 			lokiConfig.HTTPClient = httpClient
 			lokiConfig.Clock = clock

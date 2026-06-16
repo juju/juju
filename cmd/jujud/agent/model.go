@@ -15,8 +15,10 @@ import (
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/addons"
 	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/caas"
@@ -40,13 +42,14 @@ import (
 type ModelCommand struct {
 	agentconf.AgentConf
 	cmd.CommandBase
-	configChangedVal *voyeur.Value
-	dead             chan struct{}
-	errReason        error
-	ModelUUID        string
-	runner           *worker.Runner
-	upgradeStepsLock gate.Lock
-	bufferedLogger   *logsender.BufferedLogWriter
+	configChangedVal   *voyeur.Value
+	dead               chan struct{}
+	errReason          error
+	ModelUUID          string
+	runner             *worker.Runner
+	upgradeStepsLock   gate.Lock
+	bufferedLogger     *logsender.BufferedLogWriter
+	prometheusRegistry *prometheus.Registry
 }
 
 // Done signals the model agent is finished
@@ -81,6 +84,11 @@ func (m *ModelCommand) Init(args []string) error {
 		RestartDelay:  internalworker.RestartDelay,
 		Logger:        internalworker.WrapLogger(logger),
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	m.prometheusRegistry, err = addons.NewPrometheusRegistry()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -185,6 +193,7 @@ func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 		NewContainerBrokerFunc: caas.New,
 		Port:                   port,
 		LogSource:              m.bufferedLogger.Logs(),
+		PrometheusRegisterer:   m.prometheusRegistry,
 		ServiceName:            svcName,
 		ServiceNamespace:       svcNamespace,
 		UpdateLoggerConfig:     updateAgentConfLogging,
@@ -192,8 +201,6 @@ func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 		UpgradeStepsLock:       m.upgradeStepsLock,
 	})
 
-	// TODO (stickupkid): There is no Prometheus registry at this level, we
-	// should work out the best way to get it into here.
 	e, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		dependency.DefaultMetrics(),
 		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),

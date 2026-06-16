@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
@@ -28,7 +29,8 @@ type fakeAgent struct {
 
 func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{
-		Agent: fakeAgent{},
+		Agent:                fakeAgent{},
+		PrometheusRegisterer: prometheus.NewRegistry(),
 	})
 
 	for name, manifold := range manifolds {
@@ -38,7 +40,10 @@ func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 }
 
 func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
-	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{Agent: &fakeAgent{}})
+	manifolds := modeloperator.Manifolds(modeloperator.ManifoldConfig{
+		Agent:                &fakeAgent{},
+		PrometheusRegisterer: prometheus.NewRegistry(),
+	})
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
 		keys = append(keys, k)
@@ -47,6 +52,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	c.Check(keys, tc.SameContents, []string{
 		"caas-broker-tracker",
 		"api-caller",
+		"http-client",
 		"log-sender",
 		"caas-admission",
 		"caas-rbac-mapper",
@@ -63,7 +69,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		modeloperator.Manifolds(modeloperator.ManifoldConfig{
-			Agent: &fakeAgent{},
+			Agent:                &fakeAgent{},
+			PrometheusRegisterer: prometheus.NewRegistry(),
 		}),
 		expectedManifoldsWithDependencies,
 	)
@@ -75,7 +82,9 @@ var expectedManifoldsWithDependencies = map[string][]string{
 
 	"api-caller": {"agent", "api-config-watcher"},
 
-	"log-sender": {"agent"},
+	"http-client": {},
+
+	"log-sender": {"agent", "http-client"},
 
 	"caas-admission": {
 		"agent",

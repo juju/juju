@@ -80,10 +80,11 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 		logger:  logger,
 	}
 	s.config = deployer.ContextConfig{
-		Agent:          s.agent,
-		FlightRecorder: flightrecorder.NoopRecorder{},
-		Clock:          clock.WallClock,
-		Logger:         logger,
+		Agent:            s.agent,
+		FlightRecorder:   flightrecorder.NoopRecorder{},
+		Clock:            clock.WallClock,
+		Logger:           logger,
+		HTTPClientGetter: stubHTTPClientGetter{},
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),

@@ -4,6 +4,7 @@
 package logrouter
 
 import (
+	"context"
 	stderrors "errors"
 	"sync"
 	"testing"
@@ -267,13 +268,13 @@ type backendEvent struct {
 }
 
 func recordingBackendFunc(events chan<- backendEvent, backendBufferSize int) BackendFunc {
-	return func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+	return func(_ context.Context, backendType BackendType, _ ConfigSnapshot) (Backend, error) {
 		return newRecordingBackend(string(backendType), events, backendBufferSize), nil
 	}
 }
 
 func failingLogSinkBackendFunc(events chan<- backendEvent) BackendFunc {
-	return func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+	return func(_ context.Context, backendType BackendType, _ ConfigSnapshot) (Backend, error) {
 		if backendType != BackendTypeLogSink {
 			return newRecordingBackend(string(backendType), events, defaultBackendBufferSize), nil
 		}
@@ -289,7 +290,7 @@ func failingLogSinkBackendFunc(events chan<- backendEvent) BackendFunc {
 }
 
 func errorLogSinkBackendFunc(events chan<- backendEvent) BackendFunc {
-	return func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+	return func(_ context.Context, backendType BackendType, _ ConfigSnapshot) (Backend, error) {
 		if backendType != BackendTypeLogSink {
 			return newRecordingBackend(string(backendType), events, defaultBackendBufferSize), nil
 		}
