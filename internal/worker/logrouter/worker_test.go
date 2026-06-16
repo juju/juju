@@ -40,9 +40,7 @@ func (s *workerSuite) TestStartsLogSinkWhenLokiEndpointEmpty(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    defaultConvergeTimeout,
-		NewLogSinkBackend:  recordingBackendFactory("logsink", events, defaultBackendBufferSize),
-		NewLokiBackend:     recordingBackendFactory("loki", events, defaultBackendBufferSize),
-		NewDrainBackend:    recordingBackendFactory("drain-only", events, defaultBackendBufferSize),
+		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -67,9 +65,7 @@ func (s *workerSuite) TestSwitchStopsOldBackendAndStartsNew(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    defaultConvergeTimeout,
-		NewLogSinkBackend:  recordingBackendFactory("logsink", events, defaultBackendBufferSize),
-		NewLokiBackend:     recordingBackendFactory("loki", events, defaultBackendBufferSize),
-		NewDrainBackend:    recordingBackendFactory("drain-only", events, defaultBackendBufferSize),
+		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -112,9 +108,7 @@ func (s *workerSuite) TestDrainOnlyOverridesEndpoint(c *tc.C) {
 		Clock:              clock.WallClock,
 		DrainOnly:          true,
 		ConvergeTimeout:    defaultConvergeTimeout,
-		NewLogSinkBackend:  recordingBackendFactory("logsink", events, defaultBackendBufferSize),
-		NewLokiBackend:     recordingBackendFactory("loki", events, defaultBackendBufferSize),
-		NewDrainBackend:    recordingBackendFactory("drain-only", events, defaultBackendBufferSize),
+		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -136,9 +130,7 @@ func (s *workerSuite) TestBackendFailureFallsBackToDrain(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    defaultConvergeTimeout,
-		NewLogSinkBackend:  failingBackendFactory("logsink", events, 1),
-		NewLokiBackend:     recordingBackendFactory("loki", events, defaultBackendBufferSize),
-		NewDrainBackend:    recordingBackendFactory("drain-only", events, defaultBackendBufferSize),
+		NewBackend:         failingLogSinkBackendFunc(events),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -182,9 +174,7 @@ func (s *workerSuite) TestBackendStartErrorFallsBackToDrain(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    time.Millisecond * 10,
-		NewLogSinkBackend:  errorBackendFactory("logsink", events),
-		NewLokiBackend:     recordingBackendFactory("loki", events, defaultBackendBufferSize),
-		NewDrainBackend:    recordingBackendFactory("drain-only", events, defaultBackendBufferSize),
+		NewBackend:         errorLogSinkBackendFunc(events),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -276,25 +266,21 @@ type backendEvent struct {
 	message string
 }
 
-func recordingBackendFactory(name string, events chan<- backendEvent, backendBufferSize int) BackendFactory {
-	return func(ConfigSnapshot) (Backend, error) {
-		w := &recordingBackend{
-			name:    name,
-			records: make(logsender.LogRecordCh, backendBufferSize),
-			events:  events,
-		}
-		events <- backendEvent{backend: name, kind: "start"}
-		w.tomb.Go(w.loop)
-		return w, nil
+func recordingBackendFunc(events chan<- backendEvent, backendBufferSize int) BackendFunc {
+	return func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+		return newRecordingBackend(string(backendType), events, backendBufferSize), nil
 	}
 }
 
-func failingBackendFactory(name string, events chan<- backendEvent, backendBufferSize int) BackendFactory {
-	return func(ConfigSnapshot) (Backend, error) {
-		w := &failingBackend{
-			records: make(logsender.LogRecordCh, backendBufferSize),
+func failingLogSinkBackendFunc(events chan<- backendEvent) BackendFunc {
+	return func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+		if backendType != BackendTypeLogSink {
+			return newRecordingBackend(string(backendType), events, defaultBackendBufferSize), nil
 		}
-		events <- backendEvent{backend: name, kind: "start"}
+		w := &failingBackend{
+			records: make(logsender.LogRecordCh, 1),
+		}
+		events <- backendEvent{backend: string(backendType), kind: "start"}
 		w.tomb.Go(func() error {
 			return stderrors.New("backend failed")
 		})
@@ -302,11 +288,25 @@ func failingBackendFactory(name string, events chan<- backendEvent, backendBuffe
 	}
 }
 
-func errorBackendFactory(name string, events chan<- backendEvent) BackendFactory {
-	return func(ConfigSnapshot) (Backend, error) {
-		events <- backendEvent{backend: name, kind: "start"}
+func errorLogSinkBackendFunc(events chan<- backendEvent) BackendFunc {
+	return func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+		if backendType != BackendTypeLogSink {
+			return newRecordingBackend(string(backendType), events, defaultBackendBufferSize), nil
+		}
+		events <- backendEvent{backend: string(backendType), kind: "start"}
 		return nil, stderrors.New("backend start failed")
 	}
+}
+
+func newRecordingBackend(name string, events chan<- backendEvent, backendBufferSize int) *recordingBackend {
+	w := &recordingBackend{
+		name:    name,
+		records: make(logsender.LogRecordCh, backendBufferSize),
+		events:  events,
+	}
+	events <- backendEvent{backend: name, kind: "start"}
+	w.tomb.Go(w.loop)
+	return w
 }
 
 type failingBackend struct {

@@ -58,27 +58,30 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:              config.Clock,
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
-				NewLogSinkBackend: func(ConfigSnapshot) (Backend, error) {
-					return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
-				},
-				NewLokiBackend: func(snapshot ConfigSnapshot) (Backend, error) {
-					lokiConfig := loki.DefaultConfig()
-					lokiConfig.HTTPClient = config.HTTPClient
-					lokiConfig.Clock = config.Clock
-					return backends.NewLoki(backends.LokiConfig{
-						BackendBufferSize: defaultBackendBufferSize,
-						ClientConfig:      lokiConfig,
-						Endpoint:          snapshot.Endpoint,
-						ControllerUUID:    snapshot.ControllerUUID,
-						ModelUUID:         snapshot.ModelUUID,
-						AgentID:           snapshot.AgentID,
-						NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
-							return loki.NewClient(endpoint, cfg)
-						},
-					})
-				},
-				NewDrainBackend: func(ConfigSnapshot) (Backend, error) {
-					return backends.NewDrain(defaultBackendBufferSize)
+				NewBackend: func(backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
+					switch backendType {
+					case BackendTypeLogSink:
+						return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
+					case BackendTypeLoki:
+						lokiConfig := loki.DefaultConfig()
+						lokiConfig.HTTPClient = config.HTTPClient
+						lokiConfig.Clock = config.Clock
+						return backends.NewLoki(backends.LokiConfig{
+							BackendBufferSize: defaultBackendBufferSize,
+							ClientConfig:      lokiConfig,
+							Endpoint:          snapshot.Endpoint,
+							ControllerUUID:    snapshot.ControllerUUID,
+							ModelUUID:         snapshot.ModelUUID,
+							AgentID:           snapshot.AgentID,
+							NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
+								return loki.NewClient(endpoint, cfg)
+							},
+						})
+					case BackendTypeDrain:
+						return backends.NewDrain(defaultBackendBufferSize)
+					default:
+						return nil, errors.NotValidf("unknown logrouter backend type %q", backendType)
+					}
 				},
 			})
 		},

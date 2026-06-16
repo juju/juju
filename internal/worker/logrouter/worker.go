@@ -27,12 +27,12 @@ const (
 	backendDrainID           = "drain"
 )
 
-type mode string
+type BackendType string
 
 const (
-	modeLogSink   mode = "logsink"
-	modeLoki      mode = "loki"
-	modeDrainOnly mode = "drain-only"
+	BackendTypeLogSink BackendType = "logsink"
+	BackendTypeLoki    BackendType = "loki"
+	BackendTypeDrain   BackendType = "drain-only"
 )
 
 // Agent describes the agent configuration methods used by the router.
@@ -46,8 +46,8 @@ type Backend interface {
 	LogRecords() logsender.LogRecordCh
 }
 
-// BackendFactory constructs a backend worker.
-type BackendFactory func(ConfigSnapshot) (Backend, error)
+// BackendFunc constructs a backend worker.
+type BackendFunc func(BackendType, ConfigSnapshot) (Backend, error)
 
 // Metrics records logrouter events that are exported elsewhere.
 type Metrics interface {
@@ -66,14 +66,12 @@ type WorkerConfig struct {
 	DrainOnly       bool
 	ConvergeTimeout time.Duration
 
-	NewLogSinkBackend BackendFactory
-	NewLokiBackend    BackendFactory
-	NewDrainBackend   BackendFactory
+	NewBackend BackendFunc
 }
 
 // ConfigSnapshot is the local logging destination configuration.
 type ConfigSnapshot struct {
-	Mode           mode
+	Mode           BackendType
 	Endpoint       string
 	CACertificate  string
 	ControllerUUID string
@@ -82,7 +80,7 @@ type ConfigSnapshot struct {
 }
 
 func (s ConfigSnapshot) sameBackend(other ConfigSnapshot) bool {
-	if s.Mode == modeDrainOnly && other.Mode == modeDrainOnly {
+	if s.Mode == BackendTypeDrain && other.Mode == BackendTypeDrain {
 		return true
 	}
 	return s.Mode == other.Mode &&
@@ -110,14 +108,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.ConvergeTimeout <= 0 {
 		return errors.NotValidf("non-positive ConvergeTimeout")
 	}
-	if c.NewLogSinkBackend == nil {
-		return errors.NotValidf("nil NewLogSinkBackend")
-	}
-	if c.NewLokiBackend == nil {
-		return errors.NotValidf("nil NewLokiBackend")
-	}
-	if c.NewDrainBackend == nil {
-		return errors.NotValidf("nil NewDrainBackend")
+	if c.NewBackend == nil {
+		return errors.NotValidf("nil NewBackend")
 	}
 	return nil
 }
@@ -196,7 +188,7 @@ func (w *logRouter) loop() error {
 		return errors.Trace(err)
 	}
 
-	drainSnapshot := ConfigSnapshot{Mode: modeDrainOnly}
+	drainSnapshot := ConfigSnapshot{Mode: BackendTypeDrain}
 	drainRecords, err := w.startBackend(ctx, backendDrainID, drainSnapshot)
 	if err != nil {
 		return w.dyingError(ctx, errors.Trace(err))
@@ -255,7 +247,7 @@ func (w *logRouter) switchBackend(
 		w.stopBackend(w.activeBackendID)
 	}
 
-	if next.Mode == modeDrainOnly {
+	if next.Mode == BackendTypeDrain {
 		w.activeBackendID = backendDrainID
 		w.activeSnapshot = next
 		w.activeRecords = w.drainRecords
@@ -301,11 +293,11 @@ func (w *logRouter) currentSnapshot() ConfigSnapshot {
 	}
 	switch {
 	case w.config.DrainOnly:
-		snapshot.Mode = modeDrainOnly
+		snapshot.Mode = BackendTypeDrain
 	case snapshot.Endpoint != "":
-		snapshot.Mode = modeLoki
+		snapshot.Mode = BackendTypeLoki
 	default:
-		snapshot.Mode = modeLogSink
+		snapshot.Mode = BackendTypeLogSink
 	}
 	return snapshot
 }
@@ -334,16 +326,7 @@ func (w *logRouter) startBackend(ctx context.Context, id string, snapshot Config
 }
 
 func (w *logRouter) newBackend(snapshot ConfigSnapshot) (Backend, error) {
-	switch snapshot.Mode {
-	case modeLogSink:
-		return w.config.NewLogSinkBackend(snapshot)
-	case modeLoki:
-		return w.config.NewLokiBackend(snapshot)
-	case modeDrainOnly:
-		return w.config.NewDrainBackend(snapshot)
-	default:
-		return nil, errors.NotValidf("unknown logrouter mode %q", snapshot.Mode)
-	}
+	return w.config.NewBackend(snapshot.Mode, snapshot)
 }
 
 func (w *logRouter) send(
