@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,7 +27,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/environs"
 	internalbootstrap "github.com/juju/juju/internal/bootstrap"
@@ -40,11 +38,8 @@ import (
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/agent"
-	"github.com/juju/juju/internal/worker/agentconfigupdater"
 	"github.com/juju/juju/internal/worker/apiaddresssetter"
 	"github.com/juju/juju/internal/worker/apicaller"
-	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/apiserver"
@@ -89,6 +84,7 @@ import (
 	"github.com/juju/juju/internal/worker/storageregistry"
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/traceservices"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
 	"github.com/juju/juju/internal/worker/upgrader"
@@ -132,6 +128,11 @@ type ManifoldsConfig struct {
 	// ControllerAgentTag is the tag used for controller-agent log records.
 	ControllerAgentTag names.Tag
 
+	// ControllerTag is the tag identifying the controller entity
+	// (e.g. controller-UUID). It is passed directly to manifolds that
+	// require it instead of being looked up from the agent config.
+	ControllerTag names.ControllerTag
+
 	// LogDir is the controller process log directory for workers in this change
 	// area that still take a fixed local path.
 	LogDir string
@@ -141,14 +142,6 @@ type ManifoldsConfig struct {
 
 	// ControlSocketPath is the path to the local controller control socket.
 	ControlSocketPath string
-
-	// Agent contains the agent that will be wrapped and made available
-	// to its dependencies via a dependency.Engine.
-	Agent coreagent.Agent
-
-	// AgentConfigChanged is set whenever the controller agent's config
-	// is updated.
-	AgentConfigChanged *voyeur.Value
 
 	// RootDir is the root directory that any worker that needs to
 	// access local filesystems should use as a base. In actual use it
@@ -228,8 +221,8 @@ type ManifoldsConfig struct {
 	// for controller administration rights.
 	ControllerLeaseDuration time.Duration
 
-	// TransactionPruneInterval defines how frequently mgo/txn
-	// transactions are pruned from the database.
+	// TransactionPruneInterval defines how frequently mgo/txn transactions
+	// are pruned from the database.
 	TransactionPruneInterval time.Duration
 
 	// RegisterIntrospectionHTTPHandlers is a function that calls the
@@ -263,21 +256,6 @@ type ManifoldsConfig struct {
 
 // commonManifolds returns the shared controller manifolds.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
-	// connectFilter exists:
-	//  1) to let us retry api connections immediately on password change,
-	//     rather than causing the dependency engine to wait for a while;
-	//  2) to decide how to deal with fatal, non-recoverable errors
-	//     e.g. apicaller.ErrConnectImpossible.
-	connectFilter := func(err error) error {
-		cause := errors.Cause(err)
-		if errors.Is(cause, apicaller.ErrConnectImpossible) {
-			return jworker.ErrTerminateAgent
-		} else if errors.Is(cause, apicaller.ErrChangedPassword) {
-			return dependency.ErrBounce
-		}
-		return err
-	}
-
 	newExternalControllerWatcherClient := func(ctx context.Context, apiInfo *api.Info) (
 		externalcontrollerupdater.ExternalControllerWatcherClientCloser, string, error,
 	) {
@@ -288,16 +266,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
 	}
 
-	agentConfig := config.Agent.CurrentConfig()
-	agentTag := agentConfig.Tag()
-	controllerTag := agentConfig.Controller()
-
 	return dependency.Manifolds{
-		// The agent manifold references the enclosing agent, and is the
-		// foundation stone on which most other manifolds ultimately
-		// depend.
-		agentName: agent.Manifold(config.Agent),
-
 		// Bootstrap gate/flag manifolds coordinate workers that should
 		// not do anything until the bootstrap worker is done.
 		isBootstrapGateName: gate.ManifoldEx(config.BootstrapLock),
@@ -317,10 +286,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// in.
 		terminationName: terminationworker.Manifold(),
 
-		// clock is retained because several manifolds (http-server-args,
-		// api-server, lease-expiry, lease-manager) reference it by name.
-		clockName: clockManifold(config.Clock),
-
 		flightRecorderName: workerflightrecorder.Manifold(config.FlightRecorder),
 
 		// Controller agent config manifold watches the controller agent
@@ -332,32 +297,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName:        config.ConfigChangeSocketPath,
 		}),
 
-		// The api-config-watcher manifold monitors the API server
-		// addresses in the agent config and bounces when they change.
-		// It's required as part of model migrations.
-		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
-			AgentName:          agentName,
-			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             internallogger.GetLogger("juju.worker.apiconfigwatcher"),
-		}),
-
 		// The certificate-watcher manifold monitors the API server
 		// certificate in the agent config for changes, and parses and
 		// offers the result to other manifolds.
 		certificateWatcherName: apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
 			CertReader: config.StartupValueProvider,
-		}),
-
-		// The api caller is a thin concurrent wrapper around a connection
-		// to some API server. It's used by many other manifolds, which
-		// all select their own desired facades.
-		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:            agentName,
-			APIConfigWatcherName: apiConfigWatcherName,
-			APIOpen:              api.Open,
-			NewConnection:        apicaller.ScaryConnect,
-			Filter:               connectFilter,
-			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The upgrade database gate/flag coordinate workers that should
@@ -449,8 +393,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName: leaseManagerName,
 			Clock:            clock.WallClock,
 			Duration:         config.ControllerLeaseDuration,
-			Claimant:         agentTag,
-			Entity:           controllerTag,
+			Claimant:         config.ControllerAgentTag,
+			Entity:           config.ControllerTag,
 			NewWorker:        singular.NewFlagWorker,
 		}),
 
@@ -460,7 +404,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:    domainServicesName,
 			LoggerContext:         internallogger.DefaultContext(),
 			Logger:                internallogger.GetLogger("juju.worker.logger"),
-			Tag:                   agentTag,
+			Tag:                   config.ControllerAgentTag,
 			LoggingOverrideReader: config.StartupValueProvider,
 			UpdateAgentFunc:       config.UpdateLoggerConfig,
 		})),
@@ -478,12 +422,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		traceName: trace.Manifold(trace.ManifoldConfig{
-			AgentName:       agentName,
-			Clock:           config.Clock,
-			Logger:          internallogger.GetLogger("juju.worker.trace"),
-			NewTracerWorker: trace.NewTracerWorker,
-			Kind:            coretrace.KindController,
+		traceServicesName: traceservices.Manifold(traceservices.ManifoldConfig{
+			ChangeStreamName: changeStreamName,
+			Logger:           internallogger.GetLogger("juju.worker.traceservices"),
+			NewWorker:        traceservices.NewWorker,
+			NewTraceServices: traceservices.NewTraceServices,
+		}),
+
+		controllerTraceName: trace.ControllerManifold(trace.ControllerManifoldConfig{
+			Tag:               config.ControllerAgentTag,
+			TraceServicesName: traceServicesName,
+			Clock:             config.Clock,
+			Logger:            internallogger.GetLogger("juju.worker.trace"),
+			GetTracingService: trace.GetTracingService,
+			NewTracerWorker:   trace.NewTracerWorker,
 		}),
 
 		httpServerArgsName: ifBootstrapComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
@@ -523,7 +475,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeGateName:        upgradeStepsGateName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			HTTPClientName:         httpClientName,
-			TraceName:              traceName,
+			TraceName:              controllerTraceName,
 			ObjectStoreName:        objectStoreFacadeName,
 			JWTParserName:          jwtParserName,
 			WatcherRegistryName:    watcherRegistryName,
@@ -629,7 +581,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// expiry time in the past.
 		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
 			DBAccessorName: dbAccessorName,
-			TraceName:      traceName,
+			TraceName:      controllerTraceName,
 			Clock:          config.Clock,
 			Logger:         internallogger.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
@@ -640,7 +592,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Dqlite database.
 		leaseManagerName: leasemanager.Manifold(leasemanager.ManifoldConfig{
 			DBAccessorName:       dbAccessorName,
-			TraceName:            traceName,
+			TraceName:            controllerTraceName,
 			ControllerUUID:       config.ControllerUUID,
 			ControllerModelUUID:  config.ControllerModelUUID,
 			Clock:                config.Clock,
@@ -708,7 +660,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
-			TraceName:                  traceName,
+			TraceName:                  controllerTraceName,
 			ObjectStoreServicesName:    objectStoreServicesName,
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
@@ -753,9 +705,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// Provider tracker manifold is not dependent on the
-		// ifDatabaseUpgradeComplete gate. The provider tracker data must
-		// not change between patch/build versions and should be available
-		// to all workers from the start.
+		// ifDatabaseUpgradeComplete gate. The provider tracker data must not
+		// change between patch/build versions and should be available to all
+		// workers from the start. This includes the controller and read-only
+		// model data that the provider tracker worker is responsible for.
+		//
+		// Migration away to a major/minor version is the correct way to move
+		// a model for upgrade scenarios.
 		providerTrackerName: providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerDomainServicesName,
 			LogSinkName:                  logSinkName,
@@ -887,8 +843,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// controller.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(NewIAASBootstrapManifoldConfig(config))),
 
-		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(NewIAASAgentConfigUpdaterManifoldConfig())),
-
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AuthorityName:               certificateWatcherName,
 			DomainServicesName:          domainServicesName,
@@ -940,8 +894,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(NewCAASBootstrapManifoldConfig(config))),
-
-		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(NewCAASAgentConfigUpdaterManifoldConfig())),
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AuthorityName:               certificateWatcherName,
@@ -1023,34 +975,6 @@ func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 	}
 }
 
-// NewIAASAgentConfigUpdaterManifoldConfig returns the IAAS agent-config updater
-// config.
-func NewIAASAgentConfigUpdaterManifoldConfig() agentconfigupdater.ManifoldConfig {
-	return agentconfigupdater.ManifoldConfig{
-		AgentName:                     agentName,
-		APICallerName:                 apiCallerName,
-		DomainServicesName:            domainServicesName,
-		TraceName:                     traceName,
-		GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
-		IsControllerAgentFn:           agentconfigupdater.IAASIsControllerAgent,
-		Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
-	}
-}
-
-// NewCAASAgentConfigUpdaterManifoldConfig returns the CAAS agent-config updater
-// config.
-func NewCAASAgentConfigUpdaterManifoldConfig() agentconfigupdater.ManifoldConfig {
-	return agentconfigupdater.ManifoldConfig{
-		AgentName:                     agentName,
-		APICallerName:                 apiCallerName,
-		DomainServicesName:            domainServicesName,
-		TraceName:                     traceName,
-		GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
-		IsControllerAgentFn:           agentconfigupdater.CAASIsControllerAgent,
-		Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
-	}
-}
-
 // NewIAASDBAccessorManifoldConfig returns the IAAS-specific db-accessor config.
 func NewIAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.ManifoldConfig {
 	return dbaccessor.ManifoldConfig{
@@ -1087,16 +1011,10 @@ func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) depe
 	return result
 }
 
-func clockManifold(clk clock.Clock) dependency.Manifold {
-	return dependency.Manifold{
-		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-			return engine.NewValueWorker(clk)
-		},
-		Output: engine.ValueWorkerOutput,
-	}
-}
-
-func disabledManifold(manifold dependency.Manifold) dependency.Manifold {
+// disabledManifold helps keeping the manifolds that are out-of-scope in this
+// file so that they're not forgotten. Those manifolds will be reworked in
+// next phases of the standalone controller project.
+func disabledManifold(_ dependency.Manifold) dependency.Manifold {
 	return dependency.Manifold{
 		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			return jworker.NewSimpleWorker(func(ctx context.Context) error {
@@ -1162,13 +1080,9 @@ type ControllerStartupValueProvider interface {
 }
 
 const (
-	agentName              = "agent"
-	agentConfigUpdaterName = "agent-config-updater"
-	terminationName        = "termination-signal-handler"
-	apiCallerName          = "api-caller"
-	apiConfigWatcherName   = "api-config-watcher"
-	clockName              = "clock"
-	flightRecorderName     = "flight-recorder"
+	agentName          = "agent"
+	terminationName    = "termination-signal-handler"
+	flightRecorderName = "flight-recorder"
 
 	bootstrapName       = "bootstrap"
 	isBootstrapGateName = "is-bootstrap-gate"
@@ -1232,7 +1146,8 @@ const (
 	secretBackendRotateName            = "secret-backend-rotate"
 	sshServerName                      = "ssh-server"
 	storageRegistryName                = "storage-registry"
-	traceName                          = "trace"
+	controllerTraceName                = "controller-trace"
+	traceServicesName                  = "trace-services"
 	undertakerName                     = "undertaker"
 	watcherRegistryName                = "watcher-registry"
 )

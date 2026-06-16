@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
@@ -27,7 +28,7 @@ type GetTracingServiceFunc func(getter dependency.Getter, name string) (TracingS
 // ControllerManifoldConfig defines the configuration for the controller
 // trace manifold.
 type ControllerManifoldConfig struct {
-	AgentName         string
+	Tag               names.Tag
 	TraceServicesName string
 	Clock             clock.Clock
 	Logger            logger.Logger
@@ -37,8 +38,8 @@ type ControllerManifoldConfig struct {
 
 // Validate validates the controller manifold configuration.
 func (cfg ControllerManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if cfg.Tag == nil {
+		return errors.NotValidf("nil Tag")
 	}
 	if cfg.TraceServicesName == "" {
 		return errors.NotValidf("empty TraceServicesName")
@@ -63,7 +64,6 @@ func (cfg ControllerManifoldConfig) Validate() error {
 func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.TraceServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
