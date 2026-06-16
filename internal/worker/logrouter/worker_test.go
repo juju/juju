@@ -5,6 +5,7 @@ package logrouter
 
 import (
 	stderrors "errors"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -207,6 +208,59 @@ func (s *workerSuite) TestBackendStartErrorFallsBackToDrain(c *tc.C) {
 	})
 }
 
+func (s *workerSuite) TestBackendRestartRefreshesActiveChannel(c *tc.C) {
+	fixture := newFixture(c, "")
+	events := make(chan backendEvent, 20)
+
+	w, err := NewWorker(WorkerConfig{
+		Agent:              fixture.agent,
+		LogSource:          fixture.logs,
+		AgentConfigChanged: fixture.configChanged,
+		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:              clock.WallClock,
+		ConvergeTimeout:    defaultConvergeTimeout,
+		NewBackend:         restartingLogSinkBackendFunc(events),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForEvents(c, events, backendEvent{
+		backend: "drain-only",
+		kind:    "start",
+	}, backendEvent{
+		backend: "logsink-1",
+		kind:    "start",
+	})
+
+	fixture.logs <- &logsender.LogRecord{
+		Time:    time.Now(),
+		Module:  "test",
+		Level:   loggo.INFO,
+		Message: "first",
+	}
+	c.Check(waitForRecord(c, events, "logsink-1", "first"), tc.DeepEquals, backendEvent{
+		backend: "logsink-1",
+		kind:    "record",
+		message: "first",
+	})
+	waitForEvents(c, events, backendEvent{
+		backend: "logsink-2",
+		kind:    "start",
+	})
+
+	fixture.logs <- &logsender.LogRecord{
+		Time:    time.Now(),
+		Module:  "test",
+		Level:   loggo.INFO,
+		Message: "second",
+	}
+	c.Check(waitForRecord(c, events, "logsink-2", "second"), tc.DeepEquals, backendEvent{
+		backend: "logsink-2",
+		kind:    "record",
+		message: "second",
+	})
+}
+
 type fixture struct {
 	agent         *testAgent
 	logs          logsender.LogRecordCh
@@ -298,6 +352,17 @@ func errorLogSinkBackendFunc(events chan<- backendEvent) BackendFunc {
 	}
 }
 
+func restartingLogSinkBackendFunc(events chan<- backendEvent) BackendFunc {
+	var instance int
+	return func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+		if backendType != BackendTypeLogSink {
+			return newRecordingBackend(string(backendType), events, defaultBackendBufferSize), nil
+		}
+		instance++
+		return newRestartingBackend(instance, events), nil
+	}
+}
+
 func newRecordingBackend(name string, events chan<- backendEvent, backendBufferSize int) *recordingBackend {
 	w := &recordingBackend{
 		name:    name,
@@ -367,6 +432,69 @@ func (w *recordingBackend) loop() error {
 }
 
 func (w *recordingBackend) reportStop() {
+	w.stopOnce.Do(func() {
+		w.events <- backendEvent{backend: w.name, kind: "stop"}
+	})
+}
+
+type restartingBackend struct {
+	tomb     tomb.Tomb
+	name     string
+	records  logsender.LogRecordCh
+	events   chan<- backendEvent
+	failOnce bool
+	stopOnce sync.Once
+}
+
+func newRestartingBackend(instance int, events chan<- backendEvent) *restartingBackend {
+	w := &restartingBackend{
+		name:     "logsink-" + strconv.Itoa(instance),
+		records:  make(logsender.LogRecordCh, 1),
+		events:   events,
+		failOnce: instance == 1,
+	}
+	events <- backendEvent{backend: w.name, kind: "start"}
+	w.tomb.Go(w.loop)
+	return w
+}
+
+func (w *restartingBackend) Kill() {
+	w.reportStop()
+	w.tomb.Kill(nil)
+}
+
+func (w *restartingBackend) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *restartingBackend) LogRecords() logsender.LogRecordCh {
+	return w.records
+}
+
+func (w *restartingBackend) loop() error {
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case rec, ok := <-w.records:
+			if !ok {
+				w.reportStop()
+				return nil
+			}
+			w.events <- backendEvent{
+				backend: w.name,
+				kind:    "record",
+				message: rec.Message,
+			}
+			if w.failOnce {
+				w.reportStop()
+				return stderrors.New("backend failed")
+			}
+		}
+	}
+}
+
+func (w *restartingBackend) reportStop() {
 	w.stopOnce.Do(func() {
 		w.events <- backendEvent{backend: w.name, kind: "stop"}
 	})

@@ -93,7 +93,7 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
-		logSenderName: logrouter.Manifold(logrouter.ManifoldConfig{
+		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
 			AgentName:          agentName,
 			LogSource:          config.LogSource,
 			AgentConfigChanged: config.AgentConfigChanged,
@@ -177,5 +177,5 @@ const (
 	modelHTTPServerName      = "model-http-server"
 	upgraderName             = "upgrader"
 	upgradeStepsGateName     = "upgrade-steps-gate"
-	logSenderName            = "log-sender"
+	logRouterName            = "log-router"
 )

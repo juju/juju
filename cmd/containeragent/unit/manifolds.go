@@ -226,7 +226,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
-		logSenderName: ifNotDead(logrouter.Manifold(logrouter.ManifoldConfig{
+		logRouterName: ifNotDead(logrouter.Manifold(logrouter.ManifoldConfig{
 			AgentName:          agentName,
 			LogSource:          config.LogSource,
 			AgentConfigChanged: config.AgentConfigChanged,
@@ -467,7 +467,7 @@ const (
 	apiCallerName        = "api-caller"
 	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
-	logSenderName        = "log-sender"
+	logRouterName        = "log-router"
 	traceName            = "trace"
 
 	charmDirName          = "charm-dir"

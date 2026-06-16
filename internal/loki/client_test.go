@@ -421,6 +421,35 @@ func (s *clientSuite) TestOnErrorCalledOnPushFailure(c *tc.C) {
 	}
 }
 
+func (s *clientSuite) TestPushFailureWithNilOnErrorCallback(c *tc.C) {
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}),
+	)
+	defer srv.Close()
+
+	cfg := testConfig()
+	cfg.BatchSize = 1
+	cfg.MaxRetries = 0
+	cfg.OnError = nil
+
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer killAndWait(c, client)
+
+	err = client.Push(Record{
+		Timestamp:      time.Now(),
+		Line:           "will fail",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	waitForPushErrors(c, client, 1)
+}
+
 func (s *clientSuite) TestPushDropsOldestWhenQueueFull(c *tc.C) {
 	block := make(chan struct{})
 	started := make(chan struct{}, 1)
@@ -475,6 +504,54 @@ func (s *clientSuite) TestPushDropsOldestWhenQueueFull(c *tc.C) {
 		c.Fatal("timed out waiting for drop callback")
 	}
 	c.Check(client.Report(c.Context())["dropped"], tc.Equals, uint64(1))
+
+	close(block)
+	killAndWait(c, client)
+}
+
+func (s *clientSuite) TestPushDropsOldestWhenQueueFullWithoutOnDropCallback(c *tc.C) {
+	block := make(chan struct{})
+	started := make(chan struct{}, 1)
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case started <- struct{}{}:
+			default:
+			}
+			<-block
+			w.WriteHeader(http.StatusNoContent)
+		}),
+	)
+	defer srv.Close()
+
+	cfg := testConfig()
+	cfg.BatchSize = 1
+	cfg.BufferSize = 2
+	cfg.MaxRetries = 0
+	cfg.OnDrop = nil
+	asyncFlush := false
+	cfg.AsyncFlush = &asyncFlush
+
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ts := time.Now()
+	err = client.Push(Record{Timestamp: ts, Line: "first"})
+	c.Assert(err, tc.ErrorIsNil)
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		c.Fatal("timed out waiting for first request")
+	}
+
+	err = client.Push(
+		Record{Timestamp: ts, Line: "second"},
+		Record{Timestamp: ts, Line: "third"},
+		Record{Timestamp: ts, Line: "fourth"},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	waitForDropped(c, client, 1)
 
 	close(block)
 	killAndWait(c, client)
@@ -686,4 +763,32 @@ func killAndWait(c *tc.C, client *Client) {
 	client.Kill()
 	err := client.Wait()
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func waitForDropped(c *tc.C, client *Client, expected uint64) {
+	for {
+		if client.Report(c.Context())["dropped"] == expected {
+			return
+		}
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for dropped count %d", expected)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
+func waitForPushErrors(c *tc.C, client *Client, expected uint64) {
+	for {
+		if client.Report(c.Context())["push-errors"] == expected {
+			return
+		}
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for push-errors count %d", expected)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 }

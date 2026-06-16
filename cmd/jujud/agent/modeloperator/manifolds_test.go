@@ -47,7 +47,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	c.Check(keys, tc.SameContents, []string{
 		"caas-broker-tracker",
 		"api-caller",
-		"log-sender",
+		"log-router",
 		"caas-admission",
 		"caas-rbac-mapper",
 		"certificate-watcher",
@@ -75,7 +75,7 @@ var expectedManifoldsWithDependencies = map[string][]string{
 
 	"api-caller": {"agent", "api-config-watcher"},
 
-	"log-sender": {"agent"},
+	"log-router": {"agent"},
 
 	"caas-admission": {
 		"agent",

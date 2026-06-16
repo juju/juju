@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sync"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -146,6 +147,7 @@ func NewBackend(
 type agentAPICaller struct {
 	agent  agent.Agent
 	open   func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
+	mu     sync.Mutex
 	caller base.APICaller
 }
 
@@ -168,17 +170,19 @@ func (c *agentAPICaller) APICall(ctx context.Context, objType string, version in
 }
 
 func (c *agentAPICaller) BestFacadeVersion(facade string) int {
-	if c.caller == nil {
+	caller := c.currentCaller()
+	if caller == nil {
 		return 0
 	}
-	return c.caller.BestFacadeVersion(facade)
+	return caller.BestFacadeVersion(facade)
 }
 
 func (c *agentAPICaller) ModelTag() (names.ModelTag, bool) {
-	if c.caller == nil {
+	caller := c.currentCaller()
+	if caller == nil {
 		return names.ModelTag{}, false
 	}
-	return c.caller.ModelTag()
+	return caller.ModelTag()
 }
 
 func (c *agentAPICaller) HTTPClient(scope base.HTTPClientScope) (*httprequest.Client, error) {
@@ -198,10 +202,11 @@ func (c *agentAPICaller) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
 }
 
 func (c *agentAPICaller) BakeryClient() base.MacaroonDischarger {
-	if c.caller == nil {
+	caller := c.currentCaller()
+	if caller == nil {
 		return nil
 	}
-	return c.caller.BakeryClient()
+	return caller.BakeryClient()
 }
 
 func (c *agentAPICaller) ConnectStream(ctx context.Context, path string, attrs url.Values) (base.Stream, error) {
@@ -226,6 +231,9 @@ func (c *agentAPICaller) ConnectControllerStream(
 }
 
 func (c *agentAPICaller) apiCaller(ctx context.Context) (base.APICaller, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.caller != nil {
 		return c.caller, nil
 	}
@@ -239,4 +247,10 @@ func (c *agentAPICaller) apiCaller(ctx context.Context) (base.APICaller, error) 
 	}
 	c.caller = conn
 	return c.caller, nil
+}
+
+func (c *agentAPICaller) currentCaller() base.APICaller {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.caller
 }

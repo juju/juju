@@ -142,7 +142,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
-		logSenderName: logrouter.Manifold(logrouter.ManifoldConfig{
+		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
 			AgentName:          agentName,
 			LogSource:          config.LogSource,
 			AgentConfigChanged: config.AgentConfigChanged,
@@ -297,7 +297,7 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	s3CallerName         = "s3-caller"
-	logSenderName        = "log-sender"
+	logRouterName        = "log-router"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"

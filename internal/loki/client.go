@@ -99,11 +99,11 @@ type Config struct {
 	AsyncFlush *bool
 
 	// OnError is called when a push fails after all retry
-	// attempts are exhausted. If nil, a warning is written to stderr.
+	// attempts are exhausted. If nil, no callback is invoked.
 	OnError func(error)
 
 	// OnDrop is called when records are dropped from the circular buffer. If
-	// nil, a warning is written to stderr.
+	// nil, no callback is invoked.
 	OnDrop func(int)
 
 	// Clock is passed to the retry logic for testing.
@@ -231,7 +231,7 @@ func (c *Client) pushOne(r Record) error {
 		select {
 		case <-c.records:
 			atomic.AddUint64(&c.stats.Dropped, 1)
-			c.onDrop(1)
+			c.notifyDrop(1)
 		case <-c.tomb.Dying():
 			return tomb.ErrDying
 		default:
@@ -362,11 +362,23 @@ func (c *Client) pushAll(
 		end := min(i+c.cfg.BatchSize, len(records))
 		if err := c.pushBatch(ctx, records[i:end]); err != nil {
 			atomic.AddUint64(&c.stats.PushErrors, 1)
-			c.onError(err)
+			c.notifyError(err)
 			continue
 		}
 		atomic.AddUint64(&c.stats.Sent, uint64(end-i))
 		atomic.StoreInt64(&c.stats.LastPushTimestamp, c.cfg.Clock.Now().Unix())
+	}
+}
+
+func (c *Client) notifyDrop(count int) {
+	if c.onDrop != nil {
+		c.onDrop(count)
+	}
+}
+
+func (c *Client) notifyError(err error) {
+	if c.onError != nil {
+		c.onError(err)
 	}
 }
 

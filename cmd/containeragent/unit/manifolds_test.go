@@ -51,7 +51,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"dead-flag",
 		"hook-retry-strategy",
 		"leadership-tracker",
-		"log-sender",
+		"log-router",
 		"logging-config-updater",
 		"loki-endpoint-updater",
 		"migration-fortress",
@@ -95,7 +95,7 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *tc.C) {
 		"dead-flag",
 		"hook-retry-strategy",
 		"leadership-tracker",
-		"log-sender",
+		"log-router",
 		"logging-config-updater",
 		"loki-endpoint-updater",
 		"migration-fortress",
@@ -131,7 +131,7 @@ func (*ManifoldsSuite) TestMigrationGuards(c *tc.C) {
 		"caas-prober",
 		"probe-http-server",
 		"caas-unit-prober-binder",
-		"log-sender",
+		"log-router",
 
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -211,7 +211,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"trace",
 	},
 
-	"log-sender": {
+	"log-router": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

@@ -28,22 +28,28 @@ const (
 	backendDrainID           = "drain"
 )
 
+// BackendType identifies the active log delivery backend.
 type BackendType string
 
 const (
+	// BackendTypeLogSink forwards records to the controller log sink.
 	BackendTypeLogSink BackendType = "logsink"
-	BackendTypeLoki    BackendType = "loki"
-	BackendTypeDrain   BackendType = "drain-only"
+	// BackendTypeLoki forwards records to a Loki push endpoint.
+	BackendTypeLoki BackendType = "loki"
+	// BackendTypeDrain discards records locally.
+	BackendTypeDrain BackendType = "drain-only"
 )
 
 // Agent describes the agent configuration methods used by the router.
 type Agent interface {
+	// CurrentConfig returns the latest agent configuration snapshot.
 	CurrentConfig() agent.Config
 }
 
 // Backend is a worker that accepts log records.
 type Backend interface {
 	worker.Worker
+	// LogRecords returns the channel used to submit log records.
 	LogRecords() logsender.LogRecordCh
 }
 
@@ -52,6 +58,7 @@ type BackendFunc func(BackendType, ConfigSnapshot) (Backend, error)
 
 // Metrics records logrouter events that are exported elsewhere.
 type Metrics interface {
+	// IncConfigApplyErrors records a backend configuration failure.
 	IncConfigApplyErrors()
 }
 
@@ -334,15 +341,38 @@ func (w *logRouter) send(
 	ctx context.Context,
 	record *logsender.LogRecord,
 ) error {
-	if w.activeBackendID == backendDrainID {
-		return w.dyingError(ctx, sendRecord(ctx, w.drainRecords, record))
+	records, err := w.currentBackendRecords(ctx)
+	if err != nil {
+		return w.dyingError(ctx, internalerrors.Capture(err))
 	}
-	if w.activeRecords != nil {
-		if ok, err := trySendRecord(ctx, w.activeRecords, record); ok || err != nil {
-			return w.dyingError(ctx, err)
-		}
+	if w.activeBackendID == backendDrainID {
+		return w.dyingError(ctx, sendRecord(ctx, records, record))
+	}
+	if ok, err := trySendRecord(ctx, records, record); ok || err != nil {
+		return w.dyingError(ctx, err)
 	}
 	return w.dyingError(ctx, sendRecord(ctx, w.drainRecords, record))
+}
+
+func (w *logRouter) currentBackendRecords(
+	ctx context.Context,
+) (logsender.LogRecordCh, error) {
+	if w.activeBackendID == backendDrainID {
+		return w.drainRecords, nil
+	}
+
+	backend, err := w.runner.Worker(w.activeBackendID, ctx.Done())
+	if err != nil {
+		return nil, err
+	}
+	recordBackend, ok := backend.(Backend)
+	if !ok {
+		return nil, errors.NotValidf("logrouter backend %q", w.activeBackendID)
+	}
+
+	records := recordBackend.LogRecords()
+	w.activeRecords = records
+	return records, nil
 }
 
 func (w *logRouter) dyingError(ctx context.Context, err error) error {
