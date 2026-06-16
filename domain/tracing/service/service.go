@@ -20,6 +20,7 @@ const (
 	httpEndpointKey                       = "http-endpoint"
 	grpcEndpointKey                       = "grpc-endpoint"
 	caCertificateKey                      = "ca-certificate"
+	insecureSkipVerifyKey                 = "insecure-skip-verify"
 	openTelemetryStackTracesKey           = "open-telemetry-stack-traces"
 	openTelemetrySampleRatioKey           = "open-telemetry-sample-ratio"
 	openTelemetryTailSamplingThresholdKey = "open-telemetry-tail-sampling-threshold"
@@ -103,6 +104,7 @@ type WorkloadTracingConfig struct {
 	GRPCEndpoint  string
 	CACertificate string
 
+	InsecureSkipVerify                 *bool
 	OpenTelemetryStackTraces           *bool
 	OpenTelemetrySampleRatio           *float64
 	OpenTelemetryTailSamplingThreshold *string
@@ -147,6 +149,11 @@ func (s *Service) SetWorkloadTracingConfig(ctx context.Context, config WorkloadT
 	}
 
 	insertions, deletions := splitTracingConfig(config.HTTPEndpoint, config.GRPCEndpoint, config.CACertificate)
+	if config.InsecureSkipVerify != nil {
+		insertions[insecureSkipVerifyKey] = strconv.FormatBool(*config.InsecureSkipVerify)
+	} else {
+		deletions = append(deletions, insecureSkipVerifyKey)
+	}
 	if config.OpenTelemetryStackTraces != nil {
 		insertions[openTelemetryStackTracesKey] = strconv.FormatBool(*config.OpenTelemetryStackTraces)
 	} else {
@@ -178,11 +185,19 @@ func (s *Service) GetWorkloadTracingConfig(ctx context.Context) (WorkloadTracing
 	}
 
 	var (
+		insecureSkipVerify                 *bool
 		openTelemetryStackTraces           *bool
 		openTelemetrySampleRatio           *float64
 		openTelemetryTailSamplingThreshold *string
 	)
 
+	if value, ok := configMap[insecureSkipVerifyKey]; ok {
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return WorkloadTracingConfig{}, errors.Errorf("parsing %q: %w", insecureSkipVerifyKey, err)
+		}
+		insecureSkipVerify = &parsed
+	}
 	if value, ok := configMap[openTelemetryStackTracesKey]; ok {
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
@@ -205,6 +220,7 @@ func (s *Service) GetWorkloadTracingConfig(ctx context.Context) (WorkloadTracing
 		HTTPEndpoint:                       configMap[httpEndpointKey],
 		GRPCEndpoint:                       configMap[grpcEndpointKey],
 		CACertificate:                      configMap[caCertificateKey],
+		InsecureSkipVerify:                 insecureSkipVerify,
 		OpenTelemetryStackTraces:           openTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,

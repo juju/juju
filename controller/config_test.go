@@ -366,36 +366,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `dqlite-busy-timeout value "-1s" must be a positive duration`,
 }, {
-	about: "invalid open telemetry tracing enabled value",
-	config: controller.Config{
-		controller.OpenTelemetryEnabled: "invalid",
-	},
-	expectError: `open-telemetry-enabled: expected bool, got string\("invalid"\)`,
-}, {
-	about: "invalid open telemetry tracing insecure value",
-	config: controller.Config{
-		controller.OpenTelemetryInsecure: "invalid",
-	},
-	expectError: `open-telemetry-insecure: expected bool, got string\("invalid"\)`,
-}, {
-	about: "invalid open telemetry tracing stack traces value",
-	config: controller.Config{
-		controller.OpenTelemetryStackTraces: "invalid",
-	},
-	expectError: `open-telemetry-stack-traces: expected bool, got string\("invalid"\)`,
-}, {
-	about: "invalid open telemetry tracing sample ratio value",
-	config: controller.Config{
-		controller.OpenTelemetrySampleRatio: "invalid",
-	},
-	expectError: `open-telemetry-sample-ratio: strconv.ParseFloat: parsing "invalid": invalid syntax`,
-}, {
-	about: "invalid open telemetry tracing tail sampling threshold value",
-	config: controller.Config{
-		controller.OpenTelemetryTailSamplingThreshold: "invalid",
-	},
-	expectError: `open-telemetry-tail-sampling-threshold: conversion to duration: time: invalid duration "invalid"`,
-}, {
 	about: "invalid jujud-controller-snap-source value",
 	config: controller.Config{
 		controller.JujudControllerSnapSource: "latest/stable",
@@ -866,79 +836,6 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(cfg2.QueryTracingThreshold(), tc.Equals, time.Second*10)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryEnabled(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryEnabled(), tc.Equals, controller.DefaultOpenTelemetryEnabled)
-
-	cfg[controller.OpenTelemetryEnabled] = true
-	c.Assert(cfg.OpenTelemetryEnabled(), tc.Equals, true)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryInsecure(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryInsecure(), tc.Equals, controller.DefaultOpenTelemetryInsecure)
-
-	cfg[controller.OpenTelemetryInsecure] = true
-	c.Assert(cfg.OpenTelemetryInsecure(), tc.Equals, true)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryStackTraces(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryStackTraces(), tc.Equals, controller.DefaultOpenTelemetryStackTraces)
-
-	cfg[controller.OpenTelemetryStackTraces] = true
-	c.Assert(cfg.OpenTelemetryStackTraces(), tc.Equals, true)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *tc.C) {
-	mURL := "http://meshuggah.com/endpoint"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]any{
-			controller.OpenTelemetryEndpoint: mURL,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.OpenTelemetryEndpoint(), tc.Equals, mURL)
-}
-
-func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetrySampleRatio(), tc.Equals, controller.DefaultOpenTelemetrySampleRatio)
-
-	cfg[controller.OpenTelemetrySampleRatio] = 0.42
-	c.Assert(cfg.OpenTelemetrySampleRatio(), tc.Equals, 0.42)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryTailSamplingThreshold(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), tc.Equals, controller.DefaultOpenTelemetryTailSamplingThreshold)
-
-	cfg[controller.OpenTelemetryTailSamplingThreshold] = "1s"
-	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), tc.Equals, time.Second)
 }
 
 func (s *ConfigSuite) TestSSHServerPort(c *tc.C) {

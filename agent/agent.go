@@ -41,6 +41,26 @@ const (
 
 	// BootstrapControllerId is the ID of the initial controller.
 	BootstrapControllerId = "0"
+
+	// DefaultOpenTelemetryEnabled is the default value for whether open
+	// telemetry tracing is enabled.
+	DefaultOpenTelemetryEnabled = false
+
+	// DefaultOpenTelemetryInsecure is the default value for whether the open
+	// telemetry tracing endpoint is insecure.
+	DefaultOpenTelemetryInsecure = false
+
+	// DefaultOpenTelemetryStackTraces is the default value for whether open
+	// telemetry tracing has stack traces.
+	DefaultOpenTelemetryStackTraces = false
+
+	// DefaultOpenTelemetrySampleRatio is the default sample ratio for open
+	// telemetry.
+	DefaultOpenTelemetrySampleRatio = 0.1
+
+	// DefaultOpenTelemetryTailSamplingThreshold is the default tail sampling
+	// threshold for open telemetry.
+	DefaultOpenTelemetryTailSamplingThreshold = time.Millisecond
 )
 
 // These are base values used for the corresponding defaults.

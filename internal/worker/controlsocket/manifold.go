@@ -9,11 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/logger"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/socketlistener"
+	"github.com/juju/juju/internal/worker/common"
 )
 
 // ControllerObjectStoreService describes the subset of the object store service
@@ -45,6 +47,8 @@ type ManifoldConfig struct {
 
 	GetControllerDomainServices     GetControllerDomainServicesFunc
 	GetControllerObjectStoreService GetControllerObjectStoreServiceFunc
+	PrometheusRegisterer            prometheus.Registerer
+	NewMetricsCollector             func() *Collector
 }
 
 // Manifold returns a Manifold that encapsulates the controlsocket worker.
@@ -84,6 +88,12 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.GetControllerObjectStoreService == nil {
 		return errors.NotValidf("nil GetControllerObjectStoreService func")
 	}
+	if cfg.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
+	if cfg.NewMetricsCollector == nil {
+		return errors.NotValidf("nil NewMetricsCollector")
+	}
 	return nil
 }
 
@@ -109,6 +119,11 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
+	metricsCollector := cfg.NewMetricsCollector()
+	if err := cfg.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var w worker.Worker
 	w, err = cfg.NewWorker(Config{
 		AccessService:       domainServices.Access(),
@@ -119,11 +134,15 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		SocketName:          cfg.SocketName,
 		NewSocketListener:   cfg.NewSocketListener,
 		ControllerModelUUID: controllerModelUUID,
+		MetricsCollector:    metricsCollector,
 	})
 	if err != nil {
+		cfg.PrometheusRegisterer.Unregister(metricsCollector)
 		return nil, errors.Trace(err)
 	}
-	return w, nil
+	return common.NewCleanupWorker(w, func() {
+		cfg.PrometheusRegisterer.Unregister(metricsCollector)
+	}), nil
 }
 
 // SocketListener describes a worker that listens on a unix socket.

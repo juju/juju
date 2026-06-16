@@ -130,6 +130,8 @@ func (s *serviceSuite) TestSetWorkloadTracingConfigAllFields(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	openTelemetryStackTraces := new(bool)
+	insecureSkipVerify := new(bool)
+	*insecureSkipVerify = true
 	openTelemetrySampleRatio := new(float64)
 	*openTelemetrySampleRatio = 0.42
 	openTelemetryTailSamplingThreshold := new(string)
@@ -139,6 +141,7 @@ func (s *serviceSuite) TestSetWorkloadTracingConfigAllFields(c *tc.C) {
 		HTTPEndpoint:                       "http://localhost:4318",
 		GRPCEndpoint:                       "localhost:4317",
 		CACertificate:                      "cert-data",
+		InsecureSkipVerify:                 insecureSkipVerify,
 		OpenTelemetryStackTraces:           openTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
@@ -148,6 +151,7 @@ func (s *serviceSuite) TestSetWorkloadTracingConfigAllFields(c *tc.C) {
 		httpEndpointKey:                       "http://localhost:4318",
 		grpcEndpointKey:                       "localhost:4317",
 		caCertificateKey:                      "cert-data",
+		insecureSkipVerifyKey:                 "true",
 		openTelemetryStackTracesKey:           "false",
 		openTelemetrySampleRatioKey:           "0.42",
 		openTelemetryTailSamplingThresholdKey: "250ms",
@@ -164,6 +168,7 @@ func (s *serviceSuite) TestSetWorkloadTracingConfigNoFields(c *tc.C) {
 		httpEndpointKey,
 		grpcEndpointKey,
 		caCertificateKey,
+		insecureSkipVerifyKey,
 		openTelemetryStackTracesKey,
 		openTelemetrySampleRatioKey,
 		openTelemetryTailSamplingThresholdKey,
@@ -178,16 +183,19 @@ func (s *serviceSuite) TestSetWorkloadTracingConfigPartialFields(c *tc.C) {
 
 	openTelemetryStackTraces := new(bool)
 	*openTelemetryStackTraces = true
+	insecureSkipVerify := new(bool)
 
 	config := WorkloadTracingConfig{
 		GRPCEndpoint:             "localhost:4317",
 		CACertificate:            "cert-data",
+		InsecureSkipVerify:       insecureSkipVerify,
 		OpenTelemetryStackTraces: openTelemetryStackTraces,
 	}
 
 	s.st.EXPECT().SetWorkloadTracingConfig(gomock.Any(), map[string]string{
 		grpcEndpointKey:             "localhost:4317",
 		caCertificateKey:            "cert-data",
+		insecureSkipVerifyKey:       "false",
 		openTelemetryStackTracesKey: "true",
 	}, []string{
 		httpEndpointKey,
@@ -247,11 +255,14 @@ func (s *serviceSuite) TestGetWorkloadTracingConfigAllFields(c *tc.C) {
 		httpEndpointKey:                       "http://localhost:4318",
 		grpcEndpointKey:                       "localhost:4317",
 		caCertificateKey:                      "cert-data",
+		insecureSkipVerifyKey:                 "true",
 		openTelemetryStackTracesKey:           "true",
 		openTelemetrySampleRatioKey:           "0.5",
 		openTelemetryTailSamplingThresholdKey: "123ms",
 	}, nil)
 
+	insecureSkipVerify := new(bool)
+	*insecureSkipVerify = true
 	openTelemetryStackTraces := new(bool)
 	*openTelemetryStackTraces = true
 	openTelemetrySampleRatio := new(float64)
@@ -265,6 +276,7 @@ func (s *serviceSuite) TestGetWorkloadTracingConfigAllFields(c *tc.C) {
 		HTTPEndpoint:                       "http://localhost:4318",
 		GRPCEndpoint:                       "localhost:4317",
 		CACertificate:                      "cert-data",
+		InsecureSkipVerify:                 insecureSkipVerify,
 		OpenTelemetryStackTraces:           openTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
@@ -296,6 +308,17 @@ func (s *serviceSuite) TestGetWorkloadTracingConfigInvalidStackTraces(c *tc.C) {
 
 	_, err := NewService(s.st).GetWorkloadTracingConfig(c.Context())
 	c.Assert(err, tc.ErrorMatches, "parsing .*open-telemetry-stack-traces.*")
+}
+
+func (s *serviceSuite) TestGetWorkloadTracingConfigInvalidInsecureSkipVerify(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetWorkloadTracingConfig(gomock.Any()).Return(map[string]string{
+		insecureSkipVerifyKey: "not-a-bool",
+	}, nil)
+
+	_, err := NewService(s.st).GetWorkloadTracingConfig(c.Context())
+	c.Assert(err, tc.ErrorMatches, "parsing .*insecure-skip-verify.*")
 }
 
 func (s *serviceSuite) TestGetWorkloadTracingConfigInvalidSampleRatio(c *tc.C) {

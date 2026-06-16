@@ -128,30 +128,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configDqliteBusyTimeout := controllerConfig.DqliteBusyTimeout()
 			dqliteBusyTimeoutChanged := agentsDqliteBusyTimeout != configDqliteBusyTimeout
 
-			agentsOpenTelemetryEnabled := currentConfig.OpenTelemetryEnabled()
-			configOpenTelemetryEnabled := controllerConfig.OpenTelemetryEnabled()
-			openTelemetryEnabledChanged := agentsOpenTelemetryEnabled != configOpenTelemetryEnabled
-
-			agentsOpenTelemetryEndpoint := currentConfig.OpenTelemetryEndpoint()
-			configOpenTelemetryEndpoint := controllerConfig.OpenTelemetryEndpoint()
-			openTelemetryEndpointChanged := agentsOpenTelemetryEndpoint != configOpenTelemetryEndpoint
-
-			agentsOpenTelemetryInsecure := currentConfig.OpenTelemetryInsecure()
-			configOpenTelemetryInsecure := controllerConfig.OpenTelemetryInsecure()
-			openTelemetryInsecureChanged := agentsOpenTelemetryInsecure != configOpenTelemetryInsecure
-
-			agentsOpenTelemetryStackTraces := currentConfig.OpenTelemetryStackTraces()
-			configOpenTelemetryStackTraces := controllerConfig.OpenTelemetryStackTraces()
-			openTelemetryStackTracesChanged := agentsOpenTelemetryStackTraces != configOpenTelemetryStackTraces
-
-			agentsOpenTelemetrySampleRatio := currentConfig.OpenTelemetrySampleRatio()
-			configOpenTelemetrySampleRatio := controllerConfig.OpenTelemetrySampleRatio()
-			openTelemetrySampleRatioChanged := agentsOpenTelemetrySampleRatio != configOpenTelemetrySampleRatio
-
-			agentsOpenTelemetryTailSamplingThreshold := currentConfig.OpenTelemetryTailSamplingThreshold()
-			configOpenTelemetryTailSamplingThreshold := controllerConfig.OpenTelemetryTailSamplingThreshold()
-			openTelemetryTailSamplingThresholdChanged := agentsOpenTelemetryTailSamplingThreshold != configOpenTelemetryTailSamplingThreshold
-
 			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
 			if err != nil {
 				return nil, errors.Capture(err)
@@ -188,30 +164,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf(ctx, "setting dqlite busy timeout: %s => %s", agentsDqliteBusyTimeout, configDqliteBusyTimeout)
 					config.SetDqliteBusyTimeout(configDqliteBusyTimeout)
 				}
-				if openTelemetryEnabledChanged {
-					logger.Debugf(ctx, "setting open telemetry enabled: %t => %t", agentsOpenTelemetryEnabled, configOpenTelemetryEnabled)
-					config.SetOpenTelemetryEnabled(configOpenTelemetryEnabled)
-				}
-				if openTelemetryEndpointChanged {
-					logger.Debugf(ctx, "setting open telemetry endpoint: %q => %q", agentsOpenTelemetryEndpoint, configOpenTelemetryEndpoint)
-					config.SetOpenTelemetryEndpoint(configOpenTelemetryEndpoint)
-				}
-				if openTelemetryInsecureChanged {
-					logger.Debugf(ctx, "setting open telemetry insecure: %t => %t", agentsOpenTelemetryInsecure, configOpenTelemetryInsecure)
-					config.SetOpenTelemetryInsecure(configOpenTelemetryInsecure)
-				}
-				if openTelemetryStackTracesChanged {
-					logger.Debugf(ctx, "setting open telemetry stack trace: %t => %t", agentsOpenTelemetryStackTraces, configOpenTelemetryStackTraces)
-					config.SetOpenTelemetryStackTraces(configOpenTelemetryStackTraces)
-				}
-				if openTelemetrySampleRatioChanged {
-					logger.Debugf(ctx, "setting open telemetry sample ratio: %f => %f", agentsOpenTelemetrySampleRatio, configOpenTelemetrySampleRatio)
-					config.SetOpenTelemetrySampleRatio(configOpenTelemetrySampleRatio)
-				}
-				if openTelemetryTailSamplingThresholdChanged {
-					logger.Debugf(ctx, "setting open telemetry tail sampling threshold: %f => %f", agentsOpenTelemetryTailSamplingThreshold, configOpenTelemetryTailSamplingThreshold)
-					config.SetOpenTelemetryTailSamplingThreshold(configOpenTelemetryTailSamplingThreshold)
-				}
 
 				return nil
 			})
@@ -233,48 +185,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				logger.Infof(ctx, "restarting agent for new dqlite busy timeout")
 				reason = append(reason, controller.DqliteBusyTimeout)
 			}
-			if openTelemetryEnabledChanged {
-				logger.Infof(ctx, "restarting agent for new open telemetry enabled")
-				reason = append(reason, controller.OpenTelemetryEnabled)
-			}
-			if openTelemetryEndpointChanged {
-				logger.Infof(ctx, "restarting agent for new open telemetry endpoint")
-				reason = append(reason, controller.OpenTelemetryEndpoint)
-			}
-			if openTelemetryInsecureChanged {
-				logger.Infof(ctx, "restarting agent for new open telemetry insecure")
-				reason = append(reason, controller.OpenTelemetryInsecure)
-			}
-			if openTelemetryStackTracesChanged {
-				logger.Infof(ctx, "restarting agent for new open telemetry stack traces")
-				reason = append(reason, controller.OpenTelemetryStackTraces)
-			}
-			if openTelemetrySampleRatioChanged {
-				logger.Infof(ctx, "restarting agent for new open telemetry sample ratio")
-				reason = append(reason, controller.OpenTelemetrySampleRatio)
-			}
-			if openTelemetryTailSamplingThresholdChanged {
-				logger.Infof(ctx, "restarting agent for new open telemetry tail sampling threshold")
-				reason = append(reason, controller.OpenTelemetryTailSamplingThreshold)
-			}
 			if len(reason) > 0 {
 				return nil, errors.Errorf("%w: controller config changed: %s",
 					jworker.ErrRestartAgent, strings.Join(reason, ", "))
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:                              agent,
-				ControllerConfigService:            controllerConfigService,
-				QueryTracingEnabled:                configQueryTracingEnabled,
-				QueryTracingThreshold:              configQueryTracingThreshold,
-				DqliteBusyTimeout:                  configDqliteBusyTimeout,
-				OpenTelemetryEnabled:               configOpenTelemetryEnabled,
-				OpenTelemetryEndpoint:              configOpenTelemetryEndpoint,
-				OpenTelemetryInsecure:              configOpenTelemetryInsecure,
-				OpenTelemetryStackTraces:           configOpenTelemetryStackTraces,
-				OpenTelemetrySampleRatio:           configOpenTelemetrySampleRatio,
-				OpenTelemetryTailSamplingThreshold: configOpenTelemetryTailSamplingThreshold,
-				Logger:                             config.Logger,
+				Agent:                   agent,
+				ControllerConfigService: controllerConfigService,
+				QueryTracingEnabled:     configQueryTracingEnabled,
+				QueryTracingThreshold:   configQueryTracingThreshold,
+				DqliteBusyTimeout:       configDqliteBusyTimeout,
+				Logger:                  config.Logger,
 			})
 		},
 	}

@@ -777,6 +777,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName:                      path.Join(agentConfig.DataDir(), "control.socket"),
 			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
 			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
+			PrometheusRegisterer:            config.PrometheusRegisterer,
+			NewMetricsCollector:             controlsocket.NewMetricsCollector,
 		})),
 
 		// The ssh server worker runs on the controller machine.

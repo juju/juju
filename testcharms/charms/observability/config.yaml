@@ -5,7 +5,7 @@ options:
     description: OTLP HTTP endpoint advertised to Juju.
   grpc-endpoint:
     type: string
-    default: trace:4317
+    default: ""
     description: OTLP gRPC endpoint advertised to Juju.
   ca-cert:
     type: string

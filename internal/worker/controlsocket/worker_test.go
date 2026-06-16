@@ -17,6 +17,7 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
@@ -71,7 +72,7 @@ func (s *workerSuite) TestConfigValidateNilAccessService(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.AccessService = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil AccessService.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
@@ -79,7 +80,7 @@ func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.ObjectStoreService = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil ObjectStoreService.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateEmptyControllerModelUUID(c *tc.C) {
@@ -87,7 +88,7 @@ func (s *workerSuite) TestConfigValidateEmptyControllerModelUUID(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.ControllerModelUUID = ""
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*empty ControllerModelUUID.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateEmptySocketName(c *tc.C) {
@@ -95,7 +96,7 @@ func (s *workerSuite) TestConfigValidateEmptySocketName(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.SocketName = ""
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*empty SocketName.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateNilNewSocketListener(c *tc.C) {
@@ -103,7 +104,7 @@ func (s *workerSuite) TestConfigValidateNilNewSocketListener(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.NewSocketListener = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil NewSocketListener.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateNilLogger(c *tc.C) {
@@ -111,7 +112,15 @@ func (s *workerSuite) TestConfigValidateNilLogger(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil Logger.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *workerSuite) TestConfigValidateNilMetricsCollector(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.MetricsCollector = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestNewWorkerInvalidConfig(c *tc.C) {
@@ -126,6 +135,38 @@ func (s *workerSuite) TestWorkerKillAndWait(c *tc.C) {
 
 	w := s.newWorker(c, socket)
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestRequestMetrics(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggingService.EXPECT().SetLokiConfig(gomock.Any(), logging.LokiConfig{
+		Endpoint: "http://loki:3100",
+	}).Return(nil)
+
+	socket := s.newSocket(c)
+	collector := NewMetricsCollector()
+	cfg := s.newValidConfig(c)
+	cfg.SocketName = socket
+	cfg.MetricsCollector = collector
+	w, err := NewWorker(cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/loki-endpoint",
+		body:       `{"url":"http://loki:3100"}`,
+		statusCode: http.StatusOK,
+		response:   `.*updated loki endpoint.*`,
+	})
+
+	c.Check(testutil.ToFloat64(collector.Requests.WithLabelValues(
+		"/loki-endpoint", http.MethodPost, "200",
+	)), tc.Equals, float64(1))
+	c.Check(testutil.ToFloat64(collector.RequestErrors.WithLabelValues(
+		"/loki-endpoint", http.MethodPost, "200",
+	)), tc.Equals, float64(0))
 }
 
 func (s *workerSuite) TestMetricsUsersAddInvalidMethod(c *tc.C) {
@@ -887,6 +928,8 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccess(c *tc.C) {
 func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	insecureSkipVerify := new(bool)
+	*insecureSkipVerify = true
 	openTelemetryStackTraces := new(bool)
 	*openTelemetryStackTraces = true
 	openTelemetrySampleRatio := new(float64)
@@ -898,6 +941,7 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c
 		HTTPEndpoint:                       "http://localhost:4318",
 		GRPCEndpoint:                       "localhost:4317",
 		CACertificate:                      "ca-data",
+		InsecureSkipVerify:                 insecureSkipVerify,
 		OpenTelemetryStackTraces:           openTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           openTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
@@ -912,6 +956,7 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c
 		method:   http.MethodPost,
 		endpoint: "/workload-tracing-config",
 		body: `{"http_endpoint":"http://localhost:4318","grpc_endpoint":"localhost:4317","ca_cert":"ca-data",` +
+			`"insecure_skip_verify":true,` +
 			`"open_telemetry_stack_traces":true,"open_telemetry_sample_ratio":0.5,` +
 			`"open_telemetry_tail_sampling_threshold":"250ms"}`,
 		statusCode: http.StatusOK,
@@ -1258,6 +1303,7 @@ func (s *workerSuite) newValidConfig(c *tc.C) Config {
 		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
 		Logger:              loggertesting.WrapCheckLog(c),
+		MetricsCollector:    NewMetricsCollector(),
 		SocketName:          "/tmp/test.socket",
 		NewSocketListener:   NewSocketListener,
 		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
@@ -1278,6 +1324,7 @@ func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
 		Logger:              loggertesting.WrapCheckLog(c),
+		MetricsCollector:    NewMetricsCollector(),
 		SocketName:          socket,
 		NewSocketListener:   NewSocketListener,
 		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),

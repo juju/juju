@@ -34,19 +34,13 @@ type ControllerConfigService interface {
 // WorkerConfig contains the information necessary to run
 // the agent config updater worker.
 type WorkerConfig struct {
-	Agent                              coreagent.Agent
-	ControllerConfigService            ControllerConfigService
-	QueryTracingEnabled                bool
-	QueryTracingThreshold              time.Duration
-	DqliteBusyTimeout                  time.Duration
-	OpenTelemetryEnabled               bool
-	OpenTelemetryEndpoint              string
-	OpenTelemetryInsecure              bool
-	OpenTelemetryStackTraces           bool
-	OpenTelemetrySampleRatio           float64
-	OpenTelemetryTailSamplingThreshold time.Duration
-	ObjectStoreType                    objectstore.BackendType
-	Logger                             logger.Logger
+	Agent                   coreagent.Agent
+	ControllerConfigService ControllerConfigService
+	QueryTracingEnabled     bool
+	QueryTracingThreshold   time.Duration
+	DqliteBusyTimeout       time.Duration
+	ObjectStoreType         objectstore.BackendType
+	Logger                  logger.Logger
 }
 
 // Validate ensures that the required values are set in the structure.
@@ -68,16 +62,10 @@ type agentConfigUpdater struct {
 
 	config WorkerConfig
 
-	queryTracingEnabled                bool
-	queryTracingThreshold              time.Duration
-	dqliteBusyTimeout                  time.Duration
-	openTelemetryEnabled               bool
-	openTelemetryEndpoint              string
-	openTelemetryInsecure              bool
-	openTelemetryStackTraces           bool
-	openTelemetrySampleRatio           float64
-	openTelemetryTailSamplingThreshold time.Duration
-	objectStoreType                    objectstore.BackendType
+	queryTracingEnabled   bool
+	queryTracingThreshold time.Duration
+	dqliteBusyTimeout     time.Duration
+	objectStoreType       objectstore.BackendType
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -87,17 +75,11 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 	}
 
 	w := &agentConfigUpdater{
-		config:                             config,
-		queryTracingEnabled:                config.QueryTracingEnabled,
-		queryTracingThreshold:              config.QueryTracingThreshold,
-		dqliteBusyTimeout:                  config.DqliteBusyTimeout,
-		openTelemetryEnabled:               config.OpenTelemetryEnabled,
-		openTelemetryEndpoint:              config.OpenTelemetryEndpoint,
-		openTelemetryInsecure:              config.OpenTelemetryInsecure,
-		openTelemetryStackTraces:           config.OpenTelemetryStackTraces,
-		openTelemetrySampleRatio:           config.OpenTelemetrySampleRatio,
-		openTelemetryTailSamplingThreshold: config.OpenTelemetryTailSamplingThreshold,
-		objectStoreType:                    config.ObjectStoreType,
+		config:                config,
+		queryTracingEnabled:   config.QueryTracingEnabled,
+		queryTracingThreshold: config.QueryTracingThreshold,
+		dqliteBusyTimeout:     config.DqliteBusyTimeout,
+		objectStoreType:       config.ObjectStoreType,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "agent-config-updater",
@@ -153,33 +135,9 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	dqliteBusyTimeout := config.DqliteBusyTimeout()
 	dqliteBusyTimeoutChanged := dqliteBusyTimeout != w.dqliteBusyTimeout
 
-	openTelemetryEnabled := config.OpenTelemetryEnabled()
-	openTelemetryEnabledChanged := openTelemetryEnabled != w.openTelemetryEnabled
-
-	openTelemetryEndpoint := config.OpenTelemetryEndpoint()
-	openTelemetryEndpointChanged := openTelemetryEndpoint != w.openTelemetryEndpoint
-
-	openTelemetryInsecure := config.OpenTelemetryInsecure()
-	openTelemetryInsecureChanged := openTelemetryInsecure != w.openTelemetryInsecure
-
-	openTelemetryStackTraces := config.OpenTelemetryStackTraces()
-	openTelemetryStackTracesChanged := openTelemetryStackTraces != w.openTelemetryStackTraces
-
-	openTelemetrySampleRatio := config.OpenTelemetrySampleRatio()
-	openTelemetrySampleRatioChanged := openTelemetrySampleRatio != w.openTelemetrySampleRatio
-
-	openTelemetryTailSamplingThreshold := config.OpenTelemetryTailSamplingThreshold()
-	openTelemetryTailSamplingThresholdChanged := openTelemetryTailSamplingThreshold != w.openTelemetryTailSamplingThreshold
-
 	changeDetected := queryTracingEnabledChanged ||
 		queryTracingThresholdChanged ||
-		dqliteBusyTimeoutChanged ||
-		openTelemetryEnabledChanged ||
-		openTelemetryEndpointChanged ||
-		openTelemetryInsecureChanged ||
-		openTelemetryStackTracesChanged ||
-		openTelemetrySampleRatioChanged ||
-		openTelemetryTailSamplingThresholdChanged
+		dqliteBusyTimeoutChanged
 
 	// If any changes are detected, we need to update the agent config.
 	if !changeDetected {
@@ -200,30 +158,6 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 			w.config.Logger.Debugf(ctx, "setting agent config dqlite busy timeout: %v => %v", w.dqliteBusyTimeout, dqliteBusyTimeout)
 			setter.SetDqliteBusyTimeout(dqliteBusyTimeout)
 		}
-		if openTelemetryEnabledChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config open telemetry enabled: %v => %v", w.openTelemetryEnabled, openTelemetryEnabled)
-			setter.SetOpenTelemetryEnabled(openTelemetryEnabled)
-		}
-		if openTelemetryEndpointChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config open telemetry endpoint: %v => %v", w.openTelemetryEndpoint, openTelemetryEndpoint)
-			setter.SetOpenTelemetryEndpoint(openTelemetryEndpoint)
-		}
-		if openTelemetryInsecureChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config open telemetry insecure: %v => %v", w.openTelemetryInsecure, openTelemetryInsecure)
-			setter.SetOpenTelemetryInsecure(openTelemetryInsecure)
-		}
-		if openTelemetryStackTracesChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config open telemetry stack traces: %v => %v", w.openTelemetryStackTraces, openTelemetryStackTraces)
-			setter.SetOpenTelemetryStackTraces(openTelemetryStackTraces)
-		}
-		if openTelemetrySampleRatioChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config open telemetry sample ratio: %v => %v", w.openTelemetrySampleRatio, openTelemetrySampleRatio)
-			setter.SetOpenTelemetrySampleRatio(openTelemetrySampleRatio)
-		}
-		if openTelemetryTailSamplingThresholdChanged {
-			w.config.Logger.Debugf(ctx, "setting agent config open telemetry tail sampling threshold: %v => %v", w.openTelemetryTailSamplingThreshold, openTelemetryTailSamplingThreshold)
-			setter.SetOpenTelemetryTailSamplingThreshold(openTelemetryTailSamplingThreshold)
-		}
 		return nil
 	})
 	if err != nil {
@@ -239,24 +173,6 @@ func (w *agentConfigUpdater) handleConfigChange(ctx context.Context) error {
 	}
 	if dqliteBusyTimeoutChanged {
 		reason = append(reason, controller.DqliteBusyTimeout)
-	}
-	if openTelemetryEnabledChanged {
-		reason = append(reason, controller.OpenTelemetryEnabled)
-	}
-	if openTelemetryEndpointChanged {
-		reason = append(reason, controller.OpenTelemetryEndpoint)
-	}
-	if openTelemetryInsecureChanged {
-		reason = append(reason, controller.OpenTelemetryInsecure)
-	}
-	if openTelemetryStackTracesChanged {
-		reason = append(reason, controller.OpenTelemetryStackTraces)
-	}
-	if openTelemetrySampleRatioChanged {
-		reason = append(reason, controller.OpenTelemetrySampleRatio)
-	}
-	if openTelemetryTailSamplingThresholdChanged {
-		reason = append(reason, controller.OpenTelemetryTailSamplingThreshold)
 	}
 
 	return errors.Errorf("%w: controller config changed: %s",

@@ -137,6 +137,9 @@ type Config struct {
 	Logger logger.Logger
 	// ControllerModelUUID is the uuid of the controller model.
 	ControllerModelUUID model.UUID
+	// MetricsCollector is the collector used by the worker to record request
+	// metrics.
+	MetricsCollector *Collector
 }
 
 // Validate returns an error if config cannot drive the Worker.
@@ -159,6 +162,9 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return internalerrors.New("nil Logger").Add(coreerrors.NotValid)
 	}
+	if config.MetricsCollector == nil {
+		return internalerrors.New("nil MetricsCollector").Add(coreerrors.NotValid)
+	}
 	return nil
 }
 
@@ -174,7 +180,8 @@ type Worker struct {
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
 
-	logger logger.Logger
+	logger  logger.Logger
+	metrics *Collector
 }
 
 // NewWorker returns a controlsocket worker with the given config.
@@ -196,7 +203,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
 
-		logger: config.Logger,
+		logger:  config.Logger,
+		metrics: config.MetricsCollector,
 	}
 
 	sl, err := config.NewSocketListener(socketlistener.Config{
@@ -254,9 +262,9 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//
 	// A user created by this endpoint can be removed by sending a DELETE
 	// request to the /metrics-users/{username} endpoint.
-	r.Handle("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser)).
+	r.Handle("/metrics-users", w.withMetrics("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/metrics-users/{username}", w.handleRemoveMetricsUser).
+	r.Handle("/metrics-users/{username}", w.withMetrics("/metrics-users/{username}", http.HandlerFunc(w.handleRemoveMetricsUser))).
 		Methods(http.MethodDelete)
 
 	// charm-tracing-config endpoint for managing charm tracing configuration.
@@ -272,7 +280,7 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// The worker will update the charm tracing configuration with the provided
 	// values. Any field that are omitted or empty will be removed from the
 	// charm tracing configuration.
-	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
+	r.Handle("/charm-tracing-config", w.withMetrics("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig))).
 		Methods(http.MethodPost)
 
 	// workload-tracing-config endpoint for managing workload tracing
@@ -286,12 +294,13 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//   "open_telemetry_stack_traces": <bool>,
 	//   "open_telemetry_sample_ratio": <float>,
 	//   "open_telemetry_tail_sampling_threshold": <string>,
+	//   "open_telemetry_insecure_skip_verify": <bool>,
 	// }
 	//
 	// The worker will update the workload tracing configuration with the
 	// provided values. Any field that are omitted or empty will be removed from
 	// the workload tracing configuration.
-	r.Handle("/workload-tracing-config", w.handleJSONPost(w.handleSetWorkloadTracingConfig)).
+	r.Handle("/workload-tracing-config", w.withMetrics("/workload-tracing-config", w.handleJSONPost(w.handleSetWorkloadTracingConfig))).
 		Methods(http.MethodPost)
 
 	// s3-credentials endpoint for managing object store credentials when S3 is
@@ -306,9 +315,9 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//
 	// The worker will update the object store configuration with the provided
 	// S3 credentials.
-	r.Handle("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials)).
+	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/s3-credentials", w.handleRemoveS3Credentials).
+	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", http.HandlerFunc(w.handleRemoveS3Credentials))).
 		Methods(http.MethodDelete)
 
 	// loki-endpoint endpoint for managing the Loki push API endpoint. This
@@ -320,10 +329,14 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//
 	// The worker will persist the Loki endpoint in the controller database
 	// so it can be distributed to agents for direct log shipping.
-	r.Handle("/loki-endpoint", w.handleJSONPost(w.handleSetLokiEndpoint)).
+	r.Handle("/loki-endpoint", w.withMetrics("/loki-endpoint", w.handleJSONPost(w.handleSetLokiEndpoint))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/loki-endpoint", w.handleRemoveLokiEndpoint).
+	r.Handle("/loki-endpoint", w.withMetrics("/loki-endpoint", http.HandlerFunc(w.handleRemoveLokiEndpoint))).
 		Methods(http.MethodDelete)
+}
+
+func (w *Worker) withMetrics(endpoint string, handler http.Handler) http.Handler {
+	return loggingMiddleware(metricsMiddleware(handler, w.metrics, endpoint), w.logger)
 }
 
 type addMetricsUserBody struct {
@@ -506,6 +519,7 @@ type setWorkloadTracingConfig struct {
 	HTTPEndpoint                       string   `json:"http_endpoint"`
 	GRPCEndpoint                       string   `json:"grpc_endpoint"`
 	CACert                             string   `json:"ca_cert"`
+	InsecureSkipVerify                 *bool    `json:"insecure_skip_verify"`
 	OpenTelemetryStackTraces           *bool    `json:"open_telemetry_stack_traces"`
 	OpenTelemetrySampleRatio           *float64 `json:"open_telemetry_sample_ratio"`
 	OpenTelemetryTailSamplingThreshold *string  `json:"open_telemetry_tail_sampling_threshold"`
@@ -535,6 +549,7 @@ func (w *Worker) handleSetWorkloadTracingConfig(resp http.ResponseWriter, req *h
 		HTTPEndpoint:                       parsedBody.HTTPEndpoint,
 		GRPCEndpoint:                       parsedBody.GRPCEndpoint,
 		CACertificate:                      parsedBody.CACert,
+		InsecureSkipVerify:                 parsedBody.InsecureSkipVerify,
 		OpenTelemetryStackTraces:           parsedBody.OpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio:           parsedBody.OpenTelemetrySampleRatio,
 		OpenTelemetryTailSamplingThreshold: parsedBody.OpenTelemetryTailSamplingThreshold,

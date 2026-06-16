@@ -6,6 +6,7 @@ package caasapplication
 import (
 	"context"
 	"path"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -52,6 +54,13 @@ type ModelAgentService interface {
 	GetModelTargetAgentVersion(ctx context.Context) (semversion.Number, error)
 }
 
+// TracingService provides access to the workload tracing configuration.
+type TracingService interface {
+	// GetWorkloadTracingConfig returns the workload tracing config from the
+	// state.
+	GetWorkloadTracingConfig(ctx context.Context) (tracingservice.WorkloadTracingConfig, error)
+}
+
 // Facade defines the API methods on the CAASApplication facade.
 type Facade struct {
 	controllerUUID string
@@ -62,6 +71,7 @@ type Facade struct {
 	controllerNodeService   ControllerNodeService
 	applicationService      ApplicationService
 	modelAgentService       ModelAgentService
+	tracingService          TracingService
 	logger                  logger.Logger
 }
 
@@ -74,6 +84,7 @@ func NewFacade(
 	controllerNodeService ControllerNodeService,
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
+	tracingService TracingService,
 	logger logger.Logger,
 ) *Facade {
 	return &Facade{
@@ -84,6 +95,7 @@ func NewFacade(
 		controllerNodeService:   controllerNodeService,
 		applicationService:      applicationService,
 		modelAgentService:       modelAgentService,
+		tracingService:          tracingService,
 		logger:                  logger,
 	}
 }
@@ -143,6 +155,14 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err != nil {
 		return errResp(err)
 	}
+	tracingConfig, err := f.tracingService.GetWorkloadTracingConfig(ctx)
+	if err != nil {
+		return errResp(err)
+	}
+	openTelemetryTailSamplingThreshold, err := openTelemetryTailSamplingThreshold(tracingConfig)
+	if err != nil {
+		return errResp(err)
+	}
 	dataDir := paths.DataDir(paths.OSUnixLike)
 	logDir := path.Join(paths.LogDir(paths.OSUnixLike), "juju")
 	conf, err := agent.NewAgentConfig(
@@ -159,12 +179,12 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			Password:          unitPassword,
 			UpgradedToVersion: version,
 
-			OpenTelemetryEnabled:               controllerConfig.OpenTelemetryEnabled(),
-			OpenTelemetryEndpoint:              controllerConfig.OpenTelemetryEndpoint(),
-			OpenTelemetryInsecure:              controllerConfig.OpenTelemetryInsecure(),
-			OpenTelemetryStackTraces:           controllerConfig.OpenTelemetryStackTraces(),
-			OpenTelemetrySampleRatio:           controllerConfig.OpenTelemetrySampleRatio(),
-			OpenTelemetryTailSamplingThreshold: controllerConfig.OpenTelemetryTailSamplingThreshold(),
+			OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "",
+			OpenTelemetryEndpoint:              tracingConfig.GRPCEndpoint,
+			OpenTelemetryInsecure:              openTelemetryInsecure(tracingConfig),
+			OpenTelemetryStackTraces:           openTelemetryStackTraces(tracingConfig),
+			OpenTelemetrySampleRatio:           openTelemetrySampleRatio(tracingConfig),
+			OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
 		},
 	)
 	if err != nil {
@@ -182,6 +202,38 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		},
 	}
 	return res, nil
+}
+
+func openTelemetryInsecure(config tracingservice.WorkloadTracingConfig) bool {
+	if config.InsecureSkipVerify == nil {
+		return agent.DefaultOpenTelemetryInsecure
+	}
+	return *config.InsecureSkipVerify
+}
+
+func openTelemetryStackTraces(config tracingservice.WorkloadTracingConfig) bool {
+	if config.OpenTelemetryStackTraces == nil {
+		return agent.DefaultOpenTelemetryStackTraces
+	}
+	return *config.OpenTelemetryStackTraces
+}
+
+func openTelemetrySampleRatio(config tracingservice.WorkloadTracingConfig) float64 {
+	if config.OpenTelemetrySampleRatio == nil {
+		return agent.DefaultOpenTelemetrySampleRatio
+	}
+	return *config.OpenTelemetrySampleRatio
+}
+
+func openTelemetryTailSamplingThreshold(config tracingservice.WorkloadTracingConfig) (time.Duration, error) {
+	if config.OpenTelemetryTailSamplingThreshold == nil {
+		return agent.DefaultOpenTelemetryTailSamplingThreshold, nil
+	}
+	threshold, err := time.ParseDuration(*config.OpenTelemetryTailSamplingThreshold)
+	if err != nil {
+		return 0, errors.Annotatef(err, "parsing open telemetry tail sampling threshold")
+	}
+	return threshold, nil
 }
 
 // UnitTerminating should be called by the CAASUnitTerminationWorker when
