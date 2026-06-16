@@ -162,6 +162,9 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return internalerrors.New("nil Logger").Add(coreerrors.NotValid)
 	}
+	if config.MetricsCollector == nil {
+		return internalerrors.New("nil MetricsCollector").Add(coreerrors.NotValid)
+	}
 	return nil
 }
 

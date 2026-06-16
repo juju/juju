@@ -70,7 +70,6 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 		s.controllerConfigService, s.controllerNodeService, s.applicationService,
 		s.modelAgentService, s.tracingService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
 }

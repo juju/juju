@@ -99,11 +99,7 @@ func metricsMiddleware(next http.Handler, collector *Collector, endpoint string)
 
 		next.ServeHTTP(recorder, r)
 
-		statusCode := recorder.statusCode
-		if statusCode == 0 {
-			statusCode = http.StatusOK
-		}
-		collector.recordRequest(endpoint, r.Method, statusCode, time.Since(start).Seconds())
+		collector.recordRequest(endpoint, r.Method, recorder.statusCode, time.Since(start).Seconds())
 	})
 }
 

@@ -20,7 +20,7 @@ const (
 	httpEndpointKey                       = "http-endpoint"
 	grpcEndpointKey                       = "grpc-endpoint"
 	caCertificateKey                      = "ca-certificate"
-	insecureSkipVerifyKey                 = "insecure_skip_verify"
+	insecureSkipVerifyKey                 = "insecure-skip-verify"
 	openTelemetryStackTracesKey           = "open-telemetry-stack-traces"
 	openTelemetrySampleRatioKey           = "open-telemetry-sample-ratio"
 	openTelemetryTailSamplingThresholdKey = "open-telemetry-tail-sampling-threshold"

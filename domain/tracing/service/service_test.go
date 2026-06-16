@@ -318,7 +318,7 @@ func (s *serviceSuite) TestGetWorkloadTracingConfigInvalidInsecureSkipVerify(c *
 	}, nil)
 
 	_, err := NewService(s.st).GetWorkloadTracingConfig(c.Context())
-	c.Assert(err, tc.ErrorMatches, "parsing .*insecure_skip_verify.*")
+	c.Assert(err, tc.ErrorMatches, "parsing .*insecure-skip-verify.*")
 }
 
 func (s *serviceSuite) TestGetWorkloadTracingConfigInvalidSampleRatio(c *tc.C) {

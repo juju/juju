@@ -72,7 +72,7 @@ func (s *workerSuite) TestConfigValidateNilAccessService(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.AccessService = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil AccessService.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
@@ -80,7 +80,7 @@ func (s *workerSuite) TestConfigValidateNilObjectStoreService(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.ObjectStoreService = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil ObjectStoreService.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateEmptyControllerModelUUID(c *tc.C) {
@@ -88,7 +88,7 @@ func (s *workerSuite) TestConfigValidateEmptyControllerModelUUID(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.ControllerModelUUID = ""
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*empty ControllerModelUUID.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateEmptySocketName(c *tc.C) {
@@ -96,7 +96,7 @@ func (s *workerSuite) TestConfigValidateEmptySocketName(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.SocketName = ""
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*empty SocketName.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateNilNewSocketListener(c *tc.C) {
@@ -104,7 +104,7 @@ func (s *workerSuite) TestConfigValidateNilNewSocketListener(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.NewSocketListener = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil NewSocketListener.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestConfigValidateNilLogger(c *tc.C) {
@@ -112,7 +112,15 @@ func (s *workerSuite) TestConfigValidateNilLogger(c *tc.C) {
 
 	cfg := s.newValidConfig(c)
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), tc.ErrorMatches, ".*nil Logger.*")
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *workerSuite) TestConfigValidateNilMetricsCollector(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newValidConfig(c)
+	cfg.MetricsCollector = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *workerSuite) TestNewWorkerInvalidConfig(c *tc.C) {
@@ -1295,6 +1303,7 @@ func (s *workerSuite) newValidConfig(c *tc.C) Config {
 		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
 		Logger:              loggertesting.WrapCheckLog(c),
+		MetricsCollector:    NewMetricsCollector(),
 		SocketName:          "/tmp/test.socket",
 		NewSocketListener:   NewSocketListener,
 		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
@@ -1315,6 +1324,7 @@ func (s *workerSuite) newWorker(c *tc.C, socket string) *Worker {
 		LoggingService:      s.loggingService,
 		ObjectStoreService:  s.objectStoreService,
 		Logger:              loggertesting.WrapCheckLog(c),
+		MetricsCollector:    NewMetricsCollector(),
 		SocketName:          socket,
 		NewSocketListener:   NewSocketListener,
 		ControllerModelUUID: model.UUID(jujujujutesting.ModelTag.Id()),
