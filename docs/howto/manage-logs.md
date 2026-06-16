@@ -15,8 +15,6 @@ See also: {ref}`log`
 For an integrated solution consider [the Loki charm](https://charmhub.io/loki-k8s).
 ```
 
-
-
 ## Manage the logs
 
 ### Stream the logs
@@ -38,26 +36,6 @@ The command has various options that allow you to control the length, appearance
 ```{ibnote}
 See more: {ref}`command-juju-debug-log`
 ```
-
-### Logging granularity
-
-Juju logging is hierarchical and can be granular.
-
-#### machine
-```<root>``` refers to all logs related to a juju machine, including controller operation when applied to the controller model.
-#### unit
-```unit``` refers to all logs related to a juju unit.
-#### label
-```#label-name``` allows for logging based on a topic. Currently available topics are:
-  * api: log all API requests, whether they are RPC requests or whether they are raw HTTP requests.
-  * cmr: cross model relations
-  * cmr-auth: cross model relations authorization
-  * charmhub: dealing with the charmhub client and callers
-  * http: HTTP requests
-  * metrics: juju metrics, this should be used as a fallback for when prometheus isn't available.
-#### module
-These are modules of the juju code base. See advanced filtering for more information.
--->
 
 ````{dropdown} Tips for Kubernetes
 View logs from the charm and workload containers with `kubectl logs`:
