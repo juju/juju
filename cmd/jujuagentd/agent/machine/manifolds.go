@@ -175,6 +175,15 @@ type ManifoldsConfig struct {
 	// ControlSocketPath is the path to the local controller control socket.
 	ControlSocketPath string
 
+	// DataDir is the agent data directory used by bootstrap.
+	DataDir string
+
+	// APIPort is the controller API port advertised during bootstrap.
+	APIPort int
+
+	// AgentPassword is the agent password used during bootstrap finalization.
+	AgentPassword string
+
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
 	Agent coreagent.Agent
@@ -1075,12 +1084,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			AgentName:               agentName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			ProviderFactoryName:     providerTrackerName,
+			DataDir:                 config.DataDir,
+			APIPort:                 config.APIPort,
+			AgentPassword:           config.AgentPassword,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateIAASControllerCharm,
 			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
@@ -1310,12 +1321,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			AgentName:               agentName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			ProviderFactoryName:     providerTrackerName,
+			DataDir:                 config.DataDir,
+			APIPort:                 config.APIPort,
+			AgentPassword:           config.AgentPassword,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateCAASControllerCharm,
 			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
