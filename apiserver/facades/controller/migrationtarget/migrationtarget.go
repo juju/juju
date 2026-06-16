@@ -602,3 +602,36 @@ func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
 }
+
+// APIV8 implements the MigrationTarget v8 facade: typed-envelope
+// (params.SerializedModelV2) prechecks and import. It embeds the v7 API for
+// the methods that are unchanged (Abort, Activate, AdoptResources, etc.) and
+// shadows Prechecks and Import with the v8 envelope signatures — the inverse
+// of the legacy.go adapter pattern, because Go cannot overload method names
+// by parameter type.
+//
+// Both methods are no-op shells so the migrationmaster worker can be exercised
+// end to end while the rest of the v8 pipeline is developed. The real import
+// path must land before a 4.1 release ships.
+type APIV8 struct {
+	*API
+}
+
+// NewAPIV8 returns a new MigrationTarget v8 facade wrapping the given v7 API.
+func NewAPIV8(api *API) (*APIV8, error) {
+	return &APIV8{API: api}, nil
+}
+
+// Prechecks is a no-op shell for v8 envelope prechecks.
+//
+// TODO(modelmigration): implement v8 prechecks before a 4.1 release ships.
+func (api *APIV8) Prechecks(_ context.Context, _ params.SerializedModelV2) error {
+	return nil
+}
+
+// Import is a no-op shell for v8 envelope import.
+//
+// TODO(modelmigration): implement v8 import path before a 4.1 release ships.
+func (api *APIV8) Import(_ context.Context, _ params.SerializedModelV2) error {
+	return nil
+}
