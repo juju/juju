@@ -512,6 +512,14 @@ func (a *ControllerAgent) makeEngineCreator(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		servingInfo, ok := agentConfig.ControllerAgentInfo()
+		if !ok {
+			return nil, errors.NotFoundf("controller agent info")
+		}
+		apiInfo, ok := agentConfig.APIInfo()
+		if !ok {
+			return nil, errors.NotFoundf("API info")
+		}
 		startupValueProvider := controllerStartupValueProvider{
 			agent:                 a,
 			controllerRuntimePath: controllerRuntimeConfigPath,
@@ -537,6 +545,9 @@ func (a *ControllerAgent) makeEngineCreator(
 			ControlSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "control.socket",
 			),
+			DataDir:                           agentConfig.DataDir(),
+			APIPort:                           servingInfo.APIPort,
+			AgentPassword:                     apiInfo.Password,
 			RootDir:                           a.rootDir,
 			BootstrapLock:                     a.bootstrapLock,
 			ControllerUpgradeLock:             a.controllerUpgradeLock,
