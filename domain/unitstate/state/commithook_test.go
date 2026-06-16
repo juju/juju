@@ -1818,6 +1818,48 @@ func (s *commitHookSuite) TestUpdateSecretsDifferentChecksumCreatesNewRevision(c
 	c.Check(revCount, tc.Equals, 3)
 }
 
+func (s *commitHookSuite) TestGetSecretChecksum(c *tc.C) {
+	ctx := c.Context()
+	secretID := "get-checksum-test"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+
+	checksum := "test-checksum-value"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         map[string]string{"key": "value"},
+			Checksum:     checksum,
+			RevisionUUID: revUUID,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	result, err := s.state.GetSecretChecksum(ctx, secretID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, checksum)
+}
+
+func (s *commitHookSuite) TestGetSecretChecksumNotFound(c *tc.C) {
+	ctx := c.Context()
+
+	result, err := s.state.GetSecretChecksum(ctx, "non-existent-secret")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, "")
+}
+
+func (s *commitHookSuite) TestGetSecretChecksumNoRevision(c *tc.C) {
+	ctx := c.Context()
+	secretID := "get-checksum-no-rev"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+
+	result, err := s.state.GetSecretChecksum(ctx, secretID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.Equals, "")
+}
+
 // addSecretWithOwner inserts a secret with an owner row.
 func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, ownerKind string) {
 	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)

@@ -178,26 +178,38 @@ func (s *LeadershipService) prepareSecretUpdates(
 
 		// Generate revision UUID and add backend reference if new data.
 		if arg.ValueRefBackendID != "" || arg.ValueRefRevisionID != "" || len(arg.Data) != 0 {
-			revisionID, err := s.uuidGenerator()
+			// Check if checksum differs before adding backend reference.
+			currentChecksum, err := s.st.GetSecretChecksum(ctx, update.URI.ID)
 			if err != nil {
-				return nil, nil, errors.Errorf("generating revision UUID for update[%d]: %w", i, err)
+				return nil, nil, errors.Errorf("getting checksum for update[%d]: %w", i, err)
 			}
-			arg.RevisionUUID = revisionID.String()
 
-			var valueRef *secrets.ValueRef
-			if arg.ValueRefBackendID != "" {
-				valueRef = &secrets.ValueRef{
-					BackendID:  arg.ValueRefBackendID,
-					RevisionID: arg.ValueRefRevisionID,
+			// Only add backend ref if we'll actually create a new revision.
+			shouldCreateRevision := update.Checksum != currentChecksum ||
+				(update.Checksum == "" && currentChecksum == "")
+
+			if shouldCreateRevision {
+				revisionID, err := s.uuidGenerator()
+				if err != nil {
+					return nil, nil, errors.Errorf("generating revision UUID for update[%d]: %w", i, err)
 				}
-			}
+				arg.RevisionUUID = revisionID.String()
 
-			rollBack, err := s.secretBackendState.AddSecretBackendReference(
-				ctx, valueRef, coremodel.UUID(modelID), revisionID.String(), update.URI.ID)
-			if err != nil {
-				return nil, nil, errors.Errorf("adding backend reference for update[%d]: %w", i, err)
+				var valueRef *secrets.ValueRef
+				if arg.ValueRefBackendID != "" {
+					valueRef = &secrets.ValueRef{
+						BackendID:  arg.ValueRefBackendID,
+						RevisionID: arg.ValueRefRevisionID,
+					}
+				}
+
+				rollBack, err := s.secretBackendState.AddSecretBackendReference(
+					ctx, valueRef, coremodel.UUID(modelID), revisionID.String(), update.URI.ID)
+				if err != nil {
+					return nil, nil, errors.Errorf("adding backend reference for update[%d]: %w", i, err)
+				}
+				rollbacks = append(rollbacks, rollBack)
 			}
-			rollbacks = append(rollbacks, rollBack)
 		}
 
 		result = append(result, arg)

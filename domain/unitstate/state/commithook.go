@@ -955,3 +955,39 @@ WHERE  uuid IN ($uuids[:])
 	}
 	return nil
 }
+
+// GetSecretChecksum returns the latest revision checksum for a secret.
+// Returns an empty string if the secret doesn't exist or has no revisions.
+func (st *State) GetSecretChecksum(ctx context.Context, id string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	type checksumResult struct {
+		Checksum string `db:"checksum"`
+	}
+
+	var result checksumResult
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		stmt, err := st.Prepare(`
+SELECT latest_revision_checksum AS &checksumResult.checksum
+FROM   secret_metadata
+WHERE  secret_id = $secretID.secret_id
+`, secretID{}, checksumResult{})
+		if err != nil {
+			return errors.Capture(err)
+		}
+		err = tx.Query(ctx, stmt, secretID{ID: id}).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return result.Checksum, nil
+}

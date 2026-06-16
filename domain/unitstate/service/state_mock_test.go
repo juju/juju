@@ -33,6 +33,7 @@ type MockStateMockRecorder struct {
 	getModelUUIDExpects                                []*gomock.Call1_2[context.Context, string, error]
 	getPeerRelationUUIDByEndpointIdentifiersExpects    []*gomock.Call2_2[context.Context, relation.EndpointIdentifier, relation.UUID, error]
 	getRegularRelationUUIDByEndpointIdentifiersExpects []*gomock.Call3_2[context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, relation.UUID, error]
+	getSecretChecksumExpects                           []*gomock.Call2_2[context.Context, string, string, error]
 	getUnitStateExpects                                []*gomock.Call2_2[context.Context, string, unitstate.RetrievedUnitState, error]
 	setUnitStateExpects                                []*gomock.Call2_1[context.Context, unitstate.UnitState, error]
 }
@@ -138,6 +139,24 @@ func (mr *MockStateMockRecorder) GetRegularRelationUUIDByEndpointIdentifiers(ctx
 
 // MockStateGetRegularRelationUUIDByEndpointIdentifiersCall is the typed call wrapper for GetRegularRelationUUIDByEndpointIdentifiers.
 type MockStateGetRegularRelationUUIDByEndpointIdentifiersCall = gomock.Call3_2[context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, relation.UUID, error]
+
+// GetSecretChecksum mocks base method.
+func (m *MockState) GetSecretChecksum(ctx context.Context, secretID string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getSecretChecksumExpects, m.ctrl, m, "GetSecretChecksum", ctx, secretID)
+}
+
+// GetSecretChecksum indicates an expected call of GetSecretChecksum.
+func (mr *MockStateMockRecorder) GetSecretChecksum(ctx, secretID any) *MockStateGetSecretChecksumCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetSecretChecksum", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(secretID))
+	mr.getSecretChecksumExpects = append(mr.getSecretChecksumExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetSecretChecksumCall is the typed call wrapper for GetSecretChecksum.
+type MockStateGetSecretChecksumCall = gomock.Call2_2[context.Context, string, string, error]
 
 // GetUnitState mocks base method.
 func (m *MockState) GetUnitState(arg0 context.Context, arg1 string) (unitstate.RetrievedUnitState, error) {
