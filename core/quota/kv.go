@@ -64,7 +64,7 @@ func (c *MapKeyValueSizeChecker) Outcome() error {
 // CheckTupleSize checks whether the length of the provided key-value pair is
 // within the provided limits. If the key or value is a string, then its length
 // will be used for comparison purposes. Otherwise, the effective length is
-// calculated by serializing to BSON and counting the length of the serialized
+// calculated by serializing to JSON and counting the length of the serialized
 // data.
 //
 // Any of the max values can be set to zero to bypass the size check.
@@ -86,11 +86,30 @@ func CheckTupleSize(key, value any, maxKeyLen, maxValueLen int) error {
 	return nil
 }
 
+// CheckStringMapTotalSize checks whether the total raw byte length of all keys
+// and values in settings is within the provided limit. A maxSize of zero
+// disables the check.
+func CheckStringMapTotalSize(settings map[string]string, maxSize int) error {
+	if maxSize <= 0 {
+		return nil
+	}
+
+	var total int
+	for k, v := range settings {
+		total += len(k) + len(v)
+		if total > maxSize {
+			return errors.Errorf("max allowed total size (%d) exceeded %w", maxSize, coreerrors.QuotaLimitExceeded)
+		}
+	}
+	return nil
+}
+
 func effectiveSize(v any) (int, error) {
 	switch rawValue := v.(type) {
 	case string:
 		return len(rawValue), nil
-	default: // marshal non-string values to json and return the serialized length
+	default:
+		// Marshal non-string values to json and return the serialized length.
 		d, err := json.Marshal(rawValue)
 		if err != nil {
 			return -1, errors.Errorf("marshaling value to JSON: %w", err)

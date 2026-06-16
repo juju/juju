@@ -11,4 +11,8 @@ const (
 	// MaxCharmStateValueSize describes the max allowed value length for
 	// each entry that a charm attempts to persist to the controller.
 	MaxCharmStateValueSize = 64 * 1024
+
+	// MaxRelationSettingsSize describes the max allowed total size for all
+	// key/value pairs in a relation settings collection.
+	MaxRelationSettingsSize = 16 * 1024 * 1024
 )

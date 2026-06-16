@@ -22,7 +22,7 @@ type MultiCheckerSuite struct {
 func (s *MultiCheckerSuite) TestSuccessfulCheck(c *tc.C) {
 	chk := quota.NewMultiChecker(
 		quota.NewMapKeyValueSizeChecker(5, 10),
-		quota.NewBSONTotalSizeChecker(50),
+		newStringMapTotalSizeChecker(50),
 	)
 	chk.Check(map[string]string{
 		"key0": "0123456789",
@@ -36,7 +36,7 @@ func (s *MultiCheckerSuite) TestSuccessfulCheck(c *tc.C) {
 func (s *MultiCheckerSuite) TestExceedMaxSize(c *tc.C) {
 	chk := quota.NewMultiChecker(
 		quota.NewMapKeyValueSizeChecker(5, 10),
-		quota.NewBSONTotalSizeChecker(24),
+		newStringMapTotalSizeChecker(30),
 	)
 	chk.Check(map[string]string{
 		"key0": "0123456789",
@@ -46,4 +46,27 @@ func (s *MultiCheckerSuite) TestExceedMaxSize(c *tc.C) {
 
 	err := chk.Outcome()
 	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
+}
+
+type stringMapTotalSizeChecker struct {
+	maxSize int
+	lastErr error
+}
+
+func newStringMapTotalSizeChecker(maxSize int) *stringMapTotalSizeChecker {
+	return &stringMapTotalSizeChecker{
+		maxSize: maxSize,
+	}
+}
+
+func (c *stringMapTotalSizeChecker) Check(v any) {
+	settings, ok := v.(map[string]string)
+	if !ok {
+		return
+	}
+	c.lastErr = quota.CheckStringMapTotalSize(settings, c.maxSize)
+}
+
+func (c *stringMapTotalSizeChecker) Outcome() error {
+	return c.lastErr
 }
