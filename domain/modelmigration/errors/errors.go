@@ -30,4 +30,9 @@ const (
 	// different success value. Reports are idempotent for an identical value but
 	// must never silently overwrite a conflicting one.
 	ErrConflictingMinionReport = errors.ConstError("conflicting minion report")
+
+	// ErrSourceControllerNoAPIAddresses indicates the source controller exposes
+	// no usable API addresses for a target controller to dial back during model
+	// activation, so the migration cannot complete.
+	ErrSourceControllerNoAPIAddresses = errors.ConstError("source controller has no usable API addresses")
 )

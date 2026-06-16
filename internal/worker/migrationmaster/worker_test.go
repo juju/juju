@@ -137,12 +137,7 @@ var (
 		FuncName: "MigrationTarget.Activate",
 		Args: []any{
 			params.ActivateModelArgs{
-				ModelTag:        modelTag.String(),
-				ControllerTag:   sourceControllerTag.String(),
-				ControllerAlias: "mycontroller",
-				SourceAPIAddrs:  []string{"source-addr"},
-				SourceCACert:    "cacert",
-				CrossModelUUIDs: []string{"related-model-uuid"},
+				ModelTag: modelTag.String(),
 			},
 		},
 	}
@@ -363,7 +358,7 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			{FuncName: "modelMigrationService.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			checkMachinesCall,
-			{FuncName: "facade.SourceControllerInfo", Args: nil},
+			{FuncName: "modelMigrationService.SourceControllerInfo", Args: nil},
 			activateCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.SUCCESS}},
@@ -1549,19 +1544,19 @@ func (s *stubModelMigrationService) MinionReports(ctx context.Context) (coremigr
 	return r, nil
 }
 
-func (f *stubMasterFacade) Prechecks(ctx context.Context) error {
-	f.stub.AddCall("facade.Prechecks")
-	return f.prechecksErr
-}
-
-func (f *stubMasterFacade) SourceControllerInfo(ctx context.Context) (coremigration.SourceControllerInfo, []string, error) {
-	f.stub.AddCall("facade.SourceControllerInfo")
+func (s *stubModelMigrationService) SourceControllerInfo(ctx context.Context) (coremigration.SourceControllerInfo, error) {
+	s.stub.AddCall("modelMigrationService.SourceControllerInfo")
 	return coremigration.SourceControllerInfo{
 		ControllerTag:   sourceControllerTag,
 		ControllerAlias: "mycontroller",
 		Addrs:           []string{"source-addr"},
 		CACert:          "cacert",
-	}, []string{"related-model-uuid"}, nil
+	}, nil
+}
+
+func (f *stubMasterFacade) Prechecks(ctx context.Context) error {
+	f.stub.AddCall("facade.Prechecks")
+	return f.prechecksErr
 }
 
 type stubExportService struct {

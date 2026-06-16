@@ -46,7 +46,6 @@ type Suite struct {
 	agentService            *mocks.MockModelAgentService
 	applicationService      *mocks.MockApplicationService
 	controllerConfigService *mocks.MockControllerConfigService
-	controllerNodeService   *mocks.MockControllerNodeService
 	credentialService       *mocks.MockCredentialService
 	machineService          *mocks.MockMachineService
 	modelInfoService        *mocks.MockModelInfoService
@@ -189,30 +188,6 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 	c.Check(mod.Name, tc.Equals, "model-name")
 	c.Check(mod.Qualifier, tc.Equals, "production")
 	c.Check(mod.AgentVersion, tc.Equals, semversion.MustParse("1.2.3"))
-}
-
-func (s *Suite) TestSourceControllerInfo(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cfg := controller.Config{
-		controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
-		controller.ControllerName:    "mycontroller",
-		controller.CACertKey:         "cacert",
-	}
-
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-	apiAddr := []string{"10.0.0.1:666"}
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForClients(gomock.Any()).Return(apiAddr, nil)
-
-	info, err := s.mustMakeAPI(c).SourceControllerInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(info, tc.DeepEquals, params.MigrationSourceInfo{
-		ControllerTag:   coretesting.ControllerTag.String(),
-		ControllerAlias: "mycontroller",
-		Addrs:           []string{"10.0.0.1:666"},
-		CACert:          "cacert",
-	})
 }
 
 func (s *Suite) TestSetPhase(c *tc.C) {
@@ -389,7 +364,6 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
-	s.controllerNodeService = mocks.NewMockControllerNodeService(ctrl)
 	s.credentialService = mocks.NewMockCredentialService(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
@@ -405,7 +379,6 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 		s.agentService = nil
 		s.applicationService = nil
 		s.controllerConfigService = nil
-		s.controllerNodeService = nil
 		s.credentialService = nil
 		s.machineService = nil
 		s.modelInfoService = nil
@@ -458,7 +431,6 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 			return s.machineService, nil
 		},
 		s.controllerConfigService,
-		s.controllerNodeService,
 		s.modelInfoService,
 		s.modelService,
 		s.modelMigrationService,

@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/testhelpers"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -242,34 +241,6 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *tc.C) {
 		ControllerAgentVersion: semversion.MustParse("1.2.4"),
 		ModelDescription:       modelDescription,
 	})
-}
-
-func (s *ClientSuite) TestSourceControllerInfo(c *tc.C) {
-	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result any) error {
-		stub.AddCall(objType+"."+request, id, arg)
-		*(result.(*params.MigrationSourceInfo)) = params.MigrationSourceInfo{
-			LocalRelatedModels: []string{"related-model-uuid"},
-			ControllerTag:      coretesting.ControllerTag.String(),
-			ControllerAlias:    "mycontroller",
-			Addrs:              []string{"source-addr"},
-			CACert:             "cacert",
-		}
-		return nil
-	})
-	client := migrationmaster.NewClient(apiCaller, nil)
-	info, relatedModels, err := client.SourceControllerInfo(c.Context())
-	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []any{"", nil}},
-	})
-	c.Check(err, tc.ErrorIsNil)
-	c.Check(info, tc.DeepEquals, migration.SourceControllerInfo{
-		ControllerTag:   coretesting.ControllerTag,
-		ControllerAlias: "mycontroller",
-		Addrs:           []string{"source-addr"},
-		CACert:          "cacert",
-	})
-	c.Assert(relatedModels, tc.SameContents, []string{"related-model-uuid"})
 }
 
 func (s *ClientSuite) TestPrechecks(c *tc.C) {

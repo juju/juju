@@ -126,6 +126,7 @@ type MockControllerStateMockRecorder struct {
 	getControllerModelInfoExpects      []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
 	getControllerTargetVersionExpects  []*gomock.Call1_2[context.Context, string, error]
 	getMigrationModeExpects            []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
+	getSourceControllerInfoExpects     []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 	insertExportExpects                []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects          []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
 	namespaceForWatchExportExpects     []*gomock.Call0_1[string]
@@ -272,6 +273,24 @@ func (mr *MockControllerStateMockRecorder) GetMigrationMode(ctx, modelUUID any) 
 
 // MockControllerStateGetMigrationModeCall is the typed call wrapper for GetMigrationMode.
 type MockControllerStateGetMigrationModeCall = gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
+
+// GetSourceControllerInfo mocks base method.
+func (m *MockControllerState) GetSourceControllerInfo(ctx context.Context) (internal.SourceControllerInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getSourceControllerInfoExpects, m.ctrl, m, "GetSourceControllerInfo", ctx)
+}
+
+// GetSourceControllerInfo indicates an expected call of GetSourceControllerInfo.
+func (mr *MockControllerStateMockRecorder) GetSourceControllerInfo(ctx any) *MockControllerStateGetSourceControllerInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, internal.SourceControllerInfo, error](mr.mock.ctrl.T, mr.mock, "GetSourceControllerInfo", gomock.EnsureMatcher(ctx))
+	mr.getSourceControllerInfoExpects = append(mr.getSourceControllerInfoExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetSourceControllerInfoCall is the typed call wrapper for GetSourceControllerInfo.
+type MockControllerStateGetSourceControllerInfoCall = gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 
 // InsertExport mocks base method.
 func (m *MockControllerState) InsertExport(ctx context.Context, spec internal.MigrationSpec) error {

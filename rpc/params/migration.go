@@ -42,16 +42,6 @@ type MigrationTargetInfo struct {
 	Token           string   `json:"token,omitempty"`
 }
 
-// MigrationSourceInfo holds the details required to connect to
-// the source controller for model migration.
-type MigrationSourceInfo struct {
-	LocalRelatedModels []string `json:"local-related-models"`
-	ControllerTag      string   `json:"controller-tag"`
-	ControllerAlias    string   `json:"controller-alias,omitempty"`
-	Addrs              []string `json:"addrs"`
-	CACert             string   `json:"ca-cert"`
-}
-
 // InitiateMigrationResults is used to return the result of one or
 // more attempts to start model migrations.
 type InitiateMigrationResults struct {

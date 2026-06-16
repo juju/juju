@@ -1688,6 +1688,81 @@ func matchingExternalModels(
 	return matched, nil
 }
 
+// GetSourceControllerInfo returns the source controller's identity and client
+// connection details used by the target controller to dial back during model
+// activation.
+func (s *State) GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
+	}
+
+	stmtIdentity, err := s.Prepare("SELECT &controllerIdentityRow.* FROM controller", controllerIdentityRow{})
+	if err != nil {
+		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
+	}
+	stmtName, err := s.Prepare(`
+SELECT value AS &controllerNameRow.name
+FROM   v_controller_config
+WHERE  key = 'controller-name'
+`, controllerNameRow{})
+	if err != nil {
+		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
+	}
+	stmtAddrs, err := s.Prepare(`
+SELECT &sourceAPIAddress.*
+FROM   controller_api_address
+`, sourceAPIAddress{})
+	if err != nil {
+		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
+	}
+
+	var (
+		identityRow controllerIdentityRow
+		nameRow     controllerNameRow
+		addrRows    []sourceAPIAddress
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		identityRow = controllerIdentityRow{}
+		nameRow = controllerNameRow{}
+		addrRows = nil
+
+		if err := tx.Query(ctx, stmtIdentity).Get(&identityRow); errors.Is(err, sqlair.ErrNoRows) {
+			return errors.New("internal error: controller identity not found")
+		} else if err != nil {
+			return errors.Errorf("getting controller identity: %w", err)
+		}
+		// controller-name may not be set; treat absent as empty alias.
+		if err := tx.Query(ctx, stmtName).Get(&nameRow); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting controller name: %w", err)
+		}
+		if err := tx.Query(ctx, stmtAddrs).GetAll(&addrRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("getting api addresses: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return modelmigrationinternal.SourceControllerInfo{}, errors.Capture(err)
+	}
+
+	addrs := make([]modelmigrationinternal.SourceControllerAddress, 0, len(addrRows))
+	for _, addr := range addrRows {
+		addrs = append(addrs, modelmigrationinternal.SourceControllerAddress{
+			ControllerID: addr.ControllerID,
+			Address:      addr.Address,
+			Scope:        addr.Scope,
+			IsAgent:      addr.IsAgent,
+		})
+	}
+
+	return modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  identityRow.UUID,
+		ControllerAlias: nameRow.Name,
+		Addrs:           addrs,
+		CACert:          identityRow.CACert,
+	}, nil
+}
+
 // derefString returns the pointed-to string or empty when nil.
 func derefString(s *string) string {
 	if s == nil {
