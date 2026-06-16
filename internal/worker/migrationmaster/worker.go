@@ -423,22 +423,13 @@ func (w *Worker) doQUIESCE(ctx context.Context, status coremigration.MigrationSt
 	return coremigration.IMPORT, nil
 }
 
-// incompatibleTargetMessage is the hard error reported when the source is on
-// the new SerializedModelV2 migration path but the target controller does not
-// expose the v8 migrationtarget facade that accepts it.
-var incompatibleTargetMessage = `
-target controller does not support the model migration envelope format;
-upgrade the target controller to Juju 4.1 or later
-`[1:]
-
 // checkTargetSupportsEnvelope hard-errors when the target controller does not
-// advertise migrationtarget v8, the first version able to accept the
-// SerializedModelV2 envelope. There is no fallback to a legacy path.
+// advertise the migrationtarget facade version able to accept the
+// SerializedModelV2 envelope. There is no fallback to a legacy path. The guard
+// is shared with the synchronous InitiateMigration precheck so both fail with
+// the same message.
 func checkTargetSupportsEnvelope(targetClient *migrationtarget.Client) error {
-	if targetClient.BestFacadeVersion() < 8 {
-		return errors.New(incompatibleTargetMessage)
-	}
-	return nil
+	return migration.CheckTargetSupportsEnvelope(targetClient.BestFacadeVersion())
 }
 
 func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationStatus) error {

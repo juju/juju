@@ -413,7 +413,7 @@ func (s *Suite) TestIncompatibleTarget(c *tc.C) {
 	))
 	lastMessages := s.modelMigrationService.statuses[len(s.modelMigrationService.statuses)-2:]
 	c.Assert(lastMessages[0], tc.Matches,
-		"(?s)target controller does not support the model migration envelope format.*")
+		"(?s)target controller does not support the model migration format.*")
 }
 
 func (s *Suite) TestMigrationResume(c *tc.C) {

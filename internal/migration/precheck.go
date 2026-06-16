@@ -27,6 +27,25 @@ import (
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 )
 
+// MinTargetEnvelopeFacadeVersion is the first migrationtarget facade version
+// able to accept the SerializedModelV2 envelope used by the model migration
+// path. It lands in Juju 4.1; 4.0 targets only advertise up to v7.
+const MinTargetEnvelopeFacadeVersion = 8
+
+// CheckTargetSupportsEnvelope hard-errors when the target controller does not
+// advertise a migrationtarget facade new enough to accept the SerializedModelV2
+// envelope. There is no fallback to a legacy path for the new migration path, so
+// a too-old target (for example a 4.0 controller targeted by a 4.0 source) is
+// rejected with a clear, actionable error.
+func CheckTargetSupportsEnvelope(bestFacadeVersion int) error {
+	if bestFacadeVersion < MinTargetEnvelopeFacadeVersion {
+		return errors.New("target controller does not support the model " +
+			"migration format; upgrade the target controller to " +
+			"Juju 4.1 or later")
+	}
+	return nil
+}
+
 // SourcePrecheck checks the state of the source controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the model to be migrated.
