@@ -48,6 +48,11 @@ type ControllerRuntimeConfig struct {
 	// DataDir is the Dqlite data directory root.
 	DataDir string `yaml:"data-dir"`
 
+	// LoopbackPreferred controls whether Dqlite should prefer the loopback
+	// address instead of the cloud-local TLS-terminated address. This is true
+	// for CAAS controllers.
+	LoopbackPreferred bool `yaml:"loopback-preferred,omitempty"`
+
 	// LogDir is the controller process log directory.
 	LogDir string `yaml:"log-dir"`
 

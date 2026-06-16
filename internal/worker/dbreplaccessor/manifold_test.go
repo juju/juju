@@ -32,7 +32,19 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
-	cfg.AgentName = ""
+	cfg.DataDir = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.CACert = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ControllerCert = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ControllerPrivateKey = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -58,9 +70,12 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName: "agent",
-		Clock:     s.clock,
-		Logger:    s.logger,
+		DataDir:              "data-dir",
+		CACert:               "ca-cert",
+		ControllerCert:       "controller-cert",
+		ControllerPrivateKey: "controller-private-key",
+		Clock:                s.clock,
+		Logger:               s.logger,
 		NewApp: func(string) (DBApp, error) {
 			return s.dbApp, nil
 		},
