@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -19,9 +20,11 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/core/devices"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/quota"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
@@ -2678,6 +2681,23 @@ func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettings(c *tc.C) 
 	c.Check(sha256, tc.Equals, "6e1b3adca7459d700abb8e270b06ee7fc96f83436bb533ad4540a3a6eb66cf1b")
 }
 
+func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsExceedMaxSize(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	err := s.state.UpdateApplicationConfigAndSettings(c.Context(), id, map[string]application.AddApplicationConfig{
+		"key": {
+			Type:  charm.OptionString,
+			Value: strings.Repeat("a", quota.MaxApplicationConfigSize+1),
+		},
+	}, application.UpdateApplicationSettingsArg{})
+	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
+
+	config, settings, err := s.state.GetApplicationConfigAndSettings(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config, tc.DeepEquals, map[string]application.ApplicationConfig{})
+	c.Check(settings, tc.DeepEquals, application.ApplicationSettings{})
+}
+
 func (s *applicationStateSuite) TestUpdateApplicationConfigAndSettingsBoolean(c *tc.C) {
 	id := s.createIAASApplication(c, "foo", life.Alive)
 
@@ -3065,9 +3085,9 @@ func (s *applicationStateSuite) TestHashConfigAndSettings(c *tc.C) {
 		name: "config",
 		config: []applicationConfig{
 			{
-				Key:   "key",
-				Type:  "string",
-				Value: sql.Null[string]{V: "value", Valid: true},
+				ConfigKey:   "key",
+				Type:        "string",
+				ConfigValue: sql.Null[string]{V: "value", Valid: true},
 			},
 		},
 		settings: applicationSettings{},
@@ -3076,29 +3096,29 @@ func (s *applicationStateSuite) TestHashConfigAndSettings(c *tc.C) {
 		name: "multiple config",
 		config: []applicationConfig{
 			{
-				Key:   "key",
-				Type:  "string",
-				Value: sql.Null[string]{V: "value", Valid: true},
+				ConfigKey:   "key",
+				Type:        "string",
+				ConfigValue: sql.Null[string]{V: "value", Valid: true},
 			},
 			{
-				Key:   "key2",
-				Type:  "int",
-				Value: sql.Null[string]{V: "42", Valid: true},
+				ConfigKey:   "key2",
+				Type:        "int",
+				ConfigValue: sql.Null[string]{V: "42", Valid: true},
 			},
 			{
-				Key:   "key3",
-				Type:  "float",
-				Value: sql.Null[string]{V: "3.14", Valid: true},
+				ConfigKey:   "key3",
+				Type:        "float",
+				ConfigValue: sql.Null[string]{V: "3.14", Valid: true},
 			},
 			{
-				Key:   "key4",
-				Type:  "boolean",
-				Value: sql.Null[string]{V: "true", Valid: true},
+				ConfigKey:   "key4",
+				Type:        "boolean",
+				ConfigValue: sql.Null[string]{V: "true", Valid: true},
 			},
 			{
-				Key:   "key5",
-				Type:  "secret",
-				Value: sql.Null[string]{V: "secret", Valid: true},
+				ConfigKey:   "key5",
+				Type:        "secret",
+				ConfigValue: sql.Null[string]{V: "secret", Valid: true},
 			},
 		},
 		settings: applicationSettings{},
