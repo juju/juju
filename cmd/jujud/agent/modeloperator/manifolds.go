@@ -100,6 +100,8 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
 			Clock:              clock.WallClock,
 			HTTPClient:         http.DefaultClient,
+			NewAPIOpen:         api.Open,
+			NewBackendFunc:     logrouter.NewBackend,
 		}),
 
 		caasAdmissionName: caasadmission.Manifold(caasadmission.ManifoldConfig{

@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	corelogger "github.com/juju/juju/core/logger"
+	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/logsender"
 )
@@ -117,7 +118,7 @@ func (c *WorkerConfig) Validate() error {
 // NewWorker returns a logrouter worker.
 func NewWorker(config WorkerConfig) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	runner, err := worker.NewRunner(worker.RunnerParams{
@@ -131,7 +132,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		Logger:        internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	w := &logRouter{
@@ -147,7 +148,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 			w.runner,
 		},
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	return w, nil
 }
@@ -185,13 +186,13 @@ func (w *logRouter) loop() error {
 		w.configChanges,
 	)
 	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Trace(err)
+		return internalerrors.Capture(err)
 	}
 
 	drainSnapshot := ConfigSnapshot{Mode: BackendTypeDrain}
 	drainRecords, err := w.startBackend(ctx, backendDrainID, drainSnapshot)
 	if err != nil {
-		return w.dyingError(ctx, errors.Trace(err))
+		return w.dyingError(ctx, internalerrors.Capture(err))
 	}
 	w.drainRecords = drainRecords
 	w.activeBackendID = backendDrainID
@@ -202,7 +203,7 @@ func (w *logRouter) loop() error {
 	if !next.sameBackend(w.activeSnapshot) {
 		err = w.switchBackend(ctx, next)
 		if err != nil {
-			return errors.Trace(err)
+			return internalerrors.Capture(err)
 		}
 	}
 
@@ -219,11 +220,11 @@ func (w *logRouter) loop() error {
 			if !next.sameBackend(w.activeSnapshot) {
 				err = w.switchBackend(ctx, next)
 				if err != nil {
-					return errors.Trace(err)
+					return internalerrors.Capture(err)
 				}
 			}
 			if err := w.send(ctx, rec); err != nil {
-				return errors.Trace(err)
+				return internalerrors.Capture(err)
 			}
 
 		case <-w.configChanges:
@@ -233,7 +234,7 @@ func (w *logRouter) loop() error {
 			}
 			err = w.switchBackend(ctx, next)
 			if err != nil {
-				return errors.Trace(err)
+				return internalerrors.Capture(err)
 			}
 		}
 	}
@@ -307,13 +308,13 @@ func (w *logRouter) startBackend(ctx context.Context, id string, snapshot Config
 		return w.newBackend(snapshot)
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	backend, err := w.runner.Worker(id, ctx.Done())
 	if err != nil {
 		_ = w.runner.StopWorker(id)
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 
 	recordBackend, ok := backend.(Backend)

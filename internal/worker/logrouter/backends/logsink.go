@@ -24,6 +24,7 @@ func NewLogSink(logSenderAPI logsender.LogSenderAPI, backendBufferSize int) (Bac
 	}, nil
 }
 
+// LogRecords returns the channel on which log records are sent to the backend.
 func (w *logSinkBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
 }

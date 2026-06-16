@@ -4,9 +4,9 @@
 package backends
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/worker/v5/catacomb"
 
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/worker/logsender"
 )
 
@@ -26,7 +26,7 @@ func NewDrain(backendBufferSize int) (Backend, error) {
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	return w, nil
 }
@@ -43,6 +43,7 @@ func (w *drainBackend) Dying() <-chan struct{} {
 	return w.catacomb.Dying()
 }
 
+// LogRecords returns the channel on which log records are sent to the backend.
 func (w *drainBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
 }

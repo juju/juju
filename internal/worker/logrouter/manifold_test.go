@@ -6,6 +6,7 @@ package logrouter
 import (
 	"context"
 	stderrors "errors"
+	"net/http"
 	"sync/atomic"
 	"testing"
 
@@ -16,6 +17,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/loki"
 )
 
 type manifoldSuite struct{}
@@ -32,31 +34,42 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent"})
 }
 
+func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
+	c.Check(s.validManifoldConfig(c).Validate(), tc.ErrorIsNil)
+}
+
 func (s *manifoldSuite) TestStartReturnsGetterError(c *tc.C) {
 	expectErr := stderrors.New("missing agent")
-	manifold := Manifold(ManifoldConfig{
-		AgentName: "agent",
-	})
+	manifold := Manifold(s.validManifoldConfig(c))
 
 	w, err := manifold.Start(c.Context(), manifoldGetter{err: expectErr})
 	c.Check(w, tc.IsNil)
 	c.Check(err, tc.ErrorIs, expectErr)
 }
 
+func (s *manifoldSuite) TestStartValidatesBeforeGetter(c *tc.C) {
+	var getterCalled atomic.Bool
+	manifold := Manifold(ManifoldConfig{})
+
+	w, err := manifold.Start(c.Context(), manifoldGetter{
+		called: &getterCalled,
+		err:    stderrors.New("getter should not be called"),
+	})
+	c.Check(w, tc.IsNil)
+	c.Assert(err, tc.NotNil)
+	c.Check(err.Error(), tc.Equals, `empty AgentName not valid`)
+	c.Check(getterCalled.Load(), tc.IsFalse)
+}
+
 func (s *manifoldSuite) TestStartCreatesWorkerWithoutOpeningAPI(c *tc.C) {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	var apiOpenCalled atomic.Bool
-	manifold := Manifold(ManifoldConfig{
-		AgentName:          "agent",
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
-		APIOpen: func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
-			apiOpenCalled.Store(true)
-			return nil, stderrors.New("api should not be opened during start")
-		},
-	})
+	cfg := s.validManifoldConfig(c)
+	cfg.NewAPIOpen = func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
+		apiOpenCalled.Store(true)
+		return nil, stderrors.New("api should not be opened during start")
+	}
+	manifold := Manifold(cfg)
 
 	w, err := manifold.Start(c.Context(), manifoldGetter{agent: fixture.agent})
 	c.Assert(err, tc.ErrorIsNil)
@@ -65,12 +78,34 @@ func (s *manifoldSuite) TestStartCreatesWorkerWithoutOpeningAPI(c *tc.C) {
 	c.Check(apiOpenCalled.Load(), tc.IsFalse)
 }
 
+func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
+	fixture := newFixture(c, "http://loki/loki/api/v1/push")
+	return ManifoldConfig{
+		AgentName:          "agent",
+		LogSource:          fixture.logs,
+		AgentConfigChanged: fixture.configChanged,
+		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:              clock.WallClock,
+		HTTPClient:         http.DefaultClient,
+		NewAPIOpen: func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
+			return nil, nil
+		},
+		NewBackendFunc: func(coreagent.Agent, func(context.Context, *api.Info, api.DialOpts) (api.Connection, error), loki.HTTPClient, clock.Clock) BackendFunc {
+			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
+		},
+	}
+}
+
 type manifoldGetter struct {
-	agent coreagent.Agent
-	err   error
+	agent  coreagent.Agent
+	called *atomic.Bool
+	err    error
 }
 
 func (g manifoldGetter) Get(_ string, out any) error {
+	if g.called != nil {
+		g.called.Store(true)
+	}
 	if g.err != nil {
 		return g.err
 	}
