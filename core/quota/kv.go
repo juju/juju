@@ -13,6 +13,12 @@ import (
 
 var _ Checker = (*MapKeyValueSizeChecker)(nil)
 
+// KeyValue describes a setting or state entry that has a string key and value.
+type KeyValue interface {
+	Key() string
+	Value() string
+}
+
 // A MapKeyValueSizeChecker can be used to verify that none of the keys and
 // values in a map exceed a particular limit.
 type MapKeyValueSizeChecker struct {
@@ -86,17 +92,23 @@ func CheckTupleSize(key, value any, maxKeyLen, maxValueLen int) error {
 	return nil
 }
 
-// CheckStringMapTotalSize checks whether the total raw byte length of all keys
-// and values in settings is within the provided limit. A maxSize of zero
-// disables the check.
-func CheckStringMapTotalSize(settings map[string]string, maxSize int) error {
+// CheckRelationSettingsSize checks whether the total raw byte length of all
+// relation setting keys and values is within the allowed limit.
+func CheckRelationSettingsSize(settings []KeyValue) error {
+	return CheckKeyValueTotalSize(settings, MaxRelationSettingsSize)
+}
+
+// CheckKeyValueTotalSize checks whether the total raw byte length of all keys
+// and values is within the provided limit. A maxSize of zero disables the
+// check.
+func CheckKeyValueTotalSize(settings []KeyValue, maxSize int) error {
 	if maxSize <= 0 {
 		return nil
 	}
 
 	var total int
-	for k, v := range settings {
-		total += len(k) + len(v)
+	for _, setting := range settings {
+		total += len(setting.Key()) + len(setting.Value())
 		if total > maxSize {
 			return errors.Errorf("max allowed total size (%d) exceeded %w", maxSize, coreerrors.QuotaLimitExceeded)
 		}

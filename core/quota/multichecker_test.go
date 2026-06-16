@@ -64,7 +64,11 @@ func (c *stringMapTotalSizeChecker) Check(v any) {
 	if !ok {
 		return
 	}
-	c.lastErr = quota.CheckStringMapTotalSize(settings, c.maxSize)
+	keyValues := make([]quota.KeyValue, 0, len(settings))
+	for k, v := range settings {
+		keyValues = append(keyValues, testKeyValue{key: k, value: v})
+	}
+	c.lastErr = quota.CheckKeyValueTotalSize(keyValues, c.maxSize)
 }
 
 func (c *stringMapTotalSizeChecker) Outcome() error {

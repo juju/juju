@@ -87,39 +87,52 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxValueSize(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "max allowed value length.*", tc.Commentf("expected error about exceeding max value length"))
 }
 
-func (s *MapKeyValueCheckerSuite) TestStringMapTotalSize(c *tc.C) {
-	err := quota.CheckStringMapTotalSize(map[string]string{
-		"key": "value",
-		"a":   "b",
+func (s *MapKeyValueCheckerSuite) TestKeyValueTotalSize(c *tc.C) {
+	err := quota.CheckKeyValueTotalSize([]quota.KeyValue{
+		testKeyValue{key: "key", value: "value"},
+		testKeyValue{key: "a", value: "b"},
 	}, 10)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MapKeyValueCheckerSuite) TestStringMapTotalSizeExactLimit(c *tc.C) {
-	err := quota.CheckStringMapTotalSize(map[string]string{
-		"key": "value",
+func (s *MapKeyValueCheckerSuite) TestKeyValueTotalSizeExactLimit(c *tc.C) {
+	err := quota.CheckKeyValueTotalSize([]quota.KeyValue{
+		testKeyValue{key: "key", value: "value"},
 	}, 8)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MapKeyValueCheckerSuite) TestStringMapTotalSizeBypass(c *tc.C) {
-	err := quota.CheckStringMapTotalSize(map[string]string{
-		"key": "value",
+func (s *MapKeyValueCheckerSuite) TestKeyValueTotalSizeBypass(c *tc.C) {
+	err := quota.CheckKeyValueTotalSize([]quota.KeyValue{
+		testKeyValue{key: "key", value: "value"},
 	}, 0)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *MapKeyValueCheckerSuite) TestStringMapTotalSizeExceedsLimit(c *tc.C) {
-	err := quota.CheckStringMapTotalSize(map[string]string{
-		"key": "value",
+func (s *MapKeyValueCheckerSuite) TestKeyValueTotalSizeExceedsLimit(c *tc.C) {
+	err := quota.CheckKeyValueTotalSize([]quota.KeyValue{
+		testKeyValue{key: "key", value: "value"},
 	}, 7)
 	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
 	c.Assert(err, tc.ErrorMatches, "max allowed total size.*")
 }
 
-func (s *MapKeyValueCheckerSuite) TestStringMapTotalSizeUsesRawBytes(c *tc.C) {
-	err := quota.CheckStringMapTotalSize(map[string]string{
-		"é": "€",
+func (s *MapKeyValueCheckerSuite) TestKeyValueTotalSizeUsesRawBytes(c *tc.C) {
+	err := quota.CheckKeyValueTotalSize([]quota.KeyValue{
+		testKeyValue{key: "é", value: "€"},
 	}, 4)
 	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
+}
+
+type testKeyValue struct {
+	key   string
+	value string
+}
+
+func (kv testKeyValue) Key() string {
+	return kv.key
+}
+
+func (kv testKeyValue) Value() string {
+	return kv.value
 }
