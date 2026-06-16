@@ -239,12 +239,10 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 		switch modelType {
 		case "iaas":
 			return jjudcontroller.IAASManifolds(jjudcontroller.ManifoldsConfig{
-				Agent:           &mockAgent{},
 				PreUpgradeSteps: preUpgradeSteps,
 			})
 		case "caas":
 			return jjudcontroller.CAASManifolds(jjudcontroller.ManifoldsConfig{
-				Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
 				PreUpgradeSteps: preUpgradeSteps,
 			})
 		default:
