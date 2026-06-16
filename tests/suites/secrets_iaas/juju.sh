@@ -535,6 +535,44 @@ run_atomic_secret_update_grant() {
 	juju exec --unit dummy-source/0 -- secret-remove "$secret_uri"
 }
 
+# run_checksum_deduplication_no_leak verifies that updating a secret with
+# the same checksum does not leak backend references. When the content
+# checksum matches the current revision, no new revision is created and
+# the backend reference should remain consistent.
+#
+# Regression test for JUJU-9962: backend reference leak on same-checksum updates.
+run_checksum_deduplication_no_leak() {
+	echo
+
+	secret_uri=$(juju exec --unit juju-qa-test/0 -- secret-add val=original)
+	secret_id=${secret_uri##*/}
+
+	initial_revs=$(juju show-secret "$secret_uri" --revisions --format yaml | yq ".${secret_id}.revisions | length")
+	echo "Initial revisions: $initial_revs"
+
+	initial_backend=$(juju secrets --revisions --format yaml | yq -r ".${secret_id}.revisions[0].backend")
+	echo "Initial backend: $initial_backend"
+
+	juju exec --unit juju-qa-test/0 -- secret-set "$secret_uri" val=original
+
+	check_num_secret_revisions "$secret_uri" "$secret_id" "$initial_revs"
+
+	after_same_checksum_backend=$(juju secrets --revisions --format yaml | yq -r ".${secret_id}.revisions[0].backend")
+	echo "Backend after same-checksum update: $after_same_checksum_backend"
+	check_contains "$after_same_checksum_backend" "$initial_backend"
+
+	juju exec --unit juju-qa-test/0 -- secret-set "$secret_uri" val=modified
+
+	expected_revs=$((initial_revs + 1))
+	check_num_secret_revisions "$secret_uri" "$secret_id" "$expected_revs"
+
+	new_rev_backend=$(juju secrets --revisions --format yaml | yq -r ".${secret_id}.revisions[1].backend")
+	echo "Backend for new revision: $new_rev_backend"
+	check_contains "$new_rev_backend" "$initial_backend"
+
+	echo "Checksum deduplication test passed"
+}
+
 # test_secrets_hook_commit deploys the charms once and runs all
 # CommitHookChanges-based secret scenarios against the same model, to avoid
 # the cost of redeploying for each scenario. Each scenario uses its own
@@ -564,6 +602,7 @@ test_secrets_hook_commit() {
 		run_track_latest_revision
 		run_atomic_secret_update
 		run_atomic_secret_update_grant
+		run_checksum_deduplication_no_leak
 
 		destroy_model "$model_name"
 	)
