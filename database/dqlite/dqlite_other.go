@@ -12,6 +12,15 @@ const (
 
 type NodeRole int
 
+const (
+	// Voter is a full voting member of the cluster.
+	Voter NodeRole = iota
+	// StandBy is a non-voting member that can be promoted.
+	StandBy
+	// Spare is a non-voting spare member.
+	Spare
+)
+
 func (NodeRole) String() string {
 	return ""
 }

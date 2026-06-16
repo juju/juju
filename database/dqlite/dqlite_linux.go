@@ -5,7 +5,10 @@
 
 package dqlite
 
-import "github.com/canonical/go-dqlite/v3"
+import (
+	"github.com/canonical/go-dqlite/v3"
+	"github.com/canonical/go-dqlite/v3/client"
+)
 
 const (
 	// Enabled is true if dqlite is enabled.
@@ -14,6 +17,18 @@ const (
 
 // NodeInfo holds information about a single server.
 type NodeInfo = dqlite.NodeInfo
+
+// NodeRole identifies the role of a node within the Dqlite cluster.
+type NodeRole = client.NodeRole
+
+const (
+	// Voter is a full voting member of the cluster.
+	Voter = client.Voter
+	// StandBy is a non-voting member that can be promoted.
+	StandBy = client.StandBy
+	// Spare is a non-voting spare member.
+	Spare = client.Spare
+)
 
 // ReconfigureMembership can be used to recover a cluster whose majority of
 // nodes have died, and therefore has become unavailable.
