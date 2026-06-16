@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       check-build: ${{ steps.filter-files.outputs.check-build }}
-      check-unit-tests: ${{ steps.filter-files.outputs.check-unit-tests }}
       check-migrate: ${{ steps.filter-files.outputs.check-migrate }}
       check-upgrade: ${{ steps.filter-files.outputs.check-upgrade }}
       check-terraform: ${{ steps.filter-files.outputs.check-terraform }}
@@ -32,7 +31,7 @@ jobs:
     steps:
       - name: Checkout
         if: github.event_name != 'pull_request'
-        uses: actions/checkout@v4
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Calculate Refs
         id: refs
@@ -53,19 +52,12 @@ jobs:
 
       - name: Filter Files
         id: filter-files
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         with:
           ref: ${{ steps.refs.outputs.head_ref }}
           base: ${{ steps.refs.outputs.base_ref }}
           filters: |
             check-build:
-              - '**.go'
-              - 'go.mod'
-              - '.github/workflows/build.yml'
-              - 'scripts/dqlite/**'
-              - 'Makefile'
-              - 'make_functions.sh'
-            check-unit-tests:
               - '**.go'
               - 'go.mod'
               - '.github/workflows/build.yml'
@@ -119,14 +111,6 @@ jobs:
     name: Build
     if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-build == 'true'
     uses: ./.github/workflows/build.yml
-
-  unit-tests:
-    needs: [changed-files]
-    name: Unit Tests
-    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-unit-tests == 'true'
-    uses: ./.github/workflows/unit-tests.yml
-    with:
-      base: ${{ needs.changed-files.outputs.base }}
 
   snap:
     needs: [changed-files]

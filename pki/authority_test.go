@@ -83,6 +83,7 @@ func (a *AuthoritySuite) TestLeafRequestWithValidity(c *gc.C) {
 	authority.SetLeafValidityDuration(time.Minute)
 	dnsNames := []string{"test.juju.is"}
 	ipAddresses := []net.IP{net.ParseIP("fe80:abcd::1")}
+	now := time.Now()
 	leaf, err := authority.LeafRequestForGroup("testgroup").
 		AddDNSNames(dnsNames...).
 		AddIPAddresses(ipAddresses...).
@@ -91,13 +92,12 @@ func (a *AuthoritySuite) TestLeafRequestWithValidity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leaf.Certificate().DNSNames, jc.DeepEquals, dnsNames)
 	c.Assert(leaf.Certificate().IPAddresses, jc.DeepEquals, ipAddresses)
+	c.Assert(leaf.Certificate().NotAfter, jc.Almost, now.Add(time.Minute))
 
-	now := time.Now()
 	leaf, err = authority.LeafForGroup("testgroup")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(leaf.Certificate().DNSNames, jc.DeepEquals, dnsNames)
 	c.Assert(leaf.Certificate().IPAddresses, jc.DeepEquals, ipAddresses)
-	c.Assert(leaf.Certificate().NotAfter, jc.Almost, now.Add(time.Minute))
 }
 
 func (a *AuthoritySuite) TestLeafRequestChain(c *gc.C) {
