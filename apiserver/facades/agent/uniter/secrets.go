@@ -129,6 +129,69 @@ func fromUpsertParams(p params.UpsertSecretArg, accessor secret.SecretAccessor) 
 	}
 }
 
+// prepareSecretCreates validates and converts a list of create args from the
+// wire format into domain types ready for CommitHookChanges. Per-entry
+// validation errors are collected; only structural URI parse errors cause
+// an immediate abort.
+func (u *UniterAPI) prepareSecretCreates(
+	ctx context.Context, creates []params.CreateSecretArg,
+) ([]unitstate.CreateSecretArg, error) {
+	authTag := u.auth.GetAuthTag()
+	secretCreates := make([]unitstate.CreateSecretArg, 0, len(creates))
+	var createErrs []error
+	for _, createArg := range creates {
+		if len(createArg.Content.Data) == 0 && createArg.Content.ValueRef == nil {
+			createErrs = append(createErrs, errors.NotValidf("empty secret value"))
+			continue
+		}
+		secretOwner, err := names.ParseTag(createArg.OwnerTag)
+		if err != nil {
+			createErrs = append(createErrs, err)
+			continue
+		}
+		if !isSameApplication(authTag, secretOwner) {
+			createErrs = append(createErrs, apiServerErrors.ErrPerm)
+			continue
+		}
+
+		createParams := secret.CreateCharmSecretParams{
+			Version: secrets.Version,
+			UpdateCharmSecretParams: fromUpsertParams(createArg.UpsertSecretArg, secret.SecretAccessor{
+				Kind: secret.UnitAccessor,
+				ID:   authTag.Id(),
+			}),
+		}
+		switch kind := secretOwner.Kind(); kind {
+		case names.UnitTagKind:
+			createParams.CharmOwner = secret.CharmSecretOwner{Kind: secret.UnitCharmSecretOwner, ID: secretOwner.Id()}
+		case names.ApplicationTagKind:
+			createParams.CharmOwner = secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: secretOwner.Id()}
+		default:
+			createErrs = append(createErrs, errors.NotValidf("secret owner kind %q", kind))
+			continue
+		}
+		var uri *coresecrets.URI
+		if createArg.URI != nil {
+			uri, err = coresecrets.ParseURI(*createArg.URI)
+			if err != nil {
+				createErrs = append(createErrs, err)
+				continue
+			}
+		} else {
+			uri = coresecrets.NewURI()
+		}
+		secretCreates = append(secretCreates, unitstate.CreateSecretArg{
+			CreateCharmSecretParams: createParams,
+			URI:                     uri,
+		})
+	}
+	if len(createErrs) > 0 {
+		return nil, internalerrors.Errorf(
+			"creating secrets: %w", internalerrors.Join(createErrs...))
+	}
+	return secretCreates, nil
+}
+
 // isSameApplication returns true if the authenticated entity and the specified entity are in the same application.
 func isSameApplication(authTag names.Tag, tag names.Tag) bool {
 	return appFromTag(authTag) == appFromTag(tag)

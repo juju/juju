@@ -72,12 +72,6 @@ type UnitStateState interface {
 	SetUnitState(context.Context, unitstate.UnitState) error
 }
 
-// ProviderWithNetworking describes the interface needed from providers that
-// support networking capabilities.
-type ProviderWithNetworking interface {
-	environs.Networking
-}
-
 // SecretBackendReferenceMutator describes methods for modifying secret
 // backend references in the controller database.
 type SecretBackendReferenceMutator interface {
@@ -87,4 +81,17 @@ type SecretBackendReferenceMutator interface {
 	AddSecretBackendReference(
 		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
 	) (func() error, error)
+
+	// UpdateSecretBackendReference updates the reference to the secret
+	// backend for the given secret revision. It returns a rollback function
+	// which can be used to revert the changes.
+	UpdateSecretBackendReference(
+		ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
+	) (func() error, error)
+}
+
+// ProviderWithNetworking describes the interface needed from providers that
+// support networking capabilities.
+type ProviderWithNetworking interface {
+	environs.Networking
 }
