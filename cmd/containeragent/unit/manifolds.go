@@ -228,12 +228,12 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// one active backend at a time.
 		logRouterName: ifNotDead(logrouter.Manifold(logrouter.ManifoldConfig{
 			AgentName:          agentName,
+			APICallerName:      apiCallerName,
 			LogSource:          config.LogSource,
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
 			Clock:              config.Clock,
 			HTTPClient:         http.DefaultClient,
-			NewAPIOpen:         api.Open,
 			NewBackendFunc:     logrouter.NewBackend,
 		})),
 

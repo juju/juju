@@ -4,7 +4,6 @@
 package logrouter
 
 import (
-	"context"
 	stderrors "errors"
 	"net/http"
 	"sync/atomic"
@@ -15,7 +14,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/loki"
 )
@@ -28,10 +27,11 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
-		AgentName: "agent",
+		AgentName:     "agent",
+		APICallerName: "api-caller",
 	})
 
-	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "api-caller"})
 }
 
 func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
@@ -61,45 +61,40 @@ func (s *manifoldSuite) TestStartValidatesBeforeGetter(c *tc.C) {
 	c.Check(getterCalled.Load(), tc.IsFalse)
 }
 
-func (s *manifoldSuite) TestStartCreatesWorkerWithoutOpeningAPI(c *tc.C) {
+func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
-	var apiOpenCalled atomic.Bool
 	cfg := s.validManifoldConfig(c)
-	cfg.NewAPIOpen = func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
-		apiOpenCalled.Store(true)
-		return nil, stderrors.New("api should not be opened during start")
-	}
 	manifold := Manifold(cfg)
 
-	w, err := manifold.Start(c.Context(), manifoldGetter{agent: fixture.agent})
+	w, err := manifold.Start(c.Context(), manifoldGetter{
+		agent:     fixture.agent,
+		apiCaller: stubAPICaller{},
+	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
-
-	c.Check(apiOpenCalled.Load(), tc.IsFalse)
 }
 
 func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ManifoldConfig{
 		AgentName:          "agent",
+		APICallerName:      "api-caller",
 		LogSource:          fixture.logs,
 		AgentConfigChanged: fixture.configChanged,
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		HTTPClient:         http.DefaultClient,
-		NewAPIOpen: func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) {
-			return nil, nil
-		},
-		NewBackendFunc: func(coreagent.Agent, func(context.Context, *api.Info, api.DialOpts) (api.Connection, error), loki.HTTPClient, clock.Clock) BackendFunc {
+		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock) BackendFunc {
 			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
 		},
 	}
 }
 
 type manifoldGetter struct {
-	agent  coreagent.Agent
-	called *atomic.Bool
-	err    error
+	agent     coreagent.Agent
+	apiCaller base.APICaller
+	called    *atomic.Bool
+	err       error
 }
 
 func (g manifoldGetter) Get(_ string, out any) error {
@@ -112,8 +107,14 @@ func (g manifoldGetter) Get(_ string, out any) error {
 	switch out := out.(type) {
 	case *coreagent.Agent:
 		*out = g.agent
+	case *base.APICaller:
+		*out = g.apiCaller
 	default:
 		return stderrors.New("unexpected dependency request")
 	}
 	return nil
+}
+
+type stubAPICaller struct {
+	base.APICaller
 }

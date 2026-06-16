@@ -5,20 +5,14 @@ package logrouter
 
 import (
 	"context"
-	"net/http"
-	"net/url"
-	"sync"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
-	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apilogsender "github.com/juju/juju/api/logsender"
 	corelogger "github.com/juju/juju/core/logger"
@@ -31,8 +25,7 @@ import (
 // BackendFuncFactory returns a backend constructor for the supplied agent
 // resources.
 type BackendFuncFactory func(
-	agent.Agent,
-	func(context.Context, *api.Info, api.DialOpts) (api.Connection, error),
+	base.APICaller,
 	loki.HTTPClient,
 	clock.Clock,
 ) BackendFunc
@@ -40,6 +33,7 @@ type BackendFuncFactory func(
 // ManifoldConfig defines the names of the manifolds used by logrouter.
 type ManifoldConfig struct {
 	AgentName          string
+	APICallerName      string
 	LogSource          logsender.LogRecordCh
 	AgentConfigChanged *voyeur.Value
 	Logger             corelogger.Logger
@@ -47,7 +41,6 @@ type ManifoldConfig struct {
 	HTTPClient         loki.HTTPClient
 	DrainOnly          bool
 
-	NewAPIOpen     func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	NewBackendFunc BackendFuncFactory
 }
 
@@ -55,6 +48,9 @@ type ManifoldConfig struct {
 func (c ManifoldConfig) Validate() error {
 	if c.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if c.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
 	}
 	if c.LogSource == nil {
 		return errors.NotValidf("nil LogSource")
@@ -68,9 +64,6 @@ func (c ManifoldConfig) Validate() error {
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
-	if c.NewAPIOpen == nil {
-		return errors.NotValidf("nil NewAPIOpen")
-	}
 	if c.NewBackendFunc == nil {
 		return errors.NotValidf("nil NewBackendFunc")
 	}
@@ -80,7 +73,7 @@ func (c ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the logrouter worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.AgentName},
+		Inputs: []string{config.AgentName, config.APICallerName},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, internalerrors.Capture(err)
@@ -88,6 +81,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var a agent.Agent
 			if err := getter.Get(config.AgentName, &a); err != nil {
+				return nil, err
+			}
+			var apiCaller base.APICaller
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 
@@ -99,7 +96,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:              config.Clock,
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
-				NewBackend:         config.NewBackendFunc(a, config.NewAPIOpen, config.HTTPClient, config.Clock),
+				NewBackend:         config.NewBackendFunc(apiCaller, config.HTTPClient, config.Clock),
 			})
 		},
 	}
@@ -107,15 +104,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // NewBackend returns the default backend constructor.
 func NewBackend(
-	agent agent.Agent,
-	open func(context.Context, *api.Info, api.DialOpts) (api.Connection, error),
+	apiCaller base.APICaller,
 	httpClient loki.HTTPClient,
 	clock clock.Clock,
 ) BackendFunc {
 	return func(backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
 		switch backendType {
 		case BackendTypeLogSink:
-			logSenderAPI := apilogsender.NewAPI(newAgentAPICaller(agent, open))
+			logSenderAPI := apilogsender.NewAPI(apiCaller)
 			return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
 
 		case BackendTypeLoki:
@@ -142,115 +138,4 @@ func NewBackend(
 			return nil, errors.NotValidf("unknown logrouter backend type %q", backendType)
 		}
 	}
-}
-
-type agentAPICaller struct {
-	agent  agent.Agent
-	open   func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
-	mu     sync.Mutex
-	caller base.APICaller
-}
-
-func newAgentAPICaller(
-	agent agent.Agent,
-	open func(context.Context, *api.Info, api.DialOpts) (api.Connection, error),
-) base.APICaller {
-	return &agentAPICaller{
-		agent: agent,
-		open:  open,
-	}
-}
-
-func (c *agentAPICaller) APICall(ctx context.Context, objType string, version int, id, request string, params, response any) error {
-	caller, err := c.apiCaller(ctx)
-	if err != nil {
-		return err
-	}
-	return caller.APICall(ctx, objType, version, id, request, params, response)
-}
-
-func (c *agentAPICaller) BestFacadeVersion(facade string) int {
-	caller := c.currentCaller()
-	if caller == nil {
-		return 0
-	}
-	return caller.BestFacadeVersion(facade)
-}
-
-func (c *agentAPICaller) ModelTag() (names.ModelTag, bool) {
-	caller := c.currentCaller()
-	if caller == nil {
-		return names.ModelTag{}, false
-	}
-	return caller.ModelTag()
-}
-
-func (c *agentAPICaller) HTTPClient(scope base.HTTPClientScope) (*httprequest.Client, error) {
-	caller, err := c.apiCaller(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	return caller.HTTPClient(scope)
-}
-
-func (c *agentAPICaller) SimpleHTTPClient() (base.SimpleHTTPClient, error) {
-	caller, err := c.apiCaller(context.Background())
-	if err != nil {
-		return nil, err
-	}
-	return caller.SimpleHTTPClient()
-}
-
-func (c *agentAPICaller) BakeryClient() base.MacaroonDischarger {
-	caller := c.currentCaller()
-	if caller == nil {
-		return nil
-	}
-	return caller.BakeryClient()
-}
-
-func (c *agentAPICaller) ConnectStream(ctx context.Context, path string, attrs url.Values) (base.Stream, error) {
-	caller, err := c.apiCaller(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return caller.ConnectStream(ctx, path, attrs)
-}
-
-func (c *agentAPICaller) ConnectControllerStream(
-	ctx context.Context,
-	path string,
-	attrs url.Values,
-	headers http.Header,
-) (base.Stream, error) {
-	caller, err := c.apiCaller(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return caller.ConnectControllerStream(ctx, path, attrs, headers)
-}
-
-func (c *agentAPICaller) apiCaller(ctx context.Context) (base.APICaller, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.caller != nil {
-		return c.caller, nil
-	}
-	info, ok := c.agent.CurrentConfig().APIInfo()
-	if !ok {
-		return nil, errors.New("api info not available")
-	}
-	conn, err := c.open(ctx, info, api.DefaultDialOpts())
-	if err != nil {
-		return nil, err
-	}
-	c.caller = conn
-	return c.caller, nil
-}
-
-func (c *agentAPICaller) currentCaller() base.APICaller {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.caller
 }

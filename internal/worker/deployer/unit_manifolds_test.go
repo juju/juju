@@ -153,7 +153,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 	},
 
-	"log-router": {"agent"},
+	"log-router": {"agent", "api-caller", "api-config-watcher"},
 
 	"logging-config-updater": {
 		"agent",
