@@ -529,6 +529,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			ControllerUUID:       controllerRuntimeConfig.ControllerUUID,
 			ControllerModelUUID:  controllerRuntimeConfig.ControllerModelUUID,
 			ControllerAgentTag:   a.agentTag,
+			ControllerTag:        names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
 			LogDir:               controllerRuntimeConfig.LogDir,
 			ConfigChangeSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "configchange.socket",
@@ -536,9 +537,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			ControlSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "control.socket",
 			),
-			Agent:                             agent.APIHostPortsSetter{Agent: a},
 			RootDir:                           a.rootDir,
-			AgentConfigChanged:                a.configChangedVal,
 			BootstrapLock:                     a.bootstrapLock,
 			ControllerUpgradeLock:             a.controllerUpgradeLock,
 			UpgradeDBLock:                     a.upgradeDBLock,
