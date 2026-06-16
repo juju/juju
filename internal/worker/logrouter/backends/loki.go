@@ -4,10 +4,10 @@
 package backends
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
 	"github.com/juju/juju/internal/worker/logsender"
 )
@@ -43,7 +43,7 @@ type lokiBackend struct {
 func NewLoki(cfg LokiConfig) (Backend, error) {
 	client, err := cfg.NewClient(cfg.Endpoint, cfg.ClientConfig)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	w := &lokiBackend{
 		cfg:     cfg,
@@ -58,7 +58,7 @@ func NewLoki(cfg LokiConfig) (Backend, error) {
 			client,
 		},
 	}); err != nil {
-		return nil, errors.Trace(err)
+		return nil, internalerrors.Capture(err)
 	}
 	return w, nil
 }
@@ -104,7 +104,7 @@ func (w *lokiBackend) loop() error {
 					"level":    rec.Level.String(),
 				},
 			}); err != nil {
-				return errors.Trace(err)
+				return internalerrors.Capture(err)
 			}
 		}
 	}

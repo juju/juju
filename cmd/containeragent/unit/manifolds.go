@@ -233,6 +233,8 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
 			Clock:              config.Clock,
 			HTTPClient:         http.DefaultClient,
+			NewAPIOpen:         api.Open,
+			NewBackendFunc:     logrouter.NewBackend,
 		})),
 
 		// The upgrade steps gate is used to coordinate workers which

@@ -149,6 +149,8 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Logger:             config.LoggerContext.GetLogger("juju.worker.logrouter"),
 			Clock:              config.Clock,
 			HTTPClient:         http.DefaultClient,
+			NewAPIOpen:         api.Open,
+			NewBackendFunc:     logrouter.NewBackend,
 		}),
 
 		// The migration workers collaborate to run migrations;

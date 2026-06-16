@@ -21,10 +21,20 @@ import (
 	"github.com/juju/juju/api/base"
 	apilogsender "github.com/juju/juju/api/logsender"
 	corelogger "github.com/juju/juju/core/logger"
+	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
 	"github.com/juju/juju/internal/worker/logrouter/backends"
 	"github.com/juju/juju/internal/worker/logsender"
 )
+
+// BackendFuncFactory returns a backend constructor for the supplied agent
+// resources.
+type BackendFuncFactory func(
+	agent.Agent,
+	func(context.Context, *api.Info, api.DialOpts) (api.Connection, error),
+	loki.HTTPClient,
+	clock.Clock,
+) BackendFunc
 
 // ManifoldConfig defines the names of the manifolds used by logrouter.
 type ManifoldConfig struct {
@@ -36,7 +46,34 @@ type ManifoldConfig struct {
 	HTTPClient         loki.HTTPClient
 	DrainOnly          bool
 
-	APIOpen func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
+	NewAPIOpen     func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
+	NewBackendFunc BackendFuncFactory
+}
+
+// Validate validates the manifold configuration.
+func (c ManifoldConfig) Validate() error {
+	if c.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if c.LogSource == nil {
+		return errors.NotValidf("nil LogSource")
+	}
+	if c.AgentConfigChanged == nil {
+		return errors.NotValidf("nil AgentConfigChanged")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if c.NewAPIOpen == nil {
+		return errors.NotValidf("nil NewAPIOpen")
+	}
+	if c.NewBackendFunc == nil {
+		return errors.NotValidf("nil NewBackendFunc")
+	}
+	return nil
 }
 
 // Manifold returns a dependency manifold that runs the logrouter worker.
@@ -44,12 +81,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.AgentName},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, internalerrors.Capture(err)
+			}
+
 			var a agent.Agent
 			if err := getter.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 
-			logSenderAPI := apilogsender.NewAPI(newAgentAPICaller(a, config.APIOpen))
 			return NewWorker(WorkerConfig{
 				Agent:              a,
 				LogSource:          config.LogSource,
@@ -58,33 +98,48 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:              config.Clock,
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
-				NewBackend: func(backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
-					switch backendType {
-					case BackendTypeLogSink:
-						return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
-					case BackendTypeLoki:
-						lokiConfig := loki.DefaultConfig()
-						lokiConfig.HTTPClient = config.HTTPClient
-						lokiConfig.Clock = config.Clock
-						return backends.NewLoki(backends.LokiConfig{
-							BackendBufferSize: defaultBackendBufferSize,
-							ClientConfig:      lokiConfig,
-							Endpoint:          snapshot.Endpoint,
-							ControllerUUID:    snapshot.ControllerUUID,
-							ModelUUID:         snapshot.ModelUUID,
-							AgentID:           snapshot.AgentID,
-							NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
-								return loki.NewClient(endpoint, cfg)
-							},
-						})
-					case BackendTypeDrain:
-						return backends.NewDrain(defaultBackendBufferSize)
-					default:
-						return nil, errors.NotValidf("unknown logrouter backend type %q", backendType)
-					}
-				},
+				NewBackend:         config.NewBackendFunc(a, config.NewAPIOpen, config.HTTPClient, config.Clock),
 			})
 		},
+	}
+}
+
+// NewBackend returns the default backend constructor.
+func NewBackend(
+	agent agent.Agent,
+	open func(context.Context, *api.Info, api.DialOpts) (api.Connection, error),
+	httpClient loki.HTTPClient,
+	clock clock.Clock,
+) BackendFunc {
+	return func(backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
+		switch backendType {
+		case BackendTypeLogSink:
+			logSenderAPI := apilogsender.NewAPI(newAgentAPICaller(agent, open))
+			return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
+
+		case BackendTypeLoki:
+			lokiConfig := loki.DefaultConfig()
+			lokiConfig.HTTPClient = httpClient
+			lokiConfig.Clock = clock
+
+			return backends.NewLoki(backends.LokiConfig{
+				BackendBufferSize: defaultBackendBufferSize,
+				ClientConfig:      lokiConfig,
+				Endpoint:          snapshot.Endpoint,
+				ControllerUUID:    snapshot.ControllerUUID,
+				ModelUUID:         snapshot.ModelUUID,
+				AgentID:           snapshot.AgentID,
+				NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
+					return loki.NewClient(endpoint, cfg)
+				},
+			})
+
+		case BackendTypeDrain:
+			return backends.NewDrain(defaultBackendBufferSize)
+
+		default:
+			return nil, errors.NotValidf("unknown logrouter backend type %q", backendType)
+		}
 	}
 }
 
