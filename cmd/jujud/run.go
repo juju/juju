@@ -280,10 +280,9 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	jujud.Register(agentcmd.NewControllerAgentCommand(ctx, controllerAgentFactory, agentConf, agentConf))
 
 	dbReplControllerAgentFactory := agentcmd.DBReplControllerAgentFactoryFn(
-		agentConf,
 		dbreplaccessor.NewTrackedDBWorker,
 	)
-	jujud.Register(agentcmd.NewDBReplAgentCommand(ctx, dbReplControllerAgentFactory, agentConf, agentConf))
+	jujud.Register(agentcmd.NewDBReplAgentCommand(ctx, dbReplControllerAgentFactory, agentConf))
 
 	safeModeControllerAgentFactory := agentcmd.SafeModeControllerAgentFactoryFn(
 		agentConf,

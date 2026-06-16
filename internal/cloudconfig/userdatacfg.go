@@ -500,6 +500,7 @@ func (w *userdataConfig) configureBootstrap() error {
 		ControllerUUID:         w.icfg.ControllerTag.Id(),
 		ControllerModelUUID:    w.icfg.APIInfo.ModelTag.Id(),
 		DataDir:                w.icfg.DataDir,
+		LoopbackPreferred:      false,
 		LogDir:                 w.icfg.LogDir,
 		QueryTracingEnabled:    w.icfg.ControllerConfig.QueryTracingEnabled(),
 		QueryTracingThreshold:  w.icfg.ControllerConfig.QueryTracingThreshold(),

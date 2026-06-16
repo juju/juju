@@ -8,14 +8,11 @@ import (
 	"sort"
 	stdtesting "testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/dbrepl"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -32,15 +29,11 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
-	s.assertStartFuncs(c, dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
-		Agent: &mockAgent{},
-	}))
+	s.assertStartFuncs(c, dbrepl.IAASManifolds(newManifoldsConfig()))
 }
 
 func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
-	s.assertStartFuncs(c, dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
-		Agent: &mockAgent{},
-	}))
+	s.assertStartFuncs(c, dbrepl.CAASManifolds(newManifoldsConfig()))
 }
 
 func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
@@ -52,11 +45,8 @@ func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds)
 
 func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
-		dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		dbrepl.IAASManifolds(newManifoldsConfig()),
 		[]string{
-			"agent",
 			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
@@ -67,11 +57,8 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 
 func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
-		dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		dbrepl.CAASManifolds(newManifoldsConfig()),
 		[]string{
-			"agent",
 			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
@@ -94,7 +81,12 @@ func (*ManifoldsSuite) TestNoControllerFlagGuards(c *tc.C) {
 	// should reference the removed is-controller-flag or
 	// state-config-watcher workers.
 	manifolds := dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
-		Agent: &mockAgent{},
+		ControllerID:           "99",
+		ConfigChangeSocketPath: "data-dir/configchange.socket",
+		DataDir:                "data-dir",
+		CACert:                 "ca-cert",
+		ControllerCert:         "controller-cert",
+		ControllerPrivateKey:   "controller-private-key",
 	})
 
 	for name, manifold := range manifolds {
@@ -113,106 +105,49 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		dbrepl.IAASManifolds(newManifoldsConfig()),
 		expectedMachineManifoldsWithDependenciesIAAS,
 	)
 }
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		dbrepl.CAASManifolds(dbrepl.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		dbrepl.CAASManifolds(newManifoldsConfig()),
 		expectedMachineManifoldsWithDependenciesCAAS,
 	)
 }
 
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
-
-	"agent": {},
-
 	"controller-agent-config": {},
 
 	"db-repl": {
-		"agent",
 		"db-repl-accessor",
 	},
 
-	"db-repl-accessor": {
-		"agent",
-	},
+	"db-repl-accessor": {},
 
 	"termination-signal-handler": {},
 }
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
-
-	"agent": {},
-
 	"controller-agent-config": {},
 
 	"db-repl": {
-		"agent",
 		"db-repl-accessor",
 	},
 
-	"db-repl-accessor": {
-		"agent",
-	},
+	"db-repl-accessor": {},
 
 	"termination-signal-handler": {},
 }
 
-type mockAgent struct {
-	agent.Agent
-	conf mockConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
-	return f(&ma.conf)
-}
-
-type mockConfig struct {
-	agent.ConfigSetter
-	tag      names.Tag
-	ssiSet   bool
-	ssi      controller.ControllerAgentInfo
-	dataPath string
-}
-
-func (mc *mockConfig) Tag() names.Tag {
-	if mc.tag == nil {
-		return names.NewMachineTag("99")
+func newManifoldsConfig() dbrepl.ManifoldsConfig {
+	return dbrepl.ManifoldsConfig{
+		ControllerID:           "99",
+		ConfigChangeSocketPath: "data-dir/configchange.socket",
+		DataDir:                "data-dir",
+		CACert:                 "ca-cert",
+		ControllerCert:         "controller-cert",
+		ControllerPrivateKey:   "controller-private-key",
 	}
-	return mc.tag
-}
-
-func (mc *mockConfig) Controller() names.ControllerTag {
-	return testing.ControllerTag
-}
-
-func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	return mc.ssi, mc.ssiSet
-}
-
-func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
-	mc.ssiSet = true
-	mc.ssi = info
-}
-
-func (mc *mockConfig) LogDir() string {
-	return "log-dir"
-}
-
-func (mc *mockConfig) DataDir() string {
-	if mc.dataPath != "" {
-		return mc.dataPath
-	}
-	return "data-dir"
 }
