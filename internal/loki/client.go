@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"sort"
 	"strconv"
@@ -581,9 +582,7 @@ func topologyLabels(r Record) map[string]string {
 
 func structuredFields(r Record) map[string]string {
 	fields := make(map[string]string, len(r.Fields)+2)
-	for k, v := range r.Fields {
-		fields[k] = v
-	}
+	maps.Copy(fields, r.Fields)
 	if isLowerHex(r.TraceID, 32) {
 		fields["trace_id"] = r.TraceID
 	}
