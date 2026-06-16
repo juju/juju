@@ -8,30 +8,28 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
-	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
-	agentconfig "github.com/juju/juju/agent/config"
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
-	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/dbrepl"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 )
 
 // NewDBReplAgentCommand creates a Command that handles parsing
@@ -41,13 +39,11 @@ func NewDBReplAgentCommand(
 	ctx *cmd.Context,
 	replControllerAgentFactory dbReplControllerAgentFactoryFnType,
 	agentInitializer AgentInitializer,
-	configFetcher agentconfig.AgentConfigWriter,
 ) cmd.Command {
 	return &dbReplAgentCommand{
 		ctx:                        ctx,
 		replControllerAgentFactory: replControllerAgentFactory,
 		agentInitializer:           agentInitializer,
-		currentConfig:              configFetcher,
 	}
 }
 
@@ -56,12 +52,11 @@ type dbReplAgentCommand struct {
 
 	// This group of arguments is required.
 	agentInitializer           AgentInitializer
-	currentConfig              agentconfig.AgentConfigWriter
 	replControllerAgentFactory dbReplControllerAgentFactoryFnType
 	ctx                        *cmd.Context
 
-	isCaas   bool
-	agentTag names.Tag
+	runtimeConfig controllerruntimeconfig.ControllerRuntimeConfig
+	agentTag      names.Tag
 
 	// The following are set via command-line flags.
 	controllerId string
@@ -87,14 +82,17 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 	_, _ = loggo.RemoveWriter("logfile")
 
 	a.agentTag = names.NewControllerAgentTag(a.controllerId)
-	if err := agentconfig.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
-		return errors.Errorf("cannot read agent configuration: %v", err)
+	runtimeConfigPath := controllerruntimeconfig.ConfigPath(filepath.Join(
+		a.agentInitializer.DataDir(), "agents", "controller-"+a.agentTag.Id(),
+	))
+	runtimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeConfigPath)
+	if err != nil {
+		return errors.Annotate(err, "cannot read controller runtime configuration")
 	}
-	config := a.currentConfig.CurrentConfig()
-	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
+	a.runtimeConfig = runtimeConfig
+	if err := os.MkdirAll(runtimeConfig.LogDir, 0644); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
-	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
 
 	return nil
 }
@@ -106,7 +104,7 @@ func (a *dbReplAgentCommand) Run(c *cmd.Context) error {
 		fmt.Fprint(os.Stderr, replWarningHeader)
 	}
 
-	controllerAgent, err := a.replControllerAgentFactory(a.agentTag, a.isCaas)
+	controllerAgent, err := a.replControllerAgentFactory(a.agentTag, a.runtimeConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -139,15 +137,14 @@ state of the system. Be careful!
 Type '.help' for help.
 `
 
-type dbReplControllerAgentFactoryFnType func(names.Tag, bool) (*replControllerAgent, error)
+type dbReplControllerAgentFactoryFnType func(names.Tag, controllerruntimeconfig.ControllerRuntimeConfig) (*replControllerAgent, error)
 
 // DBReplControllerAgentFactoryFn returns a function which instantiates a
 // replControllerAgent given a controller agent tag.
 func DBReplControllerAgentFactoryFn(
-	agentConfWriter agentconfig.AgentConfigWriter,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
 ) dbReplControllerAgentFactoryFnType {
-	return func(agentTag names.Tag, isCaasAgent bool) (*replControllerAgent, error) {
+	return func(agentTag names.Tag, runtimeConfig controllerruntimeconfig.ControllerRuntimeConfig) (*replControllerAgent, error) {
 		runner, err := worker.NewRunner(worker.RunnerParams{
 			Name:          "repl",
 			IsFatal:       agenterrors.IsFatal,
@@ -160,10 +157,9 @@ func DBReplControllerAgentFactoryFn(
 		}
 		return NewREPLControllerAgent(
 			agentTag,
-			agentConfWriter,
 			runner,
 			newDBReplWorkerFunc,
-			isCaasAgent,
+			runtimeConfig,
 		)
 	}
 }
@@ -171,19 +167,16 @@ func DBReplControllerAgentFactoryFn(
 // NewREPLControllerAgent instantiates a new replControllerAgent.
 func NewREPLControllerAgent(
 	agentTag names.Tag,
-	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
-	isCaasAgent bool,
+	runtimeConfig controllerruntimeconfig.ControllerRuntimeConfig,
 ) (*replControllerAgent, error) {
 	a := &replControllerAgent{
 		agentTag:            agentTag,
-		AgentConfigWriter:   agentConfWriter,
-		configChangedVal:    voyeur.NewValue(true),
 		dead:                make(chan struct{}),
 		runner:              runner,
 		newDBReplWorkerFunc: newDBReplWorkerFunc,
-		isCaasAgent:         isCaasAgent,
+		runtimeConfig:       runtimeConfig,
 	}
 	return a, nil
 }
@@ -192,17 +185,15 @@ func NewREPLControllerAgent(
 // manifolds required to provide an interactive Dqlite REPL.  It does
 // not participate in the controller's normal dependency engine.
 type replControllerAgent struct {
-	agentconfig.AgentConfigWriter
-
-	dead             chan struct{}
-	errReason        error
-	agentTag         names.Tag
-	runner           *worker.Runner
-	configChangedVal *voyeur.Value
+	dead      chan struct{}
+	errReason error
+	agentTag  names.Tag
+	runner    *worker.Runner
 
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
-	isCaasAgent bool
+	runtimeConfig      controllerruntimeconfig.ControllerRuntimeConfig
+	controllerUnlocker gate.Unlocker
 }
 
 // Wait waits for the repl controller agent to finish.
@@ -228,24 +219,13 @@ func (a *replControllerAgent) Tag() names.Tag {
 	return a.agentTag
 }
 
-// ChangeConfig updates the agent's configuration and notifies
-// listeners of the change.
-func (a *replControllerAgent) ChangeConfig(mutate agent.ConfigMutator) error {
-	err := a.AgentConfigWriter.ChangeConfig(mutate)
-	a.configChangedVal.Set(true)
-	return errors.Trace(err)
-}
-
 // Run runs a repl controller agent.
 func (a *replControllerAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 
-	if err := a.ReadConfig(a.Tag().String()); err != nil {
-		return errors.Errorf("cannot read agent configuration: %v", err)
-	}
-
-	agentConfig := a.CurrentConfig()
-	agentconf.SetupAgentLogging(internallogger.DefaultContext(), agentConfig)
+	controllerUnlocker := gate.NewLock()
+	controllerUnlocker.Unlock()
+	a.controllerUnlocker = controllerUnlocker
 
 	createEngine := a.makeEngineCreator(ctx.Stdout, ctx.Stderr, ctx.Stdin)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
@@ -271,18 +251,24 @@ func (a *replControllerAgent) makeEngineCreator(
 		}
 
 		manifoldsCfg := dbrepl.ManifoldsConfig{
-			Agent:               agent.APIHostPortsSetter{Agent: a},
-			AgentConfigChanged:  a.configChangedVal,
 			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
 			ControllerID:        a.Tag().Id(),
-			Clock:               clock.WallClock,
-			Stdout:              stdout,
-			Stderr:              stderr,
-			Stdin:               stdin,
+			ControllerUnlocker:  a.controllerUnlocker,
+			ConfigChangeSocketPath: filepath.Join(
+				a.runtimeConfig.DataDir, "configchange.socket",
+			),
+			DataDir:              a.runtimeConfig.DataDir,
+			CACert:               a.runtimeConfig.CACert,
+			ControllerCert:       a.runtimeConfig.ControllerCert,
+			ControllerPrivateKey: a.runtimeConfig.ControllerPrivateKey,
+			Clock:                clock.WallClock,
+			Stdout:               stdout,
+			Stderr:               stderr,
+			Stdin:                stdin,
 		}
 
 		var manifolds dependency.Manifolds
-		if a.isCaasAgent {
+		if a.runtimeConfig.LoopbackPreferred {
 			manifolds = dbrepl.CAASManifolds(manifoldsCfg)
 		} else {
 			manifolds = dbrepl.IAASManifolds(manifoldsCfg)
