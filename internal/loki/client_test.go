@@ -297,7 +297,7 @@ func (s *clientSuite) TestPushBatching(c *tc.C) {
 	for range 2 {
 		select {
 		case <-done:
-		case <-time.After(5 * time.Second):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for request")
 		}
 	}
@@ -337,7 +337,7 @@ func (s *clientSuite) TestPushRetryOnServerError(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for successful push")
 	}
 	c.Check(attempts.Load(), tc.Equals, int32(2))
@@ -376,7 +376,7 @@ func (s *clientSuite) TestPushRetryOnTooManyRequests(c *tc.C) {
 
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for successful push")
 	}
 	c.Check(attempts.Load(), tc.Equals, int32(3))
@@ -416,7 +416,7 @@ func (s *clientSuite) TestOnErrorCalledOnPushFailure(c *tc.C) {
 			pushErr, tc.ErrorMatches,
 			".*loki returned status 500",
 		)
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for OnError callback")
 	}
 }
@@ -484,7 +484,7 @@ func (s *clientSuite) TestPushDropsOldestWhenQueueFull(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-started:
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for first request")
 	}
 
@@ -500,7 +500,7 @@ func (s *clientSuite) TestPushDropsOldestWhenQueueFull(c *tc.C) {
 	select {
 	case count := <-drops:
 		c.Check(count, tc.Equals, 1)
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for drop callback")
 	}
 	c.Check(client.Report(c.Context())["dropped"], tc.Equals, uint64(1))
@@ -540,7 +540,7 @@ func (s *clientSuite) TestPushDropsOldestWhenQueueFullWithoutOnDropCallback(c *t
 	c.Assert(err, tc.ErrorIsNil)
 	select {
 	case <-started:
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for first request")
 	}
 
@@ -743,7 +743,7 @@ func waitPayload(
 	select {
 	case p := <-ch:
 		return p
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for payload")
 		return pushPayload{}
 	}
@@ -753,7 +753,7 @@ func waitError(c *tc.C, ch <-chan error) error {
 	select {
 	case err := <-ch:
 		return err
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for error callback")
 		return nil
 	}
