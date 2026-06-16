@@ -15,4 +15,8 @@ const (
 	// MaxRelationSettingsSize describes the max allowed total size for all
 	// key/value pairs in a relation settings collection.
 	MaxRelationSettingsSize = 16 * 1024 * 1024
+
+	// MaxApplicationConfigSize describes the max allowed total size for all
+	// key/value pairs in an application's charm config.
+	MaxApplicationConfigSize = 16 * 1024 * 1024
 )

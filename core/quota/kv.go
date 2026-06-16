@@ -98,6 +98,12 @@ func CheckRelationSettingsSize(settings []KeyValue) error {
 	return CheckKeyValueTotalSize(settings, MaxRelationSettingsSize)
 }
 
+// CheckApplicationConfigSize checks whether the total raw byte length of all
+// application config keys and values is within the allowed limit.
+func CheckApplicationConfigSize(config []KeyValue) error {
+	return CheckKeyValueTotalSize(config, MaxApplicationConfigSize)
+}
+
 // CheckKeyValueTotalSize checks whether the total raw byte length of all keys
 // and values is within the provided limit. A maxSize of zero disables the
 // check.
