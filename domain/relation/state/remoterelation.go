@@ -12,6 +12,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/quota"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/status"
@@ -359,7 +360,9 @@ func (st *State) insertRelationUnitSettings(
 	if err != nil {
 		return errors.Errorf("getting new relation unit settings: %w", err)
 	}
-	if err := checkRelationSettingsSize(newSettings); err != nil {
+
+	kv := transform.Slice(newSettings, func(s relationSetting) quota.KeyValue { return s })
+	if err := quota.CheckRelationSettingsSize(kv); err != nil {
 		return errors.Errorf("checking relation unit settings size: %w", err)
 	}
 

@@ -221,7 +221,7 @@ FROM   relation r
 				}
 				exportEndpoint.ApplicationSettings = make(map[string]any, len(appSettings))
 				for _, s := range appSettings {
-					exportEndpoint.ApplicationSettings[s.Key] = s.Value
+					exportEndpoint.ApplicationSettings[s.Key()] = s.Value()
 				}
 
 				relUnits, err := st.getRelationUnits(ctx, tx, ep.RelationEndpointUUID)
@@ -237,7 +237,7 @@ FROM   relation r
 					}
 					exportUnitSettings := make(map[string]any, len(unitSettings))
 					for _, s := range unitSettings {
-						exportUnitSettings[s.Key] = s.Value
+						exportUnitSettings[s.Key()] = s.Value()
 					}
 					allUnitSettings[relUnit.UnitName.String()] = exportUnitSettings
 				}

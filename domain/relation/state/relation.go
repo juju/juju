@@ -24,6 +24,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/quota"
 	corerelation "github.com/juju/juju/core/relation"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/unit"
@@ -369,7 +370,10 @@ func (st *State) ApplicationRelationsInfo(
 			if err != nil {
 				return errors.Errorf("getting relation application settings: %w", err)
 			}
-			result.ApplicationData = convertSettings(appData)
+
+			result.ApplicationData = transform.SliceToMap(appData, func(s relationSetting) (string, string) {
+				return s.Key(), s.Value()
+			})
 
 			result.UnitRelationData, err = st.getUnitsRelationData(ctx, tx, rel.UUID, appID.String())
 			if err != nil {
@@ -1404,7 +1408,7 @@ func (st *State) GetFullRelationUnitsChange(
 
 	// Transform the data into RelationUnitChange.
 	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, string) {
-		return s.Key, s.Value
+		return s.Key(), s.Value()
 	})
 
 	var (
@@ -1485,7 +1489,7 @@ func (st *State) GetRelationUnitsChanges(
 
 	// Transform the data into RelationUnitChange.
 	appSettings := transform.SliceToMap(settings, func(s relationSetting) (string, string) {
-		return s.Key, s.Value
+		return s.Key(), s.Value()
 	})
 	inScopeUnits := make([]int, 0)
 	allUnits := make([]int, 0, len(unitRelationData))
@@ -2248,11 +2252,7 @@ func (st *State) GetRelationApplicationSettings(
 		return nil, errors.Capture(err)
 	}
 
-	relationSettings := make(map[string]string, len(settings))
-	for _, setting := range settings {
-		relationSettings[setting.Key] = setting.Value
-	}
-	return relationSettings, nil
+	return transform.SliceToMap(settings, func(s relationSetting) (string, string) { return s.Key(), s.Value() }), nil
 }
 
 // GetRelationUnitSettings returns the relation unit settings for the given
@@ -2290,11 +2290,7 @@ func (st *State) GetRelationUnitSettings(
 		return nil, errors.Capture(err)
 	}
 
-	relationSettings := make(map[string]string, len(settings))
-	for _, setting := range settings {
-		relationSettings[setting.Key] = setting.Value
-	}
-	return relationSettings, nil
+	return transform.SliceToMap(settings, func(s relationSetting) (string, string) { return s.Key(), s.Value() }), nil
 }
 
 // GetRelationUnitSettingsArchive returns the archived settings for the input
@@ -2337,7 +2333,7 @@ AND    unit_name = $name.unit_name
 
 	relationSettings := make(map[string]string, len(settings))
 	for _, setting := range settings {
-		relationSettings[setting.Key] = setting.Value
+		relationSettings[setting.Key()] = setting.Value()
 	}
 	return relationSettings, nil
 }
@@ -2398,7 +2394,9 @@ func (st *State) setRelationUnitSettings(
 	if err != nil {
 		return errors.Errorf("getting new relation unit settings: %w", err)
 	}
-	if err := checkRelationSettingsSize(newSettings); err != nil {
+
+	kv := transform.Slice(newSettings, func(s relationSetting) quota.KeyValue { return s })
+	if err := quota.CheckRelationSettingsSize(kv); err != nil {
 		return errors.Errorf("checking relation unit settings size: %w", err)
 	}
 
@@ -2447,11 +2445,11 @@ func hashSettings(settings []relationSetting) (string, error) {
 
 	// Ensure we have a stable order for the keys.
 	sort.Slice(settings, func(i, j int) bool {
-		return settings[i].Key < settings[j].Key
+		return settings[i].Key() < settings[j].Key()
 	})
 
 	for _, s := range settings {
-		if _, err := h.Write([]byte(s.Key + " " + s.Value + " ")); err != nil {
+		if _, err := h.Write([]byte(s.Key() + " " + s.Value() + " ")); err != nil {
 			return "", errors.Errorf("writing relation setting: %w", err)
 		}
 	}
@@ -3825,14 +3823,6 @@ WHERE  u.uuid = $getPrincipal.unit_uuid
 	return getApplication.ApplicationUUID, nil
 }
 
-func convertSettings(input []relationSetting) map[string]string {
-	output := make(map[string]string, len(input))
-	for _, in := range input {
-		output[in.Key] = in.Value
-	}
-	return output
-}
-
 func (st *State) getEveryRelationForApplicationID(
 	ctx context.Context,
 	tx *sqlair.TX,
@@ -3916,8 +3906,10 @@ func (st *State) getUnitsRelationData(
 			return nil, errors.Capture(err)
 		}
 		result[relUnit.UnitName.String()] = domainrelation.RelationData{
-			InScope:  true,
-			UnitData: convertSettings(settings),
+			InScope: true,
+			UnitData: transform.SliceToMap(settings, func(s relationSetting) (string, string) {
+				return s.Key(), s.Value()
+			}),
 		}
 	}
 	return result, nil
@@ -3989,7 +3981,9 @@ func (st *State) setRelationApplicationSettings(
 	if err != nil {
 		return errors.Errorf("getting new relation application settings: %w", err)
 	}
-	if err := checkRelationSettingsSize(newSettings); err != nil {
+
+	kv := transform.Slice(newSettings, func(s relationSetting) quota.KeyValue { return s })
+	if err := quota.CheckRelationSettingsSize(kv); err != nil {
 		return errors.Errorf("checking relation application settings size: %w", err)
 	}
 
