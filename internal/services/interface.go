@@ -53,6 +53,7 @@ import (
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	sshservice "github.com/juju/juju/domain/ssh/service"
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
@@ -148,6 +149,8 @@ type ModelDomainServices interface {
 	StorageProvisioning() *storageprovisioningservice.Service
 	// Secret returns the secret service.
 	Secret() *secretservice.WatchableService
+	// SSH returns the ssh connection request service.
+	SSH() *sshservice.Service
 	// ModelInfo returns the model service for the model.
 	// Note: This should be called model, but we have naming conflicts with
 	// the model service. As this is only for model information, we

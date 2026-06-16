@@ -95,6 +95,8 @@ import (
 	secretstate "github.com/juju/juju/domain/secret/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	sshservice "github.com/juju/juju/domain/ssh/service"
+	sshstatemodel "github.com/juju/juju/domain/ssh/state/model"
 	statusservice "github.com/juju/juju/domain/status/service"
 	statusstatecontroller "github.com/juju/juju/domain/status/state/controller"
 	statusstatemodel "github.com/juju/juju/domain/status/state/model"
@@ -412,6 +414,15 @@ func (s *ModelServices) Secret() *secretservice.WatchableService {
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("secret"),
 		log,
+	)
+}
+
+// SSH returns the model's SSH connection request service.
+func (s *ModelServices) SSH() *sshservice.Service {
+	return sshservice.NewService(
+		sshstatemodel.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelWatcherFactory("ssh"),
+		s.clock,
 	)
 }
 
