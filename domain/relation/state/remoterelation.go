@@ -359,6 +359,9 @@ func (st *State) insertRelationUnitSettings(
 	if err != nil {
 		return errors.Errorf("getting new relation unit settings: %w", err)
 	}
+	if err := checkRelationSettingsSize(newSettings); err != nil {
+		return errors.Errorf("checking relation unit settings size: %w", err)
+	}
 
 	// Hash the new settings.
 	hash, err := hashSettings(newSettings)

@@ -199,6 +199,9 @@ func (st *State) setRelationUnitSettings(
 	if err != nil {
 		return errors.Errorf("getting new relation unit settings: %w", err)
 	}
+	if err := checkRelationSettingsSize(newSettings); err != nil {
+		return errors.Errorf("checking relation unit settings size: %w", err)
+	}
 
 	// Hash the new settings.
 	hash, err := hashSettings(newSettings)
@@ -243,6 +246,9 @@ func (st *State) setRelationApplicationSettings(
 	newSettings, err := st.getApplicationSettings(ctx, tx, endpointUUID)
 	if err != nil {
 		return errors.Errorf("getting new relation application settings: %w", err)
+	}
+	if err := checkRelationSettingsSize(newSettings); err != nil {
+		return errors.Errorf("checking relation application settings size: %w", err)
 	}
 
 	// Hash the new settings.

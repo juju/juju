@@ -5,11 +5,14 @@ package state
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/quota"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
 	domainrelation "github.com/juju/juju/domain/relation"
@@ -305,6 +308,48 @@ func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettings(c *tc.C) 
 	c.Check(foundAppSettings, tc.DeepEquals, appExpectedSettings)
 	foundUnitSettings := s.getRelationUnitSettings(c, relationUnitUUID)
 	c.Check(foundUnitSettings, tc.DeepEquals, unitExpectedSettings)
+}
+
+func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettingsExceedMaxSize(c *tc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add a unit to the relation.
+	unitUUID := s.addUnitAndNetNode(c, "app/7", s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+
+	// Act:
+	err := s.Txn(c, func(ctx context.Context, tx *sqlair.TX) error {
+		return s.state.setRelationApplicationAndUnitSettings(
+			c.Context(),
+			tx,
+			unitUUID.String(),
+			internal.RelationSettings{
+				RelationUUID: relationUUID,
+				UnitSet: map[string]string{
+					"key": strings.Repeat("a", quota.MaxRelationSettingsSize+1),
+				},
+			},
+		)
+	})
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
+
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	c.Assert(foundSettings, tc.HasLen, 0)
 }
 
 func (s *unitRelationsSuite) TestSetRelationApplicationAndUnitSettingsNilMap(c *tc.C) {
