@@ -730,6 +730,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		ControllerUUID:         c.pcfg.ControllerTag.Id(),
 		ControllerModelUUID:    c.pcfg.APIInfo.ModelTag.Id(),
 		DataDir:                c.pcfg.DataDir,
+		LoopbackPreferred:      true,
 		LogDir:                 c.pcfg.LogDir,
 		QueryTracingEnabled:    c.pcfg.Controller.QueryTracingEnabled(),
 		QueryTracingThreshold:  c.pcfg.Controller.QueryTracingThreshold(),

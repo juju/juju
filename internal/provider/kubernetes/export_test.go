@@ -72,6 +72,7 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		ControllerUUID:        cs.pcfg.ControllerTag.Id(),
 		ControllerModelUUID:   cs.pcfg.APIInfo.ModelTag.Id(),
 		DataDir:               cs.pcfg.DataDir,
+		LoopbackPreferred:     true,
 		LogDir:                cs.pcfg.LogDir,
 		QueryTracingEnabled:   cs.pcfg.Controller.QueryTracingEnabled(),
 		QueryTracingThreshold: cs.pcfg.Controller.QueryTracingThreshold(),

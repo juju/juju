@@ -6,36 +6,45 @@ package dbrepl
 import (
 	"io"
 	"maps"
-	"path"
 
 	"github.com/juju/clock"
-	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
 
-	coreagent "github.com/juju/juju/agent"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbrepl"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
-	// Agent contains the agent that will be wrapped and made available to
-	// its dependencies via a dependency.Engine.
-	Agent coreagent.Agent
-
-	// AgentConfigChanged is set whenever the controller agent's config
-	// is updated.
-	AgentConfigChanged *voyeur.Value
-
 	// NewDBReplWorkerFunc returns a tracked db worker.
 	NewDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
 	// ControllerID is the numeric ID of the controller.
 	ControllerID string
+
+	// ConfigChangeSocketPath is the controller config-change socket path.
+	ConfigChangeSocketPath string
+
+	// DataDir is the controller agent data directory.
+	DataDir string
+
+	// CACert is the controller CA certificate.
+	CACert string
+
+	// ControllerCert is the controller API certificate.
+	ControllerCert string
+
+	// ControllerPrivateKey is the controller API private key.
+	ControllerPrivateKey string
+
+	// ControllerUnlocker is passed to allow the controller agent config manifold
+	// to unlock the controller agent config ready lock when the controller agent
+	// config is ready.
+	ControllerUnlocker gate.Unlocker
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
@@ -54,28 +63,20 @@ type ManifoldsConfig struct {
 // controller REPL engines.  The controller binary is always a
 // controller, so no ifController gating is required.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
-	agentConfig := config.Agent.CurrentConfig()
-
 	return dependency.Manifolds{
-		// The agent manifold references the enclosing agent, and is the
-		// foundation stone on which most other manifolds ultimately
-		// depend.
-		agentName: agent.Manifold(config.Agent),
-
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running in.
 		terminationName: terminationworker.Manifold(),
 
-		// Controller agent config manifold watches the controller agent
-		// config socket and bounces if it changes.
+		// Controller agent config manifold watches the controller agent config
+		// socket and bounces if it changes.
 		controllerAgentConfigName: controlleragentconfig.Manifold(
 			controlleragentconfig.ManifoldConfig{
 				ControllerID:      config.ControllerID,
 				Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 				NewSocketListener: controlleragentconfig.NewSocketListener,
-				SocketName: path.Join(
-					agentConfig.DataDir(), "configchange.socket",
-				),
+				SocketName:        config.ConfigChangeSocketPath,
+				ReadyUnlocker:     config.ControllerUnlocker,
 			},
 		),
 
@@ -94,12 +95,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		dbReplAccessorName: dbreplaccessor.Manifold(dbreplaccessor.ManifoldConfig{
-			AgentName:       agentName,
-			Clock:           config.Clock,
-			Logger:          internallogger.GetLogger("juju.worker.dbreplaccessor"),
-			NewApp:          dbreplaccessor.NewApp,
-			NewDBReplWorker: config.NewDBReplWorkerFunc,
-			NewNodeManager:  dbreplaccessor.IAASNodeManager,
+			DataDir:              config.DataDir,
+			CACert:               config.CACert,
+			ControllerCert:       config.ControllerCert,
+			ControllerPrivateKey: config.ControllerPrivateKey,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.dbreplaccessor"),
+			NewApp:               dbreplaccessor.NewApp,
+			NewDBReplWorker:      config.NewDBReplWorkerFunc,
+			NewNodeManager:       dbreplaccessor.IAASNodeManager,
 		}),
 	})
 }
@@ -108,12 +112,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		dbReplAccessorName: dbreplaccessor.Manifold(dbreplaccessor.ManifoldConfig{
-			AgentName:       agentName,
-			Clock:           config.Clock,
-			Logger:          internallogger.GetLogger("juju.worker.dbreplaccessor"),
-			NewApp:          dbreplaccessor.NewApp,
-			NewDBReplWorker: config.NewDBReplWorkerFunc,
-			NewNodeManager:  dbreplaccessor.CAASNodeManager,
+			DataDir:              config.DataDir,
+			CACert:               config.CACert,
+			ControllerCert:       config.ControllerCert,
+			ControllerPrivateKey: config.ControllerPrivateKey,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.dbreplaccessor"),
+			NewApp:               dbreplaccessor.NewApp,
+			NewDBReplWorker:      config.NewDBReplWorkerFunc,
+			NewNodeManager:       dbreplaccessor.CAASNodeManager,
 		}),
 	})
 }
@@ -127,11 +134,8 @@ func mergeManifolds(
 }
 
 const (
-	agentName       = "agent"
-	terminationName = "termination-signal-handler"
-
 	controllerAgentConfigName = "controller-agent-config"
-
-	dbReplName         = "db-repl"
-	dbReplAccessorName = "db-repl-accessor"
+	dbReplAccessorName        = "db-repl-accessor"
+	dbReplName                = "db-repl"
+	terminationName           = "termination-signal-handler"
 )
