@@ -96,9 +96,9 @@ type ControllerRuntimeConfig struct {
 	// the default from apiserver.DefaultLogSinkConfig().
 	LogSinkRateLimitRefill time.Duration `yaml:"log-sink-rate-limit-refill,omitempty"`
 
-	// APIAddresses holds the API server addresses that the controller
-	// uses to connect to other controllers. These are written at
-	// bootstrap time and used by the api-remote-caller worker.
+	// APIAddresses holds the API server addresses that the controller uses to
+	// connect to other controllers. These are written at bootstrap time and used
+	// by the api-remote-caller worker.
 	APIAddresses []string `yaml:"api-addresses,omitempty"`
 }
 
@@ -140,6 +140,11 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	if cfg.ControllerPrivateKey == "" {
 		return errors.NotValidf("empty controller-private-key")
 	}
+	for i, addr := range cfg.APIAddresses {
+		if addr == "" {
+			return errors.NotValidf("empty api-address at index %d", i)
+		}
+	}
 	return nil
 }
 
@@ -175,11 +180,11 @@ func WriteControllerRuntimeConfig(path string, cfg ControllerRuntimeConfig) erro
 	if err != nil {
 		return errors.Annotate(err, "marshalling controller runtime config")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return errors.Annotatef(err,
 			"creating parent directory for controller runtime config %q", path)
 	}
-	if err := utils.AtomicWriteFile(path, data, 0600); err != nil {
+	if err := utils.AtomicWriteFile(path, data, 0o600); err != nil {
 		return errors.Annotatef(err,
 			"writing controller runtime config %q", path)
 	}
