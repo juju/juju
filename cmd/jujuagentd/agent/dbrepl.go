@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -294,13 +295,21 @@ func (a *replMachineAgent) makeEngineCreator(
 			return nil, err
 		}
 
+		agentConfig := a.CurrentConfig()
+		info, _ := agentConfig.ControllerAgentInfo()
+
 		manifoldsCfg := dbrepl.ManifoldsConfig{
-			Agent:               agent.APIHostPortsSetter{Agent: a},
-			AgentConfigChanged:  a.configChangedVal,
 			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
 			ControllerUnlocker:  a.controllerUnlocker,
 			ControllerID:        a.Tag().Id(),
-			Clock:               clock.WallClock,
+			ConfigChangeSocketPath: filepath.Join(
+				agentConfig.DataDir(), "configchange.socket",
+			),
+			DataDir:              agentConfig.DataDir(),
+			CACert:               agentConfig.CACert(),
+			ControllerCert:       info.Cert,
+			ControllerPrivateKey: info.PrivateKey,
+			Clock:                clock.WallClock,
 
 			Stdout: stdout,
 			Stderr: stderr,

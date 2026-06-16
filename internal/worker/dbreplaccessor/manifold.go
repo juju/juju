@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database"
@@ -45,17 +44,29 @@ type NewNodeManagerFunc func(database.NodeManagerConfig, logger.Logger, coredata
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
-	AgentName       string
-	Clock           clock.Clock
-	Logger          logger.Logger
-	NewApp          NewAppFunc
-	NewDBReplWorker NewDBReplWorkerFunc
-	NewNodeManager  NewNodeManagerFunc
+	DataDir              string
+	CACert               string
+	ControllerCert       string
+	ControllerPrivateKey string
+	Clock                clock.Clock
+	Logger               logger.Logger
+	NewApp               NewAppFunc
+	NewDBReplWorker      NewDBReplWorkerFunc
+	NewNodeManager       NewNodeManagerFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if cfg.DataDir == "" {
+		return errors.NotValidf("empty DataDir")
+	}
+	if cfg.CACert == "" {
+		return errors.NotValidf("empty CACert")
+	}
+	if cfg.ControllerCert == "" {
+		return errors.NotValidf("empty ControllerCert")
+	}
+	if cfg.ControllerPrivateKey == "" {
+		return errors.NotValidf("empty ControllerPrivateKey")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -79,27 +90,17 @@ func (cfg ManifoldConfig) Validate() error {
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-		},
 		Output: dbAccessorOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var thisAgent agent.Agent
-			if err := getter.Get(config.AgentName, &thisAgent); err != nil {
-				return nil, err
-			}
-			agentConfig := thisAgent.CurrentConfig()
-
-			info, _ := agentConfig.ControllerAgentInfo()
 			nodeManagerCfg := database.NodeManagerConfig{
-				DataDir:              agentConfig.DataDir(),
-				CACert:               agentConfig.CACert(),
-				ControllerCert:       info.Cert,
-				ControllerPrivateKey: info.PrivateKey,
+				DataDir:              config.DataDir,
+				CACert:               config.CACert,
+				ControllerCert:       config.ControllerCert,
+				ControllerPrivateKey: config.ControllerPrivateKey,
 			}
 
 			cfg := WorkerConfig{
