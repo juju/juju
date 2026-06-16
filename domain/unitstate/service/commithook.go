@@ -12,7 +12,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/secrets"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/trace"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
@@ -70,6 +70,15 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 			s.rollbackAll(ctx, rollbacks)
 		}
 	}()
+
+	// Pre-compute secret creates outside the transaction.
+	secretCreates, createRollbacks, err := s.prepareSecretCreates(ctx, arg.SecretCreates, unitInfo)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	rollbacks = append(rollbacks, createRollbacks...)
+
+	// Pre-compute secret updates outside the transaction.
 	secretUpdates, updateRollbacks, err := s.prepareSecretUpdates(ctx, arg.SecretUpdates)
 	if err != nil {
 		return errors.Capture(err)
@@ -81,6 +90,7 @@ func (s *LeadershipService) CommitHookChanges(ctx context.Context, arg unitstate
 		return errors.Capture(err)
 	}
 	newArgs.RelationSettings = relationSettings
+	newArgs.SecretCreates = secretCreates
 	newArgs.SecretUpdates = secretUpdates
 
 	withCaveat, err := s.getManagementCaveat(arg)
@@ -112,6 +122,97 @@ func (s *LeadershipService) getManagementCaveat(
 	return func(ctx context.Context, fn func(context.Context) error) error {
 		return fn(ctx)
 	}, nil
+}
+
+// prepareSecretCreates pre-computes all data needed for secret creation
+// outside the main transaction: generates revision UUIDs, timestamps, resolves
+// owner UUIDs, and calls AddSecretBackendReference on the controller DB.
+func (s *LeadershipService) prepareSecretCreates(
+	ctx context.Context,
+	creates []unitstate.CreateSecretArg,
+	unitInfo internal.CommitHookUnitInfo,
+) (result []internal.CreateSecretArg, rollbacks []func() error, err error) {
+	if len(creates) == 0 {
+		return nil, nil, nil
+	}
+
+	modelID, err := s.st.GetModelUUID(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("getting model uuid: %w", err)
+	}
+
+	now := s.clock.Now()
+	result = make([]internal.CreateSecretArg, 0, len(creates))
+	defer func() {
+		if err != nil {
+			s.rollbackAll(ctx, rollbacks)
+		}
+	}()
+
+	for i, create := range creates {
+		revisionID, err := s.uuidGenerator()
+		if err != nil {
+			return nil, nil, errors.Errorf("generating revision UUID for create[%d]: %w", i, err)
+		}
+
+		p := domainsecret.UpsertSecretParams{
+			Description:  create.Description,
+			Label:        create.Label,
+			ValueRef:     create.ValueRef,
+			Checksum:     create.Checksum,
+			CreateTime:   now,
+			UpdateTime:   now,
+			RevisionUUID: new(revisionID.String()),
+		}
+
+		if len(create.Data) > 0 {
+			p.Data = make(coresecrets.SecretData)
+			maps.Copy(p.Data, create.Data)
+		}
+
+		rotatePolicy := domainsecret.MarshallRotatePolicy(create.RotatePolicy)
+		p.RotatePolicy = &rotatePolicy
+		if create.RotatePolicy != nil && create.RotatePolicy.WillRotate() {
+			p.NextRotateTime = create.RotatePolicy.NextRotateTime(now)
+		}
+		p.ExpireTime = create.ExpireTime
+
+		// Resolve owner UUID.
+		ownerKind := create.CharmOwner.Kind
+		var ownerUUID string
+		switch ownerKind {
+		case domainsecret.ApplicationCharmSecretOwner:
+			ownerUUID = unitInfo.ApplicationUUID
+		case domainsecret.UnitCharmSecretOwner:
+			ownerUUID = unitInfo.UnitUUID
+		default:
+			return nil, nil, errors.Errorf("unexpected owner kind %q for create[%d]", ownerKind, i)
+		}
+
+		// Add backend reference (controller DB, outside model txn).
+		rollBack, err := s.secretBackendState.AddSecretBackendReference(
+			ctx, p.ValueRef, coremodel.UUID(modelID), revisionID.String(), create.URI.ID)
+		if err != nil {
+			return nil, nil, errors.Errorf("adding backend reference for create[%d]: %w", i, err)
+		}
+		rollbacks = append(rollbacks, rollBack)
+
+		var label string
+		if create.Label != nil {
+			label = *create.Label
+		}
+
+		result = append(result, internal.CreateSecretArg{
+			SecretID:  create.URI.ID,
+			Version:   create.Version,
+			OwnerKind: ownerKind,
+			OwnerUUID: ownerUUID,
+			Label:     label,
+			Params:    p,
+		})
+	}
+
+	return result, rollbacks, nil
 }
 
 // prepareSecretUpdates pre-computes all data needed for secret updates
@@ -180,9 +281,9 @@ func (s *LeadershipService) prepareSecretUpdates(
 			}
 			arg.RevisionUUID = revisionID.String()
 
-			var valueRef *secrets.ValueRef
+			var valueRef *coresecrets.ValueRef
 			if arg.ValueRefBackendID != "" {
-				valueRef = &secrets.ValueRef{
+				valueRef = &coresecrets.ValueRef{
 					BackendID:  arg.ValueRefBackendID,
 					RevisionID: arg.ValueRefRevisionID,
 				}

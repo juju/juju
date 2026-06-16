@@ -170,17 +170,94 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *tc.C) {
 	})
 }
 
-// --- prepareSecretUpdates tests ---
+// --- prepareSecretCreates tests ---
 
-func (s *UniterSecretsSuite) TestPrepareSecretUpdatesInvalidURI(c *tc.C) {
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesEmptyValue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	unitName := unittesting.GenNewName(c, "mariadb/0")
-	_, err := s.facade.prepareSecretUpdates(c.Context(), unitName, []params.UpdateSecretArg{{
-		URI: "not-a-valid-uri-%%%",
+	_, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag:        "unit-mariadb/0",
+		UpsertSecretArg: params.UpsertSecretArg{},
 	}})
-	c.Assert(err, tc.ErrorMatches, `.*invalid URL escape.*`)
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*empty secret value.*`)
 }
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesPermissionDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "application-mysql",
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+		},
+	}})
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*permission denied.*`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesUnitOwned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	result, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "unit-mariadb/0",
+		UpsertSecretArg: params.UpsertSecretArg{
+			RotatePolicy: new(coresecrets.RotateDaily),
+			Description:  new("my secret"),
+			Label:        new("foobar"),
+			Content:      params.SecretContentParams{Data: data, Checksum: "checksum"},
+		},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI, tc.Not(tc.IsNil))
+	c.Check(result[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+	c.Check(result[0].Checksum, tc.Equals, "checksum")
+	c.Check(result[0].CharmOwner.Kind, tc.Equals, secret.UnitCharmSecretOwner)
+	c.Check(result[0].CharmOwner.ID, tc.Equals, "mariadb/0")
+	c.Check(result[0].Accessor.Kind, tc.Equals, secret.UnitAccessor)
+	c.Check(result[0].Accessor.ID, tc.Equals, "mariadb/0")
+	c.Check(*result[0].RotatePolicy, tc.Equals, coresecrets.RotateDaily)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesAppOwned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	data := map[string]string{"foo": "bar"}
+	result, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "application-mariadb",
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: data},
+		},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI, tc.Not(tc.IsNil))
+	c.Check(result[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+	c.Check(result[0].CharmOwner.Kind, tc.Equals, secret.ApplicationCharmSecretOwner)
+	c.Check(result[0].CharmOwner.ID, tc.Equals, "mariadb")
+	c.Check(result[0].Accessor.Kind, tc.Equals, secret.UnitAccessor)
+	c.Check(result[0].Accessor.ID, tc.Equals, "mariadb/0")
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesWithCustomURI(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	data := map[string]string{"foo": "bar"}
+	result, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "unit-mariadb/0",
+		URI:      new(uri.String()),
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: data},
+		},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI.String(), tc.Equals, uri.String())
+	c.Check(result[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+}
+
+// --- prepareSecretUpdates tests ---
 
 func (s *UniterSecretsSuite) TestPrepareSecretUpdatesNotFoundSkipped(c *tc.C) {
 	defer s.setupMocks(c).Finish()

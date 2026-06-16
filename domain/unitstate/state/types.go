@@ -50,6 +50,11 @@ type secretID struct {
 	ID string `db:"secret_id"`
 }
 
+// createSecretID is a sqlair wrapper for inserting a secret ID.
+type createSecretID struct {
+	ID string `db:"id"`
+}
+
 // secretIDs is a sqlair slice type for batch IN queries on secret_id.
 type secretIDs []string
 
@@ -266,6 +271,8 @@ type commitHookUnitInfo struct {
 	UnitLife int `db:"unit_life_id"`
 	// MachineUUID identifies the unit's machine if it is assigned to one.
 	MachineUUID sql.NullString `db:"machine_uuid"`
+	// ApplicationUUID is the UUID of the unit's application.
+	ApplicationUUID string `db:"application_uuid"`
 }
 
 // unitStateVal is a type for holding a key/value pair that is
@@ -330,6 +337,22 @@ type secretInfo struct {
 	UpdateTime             time.Time `db:"update_time"`
 	LatestRevision         int       `db:"latest_revision"`
 	LatestRevisionUUID     string    `db:"latest_revision_uuid"`
+}
+
+type secretMetadata struct {
+	ID                     string    `db:"secret_id"`
+	Version                int       `db:"version"`
+	Description            string    `db:"description"`
+	AutoPrune              bool      `db:"auto_prune"`
+	RotatePolicyID         int       `db:"rotate_policy_id"`
+	CreateTime             time.Time `db:"create_time"`
+	UpdateTime             time.Time `db:"update_time"`
+	LatestRevisionChecksum string    `db:"latest_revision_checksum"`
+}
+
+type secretRotate struct {
+	SecretID       string    `db:"secret_id"`
+	NextRotateTime time.Time `db:"next_rotation_time"`
 }
 
 type secretRevision struct {

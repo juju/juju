@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -1830,4 +1831,413 @@ func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, owner
 	case "application":
 		s.query(c, `INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)`, secretID, ownerUUID)
 	}
+}
+
+func (s *commitHookSuite) TestCreateSecretsUnitOwned(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-unit"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Label:     "my-unit-secret",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-unit",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var count int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT count(*) FROM secret WHERE id = ?", secretID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+
+	var label string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_unit_owner WHERE secret_id = ?", secretID).Scan(&label)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label, tc.Equals, "my-unit-secret")
+
+	var roleID int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT role_id FROM secret_permission WHERE secret_id = ? AND subject_uuid = ?", secretID, s.unitUUID).Scan(&roleID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(roleID, tc.Equals, int(secret.RoleManage))
+}
+
+func (s *commitHookSuite) TestCreateSecretsApplicationOwned(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-app"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Label:     "my-app-secret",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-app",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var label string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_application_owner WHERE secret_id = ?", secretID).Scan(&label)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label, tc.Equals, "my-app-secret")
+
+	var roleID int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT role_id FROM secret_permission WHERE secret_id = ? AND subject_uuid = ?", secretID, s.fakeApplicationUUID1).Scan(&roleID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(roleID, tc.Equals, int(secret.RoleManage))
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithRotatePolicy(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-rotate"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	nextRotate := now.Add(24 * time.Hour)
+
+	policy := secret.RotateDaily
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID:   &revUUID,
+				RotatePolicy:   &policy,
+				NextRotateTime: &nextRotate,
+				CreateTime:     now,
+				UpdateTime:     now,
+				Checksum:       "checksum-rotate",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?", secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var gotNextRotate time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT next_rotation_time FROM secret_rotation WHERE secret_id = ?", secretID).Scan(&gotNextRotate)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotNextRotate.UTC(), tc.Equals, nextRotate.UTC())
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithExpireTime(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-expire"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	expireTime := now.Add(48 * time.Hour)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				ExpireTime:   &expireTime,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Checksum:     "checksum-expire",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotExpire time.Time
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT expire_time FROM secret_revision_expire WHERE revision_uuid = ?", revUUID).Scan(&gotExpire)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotExpire.UTC(), tc.Equals, expireTime.UTC())
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithValueRef(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-valref"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				ValueRef: &coresecrets.ValueRef{
+					BackendID:  "backend-uuid",
+					RevisionID: "ext-rev-123",
+				},
+				Checksum: "checksum-valref",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var backendUUID, revisionID string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT backend_uuid, revision_id FROM secret_value_ref WHERE revision_uuid = ?", revUUID).Scan(&backendUUID, &revisionID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(backendUUID, tc.Equals, "backend-uuid")
+	c.Check(revisionID, tc.Equals, "ext-rev-123")
+}
+
+func (s *commitHookSuite) TestCreateSecretsMultiple(c *tc.C) {
+	ctx := c.Context()
+	revUUID1 := tc.Must(c, uuid.NewUUID).String()
+	revUUID2 := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{
+			{
+				SecretID:  "create-multi-1",
+				Version:   1,
+				OwnerKind: secret.UnitCharmSecretOwner,
+				OwnerUUID: s.unitUUID,
+				Label:     "secret-one",
+				Params: secret.UpsertSecretParams{
+					RevisionUUID: &revUUID1,
+					CreateTime:   now,
+					UpdateTime:   now,
+					Data:         coresecrets.SecretData{"a": "1"},
+					Checksum:     "checksum-1",
+				},
+			},
+			{
+				SecretID:  "create-multi-2",
+				Version:   1,
+				OwnerKind: secret.ApplicationCharmSecretOwner,
+				OwnerUUID: s.fakeApplicationUUID1,
+				Label:     "secret-two",
+				Params: secret.UpsertSecretParams{
+					RevisionUUID: &revUUID2,
+					CreateTime:   now,
+					UpdateTime:   now,
+					Data:         coresecrets.SecretData{"b": "2"},
+					Checksum:     "checksum-2",
+				},
+			},
+		},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var count int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT count(*) FROM secret WHERE id IN ('create-multi-1', 'create-multi-2')").Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
+
+	var label1, label2 string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT label FROM secret_unit_owner WHERE secret_id = ?", "create-multi-1").Scan(&label1); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_application_owner WHERE secret_id = ?", "create-multi-2").Scan(&label2)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label1, tc.Equals, "secret-one")
+	c.Check(label2, tc.Equals, "secret-two")
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithLabel(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-label"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Label:     "my-labeled-secret",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-label",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var label string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_unit_owner WHERE secret_id = ?", secretID).Scan(&label)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label, tc.Equals, "my-labeled-secret")
+}
+
+func (s *commitHookSuite) TestCreateSecretsNoRevisionUUIDFails(c *tc.C) {
+	ctx := c.Context()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "create-no-revuuid",
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				CreateTime: now,
+				UpdateTime: now,
+				Checksum:   "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorMatches, `.*revision UUID must be provided.*`)
+}
+
+func (s *commitHookSuite) TestCreateSecretIDConflict(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-conflict"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	s.addSecret(c, secretID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.Not(tc.IsNil))
+	c.Check(err, tc.ErrorMatches, `.*creating secret "create-test-conflict".*`)
+}
+
+func (s *commitHookSuite) TestCreateSecretsRollsBackOnStorageFailure(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-rollback"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
+
+	existingStorageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	s.query(c, `
+INSERT INTO storage_instance
+    (uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id,
+     storage_pool_uuid, requested_size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`, existingStorageUUID.String(), "app", "data",
+		int(domainstorage.StorageKindBlock), "data/0", 0,
+		poolUUID.String(), 1024)
+	s.query(c, `
+INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid)
+VALUES (?, ?)
+`, existingStorageUUID.String(), s.unitUUID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-rollback",
+			},
+		}},
+		AddStorage: []unitstate.PreparedStorageAdd{{
+			StorageName: "data",
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					CountLessThanEqual: 0,
+				},
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Assert(err, tc.ErrorIs, storageerrors.MaxStorageCountPreconditionFailed)
+
+	var secretCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT count(*) FROM secret WHERE id = ?", secretID).Scan(&secretCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secretCount, tc.Equals, 0)
 }
