@@ -55,7 +55,7 @@ type BootstrapAddressFinderGetter func(providerFactory providertracker.ProviderF
 
 // AgentFinalizerFunc is the function that is used to finalize the agent
 // during bootstrap.
-type AgentFinalizerFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, agent.Config) error
+type AgentFinalizerFunc func(context.Context, AgentPasswordService, MachineService, instancecfg.StateInitializationParams, string) error
 
 // ControllerUnitPasswordFunc is the function that is used to get the
 // controller unit password.
@@ -81,12 +81,20 @@ type StatusHistory interface {
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName           string
 	ObjectStoreName     string
 	BootstrapGateName   string
 	DomainServicesName  string
 	HTTPClientName      string
 	ProviderFactoryName string
+	// DataDir is the local agent data directory used to read bootstrap params
+	// and seed artifacts during bootstrap.
+	DataDir string
+	// APIPort is the controller API port written into the initial API host-port
+	// records once bootstrap completes.
+	APIPort int
+	// AgentPassword is the bootstrap agent password used by the finalizer to
+	// seed the initial machine or controller-node password in state.
+	AgentPassword string
 
 	AgentBinaryUploader          AgentBinaryBootstrapFunc
 	ControllerCharmDeployer      ControllerCharmDeployerFunc
@@ -103,9 +111,6 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if cfg.ObjectStoreName == "" {
 		return errors.NotValidf("empty ObjectStoreName")
 	}
@@ -120,6 +125,15 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
+	}
+	if cfg.DataDir == "" {
+		return errors.NotValidf("empty DataDir")
+	}
+	if cfg.APIPort == 0 {
+		return errors.NotValidf("missing APIPort")
+	}
+	if cfg.AgentPassword == "" {
+		return errors.NotValidf("missing AgentPassword")
 	}
 
 	if cfg.AgentBinaryUploader == nil {
@@ -159,7 +173,6 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.ObjectStoreName,
 			config.BootstrapGateName,
 			config.DomainServicesName,
@@ -174,11 +187,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			var bootstrapUnlocker gate.Unlocker
 			if err := getter.Get(config.BootstrapGateName, &bootstrapUnlocker); err != nil {
 				return nil, errors.Trace(err)
-			}
-
-			var a agent.Agent
-			if err := getter.Get(config.AgentName, &a); err != nil {
-				return nil, err
 			}
 
 			var controllerDomainServices services.ControllerDomainServices
@@ -247,7 +255,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			applicationService := controllerModelDomainServices.Application()
 
 			w, err := NewWorker(WorkerConfig{
-				Agent:                      a,
 				ObjectStoreGetter:          objectStoreGetter,
 				ControllerAgentBinaryStore: controllerDomainServices.ControllerAgentBinaryStore(),
 				ControllerConfigService:    controllerDomainServices.ControllerConfig(),
@@ -266,10 +273,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NetworkService:             controllerModelDomainServices.Network(),
 				BakeryConfigService:        controllerDomainServices.Macaroon(),
 				BootstrapUnlocker:          bootstrapUnlocker,
+				DataDir:                    config.DataDir,
+				APIPort:                    config.APIPort,
 				AgentBinaryUploader:        config.AgentBinaryUploader,
 				ControllerCharmDeployer:    config.ControllerCharmDeployer,
 				PopulateControllerCharm:    config.PopulateControllerCharm,
 				AgentFinalizer:             config.AgentFinalizer,
+				AgentPassword:              config.AgentPassword,
 				CharmhubHTTPClient:         charmhubHTTPClient,
 				UnitPassword:               unitPassword,
 				ServiceManagerGetter:       serviceManagerGetter,
@@ -315,7 +325,7 @@ func IAASAgentFinalizer(
 	agentPasswordService AgentPasswordService,
 	machineService MachineService,
 	bootstrapParams instancecfg.StateInitializationParams,
-	agentConfig agent.Config,
+	agentPassword string,
 ) error {
 	// Set machine cloud instance data for the bootstrap machine.
 	bootstrapMachineUUID, err := machineService.GetMachineUUID(ctx, machine.Name(agent.BootstrapControllerId))
@@ -323,15 +333,8 @@ func IAASAgentFinalizer(
 		return errors.Trace(err)
 	}
 
-	apiInfo, ok := agentConfig.APIInfo()
-	if !ok {
-		// If this is missing, we cannot set the machine password or set the
-		// machine as provisioned.
-		return errors.Errorf("agent config is missing APIInfo for %q", agent.BootstrapControllerId)
-	}
-
 	// Set the machine password for the bootstrap controller.
-	if err := agentPasswordService.SetMachinePassword(ctx, machine.Name(agent.BootstrapControllerId), apiInfo.Password); err != nil {
+	if err := agentPasswordService.SetMachinePassword(ctx, machine.Name(agent.BootstrapControllerId), agentPassword); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -357,16 +360,10 @@ func CAASAgentFinalizer(
 	agentPasswordService AgentPasswordService,
 	machineService MachineService,
 	bootstrapParams instancecfg.StateInitializationParams,
-	agentConfig agent.Config,
+	agentPassword string,
 ) error {
-	apiInfo, ok := agentConfig.APIInfo()
-	if !ok {
-		// If this is missing, we cannot set the controller node password.
-		return errors.Errorf("agent config is missing APIInfo for %q", agent.BootstrapControllerId)
-	}
-
 	// Set the controller node password.
-	if err := agentPasswordService.SetControllerNodePassword(ctx, agent.BootstrapControllerId, apiInfo.Password); err != nil {
+	if err := agentPasswordService.SetControllerNodePassword(ctx, agent.BootstrapControllerId, agentPassword); err != nil {
 		return errors.Trace(err)
 	}
 

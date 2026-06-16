@@ -729,7 +729,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"bootstrap": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
