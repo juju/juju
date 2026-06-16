@@ -145,6 +145,13 @@ type ManifoldsConfig struct {
 	// through the agent manifold.
 	ControllerID string
 
+	// StartupValueProvider is used by workers that need to read values from the
+	// agent config at startup, e.g. to get the API server certificate for the
+	// apiservercertwatcher manifold. This is used instead of the agent manifold
+	// to avoid unnecessary coupling and to allow these workers to be started
+	// before the agent manifold.
+	StartupValueProvider ControllerStartupValueProvider
+
 	// ControllerUUID is the controller entity UUID. It is sourced from
 	// agentConfig.Controller().Id() in makeEngineCreator and passed
 	// directly to the lease-manager manifold instead of being looked
@@ -163,13 +170,6 @@ type ManifoldsConfig struct {
 	// LogDir is the controller process log directory for workers in this change
 	// area that still take a fixed local path.
 	LogDir string
-
-	// StartupValueProvider is used by workers that need to read values from the
-	// agent config at startup, e.g. to get the API server certificate for the
-	// apiservercertwatcher manifold. This is used instead of the agent manifold
-	// to avoid unnecessary coupling and to allow these workers to be started
-	// before the agent manifold.
-	StartupValueProvider ControllerStartupValueProvider
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
@@ -637,7 +637,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		controllerTraceName: trace.ControllerManifold(trace.ControllerManifoldConfig{
-			AgentName:         agentName,
+			Tag:               agentConfig.Tag(),
 			TraceServicesName: traceServicesName,
 			Clock:             config.Clock,
 			Logger:            internallogger.GetLogger("juju.worker.trace"),
