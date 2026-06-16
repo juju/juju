@@ -31,6 +31,7 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		ControllerUUID:        "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:   "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:               "/var/lib/juju",
+		LoopbackPreferred:     false,
 		LogDir:                "/var/log/juju",
 		QueryTracingEnabled:   true,
 		QueryTracingThreshold: time.Second,
@@ -203,6 +204,22 @@ func (s *configSuite) TestWriteAndReadRoundTrip_SystemIdentity(c *tc.C) {
 	c.Check(got.SystemIdentity, tc.Equals, cfg.SystemIdentity)
 }
 
+// TestWriteAndReadRoundTrip_LoopbackPreferred ensures the loopback preference
+// is preserved in the write/read round trip.
+func (s *configSuite) TestWriteAndReadRoundTrip_LoopbackPreferred(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	cfg.LoopbackPreferred = true
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LoopbackPreferred, tc.IsTrue)
+}
+
 // TestWriteAndReadRoundTrip_EmptySystemIdentityOmitted ensures that an empty
 // SystemIdentity is not written to the YAML output, allowing existing runtime
 // config files without the field to read back cleanly.
@@ -230,6 +247,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 		ControllerUUID:        "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:   "feedface-dead-beef-cafe-c0ffee000000",
 		DataDir:               "/var/lib/juju",
+		LoopbackPreferred:     true,
 		LogDir:                "/var/log/juju",
 		DqlitePort:            0, // default
 		QueryTracingEnabled:   true,
@@ -250,6 +268,7 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	c.Check(got.ControllerUUID, tc.Equals, cfg.ControllerUUID)
 	c.Check(got.ControllerModelUUID, tc.Equals, cfg.ControllerModelUUID)
 	c.Check(got.DataDir, tc.Equals, cfg.DataDir)
+	c.Check(got.LoopbackPreferred, tc.Equals, cfg.LoopbackPreferred)
 	c.Check(got.LogDir, tc.Equals, cfg.LogDir)
 	c.Check(got.CACert, tc.Equals, cfg.CACert)
 	c.Check(got.CAPrivateKey, tc.Equals, cfg.CAPrivateKey)
