@@ -35,6 +35,8 @@ apps:
     environment:
       # Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
       PATH: "$SNAP/bin:$SNAP/usr/bin:$SNAP/opt/jaas/bin:/snap/bin:$PATH"
+      SSH_SK_HELPER: "$SNAP/usr/lib/openssh/ssh-sk-helper"
+      SSH_PKCS11_HELPER: "$SNAP/usr/lib/openssh/ssh-pkcs11-helper"
     command: bin/juju
     plugs:
       - network
@@ -61,6 +63,11 @@ apps:
       - home
       # Needed to that SSO via the web browser can work.
       - desktop
+      # Needed for FIDO/U2F security key support (e.g. YubiKey) with juju ssh.
+      # This interface is not auto-connected; users must run:
+      #   sudo snap connect juju:u2f-devices
+      # We do not want this to be auto-connected.
+      - u2f-devices
     completer: usr/share/bash-completion/completions/juju
   fetch-oci:
     daemon: oneshot
