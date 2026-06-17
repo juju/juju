@@ -169,12 +169,9 @@ type Client struct {
 }
 
 type report struct {
-	Enqueued          uint64
-	Dropped           uint64
-	Sent              uint64
-	PushErrors        uint64
-	Retries           uint64
-	LastPushTimestamp int64
+	Dropped    uint64
+	Sent       uint64
+	PushErrors uint64
 }
 
 // NewClient creates and starts a new Loki push client worker.
@@ -221,7 +218,6 @@ func (c *Client) pushOne(r Record) error {
 	for {
 		select {
 		case c.records <- r:
-			atomic.AddUint64(&c.stats.Enqueued, 1)
 			return nil
 		case <-c.tomb.Dying():
 			return tomb.ErrDying
@@ -242,12 +238,9 @@ func (c *Client) pushOne(r Record) error {
 // Report implements worker.Reporter.
 func (c *Client) Report(context.Context) map[string]any {
 	return map[string]any{
-		"enqueued":            atomic.LoadUint64(&c.stats.Enqueued),
-		"dropped":             atomic.LoadUint64(&c.stats.Dropped),
-		"sent":                atomic.LoadUint64(&c.stats.Sent),
-		"push-errors":         atomic.LoadUint64(&c.stats.PushErrors),
-		"retries":             atomic.LoadUint64(&c.stats.Retries),
-		"last-push-timestamp": atomic.LoadInt64(&c.stats.LastPushTimestamp),
+		"dropped":     atomic.LoadUint64(&c.stats.Dropped),
+		"sent":        atomic.LoadUint64(&c.stats.Sent),
+		"push-errors": atomic.LoadUint64(&c.stats.PushErrors),
 	}
 }
 
@@ -366,7 +359,6 @@ func (c *Client) pushAll(
 			continue
 		}
 		atomic.AddUint64(&c.stats.Sent, uint64(end-i))
-		atomic.StoreInt64(&c.stats.LastPushTimestamp, c.cfg.Clock.Now().Unix())
 	}
 }
 
@@ -407,16 +399,11 @@ func (c *Client) pushBatch(
 	}
 
 	attempts := c.cfg.MaxRetries + 1
-	attempt := 0
 	err = retry.Call(retry.CallArgs{
 		Attempts: attempts,
 		Delay:    c.cfg.InitialBackoff,
 		MaxDelay: c.cfg.MaxBackoff,
 		Func: func() error {
-			if attempt > 0 {
-				atomic.AddUint64(&c.stats.Retries, 1)
-			}
-			attempt++
 			return c.doRequest(ctx, data)
 		},
 		IsFatalError: func(err error) bool {
