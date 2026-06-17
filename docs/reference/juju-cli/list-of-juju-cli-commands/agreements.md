@@ -1,5 +1,3 @@
-(command-juju-agreements)=
-# `juju agreements`
 > See also: [agree](#agree)
 
 **Aliases:** list-agreements
@@ -30,3 +28,6 @@ In other words, some applications may only be installed if a user agrees to
 accept some terms defined by the charm. 
 
 This command lists the terms that the user has agreed to.
+
+
+

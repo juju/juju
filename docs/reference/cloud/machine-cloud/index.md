@@ -13,7 +13,8 @@ myst:
 list-of-supported-machine-clouds/index
 ```
 
-In Juju, a **machine cloud** is a {ref}`cloud <cloud>` whose API provisions or allocates machine-level infrastructure (bare metal, virtual machines, or system containers) together with the networking and storage resources those machines require.
+In Juju, a **machine cloud** is a {ref}`cloud <cloud>` that provides machine-level infrastructure.
+Juju uses the cloud API to provision or allocate machines (bare metal, virtual machines, or system containers), plus the networking and storage resources those machines require.
 
 Juju supports many machine cloud platforms: bare metal (MAAS), virtual machines (Amazon EC2, Google GCE, Microsoft Azure, OpenStack, Oracle OCI, VMware vSphere), and system containers (LXD).
 

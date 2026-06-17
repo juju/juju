@@ -1,5 +1,3 @@
-(command-juju-attach-storage)=
-# `juju attach-storage`
 ## Summary
 Attaches existing storage to a unit.
 
@@ -22,3 +20,6 @@ Attaches existing storage to a unit.
 
 Attach existing storage to a unit. Specify a unit
 and one or more storage IDs to attach to it.
+
+
+

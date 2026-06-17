@@ -1,5 +1,3 @@
-(command-juju-show-task)=
-# `juju show-task`
 > See also: [cancel-task](#cancel-task), [run](#run), [operations](#operations), [show-operation](#show-operation)
 
 ## Summary
@@ -40,3 +38,6 @@ displayed.  This is also the behavior when any negative time is given.
 Note: if Juju has been upgraded from 2.6 and there are old action UUIDs still in use,
 and you want to specify just the UUID prefix to match on, you will need to include up
 to at least the first `-` to disambiguate from a newer numeric ID.
+
+
+

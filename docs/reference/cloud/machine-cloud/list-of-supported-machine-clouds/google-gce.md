@@ -10,11 +10,9 @@ myst:
 In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{dropdown} Example workflow
-1. Add or confirm the predefined cloud with `juju add-cloud`.
-2. On a jump host in Google Cloud, run `juju add-credential google` and choose `service-account`.
+1. On a jump host in Google Cloud, add or confirm the predefined cloud with `juju add-cloud`.
+2. Run `juju add-credential google` and choose `service-account` (recommended; avoids storing static key material in Juju).
 3. Bootstrap with `juju bootstrap google gce-controller`.
-
-If service-account setup is not available, use {ref}`gce-appendix-workflow-2`.
 ```
 
 (gce-cloud-requirements)=

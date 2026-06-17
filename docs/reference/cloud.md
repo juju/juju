@@ -44,5 +44,5 @@ In Juju, cloud definitions can be provided either interactively or via a YAML fi
 - `clouds.yaml` for user-defined clouds (on Linux: `~/.local/share/juju/clouds.yaml`)
 
 For YAML file templates and schema details, see:
-- {ref}`machine-cloud` > Clouds > Cloud definition file
-- {ref}`kubernetes-cloud` > Clouds > Cloud definition file
+- {ref}`Machine cloud definition <machine-definition>`
+- {ref}`Kubernetes cloud definition <kubernetes-definition>`

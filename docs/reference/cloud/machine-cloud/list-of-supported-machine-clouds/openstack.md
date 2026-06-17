@@ -13,7 +13,7 @@ In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine clo
 
 1. Source your OpenStack RC file: `source <path-to-openrc>`.
 2. Add the cloud interactively with `juju add-cloud` and accept detected defaults.
-3. Add credentials with `juju add-credential` and accept detected defaults.
+3. Add credentials with `juju add-credential` and choose `userpass`.
 4. Bootstrap with `juju bootstrap <openstack-cloud-name> openstack-controller`.
 ```
 

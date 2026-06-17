@@ -1,5 +1,3 @@
-(command-juju-logout)=
-# `juju logout`
 > See also: [change-user-password](#change-user-password), [login](#login)
 
 ## Summary
@@ -34,3 +32,7 @@ If the same user is logged in with another client system, that user session
 will not be affected by this command; it only affects the local client.
 
 By default, the controller is the current controller.
+
+
+
+

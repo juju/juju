@@ -1,5 +1,3 @@
-(command-juju-ssh-keys)=
-# `juju ssh-keys`
 > See also: [add-ssh-key](#add-ssh-key), [remove-ssh-key](#remove-ssh-key)
 
 **Aliases:** list-ssh-keys
@@ -37,3 +35,7 @@ the current model (or the model specified, if the `-m` option is used).
 By default a minimal list is returned, showing only the fingerprint of
 each key and its text identifier. By using the `--full`option, the entire
 key may be displayed.
+
+
+
+

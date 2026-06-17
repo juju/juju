@@ -1,5 +1,3 @@
-(command-juju-remove-secret-backend)=
-# `juju remove-secret-backend`
 > See also: [add-secret-backend](#add-secret-backend), [secret-backends](#secret-backends), [show-secret-backend](#show-secret-backend), [update-secret-backend](#update-secret-backend)
 
 ## Summary
@@ -26,3 +24,6 @@ Removes a secret backend, used for storing secret content.
 If the backend is being used to store secrets currently in use,
 the `--force` option can be supplied to force the removal, but be
 warned, this will affect charms which use those secrets.
+
+
+

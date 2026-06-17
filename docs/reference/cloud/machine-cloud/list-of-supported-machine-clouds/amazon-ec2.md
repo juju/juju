@@ -10,8 +10,8 @@ myst:
 In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{dropdown} Example workflow
-1. Add or confirm the predefined EC2 cloud with `juju add-cloud`.
-2. Add credentials with `juju add-credential aws` and choose `access-key`.
+1. On an EC2 jump host with an attached IAM role, add or confirm the predefined cloud with `juju add-cloud`.
+2. Add credentials with `juju add-credential aws` and choose `instance-role` (recommended; avoids static AWS keys in Juju).
 3. Bootstrap with `juju bootstrap --bootstrap-constraints="instance-role=auto" aws aws-controller`.
 ```
 

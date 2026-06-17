@@ -1,5 +1,3 @@
-(command-juju-show-credential)=
-# `juju show-credential`
 > See also: [credentials](#credentials), [add-credential](#add-credential), [update-credential](#update-credential), [remove-credential](#remove-credential), [autoload-credentials](#autoload-credentials)
 
 **Aliases:** show-credentials
@@ -43,3 +41,6 @@ To see secrets, content attributes marked as hidden, use the `--show-secrets` op
 To see credentials from this client, use the `--client` option.
 
 To see credentials from a controller, use the `--controller` option.
+
+
+

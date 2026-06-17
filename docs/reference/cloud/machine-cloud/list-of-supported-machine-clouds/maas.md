@@ -11,7 +11,7 @@ In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It 
 
 ```{dropdown} Example workflow
 
-1. Add the cloud endpoint with `juju add-cloud`.
+1. Add the MAAS cloud endpoint with `juju add-cloud`.
 2. Add credentials with `juju add-credential` and choose `oauth1`.
 3. Bootstrap with `juju bootstrap <maas-cloud-name> maas-controller`.
 ```

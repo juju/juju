@@ -1,5 +1,3 @@
-(command-juju-wait-for_unit)=
-# `juju wait-for_unit`
 > See also: [wait-for model](#wait-for model), [wait-for application](#wait-for application), [wait-for machine](#wait-for machine)
 
 ## Summary
@@ -44,3 +42,6 @@ The unit query DSL can be used to programmatically define the goal state
 for machine within the scope of the unit. This can be achieved by using lambda
 expressions to iterate over the machines associated with the unit. Multiple
 expressions can be combined to define a complex goal state.
+
+
+

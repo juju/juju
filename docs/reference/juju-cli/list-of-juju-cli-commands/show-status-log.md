@@ -1,5 +1,3 @@
-(command-juju-show-status-log)=
-# `juju show-status-log`
 > See also: [status](#status)
 
 ## Summary
@@ -73,3 +71,6 @@ The statuses are available for the following types.
  and sorted by time of occurrence.
 
  The default is unit.
+
+
+

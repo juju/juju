@@ -11,7 +11,7 @@ In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing m
 
 ```{dropdown} Example workflow
 
-1. Ensure SSH key access and sudo access to the target host.
+1. Ensure SSH key access and sudo access from the Juju client host to your target machines.
 2. Add the cloud with `juju add-cloud` and choose type `manual`.
 3. Add credentials with `juju add-credential` for the Manual cloud.
 4. Bootstrap with `juju bootstrap <manual-cloud-name> manual-controller`.

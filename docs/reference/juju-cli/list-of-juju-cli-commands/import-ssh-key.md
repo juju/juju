@@ -1,5 +1,3 @@
-(command-juju-import-ssh-key)=
-# `juju import-ssh-key`
 > See also: [add-ssh-key](#add-ssh-key), [ssh-keys](#ssh-keys)
 
 ## Summary
@@ -40,3 +38,7 @@ command, where comments will indicate which ones were imported in
 this way.
 
 An alternative to this command is the more manual `juju add-ssh-key`.
+
+
+
+

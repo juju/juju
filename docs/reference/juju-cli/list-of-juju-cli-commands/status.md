@@ -1,5 +1,3 @@
-(command-juju-status)=
-# `juju status`
 > See also: [machines](#machines), [show-model](#show-model), [show-status-log](#show-status-log), [storage](#storage)
 
 ## Summary
@@ -94,3 +92,7 @@ Reports aggregated information about the model. Includes a description of subnet
 the counts of applications, units, and machines by status code.
 - `--format=json`, `--format=yaml`:
 Provides information in a `JSON` or `YAML` format for programmatic use.
+
+
+
+

@@ -1,5 +1,3 @@
-(command-juju-documentation)=
-# `juju documentation`
 ## Summary
 Generate the documentation for all commands
 
@@ -43,3 +41,6 @@ in the file above.
 ## Details
 
 This command generates a markdown formatted document with all the commands, their descriptions, arguments, and examples.
+
+
+

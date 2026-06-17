@@ -1,5 +1,3 @@
-(command-juju-show-offer)=
-# `juju show-offer`
 > See also: [find-offers](#find-offers)
 
 ## Summary
@@ -43,3 +41,6 @@ This command is intended to enable users to learn more about the
 application offered from a particular URL. In addition to the URL of
 the offer, extra information is provided from the readme file of the
 charm being offered.
+
+
+

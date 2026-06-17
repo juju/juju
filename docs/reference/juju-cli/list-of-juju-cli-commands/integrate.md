@@ -1,5 +1,3 @@
-(command-juju-integrate)=
-# `juju integrate`
 > See also: [consume](#consume), [find-offers](#find-offers), [set-firewall-rule](#set-firewall-rule), [suspend-relation](#suspend-relation)
 
 **Aliases:** relate
@@ -157,3 +155,7 @@ inform the offering side (the remote application) the source of traffic to
 enable network ports to be opened.
 
     ... --via <cidr-subnet>[,<cidr-subnet>[, ...]]
+
+
+
+

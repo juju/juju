@@ -1,5 +1,3 @@
-(command-juju-register)=
-# `juju register`
 > See also: [add-user](#add-user), [change-user-password](#change-user-password), [unregister](#unregister)
 
 ## Summary
@@ -47,3 +45,7 @@ on either a name or UUID match.
 When adding a controller at a public address, authentication via some
 external third party (for example Ubuntu SSO) will be required, usually
 by using a web browser.
+
+
+
+

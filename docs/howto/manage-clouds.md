@@ -16,10 +16,6 @@ This document shows how to manage your existing cloud(s) with Juju.
 (add-a-cloud)=
 ## Add a cloud
 
-```{ibnote}
-See also: {ref}`list-of-supported-clouds`
-```
-
 The procedure for how to add a cloud definition to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or a Kubernetes cloud -- more below.
 
 In either case, the cloud definition is saved to the directory defined in
@@ -32,7 +28,11 @@ In either case, the cloud definition is saved to the directory defined in
 (add-a-machine-cloud)=
 ### Add a machine cloud
 
-First, check the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>` to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
+```{ibnote}
+See also: {ref}`list-of-supported-machine-clouds`
+```
+
+First, check the list of supported machine clouds to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
 
 Then, if your cloud is a public cloud or a localhost LXD cloud: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify.
 
@@ -47,13 +47,17 @@ This will start an interactive session where you'll be asked to choose a cloud t
 The command also has a manual mode where you can specify the desired cloud name and cloud definition file in-line; whether you want this definition to be known just to the Juju client or also to an existing controller (the latter creates what is known as a multi-cloud controller); etc.
 
 ```{ibnote}
-See more: {ref}`command-juju-add-cloud`, {ref}`cloud-definition`
+See more: {ref}`command-juju-add-cloud`
 ```
 
 (add-a-kubernetes-cloud)=
 ### Add a Kubernetes cloud
 
-First, check the {ref}`list of supported clouds <list-of-supported-kubernetes-clouds>` to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
+```{ibnote}
+See also: {ref}`list-of-supported-kubernetes-clouds`
+```
+
+First, check the list of supported Kubernetes clouds to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
 
 Then, if you're using a localhost MicroK8s cloud installed from a strictly confined snap: Juju likely already knows about it, so you can skip this step; run `juju clouds` to verify.
 
@@ -213,8 +217,6 @@ The procedure for how to update a cloud on Juju depends on whether the cloud is 
 
 
 ### Update a public cloud
-
-To synchronise the Juju client with changes occurring on public clouds (e.g. cloud API changes, new cloud regions) or on Juju's side (e.g. support for a new cloud), run the `update-public-clouds` command:
 
 ```text
 juju update-public-clouds

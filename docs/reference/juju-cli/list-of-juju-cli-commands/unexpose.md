@@ -1,5 +1,3 @@
-(command-juju-unexpose)=
-# `juju unexpose`
 > See also: [expose](#expose)
 
 ## Summary
@@ -44,3 +42,6 @@ the list of ports opened for a comma-delimited list of endpoints.
 Note that when the `--endpoints`option is provided, the application will still
 remain exposed if any other of its endpoints are still exposed. However, if
 none of its endpoints remain exposed, the application will become unexposed.
+
+
+

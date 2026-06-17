@@ -10,11 +10,13 @@ myst:
 In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ````{dropdown} Example workflow
-Your Ubuntu likely comes with LXD preinstalled. Configure it as below, then bootstrap directly to `localhost`.
+On a local development host, LXD `localhost` is typically pre-defined in Juju. Configure LXD, confirm cloud/credential visibility, then bootstrap.
 
 ```text
 lxd init --auto
 lxc network set lxdbr0 ipv6.address none
+juju clouds --client
+juju credentials
 juju bootstrap localhost lxd-controller
 ```
 ````

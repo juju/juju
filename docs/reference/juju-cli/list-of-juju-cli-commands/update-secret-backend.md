@@ -1,5 +1,3 @@
-(command-juju-update-secret-backend)=
-# `juju update-secret-backend`
 > See also: [add-secret-backend](#add-secret-backend), [secret-backends](#secret-backends), [remove-secret-backend](#remove-secret-backend), [show-secret-backend](#show-secret-backend)
 
 ## Summary
@@ -40,3 +38,7 @@ Config attributes may be reset back to the default value using `--reset`.
 To rotate the backend access credential/token (if specified), use
 the `token-rotate` config and supply a duration. To reset any existing
 token rotation period, supply a value of `0`.
+
+
+
+

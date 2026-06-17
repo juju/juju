@@ -1,5 +1,3 @@
-(command-juju-set-model-constraints)=
-# `juju set-model-constraints`
 > See also: [models](#models), [model-constraints](#model-constraints), [constraints](#constraints), [set-constraints](#set-constraints)
 
 ## Summary
@@ -29,3 +27,6 @@ Model constraints are combined with constraints set for an application with
 machines/containers for applications. Where model and application constraints overlap, the
 application constraints take precedence.
 Constraints for a specific application can be viewed with `juju constraints`.
+
+
+

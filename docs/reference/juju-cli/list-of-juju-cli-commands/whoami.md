@@ -1,5 +1,3 @@
-(command-juju-whoami)=
-# `juju whoami`
 > See also: [controllers](#controllers), [login](#login), [logout](#logout), [models](#models), [users](#users)
 
 ## Summary
@@ -21,4 +19,7 @@ Print current login details.
 
 
 ## Details
-Display the current controller, model and logged in user name.
+Display the current controller, model and logged in user name. 
+
+
+

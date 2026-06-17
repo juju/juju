@@ -1,5 +1,3 @@
-(command-juju-remove-ssh-key)=
-# `juju remove-ssh-key`
 > See also: [ssh-keys](#ssh-keys), [add-ssh-key](#add-ssh-key), [import-ssh-key](#import-ssh-key)
 
 ## Summary
@@ -28,3 +26,7 @@ list of keys) from the model cache and all current units deployed in that
 model. The keys to be removed may be specified by the key's fingerprint,
 or by the text label associated with them. Invalid keys in the model cache
 can be removed by specifying the key verbatim.
+
+
+
+

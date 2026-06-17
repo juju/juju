@@ -1,5 +1,3 @@
-(command-juju-revoke-cloud)=
-# `juju revoke-cloud`
 > See also: [grant-cloud](#grant-cloud)
 
 ## Summary
@@ -35,3 +33,5 @@ admin access.
 Valid access levels are:
     admin
     add-model
+
+

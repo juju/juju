@@ -1,5 +1,3 @@
-(command-juju-change-user-password)=
-# `juju change-user-password`
 > See also: [add-user](#add-user), [register](#register)
 
 ## Summary
@@ -39,3 +37,5 @@ This will invalidate any passwords that were previously set
 and registration strings that were previously issued for a user.
 This option will issue a new registration string to be used with
 `juju register`.
+
+

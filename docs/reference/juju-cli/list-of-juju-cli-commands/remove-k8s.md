@@ -1,5 +1,3 @@
-(command-juju-remove-k8s)=
-# `juju remove-k8s`
 > See also: [add-k8s](#add-k8s)
 
 ## Summary
@@ -30,3 +28,7 @@ If `--controller` is used, also removes the cloud
 from the specified controller (if it is not in use).
 
 Use the `--client` option to update your current client.
+
+
+
+

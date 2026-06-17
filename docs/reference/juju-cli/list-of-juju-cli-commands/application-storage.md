@@ -1,5 +1,3 @@
-(command-juju-application-storage)=
-# `juju application-storage`
 > See also: [storage](#storage), [storage-pools](#storage-pools), [add-storage](#add-storage), [add-unit](#add-unit)
 
 ## Summary
@@ -57,3 +55,7 @@ To view the directive for a single storage name:
 To set storage directives for an application:
 
     juju application-storage <application> <storagename1>=<storage-specification> <storagename2>=<storage-specification> ...
+
+
+
+

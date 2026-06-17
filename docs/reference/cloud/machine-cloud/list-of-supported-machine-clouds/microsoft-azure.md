@@ -5,7 +5,7 @@ In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine
 ```{dropdown} Example workflow
 
 1. Add or confirm the predefined cloud with `juju add-cloud`.
-2. From Azure Cloud Shell (or an Azure-hosted jump host), run `juju add-credential azure` and choose `managed-identity`.
+2. From Azure Cloud Shell (or an Azure-hosted jump host), run `juju add-credential azure` and choose `managed-identity` (recommended; avoids storing static secrets in Juju).
 3. Bootstrap with `juju bootstrap azure azure-controller`.
 ```
 

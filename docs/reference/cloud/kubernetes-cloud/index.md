@@ -13,7 +13,8 @@ myst:
 list-of-supported-kubernetes-clouds/index
 ```
 
-In Juju, a **Kubernetes cloud** is a {ref}`cloud <cloud>` whose Kubernetes API exposes an existing cluster where Juju deploys and manages applications, rather than provisioning machine-level infrastructure directly.
+In Juju, a **Kubernetes cloud** is a {ref}`cloud <cloud>` backed by an existing Kubernetes cluster.
+Juju uses the Kubernetes API to deploy and manage applications in that cluster, rather than provisioning machine-level infrastructure directly.
 
 Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes, and others.
 
@@ -45,16 +46,16 @@ See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terra
 ```
 
 ```{note}
-On Kubernetes clouds, both the cloud definition and the credentials are typically added through `juju add-k8s`, which reads from your kubeconfig file. This is easier than manually creating cloud definition and credential files.
+On Kubernetes clouds, both the cloud definition and the credentials are typically added through `juju add-k8s`, which reads from your `kubeconfig` file. This is easier than manually creating cloud definition and credential files.
 ```
 
 (kubernetes-definition)=
 A Kubernetes cloud in Juju represents an existing Kubernetes cluster. Juju connects to the cluster via the Kubernetes API and manages application deployments within namespaces.
 
-A Kubernetes cloud definition can be supplied through `juju add-k8s` flows, either interactively (from kubeconfig) or as YAML:
+A Kubernetes cloud definition can be supplied through `juju add-k8s` flows, either interactively (from `kubeconfig`) or as YAML:
 
 ```{tip}
-In most cases you do not need to write this file manually. `juju add-k8s` can read kubeconfig and create the cloud definition for you.
+In most cases you do not need to write this file manually. `juju add-k8s` can read `kubeconfig` and create the cloud definition for you.
 ```
 
 ```yaml
@@ -92,7 +93,7 @@ See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials
 For Kubernetes clouds, credential data is stored in `credentials.yaml` under the selected cloud and credential name, using one Kubernetes auth type and its corresponding attributes.
 
 ```{tip}
-In most cases you do not need to write this file manually. `juju add-k8s` can read kubeconfig and create the matching credential entry for the selected context.
+In most cases you do not need to write this file manually. `juju add-k8s` can read `kubeconfig` and create the matching credential entry for the selected context.
 ```
 
 ```yaml
@@ -108,11 +109,7 @@ credentials:
 
 Kubernetes clouds support the following authentication types:
 
-(kubernetes-auth-certificate)=
-- **`certificate`** (*legacy compatibility*): Kubernetes service account token with certificate.
-  - `ClientCertificateData`: The kubernetes certificate data (required).
-  - `Token`: The kubernetes service account bearer token (required).
-  - `rbac-id`: The unique ID key name of the rbac resources (optional).
+#### Current types
 
 (kubernetes-auth-clientcertificate)=
 - **`clientcertificate`**: Kubernetes client certificate and key.
@@ -125,16 +122,24 @@ Kubernetes clouds support the following authentication types:
   - `Token`: The kubernetes token (required).
   - `rbac-id`: The unique ID key name of the rbac resources (optional).
 
+(kubernetes-auth-userpass)=
+- **`userpass`**: Username and password authentication.
+  - `username`: The username to authenticate with (required).
+  - `password`: The password for the specified username (required).
+
+#### Legacy compatibility types
+
+(kubernetes-auth-certificate)=
+- **`certificate`** (*legacy compatibility*): Kubernetes service account token with certificate.
+  - `ClientCertificateData`: The kubernetes certificate data (required).
+  - `Token`: The kubernetes service account bearer token (required).
+  - `rbac-id`: The unique ID key name of the rbac resources (optional).
+
 (kubernetes-auth-oauth2withcert)=
 - **`oauth2withcert`** (*legacy compatibility*): OAuth2 token with certificate.
   - `ClientCertificateData`: The kubernetes certificate data (required).
   - `ClientKeyData`: The kubernetes private key data (required).
   - `Token`: The kubernetes token (required).
-
-(kubernetes-auth-userpass)=
-- **`userpass`**: Username and password authentication.
-  - `username`: The username to authenticate with (required).
-  - `password`: The password for the specified username (required).
 
 (kubernetes-controller)=
 ## Controllers
@@ -146,39 +151,39 @@ See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers
 (kubernetes-bootstrap-behavior)=
 ### Bootstrap behavior
 
-When bootstrapping a controller on a Kubernetes cloud, Juju creates a namespace for the controller and deploys the controller as a StatefulSet with associated resources. The controller manages the Juju state database (MongoDB) and API server within Kubernetes pods.
+When bootstrapping a controller on a Kubernetes cloud, Juju creates a namespace for the controller and deploys the controller as a `StatefulSet` with associated resources. The controller manages the Juju state database (MongoDB) and API server within Kubernetes pods.
 
 (kubernetes-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-- **Namespace**: A dedicated namespace for the controller (named `controller-<controller-name>`).
-- **Service**: A Kubernetes Service to expose the controller API (type depends on the cloud: LoadBalancer for public clouds, ClusterIP for localhost clouds).
-- **ServiceAccount**: A service account for the controller with cluster-admin privileges.
-- **ClusterRoleBinding**: Binds the controller service account to the cluster-admin ClusterRole.
-- **StatefulSet**: A StatefulSet with the controller pod containing two containers: `mongodb` (Juju's state database) and `api-server` (Juju API server).
-- **Secrets**: Multiple secrets for TLS certificates (`server.pem`), shared secrets, and optionally docker registry credentials for private image registries.
-- **ConfigMaps**: Configuration maps for bootstrap parameters and agent configuration.
-- **PersistentVolumeClaim**: Storage for the controller's operator-storage (MongoDB data and API server state).
-- **Proxy resources** (if using ClusterIP service): Additional ConfigMap, Role, RoleBinding, and ServiceAccount for cluster IP proxy access.
+- **`Namespace`**: A dedicated namespace for the controller (named `controller-<controller-name>`).
+- **`Service`**: A Kubernetes `Service` to expose the controller API (type depends on the cloud: `LoadBalancer` for public clouds, `ClusterIP` for localhost clouds).
+- **`ServiceAccount`**: A service account for the controller with cluster-admin privileges.
+- **`ClusterRoleBinding`**: Binds the controller service account to the cluster-admin `ClusterRole`.
+- **`StatefulSet`**: A `StatefulSet` with the controller pod containing two containers: `mongodb` (Juju's state database) and `api-server` (Juju API server).
+- **`Secret`s**: Multiple secrets for TLS certificates (`server.pem`), shared secrets, and optionally docker registry credentials for private image registries.
+- **`ConfigMap`s**: Configuration maps for bootstrap parameters and agent configuration.
+- **`PersistentVolumeClaim`**: Storage for the controller's operator-storage (MongoDB data and API server state).
+- **Proxy resources** (if using `ClusterIP` `Service`): Additional `ConfigMap`, `Role`, `RoleBinding`, and `ServiceAccount` for cluster IP proxy access.
 
 (kubernetes-bootstrap-service-type)=
 ### Controller service type
 
-When bootstrapping a controller, Juju creates a Kubernetes Service to expose the controller API. The Service type depends on the host cloud platform where the Kubernetes cluster is running:
+When bootstrapping a controller, Juju creates a Kubernetes `Service` to expose the controller API. The `Service` type depends on the host cloud platform where the Kubernetes cluster is running:
 
-- **LoadBalancer**: For managed Kubernetes on public clouds.
+- **`LoadBalancer`**: For managed Kubernetes on public clouds.
   - Amazon EKS (on EC2)
   - Google GKE (on GCE)
   - Microsoft AKS (on Azure)
   - Charmed Kubernetes on OpenStack
   - Charmed Kubernetes on MAAS (experimental)
-- **ClusterIP**: For localhost and development environments.
+- **`ClusterIP`**: For localhost and development environments.
   - MicroK8s
   - Kubernetes on LXD
   - Other/unrecognized host clouds (default)
 
 ```{note}
-LoadBalancer creates a cloud load balancer with a public IP, while ClusterIP uses internal cluster networking with optional proxy access.
+`LoadBalancer` creates a cloud load balancer with a public IP, while `ClusterIP` uses internal cluster networking with optional proxy access.
 ```
 
 (kubernetes-model)=
@@ -232,12 +237,12 @@ Placement directives are not supported on Kubernetes clouds. Pod placement is co
 
 When deploying an application to a Kubernetes model, Juju creates:
 
-- **Deployment, StatefulSet, or DaemonSet**: Depending on the charm specification and application type. StatefulSets are used for applications requiring stable network identities and persistent storage. Deployments are used for stateless applications. DaemonSets run one pod per node.
+- **`Deployment`, `StatefulSet`, or `DaemonSet`**: Depending on the charm specification and application type. `StatefulSet`s are used for applications requiring stable network identities and persistent storage. `Deployment`s are used for stateless applications. `DaemonSet`s run one pod per node.
 - **Pod**: One or more pods containing the application's charm containers. Each pod typically includes an init container (`juju-init`) and a main container (`juju-operator`).
-- **Service**: A Kubernetes Service to expose the application within the cluster or externally.
-- **ConfigMap**: Configuration data for the application.
-- **Secret**: Sensitive data like credentials.
-- **PersistentVolumeClaim**: If the charm requires storage, one PVC per unit is created based on the configured storage class.
+- **`Service`**: A Kubernetes `Service` to expose the application within the cluster or externally.
+- **`ConfigMap`**: Configuration data for the application.
+- **`Secret`**: Sensitive data like credentials.
+- **`PersistentVolumeClaim`**: If the charm requires storage, one PVC per unit is created based on the configured storage class.
 
 (kubernetes-pod-deployment-patterns)=
 ### Pod deployment patterns
