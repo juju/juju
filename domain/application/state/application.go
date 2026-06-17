@@ -26,6 +26,7 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/quota"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/application"
@@ -2376,13 +2377,13 @@ func (st *State) GetApplicationConfigAndSettings(ctx context.Context, appID core
 		if err != nil {
 			return nil, application.ApplicationSettings{}, errors.Errorf("decoding config type: %w", err)
 		}
-		if c.Value.Valid {
-			result[c.Key] = application.ApplicationConfig{
+		if c.ConfigValue.Valid {
+			result[c.Key()] = application.ApplicationConfig{
 				Type:  typ,
-				Value: &c.Value.V,
+				Value: &c.ConfigValue.V,
 			}
 		} else {
-			result[c.Key] = application.ApplicationConfig{
+			result[c.Key()] = application.ApplicationConfig{
 				Type: typ,
 			}
 		}
@@ -2430,13 +2431,13 @@ func (st *State) GetApplicationConfigWithDefaults(ctx context.Context, appID cor
 			return nil, errors.Errorf("decoding config type: %w", err)
 		}
 
-		if c.Value.Valid {
-			result[c.Key] = application.ApplicationConfig{
+		if c.ConfigValue.Valid {
+			result[c.Key()] = application.ApplicationConfig{
 				Type:  typ,
-				Value: &c.Value.V,
+				Value: &c.ConfigValue.V,
 			}
 		} else {
-			result[c.Key] = application.ApplicationConfig{
+			result[c.Key()] = application.ApplicationConfig{
 				Type: typ,
 			}
 		}
@@ -3677,6 +3678,11 @@ ON CONFLICT (application_uuid) DO UPDATE SET
 	if err != nil {
 		return errors.Errorf("getting application config: %w", err)
 	}
+	kv := transform.Slice(config, func(c applicationConfig) quota.KeyValue { return c })
+	if err := quota.CheckApplicationConfigSize(kv); err != nil {
+		return errors.Errorf("checking application config size: %w", err)
+	}
+
 	settings, err := st.getApplicationSettings(ctx, tx, appID)
 	if err != nil {
 		return errors.Errorf("getting application settings: %w", err)
@@ -3725,14 +3731,14 @@ func hashConfigAndSettings(config []applicationConfig, settings applicationSetti
 
 	// Ensure we have a stable order for the keys.
 	sort.Slice(config, func(i, j int) bool {
-		return config[i].Key < config[j].Key
+		return config[i].Key() < config[j].Key()
 	})
 
 	for _, c := range config {
-		if _, err := h.Write([]byte(c.Key)); err != nil {
+		if _, err := h.Write([]byte(c.Key())); err != nil {
 			return "", errors.Errorf("writing config key: %w", err)
 		}
-		if _, err := h.Write([]byte(c.Value.V)); err != nil {
+		if _, err := h.Write([]byte(c.Value())); err != nil {
 			return "", errors.Errorf("writing config value: %w", err)
 		}
 	}
@@ -3880,10 +3886,10 @@ func (st *State) refreshApplicationConfig(ctx context.Context, tx *sqlair.TX, ap
 
 	decodedApplicationConfig := make(internalcharm.Config, len(applicationConfig))
 	for _, v := range applicationConfig {
-		if v.Value.Valid {
-			decodedApplicationConfig[v.Key] = v.Value.V
+		if v.ConfigValue.Valid {
+			decodedApplicationConfig[v.Key()] = v.ConfigValue.V
 		} else {
-			decodedApplicationConfig[v.Key] = nil
+			decodedApplicationConfig[v.Key()] = nil
 		}
 	}
 
