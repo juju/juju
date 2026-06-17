@@ -5,66 +5,15 @@ package quota
 
 import (
 	"encoding/json"
-	"reflect"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
-var _ Checker = (*MapKeyValueSizeChecker)(nil)
-
 // KeyValue describes a setting or state entry that has a string key and value.
 type KeyValue interface {
 	Key() string
 	Value() string
-}
-
-// A MapKeyValueSizeChecker can be used to verify that none of the keys and
-// values in a map exceed a particular limit.
-type MapKeyValueSizeChecker struct {
-	maxKeySize   int
-	maxValueSize int
-	lastErr      error
-}
-
-// NewMapKeyValueSizeChecker returns a new MapKeyValueSizeChecker instance that
-// limits map keys to maxKeySize and map values to maxValueSize. Any of the
-// max values may also set to 0 to disable quota checks.
-func NewMapKeyValueSizeChecker(maxKeySize, maxValueSize int) *MapKeyValueSizeChecker {
-	return &MapKeyValueSizeChecker{
-		maxKeySize:   maxKeySize,
-		maxValueSize: maxValueSize,
-	}
-}
-
-// Check applies the configured size checks to v and updates the checker's
-// internal state. Check expects a map as an argument where both the keys and
-// the values can be serialized to JSON; any other value will cause an error
-// to be returned when Outcome is called.
-func (c *MapKeyValueSizeChecker) Check(v any) {
-	if v == nil || c.lastErr != nil {
-		return
-	}
-
-	reflMap := reflect.ValueOf(v)
-	if reflMap.Kind() != reflect.Map {
-		c.lastErr = errors.Errorf("key/value size check for non map-values %w", coreerrors.NotImplemented)
-		return
-	}
-
-	for _, mapKey := range reflMap.MapKeys() {
-		mapVal := reflMap.MapIndex(mapKey)
-		if err := CheckTupleSize(mapKey.Interface(), mapVal.Interface(), c.maxKeySize, c.maxValueSize); err != nil {
-			c.lastErr = err
-			return
-		}
-	}
-}
-
-// Outcome returns the check outcome or whether an error occurred within a call
-// to the Check method.
-func (c *MapKeyValueSizeChecker) Outcome() error {
-	return c.lastErr
 }
 
 // CheckTupleSize checks whether the length of the provided key-value pair is
@@ -105,8 +54,9 @@ func CheckApplicationConfigSize(config []KeyValue) error {
 }
 
 // CheckKeyValueTotalSize checks whether the total raw byte length of all keys
-// and values is within the provided limit. A maxSize of zero disables the
-// check.
+// and values is within the provided limit.
+// A maxSize of zero disables the check.
+// Note that we are counting bytes here.
 func CheckKeyValueTotalSize(settings []KeyValue, maxSize int) error {
 	if maxSize <= 0 {
 		return nil
