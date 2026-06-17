@@ -29,6 +29,7 @@ func NewListCommand() modelcmd.ModelCommand {
 // listCommand displays a list of all spaces known to Juju.
 type ListCommand struct {
 	SpaceCommandBase
+	modelcmd.IAASOnlyCommand
 	Short bool
 	out   cmd.Output
 }

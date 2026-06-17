@@ -195,7 +195,7 @@ func newK8sBroker(
 		annotations: k8sannotations.New(nil).
 			Add(utils.AnnotationModelUUIDKey(labelVersion), modelUUID),
 		labelVersion:      labelVersion,
-		environNetworking: newEnvironNetworking(k8sClient),
+		environNetworking: newEnvironNetworking(k8sClient, apiExtensionsClient, dynamicClient),
 	}
 	if len(controllerUUID) > 0 {
 		client.annotations.Add(utils.AnnotationControllerUUIDKey(labelVersion), controllerUUID)

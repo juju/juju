@@ -23,6 +23,7 @@ func NewRenameCommand() modelcmd.ModelCommand {
 // RenameCommand calls the API to rename an existing network space.
 type RenameCommand struct {
 	SpaceCommandBase
+	modelcmd.IAASOnlyCommand
 	Name    string
 	NewName string
 }

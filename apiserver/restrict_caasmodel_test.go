@@ -32,6 +32,14 @@ func (s *RestrictCAASModelSuite) TestAllowed(c *tc.C) {
 	s.assertMethod(c, "CAASModelOperator", 1, "ModelOperatorProvisioningInfo")
 }
 
+func (s *RestrictCAASModelSuite) TestSubnetsAllowed(c *tc.C) {
+	s.assertMethod(c, "Subnets", 5, "ListSubnets")
+}
+
+func (s *RestrictCAASModelSuite) TestSpacesReloadAllowed(c *tc.C) {
+	s.assertMethod(c, "Spaces", 6, "ReloadSpaces")
+}
+
 func (s *RestrictCAASModelSuite) TestNotAllowed(c *tc.C) {
 	caller, err := s.root.FindMethod("Firewaller", 1, "WatchOpenedPorts")
 	c.Assert(err, tc.ErrorMatches, `facade "Firewaller" not supported on container models`)

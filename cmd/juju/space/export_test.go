@@ -22,7 +22,6 @@ func (c *ListCommand) ListFormat() string {
 func NewSpaceCommandBase(api API) SpaceCommandBase {
 	base := SpaceCommandBase{
 		ModelCommandBase: modelcmd.ModelCommandBase{},
-		IAASOnlyCommand:  nil,
 		api:              api,
 	}
 	return base

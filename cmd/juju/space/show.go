@@ -26,6 +26,7 @@ func NewShowSpaceCommand() modelcmd.ModelCommand {
 // ShowSpaceCommand calls the API to add a new network space.
 type ShowSpaceCommand struct {
 	SpaceCommandBase
+	modelcmd.IAASOnlyCommand
 	Name string
 
 	out cmd.Output
