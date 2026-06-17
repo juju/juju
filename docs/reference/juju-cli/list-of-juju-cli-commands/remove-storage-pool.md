@@ -1,3 +1,5 @@
+(command-juju-remove-storage-pool)=
+# `juju remove-storage-pool`
 > See also: [create-storage-pool](#create-storage-pool), [update-storage-pool](#update-storage-pool), [storage-pools](#storage-pools)
 
 ## Summary
@@ -22,6 +24,3 @@ Remove the storage-pool named fast-storage:
 ## Details
 
 Remove a single existing storage pool.
-
-
-

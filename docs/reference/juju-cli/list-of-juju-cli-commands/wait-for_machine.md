@@ -1,3 +1,5 @@
+(command-juju-wait-for_machine)=
+# `juju wait-for_machine`
 > See also: [wait-for model](#wait-for model), [wait-for application](#wait-for application), [wait-for unit](#wait-for unit)
 
 ## Summary
@@ -35,6 +37,3 @@ command streams delta changes from the underlying database, unlike the `status`
 command which performs a full query of the database.
 
 Multiple expressions can be combined to define a complex goal state.
-
-
-

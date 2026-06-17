@@ -1,3 +1,5 @@
+(command-juju-attach-resource)=
+# `juju attach-resource`
 > See also: [resources](#resources), [charm-resources](#charm-resources)
 
 ## Summary
@@ -48,7 +50,3 @@ where `<resource name>` is the name from the `metadata.yaml` (`charmcraft.yaml`)
 
     c. For a resource that has been uploaded to a public OCI registry: a link to the public OCI image.
 	Caveat: If you choose this, you will not be able to go back to using a resource from Charmhub.
-
-
-
-

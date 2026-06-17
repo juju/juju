@@ -1,3 +1,5 @@
+(command-juju-upgrade-controller)=
+# `juju upgrade-controller`
 > See also: [upgrade-model](#upgrade-model)
 
 ## Summary
@@ -41,7 +43,3 @@ not supported.
 The command will abort if an upgrade is in progress. It will also abort if
 a previous upgrade was not fully completed (e.g., if one of the
 controllers in a high availability model failed to upgrade).
-
-
-
-

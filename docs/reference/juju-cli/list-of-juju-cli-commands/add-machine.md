@@ -1,3 +1,5 @@
+(command-juju-add-machine)=
+# `juju add-machine`
 > See also: [remove-machine](#remove-machine), [model-constraints](#model-constraints), [set-model-constraints](#set-model-constraints)
 
 ## Summary
@@ -131,7 +133,3 @@ as machines in the model.
 
 It is also possible to add containers to existing machines using the format
 `<container-type>:<machine-id>`. Constraints cannot be combined this mode.
-
-
-
-

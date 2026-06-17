@@ -1,3 +1,5 @@
+(command-juju-charm-resources)=
+# `juju charm-resources`
 > See also: [resources](#resources), [attach-resource](#attach-resource)
 
 **Aliases:** list-charm-resources
@@ -35,7 +37,3 @@ This command will report the resources and the current revision of each
 resource for a charm in a repository.
 
 Channel can be specified with `--channel`.  If not provided, `stable` is used.
-
-
-
-

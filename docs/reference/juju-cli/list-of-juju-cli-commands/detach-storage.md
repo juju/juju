@@ -1,3 +1,5 @@
+(command-juju-detach-storage)=
+# `juju detach-storage`
 > See also: [storage](#storage), [attach-storage](#attach-storage)
 
 ## Summary
@@ -28,6 +30,3 @@ removed by an operator.
 
 Detaching storage may fail but under some circumstances, Juju user may need
 to force storage detachment despite operational errors.
-
-
-

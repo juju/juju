@@ -1,3 +1,5 @@
+(command-juju-deploy)=
+# `juju deploy`
 > See also: [integrate](#integrate), [add-unit](#add-unit), [config](#config), [expose](#expose), [constraints](#constraints), [refresh](#refresh), [set-constraints](#set-constraints), [spaces](#spaces), [charm-resources](#charm-resources)
 
 ## Summary
@@ -295,7 +297,3 @@ When charms that include LXD profiles are deployed the profiles are validated
 for security purposes by allowing only certain configurations and devices. Use
 the `--force` option to bypass this check. Doing so is not recommended as it
 can lead to unexpected behaviour.
-
-
-
-

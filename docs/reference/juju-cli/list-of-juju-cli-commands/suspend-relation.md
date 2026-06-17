@@ -1,3 +1,5 @@
+(command-juju-suspend-relation)=
+# `juju suspend-relation`
 > See also: [integrate](#integrate), [offers](#offers), [remove-relation](#remove-relation), [resume-relation](#resume-relation)
 
 ## Summary
@@ -25,6 +27,3 @@ Suspends a relation to an application offer.
 A relation between an application in another model and an offer in this model will be suspended.
 The `relation-departed` and `relation-broken` hooks will be run for the relation, and the relation
 status will be set to suspended. The relation is specified using its ID.
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-reload-spaces)=
+# `juju reload-spaces`
 > See also: [spaces](#spaces), [add-space](#add-space), [show-space](#show-space), [move-to-space](#move-to-space)
 
 ## Summary
@@ -19,5 +21,3 @@ Reloads spaces and subnets from substrate.
 
 ## Details
 Reloades spaces and subnets from substrate.
-
-

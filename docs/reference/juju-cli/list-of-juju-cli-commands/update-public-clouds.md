@@ -1,3 +1,5 @@
+(command-juju-update-public-clouds)=
+# `juju update-public-clouds`
 > See also: [clouds](#clouds)
 
 ## Summary
@@ -30,6 +32,3 @@ Use `--controller` to update public cloud(s) on a controller. The command
 will only update the clouds that a controller knows about.
 
 Use `--client` to update a definition of public cloud(s) on this client.
-
-
-

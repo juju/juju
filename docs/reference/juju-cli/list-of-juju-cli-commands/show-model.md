@@ -1,3 +1,5 @@
+(command-juju-show-model)=
+# `juju show-model`
 > See also: [add-model](#add-model)
 
 ## Summary
@@ -15,5 +17,3 @@ Shows information about the current or specified model.
 
 ## Details
 Show information about the current or specified model.
-
-

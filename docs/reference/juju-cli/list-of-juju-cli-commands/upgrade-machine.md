@@ -1,3 +1,5 @@
+(command-juju-upgrade-machine)=
+# `juju upgrade-machine`
 > See also: [machines](#machines), [status](#status), [refresh](#refresh), [set-application-base](#set-application-base)
 
 ## Summary
@@ -58,7 +60,3 @@ The `--force` option should be used with caution since using a charm on a machin
 running an unsupported base may cause unexpected behavior. Alternately, if the
 requested base is supported in later revisions of the charm, `upgrade-charm` can
 run beforehand.
-
-
-
-

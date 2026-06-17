@@ -1,3 +1,5 @@
+(command-juju-remove-saas)=
+# `juju remove-saas`
 > See also: [consume](#consume), [offer](#offer)
 
 ## Summary
@@ -25,7 +27,3 @@ Remove consumed applications (SAAS) from the model.
 Removing a consumed (SAAS) application will terminate any relations that
 application has, potentially leaving any related local applications
 in a non-functional state.
-
-
-
-

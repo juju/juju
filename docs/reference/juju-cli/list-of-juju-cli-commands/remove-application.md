@@ -1,3 +1,5 @@
+(command-juju-remove-application)=
+# `juju remove-application`
 > See also: [scale-application](#scale-application), [show-application](#show-application)
 
 ## Summary
@@ -46,7 +48,3 @@ and, potentially, machines without given them the opportunity to shutdown cleanl
 Application removal is a multi-step process. Under normal circumstances, Juju will not
 proceed to the next step until the current step has finished.
 However, when using `--force`, users can also specify `--no-wait`to progress through steps without delay waiting for each step to complete.
-
-
-
-

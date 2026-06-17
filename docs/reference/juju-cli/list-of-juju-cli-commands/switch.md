@@ -1,3 +1,5 @@
+(command-juju-switch)=
+# `juju switch`
 > See also: [controllers](#controllers), [models](#models), [show-controller](#show-controller)
 
 ## Summary
@@ -36,7 +38,3 @@ to switch to a model within the current controller.
 
 The `juju models` command can be used to determine the active model
 (of any controller). An asterisk denotes it.
-
-
-
-

@@ -1,3 +1,5 @@
+(command-juju-show-controller)=
+# `juju show-controller`
 > See also: [controllers](#controllers)
 
 ## Summary
@@ -23,7 +25,3 @@ Shows detailed information of a controller.
 ## Details
 Shows extended information about a controller(s) as well as related models
 and user login details.
-
-
-
-
