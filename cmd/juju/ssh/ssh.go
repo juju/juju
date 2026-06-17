@@ -95,6 +95,15 @@ Connect to a mysql unit with an identity not known to juju (ssh option -i):
 
     juju ssh mysql/0 -i ~/.ssh/my_private_key echo hello
 
+Connect to a mysql unit using a FIDO/U2F security key (e.g. YubiKey):
+
+    juju ssh mysql/0 -i ~/.ssh/id_ed25519_sk
+
+When using the Juju snap, the u2f-devices interface must be
+connected to allow access to FIDO/U2F security keys:
+
+    sudo snap connect juju:u2f-devices
+
 **For k8s charms running the workload in a separate pod:**
 
 Connect to a k8s unit targeting the operator pod by default:
