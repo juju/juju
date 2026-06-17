@@ -45,6 +45,11 @@ func (w *trackedWorker) Do(req *http.Request) (*http.Response, error) {
 	return w.client.Do(req)
 }
 
+// UpdateCACert updates the CA certificate used by the underlying client.
+func (w *trackedWorker) UpdateCACert(caCert string) error {
+	return w.client.UpdateCACert(caCert)
+}
+
 func (w *trackedWorker) loop() error {
 	// TODO (stickupkid): In the future, it is expected that we can watch the
 	// model-config for any proxy related changes and update the http client

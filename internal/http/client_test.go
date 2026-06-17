@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"
@@ -70,7 +71,7 @@ func (s *httpSuite) TestDefaultClientJarNotOverwritten(c *tc.C) {
 
 	client := NewClient(WithCookieJar(jar))
 
-	hc := client.HTTPClient.(*http.Client)
+	hc := client.Client()
 	c.Assert(hc.Jar, tc.Equals, jar)
 	c.Assert(http.DefaultClient.Jar, tc.Not(tc.Equals), jar)
 	c.Assert(http.DefaultClient.Jar, tc.Equals, oldJar)
@@ -246,6 +247,39 @@ func (s *httpTLSServerSuite) testGetHTTPClientWithCerts(c *tc.C, skip bool) {
 	c.Assert(err, tc.IsNil)
 	c.Assert(resp.Body.Close(), tc.IsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
+}
+
+func (s *httpTLSServerSuite) TestUpdateCACert(c *tc.C) {
+	client := NewClient()
+	_, err := client.Get(c.Context(), s.server.URL) //nolint:bodyclose
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+
+	caPEM := new(bytes.Buffer)
+	err = pem.Encode(caPEM, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: s.server.Certificate().Raw,
+	})
+	c.Assert(err, tc.IsNil)
+
+	err = client.UpdateCACert(caPEM.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	resp, err := client.Get(c.Context(), s.server.URL)
+	c.Assert(err, tc.IsNil)
+	c.Assert(resp.Body.Close(), tc.IsNil)
+	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
+
+	err = client.UpdateCACert("")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = client.Get(c.Context(), s.server.URL) //nolint:bodyclose
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
+}
+
+func (s *httpTLSServerSuite) TestUpdateCACertInvalid(c *tc.C) {
+	client := NewClient()
+	err := client.UpdateCACert("not a cert")
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
 func (s *clientSuite) TestDisableKeepAlives(c *tc.C) {

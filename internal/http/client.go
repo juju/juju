@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/http/httputil"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
-	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -172,9 +172,18 @@ func newOptions() *options {
 
 // Client represents an http client.
 type Client struct {
-	corehttp.HTTPClient
-
 	logger logger.Logger
+
+	mu sync.RWMutex
+
+	httpClient               *http.Client
+	disableKeepAlives        bool
+	skipHostnameVerification bool
+	tlsHandshakeTimeout      time.Duration
+	middlewares              []TransportMiddleware
+	requestRecorder          RequestRecorder
+	retryPolicy              *RetryPolicy
+	caCertificates           []string
 }
 
 // NewClient returns a new juju http client defined
@@ -186,45 +195,22 @@ func NewClient(options ...Option) *Client {
 	}
 
 	client := opts.httpClient
-	transport := NewHTTPTLSTransport(TransportConfig{
-		DisableKeepAlives:   opts.disableKeepAlives,
-		TLSHandshakeTimeout: opts.tlsHandshakeTimeout,
-		Middlewares:         opts.middlewares,
-	})
-	switch {
-	case len(opts.caCertificates) > 0:
-		transport = transportWithCerts(transport, opts.caCertificates, opts.skipHostnameVerification)
-	case opts.skipHostnameVerification:
-		transport = transportWithSkipVerify(transport, opts.skipHostnameVerification)
-	}
-
-	if opts.requestRecorder != nil {
-		client.Transport = roundTripRecorder{
-			requestRecorder:     opts.requestRecorder,
-			wrappedRoundTripper: transport,
-		}
-	} else {
-		client.Transport = transport
-	}
-
-	// Ensure we add the retry middleware after request recorder if there is
-	// one, to ensure that we get all the logging at the right level.
-	if opts.retryPolicy != nil {
-		client.Transport = makeRetryMiddleware(
-			client.Transport,
-			*opts.retryPolicy,
-			clock.WallClock,
-			opts.logger,
-		)
-	}
-
 	if opts.cookieJar != nil {
 		client.Jar = opts.cookieJar
 	}
-	return &Client{
-		HTTPClient: client,
-		logger:     opts.logger,
+	c := &Client{
+		logger:                   opts.logger,
+		httpClient:               client,
+		disableKeepAlives:        opts.disableKeepAlives,
+		skipHostnameVerification: opts.skipHostnameVerification,
+		tlsHandshakeTimeout:      opts.tlsHandshakeTimeout,
+		middlewares:              opts.middlewares,
+		requestRecorder:          opts.requestRecorder,
+		retryPolicy:              opts.retryPolicy,
+		caCertificates:           append([]string(nil), opts.caCertificates...),
 	}
+	c.applyTransport()
+	return c
 }
 
 func transportWithSkipVerify(defaultTransport *http.Transport, skipHostnameVerify bool) *http.Transport {
@@ -262,7 +248,7 @@ func transportWithCerts(defaultTransport *http.Transport, caCerts []string, skip
 // Client returns the underlying http.Client.  Used in testing
 // only.
 func (c *Client) Client() *http.Client {
-	return c.HTTPClient.(*http.Client)
+	return c.httpClient
 }
 
 // Get issues a GET to the specified URL.  It mimics the net/http Get,
@@ -296,7 +282,59 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		err = errors.Annotatef(err, "setup of http client tracing failed")
 		c.logger.Tracef(req.Context(), "%s", err)
 	}
-	return c.HTTPClient.Do(req)
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.httpClient.Do(req)
+}
+
+// UpdateCACert updates the CA certificate used for TLS validation.
+// Passing an empty string clears any custom CA certificate.
+func (c *Client) UpdateCACert(caCert string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if caCert == "" {
+		c.caCertificates = nil
+	} else {
+		if !x509.NewCertPool().AppendCertsFromPEM([]byte(caCert)) {
+			return errors.NotValidf("CA certificate")
+		}
+		c.caCertificates = []string{caCert}
+	}
+	c.applyTransport()
+	return nil
+}
+
+func (c *Client) applyTransport() {
+	transport := NewHTTPTLSTransport(TransportConfig{
+		DisableKeepAlives:   c.disableKeepAlives,
+		TLSHandshakeTimeout: c.tlsHandshakeTimeout,
+		Middlewares:         c.middlewares,
+	})
+	switch {
+	case len(c.caCertificates) > 0:
+		transport = transportWithCerts(transport, c.caCertificates, c.skipHostnameVerification)
+	case c.skipHostnameVerification:
+		transport = transportWithSkipVerify(transport, c.skipHostnameVerification)
+	}
+
+	if c.requestRecorder != nil {
+		c.httpClient.Transport = roundTripRecorder{
+			requestRecorder:     c.requestRecorder,
+			wrappedRoundTripper: transport,
+		}
+	} else {
+		c.httpClient.Transport = transport
+	}
+
+	if c.retryPolicy != nil {
+		c.httpClient.Transport = makeRetryMiddleware(
+			c.httpClient.Transport,
+			*c.retryPolicy,
+			clock.WallClock,
+			c.logger,
+		)
+	}
 }
 
 // traceRequest enabled debugging on the http request if log level for ths

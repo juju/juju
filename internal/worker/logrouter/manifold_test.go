@@ -78,6 +78,35 @@ func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 }
 
+func (s *manifoldSuite) TestNewBackendUpdatesLokiCACert(c *tc.C) {
+	client := &recordingCACertUpdaterClient{}
+	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock)
+
+	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
+		Mode:          BackendTypeLoki,
+		Endpoint:      "http://loki/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	c.Check(client.caCert.Load(), tc.Equals, "ca-cert")
+}
+
+func (s *manifoldSuite) TestNewBackendReturnsCACertUpdateError(c *tc.C) {
+	expectErr := stderrors.New("boom")
+	client := &recordingCACertUpdaterClient{err: expectErr}
+	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock)
+
+	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
+		Mode:          BackendTypeLoki,
+		Endpoint:      "http://loki/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
+	c.Check(backend, tc.IsNil)
+	c.Assert(err, tc.ErrorIs, expectErr)
+}
+
 func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ManifoldConfig{
@@ -139,4 +168,21 @@ type stubHTTPClient struct{}
 
 func (stubHTTPClient) Do(*http.Request) (*http.Response, error) {
 	return nil, nil
+}
+
+type recordingCACertUpdaterClient struct {
+	caCert atomic.Value
+	err    error
+}
+
+func (c *recordingCACertUpdaterClient) Do(*http.Request) (*http.Response, error) {
+	return nil, nil
+}
+
+func (c *recordingCACertUpdaterClient) UpdateCACert(caCert string) error {
+	if c.err != nil {
+		return c.err
+	}
+	c.caCert.Store(caCert)
+	return nil
 }

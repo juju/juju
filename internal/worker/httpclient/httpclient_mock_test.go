@@ -24,10 +24,11 @@ type MockHTTPClientWorker struct {
 
 // MockHTTPClientWorkerMockRecorder is the mock recorder for MockHTTPClientWorker.
 type MockHTTPClientWorkerMockRecorder struct {
-	mock        *MockHTTPClientWorker
-	doExpects   []*gomock.Call1_2[*http.Request, *http.Response, error]
-	killExpects []*gomock.Call0_0
-	waitExpects []*gomock.Call0_1[error]
+	mock                *MockHTTPClientWorker
+	doExpects           []*gomock.Call1_2[*http.Request, *http.Response, error]
+	killExpects         []*gomock.Call0_0
+	updateCACertExpects []*gomock.Call1_1[string, error]
+	waitExpects         []*gomock.Call0_1[error]
 }
 
 // NewMockHTTPClientWorker creates a new mock instance.
@@ -77,6 +78,24 @@ func (mr *MockHTTPClientWorkerMockRecorder) Kill() *MockHTTPClientWorkerKillCall
 
 // MockHTTPClientWorkerKillCall is the typed call wrapper for Kill.
 type MockHTTPClientWorkerKillCall = gomock.Call0_0
+
+// UpdateCACert mocks base method.
+func (m *MockHTTPClientWorker) UpdateCACert(arg0 string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_1(&m.recorder.updateCACertExpects, m.ctrl, m, "UpdateCACert", arg0)
+}
+
+// UpdateCACert indicates an expected call of UpdateCACert.
+func (mr *MockHTTPClientWorkerMockRecorder) UpdateCACert(arg0 any) *MockHTTPClientWorkerUpdateCACertCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_1[string, error](mr.mock.ctrl.T, mr.mock, "UpdateCACert", gomock.EnsureMatcher(arg0))
+	mr.updateCACertExpects = append(mr.updateCACertExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockHTTPClientWorkerUpdateCACertCall is the typed call wrapper for UpdateCACert.
+type MockHTTPClientWorkerUpdateCACertCall = gomock.Call1_1[string, error]
 
 // Wait mocks base method.
 func (m *MockHTTPClientWorker) Wait() error {

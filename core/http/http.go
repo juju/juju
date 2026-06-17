@@ -26,6 +26,14 @@ type HTTPClientGetter interface {
 	GetHTTPClient(context.Context, Purpose) (HTTPClient, error)
 }
 
+// CACertUpdater is implemented by HTTP clients that support updating the CA
+// certificate used for TLS validation after the client has been created.
+type CACertUpdater interface {
+	// UpdateCACert updates the CA certificate used for TLS validation.
+	// Passing an empty string clears any custom CA certificate.
+	UpdateCACert(string) error
+}
+
 // HTTPClient is the interface that is used to do http requests.
 type HTTPClient interface {
 	// Do sends an HTTP request and returns an HTTP response. The client will

@@ -128,6 +128,12 @@ func NewBackend(
 			return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
 
 		case BackendTypeLoki:
+			if updater, ok := httpClient.(corehttp.CACertUpdater); ok {
+				if err := updater.UpdateCACert(snapshot.CACertificate); err != nil {
+					return nil, internalerrors.Capture(err)
+				}
+			}
+
 			lokiConfig := loki.DefaultConfig()
 			lokiConfig.HTTPClient = httpClient
 			lokiConfig.Clock = clock
