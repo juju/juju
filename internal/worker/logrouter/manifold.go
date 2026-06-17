@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apilogsender "github.com/juju/juju/api/logsender"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
@@ -34,11 +35,11 @@ type BackendFuncFactory func(
 type ManifoldConfig struct {
 	AgentName          string
 	APICallerName      string
+	HTTPClientName     string
 	LogSource          logsender.LogRecordCh
 	AgentConfigChanged *voyeur.Value
 	Logger             corelogger.Logger
 	Clock              clock.Clock
-	HTTPClient         loki.HTTPClient
 	DrainOnly          bool
 
 	NewBackendFunc BackendFuncFactory
@@ -51,6 +52,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
+	}
+	if c.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
 	}
 	if c.LogSource == nil {
 		return errors.NotValidf("nil LogSource")
@@ -73,7 +77,7 @@ func (c ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the logrouter worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.AgentName, config.APICallerName},
+		Inputs: []string{config.AgentName, config.APICallerName, config.HTTPClientName},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, internalerrors.Capture(err)
@@ -87,6 +91,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
+			var httpClientGetter corehttp.HTTPClientGetter
+			if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+				return nil, err
+			}
+			httpClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.LokiPurpose)
+			if err != nil {
+				return nil, internalerrors.Capture(err)
+			}
 
 			return NewWorker(WorkerConfig{
 				Agent:              a,
@@ -97,7 +109,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
 				RestartDelay:       defaultRestartDelay,
-				NewBackend:         config.NewBackendFunc(apiCaller, config.HTTPClient, config.Clock),
+				NewBackend:         config.NewBackendFunc(apiCaller, httpClient, config.Clock),
 			})
 		},
 	}

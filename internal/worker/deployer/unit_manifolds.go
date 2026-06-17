@@ -5,23 +5,24 @@ package deployer
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/voyeur"
+	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/worker"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -79,6 +80,9 @@ type UnitManifoldsConfig struct {
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
+
+	// HTTPClientGetter provides scoped HTTP clients to nested unit workers.
+	HTTPClientGetter corehttp.HTTPClientGetter
 }
 
 // UnitManifolds returns a set of co-configured manifolds covering the various
@@ -96,7 +100,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			return dependency.ErrBounce
 		} else if cause == apicaller.ErrConnectImpossible {
 			// TODO: almost certainly want a different error here.
-			return worker.ErrTerminateAgent
+			return internalworker.ErrTerminateAgent
 		}
 		return err
 	}
@@ -140,16 +144,23 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggerContext.GetLogger("juju.worker.units3caller"),
 		}),
 
+		httpClientName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.HTTPClientGetter)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
 		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
 			AgentName:          agentName,
 			APICallerName:      apiCallerName,
+			HTTPClientName:     httpClientName,
 			LogSource:          config.LogSource,
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             config.LoggerContext.GetLogger("juju.worker.logrouter"),
 			Clock:              config.Clock,
-			HTTPClient:         http.DefaultClient,
 			NewBackendFunc:     logrouter.NewBackend,
 		}),
 
@@ -297,6 +308,7 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	s3CallerName         = "s3-caller"
+	httpClientName       = "http-client"
 	logRouterName        = "log-router"
 
 	migrationFortressName     = "migration-fortress"

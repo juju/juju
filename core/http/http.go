@@ -41,6 +41,8 @@ type Purpose string
 const (
 	// CharmhubPurpose is the namespace for the charmhub http client.
 	CharmhubPurpose Purpose = "charmhub"
+	// LokiPurpose is the namespace for the loki http client.
+	LokiPurpose Purpose = "loki"
 	// S3Purpose is the namespace for the s3 http client.
 	S3Purpose Purpose = "s3"
 	// SSHImporterPurpose is the namespace for the ssh importer http client.
