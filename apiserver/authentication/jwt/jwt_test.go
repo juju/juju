@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/testing"
@@ -27,6 +28,57 @@ func TestLoginTokenSuite(t *stdtesting.T) {
 }
 
 func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	modelTag := names.NewModelTag(modelUUID.String())
+	applicationOfferTag := names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+	tok, err := EncodedJWT(JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred@external",
+		Access: map[string]string{
+			testing.ControllerTag.String(): "login",
+			modelTag.String():              "write",
+			applicationOfferTag.String():   "consume",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	params := authentication.AuthParams{
+		Token: base64.StdEncoding.EncodeToString(tok),
+	}
+
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+
+	req, err := http.NewRequest("", "", nil)
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Add("Authorization", "Bearer "+params.Token)
+	authInfo, err := authenticator.Authenticate(req)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred@external")
+	c.Assert(authInfo.IsExternallyAuthenticated, tc.IsTrue)
+	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
+		ObjectType: permission.Model,
+		Key:        modelTag.Id(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(perm, tc.Equals, permission.WriteAccess)
+
+	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
+		ObjectType: permission.Controller,
+		Key:        testing.ControllerTag.Id(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(perm, tc.Equals, permission.LoginAccess)
+
+	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
+		ObjectType: permission.Offer,
+		Key:        applicationOfferTag.Id(),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(perm, tc.Equals, permission.ConsumeAccess)
+}
+
+func (s *loginTokenSuite) TestAuthenticateLocalUserDenied(c *tc.C) {
 	modelUUID := tc.Must0(c, coremodel.NewUUID)
 	modelTag := names.NewModelTag(modelUUID.String())
 	applicationOfferTag := names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")
@@ -50,31 +102,8 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	req, err := http.NewRequest("", "", nil)
 	c.Assert(err, tc.ErrorIsNil)
 	req.Header.Add("Authorization", "Bearer "+params.Token)
-	authInfo, err := authenticator.Authenticate(req)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred")
-	c.Assert(authInfo.IsExternallyAuthenticated, tc.IsTrue)
-	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
-		ObjectType: permission.Model,
-		Key:        modelTag.Id(),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(perm, tc.Equals, permission.WriteAccess)
-
-	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
-		ObjectType: permission.Controller,
-		Key:        testing.ControllerTag.Id(),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(perm, tc.Equals, permission.LoginAccess)
-
-	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
-		ObjectType: permission.Offer,
-		Key:        applicationOfferTag.Id(),
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(perm, tc.Equals, permission.ConsumeAccess)
+	_, err = authenticator.Authenticate(req)
+	c.Assert(err, tc.ErrorIs, coreerrors.Unauthorized)
 }
 
 func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *tc.C) {
