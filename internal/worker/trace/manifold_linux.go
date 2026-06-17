@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
@@ -29,7 +29,7 @@ type GetTracingServiceFunc func(getter dependency.Getter, name string) (TracingS
 // ControllerManifoldConfig defines the configuration for the controller
 // trace manifold.
 type ControllerManifoldConfig struct {
-	AgentName         string
+	Tag               names.Tag
 	TraceServicesName string
 	Clock             clock.Clock
 	Logger            logger.Logger
@@ -39,8 +39,8 @@ type ControllerManifoldConfig struct {
 
 // Validate validates the controller manifold configuration.
 func (cfg ControllerManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if cfg.Tag == nil {
+		return errors.NotValidf("nil Tag")
 	}
 	if cfg.TraceServicesName == "" {
 		return errors.NotValidf("empty TraceServicesName")
@@ -65,7 +65,6 @@ func (cfg ControllerManifoldConfig) Validate() error {
 func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.TraceServicesName,
 		},
 		Output: tracerOutput,
@@ -73,12 +72,6 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
-
-			var a agent.Agent
-			if err := getter.Get(config.AgentName, &a); err != nil {
-				return nil, err
-			}
-			currentConfig := a.CurrentConfig()
 
 			tracingService, err := config.GetTracingService(getter, config.TraceServicesName)
 			if err != nil {
@@ -91,7 +84,7 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 				Clock:                 config.Clock,
 				Logger:                config.Logger,
 				NewTracerWorker:       config.NewTracerWorker,
-				Tag:                   currentConfig.Tag(),
+				Tag:                   config.Tag,
 				Kind:                  coretrace.KindController,
 				SampleRatio:           defaultOpenTelemetrySampleRatio,
 				TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,

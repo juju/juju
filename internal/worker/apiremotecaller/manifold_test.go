@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -14,7 +15,6 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"go.uber.org/goleak"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -36,8 +36,9 @@ func TestManifoldSuite(t *testing.T) {
 func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = ManifoldConfig{
-		AgentName:               "agent",
 		ObjectStoreServicesName: "object-store-services",
+		APIInfo:                 &stubAPIInfoProvider{info: &api.Info{CACert: "cert", Tag: names.NewControllerAgentTag("0")}},
+		Origin:                  names.NewControllerAgentTag("0"),
 		Clock:                   clock.WallClock,
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewWorker: func(wc WorkerConfig) (worker.Worker, error) {
@@ -47,28 +48,25 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent", "object-store-services"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"object-store-services"})
 }
 
-func (s *ManifoldSuite) TestAgentMissing(c *tc.C) {
-	getter := dt.StubGetter(map[string]any{
-		"agent": dependency.ErrMissing,
-	})
+func (s *ManifoldSuite) TestValidateRequiresAPIInfo(c *tc.C) {
+	config := s.config
+	config.APIInfo = nil
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	worker, err := s.manifold().Start(c.Context(), getter)
-	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
-	c.Check(worker, tc.IsNil)
+	config.APIInfo = &stubAPIInfoProvider{info: &api.Info{CACert: "cert"}}
+	c.Check(config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldSuite) TestAgentAPIInfoNotReady(c *tc.C) {
-	getter := dt.StubGetter(map[string]any{
-		"agent":                 &fakeAgent{missingAPIinfo: true},
-		"object-store-services": objectStoreServices{},
-	})
+func (s *ManifoldSuite) TestValidateRequiresOrigin(c *tc.C) {
+	config := s.config
+	config.Origin = nil
+	c.Check(config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	worker, err := s.manifold().Start(c.Context(), getter)
-	c.Assert(err, tc.ErrorIs, dependency.ErrMissing)
-	c.Check(worker, tc.IsNil)
+	config.Origin = names.NewControllerAgentTag("0")
+	c.Check(config.Validate(), tc.ErrorIsNil)
 }
 
 func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
@@ -81,7 +79,6 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	}
 
 	getter := dt.StubGetter(map[string]any{
-		"agent":                 &fakeAgent{tag: names.NewMachineTag("42")},
 		"object-store-services": objectStoreServices{},
 	})
 
@@ -89,10 +86,10 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(worker, tc.NotNil)
 
-	c.Check(config.Origin, tc.Equals, names.NewMachineTag("42"))
+	c.Check(config.Origin, tc.Equals, names.NewControllerAgentTag("0"))
 	c.Check(config.Clock, tc.Equals, clock)
 	c.Check(config.ControllerNodeService, tc.DeepEquals, &controllernodeservice.WatchableService{})
-	c.Check(config.APIInfo.CACert, tc.Equals, "fake as")
+	c.Check(config.APIInfo.CACert, tc.Equals, "cert")
 	c.Check(config.NewRemote, tc.NotNil)
 }
 
@@ -112,34 +109,11 @@ type fakeWorker struct {
 	worker.Worker
 }
 
-type fakeAgent struct {
-	agent.Agent
-
-	tag            names.Tag
-	missingAPIinfo bool
+type stubAPIInfoProvider struct {
+	info *api.Info
+	err  error
 }
 
-type fakeConfig struct {
-	agent.Config
-
-	tag            names.Tag
-	missingAPIinfo bool
-}
-
-func (f *fakeAgent) CurrentConfig() agent.Config {
-	return &fakeConfig{tag: f.tag, missingAPIinfo: f.missingAPIinfo}
-}
-
-func (f *fakeConfig) APIInfo() (*api.Info, bool) {
-	if f.missingAPIinfo {
-		return nil, false
-	}
-	return &api.Info{
-		CACert: "fake as",
-		Tag:    f.tag,
-	}, true
-}
-
-func (f *fakeConfig) Tag() names.Tag {
-	return f.tag
+func (p *stubAPIInfoProvider) APIInfo() (*api.Info, error) {
+	return p.info, p.err
 }

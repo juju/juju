@@ -11,6 +11,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
@@ -227,6 +228,28 @@ func (s *machineControllerStartupValueProviderSuite) TestControllerStartupValues
 	c.Check(values.ControllerPrivateKey, tc.Equals, "key-two")
 }
 
+func (s *machineControllerStartupValueProviderSuite) TestBootstrapStartupValuesAllowMissingControllerData(c *tc.C) {
+	apiPort, password := bootstrapStartupValues(&fakeMachineConfig{
+		controllerInfoFound: false,
+		apiInfoFound:        false,
+	})
+
+	c.Check(apiPort, tc.Equals, 0)
+	c.Check(password, tc.Equals, "")
+}
+
+func (s *machineControllerStartupValueProviderSuite) TestBootstrapStartupValuesReadCurrentAgentConfig(c *tc.C) {
+	apiPort, password := bootstrapStartupValues(&fakeMachineConfig{
+		controllerInfoFound: true,
+		controllerAgentInfo: controller.ControllerAgentInfo{APIPort: 17070},
+		apiInfoFound:        true,
+		apiInfo:             &api.Info{Password: "secret"},
+	})
+
+	c.Check(apiPort, tc.Equals, 17070)
+	c.Check(password, tc.Equals, "secret")
+}
+
 type fakeMachineAgentConfigWriter struct {
 	agentconf.AgentConf
 	config agent.Config
@@ -247,6 +270,9 @@ type fakeMachineConfig struct {
 	dqlitePort            int
 	tag                   names.Tag
 	controllerAgentInfo   controller.ControllerAgentInfo
+	controllerInfoFound   bool
+	apiInfo               *api.Info
+	apiInfoFound          bool
 }
 
 func (f *fakeMachineConfig) DataDir() string {
@@ -278,7 +304,20 @@ func (f *fakeMachineConfig) DqlitePort() (int, bool) {
 }
 
 func (f *fakeMachineConfig) ControllerAgentInfo() (controller.ControllerAgentInfo, bool) {
+	if !f.controllerInfoFound && f.controllerAgentInfo == (controller.ControllerAgentInfo{}) {
+		return controller.ControllerAgentInfo{}, false
+	}
 	return f.controllerAgentInfo, true
+}
+
+func (f *fakeMachineConfig) APIInfo() (*api.Info, bool) {
+	if !f.apiInfoFound && f.apiInfo == nil {
+		return nil, false
+	}
+	if f.apiInfo != nil {
+		return f.apiInfo, true
+	}
+	return &api.Info{Password: "password"}, true
 }
 
 func (f *fakeMachineConfig) Value(key string) string {

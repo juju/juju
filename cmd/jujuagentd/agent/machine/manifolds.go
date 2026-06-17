@@ -128,7 +128,6 @@ import (
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
-
 	// AgentName is the name of the machine agent, like "machine-12".
 	// This will never change during the execution of an agent, and
 	// is used to provide this as config into a worker rather than
@@ -141,9 +140,12 @@ type ManifoldsConfig struct {
 	// through the agent manifold.
 	ControllerID string
 
-	// ObjectStoreRootDirReader returns the current local filesystem root used by
-	// object-store workers.
-	ObjectStoreRootDirReader objectstore.RootDirReader
+	// StartupValueProvider is used by workers that need to read values from the
+	// agent config at startup, e.g. to get the API server certificate for the
+	// apiservercertwatcher manifold. This is used instead of the agent manifold
+	// to avoid unnecessary coupling and to allow these workers to be started
+	// before the agent manifold.
+	StartupValueProvider ControllerStartupValueProvider
 
 	// ControllerUUID is the controller entity UUID. It is sourced from
 	// agentConfig.Controller().Id() in makeEngineCreator and passed
@@ -157,13 +159,6 @@ type ManifoldsConfig struct {
 	// up from agent config at worker start.
 	ControllerModelUUID string
 
-	// ControllerStartupValues provides the controller-local startup values
-	// needed by dbaccessor from agent config.
-	ControllerStartupValues dbaccessor.ControllerStartupValuesProvider
-
-	// CertReader returns the current controller certificate material.
-	CertReader apiservercertwatcher.CertReader
-
 	// ControllerAgentTag is the tag used for controller-agent log records.
 	ControllerAgentTag names.Tag
 
@@ -171,14 +166,20 @@ type ManifoldsConfig struct {
 	// area that still take a fixed local path.
 	LogDir string
 
-	// APIServerLocalConfigReader returns the current API-server local values.
-	APIServerLocalConfigReader apiserver.LocalConfigReader
-
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
 
 	// ControlSocketPath is the path to the local controller control socket.
 	ControlSocketPath string
+
+	// DataDir is the agent data directory used by bootstrap.
+	DataDir string
+
+	// APIPort is the controller API port advertised during bootstrap.
+	APIPort int
+
+	// AgentPassword is the agent password used during bootstrap finalization.
+	AgentPassword string
 
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
@@ -236,7 +237,8 @@ type ManifoldsConfig struct {
 	// worker to perform the upgrade steps.
 	UpgradeSteps upgrades.UpgradeStepsFunc
 
-	// LogSink defines an interface for writing log records to a log sink.
+	// LogSink defines an interface for writing log records to a log
+	// sink.
 	LogSink corelogger.LogSink
 
 	// NewDeployContext gives the tests the opportunity to create a
@@ -328,7 +330,6 @@ type ManifoldsConfig struct {
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
-
 	// connectFilter exists:
 	//  1) to let us retry api connections immediately on password change,
 	//     rather than causing the dependency engine to wait for a while;
@@ -438,7 +439,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and offers the result to other manifolds. This is only
 		// run by state servers.
 		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-			CertReader: config.CertReader,
+			CertReader: config.StartupValueProvider,
 		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -598,7 +599,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		controllerTraceName: trace.ControllerManifold(trace.ControllerManifoldConfig{
-			AgentName:         agentName,
+			Tag:               agentConfig.Tag(),
 			TraceServicesName: traceServicesName,
 			Clock:             config.Clock,
 			Logger:            internallogger.GetLogger("juju.worker.trace"),
@@ -644,7 +645,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthenticatorName:      httpServerArgsName,
 			Clock:                  clock.WallClock,
 			ControllerTag:          config.ControllerAgentTag,
-			LocalConfigReader:      config.APIServerLocalConfigReader,
+			LocalConfigReader:      config.StartupValueProvider,
 			LogSinkName:            logSinkName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
@@ -843,7 +844,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			S3ClientName:                    objectStoreS3CallerName,
 			ObjectStoreName:                 objectStoreName,
 			ObjectStoreServicesName:         objectStoreServicesName,
-			RootDirReader:                   config.ObjectStoreRootDirReader,
+			RootDirReader:                   config.StartupValueProvider,
 			FortressName:                    objectStoreFortressName,
 			GetControllerService:            objectstoredrainer.GetControllerService,
 			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
@@ -864,7 +865,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
 			APIRemoteCallerName:        apiRemoteCallerName,
-			RootDirReader:              config.ObjectStoreRootDirReader,
+			RootDirReader:              config.StartupValueProvider,
 			ControllerNodeID:           config.ControllerID,
 			Clock:                      config.Clock,
 			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
@@ -940,7 +941,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				switch namespace {
 				case corehttp.CharmhubPurpose:
 					logger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
-					opts = append(opts,
+					opts = append(
+						opts,
 						internalhttp.WithLogger(logger),
 						internalhttp.WithRequestRetrier(charmhub.DefaultRetryPolicy()),
 					)
@@ -972,8 +974,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		apiRemoteCallerName: ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
-			AgentName:               agentName,
 			ObjectStoreServicesName: objectStoreServicesName,
+			APIInfo:                 config.StartupValueProvider,
+			Origin:                  agentConfig.Tag(),
 			Clock:                   config.Clock,
 			Logger:                  internallogger.GetLogger("juju.worker.apiremotecaller"),
 			NewWorker:               apiremotecaller.NewWorker,
@@ -1038,12 +1041,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			AgentName:               agentName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			ProviderFactoryName:     providerTrackerName,
+			DataDir:                 config.DataDir,
+			APIPort:                 config.APIPort,
+			AgentPassword:           config.AgentPassword,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateIAASControllerCharm,
 			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
@@ -1110,7 +1115,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.ControllerStartupValues,
+			ControllerStartupValues:   config.StartupValueProvider,
 			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
 			PrometheusRegisterer:      config.PrometheusRegisterer,
 			NewApp:                    dbaccessor.NewApp,
@@ -1272,12 +1277,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			AgentName:               agentName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
 			HTTPClientName:          httpClientName,
 			BootstrapGateName:       isBootstrapGateName,
 			ProviderFactoryName:     providerTrackerName,
+			DataDir:                 config.DataDir,
+			APIPort:                 config.APIPort,
+			AgentPassword:           config.AgentPassword,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateCAASControllerCharm,
 			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
@@ -1345,7 +1352,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.ControllerStartupValues,
+			ControllerStartupValues:   config.StartupValueProvider,
 			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
 			PrometheusRegisterer:      config.PrometheusRegisterer,
 			NewApp:                    dbaccessor.NewApp,
@@ -1446,6 +1453,17 @@ var ifControllerAgentConfigNeededAndReady = engine.Housing{
 		controllerAgentConfigReadyFlagName,
 	},
 }.Decorate
+
+// ControllerStartupValueProvider is the set of methods required to provide
+// startup values to controller-only workers. This is implemented by the
+// config.StartupValueProvider, which is passed to the manifolds in the config.
+type ControllerStartupValueProvider interface {
+	objectstore.RootDirReader
+	dbaccessor.ControllerStartupValuesProvider
+	apiservercertwatcher.CertReader
+	apiserver.LocalConfigReader
+	apiremotecaller.APIInfoProvider
+}
 
 const (
 	agentName              = "agent"

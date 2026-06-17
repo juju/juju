@@ -143,6 +143,19 @@ func (p machineControllerStartupValueProvider) ObjectStoreRootDir() (string, err
 	return p.agent.CurrentConfig().DataDir(), nil
 }
 
+// APIInfo returns the current API connection details from agent config. This
+// is used by the API server worker to determine whether to start up or not,
+// and if it does start up, what API info to use to connect to the controller.
+// It is called each time the worker starts so that bounced workers do not keep
+// stale values.
+func (p machineControllerStartupValueProvider) APIInfo() (*api.Info, error) {
+	info, ok := p.agent.CurrentConfig().APIInfo()
+	if !ok {
+		return nil, errors.NotFoundf("API info")
+	}
+	return info, nil
+}
+
 type (
 	// The following allows the upgrade steps to be overridden by brittle
 	// integration tests.
@@ -228,7 +241,6 @@ type machineAgentCommand struct {
 // Init is called by the cmd system to initialize the structure for
 // running.
 func (a *machineAgentCommand) Init(args []string) error {
-
 	if a.machineId == "" && a.controllerId == "" {
 		return errors.New("either machine-id or controller-id must be set")
 	}
@@ -257,7 +269,7 @@ func (a *machineAgentCommand) Init(args []string) error {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 	config := a.currentConfig.CurrentConfig()
-	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
+	if err := os.MkdirAll(config.LogDir(), 0o644); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
@@ -609,24 +621,25 @@ func (a *MachineAgent) makeEngineCreator(
 			handle("/metrics/", promhttp.HandlerFor(a.prometheusRegistry, promhttp.HandlerOpts{}))
 		}
 
-		clock := clock.WallClock
-		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(clock), "", internallogger.GetLogger("juju.flightrecorder"))
+		c := clock.WallClock
+		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(c), "", internallogger.GetLogger("juju.flightrecorder"))
 		startupValueProvider := machineControllerStartupValueProvider{agent: a}
+		bootstrapAPIPort, bootstrapAgentPassword := bootstrapStartupValues(agentConfig)
 
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion:              previousAgentVersion,
 			AgentName:                         agentName,
 			ControllerID:                      agentConfig.Tag().Id(),
-			ObjectStoreRootDirReader:          startupValueProvider,
 			ControllerUUID:                    agentConfig.Controller().Id(),
 			ControllerModelUUID:               agentConfig.Model().Id(),
-			ControllerStartupValues:           startupValueProvider,
 			ControllerAgentTag:                agentConfig.Tag(),
 			LogDir:                            agentConfig.LogDir(),
-			CertReader:                        startupValueProvider,
-			APIServerLocalConfigReader:        startupValueProvider,
+			StartupValueProvider:              startupValueProvider,
 			ConfigChangeSocketPath:            path.Join(agentConfig.DataDir(), "configchange.socket"),
 			ControlSocketPath:                 path.Join(agentConfig.DataDir(), "control.socket"),
+			DataDir:                           agentConfig.DataDir(),
+			APIPort:                           bootstrapAPIPort,
+			AgentPassword:                     bootstrapAgentPassword,
 			Agent:                             agent.APIHostPortsSetter{Agent: a},
 			RootDir:                           a.rootDir,
 			AgentConfigChanged:                a.configChangedVal,
@@ -640,7 +653,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSink:                           logSink,
 			NewDeployContext:                  deployer.NewNestedContext,
-			Clock:                             clock,
+			Clock:                             c,
 			FlightRecorder:                    flightRecorder,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
@@ -687,7 +700,7 @@ func (a *MachineAgent) makeEngineCreator(
 			PrometheusGatherer: a.prometheusRegistry,
 			FlightRecorder:     flightRecorder,
 			WorkerFunc:         introspection.NewWorker,
-			Clock:              clock,
+			Clock:              c,
 			Logger:             logger.Child("introspection"),
 		}); err != nil {
 			// If the introspection worker failed to start, we just log error
@@ -704,6 +717,20 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 		return eng, nil
 	}
+}
+
+func bootstrapStartupValues(config agent.Config) (int, string) {
+	var apiPort int
+	if servingInfo, ok := config.ControllerAgentInfo(); ok {
+		apiPort = servingInfo.APIPort
+	}
+
+	var password string
+	if apiInfo, ok := config.APIInfo(); ok {
+		password = apiInfo.Password
+	}
+
+	return apiPort, password
 }
 
 func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
@@ -935,7 +962,7 @@ func (a *MachineAgent) createSymlink(target, link string) error {
 		}
 	}
 
-	if err := os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0o755)); err != nil {
 		return err
 	}
 	return symlink.New(target, fullLink)

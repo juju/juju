@@ -519,6 +519,7 @@ func (w *userdataConfig) configureBootstrap() error {
 		SystemIdentity:         w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
 		LogSinkRateLimitBurst:  logSinkBurst,
 		LogSinkRateLimitRefill: logSinkRefill,
+		APIAddresses:           w.icfg.APIInfo.Addrs,
 	}
 	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	if err != nil {

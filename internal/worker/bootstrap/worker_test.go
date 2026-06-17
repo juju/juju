@@ -17,7 +17,6 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 
-	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
@@ -71,10 +70,8 @@ func (s *workerSuite) TestKilled(c *tc.C) {
 	s.expectUser(c)
 	s.expectAuthorizedKeys()
 	s.expectControllerConfig()
-	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectControllerAgentInfo()
 	s.expectReloadSpaces()
 	s.expectSeedDefaultStoragePools()
 	s.expectInitialiseBakeryConfig(nil)
@@ -98,11 +95,9 @@ func (s *workerSuite) TestReloadSpacesBeforeControllerCharm(c *tc.C) {
 	s.expectUser(c)
 	s.expectAuthorizedKeys()
 	s.expectControllerConfig()
-	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 	s.expectSetAPIHostPorts()
-	s.expectControllerAgentInfo()
 	s.expectSeedDefaultStoragePools()
 	controllerCharmDeployerFunc := s.expectReloadSpacesWithFunc(c)
 	s.expectInitialiseBakeryConfig(nil)
@@ -344,9 +339,10 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc ControllerCharmDeployerFunc) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Agent:                      s.agent,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		BootstrapUnlocker:          s.bootstrapUnlocker,
+		DataDir:                    s.dataDir,
+		APIPort:                    42,
 		CharmhubHTTPClient:         s.httpClient,
 		ControllerAgentBinaryStore: s.controllerAgentBinaryStore,
 		UserService:                s.userService,
@@ -371,10 +367,11 @@ func (s *workerSuite) newWorkerWithFunc(c *tc.C, controllerCharmDeployerFunc Con
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: controllerCharmDeployerFunc,
+		AgentPassword:           "password",
 		BootstrapAddressFinder: func(context.Context, instance.Id) (network.ProviderAddresses, error) {
 			return nil, nil
 		},
-		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
+		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, password string) error {
 			return nil
 		},
 		StatusHistory: s.statusHistory,
@@ -433,12 +430,6 @@ func (s *workerSuite) expectUser(c *tc.C) {
 
 func (s *workerSuite) expectAuthorizedKeys() {
 	s.keyManagerService.EXPECT().AddPublicKeysForUser(gomock.Any(), s.adminUserID, []string{}).Return(nil)
-}
-
-func (s *workerSuite) expectControllerAgentInfo() {
-	s.agentConfig.EXPECT().ControllerAgentInfo().Return(controller.ControllerAgentInfo{
-		APIPort: 42,
-	}, true)
 }
 
 func (s *workerSuite) expectReloadSpaces() {

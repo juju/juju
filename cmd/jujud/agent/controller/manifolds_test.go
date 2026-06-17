@@ -10,20 +10,15 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
 	agentcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
-	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/agentconfigupdater"
-	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/gate"
@@ -43,8 +38,8 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
+		ControllerTag:   testing.ControllerTag,
 	})
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
@@ -52,8 +47,8 @@ func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 	}
 
 	manifolds = agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
+		ControllerTag:   testing.ControllerTag,
 	})
 	for name, manifold := range manifolds {
 		c.Logf("checking CAAS %q manifold", name)
@@ -63,8 +58,8 @@ func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
 
 func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
+		ControllerTag:   testing.ControllerTag,
 	})
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -72,11 +67,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	}
 	sort.Strings(keys)
 	c.Assert(keys, tc.SameContents, []string{
-		"agent",
-		"agent-config-updater",
 		"api-address-setter",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"api-remote-relation-caller",
 		"api-server",
@@ -86,12 +77,12 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"certificate-watcher",
 		"change-stream",
 		"change-stream-pruner",
-		"clock",
-		"controller-upgrade-flag",
-		"controller-upgrade-gate",
 		"control-socket",
 		"controller-agent-config",
 		"controller-presence",
+		"controller-trace",
+		"controller-upgrade-flag",
+		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"external-controller-updater",
@@ -126,7 +117,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"ssh-server",
 		"storage-registry",
 		"termination-signal-handler",
-		"trace",
+		"trace-services",
 		"undertaker",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
@@ -144,8 +135,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 
 func (*ManifoldsSuite) TestMigrationInfrastructureStaysActive(c *tc.C) {
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
+		ControllerTag:   testing.ControllerTag,
 	})
 	manifold, ok := manifolds["migration-fortress"]
 	c.Assert(ok, tc.IsTrue)
@@ -159,10 +150,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 	// All manifolds that do NOT require both migration-fortress and
 	// migration-inactive-flag as direct Inputs are listed here.
 	exempt := set.NewStrings(
-		"agent",
 		"api-address-setter",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"api-remote-relation-caller",
 		"api-server",
@@ -172,7 +160,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"certificate-watcher",
 		"change-stream",
 		"change-stream-pruner",
-		"clock",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
 		"control-socket",
@@ -208,7 +195,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"ssh-server",
 		"storage-registry",
 		"termination-signal-handler",
-		"trace",
+		"trace-services",
+		"controller-trace",
 		"undertaker",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
@@ -223,8 +211,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"watcher-registry",
 	)
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
+		ControllerTag:   testing.ControllerTag,
 	})
 	for name, manifold := range manifolds {
 		c.Logf("%s", name)
@@ -239,8 +227,8 @@ func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *tc.C) {
 	// The object-store is a dependency of domain-services; no circular
 	// dependency is permitted.
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
+		ControllerTag:   testing.ControllerTag,
 	})
 
 	manifold := manifolds["object-store"]
@@ -254,8 +242,8 @@ func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
 	// The provider-tracker is a dependency of domain-services; no circular
 	// dependency is permitted.
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           &mockAgent{},
 		PreUpgradeSteps: preUpgradeSteps,
+		ControllerTag:   testing.ControllerTag,
 	})
 
 	manifold := manifolds["provider-tracker"]
@@ -263,24 +251,6 @@ func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
 
 	dependencies := agenttest.ManifoldDependencies(manifolds, manifold)
 	c.Check(dependencies.Contains("domain-services"), tc.IsFalse)
-}
-
-func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *tc.C) {
-	ag := &mockAgent{
-		conf: mockConfig{
-			dataPath: c.MkDir(),
-		},
-	}
-	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:           ag,
-		PreUpgradeSteps: preUpgradeSteps,
-	})
-
-	c.Assert(manifolds["api-caller"], tc.Not(tc.IsNil))
-	apiCallerManifold := manifolds["api-caller"]
-
-	err := apiCallerManifold.Filter(apicaller.ErrConnectImpossible)
-	c.Assert(err, tc.Equals, jworker.ErrTerminateAgent)
 }
 
 func checkContains(c *tc.C, names []string, seek string) {
@@ -300,8 +270,8 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 func (*ManifoldsSuite) TestControllerUpgradeGate(c *tc.C) {
 	controllerUpgradeLock := gate.NewLock()
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:                 &mockAgent{},
 		PreUpgradeSteps:       preUpgradeSteps,
+		ControllerTag:         testing.ControllerTag,
 		ControllerUpgradeLock: controllerUpgradeLock,
 	})
 	assertGate(c, manifolds["controller-upgrade-gate"], controllerUpgradeLock)
@@ -311,8 +281,8 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 	upgradeStepsLock := gate.NewLock()
 	upgradeCheckLock := gate.NewLock()
 	manifolds := agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-		Agent:            &mockAgent{},
 		PreUpgradeSteps:  preUpgradeSteps,
+		ControllerTag:    testing.ControllerTag,
 		UpgradeStepsLock: upgradeStepsLock,
 		UpgradeCheckLock: upgradeCheckLock,
 	})
@@ -326,11 +296,10 @@ func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
 	// db-accessor and file-notify-watcher appear in its direct Inputs.
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
@@ -347,11 +316,10 @@ func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
 func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
@@ -415,24 +383,31 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		})
 		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "api-caller")
 		checkNotContains(c, externalControllerUpdaterManifold.Inputs, "agent")
+
+		apiRemoteCallerManifold, ok := manifolds["api-remote-caller"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(apiRemoteCallerManifold.Inputs, tc.SameContents, []string{
+			"object-store-services",
+		})
+		checkNotContains(c, apiRemoteCallerManifold.Inputs, "agent")
+		checkNotContains(c, apiRemoteCallerManifold.Inputs, "api-caller")
 	}
 }
 
 func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
 		manifold, ok := manifolds["object-store"]
 		c.Assert(ok, tc.IsTrue)
 		c.Check(manifold.Inputs, tc.SameContents, []string{
-			"trace",
+			"controller-trace",
 			"object-store-services",
 			"lease-manager",
 			"object-store-s3-caller",
@@ -447,11 +422,10 @@ func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
 func (*ManifoldsSuite) TestObjectStoreServicesDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
@@ -466,11 +440,10 @@ func (*ManifoldsSuite) TestObjectStoreServicesDirectInputs(c *tc.C) {
 func (*ManifoldsSuite) TestObjectStoreDrainerDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
@@ -490,11 +463,10 @@ func (*ManifoldsSuite) TestObjectStoreDrainerDirectInputs(c *tc.C) {
 func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
@@ -502,7 +474,7 @@ func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
 		c.Assert(ok, tc.IsTrue)
 		c.Check(manifold.Inputs, tc.SameContents, []string{
 			"db-accessor",
-			"trace",
+			"controller-trace",
 			"is-primary-controller-flag",
 		})
 		checkNotContains(c, manifold.Inputs, "clock")
@@ -512,11 +484,10 @@ func (*ManifoldsSuite) TestLeaseExpiryDirectInputs(c *tc.C) {
 func (*ManifoldsSuite) TestLeaseManagerDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
@@ -524,7 +495,7 @@ func (*ManifoldsSuite) TestLeaseManagerDirectInputs(c *tc.C) {
 		c.Assert(ok, tc.IsTrue)
 		c.Check(manifold.Inputs, tc.SameContents, []string{
 			"db-accessor",
-			"trace",
+			"controller-trace",
 		})
 		checkNotContains(c, manifold.Inputs, "agent")
 		checkNotContains(c, manifold.Inputs, "clock")
@@ -534,11 +505,10 @@ func (*ManifoldsSuite) TestLeaseManagerDirectInputs(c *tc.C) {
 func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
+			ControllerTag:   testing.ControllerTag,
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
@@ -569,26 +539,9 @@ func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestAgentConfigUpdaterUsesMigrationHousingInBothVariants(c *tc.C) {
-	for _, manifolds := range []dependency.Manifolds{
-		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
-			PreUpgradeSteps: preUpgradeSteps,
-		}),
-		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{conf: mockConfig{tag: names.NewControllerAgentTag("0")}},
-			PreUpgradeSteps: preUpgradeSteps,
-		}),
-	} {
-		manifold := manifolds["agent-config-updater"]
-		checkContains(c, manifold.Inputs, "migration-fortress")
-		checkContains(c, manifold.Inputs, "migration-inactive-flag")
-	}
-}
-
 func (*ManifoldsSuite) TestBootstrapManifoldConfigUsesProviderSpecificHelpers(c *tc.C) {
 	manifoldsCfg := agentcontroller.ManifoldsConfig{
-		Agent: &mockAgent{},
+		ControllerTag: testing.ControllerTag,
 	}
 	iaasCfg := agentcontroller.NewIAASBootstrapManifoldConfig(manifoldsCfg)
 	caasCfg := agentcontroller.NewCAASBootstrapManifoldConfig(manifoldsCfg)
@@ -607,17 +560,9 @@ func (*ManifoldsSuite) TestBootstrapManifoldConfigUsesProviderSpecificHelpers(c 
 	c.Check(reflect.ValueOf(caasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAgentFinalizer).Pointer())
 }
 
-func (*ManifoldsSuite) TestAgentConfigUpdaterManifoldConfigUsesProviderSpecificControllerChecks(c *tc.C) {
-	iaasCfg := agentcontroller.NewIAASAgentConfigUpdaterManifoldConfig()
-	caasCfg := agentcontroller.NewCAASAgentConfigUpdaterManifoldConfig()
-
-	c.Check(reflect.ValueOf(iaasCfg.IsControllerAgentFn).Pointer(), tc.Equals, reflect.ValueOf(agentconfigupdater.IAASIsControllerAgent).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.IsControllerAgentFn).Pointer(), tc.Equals, reflect.ValueOf(agentconfigupdater.CAASIsControllerAgent).Pointer())
-}
-
 func (*ManifoldsSuite) TestDBAccessorManifoldConfigUsesProviderSpecificNodeManagers(c *tc.C) {
 	manifoldsCfg := agentcontroller.ManifoldsConfig{
-		Agent: &mockAgent{},
+		ControllerTag: testing.ControllerTag,
 	}
 	iaasCfg := agentcontroller.NewIAASDBAccessorManifoldConfig(manifoldsCfg)
 	caasCfg := agentcontroller.NewCAASDBAccessorManifoldConfig(manifoldsCfg)
@@ -654,7 +599,6 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(
 		c,
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
-			Agent:           &mockAgent{},
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		expectedControllerManifoldsWithDependencies,
@@ -662,42 +606,11 @@ func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 }
 
 var expectedControllerManifoldsWithDependencies = map[string][]string{
-	"agent": {},
-
-	"agent-config-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"api-remote-caller",
-		"change-stream",
-		"controller-agent-config",
-		"db-accessor",
-		"domain-services",
-		"file-notify-watcher",
-		"http-client",
-		"lease-manager",
-		"log-sink",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"object-store",
-		"object-store-facade",
-		"object-store-fortress",
-		"object-store-s3-caller",
-		"object-store-services",
-		"provider-services",
-		"provider-tracker",
-		"query-logger",
-		"storage-registry",
-		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-	},
-
 	"api-address-setter": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -714,17 +627,12 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
-	"api-caller": {"agent", "api-config-watcher"},
-
-	"api-config-watcher": {"agent"},
-
 	"api-remote-caller": {
-		"agent",
 		"change-stream",
 		"controller-agent-config",
 		"db-accessor",
@@ -734,10 +642,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"api-remote-relation-caller": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
 		"db-accessor",
@@ -755,17 +663,17 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"api-server": {
-		"agent",
 		"api-remote-caller",
 		"audit-config-updater",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
 		"db-accessor",
@@ -788,7 +696,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
@@ -796,10 +704,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"audit-config-updater": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -815,16 +723,16 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"bootstrap": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -841,17 +749,17 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"certificate-updater": {
-		"agent",
 		"api-remote-caller",
 		"certificate-watcher",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
 		"db-accessor",
@@ -869,7 +777,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-database-flag",
@@ -888,10 +796,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"change-stream-pruner": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -908,22 +816,16 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
-	"clock": {},
-
-	"controller-upgrade-flag": {"controller-upgrade-gate"},
-
-	"controller-upgrade-gate": {},
-
 	"control-socket": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -939,7 +841,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
@@ -947,10 +849,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"controller-agent-config": {},
 
 	"controller-presence": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -966,10 +868,23 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
+
+	"controller-trace": {
+		"change-stream",
+		"controller-agent-config",
+		"db-accessor",
+		"file-notify-watcher",
+		"query-logger",
+		"trace-services",
+	},
+
+	"controller-upgrade-flag": {"controller-upgrade-gate"},
+
+	"controller-upgrade-gate": {},
 
 	"db-accessor": {
 		"controller-agent-config",
@@ -977,10 +892,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"domain-services": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -995,18 +910,16 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"external-controller-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1025,7 +938,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
@@ -1037,13 +950,13 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"http-client": {},
 
 	"http-server": {
-		"agent",
 		"api-remote-caller",
 		"api-server",
 		"audit-config-updater",
 		"certificate-watcher",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
 		"db-accessor",
@@ -1066,7 +979,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
@@ -1074,10 +987,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	},
 
 	"http-server-args": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1095,7 +1008,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
@@ -1105,19 +1018,21 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"is-bootstrap-gate": {},
 
 	"is-primary-controller-flag": {
-		"agent",
+		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
+		"file-notify-watcher",
 		"lease-manager",
 		"query-logger",
-		"trace",
+		"trace-services",
 	},
 
 	"jwt-parser": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1133,38 +1048,40 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"lease-expiry": {
-		"agent",
+		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
+		"file-notify-watcher",
 		"is-primary-controller-flag",
 		"lease-manager",
 		"query-logger",
-		"trace",
+		"trace-services",
 	},
 
 	"lease-manager": {
-		"agent",
+		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
+		"file-notify-watcher",
 		"query-logger",
-		"trace",
+		"trace-services",
 	},
 
 	"log-sink": {},
 
 	"logging-controller-config-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1182,35 +1099,27 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"migration-fortress": {},
 
-	"migration-inactive-flag": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-	},
+	"migration-inactive-flag": {},
 
 	"migration-minion": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
-		"migration-fortress",
 	},
 
 	"model-worker-manager": {
-		"agent",
 		"api-remote-caller",
 		"api-remote-relation-caller",
 		"certificate-watcher",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
 		"db-accessor",
@@ -1228,7 +1137,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-database-flag",
@@ -1240,10 +1149,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"object-store-fortress": {},
 
 	"object-store-facade": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -1253,16 +1162,16 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"query-logger",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"object-store-drainer": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -1272,16 +1181,16 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"query-logger",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"object-store": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"file-notify-watcher",
 		"http-client",
@@ -1289,7 +1198,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"object-store-s3-caller",
 		"object-store-services",
 		"query-logger",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
@@ -1335,12 +1244,10 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"query-logger": {},
 
 	"secret-backend-rotate": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1359,24 +1266,21 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
 	"ssh-identity-writer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
 	},
 
 	"ssh-server": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1392,7 +1296,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
@@ -1410,13 +1314,19 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"termination-signal-handler": {},
 
-	"trace": {"agent"},
+	"trace-services": {
+		"change-stream",
+		"controller-agent-config",
+		"db-accessor",
+		"file-notify-watcher",
+		"query-logger",
+	},
 
 	"undertaker": {
-		"agent",
 		"api-remote-caller",
 		"change-stream",
 		"controller-agent-config",
+		"controller-trace",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1432,7 +1342,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"provider-tracker",
 		"query-logger",
 		"storage-registry",
-		"trace",
+		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
@@ -1445,18 +1355,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"upgrade-database-gate": {},
 
-	"upgrade-database-runner": {
-		"agent",
-		"change-stream",
-		"controller-agent-config",
-		"controller-upgrade-flag",
-		"controller-upgrade-gate",
-		"db-accessor",
-		"file-notify-watcher",
-		"query-logger",
-		"upgrade-database-gate",
-		"upgrade-services",
-	},
+	"upgrade-database-runner": {},
 
 	"upgrade-services": {
 		"change-stream",
@@ -1473,91 +1372,16 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 	"upgrade-steps-gate": {"controller-upgrade-flag", "controller-upgrade-gate"},
 
 	"upgrade-controller-steps-runner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"api-remote-caller",
-		"change-stream",
-		"controller-agent-config",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
-		"db-accessor",
-		"domain-services",
-		"file-notify-watcher",
-		"http-client",
-		"lease-manager",
-		"log-sink",
-		"object-store",
-		"object-store-facade",
-		"object-store-fortress",
-		"object-store-s3-caller",
-		"object-store-services",
-		"provider-services",
-		"provider-tracker",
-		"query-logger",
-		"storage-registry",
-		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
-		"upgrade-steps-gate",
 	},
 
 	"upgrader": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"controller-upgrade-flag",
 		"controller-upgrade-gate",
-		"upgrade-check-gate",
-		"upgrade-steps-gate",
 	},
 
 	"watcher-registry": {},
-}
-
-type mockAgent struct {
-	agent.Agent
-	conf mockConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
-	return f(&ma.conf)
-}
-
-type mockConfig struct {
-	agent.ConfigSetter
-	tag      names.Tag
-	dataPath string
-}
-
-func (mc *mockConfig) Tag() names.Tag {
-	if mc.tag == nil {
-		return names.NewMachineTag("99")
-	}
-	return mc.tag
-}
-
-func (mc *mockConfig) Controller() names.ControllerTag {
-	return testing.ControllerTag
-}
-
-func (mc *mockConfig) LogDir() string {
-	return "log-dir"
-}
-
-func (mc *mockConfig) DataDir() string {
-	if mc.dataPath != "" {
-		return mc.dataPath
-	}
-	return "data-dir"
-}
-
-func (mc *mockConfig) LoggingConfig() string {
-	return ""
 }
 
 func preUpgradeSteps(model.ModelType) upgrades.PreUpgradeStepsFunc { return nil }

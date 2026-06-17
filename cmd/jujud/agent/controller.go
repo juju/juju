@@ -28,6 +28,7 @@ import (
 	agentconfig "github.com/juju/juju/agent/config"
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	coreapiserver "github.com/juju/juju/apiserver"
 	jujucmd "github.com/juju/juju/cmd"
@@ -129,6 +130,20 @@ func (p controllerStartupValueProvider) ObjectStoreRootDir() (string, error) {
 		return "", errors.Trace(err)
 	}
 	return cfg.DataDir, nil
+}
+
+// APIInfo returns the current API connection info from runtime.conf.
+func (p controllerStartupValueProvider) APIInfo() (*api.Info, error) {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &api.Info{
+		Addrs:          cfg.APIAddresses,
+		CACert:         cfg.CACert,
+		ControllerUUID: cfg.ControllerUUID,
+		Tag:            p.agent.agentTag,
+	}, nil
 }
 
 // LoggingOverride returns the current persisted logging override.
@@ -497,6 +512,14 @@ func (a *ControllerAgent) makeEngineCreator(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		servingInfo, ok := agentConfig.ControllerAgentInfo()
+		if !ok {
+			return nil, errors.NotFoundf("controller agent info")
+		}
+		apiInfo, ok := agentConfig.APIInfo()
+		if !ok {
+			return nil, errors.NotFoundf("API info")
+		}
 		startupValueProvider := controllerStartupValueProvider{
 			agent:                 a,
 			controllerRuntimePath: controllerRuntimeConfigPath,
@@ -507,26 +530,25 @@ func (a *ControllerAgent) makeEngineCreator(
 		)
 
 		manifoldsCfg := agentcontroller.ManifoldsConfig{
-			PreviousAgentVersion:       previousAgentVersion,
-			AgentName:                  agentName,
-			ControllerID:               a.agentTag.Id(),
-			ObjectStoreRootDirReader:   startupValueProvider,
-			ControllerUUID:             controllerRuntimeConfig.ControllerUUID,
-			ControllerModelUUID:        controllerRuntimeConfig.ControllerModelUUID,
-			ControllerStartupValues:    startupValueProvider,
-			ControllerAgentTag:         a.agentTag,
-			LogDir:                     controllerRuntimeConfig.LogDir,
-			CertReader:                 startupValueProvider,
-			APIServerLocalConfigReader: startupValueProvider,
+			PreviousAgentVersion: previousAgentVersion,
+			AgentName:            agentName,
+			ControllerID:         a.agentTag.Id(),
+			StartupValueProvider: startupValueProvider,
+			ControllerUUID:       controllerRuntimeConfig.ControllerUUID,
+			ControllerModelUUID:  controllerRuntimeConfig.ControllerModelUUID,
+			ControllerAgentTag:   a.agentTag,
+			ControllerTag:        names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
+			LogDir:               controllerRuntimeConfig.LogDir,
 			ConfigChangeSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "configchange.socket",
 			),
 			ControlSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "control.socket",
 			),
-			Agent:                             agent.APIHostPortsSetter{Agent: a},
+			DataDir:                           agentConfig.DataDir(),
+			APIPort:                           servingInfo.APIPort,
+			AgentPassword:                     apiInfo.Password,
 			RootDir:                           a.rootDir,
-			AgentConfigChanged:                a.configChangedVal,
 			BootstrapLock:                     a.bootstrapLock,
 			ControllerUpgradeLock:             a.controllerUpgradeLock,
 			UpgradeDBLock:                     a.upgradeDBLock,
@@ -550,8 +572,6 @@ func (a *ControllerAgent) makeEngineCreator(
 			SetupLogging:                      agentconf.SetupAgentLogging,
 			DependencyEngineMetrics:           metrics,
 			NewEnvironFunc:                    newEnvirons,
-			LoggingOverrideReader:             startupValueProvider,
-			SystemIdentityReader:              startupValueProvider,
 		}
 		manifolds := agentcontroller.IAASManifolds(manifoldsCfg)
 		if agentConfig.Value(agent.ProviderType) == k8sconstants.CAASProviderType {
