@@ -132,6 +132,41 @@ func (s *TargetInfoSuite) TestValidation(c *tc.C) {
 	}
 }
 
+func (s *TargetInfoSuite) TestNeedsPasswordMacaroon(c *tc.C) {
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
+	c.Assert(err, tc.ErrorIsNil)
+
+	tests := []struct {
+		label    string
+		info     migration.TargetInfo
+		expected bool
+	}{{
+		label:    "password and no reusable auth",
+		info:     migration.TargetInfo{Password: "password"},
+		expected: true,
+	}, {
+		label: "password and macaroons",
+		info: migration.TargetInfo{
+			Password:  "password",
+			Macaroons: []macaroon.Slice{{mac}},
+		},
+	}, {
+		label: "password and token",
+		info: migration.TargetInfo{
+			Password: "password",
+			Token:    "jimm-token",
+		},
+	}, {
+		label: "no password",
+		info:  migration.TargetInfo{},
+	}}
+
+	for _, test := range tests {
+		c.Logf("%s", test.label)
+		c.Check(test.info.NeedsPasswordMacaroon(), tc.Equals, test.expected)
+	}
+}
+
 func makeValidTargetInfo(c *tc.C) migration.TargetInfo {
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, tc.ErrorIsNil)

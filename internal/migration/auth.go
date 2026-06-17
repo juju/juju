@@ -23,26 +23,27 @@ type MigrationMacaroonMinter interface {
 }
 
 // HarvestMigrationMacaroon exchanges the admin password in targetInfo for a
-// directly-presentable 24h login macaroon minted by the target controller.
-// On success, targetInfo.Macaroons is populated and targetInfo.Password is
-// cleared so the cleartext credential is never persisted.
+// directly-presentable 24h login macaroon minted by the target controller,
+// returning the updated TargetInfo with Macaroons populated and Password
+// cleared so the cleartext credential is never persisted. The targetInfo
+// argument itself is left unmodified.
 //
 // It is a no-op when a token or macaroons are already present (those flows
 // do not need a password exchange). When the target is too old to support
 // the method, an error is returned — callers must NOT fall back to
 // persisting the cleartext password.
-func HarvestMigrationMacaroon(ctx context.Context, targetInfo *coremigration.TargetInfo, client MigrationMacaroonMinter) error {
-	if targetInfo.Password == "" || len(targetInfo.Macaroons) != 0 || targetInfo.Token != "" {
-		return nil
+func HarvestMigrationMacaroon(ctx context.Context, targetInfo coremigration.TargetInfo, client MigrationMacaroonMinter) (coremigration.TargetInfo, error) {
+	if !targetInfo.NeedsPasswordMacaroon() {
+		return targetInfo, nil
 	}
 	macs, err := client.CreateMigrationMacaroon(ctx)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
-			return errors.New("target controller is too old to support password-authenticated migration; upgrade the target to a version that exposes MigrationTarget v8 or later")
+			return targetInfo, errors.New("target controller is too old to support password-authenticated migration; upgrade the target to a version that exposes MigrationTarget v8 or later")
 		}
-		return errors.Annotate(err, "cannot obtain migration macaroon from target")
+		return targetInfo, errors.Annotate(err, "cannot obtain migration macaroon from target")
 	}
 	targetInfo.Macaroons = macs
 	targetInfo.Password = ""
-	return nil
+	return targetInfo, nil
 }
