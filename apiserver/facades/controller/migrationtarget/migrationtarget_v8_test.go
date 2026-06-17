@@ -102,7 +102,7 @@ func (s *v8Suite) mustNewAPIV8(c *tc.C) *migrationtarget.APIV8 {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	apiV8, err := migrationtarget.NewAPIV8(api)
+	apiV8, err := migrationtarget.NewAPIV8(api, nil)
 	c.Assert(err, tc.ErrorIsNil)
 	return apiV8
 }

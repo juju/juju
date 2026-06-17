@@ -322,6 +322,27 @@ func CreateLocalLoginMacaroon(
 	}, identchecker.LoginOp)
 }
 
+// CreateMigrationMacaroon creates a macaroon that authenticates the given
+// local user directly at login, without requiring a discharge ceremony. Unlike
+// CreateLocalLoginMacaroon, the macaroon carries a declared-username first-party
+// caveat (no third-party discharge needed) so it can be presented as-is by the
+// migrationmaster worker when reconnecting to the target controller.
+//
+// The minter must be backed by the storage (localUserBakery) oven so that the
+// target's LocalUserAuthenticator can verify it.
+func CreateMigrationMacaroon(
+	ctx context.Context,
+	tag names.UserTag,
+	minter MacaroonMinter,
+	clock clock.Clock,
+	version bakery.Version,
+) (*bakery.Macaroon, error) {
+	return minter.NewMacaroon(ctx, version, []checkers.Caveat{
+		checkers.DeclaredCaveat(usernameKey, tag.Id()),
+		checkers.TimeBeforeCaveat(clock.Now().Add(localLoginExpiryTime)),
+	}, identchecker.LoginOp)
+}
+
 // CheckLocalLoginCaveat parses and checks that the given caveat string is
 // valid for a local login request, and returns the tag of the local user
 // that the caveat asserts is logged in. checkers.ErrCaveatNotRecognized will
