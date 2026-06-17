@@ -364,7 +364,6 @@ func (s *commitHookSuite) TestPrepareSecretUpdatesUUIDGenerationFailure(c *tc.C)
 
 	// Secret update with data triggers UUID generation
 	uri := coresecrets.NewURI()
-	s.st.EXPECT().GetSecretChecksum(gomock.Any(), uri.ID).Return("different-checksum", nil)
 
 	arg := unitstate.CommitHookChangesArg{
 		UnitName: unitName,
@@ -384,7 +383,7 @@ func (s *commitHookSuite) TestPrepareSecretUpdatesUUIDGenerationFailure(c *tc.C)
 	c.Assert(err, tc.ErrorMatches, `generating revision UUID for update\[0\]: uuid boom`)
 }
 
-func (s *commitHookSuite) TestPrepareSecretUpdatesSameChecksumSkipsBackendRef(c *tc.C) {
+func (s *commitHookSuite) TestPrepareSecretUpdatesAlwaysAddsBackendRef(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	unitName := unittesting.GenNewName(c, "test/0")
@@ -394,11 +393,10 @@ func (s *commitHookSuite) TestPrepareSecretUpdatesSameChecksumSkipsBackendRef(c 
 	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
 
 	uri := coresecrets.NewURI()
-	s.st.EXPECT().GetSecretChecksum(gomock.Any(), uri.ID).Return("same-checksum", nil)
 
 	s.secretBackend.EXPECT().AddSecretBackendReference(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
-	).Times(0)
+	)
 
 	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).Return(nil)
 
@@ -427,7 +425,6 @@ func (s *commitHookSuite) TestPrepareSecretUpdatesDifferentChecksumAddsBackendRe
 	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
 
 	uri := coresecrets.NewURI()
-	s.st.EXPECT().GetSecretChecksum(gomock.Any(), uri.ID).Return("old-checksum", nil)
 
 	rollbackCalled := false
 	s.secretBackend.EXPECT().AddSecretBackendReference(

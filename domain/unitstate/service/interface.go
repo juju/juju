@@ -55,10 +55,6 @@ type CommitHookState interface {
 
 	// GetModelUUID returns the UUID of the model for the unit state domain.
 	GetModelUUID(ctx context.Context) (string, error)
-
-	// GetSecretChecksum returns the latest revision checksum for a secret.
-	// Returns an empty string if the secret doesn't exist or has no revisions.
-	GetSecretChecksum(ctx context.Context, secretID string) (string, error)
 }
 
 // UnitStateState defines a persistence layer interface for retrieving
