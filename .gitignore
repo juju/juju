@@ -39,3 +39,5 @@ dqlite-deps.tar.bz2
 .direnv/
 .codex
 .workshop.lock
+*.bin
+.cache

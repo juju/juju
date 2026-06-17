@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"runtime"
 
 	"github.com/juju/errors"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	internallogger "github.com/juju/juju/internal/logger"
 	introspectionflightrecorder "github.com/juju/juju/internal/worker/introspection/flightrecorder"
-	"github.com/juju/juju/internal/worker/introspection/pprof"
 	"github.com/juju/juju/juju/sockets"
 )
 

@@ -19,9 +19,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 // Ensure that the trackedDBWorker is a killableWorker.
@@ -34,8 +34,9 @@ type trackedDBWorkerSuite struct {
 }
 
 func TestTrackedDBWorkerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &trackedDBWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &trackedDBWorkerSuite{})
+	})
 }
 
 func (s *trackedDBWorkerSuite) TestWorkerStartup(c *tc.C) {

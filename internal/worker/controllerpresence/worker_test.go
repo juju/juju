@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/api"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -23,8 +22,9 @@ import (
 )
 
 func TestWorker(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &WorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &WorkerSuite{})
+	})
 }
 
 type WorkerSuite struct {

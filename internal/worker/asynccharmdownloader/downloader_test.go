@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/application"
 	charmtesting "github.com/juju/juju/core/charm/testing"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/deployment/charm/charmdownloader"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -31,8 +31,9 @@ type asyncWorkerSuite struct {
 }
 
 func TestAsyncWorkerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &asyncWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &asyncWorkerSuite{})
+	})
 }
 
 func (s *asyncWorkerSuite) TestDownloadWorker(c *tc.C) {

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
@@ -34,8 +33,9 @@ import (
 )
 
 func TestSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &suite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &suite{})
+	})
 }
 
 type suite struct {

@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	coreerrors "github.com/juju/juju/core/errors"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -47,7 +46,6 @@ type Suite struct {
 	agentService            *mocks.MockModelAgentService
 	applicationService      *mocks.MockApplicationService
 	controllerConfigService *mocks.MockControllerConfigService
-	controllerNodeService   *mocks.MockControllerNodeService
 	credentialService       *mocks.MockCredentialService
 	machineService          *mocks.MockMachineService
 	modelInfoService        *mocks.MockModelInfoService
@@ -192,30 +190,6 @@ func (s *Suite) TestModelInfo(c *tc.C) {
 	c.Check(mod.AgentVersion, tc.Equals, semversion.MustParse("1.2.3"))
 }
 
-func (s *Suite) TestSourceControllerInfo(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cfg := controller.Config{
-		controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
-		controller.ControllerName:    "mycontroller",
-		controller.CACertKey:         "cacert",
-	}
-
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-	apiAddr := []string{"10.0.0.1:666"}
-	s.controllerNodeService.EXPECT().GetAllAPIAddressesForClients(gomock.Any()).Return(apiAddr, nil)
-
-	info, err := s.mustMakeAPI(c).SourceControllerInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(info, tc.DeepEquals, params.MigrationSourceInfo{
-		ControllerTag:   coretesting.ControllerTag.String(),
-		ControllerAlias: "mycontroller",
-		Addrs:           []string{"10.0.0.1:666"},
-		CACert:          "cacert",
-	})
-}
-
 func (s *Suite) TestSetPhase(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -271,34 +245,6 @@ func (s *Suite) TestPrechecksModelError(c *tc.C) {
 
 	err := s.mustMakeAPI(c).Prechecks(c.Context(), params.PrechecksArgs{TargetControllerVersion: semversion.MustParse("2.9.32")})
 	c.Assert(err, tc.ErrorMatches, "retrieving model info: boom")
-}
-
-func (s *Suite) TestProcessRelations(c *tc.C) {
-	api := s.mustMakeAPI(c)
-	err := api.ProcessRelations(c.Context(), params.ProcessRelations{ControllerAlias: "foo"})
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *Suite) TestExportIAAS(c *tc.C) {
-	s.assertExport(c, "iaas")
-}
-
-func (s *Suite) TestExportCAAS(c *tc.C) {
-	s.model = description.NewModel(description.ModelArgs{
-		Type:               "caas",
-		Config:             map[string]any{"uuid": s.modelUUID},
-		Owner:              "admin",
-		LatestToolsVersion: jujuversion.Current.String(),
-	})
-	s.assertExport(c, "caas")
-}
-
-func (s *Suite) assertExport(c *tc.C, modelType string) {
-	defer s.setupMocks(c).Finish()
-
-	_, err := s.mustMakeAPI(c).Export(c.Context())
-	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-
 }
 
 func (s *Suite) TestReap(c *tc.C) {
@@ -418,7 +364,6 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 	s.agentService = mocks.NewMockModelAgentService(ctrl)
 	s.applicationService = mocks.NewMockApplicationService(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
-	s.controllerNodeService = mocks.NewMockControllerNodeService(ctrl)
 	s.credentialService = mocks.NewMockCredentialService(ctrl)
 	s.machineService = mocks.NewMockMachineService(ctrl)
 	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
@@ -434,7 +379,6 @@ func (s *Suite) setupMocks(c *tc.C) *gomock.Controller {
 		s.agentService = nil
 		s.applicationService = nil
 		s.controllerConfigService = nil
-		s.controllerNodeService = nil
 		s.credentialService = nil
 		s.machineService = nil
 		s.modelInfoService = nil
@@ -487,7 +431,6 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 			return s.machineService, nil
 		},
 		s.controllerConfigService,
-		s.controllerNodeService,
 		s.modelInfoService,
 		s.modelService,
 		s.modelMigrationService,

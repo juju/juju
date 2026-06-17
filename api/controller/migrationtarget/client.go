@@ -112,6 +112,19 @@ func (c *Client) Import(ctx context.Context, bytes []byte) error {
 	return errors.Trace(c.caller.FacadeCall(ctx, "Import", serialized, nil))
 }
 
+// PrechecksV2 asks the target controller to validate a SerializedModelV2
+// envelope ahead of Import. It requires the target to expose the
+// MigrationTarget v8 facade.
+func (c *Client) PrechecksV2(ctx context.Context, envelope params.SerializedModelV2) error {
+	return errors.Trace(c.caller.FacadeCall(ctx, "Prechecks", envelope, nil))
+}
+
+// ImportV2 imports a SerializedModelV2 envelope into the target controller.
+// It requires the target to expose the MigrationTarget v8 facade.
+func (c *Client) ImportV2(ctx context.Context, envelope params.SerializedModelV2) error {
+	return errors.Trace(c.caller.FacadeCall(ctx, "Import", envelope, nil))
+}
+
 // Abort removes all data relating to a previously imported model.
 func (c *Client) Abort(ctx context.Context, modelUUID string) error {
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}

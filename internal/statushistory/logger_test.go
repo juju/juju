@@ -54,6 +54,32 @@ func (s *loggerSuite) TestRecord(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *loggerSuite) TestRecordNoData(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	labels := logger.Labels{
+		categoryKey:    statusHistoryCategory,
+		kindKey:        status.KindApplication.String(),
+		namespaceIDKey: "123",
+		statusKey:      "active",
+		messageKey:     "foo",
+		sinceKey:       "2019-01-01T00:00:00Z",
+	}
+
+	s.logger.EXPECT().Child("status-history", logger.STATUS_HISTORY).Return(s.logger)
+	s.logger.EXPECT().Logf(gomock.Any(), logger.INFO, labels, "status-history (status: %q, status-message: %q)", "active", "foo")
+
+	logger := NewLogRecorder(s.logger)
+	err := logger.Record(c.Context(), Record{
+		Kind:    status.KindApplication,
+		ID:      "123",
+		Status:  "active",
+		Message: "foo",
+		Time:    "2019-01-01T00:00:00Z",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

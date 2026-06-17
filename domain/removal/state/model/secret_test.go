@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coresecrets "github.com/juju/juju/core/secrets"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type secretSuite struct {
@@ -249,9 +250,16 @@ func (s *secretSuite) TestDeleteUserSecretRevisionRef(c *tc.C) {
 }
 
 func (s *secretSuite) addSecretWithRevisionsAndContent(c *tc.C, appUUID string) string {
+	return s.addSecretWithRevisionsAndContentWithSuffix(c, appUUID, "")
+}
+
+func (s *secretSuite) addSecretWithRevisionsAndContentWithSuffix(c *tc.C, appUUID string, suffix string) string {
 	ctx := c.Context()
 
 	sec := "secret_id"
+	if suffix != "" {
+		sec = "secret_id_" + suffix
+	}
 	_, err := s.DB().ExecContext(ctx, "INSERT INTO secret VALUES (?)", sec)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -273,6 +281,10 @@ VALUES (?, ?, ?, ?)`, sec, 0, appUUID, time.Now().UTC())
 
 	for i := range 3 {
 		rev := "revision_id_" + strconv.Itoa(i)
+		if suffix != "" {
+			rev = "revision_id_" + suffix + "_" + strconv.Itoa(i)
+		}
+
 		_, err := s.DB().ExecContext(
 			ctx, `
 INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) 
@@ -384,24 +396,84 @@ func (s *secretSuite) selectRevisionCount(c *tc.C, uri *coresecrets.URI, revisio
 	return count
 }
 
+func (s *secretSuite) TestDeleteApplicationOwnedSecretContentIsolation(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	app1, _ := s.addAppAndUnit(c)
+	app2, _ := s.addAppAndUnit(c)
+
+	sec1 := s.addSecretWithRevisionsAndContentWithSuffix(c, app1, "app1")
+	sec2 := s.addSecretWithRevisionsAndContentWithSuffix(c, app2, "app2")
+
+	_, err := s.DB().ExecContext(
+		ctx, "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)", sec1, app1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		ctx, "INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)", sec2, app2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteApplicationOwnedSecretContent(ctx, app1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT count(*) FROM secret_content WHERE revision_uuid LIKE 'revision_id_app2_%'")
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 3, tc.Commentf("app2's secret content should still exist"))
+}
+
+func (s *secretSuite) TestDeleteUnitOwnedSecretContentIsolation(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	ctx := c.Context()
+
+	app1, unit1 := s.addAppAndUnit(c)
+	app2, unit2 := s.addAppAndUnit(c)
+
+	sec1 := s.addSecretWithRevisionsAndContentWithSuffix(c, app1, "unit1")
+	sec2 := s.addSecretWithRevisionsAndContentWithSuffix(c, app2, "unit2")
+
+	_, err := s.DB().ExecContext(
+		ctx, "INSERT INTO secret_unit_owner (secret_id, unit_uuid) VALUES (?, ?)", sec1, unit1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = s.DB().ExecContext(
+		ctx, "INSERT INTO secret_unit_owner (secret_id, unit_uuid) VALUES (?, ?)", sec2, unit2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteUnitOwnedSecretContent(ctx, unit1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(ctx,
+		"SELECT count(*) FROM secret_content WHERE revision_uuid LIKE 'revision_id_unit2_%'")
+	var count int
+	err = row.Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 3, tc.Commentf("unit2's secret content should still exist"))
+}
+
 func (s *secretSuite) addAppAndUnit(c *tc.C) (string, string) {
 	ctx := c.Context()
 
-	charmUUID := "charm-uuid"
+	charmUUID := uuid.MustNewUUID().String()
 	q := "INSERT INTO charm (uuid, reference_name, source_id, architecture_id) VALUES (?, ?, ?, ?)"
 	_, err := s.DB().ExecContext(ctx, q, charmUUID, charmUUID, 1, 0)
 	c.Assert(err, tc.ErrorIsNil)
 
-	appUUID := "app-uuid"
+	appUUID := uuid.MustNewUUID().String()
 	q = "INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, ?, ?, ?)"
 	_, err = s.DB().ExecContext(ctx, q, appUUID, appUUID, 0, charmUUID, network.AlphaSpaceId)
 	c.Assert(err, tc.ErrorIsNil)
 
-	nodeUUID := "net-node-uuid"
+	nodeUUID := uuid.MustNewUUID().String()
 	_, err = s.DB().Exec("INSERT INTO net_node (uuid) VALUES (?)", nodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	unitUUID := "unit-uuid"
+	unitUUID := uuid.MustNewUUID().String()
 	q = "INSERT INTO unit (uuid, name, life_id, application_uuid, charm_uuid, net_node_uuid) VALUES (?, ?, ?, ?, ?, ?)"
 	_, err = s.DB().Exec(q, unitUUID, unitUUID, 0, appUUID, charmUUID, nodeUUID)
 	c.Assert(err, tc.ErrorIsNil)

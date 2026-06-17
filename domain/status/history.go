@@ -8,6 +8,12 @@ import (
 	"github.com/juju/juju/internal/statushistory"
 )
 
+const (
+	// WorkloadVersionHistoryKind is a structured log kind for workload version
+	// changes. It is not a user-facing status history kind.
+	WorkloadVersionHistoryKind status.HistoryKind = "workload-version"
+)
+
 var (
 	// ApplicationNamespace is the namespace for application status.
 	ApplicationNamespace = statushistory.Namespace{Kind: status.KindApplication}
@@ -17,6 +23,10 @@ var (
 
 	// UnitWorkloadNamespace is the namespace for unit workload status.
 	UnitWorkloadNamespace = statushistory.Namespace{Kind: status.KindWorkload}
+
+	// UnitWorkloadVersionNamespace is the namespace for unit workload version
+	// changes.
+	UnitWorkloadVersionNamespace = statushistory.Namespace{Kind: WorkloadVersionHistoryKind}
 
 	// MachineNamespace is the namespace for machine status.
 	MachineNamespace = statushistory.Namespace{Kind: status.KindMachine}

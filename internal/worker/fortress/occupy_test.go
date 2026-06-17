@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -24,8 +23,9 @@ type OccupySuite struct {
 }
 
 func TestOccupySuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &OccupySuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &OccupySuite{})
+	})
 }
 
 func (*OccupySuite) TestAbort(c *tc.C) {

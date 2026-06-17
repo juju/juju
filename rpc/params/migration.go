@@ -42,16 +42,6 @@ type MigrationTargetInfo struct {
 	Token           string   `json:"token,omitempty"`
 }
 
-// MigrationSourceInfo holds the details required to connect to
-// the source controller for model migration.
-type MigrationSourceInfo struct {
-	LocalRelatedModels []string `json:"local-related-models"`
-	ControllerTag      string   `json:"controller-tag"`
-	ControllerAlias    string   `json:"controller-alias,omitempty"`
-	Addrs              []string `json:"addrs"`
-	CACert             string   `json:"ca-cert"`
-}
-
 // InitiateMigrationResults is used to return the result of one or
 // more attempts to start model migrations.
 type InitiateMigrationResults struct {
@@ -123,7 +113,7 @@ type SerializedModelResource struct {
 }
 
 // SerializedModelV2 is the wire envelope for the new (v8) model-migration
-// import/precheck path. Controller-scoped facts ride as typed semantic fields;
+// import/precheck path. Controller-scoped data ride as typed semantic fields;
 // only the model-DB content is a serialized YAML payload that flows through the
 // transformer chain. The typed fields evolve additively only (the standard
 // rpc/params rule) and must never carry source-local integer IDs or
@@ -149,8 +139,9 @@ type SerializedModelV2 struct {
 	// ModelNamespace maps the model UUID to its dqlite namespace name.
 	ModelNamespace ModelNamespace `json:"model-namespace"`
 
-	// Users are the external model users/access principals to recreate or
-	// compare on the target. Authentication material is never carried.
+	// Users are the controller users referenced by the migrated model, carried
+	// by username for recreation or comparison on the target. Authentication
+	// material is never carried.
 	Users []ModelUser `json:"users,omitempty"`
 
 	// ModelCredential is the model's cloud credential, carried by natural key
@@ -239,9 +230,9 @@ type ModelNamespace struct {
 	Namespace string `json:"namespace"`
 }
 
-// ModelUser is the non-authentication profile of an external user with access
-// to the model or its hosted offers, used by the target to recreate a missing
-// user or compare an existing one by username.
+// ModelUser is the non-authentication profile of a controller user referenced
+// by the migrated model, used by the target to recreate a missing user or
+// compare an existing one by username.
 type ModelUser struct {
 	// Name is the username (natural key).
 	Name string `json:"name"`
@@ -251,6 +242,10 @@ type ModelUser struct {
 	CreatedBy string `json:"created-by,omitempty"`
 	// CreatedAt is when the user was created.
 	CreatedAt time.Time `json:"created-at,omitempty"`
+	// Removed reports whether the source controller user row was marked removed.
+	Removed bool `json:"removed,omitempty"`
+	// External reports whether the source controller user row is external.
+	External bool `json:"external,omitempty"`
 }
 
 // ModelCloudCredential is the model's cloud credential carried by natural key

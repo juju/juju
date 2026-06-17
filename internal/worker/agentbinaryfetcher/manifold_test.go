@@ -12,7 +12,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -28,8 +27,9 @@ type manifoldSuite struct {
 }
 
 func TestManifoldSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &manifoldSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &manifoldSuite{})
+	})
 }
 
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {

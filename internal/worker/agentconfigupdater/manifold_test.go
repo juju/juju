@@ -15,7 +15,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/agent"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
 	"github.com/juju/juju/internal/worker/trace"
@@ -41,8 +41,9 @@ type AgentConfigUpdaterSuite struct {
 }
 
 func TestAgentConfigUpdaterSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &AgentConfigUpdaterSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &AgentConfigUpdaterSuite{})
+	})
 }
 
 func (s *AgentConfigUpdaterSuite) TestInputs(c *tc.C) {

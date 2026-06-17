@@ -11,7 +11,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/objectstore"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -27,8 +26,9 @@ type baseObjectStoreSuite struct {
 }
 
 func TestBaseObjectStoreSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &baseObjectStoreSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &baseObjectStoreSuite{})
+	})
 }
 
 func (s *baseObjectStoreSuite) TestLockOnCancelledContext(c *tc.C) {

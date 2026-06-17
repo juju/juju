@@ -6,7 +6,8 @@ package agent
 import "github.com/juju/names/v6"
 
 // IsAllowedControllerTag returns true if the tag kind can be for a controller.
-// TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
+// TODO(controlleragent) - this method is needed while IAAS controllers are
+// still machines.
 func IsAllowedControllerTag(kind string) bool {
 	return kind == names.ControllerAgentTagKind || kind == names.MachineTagKind
 }

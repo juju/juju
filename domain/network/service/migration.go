@@ -99,10 +99,15 @@ func (s *MigrationService) ImportLinkLayerDevices(ctx context.Context, data []in
 		subnetByProviderId[subnet.ProviderId.String()] = subnet
 	}
 
+	// Cache for subnets auto-created during this import so that multiple
+	// addresses sharing the same missing CIDR (e.g. two IPs on the same
+	// /24 bridge) result in a single subnet row.
+	createdSubnetsByCIDR := make(map[string]string)
+
 	// Process each device
 	useData := make([]internal.ImportLinkLayerDevice, 0, len(data))
 	for _, device := range data {
-		dev, err := s.transformImportLinkLayerDevice(ctx, device, namesToUUIDs, subnets, subnetByProviderId)
+		dev, err := s.transformImportLinkLayerDevice(ctx, device, namesToUUIDs, subnets, subnetByProviderId, createdSubnetsByCIDR)
 		if err != nil {
 			return errors.Errorf("converting device %q on machine %q: %w", device.Name, device.MachineID, err)
 		}
@@ -122,6 +127,7 @@ func (s *MigrationService) transformImportLinkLayerDevice(
 	namesToUUIDs map[string]string,
 	subnets corenetwork.SubnetInfos,
 	subnetByProviderId map[string]corenetwork.SubnetInfo,
+	createdSubnetsByCIDR map[string]string,
 ) (internal.ImportLinkLayerDevice, error) {
 	// Set the net node UUID
 	netNodeUUID, ok := namesToUUIDs[device.MachineID]
@@ -134,7 +140,7 @@ func (s *MigrationService) transformImportLinkLayerDevice(
 	if len(device.Addresses) > 0 {
 		transformedAddresses := make([]internal.ImportIPAddress, 0, len(device.Addresses))
 		for _, addr := range device.Addresses {
-			transformedAddr, err := s.transformImportIPAddress(ctx, addr, subnets, subnetByProviderId)
+			transformedAddr, err := s.transformImportIPAddress(ctx, addr, subnets, subnetByProviderId, createdSubnetsByCIDR)
 			if err != nil {
 				return internal.ImportLinkLayerDevice{}, errors.Errorf("converting address %q: %w",
 					addr.AddressValue, err)
@@ -152,6 +158,7 @@ func (s *MigrationService) transformImportIPAddress(
 	addr internal.ImportIPAddress,
 	subnets corenetwork.SubnetInfos,
 	subnetByProviderId map[string]corenetwork.SubnetInfo,
+	createdSubnetsByCIDR map[string]string,
 ) (internal.ImportIPAddress, error) {
 	if addr.ConfigType == corenetwork.ConfigLoopback {
 		// Loopback addresses will not have an associated subnet, return the
@@ -179,23 +186,41 @@ func (s *MigrationService) transformImportIPAddress(
 	var err error
 	addr.SubnetUUID, err = s.ensureOneSubnet(candidateSubnets)
 	if errors.Is(err, networkerrors.SubnetNotFound) {
-		return s.maybeAddSubnet(ctx, addr)
+		return s.maybeAddSubnet(ctx, addr, createdSubnetsByCIDR)
 	}
 	return addr, errors.Capture(err)
 }
 
-// maybeAddSubnet creates a subnet if the address provided is a /32
-// or /128. Should only be called if an existing subnet does not match.
-func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.ImportIPAddress) (internal.ImportIPAddress, error) {
-	// Check to see if we have a /32 or /128 CIDR.
-	_, ipNet, err := net.ParseCIDR(addr.SubnetCIDR)
-	if err != nil {
+// maybeAddSubnet creates a minimal subnet record for addr.SubnetCIDR when
+// no existing subnet matches. It handles two distinct cases:
+//
+//   - /32 (IPv4) or /128 (IPv6) host-only addresses (e.g. Cilium): these
+//     genuinely have no corresponding network subnet in any provider, so
+//     auto-creation is expected.
+//   - Regular network CIDRs (e.g. /24): these should have been exported from
+//     the source model, but some 3.6 LXD models omit bridge subnets (e.g.
+//     lxdbr0) because they were referenced by IP address records without
+//     being formally registered in the model's subnet topology. A warning is
+//     logged so that operators can reassign the auto-created subnet to the
+//     correct space after migration.
+//
+// The createdSubnetsByCIDR map is used to deduplicate subnet creation: if
+// multiple addresses share the same missing CIDR, only the first call
+// inserts a row; subsequent calls reuse the cached UUID.
+func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.ImportIPAddress, createdSubnetsByCIDR map[string]string) (internal.ImportIPAddress, error) {
+	if _, _, err := net.ParseCIDR(addr.SubnetCIDR); err != nil {
 		return internal.ImportIPAddress{}, errors.Capture(err)
 	}
-	ones, bits := ipNet.Mask.Size()
-	if ones != bits && (bits == 32 || bits == 128) {
-		return internal.ImportIPAddress{}, errors.Errorf("no subnet found, nor created")
+
+	if uuid, ok := createdSubnetsByCIDR[addr.SubnetCIDR]; ok {
+		addr.SubnetUUID = uuid
+		return addr, nil
 	}
+
+	s.logger.Warningf(ctx,
+		"subnet %q not found in model; auto-creating a minimal record in the default space — "+
+			"reassign it to the correct space after migration if needed",
+		addr.SubnetCIDR)
 
 	subnetUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -208,6 +233,7 @@ func (s *MigrationService) maybeAddSubnet(ctx context.Context, addr internal.Imp
 	if err := s.st.AddSubnet(ctx, subnetInfo); err != nil {
 		return internal.ImportIPAddress{}, errors.Capture(err)
 	}
+	createdSubnetsByCIDR[addr.SubnetCIDR] = subnetUUID.String()
 	addr.SubnetUUID = subnetUUID.String()
 	return addr, nil
 }

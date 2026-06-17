@@ -9,9 +9,9 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type stateSuite struct {
@@ -19,8 +19,9 @@ type stateSuite struct {
 }
 
 func TestStateSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &stateSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &stateSuite{})
+	})
 }
 
 func (s *stateSuite) TestStateBaseGetDB(c *tc.C) {

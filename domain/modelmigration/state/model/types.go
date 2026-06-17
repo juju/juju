@@ -36,6 +36,13 @@ type agentVersionTarget struct {
 	TargetVersion string `db:"target_version"`
 }
 
+// offererModel represents a distinct (offerer controller, offerer model) pair
+// referenced by the model's remote applications.
+type offererModel struct {
+	ControllerUUID string `db:"offerer_controller_uuid"`
+	ModelUUID      string `db:"offerer_model_uuid"`
+}
+
 // setAgentVersionTarget represents the set of update values required for
 // setting the model's target agent version.
 type setAgentVersionTarget struct {

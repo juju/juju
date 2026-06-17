@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/life"
@@ -20,6 +19,7 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type trackerWorkerSuite struct {
@@ -29,8 +29,9 @@ type trackerWorkerSuite struct {
 var _ objectstore.ObjectStore = (*trackerWorker)(nil)
 
 func TestTrackerWorkerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &trackerWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &trackerWorkerSuite{})
+	})
 }
 
 func (s *trackerWorkerSuite) TestWorkerStartup(c *tc.C) {

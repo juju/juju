@@ -7,18 +7,21 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
+
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 //go:generate go run github.com/canonical/gomock/mockgen -package toolsversionchecker -destination service_mock_test.go github.com/juju/juju/internal/worker/toolsversionchecker ModelConfigService,ModelAgentService,MachineService
 //go:generate go run github.com/canonical/gomock/mockgen -package toolsversionchecker -destination environs_mock_test.go github.com/juju/juju/environs BootstrapEnviron
 
 func TestManifoldSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &ManifoldSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &ManifoldSuite{})
+	})
 }
 
 func TestToolsCheckerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &ToolsCheckerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &ToolsCheckerSuite{})
+	})
 }

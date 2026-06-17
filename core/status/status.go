@@ -273,11 +273,6 @@ const (
 	ProvisioningError Status = "provisioning error"
 )
 
-// ModificationStatus
-const (
-	Applied Status = "applied"
-)
-
 const (
 	MessageWaitForMachine    = "waiting for machine"
 	MessageWaitForContainer  = "waiting for container"
@@ -292,7 +287,6 @@ func (s Status) KnownModificationStatus() bool {
 	switch s {
 	case
 		Idle,
-		Applied,
 		Error,
 		Unknown:
 		return true

@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -25,8 +25,9 @@ type notifySuite struct {
 var _ watcher.NotifyWatcher = &NotifyWatcher{}
 
 func TestNotifySuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &notifySuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &notifySuite{})
+	})
 }
 
 func (s *notifySuite) TestNotificationsByNamespaceFilter(c *tc.C) {

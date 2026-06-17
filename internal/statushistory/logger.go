@@ -31,11 +31,6 @@ func NewLogRecorder(log logger.Logger) Recorder {
 
 // Record implements Recorder.Record.
 func (r *logRecorder) Record(ctx context.Context, record Record) error {
-	data, err := json.Marshal(record.Data)
-	if err != nil {
-		return errors.Errorf("failed to marshal data: %v", err).Add(DataMarshalError)
-	}
-
 	labels := logger.Labels{
 		categoryKey:    statusHistoryCategory,
 		kindKey:        record.Kind.String(),
@@ -43,7 +38,13 @@ func (r *logRecorder) Record(ctx context.Context, record Record) error {
 		statusKey:      record.Status,
 		messageKey:     record.Message,
 		sinceKey:       record.Time,
-		dataKey:        string(data),
+	}
+	if len(record.Data) > 0 {
+		data, err := json.Marshal(record.Data)
+		if err != nil {
+			return errors.Errorf("failed to marshal data: %v", err).Add(DataMarshalError)
+		}
+		labels[dataKey] = string(data)
 	}
 	r.logger.Logf(ctx, logger.INFO, labels, "status-history (status: %q, status-message: %q)", record.Status, record.Message)
 	return nil

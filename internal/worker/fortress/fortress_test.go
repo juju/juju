@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -24,8 +23,9 @@ type FortressSuite struct {
 }
 
 func TestFortressSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &FortressSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &FortressSuite{})
+	})
 }
 
 func (s *FortressSuite) TestOutputBadSource(c *tc.C) {

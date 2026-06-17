@@ -832,8 +832,10 @@ func (c *ControllerAPI) runMigrationPrechecks(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx,
+	// Check target controller. We only need the source user list here; the
+	// model info that used to feed the legacy target precheck is no longer sent
+	// (target prechecks now run in the migrationmaster worker via the envelope).
+	_, srcUserList, err := makeModelInfo(ctx,
 		c.controllerConfigService, c.modelService, modelAgentService, c.store, model)
 	if err != nil {
 		return errors.Trace(err)
@@ -872,8 +874,15 @@ func (c *ControllerAPI) runMigrationPrechecks(
 		}
 	}
 
-	err = client.Prechecks(ctx, modelInfo)
-	return errors.Annotate(err, "target prechecks failed")
+	// The full envelope-based target prechecks run in the migrationmaster
+	// worker during QUIESCE (it owns the SerializedModelV2 envelope assembly).
+	// Here we only reject early, at "juju migrate" time, when the target is too
+	// old to accept the new migration envelope at all (for example a 4.0 target
+	// targeted by a 4.0 source).
+	return errors.Annotate(
+		migration.CheckTargetSupportsEnvelope(client.BestFacadeVersion()),
+		"target prechecks failed",
+	)
 }
 
 // userList encapsulates information about the users who have been granted

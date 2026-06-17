@@ -20,9 +20,9 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	objectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 const (
@@ -34,8 +34,9 @@ type drainerSuite struct {
 }
 
 func TestDrainer(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &drainerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &drainerSuite{})
+	})
 }
 
 func (s *drainerSuite) TestDrainFilesWithNoFiles(c *tc.C) {

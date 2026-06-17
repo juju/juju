@@ -1020,3 +1020,24 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *tc.C) {
 	err := s.runPrecheck(c)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func TestCheckTargetSupportsEnvelope(t *stdtesting.T) {
+	tc.Run(t, &checkTargetSupportsEnvelopeSuite{})
+}
+
+type checkTargetSupportsEnvelopeSuite struct{}
+
+func (s *checkTargetSupportsEnvelopeSuite) TestTargetNotRecentEnough(c *tc.C) {
+	// A target advertising a facade older than the envelope version (for
+	// example a 4.0 controller, which tops out at v7) is rejected with a
+	// clear, actionable error rather than a cryptic deserialize failure.
+	err := migration.CheckTargetSupportsEnvelope(migration.MinTargetEnvelopeFacadeVersion - 1)
+	c.Assert(err, tc.ErrorMatches,
+		"target controller does not support the model migration format; "+
+			"upgrade the target controller to Juju 4.1 or later")
+}
+
+func (s *checkTargetSupportsEnvelopeSuite) TestTargetSupported(c *tc.C) {
+	err := migration.CheckTargetSupportsEnvelope(migration.MinTargetEnvelopeFacadeVersion)
+	c.Assert(err, tc.ErrorIsNil)
+}

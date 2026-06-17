@@ -115,7 +115,6 @@ func newMigrationMasterFacade(stdCtx context.Context, ctx facade.MultiModelConte
 		modelAgentServiceGetter,
 		machineServiceGetter,
 		domainServices.ControllerConfig(),
-		domainServices.ControllerNode(),
 		domainServices.ModelInfo(),
 		domainServices.Model(),
 		domainServices.ModelMigration(),

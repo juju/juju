@@ -482,6 +482,7 @@ run-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
+		GOEXPERIMENT=goroutineleakprofile \
 		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} $(TEST_PACKAGES) $(TEST_EXTRA_ARGS)
 	@rm -r $(TMP)
 
@@ -516,6 +517,7 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
+		GOEXPERIMENT=goroutineleakprofile \
 		go test -mod=$(JUJU_GOMOD_MODE) -tags=$(TEST_BUILD_TAGS) $(TEST_ARGS) -ldflags ${CGO_LINK_FLAGS} ${TEST_PACKAGES} -test.run $(TEST_FILTER) $(TEST_EXTRA_ARGS)
 
 .PHONY: go-test-alias
@@ -529,6 +531,7 @@ go-test-alias: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
 		LD_LIBRARY_PATH=\"${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}\" \
 		CGO_ENABLED=\"1\" \
+		GOEXPERIMENT=goroutineleakprofile \
 		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(TEST_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
 
 .PHONY: install
