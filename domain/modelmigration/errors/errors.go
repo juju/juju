@@ -21,10 +21,6 @@ const (
 	// the migration's phase changed concurrently (optimistic-lock conflict).
 	ErrPhaseTransitionInvalid = errors.ConstError("invalid migration phase transition")
 
-	// ErrExternalControllerConflict indicates that an external controller record
-	// cannot be reconciled with supplied migration details.
-	ErrExternalControllerConflict = errors.ConstError("external controller already exists with different details")
-
 	// ErrConflictingMinionReport indicates that a minion submitted a report for
 	// a (migration, phase, entity) triple that already has a report with a
 	// different success value. Reports are idempotent for an identical value but

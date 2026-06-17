@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/migration"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -159,18 +158,43 @@ type ControllerState interface {
 	// during model activation.
 	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
 
-	// CheckImportSchema verifies that the controller database schema carries
-	// the objects required by the migrationtarget v8 import path. On failure
-	// it returns an error satisfying [coreerrors.NotSupported].
-	CheckImportSchema(ctx context.Context) error
-
 	// GetImportClaim returns the target-side import claim for the given model
 	// UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim exists.
 	GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error)
 
+	// ModelExists reports whether a model row with the given UUID exists on
+	// the controller.
+	ModelExists(ctx context.Context, modelUUID string) (bool, error)
+
+	// ModelNameInUse reports whether a model with the given name and qualifier
+	// already exists on the controller.
+	ModelNameInUse(ctx context.Context, name, qualifier string) (bool, error)
+
 	// ModelNamespaceExists reports whether a model_namespace row exists for
 	// the given model UUID.
 	ModelNamespaceExists(ctx context.Context, modelUUID string) (bool, error)
+
+	// CloudExists reports whether a cloud with the given name exists on the
+	// controller.
+	CloudExists(ctx context.Context, name string) (bool, error)
+
+	// CloudRegionExists reports whether the named region is known to the named
+	// cloud on the controller.
+	CloudRegionExists(ctx context.Context, cloudName, regionName string) (bool, error)
+
+	// IsUserDisabled reports whether an active (non-removed) user with the
+	// given name exists on the controller and, when it does, whether it is
+	// disabled.
+	IsUserDisabled(ctx context.Context, name string) (disabled bool, exists bool, err error)
+
+	// GetCredentialRevoked reports whether a cloud credential with the given
+	// natural key exists on the controller and, when it does, whether it is
+	// revoked.
+	GetCredentialRevoked(ctx context.Context, cloud, owner, name string) (revoked bool, exists bool, err error)
+
+	// SecretBackendExists reports whether a secret backend with the given name
+	// exists on the controller.
+	SecretBackendExists(ctx context.Context, name string) (bool, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -341,47 +365,6 @@ func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.Migrat
 		return modelmigration.MigrationModeNone, errors.Capture(err)
 	}
 	return mode, nil
-}
-
-// CheckTargetImportSchema verifies that the controller database schema can
-// host a migrationtarget v8 model import. On failure it returns an error
-// satisfying [coreerrors.NotSupported] reporting that the target schema is
-// not ready for migrationtarget v8.
-func (s *Service) CheckTargetImportSchema(ctx context.Context) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	return s.controllerState.CheckImportSchema(ctx)
-}
-
-// GetImportClaim returns the target-side import claim held for the given
-// model UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim
-// exists. The model UUID is an explicit argument because the migrating model
-// has no model scope on the target while the claim exists.
-func (s *Service) GetImportClaim(ctx context.Context, modelUUID coremodel.UUID) (modelmigration.ImportClaim, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	claim, err := s.controllerState.GetImportClaim(ctx, modelUUID.String())
-	if err != nil {
-		return modelmigration.ImportClaim{}, errors.Capture(err)
-	}
-	return claim, nil
-}
-
-// ModelNamespaceExists reports whether the given model's dqlite namespace
-// mapping already exists on this controller. The model UUID is an explicit
-// argument because the model being checked has no model scope on the target
-// yet.
-func (s *Service) ModelNamespaceExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	exists, err := s.controllerState.ModelNamespaceExists(ctx, modelUUID.String())
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-	return exists, nil
 }
 
 // Migration returns status about migration of this model. If the model is not

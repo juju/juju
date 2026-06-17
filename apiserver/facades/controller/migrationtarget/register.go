@@ -77,15 +77,10 @@ func makeFacadeV8(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	domainServices := ctx.DomainServices()
 	return NewAPIV8(
 		api,
 		ctx.LocalMacaroonMinter(),
-		ctx.ControllerUUID(),
-		domainServices.Access(),
-		domainServices.Credential(),
-		domainServices.SecretBackend(),
-		domainServices.ModelMigration(),
+		ctx.DomainServices().ModelMigration(),
 	)
 }
 

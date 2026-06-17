@@ -120,21 +120,27 @@ type MockControllerState struct {
 type MockControllerStateMockRecorder struct {
 	mock                               *MockControllerState
 	aggregateMinionReportsExpects      []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	checkImportSchemaExpects           []*gomock.Call1_1[context.Context, error]
+	cloudExistsExpects                 []*gomock.Call2_2[context.Context, string, bool, error]
+	cloudRegionExistsExpects           []*gomock.Call3_2[context.Context, string, string, bool, error]
 	deleteModelImportingStatusExpects  []*gomock.Call2_1[context.Context, string, error]
 	getActiveExportExpects             []*gomock.Call2_2[context.Context, string, internal.Migration, error]
 	getActiveExportUUIDExpects         []*gomock.Call2_2[context.Context, string, string, error]
 	getControllerModelInfoExpects      []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
 	getControllerTargetVersionExpects  []*gomock.Call1_2[context.Context, string, error]
+	getCredentialRevokedExpects        []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
 	getImportClaimExpects              []*gomock.Call2_2[context.Context, string, modelmigration.ImportClaim, error]
 	getMigrationModeExpects            []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
 	getSourceControllerInfoExpects     []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 	insertExportExpects                []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects          []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	isUserDisabledExpects              []*gomock.Call2_3[context.Context, string, bool, bool, error]
+	modelExistsExpects                 []*gomock.Call2_2[context.Context, string, bool, error]
+	modelNameInUseExpects              []*gomock.Call3_2[context.Context, string, string, bool, error]
 	modelNamespaceExistsExpects        []*gomock.Call2_2[context.Context, string, bool, error]
 	namespaceForWatchExportExpects     []*gomock.Call0_1[string]
 	namespaceForWatchMinionSyncExpects []*gomock.Call0_1[string]
 	namespaceForWatchPhaseExpects      []*gomock.Call0_1[string]
+	secretBackendExistsExpects         []*gomock.Call2_2[context.Context, string, bool, error]
 	setPhaseExpects                    []*gomock.Call3_1[context.Context, string, migration.Phase, error]
 	setStatusMessageExpects            []*gomock.Call3_1[context.Context, string, string, error]
 }
@@ -169,23 +175,41 @@ func (mr *MockControllerStateMockRecorder) AggregateMinionReports(ctx, migration
 // MockControllerStateAggregateMinionReportsCall is the typed call wrapper for AggregateMinionReports.
 type MockControllerStateAggregateMinionReportsCall = gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
 
-// CheckImportSchema mocks base method.
-func (m *MockControllerState) CheckImportSchema(ctx context.Context) error {
+// CloudExists mocks base method.
+func (m *MockControllerState) CloudExists(ctx context.Context, name string) (bool, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.checkImportSchemaExpects, m.ctrl, m, "CheckImportSchema", ctx)
+	return gomock.Dispatch2_2(&m.recorder.cloudExistsExpects, m.ctrl, m, "CloudExists", ctx, name)
 }
 
-// CheckImportSchema indicates an expected call of CheckImportSchema.
-func (mr *MockControllerStateMockRecorder) CheckImportSchema(ctx any) *MockControllerStateCheckImportSchemaCall {
+// CloudExists indicates an expected call of CloudExists.
+func (mr *MockControllerStateMockRecorder) CloudExists(ctx, name any) *MockControllerStateCloudExistsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "CheckImportSchema", gomock.EnsureMatcher(ctx))
-	mr.checkImportSchemaExpects = append(mr.checkImportSchemaExpects, call)
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "CloudExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.cloudExistsExpects = append(mr.cloudExistsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerStateCheckImportSchemaCall is the typed call wrapper for CheckImportSchema.
-type MockControllerStateCheckImportSchemaCall = gomock.Call1_1[context.Context, error]
+// MockControllerStateCloudExistsCall is the typed call wrapper for CloudExists.
+type MockControllerStateCloudExistsCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// CloudRegionExists mocks base method.
+func (m *MockControllerState) CloudRegionExists(ctx context.Context, cloudName, regionName string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.cloudRegionExistsExpects, m.ctrl, m, "CloudRegionExists", ctx, cloudName, regionName)
+}
+
+// CloudRegionExists indicates an expected call of CloudRegionExists.
+func (mr *MockControllerStateMockRecorder) CloudRegionExists(ctx, cloudName, regionName any) *MockControllerStateCloudRegionExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "CloudRegionExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(cloudName), gomock.EnsureMatcher(regionName))
+	mr.cloudRegionExistsExpects = append(mr.cloudRegionExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateCloudRegionExistsCall is the typed call wrapper for CloudRegionExists.
+type MockControllerStateCloudRegionExistsCall = gomock.Call3_2[context.Context, string, string, bool, error]
 
 // DeleteModelImportingStatus mocks base method.
 func (m *MockControllerState) DeleteModelImportingStatus(ctx context.Context, modelUUID string) error {
@@ -277,6 +301,24 @@ func (mr *MockControllerStateMockRecorder) GetControllerTargetVersion(ctx any) *
 // MockControllerStateGetControllerTargetVersionCall is the typed call wrapper for GetControllerTargetVersion.
 type MockControllerStateGetControllerTargetVersionCall = gomock.Call1_2[context.Context, string, error]
 
+// GetCredentialRevoked mocks base method.
+func (m *MockControllerState) GetCredentialRevoked(ctx context.Context, cloud, owner, name string) (bool, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_3(&m.recorder.getCredentialRevokedExpects, m.ctrl, m, "GetCredentialRevoked", ctx, cloud, owner, name)
+}
+
+// GetCredentialRevoked indicates an expected call of GetCredentialRevoked.
+func (mr *MockControllerStateMockRecorder) GetCredentialRevoked(ctx, cloud, owner, name any) *MockControllerStateGetCredentialRevokedCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_3[context.Context, string, string, string, bool, bool, error](mr.mock.ctrl.T, mr.mock, "GetCredentialRevoked", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(cloud), gomock.EnsureMatcher(owner), gomock.EnsureMatcher(name))
+	mr.getCredentialRevokedExpects = append(mr.getCredentialRevokedExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetCredentialRevokedCall is the typed call wrapper for GetCredentialRevoked.
+type MockControllerStateGetCredentialRevokedCall = gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
+
 // GetImportClaim mocks base method.
 func (m *MockControllerState) GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error) {
 	m.ctrl.T.Helper()
@@ -367,6 +409,60 @@ func (mr *MockControllerStateMockRecorder) InsertMinionReport(ctx, migrationUUID
 // MockControllerStateInsertMinionReportCall is the typed call wrapper for InsertMinionReport.
 type MockControllerStateInsertMinionReportCall = gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
 
+// IsUserDisabled mocks base method.
+func (m *MockControllerState) IsUserDisabled(ctx context.Context, name string) (bool, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.isUserDisabledExpects, m.ctrl, m, "IsUserDisabled", ctx, name)
+}
+
+// IsUserDisabled indicates an expected call of IsUserDisabled.
+func (mr *MockControllerStateMockRecorder) IsUserDisabled(ctx, name any) *MockControllerStateIsUserDisabledCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[context.Context, string, bool, bool, error](mr.mock.ctrl.T, mr.mock, "IsUserDisabled", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.isUserDisabledExpects = append(mr.isUserDisabledExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateIsUserDisabledCall is the typed call wrapper for IsUserDisabled.
+type MockControllerStateIsUserDisabledCall = gomock.Call2_3[context.Context, string, bool, bool, error]
+
+// ModelExists mocks base method.
+func (m *MockControllerState) ModelExists(ctx context.Context, modelUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.modelExistsExpects, m.ctrl, m, "ModelExists", ctx, modelUUID)
+}
+
+// ModelExists indicates an expected call of ModelExists.
+func (mr *MockControllerStateMockRecorder) ModelExists(ctx, modelUUID any) *MockControllerStateModelExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "ModelExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.modelExistsExpects = append(mr.modelExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateModelExistsCall is the typed call wrapper for ModelExists.
+type MockControllerStateModelExistsCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// ModelNameInUse mocks base method.
+func (m *MockControllerState) ModelNameInUse(ctx context.Context, name, qualifier string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.modelNameInUseExpects, m.ctrl, m, "ModelNameInUse", ctx, name, qualifier)
+}
+
+// ModelNameInUse indicates an expected call of ModelNameInUse.
+func (mr *MockControllerStateMockRecorder) ModelNameInUse(ctx, name, qualifier any) *MockControllerStateModelNameInUseCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "ModelNameInUse", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name), gomock.EnsureMatcher(qualifier))
+	mr.modelNameInUseExpects = append(mr.modelNameInUseExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateModelNameInUseCall is the typed call wrapper for ModelNameInUse.
+type MockControllerStateModelNameInUseCall = gomock.Call3_2[context.Context, string, string, bool, error]
+
 // ModelNamespaceExists mocks base method.
 func (m *MockControllerState) ModelNamespaceExists(ctx context.Context, modelUUID string) (bool, error) {
 	m.ctrl.T.Helper()
@@ -438,6 +534,24 @@ func (mr *MockControllerStateMockRecorder) NamespaceForWatchPhase() *MockControl
 
 // MockControllerStateNamespaceForWatchPhaseCall is the typed call wrapper for NamespaceForWatchPhase.
 type MockControllerStateNamespaceForWatchPhaseCall = gomock.Call0_1[string]
+
+// SecretBackendExists mocks base method.
+func (m *MockControllerState) SecretBackendExists(ctx context.Context, name string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.secretBackendExistsExpects, m.ctrl, m, "SecretBackendExists", ctx, name)
+}
+
+// SecretBackendExists indicates an expected call of SecretBackendExists.
+func (mr *MockControllerStateMockRecorder) SecretBackendExists(ctx, name any) *MockControllerStateSecretBackendExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "SecretBackendExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.secretBackendExistsExpects = append(mr.secretBackendExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateSecretBackendExistsCall is the typed call wrapper for SecretBackendExists.
+type MockControllerStateSecretBackendExistsCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // SetPhase mocks base method.
 func (m *MockControllerState) SetPhase(ctx context.Context, migrationUUID string, newPhase migration.Phase) error {

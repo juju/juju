@@ -290,12 +290,41 @@ type sourceAPIAddress struct {
 	IsAgent      bool   `db:"is_agent"`
 }
 
-// importSchemaCapability is the projection of the v8 import schema guard
-// query: the number of required model_migration_import columns and required
-// companion tables found in the controller schema.
-type importSchemaCapability struct {
-	ColumnsFound int `db:"columns_found"`
-	TablesFound  int `db:"tables_found"`
+// nameArg holds a single name lookup value for an existence check.
+type nameArg struct {
+	Name string `db:"name"`
+}
+
+// cloudArg holds the cloud (and optionally region) names used by the cloud and
+// cloud-region existence prechecks.
+type cloudArg struct {
+	CloudName  string `db:"cloud_name"`
+	RegionName string `db:"region_name"`
+}
+
+// credentialKeyArg holds the natural key of a cloud credential used by the
+// credential precheck.
+type credentialKeyArg struct {
+	CloudName string `db:"cloud_name"`
+	OwnerName string `db:"owner_name"`
+	Name      string `db:"name"`
+}
+
+// modelNameQualifierArg holds a model name and qualifier used by the model
+// name-collision precheck.
+type modelNameQualifierArg struct {
+	Name      string `db:"name"`
+	Qualifier string `db:"qualifier"`
+}
+
+// userDisabled is the projection of a user's disabled flag.
+type userDisabled struct {
+	Disabled bool `db:"disabled"`
+}
+
+// credentialRevoked is the projection of a cloud credential's revoked flag.
+type credentialRevoked struct {
+	Revoked bool `db:"revoked"`
 }
 
 // importClaimRow maps a model_migration_import row joined to its phase type.

@@ -7,13 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 	"github.com/vallerion/rscanner"
@@ -23,7 +21,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
-	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
@@ -35,16 +32,8 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
-	"github.com/juju/juju/core/user"
-	accesserrors "github.com/juju/juju/domain/access/errors"
-	clouderrors "github.com/juju/juju/domain/cloud/errors"
-	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/export"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
-	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
-	"github.com/juju/juju/domain/secretbackend"
-	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
@@ -68,11 +57,6 @@ type CloudService interface {
 // ExternalControllerService provides a subset of the external controller
 // domain service methods.
 type ExternalControllerService interface {
-	// Controller returns the external controller record for the given
-	// controller UUID, or an error satisfying [coreerrors.NotFound] when no
-	// such record exists.
-	Controller(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
-
 	// ControllerForModel returns the controller record that's associated
 	// with the modelUUID.
 	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
@@ -622,46 +606,16 @@ func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 	return params.BytesResult{Result: []byte(caCert)}, nil
 }
 
-// UserService provides user lookups for v8 prechecks.
-type UserService interface {
-	// GetUserByName returns the user with the given name, excluding removed
-	// users. It returns an error satisfying [accesserrors.UserNotFound] when
-	// no such user exists.
-	GetUserByName(ctx context.Context, name user.Name) (user.User, error)
-}
-
-// CredentialService provides cloud credential lookups for v8 prechecks.
-type CredentialService interface {
-	// CloudCredential returns the cloud credential for the given key, or an
-	// error satisfying [credentialerrors.NotFound] when no such credential
-	// exists.
-	CloudCredential(ctx context.Context, key corecredential.Key) (cloud.Credential, error)
-}
-
-// SecretBackendService provides secret backend lookups for v8 prechecks.
-type SecretBackendService interface {
-	// GetSecretBackendByName returns the secret backend with the given name,
-	// or an error satisfying [secretbackenderrors.NotFound] when no such
-	// backend exists.
-	GetSecretBackendByName(ctx context.Context, name string) (*secretbackend.SecretBackend, error)
-}
-
-// MigrationImportService provides the controller-scoped import guard reads
-// for v8 prechecks and import.
+// MigrationImportService runs the environmental v8 import prechecks against
+// the target controller database. The migrationtarget facade stays thin: it
+// assembles the typed precheck arguments from the envelope and delegates the
+// cross-domain reads to the modelmigration domain.
 type MigrationImportService interface {
-	// CheckTargetImportSchema verifies that the controller database schema
-	// can host a migrationtarget v8 model import. On failure it returns an
-	// error satisfying [coreerrors.NotSupported].
-	CheckTargetImportSchema(ctx context.Context) error
-
-	// GetImportClaim returns the target-side import claim held for the given
-	// model UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim
-	// exists.
-	GetImportClaim(ctx context.Context, modelUUID coremodel.UUID) (modelmigration.ImportClaim, error)
-
-	// ModelNamespaceExists reports whether the given model's dqlite namespace
-	// mapping already exists on this controller.
-	ModelNamespaceExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
+	// PrecheckImport runs the environmental prechecks for a v8 model migration
+	// import against the target controller (cloud/region existence, user
+	// usability, credential revoked status, secret backend existence, and
+	// model UUID/name collisions). It performs no writes.
+	PrecheckImport(ctx context.Context, args modelmigration.ImportPrecheckArgs) error
 }
 
 // APIV8 implements the MigrationTarget v8 facade: typed-envelope
@@ -675,10 +629,6 @@ type APIV8 struct {
 
 	localMacaroonMinter facade.LocalMacaroonMinter
 
-	controllerUUID         string
-	userService            UserService
-	credentialService      CredentialService
-	secretBackendService   SecretBackendService
 	migrationImportService MigrationImportService
 }
 
@@ -686,19 +636,11 @@ type APIV8 struct {
 func NewAPIV8(
 	api *API,
 	minter facade.LocalMacaroonMinter,
-	controllerUUID string,
-	userService UserService,
-	credentialService CredentialService,
-	secretBackendService SecretBackendService,
 	migrationImportService MigrationImportService,
 ) (*APIV8, error) {
 	return &APIV8{
 		API:                    api,
 		localMacaroonMinter:    minter,
-		controllerUUID:         controllerUUID,
-		userService:            userService,
-		credentialService:      credentialService,
-		secretBackendService:   secretBackendService,
 		migrationImportService: migrationImportService,
 	}, nil
 }
@@ -765,21 +707,19 @@ func (api *APIV8) prechecks(ctx context.Context, envelope params.SerializedModel
 
 // guards runs the mandatory pre-write guards that must pass before any
 // target-side row is written on the v8 import path: envelope identity
-// validation (including a non-empty source migration UUID), the runtime
-// controller-schema guard and the payload version/decode checks. It returns
-// the version-neutral static-check view of the decoded payload for callers
-// that go on to run the static/environmental prechecks. It must not write any
-// target-side rows.
+// validation (including a non-empty source migration UUID) and the payload
+// version/decode checks. It returns the version-neutral static-check view of
+// the decoded payload for callers that go on to run the static/environmental
+// prechecks. It must not write any target-side rows.
+//
+// There is no runtime controller-schema guard: the v8 import objects are
+// guaranteed present by the time the facade serves requests, because the
+// controllerupgrader manifold gates the apiserver behind completion of the
+// controller-DB schema upgrade (see the migrationtarget v8 spec, §4.6).
 func (api *APIV8) guards(ctx context.Context, envelope params.SerializedModelV2) (export.StaticCheckView, error) {
 	// Envelope sanity first: nothing else is meaningful without a valid
 	// model identity.
 	if err := validateEnvelopeModelInfo(envelope.ModelInfo); err != nil {
-		return export.StaticCheckView{}, errors.Capture(err)
-	}
-
-	// Runtime schema guard: the controller DB must carry the v8 import
-	// objects before any further work.
-	if err := api.migrationImportService.CheckTargetImportSchema(ctx); err != nil {
 		return export.StaticCheckView{}, errors.Capture(err)
 	}
 
@@ -825,8 +765,11 @@ func validateEnvelopeModelInfo(info params.SerializedModelInfo) error {
 }
 
 // targetPrechecks runs the environmental v8 prechecks against the target
-// controller, using only the typed envelope fields and the decoded payload
-// view.
+// controller. The controller-readiness and agent-version checks reuse the
+// existing v7 precheck helpers; the cloud/region, user, credential, secret
+// backend and model-collision checks are delegated to the modelmigration
+// domain (which reads the controller database directly), keeping this facade
+// thin.
 func (api *APIV8) targetPrechecks(
 	ctx context.Context, envelope params.SerializedModelV2, view export.StaticCheckView,
 ) error {
@@ -855,197 +798,39 @@ func (api *APIV8) targetPrechecks(
 			view.AgentTargetVersion, controllerVersion)
 	}
 
-	if err := api.checkCloudAndRegion(ctx, envelope.ModelInfo); err != nil {
-		return errors.Capture(err)
-	}
-	if err := api.checkUsers(ctx, envelope.Users); err != nil {
-		return errors.Capture(err)
-	}
-	if err := api.checkCredential(ctx, envelope.ModelCredential); err != nil {
-		return errors.Capture(err)
-	}
-	if err := api.checkSecretBackend(ctx, envelope.SecretBackend); err != nil {
-		return errors.Capture(err)
-	}
-	if err := api.checkExternalControllers(ctx, envelope.ExternalControllers); err != nil {
-		return errors.Capture(err)
-	}
-	if err := api.checkModelCollisions(ctx, envelope.ModelInfo); err != nil {
+	// Environmental checks against the target controller database, owned by
+	// the modelmigration domain.
+	if err := api.migrationImportService.PrecheckImport(ctx, importPrecheckArgs(envelope)); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
 }
 
-// checkCloudAndRegion verifies the model's cloud exists on the target and, if
-// set, that the cloud region is known to that cloud.
-func (api *APIV8) checkCloudAndRegion(ctx context.Context, info params.SerializedModelInfo) error {
-	cl, err := api.cloudService.Cloud(ctx, info.Cloud)
-	if errors.Is(err, clouderrors.NotFound) {
-		return errors.Errorf("model's cloud %q not found on target controller", info.Cloud)
-	} else if err != nil {
-		return errors.Errorf("retrieving cloud %q: %w", info.Cloud, err)
+// importPrecheckArgs builds the typed precheck arguments consumed by the
+// modelmigration domain from the v8 envelope's semantic fields.
+func importPrecheckArgs(envelope params.SerializedModelV2) modelmigration.ImportPrecheckArgs {
+	args := modelmigration.ImportPrecheckArgs{
+		ModelUUID:      envelope.ModelInfo.UUID,
+		ModelName:      envelope.ModelInfo.Name,
+		ModelQualifier: envelope.ModelInfo.Qualifier,
+		Cloud:          envelope.ModelInfo.Cloud,
+		CloudRegion:    envelope.ModelInfo.CloudRegion,
 	}
-	if info.CloudRegion == "" {
-		return nil
+	for _, u := range envelope.Users {
+		args.Users = append(args.Users, u.Name)
 	}
-	if _, err := cloud.RegionByName(cl.Regions, info.CloudRegion); err != nil {
-		return errors.Errorf(
-			"model's cloud region %q not valid for cloud %q on target controller: %w",
-			info.CloudRegion, info.Cloud, err)
-	}
-	return nil
-}
-
-// checkUsers verifies that every model user in the envelope can be applied on
-// the target: a missing user is fine (it is recreated on import), but an
-// existing user must be usable.
-func (api *APIV8) checkUsers(ctx context.Context, users []params.ModelUser) error {
-	for _, u := range users {
-		name, err := user.NewName(u.Name)
-		if err != nil {
-			return errors.Errorf("model user name %q %w", u.Name, coreerrors.NotValid)
-		}
-		existing, err := api.userService.GetUserByName(ctx, name)
-		if errors.Is(err, accesserrors.UserNotFound) {
-			// The user is recreated from the envelope on import.
-			continue
-		} else if err != nil {
-			return errors.Errorf("retrieving model user %q: %w", u.Name, err)
-		}
-		if existing.Disabled {
-			return errors.Errorf("model user %q is disabled on the target controller", u.Name)
+	if cred := envelope.ModelCredential; cred != nil {
+		args.Credential = &modelmigration.ImportPrecheckCredential{
+			Cloud:   cred.Cloud,
+			Owner:   cred.Owner,
+			Name:    cred.Name,
+			Revoked: cred.Revoked,
 		}
 	}
-	return nil
-}
-
-// checkCredential verifies that the model's cloud credential either does not
-// exist on the target (it is created on import) or matches the incoming
-// credential exactly.
-func (api *APIV8) checkCredential(ctx context.Context, cred *params.ModelCloudCredential) error {
-	if cred == nil {
-		return nil
+	if envelope.SecretBackend != nil {
+		args.SecretBackend = envelope.SecretBackend.Name
 	}
-	owner, err := user.NewName(cred.Owner)
-	if err != nil {
-		return errors.Errorf("model credential owner %q %w", cred.Owner, coreerrors.NotValid)
-	}
-	key := corecredential.Key{
-		Cloud: cred.Cloud,
-		Owner: owner,
-		Name:  cred.Name,
-	}
-	existing, err := api.credentialService.CloudCredential(ctx, key)
-	if errors.Is(err, credentialerrors.NotFound) {
-		// The credential is created from the envelope on import.
-		return nil
-	} else if err != nil {
-		return errors.Errorf("retrieving model credential %q: %w", key, err)
-	}
-	if string(existing.AuthType()) != cred.AuthType {
-		return errors.Errorf(
-			"model credential %q already exists on the target controller with auth-type %q, not %q",
-			key, existing.AuthType(), cred.AuthType)
-	}
-	if !maps.Equal(existing.Attributes(), cred.Attributes) {
-		return errors.Errorf(
-			"model credential %q already exists on the target controller with different attributes", key)
-	}
-	if existing.Revoked && !cred.Revoked {
-		return errors.Errorf(
-			"model credential %q is revoked on the target controller", key)
-	}
-	return nil
-}
-
-// checkSecretBackend verifies the model's secret backend exists on the target.
-func (api *APIV8) checkSecretBackend(ctx context.Context, backend *params.ModelSecretBackend) error {
-	if backend == nil {
-		return nil
-	}
-	_, err := api.secretBackendService.GetSecretBackendByName(ctx, backend.Name)
-	if errors.Is(err, secretbackenderrors.NotFound) {
-		return errors.Errorf("model's secret backend %q not found on target controller", backend.Name)
-	} else if err != nil {
-		return errors.Errorf("retrieving secret backend %q: %w", backend.Name, err)
-	}
-	return nil
-}
-
-// checkExternalControllers verifies that none of the third-party external
-// controllers referenced by the model collide with a controller already
-// registered on the target under the same UUID but with different
-// addresses or CA certificate.
-func (api *APIV8) checkExternalControllers(ctx context.Context, refs []params.ExternalControllerRef) error {
-	for _, ref := range refs {
-		if ref.UUID == api.controllerUUID {
-			// Offers consumed from this (target) controller become local
-			// again after migration; there is no external record to compare.
-			continue
-		}
-		existing, err := api.externalControllerService.Controller(ctx, ref.UUID)
-		if errors.Is(err, coreerrors.NotFound) {
-			// The controller record is created from the envelope on import.
-			continue
-		} else if err != nil {
-			return errors.Errorf("retrieving external controller %q: %w", ref.UUID, err)
-		}
-		if existing.CACert != ref.CACert ||
-			!set.NewStrings(existing.Addrs...).Difference(set.NewStrings(ref.Addresses...)).IsEmpty() ||
-			!set.NewStrings(ref.Addresses...).Difference(set.NewStrings(existing.Addrs...)).IsEmpty() {
-			return errors.Errorf(
-				"external controller %q: %w",
-				ref.UUID, modelmigrationerrors.ErrExternalControllerConflict)
-		}
-	}
-	return nil
-}
-
-// checkModelCollisions rejects imports that would collide with live rows on
-// the target's shared-namespace tables (model, model_namespace) or with an
-// existing import claim, and rejects model name/qualifier conflicts.
-func (api *APIV8) checkModelCollisions(ctx context.Context, info params.SerializedModelInfo) error {
-	modelUUID := coremodel.UUID(info.UUID)
-
-	claim, err := api.migrationImportService.GetImportClaim(ctx, modelUUID)
-	if err == nil {
-		// TODO(modelmigration): the import claim/retry semantics (coded
-		// AlreadyExists with phase-specific wording on Import) are owned by
-		// the import-path task; prechecks only report the occupied slot.
-		return errors.Errorf(
-			"model %q already has an import claim on this controller (phase %q, source migration %q, updated %s)",
-			modelUUID, claim.Phase, claim.SourceMigrationUUID, claim.UpdatedAt.Format("2006-01-02 15:04:05"))
-	} else if !errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
-		return errors.Errorf("retrieving import claim for model %q: %w", modelUUID, err)
-	}
-
-	// No import claim: any live row for this UUID is a hard collision.
-	_, err = api.modelService.Model(ctx, modelUUID)
-	if err == nil {
-		return errors.Errorf("model with same UUID already exists (%s)", modelUUID)
-	} else if !errors.Is(err, modelerrors.NotFound) {
-		return errors.Errorf("retrieving model %q: %w", modelUUID, err)
-	}
-
-	exists, err := api.migrationImportService.ModelNamespaceExists(ctx, modelUUID)
-	if err != nil {
-		return errors.Errorf("checking model namespace for model %q: %w", modelUUID, err)
-	}
-	if exists {
-		return errors.Errorf(
-			"model database namespace for %q already exists on target controller", modelUUID)
-	}
-
-	models, err := api.modelService.GetAllModels(ctx)
-	if err != nil {
-		return errors.Errorf("retrieving models: %w", err)
-	}
-	for _, model := range models {
-		if model.Name == info.Name && model.Qualifier.String() == info.Qualifier {
-			return errors.Errorf("model named %q already exists", info.Name)
-		}
-	}
-	return nil
+	return args
 }
 
 // CreateMigrationMacaroon mints a directly-presentable 24h login macaroon for

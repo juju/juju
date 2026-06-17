@@ -22,24 +22,13 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/crossmodel"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/user"
-	usertesting "github.com/juju/juju/core/user/testing"
-	accesserrors "github.com/juju/juju/domain/access/errors"
-	clouderrors "github.com/juju/juju/domain/cloud/errors"
-	credentialerrors "github.com/juju/juju/domain/credential/errors"
 	"github.com/juju/juju/domain/export"
 	v4_0_6 "github.com/juju/juju/domain/export/types/v4_0_6"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmigration"
-	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
-	"github.com/juju/juju/domain/secretbackend"
-	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -60,13 +49,9 @@ type v8Suite struct {
 	modelMigrationService     *MockModelMigrationService
 	agentService              *MockModelAgentService
 	removalService            *MockRemovalService
-	userService               *MockUserService
-	credentialService         *MockCredentialService
-	secretBackendService      *MockSecretBackendService
 	migrationImportService    *MockMigrationImportService
 
-	controllerUUID string
-	modelUUID      string
+	modelUUID string
 
 	facadeContext facadetest.ModelContext
 }
@@ -89,12 +74,8 @@ func (s *v8Suite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelMigrationService = NewMockModelMigrationService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
-	s.userService = NewMockUserService(ctrl)
-	s.credentialService = NewMockCredentialService(ctrl)
-	s.secretBackendService = NewMockSecretBackendService(ctrl)
 	s.migrationImportService = NewMockMigrationImportService(ctrl)
 
-	s.controllerUUID = uuid.MustNewUUID().String()
 	s.modelUUID = uuid.MustNewUUID().String()
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -142,10 +123,6 @@ func (s *v8Suite) mustNewAPIV8WithMinter(c *tc.C, minter facade.LocalMacaroonMin
 	apiV8, err := migrationtarget.NewAPIV8(
 		api,
 		minter,
-		s.controllerUUID,
-		s.userService,
-		s.credentialService,
-		s.secretBackendService,
 		s.migrationImportService,
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -192,11 +169,6 @@ func (s *v8Suite) makeEnvelope(c *tc.C, payload v4_0_6.ModelExport) params.Seria
 	}
 }
 
-// expectSchemaReady primes the schema guard to pass.
-func (s *v8Suite) expectSchemaReady() {
-	s.migrationImportService.EXPECT().CheckTargetImportSchema(gomock.Any()).Return(nil).AnyTimes()
-}
-
 // expectControllerReady primes the target-controller readiness checks
 // (upgrade in progress, controller machine health) and the target controller
 // version used by the agent-version check.
@@ -209,78 +181,61 @@ func (s *v8Suite) expectControllerReady() {
 		semversion.MustParse("4.1.0"), nil).AnyTimes()
 }
 
-// expectCloud primes the cloud lookup with a cloud carrying the test region.
-func (s *v8Suite) expectCloud() {
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "my-cloud").Return(&cloud.Cloud{
-		Name:    "my-cloud",
-		Regions: []cloud.Region{{Name: "my-region"}},
-	}, nil).AnyTimes()
-}
-
-// expectNoCollisions primes the import-claim, model, namespace and model-list
-// lookups so the collision checks pass.
-func (s *v8Suite) expectNoCollisions() {
-	s.migrationImportService.EXPECT().GetImportClaim(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound).AnyTimes()
-	s.modelService.EXPECT().Model(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		model.Model{}, modelerrors.NotFound).AnyTimes()
-	s.migrationImportService.EXPECT().ModelNamespaceExists(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		false, nil).AnyTimes()
-	s.modelService.EXPECT().GetAllModels(gomock.Any()).Return(nil, nil).AnyTimes()
-}
-
-func (s *v8Suite) expectHappyPath() {
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-	s.expectNoCollisions()
-}
-
 // TestPrechecksSuccess runs the full precheck routine over a well-formed
-// envelope: existing enabled user, matching existing credential, existing
-// secret backend, an identical existing external controller plus a reference
-// to the target controller itself (skipped), and no collisions.
+// envelope: the static payload checks and controller-readiness checks pass,
+// and the environmental checks delegated to the modelmigration domain return
+// no error. It also asserts the envelope's semantic fields are mapped onto the
+// precheck arguments handed to the domain.
 func (s *v8Suite) TestPrechecksSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectHappyPath()
+	s.expectControllerReady()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.Users = []params.ModelUser{
-		{Name: "existing-user"},
-		{Name: "missing-user"},
-	}
+	envelope.Users = []params.ModelUser{{Name: "alice"}, {Name: "bob"}}
 	envelope.ModelCredential = &params.ModelCloudCredential{
-		Cloud:      "my-cloud",
-		Owner:      "existing-user",
-		Name:       "foobar",
-		AuthType:   "access-key",
-		Attributes: map[string]string{"foo": "bar"},
+		Cloud:   "my-cloud",
+		Owner:   "carol",
+		Name:    "foobar",
+		Revoked: true,
 	}
 	envelope.SecretBackend = &params.ModelSecretBackend{Name: "myvault"}
-	thirdPartyUUID := uuid.MustNewUUID().String()
-	envelope.ExternalControllers = []params.ExternalControllerRef{
-		{UUID: s.controllerUUID, CACert: "ignored"},
-		{UUID: thirdPartyUUID, CACert: "ca-cert", Addresses: []string{"10.0.0.1:17070", "10.0.0.2:17070"}},
-	}
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "existing-user")).Return(
-		user.User{Name: usertesting.GenNewName(c, "existing-user")}, nil)
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "missing-user")).Return(
-		user.User{}, accesserrors.UserNotFound)
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), gomock.Any()).Return(
-		cloud.NewCredential("access-key", map[string]string{"foo": "bar"}), nil)
-	s.secretBackendService.EXPECT().GetSecretBackendByName(gomock.Any(), "myvault").Return(
-		&secretbackend.SecretBackend{ID: "backend-uuid", Name: "myvault"}, nil)
-	// Addresses compare as sets, so a different order is not a conflict.
-	s.externalControllerService.EXPECT().Controller(gomock.Any(), thirdPartyUUID).Return(
-		&crossmodel.ControllerInfo{
-			ControllerUUID: thirdPartyUUID,
-			CACert:         "ca-cert",
-			Addrs:          []string{"10.0.0.2:17070", "10.0.0.1:17070"},
-		}, nil)
+	var captured modelmigration.ImportPrecheckArgs
+	s.migrationImportService.EXPECT().PrecheckImport(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args modelmigration.ImportPrecheckArgs) error {
+			captured = args
+			return nil
+		})
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(captured.ModelUUID, tc.Equals, s.modelUUID)
+	c.Check(captured.ModelName, tc.Equals, "some-model")
+	c.Check(captured.ModelQualifier, tc.Equals, "prod")
+	c.Check(captured.Cloud, tc.Equals, "my-cloud")
+	c.Check(captured.CloudRegion, tc.Equals, "my-region")
+	c.Check(captured.Users, tc.DeepEquals, []string{"alice", "bob"})
+	c.Assert(captured.Credential, tc.NotNil)
+	c.Check(captured.Credential.Cloud, tc.Equals, "my-cloud")
+	c.Check(captured.Credential.Owner, tc.Equals, "carol")
+	c.Check(captured.Credential.Name, tc.Equals, "foobar")
+	c.Check(captured.Credential.Revoked, tc.IsTrue)
+	c.Check(captured.SecretBackend, tc.Equals, "myvault")
+}
+
+// TestPrechecksDomainErrorPropagates verifies that an environmental precheck
+// error from the modelmigration domain is surfaced (wrapped) to the caller.
+func (s *v8Suite) TestPrechecksDomainErrorPropagates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectControllerReady()
+
+	s.migrationImportService.EXPECT().PrecheckImport(gomock.Any(), gomock.Any()).Return(
+		errors.Errorf("model's cloud %q not found on target controller", "my-cloud"))
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
+	c.Assert(err, tc.ErrorMatches,
+		`migration target prechecks failed: model's cloud "my-cloud" not found on target controller`)
 }
 
 // TestPrechecksInvalidModelInfo verifies the envelope identity validation:
@@ -317,27 +272,10 @@ func (s *v8Suite) TestPrechecksInvalidModelInfo(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `empty source migration UUID not valid`)
 }
 
-// TestPrechecksSchemaNotReady verifies the runtime schema guard error is
-// surfaced before any payload work.
-func (s *v8Suite) TestPrechecksSchemaNotReady(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.migrationImportService.EXPECT().CheckTargetImportSchema(gomock.Any()).Return(
-		schemaNotReadyError())
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Assert(err, tc.ErrorMatches, "target schema not ready for migrationtarget v8.*")
-}
-
-// TestPrechecksPayloadTooLarge verifies that an oversized payload is rejected
-// before any YAML decode: the same garbage bytes under the limit produce a
-// decode error instead.
 // TestPrechecksPayloadDecodeError verifies that a malformed payload is
 // rejected by the decoder with a coded validation error.
 func (s *v8Suite) TestPrechecksPayloadDecodeError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 	api := s.mustNewAPIV8(c)
 
 	envelope := s.makeEnvelope(c, s.validPayload())
@@ -352,7 +290,6 @@ func (s *v8Suite) TestPrechecksPayloadDecodeError(c *tc.C) {
 // message, even for versions unknown to the decoder registry.
 func (s *v8Suite) TestPrechecksPayloadVersionNewerThanTarget(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
 	envelope.PayloadVersion = semversion.MustParse("9.9.9")
@@ -368,7 +305,6 @@ func (s *v8Suite) TestPrechecksPayloadVersionNewerThanTarget(c *tc.C) {
 // target but unknown to the decoder registry yields a clean error.
 func (s *v8Suite) TestPrechecksPayloadVersionUnknown(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
 	envelope.PayloadVersion = semversion.MustParse("4.0.5")
@@ -382,7 +318,6 @@ func (s *v8Suite) TestPrechecksPayloadVersionUnknown(c *tc.C) {
 // runs over the decoded payload.
 func (s *v8Suite) TestPrechecksCharmWithoutManifest(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 
 	payload := s.validPayload()
 	payload.CharmManifestBase = nil
@@ -396,7 +331,6 @@ func (s *v8Suite) TestPrechecksCharmWithoutManifest(c *tc.C) {
 // decoded payload's model config.
 func (s *v8Suite) TestPrechecksFanConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 
 	payload := s.validPayload()
 	payload.ModelConfig = []v4_0_6.ModelConfig{
@@ -411,7 +345,6 @@ func (s *v8Suite) TestPrechecksFanConfig(c *tc.C) {
 // agent version from the payload must not be ahead of the target controller.
 func (s *v8Suite) TestPrechecksModelVersionNewerThanController(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 	s.expectControllerReady()
 
 	payload := s.validPayload()
@@ -426,155 +359,11 @@ func (s *v8Suite) TestPrechecksModelVersionNewerThanController(c *tc.C) {
 // check rejects a controller that is mid-upgrade.
 func (s *v8Suite) TestPrechecksUpgradeInProgress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
 	c.Assert(err, tc.ErrorMatches, `migration target prechecks failed: upgrade in progress`)
-}
-
-// TestPrechecksCloudNotFound verifies the model's cloud must exist on the
-// target controller.
-func (s *v8Suite) TestPrechecksCloudNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "my-cloud").Return(nil, clouderrors.NotFound)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches,
-		`migration target prechecks failed: model's cloud "my-cloud" not found on target controller`)
-}
-
-// TestPrechecksCloudRegionNotFound verifies the model's cloud region must be
-// valid for the target cloud.
-func (s *v8Suite) TestPrechecksCloudRegionNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-
-	s.cloudService.EXPECT().Cloud(gomock.Any(), "my-cloud").Return(&cloud.Cloud{
-		Name:    "my-cloud",
-		Regions: []cloud.Region{{Name: "other-region"}},
-	}, nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches,
-		`migration target prechecks failed: model's cloud region "my-region" not valid for cloud "my-cloud" on target controller: .*`)
-}
-
-// TestPrechecksUserDisabled verifies that a model user that exists on the
-// target but is disabled blocks the migration.
-func (s *v8Suite) TestPrechecksUserDisabled(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.Users = []params.ModelUser{{Name: "blocked-user"}}
-
-	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "blocked-user")).Return(
-		user.User{Name: usertesting.GenNewName(c, "blocked-user"), Disabled: true}, nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorMatches,
-		`migration target prechecks failed: model user "blocked-user" is disabled on the target controller`)
-}
-
-// TestPrechecksCredentialAuthTypeMismatch verifies an existing target
-// credential with a different auth type is a conflict.
-func (s *v8Suite) TestPrechecksCredentialAuthTypeMismatch(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.ModelCredential = &params.ModelCloudCredential{
-		Cloud:    "my-cloud",
-		Owner:    "someone",
-		Name:     "foobar",
-		AuthType: "access-key",
-	}
-
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), gomock.Any()).Return(
-		cloud.NewCredential("userpass", nil), nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorMatches,
-		`.*already exists on the target controller with auth-type "userpass", not "access-key"`)
-}
-
-// TestPrechecksCredentialAttributesMismatch verifies an existing target
-// credential with different attributes is a conflict.
-func (s *v8Suite) TestPrechecksCredentialAttributesMismatch(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.ModelCredential = &params.ModelCloudCredential{
-		Cloud:      "my-cloud",
-		Owner:      "someone",
-		Name:       "foobar",
-		AuthType:   "access-key",
-		Attributes: map[string]string{"foo": "bar"},
-	}
-
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), gomock.Any()).Return(
-		cloud.NewCredential("access-key", map[string]string{"foo": "different"}), nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorMatches,
-		`.*already exists on the target controller with different attributes`)
-}
-
-// TestPrechecksCredentialRevoked verifies an existing revoked target
-// credential blocks the migration when the incoming credential is live.
-func (s *v8Suite) TestPrechecksCredentialRevoked(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.ModelCredential = &params.ModelCloudCredential{
-		Cloud:    "my-cloud",
-		Owner:    "someone",
-		Name:     "foobar",
-		AuthType: "access-key",
-	}
-
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), gomock.Any()).Return(
-		cloud.NewNamedCredential("foobar", "access-key", nil, true), nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorMatches, `.*is revoked on the target controller`)
-}
-
-// TestPrechecksCredentialMissingIsFine verifies a credential absent from the
-// target passes prechecks (it is created on import).
-func (s *v8Suite) TestPrechecksCredentialMissingIsFine(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectHappyPath()
-
-	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.ModelCredential = &params.ModelCloudCredential{
-		Cloud:    "my-cloud",
-		Owner:    "someone",
-		Name:     "foobar",
-		AuthType: "access-key",
-	}
-
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), gomock.Any()).Return(
-		cloud.Credential{}, credentialerrors.NotFound)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestCreateMigrationMacaroonSuccess verifies v8 delegates macaroon minting
@@ -635,140 +424,14 @@ func (s *v8Suite) TestCreateMigrationMacaroonRemoteUserPermissionDenied(c *tc.C)
 	c.Check(minter.calls, tc.Equals, 0)
 }
 
-// TestPrechecksSecretBackendNotFound verifies the model's secret backend
-// must exist on the target controller.
-func (s *v8Suite) TestPrechecksSecretBackendNotFound(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.SecretBackend = &params.ModelSecretBackend{Name: "myvault"}
-
-	s.secretBackendService.EXPECT().GetSecretBackendByName(gomock.Any(), "myvault").Return(
-		nil, secretbackenderrors.NotFound)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorMatches,
-		`migration target prechecks failed: model's secret backend "myvault" not found on target controller`)
-}
-
-// TestPrechecksExternalControllerConflict verifies that an existing external
-// controller record with a different CA cert or addresses is a conflict.
-func (s *v8Suite) TestPrechecksExternalControllerConflict(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	thirdPartyUUID := uuid.MustNewUUID().String()
-	envelope := s.makeEnvelope(c, s.validPayload())
-	envelope.ExternalControllers = []params.ExternalControllerRef{
-		{UUID: thirdPartyUUID, CACert: "ca-cert", Addresses: []string{"10.0.0.1:17070"}},
-	}
-
-	s.externalControllerService.EXPECT().Controller(gomock.Any(), thirdPartyUUID).Return(
-		&crossmodel.ControllerInfo{
-			ControllerUUID: thirdPartyUUID,
-			CACert:         "different-ca-cert",
-			Addrs:          []string{"10.0.0.1:17070"},
-		}, nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
-	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerConflict)
-}
-
-// TestPrechecksImportClaimExists verifies the occupied-import-slot rejection
-// reports the claim phase.
-func (s *v8Suite) TestPrechecksImportClaimExists(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	s.migrationImportService.EXPECT().GetImportClaim(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		modelmigration.ImportClaim{
-			SourceMigrationUUID: "previous-migration",
-			Phase:               modelmigration.ImportPhaseAborting,
-		}, nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches,
-		`.*already has an import claim on this controller \(phase "aborting", source migration "previous-migration", updated .*\)`)
-}
-
-// TestPrechecksModelExistsWithoutClaim verifies a live model row without an
-// import claim is a hard UUID collision.
-func (s *v8Suite) TestPrechecksModelExistsWithoutClaim(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	s.migrationImportService.EXPECT().GetImportClaim(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
-	s.modelService.EXPECT().Model(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		model.Model{UUID: model.UUID(s.modelUUID)}, nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches,
-		`migration target prechecks failed: model with same UUID already exists \(`+s.modelUUID+`\)`)
-}
-
-// TestPrechecksNamespaceExistsWithoutClaim verifies a live model_namespace
-// row without an import claim is a hard collision.
-func (s *v8Suite) TestPrechecksNamespaceExistsWithoutClaim(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	s.migrationImportService.EXPECT().GetImportClaim(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
-	s.modelService.EXPECT().Model(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		model.Model{}, modelerrors.NotFound)
-	s.migrationImportService.EXPECT().ModelNamespaceExists(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		true, nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches,
-		`migration target prechecks failed: model database namespace for .* already exists on target controller`)
-}
-
-// TestPrechecksNameConflict verifies a model with the same name and qualifier
-// on the target is a conflict.
-func (s *v8Suite) TestPrechecksNameConflict(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
-	s.expectControllerReady()
-	s.expectCloud()
-
-	s.migrationImportService.EXPECT().GetImportClaim(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
-	s.modelService.EXPECT().Model(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		model.Model{}, modelerrors.NotFound)
-	s.migrationImportService.EXPECT().ModelNamespaceExists(gomock.Any(), model.UUID(s.modelUUID)).Return(
-		false, nil)
-	s.modelService.EXPECT().GetAllModels(gomock.Any()).Return([]model.Model{{
-		UUID:      model.UUID(uuid.MustNewUUID().String()),
-		Name:      "some-model",
-		Qualifier: "prod",
-	}}, nil)
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches,
-		`migration target prechecks failed: model named "some-model" already exists`)
-}
-
 // TestImportRunsGuardsThenNoOpSuccess verifies the v8 Import shell runs the
-// mandatory pre-write guards and then succeeds as a no-op until the real
-// import path lands. Only the schema guard is primed: Import must NOT run the
-// static or environmental prechecks, so any environmental lookup would surface
-// here as an unexpected gomock call.
+// mandatory pre-write guards (envelope validation and payload version/decode)
+// and then succeeds as a no-op until the real import path lands. Import must
+// NOT run the static or environmental prechecks, so the precheck service is
+// never primed: any environmental call would surface as an unexpected gomock
+// call.
 func (s *v8Suite) TestImportRunsGuardsThenNoOpSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectSchemaReady()
 
 	err := s.mustNewAPIV8(c).Import(c.Context(), s.makeEnvelope(c, s.validPayload()))
 	c.Assert(err, tc.ErrorIsNil)
@@ -779,10 +442,10 @@ func (s *v8Suite) TestImportRunsGuardsThenNoOpSuccess(c *tc.C) {
 func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.migrationImportService.EXPECT().CheckTargetImportSchema(gomock.Any()).Return(
-		schemaNotReadyError())
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.PayloadVersion = semversion.MustParse("9.9.9")
 
-	err := s.mustNewAPIV8(c).Import(c.Context(), s.makeEnvelope(c, s.validPayload()))
+	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
@@ -829,10 +492,4 @@ func newMacaroon(c *tc.C) *macaroon.Macaroon {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return mac
-}
-
-// schemaNotReadyError mirrors the coded error returned by the state-layer
-// schema guard when the v8 import schema objects are missing.
-func schemaNotReadyError() error {
-	return errors.Errorf("target schema not ready for migrationtarget v8 %w", coreerrors.NotSupported)
 }

@@ -219,3 +219,48 @@ type ImportClaim struct {
 	// UpdatedAt is when the claim last changed phase.
 	UpdatedAt time.Time
 }
+
+// ImportPrecheckArgs carries the target-portable semantic facts from a v8
+// migration envelope that the target controller validates before accepting an
+// import. It is assembled by the migrationtarget facade from the typed
+// envelope fields and consumed by the modelmigration import prechecks, which
+// query the target controller database directly.
+type ImportPrecheckArgs struct {
+	// ModelUUID, ModelName and ModelQualifier identify the migrating model and
+	// drive the model collision checks.
+	ModelUUID      string
+	ModelName      string
+	ModelQualifier string
+
+	// Cloud is the name of the cloud the model runs on; it must exist on the
+	// target controller.
+	Cloud string
+
+	// CloudRegion is the model's cloud region. When non-empty it must be a
+	// region known to Cloud on the target controller.
+	CloudRegion string
+
+	// Users are the names of the controller users referenced by the model. A
+	// user missing from the target is fine (it is recreated on import); an
+	// existing user must not be disabled.
+	Users []string
+
+	// Credential is the model's cloud credential, or nil when the model has
+	// none. When the credential already exists on the target it must not be
+	// revoked.
+	Credential *ImportPrecheckCredential
+
+	// SecretBackend is the name of the model's secret backend, or empty when
+	// the model has none. When set it must exist on the target controller.
+	SecretBackend string
+}
+
+// ImportPrecheckCredential is the natural key plus revoked status of the
+// model's cloud credential, used by the import prechecks to compare against
+// any credential already present on the target controller.
+type ImportPrecheckCredential struct {
+	Cloud   string
+	Owner   string
+	Name    string
+	Revoked bool
+}
