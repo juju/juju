@@ -182,6 +182,9 @@ func noticeMatches(notice *pebbleclient.Notice, opts *pebbleclient.NoticesOption
 	if opts == nil || opts.Types != nil || opts.Keys != nil {
 		panic("not supported")
 	}
+	if opts.Users != pebbleclient.NoticesUsersAll {
+		panic("WaitNotices must use NoticesUsersAll to see notices from all users")
+	}
 	if !opts.After.IsZero() && !notice.LastRepeated.After(opts.After) {
 		return false
 	}

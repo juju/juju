@@ -88,7 +88,7 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 	for {
 		// Wait up to a timeout for new notices to arrive (also stop when
 		// tomb's context is cancelled).
-		options := &client.NoticesOptions{After: after}
+		options := &client.NoticesOptions{After: after, Users: client.NoticesUsersAll}
 		notices, err := pebbleClient.WaitNotices(ctx, waitTimeout, options)
 
 		// Return early if the worker was killed.
