@@ -212,12 +212,10 @@ Kubernetes clouds support the following {ref}`cloud-specific model configuration
 See also: {ref}`unit`, {ref}`Juju | Manage units <manage-units>`
 ```
 
-(kubernetes-supported-constraints)=
-### Supported constraints
+(kubernetes-constraints)=
+### Constraints
 
-On Kubernetes clouds, constraints apply to pod resources and placement behavior.
-
-Kubernetes clouds support a limited subset of constraints compared to machine clouds:
+Kubernetes clouds support the following {ref}`constraints <constraint>`, which here apply to pod resources and placement behavior:
 
 - {ref}`constraint-cpu-power`. CPU resource request/limit for pods.
 - {ref}`constraint-mem`. Memory resource request/limit for pods.

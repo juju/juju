@@ -2,11 +2,8 @@
 
 In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-```{dropdown} Example workflow
-
-1. Add or confirm the predefined cloud with `juju add-cloud`.
-2. From Azure Cloud Shell (or an Azure-hosted jump host), run `juju add-credential azure` and choose `managed-identity` (recommended; avoids storing static secrets in Juju).
-3. Bootstrap with `juju bootstrap azure azure-controller`.
+```{note}
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`azure-appendix-example-workflows`.
 ```
 
 (azure-cloud-requirements)=
@@ -197,7 +194,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (azure-machine-constraints)=
 ### Constraints
 
-Microsoft Azure supports the following constraints:
+Microsoft Azure supports the following {ref}`constraints <constraint>`:
 
 ```{note}
 The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
@@ -267,11 +264,19 @@ In addition to generic storage providers, Microsoft Azure provides the following
 See more: [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/managed-disks-overview)
 ```
 
-(azure-appendix-example-authentication-workflows)=
-## Appendix: Example authentication workflows
+(azure-appendix-example-workflows)=
+## Appendix: Example workflows
+
+(azure-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+
+1. Add or confirm the predefined cloud with `juju add-cloud`.
+2. From Azure Cloud Shell (or an Azure-hosted jump host), run `juju add-credential azure` and choose `managed-identity` (recommended; avoids storing static secrets in Juju).
+3. Bootstrap with `juju bootstrap azure azure-controller`.
 
 (azure-appendix-workflow-1)=
-### Workflow 1 -- Managed identity only (recommended)
+### Authenticate with managed identity (recommended)
 > *Requirements:*
 > - Juju 3.6+.
 > - A managed identity. See more: {ref}`azure-appendix-create-a-managed-identity`
@@ -286,7 +291,7 @@ With this workflow where you provide the managed identity during `add-credential
 ```
 
 (azure-appendix-workflow-2)=
-### Workflow 2 -- Service principal secret + managed identity
+### Authenticate with service principal secret and managed identity
 > *Requirements:*
 > - Juju 3.6+.
 > - A managed identity. See more: {ref}`azure-appendix-create-a-managed-identity`
@@ -303,7 +308,7 @@ With this workflow where you provide the managed identity during `bootstrap` you
 ```
 
 (azure-appendix-workflow-3)=
-### Workflow 3 -- Service principal secret only (dispreferred)
+### Authenticate with service principal secret only (dispreferred)
 
 1. Add a service-principal-secret:
     - `interactive`  = "service-principal-via-browser" (recommended):

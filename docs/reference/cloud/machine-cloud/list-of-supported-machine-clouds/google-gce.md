@@ -9,10 +9,8 @@ myst:
 
 In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-```{dropdown} Example workflow
-1. On a jump host in Google Cloud, add or confirm the predefined cloud with `juju add-cloud`.
-2. Run `juju add-credential google` and choose `service-account` (recommended; avoids storing static key material in Juju).
-3. Bootstrap with `juju bootstrap google gce-controller`.
+```{note}
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`gce-appendix-example-workflows`.
 ```
 
 (gce-cloud-requirements)=
@@ -105,7 +103,9 @@ See more: {ref}`gce-appendix-workflow-2`
 **Requirements:**
 
 - Juju 3.6+
-- A service account with sufficient privileges. See: {ref}`gce-appendix-service-account`
+- A service account with sufficient privileges:
+  - `https://www.googleapis.com/auth/compute`
+  - `https://www.googleapis.com/auth/devstorage.full_control`
 - The `add-credential` steps must be run from a jump host running in Google Cloud to reach the cloud metadata endpoint.
 
 ```{ibnote}
@@ -134,18 +134,6 @@ Creates a controller instance on GCE in a single API request. Juju creates the r
 - **Service account** (optional): Attached if credential type is `service-account` or `instance-role` constraint specified. Scopes: `compute`, `devstorage.full_control`. Enables metadata service credentials.
 - **Instance metadata**: Tagged with `juju-controller-uuid`, `juju-is-controller: true`, and bootstrap metadata for controller initialization.
 - **Instance tags**: `juju-<model-uuid>` (for firewall targeting), hostname.
-
-(gce-controller-other)=
-### Other
-
-(gce-controller-service-accounts)=
-#### Service accounts
-
-Bootstrap with service accounts using `juju bootstrap --bootstrap-constraints="instance-role=<service-account-email>"`. Use `instance-role=auto` to use project's default service account.
-
-```{ibnote}
-See more: {ref}`gce-appendix-service-account`, {ref}`gce-appendix-example-authentication-workflows`
-```
 
 (gce-model)=
 ## Models
@@ -200,7 +188,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (gce-machine-constraints)=
 ### Constraints
 
-Google GCE supports the following constraints:
+Google GCE supports the following {ref}`constraints <constraint>`:
 
 ```{note}
 The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually exclusive.
@@ -211,6 +199,7 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
+- {ref}`constraint-instance-role`. Valid values: A service account email.
 - {ref}`constraint-instance-type`. Valid values: Any GCE machine type. Default: `n1-standard-1`.
 - {ref}`constraint-mem`
 - {ref}`constraint-root-disk`
@@ -269,20 +258,23 @@ In addition to generic storage providers, Google GCE provides the following {ref
 
 - `disk-type`: Disk type. Valid values: `pd-standard` (default), `pd-ssd`.
 
-```{caution}
-Known issue with `pd-ssd`: See [GitHub issue #20349](https://github.com/juju/juju/issues/20349).
-```
+(gce-appendix-example-workflows)=
+## Appendix: Example workflows
 
-(gce-appendix-example-authentication-workflows)=
-## Appendix: Example authentication workflows
+(gce-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+1. On a jump host in Google Cloud, add or confirm the predefined cloud with `juju add-cloud`.
+2. Run `juju add-credential google` and choose `service-account` (recommended; avoids storing static key material in Juju).
+3. Bootstrap with `juju bootstrap google gce-controller`.
 
 (gce-appendix-workflow-1)=
-### Workflow 1 -- Service account only (recommended)
+### Authenticate with a service account (recommended)
 
 **Requirements:**
 
 - Juju 3.6+
-- A service account with sufficient privileges (see {ref}`gce-appendix-service-account`)
+- A service account with sufficient privileges (see `service-account` authentication type above)
 - The `add-credential` steps must be run from a jump host in Google Cloud to reach the metadata endpoint.
 
 **Steps:**
@@ -299,27 +291,19 @@ To configure workload machines to use a different (less privileged) service acco
 ```
 
 (gce-appendix-workflow-2)=
-### Workflow 2 -- Bootstrap using normal credential; use service account thereafter
+### Authenticate with a credential and a service account
 
 **Requirements:**
 
 - Juju 3.6+
-- A service account with sufficient privileges (see {ref}`gce-appendix-service-account`)
+- A service account with sufficient privileges (see `service-account` authentication type above)
 
 **Steps:**
 
-1. Bootstrap with the arg `--bootstrap-constraints="instance-role=auto"`.
-2. The controller machines will be created and attached to the project's default service account.
-3. Alternatively, specify a different service account instead of `auto`.
+1. Bootstrap with the arg `--bootstrap-constraints="instance-role=<your-service-account-email>"`.
+2. The controller machines will be created and attached to that service account.
+3. To use the project's default service account, set `instance-role=auto` instead.
 
 ```{tip}
 To configure workload machines to use a different (less privileged) service account, use the `instance-role` constraint. This can be set on the model to apply to all (non-controller) machines.
 ```
-
-(gce-appendix-service-account)=
-## Appendix: Service account requirements
-
-To configure a service account with the privileges required by Juju, assign the following scopes:
-
-- `https://www.googleapis.com/auth/compute`
-- `https://www.googleapis.com/auth/devstorage.full_control`

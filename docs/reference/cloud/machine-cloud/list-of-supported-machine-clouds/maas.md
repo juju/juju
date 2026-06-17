@@ -9,11 +9,8 @@ myst:
 
 In Juju, [MAAS](https://maas.io/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-```{dropdown} Example workflow
-
-1. Add the MAAS cloud endpoint with `juju add-cloud`.
-2. Add credentials with `juju add-credential` and choose `oauth1`.
-3. Bootstrap with `juju bootstrap <maas-cloud-name> maas-controller`.
+```{note}
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`maas-appendix-example-workflows`.
 ```
 
 (maas-cloud-requirements)=
@@ -117,7 +114,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (maas-machine-constraints)=
 ### Constraints
 
-MAAS supports the following constraints:
+MAAS supports the following {ref}`constraints <constraint>`:
 
 - {ref}`constraint-arch`. Valid values: See cloud provider.
 - {ref}`constraint-container`
@@ -188,4 +185,14 @@ The MAAS storage provider is static-only—it cannot dynamically create or relea
 **Configuration options:**
 
 - `tags`: A comma-separated list of tags to match on the disks in MAAS. For example, you might tag some disks as `fast`; you can then create a storage pool in Juju that will draw from the disks with those tags.
+
+(maas-appendix-example-workflows)=
+## Appendix: Example workflows
+
+(maas-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+1. Add the MAAS cloud endpoint with `juju add-cloud`.
+2. Add credentials with `juju add-credential` and choose `oauth1`.
+3. Bootstrap with `juju bootstrap <maas-cloud-name> maas-controller`.
 

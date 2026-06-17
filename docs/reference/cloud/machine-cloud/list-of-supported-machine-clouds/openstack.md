@@ -9,12 +9,8 @@ myst:
 
 In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-```{dropdown} Example workflow
-
-1. Source your OpenStack RC file: `source <path-to-openrc>`.
-2. Add the cloud interactively with `juju add-cloud` and accept detected defaults.
-3. Add credentials with `juju add-credential` and choose `userpass`.
-4. Bootstrap with `juju bootstrap <openstack-cloud-name> openstack-controller`.
+```{note}
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`openstack-appendix-example-workflows`.
 ```
 
 (openstack-cloud-requirements)=
@@ -200,7 +196,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (openstack-machine-constraints)=
 ### Constraints
 
-OpenStack supports the following constraints:
+OpenStack supports the following {ref}`constraints <constraint>`:
 
 ```{note}
 The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclusive.
@@ -275,3 +271,15 @@ In addition to generic storage providers, OpenStack provides the following {ref}
 **Configuration options:**
 
 - `volume-type`: The volume type. Value is the name of any volume type registered with Cinder.
+
+(openstack-appendix-example-workflows)=
+## Appendix: Example workflows
+
+(openstack-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+
+1. Source your OpenStack RC file: `source <path-to-openrc>`.
+2. Add the cloud interactively with `juju add-cloud` and accept detected defaults.
+3. Add credentials with `juju add-credential` and choose `userpass`.
+4. Bootstrap with `juju bootstrap <openstack-cloud-name> openstack-controller`.

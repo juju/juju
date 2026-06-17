@@ -9,11 +9,8 @@ myst:
 
 In Juju, [Microsoft AKS](https://docs.microsoft.com/en-us/azure/aks/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all Kubernetes clouds, except for a few points of variation related to the cloud, described below.
 
-```{dropdown} Example workflow
-1. Authenticate to Azure and fetch `kubeconfig` for the target AKS cluster.
-2. Add the Kubernetes cloud with `juju add-k8s aks`.
-3. Select the `kubeconfig` context when prompted; Juju imports both cloud and credential data from that context.
-4. Bootstrap with `juju bootstrap aks aks-controller`.
+```{note}
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`aks-appendix-example-workflows`.
 ```
 
 (aks-cloud)=
@@ -30,3 +27,14 @@ When adding this cloud to Juju using the {ref}`juju CLI client <juju-client>`, s
 ```{ibnote}
 See more: {ref}`add-a-kubernetes-cloud`
 ```
+
+(aks-appendix-example-workflows)=
+## Appendix: Example workflows
+
+(aks-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+1. Authenticate to Azure and fetch `kubeconfig` for the target AKS cluster.
+2. Add the Kubernetes cloud with `juju add-k8s aks`.
+3. Select the `kubeconfig` context when prompted; Juju imports both cloud and credential data from that context.
+4. Bootstrap with `juju bootstrap aks aks-controller`.

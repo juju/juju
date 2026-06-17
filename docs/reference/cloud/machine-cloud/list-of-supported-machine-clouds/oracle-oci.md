@@ -9,11 +9,8 @@ myst:
 
 In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-```{dropdown} Example workflow
-
-1. Add or confirm the predefined cloud with `juju add-cloud`.
-2. Add credentials with `juju add-credential oracle` and choose `httpsig`.
-3. Bootstrap with `juju bootstrap --config compartment-id=<compartment-ocid> oracle oci-controller`.
+```{note}
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`oci-appendix-example-workflows`.
 ```
 
 (oci-cloud-requirements)=
@@ -138,7 +135,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (oci-machine-constraints)=
 ### Constraints
 
-Oracle OCI supports the following constraints:
+Oracle OCI supports the following {ref}`constraints <constraint>`:
 
 - {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-arch`. Valid values: `amd64`, `arm64`.
@@ -207,3 +204,14 @@ In addition to generic storage providers, Oracle OCI provides the following {ref
 - Attached via iSCSI with CHAP enabled.
 - Must be in same availability domain as target instance.
 - Juju waits for volume and attachment readiness before declaring storage available.
+
+(oci-appendix-example-workflows)=
+## Appendix: Example workflows
+
+(oci-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+
+1. Add or confirm the predefined cloud with `juju add-cloud`.
+2. Add credentials with `juju add-credential oracle` and choose `httpsig`.
+3. Bootstrap with `juju bootstrap --config compartment-id=<compartment-ocid> oracle oci-controller`.

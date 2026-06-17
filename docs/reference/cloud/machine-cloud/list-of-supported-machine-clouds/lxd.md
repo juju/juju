@@ -9,17 +9,9 @@ myst:
 
 In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
-````{dropdown} Example workflow
-On a local development host, LXD `localhost` is typically pre-defined in Juju. Configure LXD, confirm cloud/credential visibility, then bootstrap.
-
-```text
-lxd init --auto
-lxc network set lxdbr0 ipv6.address none
-juju clouds --client
-juju credentials
-juju bootstrap localhost lxd-controller
+```{note}
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`lxd-appendix-example-workflows`.
 ```
-````
 
 ```{dropdown} Reasons to use a LXD cloud
 
@@ -210,7 +202,7 @@ There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Com
 (lxd-machine-constraints)=
 ### Constraints
 
-LXD supports the following constraints:
+LXD supports the following {ref}`constraints <constraint>`:
 
 - {ref}`constraint-arch`. Valid values: Host architecture.
 - {ref}`constraint-cores`
@@ -308,6 +300,49 @@ See more: [LXD storage configuration](https://documentation.ubuntu.com/lxd/lates
 juju deploy postgresql --storage pgdata=lxd,8G
 ```
 
+(lxd-appendix-example-workflows)=
+## Appendix: Example workflows
+
+(lxd-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+On a local development host, LXD `localhost` is typically pre-defined in Juju. Configure LXD, confirm cloud/credential visibility, then bootstrap.
+
+```text
+lxd init --auto
+lxc network set lxdbr0 ipv6.address none
+juju clouds --client
+juju credentials
+juju bootstrap localhost lxd-controller
+```
+
+(lxd-appendix-remote-bootstrap)=
+### Add a remote LXD cloud and bootstrap
+
+From Juju 2.9.5, the easiest method for bootstrapping a remote LXD server is to add the remote to your local LXC config then bootstrap with `juju`.
+
+**On the remote server:**
+
+```bash
+# Ensure the LXD daemon is listening on an accessible IP
+lxc config set core.https_address '[::]'
+# Give the LXD daemon a trust password so the client can register credentials
+lxc config set core.trust_password mytrustpassword
+```
+
+**On the bootstrapping client:**
+
+```bash
+# Add the remote LXD server to the local LXC config
+lxc remote add myremote 11.22.33.44 --password mytrustpassword
+# Bootstrap juju using the remote name in LXC
+juju bootstrap myremote
+```
+
+```{note}
+The bootstrapping client must be able to reach the remote LXD containers. This may require the setup of a bridge device with the host's ethernet device.
+```
+
 (lxd-appendix-loop-devices)=
 ## Appendix: Loop devices and LXD
 
@@ -348,33 +383,6 @@ Doing so will expose the loop devices so the container can acquire them via the 
 ```yaml
 config:
   security.privileged: "true"
-```
-
-(lxd-appendix-remote-bootstrap)=
-## Appendix: Simple bootstrap of a remote LXD server
-
-From Juju 2.9.5, the easiest method for bootstrapping a remote LXD server is to add the remote to your local LXC config then bootstrap with `juju`.
-
-**On the remote server:**
-
-```bash
-# Ensure the LXD daemon is listening on an accessible IP
-lxc config set core.https_address '[::]'
-# Give the LXD daemon a trust password so the client can register credentials
-lxc config set core.trust_password mytrustpassword
-```
-
-**On the bootstrapping client:**
-
-```bash
-# Add the remote LXD server to the local LXC config
-lxc remote add myremote 11.22.33.44 --password mytrustpassword
-# Bootstrap juju using the remote name in LXC
-juju bootstrap myremote
-```
-
-```{note}
-The bootstrapping client must be able to reach the remote LXD containers. This may require the setup of a bridge device with the host's ethernet device.
 ```
 
 
