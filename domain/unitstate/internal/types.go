@@ -172,9 +172,6 @@ type UpdateSecretArg struct {
 	// Label is the new label (nil if unchanged).
 	Label *string
 
-	// Params are the backend-specific parameters.
-	Params map[string]string
-
 	// Data is the secret content (nil if using external backend).
 	Data map[string]string
 

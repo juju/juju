@@ -159,14 +159,6 @@ func (s *LeadershipService) prepareSecretUpdates(
 		if update.Label != nil {
 			arg.Label = update.Label
 		}
-		if len(update.Params) > 0 {
-			arg.Params = make(map[string]string, len(update.Params))
-			for k, v := range update.Params {
-				if s, ok := v.(string); ok {
-					arg.Params[k] = s
-				}
-			}
-		}
 		if len(update.Data) > 0 {
 			arg.Data = make(map[string]string, len(update.Data))
 			maps.Copy(arg.Data, update.Data)

@@ -90,7 +90,6 @@ func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
 			ExpireTime:   new(s.clock.Now()),
 			Description:  new("my secret"),
 			Label:        new("foobar"),
-			Params:       map[string]any{"param": 1},
 			Data:         data,
 			Checksum:     checksum,
 		},

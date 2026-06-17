@@ -123,7 +123,6 @@ func fromUpsertParams(p params.UpsertSecretArg, accessor secret.SecretAccessor) 
 		ExpireTime:   p.ExpireTime,
 		Description:  p.Description,
 		Label:        p.Label,
-		Params:       p.Params,
 		Data:         p.Content.Data,
 		ValueRef:     valueRef,
 		Checksum:     p.Content.Checksum,
@@ -621,13 +620,15 @@ func (u *UniterAPI) prepareSecretUpdates(
 				RevisionID: upd.Content.ValueRef.RevisionID,
 			}
 		}
+		if len(upd.Params) > 0 {
+			u.logger.Warningf(ctx, "params provided for secret %q are ignored (params are not supported in charm secrets)", upd.URI)
+		}
 		secretUpdates = append(secretUpdates, unitstate.UpdateSecretArg{
 			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
 				RotatePolicy: upd.RotatePolicy,
 				ExpireTime:   upd.ExpireTime,
 				Description:  upd.Description,
 				Label:        upd.Label,
-				Params:       upd.Params,
 				Data:         upd.Content.Data,
 				ValueRef:     valueRef,
 				Checksum:     upd.Content.Checksum,
