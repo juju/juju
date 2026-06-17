@@ -96,6 +96,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:              config.Clock,
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
+				RestartDelay:       defaultRestartDelay,
 				NewBackend:         config.NewBackendFunc(apiCaller, config.HTTPClient, config.Clock),
 			})
 		},

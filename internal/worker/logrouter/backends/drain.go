@@ -4,6 +4,8 @@
 package backends
 
 import (
+	"fmt"
+
 	"github.com/juju/worker/v5/catacomb"
 
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -31,16 +33,14 @@ func NewDrain(backendBufferSize int) (Backend, error) {
 	return w, nil
 }
 
+// Kill stops the backend and closes the log record channel.
 func (w *drainBackend) Kill() {
 	w.catacomb.Kill(nil)
 }
 
+// Wait waits for the backend to stop.
 func (w *drainBackend) Wait() error {
 	return w.catacomb.Wait()
-}
-
-func (w *drainBackend) Dying() <-chan struct{} {
-	return w.catacomb.Dying()
 }
 
 // LogRecords returns the channel on which log records are sent to the backend.
@@ -53,10 +53,11 @@ func (w *drainBackend) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case _, ok := <-w.records:
+		case r, ok := <-w.records:
 			if !ok {
 				return nil
 			}
+			fmt.Println("drainBackend loop: received record", r.Message)
 		}
 	}
 }

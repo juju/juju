@@ -25,6 +25,7 @@ import (
 const (
 	defaultBackendBufferSize = 1000
 	defaultConvergeTimeout   = time.Second * 60
+	defaultRestartDelay      = time.Second * 1
 	backendDrainID           = "drain"
 )
 
@@ -73,6 +74,7 @@ type WorkerConfig struct {
 
 	DrainOnly       bool
 	ConvergeTimeout time.Duration
+	RestartDelay    time.Duration
 
 	NewBackend BackendFunc
 }
@@ -135,7 +137,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 			return false
 		},
 		ShouldRestart: internalworker.ShouldRunnerRestart,
-		RestartDelay:  time.Second,
+		RestartDelay:  config.RestartDelay,
 		Logger:        internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {

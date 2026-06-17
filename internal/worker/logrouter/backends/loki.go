@@ -63,18 +63,17 @@ func NewLoki(cfg LokiConfig) (Backend, error) {
 	return w, nil
 }
 
+// Kill stops the backend and closes the log record channel.
 func (w *lokiBackend) Kill() {
 	w.catacomb.Kill(nil)
 }
 
+// Wait waits for the backend to stop.
 func (w *lokiBackend) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *lokiBackend) Dying() <-chan struct{} {
-	return w.catacomb.Dying()
-}
-
+// LogRecords returns the channel that the log router will send log records to.
 func (w *lokiBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
+	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
 )
 
@@ -41,6 +42,7 @@ func (s *workerSuite) TestStartsLogSinkWhenLokiEndpointEmpty(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    defaultConvergeTimeout,
+		RestartDelay:       time.Millisecond * 10,
 		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -66,6 +68,7 @@ func (s *workerSuite) TestSwitchStopsOldBackendAndStartsNew(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    defaultConvergeTimeout,
+		RestartDelay:       time.Millisecond * 10,
 		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -82,12 +85,12 @@ func (s *workerSuite) TestSwitchStopsOldBackendAndStartsNew(c *tc.C) {
 	fixture.agent.setLokiConfig("http://loki/loki/api/v1/push", "")
 	fixture.configChanged.Set(true)
 
-	fixture.logs <- &logsender.LogRecord{
+	sendLog(c, fixture.logs, &logsender.LogRecord{
 		Time:    time.Now(),
 		Module:  "test",
 		Level:   loggo.INFO,
 		Message: "routed",
-	}
+	})
 	waitForEvents(c, events, backendEvent{
 		backend: "logsink",
 		kind:    "stop",
@@ -109,6 +112,7 @@ func (s *workerSuite) TestDrainOnlyOverridesEndpoint(c *tc.C) {
 		Clock:              clock.WallClock,
 		DrainOnly:          true,
 		ConvergeTimeout:    defaultConvergeTimeout,
+		RestartDelay:       time.Millisecond * 10,
 		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -131,6 +135,7 @@ func (s *workerSuite) TestBackendFailureFallsBackToDrain(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    defaultConvergeTimeout,
+		RestartDelay:       time.Millisecond * 10,
 		NewBackend:         failingLogSinkBackendFunc(events),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -144,18 +149,18 @@ func (s *workerSuite) TestBackendFailureFallsBackToDrain(c *tc.C) {
 		kind:    "start",
 	})
 
-	fixture.logs <- &logsender.LogRecord{
+	sendLog(c, fixture.logs, &logsender.LogRecord{
 		Time:    time.Now(),
 		Module:  "test",
 		Level:   loggo.INFO,
 		Message: "buffered",
-	}
-	fixture.logs <- &logsender.LogRecord{
+	})
+	sendLog(c, fixture.logs, &logsender.LogRecord{
 		Time:    time.Now(),
 		Module:  "test",
 		Level:   loggo.INFO,
 		Message: "fallback",
-	}
+	})
 
 	c.Check(waitForRecord(c, events, "drain-only", "fallback"), tc.DeepEquals, backendEvent{
 		backend: "drain-only",
@@ -175,6 +180,7 @@ func (s *workerSuite) TestBackendStartErrorFallsBackToDrain(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    time.Millisecond * 10,
+		RestartDelay:       time.Millisecond * 10,
 		NewBackend:         errorLogSinkBackendFunc(events),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -188,18 +194,18 @@ func (s *workerSuite) TestBackendStartErrorFallsBackToDrain(c *tc.C) {
 		kind:    "start",
 	})
 
-	fixture.logs <- &logsender.LogRecord{
+	sendLog(c, fixture.logs, &logsender.LogRecord{
 		Time:    time.Now(),
 		Module:  "test",
 		Level:   loggo.INFO,
 		Message: "buffered",
-	}
-	fixture.logs <- &logsender.LogRecord{
+	})
+	sendLog(c, fixture.logs, &logsender.LogRecord{
 		Time:    time.Now(),
 		Module:  "test",
 		Level:   loggo.INFO,
 		Message: "fallback",
-	}
+	})
 
 	c.Check(waitForRecord(c, events, "drain-only", "fallback"), tc.DeepEquals, backendEvent{
 		backend: "drain-only",
@@ -219,6 +225,7 @@ func (s *workerSuite) TestBackendRestartRefreshesActiveChannel(c *tc.C) {
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
 		ConvergeTimeout:    defaultConvergeTimeout,
+		RestartDelay:       time.Millisecond * 10,
 		NewBackend:         restartingLogSinkBackendFunc(events),
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -231,34 +238,53 @@ func (s *workerSuite) TestBackendRestartRefreshesActiveChannel(c *tc.C) {
 		backend: "logsink-1",
 		kind:    "start",
 	})
-
-	fixture.logs <- &logsender.LogRecord{
+	sendLog(c, fixture.logs, &logsender.LogRecord{
 		Time:    time.Now(),
 		Module:  "test",
 		Level:   loggo.INFO,
 		Message: "first",
-	}
+	})
 	c.Check(waitForRecord(c, events, "logsink-1", "first"), tc.DeepEquals, backendEvent{
 		backend: "logsink-1",
 		kind:    "record",
 		message: "first",
 	})
+
+	// Wait for the failed backend to stop. The restarted backend's "start"
+	// event is emitted when logrouter resolves its LogRecords channel, which
+	// only happens when we send the next record.
 	waitForEvents(c, events, backendEvent{
-		backend: "logsink-2",
-		kind:    "start",
+		backend: "logsink-1",
+		kind:    "stop",
 	})
 
-	fixture.logs <- &logsender.LogRecord{
-		Time:    time.Now(),
-		Module:  "test",
-		Level:   loggo.INFO,
-		Message: "second",
+	// This loop is necessary because the restarted backend may not be ready to
+	// receive the log record immediately after the previous backend has
+	// stopped. The restarted backend's LogRecords channel is only resolved when
+	// logrouter switches to it, which happens when we send the next record.
+
+	// Ideally, we would use a channel in the runner to know when the backend
+	// has been restarted and is ready to receive records, but since we don't
+	// have that, we will retry sending the log record until we get a response
+	// from the restarted backend.
+	for a := internaltesting.LongAttempt.Start(); a.Next(); {
+		sendLog(c, fixture.logs, &logsender.LogRecord{
+			Time:    time.Now(),
+			Module:  "test",
+			Level:   loggo.INFO,
+			Message: "second",
+		})
+
+		if event, ok := waitForRecordWithin(c, events, "logsink-2", "second", time.Millisecond*100); ok {
+			c.Check(event, tc.DeepEquals, backendEvent{
+				backend: "logsink-2",
+				kind:    "record",
+				message: "second",
+			})
+			return
+		}
 	}
-	c.Check(waitForRecord(c, events, "logsink-2", "second"), tc.DeepEquals, backendEvent{
-		backend: "logsink-2",
-		kind:    "record",
-		message: "second",
-	})
+	c.Fatalf("timed out waiting for logsink-2 record %q", "second")
 }
 
 type fixture struct {
@@ -286,7 +312,7 @@ func newFixture(c *tc.C, lokiEndpoint string) fixture {
 		agent: &testAgent{
 			cfg: cfg,
 		},
-		logs:          make(logsender.LogRecordCh),
+		logs:          make(logsender.LogRecordCh, 1),
 		configChanged: voyeur.NewValue(false),
 	}
 }
@@ -374,23 +400,6 @@ func newRecordingBackend(name string, events chan<- backendEvent, backendBufferS
 	return w
 }
 
-type failingBackend struct {
-	tomb    tomb.Tomb
-	records logsender.LogRecordCh
-}
-
-func (w *failingBackend) Kill() {
-	w.tomb.Kill(nil)
-}
-
-func (w *failingBackend) Wait() error {
-	return w.tomb.Wait()
-}
-
-func (w *failingBackend) LogRecords() logsender.LogRecordCh {
-	return w.records
-}
-
 type recordingBackend struct {
 	tomb     tomb.Tomb
 	name     string
@@ -437,13 +446,31 @@ func (w *recordingBackend) reportStop() {
 	})
 }
 
+type failingBackend struct {
+	tomb    tomb.Tomb
+	records logsender.LogRecordCh
+}
+
+func (w *failingBackend) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *failingBackend) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *failingBackend) LogRecords() logsender.LogRecordCh {
+	return w.records
+}
+
 type restartingBackend struct {
-	tomb     tomb.Tomb
-	name     string
-	records  logsender.LogRecordCh
-	events   chan<- backendEvent
-	failOnce bool
-	stopOnce sync.Once
+	tomb      tomb.Tomb
+	name      string
+	records   logsender.LogRecordCh
+	events    chan<- backendEvent
+	failOnce  bool
+	startOnce sync.Once
+	stopOnce  sync.Once
 }
 
 func newRestartingBackend(instance int, events chan<- backendEvent) *restartingBackend {
@@ -453,7 +480,6 @@ func newRestartingBackend(instance int, events chan<- backendEvent) *restartingB
 		events:   events,
 		failOnce: instance == 1,
 	}
-	events <- backendEvent{backend: w.name, kind: "start"}
 	w.tomb.Go(w.loop)
 	return w
 }
@@ -468,6 +494,7 @@ func (w *restartingBackend) Wait() error {
 }
 
 func (w *restartingBackend) LogRecords() logsender.LogRecordCh {
+	w.reportStart()
 	return w.records
 }
 
@@ -500,6 +527,12 @@ func (w *restartingBackend) reportStop() {
 	})
 }
 
+func (w *restartingBackend) reportStart() {
+	w.startOnce.Do(func() {
+		w.events <- backendEvent{backend: w.name, kind: "start"}
+	})
+}
+
 func waitForEvents(c *tc.C, events <-chan backendEvent, expected ...backendEvent) {
 	pending := make(map[backendEvent]struct{}, len(expected))
 	for _, event := range expected {
@@ -525,5 +558,36 @@ func waitForRecord(c *tc.C, events <-chan backendEvent, backend, message string)
 		case <-c.Context().Done():
 			c.Fatalf("timed out waiting for %s record %q", backend, message)
 		}
+	}
+}
+
+func waitForRecordWithin(
+	c *tc.C,
+	events <-chan backendEvent,
+	backend, message string,
+	timeout time.Duration,
+) (backendEvent, bool) {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case event := <-events:
+			if event.backend == backend && event.kind == "record" && event.message == message {
+				return event, true
+			}
+		case <-timer.C:
+			return backendEvent{}, false
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for %s record %q", backend, message)
+		}
+	}
+}
+
+func sendLog(c *tc.C, logs logsender.LogRecordCh, record *logsender.LogRecord) {
+	select {
+	case logs <- record:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending log record %q", record.Message)
 	}
 }
