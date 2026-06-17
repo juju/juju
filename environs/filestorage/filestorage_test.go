@@ -176,6 +176,60 @@ func (s *filestorageSuite) TestPutRefusesTmp(c *tc.C) {
 	c.Assert(err, tc.Satisfies, os.IsNotExist)
 }
 
+func (s *filestorageSuite) TestRefusesPathTraversal(c *tc.C) {
+	// Create a file in the parent of the storage directory that a "../"
+	// name would resolve to, to prove an escaping name cannot reach it.
+	outside := filepath.Join(filepath.Dir(s.dir), "outside")
+	secret := []byte{6, 7, 8, 9}
+	c.Assert(os.WriteFile(outside, secret, 0644), tc.ErrorIsNil)
+
+	// Names that resolve outside the storage directory: a single level, a
+	// multi-level traversal, and traversal hidden behind a leading segment.
+	for _, name := range []string{"../outside", "../../", "a/../../b"} {
+		c.Logf("name=%q", name)
+
+		_, err := s.reader.Get(name)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
+
+		_, err = s.reader.URL(name)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
+
+		_, err = s.reader.List(name)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
+
+		err = s.writer.Put(name, bytes.NewReader([]byte{1, 2, 3}), 3)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
+
+		err = s.writer.Remove(name)
+		c.Check(err, tc.ErrorIs, errors.NotValid)
+	}
+
+	// The file outside the storage directory is untouched.
+	b, err := os.ReadFile(outside)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(b, tc.DeepEquals, secret)
+}
+
+func (s *filestorageSuite) TestAllowsRootNames(c *tc.C) {
+	// Names that resolve to the storage directory itself ("", ".", "./") stay
+	// within the root, so they must not be rejected as NotValid. Pin that
+	// behaviour so a stricter containment check can't silently start refusing
+	// them.
+	for _, name := range []string{"", ".", "./"} {
+		c.Logf("name=%q", name)
+
+		// URL of the root resolves to the storage directory.
+		url, err := s.reader.URL(name)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(url, tc.Equals, utils.MakeFileURL(s.dir))
+
+		// Get on the root returns NotFound because it is a directory, not a
+		// NotValid containment error.
+		_, err = s.reader.Get(name)
+		c.Check(err, tc.ErrorIs, errors.NotFound)
+	}
+}
+
 func (s *filestorageSuite) TestRemove(c *tc.C) {
 	expectedpath, _ := s.createFile(c, "test-file")
 	_, file := filepath.Split(expectedpath)
