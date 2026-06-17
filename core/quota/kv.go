@@ -79,14 +79,14 @@ func CheckTupleSize(key, value any, maxKeyLen, maxValueLen int) error {
 	if err != nil {
 		return err
 	} else if maxKeyLen > 0 && size > maxKeyLen {
-		return errors.Errorf("max allowed key length (%d) exceeded %w", maxKeyLen, coreerrors.QuotaLimitExceeded)
+		return errors.Errorf("max allowed key length (%d): %w", maxKeyLen, coreerrors.QuotaLimitExceeded)
 	}
 
 	size, err = effectiveSize(value)
 	if err != nil {
 		return err
 	} else if maxValueLen > 0 && size > maxValueLen {
-		return errors.Errorf("max allowed value length (%d) exceeded %w", maxValueLen, coreerrors.QuotaLimitExceeded)
+		return errors.Errorf("max allowed value length (%d): %w", maxValueLen, coreerrors.QuotaLimitExceeded)
 	}
 
 	return nil
@@ -116,7 +116,7 @@ func CheckKeyValueTotalSize(settings []KeyValue, maxSize int) error {
 	for _, setting := range settings {
 		total += len(setting.Key()) + len(setting.Value())
 		if total > maxSize {
-			return errors.Errorf("max allowed total size (%d) exceeded %w", maxSize, coreerrors.QuotaLimitExceeded)
+			return errors.Errorf("max allowed total size (%d): %w", maxSize, coreerrors.QuotaLimitExceeded)
 		}
 	}
 	return nil
