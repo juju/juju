@@ -10,7 +10,7 @@ myst:
 In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`ec2-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
 ```
 
 (ec2-cloud-requirements)=
@@ -244,14 +244,3 @@ See more: [AWS | EBS volume types](http://docs.aws.amazon.com/AWSEC2/latest/User
 - `encrypted`: Boolean (`true` or `false`). Indicates whether created volumes are encrypted.
 - `kms-key-id`: The KMS Key ARN used to encrypt the disk. Requires `encrypted: true`.
 - `throughput`: The number of megabytes/s throughput for GP3 volumes. Values: `1000M`, `1G`, etc.
-
-(ec2-appendix-example-workflows)=
-## Appendix: Example workflows
-
-(ec2-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-1. On an EC2 jump host with an attached IAM role, add or confirm the predefined cloud with `juju add-cloud`.
-2. Add credentials with `juju add-credential aws` and choose `instance-role` (recommended; avoids static AWS keys in Juju).
-3. Bootstrap with `juju bootstrap --bootstrap-constraints="instance-role=auto" aws aws-controller`.
-

@@ -261,13 +261,6 @@ In addition to generic storage providers, Google GCE provides the following {ref
 (gce-appendix-example-workflows)=
 ## Appendix: Example workflows
 
-(gce-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-1. On a jump host in Google Cloud, add or confirm the predefined cloud with `juju add-cloud`.
-2. Run `juju add-credential google` and choose `service-account` (recommended; avoids storing static key material in Juju).
-3. Bootstrap with `juju bootstrap google gce-controller`.
-
 (gce-appendix-workflow-1)=
 ### Authenticate with a service account (recommended)
 

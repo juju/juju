@@ -10,7 +10,7 @@ myst:
 In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`manual-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
 ```
 
 (manual-cloud-requirements)=
@@ -146,7 +146,7 @@ None.
 See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
-```{important}
+````{important}
 With any other cloud, the Juju client can trigger the creation of a backing machine (e.g., a cloud instance) as they become necessary. However, with a Manual cloud the machines must pre-exist and they must also be specifically targeted during deployment.
 
 Machines must be added manually, unless they are LXD. Examples:
@@ -162,14 +162,12 @@ Machines must be added manually, unless they are LXD. Examples:
 ```{ibnote}
 See more: {ref}`take-your-deployment-offline`
 ```
-```
+````
 
 (manual-machine-constraints)=
 ### Constraints
 
-Manual supports the following {ref}`constraints <constraint>`:
-
-Constraints are limited to detectable hardware attributes:
+Manual supports the following {ref}`constraints <constraint>`, which are limited to detectable hardware attributes:
 
 - {ref}`constraint-arch`. For controller: the host architecture. For other machines: the architecture from the machine hardware.
 - {ref}`constraint-container`
@@ -219,16 +217,3 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
 None. Manual has no storage support. Users must pre-configure storage or manage it outside Juju.
-
-(manual-appendix-example-workflows)=
-## Appendix: Example workflows
-
-(manual-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-
-1. Ensure SSH key access and sudo access from the Juju client host to your target machines.
-2. Add the cloud with `juju add-cloud` and choose type `manual`.
-3. Add credentials with `juju add-credential` for the Manual cloud.
-4. Bootstrap with `juju bootstrap <manual-cloud-name> manual-controller`.
-

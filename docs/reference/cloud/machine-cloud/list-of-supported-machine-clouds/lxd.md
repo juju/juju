@@ -303,19 +303,6 @@ juju deploy postgresql --storage pgdata=lxd,8G
 (lxd-appendix-example-workflows)=
 ## Appendix: Example workflows
 
-(lxd-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-On a local development host, LXD `localhost` is typically pre-defined in Juju. Configure LXD, confirm cloud/credential visibility, then bootstrap.
-
-```text
-lxd init --auto
-lxc network set lxdbr0 ipv6.address none
-juju clouds --client
-juju credentials
-juju bootstrap localhost lxd-controller
-```
-
 (lxd-appendix-remote-bootstrap)=
 ### Add a remote LXD cloud and bootstrap
 

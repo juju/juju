@@ -10,7 +10,7 @@ myst:
 In Juju, [Google GKE](https://cloud.google.com/kubernetes-engine/docs) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all Kubernetes clouds, except for a few points of variation related to the cloud, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`gke-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
 ```
 
 (gke-cloud)=
@@ -27,14 +27,3 @@ When adding this cloud to Juju using the {ref}`juju CLI client <juju-client>`, s
 ```{ibnote}
 See more: {ref}`add-a-kubernetes-cloud`
 ```
-
-(gke-appendix-example-workflows)=
-## Appendix: Example workflows
-
-(gke-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-1. Authenticate to Google Cloud and fetch `kubeconfig` for the target GKE cluster.
-2. Add the Kubernetes cloud with `juju add-k8s gke`.
-3. Select the `kubeconfig` context when prompted; Juju imports both cloud and credential data from that context.
-4. Bootstrap with `juju bootstrap gke gke-controller`.

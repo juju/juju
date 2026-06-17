@@ -10,7 +10,7 @@ myst:
 In Juju, [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`equinix-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
 ```
 
 (equinix-cloud-limitations)=
@@ -97,13 +97,3 @@ Constraints not listed above are either not supported or automatically determine
 Equinix Metal supports the following placement directive:
 
 - {ref}`placement-directive-zone`
-
-(equinix-appendix-example-workflows)=
-## Appendix: Example workflows
-
-(equinix-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-1. Add or confirm the predefined cloud with `juju add-cloud`.
-2. Add credentials with `juju add-credential equinix` and choose `access-key`.
-3. Bootstrap with `juju bootstrap equinix equinix-controller`.

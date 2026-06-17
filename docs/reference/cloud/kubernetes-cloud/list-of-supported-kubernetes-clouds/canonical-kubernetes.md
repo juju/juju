@@ -10,7 +10,7 @@ myst:
 In Juju, [Canonical Kubernetes](https://documentation.ubuntu.com/canonical-kubernetes/) is a {ref}`Kubernetes cloud <kubernetes-cloud>`. It behaves like all Kubernetes clouds, except for a few points of variation related to the cloud, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`canonical-k8s-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
 ```
 
 ## Requirements
@@ -56,14 +56,3 @@ sudo mount -o remount,size=10G /run
 ```{ibnote}
 See more: https://github.com/canonical/k8s-snap/issues/1612
 ```
-
-(canonical-k8s-appendix-example-workflows)=
-## Appendix: Example workflows
-
-(canonical-k8s-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-1. Ensure required services are enabled in the cluster (`dns`, `ingress`, `local-storage`, `network`).
-2. Add the Kubernetes cloud with `juju add-k8s canonical-k8s`.
-3. Select the `kubeconfig` context when prompted; Juju imports both cloud and credential data from that context.
-4. Bootstrap with `juju bootstrap canonical-k8s canonical-k8s-controller`.

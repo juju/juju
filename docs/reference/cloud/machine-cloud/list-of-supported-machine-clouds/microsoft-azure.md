@@ -267,14 +267,6 @@ See more: [Azure Managed Disks Overview](https://docs.microsoft.com/en-us/azure/
 (azure-appendix-example-workflows)=
 ## Appendix: Example workflows
 
-(azure-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-
-1. Add or confirm the predefined cloud with `juju add-cloud`.
-2. From Azure Cloud Shell (or an Azure-hosted jump host), run `juju add-credential azure` and choose `managed-identity` (recommended; avoids storing static secrets in Juju).
-3. Bootstrap with `juju bootstrap azure azure-controller`.
-
 (azure-appendix-workflow-1)=
 ### Authenticate with managed identity (recommended)
 > *Requirements:*

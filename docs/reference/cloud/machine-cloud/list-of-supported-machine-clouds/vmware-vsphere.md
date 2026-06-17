@@ -10,7 +10,7 @@ myst:
 In Juju, [VMware vSphere](https://www.vmware.com/products/vsphere.html) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`vsphere-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
 ```
 
 (vsphere-cloud-requirements)=
@@ -248,17 +248,6 @@ See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ### Storage providers
 
 No custom storage providers. All storage operations use VMDK provisioning from templates. Only root disk supported -- no secondary volumes, snapshots, or persistent volume creation.
-
-(vsphere-appendix-example-workflows)=
-## Appendix: Example workflows
-
-(vsphere-appendix-quickstart)=
-### Add cloud, add credential, bootstrap
-
-
-1. Add the vSphere cloud with `juju add-cloud`.
-2. Add credentials with `juju add-credential` and choose `userpass`.
-3. Bootstrap with `juju bootstrap --model-default datastore=<datastore> --model-default primary-network=<network> <vsphere-cloud-name> vsphere-controller`.
 
 (vsphere-appendix-using-templates)=
 ## Appendix: Using templates
