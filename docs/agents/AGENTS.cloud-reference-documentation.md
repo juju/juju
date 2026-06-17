@@ -97,7 +97,6 @@ Each machine cloud reference doc (in `docs/reference/cloud/list-of-supported-clo
 - In cloud-specific docs, place requirements content in a top-level `## Requirements` section before `## Concepts`.
 - If a cloud has meaningful caveats, document them in a top-level `## Limitations` section after `## Requirements` and before `## Concepts`.
 - For embedded requirement labels, prefer real subheadings (for example `#### VPC requirements`) so they appear in page TOCs.
-- Add an `Example workflow` dropdown immediately after the intro, using a short sequence from cloud registration to bootstrap.
 - Add a top-level `## Concepts` section near the top of each cloud-specific doc to map provider abstractions to Juju entities.
 - Reserve `## Other` for items that do not fit the common entity-based sections, and use a specific child heading inside it.
 
@@ -186,7 +185,7 @@ Add brief introductory sentences to subsections where simplified titles could be
 
 1. **Authentication types**: "<Cloud Name> supports the following authentication types:"
 2. **Configuration keys**: "<Cloud Name> supports the following cloud-specific model configuration keys:"
-3. **Constraints**: "<Cloud Name> supports the following constraints:"
+3. **Constraints**: "<Cloud Name> supports the following {ref}`constraints <constraint>`:"
 4. **Placement directives**: "<Cloud Name> supports the following placement directives:"
 5. **Storage providers**: "In addition to {ref}\`generic storage providers <storage-provider>\`, <Cloud Name> provides the following {ref}\`cloud-specific storage providers <storage-provider-cloud-specific>\`:"
 
@@ -216,7 +215,7 @@ OpenStack supports the following cloud-specific model configuration keys:
 (openstack-machine-constraints)=
 ### Constraints
 
-OpenStack supports the following constraints:
+OpenStack supports the following {ref}`constraints <constraint>`:
 
 \```{note}
 The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclusive.
@@ -386,6 +385,8 @@ See more: {ref}`<cloud>-appendix-workflow-X`
 
 **Note**: Keep "Known issues" as a direct subsection, not under "Other". It's a standard documentation pattern for caveats, not a cloud-specific feature.
 
+**Note on quickstart sections**: A `### Add cloud, add credential, bootstrap` subsection (anchor `<cloud>-appendix-quickstart`) was originally included as the first subsection under `## Appendix: Example workflows`. It has been deferred to a follow-up PR to keep the restructuring diff reviewable. Content is preserved in `misc/cloud-playbook-debrief-template.md` (section 15). Restore it (with improvements from section 14) in the follow-up.
+
 ---
 
 ## SECTION: Controller
@@ -498,16 +499,16 @@ List **only** supported constraints as a bullet list. Add notes using colon afte
 ...
 ```
 
-**Important**: List only supported constraints. The section title "Supported constraints" makes it clear these are the only ones that work.
+**Important**: List only supported constraints. The section title is just "Constraints" (not "Supported constraints"); the clarifying intro sentence carries that meaning.
 
-### Supported placement directives
+### Placement directives
 
 List **only** supported directives as a bullet list.
 
 **Template**:
 ```markdown
-(<cloud>-machine-supported-placement-directives)=
-### Supported placement directives
+(<cloud>-machine-placement-directives)=
+### Placement directives
 
 - {ref}`placement-directive-<name>`
 - {ref}`placement-directive-<name>`: <Description with punctuation at the end.>
@@ -583,11 +584,11 @@ See more: [Upstream Docs](link)
 
 **Template**:
 ```markdown
-(<cloud>-appendix-example-authentication-workflows)=
-## Appendix: Example authentication workflows
+(<cloud>-appendix-example-workflows)=
+## Appendix: Example workflows
 
 (<cloud>-appendix-workflow-1)=
-### Workflow 1 -- <Workflow name> (recommended)
+### Authenticate with <method> (recommended)
 > *Requirements:*
 > - <Requirement>
 > - ...
@@ -1111,6 +1112,7 @@ Potential enhancements to consider:
 | 2026-06-04 | Entity-based restructuring: Adopted Cloud/Credential/Controller/Model/Machine/Storage structure with "Other" subsections for cloud-specific features; removed former Concepts/Resources unified section in favor of integrating Concepts under Cloud > Other; documented anchor naming pattern |
 | 2026-06-04 | Simplified cross-referencing: Link to constraint/placement directive sections rather than individual rows, keeping users in cloud-specific context |
 | 2026-06-04 | Added Kubernetes cloud template: Adapted entity-based structure with Application section instead of Machine section for K8s-specific deployment patterns |
+| 2026-06-17 | PR `3.6-update-cloud-ref`: Removed `Example workflow` dropdowns (content moved to appendix subsections). Renamed appendix workflow headings to imperative verb phrases (`### Authenticate with...`). Renamed `### Supported constraints` → `### Constraints` with `{ref}\`constraints <constraint>\`` link in intro. Removed `### Quick start` / `### Add cloud, add credential, bootstrap` sections from all 15 cloud docs (deferred to follow-up PR; see `misc/cloud-playbook-debrief-template.md` sections 14–15). Orientation `{note}` trimmed accordingly for single-workflow docs. |
 
 ---
 
