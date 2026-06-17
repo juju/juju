@@ -11,6 +11,93 @@ myst:
 ```{note}
 Juju 3.6 series is LTS
 ```
+### 🔸 **Juju 3.6.24**
+🗓️ 17 June 2026
+
+🚀 **New features**
+
+### MAAS VM provisioning with virt-type constraint
+
+It's now possible for MAAS instances to be explicitly provisioned as VMs when the
+constraints include `virt-type=virtual-machine`; `virt-type` is an existing
+constraint used to distinguish between lxd and kvm for the lxd provider.
+This extends the same concept to maas.
+
+When `virt-type` is omitted, maas acquires a node from its pool of machines as
+usual. With `virt-type=virtual-machine`, instead of relying only on the normal
+allocation path, Juju now:
+- composes a VM from a MAAS KVM pod
+- allocates that machine to Juju as for any other machine
+
+As with the lxd provider, using `virt-type` still results in Juju seeing a
+provisioned "machine" - the constraint just influences how that machine is
+created. When such a machine is deleted from the Juju model, it is not just
+released but also deleted from maas. This differs from maas bare metal nodes
+which are just released.
+
+* feat(maas): support explicit VM provisioning via virtual-machine virt-type by @wallyworld in https://github.com/juju/juju/pull/22285
+
+🛠️ **Bug fixes**
+
+#### LXD provider fixes
+
+There are 2 fixes to the LXD provider.
+Firstly, it was possible that a reboot of a previously provisioned container
+would result in the corresponding machine agent being disconnected from the
+controller. This occurred after a modification to the container's resources,
+such a adding a new network device.
+Secondly, if the default profile did not include an eth0 device and Juju had to
+add additional network devices during provisioning, any root disk constraints
+were dropped.
+
+* fix: guard against cloud init overwriting agent.conf on reboot by @wallyworld in https://github.com/juju/juju/pull/22632
+* fix: do not drop root disk constraints when custom networking by @skatsaounis in https://github.com/juju/juju/pull/22473
+
+#### OCI image repository authentication
+
+Auth to OCI image repositories was broken due to a couple of issues,
+which are fixed in this release.
+
+* fix: include trailing / in oci repo paths when needed by @wallyworld in https://github.com/juju/juju/pull/22554
+* fix: token transport for bearer token auth had a typo by @wallyworld in https://github.com/juju/juju/pull/22569
+
+#### Model migration
+
+When migrating a model containing cross model relations to offers hostsed on the
+same controller, the relations would break because the source controller address
+was not being migrated to the target controller. The fix ensures that cross model
+relations to offers hosted on the original source controller continue to work
+after migration.
+
+fix: ensure external controller addresses are always migrated by @wallyworld in https://github.com/juju/juju/pull/22518
+
+#### Kubernetes unit status reporting
+
+When deploying a Kubernetes charm, any charm which do not explicitly set their
+status are forever showing status as "Waiting" "Initialising agent". 
+
+* fix: change how k8s unit churn is detected to avoid incorrect status by @wallyworld in https://github.com/juju/juju/pull/22498
+
+#### Other fixes
+
+* fix: update charmhub find featured query by @wallyworld in https://github.com/juju/juju/pull/22587
+* fix: handle slow upload of k8s oci image metadata by @wallyworld in https://github.com/juju/juju/pull/22553
+* fix: add model tag to JWT AuthInfo by @kian99 in https://github.com/juju/juju/pull/22598
+* fix: use the model's project when checking LXD version on upgrade by @nvinuesa in https://github.com/juju/juju/pull/22591
+* fix(apiclient proxy): fix apiclient http transport proxy by @SimoneDutto in https://github.com/juju/juju/pull/22507
+* fix: properly handle legacy k8s modeloperator labels by @wallyworld in https://github.com/juju/juju/pull/22510
+* fix: when upgrading, allow for the controller app to be missing by @wallyworld in https://github.com/juju/juju/pull/22622
+* feat: support adding manual clouds to a controller by @wallyworld in https://github.com/juju/juju/pull/22570
+
+🗒️ **Docs**
+
+This release contains some documentation improvements.
+
+* docs: update binary download links from Launchpad to GitHub releases by @tmihoc in https://github.com/juju/juju/pull/22443
+* docs: update the peer relation hook doc by @wallyworld in https://github.com/juju/juju/pull/22525
+* docs: clarify secret uri, name, label by @tmihoc in https://github.com/juju/juju/pull/21689
+* docs: expand the documentation for the implicit juju-info relation by @tonyandrewmeyer in https://github.com/juju/juju/pull/22373
+
 ### 🔸 **Juju 3.6.23**
 🗓️ 21 May 2026
 
