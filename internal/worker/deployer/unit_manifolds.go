@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"github.com/juju/clock"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/leadership"
 	loggerworker "github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/migrationflag"
@@ -138,12 +140,17 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggerContext.GetLogger("juju.worker.units3caller"),
 		}),
 
-		// The log sender is a leaf worker that sends log messages to some
-		// API server, when configured so to do. We should only need one of
-		// these in a consolidated agent.
-		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			APICallerName: apiCallerName,
-			LogSource:     config.LogSource,
+		// The log router owns the buffered log stream and forwards records to
+		// one active backend at a time.
+		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			LogSource:          config.LogSource,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             config.LoggerContext.GetLogger("juju.worker.logrouter"),
+			Clock:              config.Clock,
+			HTTPClient:         http.DefaultClient,
+			NewBackendFunc:     logrouter.NewBackend,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -290,7 +297,7 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	s3CallerName         = "s3-caller"
-	logSenderName        = "log-sender"
+	logRouterName        = "log-router"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"

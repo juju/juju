@@ -56,7 +56,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"charm-dir",
 		"hook-retry-strategy",
 		"leadership-tracker",
-		"log-sender",
+		"log-router",
 		"logging-config-updater",
 		"loki-endpoint-updater",
 		"migration-fortress",
@@ -82,7 +82,7 @@ func (s *ManifoldsSuite) TestMigrationGuards(c *tc.C) {
 		"api-config-watcher",
 		"api-caller",
 		"s3-caller",
-		"log-sender",
+		"log-router",
 		"upgrader",
 		"migration-fortress",
 		"migration-minion",
@@ -153,7 +153,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 	},
 
-	"log-sender": {"agent", "api-caller", "api-config-watcher"},
+	"log-router": {"agent", "api-caller", "api-config-watcher"},
 
 	"logging-config-updater": {
 		"agent",

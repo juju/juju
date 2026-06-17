@@ -51,10 +51,31 @@ func (s *clientSuite) TestNewClientDefaults(c *tc.C) {
 }
 
 func (s *clientSuite) TestNewClientZeroRetriesIsValid(c *tc.C) {
-	client, err := NewClient("http://loki:3100", Config{})
+	cfg := testConfig()
+	cfg.MaxRetries = 0
+	client, err := NewClient("http://loki:3100", cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer killAndWait(c, client)
 	c.Check(client.cfg.MaxRetries, tc.Equals, 0)
+}
+
+func (s *clientSuite) TestConfigValidateRejectsEmptyConfig(c *tc.C) {
+	err := Config{}.Validate()
+	c.Assert(err, tc.ErrorMatches, "BatchSize must be positive")
+}
+
+func (s *clientSuite) TestConfigValidateRejectsNegativeMaxRetries(c *tc.C) {
+	cfg := testConfig()
+	cfg.MaxRetries = -1
+	err := cfg.Validate()
+	c.Assert(err, tc.ErrorMatches, "MaxRetries must not be negative")
+}
+
+func (s *clientSuite) TestConfigValidateRejectsNilClock(c *tc.C) {
+	cfg := testConfig()
+	cfg.Clock = nil
+	err := cfg.Validate()
+	c.Assert(err, tc.ErrorMatches, "Clock must not be nil")
 }
 
 func (s *clientSuite) TestPushNoRetriesWhenMaxRetriesZero(c *tc.C) {
@@ -81,9 +102,11 @@ func (s *clientSuite) TestPushNoRetriesWhenMaxRetriesZero(c *tc.C) {
 	defer killAndWait(c, client)
 
 	err = client.Push(Record{
-		Timestamp: time.Now(),
-		Line:      "no retries",
-		Labels:    map[string]string{"job": "test"},
+		Timestamp:      time.Now(),
+		Line:           "no retries",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -92,28 +115,29 @@ func (s *clientSuite) TestPushNoRetriesWhenMaxRetriesZero(c *tc.C) {
 	c.Check(attempts.Load(), tc.Equals, int32(1))
 }
 
-func (s *clientSuite) TestPushUsesWallClockWhenUnset(c *tc.C) {
+func (s *clientSuite) TestPushUsesWallClock(c *tc.C) {
 	srv, payloads := newTestServer(c)
 	defer srv.Close()
 
 	cfg := testConfig()
 	cfg.BatchSize = 1
-	cfg.Clock = nil
 
 	client, err := NewClient(srv.URL, cfg)
 	c.Assert(err, tc.ErrorIsNil)
 	defer killAndWait(c, client)
 
 	err = client.Push(Record{
-		Timestamp: time.Now(),
-		Line:      "clock default",
-		Labels:    map[string]string{"job": "test"},
+		Timestamp:      time.Now(),
+		Line:           "clock default",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := waitPayload(c, payloads)
 	c.Assert(p.Streams, tc.HasLen, 1)
-	c.Check(p.Streams[0].Values[0][1], tc.Equals, "clock default")
+	c.Check(p.Streams[0].Values[0].Line, tc.Equals, "clock default")
 }
 
 func (s *clientSuite) TestPushFlushOnBatchSize(c *tc.C) {
@@ -129,9 +153,11 @@ func (s *clientSuite) TestPushFlushOnBatchSize(c *tc.C) {
 	ts := time.Now()
 	for range 3 {
 		err := client.Push(Record{
-			Timestamp: ts,
-			Line:      "line",
-			Labels:    map[string]string{"job": "test"},
+			Timestamp:      ts,
+			Line:           "line",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -155,10 +181,10 @@ func (s *clientSuite) TestPushSyncFlush(c *tc.C) {
 
 	ts := time.Now()
 	err = client.Push(
-		Record{Timestamp: ts, Line: "s1",
-			Labels: map[string]string{"job": "test"}},
-		Record{Timestamp: ts, Line: "s2",
-			Labels: map[string]string{"job": "test"}},
+		Record{Timestamp: ts, Line: "s1", ControllerUUID: "controller",
+			ModelUUID: "model", AgentID: "machine-0"},
+		Record{Timestamp: ts, Line: "s2", ControllerUUID: "controller",
+			ModelUUID: "model", AgentID: "machine-0"},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -179,18 +205,20 @@ func (s *clientSuite) TestPushFlushOnInterval(c *tc.C) {
 	defer killAndWait(c, client)
 
 	err = client.Push(Record{
-		Timestamp: time.Now(),
-		Line:      "timer flush",
-		Labels:    map[string]string{"job": "test"},
+		Timestamp:      time.Now(),
+		Line:           "timer flush",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := waitPayload(c, payloads)
 	c.Assert(p.Streams, tc.HasLen, 1)
-	c.Check(p.Streams[0].Values[0][1], tc.Equals, "timer flush")
+	c.Check(p.Streams[0].Values[0].Line, tc.Equals, "timer flush")
 }
 
-func (s *clientSuite) TestPushGroupsByLabels(c *tc.C) {
+func (s *clientSuite) TestPushGroupsByTopologyLabels(c *tc.C) {
 	srv, payloads := newTestServer(c)
 	defer srv.Close()
 
@@ -203,28 +231,34 @@ func (s *clientSuite) TestPushGroupsByLabels(c *tc.C) {
 	ts := time.Now()
 	err = client.Push(
 		Record{
-			Timestamp: ts,
-			Line:      "a1",
-			Labels:    map[string]string{"job": "a"},
+			Timestamp:      ts,
+			Line:           "a1",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
 		},
 		Record{
-			Timestamp: ts,
-			Line:      "b1",
-			Labels:    map[string]string{"job": "b"},
+			Timestamp:      ts,
+			Line:           "b1",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "unit-app-0",
 		},
 		Record{
-			Timestamp: ts,
-			Line:      "a2",
-			Labels:    map[string]string{"job": "a"},
+			Timestamp:      ts,
+			Line:           "a2",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	p := waitPayload(c, payloads)
 	c.Assert(p.Streams, tc.HasLen, 2)
-	c.Check(p.Streams[0].Stream["job"], tc.Equals, "a")
+	c.Check(p.Streams[0].Stream["juju_agent"], tc.Equals, "machine-0")
 	c.Check(p.Streams[0].Values, tc.HasLen, 2)
-	c.Check(p.Streams[1].Stream["job"], tc.Equals, "b")
+	c.Check(p.Streams[1].Stream["juju_agent"], tc.Equals, "unit-app-0")
 	c.Check(p.Streams[1].Values, tc.HasLen, 1)
 }
 
@@ -250,9 +284,11 @@ func (s *clientSuite) TestPushBatching(c *tc.C) {
 	// Send 6 records: triggers 2 flushes of 3.
 	for range 6 {
 		err := client.Push(Record{
-			Timestamp: ts,
-			Line:      "line",
-			Labels:    map[string]string{"job": "test"},
+			Timestamp:      ts,
+			Line:           "line",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
 		})
 		c.Assert(err, tc.ErrorIsNil)
 	}
@@ -261,7 +297,7 @@ func (s *clientSuite) TestPushBatching(c *tc.C) {
 	for range 2 {
 		select {
 		case <-done:
-		case <-time.After(5 * time.Second):
+		case <-c.Context().Done():
 			c.Fatal("timed out waiting for request")
 		}
 	}
@@ -291,15 +327,17 @@ func (s *clientSuite) TestPushRetryOnServerError(c *tc.C) {
 	defer killAndWait(c, client)
 
 	err = client.Push(Record{
-		Timestamp: time.Now(),
-		Line:      "retry me",
-		Labels:    map[string]string{"job": "test"},
+		Timestamp:      time.Now(),
+		Line:           "retry me",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for successful push")
 	}
 	c.Check(attempts.Load(), tc.Equals, int32(2))
@@ -328,15 +366,17 @@ func (s *clientSuite) TestPushRetryOnTooManyRequests(c *tc.C) {
 	defer killAndWait(c, client)
 
 	err = client.Push(Record{
-		Timestamp: time.Now(),
-		Line:      "throttled",
-		Labels:    map[string]string{"job": "test"},
+		Timestamp:      time.Now(),
+		Line:           "throttled",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for successful push")
 	}
 	c.Check(attempts.Load(), tc.Equals, int32(3))
@@ -362,9 +402,11 @@ func (s *clientSuite) TestOnErrorCalledOnPushFailure(c *tc.C) {
 	defer killAndWait(c, client)
 
 	err = client.Push(Record{
-		Timestamp: time.Now(),
-		Line:      "will fail",
-		Labels:    map[string]string{"job": "test"},
+		Timestamp:      time.Now(),
+		Line:           "will fail",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -374,9 +416,145 @@ func (s *clientSuite) TestOnErrorCalledOnPushFailure(c *tc.C) {
 			pushErr, tc.ErrorMatches,
 			".*loki returned status 500",
 		)
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for OnError callback")
 	}
+}
+
+func (s *clientSuite) TestPushFailureWithNilOnErrorCallback(c *tc.C) {
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}),
+	)
+	defer srv.Close()
+
+	cfg := testConfig()
+	cfg.BatchSize = 1
+	cfg.MaxRetries = 0
+	cfg.OnError = nil
+
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer killAndWait(c, client)
+
+	err = client.Push(Record{
+		Timestamp:      time.Now(),
+		Line:           "will fail",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	waitForPushErrors(c, client, 1)
+}
+
+func (s *clientSuite) TestPushDropsOldestWhenQueueFull(c *tc.C) {
+	block := make(chan struct{})
+	started := make(chan struct{}, 1)
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case started <- struct{}{}:
+			default:
+			}
+			<-block
+			w.WriteHeader(http.StatusNoContent)
+		}),
+	)
+	defer srv.Close()
+
+	drops := make(chan int, 3)
+	cfg := testConfig()
+	cfg.BatchSize = 1
+	cfg.BufferSize = 2
+	cfg.MaxRetries = 0
+	asyncFlush := false
+	cfg.AsyncFlush = &asyncFlush
+	cfg.OnDrop = func(count int) {
+		drops <- count
+	}
+
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ts := time.Now()
+	err = client.Push(Record{Timestamp: ts, Line: "first"})
+	c.Assert(err, tc.ErrorIsNil)
+	select {
+	case <-started:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for first request")
+	}
+
+	// The first record blocks the worker in HTTP I/O. The queue can then fill
+	// and must drop oldest records without blocking this caller.
+	err = client.Push(
+		Record{Timestamp: ts, Line: "second"},
+		Record{Timestamp: ts, Line: "third"},
+		Record{Timestamp: ts, Line: "fourth"},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case count := <-drops:
+		c.Check(count, tc.Equals, 1)
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for drop callback")
+	}
+	c.Check(client.Report(c.Context())["dropped"], tc.Equals, uint64(1))
+
+	close(block)
+	killAndWait(c, client)
+}
+
+func (s *clientSuite) TestPushDropsOldestWhenQueueFullWithoutOnDropCallback(c *tc.C) {
+	block := make(chan struct{})
+	started := make(chan struct{}, 1)
+	srv := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case started <- struct{}{}:
+			default:
+			}
+			<-block
+			w.WriteHeader(http.StatusNoContent)
+		}),
+	)
+	defer srv.Close()
+
+	cfg := testConfig()
+	cfg.BatchSize = 1
+	cfg.BufferSize = 2
+	cfg.MaxRetries = 0
+	cfg.OnDrop = nil
+	asyncFlush := false
+	cfg.AsyncFlush = &asyncFlush
+
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ts := time.Now()
+	err = client.Push(Record{Timestamp: ts, Line: "first"})
+	c.Assert(err, tc.ErrorIsNil)
+	select {
+	case <-started:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for first request")
+	}
+
+	err = client.Push(
+		Record{Timestamp: ts, Line: "second"},
+		Record{Timestamp: ts, Line: "third"},
+		Record{Timestamp: ts, Line: "fourth"},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	waitForDropped(c, client, 1)
+
+	close(block)
+	killAndWait(c, client)
 }
 
 func (s *clientSuite) TestKillDrainsBufferedRecords(c *tc.C) {
@@ -393,9 +571,11 @@ func (s *clientSuite) TestKillDrainsBufferedRecords(c *tc.C) {
 	ts := time.Now()
 	err = client.Push(
 		Record{
-			Timestamp: ts,
-			Line:      "drain me",
-			Labels:    map[string]string{"job": "test"},
+			Timestamp:      ts,
+			Line:           "drain me",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -405,13 +585,13 @@ func (s *clientSuite) TestKillDrainsBufferedRecords(c *tc.C) {
 	p := waitPayload(c, payloads)
 	c.Assert(p.Streams, tc.HasLen, 1)
 	c.Check(
-		p.Streams[0].Values[0][1],
+		p.Streams[0].Values[0].Line,
 		tc.Equals,
 		"drain me",
 	)
 }
 
-func (s *clientSuite) TestPushNilLabels(c *tc.C) {
+func (s *clientSuite) TestPushNoTopologyLabels(c *tc.C) {
 	srv, payloads := newTestServer(c)
 	defer srv.Close()
 
@@ -436,23 +616,35 @@ func (s *clientSuite) TestBuildPayload(c *tc.C) {
 	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	records := []Record{
 		{
-			Timestamp: ts,
-			Line:      "a1",
-			Labels: map[string]string{
-				"job": "x", "env": "prod",
+			Timestamp:      ts,
+			Line:           "a1",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
+			Fields: map[string]string{
+				"module": "apiserver",
 			},
+			TraceID: "0123456789abcdef0123456789abcdef",
+			SpanID:  "0123456789abcdef",
 		},
 		{
-			Timestamp: ts.Add(time.Second),
-			Line:      "b1",
-			Labels:    map[string]string{"job": "y"},
+			Timestamp:      ts.Add(time.Second),
+			Line:           "b1",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "unit-app-0",
 		},
 		{
-			Timestamp: ts.Add(2 * time.Second),
-			Line:      "a2",
-			Labels: map[string]string{
-				"env": "prod", "job": "x",
+			Timestamp:      ts.Add(2 * time.Second),
+			Line:           "a2",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
+			Fields: map[string]string{
+				"request_id": "req-123",
 			},
+			TraceID: "NOT-CANONICAL",
+			SpanID:  "0123456789abcdef",
 		},
 	}
 
@@ -462,16 +654,33 @@ func (s *clientSuite) TestBuildPayload(c *tc.C) {
 	c.Check(
 		payload.Streams[0].Stream,
 		tc.DeepEquals,
-		map[string]string{"job": "x", "env": "prod"},
+		map[string]string{
+			"juju_controller": "controller",
+			"juju_model":      "model",
+			"juju_agent":      "machine-0",
+		},
 	)
 	c.Check(payload.Streams[0].Values, tc.HasLen, 2)
-	c.Check(payload.Streams[0].Values[0][1], tc.Equals, "a1")
-	c.Check(payload.Streams[0].Values[1][1], tc.Equals, "a2")
+	c.Check(payload.Streams[0].Values[0].Line, tc.Equals, "a1")
+	c.Check(payload.Streams[0].Values[0].Fields, tc.DeepEquals, map[string]string{
+		"module":   "apiserver",
+		"trace_id": "0123456789abcdef0123456789abcdef",
+		"span_id":  "0123456789abcdef",
+	})
+	c.Check(payload.Streams[0].Values[1].Line, tc.Equals, "a2")
+	c.Check(payload.Streams[0].Values[1].Fields, tc.DeepEquals, map[string]string{
+		"request_id": "req-123",
+		"span_id":    "0123456789abcdef",
+	})
 
 	c.Check(
 		payload.Streams[1].Stream,
 		tc.DeepEquals,
-		map[string]string{"job": "y"},
+		map[string]string{
+			"juju_controller": "controller",
+			"juju_model":      "model",
+			"juju_agent":      "unit-app-0",
+		},
 	)
 	c.Check(payload.Streams[1].Values, tc.HasLen, 1)
 }
@@ -494,11 +703,15 @@ func (s *clientSuite) TestLabelKeyEmpty(c *tc.C) {
 func testConfig() Config {
 	return Config{
 		BatchSize:      100,
+		BufferSize:     500,
 		FlushInterval:  50 * time.Millisecond,
 		MaxRetries:     3,
 		InitialBackoff: time.Millisecond,
 		MaxBackoff:     10 * time.Millisecond,
 		Clock:          clock.WallClock,
+		OnError:        func(error) {},
+		OnDrop:         func(int) {},
+		HTTPClient:     http.DefaultClient,
 	}
 }
 
@@ -530,7 +743,7 @@ func waitPayload(
 	select {
 	case p := <-ch:
 		return p
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for payload")
 		return pushPayload{}
 	}
@@ -540,14 +753,42 @@ func waitError(c *tc.C, ch <-chan error) error {
 	select {
 	case err := <-ch:
 		return err
-	case <-time.After(5 * time.Second):
+	case <-c.Context().Done():
 		c.Fatal("timed out waiting for error callback")
 		return nil
 	}
 }
 
 func killAndWait(c *tc.C, client *Client) {
-	client.Kill(nil)
+	client.Kill()
 	err := client.Wait()
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func waitForDropped(c *tc.C, client *Client, expected uint64) {
+	for {
+		if client.Report(c.Context())["dropped"] == expected {
+			return
+		}
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for dropped count %d", expected)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
+func waitForPushErrors(c *tc.C, client *Client, expected uint64) {
+	for {
+		if client.Report(c.Context())["push-errors"] == expected {
+			return
+		}
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for push-errors count %d", expected)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 }

@@ -5,6 +5,7 @@ package unit
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"time"
 
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/internal/worker/leadership"
 	"github.com/juju/juju/internal/worker/lifeflag"
 	wlogger "github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/migrationflag"
@@ -222,12 +224,17 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewWorker: lifeflag.NewWorker,
 		}),
 
-		// The log sender is a leaf worker that sends log messages to some
-		// API server, when configured so to do. We should only need one of
-		// these in a consolidated agent.
-		logSenderName: ifNotDead(logsender.Manifold(logsender.ManifoldConfig{
-			APICallerName: apiCallerName,
-			LogSource:     config.LogSource,
+		// The log router owns the buffered log stream and forwards records to
+		// one active backend at a time.
+		logRouterName: ifNotDead(logrouter.Manifold(logrouter.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			LogSource:          config.LogSource,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
+			Clock:              config.Clock,
+			HTTPClient:         http.DefaultClient,
+			NewBackendFunc:     logrouter.NewBackend,
 		})),
 
 		// The upgrade steps gate is used to coordinate workers which
@@ -460,7 +467,7 @@ const (
 	apiCallerName        = "api-caller"
 	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
-	logSenderName        = "log-sender"
+	logRouterName        = "log-router"
 	traceName            = "trace"
 
 	charmDirName          = "charm-dir"
