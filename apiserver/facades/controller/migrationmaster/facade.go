@@ -13,12 +13,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/rpc/params"
@@ -44,7 +42,6 @@ type API struct {
 	modelAgentServiceGetter     func(context.Context, coremodel.UUID) (ModelAgentService, error)
 	machineServiceGetter        func(context.Context, coremodel.UUID) (MachineService, error)
 	controllerConfigService     ControllerConfigService
-	controllerNodeService       ControllerNodeService
 	modelInfoService            ModelInfoService
 	modelService                ModelService
 	modelMigrationService       ModelMigrationService
@@ -69,7 +66,6 @@ func NewAPI(
 	modelAgentServiceGetter func(context.Context, coremodel.UUID) (ModelAgentService, error),
 	machineServiceGetter func(context.Context, coremodel.UUID) (MachineService, error),
 	controllerConfigService ControllerConfigService,
-	controllerNodeService ControllerNodeService,
 	modelInfoService ModelInfoService,
 	modelService ModelService,
 	modelMigrationService ModelMigrationService,
@@ -93,7 +89,6 @@ func NewAPI(
 		modelAgentServiceGetter:     modelAgentServiceGetter,
 		machineServiceGetter:        machineServiceGetter,
 		controllerConfigService:     controllerConfigService,
-		controllerNodeService:       controllerNodeService,
 		modelInfoService:            modelInfoService,
 		modelService:                modelService,
 		modelMigrationService:       modelMigrationService,
@@ -181,30 +176,6 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 	}, nil
 }
 
-// SourceControllerInfo returns the details required to connect to
-// the source controller for model migration.
-func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourceInfo, error) {
-	empty := params.MigrationSourceInfo{}
-
-	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving controller config")
-	}
-	cacert, _ := cfg.CACert()
-
-	apiAddresses, err := api.controllerNodeService.GetAllAPIAddressesForClients(ctx)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	return params.MigrationSourceInfo{
-		ControllerTag:   names.NewControllerTag(cfg.ControllerUUID()).String(),
-		ControllerAlias: cfg.ControllerName(),
-		Addrs:           apiAddresses,
-		CACert:          cacert,
-	}, nil
-}
-
 // SetPhase sets the phase of the active model migration. The provided
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.
@@ -279,17 +250,6 @@ func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationSt
 	if err != nil {
 		return errors.Annotate(err, "failed to set status message")
 	}
-	return nil
-}
-
-// Export serializes the model associated with the API connection.
-func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
-	return params.SerializedModel{}, internalerrors.New("export not supported in this API version").Add(coreerrors.NotSupported)
-}
-
-// ProcessRelations processes any relations that need updating after an export.
-// This should help fix any remoteApplications that have been migrated.
-func (api *API) ProcessRelations(ctx context.Context, args params.ProcessRelations) error {
 	return nil
 }
 

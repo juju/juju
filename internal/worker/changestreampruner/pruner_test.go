@@ -9,10 +9,10 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/domain/changestream"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type prunerWorkerSuite struct {
@@ -20,8 +20,9 @@ type prunerWorkerSuite struct {
 }
 
 func TestPrunerWorkerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &prunerWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &prunerWorkerSuite{})
+	})
 }
 
 func (s *prunerWorkerSuite) TestPrunerDies(c *tc.C) {

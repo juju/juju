@@ -18,12 +18,12 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -36,8 +36,9 @@ type providerWorkerSuite struct {
 }
 
 func TestProviderWorkerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &providerWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &providerWorkerSuite{})
+	})
 }
 
 func (s *providerWorkerSuite) TestKilledSingularWorkerProviderErrDying(c *tc.C) {

@@ -9,7 +9,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainapplicationerrors "github.com/juju/juju/domain/application/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 )
 
@@ -33,8 +33,9 @@ type appFirewallerSuite struct {
 
 // TestAppFirewallerSuite runs the tests defined by [appFirewallerSuite].
 func TestAppFirewallerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &appFirewallerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &appFirewallerSuite{})
+	})
 }
 
 // setupMocks is responsible for creating a testing gomock controller and

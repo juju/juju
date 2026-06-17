@@ -14,13 +14,13 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 	gossh "golang.org/x/crypto/ssh"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type machineSessionSuite struct {
@@ -29,8 +29,9 @@ type machineSessionSuite struct {
 }
 
 func TestMachineSessionSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &machineSessionSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &machineSessionSuite{})
+	})
 }
 
 type testServer struct {

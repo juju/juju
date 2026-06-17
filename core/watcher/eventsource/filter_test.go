@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/internal/testhelpers"
@@ -18,8 +17,9 @@ type filterSuite struct {
 }
 
 func TestFilterSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &filterSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &filterSuite{})
+	})
 }
 
 func (s *filterSuite) TestPredicateFilter(c *tc.C) {

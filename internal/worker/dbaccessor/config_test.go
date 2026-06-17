@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -21,9 +20,9 @@ type configSuite struct {
 }
 
 func TestConfigSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
-	tc.Run(t, &configSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &configSuite{})
+	})
 }
 
 func (s *configSuite) SetUpTest(c *tc.C) {

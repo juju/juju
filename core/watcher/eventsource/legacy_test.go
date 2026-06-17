@@ -8,16 +8,17 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type multiWatcherSuite struct{}
 
 func TestMultiWatcherSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &multiWatcherSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &multiWatcherSuite{})
+	})
 }
 
 func (*multiWatcherSuite) TestNotifyMultiWatcher(c *tc.C) {

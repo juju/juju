@@ -9,12 +9,12 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	dbtesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -24,8 +24,9 @@ import (
 type ImportTest struct{}
 
 func TestImportTest(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &ImportTest{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &ImportTest{})
+	})
 }
 
 func (*ImportTest) TestImports(c *tc.C) {

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"go.uber.org/goleak"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
@@ -33,6 +32,7 @@ import (
 	auth "github.com/juju/juju/internal/auth"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testhelpers"
 	jujujujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/sockets"
 )
@@ -48,8 +48,9 @@ type workerSuite struct {
 }
 
 func TestWorkerSuite(t *testing.T) {
-	goleak.VerifyNone(t)
-	tc.Run(t, &workerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &workerSuite{})
+	})
 }
 
 func (s *workerSuite) SetUpTest(c *tc.C) {

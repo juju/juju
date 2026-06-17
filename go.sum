@@ -417,8 +417,8 @@ github.com/juju/gomaasapi/v2 v2.3.0/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0S
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
 github.com/juju/idmclient/v2 v2.0.1 h1:DRT3w1aXKlhw66fscPhESIwe6yj5Swy3bgQ1CEM7uIE=
 github.com/juju/idmclient/v2 v2.0.1/go.mod h1:EOiFbPmnkqKvCUS/DHpDRWhL7eKF0AJaTvMjIYlIUak=
-github.com/juju/jsonschema v1.0.0 h1:2ScR9hhVdHxft+Te3fnclVx61MmlikHNEOirTGi+hV4=
-github.com/juju/jsonschema v1.0.0/go.mod h1:SlFW+jFtpWX0P4Tb+zTTPR4ufttLrnJIdQPePxVEfkM=
+github.com/juju/jsonschema v1.0.1 h1:VrFC7Ug2JJMe7lfiTS1+SFw1LSO36JP8pD8Ty48pz3w=
+github.com/juju/jsonschema v1.0.1/go.mod h1:EP8dAa+lQk4Quz8457d+yclqNXNvTfZCE+JrbIVCO+s=
 github.com/juju/loggo v0.0.0-20170605014607-8232ab8918d9/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
 github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
 github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
@@ -440,8 +440,8 @@ github.com/juju/mutex/v2 v2.0.0-20220128011612-57176ebdcfa3/go.mod h1:TTCG9BJD9r
 github.com/juju/mutex/v2 v2.0.0-20220203023141-11eeddb42c6c/go.mod h1:jwCfBs/smYDaeZLqeaCi8CB8M+tOes4yf827HoOEoqk=
 github.com/juju/mutex/v2 v2.0.0 h1:rVmJdOaXGWF8rjcFHBNd4x57/1tks5CgXHx55O55SB0=
 github.com/juju/mutex/v2 v2.0.0/go.mod h1:jwCfBs/smYDaeZLqeaCi8CB8M+tOes4yf827HoOEoqk=
-github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137 h1:y78AjQajOIz8xxLXENqZ/QlLNKrp4HL2VHeT+iXTDPM=
-github.com/juju/names/v6 v6.0.0-20250512075813-b50ca77a4137/go.mod h1:msqFCjHhF+wL7NR5aEDRlpxCybna0+5E9kbRSb2fiz4=
+github.com/juju/names/v6 v6.0.0 h1:rYepZZVSYd+ktCFtwqoJTctyxiMx1XPRufF8qltv2LY=
+github.com/juju/names/v6 v6.0.0/go.mod h1:/OXH4hTa02eQjb8JE0J9S1D3pMBzY5AHMbq5HU5GEBo=
 github.com/juju/os/v2 v2.2.5 h1:Ayw9aC7axKtGgzy3dFRKx84FxasfISMege0iYDsH6io=
 github.com/juju/os/v2 v2.2.5/go.mod h1:igGQLjgRSwUery5ZhV/1pZjZkMwnfkAwWCwh5ZfIg+c=
 github.com/juju/persistent-cookiejar v1.0.0 h1:Ag7+QLzqC2m+OYXy2QQnRjb3gTkEBSZagZ6QozwT3EQ=
@@ -476,8 +476,6 @@ github.com/juju/utils/v3 v3.0.0-20220130232349-cd7ecef0e94a/go.mod h1:LzwbbEN7bu
 github.com/juju/utils/v3 v3.0.0-20220202114721-338bb0530e89/go.mod h1:wf5w+8jyTh2IYnSX0sHnMJo4ZPwwuiBWn+xN3DkQg4k=
 github.com/juju/utils/v3 v3.0.0-20220203023959-c3fbc78a33b0/go.mod h1:8csUcj1VRkfjNIRzBFWzLFCMLwLqsRWvkmhfVAUwbC4=
 github.com/juju/utils/v3 v3.0.0/go.mod h1:8csUcj1VRkfjNIRzBFWzLFCMLwLqsRWvkmhfVAUwbC4=
-github.com/juju/utils/v3 v3.2.2 h1:TT6KIhDgzAJh7h3L6UwQCOPii4jqtFLNnUCcBPeUWQw=
-github.com/juju/utils/v3 v3.2.2/go.mod h1:/FQv9Tl4hsnPo8O6/aOhImW13yfkU95i+L/JnVmDJPY=
 github.com/juju/utils/v4 v4.0.5 h1:+frjTpgWSaB+YTgG/inWiYPpkP4ktCBIo0pwG2OFsaw=
 github.com/juju/utils/v4 v4.0.5/go.mod h1:cxa5Ngrq7zAHnQbIG8hRutKL5v278hDSd25/Q8wEVz0=
 github.com/juju/version v0.0.0-20161031051906-1f41e27e54f2/go.mod h1:kE8gK5X0CImdr7qpSKl3xB2PmpySSmfj7zVbkZFs81U=

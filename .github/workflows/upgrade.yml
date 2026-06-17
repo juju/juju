@@ -259,11 +259,13 @@ jobs:
 
           make operator-image
 
+          LOCAL_OPERATOR_IMAGE=$(bash -c '. ./make_functions.sh; operator_image_path')
+
           # Shim in recognition for our CA to jujud-operator
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM ghcr.io/juju/jujud-operator:${TARGET_JUJU_VERSION}          
+            FROM ${LOCAL_OPERATOR_IMAGE}
 
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
 

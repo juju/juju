@@ -10,16 +10,17 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/prometheus/client_golang/prometheus/testutil"
-	"go.uber.org/goleak"
 
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
 )
 
 type metricsSuite struct{}
 
 func TestMetricsSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &metricsSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &metricsSuite{})
+	})
 }
 
 func (s *metricsSuite) TestMetricsAreCollected(c *tc.C) {

@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
@@ -28,8 +27,9 @@ type workerSuite struct {
 }
 
 func TestWorkerSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &workerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &workerSuite{})
+	})
 }
 
 func (s *workerSuite) TestWorkerGetsMissingArch(c *tc.C) {

@@ -14,7 +14,6 @@ import (
 	jujutesting "github.com/juju/testing"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -32,8 +31,9 @@ type certUpdaterSuite struct {
 }
 
 func TestCertUpdaterSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &certUpdaterSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &certUpdaterSuite{})
+	})
 }
 
 func (s *certUpdaterSuite) TestWorkerCleanKill(c *tc.C) {

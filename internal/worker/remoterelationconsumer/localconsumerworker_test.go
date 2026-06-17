@@ -16,7 +16,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/application"
@@ -36,6 +35,7 @@ import (
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/removal"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
 	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
@@ -44,8 +44,9 @@ import (
 )
 
 func TestLocalConsumerWorker(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &localConsumerWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &localConsumerWorkerSuite{})
+	})
 }
 
 type localConsumerWorkerSuite struct {

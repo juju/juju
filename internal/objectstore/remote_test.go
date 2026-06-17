@@ -13,7 +13,6 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
@@ -32,8 +31,9 @@ type remoteFileObjectStoreSuite struct {
 var _ TrackedObjectStore = (*remoteFileObjectStore)(nil)
 
 func TestRemoteFileObjectStoreSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &remoteFileObjectStoreSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &remoteFileObjectStoreSuite{})
+	})
 }
 
 func (s *remoteFileObjectStoreSuite) TestNewRemoteFileObjectStoreDies(c *tc.C) {

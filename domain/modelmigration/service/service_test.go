@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 
@@ -504,6 +505,170 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
 }
 
+// TestGetControllerModelInfo asserts the service reads the model's offer UUIDs
+// and third-party remote-offerer pairs from the model DB and passes them to
+// the controller-state read, returning the aggregated controller model info.
+func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	offerUUIDs := []string{"offer-1", "offer-2"}
+	offererModels := []modelmigrationinternal.OffererModel{
+		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
+	}
+	expected := modelmigration.ControllerModelInfo{
+		ModelInfo: modelmigration.ModelIdentityInfo{UUID: s.modelUUID, Name: "prod"},
+	}
+
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(offerUUIDs, nil)
+	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(offererModels, nil)
+	s.controllerState.EXPECT().
+		GetControllerModelInfo(gomock.Any(), s.modelUUID, offerUUIDs, offererModels).
+		Return(expected, nil)
+
+	info, err := s.service().GetControllerModelInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info, tc.DeepEquals, expected)
+}
+
+// TestSourceControllerInfoArrangesRawStateAddresses asserts the service
+// arranges raw controller API address rows into the client-facing order.
+func (s *serviceSuite) TestSourceControllerInfoArrangesRawStateAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+		Addrs: []modelmigrationinternal.SourceControllerAddress{{
+			ControllerID: "2",
+			Address:      "10.0.0.2:17070",
+			Scope:        string(network.ScopeCloudLocal),
+			IsAgent:      true,
+		}, {
+			ControllerID: "1",
+			Address:      "10.0.0.1:17070",
+			Scope:        string(network.ScopeCloudLocal),
+			IsAgent:      true,
+		}, {
+			ControllerID: "1",
+			Address:      "192.0.2.1:17070",
+			Scope:        string(network.ScopePublic),
+			IsAgent:      true,
+		}},
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	info, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.ControllerTag, tc.DeepEquals, names.NewControllerTag(s.controllerUUID))
+	c.Check(info.ControllerAlias, tc.Equals, "source")
+	c.Check(info.Addrs, tc.DeepEquals, []string{
+		"192.0.2.1:17070",
+		"10.0.0.1:17070",
+		"10.0.0.2:17070",
+	})
+	c.Check(info.CACert, tc.Equals, "ca-cert")
+}
+
+// TestSourceControllerInfoSingleAddress asserts a single raw address is
+// surfaced unchanged.
+func (s *serviceSuite) TestSourceControllerInfoSingleAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+		Addrs: []modelmigrationinternal.SourceControllerAddress{{
+			ControllerID: "1",
+			Address:      "10.0.0.1:17070",
+			Scope:        string(network.ScopeCloudLocal),
+			IsAgent:      true,
+		}},
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	info, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(info.Addrs, tc.DeepEquals, []string{"10.0.0.1:17070"})
+}
+
+// TestSourceControllerInfoNoAddresses asserts that a controller with no
+// recorded API addresses cannot act as a migration source: the target would
+// have nothing to dial back to advance the migration.
+func (s *serviceSuite) TestSourceControllerInfoNoAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	_, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
+}
+
+// TestSourceControllerInfoOnlyUnusableAddresses asserts that raw addresses that
+// do not survive scope prioritization (e.g. machine-local only) are treated the
+// same as having no addresses: the guard sits on the arranged client-facing
+// list, not on the raw state rows.
+func (s *serviceSuite) TestSourceControllerInfoOnlyUnusableAddresses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	stateInfo := modelmigrationinternal.SourceControllerInfo{
+		ControllerUUID:  s.controllerUUID,
+		ControllerAlias: "source",
+		CACert:          "ca-cert",
+		Addrs: []modelmigrationinternal.SourceControllerAddress{{
+			ControllerID: "1",
+			Address:      "127.0.0.1:17070",
+			Scope:        string(network.ScopeMachineLocal),
+			IsAgent:      true,
+		}},
+	}
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
+
+	_, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
+}
+
+// TestSourceControllerInfoError asserts a controller-state read failure is
+// surfaced.
+func (s *serviceSuite) TestSourceControllerInfoError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).
+		Return(modelmigrationinternal.SourceControllerInfo{}, errors.New("boom"))
+
+	_, err := s.service().SourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*boom")
+}
+
+// TestGetControllerModelInfoOffererModelsError asserts offerer-pair read
+// failures are surfaced and the controller-state read is not attempted.
+func (s *serviceSuite) TestGetControllerModelInfoOffererModelsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil)
+	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(nil, errors.New("boom"))
+
+	_, err := s.service().GetControllerModelInfo(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*reading model offerer models.*boom")
+}
+
+// TestGetControllerModelInfoOfferUUIDsError asserts a model-DB read failure is
+// surfaced and the controller-state read is not attempted.
+func (s *serviceSuite) TestGetControllerModelInfoOfferUUIDsError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, errors.New("boom"))
+
+	_, err := s.service().GetControllerModelInfo(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*reading model offer UUIDs.*boom")
+}
+
 // TestModelMigrationMode asserts the mode is passed through from state.
 func (s *serviceSuite) TestModelMigrationMode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -530,6 +695,34 @@ func (s *serviceSuite) TestSetMigrationPhase(c *tc.C) {
 
 	err := s.service().SetMigrationPhase(c.Context(), migration.IMPORT)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMarkModelAsGone asserts the active migration is resolved and moved to
+// DONE.
+func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	gomock.InOrder(
+		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
+			modelmigrationinternal.Migration{UUID: migUUID}, nil),
+		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.DONE).Return(nil),
+	)
+
+	err := s.service().MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMarkModelAsGoneNoActiveMigration asserts the active export lookup error
+// is surfaced.
+func (s *serviceSuite) TestMarkModelAsGoneNoActiveMigration(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
+		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
+
+	err := s.service().MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
 }
 
 // TestSetMigrationStatusMessage asserts the message is recorded against the

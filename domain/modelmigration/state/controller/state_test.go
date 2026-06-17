@@ -6,7 +6,9 @@ package controller
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -18,11 +20,13 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	accessstate "github.com/juju/juju/domain/access/state"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
+	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
@@ -34,6 +38,7 @@ import (
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -805,7 +810,630 @@ func (s *stateSuite) TestGetMigrationMode(c *tc.C) {
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeImporting)
 }
 
+// TestGetControllerModelInfoIdentity verifies that the model bootstrap
+// identity, credential, the seeded admin model permission and the model secret
+// backend are read back in target-portable form for a model created by the
+// test fixture.
+func (s *stateSuite) TestGetControllerModelInfoIdentity(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	info, err := st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.ModelInfo.UUID, tc.Equals, s.modelUUID.String())
+	c.Check(info.ModelInfo.Name, tc.Equals, "my-test-model")
+	c.Check(info.ModelInfo.Qualifier, tc.Equals, "prod")
+	c.Check(info.ModelInfo.Type, tc.Equals, "iaas")
+	c.Check(info.ModelInfo.Cloud, tc.Equals, "my-cloud")
+	c.Check(info.ModelInfo.CloudRegion, tc.Equals, "my-region")
+	c.Check(info.ModelInfo.CredentialName, tc.Equals, "foobar")
+	c.Check(info.ModelInfo.CredentialOwner, tc.Equals, "test-user")
+	c.Check(info.ModelInfo.Life, tc.Equals, "alive")
+
+	// The model was created with an admin user; that permission must travel.
+	var foundAdmin bool
+	for _, p := range info.Permissions {
+		if p.ObjectType == "model" && p.GrantOn == s.modelUUID.String() &&
+			p.SubjectName == "test-user" && p.Access == "admin" {
+			foundAdmin = true
+		}
+	}
+	c.Check(foundAdmin, tc.IsTrue, tc.Commentf("expected model admin permission, got %#v", info.Permissions))
+
+	// The permission principal is recreatable as a model user.
+	var foundUser bool
+	for _, u := range info.Users {
+		if u.Name == "test-user" {
+			foundUser = true
+		}
+	}
+	c.Check(foundUser, tc.IsTrue, tc.Commentf("expected test-user in users, got %#v", info.Users))
+
+	c.Assert(info.ModelCredential, tc.NotNil)
+	c.Check(info.ModelCredential.Cloud, tc.Equals, "my-cloud")
+	c.Check(info.ModelCredential.Owner, tc.Equals, "test-user")
+	c.Check(info.ModelCredential.Name, tc.Equals, "foobar")
+	c.Check(info.ModelCredential.AuthType, tc.Equals, "access-key")
+	c.Check(info.ModelCredential.Attributes, tc.DeepEquals, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+
+	c.Assert(info.ModelCredential, tc.NotNil)
+	// The fixture creates the model with the juju (internal) secret backend.
+	c.Assert(info.SecretBackend, tc.NotNil)
+	c.Check(info.SecretBackend.Name, tc.Not(tc.Equals), "")
+}
+
+// TestGetSourceControllerInfo asserts the source controller's identity, alias,
+// CA certificate and raw API addresses are all returned.
+func (s *stateSuite) TestGetSourceControllerInfo(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	s.seedControllerName(c, "source-controller")
+	s.seedControllerAPIAddresses(c, []sourceAPIAddress{{
+		ControllerID: "0",
+		Address:      "10.0.0.1:17070",
+		Scope:        string(network.ScopeCloudLocal),
+		IsAgent:      true,
+	}, {
+		ControllerID: "0",
+		Address:      "192.0.2.1:17070",
+		Scope:        string(network.ScopePublic),
+		IsAgent:      false,
+	}})
+
+	info, err := st.GetSourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.ControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
+	c.Check(info.ControllerAlias, tc.Equals, "source-controller")
+	c.Check(info.CACert, tc.Equals, "test-ca-cert")
+	c.Check(info.Addrs, tc.SameContents, []modelmigrationinternal.SourceControllerAddress{{
+		ControllerID: "0",
+		Address:      "10.0.0.1:17070",
+		Scope:        string(network.ScopeCloudLocal),
+		IsAgent:      true,
+	}, {
+		ControllerID: "0",
+		Address:      "192.0.2.1:17070",
+		Scope:        string(network.ScopePublic),
+		IsAgent:      false,
+	}})
+}
+
+// TestGetSourceControllerInfoNoOptionalData asserts the call succeeds when the
+// controller name is unset and no API addresses are recorded.
+func (s *stateSuite) TestGetSourceControllerInfoNoOptionalData(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	info, err := st.GetSourceControllerInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(info.ControllerUUID, tc.Equals, jujutesting.ControllerTag.Id())
+	c.Check(info.ControllerAlias, tc.Equals, "")
+	c.Check(info.CACert, tc.Equals, "test-ca-cert")
+	c.Check(info.Addrs, tc.HasLen, 0)
+}
+
+// TestGetControllerModelInfoIncludesCredentialOwner verifies the user profile
+// set includes the model credential owner even when that user has no model or
+// offer permission grant.
+func (s *stateSuite) TestGetControllerModelInfoIncludesCredentialOwner(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	ownerName := usertesting.GenNewName(c, "credential-owner")
+	ownerUUID := usertesting.GenUserUUID(c)
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := accessState.AddUser(
+		c.Context(),
+		ownerUUID,
+		ownerName,
+		ownerName.Name(),
+		false,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	err = credSt.UpsertCloudCredential(
+		c.Context(), corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: ownerName,
+			Name:  "owner-only",
+		},
+		credential.CloudCredentialInfo{
+			Label:    "owner-only",
+			AuthType: "access-key",
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var credUUID string
+	err = db.QueryRowContext(c.Context(),
+		`SELECT uuid FROM cloud_credential WHERE owner_uuid = ? AND name = ? AND cloud_uuid = ?`,
+		ownerUUID, "owner-only", s.cloudUUID).Scan(&credUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		`UPDATE model SET cloud_credential_uuid = ? WHERE uuid = ?`,
+		credUUID, s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var foundOwner bool
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			foundOwner = true
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsFalse)
+		}
+	}
+	c.Check(foundOwner, tc.IsTrue, tc.Commentf("expected credential owner in users, got %#v", info.Users))
+	c.Assert(info.ModelCredential, tc.NotNil)
+	c.Check(info.ModelCredential.Owner, tc.Equals, ownerName.String())
+}
+
+// TestGetControllerModelInfoIncludesExternalCredentialOwner verifies the user
+// profile set keeps the external flag for an external credential owner.
+func (s *stateSuite) TestGetControllerModelInfoIncludesExternalCredentialOwner(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	ownerName, err := user.NewName("credential-owner@external")
+	c.Assert(err, tc.ErrorIsNil)
+	ownerUUID := usertesting.GenUserUUID(c)
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	err = accessState.AddUser(
+		c.Context(),
+		ownerUUID,
+		ownerName,
+		ownerName.Name(),
+		true,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	err = credSt.UpsertCloudCredential(
+		c.Context(), corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: ownerName,
+			Name:  "owner-only-external",
+		},
+		credential.CloudCredentialInfo{
+			Label:    "owner-only-external",
+			AuthType: "access-key",
+			Attributes: map[string]string{
+				"foo": "bar",
+			},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var credUUID string
+	err = db.QueryRowContext(c.Context(),
+		`SELECT uuid FROM cloud_credential WHERE owner_uuid = ? AND name = ? AND cloud_uuid = ?`,
+		ownerUUID, "owner-only-external", s.cloudUUID).Scan(&credUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		`UPDATE model SET cloud_credential_uuid = ? WHERE uuid = ?`,
+		credUUID, s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var foundOwner bool
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			foundOwner = true
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsTrue)
+		}
+	}
+	c.Check(foundOwner, tc.IsTrue, tc.Commentf("expected external credential owner in users, got %#v", info.Users))
+}
+
+// TestGetControllerModelInfoIncludesModelQualifierUser verifies the user
+// profile set includes the model qualifier when it exists as a user.
+func (s *stateSuite) TestGetControllerModelInfoIncludesModelQualifierUser(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	ownerName := usertesting.GenNewName(c, "prod")
+	ownerUUID := usertesting.GenUserUUID(c)
+	accessState := accessstate.NewState(
+		s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c),
+	)
+	err := accessState.AddUser(
+		c.Context(),
+		ownerUUID,
+		ownerName,
+		ownerName.Name(),
+		false,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var foundQualifier bool
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			foundQualifier = true
+		}
+	}
+	c.Check(foundQualifier, tc.IsTrue, tc.Commentf(
+		"expected qualifier user in users, got %#v", info.Users,
+	))
+
+	_, err = db.ExecContext(c.Context(),
+		`UPDATE user SET removed = TRUE WHERE uuid = ?`,
+		ownerUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err = st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	foundQualifier = false
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			foundQualifier = true
+			c.Check(u.Removed, tc.IsTrue)
+		}
+	}
+	c.Check(foundQualifier, tc.IsTrue, tc.Commentf(
+		"expected removed qualifier user in users, got %#v", info.Users,
+	))
+
+	replacementUUID := usertesting.GenUserUUID(c)
+	err = accessState.AddUser(
+		c.Context(),
+		replacementUUID,
+		ownerName,
+		"replacement",
+		false,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err = st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var qualifierUsers []modelmigration.ModelUser
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			qualifierUsers = append(qualifierUsers, u)
+		}
+	}
+	c.Assert(qualifierUsers, tc.HasLen, 2)
+	var foundRemoved, foundReplacement bool
+	for _, u := range qualifierUsers {
+		if u.Removed {
+			foundRemoved = true
+			continue
+		}
+		if u.DisplayName == "replacement" {
+			foundReplacement = true
+		}
+	}
+	c.Check(foundRemoved, tc.IsTrue)
+	c.Check(foundReplacement, tc.IsTrue)
+}
+
+// TestGetControllerModelInfoIncludesAuthorizedKeyOwner verifies the user
+// profile set includes the owner of a model authorized key even when that user
+// has no model or offer permission grant, so the target can resolve the key
+// owner on import.
+func (s *stateSuite) TestGetControllerModelInfoIncludesAuthorizedKeyOwner(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	ownerName := usertesting.GenNewName(c, "key-owner")
+	ownerUUID := usertesting.GenUserUUID(c)
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	err := accessState.AddUser(
+		c.Context(),
+		ownerUUID,
+		ownerName,
+		ownerName.Name(),
+		false,
+		s.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = db.ExecContext(c.Context(),
+		`INSERT OR IGNORE INTO user_authentication (user_uuid, disabled) VALUES (?, FALSE)`,
+		ownerUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	var keyID int64
+	err = db.QueryRowContext(c.Context(),
+		`INSERT INTO user_public_ssh_key (comment, fingerprint_hash_algorithm_id, fingerprint, public_key, user_uuid)
+		 VALUES ('comment', 1, 'fp-owner', 'ssh-ed25519 AAAAownerkey', ?) RETURNING id`,
+		ownerUUID.String()).Scan(&keyID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		`INSERT INTO model_authorized_keys (model_uuid, user_public_ssh_key_id) VALUES (?, ?)`,
+		s.modelUUID.String(), keyID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	info, err := st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var foundOwner bool
+	for _, u := range info.Users {
+		if u.Name == ownerName.String() {
+			foundOwner = true
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsFalse)
+		}
+	}
+	c.Check(foundOwner, tc.IsTrue, tc.Commentf("expected key owner in users, got %#v", info.Users))
+}
+
+// TestGetControllerModelInfoFullSet inserts a representative row for each
+// remaining controller-scoped record and verifies they are all read back,
+// including offer-scoped permissions and third-party external controllers
+// selected from the caller-supplied inputs.
+func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+	modelUUID := s.modelUUID.String()
+	userUUID := s.userUUID.String()
+
+	exec := func(query string, args ...any) {
+		_, err := db.ExecContext(c.Context(), query, args...)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	// Offer permission: consume on an offer hosted by this model.
+	offerUUID := uuid.MustNewUUID().String()
+	exec(`INSERT INTO permission (uuid, access_type_id, object_type_id, grant_on, grant_to)
+	      VALUES (?, 2, 3, ?, ?)`, uuid.MustNewUUID().String(), offerUUID, userUUID)
+
+	exec(`UPDATE cloud_credential SET invalid = TRUE, invalid_reason = 'expired'
+	      WHERE uuid = ?`, s.credentialUUID.String())
+
+	// Authorized key: requires user_authentication (for the view) + a public key.
+	exec(`INSERT OR IGNORE INTO user_authentication (user_uuid, disabled) VALUES (?, FALSE)`, userUUID)
+	var keyID int64
+	err := db.QueryRowContext(c.Context(),
+		`INSERT INTO user_public_ssh_key (comment, fingerprint_hash_algorithm_id, fingerprint, public_key, user_uuid)
+		 VALUES ('comment', 1, 'fp', 'ssh-ed25519 AAAAkey', ?) RETURNING id`, userUUID).Scan(&keyID)
+	c.Assert(err, tc.ErrorIsNil)
+	exec(`INSERT INTO model_authorized_keys (model_uuid, user_public_ssh_key_id) VALUES (?, ?)`, modelUUID, keyID)
+
+	// Leases: an application-leadership lease must surface as a leader; a
+	// singular-controller lease and a lease pin are source-local runtime state
+	// and must not travel.
+	leaseUUID := uuid.MustNewUUID().String()
+	start := time.Now().UTC().Truncate(time.Second)
+	expiry := start.Add(time.Hour)
+	exec(`INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
+	      VALUES (?, 1, ?, 'app', 'app/0', ?, ?)`, leaseUUID, modelUUID, start, expiry)
+	exec(`INSERT INTO lease_pin (uuid, lease_uuid, entity_id) VALUES (?, ?, 'machine-0')`,
+		uuid.MustNewUUID().String(), leaseUUID)
+	exec(`INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
+	      VALUES (?, 0, ?, ?, 'controller-0', ?, ?)`,
+		uuid.MustNewUUID().String(), modelUUID, modelUUID, start, expiry)
+
+	// Secret backend reference for the model, against the internal backend.
+	var backendUUID string
+	err = db.QueryRowContext(c.Context(),
+		`SELECT secret_backend_uuid FROM model_secret_backend WHERE model_uuid = ?`, modelUUID).Scan(&backendUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	var backendName string
+	err = db.QueryRowContext(c.Context(),
+		`SELECT name FROM secret_backend WHERE uuid = ?`, backendUUID).Scan(&backendName)
+	c.Assert(err, tc.ErrorIsNil)
+	revUUID := uuid.MustNewUUID().String()
+	secretID := "secret:" + uuid.MustNewUUID().String()
+	exec(`INSERT INTO secret_backend_reference (secret_backend_uuid, model_uuid, secret_revision_uuid, secret_id)
+	      VALUES (?, ?, ?, ?)`, backendUUID, modelUUID, revUUID, secretID)
+
+	// Last login.
+	loginTime := start.Add(-time.Hour)
+	exec(`INSERT INTO model_last_login (model_uuid, user_uuid, time) VALUES (?, ?, ?)`,
+		modelUUID, userUUID, loginTime)
+
+	// Custom cloud image metadata is controller-global, but must be carried so
+	// the target controller can recreate user-defined image selection data.
+	rootStorageSize := uint64(8192)
+	createdAt := start.Add(-2 * time.Hour)
+	exec(`INSERT INTO cloud_image_metadata
+	      (uuid, created_at, source, stream, region, version, architecture_id,
+	       virt_type, root_storage_type, root_storage_size, priority, image_id)
+	      VALUES (?, ?, ?, 'released', 'us-east-1', '22.04', 0, 'hvm', 'ebs',
+	              ?, 10, 'ami-custom')`,
+		uuid.MustNewUUID().String(), createdAt,
+		cloudimagemetadata.CustomSource, rootStorageSize)
+	exec(`INSERT INTO cloud_image_metadata
+	      (uuid, created_at, source, stream, region, version, architecture_id,
+	       virt_type, root_storage_type, priority, image_id)
+	      VALUES (?, ?, 'simplestreams', 'released', 'us-east-1', '22.04', 0,
+	              'hvm', 'ebs', 20, 'ami-cached')`,
+		uuid.MustNewUUID().String(), createdAt)
+
+	// Third-party external controller with an address and a consumed model.
+	extCtrlUUID := uuid.MustNewUUID().String()
+	consumedModelUUID := uuid.MustNewUUID().String()
+	exec(`INSERT INTO external_controller (uuid, alias, ca_cert) VALUES (?, 'other-ctrl', 'CACERT')`, extCtrlUUID)
+	exec(`INSERT INTO external_controller_address (uuid, controller_uuid, address) VALUES (?, ?, '1.2.3.4:17070')`,
+		uuid.MustNewUUID().String(), extCtrlUUID)
+	exec(`INSERT INTO external_model (uuid, controller_uuid) VALUES (?, ?)`,
+		consumedModelUUID, extCtrlUUID)
+
+	offererModels := []modelmigrationinternal.OffererModel{
+		{ControllerUUID: extCtrlUUID, ModelUUID: consumedModelUUID},
+	}
+
+	info, err := st.GetControllerModelInfo(c.Context(), modelUUID, []string{offerUUID}, offererModels)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Offer permission present alongside the model admin permission.
+	var foundOffer bool
+	for _, p := range info.Permissions {
+		if p.ObjectType == "offer" && p.GrantOn == offerUUID &&
+			p.SubjectName == "test-user" && p.Access == "consume" {
+			foundOffer = true
+		}
+	}
+	c.Check(foundOffer, tc.IsTrue, tc.Commentf("expected offer permission, got %#v", info.Permissions))
+
+	c.Check(info.AuthorizedKeys, tc.DeepEquals, []modelmigration.ModelAuthorizedKey{
+		{Username: "test-user", PublicKey: "ssh-ed25519 AAAAkey"},
+	})
+
+	c.Check(info.Leaders, tc.DeepEquals, []modelmigration.ApplicationLeadership{
+		{Application: "app", Leader: "app/0"},
+	})
+
+	c.Check(info.SecretBackendRefs, tc.DeepEquals, []modelmigration.SecretBackendReference{
+		{BackendName: backendName, SecretRevisionUUID: revUUID, SecretID: secretID},
+	})
+
+	c.Assert(info.ModelCredential, tc.NotNil)
+	c.Check(info.ModelCredential.Invalid, tc.IsTrue)
+	c.Check(info.ModelCredential.InvalidReason, tc.Equals, "expired")
+
+	var lastLogin *time.Time
+	for _, u := range info.Users {
+		if u.Name == "test-user" {
+			lastLogin = u.LastLogin
+			c.Check(u.Removed, tc.IsFalse)
+			c.Check(u.External, tc.IsFalse)
+		}
+	}
+	c.Assert(lastLogin, tc.NotNil)
+	c.Check(lastLogin.Equal(loginTime), tc.IsTrue, tc.Commentf(
+		"expected last login %v, got %v", loginTime, lastLogin,
+	))
+
+	c.Assert(info.CloudImageMetadata, tc.HasLen, 1)
+	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, modelmigration.CloudImageMetadata{
+		Stream:          "released",
+		Region:          "us-east-1",
+		Version:         "22.04",
+		Arch:            "amd64",
+		VirtType:        "hvm",
+		RootStorageType: "ebs",
+		RootStorageSize: &rootStorageSize,
+		Source:          cloudimagemetadata.CustomSource,
+		Priority:        10,
+		ImageID:         "ami-custom",
+		CreatedAt:       createdAt,
+	})
+
+	c.Assert(info.ExternalControllers, tc.HasLen, 1)
+	ec := info.ExternalControllers[0]
+	c.Check(ec.UUID, tc.Equals, extCtrlUUID)
+	c.Check(ec.Alias, tc.Equals, "other-ctrl")
+	c.Check(ec.CACert, tc.Equals, "CACERT")
+	c.Check(ec.Addresses, tc.DeepEquals, []string{"1.2.3.4:17070"})
+	c.Check(ec.ConsumedModels, tc.DeepEquals, []string{consumedModelUUID})
+}
+
+// TestGetControllerModelInfoExternalModelMissing verifies model DB offerer
+// selectors must be backed by source controller DB external_model rows.
+func (s *stateSuite) TestGetControllerModelInfoExternalModelMissing(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	extCtrlUUID := uuid.MustNewUUID().String()
+	consumedModelUUID := uuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(),
+		`INSERT INTO external_controller (uuid, alias, ca_cert) VALUES (?, 'other-ctrl', 'CACERT')`,
+		extCtrlUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetControllerModelInfo(
+		c.Context(),
+		s.modelUUID.String(),
+		nil,
+		[]modelmigrationinternal.OffererModel{{
+			ControllerUUID: extCtrlUUID,
+			ModelUUID:      consumedModelUUID,
+		}},
+	)
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
+		`external model %q for controller %q not found`, consumedModelUUID, extCtrlUUID,
+	))
+}
+
+// TestGetControllerModelInfoExternalControllerMissing verifies model DB offerer
+// selectors must be backed by source controller DB external_controller rows.
+func (s *stateSuite) TestGetControllerModelInfoExternalControllerMissing(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	extCtrlUUID := uuid.MustNewUUID().String()
+	consumedModelUUID := uuid.MustNewUUID().String()
+	_, err := st.GetControllerModelInfo(
+		c.Context(),
+		s.modelUUID.String(),
+		nil,
+		[]modelmigrationinternal.OffererModel{{
+			ControllerUUID: extCtrlUUID,
+			ModelUUID:      consumedModelUUID,
+		}},
+	)
+	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
+		`external controller %q for offerer model %q not found`, extCtrlUUID, consumedModelUUID,
+	))
+}
+
+// TestGetControllerModelInfoModelNotFound verifies a clear error for an unknown
+// model UUID.
+func (s *stateSuite) TestGetControllerModelInfoModelNotFound(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	_, err := st.GetControllerModelInfo(c.Context(), uuid.MustNewUUID().String(), nil, nil)
+	c.Assert(err, tc.ErrorMatches, `.*not found.*`)
+}
+
 // createControllerModel creates a the database for use in tests.
+// seedControllerName records the controller-name controller config value used
+// as the source controller alias.
+func (s *stateSuite) seedControllerName(c *tc.C, name string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`INSERT INTO controller_config (key, value) VALUES ('controller-name', ?)`, name)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// seedControllerAPIAddresses inserts the supplied controller API addresses,
+// ensuring the referenced controller node rows exist first.
+func (s *stateSuite) seedControllerAPIAddresses(c *tc.C, addrs []sourceAPIAddress) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		seenNodes := make(map[string]bool)
+		for _, addr := range addrs {
+			if !seenNodes[addr.ControllerID] {
+				if _, err := tx.ExecContext(ctx,
+					`INSERT INTO controller_node (controller_id) VALUES (?) ON CONFLICT DO NOTHING`, addr.ControllerID); err != nil {
+					return err
+				}
+				seenNodes[addr.ControllerID] = true
+			}
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO controller_api_address (controller_id, address, is_agent, scope) VALUES (?, ?, ?, ?)`,
+				addr.ControllerID, addr.Address, addr.IsAgent, addr.Scope); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *stateSuite) createControllerModel(c *tc.C, controllerModelUUID coremodel.UUID, userUUID user.UUID) uuid.UUID {
 	// Before we can create the model, we need to create a controller model.
 	// This ensures that we

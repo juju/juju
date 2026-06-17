@@ -107,7 +107,10 @@ func (s *CrossSuite) testWaits(c *tc.C, lease1, lease2 corelease.Key) {
 		b1.assertBlocked(c)
 		b2.assertBlocked(c)
 
-		clock.Advance(2 * time.Second)
+		// Simulate the lease store observing the first lease expiry before
+		// the manager processes its scheduled expiry check.
+		delete(fix.leases, lease1)
+		c.Assert(clock.WaitAdvance(2*time.Second, testhelpers.ShortWait, 1), tc.ErrorIsNil)
 
 		err := b1.assertUnblocked(c)
 		c.Assert(err, tc.ErrorIsNil)

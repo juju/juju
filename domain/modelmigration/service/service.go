@@ -6,19 +6,23 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/controllernode"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
@@ -135,6 +139,24 @@ type ControllerState interface {
 	// AggregateMinionReports returns the succeeded and failed entity keys
 	// reported for the given migration and phase.
 	AggregateMinionReports(ctx context.Context, migrationUUID string, phase migration.Phase) (modelmigrationinternal.MinionReports, error)
+
+	// GetControllerModelInfo reads the controller-database records scoped to
+	// the given migrating model in target-portable semantic form. offerUUIDs
+	// are the model's hosted offer UUIDs and offererModels are the distinct
+	// third-party (offerer controller, offerer model) pairs referenced by the
+	// model's remote applications, both read from the model database by the
+	// caller.
+	GetControllerModelInfo(
+		ctx context.Context,
+		modelUUID string,
+		offerUUIDs []string,
+		offererModels []modelmigrationinternal.OffererModel,
+	) (modelmigration.ControllerModelInfo, error)
+
+	// GetSourceControllerInfo returns the source controller's identity and
+	// client connection details used by the target controller to dial back
+	// during model activation.
+	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -164,6 +186,16 @@ type ModelState interface {
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
 	GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error)
+
+	// GetOfferUUIDs returns the UUIDs of all offers hosted by this model, used
+	// to select the offer-scoped permission rows that travel with the migration.
+	GetOfferUUIDs(ctx context.Context) ([]string, error)
+
+	// GetThirdPartyOffererModels returns the distinct (offerer controller,
+	// offerer model) pairs referenced by this model's remote applications,
+	// excluding pairs offered by this model's own controller, used to select
+	// the third-party external controllers that travel with the migration.
+	GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -311,6 +343,107 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 		return modelmigration.Migration{}, errors.Capture(err)
 	}
 	return decodeMigration(mig)
+}
+
+// GetControllerModelInfo reads the controller-database records scoped to this
+// migrating model and returns them in target-portable semantic form. It first
+// reads the model's hosted offer UUIDs and third-party remote-offerer pairs
+// from the model database, then reads the matching controller-database rows.
+func (s *Service) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	offerUUIDs, err := s.modelState.GetOfferUUIDs(ctx)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offer UUIDs: %w", err)
+	}
+	offererModels, err := s.modelState.GetThirdPartyOffererModels(ctx)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offerer models: %w", err)
+	}
+
+	info, err := s.controllerState.GetControllerModelInfo(ctx, s.modelUUID, offerUUIDs, offererModels)
+	if err != nil {
+		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading controller model info for %q: %w", s.modelUUID, err)
+	}
+	return info, nil
+}
+
+// SourceControllerInfo returns this (source) controller's identity and the
+// client connection details a target controller uses to dial back during model
+// activation.
+func (s *Service) SourceControllerInfo(ctx context.Context) (migration.SourceControllerInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	info, err := s.controllerState.GetSourceControllerInfo(ctx)
+	if err != nil {
+		return migration.SourceControllerInfo{}, errors.Capture(err)
+	}
+
+	// A target controller dials these addresses back to advance the migration
+	// state machine and ultimately reap the source model. Without at least one
+	// usable address the migration can never complete, so refuse to act as a
+	// source rather than proceed into a stuck state.
+	addrs := sourceControllerAddrsForClients(info.Addrs)
+	if len(addrs) == 0 {
+		return migration.SourceControllerInfo{}, errors.Errorf(
+			"controller %q cannot be a migration source: %w",
+			info.ControllerUUID, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
+	}
+
+	return migration.SourceControllerInfo{
+		ControllerTag:   names.NewControllerTag(info.ControllerUUID),
+		ControllerAlias: info.ControllerAlias,
+		Addrs:           addrs,
+		CACert:          info.CACert,
+	}, nil
+}
+
+func sourceControllerAddrsForClients(addrs []modelmigrationinternal.SourceControllerAddress) []string {
+	clientAddrs := sourceControllerAddrsByControllerID(addrs)
+	controllerIDs := sourceControllerAddressKeyOrder(clientAddrs)
+
+	orderedAddrs := make([]string, 0)
+	for _, id := range controllerIDs {
+		addrs := clientAddrs[id]
+		if len(addrs) == 0 {
+			continue
+		}
+		orderedAddrs = append(
+			orderedAddrs,
+			addrs.PrioritizedForScope(controllernode.ScopeMatchPublic)...,
+		)
+	}
+	return orderedAddrs
+}
+
+func sourceControllerAddrsByControllerID(
+	addrs []modelmigrationinternal.SourceControllerAddress,
+) map[string]controllernode.APIAddresses {
+	grouped := make(map[string]controllernode.APIAddresses)
+	for _, addr := range addrs {
+		grouped[addr.ControllerID] = append(grouped[addr.ControllerID], controllernode.APIAddress{
+			Address: addr.Address,
+			IsAgent: addr.IsAgent,
+			Scope:   network.Scope(addr.Scope),
+		})
+	}
+	return grouped
+}
+
+func sourceControllerAddressKeyOrder(m map[string]controllernode.APIAddresses) []string {
+	if len(m) == 0 {
+		return nil
+	}
+
+	ids := make([]string, 0, len(m))
+	for controllerID := range m {
+		ids = append(ids, controllerID)
+	}
+
+	sort.Strings(ids)
+	return ids
 }
 
 // InitiateMigration kicks off migrating this model to the target controller,
@@ -471,6 +604,23 @@ func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) 
 		return errors.Capture(err)
 	}
 	return s.controllerState.SetPhase(ctx, mig.UUID, phase)
+}
+
+// MarkModelAsGone is called by the migration master during REAP, once the
+// target controller owns the model, to remove the migrated model from this
+// controller. It marks the active export migration as DONE.
+//
+// TODO(modelmigration): purge the migrated model from the source controller
+// and set up the durable login redirect before completing the export.
+func (s *Service) MarkModelAsGone(ctx context.Context) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	mig, err := s.controllerState.GetActiveExport(ctx, s.modelUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return s.controllerState.SetPhase(ctx, mig.UUID, migration.DONE)
 }
 
 // SetMigrationStatusMessage is called by the migration master to report on

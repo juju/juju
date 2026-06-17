@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 	"gopkg.in/tomb.v2"
 
 	api "github.com/juju/juju/api"
@@ -41,8 +40,9 @@ type retrieverSuite struct {
 }
 
 func TestRetrieverSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &retrieverSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &retrieverSuite{})
+	})
 }
 
 func (s *retrieverSuite) TestRetrieve(c *tc.C) {

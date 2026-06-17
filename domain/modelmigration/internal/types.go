@@ -52,6 +52,23 @@ type TargetInfo struct {
 	SkipUserChecks  bool
 }
 
+// SourceControllerInfo is the raw state-layer representation of this
+// controller's identity and API address rows.
+type SourceControllerInfo struct {
+	ControllerUUID  string
+	ControllerAlias string
+	Addrs           []SourceControllerAddress
+	CACert          string
+}
+
+// SourceControllerAddress describes a single source controller API address.
+type SourceControllerAddress struct {
+	ControllerID string
+	Address      string
+	Scope        string
+	IsAgent      bool
+}
+
 // MinionReports is the aggregated set of persisted minion phase reports for a
 // single migration phase.
 type MinionReports struct {
@@ -66,4 +83,13 @@ type MigrationAgents struct {
 	Machines     []string
 	Units        []string
 	Applications []string
+}
+
+// OffererModel identifies a single (offerer controller, offerer model) pair
+// referenced by the model's remote applications. It is the model-database input
+// used to read the matching third-party external controller rows from the
+// controller database.
+type OffererModel struct {
+	ControllerUUID string
+	ModelUUID      string
 }

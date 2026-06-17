@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/testhelpers"
 )
 
 type controllerWorkerSuite struct {
@@ -21,8 +21,9 @@ type controllerWorkerSuite struct {
 var _ objectstore.ObjectStore = (*controllerWorker)(nil)
 
 func TestControllerWorkerSuite(t *stdtesting.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &controllerWorkerSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *stdtesting.T) {
+		tc.Run(t, &controllerWorkerSuite{})
+	})
 }
 
 func (s *controllerWorkerSuite) TestWorkerStartup(c *tc.C) {

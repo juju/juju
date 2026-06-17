@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -21,8 +20,9 @@ type ManifoldConfigSuite struct {
 }
 
 func TestManifoldConfigSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &ManifoldConfigSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &ManifoldConfigSuite{})
+	})
 }
 
 func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
