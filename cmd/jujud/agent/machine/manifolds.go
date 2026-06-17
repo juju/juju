@@ -783,12 +783,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The ssh server worker runs on the controller machine.
 		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
-			DomainServicesName:         domainServicesName,
-			Logger:                     internallogger.GetLogger("juju.worker.sshserver"),
-			NewServerWrapperWorker:     sshserver.NewServerWrapperWorker,
-			NewServerWorker:            sshserver.NewServerWorker,
-			GetControllerConfigService: sshserver.GetControllerConfigService,
-			GetSSHHostKeyService:       sshserver.GetSSHHostKeyService,
+			DomainServicesName:             domainServicesName,
+			Logger:                         internallogger.GetLogger("juju.worker.sshserver"),
+			NewServerWrapperWorker:         sshserver.NewServerWrapperWorker,
+			NewServerWorker:                sshserver.NewServerWorker,
+			GetControllerConfigService:     sshserver.GetControllerConfigService,
+			GetControllerSSHHostKeyService: sshserver.GetControllerSSHHostKeyService,
+			GetDomainServicesGetter:        sshserver.GetDomainServicesGetter,
+			GetVirtualHostKeyService:       sshserver.GetVirtualHostKeyService,
 		})),
 
 		// The objectstore drainer runs on the singular primary controller to

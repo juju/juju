@@ -54,13 +54,14 @@ import (
 	service39 "github.com/juju/juju/domain/resource/service"
 	service40 "github.com/juju/juju/domain/secret/service"
 	service41 "github.com/juju/juju/domain/secretbackend/service"
-	service42 "github.com/juju/juju/domain/ssh/service"
-	service43 "github.com/juju/juju/domain/status/service"
-	service44 "github.com/juju/juju/domain/storage/service"
-	service45 "github.com/juju/juju/domain/storageprovisioning/service"
-	service46 "github.com/juju/juju/domain/tracing/service"
-	service47 "github.com/juju/juju/domain/unitstate/service"
-	service48 "github.com/juju/juju/domain/upgrade/service"
+	controller "github.com/juju/juju/domain/ssh/service/controller"
+	model "github.com/juju/juju/domain/ssh/service/model"
+	service42 "github.com/juju/juju/domain/status/service"
+	service43 "github.com/juju/juju/domain/storage/service"
+	service44 "github.com/juju/juju/domain/storageprovisioning/service"
+	service45 "github.com/juju/juju/domain/tracing/service"
+	service46 "github.com/juju/juju/domain/unitstate/service"
+	service47 "github.com/juju/juju/domain/upgrade/service"
 )
 
 // MockDomainServices is a mock of DomainServices interface.
@@ -120,15 +121,16 @@ type MockDomainServicesMockRecorder struct {
 	removalExpects                    []*gomock.Call0_1[*service37.WatchableService]
 	resolveExpects                    []*gomock.Call0_1[*service38.WatchableService]
 	resourceExpects                   []*gomock.Call0_1[*service39.Service]
-	sSHExpects                        []*gomock.Call0_1[*service42.Service]
+	sSHServerHostKeyExpects           []*gomock.Call0_1[*controller.Service]
+	sSHVirtualHostKeysExpects         []*gomock.Call0_1[*model.Service]
 	secretExpects                     []*gomock.Call0_1[*service40.WatchableService]
 	secretBackendExpects              []*gomock.Call0_1[*service41.WatchableService]
-	statusExpects                     []*gomock.Call0_1[*service43.LeadershipService]
-	storageExpects                    []*gomock.Call0_1[*service44.Service]
-	storageProvisioningExpects        []*gomock.Call0_1[*service45.Service]
-	tracingExpects                    []*gomock.Call0_1[*service46.WatchableService]
-	unitStateExpects                  []*gomock.Call0_1[*service47.LeadershipService]
-	upgradeExpects                    []*gomock.Call0_1[*service48.WatchableService]
+	statusExpects                     []*gomock.Call0_1[*service42.LeadershipService]
+	storageExpects                    []*gomock.Call0_1[*service43.Service]
+	storageProvisioningExpects        []*gomock.Call0_1[*service44.Service]
+	tracingExpects                    []*gomock.Call0_1[*service45.WatchableService]
+	unitStateExpects                  []*gomock.Call0_1[*service46.LeadershipService]
+	upgradeExpects                    []*gomock.Call0_1[*service47.WatchableService]
 }
 
 // NewMockDomainServices creates a new mock instance.
@@ -989,23 +991,41 @@ func (mr *MockDomainServicesMockRecorder) Resource() *MockDomainServicesResource
 // MockDomainServicesResourceCall is the typed call wrapper for Resource.
 type MockDomainServicesResourceCall = gomock.Call0_1[*service39.Service]
 
-// SSH mocks base method.
-func (m *MockDomainServices) SSH() *service42.Service {
+// SSHServerHostKey mocks base method.
+func (m *MockDomainServices) SSHServerHostKey() *controller.Service {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.sSHExpects, m.ctrl, m, "SSH")
+	return gomock.Dispatch0_1(&m.recorder.sSHServerHostKeyExpects, m.ctrl, m, "SSHServerHostKey")
 }
 
-// SSH indicates an expected call of SSH.
-func (mr *MockDomainServicesMockRecorder) SSH() *MockDomainServicesSSHCall {
+// SSHServerHostKey indicates an expected call of SSHServerHostKey.
+func (mr *MockDomainServicesMockRecorder) SSHServerHostKey() *MockDomainServicesSSHServerHostKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service42.Service](mr.mock.ctrl.T, mr.mock, "SSH")
-	mr.sSHExpects = append(mr.sSHExpects, call)
+	call := gomock.NewCall0_1[*controller.Service](mr.mock.ctrl.T, mr.mock, "SSHServerHostKey")
+	mr.sSHServerHostKeyExpects = append(mr.sSHServerHostKeyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockDomainServicesSSHCall is the typed call wrapper for SSH.
-type MockDomainServicesSSHCall = gomock.Call0_1[*service42.Service]
+// MockDomainServicesSSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
+type MockDomainServicesSSHServerHostKeyCall = gomock.Call0_1[*controller.Service]
+
+// SSHVirtualHostKeys mocks base method.
+func (m *MockDomainServices) SSHVirtualHostKeys() *model.Service {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.sSHVirtualHostKeysExpects, m.ctrl, m, "SSHVirtualHostKeys")
+}
+
+// SSHVirtualHostKeys indicates an expected call of SSHVirtualHostKeys.
+func (mr *MockDomainServicesMockRecorder) SSHVirtualHostKeys() *MockDomainServicesSSHVirtualHostKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*model.Service](mr.mock.ctrl.T, mr.mock, "SSHVirtualHostKeys")
+	mr.sSHVirtualHostKeysExpects = append(mr.sSHVirtualHostKeysExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDomainServicesSSHVirtualHostKeysCall is the typed call wrapper for SSHVirtualHostKeys.
+type MockDomainServicesSSHVirtualHostKeysCall = gomock.Call0_1[*model.Service]
 
 // Secret mocks base method.
 func (m *MockDomainServices) Secret() *service40.WatchableService {
@@ -1044,7 +1064,7 @@ func (mr *MockDomainServicesMockRecorder) SecretBackend() *MockDomainServicesSec
 type MockDomainServicesSecretBackendCall = gomock.Call0_1[*service41.WatchableService]
 
 // Status mocks base method.
-func (m *MockDomainServices) Status() *service43.LeadershipService {
+func (m *MockDomainServices) Status() *service42.LeadershipService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.statusExpects, m.ctrl, m, "Status")
 }
@@ -1052,17 +1072,17 @@ func (m *MockDomainServices) Status() *service43.LeadershipService {
 // Status indicates an expected call of Status.
 func (mr *MockDomainServicesMockRecorder) Status() *MockDomainServicesStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service43.LeadershipService](mr.mock.ctrl.T, mr.mock, "Status")
+	call := gomock.NewCall0_1[*service42.LeadershipService](mr.mock.ctrl.T, mr.mock, "Status")
 	mr.statusExpects = append(mr.statusExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesStatusCall is the typed call wrapper for Status.
-type MockDomainServicesStatusCall = gomock.Call0_1[*service43.LeadershipService]
+type MockDomainServicesStatusCall = gomock.Call0_1[*service42.LeadershipService]
 
 // Storage mocks base method.
-func (m *MockDomainServices) Storage() *service44.Service {
+func (m *MockDomainServices) Storage() *service43.Service {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.storageExpects, m.ctrl, m, "Storage")
 }
@@ -1070,17 +1090,17 @@ func (m *MockDomainServices) Storage() *service44.Service {
 // Storage indicates an expected call of Storage.
 func (mr *MockDomainServicesMockRecorder) Storage() *MockDomainServicesStorageCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service44.Service](mr.mock.ctrl.T, mr.mock, "Storage")
+	call := gomock.NewCall0_1[*service43.Service](mr.mock.ctrl.T, mr.mock, "Storage")
 	mr.storageExpects = append(mr.storageExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesStorageCall is the typed call wrapper for Storage.
-type MockDomainServicesStorageCall = gomock.Call0_1[*service44.Service]
+type MockDomainServicesStorageCall = gomock.Call0_1[*service43.Service]
 
 // StorageProvisioning mocks base method.
-func (m *MockDomainServices) StorageProvisioning() *service45.Service {
+func (m *MockDomainServices) StorageProvisioning() *service44.Service {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.storageProvisioningExpects, m.ctrl, m, "StorageProvisioning")
 }
@@ -1088,17 +1108,17 @@ func (m *MockDomainServices) StorageProvisioning() *service45.Service {
 // StorageProvisioning indicates an expected call of StorageProvisioning.
 func (mr *MockDomainServicesMockRecorder) StorageProvisioning() *MockDomainServicesStorageProvisioningCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service45.Service](mr.mock.ctrl.T, mr.mock, "StorageProvisioning")
+	call := gomock.NewCall0_1[*service44.Service](mr.mock.ctrl.T, mr.mock, "StorageProvisioning")
 	mr.storageProvisioningExpects = append(mr.storageProvisioningExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesStorageProvisioningCall is the typed call wrapper for StorageProvisioning.
-type MockDomainServicesStorageProvisioningCall = gomock.Call0_1[*service45.Service]
+type MockDomainServicesStorageProvisioningCall = gomock.Call0_1[*service44.Service]
 
 // Tracing mocks base method.
-func (m *MockDomainServices) Tracing() *service46.WatchableService {
+func (m *MockDomainServices) Tracing() *service45.WatchableService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.tracingExpects, m.ctrl, m, "Tracing")
 }
@@ -1106,17 +1126,17 @@ func (m *MockDomainServices) Tracing() *service46.WatchableService {
 // Tracing indicates an expected call of Tracing.
 func (mr *MockDomainServicesMockRecorder) Tracing() *MockDomainServicesTracingCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service46.WatchableService](mr.mock.ctrl.T, mr.mock, "Tracing")
+	call := gomock.NewCall0_1[*service45.WatchableService](mr.mock.ctrl.T, mr.mock, "Tracing")
 	mr.tracingExpects = append(mr.tracingExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesTracingCall is the typed call wrapper for Tracing.
-type MockDomainServicesTracingCall = gomock.Call0_1[*service46.WatchableService]
+type MockDomainServicesTracingCall = gomock.Call0_1[*service45.WatchableService]
 
 // UnitState mocks base method.
-func (m *MockDomainServices) UnitState() *service47.LeadershipService {
+func (m *MockDomainServices) UnitState() *service46.LeadershipService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.unitStateExpects, m.ctrl, m, "UnitState")
 }
@@ -1124,17 +1144,17 @@ func (m *MockDomainServices) UnitState() *service47.LeadershipService {
 // UnitState indicates an expected call of UnitState.
 func (mr *MockDomainServicesMockRecorder) UnitState() *MockDomainServicesUnitStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service47.LeadershipService](mr.mock.ctrl.T, mr.mock, "UnitState")
+	call := gomock.NewCall0_1[*service46.LeadershipService](mr.mock.ctrl.T, mr.mock, "UnitState")
 	mr.unitStateExpects = append(mr.unitStateExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesUnitStateCall is the typed call wrapper for UnitState.
-type MockDomainServicesUnitStateCall = gomock.Call0_1[*service47.LeadershipService]
+type MockDomainServicesUnitStateCall = gomock.Call0_1[*service46.LeadershipService]
 
 // Upgrade mocks base method.
-func (m *MockDomainServices) Upgrade() *service48.WatchableService {
+func (m *MockDomainServices) Upgrade() *service47.WatchableService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.upgradeExpects, m.ctrl, m, "Upgrade")
 }
@@ -1142,11 +1162,11 @@ func (m *MockDomainServices) Upgrade() *service48.WatchableService {
 // Upgrade indicates an expected call of Upgrade.
 func (mr *MockDomainServicesMockRecorder) Upgrade() *MockDomainServicesUpgradeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service48.WatchableService](mr.mock.ctrl.T, mr.mock, "Upgrade")
+	call := gomock.NewCall0_1[*service47.WatchableService](mr.mock.ctrl.T, mr.mock, "Upgrade")
 	mr.upgradeExpects = append(mr.upgradeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesUpgradeCall is the typed call wrapper for Upgrade.
-type MockDomainServicesUpgradeCall = gomock.Call0_1[*service48.WatchableService]
+type MockDomainServicesUpgradeCall = gomock.Call0_1[*service47.WatchableService]

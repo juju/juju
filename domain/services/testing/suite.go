@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
@@ -277,16 +276,6 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 			providerFactory = &stubProviderFactory{}
 		}
 		controllerServices := domainservices.NewControllerServices(
-			watchableDBGetterFunc(func(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
-				switch namespace {
-				case database.ControllerNS:
-					return databasetesting.ConstFactory(s.TxnRunner())(ctx)
-				case modelUUID.String():
-					return databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String()))(ctx)
-				default:
-					return nil, errors.Errorf("unknown namespace %q", namespace)
-				}
-			}),
 			databasetesting.ConstFactory(s.TxnRunner()),
 			modelObjectStoreGetter(func(ctx context.Context) (objectstore.ObjectStore, error) {
 				return objectStore, nil
@@ -326,12 +315,6 @@ func (s *DomainServicesSuite) DomainServicesGetterWithStorageRegistry(c *tc.C, o
 			ModelServices:      modelServices,
 		}
 	}
-}
-
-type watchableDBGetterFunc func(context.Context, string) (changestream.WatchableDB, error)
-
-func (f watchableDBGetterFunc) GetWatchableDB(ctx context.Context, namespace string) (changestream.WatchableDB, error) {
-	return f(ctx, namespace)
 }
 
 // ObjectStoreServicesGetter provides an implementation of the

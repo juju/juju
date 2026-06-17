@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+package model
 
 import (
 	"context"
@@ -18,33 +18,18 @@ import (
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 )
 
-// Service provides controller and model scoped SSH host key workflows.
+// Service provides model-scoped SSH virtual host key workflows.
 type Service struct {
-	controllerSt     ControllerState
-	modelStateGetter ModelStateGetter
+	modelUUID coremodel.UUID
+	state     State
 }
 
-// NewService returns a new SSH service.
-func NewService(controllerSt ControllerState, modelStateGetter ModelStateGetter) *Service {
+// NewService returns a new model SSH service.
+func NewService(modelUUID coremodel.UUID, state State) *Service {
 	return &Service{
-		controllerSt:     controllerSt,
-		modelStateGetter: modelStateGetter,
+		modelUUID: modelUUID,
+		state:     state,
 	}
-}
-
-// SSHServerHostKey returns the controller jump host key.
-func (s *Service) SSHServerHostKey(ctx context.Context) (string, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	key, found, err := s.controllerSt.GetSSHServerHostKey(ctx)
-	if err != nil {
-		return "", errors.Errorf("getting controller SSH server host key: %w", err)
-	}
-	if !found {
-		return "", errors.Errorf("controller SSH server host key not found")
-	}
-	return key, nil
 }
 
 // VirtualHostKey resolves the terminating SSH host key for a virtual hostname.
@@ -56,6 +41,9 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 	if err := modelUUID.Validate(); err != nil {
 		return "", errors.Errorf("validating model UUID %q: %w", modelUUID, err)
 	}
+	if modelUUID != s.modelUUID {
+		return "", errors.Errorf("virtual hostname model UUID %q does not match service model %q", modelUUID, s.modelUUID)
+	}
 
 	switch info.Target() {
 	case virtualhostname.MachineTarget:
@@ -64,7 +52,7 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 			return "", errors.Errorf("missing machine target in virtual hostname")
 		}
 		machineName := coremachine.Name(strconv.Itoa(machineNumber))
-		return s.MachineVirtualHostKey(ctx, modelUUID, machineName)
+		return s.MachineVirtualHostKey(ctx, machineName)
 	case virtualhostname.UnitTarget, virtualhostname.ContainerTarget:
 		unitName, ok := info.Unit()
 		if !ok {
@@ -74,7 +62,7 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 		if err != nil {
 			return "", errors.Errorf("validating unit name %q: %w", unitName, err)
 		}
-		return s.UnitVirtualHostKey(ctx, modelUUID, parsedUnitName)
+		return s.UnitVirtualHostKey(ctx, parsedUnitName)
 	default:
 		return "", errors.Errorf("virtual hostname target %d %w", info.Target(), coreerrors.NotSupported)
 	}
@@ -82,55 +70,40 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 
 // MachineVirtualHostKey returns the machine terminating host key, generating
 // and persisting it if it is missing.
-func (s *Service) MachineVirtualHostKey(ctx context.Context, modelUUID coremodel.UUID, machineName coremachine.Name) (string, error) {
+func (s *Service) MachineVirtualHostKey(ctx context.Context, machineName coremachine.Name) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := modelUUID.Validate(); err != nil {
-		return "", errors.Errorf("validating model UUID %q: %w", modelUUID, err)
-	}
 	if err := machineName.Validate(); err != nil {
 		return "", errors.Errorf("validating machine name %q: %w", machineName, err)
 	}
 
-	state := s.modelStateGetter.GetModelState(modelUUID)
-	if state == nil {
-		return "", errors.Errorf("missing model SSH state for model %q", modelUUID)
-	}
-	return s.ensureMachineVirtualHostKey(ctx, state, machineName.String())
+	return s.ensureMachineVirtualHostKey(ctx, machineName.String())
 }
 
 // UnitVirtualHostKey returns the terminating host key for a unit target.
 // IAAS units share the host key of their backing machine, while CAAS units use
 // a unit-scoped virtual host key.
-func (s *Service) UnitVirtualHostKey(ctx context.Context, modelUUID coremodel.UUID, unitName coreunit.Name) (string, error) {
+func (s *Service) UnitVirtualHostKey(ctx context.Context, unitName coreunit.Name) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if err := modelUUID.Validate(); err != nil {
-		return "", errors.Errorf("validating model UUID %q: %w", modelUUID, err)
-	}
 	if err := unitName.Validate(); err != nil {
 		return "", errors.Errorf("validating unit name %q: %w", unitName, err)
 	}
 
-	state := s.modelStateGetter.GetModelState(modelUUID)
-	if state == nil {
-		return "", errors.Errorf("missing model SSH state for model %q", modelUUID)
-	}
-
-	machineName, machineBacked, err := state.GetMachineNameForUnit(ctx, unitName.String())
+	machineName, machineBacked, err := s.state.GetMachineNameForUnit(ctx, unitName.String())
 	if err != nil {
-		return "", errors.Errorf("resolving backing machine for unit %q in model %q: %w", unitName, modelUUID, err)
+		return "", errors.Errorf("resolving backing machine for unit %q in model %q: %w", unitName, s.modelUUID, err)
 	}
 	if machineBacked {
-		return s.ensureMachineVirtualHostKey(ctx, state, machineName)
+		return s.ensureMachineVirtualHostKey(ctx, machineName)
 	}
-	return s.ensureUnitVirtualHostKey(ctx, state, unitName.String())
+	return s.ensureUnitVirtualHostKey(ctx, unitName.String())
 }
 
-func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, state ModelState, machineName string) (string, error) {
-	key, found, err := state.GetMachineVirtualHostKeyByMachineName(ctx, machineName)
+func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, machineName string) (string, error) {
+	key, found, err := s.state.GetMachineVirtualHostKeyByMachineName(ctx, machineName)
 	if err != nil {
 		return "", errors.Errorf("getting machine virtual SSH host key for %q: %w", machineName, err)
 	}
@@ -142,14 +115,14 @@ func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, state ModelSt
 	if err != nil {
 		return "", errors.Errorf("generating machine virtual SSH host key for %q: %w", machineName, err)
 	}
-	if err := state.SetMachineVirtualHostKeyByMachineName(ctx, machineName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
+	if err := s.state.SetMachineVirtualHostKeyByMachineName(ctx, machineName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
 		return "", errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 	}
 	return key, nil
 }
 
-func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, state ModelState, unitName string) (string, error) {
-	key, found, err := state.GetUnitVirtualHostKeyByUnitName(ctx, unitName)
+func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, unitName string) (string, error) {
+	key, found, err := s.state.GetUnitVirtualHostKeyByUnitName(ctx, unitName)
 	if err != nil {
 		return "", errors.Errorf("getting unit virtual SSH host key for %q: %w", unitName, err)
 	}
@@ -161,7 +134,7 @@ func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, state ModelState
 	if err != nil {
 		return "", errors.Errorf("generating unit virtual SSH host key for %q: %w", unitName, err)
 	}
-	if err := state.SetUnitVirtualHostKeyByUnitName(ctx, unitName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
+	if err := s.state.SetUnitVirtualHostKeyByUnitName(ctx, unitName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
 		return "", errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 	}
 	return key, nil

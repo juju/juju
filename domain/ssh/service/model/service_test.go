@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service_test
+package model_test
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/virtualhostname"
-	sshservice "github.com/juju/juju/domain/ssh/service"
+	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -24,36 +24,14 @@ func TestServiceSuite(t *stdtesting.T) {
 	tc.Run(t, &serviceSuite{})
 }
 
-func (s *serviceSuite) TestSSHServerHostKeyReturnsExisting(c *tc.C) {
-	controllerState := &stubControllerState{
-		key:   testPrivateKey,
-		found: true,
-	}
-
-	svc := sshservice.NewService(controllerState, nil)
-	key, err := svc.SSHServerHostKey(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(key, tc.Equals, testPrivateKey)
-}
-
-func (s *serviceSuite) TestSSHServerHostKeyErrorsWhenMissing(c *tc.C) {
-	svc := sshservice.NewService(&stubControllerState{}, nil)
-
-	key, err := svc.SSHServerHostKey(c.Context())
-	c.Check(key, tc.Equals, "")
-	c.Assert(err, tc.ErrorMatches, `controller SSH server host key not found`)
-}
-
 func (s *serviceSuite) TestMachineVirtualHostKeyGeneratesMissing(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
 	state.machineExists["1"] = true
 
-	svc := sshservice.NewService(&stubControllerState{}, sshservice.ModelStateGetterFunc(func(_ coremodel.UUID) sshservice.ModelState {
-		return state
-	}))
+	svc := modelsshservice.NewService(modelUUID, state)
 
-	key, err := svc.MachineVirtualHostKey(c.Context(), modelUUID, coremachine.Name("1"))
+	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(state.machineSetCalls, tc.Equals, 1)
 	c.Check(state.machineKeys["1"], tc.Equals, key)
@@ -67,11 +45,9 @@ func (s *serviceSuite) TestUnitVirtualHostKeyUsesBackingMachine(c *tc.C) {
 	state.machineKeys["1"] = testPrivateKey
 	state.unitMachines["postgresql/0"] = "1"
 
-	svc := sshservice.NewService(&stubControllerState{}, sshservice.ModelStateGetterFunc(func(_ coremodel.UUID) sshservice.ModelState {
-		return state
-	}))
+	svc := modelsshservice.NewService(modelUUID, state)
 
-	key, err := svc.UnitVirtualHostKey(c.Context(), modelUUID, coreunit.Name("postgresql/0"))
+	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(key, tc.Equals, testPrivateKey)
 	c.Check(state.unitSetCalls, tc.Equals, 0)
@@ -83,11 +59,9 @@ func (s *serviceSuite) TestUnitVirtualHostKeyGeneratesMissingForCAAS(c *tc.C) {
 	state := newStubModelState()
 	state.unitExists["postgresql/0"] = true
 
-	svc := sshservice.NewService(&stubControllerState{}, sshservice.ModelStateGetterFunc(func(_ coremodel.UUID) sshservice.ModelState {
-		return state
-	}))
+	svc := modelsshservice.NewService(modelUUID, state)
 
-	key, err := svc.UnitVirtualHostKey(c.Context(), modelUUID, coreunit.Name("postgresql/0"))
+	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(state.unitSetCalls, tc.Equals, 1)
 	c.Check(state.unitKeys["postgresql/0"], tc.Equals, key)
@@ -95,13 +69,12 @@ func (s *serviceSuite) TestUnitVirtualHostKeyGeneratesMissingForCAAS(c *tc.C) {
 }
 
 func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
 	state.machineExists["1"] = true
 	state.machineKeys["1"] = testPrivateKey
 
-	svc := sshservice.NewService(&stubControllerState{}, sshservice.ModelStateGetterFunc(func(_ coremodel.UUID) sshservice.ModelState {
-		return state
-	}))
+	svc := modelsshservice.NewService(modelUUID, state)
 
 	info, err := virtualhostname.NewInfoMachineTarget(testModelUUID, "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -111,14 +84,15 @@ func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
 	c.Check(key, tc.Equals, testPrivateKey)
 }
 
-type stubControllerState struct {
-	key    string
-	found  bool
-	getErr error
-}
+func (s *serviceSuite) TestVirtualHostKeyErrorsForDifferentModel(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
+	svc := modelsshservice.NewService(modelUUID, newStubModelState())
 
-func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, bool, error) {
-	return s.key, s.found, s.getErr
+	info, err := virtualhostname.NewInfoMachineTarget("77f44fa2-65f1-41c8-8a8e-3b1f1c8d343d", "1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = svc.VirtualHostKey(c.Context(), info)
+	c.Assert(err, tc.ErrorMatches, `virtual hostname model UUID .* does not match service model .*`)
 }
 
 type stubModelState struct {

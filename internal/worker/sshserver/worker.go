@@ -27,12 +27,22 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// SSHHostKeyService resolves controller and terminating SSH host keys.
-type SSHHostKeyService interface {
+// ControllerSSHHostKeyService resolves the controller jump host key.
+type ControllerSSHHostKeyService interface {
 	// SSHServerHostKey returns the controller jump host key.
 	SSHServerHostKey(context.Context) (string, error)
+}
+
+// VirtualHostKeyService resolves routed destination host keys.
+type VirtualHostKeyService interface {
 	// VirtualHostKey returns the terminating host key for a routed destination.
 	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
+}
+
+// SSHHostKeyService resolves controller and terminating SSH host keys.
+type SSHHostKeyService interface {
+	ControllerSSHHostKeyService
+	VirtualHostKeyService
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.

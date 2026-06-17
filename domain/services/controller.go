@@ -45,9 +45,8 @@ import (
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
-	sshservice "github.com/juju/juju/domain/ssh/service"
+	sshcontrollerservice "github.com/juju/juju/domain/ssh/service/controller"
 	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
-	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	tracingstate "github.com/juju/juju/domain/tracing/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -59,7 +58,6 @@ import (
 type ControllerServices struct {
 	serviceFactoryBase
 
-	dbGetter              changestream.WatchableDBGetter
 	controllerObjectStore objectstore.NamespacedObjectStoreGetter
 	clock                 clock.Clock
 	loggerContextGetter   logger.LoggerContextGetter
@@ -68,7 +66,6 @@ type ControllerServices struct {
 // NewControllerServices returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
 func NewControllerServices(
-	dbGetter changestream.WatchableDBGetter,
 	controllerDB changestream.WatchableDBFactory,
 	controllerObjectStoreGetter objectstore.NamespacedObjectStoreGetter,
 	clock clock.Clock,
@@ -80,7 +77,6 @@ func NewControllerServices(
 			controllerDB: controllerDB,
 			logger:       logger,
 		},
-		dbGetter:              dbGetter,
 		controllerObjectStore: controllerObjectStoreGetter,
 		clock:                 clock,
 		loggerContextGetter:   loggerContextGetter,
@@ -249,15 +245,10 @@ func (s *ControllerServices) Logging() *loggingservice.WatchableService {
 	)
 }
 
-// SSH returns the SSH host key service which spans controller and model state.
-func (s *ControllerServices) SSH() *sshservice.Service {
-	return sshservice.NewService(
+// SSHServerHostKey returns the controller SSH server host key service.
+func (s *ControllerServices) SSHServerHostKey() *sshcontrollerservice.Service {
+	return sshcontrollerservice.NewService(
 		sshcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		sshservice.ModelStateGetterFunc(func(modelUUID model.UUID) sshservice.ModelState {
-			return sshmodelstate.NewState(changestream.NewTxnRunnerFactory(
-				changestream.NewWatchableDBFactoryForNamespace(s.dbGetter.GetWatchableDB, modelUUID.String()),
-			))
-		}),
 	)
 }
 
