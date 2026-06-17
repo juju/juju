@@ -137,54 +137,19 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 OpenStack supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (openstack-model-external-network)=
-#### `external-network`
-
-The network label or UUID to create floating IP addresses on when multiple external networks exist.
-
-- **Type**: `string`
-- **Default value**: `""`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`external-network`**: The network label or UUID to create floating IP addresses on when multiple external networks exist. Type: `string`. Default: `""`.
 
 (openstack-model-use-openstack-gbp)=
-#### `use-openstack-gbp`
-
-Whether to use Neutron's Group-Based Policy.
-
-- **Type**: `bool`
-- **Default value**: `false`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`use-openstack-gbp`**: Whether to use Neutron's Group-Based Policy. Type: `bool`. Default: `false`.
 
 (openstack-model-policy-target-group)=
-#### `policy-target-group`
-
-The UUID of Policy Target Group to use for Policy Targets created.
-
-- **Type**: `string`
-- **Default value**: `""`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`policy-target-group`**: The UUID of Policy Target Group to use for Policy Targets created. Type: `string`. Default: `""`.
 
 (openstack-model-use-default-secgroup)=
-#### `use-default-secgroup`
-
-Whether new machine instances should have the "default" OpenStack security group assigned in addition to Juju-defined security groups.
-
-- **Type**: `bool`
-- **Default value**: `false`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`use-default-secgroup`**: Whether new machine instances should have the "default" OpenStack security group assigned in addition to Juju-defined security groups. Type: `bool`. Default: `false`.
 
 (openstack-model-network)=
-#### `network`
-
-The network label or UUID to bring machines up on when multiple networks exist.
-
-- **Type**: `string`
-- **Default value**: `""`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`network`**: The network label or UUID to bring machines up on when multiple networks exist. Type: `string`. Default: `""`.
 
 (openstack-machine)=
 ## Machines
@@ -217,7 +182,7 @@ The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclu
 (openstack-machine-placement-directives)=
 ### Placement directives
 
-OpenStack supports the following placement directives:
+OpenStack supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`

@@ -106,24 +106,10 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 Oracle OCI supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (oci-model-compartment-id)=
-#### `compartment-id`
-
-The OCID of the compartment in which Juju has access to create resources.
-
-- **Type**: `string`
-- **Default value**: `""`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`compartment-id`**: The OCID of the compartment in which Juju has access to create resources. Type: `string`. Default: `""`.
 
 (oci-model-address-space)=
-#### `address-space`
-
-The CIDR block to use when creating default subnets. The subnet must have at least a `/16` size.
-
-- **Type**: `string`
-- **Default value**: `"10.0.0.0/16"`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`address-space`**: The CIDR block to use when creating default subnets. The subnet must have at least a `/16` size. Type: `string`. Default: `"10.0.0.0/16"`.
 
 (oci-machine)=
 ## Machines
@@ -149,7 +135,7 @@ Oracle OCI supports the following {ref}`constraints <constraint>`:
 (oci-machine-placement-directives)=
 ### Placement directives
 
-Oracle OCI supports the following placement directives:
+Oracle OCI supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`

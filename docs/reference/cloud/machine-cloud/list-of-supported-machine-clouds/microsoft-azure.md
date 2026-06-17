@@ -3,7 +3,7 @@
 In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`azure-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to and/or consult the {ref}`example workflows <azure-appendix-example-workflows>`.
 ```
 
 (azure-cloud-requirements)=
@@ -123,23 +123,12 @@ Creates controller and initial model on Azure.
 ### Resources created at bootstrap
 
 - **Resource group**: Contains all resources for the model. Auto-generated name or user-specified via `resource-group-name` config.
-- **Virtual network**: Named "juju-internal-network" with 192.168.0.0/16 address space. User-configurable via `network` config.
+- **Virtual network**: Named `juju-internal-network` with `192.168.0.0/16` address space. User-configurable via `network` config.
 - **Subnets**:
-  - Controller subnet (192.168.16.0/20) for controller machines
-  - Internal subnet (192.168.0.0/20) for application machines
-- **Network security group**: Named "juju-internal-nsg". Rules: SSH (port 22) to all machines, Juju API (port 17070) to controller subnet.
+  - Controller subnet (`192.168.16.0/20`) for controller machines
+  - Internal subnet (`192.168.0.0/20`) for application machines
+- **Network security group**: Named `juju-internal-nsg`. Rules: SSH (port 22) to all machines, Juju API (port 17070) to controller subnet.
 - **Controller virtual machine**: Ubuntu LTS. Size configurable via `instance-type` constraint.
-
-(azure-controller-other)=
-### Other
-
-#### Instance role integration
-
-Service principal authentication types can be combined with managed identity via `instance-role` constraint. Allows controller to use managed identity for Azure API operations without storing credential secrets in the controller.
-
-```{ibnote}
-See more: {ref}`azure-machine-supported-constraints`
-```
 
 (azure-model)=
 ## Models
@@ -154,34 +143,13 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 Microsoft Azure supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (azure-model-load-balancer-sku-name)=
-#### `load-balancer-sku-name`
-
-Mirrors the LoadBalancerSkuName type in the Azure SDK.
-
-- **Type**: `string`
-- **Default value**: `"Standard"`
-- **Immutable**: `false`
-- **Mandatory**: `true`
+- **`load-balancer-sku-name`**: Mirrors the LoadBalancerSkuName type in the Azure SDK. Type: `string`. Default: `"Standard"`. Mandatory.
 
 (azure-model-resource-group-name)=
-#### `resource-group-name`
-
-If set, use the specified resource group for all model resources instead of creating one based on the model UUID.
-
-- **Type**: `string`
-- **Default value**: none
-- **Immutable**: `true`
-- **Mandatory**: `false`
+- **`resource-group-name`**: If set, use the specified resource group for all model resources instead of creating one based on the model UUID. Type: `string`. Default: none. Immutable.
 
 (azure-model-network)=
-#### `network`
-
-If set, use the specified virtual network for all model machines instead of creating one.
-
-- **Type**: `string`
-- **Default value**: none
-- **Immutable**: `true`
-- **Mandatory**: `false`
+- **`network`**: If set, use the specified virtual network for all model machines instead of creating one. Type: `string`. Default: none. Immutable.
 
 (azure-machine)=
 ## Machines
@@ -200,7 +168,7 @@ Microsoft Azure supports the following {ref}`constraints <constraint>`:
 The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 ```
 
-- {ref}`constraint-allocate-public-ip`. Controls public IP address creation.
+- {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-arch`. Valid values: `amd64`.
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
@@ -214,7 +182,7 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 (azure-machine-placement-directives)=
 ### Placement directives
 
-Microsoft Azure supports the following placement directives:
+Microsoft Azure supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-subnet`
 
@@ -224,7 +192,7 @@ Microsoft Azure supports the following placement directives:
 Each machine (controller or application) receives:
 
 - **Virtual machine**: Type configurable via `instance-type` constraint.
-- **OS disk**: 30 GiB minimum, StandardSSD_LRS type by default. Size and type configurable via `root-disk` and `root-disk-source` constraints.
+- **OS disk**: 30 GiB minimum, `StandardSSD_LRS` type by default. Size and type configurable via `root-disk` and `root-disk-source` constraints.
 - **Network interface**: Connected to appropriate subnet (controller or internal) with dynamically-allocated private IP address.
 - **Public IP address**: Static IPv4 address created by default. Disable via `allocate-public-ip` constraint.
 - **Additional storage**: Created when requested via storage specifications.
@@ -235,7 +203,7 @@ Each machine (controller or application) receives:
 ### Networking behavior
 
 - **IP addressing**: Private IPs allocated dynamically via DHCP. Public IPs use static allocation.
-- **Subnet placement**: Controller machines → 192.168.16.0/20; application machines → 192.168.0.0/20.
+- **Subnet placement**: Controller machines → `192.168.16.0/20`; application machines → `192.168.0.0/20`.
 - **NSG rules**: SSH (port 22) accessible on all machines. Juju API (port 17070) accessible on controller subnet only.
 
 (azure-storage)=

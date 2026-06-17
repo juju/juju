@@ -10,7 +10,7 @@ myst:
 In Juju, [Amazon EC2](https://docs.aws.amazon.com/ec2/?icmpid=docs_homepage_featuredsvcs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to and/or consult the {ref}`example workflows <ec2-appendix-example-workflows>`.
 ```
 
 (ec2-cloud-requirements)=
@@ -134,24 +134,10 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 Amazon EC2 supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (ec2-model-vpc-id)=
-#### `vpc-id`
-
-Use a specific AWS VPC ID. When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region. Example: `vpc-a1b2c3d4`.
-
-- **Type**: `string`
-- **Default value**: `""`
-- **Immutable**: `true`
-- **Mandatory**: `false`
+- **`vpc-id`**: Use a specific AWS VPC ID. When not specified, Juju requires a default VPC or EC2-Classic features to be available for the account/region. Example: `vpc-a1b2c3d4`. Type: `string`. Default: `""`. Immutable.
 
 (ec2-model-vpc-id-force)=
-#### `vpc-id-force`
-
-Force Juju to use the AWS VPC ID specified with `vpc-id`, when it fails the minimum validation criteria. Not accepted without `vpc-id`.
-
-- **Type**: `bool`
-- **Default value**: `false`
-- **Immutable**: `true`
-- **Mandatory**: `false`
+- **`vpc-id-force`**: Force Juju to use the AWS VPC ID specified with `vpc-id`, when it fails the minimum validation criteria. Not accepted without `vpc-id`. Type: `bool`. Default: `false`. Immutable.
 
 (ec2-machine)=
 ## Machines
@@ -186,7 +172,7 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 (ec2-machine-placement-directives)=
 ### Placement directives
 
-Amazon EC2 supports the following placement directives:
+Amazon EC2 supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-subnet`. If the query looks like a CIDR, matches subnets with the same CIDR. If it follows syntax `subnet-XXXX`, matches the Subnet ID. Otherwise matches subnet Name tag.
@@ -244,3 +230,14 @@ See more: [AWS | EBS volume types](http://docs.aws.amazon.com/AWSEC2/latest/User
 - `encrypted`: Boolean (`true` or `false`). Indicates whether created volumes are encrypted.
 - `kms-key-id`: The KMS Key ARN used to encrypt the disk. Requires `encrypted: true`.
 - `throughput`: The number of megabytes/s throughput for GP3 volumes. Values: `1000M`, `1G`, etc.
+
+(ec2-appendix-example-workflows)=
+## Appendix: Example workflows
+
+(ec2-appendix-quickstart)=
+### Add cloud, add credential, bootstrap
+
+1. On an EC2 jump host with an attached IAM role, add or confirm the predefined cloud with `juju add-cloud`.
+2. Add credentials with `juju add-credential aws` and choose `instance-role` (recommended; avoids static AWS keys in Juju).
+3. Bootstrap with `juju bootstrap --bootstrap-constraints="instance-role=auto" aws aws-controller`.
+

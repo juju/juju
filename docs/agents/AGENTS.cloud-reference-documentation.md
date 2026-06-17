@@ -186,7 +186,7 @@ Add brief introductory sentences to subsections where simplified titles could be
 1. **Authentication types**: "<Cloud Name> supports the following authentication types:"
 2. **Configuration keys**: "<Cloud Name> supports the following cloud-specific model configuration keys:"
 3. **Constraints**: "<Cloud Name> supports the following {ref}`constraints <constraint>`:"
-4. **Placement directives**: "<Cloud Name> supports the following placement directives:"
+4. **Placement directives**: "<Cloud Name> supports the following {ref}`placement directives <placement-directive>`:"
 5. **Storage providers**: "In addition to {ref}\`generic storage providers <storage-provider>\`, <Cloud Name> provides the following {ref}\`cloud-specific storage providers <storage-provider-cloud-specific>\`:"
 
 **Examples**:
@@ -229,7 +229,7 @@ The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclu
 (openstack-machine-placement-directives)=
 ### Placement directives
 
-OpenStack supports the following placement directives:
+OpenStack supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`
@@ -385,6 +385,8 @@ See more: {ref}`<cloud>-appendix-workflow-X`
 
 **Note**: Keep "Known issues" as a direct subsection, not under "Other". It's a standard documentation pattern for caveats, not a cloud-specific feature.
 
+**Orientation note**: The `{note}` block at the top of each doc ends with a link to the appendix: `...and/or consult the {ref}\`example workflows <cloud-appendix-example-workflows>\`.` (or `example quickstart` for docs that use that appendix name). Because list-item anchors have no implicit title, the display text must always be spelled out explicitly.
+
 **Note on quickstart sections**: A `### Add cloud, add credential, bootstrap` subsection (anchor `<cloud>-appendix-quickstart`) was originally included as the first subsection under `## Appendix: Example workflows`. It has been deferred to a follow-up PR to keep the restructuring diff reviewable. Content is preserved in `misc/cloud-playbook-debrief-template.md` (section 15). Restore it (with improvements from section 14) in the follow-up.
 
 ---
@@ -451,19 +453,21 @@ See more: {ref}`constraint-xxx`
 (<cloud>-model)=
 ## Model
 
-(<cloud>-model-cloud-specific-configuration-keys)=
-### Cloud-specific configuration keys
+(<cloud>-model-configuration-keys)=
+### Configuration keys
+
+<Cloud Name> supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (<cloud>-model-<config-key>)=
-#### `<config-key>`
-
-<Description>
-
-- **Type**: `<type>`
-- **Default value**: `<default>` or none
-- **Immutable**: `true` or `false`
-- **Mandatory**: `true` or `false`
+- **`<config-key>`**: <Description>. Type: `<type>`. Default: `<default>` or none. Immutable. (only if true) Mandatory. (only if true)
 ```
+
+**Rules for config key metadata:**
+- Always include Type and Default inline.
+- Add `Immutable.` only when `true` (silence = mutable).
+- Add `Mandatory.` only when `true` (silence = optional).
+- Use `none` (not `""` or `(omitted)`) when there is no default.
+- Use anchored list items, not `####` headings. Because list items have no implicit title, any `{ref}` to these anchors must use explicit display text, e.g. `` {ref}`vpc-id <ec2-model-vpc-id>` ``.
 
 ---
 
@@ -916,6 +920,8 @@ From Juju paradigm perspective, users primarily work through Juju abstractions a
 - Detailed cloud console views
 - Cloud-specific resource SKU naming
 
+**Auth type env vars**: Environment variables used for credential auto-detection (e.g., `GOOGLE_APPLICATION_CREDENTIALS`, `CLOUDSDK_COMPUTE_REGION`) belong under the specific auth type they affect (typically `jsonfile`), not as a free-floating block before `### Authentication types`. Describe them as an **Auto-detection:** note, scoped to `juju autoload-credentials`.
+
 ### Belongs Elsewhere (Not in Reference)
 - Step-by-step troubleshooting → Discourse/how-to guides
 - Detailed cost optimization strategies → Blog posts/Discourse
@@ -1112,6 +1118,7 @@ Potential enhancements to consider:
 | 2026-06-04 | Entity-based restructuring: Adopted Cloud/Credential/Controller/Model/Machine/Storage structure with "Other" subsections for cloud-specific features; removed former Concepts/Resources unified section in favor of integrating Concepts under Cloud > Other; documented anchor naming pattern |
 | 2026-06-04 | Simplified cross-referencing: Link to constraint/placement directive sections rather than individual rows, keeping users in cloud-specific context |
 | 2026-06-04 | Added Kubernetes cloud template: Adapted entity-based structure with Application section instead of Machine section for K8s-specific deployment patterns |
+| 2026-06-18 | Compacted config key format: replaced 4-field list (`Type/Default/Immutable/Mandatory`) with inline sentence appended to description. Converted `####` headings to anchored bullet items — requires explicit `{ref}` display text. Updated placement directive intros to use `{ref}\`placement directives <placement-directive>\``. Auth type env vars moved under the specific auth type they affect (not a free-floating block). Updated orientation `{note}` to end with `...and/or consult the {ref}\`example workflows\`` (folded into existing sentence). |
 | 2026-06-17 | PR `3.6-update-cloud-ref`: Removed `Example workflow` dropdowns (content moved to appendix subsections). Renamed appendix workflow headings to imperative verb phrases (`### Authenticate with...`). Renamed `### Supported constraints` → `### Constraints` with `{ref}\`constraints <constraint>\`` link in intro. Removed `### Quick start` / `### Add cloud, add credential, bootstrap` sections from all 15 cloud docs (deferred to follow-up PR; see `misc/cloud-playbook-debrief-template.md` sections 14–15). Orientation `{note}` trimmed accordingly for single-workflow docs. |
 
 ---

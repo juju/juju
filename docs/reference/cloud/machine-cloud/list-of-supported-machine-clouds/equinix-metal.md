@@ -70,6 +70,18 @@ Attributes:
 - `project-id`: Equinix Metal project ID (required).
 - `api-token`: Equinix Metal API token (required).
 
+(equinix-model)=
+## Models
+
+```{ibnote}
+See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
+```
+
+(equinix-model-configuration-keys)=
+### Configuration keys
+
+Equinix Metal has no cloud-specific {ref}`model configuration keys <model-config-cloud-specific-key>`.
+
 (equinix-machine)=
 ## Machines
 
@@ -80,7 +92,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (equinix-machine-constraints)=
 ### Constraints
 
-Equinix Metal supports the following {ref}`constraints <constraint>`:
+Equinix Metal supports the following constraints:
 
 - {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-arch`
@@ -97,3 +109,4 @@ Constraints not listed above are either not supported or automatically determine
 Equinix Metal supports the following placement directive:
 
 - {ref}`placement-directive-zone`
+

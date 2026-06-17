@@ -10,7 +10,7 @@ myst:
 In Juju, [Google GCE](https://cloud.google.com/compute/docs) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`gce-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to and/or consult the {ref}`example workflows <gce-appendix-example-workflows>`.
 ```
 
 (gce-cloud-requirements)=
@@ -64,13 +64,6 @@ Name in Juju: `google` (predefined)
 See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
 
-When adding a credential for Google GCE, Juju supports the following authentication types.
-
-**Environment variables (optional):**
-
-- `CLOUDSDK_COMPUTE_REGION`
-- `GOOGLE_APPLICATION_CREDENTIALS=<path to JSON credentials file>`
-
 (gce-credential-authentication-types)=
 ### Authentication types
 
@@ -92,6 +85,8 @@ Attributes:
 Attributes:
 
 - `file`: Path to the `.json` file containing a service account key for your project (required).
+
+**Auto-detection:** If `GOOGLE_APPLICATION_CREDENTIALS` is set to a valid file path, `juju autoload-credentials` detects this credential type automatically. If `CLOUDSDK_COMPUTE_REGION` is also set, it becomes the default region for the detected credential.
 
 ```{ibnote}
 See more: {ref}`gce-appendix-workflow-2`
@@ -148,34 +143,13 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 Google GCE supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (gce-model-vpc-id)=
-#### `vpc-id`
-
-Use a specific VPC network. When not specified, Juju requires a default VPC to be available for the account. Example: `vpc-a1b2c3d4`.
-
-- **Type**: `string`
-- **Default value**: `""`
-- **Immutable**: `true`
-- **Mandatory**: `false`
+- **`vpc-id`**: Use a specific VPC network. When not specified, Juju requires a default VPC to be available for the account. Example: `vpc-a1b2c3d4`. Type: `string`. Default: `""`. Immutable.
 
 (gce-model-vpc-id-force)=
-#### `vpc-id-force`
-
-Force Juju to use the GCE VPC ID specified with `vpc-id`, when it fails the minimum validation criteria.
-
-- **Type**: `bool`
-- **Default value**: `false`
-- **Immutable**: `true`
-- **Mandatory**: `false`
+- **`vpc-id-force`**: Force Juju to use the GCE VPC ID specified with `vpc-id`, when it fails the minimum validation criteria. Type: `bool`. Default: `false`. Immutable.
 
 (gce-model-base-image-path)=
-#### `base-image-path`
-
-Base path to look for machine disk images.
-
-- **Type**: `string`
-- **Default value**: (omitted)..
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`base-image-path`**: Base path to look for machine disk images. Type: `string`. Default: none.
 
 (gce-machine)=
 ## Machines
@@ -210,7 +184,7 @@ The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually
 (gce-machine-placement-directives)=
 ### Placement directives
 
-Google GCE supports the following placement directives:
+Google GCE supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-subnet`: Matches subnet by name or CIDR range.

@@ -199,10 +199,10 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 Kubernetes clouds support the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (kubernetes-model-config-operator-storage)=
-- **`operator-storage`**: The storage class used to provision operator storage. Type: string. Default: "" (uses cluster default storage class). Immutable: true. Mandatory: false.
+- **`operator-storage`**: The storage class used to provision operator storage. Type: `string`. Default: `""` (uses cluster default storage class). Immutable.
 
 (kubernetes-model-config-workload-storage)=
-- **`workload-storage`**: The preferred storage class used to provision workload storage. Type: string. Default: "" (uses cluster default storage class). Immutable: false. Mandatory: false.
+- **`workload-storage`**: The preferred storage class used to provision workload storage. Type: `string`. Default: `""` (uses cluster default storage class).
 
 (kubernetes-application)=
 (kubernetes-pod)=

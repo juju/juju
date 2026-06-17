@@ -124,64 +124,22 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 VMware vSphere supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
 (vsphere-model-datastore)=
-#### `datastore`
-
-The datastore in which to create VMs. If this is not specified, the process will abort unless there is only one datastore available.
-
-- **Type**: `string`
-- **Default value**: (omitted)
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`datastore`**: The datastore in which to create VMs. If this is not specified, the process will abort unless there is only one datastore available. Type: `string`. Default: none.
 
 (vsphere-model-primary-network)=
-#### `primary-network`
-
-The primary network that VMs will be connected to. If this is not specified, Juju will look for a network named "VM Network".
-
-- **Type**: `string`
-- **Default value**: (omitted)
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`primary-network`**: The primary network that VMs will be connected to. If this is not specified, Juju will look for a network named "VM Network". Type: `string`. Default: none.
 
 (vsphere-model-external-network)=
-#### `external-network`
-
-An external network that VMs will be connected to. The resulting IP address for a VM will be used as its public address.
-
-- **Type**: `string`
-- **Default value**: `""`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`external-network`**: An external network that VMs will be connected to. The resulting IP address for a VM will be used as its public address. Type: `string`. Default: `""`.
 
 (vsphere-model-force-vm-hardware-version)=
-#### `force-vm-hardware-version`
-
-The HW compatibility version to use when cloning a VM template to create a VM. The version must be supported by the remote compute resource, and greater than or equal to the template's version.
-
-- **Type**: `int`
-- **Default value**: `0`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`force-vm-hardware-version`**: The HW compatibility version to use when cloning a VM template to create a VM. The version must be supported by the remote compute resource, and greater than or equal to the template's version. Type: `int`. Default: `0`.
 
 (vsphere-model-enable-disk-uuid)=
-#### `enable-disk-uuid`
-
-Expose consistent disk UUIDs to the VM, equivalent to `disk.EnableUUID`. Enables consistent `/dev/disk/by-id/` paths in guest OS.
-
-- **Type**: `bool`
-- **Default value**: `true`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`enable-disk-uuid`**: Expose consistent disk UUIDs to the VM, equivalent to `disk.EnableUUID`. Enables consistent `/dev/disk/by-id/` paths in guest OS. Type: `bool`. Default: `true`.
 
 (vsphere-model-disk-provisioning-type)=
-#### `disk-provisioning-type`
-
-Specify how the disk should be provisioned when cloning the VM template. Allowed values: `thickEagerZero` (default), `thick`, `thin`.
-
-- **Type**: `string`
-- **Default value**: `"thick"`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`disk-provisioning-type`**: Specify how the disk should be provisioned when cloning the VM template. Allowed values: `thickEagerZero` (default), `thick`, `thin`. Type: `string`. Default: `"thick"`.
 
 (vsphere-machine)=
 ## Machines
@@ -193,7 +151,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (vsphere-machine-constraints)=
 ### Constraints
 
-VMware vSphere supports the following {ref}`constraints <constraint>`:
+VMware vSphere supports the following constraints:
 
 - {ref}`constraint-arch`. Valid values: `amd64`.
 - {ref}`constraint-container`
@@ -208,7 +166,7 @@ VMware vSphere supports the following {ref}`constraints <constraint>`:
 (vsphere-machine-placement-directives)=
 ### Placement directives
 
-VMware vSphere supports the following placement directives:
+VMware vSphere supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`: Valid values: `<cluster|host>`.
