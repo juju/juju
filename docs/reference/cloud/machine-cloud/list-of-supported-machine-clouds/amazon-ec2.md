@@ -49,7 +49,7 @@ The following table shows how EC2 abstractions map to Juju concepts:
 | [IAM instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) | Cloud identity used by controller and machines |
 
 (ec2-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

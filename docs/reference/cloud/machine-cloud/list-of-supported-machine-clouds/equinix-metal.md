@@ -42,7 +42,7 @@ The following table shows how Equinix Metal abstractions map to Juju concepts:
 | Project ID and API token | Cloud access boundary and credential |
 
 (equinix-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

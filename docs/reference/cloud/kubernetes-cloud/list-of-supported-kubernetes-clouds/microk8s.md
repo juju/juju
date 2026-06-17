@@ -25,7 +25,7 @@ Before starting, install MicroK8s and enable required add-ons (`dns`, `hostpath-
 - `hostpath-storage`
 
 (microk8s-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

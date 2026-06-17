@@ -36,7 +36,7 @@ The following table shows how MAAS abstractions map to Juju concepts:
 | MAAS API key (`maas-oauth`) | Cloud credential |
 
 (maas-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

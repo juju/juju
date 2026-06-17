@@ -57,7 +57,7 @@ The following table shows how LXD abstractions map to Juju concepts:
 | Cluster member | Placement target (`zones`) |
 
 (lxd-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

@@ -13,14 +13,14 @@ myst:
 list-of-supported-machine-clouds/index
 ```
 
-In Juju, a **machine cloud** is a source of compute infrastructure: bare metal, virtual machines, or system containers.
+In Juju, a **machine cloud** is a {ref}`cloud <cloud>` whose API provisions or allocates machine-level infrastructure (bare metal, virtual machines, or system containers) together with the networking and storage resources those machines require.
 
 Juju supports many machine cloud platforms: bare metal (MAAS), virtual machines (Amazon EC2, Google GCE, Microsoft Azure, OpenStack, Oracle OCI, VMware vSphere), and system containers (LXD).
 
-Despite their differences, Juju tries to fit all machine clouds into a common logic; this page documents the commonalities. For cloud-specific details and differences, see the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EC2 <cloud-ec2>`, {ref}`Microsoft Azure <azure-cloud>`, {ref}`Google GCE <cloud-gce>`, {ref}`Oracle OCI <cloud-oci>`, {ref}`OpenStack <cloud-openstack>`, {ref}`VMware vSphere <cloud-vsphere>`, {ref}`MAAS <cloud-maas>`, {ref}`LXD <cloud-lxd>`, {ref}`Manual <cloud-manual>`, or {ref}`Equinix Metal <cloud-equinix>`.
+Despite their differences, Juju tries to fit all machine clouds into a common logic; this page documents the commonalities. The sections below cover machine-cloud-specific aspects of each Juju entity: the cloud itself, credentials, controllers, models, and machines. For cloud-specific details and differences, see the {ref}`list of supported machine clouds <list-of-supported-machine-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EC2 <cloud-ec2>`, {ref}`Equinix Metal <cloud-equinix>`, {ref}`Google GCE <cloud-gce>`, {ref}`LXD <cloud-lxd>`, {ref}`MAAS <cloud-maas>`, {ref}`Manual <cloud-manual>`, {ref}`Microsoft Azure <azure-cloud>`, {ref}`OpenStack <cloud-openstack>`, {ref}`Oracle OCI <cloud-oci>`, or {ref}`VMware vSphere <cloud-vsphere>`.
 
 (machine-cloud-entity)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

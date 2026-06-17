@@ -18,7 +18,7 @@ Before starting, configure AWS/EKS access and update kubeconfig for the target c
 ```
 
 (eks-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

@@ -48,7 +48,7 @@ The following table shows how OpenStack abstractions map to Juju concepts:
 | [Neutron network/subnet](https://docs.openstack.org/neutron/latest/) | Network spaces and placement targets (roughly) |
 
 (openstack-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

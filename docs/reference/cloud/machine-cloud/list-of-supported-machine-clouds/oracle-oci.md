@@ -38,7 +38,7 @@ The following table shows how OCI abstractions map to Juju concepts:
 | Availability domain | Placement target (`zones`) |
 
 (oci-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

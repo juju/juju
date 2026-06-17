@@ -43,7 +43,7 @@ The following table shows how vSphere abstractions map to Juju concepts:
 | Cluster/resource pool | Placement target (`zones`) |
 
 (vsphere-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

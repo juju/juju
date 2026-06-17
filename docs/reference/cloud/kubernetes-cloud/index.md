@@ -13,11 +13,11 @@ myst:
 list-of-supported-kubernetes-clouds/index
 ```
 
-In Juju, a **Kubernetes cloud** is a Kubernetes cluster: managed services like EKS, GKE, and AKS, or distributions like MicroK8s and Canonical Kubernetes.
+In Juju, a **Kubernetes cloud** is a {ref}`cloud <cloud>` whose Kubernetes API exposes an existing cluster where Juju deploys and manages applications, rather than provisioning machine-level infrastructure directly.
 
 Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes, and others.
 
-Kubernetes clouds are very similar in Juju; this page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EKS <cloud-kubernetes-eks>`, {ref}`Google GKE <cloud-kubernetes-gke>`, {ref}`Microsoft AKS <cloud-kubernetes-aks>`, {ref}`MicroK8s <cloud-kubernetes-microk8s>`, or {ref}`Canonical Kubernetes <cloud-canonical-k8s>`.
+Kubernetes clouds are very similar in Juju; this page documents the commonalities. The sections below cover Kubernetes-cloud-specific aspects of each Juju entity: the cloud itself, credentials, controllers, models, and pods. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EKS <cloud-kubernetes-eks>`, {ref}`Canonical Kubernetes <cloud-canonical-k8s>`, {ref}`Google GKE <cloud-kubernetes-gke>`, {ref}`MicroK8s <cloud-kubernetes-microk8s>`, or {ref}`Microsoft AKS <cloud-kubernetes-aks>`.
 
 ## Requirements
 
@@ -38,7 +38,7 @@ If you are familiar with Kubernetes, the following maps Kubernetes concepts to t
 | container | process in a unit |
 | [service](https://kubernetes.io/docs/concepts/services-networking/service/) | {ref}`application <application>` |
 
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

@@ -18,7 +18,7 @@ Before starting, authenticate to Azure and fetch kubeconfig for the target AKS c
 ```
 
 (aks-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

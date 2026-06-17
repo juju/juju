@@ -28,7 +28,7 @@ Before starting, ensure required services are enabled in the cluster (`dns`, `in
 - `network`
 
 (canonical-k8s-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`

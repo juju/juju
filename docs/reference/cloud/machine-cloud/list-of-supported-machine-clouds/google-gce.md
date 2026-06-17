@@ -51,7 +51,7 @@ The following table shows how GCE abstractions map to Juju concepts:
 | [VPC/subnet](https://cloud.google.com/vpc/docs) | Network spaces and placement targets (roughly) |
 
 (gce-cloud)=
-## Cloud definition
+## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
