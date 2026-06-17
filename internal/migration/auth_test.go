@@ -46,9 +46,9 @@ func (s *harvestMigrationMacaroonSuite) TestSuccess(c *tc.C) {
 	err = migration.HarvestMigrationMacaroon(c.Context(), targetInfo, minter)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(minter.called, tc.IsTrue)
-	c.Assert(targetInfo.Password, tc.Equals, "")
-	c.Assert(targetInfo.Macaroons, tc.DeepEquals, []macaroon.Slice{{m}})
+	c.Check(minter.called, tc.IsTrue)
+	c.Check(targetInfo.Password, tc.Equals, "")
+	c.Check(targetInfo.Macaroons, tc.DeepEquals, []macaroon.Slice{{m}})
 }
 
 func (s *harvestMigrationMacaroonSuite) TestNotImplemented(c *tc.C) {
@@ -63,10 +63,10 @@ func (s *harvestMigrationMacaroonSuite) TestNotImplemented(c *tc.C) {
 	err := migration.HarvestMigrationMacaroon(c.Context(), targetInfo, minter)
 
 	c.Assert(err, tc.Not(tc.ErrorIsNil))
-	c.Assert(err, tc.ErrorMatches, ".*target controller is too old.*")
+	c.Check(err, tc.ErrorMatches, ".*target controller is too old.*")
 	// Password must NOT be cleared — the error prevents persistence.
-	c.Assert(targetInfo.Password, tc.Equals, "hunter2")
-	c.Assert(targetInfo.Macaroons, tc.HasLen, 0)
+	c.Check(targetInfo.Password, tc.Equals, "hunter2")
+	c.Check(targetInfo.Macaroons, tc.HasLen, 0)
 }
 
 func (s *harvestMigrationMacaroonSuite) TestSkippedWhenMacaroonsPresent(c *tc.C) {
@@ -84,8 +84,8 @@ func (s *harvestMigrationMacaroonSuite) TestSkippedWhenMacaroonsPresent(c *tc.C)
 	err = migration.HarvestMigrationMacaroon(c.Context(), targetInfo, minter)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(minter.called, tc.IsFalse, tc.Commentf("minter must not be called when macaroons are already present"))
-	c.Assert(targetInfo.Password, tc.Equals, "hunter2")
+	c.Check(minter.called, tc.IsFalse, tc.Commentf("minter must not be called when macaroons are already present"))
+	c.Check(targetInfo.Password, tc.Equals, "hunter2")
 }
 
 func (s *harvestMigrationMacaroonSuite) TestSkippedWhenTokenPresent(c *tc.C) {
@@ -99,6 +99,19 @@ func (s *harvestMigrationMacaroonSuite) TestSkippedWhenTokenPresent(c *tc.C) {
 	err := migration.HarvestMigrationMacaroon(c.Context(), targetInfo, minter)
 
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(minter.called, tc.IsFalse, tc.Commentf("minter must not be called when a token is present"))
-	c.Assert(targetInfo.Password, tc.Equals, "hunter2")
+	c.Check(minter.called, tc.IsFalse, tc.Commentf("minter must not be called when a token is present"))
+	c.Check(targetInfo.Password, tc.Equals, "hunter2")
+}
+
+func (s *harvestMigrationMacaroonSuite) TestSkippedWhenPasswordEmpty(c *tc.C) {
+	minter := &fakeMacaroonMinter{}
+	targetInfo := &coremigration.TargetInfo{
+		User: "admin",
+	}
+
+	err := migration.HarvestMigrationMacaroon(c.Context(), targetInfo, minter)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(minter.called, tc.IsFalse, tc.Commentf("minter must not be called when there is no password to exchange"))
+	c.Check(targetInfo.Macaroons, tc.HasLen, 0)
 }
