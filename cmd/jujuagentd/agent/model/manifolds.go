@@ -454,10 +454,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			AgentName:          agentName,
 			APICallerName:      apiCallerName,
 			DomainServicesName: domainServicesName,
 			EnvironName:        providerTrackerName,
+			ModelUUID:          config.ModelUUID,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.firewaller"),
 
 			NewControllerConnection: apicaller.NewExternalControllerConnection,
