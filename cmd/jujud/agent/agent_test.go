@@ -6,7 +6,6 @@ package agent
 import (
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -205,15 +204,9 @@ func (f *fakeAgentConfigWriter) CurrentConfig() agent.Config {
 
 type fakeControllerConfig struct {
 	agent.Config
-	loggingConfig                      string
-	loggingOverride                    string
-	caCert                             string
-	openTelemetryEnabled               bool
-	openTelemetryEndpoint              string
-	openTelemetryInsecure              bool
-	openTelemetryStackTraces           bool
-	openTelemetrySampleRatio           float64
-	openTelemetryTailSamplingThreshold time.Duration
+	loggingConfig   string
+	loggingOverride string
+	caCert          string
 }
 
 func (f *fakeControllerConfig) LoggingConfig() string {
@@ -237,30 +230,6 @@ func (f *fakeControllerConfig) Model() names.ModelTag {
 
 func (f *fakeControllerConfig) CACert() string {
 	return f.caCert
-}
-
-func (f *fakeControllerConfig) OpenTelemetryEnabled() bool {
-	return f.openTelemetryEnabled
-}
-
-func (f *fakeControllerConfig) OpenTelemetryEndpoint() string {
-	return f.openTelemetryEndpoint
-}
-
-func (f *fakeControllerConfig) OpenTelemetryInsecure() bool {
-	return f.openTelemetryInsecure
-}
-
-func (f *fakeControllerConfig) OpenTelemetryStackTraces() bool {
-	return f.openTelemetryStackTraces
-}
-
-func (f *fakeControllerConfig) OpenTelemetrySampleRatio() float64 {
-	return f.openTelemetrySampleRatio
-}
-
-func (f *fakeControllerConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
-	return f.openTelemetryTailSamplingThreshold
 }
 
 func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfig(c *tc.C) {
@@ -314,42 +283,4 @@ func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigErro
 
 	_, err := provider.CACert()
 	c.Assert(err, tc.ErrorMatches, `reading controller runtime config ".*missing-runtime.conf": open .*missing-runtime.conf: no such file or directory`)
-}
-
-func (s *controllerStartupValueProviderSuite) TestOpenTelemetryReadsCurrentAgentConfig(c *tc.C) {
-	provider := controllerStartupValueProvider{
-		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
-			config: &fakeControllerConfig{
-				openTelemetryEnabled:               true,
-				openTelemetryEndpoint:              "http://otel-one:4318",
-				openTelemetryInsecure:              true,
-				openTelemetryStackTraces:           true,
-				openTelemetrySampleRatio:           0.5,
-				openTelemetryTailSamplingThreshold: time.Second,
-			},
-		}},
-	}
-	c.Check(provider.OpenTelemetryEnabled(), tc.IsTrue)
-	c.Check(provider.OpenTelemetryEndpoint(), tc.Equals, "http://otel-one:4318")
-	c.Check(provider.OpenTelemetryInsecure(), tc.IsTrue)
-	c.Check(provider.OpenTelemetryStackTraces(), tc.IsTrue)
-	c.Check(provider.OpenTelemetrySampleRatio(), tc.Equals, 0.5)
-	c.Check(provider.OpenTelemetryTailSamplingThreshold(), tc.Equals, time.Second)
-
-	provider.agent.AgentConfigWriter = &fakeAgentConfigWriter{
-		config: &fakeControllerConfig{
-			openTelemetryEnabled:               false,
-			openTelemetryEndpoint:              "http://otel-two:4318",
-			openTelemetryInsecure:              false,
-			openTelemetryStackTraces:           false,
-			openTelemetrySampleRatio:           0.25,
-			openTelemetryTailSamplingThreshold: 2 * time.Second,
-		},
-	}
-	c.Check(provider.OpenTelemetryEnabled(), tc.IsFalse)
-	c.Check(provider.OpenTelemetryEndpoint(), tc.Equals, "http://otel-two:4318")
-	c.Check(provider.OpenTelemetryInsecure(), tc.IsFalse)
-	c.Check(provider.OpenTelemetryStackTraces(), tc.IsFalse)
-	c.Check(provider.OpenTelemetrySampleRatio(), tc.Equals, 0.25)
-	c.Check(provider.OpenTelemetryTailSamplingThreshold(), tc.Equals, 2*time.Second)
 }

@@ -653,11 +653,5 @@ func testManifoldsConfig() model.ManifoldsConfig {
 
 type mockModelStartupValueProvider struct{}
 
-func (mockModelStartupValueProvider) CACert() (string, error)                           { return "", nil }
-func (mockModelStartupValueProvider) OpenTelemetryEnabled() bool                        { return false }
-func (mockModelStartupValueProvider) OpenTelemetryEndpoint() string                     { return "" }
-func (mockModelStartupValueProvider) OpenTelemetryInsecure() bool                       { return false }
-func (mockModelStartupValueProvider) OpenTelemetryStackTraces() bool                    { return false }
-func (mockModelStartupValueProvider) OpenTelemetrySampleRatio() float64                 { return 0 }
-func (mockModelStartupValueProvider) OpenTelemetryTailSamplingThreshold() time.Duration { return 0 }
-func (mockModelStartupValueProvider) LoggingOverride() (string, error)                  { return "", nil }
+func (mockModelStartupValueProvider) CACert() (string, error)          { return "", nil }
+func (mockModelStartupValueProvider) LoggingOverride() (string, error) { return "", nil }

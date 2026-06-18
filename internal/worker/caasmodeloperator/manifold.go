@@ -5,7 +5,6 @@ package caasmodeloperator
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,6 +15,8 @@ import (
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
+	"github.com/juju/juju/internal/services"
 )
 
 // ConfigProvider provides dynamic values that can change during a
@@ -26,12 +27,11 @@ import (
 // provider.
 type ConfigProvider interface {
 	CACert() (string, error)
-	OpenTelemetryEnabled() bool
-	OpenTelemetryEndpoint() string
-	OpenTelemetryInsecure() bool
-	OpenTelemetryStackTraces() bool
-	OpenTelemetrySampleRatio() float64
-	OpenTelemetryTailSamplingThreshold() time.Duration
+}
+
+// TracingService provides access to workload tracing configuration.
+type TracingService interface {
+	GetWorkloadTracingConfig(ctx context.Context) (tracingservice.WorkloadTracingConfig, error)
 }
 
 // ManifoldConfig describes the resources used by the CAASModelOperatorWorker
@@ -40,8 +40,10 @@ type ManifoldConfig struct {
 	APICallerName string
 	// BrokerName is the name of the api caller dependency to fetch
 	BrokerName string
+	// DomainServicesName is the name of the model domain services dependency.
+	DomainServicesName string
 	// ConfigProvider provides dynamic values that may change during a
-	// worker's lifetime, such as CACert and OTel settings.
+	// worker's lifetime, such as CACert.
 	ConfigProvider ConfigProvider
 	// Logger to use in this worker
 	Logger logger.Logger
@@ -61,6 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 			config.BrokerName,
+			config.DomainServicesName,
 		},
 		Output: nil,
 		Start:  config.Start,
@@ -84,10 +87,24 @@ func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		return nil, errors.Trace(err)
 	}
 
+	var domainServices services.DomainServices
+	if err := getter.Get(m.DomainServicesName, &domainServices); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	api := caasmodeloperator.NewClient(apiCaller)
 
 	return NewModelOperatorManager(
-		m.Logger, api, broker, m.ModelUUID, m.DataDir, m.LogDir, m.ControllerTag, m.ConfigProvider)
+		m.Logger,
+		api,
+		broker,
+		m.ModelUUID,
+		m.DataDir,
+		m.LogDir,
+		m.ControllerTag,
+		m.ConfigProvider,
+		domainServices.Tracing(),
+	)
 }
 
 // Validate checks all the config fields are valid for the Manifold to start
@@ -97,6 +114,9 @@ func (m ManifoldConfig) Validate() error {
 	}
 	if m.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
+	}
+	if m.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if m.ConfigProvider == nil {
 		return errors.NotValidf("nil ConfigProvider")
