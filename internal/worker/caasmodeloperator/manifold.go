@@ -5,37 +5,60 @@ package caasmodeloperator
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
 )
 
+// ConfigProvider provides dynamic values that can change during a
+// worker's lifetime. The provider re-reads the backing config on
+// each method call so that bounced workers observe current values.
+// Static values that never change (DataDir, LogDir, ControllerTag)
+// are passed as direct ManifoldConfig fields, not through the
+// provider.
+type ConfigProvider interface {
+	CACert() string
+	OpenTelemetryEnabled() bool
+	OpenTelemetryEndpoint() string
+	OpenTelemetryInsecure() bool
+	OpenTelemetryStackTraces() bool
+	OpenTelemetrySampleRatio() float64
+	OpenTelemetryTailSamplingThreshold() time.Duration
+}
+
 // ManifoldConfig describes the resources used by the CAASModelOperatorWorker
 type ManifoldConfig struct {
-	// AgentName
-	AgentName string
 	// APICallerName is the name of the api caller dependency to fetch
 	APICallerName string
 	// BrokerName is the name of the api caller dependency to fetch
 	BrokerName string
+	// ConfigProvider provides dynamic values that may change during a
+	// worker's lifetime, such as CACert and OTel settings.
+	ConfigProvider ConfigProvider
 	// Logger to use in this worker
 	Logger logger.Logger
 	// ModelUUID is the id of the model this worker is operating on
 	ModelUUID string
+	// DataDir is the directory for agent data
+	DataDir string
+	// LogDir is the directory for agent logs
+	LogDir string
+	// ControllerTag identifies the controller
+	ControllerTag names.ControllerTag
 }
 
 // Manifold returns a Manifold that encapsulates a Kubernetes model operator.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.APICallerName,
 			config.BrokerName,
 		},
@@ -48,11 +71,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // configuration
 func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := m.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var agent agent.Agent
-	if err := getter.Get(m.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -69,25 +87,34 @@ func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 	api := caasmodeloperator.NewClient(apiCaller)
 
 	return NewModelOperatorManager(
-		m.Logger, api, broker, m.ModelUUID, agent.CurrentConfig())
+		m.Logger, api, broker, m.ModelUUID, m.DataDir, m.LogDir, m.ControllerTag, m.ConfigProvider)
 }
 
 // Validate checks all the config fields are valid for the Manifold to start
 func (m ManifoldConfig) Validate() error {
-	if m.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if m.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
 	if m.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
 	}
+	if m.ConfigProvider == nil {
+		return errors.NotValidf("nil ConfigProvider")
+	}
 	if m.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
 	if m.ModelUUID == "" {
 		return errors.NotValidf("empty ModelUUID")
+	}
+	if m.DataDir == "" {
+		return errors.NotValidf("empty DataDir")
+	}
+	if m.LogDir == "" {
+		return errors.NotValidf("empty LogDir")
+	}
+	if m.ControllerTag.Id() == "" {
+		return errors.NotValidf("empty ControllerTag")
 	}
 	return nil
 }

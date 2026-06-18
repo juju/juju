@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 )
 
@@ -164,7 +165,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(
 		loggertesting.WrapCheckLog(c),
-		api, broker, modelUUID, &mockAgentConfig{})
+		api, broker, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	for range n {
@@ -188,7 +189,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerWatchErrorContainsSh
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = worker.Wait()
@@ -209,7 +210,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsS
 	}
 
 	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
-		api, &dummyBroker{}, modelUUID, &mockAgentConfig{})
+		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, &mockConfigProvider{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Trigger one update cycle which will return an error.
