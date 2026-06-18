@@ -148,14 +148,17 @@ func (p controllerStartupValueProvider) APIInfo() (*api.Info, error) {
 }
 
 // LoggingOverride returns the current persisted logging override.
-// If the LOGGING_OVERRIDE environment variable is set, it takes
-// precedence; otherwise the agent's logging config is returned.
+// If runtime.conf contains a logging override, it takes precedence;
+// otherwise runtime.conf's logging config is returned.
 func (p controllerStartupValueProvider) LoggingOverride() (string, error) {
-	agentConfig := p.agent.CurrentConfig()
-	if override := agentConfig.Value(agent.LoggingOverride); override != "" {
-		return override, nil
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return "", errors.Trace(err)
 	}
-	return agentConfig.LoggingConfig(), nil
+	if cfg.LoggingOverride != "" {
+		return cfg.LoggingOverride, nil
+	}
+	return cfg.LoggingConfig, nil
 }
 
 // SystemIdentityValues returns the current system identity file contents and
@@ -517,9 +520,10 @@ func (a *ControllerAgent) makeEngineCreator(
 			return nil, err
 		}
 		updateAgentConfLogging := func(loggingConfig string) error {
-			return a.AgentConfigWriter.ChangeConfig(
-				func(setter agent.ConfigSetter) error {
-					setter.SetLoggingConfig(loggingConfig)
+			return controllerruntimeconfig.ChangeControllerRuntimeConfig(
+				a.controllerRuntimePath,
+				func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
+					cfg.LoggingConfig = loggingConfig
 					return nil
 				},
 			)
@@ -710,10 +714,13 @@ func (a *ControllerAgent) startModelWorkers(
 			controllerRuntimePath: a.controllerRuntimePath,
 		},
 		UpdateLoggerConfig: func(loggingConfig string) error {
-			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
-				setter.SetLoggingConfig(loggingConfig)
-				return nil
-			})
+			return controllerruntimeconfig.ChangeControllerRuntimeConfig(
+				a.controllerRuntimePath,
+				func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
+					cfg.LoggingConfig = loggingConfig
+					return nil
+				},
+			)
 		},
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {

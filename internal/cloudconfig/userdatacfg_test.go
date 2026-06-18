@@ -942,7 +942,11 @@ func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
 // (runtime.conf) at the expected path with restricted permissions.
 func (*cloudinitSuite) TestCloudInitConfigureBootstrapWritesRuntimeConfig(c *tc.C) {
 	envConfig := minimalModelConfig(c)
-	instConfig := makeBootstrapConfig(jammy, 0).maybeSetModelConfig(envConfig)
+	envConfig, err := envConfig.Apply(map[string]any{"logging-config": "<root>=WARNING;juju.bootstrap=INFO"})
+	c.Assert(err, tc.ErrorIsNil)
+	instConfig := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
+		cfg.AgentEnvironment[agent.LoggingOverride] = "juju.bootstrap=TRACE"
+	}).maybeSetModelConfig(envConfig)
 	rendered := instConfig.render()
 	cloudcfg, err := cloudinit.New(rendered.Base.OS)
 	c.Assert(err, tc.ErrorIsNil)
@@ -982,6 +986,8 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapWritesRuntimeConfig(c *tc.
 	c.Assert(echoScript, tc.Not(tc.Equals), "",
 		tc.Commentf("expected echo step for %s in runcmd scripts", expectedPath))
 	c.Check(installScript, tc.Matches, `install -D -m 600 /dev/null '`+regexp.QuoteMeta(expectedPath)+`'`)
+	c.Check(echoScript, tc.Matches, `(?s).*logging-config: <root>=WARNING;juju\.bootstrap=INFO.*`)
+	c.Check(echoScript, tc.Matches, `(?s).*logging-override: juju\.bootstrap=TRACE.*`)
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {
