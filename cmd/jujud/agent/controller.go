@@ -45,7 +45,6 @@ import (
 	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/service"
 	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgradesteps"
@@ -144,7 +143,7 @@ func (p controllerStartupValueProvider) APIInfo() (*api.Info, error) {
 		Addrs:          cfg.APIAddresses,
 		CACert:         cfg.CACert,
 		ControllerUUID: cfg.ControllerUUID,
-		Tag:            p.agent.agentTag,
+		Tag:            names.NewControllerAgentTag(cfg.ControllerID),
 	}, nil
 }
 
@@ -525,6 +524,10 @@ func (a *ControllerAgent) makeEngineCreator(
 	logSink corelogger.LogSink,
 ) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
+		controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		agentConfig := a.CurrentConfig()
 		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
@@ -552,10 +555,6 @@ func (a *ControllerAgent) makeEngineCreator(
 		}
 
 		c := clock.WallClock
-		controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		servingInfo, ok := agentConfig.ControllerAgentInfo()
 		if !ok {
 			return nil, errors.NotFoundf("controller agent info")
@@ -589,7 +588,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			ControlSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "control.socket",
 			),
-			DataDir:                           agentConfig.DataDir(),
+			DataDir:                           controllerRuntimeConfig.DataDir,
 			APIPort:                           servingInfo.APIPort,
 			AgentPassword:                     apiInfo.Password,
 			RootDir:                           a.rootDir,
@@ -618,7 +617,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			NewEnvironFunc:                    newEnvirons,
 		}
 		manifolds := agentcontroller.IAASManifolds(manifoldsCfg)
-		if agentConfig.Value(agent.ProviderType) == k8sconstants.CAASProviderType {
+		if controllerRuntimeConfig.LoopbackPreferred {
 			manifolds = agentcontroller.CAASManifolds(manifoldsCfg)
 		}
 		if err := dependency.Install(eng, manifolds); err != nil {
@@ -683,9 +682,12 @@ func (a *ControllerAgent) statusSetter(
 func (a *ControllerAgent) startModelWorkers(
 	cfg modelworkermanager.NewModelConfig,
 ) (worker.Worker, error) {
-	currentConfig := a.CurrentConfig()
-	controllerUUID := currentConfig.Controller().Id()
-	modelAgent, err := model.WrapAgent(a, controllerUUID, cfg.ModelUUID)
+	controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelAgent, err := model.WrapAgent(a, controllerRuntimeConfig.ControllerUUID, cfg.ModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -721,28 +723,23 @@ func (a *ControllerAgent) startModelWorkers(
 		LeaseManager:                  cfg.LeaseManager,
 		HTTPClientGetter:              cfg.HTTPClientGetter,
 		APIRemoteRelationClientGetter: cfg.APIRemoteRelationClientGetter,
-	}
 
-	controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	manifoldsCfg.ModelUUID = cfg.ModelUUID
-	manifoldsCfg.AgentTag = a.agentTag
-	manifoldsCfg.ModelTag = names.NewModelTag(cfg.ModelUUID)
-	manifoldsCfg.DataDir = controllerRuntimeConfig.DataDir
-	manifoldsCfg.LogDir = controllerRuntimeConfig.LogDir
-	manifoldsCfg.ControllerTag = names.NewControllerTag(controllerRuntimeConfig.ControllerUUID)
-	manifoldsCfg.StartupValueProvider = controllerStartupValueProvider{
-		agent:                 a,
-		controllerRuntimePath: a.controllerRuntimePath,
-	}
-	manifoldsCfg.UpdateLoggerConfig = func(loggingConfig string) error {
-		return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
-			setter.SetLoggingConfig(loggingConfig)
-			return nil
-		})
+		ModelUUID:     cfg.ModelUUID,
+		AgentTag:      a.agentTag,
+		ModelTag:      names.NewModelTag(cfg.ModelUUID),
+		DataDir:       controllerRuntimeConfig.DataDir,
+		LogDir:        controllerRuntimeConfig.LogDir,
+		ControllerTag: names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
+		StartupValueProvider: controllerStartupValueProvider{
+			agent:                 a,
+			controllerRuntimePath: a.controllerRuntimePath,
+		},
+		UpdateLoggerConfig: func(loggingConfig string) error {
+			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
+				setter.SetLoggingConfig(loggingConfig)
+				return nil
+			})
+		},
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
@@ -750,7 +747,7 @@ func (a *ControllerAgent) startModelWorkers(
 		manifoldsCfg.CharmRevisionUpdateInterval = interval
 	}
 
-	applyTestingOverrides(currentConfig, &manifoldsCfg)
+	applyTestingOverrides(a.CurrentConfig(), &manifoldsCfg)
 
 	var manifolds dependency.Manifolds
 	if cfg.ModelType == coremodel.IAAS {
