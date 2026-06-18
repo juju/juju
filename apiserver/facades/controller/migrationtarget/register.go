@@ -76,7 +76,7 @@ func makeFacadeV8(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return NewAPIV8(api)
+	return NewAPIV8(api, ctx.LocalMacaroonMinter())
 }
 
 func makeFacadeV4(

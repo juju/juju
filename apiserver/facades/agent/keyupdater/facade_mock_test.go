@@ -51,6 +51,7 @@ type MockModelContextMockRecorder struct {
 	leadershipPinnerExpects        []*gomock.Call0_2[leadership.Pinner, error]
 	leadershipReaderExpects        []*gomock.Call0_2[leadership.Reader, error]
 	leadershipRevokerExpects       []*gomock.Call0_2[leadership.Revoker, error]
+	localMacaroonMinterExpects     []*gomock.Call0_1[facade.LocalMacaroonMinter]
 	logDirExpects                  []*gomock.Call0_1[string]
 	loggerExpects                  []*gomock.Call0_1[logger.Logger]
 	machineTagExpects              []*gomock.Call0_1[names.Tag]
@@ -379,6 +380,24 @@ func (mr *MockModelContextMockRecorder) LeadershipRevoker() *MockModelContextLea
 
 // MockModelContextLeadershipRevokerCall is the typed call wrapper for LeadershipRevoker.
 type MockModelContextLeadershipRevokerCall = gomock.Call0_2[leadership.Revoker, error]
+
+// LocalMacaroonMinter mocks base method.
+func (m *MockModelContext) LocalMacaroonMinter() facade.LocalMacaroonMinter {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.localMacaroonMinterExpects, m.ctrl, m, "LocalMacaroonMinter")
+}
+
+// LocalMacaroonMinter indicates an expected call of LocalMacaroonMinter.
+func (mr *MockModelContextMockRecorder) LocalMacaroonMinter() *MockModelContextLocalMacaroonMinterCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[facade.LocalMacaroonMinter](mr.mock.ctrl.T, mr.mock, "LocalMacaroonMinter")
+	mr.localMacaroonMinterExpects = append(mr.localMacaroonMinterExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelContextLocalMacaroonMinterCall is the typed call wrapper for LocalMacaroonMinter.
+type MockModelContextLocalMacaroonMinterCall = gomock.Call0_1[facade.LocalMacaroonMinter]
 
 // LogDir mocks base method.
 func (m *MockModelContext) LogDir() string {

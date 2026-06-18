@@ -118,6 +118,10 @@ type apiHandler struct {
 	// used for cross model operations.
 	crossModelAuthContext facade.CrossModelAuthContext
 
+	// localMacaroonMinter mints directly-presentable login macaroons for
+	// local users; used by the migrationtarget v8 facade.
+	localMacaroonMinter facade.LocalMacaroonMinter
+
 	// ephemeralProviderTracker is used to create providers for operations that
 	// require them.
 	ephemeralProviderTracker providertracker.EphemeralProviderFactory
@@ -167,6 +171,7 @@ func newAPIHandler(
 		connectionID:             connectionID,
 		serverHost:               serverHost,
 		crossModelAuthContext:    crossModelAuthContext,
+		localMacaroonMinter:      srv.localMacaroonAuthenticator,
 		ephemeralProviderTracker: ephemeralProviderTracker,
 	}
 }
@@ -227,6 +232,12 @@ func (r *apiHandler) Authorizer() facade.Authorizer {
 // for cross model operations.
 func (r *apiHandler) CrossModelAuthContext() facade.CrossModelAuthContext {
 	return r.crossModelAuthContext
+}
+
+// LocalMacaroonMinter returns the minter for directly-presentable login
+// macaroons for local users.
+func (r *apiHandler) LocalMacaroonMinter() facade.LocalMacaroonMinter {
+	return r.localMacaroonMinter
 }
 
 // EphemeralProviderFactory returns the ephemeral provider factory.
@@ -405,6 +416,9 @@ type apiRootHandler interface {
 	// CrossModelAuthContext provides methods to create and authorize macaroons
 	// for cross model operations.
 	CrossModelAuthContext() facade.CrossModelAuthContext
+	// LocalMacaroonMinter mints directly-presentable login macaroons for
+	// local users.
+	LocalMacaroonMinter() facade.LocalMacaroonMinter
 	// EphemeralProviderFactory returns the ephemeral provider factory.
 	// Ephemeral providers are not updated when the cloud is updated. They
 	// are single use entities, requiring a provider configuration, for use
@@ -433,6 +447,7 @@ type apiRoot struct {
 	objectCache              map[objectKey]reflect.Value
 	requestRecorder          facade.RequestRecorder
 	crossModelAuthContext    facade.CrossModelAuthContext
+	localMacaroonMinter      facade.LocalMacaroonMinter
 	ephemeralProviderFactory providertracker.EphemeralProviderFactory
 
 	// modelUUID is the UUID of the model that the client is connected to.
@@ -468,6 +483,7 @@ func newAPIRoot(
 		ephemeralProviderFactory: root.EphemeralProviderFactory(),
 		modelUUID:                root.ModelUUID(),
 		crossModelAuthContext:    root.CrossModelAuthContext(),
+		localMacaroonMinter:      root.LocalMacaroonMinter(),
 	}, nil
 }
 
@@ -717,6 +733,11 @@ func (ctx *facadeContext) Auth() facade.Authorizer {
 // for cross model operations.
 func (ctx *facadeContext) CrossModelAuthContext() facade.CrossModelAuthContext {
 	return ctx.r.crossModelAuthContext
+}
+
+// LocalMacaroonMinter is part of the facade.ModelContext interface.
+func (ctx *facadeContext) LocalMacaroonMinter() facade.LocalMacaroonMinter {
+	return ctx.r.localMacaroonMinter
 }
 
 // Dispose is part of the facade.ModelContext interface.

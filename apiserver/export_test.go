@@ -85,6 +85,10 @@ func (testingAPIRootHandler) CrossModelAuthContext() facade.CrossModelAuthContex
 	return nil
 }
 
+func (testingAPIRootHandler) LocalMacaroonMinter() facade.LocalMacaroonMinter {
+	return nil
+}
+
 func (testingAPIRootHandler) EphemeralProviderFactory() providertracker.EphemeralProviderFactory {
 	return nil
 }

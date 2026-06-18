@@ -104,6 +104,12 @@ type ModelContext interface {
 	// for cross model operations.
 	CrossModelAuthContext() CrossModelAuthContext
 
+	// LocalMacaroonMinter mints directly-presentable login macaroons for
+	// local users. Used by migrationtarget v8 to exchange an admin password
+	// for a reusable macaroon so the migrationmaster worker never has to
+	// store a cleartext password.
+	LocalMacaroonMinter() LocalMacaroonMinter
+
 	// Dispose disposes the context and any resources related to
 	// the API server facade object. Normally the context will not
 	// be disposed until the API connection is closed. This is OK
@@ -290,6 +296,16 @@ type MacaroonAuthenticator interface {
 		mac macaroon.Slice,
 		version bakery.Version,
 	) error
+}
+
+// LocalMacaroonMinter mints directly-presentable login macaroons for local
+// users of this controller. The resulting macaroon is backed by the storage
+// bakery (root key in the DB) so the target's LocalUserAuthenticator can verify
+// it at login without a discharge ceremony.
+type LocalMacaroonMinter interface {
+	// CreateMigrationMacaroon mints a 24h login macaroon for the given local
+	// user that the worker can present directly at login.
+	CreateMigrationMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error)
 }
 
 // CrossModelAuthContext provides methods to create macaroons for cross model

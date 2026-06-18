@@ -6,6 +6,8 @@ package params
 import (
 	"time"
 
+	"gopkg.in/macaroon.v2"
+
 	"github.com/juju/juju/core/semversion"
 )
 
@@ -518,4 +520,12 @@ type AdoptResourcesArgs struct {
 	// ensure it looks for the original tags in the correct format for
 	// that version.
 	SourceControllerVersion semversion.Number `json:"source-controller-version"`
+}
+
+// CreateMigrationMacaroonResult holds the reusable login macaroon minted by
+// the target controller for the authenticated admin user. The migrationmaster
+// worker presents this macaroon when reconnecting to the target, so that a
+// cleartext admin password never needs to be persisted in the controller DB.
+type CreateMigrationMacaroonResult struct {
+	Macaroon *macaroon.Macaroon `json:"macaroon"`
 }

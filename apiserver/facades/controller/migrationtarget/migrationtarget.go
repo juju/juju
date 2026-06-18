@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 	"github.com/vallerion/rscanner"
@@ -615,11 +616,12 @@ func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 // path must land before a 4.1 release ships.
 type APIV8 struct {
 	*API
+	localMacaroonMinter facade.LocalMacaroonMinter
 }
 
 // NewAPIV8 returns a new MigrationTarget v8 facade wrapping the given v7 API.
-func NewAPIV8(api *API) (*APIV8, error) {
-	return &APIV8{API: api}, nil
+func NewAPIV8(api *API, minter facade.LocalMacaroonMinter) (*APIV8, error) {
+	return &APIV8{API: api, localMacaroonMinter: minter}, nil
 }
 
 // Prechecks is a no-op shell for v8 envelope prechecks.
@@ -634,4 +636,19 @@ func (api *APIV8) Prechecks(_ context.Context, _ params.SerializedModelV2) error
 // TODO(modelmigration): implement v8 import path before a 4.1 release ships.
 func (api *APIV8) Import(_ context.Context, _ params.SerializedModelV2) error {
 	return nil
+}
+
+// CreateMigrationMacaroon mints a directly-presentable 24h login macaroon for
+// the authenticated admin so the migrationmaster worker can reconnect to this
+// controller without a discharge ceremony or a stored cleartext password.
+func (api *APIV8) CreateMigrationMacaroon(ctx context.Context) (params.CreateMigrationMacaroonResult, error) {
+	tag, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok || !tag.IsLocal() {
+		return params.CreateMigrationMacaroonResult{}, apiservererrors.ErrPerm
+	}
+	mac, err := api.localMacaroonMinter.CreateMigrationMacaroon(ctx, tag, bakery.LatestVersion)
+	if err != nil {
+		return params.CreateMigrationMacaroonResult{}, errors.Capture(err)
+	}
+	return params.CreateMigrationMacaroonResult{Macaroon: mac}, nil
 }
