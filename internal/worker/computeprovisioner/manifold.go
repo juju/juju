@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
 	coredependency "github.com/juju/juju/core/dependency"
@@ -49,14 +49,13 @@ func GetMachineService(getter dependency.Getter, name string) (MachineService, e
 // for now we dodge the question because we don't need container provisioners
 // in dependency engines. Yet.
 type ManifoldConfig struct {
-	AgentName          string
 	APICallerName      string
 	EnvironName        string
 	DomainServicesName string
 	GetMachineService  GetMachineServiceFunc
 	Logger             logger.Logger
-
-	NewProvisionerFunc func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, agent.Config, logger.Logger, Environ) (Provisioner, error)
+	AgentTag           names.Tag
+	NewProvisionerFunc func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, names.Tag, logger.Logger, Environ) (Provisioner, error)
 }
 
 // Manifold creates a manifold that runs an environment provisioner. See the
@@ -64,17 +63,12 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.APICallerName,
 			config.EnvironName,
 			config.DomainServicesName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
-				return nil, errors.Trace(err)
-			}
-			var agent agent.Agent
-			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -89,14 +83,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			api := apiprovisioner.NewClient(apiCaller)
-			agentConfig := agent.CurrentConfig()
 
 			machineService, err := config.GetMachineService(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			w, err := config.NewProvisionerFunc(api, machineService, api, api, api, agentConfig, config.Logger, environ)
+			w, err := config.NewProvisionerFunc(api, machineService, api, api, api, config.AgentTag, config.Logger, environ)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -108,9 +101,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
@@ -125,6 +115,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.AgentTag == nil {
+		return errors.NotValidf("nil AgentTag")
 	}
 	if config.NewProvisionerFunc == nil {
 		return errors.NotValidf("nil NewProvisionerFunc")
