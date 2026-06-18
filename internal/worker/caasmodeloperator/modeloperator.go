@@ -5,6 +5,7 @@ package caasmodeloperator
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/password"
 )
@@ -42,6 +44,7 @@ type ModelOperatorManager struct {
 	logDir         string
 	controllerTag  names.ControllerTag
 	configProvider ConfigProvider
+	tracingService TracingService
 	api            ModelOperatorAPI
 	broker         ModelOperatorBroker
 	catacomb       catacomb.Catacomb
@@ -194,12 +197,14 @@ func NewModelOperatorManager(
 	logDir string,
 	controllerTag names.ControllerTag,
 	configProvider ConfigProvider,
+	tracingService TracingService,
 ) (*ModelOperatorManager, error) {
 	m := &ModelOperatorManager{
 		dataDir:        dataDir,
 		logDir:         logDir,
 		controllerTag:  controllerTag,
 		configProvider: configProvider,
+		tracingService: tracingService,
 		api:            api,
 		broker:         broker,
 		logger:         logger,
@@ -227,6 +232,14 @@ func (m *ModelOperatorManager) updateAgentConf(
 	if err != nil {
 		return nil, errors.Annotate(err, "reading CA cert")
 	}
+	tracingConfig, err := m.tracingService.GetWorkloadTracingConfig(context.Background())
+	if err != nil {
+		return nil, errors.Annotate(err, "reading workload tracing config")
+	}
+	runtimeTracingCfg, err := runtimeConfigFromWorkloadTracingConfig(tracingConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "building workload tracing config")
+	}
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
@@ -242,12 +255,12 @@ func (m *ModelOperatorManager) updateAgentConf(
 
 			UpgradedToVersion: ver,
 
-			OpenTelemetryEnabled:               m.configProvider.OpenTelemetryEnabled(),
-			OpenTelemetryEndpoint:              m.configProvider.OpenTelemetryEndpoint(),
-			OpenTelemetryInsecure:              m.configProvider.OpenTelemetryInsecure(),
-			OpenTelemetryStackTraces:           m.configProvider.OpenTelemetryStackTraces(),
-			OpenTelemetrySampleRatio:           m.configProvider.OpenTelemetrySampleRatio(),
-			OpenTelemetryTailSamplingThreshold: m.configProvider.OpenTelemetryTailSamplingThreshold(),
+			OpenTelemetryEnabled:               runtimeTracingCfg.Enabled,
+			OpenTelemetryEndpoint:              runtimeTracingCfg.Endpoint,
+			OpenTelemetryInsecure:              runtimeTracingCfg.InsecureSkipVerify,
+			OpenTelemetryStackTraces:           runtimeTracingCfg.StackTracesEnabled,
+			OpenTelemetrySampleRatio:           runtimeTracingCfg.SampleRatio,
+			OpenTelemetryTailSamplingThreshold: runtimeTracingCfg.TailSamplingThreshold,
 		},
 	)
 	if err != nil {
@@ -255,4 +268,64 @@ func (m *ModelOperatorManager) updateAgentConf(
 	}
 
 	return conf.Render()
+}
+
+const (
+	defaultOpenTelemetrySampleRatio           = 0.1
+	defaultOpenTelemetryTailSamplingThreshold = time.Millisecond
+)
+
+type runtimeTracingConfig struct {
+	Enabled               bool
+	Endpoint              string
+	CACertificate         string
+	InsecureSkipVerify    bool
+	StackTracesEnabled    bool
+	SampleRatio           float64
+	TailSamplingThreshold time.Duration
+}
+
+func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingConfig) (runtimeTracingConfig, error) {
+	runtimeCfg := runtimeTracingConfig{
+		SampleRatio:           defaultOpenTelemetrySampleRatio,
+		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+		CACertificate:         cfg.CACertificate,
+	}
+
+	endpoint := cfg.GRPCEndpoint
+	if endpoint == "" {
+		endpoint = cfg.HTTPEndpoint
+	}
+	if endpoint != "" {
+		runtimeCfg.Enabled = true
+		runtimeCfg.Endpoint = endpoint
+	}
+
+	if cfg.OpenTelemetryStackTraces != nil {
+		runtimeCfg.StackTracesEnabled = *cfg.OpenTelemetryStackTraces
+	}
+
+	if cfg.InsecureSkipVerify != nil {
+		runtimeCfg.InsecureSkipVerify = *cfg.InsecureSkipVerify
+	}
+
+	if cfg.OpenTelemetrySampleRatio != nil {
+		if *cfg.OpenTelemetrySampleRatio < 0 || *cfg.OpenTelemetrySampleRatio > 1 {
+			return runtimeTracingConfig{}, errors.NotValidf("open telemetry sample ratio %.4f", *cfg.OpenTelemetrySampleRatio)
+		}
+		runtimeCfg.SampleRatio = *cfg.OpenTelemetrySampleRatio
+	}
+
+	if cfg.OpenTelemetryTailSamplingThreshold != nil {
+		d, err := time.ParseDuration(*cfg.OpenTelemetryTailSamplingThreshold)
+		if err != nil {
+			return runtimeTracingConfig{}, errors.Annotatef(err, "parsing open telemetry tail sampling threshold %q", *cfg.OpenTelemetryTailSamplingThreshold)
+		}
+		if d < 0 {
+			return runtimeTracingConfig{}, errors.NotValidf("open telemetry tail sampling threshold %q", *cfg.OpenTelemetryTailSamplingThreshold)
+		}
+		runtimeCfg.TailSamplingThreshold = d
+	}
+
+	return runtimeCfg, nil
 }

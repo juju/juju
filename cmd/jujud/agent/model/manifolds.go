@@ -501,14 +501,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		)),
 
 		caasModelOperatorName: ifResponsible(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			BrokerName:     providerTrackerName,
-			ConfigProvider: config.StartupValueProvider,
-			Logger:         config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
-			ModelUUID:      config.ModelUUID,
-			DataDir:        config.DataDir,
-			LogDir:         config.LogDir,
-			ControllerTag:  config.ControllerTag,
+			APICallerName:      apiCallerName,
+			BrokerName:         providerTrackerName,
+			DomainServicesName: domainServicesName,
+			ConfigProvider:     config.StartupValueProvider,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
+			ModelUUID:          config.ModelUUID,
+			DataDir:            config.DataDir,
+			LogDir:             config.LogDir,
+			ControllerTag:      config.ControllerTag,
 		})),
 
 		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
