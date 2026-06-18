@@ -615,8 +615,9 @@ func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.R
 }
 
 type lokiEndpointRequest struct {
-	URL           string `json:"url"`
-	CACertificate string `json:"ca_cert"`
+	URL                string `json:"url"`
+	CACertificate      string `json:"ca_cert"`
+	InsecureSkipVerify *bool  `json:"insecure_skip_verify"`
 }
 
 func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
@@ -640,8 +641,9 @@ func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Reque
 	}
 
 	if err := w.loggingService.SetLokiConfig(ctx, logging.LokiConfig{
-		Endpoint:      parsedBody.URL,
-		CACertificate: parsedBody.CACertificate,
+		Endpoint:           parsedBody.URL,
+		CACertificate:      parsedBody.CACertificate,
+		InsecureSkipVerify: parsedBody.InsecureSkipVerify,
 	}); internalerrors.Is(err, coreerrors.NotValid) {
 		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid loki endpoint: %w", err))
 		return
