@@ -157,6 +157,46 @@ func (p machineControllerStartupValueProvider) APIInfo() (*api.Info, error) {
 	return info, nil
 }
 
+// machineModelStartupValueProvider supplies current model-local startup
+// values. It re-reads current agent config on each call so bounced workers
+// do not keep stale values. This is a temporary adapter that will be
+// replaced in a follow-up step with a proper disk-re-reading provider.
+type machineModelStartupValueProvider struct {
+	agent agent.Agent
+}
+
+func (p machineModelStartupValueProvider) CACert() string {
+	return p.agent.CurrentConfig().CACert()
+}
+
+func (p machineModelStartupValueProvider) OpenTelemetryEnabled() bool {
+	return p.agent.CurrentConfig().OpenTelemetryEnabled()
+}
+
+func (p machineModelStartupValueProvider) OpenTelemetryEndpoint() string {
+	return p.agent.CurrentConfig().OpenTelemetryEndpoint()
+}
+
+func (p machineModelStartupValueProvider) OpenTelemetryInsecure() bool {
+	return p.agent.CurrentConfig().OpenTelemetryInsecure()
+}
+
+func (p machineModelStartupValueProvider) OpenTelemetryStackTraces() bool {
+	return p.agent.CurrentConfig().OpenTelemetryStackTraces()
+}
+
+func (p machineModelStartupValueProvider) OpenTelemetrySampleRatio() float64 {
+	return p.agent.CurrentConfig().OpenTelemetrySampleRatio()
+}
+
+func (p machineModelStartupValueProvider) OpenTelemetryTailSamplingThreshold() time.Duration {
+	return p.agent.CurrentConfig().OpenTelemetryTailSamplingThreshold()
+}
+
+func (p machineModelStartupValueProvider) LoggingOverride() (string, error) {
+	return p.agent.CurrentConfig().Value(agent.LoggingOverride), nil
+}
+
 type (
 	// The following allows the upgrade steps to be overridden by brittle
 	// integration tests.
@@ -857,6 +897,15 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		HTTPClientGetter:              cfg.HTTPClientGetter,
 		APIRemoteRelationClientGetter: cfg.APIRemoteRelationClientGetter,
 	}
+	agentConfig := modelAgent.CurrentConfig()
+	manifoldsCfg.ModelUUID = agentConfig.Model().Id()
+	manifoldsCfg.AgentTag = agentConfig.Tag()
+	manifoldsCfg.ModelTag = agentConfig.Model()
+	manifoldsCfg.DataDir = agentConfig.DataDir()
+	manifoldsCfg.LogDir = agentConfig.LogDir()
+	manifoldsCfg.ControllerTag = agentConfig.Controller()
+	manifoldsCfg.StartupValueProvider = machineModelStartupValueProvider{agent: modelAgent}
+	manifoldsCfg.UpdateLoggerConfig = func(string) error { return nil }
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
 		logger.Debugf(context.TODO(), "setting short charmrevision worker interval: %v", interval)

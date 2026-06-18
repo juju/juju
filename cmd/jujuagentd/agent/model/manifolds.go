@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
@@ -39,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/worker/changestreampruner"
 	"github.com/juju/juju/internal/worker/charmrevisioner"
 	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
+	"github.com/juju/juju/internal/worker/controllerlogger"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -128,18 +130,26 @@ type ManifoldsConfig struct {
 	// APIRemoteRelationClientGetter is used to get a remote relation client
 	// for a given namespace.
 	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
+
+	ModelUUID            string
+	AgentTag             names.Tag
+	ModelTag             names.ModelTag
+	DataDir              string
+	LogDir               string
+	ControllerTag        names.ControllerTag
+	StartupValueProvider ModelStartupValueProvider
+	UpdateLoggerConfig   func(string) error
+}
+
+type ModelStartupValueProvider interface {
+	caasmodeloperator.ConfigProvider
+	controllerlogger.LoggingOverrideReader
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
 // run together to administer a model, as configured. These manifolds are used
 // by both IAAS and CAAS models.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
-	agentConfig := config.Agent.CurrentConfig()
-	agentTag := agentConfig.Tag()
-	modelTag := agentConfig.Model()
-
-	modelUUID := model.UUID(modelTag.Id())
-
 	result := dependency.Manifolds{
 		// The first group are foundational; the agent and clock
 		// which wrap those supplied in config, and the api-caller
@@ -224,17 +234,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// to run in *all* controller machines.
 		notDeadFlagName: modellife.Manifold(modellife.ManifoldConfig{
 			DomainServicesName: domainServicesName,
-			ModelUUID:          modelUUID,
+			ModelUUID:          model.UUID(config.ModelUUID),
 			GetModelService:    modellife.GetModelService,
 			NewWorker:          modellife.NewWorker,
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
-			ModelUUID:        modelUUID.String(),
+			ModelUUID:        config.ModelUUID,
 			LeaseManagerName: leaseManagerName,
 			Clock:            config.Clock,
 			Duration:         config.RunFlagDuration,
-			Claimant:         agentTag,
-			Entity:           modelTag,
+			Claimant:         config.AgentTag,
+			Entity:           config.ModelTag,
 			NewWorker:        singular.NewFlagWorker,
 		}),
 		// This flag runs on all models, and
@@ -306,13 +316,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCharmhubClient:  charmrevisioner.NewCharmhubClient,
 			Period:             config.CharmRevisionUpdateInterval,
 			NewWorker:          charmrevisioner.NewWorker,
-			ModelTag:           modelTag,
+			ModelTag:           config.ModelTag,
 			Clock:              config.Clock,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.charmrevisioner"),
 		})),
 
 		remoteRelationConsumerName: ifNotMigrating(remoterelationconsumer.Manifold(remoterelationconsumer.ManifoldConfig{
-			ModelUUID:                      modelUUID,
+			ModelUUID:                      model.UUID(config.ModelUUID),
 			APIRemoteRelationCallerName:    apiRemoteRelationCallerName,
 			DomainServicesName:             domainServicesName,
 			GetCrossModelServices:          remoterelationconsumer.GetCrossModelService,
@@ -334,7 +344,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:             config.LoggingContext.GetLogger("juju.worker.removal"),
 		})),
 
-		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(modelTag, providertracker.ManifoldConfig{
+		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(config.ModelTag, providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName: providerServiceFactoriesName,
 			LogSinkName:                  logSinkName,
 			NewWorker:                    providertracker.NewWorker,
@@ -356,7 +366,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:               config.Clock,
 			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
 			StorageRegistryName: providerTrackerName,
-			Model:               modelTag,
+			Model:               config.ModelTag,
 			NewWorker:           storageprovisioner.NewStorageProvisioner,
 		})),
 
@@ -478,7 +488,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // CAASManifolds returns a set of interdependent dependency manifolds that will
 // run together to administer a CAAS model, as configured.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	agentConfig := config.Agent.CurrentConfig()
 	manifolds := dependency.Manifolds{
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
@@ -492,11 +501,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		)),
 
 		caasModelOperatorName: ifResponsible(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			BrokerName:    providerTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
-			ModelUUID:     agentConfig.Model().Id(),
+			APICallerName:  apiCallerName,
+			BrokerName:     providerTrackerName,
+			ConfigProvider: config.StartupValueProvider,
+			Logger:         config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
+			ModelUUID:      config.ModelUUID,
+			DataDir:        config.DataDir,
+			LogDir:         config.LogDir,
+			ControllerTag:  config.ControllerTag,
 		})),
 
 		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{

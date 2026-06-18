@@ -65,6 +65,8 @@ import (
 // controllerStartupValueProvider supplies current controller-local startup
 // values to workers when they start. It re-reads runtime.conf and current
 // agent config on each call so bounced workers do not keep stale values.
+// It implements both ControllerStartupValueProvider (for controller
+// manifolds) and ModelStartupValueProvider (for model manifolds).
 type controllerStartupValueProvider struct {
 	agent                 *ControllerAgent
 	controllerRuntimePath string
@@ -147,8 +149,14 @@ func (p controllerStartupValueProvider) APIInfo() (*api.Info, error) {
 }
 
 // LoggingOverride returns the current persisted logging override.
+// If the LOGGING_OVERRIDE environment variable is set, it takes
+// precedence; otherwise the agent's logging config is returned.
 func (p controllerStartupValueProvider) LoggingOverride() (string, error) {
-	return p.agent.CurrentConfig().LoggingConfig(), nil
+	agentConfig := p.agent.CurrentConfig()
+	if override := agentConfig.Value(agent.LoggingOverride); override != "" {
+		return override, nil
+	}
+	return agentConfig.LoggingConfig(), nil
 }
 
 // SystemIdentityValues returns the current system identity file contents and
@@ -162,6 +170,40 @@ func (p controllerStartupValueProvider) SystemIdentityValues() (identityfilewrit
 		SystemIdentity:     cfg.SystemIdentity,
 		SystemIdentityPath: p.agent.CurrentConfig().SystemIdentityPath(),
 	}, nil
+}
+
+// CACert returns the CA certificate from runtime.conf. If the config
+// cannot be read, it falls back to the agent config.
+func (p controllerStartupValueProvider) CACert() string {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return p.agent.CurrentConfig().CACert()
+	}
+	return cfg.CACert
+}
+
+func (p controllerStartupValueProvider) OpenTelemetryEnabled() bool {
+	return p.agent.CurrentConfig().OpenTelemetryEnabled()
+}
+
+func (p controllerStartupValueProvider) OpenTelemetryEndpoint() string {
+	return p.agent.CurrentConfig().OpenTelemetryEndpoint()
+}
+
+func (p controllerStartupValueProvider) OpenTelemetryInsecure() bool {
+	return p.agent.CurrentConfig().OpenTelemetryInsecure()
+}
+
+func (p controllerStartupValueProvider) OpenTelemetryStackTraces() bool {
+	return p.agent.CurrentConfig().OpenTelemetryStackTraces()
+}
+
+func (p controllerStartupValueProvider) OpenTelemetrySampleRatio() float64 {
+	return p.agent.CurrentConfig().OpenTelemetrySampleRatio()
+}
+
+func (p controllerStartupValueProvider) OpenTelemetryTailSamplingThreshold() time.Duration {
+	return p.agent.CurrentConfig().OpenTelemetryTailSamplingThreshold()
 }
 
 type controllerAgentFactoryFnType func(names.Tag) (*ControllerAgent, error)
@@ -340,13 +382,14 @@ func NewControllerAgent(
 type ControllerAgent struct {
 	agentconfig.AgentConfigWriter
 
-	ctx              *cmd.Context
-	dead             chan struct{}
-	errReason        error
-	agentTag         names.Tag
-	runner           *worker.Runner
-	rootDir          string
-	configChangedVal *voyeur.Value
+	ctx                   *cmd.Context
+	dead                  chan struct{}
+	errReason             error
+	agentTag              names.Tag
+	runner                *worker.Runner
+	rootDir               string
+	configChangedVal      *voyeur.Value
+	controllerRuntimePath string
 
 	workersStarted chan struct{}
 
@@ -458,6 +501,10 @@ func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
 	agentConfig := a.CurrentConfig()
 	agentName := a.Tag().String()
 
+	a.controllerRuntimePath = controllerruntimeconfig.ConfigPath(
+		filepath.Join(agentConfig.DataDir(), "agents", "controller-"+a.agentTag.Id()),
+	)
+
 	a.bootstrapLock = gate.NewLock()
 	a.controllerUpgradeLock = gate.NewLock()
 	a.upgradeDBLock = gate.AlreadyUnlocked{}
@@ -505,10 +552,7 @@ func (a *ControllerAgent) makeEngineCreator(
 		}
 
 		c := clock.WallClock
-		controllerRuntimeConfigPath := controllerruntimeconfig.ConfigPath(
-			filepath.Join(agentConfig.DataDir(), "agents", "controller-"+a.agentTag.Id()),
-		)
-		controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(controllerRuntimeConfigPath)
+		controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -522,7 +566,7 @@ func (a *ControllerAgent) makeEngineCreator(
 		}
 		startupValueProvider := controllerStartupValueProvider{
 			agent:                 a,
-			controllerRuntimePath: controllerRuntimeConfigPath,
+			controllerRuntimePath: a.controllerRuntimePath,
 		}
 		flightRecorder := workerflightrecorder.New(
 			flightrecorder.NewRecorder(c), "",
@@ -678,6 +722,23 @@ func (a *ControllerAgent) startModelWorkers(
 		HTTPClientGetter:              cfg.HTTPClientGetter,
 		APIRemoteRelationClientGetter: cfg.APIRemoteRelationClientGetter,
 	}
+
+	controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	manifoldsCfg.ModelUUID = cfg.ModelUUID
+	manifoldsCfg.AgentTag = a.agentTag
+	manifoldsCfg.ModelTag = names.NewModelTag(cfg.ModelUUID)
+	manifoldsCfg.DataDir = controllerRuntimeConfig.DataDir
+	manifoldsCfg.LogDir = controllerRuntimeConfig.LogDir
+	manifoldsCfg.ControllerTag = names.NewControllerTag(controllerRuntimeConfig.ControllerUUID)
+	manifoldsCfg.StartupValueProvider = controllerStartupValueProvider{
+		agent:                 a,
+		controllerRuntimePath: a.controllerRuntimePath,
+	}
+	manifoldsCfg.UpdateLoggerConfig = func(string) error { return nil }
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
 		logger.Debugf(context.TODO(), "setting short charmrevision worker interval: %v", interval)

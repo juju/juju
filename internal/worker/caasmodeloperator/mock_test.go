@@ -6,56 +6,35 @@ package caasmodeloperator_test
 import (
 	"time"
 
-	"github.com/juju/names/v6"
-
-	"github.com/juju/juju/agent"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-type mockAgentConfig struct {
-	agent.Config
-}
+type mockConfigProvider struct{}
 
-func (m *mockAgentConfig) Controller() names.ControllerTag {
-	return coretesting.ControllerTag
-}
-
-func (m *mockAgentConfig) DataDir() string {
-	return "/var/lib/juju"
-}
-
-func (m *mockAgentConfig) LogDir() string {
-	return "/var/log/juju"
-}
-
-func (m *mockAgentConfig) OldPassword() string {
-	return "old password"
-}
-
-func (m *mockAgentConfig) CACert() string {
+func (m *mockConfigProvider) CACert() string {
 	return coretesting.CACert
 }
 
-func (m *mockAgentConfig) OpenTelemetryEnabled() bool {
+func (m *mockConfigProvider) OpenTelemetryEnabled() bool {
 	return false
 }
 
-func (m *mockAgentConfig) OpenTelemetryEndpoint() string {
+func (m *mockConfigProvider) OpenTelemetryEndpoint() string {
 	return ""
 }
 
-func (m *mockAgentConfig) OpenTelemetryInsecure() bool {
+func (m *mockConfigProvider) OpenTelemetryInsecure() bool {
 	return false
 }
 
-func (m *mockAgentConfig) OpenTelemetryStackTraces() bool {
+func (m *mockConfigProvider) OpenTelemetryStackTraces() bool {
 	return false
 }
 
-func (m *mockAgentConfig) OpenTelemetrySampleRatio() float64 {
+func (m *mockConfigProvider) OpenTelemetrySampleRatio() float64 {
 	return 0.1000
 }
 
-func (m *mockAgentConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
+func (m *mockConfigProvider) OpenTelemetryTailSamplingThreshold() time.Duration {
 	return time.Millisecond
 }
