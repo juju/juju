@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type clientSuite struct{}
@@ -610,6 +611,33 @@ func (s *clientSuite) TestPushNoTopologyLabels(c *tc.C) {
 	p := waitPayload(c, payloads)
 	c.Assert(p.Streams, tc.HasLen, 1)
 	c.Check(p.Streams[0].Values, tc.HasLen, 1)
+}
+
+func (s *clientSuite) TestMetricsCollector(c *tc.C) {
+	client, err := NewClient("http://loki:3100", testConfig())
+	c.Assert(err, tc.ErrorIsNil)
+	defer killAndWait(c, client)
+
+	atomic.StoreUint64(&client.stats.Sent, 3)
+	atomic.StoreUint64(&client.stats.Dropped, 2)
+	atomic.StoreUint64(&client.stats.PushErrors, 1)
+
+	reg := prometheus.NewRegistry()
+	c.Assert(reg.Register(NewMetricsCollector(client)), tc.ErrorIsNil)
+
+	metrics, err := reg.Gather()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(metrics, tc.HasLen, 3)
+
+	got := make(map[string]float64)
+	for _, family := range metrics {
+		c.Assert(family.Metric, tc.HasLen, 1)
+		got[family.GetName()] = family.Metric[0].GetCounter().GetValue()
+	}
+
+	c.Check(got["juju_loki_forwarder_sent_total"], tc.Equals, 3.0)
+	c.Check(got["juju_loki_forwarder_dropped_total"], tc.Equals, 2.0)
+	c.Check(got["juju_loki_forwarder_push_errors_total"], tc.Equals, 1.0)
 }
 
 func (s *clientSuite) TestBuildPayload(c *tc.C) {

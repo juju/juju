@@ -4,6 +4,7 @@
 package logrouter
 
 import (
+	"context"
 	stderrors "errors"
 	"net/http"
 	"sync/atomic"
@@ -12,9 +13,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	corehttp "github.com/juju/juju/core/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/loki"
 )
@@ -27,11 +30,12 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
-		AgentName:     "agent",
-		APICallerName: "api-caller",
+		AgentName:      "agent",
+		APICallerName:  "api-caller",
+		HTTPClientName: "http-client",
 	})
 
-	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "api-caller"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "api-caller", "http-client"})
 }
 
 func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
@@ -69,9 +73,40 @@ func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
 	w, err := manifold.Start(c.Context(), manifoldGetter{
 		agent:     fixture.agent,
 		apiCaller: stubAPICaller{},
+		http:      stubHTTPClientGetter{},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
+}
+
+func (s *manifoldSuite) TestNewBackendUpdatesLokiCACert(c *tc.C) {
+	client := &recordingCACertUpdaterClient{}
+	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock, prometheus.NewRegistry())
+
+	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
+		Mode:          BackendTypeLoki,
+		Endpoint:      "http://loki/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	c.Check(client.caCert.Load(), tc.Equals, "ca-cert")
+	c.Check(client.insecureSkipVerify.Load(), tc.IsFalse)
+}
+
+func (s *manifoldSuite) TestNewBackendReturnsCACertUpdateError(c *tc.C) {
+	expectErr := stderrors.New("boom")
+	client := &recordingCACertUpdaterClient{err: expectErr}
+	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock, prometheus.NewRegistry())
+
+	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
+		Mode:          BackendTypeLoki,
+		Endpoint:      "http://loki/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
+	c.Check(backend, tc.IsNil)
+	c.Assert(err, tc.ErrorIs, expectErr)
 }
 
 func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
@@ -79,12 +114,12 @@ func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:          "agent",
 		APICallerName:      "api-caller",
+		HTTPClientName:     "http-client",
 		LogSource:          fixture.logs,
 		AgentConfigChanged: fixture.configChanged,
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
-		HTTPClient:         http.DefaultClient,
-		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock) BackendFunc {
+		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock, prometheus.Registerer) BackendFunc {
 			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
 		},
 	}
@@ -93,6 +128,7 @@ func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 type manifoldGetter struct {
 	agent     coreagent.Agent
 	apiCaller base.APICaller
+	http      corehttp.HTTPClientGetter
 	called    *atomic.Bool
 	err       error
 }
@@ -109,6 +145,11 @@ func (g manifoldGetter) Get(_ string, out any) error {
 		*out = g.agent
 	case *base.APICaller:
 		*out = g.apiCaller
+	case *corehttp.HTTPClientGetter:
+		if g.http == nil {
+			g.http = stubHTTPClientGetter{}
+		}
+		*out = g.http
 	default:
 		return stderrors.New("unexpected dependency request")
 	}
@@ -117,4 +158,35 @@ func (g manifoldGetter) Get(_ string, out any) error {
 
 type stubAPICaller struct {
 	base.APICaller
+}
+
+type stubHTTPClientGetter struct{}
+
+func (stubHTTPClientGetter) GetHTTPClient(context.Context, corehttp.Purpose) (corehttp.HTTPClient, error) {
+	return stubHTTPClient{}, nil
+}
+
+type stubHTTPClient struct{}
+
+func (stubHTTPClient) Do(*http.Request) (*http.Response, error) {
+	return nil, nil
+}
+
+type recordingCACertUpdaterClient struct {
+	caCert             atomic.Value
+	insecureSkipVerify atomic.Bool
+	err                error
+}
+
+func (c *recordingCACertUpdaterClient) Do(*http.Request) (*http.Response, error) {
+	return nil, nil
+}
+
+func (c *recordingCACertUpdaterClient) ReplaceCACert(caCert string, insecureSkipVerify bool) error {
+	if c.err != nil {
+		return c.err
+	}
+	c.caCert.Store(caCert)
+	c.insecureSkipVerify.Store(insecureSkipVerify)
+	return nil
 }

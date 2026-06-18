@@ -1003,6 +1003,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"api-config-watcher",
 		"controller-agent-config-ready-flag",
 		"controller-agent-config-ready-gate",
+		"http-client",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",

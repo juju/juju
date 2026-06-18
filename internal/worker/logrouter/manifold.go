@@ -11,10 +11,12 @@ import (
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	apilogsender "github.com/juju/juju/api/logsender"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
@@ -28,18 +30,20 @@ type BackendFuncFactory func(
 	base.APICaller,
 	loki.HTTPClient,
 	clock.Clock,
+	prometheus.Registerer,
 ) BackendFunc
 
 // ManifoldConfig defines the names of the manifolds used by logrouter.
 type ManifoldConfig struct {
-	AgentName          string
-	APICallerName      string
-	LogSource          logsender.LogRecordCh
-	AgentConfigChanged *voyeur.Value
-	Logger             corelogger.Logger
-	Clock              clock.Clock
-	HTTPClient         loki.HTTPClient
-	DrainOnly          bool
+	AgentName            string
+	APICallerName        string
+	HTTPClientName       string
+	LogSource            logsender.LogRecordCh
+	AgentConfigChanged   *voyeur.Value
+	Logger               corelogger.Logger
+	Clock                clock.Clock
+	PrometheusRegisterer prometheus.Registerer
+	DrainOnly            bool
 
 	NewBackendFunc BackendFuncFactory
 }
@@ -51,6 +55,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
+	}
+	if c.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
 	}
 	if c.LogSource == nil {
 		return errors.NotValidf("nil LogSource")
@@ -73,7 +80,7 @@ func (c ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the logrouter worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.AgentName, config.APICallerName},
+		Inputs: []string{config.AgentName, config.APICallerName, config.HTTPClientName},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, internalerrors.Capture(err)
@@ -87,6 +94,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
+			var httpClientGetter corehttp.HTTPClientGetter
+			if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
+				return nil, err
+			}
+			httpClient, err := httpClientGetter.GetHTTPClient(ctx, corehttp.LokiPurpose)
+			if err != nil {
+				return nil, internalerrors.Capture(err)
+			}
 
 			return NewWorker(WorkerConfig{
 				Agent:              a,
@@ -97,7 +112,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
 				RestartDelay:       defaultRestartDelay,
-				NewBackend:         config.NewBackendFunc(apiCaller, config.HTTPClient, config.Clock),
+				NewBackend:         config.NewBackendFunc(apiCaller, httpClient, config.Clock, config.PrometheusRegisterer),
 			})
 		},
 	}
@@ -108,6 +123,7 @@ func NewBackend(
 	apiCaller base.APICaller,
 	httpClient loki.HTTPClient,
 	clock clock.Clock,
+	registerer prometheus.Registerer,
 ) BackendFunc {
 	return func(backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
 		switch backendType {
@@ -116,17 +132,24 @@ func NewBackend(
 			return backends.NewLogSink(logSenderAPI, defaultBackendBufferSize)
 
 		case BackendTypeLoki:
+			if updater, ok := httpClient.(corehttp.CACertUpdater); ok {
+				if err := updater.ReplaceCACert(snapshot.CACertificate, false); err != nil {
+					return nil, internalerrors.Capture(err)
+				}
+			}
+
 			lokiConfig := loki.DefaultConfig()
 			lokiConfig.HTTPClient = httpClient
 			lokiConfig.Clock = clock
 
 			return backends.NewLoki(backends.LokiConfig{
-				BackendBufferSize: defaultBackendBufferSize,
-				ClientConfig:      lokiConfig,
-				Endpoint:          snapshot.Endpoint,
-				ControllerUUID:    snapshot.ControllerUUID,
-				ModelUUID:         snapshot.ModelUUID,
-				AgentID:           snapshot.AgentID,
+				BackendBufferSize:    defaultBackendBufferSize,
+				ClientConfig:         lokiConfig,
+				Endpoint:             snapshot.Endpoint,
+				ControllerUUID:       snapshot.ControllerUUID,
+				ModelUUID:            snapshot.ModelUUID,
+				AgentID:              snapshot.AgentID,
+				PrometheusRegisterer: registerer,
 				NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
 					return loki.NewClient(endpoint, cfg)
 				},

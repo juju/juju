@@ -6,6 +6,7 @@ package backends
 import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
+	"github.com/prometheus/client_golang/prometheus"
 
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
@@ -14,13 +15,14 @@ import (
 
 // LokiConfig contains the settings required by the Loki backend.
 type LokiConfig struct {
-	BackendBufferSize int
-	ClientConfig      loki.Config
-	Endpoint          string
-	ControllerUUID    string
-	ModelUUID         string
-	AgentID           string
-	NewClient         NewLokiClientFunc
+	BackendBufferSize    int
+	ClientConfig         loki.Config
+	Endpoint             string
+	ControllerUUID       string
+	ModelUUID            string
+	AgentID              string
+	PrometheusRegisterer prometheus.Registerer
+	NewClient            NewLokiClientFunc
 }
 
 // LokiClient is the Loki push client surface used by the backend.
@@ -45,6 +47,17 @@ func NewLoki(cfg LokiConfig) (Backend, error) {
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
+	var metricsCollector *loki.Collector
+	if cfg.PrometheusRegisterer != nil {
+		if source, ok := client.(loki.MetricsSource); ok {
+			metricsCollector = loki.NewMetricsCollector(source)
+			if err := cfg.PrometheusRegisterer.Register(metricsCollector); err != nil {
+				client.Kill()
+				_ = client.Wait()
+				return nil, internalerrors.Capture(err)
+			}
+		}
+	}
 	w := &lokiBackend{
 		cfg:     cfg,
 		client:  client,
@@ -58,7 +71,18 @@ func NewLoki(cfg LokiConfig) (Backend, error) {
 			client,
 		},
 	}); err != nil {
+		if metricsCollector != nil {
+			_ = cfg.PrometheusRegisterer.Unregister(metricsCollector)
+		}
+		client.Kill()
+		_ = client.Wait()
 		return nil, internalerrors.Capture(err)
+	}
+	if metricsCollector != nil {
+		go func() {
+			_ = w.Wait()
+			_ = cfg.PrometheusRegisterer.Unregister(metricsCollector)
+		}()
 	}
 	return w, nil
 }

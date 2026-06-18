@@ -5,7 +5,6 @@ package unit
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	agentlifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/api/base"
 	proxy "github.com/juju/juju/api/proxy/config"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
+	internalhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/observability/probe"
 	"github.com/juju/juju/internal/upgrades"
@@ -42,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/httpclient"
 	"github.com/juju/juju/internal/worker/leadership"
 	"github.com/juju/juju/internal/worker/lifeflag"
 	wlogger "github.com/juju/juju/internal/worker/logger"
@@ -192,6 +194,21 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),
 
+		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
+			NewHTTPClient: func(purpose corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
+				if purpose == corehttp.LokiPurpose {
+					l := internallogger.GetLogger("juju.loki")
+					opts = append(opts, internalhttp.WithLogger(l))
+				}
+				return internalhttp.NewClient(opts...)
+			},
+			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewMetricsCollector:  httpclient.NewMetricsCollector,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
+		}),
+
 		// The S3 API caller is a shim API that wraps the /charms REST
 		// API for uploading and downloading charms. It provides a
 		// S3-compatible API.
@@ -227,14 +244,15 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
 		logRouterName: ifNotDead(logrouter.Manifold(logrouter.ManifoldConfig{
-			AgentName:          agentName,
-			APICallerName:      apiCallerName,
-			LogSource:          config.LogSource,
-			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             internallogger.GetLogger("juju.worker.logrouter"),
-			Clock:              config.Clock,
-			HTTPClient:         http.DefaultClient,
-			NewBackendFunc:     logrouter.NewBackend,
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			HTTPClientName:       httpClientName,
+			LogSource:            config.LogSource,
+			AgentConfigChanged:   config.AgentConfigChanged,
+			Logger:               internallogger.GetLogger("juju.worker.logrouter"),
+			Clock:                config.Clock,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewBackendFunc:       logrouter.NewBackend,
 		})),
 
 		// The upgrade steps gate is used to coordinate workers which
@@ -465,6 +483,7 @@ const (
 	agentName            = "agent"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
+	httpClientName       = "http-client"
 	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
 	logRouterName        = "log-router"

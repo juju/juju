@@ -895,27 +895,31 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
 				switch namespace {
 				case corehttp.CharmhubPurpose:
-					logger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+					l := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
 					opts = append(opts,
-						internalhttp.WithLogger(logger),
+						internalhttp.WithLogger(l),
 						internalhttp.WithRequestRetrier(charmhub.DefaultRetryPolicy()),
 					)
 
 				case corehttp.S3Purpose:
-					logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
-					opts = append(opts, internalhttp.WithLogger(logger))
+					l := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
+					opts = append(opts, internalhttp.WithLogger(l))
 
 				case corehttp.SSHImporterPurpose:
-					logger := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
-					opts = append(opts, internalhttp.WithLogger(logger))
+					l := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
+					opts = append(opts, internalhttp.WithLogger(l))
 
 				case corehttp.MacaroonPurpose:
-					logger := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
-					opts = append(opts, internalhttp.WithLogger(logger))
+					l := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
+					opts = append(opts, internalhttp.WithLogger(l))
+
+				case corehttp.LokiPurpose:
+					l := internallogger.GetLogger("juju.loki")
+					opts = append(opts, internalhttp.WithLogger(l))
 
 				case corehttp.SimpleStreamPurpose:
-					logger := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
-					opts = append(opts, internalhttp.WithLogger(logger))
+					l := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
+					opts = append(opts, internalhttp.WithLogger(l))
 				}
 
 				return internalhttp.NewClient(opts...)
@@ -1161,6 +1165,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		deployerName: ifControllerAgentConfigNeededAndReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
+			HTTPClientName: httpClientName,
 			FlightRecorder: config.FlightRecorder,
 			Clock:          config.Clock,
 			Logger:         internallogger.GetLogger("juju.worker.deployer"),
