@@ -502,6 +502,8 @@ func (w *userdataConfig) configureBootstrap() error {
 		DataDir:                w.icfg.DataDir,
 		LoopbackPreferred:      false,
 		LogDir:                 w.icfg.LogDir,
+		APIPort:                w.icfg.Bootstrap.ControllerAgentInfo.APIPort,
+		AgentPassword:          w.icfg.APIInfo.Password,
 		LoggingConfig:          w.icfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
 		LoggingOverride:        w.icfg.AgentEnvironment[agent.LoggingOverride],
 		QueryTracingEnabled:    w.icfg.ControllerConfig.QueryTracingEnabled(),
