@@ -15,6 +15,7 @@ import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
@@ -74,6 +75,8 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		DataDir:               cs.pcfg.DataDir,
 		LoopbackPreferred:     true,
 		LogDir:                cs.pcfg.LogDir,
+		LoggingConfig:         cs.pcfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
+		LoggingOverride:       cs.pcfg.AgentEnvironment[agent.LoggingOverride],
 		QueryTracingEnabled:   cs.pcfg.Controller.QueryTracingEnabled(),
 		QueryTracingThreshold: cs.pcfg.Controller.QueryTracingThreshold(),
 		DqliteBusyTimeout:     cs.pcfg.Controller.DqliteBusyTimeout(),

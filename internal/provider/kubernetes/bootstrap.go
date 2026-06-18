@@ -795,6 +795,8 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		DataDir:                c.pcfg.DataDir,
 		LoopbackPreferred:      true,
 		LogDir:                 c.pcfg.LogDir,
+		LoggingConfig:          c.pcfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
+		LoggingOverride:        c.pcfg.AgentEnvironment[agent.LoggingOverride],
 		QueryTracingEnabled:    c.pcfg.Controller.QueryTracingEnabled(),
 		QueryTracingThreshold:  c.pcfg.Controller.QueryTracingThreshold(),
 		DqliteBusyTimeout:      c.pcfg.Controller.DqliteBusyTimeout(),

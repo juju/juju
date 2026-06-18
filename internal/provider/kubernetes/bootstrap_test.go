@@ -5,6 +5,7 @@ package kubernetes_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -70,6 +72,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		config.NameKey: "controller-1",
+		"logging-config": "<root>=WARNING;juju.bootstrap=INFO",
 	}))
 	c.Assert(err, tc.ErrorIsNil)
 	s.cfg = cfg
@@ -104,6 +107,10 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	}
 	pcfg.Bootstrap.ControllerConfig = s.controllerCfg
 	s.pcfg = pcfg
+	if s.pcfg.AgentEnvironment == nil {
+		s.pcfg.AgentEnvironment = make(map[string]string)
+	}
+	s.pcfg.AgentEnvironment[agent.LoggingOverride] = "juju.bootstrap=TRACE"
 	s.controllerStackerGetter = func() kubernetes.ControllerStackerForTest {
 		controllerStacker, err := kubernetes.NewcontrollerStackForTest(
 			envtesting.BootstrapContext(c.Context(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
@@ -111,6 +118,13 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		return controllerStacker
 	}
+}
+
+func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLoggingSettings(c *tc.C) {
+	controllerStacker := s.controllerStackerGetter()
+	content := controllerStacker.GetControllerRuntimeConfigContent(c)
+	c.Check(strings.Contains(content, "logging-config: <root>=WARNING;juju.bootstrap=INFO"), tc.IsTrue)
+	c.Check(strings.Contains(content, "logging-override: juju.bootstrap=TRACE"), tc.IsTrue)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *tc.C) {
