@@ -167,18 +167,17 @@ func (p controllerStartupValueProvider) SystemIdentityValues() (identityfilewrit
 	}
 	return identityfilewriter.SystemIdentityValues{
 		SystemIdentity:     cfg.SystemIdentity,
-		SystemIdentityPath: p.agent.CurrentConfig().SystemIdentityPath(),
+		SystemIdentityPath: filepath.Join(cfg.DataDir, agent.SystemIdentity),
 	}, nil
 }
 
-// CACert returns the CA certificate from runtime.conf. If the config
-// cannot be read, it falls back to the agent config.
-func (p controllerStartupValueProvider) CACert() string {
+// CACert returns the CA certificate from runtime.conf.
+func (p controllerStartupValueProvider) CACert() (string, error) {
 	cfg, err := p.readRuntimeConfig()
 	if err != nil {
-		return p.agent.CurrentConfig().CACert()
+		return "", errors.Trace(err)
 	}
-	return cfg.CACert
+	return cfg.CACert, nil
 }
 
 func (p controllerStartupValueProvider) OpenTelemetryEnabled() bool {

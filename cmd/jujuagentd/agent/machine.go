@@ -165,8 +165,8 @@ type machineModelStartupValueProvider struct {
 	agent agent.Agent
 }
 
-func (p machineModelStartupValueProvider) CACert() string {
-	return p.agent.CurrentConfig().CACert()
+func (p machineModelStartupValueProvider) CACert() (string, error) {
+	return p.agent.CurrentConfig().CACert(), nil
 }
 
 func (p machineModelStartupValueProvider) OpenTelemetryEnabled() bool {
