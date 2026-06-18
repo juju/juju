@@ -11,8 +11,8 @@ import (
 
 type mockConfigProvider struct{}
 
-func (m *mockConfigProvider) CACert() string {
-	return coretesting.CACert
+func (m *mockConfigProvider) CACert() (string, error) {
+	return coretesting.CACert, nil
 }
 
 func (m *mockConfigProvider) OpenTelemetryEnabled() bool {
