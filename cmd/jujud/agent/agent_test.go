@@ -110,38 +110,95 @@ func TestControllerStartupValueProviderSuite(t *testing.T) {
 	tc.Run(t, &controllerStartupValueProviderSuite{})
 }
 
-func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentAgentConfig(c *tc.C) {
+func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentRuntimeConfig(c *tc.C) {
+	runtimeDir := c.MkDir()
+	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-one"),
+		LogDir:               filepath.Join(runtimeDir, "log-one"),
+		LoggingConfig:        "first",
+		CACert:               "ca-cert",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	provider := controllerStartupValueProvider{
 		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
 			config: &fakeControllerConfig{loggingConfig: "first"},
 		}},
+		controllerRuntimePath: runtimePath,
 	}
 
 	override, err := provider.LoggingOverride()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(override, tc.Equals, "first")
 
-	provider.agent.AgentConfigWriter = &fakeAgentConfigWriter{
-		config: &fakeControllerConfig{loggingConfig: "second"},
-	}
+	err = controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-two"),
+		LogDir:               filepath.Join(runtimeDir, "log-two"),
+		LoggingConfig:        "second",
+		CACert:               "ca-cert",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	override, err = provider.LoggingOverride()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(override, tc.Equals, "second")
 }
 
-func (s *controllerStartupValueProviderSuite) TestLoggingOverrideEnvVarTakesPrecedence(c *tc.C) {
+func (s *controllerStartupValueProviderSuite) TestLoggingOverrideFieldTakesPrecedence(c *tc.C) {
+	runtimeDir := c.MkDir()
+	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-one"),
+		LogDir:               filepath.Join(runtimeDir, "log-one"),
+		LoggingConfig:        "<root>=WARNING",
+		LoggingOverride:      "test=INFO",
+		CACert:               "ca-cert",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	provider := controllerStartupValueProvider{
 		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
 			config: &fakeControllerConfig{
-				loggingConfig:   "<root>=WARNING",
-				loggingOverride: "test=INFO",
+				loggingOverride: "ignored",
 			},
 		}},
+		controllerRuntimePath: runtimePath,
 	}
 
 	override, err := provider.LoggingOverride()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(override, tc.Equals, "test=INFO")
+}
+
+func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReturnsRuntimeConfigError(c *tc.C) {
+	provider := controllerStartupValueProvider{
+		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
+			config: &fakeControllerConfig{},
+		}},
+		controllerRuntimePath: filepath.Join(c.MkDir(), "missing-runtime.conf"),
+	}
+
+	_, err := provider.LoggingOverride()
+	c.Assert(err, tc.ErrorMatches, `reading controller runtime config ".*missing-runtime.conf": open .*missing-runtime.conf: no such file or directory`)
 }
 
 func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrentRuntimeConfig(c *tc.C) {
