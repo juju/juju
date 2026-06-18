@@ -29,8 +29,9 @@ type Client struct {
 
 // ControllerLokiConfig holds the controller-wide Loki push API configuration.
 type ControllerLokiConfig struct {
-	Endpoint string
-	CACert   string
+	Endpoint           string
+	CACert             string
+	InsecureSkipVerify *bool
 }
 
 // NewClient returns a version of the logger client that provides functionality
@@ -77,8 +78,9 @@ func (c *Client) GetControllerLokiConfig(ctx context.Context, agentTag names.Tag
 		caCert = *result.CACert
 	}
 	return ControllerLokiConfig{
-		Endpoint: result.Endpoint,
-		CACert:   caCert,
+		Endpoint:           result.Endpoint,
+		CACert:             caCert,
+		InsecureSkipVerify: result.InsecureSkipVerify,
 	}, nil
 }
 

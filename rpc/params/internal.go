@@ -98,9 +98,10 @@ type StringResults struct {
 
 // LokiConfigResult holds a controller Loki configuration or an error.
 type LokiConfigResult struct {
-	Error    *Error  `json:"error,omitempty"`
-	Endpoint string  `json:"endpoint"`
-	CACert   *string `json:"ca-cert,omitempty"`
+	Error              *Error  `json:"error,omitempty"`
+	Endpoint           string  `json:"endpoint"`
+	CACert             *string `json:"ca-cert,omitempty"`
+	InsecureSkipVerify *bool   `json:"insecure-skip-verify,omitempty"`
 }
 
 // MapResult holds a generic map or an error.

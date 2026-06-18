@@ -224,9 +224,11 @@ func (s *loggerSuite) TestGetControllerLokiConfigForAgent(c *tc.C) {
 	defer ctrl.Finish()
 	s.setupAPIV2(c)
 
+	insecureFalse := false
 	s.controllerLokiConfigService.config = logging.LokiConfig{
-		Endpoint:      "https://loki.example.com/loki/api/v1/push",
-		CACertificate: "ca-cert",
+		Endpoint:           "https://loki.example.com/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &insecureFalse,
 	}
 
 	args := params.Entity{Tag: defaultMachineTag.String()}
@@ -236,6 +238,42 @@ func (s *loggerSuite) TestGetControllerLokiConfigForAgent(c *tc.C) {
 	c.Assert(result.CACert, tc.NotNil)
 	c.Check(*result.CACert, tc.Equals, "ca-cert")
 	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 1)
+}
+
+func (s *loggerSuite) TestGetControllerLokiConfigInsecureSkipVerify(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	insecureTrue := true
+	s.controllerLokiConfigService.config = logging.LokiConfig{
+		Endpoint:           "https://loki.example.com/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &insecureTrue,
+	}
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.InsecureSkipVerify, tc.NotNil)
+	c.Check(*result.InsecureSkipVerify, tc.Equals, true)
+}
+
+func (s *loggerSuite) TestGetControllerLokiConfigNilInsecureSkipVerify(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	s.controllerLokiConfigService.config = logging.LokiConfig{
+		Endpoint:           "https://loki.example.com/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: nil,
+	}
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.InsecureSkipVerify, tc.IsNil)
 }
 
 func (s *loggerSuite) TestGetControllerLokiConfigReturnsNotFoundError(c *tc.C) {

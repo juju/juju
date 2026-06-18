@@ -183,7 +183,10 @@ func (api *LoggerAPIV2) GetControllerLokiConfig(ctx context.Context, arg params.
 		return params.LokiConfigResult{Error: apiservererrors.ServerError(err)}
 	}
 
-	result := params.LokiConfigResult{Endpoint: config.Endpoint}
+	result := params.LokiConfigResult{
+		Endpoint:           config.Endpoint,
+		InsecureSkipVerify: config.InsecureSkipVerify,
+	}
 	if config.CACertificate != "" {
 		result.CACert = &config.CACertificate
 	}
