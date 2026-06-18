@@ -284,12 +284,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		agentConfig.SetQueryTracingEnabled(args.ControllerConfig.QueryTracingEnabled())
 		agentConfig.SetQueryTracingThreshold(args.ControllerConfig.QueryTracingThreshold())
 		agentConfig.SetDqliteBusyTimeout(args.ControllerConfig.DqliteBusyTimeout())
-		agentConfig.SetOpenTelemetryEnabled(args.ControllerConfig.OpenTelemetryEnabled())
-		agentConfig.SetOpenTelemetryEndpoint(args.ControllerConfig.OpenTelemetryEndpoint())
-		agentConfig.SetOpenTelemetryInsecure(args.ControllerConfig.OpenTelemetryInsecure())
-		agentConfig.SetOpenTelemetryStackTraces(args.ControllerConfig.OpenTelemetryStackTraces())
-		agentConfig.SetOpenTelemetrySampleRatio(args.ControllerConfig.OpenTelemetrySampleRatio())
-		agentConfig.SetOpenTelemetryTailSamplingThreshold(args.ControllerConfig.OpenTelemetryTailSamplingThreshold())
+		agentConfig.SetOpenTelemetryEnabled(agent.DefaultOpenTelemetryEnabled)
+		agentConfig.SetOpenTelemetryEndpoint("")
+		agentConfig.SetOpenTelemetryInsecure(agent.DefaultOpenTelemetryInsecure)
+		agentConfig.SetOpenTelemetryStackTraces(agent.DefaultOpenTelemetryStackTraces)
+		agentConfig.SetOpenTelemetrySampleRatio(agent.DefaultOpenTelemetrySampleRatio)
+		agentConfig.SetOpenTelemetryTailSamplingThreshold(agent.DefaultOpenTelemetryTailSamplingThreshold)
 
 		return nil
 	}); err != nil {
