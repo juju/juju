@@ -38,12 +38,15 @@ type ModelOperatorBroker interface {
 // ModelOperatorManager defines the worker used for managing model operators in
 // caas
 type ModelOperatorManager struct {
-	agentConfig agent.Config
-	api         ModelOperatorAPI
-	broker      ModelOperatorBroker
-	catacomb    catacomb.Catacomb
-	logger      logger.Logger
-	modelUUID   string
+	dataDir        string
+	logDir         string
+	controllerTag  names.ControllerTag
+	configProvider ConfigProvider
+	api            ModelOperatorAPI
+	broker         ModelOperatorBroker
+	catacomb       catacomb.Catacomb
+	logger         logger.Logger
+	modelUUID      string
 }
 
 const (
@@ -158,11 +161,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 		}
 	}
 
-	agentConf, err := m.updateAgentConf(info.APIAddresses, password, info.Version)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	agentConfBuf, err := agentConf.Render()
+	agentConfBuf, err := m.updateAgentConf(info.APIAddresses, password, info.Version)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,7 +170,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 	err = m.broker.EnsureModelOperator(
 		ctx,
 		m.modelUUID,
-		m.agentConfig.DataDir(),
+		m.dataDir,
 		&caas.ModelOperatorConfig{
 			AgentConf:    agentConfBuf,
 			ImageDetails: info.ImageDetails,
@@ -191,14 +190,20 @@ func NewModelOperatorManager(
 	api ModelOperatorAPI,
 	broker ModelOperatorBroker,
 	modelUUID string,
-	agentConfig agent.Config,
+	dataDir string,
+	logDir string,
+	controllerTag names.ControllerTag,
+	configProvider ConfigProvider,
 ) (*ModelOperatorManager, error) {
 	m := &ModelOperatorManager{
-		agentConfig: agentConfig,
-		api:         api,
-		broker:      broker,
-		logger:      logger,
-		modelUUID:   modelUUID,
+		dataDir:        dataDir,
+		logDir:         logDir,
+		controllerTag:  controllerTag,
+		configProvider: configProvider,
+		api:            api,
+		broker:         broker,
+		logger:         logger,
+		modelUUID:      modelUUID,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -216,36 +221,34 @@ func (m *ModelOperatorManager) updateAgentConf(
 	apiAddresses []string,
 	password string,
 	ver semversion.Number,
-) (agent.ConfigSetterWriter, error) {
+) ([]byte, error) {
 	modelTag := names.NewModelTag(m.modelUUID)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
-				DataDir: m.agentConfig.DataDir(),
-				LogDir:  m.agentConfig.LogDir(),
+				DataDir: m.dataDir,
+				LogDir:  m.logDir,
 			},
 			Tag:          modelTag,
-			Controller:   m.agentConfig.Controller(),
+			Controller:   m.controllerTag,
 			Model:        modelTag,
 			APIAddresses: apiAddresses,
-			CACert:       m.agentConfig.CACert(),
+			CACert:       m.configProvider.CACert(),
 			Password:     password,
 
-			// UpgradedToVersion is mandatory but not used by
-			// caas operator agents as they are not upgraded insitu.
 			UpgradedToVersion: ver,
 
-			OpenTelemetryEnabled:               m.agentConfig.OpenTelemetryEnabled(),
-			OpenTelemetryEndpoint:              m.agentConfig.OpenTelemetryEndpoint(),
-			OpenTelemetryInsecure:              m.agentConfig.OpenTelemetryInsecure(),
-			OpenTelemetryStackTraces:           m.agentConfig.OpenTelemetryStackTraces(),
-			OpenTelemetrySampleRatio:           m.agentConfig.OpenTelemetrySampleRatio(),
-			OpenTelemetryTailSamplingThreshold: m.agentConfig.OpenTelemetryTailSamplingThreshold(),
+			OpenTelemetryEnabled:               m.configProvider.OpenTelemetryEnabled(),
+			OpenTelemetryEndpoint:              m.configProvider.OpenTelemetryEndpoint(),
+			OpenTelemetryInsecure:              m.configProvider.OpenTelemetryInsecure(),
+			OpenTelemetryStackTraces:           m.configProvider.OpenTelemetryStackTraces(),
+			OpenTelemetrySampleRatio:           m.configProvider.OpenTelemetrySampleRatio(),
+			OpenTelemetryTailSamplingThreshold: m.configProvider.OpenTelemetryTailSamplingThreshold(),
 		},
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating new agent config for model")
 	}
 
-	return conf, nil
+	return conf.Render()
 }

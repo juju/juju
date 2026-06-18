@@ -129,6 +129,21 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentAge
 	c.Check(override, tc.Equals, "second")
 }
 
+func (s *controllerStartupValueProviderSuite) TestLoggingOverrideEnvVarTakesPrecedence(c *tc.C) {
+	provider := controllerStartupValueProvider{
+		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
+			config: &fakeControllerConfig{
+				loggingConfig:   "<root>=WARNING",
+				loggingOverride: "test=INFO",
+			},
+		}},
+	}
+
+	override, err := provider.LoggingOverride()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(override, tc.Equals, "test=INFO")
+}
+
 func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrentRuntimeAndAgentConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
 	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
@@ -193,11 +208,19 @@ func (f *fakeAgentConfigWriter) CurrentConfig() agent.Config {
 type fakeControllerConfig struct {
 	agent.Config
 	loggingConfig      string
+	loggingOverride    string
 	systemIdentityPath string
 }
 
 func (f *fakeControllerConfig) LoggingConfig() string {
 	return f.loggingConfig
+}
+
+func (f *fakeControllerConfig) Value(key string) string {
+	if key == agent.LoggingOverride {
+		return f.loggingOverride
+	}
+	return ""
 }
 
 func (f *fakeControllerConfig) SystemIdentityPath() string {
