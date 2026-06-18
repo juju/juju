@@ -81,10 +81,10 @@ func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 
 func validConfig(c *tc.C) firewaller.ManifoldConfig {
 	return firewaller.ManifoldConfig{
-		AgentName:               "agent",
 		APICallerName:           "api-caller",
 		EnvironName:             "environ",
 		DomainServicesName:      "domain-services",
+		ModelUUID:               "deadbeef-0bad-400d-8000-4b2d03000100",
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewControllerConnection: func(context.Context, *api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:     func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
@@ -96,9 +96,9 @@ func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAgentName(c *tc.C) {
-	s.config.AgentName = ""
-	s.checkNotValid(c, "empty AgentName not valid")
+func (s *ManifoldConfigSuite) TestMissingModelUUID(c *tc.C) {
+	s.config.ModelUUID = ""
+	s.checkNotValid(c, "empty ModelUUID not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
