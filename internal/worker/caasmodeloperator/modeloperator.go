@@ -223,6 +223,10 @@ func (m *ModelOperatorManager) updateAgentConf(
 	ver semversion.Number,
 ) ([]byte, error) {
 	modelTag := names.NewModelTag(m.modelUUID)
+	caCert, err := m.configProvider.CACert()
+	if err != nil {
+		return nil, errors.Annotate(err, "reading CA cert")
+	}
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
@@ -233,7 +237,7 @@ func (m *ModelOperatorManager) updateAgentConf(
 			Controller:   m.controllerTag,
 			Model:        modelTag,
 			APIAddresses: apiAddresses,
-			CACert:       m.configProvider.CACert(),
+			CACert:       caCert,
 			Password:     password,
 
 			UpgradedToVersion: ver,
