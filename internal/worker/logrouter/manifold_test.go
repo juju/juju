@@ -13,6 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -80,7 +81,7 @@ func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
 
 func (s *manifoldSuite) TestNewBackendUpdatesLokiCACert(c *tc.C) {
 	client := &recordingCACertUpdaterClient{}
-	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock)
+	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock, prometheus.NewRegistry())
 
 	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
 		Mode:          BackendTypeLoki,
@@ -96,7 +97,7 @@ func (s *manifoldSuite) TestNewBackendUpdatesLokiCACert(c *tc.C) {
 func (s *manifoldSuite) TestNewBackendReturnsCACertUpdateError(c *tc.C) {
 	expectErr := stderrors.New("boom")
 	client := &recordingCACertUpdaterClient{err: expectErr}
-	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock)
+	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock, prometheus.NewRegistry())
 
 	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
 		Mode:          BackendTypeLoki,
@@ -117,7 +118,7 @@ func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 		AgentConfigChanged: fixture.configChanged,
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:              clock.WallClock,
-		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock) BackendFunc {
+		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock, prometheus.Registerer) BackendFunc {
 			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
 		},
 	}

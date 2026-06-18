@@ -244,6 +244,21 @@ func (c *Client) Report(context.Context) map[string]any {
 	}
 }
 
+// Sent returns the number of records successfully sent to Loki.
+func (c *Client) Sent() uint64 {
+	return atomic.LoadUint64(&c.stats.Sent)
+}
+
+// Dropped returns the number of records dropped from the local queue.
+func (c *Client) Dropped() uint64 {
+	return atomic.LoadUint64(&c.stats.Dropped)
+}
+
+// PushErrors returns the number of batches that failed after retrying.
+func (c *Client) PushErrors() uint64 {
+	return atomic.LoadUint64(&c.stats.PushErrors)
+}
+
 // Kill requests the client to stop. Any buffered records are
 // flushed on a best-effort basis before the client exits.
 // Records in-flight during shutdown may be dropped.

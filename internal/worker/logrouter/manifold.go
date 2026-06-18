@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -29,18 +30,20 @@ type BackendFuncFactory func(
 	base.APICaller,
 	loki.HTTPClient,
 	clock.Clock,
+	prometheus.Registerer,
 ) BackendFunc
 
 // ManifoldConfig defines the names of the manifolds used by logrouter.
 type ManifoldConfig struct {
-	AgentName          string
-	APICallerName      string
-	HTTPClientName     string
-	LogSource          logsender.LogRecordCh
-	AgentConfigChanged *voyeur.Value
-	Logger             corelogger.Logger
-	Clock              clock.Clock
-	DrainOnly          bool
+	AgentName            string
+	APICallerName        string
+	HTTPClientName       string
+	LogSource            logsender.LogRecordCh
+	AgentConfigChanged   *voyeur.Value
+	Logger               corelogger.Logger
+	Clock                clock.Clock
+	PrometheusRegisterer prometheus.Registerer
+	DrainOnly            bool
 
 	NewBackendFunc BackendFuncFactory
 }
@@ -109,7 +112,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DrainOnly:          config.DrainOnly,
 				ConvergeTimeout:    defaultConvergeTimeout,
 				RestartDelay:       defaultRestartDelay,
-				NewBackend:         config.NewBackendFunc(apiCaller, httpClient, config.Clock),
+				NewBackend:         config.NewBackendFunc(apiCaller, httpClient, config.Clock, config.PrometheusRegisterer),
 			})
 		},
 	}
@@ -120,6 +123,7 @@ func NewBackend(
 	apiCaller base.APICaller,
 	httpClient loki.HTTPClient,
 	clock clock.Clock,
+	registerer prometheus.Registerer,
 ) BackendFunc {
 	return func(backendType BackendType, snapshot ConfigSnapshot) (Backend, error) {
 		switch backendType {
@@ -139,12 +143,13 @@ func NewBackend(
 			lokiConfig.Clock = clock
 
 			return backends.NewLoki(backends.LokiConfig{
-				BackendBufferSize: defaultBackendBufferSize,
-				ClientConfig:      lokiConfig,
-				Endpoint:          snapshot.Endpoint,
-				ControllerUUID:    snapshot.ControllerUUID,
-				ModelUUID:         snapshot.ModelUUID,
-				AgentID:           snapshot.AgentID,
+				BackendBufferSize:    defaultBackendBufferSize,
+				ClientConfig:         lokiConfig,
+				Endpoint:             snapshot.Endpoint,
+				ControllerUUID:       snapshot.ControllerUUID,
+				ModelUUID:            snapshot.ModelUUID,
+				AgentID:              snapshot.AgentID,
+				PrometheusRegisterer: registerer,
 				NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
 					return loki.NewClient(endpoint, cfg)
 				},

@@ -4,8 +4,6 @@
 package backends
 
 import (
-	"fmt"
-
 	"github.com/juju/worker/v5/catacomb"
 
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -53,11 +51,10 @@ func (w *drainBackend) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case r, ok := <-w.records:
+		case _, ok := <-w.records:
 			if !ok {
 				return nil
 			}
-			fmt.Println("drainBackend loop: received record", r.Message)
 		}
 	}
 }

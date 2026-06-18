@@ -205,16 +205,17 @@ func (a *UnitAgent) start(ctx context.Context) (worker.Worker, error) {
 	// construct unit agent manifold
 	a.logger.Tracef(ctx, "creating unit manifolds for %q", a.name)
 	manifolds := a.unitManifolds(UnitManifoldsConfig{
-		LoggerContext:       loggerContext,
-		Agent:               a,
-		LogSource:           bufferedLogger.Logs(),
-		LeadershipGuarantee: 30 * time.Second,
-		AgentConfigChanged:  a.configChangedVal,
-		ValidateMigration:   a.validateMigration,
-		UpdateLoggerConfig:  updateAgentConfLogging,
-		MachineLock:         machineLock,
-		Clock:               a.clock,
-		HTTPClientGetter:    a.httpClientGetter,
+		LoggerContext:        loggerContext,
+		Agent:                a,
+		LogSource:            bufferedLogger.Logs(),
+		LeadershipGuarantee:  30 * time.Second,
+		AgentConfigChanged:   a.configChangedVal,
+		ValidateMigration:    a.validateMigration,
+		UpdateLoggerConfig:   updateAgentConfLogging,
+		MachineLock:          machineLock,
+		Clock:                a.clock,
+		HTTPClientGetter:     a.httpClientGetter,
+		PrometheusRegisterer: a.prometheusRegistry,
 	})
 	depEngineConfig := a.unitEngineConfig()
 	// TODO: tweak IsFatal error func, maybe?

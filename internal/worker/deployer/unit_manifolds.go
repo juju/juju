@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -83,6 +84,9 @@ type UnitManifoldsConfig struct {
 
 	// HTTPClientGetter provides scoped HTTP clients to nested unit workers.
 	HTTPClientGetter corehttp.HTTPClientGetter
+
+	// PrometheusRegisterer registers metrics for unit-scoped workers.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // UnitManifolds returns a set of co-configured manifolds covering the various
@@ -154,14 +158,15 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
 		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
-			AgentName:          agentName,
-			APICallerName:      apiCallerName,
-			HTTPClientName:     httpClientName,
-			LogSource:          config.LogSource,
-			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             config.LoggerContext.GetLogger("juju.worker.logrouter"),
-			Clock:              config.Clock,
-			NewBackendFunc:     logrouter.NewBackend,
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			HTTPClientName:       httpClientName,
+			LogSource:            config.LogSource,
+			AgentConfigChanged:   config.AgentConfigChanged,
+			Logger:               config.LoggerContext.GetLogger("juju.worker.logrouter"),
+			Clock:                config.Clock,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewBackendFunc:       logrouter.NewBackend,
 		}),
 
 		// The migration workers collaborate to run migrations;
