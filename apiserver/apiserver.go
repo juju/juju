@@ -1029,6 +1029,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:         registerHandler,
 		unauthenticated: true,
 	}, {
+		pattern:    "/tools",
+		handler:    modelToolsUploadHandler,
+		authorizer: toolsUploadAuthorizer,
+	}, {
 		pattern:         "/tools/:version",
 		handler:         modelToolsDownloadHandler,
 		unauthenticated: true,

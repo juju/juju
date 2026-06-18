@@ -132,6 +132,24 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithDischargedMacaroon(c
 	c.Assert(checkCount, tc.Equals, 1)
 }
 
+func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostToControllerToolsWithDischargedMacaroon(c *tc.C) {
+	s.MacaroonSuite.AddControllerUser(c, s.userName, permission.SuperuserAccess)
+	checkCount := 0
+	s.DischargerLogin = func() string {
+		checkCount++
+		return s.userName.Name()
+	}
+
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
+		Do:     s.doer(), //nolint:bodyclose // Closed below.
+		Method: "POST",
+		URL:    s.URL("/tools", nil).String(),
+	})
+	s.assertJSONErrorResponse(c, resp, http.StatusBadRequest, "expected binaryVersion argument")
+	defer resp.Body.Close()
+	c.Assert(checkCount, tc.Equals, 1)
+}
+
 func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *tc.C) {
 	// Create a new local user that we can log in as
 	// using macaroon authentication.
