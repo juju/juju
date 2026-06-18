@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"go.uber.org/goleak"
 
@@ -33,6 +34,8 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		DataDir:               "/var/lib/juju",
 		LoopbackPreferred:     false,
 		LogDir:                "/var/log/juju",
+		LoggingConfig:         "<root>=INFO",
+		LoggingOverride:       "juju.worker=DEBUG",
 		QueryTracingEnabled:   true,
 		QueryTracingThreshold: time.Second,
 		DqliteBusyTimeout:     2 * time.Second,
@@ -41,6 +44,48 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		ControllerCert:        "controller-cert-pem",
 		ControllerPrivateKey:  "controller-private-key-pem",
 	}
+}
+
+// TestChangeControllerRuntimeConfig updates the runtime config in place and
+// persists the result.
+func (s *configSuite) TestChangeControllerRuntimeConfig(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = controllerruntimeconfig.ChangeControllerRuntimeConfig(path, func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
+		cfg.LoggingConfig = "juju.worker=DEBUG"
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LoggingConfig, tc.Equals, "juju.worker=DEBUG")
+}
+
+// TestChangeControllerRuntimeConfigMutatorError ensures mutator errors are
+// returned without writing a partial update.
+func (s *configSuite) TestChangeControllerRuntimeConfigMutatorError(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = controllerruntimeconfig.ChangeControllerRuntimeConfig(path, func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
+		cfg.LoggingConfig = "juju.worker=DEBUG"
+		return errors.New("boom")
+	})
+	c.Assert(err, tc.ErrorMatches, "boom")
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LoggingConfig, tc.Equals, cfg.LoggingConfig)
 }
 
 // TestValidate_ValidConfig ensures a correctly populated config passes

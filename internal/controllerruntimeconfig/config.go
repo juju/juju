@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -55,6 +56,14 @@ type ControllerRuntimeConfig struct {
 
 	// LogDir is the controller process log directory.
 	LogDir string `yaml:"log-dir"`
+
+	// LoggingConfig is the persisted controller logging override used by the
+	// controller logger worker.
+	LoggingConfig string `yaml:"logging-config,omitempty"`
+
+	// LoggingOverride is the persisted controller-local logging override used
+	// at startup instead of the agent config environment value.
+	LoggingOverride string `yaml:"logging-override,omitempty"`
 
 	// DqlitePort is the Dqlite application bind/listen port. A value of
 	// zero means the controller uses the compiled-in default port.
@@ -192,6 +201,30 @@ func WriteControllerRuntimeConfig(path string, cfg ControllerRuntimeConfig) erro
 	if err := utils.AtomicWriteFile(path, data, 0o600); err != nil {
 		return errors.Annotatef(err,
 			"writing controller runtime config %q", path)
+	}
+	return nil
+}
+
+var changeConfigMu sync.Mutex
+
+// ControllerRuntimeConfigMutator mutates a controller runtime config in place.
+type ControllerRuntimeConfigMutator func(*ControllerRuntimeConfig) error
+
+// ChangeControllerRuntimeConfig reads, mutates, validates, and atomically
+// writes the controller runtime config at path.
+func ChangeControllerRuntimeConfig(path string, mutate ControllerRuntimeConfigMutator) error {
+	changeConfigMu.Lock()
+	defer changeConfigMu.Unlock()
+
+	cfg, err := ReadControllerRuntimeConfig(path)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := mutate(&cfg); err != nil {
+		return errors.Trace(err)
+	}
+	if err := WriteControllerRuntimeConfig(path, cfg); err != nil {
+		return errors.Annotate(err, "cannot write controller runtime configuration")
 	}
 	return nil
 }
