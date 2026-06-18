@@ -11,6 +11,7 @@ import (
 	"net/http/httptrace"
 	"net/http/httputil"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/juju/clock"
@@ -174,9 +175,10 @@ func newOptions() *options {
 type Client struct {
 	logger logger.Logger
 
-	mu sync.RWMutex
+	mu sync.Mutex
 
 	httpClient               *http.Client
+	transport                *swappableRoundTripper
 	disableKeepAlives        bool
 	skipHostnameVerification bool
 	tlsHandshakeTimeout      time.Duration
@@ -198,9 +200,12 @@ func NewClient(options ...Option) *Client {
 	if opts.cookieJar != nil {
 		client.Jar = opts.cookieJar
 	}
+	transport := newSwappableRoundTripper(http.DefaultTransport)
+	client.Transport = transport
 	c := &Client{
 		logger:                   opts.logger,
 		httpClient:               client,
+		transport:                transport,
 		disableKeepAlives:        opts.disableKeepAlives,
 		skipHostnameVerification: opts.skipHostnameVerification,
 		tlsHandshakeTimeout:      opts.tlsHandshakeTimeout,
@@ -282,8 +287,6 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		err = errors.Annotatef(err, "setup of http client tracing failed")
 		c.logger.Tracef(req.Context(), "%s", err)
 	}
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	return c.httpClient.Do(req)
 }
 
@@ -307,35 +310,36 @@ func (c *Client) ReplaceCACert(caCert string, insecureSkipVerify bool) error {
 }
 
 func (c *Client) applyTransport() {
-	transport := NewHTTPTLSTransport(TransportConfig{
+	baseTransport := NewHTTPTLSTransport(TransportConfig{
 		DisableKeepAlives:   c.disableKeepAlives,
 		TLSHandshakeTimeout: c.tlsHandshakeTimeout,
 		Middlewares:         c.middlewares,
 	})
 	switch {
 	case len(c.caCertificates) > 0:
-		transport = transportWithCerts(transport, c.caCertificates, c.skipHostnameVerification)
+		baseTransport = transportWithCerts(baseTransport, c.caCertificates, c.skipHostnameVerification)
 	case c.skipHostnameVerification:
-		transport = transportWithSkipVerify(transport, c.skipHostnameVerification)
+		baseTransport = transportWithSkipVerify(baseTransport, c.skipHostnameVerification)
 	}
+	var transport http.RoundTripper = baseTransport
 
 	if c.requestRecorder != nil {
-		c.httpClient.Transport = roundTripRecorder{
+		transport = roundTripRecorder{
 			requestRecorder:     c.requestRecorder,
 			wrappedRoundTripper: transport,
 		}
-	} else {
-		c.httpClient.Transport = transport
 	}
 
 	if c.retryPolicy != nil {
-		c.httpClient.Transport = makeRetryMiddleware(
-			c.httpClient.Transport,
+		transport = makeRetryMiddleware(
+			transport,
 			*c.retryPolicy,
 			clock.WallClock,
 			c.logger,
 		)
 	}
+
+	c.transport.Store(transport)
 }
 
 // traceRequest enabled debugging on the http request if log level for ths
@@ -413,4 +417,30 @@ func (c *Client) traceRequest(req *http.Request, url string) error {
 	}
 	*req = *req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
 	return nil
+}
+
+type swappableRoundTripper struct {
+	transport atomic.Pointer[roundTripperHolder]
+}
+
+type roundTripperHolder struct {
+	transport http.RoundTripper
+}
+
+func newSwappableRoundTripper(initial http.RoundTripper) *swappableRoundTripper {
+	rt := &swappableRoundTripper{}
+	rt.Store(initial)
+	return rt
+}
+
+func (s *swappableRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return s.Load().RoundTrip(req)
+}
+
+func (s *swappableRoundTripper) Load() http.RoundTripper {
+	return s.transport.Load().transport
+}
+
+func (s *swappableRoundTripper) Store(transport http.RoundTripper) {
+	s.transport.Store(&roundTripperHolder{transport: transport})
 }

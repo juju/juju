@@ -33,6 +33,10 @@ func (s *clientSuite) TestNewClient(c *tc.C) {
 	c.Assert(client, tc.NotNil)
 }
 
+func currentTransport(client *Client) *http.Transport {
+	return client.Client().Transport.(*swappableRoundTripper).Load().(*http.Transport)
+}
+
 type httpSuite struct {
 	testhelpers.IsolationSuite
 	server *httptest.Server
@@ -284,9 +288,11 @@ func (s *httpTLSServerSuite) TestReplaceCACertInvalid(c *tc.C) {
 
 func (s *httpTLSServerSuite) TestReplaceCACertWithInsecureSkipVerify(c *tc.C) {
 	client := NewClient()
+	transport := client.Client().Transport
 
 	err := client.ReplaceCACert("", true)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(client.Client().Transport, tc.Equals, transport)
 
 	resp, err := client.Get(c.Context(), s.server.URL)
 	c.Assert(err, tc.ErrorIsNil)
@@ -302,14 +308,14 @@ func (s *httpTLSServerSuite) TestReplaceCACertWithInsecureSkipVerify(c *tc.C) {
 
 func (s *clientSuite) TestDisableKeepAlives(c *tc.C) {
 	client := NewClient()
-	transport := client.Client().Transport.(*http.Transport)
+	transport := currentTransport(client)
 	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	client = NewClient(WithDisableKeepAlives(false))
-	transport = client.Client().Transport.(*http.Transport)
+	transport = currentTransport(client)
 	c.Assert(transport.DisableKeepAlives, tc.Equals, false)
 
 	client = NewClient(WithDisableKeepAlives(true))
-	transport = client.Client().Transport.(*http.Transport)
+	transport = currentTransport(client)
 	c.Assert(transport.DisableKeepAlives, tc.Equals, true)
 }
