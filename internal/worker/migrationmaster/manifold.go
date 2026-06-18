@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/internal/migration"
@@ -22,10 +21,11 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
 type ManifoldConfig struct {
-	AgentName          string
 	APICallerName      string
 	DomainServicesName string
 	FortressName       string
+	// ModelUUID is the UUID of the model being migrated.
+	ModelUUID string
 
 	Clock     clock.Clock
 	NewFacade func(base.APICaller) (Facade, error)
@@ -34,9 +34,6 @@ type ManifoldConfig struct {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
@@ -45,6 +42,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.FortressName == "" {
 		return errors.NotValidf("empty FortressName")
+	}
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
 	}
 	if config.NewFacade == nil {
 		return errors.NotValidf("nil NewFacade")
@@ -64,10 +64,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var agent agent.Agent
-	if err := getter.Get(config.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
 	var apiConn api.Connection
 	if err := getter.Get(config.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
@@ -85,7 +81,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 	w, err := config.NewWorker(Config{
-		ModelUUID:               agent.CurrentConfig().Model().Id(),
+		ModelUUID:               config.ModelUUID,
 		Facade:                  facade,
 		CharmService:            domainServices.Application(),
 		ModelMigrationService:   domainServices.ModelMigration(),
@@ -125,7 +121,6 @@ func errorFilter(err error) error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.APICallerName,
 			config.DomainServicesName,
 			config.FortressName,
