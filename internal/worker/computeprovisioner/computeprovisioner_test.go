@@ -19,7 +19,6 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/controller"
@@ -31,7 +30,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
@@ -186,27 +184,12 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *tc.C) computeprovision
 	s.expectMachinesWatcher()
 
 	machineTag := names.NewMachineTag("0")
-	defaultPaths := agent.DefaultPaths
-	defaultPaths.DataDir = c.MkDir()
-	agentConfig, err := agent.NewAgentConfig(
-		agent.AgentConfigParams{
-			Paths:             defaultPaths,
-			Tag:               machineTag,
-			UpgradedToVersion: jujuversion.Current,
-			Password:          "password",
-			Nonce:             "nonce",
-			APIAddresses:      []string{"0.0.0.0:12345"},
-			CACert:            coretesting.CACert,
-			Controller:        coretesting.ControllerTag,
-			Model:             coretesting.ModelTag,
-		})
-	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := computeprovisioner.NewEnvironProvisioner(
 		s.controllerAPI, s.machineService, s.machinesAPI,
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},
-		agentConfig,
+		machineTag,
 		loggertesting.WrapCheckLog(c),
 		s.broker)
 	c.Assert(err, tc.ErrorIsNil)
