@@ -15,6 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"gopkg.in/httprequest.v1"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -284,6 +285,22 @@ func (c *Client) CACert(ctx context.Context) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return string(result.Result), nil
+}
+
+// CreateMigrationMacaroon asks the target controller to mint a directly-
+// presentable 24h login macaroon for the authenticated admin user. The
+// macaroon can be stored in place of the cleartext password so the
+// migrationmaster worker can reconnect to the target without a discharge
+// ceremony.
+func (c *Client) CreateMigrationMacaroon(ctx context.Context) ([]macaroon.Slice, error) {
+	var result params.CreateMigrationMacaroonResult
+	if err := c.caller.FacadeCall(ctx, "CreateMigrationMacaroon", nil, &result); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Macaroon == nil {
+		return nil, errors.New("target returned no migration macaroon")
+	}
+	return []macaroon.Slice{{result.Macaroon}}, nil
 }
 
 // CheckMachines compares the machines in state with the ones reported
