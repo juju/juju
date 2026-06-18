@@ -75,6 +75,8 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		DataDir:               cs.pcfg.DataDir,
 		LoopbackPreferred:     true,
 		LogDir:                cs.pcfg.LogDir,
+		APIPort:               cs.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
+		AgentPassword:         cs.pcfg.APIInfo.Password,
 		LoggingConfig:         cs.pcfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
 		LoggingOverride:       cs.pcfg.AgentEnvironment[agent.LoggingOverride],
 		QueryTracingEnabled:   cs.pcfg.Controller.QueryTracingEnabled(),

@@ -34,6 +34,8 @@ func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 		DataDir:               "/var/lib/juju",
 		LoopbackPreferred:     false,
 		LogDir:                "/var/log/juju",
+		APIPort:               17070,
+		AgentPassword:         "agent-password",
 		LoggingConfig:         "<root>=INFO",
 		LoggingOverride:       "juju.worker=DEBUG",
 		QueryTracingEnabled:   true,
@@ -154,6 +156,20 @@ func (s *configSuite) TestValidate_EmptyLogDir(c *tc.C) {
 	cfg := validConfig()
 	cfg.LogDir = ""
 	c.Check(cfg.Validate(), tc.ErrorMatches, `empty log-dir not valid`)
+}
+
+// TestValidate_InvalidAPIPort ensures an out-of-range API port is rejected.
+func (s *configSuite) TestValidate_InvalidAPIPort(c *tc.C) {
+	cfg := validConfig()
+	cfg.APIPort = 99999
+	c.Check(cfg.Validate(), tc.ErrorMatches, `api port 99999 not valid`)
+}
+
+// TestValidate_EmptyAgentPassword ensures an empty agent password is rejected.
+func (s *configSuite) TestValidate_EmptyAgentPassword(c *tc.C) {
+	cfg := validConfig()
+	cfg.AgentPassword = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, `empty agent-password not valid`)
 }
 
 // TestValidate_InvalidDqlitePort ensures an out-of-range Dqlite port is
@@ -294,6 +310,8 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 		DataDir:               "/var/lib/juju",
 		LoopbackPreferred:     true,
 		LogDir:                "/var/log/juju",
+		APIPort:               17070,
+		AgentPassword:         "agent-password",
 		DqlitePort:            0, // default
 		QueryTracingEnabled:   true,
 		QueryTracingThreshold: 500 * time.Millisecond,
@@ -315,6 +333,8 @@ func (s *configSuite) TestWriteAndReadRoundTrip_AllNodeManagerFields(c *tc.C) {
 	c.Check(got.DataDir, tc.Equals, cfg.DataDir)
 	c.Check(got.LoopbackPreferred, tc.Equals, cfg.LoopbackPreferred)
 	c.Check(got.LogDir, tc.Equals, cfg.LogDir)
+	c.Check(got.APIPort, tc.Equals, cfg.APIPort)
+	c.Check(got.AgentPassword, tc.Equals, cfg.AgentPassword)
 	c.Check(got.CACert, tc.Equals, cfg.CACert)
 	c.Check(got.CAPrivateKey, tc.Equals, cfg.CAPrivateKey)
 	c.Check(got.ControllerCert, tc.Equals, cfg.ControllerCert)
@@ -388,6 +408,8 @@ controller-uuid: "deadbeef-0bad-400d-8000-4b1d0d06f00d"
 controller-model-uuid: "feedface-dead-beef-cafe-c0ffee000000"
 data-dir: /var/lib/juju
 log-dir: /var/log/juju
+api-port: 17070
+agent-password: agent-password
 controller-cert: cert-pem
 controller-private-key: key-pem
 `[1:]
