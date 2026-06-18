@@ -287,9 +287,9 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	return c.httpClient.Do(req)
 }
 
-// UpdateCACert updates the CA certificate used for TLS validation.
-// Passing an empty string clears any custom CA certificate.
-func (c *Client) UpdateCACert(caCert string) error {
+// ReplaceCACert replaces the CA certificate and TLS verification mode used for
+// TLS validation. Passing an empty string clears any custom CA certificate.
+func (c *Client) ReplaceCACert(caCert string, insecureSkipVerify bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -301,6 +301,7 @@ func (c *Client) UpdateCACert(caCert string) error {
 		}
 		c.caCertificates = []string{caCert}
 	}
+	c.skipHostnameVerification = insecureSkipVerify
 	c.applyTransport()
 	return nil
 }

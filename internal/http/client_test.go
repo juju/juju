@@ -249,7 +249,7 @@ func (s *httpTLSServerSuite) testGetHTTPClientWithCerts(c *tc.C, skip bool) {
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 }
 
-func (s *httpTLSServerSuite) TestUpdateCACert(c *tc.C) {
+func (s *httpTLSServerSuite) TestReplaceCACert(c *tc.C) {
 	client := NewClient()
 	_, err := client.Get(c.Context(), s.server.URL) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
@@ -261,7 +261,7 @@ func (s *httpTLSServerSuite) TestUpdateCACert(c *tc.C) {
 	})
 	c.Assert(err, tc.IsNil)
 
-	err = client.UpdateCACert(caPEM.String())
+	err = client.ReplaceCACert(caPEM.String(), false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	resp, err := client.Get(c.Context(), s.server.URL)
@@ -269,17 +269,35 @@ func (s *httpTLSServerSuite) TestUpdateCACert(c *tc.C) {
 	c.Assert(resp.Body.Close(), tc.IsNil)
 	c.Assert(resp.StatusCode, tc.Equals, http.StatusOK)
 
-	err = client.UpdateCACert("")
+	err = client.ReplaceCACert("", false)
 	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = client.Get(c.Context(), s.server.URL) //nolint:bodyclose
 	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
-func (s *httpTLSServerSuite) TestUpdateCACertInvalid(c *tc.C) {
+func (s *httpTLSServerSuite) TestReplaceCACertInvalid(c *tc.C) {
 	client := NewClient()
-	err := client.UpdateCACert("not a cert")
+	err := client.ReplaceCACert("not a cert", false)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
+}
+
+func (s *httpTLSServerSuite) TestReplaceCACertWithInsecureSkipVerify(c *tc.C) {
+	client := NewClient()
+
+	err := client.ReplaceCACert("", true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	resp, err := client.Get(c.Context(), s.server.URL)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(resp.Body.Close(), tc.ErrorIsNil)
+	c.Check(resp.StatusCode, tc.Equals, http.StatusOK)
+
+	err = client.ReplaceCACert("", false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = client.Get(c.Context(), s.server.URL) //nolint:bodyclose
+	c.Assert(err, tc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
 func (s *clientSuite) TestDisableKeepAlives(c *tc.C) {

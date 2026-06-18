@@ -92,6 +92,7 @@ func (s *manifoldSuite) TestNewBackendUpdatesLokiCACert(c *tc.C) {
 	defer workertest.CleanKill(c, backend)
 
 	c.Check(client.caCert.Load(), tc.Equals, "ca-cert")
+	c.Check(client.insecureSkipVerify.Load(), tc.IsFalse)
 }
 
 func (s *manifoldSuite) TestNewBackendReturnsCACertUpdateError(c *tc.C) {
@@ -172,18 +173,20 @@ func (stubHTTPClient) Do(*http.Request) (*http.Response, error) {
 }
 
 type recordingCACertUpdaterClient struct {
-	caCert atomic.Value
-	err    error
+	caCert             atomic.Value
+	insecureSkipVerify atomic.Bool
+	err                error
 }
 
 func (c *recordingCACertUpdaterClient) Do(*http.Request) (*http.Response, error) {
 	return nil, nil
 }
 
-func (c *recordingCACertUpdaterClient) UpdateCACert(caCert string) error {
+func (c *recordingCACertUpdaterClient) ReplaceCACert(caCert string, insecureSkipVerify bool) error {
 	if c.err != nil {
 		return c.err
 	}
 	c.caCert.Store(caCert)
+	c.insecureSkipVerify.Store(insecureSkipVerify)
 	return nil
 }

@@ -28,6 +28,6 @@ func (s *trackedWorkerSuite) TestImplementsCACertUpdater(c *tc.C) {
 	updater, ok := w.(corehttp.CACertUpdater)
 	c.Assert(ok, tc.IsTrue)
 
-	err = updater.UpdateCACert("not a cert")
+	err = updater.ReplaceCACert("not a cert", false)
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
