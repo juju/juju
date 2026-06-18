@@ -4,37 +4,26 @@
 package caasmodeloperator_test
 
 import (
+	"context"
 	"time"
 
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type mockConfigProvider struct{}
 
+type mockTracingService struct{}
+
 func (m *mockConfigProvider) CACert() (string, error) {
 	return coretesting.CACert, nil
 }
 
-func (m *mockConfigProvider) OpenTelemetryEnabled() bool {
-	return false
-}
-
-func (m *mockConfigProvider) OpenTelemetryEndpoint() string {
-	return ""
-}
-
-func (m *mockConfigProvider) OpenTelemetryInsecure() bool {
-	return false
-}
-
-func (m *mockConfigProvider) OpenTelemetryStackTraces() bool {
-	return false
-}
-
-func (m *mockConfigProvider) OpenTelemetrySampleRatio() float64 {
-	return 0.1000
-}
-
-func (m *mockConfigProvider) OpenTelemetryTailSamplingThreshold() time.Duration {
-	return time.Millisecond
+func (m *mockTracingService) GetWorkloadTracingConfig(context.Context) (tracingservice.WorkloadTracingConfig, error) {
+	sampleRatio := 0.1000
+	tailSamplingThreshold := time.Millisecond.String()
+	return tracingservice.WorkloadTracingConfig{
+		OpenTelemetrySampleRatio:           &sampleRatio,
+		OpenTelemetryTailSamplingThreshold: &tailSamplingThreshold,
+	}, nil
 }

@@ -180,30 +180,6 @@ func (p controllerStartupValueProvider) CACert() (string, error) {
 	return cfg.CACert, nil
 }
 
-func (p controllerStartupValueProvider) OpenTelemetryEnabled() bool {
-	return p.agent.CurrentConfig().OpenTelemetryEnabled()
-}
-
-func (p controllerStartupValueProvider) OpenTelemetryEndpoint() string {
-	return p.agent.CurrentConfig().OpenTelemetryEndpoint()
-}
-
-func (p controllerStartupValueProvider) OpenTelemetryInsecure() bool {
-	return p.agent.CurrentConfig().OpenTelemetryInsecure()
-}
-
-func (p controllerStartupValueProvider) OpenTelemetryStackTraces() bool {
-	return p.agent.CurrentConfig().OpenTelemetryStackTraces()
-}
-
-func (p controllerStartupValueProvider) OpenTelemetrySampleRatio() float64 {
-	return p.agent.CurrentConfig().OpenTelemetrySampleRatio()
-}
-
-func (p controllerStartupValueProvider) OpenTelemetryTailSamplingThreshold() time.Duration {
-	return p.agent.CurrentConfig().OpenTelemetryTailSamplingThreshold()
-}
-
 type controllerAgentFactoryFnType func(names.Tag) (*ControllerAgent, error)
 
 // NewControllerAgentCommand creates a Command that handles parsing
