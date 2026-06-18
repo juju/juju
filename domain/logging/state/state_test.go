@@ -36,6 +36,93 @@ func (s *stateSuite) TestSetLokiConfig(c *tc.C) {
 	c.Check(config.CACertificate, tc.Equals, "ca-cert")
 }
 
+func (s *stateSuite) TestSetLokiConfigInsecureSkipVerifyTrue(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	boolVal := true
+	err := st.SetLokiConfig(c.Context(), "some-uuid-1", logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &boolVal,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config, err := st.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "ca-cert")
+	c.Assert(config.InsecureSkipVerify, tc.NotNil)
+	c.Check(*config.InsecureSkipVerify, tc.Equals, true)
+}
+
+func (s *stateSuite) TestSetLokiConfigInsecureSkipVerifyFalse(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	boolVal := false
+	err := st.SetLokiConfig(c.Context(), "some-uuid-2", logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &boolVal,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config, err := st.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "ca-cert")
+	c.Assert(config.InsecureSkipVerify, tc.NotNil)
+	c.Check(*config.InsecureSkipVerify, tc.Equals, false)
+}
+
+func (s *stateSuite) TestSetLokiConfigInsecureSkipVerifyNil(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.SetLokiConfig(c.Context(), "some-uuid-3", logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: nil,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config, err := st.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "ca-cert")
+	c.Assert(config.InsecureSkipVerify, tc.IsNil)
+}
+
+func (s *stateSuite) TestSetLokiConfigReplacesInsecureSkipVerify(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	boolTrue := true
+	err := st.SetLokiConfig(c.Context(), "some-uuid-1", logging.LokiConfig{
+		Endpoint:           "http://old-loki:3100/loki/api/v1/push",
+		CACertificate:      "old-ca",
+		InsecureSkipVerify: &boolTrue,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	boolFalse := false
+	err = st.SetLokiConfig(c.Context(), "some-uuid-2", logging.LokiConfig{
+		Endpoint:           "http://new-loki:3100/loki/api/v1/push",
+		CACertificate:      "new-ca",
+		InsecureSkipVerify: &boolFalse,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config, err := st.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Endpoint, tc.Equals, "http://new-loki:3100/loki/api/v1/push")
+	c.Check(config.CACertificate, tc.Equals, "new-ca")
+	c.Check(*config.InsecureSkipVerify, tc.Equals, false)
+
+	err = st.DeleteLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIs, loggingerrors.LokiConfigNotFound)
+}
+
 func (s *stateSuite) TestSetLokiConfigReplacesExisting(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

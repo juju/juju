@@ -83,8 +83,9 @@ func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
 	}
 }
 
-// SetLokiConfig sets the Loki push API endpoint and CA certificate. The
-// endpoint must be non-empty; an error is returned otherwise.
+// SetLokiConfig sets the Loki push API endpoint, CA certificate, and
+// insecure skip verify setting. The endpoint must be non-empty; an error is
+// returned otherwise.
 func (s *Service) SetLokiConfig(ctx context.Context, config logging.LokiConfig) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

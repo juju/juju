@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/canonical/sqlair"
 
@@ -27,8 +28,8 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// SetLokiConfig sets the Loki push API endpoint and CA certificate. Any
-// previously stored config is replaced.
+// SetLokiConfig sets the Loki push API endpoint, CA certificate, and
+// insecure skip verify setting. Any previously stored config is replaced.
 func (st *State) SetLokiConfig(ctx context.Context, id string, config logging.LokiConfig) error {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -41,16 +42,18 @@ func (st *State) SetLokiConfig(ctx context.Context, id string, config logging.Lo
 	}
 
 	insertStmt, err := st.Prepare(`
-	INSERT INTO logging_loki_config (uuid, endpoint, ca_cert)
-	VALUES ($lokiConfig.uuid, $lokiConfig.endpoint, $lokiConfig.ca_cert)`, lokiConfig{})
+INSERT INTO logging_loki_config (uuid, endpoint, ca_cert, insecure_skip_verify)
+VALUES ($lokiConfig.uuid, $lokiConfig.endpoint, $lokiConfig.ca_cert, $lokiConfig.insecure_skip_verify)`,
+		lokiConfig{})
 	if err != nil {
 		return errors.Errorf("preparing insert statement: %w", err)
 	}
 
 	dbConfig := lokiConfig{
-		UUID:          id,
-		Endpoint:      config.Endpoint,
-		CACertificate: config.CACertificate,
+		UUID:               id,
+		Endpoint:           config.Endpoint,
+		CACertificate:      &config.CACertificate,
+		InsecureSkipVerify: nsBoolToNil(config.InsecureSkipVerify),
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -67,9 +70,9 @@ func (st *State) SetLokiConfig(ctx context.Context, id string, config logging.Lo
 	return nil
 }
 
-// GetLokiConfig returns the configured Loki push API endpoint and CA
-// certificate. If no endpoint is configured, an error satisfying
-// [loggingerrors.LokiConfigNotFound] is returned.
+// GetLokiConfig returns the configured Loki push API endpoint, CA certificate,
+// and insecure skip verify setting. If no endpoint is configured, an error
+// satisfying [loggingerrors.LokiConfigNotFound] is returned.
 func (st *State) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -77,7 +80,7 @@ func (st *State) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) 
 	}
 
 	stmt, err := st.Prepare(`
-SELECT &lokiConfig.endpoint, &lokiConfig.ca_cert FROM logging_loki_config
+SELECT &lokiConfig.* FROM logging_loki_config
 `, lokiConfig{})
 	if err != nil {
 		return logging.LokiConfig{}, errors.Errorf("preparing select statement: %w", err)
@@ -94,9 +97,15 @@ SELECT &lokiConfig.endpoint, &lokiConfig.ca_cert FROM logging_loki_config
 	}); err != nil {
 		return logging.LokiConfig{}, errors.Errorf("getting loki config: %w", err)
 	}
+
+	var caCert string
+	if config.CACertificate != nil {
+		caCert = *config.CACertificate
+	}
 	return logging.LokiConfig{
-		Endpoint:      config.Endpoint,
-		CACertificate: config.CACertificate,
+		Endpoint:           config.Endpoint,
+		CACertificate:      caCert,
+		InsecureSkipVerify: nsBoolToPtr(config.InsecureSkipVerify),
 	}, nil
 }
 
@@ -125,9 +134,29 @@ func (st *State) DeleteLokiConfig(ctx context.Context) error {
 }
 
 type lokiConfig struct {
-	UUID          string `db:"uuid"`
-	Endpoint      string `db:"endpoint"`
-	CACertificate string `db:"ca_cert"`
+	UUID               string       `db:"uuid"`
+	Endpoint           string       `db:"endpoint"`
+	CACertificate      *string      `db:"ca_cert"`
+	InsecureSkipVerify sql.NullBool `db:"insecure_skip_verify"`
+}
+
+// nsBoolToNil converts a pointer to bool into a nullable sql.NullBool suitable
+// for database storage. A nil input maps to invalid NullBool.
+func nsBoolToNil(b *bool) sql.NullBool {
+	if b == nil {
+		return sql.NullBool{Valid: false}
+	}
+	return sql.NullBool{Valid: true, Bool: *b}
+}
+
+// nsBoolToPtr converts a nullable sql.NullBool into a pointer to bool.
+// An invalid NullBool maps to nil, while True/False map to boolean pointers.
+func nsBoolToPtr(nb sql.NullBool) *bool {
+	if !nb.Valid {
+		return nil
+	}
+	b := nb.Bool
+	return &b
 }
 
 // NamespaceForWatchLokiConfig returns the namespace identifier used for

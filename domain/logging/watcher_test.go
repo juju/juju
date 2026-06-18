@@ -108,6 +108,69 @@ func (s *watcherSuite) TestWatchLokiConfigCACertificateUpdate(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+func (s *watcherSuite) TestWatchLokiConfigInsecureSkipVerifyUpdate(c *tc.C) {
+	svc := s.setupService(c)
+
+	boolTrue := true
+	err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &boolTrue,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := svc.WatchLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Updating only the InsecureSkipVerify should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		boolFalse := false
+		err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+			Endpoint:           "http://loki:3100/loki/api/v1/push",
+			CACertificate:      "ca-cert",
+			InsecureSkipVerify: &boolFalse,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
+func (s *watcherSuite) TestWatchLokiConfigInsecureSkipVerifyNilToTrue(c *tc.C) {
+	svc := s.setupService(c)
+
+	err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: nil,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	watcher, err := svc.WatchLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, watcher))
+
+	// Changing from nil to true should trigger a change.
+	harness.AddTest(c, func(c *tc.C) {
+		boolTrue := true
+		err := svc.SetLokiConfig(c.Context(), logging.LokiConfig{
+			Endpoint:           "http://loki:3100/loki/api/v1/push",
+			CACertificate:      "ca-cert",
+			InsecureSkipVerify: &boolTrue,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
 func (s *watcherSuite) TestWatchLokiConfigDelete(c *tc.C) {
 	svc := s.setupService(c)
 

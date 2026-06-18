@@ -54,19 +54,66 @@ func (s *serviceSuite) TestSetLokiConfigInvalidURLReturnsError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
-func (s *serviceSuite) TestSetLokiConfigStateError(c *tc.C) {
+func (s *serviceSuite) TestSetLokiConfigInsecureSkipVerifyTrue(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	boolVal := true
 	config := logging.LokiConfig{
-		Endpoint:      "http://loki:3100/loki/api/v1/push",
-		CACertificate: "ca-cert",
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &boolVal,
 	}
-	s.st.EXPECT().SetLokiConfig(gomock.Any(), gomock.Any(), config).Return(
-		errors.Errorf("boom"),
-	)
+	s.st.EXPECT().SetLokiConfig(gomock.Any(), gomock.Any(), config).Return(nil)
 
 	err := NewWatchableService(s.st, s.watcherFactory).SetLokiConfig(c.Context(), config)
-	c.Assert(err, tc.ErrorMatches, "boom")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetLokiConfigInsecureSkipVerifyFalse(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	boolVal := false
+	config := logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &boolVal,
+	}
+	s.st.EXPECT().SetLokiConfig(gomock.Any(), gomock.Any(), config).Return(nil)
+
+	err := NewWatchableService(s.st, s.watcherFactory).SetLokiConfig(c.Context(), config)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestGetLokiConfigInsecureSkipVerifyTrue(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	boolVal := true
+	s.st.EXPECT().GetLokiConfig(gomock.Any()).Return(logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &boolVal,
+	}, nil)
+
+	config, err := NewWatchableService(s.st, s.watcherFactory).GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.InsecureSkipVerify, tc.NotNil)
+	c.Check(*config.InsecureSkipVerify, tc.Equals, true)
+}
+
+func (s *serviceSuite) TestGetLokiConfigInsecureSkipVerifyNil(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetLokiConfig(gomock.Any()).Return(logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: nil,
+	}, nil)
+
+	config, err := NewWatchableService(s.st, s.watcherFactory).GetLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.Endpoint, tc.Equals, "http://loki:3100/loki/api/v1/push")
+	c.Check(config.InsecureSkipVerify, tc.IsNil)
 }
 
 func (s *serviceSuite) TestGetLokiConfig(c *tc.C) {
