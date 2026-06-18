@@ -278,10 +278,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     migrationflag.NewWorker,
 		})),
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
-			AgentName:          agentName,
 			APICallerName:      apiCallerName,
 			DomainServicesName: domainServicesName,
 			FortressName:       migrationFortressName,
+			ModelUUID:          config.ModelUUID,
 			Clock:              config.Clock,
 			NewFacade:          migrationmaster.NewFacade,
 			NewWorker:          config.NewMigrationMaster,
