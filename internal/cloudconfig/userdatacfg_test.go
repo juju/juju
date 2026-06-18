@@ -649,10 +649,12 @@ func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmDir(c *tc.C) {
 
 	cfg := makeBootstrapConfig(jammy, 0).setControllerCharm(controllerCharmPath)
 	base64Content := base64.StdEncoding.EncodeToString(content)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`if [ ! -e %s ]; then
+chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+fi
 install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
 echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
-`, base64Content))
+`, "'/var/lib/juju/agents/machine-0/agent.conf'", base64Content))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
@@ -673,10 +675,12 @@ func (*cloudinitSuite) TestCloudInitWithLocalControllerCharmArchive(c *tc.C) {
 
 	cfg := makeBootstrapConfig(jammy, 0).setControllerCharm(controllerCharmPath)
 	base64Content := base64.StdEncoding.EncodeToString(content)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`if [ ! -e %s ]; then
+chmod 0600 '/var/lib/juju/agents/machine-0/agent.conf'
+fi
 install -D -m 644 /dev/null '/var/lib/juju/charms/controller.charm'
 echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
-`, base64Content))
+`, "'/var/lib/juju/agents/machine-0/agent.conf'", base64Content))
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 

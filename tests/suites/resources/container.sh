@@ -55,6 +55,42 @@ run_container_attach_resource() {
 	destroy_model "test-${name}"
 }
 
+add_wrench_resource_upload_delay() {
+	juju ssh -m controller controller/0 \
+		'mkdir -p /var/lib/juju/wrench && echo "upload-delay" > /var/lib/juju/wrench/resources'
+	juju ssh -m controller controller/0 \
+		'test -f /var/lib/juju/wrench/resources && grep -x "upload-delay" /var/lib/juju/wrench/resources >/dev/null'
+}
+
+cleanup_wrench_resource_upload_delay() {
+	juju ssh -m controller controller/0 \
+		'mkdir -p /var/lib/juju/wrench && : > /var/lib/juju/wrench/resources' >/dev/null 2>&1 || true
+}
+
+run_container_deploy_resource_slow_upload() {
+	echo
+	name="container-resource-k8s-metadata"
+
+	file="${TEST_DIR}/test-${name}.log"
+
+	ensure "test-${name}" "${file}"
+	add_clean_func "cleanup_wrench_resource_upload_delay"
+	add_wrench_resource_upload_delay
+
+	metadata_file="${TEST_DIR}/snappass-metadata.json"
+	cat >"${metadata_file}" <<EOF
+{
+  "ImageName": "samueldg/snappass:latest"
+}
+EOF
+
+	juju deploy snappass-test --resource snappass-image="${metadata_file}"
+	wait_for "active" '.applications["snappass-test"]["application-status"].current'
+	wait_for "active" '.applications["snappass-test"].units["snappass-test/0"]["workload-status"].current'
+
+	destroy_model "test-${name}"
+}
+
 test_container_resources() {
 	if [ "$(skip 'test_container_resources')" ]; then
 		echo "==> TEST SKIPPED: Container resources"
@@ -67,5 +103,6 @@ test_container_resources() {
 		cd .. || exit
 
 		run "run_container_attach_resource"
+		run "run_container_deploy_resource_slow_upload"
 	)
 }

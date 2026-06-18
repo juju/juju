@@ -98,6 +98,28 @@ func (s *comparisonSuite) TestSameDeviceByHardwareId(c *tc.C) {
 	c.Assert(res, tc.IsTrue)
 }
 
+func (s *comparisonSuite) TestSameDeviceByHardwareIDAndSerialSuffix(c *tc.C) {
+	left := blockdevice.BlockDevice{
+		HardwareId: "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1",
+	}
+	right := blockdevice.BlockDevice{
+		SerialId: "lxd_disk1",
+	}
+	res := SameDevice(left, right)
+	c.Assert(res, tc.IsTrue)
+}
+
+func (s *comparisonSuite) TestSameDeviceByHardwareIDAndDeviceLink(c *tc.C) {
+	left := blockdevice.BlockDevice{
+		HardwareId: "scsi-SQEMU_QEMU_HARDDISK_lxd_disk1",
+	}
+	right := blockdevice.BlockDevice{
+		DeviceLinks: []string{"scsi-SQEMU_QEMU_HARDDISK_lxd_disk1"},
+	}
+	res := SameDevice(left, right)
+	c.Assert(res, tc.IsTrue)
+}
+
 func (s *comparisonSuite) TestSameDeviceBySerialId(c *tc.C) {
 	left := blockdevice.BlockDevice{
 		SerialId: "abc",

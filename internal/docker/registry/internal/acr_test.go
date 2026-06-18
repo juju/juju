@@ -55,9 +55,9 @@ func (s *azureContainerRegistrySuite) getRegistry(c *tc.C) (*internal.AzureConta
 			// registry.Ping() 1st try failed - bearer token was missing.
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, tc.DeepEquals, http.Header{})
-					c.Assert(req.Method, tc.Equals, `GET`)
-					c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2`)
+					c.Check(req.Header, tc.DeepEquals, http.Header{})
+					c.Check(req.Method, tc.Equals, `GET`)
+					c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusUnauthorized,
@@ -73,9 +73,9 @@ func (s *azureContainerRegistrySuite) getRegistry(c *tc.C) (*internal.AzureConta
 			// Refresh OAuth Token
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-					c.Assert(req.Method, tc.Equals, `GET`)
-					c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
+					c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+					c.Check(req.Method, tc.Equals, `GET`)
+					c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusOK,
@@ -86,9 +86,9 @@ func (s *azureContainerRegistrySuite) getRegistry(c *tc.C) (*internal.AzureConta
 			// registry.Ping()
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
-					c.Assert(req.Method, tc.Equals, `GET`)
-					c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2`)
+					c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
+					c.Check(req.Method, tc.Equals, `GET`)
+					c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/`)
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 				},
 			),
@@ -134,9 +134,9 @@ func (s *azureContainerRegistrySuite) TestTagsV2(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -151,9 +151,9 @@ func (s *azureContainerRegistrySuite) TestTagsV2(c *tc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -163,9 +163,9 @@ func (s *azureContainerRegistrySuite) TestTagsV2(c *tc.C) {
 		),
 
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -194,9 +194,9 @@ func (s *azureContainerRegistrySuite) TestTagsErrorResponseV2(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -211,9 +211,9 @@ func (s *azureContainerRegistrySuite) TestTagsErrorResponseV2(c *tc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -222,9 +222,9 @@ func (s *azureContainerRegistrySuite) TestTagsErrorResponseV2(c *tc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,
@@ -245,11 +245,11 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *tc.C, 
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{
+			c.Check(req.Header, tc.DeepEquals, http.Header{
 				"Accept": expectedManifestAcceptHeader,
 			})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/manifests/2.9.10`)
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/manifests/2.9.10`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -264,9 +264,9 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *tc.C, 
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -275,12 +275,12 @@ func (s *azureContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *tc.C, 
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{
+			c.Check(req.Header, tc.DeepEquals, http.Header{
 				"Authorization": []string{"Bearer jwt-token"},
 				"Accept":        expectedManifestAcceptHeader,
 			})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/manifests/2.9.10`)
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/v2/jujud-operator/manifests/2.9.10`)
 			resps := &http.Response{
 				Header: http.Header{
 					http.CanonicalHeaderKey("Content-Type"): []string{contentType},
@@ -350,9 +350,9 @@ func (s *azureContainerRegistrySuite) TestGetBlobs(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals,
+			c.Check(req.Header, tc.DeepEquals, http.Header{})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals,
 				`https://jujuqa.azurecr.io/v2/jujud-operator/blobs/sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1`,
 			)
 			return &http.Response{
@@ -369,9 +369,9 @@ func (s *azureContainerRegistrySuite) TestGetBlobs(c *tc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://jujuqa.azurecr.io/oauth2/token?scope=repository%3Ajujud-operator%3Ametadata_read&service=jujuqa.azurecr.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -380,9 +380,9 @@ func (s *azureContainerRegistrySuite) TestGetBlobs(c *tc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals,
+			c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals,
 				`https://jujuqa.azurecr.io/v2/jujud-operator/blobs/sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1`,
 			)
 			resps := &http.Response{

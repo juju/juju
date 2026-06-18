@@ -183,7 +183,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *tc.C) {
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),
@@ -313,7 +313,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *tc.C) {
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus(x, "con-troll-er", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus(x, "con-troll-er", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("con-troll-er", nil),
@@ -418,14 +418,14 @@ func (s *ApplicationWorkerSuite) TestWorkerRefreshTimerResetOnUnitsChurning(c *t
 		app.EXPECT().Watch(x).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().Return(watchertest.NewMockNotifyWatcher(appReplicasChan), nil),
 
-		ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(_ context.Context, _ string, _ application.UUID, _ caas.Application, _ life.Value, _ StatusService, _ clock.Clock, _ logger.Logger) error {
+		ops.EXPECT().RefreshOperatorStatus(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(_ context.Context, _ string, _ application.UUID, _ caas.Application, _ life.Value, _ StatusService, _ clock.Clock, _ logger.Logger) error {
 			select {
 			case firstRefresh <- struct{}{}:
 			default:
 			}
 			return errors.ConstError("units churning")
 		}),
-		ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(_ context.Context, _ string, _ application.UUID, _ caas.Application, _ life.Value, _ StatusService, _ clock.Clock, _ logger.Logger) error {
+		ops.EXPECT().RefreshOperatorStatus(x, "test", s.appUUID, app, x, x, x, x).DoAndReturn(func(_ context.Context, _ string, _ application.UUID, _ caas.Application, _ life.Value, _ StatusService, _ clock.Clock, _ logger.Logger) error {
 			close(done)
 			return nil
 		}),
@@ -475,7 +475,7 @@ func (s *ApplicationWorkerSuite) TestNotProvisionedRetry(c *tc.C) {
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshOperatorStatus(x, "test", s.appUUID, app, x, x, x, x).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		applicationService.EXPECT().GetApplicationName(x, s.appUUID).Return("test", nil),

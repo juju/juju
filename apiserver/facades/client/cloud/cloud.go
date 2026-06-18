@@ -732,9 +732,20 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 	}
 
 	aCloud := cloudFromParams(cloudArgs.Name, cloudArgs.Cloud)
-	// All clouds must have at least one 'default' region, lp#1819409.
+	// All clouds must have at least one 'default' region.
 	if len(aCloud.Regions) == 0 {
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
+	}
+	// Add the empty auth type if needed.
+	if len(aCloud.AuthTypes) == 0 {
+		aProvider, err := environs.Provider(aCloud.Type)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		schema := aProvider.CredentialSchemas()
+		if _, ok := schema[cloud.EmptyAuthType]; ok {
+			aCloud.AuthTypes = []cloud.AuthType{cloud.EmptyAuthType}
+		}
 	}
 
 	err = api.cloudService.CreateCloud(ctx, user.NameFromTag(api.apiUser), aCloud)
@@ -757,8 +768,69 @@ func (api *CloudAPI) UpdateCloud(ctx context.Context, cloudArgs params.UpdateClo
 	} else if err != nil {
 		return results, apiservererrors.ServerError(err)
 	}
+
+	type cloudUpdateMeta struct {
+		cloudType string
+		schemas   map[cloud.AuthType]cloud.CredentialSchema
+	}
+	metaCache := make(map[string]*cloudUpdateMeta)
+	cloudMetadata := func(cloudName string) (*cloudUpdateMeta, error) {
+		if meta, ok := metaCache[cloudName]; ok {
+			return meta, nil
+		}
+		existingCloud, err := api.cloudService.Cloud(ctx, cloudName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// Only fetch the cloud type for now.
+		// Defer the schemas until (if) actually needed below.
+		meta := &cloudUpdateMeta{cloudType: existingCloud.Type}
+		metaCache[cloudName] = meta
+		return meta, nil
+	}
+	credentialSchemasForUpdate := func(meta *cloudUpdateMeta) (map[cloud.AuthType]cloud.CredentialSchema, error) {
+		if meta.schemas != nil {
+			return meta.schemas, nil
+		}
+		aProvider, err := environs.Provider(meta.cloudType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		meta.schemas = aProvider.CredentialSchemas()
+		return meta.schemas, nil
+	}
 	for i, aCloud := range cloudArgs.Clouds {
-		err := api.cloudService.UpdateCloud(ctx, cloudFromParams(aCloud.Name, aCloud.Cloud))
+		aCloud := cloudFromParams(aCloud.Name, aCloud.Cloud)
+		meta, err := cloudMetadata(aCloud.Name)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if meta.cloudType != aCloud.Type {
+			results.Results[i].Error = apiservererrors.ServerError(errors.Errorf(
+				"cannot change cloud %q type from %q to %q",
+				aCloud.Name,
+				meta.cloudType,
+				aCloud.Type,
+			))
+			continue
+		}
+
+		// All clouds must have at least one 'default' region.
+		if len(aCloud.Regions) == 0 {
+			aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
+		}
+		// Add the empty auth type if needed.
+		if len(aCloud.AuthTypes) == 0 {
+			schema, err := credentialSchemasForUpdate(meta)
+			if err != nil {
+				results.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			} else if _, ok := schema[cloud.EmptyAuthType]; ok {
+				aCloud.AuthTypes = []cloud.AuthType{cloud.EmptyAuthType}
+			}
+		}
+		err = api.cloudService.UpdateCloud(ctx, aCloud)
 		if errors.Is(err, clouderrors.NotFound) {
 			err = errors.NotFoundf("cloud %q", aCloud.Name)
 		}

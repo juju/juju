@@ -516,6 +516,37 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *cloudSuite) TestAddCloudNoAuthTypesAddsEmptyAuthType(c *tc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	newCloud := jujucloud.Cloud{
+		Name:     "newcloudname",
+		Type:     "dummy",
+		Endpoint: "fake-endpoint",
+		AuthTypes: []jujucloud.AuthType{
+			jujucloud.EmptyAuthType,
+		},
+		Regions: []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
+	}
+
+	cloudService := s.cloudService.EXPECT()
+	cloudService.Cloud(gomock.Any(), "dummy").Return(&jujucloud.Cloud{Name: "dummy", Type: "dummy"}, nil)
+	cloudService.CreateCloud(gomock.Any(), user.NameFromTag(adminTag), newCloud).Return(nil)
+
+	force := true
+	err := s.api.AddCloud(c.Context(), params.AddCloudArgs{
+		Name: "newcloudname",
+		Cloud: params.Cloud{
+			Type:     "dummy",
+			Endpoint: "fake-endpoint",
+			Regions:  []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
+		},
+		Force: &force,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *cloudSuite) TestAddCloudNoAdminPerms(c *tc.C) {
 	frankTag := names.NewUserTag("frank")
 	defer s.setup(c, frankTag).Finish()
@@ -568,6 +599,7 @@ func (s *cloudSuite) TestUpdateCloud(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&jujucloud.Cloud{Name: "dummy", Type: "dummy"}, nil)
 	s.cloudService.EXPECT().UpdateCloud(gomock.Any(), dummyCloud).Return(nil)
 
 	updatedCloud := jujucloud.Cloud{
@@ -586,6 +618,95 @@ func (s *cloudSuite) TestUpdateCloud(c *tc.C) {
 
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Assert(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateCloudNoRegion(c *tc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	expectedCloud := jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+		Regions:   []jujucloud.Region{{Name: jujucloud.DefaultCloudRegion}},
+	}
+
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "dummy").Return(&jujucloud.Cloud{Name: "dummy", Type: "dummy"}, nil)
+	s.cloudService.EXPECT().UpdateCloud(gomock.Any(), expectedCloud).Return(nil)
+
+	results, err := s.api.UpdateCloud(c.Context(), params.UpdateCloudArgs{
+		Clouds: []params.AddCloudArgs{{
+			Name: "dummy",
+			Cloud: params.Cloud{
+				Type:      "dummy",
+				AuthTypes: []string{"empty", "userpass"},
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateCloudNoAuthTypesAddsEmptyAuthType(c *tc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	expectedCloud := jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType},
+		Endpoint:  "fake-endpoint",
+		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	}
+
+	cloudService := s.cloudService.EXPECT()
+	cloudService.Cloud(gomock.Any(), "dummy").Return(&jujucloud.Cloud{Name: "dummy", Type: "dummy"}, nil).Times(1)
+	cloudService.UpdateCloud(gomock.Any(), expectedCloud).Return(nil).Times(2)
+
+	results, err := s.api.UpdateCloud(c.Context(), params.UpdateCloudArgs{
+		Clouds: []params.AddCloudArgs{{
+			Name: "dummy",
+			Cloud: params.Cloud{
+				Type:     "dummy",
+				Endpoint: "fake-endpoint",
+				Regions:  []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+			},
+		}, {
+			Name: "dummy",
+			Cloud: params.Cloud{
+				Type:     "dummy",
+				Endpoint: "fake-endpoint",
+				Regions:  []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 2)
+	c.Assert(results.Results[0].Error, tc.IsNil)
+	c.Assert(results.Results[1].Error, tc.IsNil)
+}
+
+func (s *cloudSuite) TestUpdateCloudTypeImmutable(c *tc.C) {
+	adminTag := names.NewUserTag("admin")
+	defer s.setup(c, adminTag).Finish()
+
+	cloudService := s.cloudService.EXPECT()
+	cloudService.Cloud(gomock.Any(), "dummy").Return(&jujucloud.Cloud{Name: "dummy", Type: "dummy"}, nil)
+
+	results, err := s.api.UpdateCloud(c.Context(), params.UpdateCloudArgs{
+		Clouds: []params.AddCloudArgs{{
+			Name: "dummy",
+			Cloud: params.Cloud{
+				Type:      "another",
+				AuthTypes: []string{"empty", "userpass"},
+				Regions:   []params.CloudRegion{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
+			},
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(results.Results, tc.HasLen, 1)
+	c.Assert(results.Results[0].Error, tc.ErrorMatches, `cannot change cloud "dummy" type from "dummy" to "another"`)
 }
 
 func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *tc.C) {
@@ -620,6 +741,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *tc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
+	s.cloudService.EXPECT().Cloud(gomock.Any(), "nope").Return(&jujucloud.Cloud{Name: "nope", Type: "dummy"}, nil)
 	s.cloudService.EXPECT().UpdateCloud(gomock.Any(), dummyCloud).Return(fmt.Errorf("%w fake-cloud", clouderrors.NotFound))
 
 	updatedCloud := jujucloud.Cloud{

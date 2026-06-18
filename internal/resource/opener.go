@@ -9,10 +9,10 @@ import (
 	"io"
 
 	"github.com/im7mortal/kmutex"
-	jujuerrors "github.com/juju/errors"
 
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	coreresource "github.com/juju/juju/core/resource"
 	coreunit "github.com/juju/juju/core/unit"
@@ -193,10 +193,20 @@ func (ro ResourceOpener) getResource(
 	}
 
 	// The resource could not be opened, so may not be stored on the controller,
-	// get the resource info and download from charmhub.
+	// get the resource info.
 	res, err = ro.resourceService.GetResource(ctx, resourceUUID)
 	if err != nil {
 		return coreresource.Opened{}, errors.Capture(err)
+	}
+
+	// If the resource is being uploaded from the client, it may not be there
+	// yet so we need to force a retry.
+	if res.Origin == charmresource.OriginUpload {
+		if res.Revision == -1 {
+			resourceLogger.Debugf(ctx, "resource %q is being uploaded but is not yet available", res.Name)
+			return coreresource.Opened{}, errors.Errorf("resource %q data not uploaded yet", res.Name).Add(coreerrors.NotProvisioned)
+		}
+		return coreresource.Opened{}, errors.Errorf("resource %q not found", res.Name).Add(coreerrors.NotFound)
 	}
 
 	id := charmhub.CharmID{
@@ -213,7 +223,7 @@ func (ro ResourceOpener) getResource(
 		return coreresource.Opened{}, errors.Capture(err)
 	}
 	data, err := client.GetResource(ctx, req)
-	if errors.Is(err, jujuerrors.NotFound) {
+	if errors.Is(err, coreerrors.NotFound) {
 		// A NotFound error might not be detectable from some clients as the
 		// error types may be lost after call, for example http. For these
 		// cases, the next block will return un-annotated error.
@@ -330,5 +340,5 @@ type noopClient struct{}
 // implementation expects to never call the underlying resourceClient and instead
 // returns a not-found error straight away.
 func (noopClient) GetResource(_ context.Context, req charmhub.ResourceRequest) (charmhub.ResourceData, error) {
-	return charmhub.ResourceData{}, jujuerrors.NotFoundf("resource %q", req.Name)
+	return charmhub.ResourceData{}, errors.Errorf("resource %q not found", req.Name).Add(coreerrors.NotFound)
 }

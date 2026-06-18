@@ -18,7 +18,6 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
@@ -112,14 +111,9 @@ const (
 	EnvModelAgentCAASServiceName      = "SERVICE_NAME"
 	EnvModelAgentCAASServiceNamespace = "SERVICE_NAMESPACE"
 	EnvModelAgentHTTPPort             = "HTTP_PORT"
-
-	OperatorModelTarget = "model"
 )
 
 var (
-	// modelOperatorName is the model operator stack name used for deployment, service, RBAC resources.
-	modelOperatorName = "modeloperator"
-
 	// ExecRBACResourceName is the model's exec RBAC resource name.
 	ExecRBACResourceName = "model-exec"
 )
@@ -216,10 +210,7 @@ func ensureModelOperator(
 	broker ModelOperatorBroker,
 ) (err error) {
 
-	operatorName := modelOperatorName
-	modelTag := names.NewModelTag(modelUUID)
-
-	selectorLabels := modelOperatorLabels(operatorName, broker.LabelVersion())
+	selectorLabels := utils.LabelsForModelOperator(broker.LabelVersion())
 	labels := selectorLabels
 	if broker.LabelVersion() != constants.LegacyLabelVersion {
 		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
@@ -231,6 +222,9 @@ func ensureModelOperator(
 			utils.RunCleanUps(cleanUpFuncs)
 		}
 	}()
+
+	operatorName := constants.ModelOperatorName
+	modelTag := names.NewModelTag(modelUUID)
 
 	configMap := modelOperatorConfigMap(
 		broker.Namespace(),
@@ -253,7 +247,7 @@ func ensureModelOperator(
 				},
 				Items: []core.KeyToPath{
 					{
-						Key:  modelOperatorConfigMapAgentConfKey(modelOperatorName),
+						Key:  modelOperatorConfigMapAgentConfKey(constants.ModelOperatorName),
 						Path: constants.TemplateFileNameAgentConf,
 					},
 				},
@@ -368,7 +362,7 @@ func (k *kubernetesClient) ModelOperator(ctx context.Context) (*caas.ModelOperat
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	operatorName := modelOperatorName
+	operatorName := constants.ModelOperatorName
 	exists, err := k.ModelOperatorExists(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -507,7 +501,7 @@ func modelOperatorDeployment(
 // ModelOperatorExists indicates if the model operator for the given broker
 // exists
 func (k *kubernetesClient) ModelOperatorExists(ctx context.Context) (bool, error) {
-	operatorName := modelOperatorName
+	operatorName := constants.ModelOperatorName
 	exists, err := k.modelOperatorDeploymentExists(ctx, operatorName)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -529,13 +523,6 @@ func (k *kubernetesClient) modelOperatorDeploymentExists(ctx context.Context, op
 		return false, errors.Trace(err)
 	}
 	return true, nil
-}
-
-func modelOperatorLabels(operatorName string, labelVersion constants.LabelVersion) labels.Set {
-	if labelVersion == constants.LegacyLabelVersion {
-		return utils.LabelForKeyValue(constants.LegacyLabelModelOperator, operatorName)
-	}
-	return utils.LabelsForOperator(operatorName, OperatorModelTarget, labelVersion)
 }
 
 func modelOperatorService(
@@ -789,19 +776,19 @@ func modelOperatorConfigMapAgentConfKey(operatorName string) string {
 // - [errors.NotFound]: When the deployment is missing or no containers can be found.
 func (k *kubernetesClient) GetModelOperatorDeploymentImage(ctx context.Context) (string, error) {
 	api := k.client().AppsV1().Deployments(k.namespace)
-	res, err := api.Get(ctx, modelOperatorName, meta.GetOptions{})
+	res, err := api.Get(ctx, constants.ModelOperatorName, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
-		return "", errors.NewNotFound(err, fmt.Sprintf("k8s %q deployment not found", modelOperatorName))
+		return "", errors.NewNotFound(err, fmt.Sprintf("k8s %q deployment not found", constants.ModelOperatorName))
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	containers := res.Spec.Template.Spec.Containers
 	if len(containers) == 0 {
-		return "", errors.NotFoundf("no containers found in model operator deployment %q", modelOperatorName)
+		return "", errors.NotFoundf("no containers found in model operator deployment %q", constants.ModelOperatorName)
 	}
 
 	image := containers[0].Image
-	logger.Tracef(ctx, "model operator %q deployment image: %s", modelOperatorName, image)
+	logger.Tracef(ctx, "model operator %q deployment image: %s", constants.ModelOperatorName, image)
 	return image, nil
 }

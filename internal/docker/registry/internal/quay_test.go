@@ -54,9 +54,9 @@ func (s *quayContainerRegistrySuite) getRegistry(c *tc.C) (registry.Registry, *g
 			// registry.Ping() 1st try failed - bearer token was missing.
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, tc.DeepEquals, http.Header{})
-					c.Assert(req.Method, tc.Equals, `GET`)
-					c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2`)
+					c.Check(req.Header, tc.DeepEquals, http.Header{})
+					c.Check(req.Method, tc.Equals, `GET`)
+					c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusUnauthorized,
@@ -72,9 +72,9 @@ func (s *quayContainerRegistrySuite) getRegistry(c *tc.C) (registry.Registry, *g
 			// Refresh OAuth Token
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-					c.Assert(req.Method, tc.Equals, `GET`)
-					c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=quay.io`)
+					c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+					c.Check(req.Method, tc.Equals, `GET`)
+					c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=quay.io`)
 					return &http.Response{
 						Request:    req,
 						StatusCode: http.StatusOK,
@@ -85,9 +85,9 @@ func (s *quayContainerRegistrySuite) getRegistry(c *tc.C) (registry.Registry, *g
 			// registry.Ping()
 			s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 				func(req *http.Request) (*http.Response, error) {
-					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-					c.Assert(req.Method, tc.Equals, `GET`)
-					c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2`)
+					c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+					c.Check(req.Method, tc.Equals, `GET`)
+					c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/`)
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 				},
 			),
@@ -122,9 +122,9 @@ func (s *quayContainerRegistrySuite) TestTagsPublic(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -154,9 +154,9 @@ func (s *quayContainerRegistrySuite) TestTagsPrivate(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -171,9 +171,9 @@ func (s *quayContainerRegistrySuite) TestTagsPrivate(c *tc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=quay.io`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=quay.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -182,9 +182,9 @@ func (s *quayContainerRegistrySuite) TestTagsPrivate(c *tc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusOK,
@@ -213,9 +213,9 @@ func (s *quayContainerRegistrySuite) TestTagsErrorResponse(c *tc.C) {
 
 	gomock.InOrder(
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			return &http.Response{
 				Request:    req,
 				StatusCode: http.StatusUnauthorized,
@@ -230,9 +230,9 @@ func (s *quayContainerRegistrySuite) TestTagsErrorResponse(c *tc.C) {
 		// Refresh OAuth Token
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=quay.io`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + s.authToken}})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=quay.io`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -241,9 +241,9 @@ func (s *quayContainerRegistrySuite) TestTagsErrorResponse(c *tc.C) {
 			},
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-			c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
-			c.Assert(req.Method, tc.Equals, `GET`)
-			c.Assert(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
+			c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer jwt-token"}})
+			c.Check(req.Method, tc.Equals, `GET`)
+			c.Check(req.URL.String(), tc.Equals, `https://quay.io/v2/jujuqa/jujud-operator/tags/list`)
 			resps := &http.Response{
 				Request:    req,
 				StatusCode: http.StatusForbidden,

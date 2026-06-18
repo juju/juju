@@ -6,6 +6,7 @@ package jwt_test
 import (
 	"encoding/base64"
 	"net/http"
+	"net/http/httptest"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/httpcontext"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/testing"
@@ -77,6 +79,47 @@ func (s *loginTokenSuite) TestAuthenticate(c *tc.C) {
 	c.Assert(perm, tc.Equals, permission.ConsumeAccess)
 }
 
+func (s *loginTokenSuite) TestAuthenticateSetsModelTagFromRequestContext(c *tc.C) {
+	tok, err := EncodedJWT(JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred",
+		Access: map[string]string{
+			testing.ModelTag.String(): "write",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	req, err := http.NewRequest("", "", nil)
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Add("Authorization", "Bearer "+base64.StdEncoding.EncodeToString(tok))
+	req = requestWithModelContext(c, testing.ModelTag.Id(), req)
+
+	authInfo, err := authenticator.Authenticate(req)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(authInfo.ModelTag.Id(), tc.Equals, testing.ModelTag.Id())
+}
+
+func (s *loginTokenSuite) TestAuthenticateWithoutModelContextLeavesModelTagEmpty(c *tc.C) {
+	tok, err := EncodedJWT(JWTParams{
+		Controller: testing.ControllerTag.Id(),
+		User:       "user-fred",
+		Access: map[string]string{
+			testing.ModelTag.String(): "write",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	authenticator := jwt.NewAuthenticator(&testJWTParser{})
+	req, err := http.NewRequest("", "", nil)
+	c.Assert(err, tc.ErrorIsNil)
+	req.Header.Add("Authorization", "Bearer "+base64.StdEncoding.EncodeToString(tok))
+
+	authInfo, err := authenticator.Authenticate(req)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(authInfo.ModelTag.Id(), tc.Equals, "")
+}
+
 func (s *loginTokenSuite) TestAuthenticateInvalidHeader(c *tc.C) {
 	authenticator := jwt.NewAuthenticator(&testJWTParser{})
 	req, err := http.NewRequest("", "", nil)
@@ -123,6 +166,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(authInfo.Tag.String(), tc.Equals, "user-fred")
+	c.Assert(authInfo.ModelTag.Id(), tc.Equals, "")
 	c.Assert(authInfo.IsExternallyAuthenticated, tc.IsTrue)
 	perm, err := authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Model,
@@ -130,6 +174,7 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(perm, tc.Equals, permission.WriteAccess)
+	c.Assert(authInfo.ModelTag.Id(), tc.Equals, "")
 
 	perm, err = authInfo.SubjectPermissions(c.Context(), permission.ID{
 		ObjectType: permission.Controller,
@@ -231,4 +276,21 @@ func (s *loginTokenSuite) TestNotAvailableJWTParser(c *tc.C) {
 	req.Header.Add("Authorization", "Bearer aaaaa")
 	_, err = authenticator.Authenticate(req)
 	c.Assert(err, tc.ErrorIs, errors.NotImplemented)
+}
+
+func requestWithModelContext(c *tc.C, modelUUID string, req *http.Request) *http.Request {
+	query := req.URL.Query()
+	query.Add("modeluuid", modelUUID)
+	req.URL.RawQuery = query.Encode()
+
+	var modelReq *http.Request
+	handler := &httpcontext.QueryModelHandler{
+		Handler: http.HandlerFunc(func(_ http.ResponseWriter, req *http.Request) {
+			modelReq = req
+		}),
+		Query: "modeluuid",
+	}
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	c.Assert(modelReq, tc.NotNil)
+	return modelReq
 }
