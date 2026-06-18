@@ -66,7 +66,7 @@ import (
 // values to workers when they start. It re-reads runtime.conf and current
 // agent config on each call so bounced workers do not keep stale values.
 // It implements both ControllerStartupValueProvider (for controller
-// manifolds) and ModelStartupValueProvider (for model manifolds).
+// manifolds) and model.StartupValueProvider (for model manifolds).
 type controllerStartupValueProvider struct {
 	agent                 *ControllerAgent
 	controllerRuntimePath string
@@ -738,7 +738,12 @@ func (a *ControllerAgent) startModelWorkers(
 		agent:                 a,
 		controllerRuntimePath: a.controllerRuntimePath,
 	}
-	manifoldsCfg.UpdateLoggerConfig = func(string) error { return nil }
+	manifoldsCfg.UpdateLoggerConfig = func(loggingConfig string) error {
+		return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
+			setter.SetLoggingConfig(loggingConfig)
+			return nil
+		})
+	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
 		logger.Debugf(context.TODO(), "setting short charmrevision worker interval: %v", interval)
