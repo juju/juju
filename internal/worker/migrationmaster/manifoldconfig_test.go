@@ -32,10 +32,10 @@ func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldConfigSuite) validConfig() migrationmaster.ManifoldConfig {
 	return migrationmaster.ManifoldConfig{
-		AgentName:          "agent",
 		APICallerName:      "api-caller",
 		DomainServicesName: "domain-services",
 		FortressName:       "fortress",
+		ModelUUID:          "model-uuid",
 		Clock:              struct{ clock.Clock }{},
 		NewFacade:          func(base.APICaller) (migrationmaster.Facade, error) { return nil, nil },
 		NewWorker:          func(migrationmaster.Config) (worker.Worker, error) { return nil, nil },
@@ -46,9 +46,9 @@ func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAgentName(c *tc.C) {
-	s.config.AgentName = ""
-	s.checkNotValid(c, "empty AgentName not valid")
+func (s *ManifoldConfigSuite) TestMissingModelUUID(c *tc.C) {
+	s.config.ModelUUID = ""
+	s.checkNotValid(c, "empty ModelUUID not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
