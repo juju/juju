@@ -291,7 +291,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		fetchNetworkInterfaces(c.stateAccessor, context.spaceInfos); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch IP addresses and link layer devices")
 	}
-	if context.relations, context.relationsById, err = fetchRelations(c.stateAccessor); err != nil {
+	if context.relations, context.relationsById, err = context.fetchRelations(c.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch relations")
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
@@ -326,7 +326,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 
 	if logger.IsTraceEnabled() {
 		logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
-		logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
+		logger.Tracef("Remote applications: %v", context.consumerRemoteApplicationsWithURL())
 		logger.Tracef("Offers: %v", context.offers)
 		logger.Tracef("Leaders: %v", context.leaders)
 		logger.Tracef("Relations: %v", context.relations)
@@ -702,7 +702,7 @@ type statusContext struct {
 	// linkLayerDevices: machine id -> list of linkLayerDevices
 	linkLayerDevices map[string][]*state.LinkLayerDevice
 
-	// remote applications: application name -> application
+	// consumerRemoteApplications: application name -> remote application
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
 	// opened ports by machine.
@@ -997,7 +997,8 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 	}, nil
 }
 
-// fetchConsumerRemoteApplications returns a map from application name to remote application.
+// fetchConsumerRemoteApplications returns all remote applications keyed by
+// application name, including consumer proxies without offer URLs.
 func fetchConsumerRemoteApplications(st Backend) (map[string]*state.RemoteApplication, error) {
 	appMap := make(map[string]*state.RemoteApplication)
 	applications, err := st.AllRemoteApplications()
@@ -1005,9 +1006,6 @@ func fetchConsumerRemoteApplications(st Backend) (map[string]*state.RemoteApplic
 		return nil, err
 	}
 	for _, a := range applications {
-		if _, ok := a.URL(); !ok {
-			continue
-		}
 		appMap[a.Name()] = a
 	}
 	return appMap, nil
@@ -1059,7 +1057,7 @@ func fetchOffers(st Backend, applications map[string]*state.Application) (map[st
 // to have the relations for each application. Reading them once here
 // avoids the repeated DB hits to retrieve the relations for each
 // application that used to happen in processApplicationRelations().
-func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Relation, error) {
+func (context *statusContext) fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
 		return nil, nil, err
@@ -1072,13 +1070,11 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 		// on the offering side, exclude it here.
 		isRemote := false
 		for _, ep := range relation.Endpoints() {
-			if app, err := st.RemoteApplication(ep.ApplicationName); err == nil {
+			if app, ok := context.consumerRemoteApplications[ep.ApplicationName]; ok {
 				if app.IsConsumerProxy() {
 					isRemote = true
 					break
 				}
-			} else if !errors.IsNotFound(err) {
-				return nil, nil, err
 			}
 		}
 		if isRemote {
@@ -1298,7 +1294,7 @@ func (context *statusContext) processRelations() []params.RelationStatus {
 			Scope:     string(scope),
 			Endpoints: eps,
 		}
-		rStatus, err := relation.Status()
+		rStatus, err := context.status.Relation(relation.Id())
 		populateStatusFromStatusInfoAndErr(&relStatus.Status, rStatus, err)
 		out = append(out, relStatus)
 	}
@@ -1437,7 +1433,7 @@ func (context *statusContext) processApplication(application *state.Application)
 			units, applicationCharm.URL(), expectWorkload)
 	}
 
-	applicationStatus, err := application.Status()
+	applicationStatus, err := context.status.Application(application.Name())
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		processedStatus.Err = apiservererrors.ServerError(err)
 		return processedStatus
@@ -1464,7 +1460,7 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	if context.model.Type() == state.ModelTypeCAAS {
-		operatorStatus, err := application.OperatorStatus()
+		operatorStatus, err := context.status.ApplicationOperator(application.Name())
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			processedStatus.Err = apiservererrors.ServerError(err)
 			return processedStatus
@@ -1566,10 +1562,23 @@ func (context *statusContext) mapExposedEndpointsFromState(exposedEndpoints map[
 
 func (context *statusContext) processRemoteApplications() map[string]params.RemoteApplicationStatus {
 	applicationsMap := make(map[string]params.RemoteApplicationStatus)
-	for _, app := range context.consumerRemoteApplications {
+	for _, app := range context.consumerRemoteApplicationsWithURL() {
 		applicationsMap[app.Name()] = context.processRemoteApplication(app)
 	}
 	return applicationsMap
+}
+
+// consumerRemoteApplicationsWithURL returns the subset of remote applications
+// displayed by status. Relation processing uses all consumer remote applications.
+func (context *statusContext) consumerRemoteApplicationsWithURL() map[string]*state.RemoteApplication {
+	applications := make(map[string]*state.RemoteApplication)
+	for _, app := range context.consumerRemoteApplications {
+		if _, ok := app.URL(); !ok {
+			continue
+		}
+		applications[app.Name()] = app
+	}
+	return applications
 }
 
 func (context *statusContext) processRemoteApplication(application *state.RemoteApplication) (status params.RemoteApplicationStatus) {
@@ -1595,7 +1604,7 @@ func (context *statusContext) processRemoteApplication(application *state.Remote
 		status.Err = apiservererrors.ServerError(err)
 		return
 	}
-	applicationStatus, err := application.Status()
+	applicationStatus, err := context.status.RemoteApplication(application.Name())
 	populateStatusFromStatusInfoAndErr(&status.Status, applicationStatus, err)
 	return status
 }
