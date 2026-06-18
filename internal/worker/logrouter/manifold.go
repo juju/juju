@@ -133,7 +133,11 @@ func NewBackend(
 
 		case BackendTypeLoki:
 			if updater, ok := httpClient.(corehttp.CACertUpdater); ok {
-				if err := updater.ReplaceCACert(snapshot.CACertificate, false); err != nil {
+				insecureSkipVerify := false
+				if snapshot.InsecureSkipVerify != nil {
+					insecureSkipVerify = *snapshot.InsecureSkipVerify
+				}
+				if err := updater.ReplaceCACert(snapshot.CACertificate, insecureSkipVerify); err != nil {
 					return nil, internalerrors.Capture(err)
 				}
 			}

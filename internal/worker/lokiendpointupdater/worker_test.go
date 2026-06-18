@@ -90,7 +90,7 @@ func (s *workerSuite) TestSetUpPersistsInitialConfigAndStartsWatcher(c *tc.C) {
 }
 
 func (s *workerSuite) TestSetUpDoesNotWriteUnchangedConfig(c *tc.C) {
-	s.agent.config.SetLokiConfig(s.api.config.Endpoint, s.api.config.CACert)
+	s.agent.config.SetLokiConfig(s.api.config.Endpoint, &s.api.config.CACert, s.api.config.InsecureSkipVerify)
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 
@@ -102,7 +102,8 @@ func (s *workerSuite) TestSetUpDoesNotWriteUnchangedConfig(c *tc.C) {
 }
 
 func (s *workerSuite) TestHandlePersistsChangedConfig(c *tc.C) {
-	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", "old-ca")
+	oldCACert := "old-ca"
+	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", &oldCACert, nil)
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 
@@ -116,7 +117,8 @@ func (s *workerSuite) TestHandlePersistsChangedConfig(c *tc.C) {
 }
 
 func (s *workerSuite) TestHandlePersistsEmptyConfigForLogSinkMode(c *tc.C) {
-	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", "old-ca")
+	oldCACert := "old-ca"
+	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", &oldCACert, nil)
 	s.api.config = logger.ControllerLokiConfig{}
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
@@ -131,7 +133,8 @@ func (s *workerSuite) TestHandlePersistsEmptyConfigForLogSinkMode(c *tc.C) {
 }
 
 func (s *workerSuite) TestHandlePersistsEmptyConfigForLokiConfigNotFound(c *tc.C) {
-	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", "old-ca")
+	oldCACert := "old-ca"
+	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", &oldCACert, nil)
 	s.api.getErr = &params.Error{
 		Code:    params.CodeNotFound,
 		Message: "loki config not found",
