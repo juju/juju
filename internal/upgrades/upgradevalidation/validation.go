@@ -239,20 +239,11 @@ func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 		if !lxdnames.IsDefaultCloud(cloudspec.Type) {
 			return nil, nil
 		}
-		// The configured LXD project lives in the model config, not the cloud
-		// spec. Resolve it the same way the environ does when it connects, so
-		// the version check connects to the model's project rather than LXD's
-		// "default" project, which a restricted TLS client may not be allowed
-		// to access.
-		// TODO(missing) - get model config from validation services.
-		//project := lxd.ProjectFromConfig(modelCfg)
-		project := ""
-
 		server, err := NewServerFactory(func() *http.Client {
 			return jujuhttp.NewClient(
 				jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 			).Client()
-		}).RemoteServer(lxd.CloudSpec{CloudSpec: cloudspec, Project: project})
+		}).RemoteServer(lxd.CloudSpec{CloudSpec: cloudspec})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
