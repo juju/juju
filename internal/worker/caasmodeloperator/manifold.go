@@ -25,7 +25,7 @@ import (
 // are passed as direct ManifoldConfig fields, not through the
 // provider.
 type ConfigProvider interface {
-	CACert() string
+	CACert() (string, error)
 	OpenTelemetryEnabled() bool
 	OpenTelemetryEndpoint() string
 	OpenTelemetryInsecure() bool

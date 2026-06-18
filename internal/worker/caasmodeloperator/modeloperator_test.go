@@ -25,6 +25,36 @@ import (
 	"github.com/juju/juju/internal/worker/caasmodeloperator"
 )
 
+type errorConfigProvider struct{}
+
+func (errorConfigProvider) CACert() (string, error) {
+	return "", errors.New("read failed")
+}
+
+func (errorConfigProvider) OpenTelemetryEnabled() bool {
+	return false
+}
+
+func (errorConfigProvider) OpenTelemetryEndpoint() string {
+	return ""
+}
+
+func (errorConfigProvider) OpenTelemetryInsecure() bool {
+	return false
+}
+
+func (errorConfigProvider) OpenTelemetryStackTraces() bool {
+	return false
+}
+
+func (errorConfigProvider) OpenTelemetrySampleRatio() float64 {
+	return 0
+}
+
+func (errorConfigProvider) OpenTelemetryTailSamplingThreshold() time.Duration {
+	return 0
+}
+
 type dummyAPI struct {
 	provInfo      func() (modeloperatorapi.ModelOperatorProvisioningInfo, error)
 	setPassword   func(password string) error
@@ -218,4 +248,31 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsS
 
 	err = worker.Wait()
 	c.Assert(err, tc.ErrorMatches, `failed to update model operator \[deadbe\]: provisioning info failed`)
+}
+
+func (m *ModelOperatorManagerSuite) TestModelOperatorManagerCACertErrorContainsShortModelUUID(c *tc.C) {
+	modelUUID := "deadbee0-0bad-400d-8000-4b1d0d06f00d"
+
+	changed := make(chan struct{}, 1)
+	api := &dummyAPI{
+		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
+			return modeloperatorapi.ModelOperatorProvisioningInfo{
+				APIAddresses: []string{"fe80:abcd::1"},
+				ImageDetails: resource.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/jujud-operator:1"},
+				Version:      semversion.MustParse("2.8.2"),
+			}, nil
+		},
+		watchProvInfo: func() (watcher.NotifyWatcher, error) {
+			return watchertest.NewMockNotifyWatcher(changed), nil
+		},
+	}
+
+	worker, err := caasmodeloperator.NewModelOperatorManager(logger.Noop(),
+		api, &dummyBroker{}, modelUUID, "/var/lib/juju", "/var/log/juju", coretesting.ControllerTag, errorConfigProvider{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	changed <- struct{}{}
+
+	err = worker.Wait()
+	c.Assert(err, tc.ErrorMatches, `failed to update model operator \[deadbe\]: reading CA cert: read failed`)
 }
