@@ -34,7 +34,28 @@ type ManifoldConfig struct {
 	NewDeployContext func(ContextConfig) (Context, error)
 }
 
-// TODO: add ManifoldConfig.Validate.
+// Validate validates the manifold configuration.
+func (c ManifoldConfig) Validate() error {
+	if c.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if c.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if c.HTTPClientName == "" {
+		return errors.NotValidf("empty HTTPClientName")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if c.NewDeployContext == nil {
+		return errors.NotValidf("nil NewDeployContext")
+	}
+	return nil
+}
 
 // Manifold returns a dependency manifold that runs a deployer worker,
 // using the resource names defined in the supplied config.
@@ -54,6 +75,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // It's not tested at the moment, because the scaffolding necessary is too
 // unwieldy/distracting to introduce at this point.
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var a agent.Agent
 	if err := getter.Get(config.AgentName, &a); err != nil {
 		return nil, err
@@ -67,7 +92,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, err
 	}
 
-	// TODO: run config.Validate()
 	cfg := a.CurrentConfig()
 	// Grab the tag and ensure that it's for a machine.
 	if cfg.Tag().Kind() != names.MachineTagKind {
