@@ -45,7 +45,6 @@ import (
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/instancepoller"
-	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modellife"
@@ -137,11 +136,11 @@ type ManifoldsConfig struct {
 	DataDir              string
 	LogDir               string
 	ControllerTag        names.ControllerTag
-	StartupValueProvider ModelStartupValueProvider
+	StartupValueProvider StartupValueProvider
 	UpdateLoggerConfig   func(string) error
 }
 
-type ModelStartupValueProvider interface {
+type StartupValueProvider interface {
 	caasmodeloperator.ConfigProvider
 	controllerlogger.LoggingOverrideReader
 }
@@ -222,11 +221,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The logging config updater listens for logging config updates
 		// for the model and configures the logging context appropriately.
-		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			LoggerContext: config.LoggingContext,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.logger"),
+		loggingConfigUpdaterName: ifNotMigrating(controllerlogger.Manifold(controllerlogger.ManifoldConfig{
+			DomainServicesName:    domainServicesName,
+			LoggerContext:         config.LoggingContext,
+			Logger:                config.LoggingContext.GetLogger("juju.worker.logger"),
+			Tag:                   config.AgentTag,
+			LoggingOverrideReader: config.StartupValueProvider,
+			UpdateAgentFunc:       config.UpdateLoggerConfig,
 		})),
 
 		// All other manifolds should depend on at least one of these, which
@@ -634,14 +635,11 @@ const (
 	operationPrunerName          = "operation-pruner"
 	leaseManagerName             = "lease-manager"
 	loggingConfigUpdaterName     = "logging-config-updater"
-	machineUndertakerName        = "machine-undertaker"
 	providerServiceFactoriesName = "provider-service-factories"
 	providerTrackerName          = "provider-tracker"
 	remoteRelationConsumerName   = "remote-relation-consumer"
-	remoteRelationOffererName    = "remote-relation-offerer"
 	removalName                  = "removal"
 	storageProvisionerName       = "storage-provisioner"
-	undertakerName               = "undertaker"
 	logSinkName                  = "log-sink"
 
 	caasFirewallerName             = "caas-firewaller"
