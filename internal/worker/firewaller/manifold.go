@@ -10,7 +10,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
@@ -29,10 +28,10 @@ import (
 // Once all dependencies are available as domain services, we can remove the
 // APICaller.
 type ManifoldConfig struct {
-	AgentName          string
 	APICallerName      string
 	DomainServicesName string
 	EnvironName        string
+	ModelUUID          string
 	Logger             logger.Logger
 
 	NewControllerConnection apicaller.NewExternalControllerConnectionFunc
@@ -44,7 +43,6 @@ type ManifoldConfig struct {
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			cfg.AgentName,
 			cfg.APICallerName,
 			cfg.EnvironName,
 			cfg.DomainServicesName,
@@ -55,9 +53,6 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if cfg.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
 	}
@@ -66,6 +61,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
+	}
+	if cfg.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -88,10 +86,6 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		return nil, errors.Trace(err)
 	}
 
-	var agent agent.Agent
-	if err := getter.Get(cfg.AgentName, &agent); err != nil {
-		return nil, errors.Trace(err)
-	}
 	var apiConn api.Connection
 	if err := getter.Get(cfg.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
@@ -140,7 +134,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 	}
 
 	w, err := cfg.NewFirewallerWorker(Config{
-		ModelUUID:                 agent.CurrentConfig().Model().Id(),
+		ModelUUID:                 cfg.ModelUUID,
 		CrossModelRelationService: domainServices.CrossModelRelation(),
 		FirewallerAPI:             firewallerAPI,
 		PortsService:              domainServices.Port(),
