@@ -5,9 +5,11 @@ package model_test
 
 import (
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 
@@ -27,10 +29,7 @@ func TestManifoldsSuite(t *stdtesting.T) {
 
 func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	actual := set.NewStrings()
-	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent:          &mockAgent{},
-		LoggingContext: internallogger.DefaultContext(),
-	})
+	manifolds := model.IAASManifolds(testManifoldsConfig())
 	for name := range manifolds {
 		actual.Add(name)
 	}
@@ -73,10 +72,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 
 func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 	actual := set.NewStrings()
-	manifolds := model.CAASManifolds(model.ManifoldsConfig{
-		Agent:          &mockAgent{},
-		LoggingContext: internallogger.DefaultContext(),
-	})
+	manifolds := model.CAASManifolds(testManifoldsConfig())
 	for name := range manifolds {
 		actual.Add(name)
 	}
@@ -135,10 +131,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 		"http-client",
 		"valid-credential-flag",
 	)
-	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent:          &mockAgent{},
-		LoggingContext: internallogger.DefaultContext(),
-	})
+	manifolds := model.IAASManifolds(testManifoldsConfig())
 	for name, manifold := range manifolds {
 		c.Logf("checking %s", name)
 		if exclusions.Contains(name) {
@@ -154,11 +147,9 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 
 func (s *ManifoldsSuite) TestClockWrapper(c *tc.C) {
 	expectClock := &fakeClock{}
-	manifolds := model.IAASManifolds(model.ManifoldsConfig{
-		Agent:          &mockAgent{},
-		Clock:          expectClock,
-		LoggingContext: internallogger.DefaultContext(),
-	})
+	cfg := testManifoldsConfig()
+	cfg.Clock = expectClock
+	manifolds := model.IAASManifolds(cfg)
 	manifold, ok := manifolds["clock"]
 	c.Assert(ok, tc.IsTrue)
 	worker, err := manifold.Start(c.Context(), nil)
@@ -175,20 +166,14 @@ type fakeClock struct{ clock.Clock }
 
 func (s *ManifoldsSuite) TestIAASManifold(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		model.IAASManifolds(model.ManifoldsConfig{
-			Agent:          &mockAgent{},
-			LoggingContext: internallogger.DefaultContext(),
-		}),
+		model.IAASManifolds(testManifoldsConfig()),
 		expectedIAASModelManifoldsWithDependencies,
 	)
 }
 
 func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		model.CAASManifolds(model.ManifoldsConfig{
-			Agent:          &mockAgent{},
-			LoggingContext: internallogger.DefaultContext(),
-		}),
+		model.CAASManifolds(testManifoldsConfig()),
 		expectedCAASModelManifoldsWithDependencies,
 	)
 }
@@ -650,3 +635,29 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"valid-credential-flag": {"agent", "api-caller"},
 }
+
+func testManifoldsConfig() model.ManifoldsConfig {
+	return model.ManifoldsConfig{
+		Agent:                &mockAgent{},
+		LoggingContext:       internallogger.DefaultContext(),
+		ModelUUID:            "mock-model-uuid",
+		AgentTag:             names.NewMachineTag("123"),
+		ModelTag:             names.NewModelTag("mock-model-uuid"),
+		ControllerTag:        names.NewControllerTag("mock-controller-uuid"),
+		DataDir:              "/tmp/juju-data",
+		LogDir:               "/tmp/juju-log",
+		StartupValueProvider: mockModelStartupValueProvider{},
+		UpdateLoggerConfig:   func(string) error { return nil },
+	}
+}
+
+type mockModelStartupValueProvider struct{}
+
+func (mockModelStartupValueProvider) CACert() string                                    { return "" }
+func (mockModelStartupValueProvider) OpenTelemetryEnabled() bool                        { return false }
+func (mockModelStartupValueProvider) OpenTelemetryEndpoint() string                     { return "" }
+func (mockModelStartupValueProvider) OpenTelemetryInsecure() bool                       { return false }
+func (mockModelStartupValueProvider) OpenTelemetryStackTraces() bool                    { return false }
+func (mockModelStartupValueProvider) OpenTelemetrySampleRatio() float64                 { return 0 }
+func (mockModelStartupValueProvider) OpenTelemetryTailSamplingThreshold() time.Duration { return 0 }
+func (mockModelStartupValueProvider) LoggingOverride() (string, error)                  { return "", nil }
