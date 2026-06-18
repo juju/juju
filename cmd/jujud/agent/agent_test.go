@@ -145,14 +145,15 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideEnvVarTakesPrec
 	c.Check(override, tc.Equals, "test=INFO")
 }
 
-func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrentRuntimeAndAgentConfig(c *tc.C) {
+func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
 	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	dataDirOne := filepath.Join(runtimeDir, "data-one")
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
-		DataDir:              filepath.Join(runtimeDir, "data-one"),
+		DataDir:              dataDirOne,
 		LogDir:               filepath.Join(runtimeDir, "log-one"),
 		CACert:               "ca-cert",
 		CAPrivateKey:         "ca-key",
@@ -163,22 +164,21 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
-			config: &fakeControllerConfig{systemIdentityPath: "/path/one"},
-		}},
+		agent:                 &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{}},
 		controllerRuntimePath: runtimePath,
 	}
 
 	values, err := provider.SystemIdentityValues()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(values.SystemIdentity, tc.Equals, "identity-one")
-	c.Check(values.SystemIdentityPath, tc.Equals, "/path/one")
+	c.Check(values.SystemIdentityPath, tc.Equals, filepath.Join(dataDirOne, agent.SystemIdentity))
 
+	dataDirTwo := filepath.Join(runtimeDir, "data-two")
 	err = controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
-		DataDir:              filepath.Join(runtimeDir, "data-two"),
+		DataDir:              dataDirTwo,
 		LogDir:               filepath.Join(runtimeDir, "log-two"),
 		CACert:               "ca-cert",
 		CAPrivateKey:         "ca-key",
@@ -187,14 +187,11 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 		SystemIdentity:       "identity-two",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	provider.agent.AgentConfigWriter = &fakeAgentConfigWriter{
-		config: &fakeControllerConfig{systemIdentityPath: "/path/two"},
-	}
 
 	values, err = provider.SystemIdentityValues()
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(values.SystemIdentity, tc.Equals, "identity-two")
-	c.Check(values.SystemIdentityPath, tc.Equals, "/path/two")
+	c.Check(values.SystemIdentityPath, tc.Equals, filepath.Join(dataDirTwo, agent.SystemIdentity))
 }
 
 type fakeAgentConfigWriter struct {
@@ -210,7 +207,6 @@ type fakeControllerConfig struct {
 	agent.Config
 	loggingConfig                      string
 	loggingOverride                    string
-	systemIdentityPath                 string
 	caCert                             string
 	openTelemetryEnabled               bool
 	openTelemetryEndpoint              string
@@ -229,10 +225,6 @@ func (f *fakeControllerConfig) Value(key string) string {
 		return f.loggingOverride
 	}
 	return ""
-}
-
-func (f *fakeControllerConfig) SystemIdentityPath() string {
-	return f.systemIdentityPath
 }
 
 func (f *fakeControllerConfig) Tag() names.Tag {
@@ -271,19 +263,57 @@ func (f *fakeControllerConfig) OpenTelemetryTailSamplingThreshold() time.Duratio
 	return f.openTelemetryTailSamplingThreshold
 }
 
-func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentAgentConfigOnFallback(c *tc.C) {
+func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfig(c *tc.C) {
+	runtimeDir := c.MkDir()
+	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-one"),
+		LogDir:               filepath.Join(runtimeDir, "log-one"),
+		CACert:               "ca-one",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	provider := controllerStartupValueProvider{
-		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
-			config: &fakeControllerConfig{caCert: "ca-one"},
-		}},
+		agent:                 &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{}},
+		controllerRuntimePath: runtimePath,
 	}
 
-	c.Check(provider.CACert(), tc.Equals, "ca-one")
+	caCert, err := provider.CACert()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(caCert, tc.Equals, "ca-one")
 
-	provider.agent.AgentConfigWriter = &fakeAgentConfigWriter{
-		config: &fakeControllerConfig{caCert: "ca-two"},
+	err = controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              filepath.Join(runtimeDir, "data-two"),
+		LogDir:               filepath.Join(runtimeDir, "log-two"),
+		CACert:               "ca-two",
+		CAPrivateKey:         "ca-key",
+		ControllerCert:       "server-cert",
+		ControllerPrivateKey: "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	caCert, err = provider.CACert()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(caCert, tc.Equals, "ca-two")
+}
+
+func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigError(c *tc.C) {
+	provider := controllerStartupValueProvider{
+		agent:                 &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{}},
+		controllerRuntimePath: filepath.Join(c.MkDir(), "missing-runtime.conf"),
 	}
-	c.Check(provider.CACert(), tc.Equals, "ca-two")
+
+	_, err := provider.CACert()
+	c.Assert(err, tc.ErrorMatches, `reading controller runtime config ".*missing-runtime.conf": open .*missing-runtime.conf: no such file or directory`)
 }
 
 func (s *controllerStartupValueProviderSuite) TestOpenTelemetryReadsCurrentAgentConfig(c *tc.C) {

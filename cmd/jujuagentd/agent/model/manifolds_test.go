@@ -653,7 +653,7 @@ func testManifoldsConfig() model.ManifoldsConfig {
 
 type mockModelStartupValueProvider struct{}
 
-func (mockModelStartupValueProvider) CACert() string                                    { return "" }
+func (mockModelStartupValueProvider) CACert() (string, error)                           { return "", nil }
 func (mockModelStartupValueProvider) OpenTelemetryEnabled() bool                        { return false }
 func (mockModelStartupValueProvider) OpenTelemetryEndpoint() string                     { return "" }
 func (mockModelStartupValueProvider) OpenTelemetryInsecure() bool                       { return false }
