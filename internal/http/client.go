@@ -173,19 +173,37 @@ func newOptions() *options {
 
 // Client represents an http client.
 type Client struct {
+	// logger records request tracing and retry diagnostics.
 	logger logger.Logger
 
+	// mu serializes transport reconfiguration so CA and TLS verification
+	// changes are applied as one atomic swap of the inner round tripper.
 	mu sync.Mutex
 
-	httpClient               *http.Client
-	transport                *swappableRoundTripper
-	disableKeepAlives        bool
+	// httpClient is the shared stdlib client used to execute requests.
+	httpClient *http.Client
+	// transport remains installed on httpClient for the lifetime of the
+	// client and atomically delegates to the current transport stack.
+	transport *swappableRoundTripper
+
+	// disableKeepAlives controls whether HTTP keep-alives are disabled on new
+	// transports.
+	disableKeepAlives bool
+	// skipHostnameVerification controls whether TLS hostname verification is
+	// skipped on new transports.
 	skipHostnameVerification bool
-	tlsHandshakeTimeout      time.Duration
-	middlewares              []TransportMiddleware
-	requestRecorder          RequestRecorder
-	retryPolicy              *RetryPolicy
-	caCertificates           []string
+	// tlsHandshakeTimeout is applied to new transports for TLS handshakes.
+	tlsHandshakeTimeout time.Duration
+	// middlewares are applied in order when constructing a new base transport.
+	middlewares []TransportMiddleware
+	// requestRecorder, when present, wraps the transport to record request
+	// outcomes.
+	requestRecorder RequestRecorder
+	// retryPolicy, when present, wraps the transport with retry behavior.
+	retryPolicy *RetryPolicy
+	// caCertificates are the custom CA certificates installed on new
+	// transports.
+	caCertificates []string
 }
 
 // NewClient returns a new juju http client defined
@@ -427,12 +445,16 @@ type roundTripperHolder struct {
 	transport http.RoundTripper
 }
 
+// newSwappableRoundTripper returns a stable outer round tripper that can swap
+// its inner transport stack without mutating http.Client.Transport while
+// requests are in flight.
 func newSwappableRoundTripper(initial http.RoundTripper) *swappableRoundTripper {
 	rt := &swappableRoundTripper{}
 	rt.Store(initial)
 	return rt
 }
 
+// RoundTrip delegates to the currently active inner transport.
 func (s *swappableRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	return s.Load().RoundTrip(req)
 }
@@ -441,6 +463,8 @@ func (s *swappableRoundTripper) Load() http.RoundTripper {
 	return s.transport.Load().transport
 }
 
+// Store atomically replaces the inner transport stack used for subsequent
+// requests. In-flight requests continue on the transport they already loaded.
 func (s *swappableRoundTripper) Store(transport http.RoundTripper) {
 	s.transport.Store(&roundTripperHolder{transport: transport})
 }
