@@ -732,6 +732,8 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context
 		DataDir:                c.pcfg.DataDir,
 		LoopbackPreferred:      true,
 		LogDir:                 c.pcfg.LogDir,
+		APIPort:                c.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
+		AgentPassword:          c.pcfg.APIInfo.Password,
 		LoggingConfig:          c.pcfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
 		LoggingOverride:        c.pcfg.AgentEnvironment[agent.LoggingOverride],
 		QueryTracingEnabled:    c.pcfg.Controller.QueryTracingEnabled(),

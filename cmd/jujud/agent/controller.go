@@ -506,10 +506,9 @@ func (a *ControllerAgent) makeEngineCreator(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		agentConfig := a.CurrentConfig()
 		engineConfigFunc := agentengine.DependencyEngineConfig
 		metrics := agentengine.NewMetrics()
-		controllerMetricsSink := metrics.ForModel(agentConfig.Model())
+		controllerMetricsSink := metrics.ForModel(names.NewModelTag(controllerRuntimeConfig.ControllerModelUUID))
 		eng, err := dependency.NewEngine(engineConfigFunc(
 			controllerMetricsSink,
 			internaldependency.WrapLogger(internallogger.GetLogger(
@@ -534,14 +533,6 @@ func (a *ControllerAgent) makeEngineCreator(
 		}
 
 		c := clock.WallClock
-		servingInfo, ok := agentConfig.ControllerAgentInfo()
-		if !ok {
-			return nil, errors.NotFoundf("controller agent info")
-		}
-		apiInfo, ok := agentConfig.APIInfo()
-		if !ok {
-			return nil, errors.NotFoundf("API info")
-		}
 		startupValueProvider := controllerStartupValueProvider{
 			agent:                 a,
 			controllerRuntimePath: a.controllerRuntimePath,
@@ -568,8 +559,8 @@ func (a *ControllerAgent) makeEngineCreator(
 				controllerRuntimeConfig.DataDir, "control.socket",
 			),
 			DataDir:                           controllerRuntimeConfig.DataDir,
-			APIPort:                           servingInfo.APIPort,
-			AgentPassword:                     apiInfo.Password,
+			APIPort:                           controllerRuntimeConfig.APIPort,
+			AgentPassword:                     controllerRuntimeConfig.AgentPassword,
 			RootDir:                           a.rootDir,
 			BootstrapLock:                     a.bootstrapLock,
 			ControllerUpgradeLock:             a.controllerUpgradeLock,
@@ -610,7 +601,7 @@ func (a *ControllerAgent) makeEngineCreator(
 		}
 
 		if err := addons.StartIntrospection(addons.IntrospectionConfig{
-			AgentDir:           agentConfig.Dir(),
+			AgentDir:           agent.Dir(controllerRuntimeConfig.DataDir, a.agentTag),
 			Engine:             eng,
 			MachineLock:        nil,
 			PrometheusGatherer: a.prometheusRegistry,

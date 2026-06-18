@@ -57,6 +57,14 @@ type ControllerRuntimeConfig struct {
 	// LogDir is the controller process log directory.
 	LogDir string `yaml:"log-dir"`
 
+	// APIPort is the controller API server listen port.
+	APIPort int `yaml:"api-port"`
+
+	// AgentPassword is the controller agent API password used for local worker
+	// startup before agent.conf is consulted. This field is sensitive and must
+	// not be logged.
+	AgentPassword string `yaml:"agent-password"`
+
 	// LoggingConfig is the persisted controller logging override used by the
 	// controller logger worker.
 	LoggingConfig string `yaml:"logging-config,omitempty"`
@@ -132,6 +140,12 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	}
 	if cfg.LogDir == "" {
 		return errors.NotValidf("empty log-dir")
+	}
+	if cfg.APIPort < 1 || cfg.APIPort > 65535 {
+		return errors.NotValidf("api port %d", cfg.APIPort)
+	}
+	if cfg.AgentPassword == "" {
+		return errors.NotValidf("empty agent-password")
 	}
 	if cfg.DqlitePort != 0 && (cfg.DqlitePort < 1 || cfg.DqlitePort > 65535) {
 		return errors.NotValidf("dqlite port %d", cfg.DqlitePort)
