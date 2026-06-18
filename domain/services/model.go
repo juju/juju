@@ -489,7 +489,9 @@ func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 	log := s.logger.Child("unitstate")
 	return unitstateservice.NewLeadershipService(
 		unitstatestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, log),
+		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
 		domain.NewLeaseService(s.leaseManager),
+		s.clock,
 		log,
 	)
 }

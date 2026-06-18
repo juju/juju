@@ -4,8 +4,11 @@
 package service
 
 import (
+	"github.com/juju/clock"
+
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Service defines a service for interacting with the underlying state.
@@ -27,20 +30,28 @@ func NewService(st State, logger logger.Logger) *Service {
 // checks.
 type LeadershipService struct {
 	*Service
-	leaderEnsurer leadership.Ensurer
-	logger        logger.Logger
+	leaderEnsurer      leadership.Ensurer
+	secretBackendState SecretBackendReferenceMutator
+	clock              clock.Clock
+	uuidGenerator      func() (uuid.UUID, error)
+	logger             logger.Logger
 }
 
 // NewLeadershipService returns a new LeadershipService for working with
 // the underlying state.
 func NewLeadershipService(
 	st State,
+	secretBackendState SecretBackendReferenceMutator,
 	leaderEnsurer leadership.Ensurer,
+	clk clock.Clock,
 	logger logger.Logger,
 ) *LeadershipService {
 	return &LeadershipService{
-		Service:       NewService(st, logger),
-		leaderEnsurer: leaderEnsurer,
-		logger:        logger,
+		Service:            NewService(st, logger),
+		leaderEnsurer:      leaderEnsurer,
+		secretBackendState: secretBackendState,
+		clock:              clk,
+		uuidGenerator:      uuid.NewUUID,
+		logger:             logger,
 	}
 }

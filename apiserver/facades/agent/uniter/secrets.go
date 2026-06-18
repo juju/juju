@@ -123,44 +123,10 @@ func fromUpsertParams(p params.UpsertSecretArg, accessor secret.SecretAccessor) 
 		ExpireTime:   p.ExpireTime,
 		Description:  p.Description,
 		Label:        p.Label,
-		Params:       p.Params,
 		Data:         p.Content.Data,
 		ValueRef:     valueRef,
 		Checksum:     p.Content.Checksum,
 	}
-}
-
-// updateSecrets updates the specified secrets.
-func (u *UniterAPI) updateSecrets(ctx context.Context, args params.UpdateSecretArgs) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		err := u.updateSecret(ctx, arg)
-		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
-		}
-		result.Results[i].Error = apiServerErrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (u *UniterAPI) updateSecret(ctx context.Context, arg params.UpdateSecretArg) error {
-	uri, err := coresecrets.ParseURI(arg.URI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if arg.RotatePolicy == nil && arg.Description == nil && arg.ExpireTime == nil &&
-		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
-		return errors.New("at least one attribute to update must be specified")
-	}
-
-	accessor := secret.SecretAccessor{
-		Kind: secret.UnitAccessor,
-		ID:   u.auth.GetAuthTag().Id(),
-	}
-	err = u.secretService.UpdateCharmSecret(ctx, uri, fromUpsertParams(arg.UpsertSecretArg, accessor))
-	return errors.Trace(err)
 }
 
 // isSameApplication returns true if the authenticated entity and the specified entity are in the same application.
@@ -253,6 +219,7 @@ func (u *UniterAPI) prepareSecretRevokes(
 		}
 		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
 			if errors.Is(err, secreterrors.SecretNotFound) {
+				u.logger.Infof(ctx, "secret %q no longer exists, skipping revoke", rev.URI)
 				continue
 			}
 			revokeErrs = append(revokeErrs, err)
@@ -403,6 +370,7 @@ func (u *UniterAPI) prepareSecretGrants(
 		}
 		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
 			if errors.Is(err, secreterrors.SecretNotFound) {
+				u.logger.Infof(ctx, "secret %q no longer exists, skipping grant", g.URI)
 				continue
 			}
 			grantErrs = append(grantErrs, err)
@@ -560,6 +528,7 @@ func (u *UniterAPI) prepareSecretDeletes(
 		}
 		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
 			if errors.Is(err, secreterrors.SecretNotFound) {
+				u.logger.Infof(ctx, "secret %q no longer exists, skipping delete", del.URI)
 				continue
 			}
 			deleteErrs = append(deleteErrs, err)
@@ -611,6 +580,99 @@ func (u *UniterAPI) resolveDeleteOwnerKinds(
 		}
 		deletes[i].OwnerKind = kind
 		filtered = append(filtered, deletes[i])
+	}
+	return filtered, nil
+}
+
+// prepareSecretUpdates validates and resolves a list of update args from the
+// wire format into domain types ready for CommitHookChanges. It:
+//   - parses the URI
+//   - checks manage access (skips SecretNotFound, accumulates other errors)
+//   - resolves ownership via GetSecretOwnerKinds (filters secrets that
+//     disappeared between the access check and the ownership query)
+func (u *UniterAPI) prepareSecretUpdates(
+	ctx context.Context, unitName coreunit.Name, updates []params.UpdateSecretArg,
+) ([]unitstate.UpdateSecretArg, error) {
+	secretUpdates := make([]unitstate.UpdateSecretArg, 0, len(updates))
+	var updateErrs []error
+
+	for _, upd := range updates {
+		uri, err := coresecrets.ParseURI(upd.URI)
+		if err != nil {
+			return nil, internalerrors.Capture(err)
+		}
+		if err := u.secretService.CheckSecretManageAccess(ctx, uri, unitName); err != nil {
+			if errors.Is(err, secreterrors.SecretNotFound) {
+				u.logger.Infof(ctx, "secret %q no longer exists, skipping update", upd.URI)
+				continue
+			}
+			updateErrs = append(updateErrs, err)
+			continue
+		}
+		if !upd.HasUpdate() {
+			updateErrs = append(updateErrs, errors.New("at least one attribute to update must be specified"))
+			continue
+		}
+		var valueRef *coresecrets.ValueRef
+		if upd.Content.ValueRef != nil {
+			valueRef = &coresecrets.ValueRef{
+				BackendID:  upd.Content.ValueRef.BackendID,
+				RevisionID: upd.Content.ValueRef.RevisionID,
+			}
+		}
+		if len(upd.Params) > 0 {
+			u.logger.Warningf(ctx, "params provided for secret %q are ignored (params are not supported in charm secrets)", upd.URI)
+		}
+		secretUpdates = append(secretUpdates, unitstate.UpdateSecretArg{
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: upd.RotatePolicy,
+				ExpireTime:   upd.ExpireTime,
+				Description:  upd.Description,
+				Label:        upd.Label,
+				Data:         upd.Content.Data,
+				ValueRef:     valueRef,
+				Checksum:     upd.Content.Checksum,
+			},
+			URI: uri,
+		})
+	}
+	if len(updateErrs) > 0 {
+		return nil, internalerrors.Errorf(
+			"updating secrets: %w", internalerrors.Join(updateErrs...))
+	}
+
+	return u.resolveUpdateOwnerKinds(ctx, secretUpdates)
+}
+
+// resolveUpdateOwnerKinds populates OwnerKind for each update arg by batch
+// querying secret ownership, filtering out secrets that disappeared between
+// the access check and the ownership query (deleted concurrently).
+func (u *UniterAPI) resolveUpdateOwnerKinds(
+	ctx context.Context, updates []unitstate.UpdateSecretArg,
+) ([]unitstate.UpdateSecretArg, error) {
+	if len(updates) == 0 {
+		return updates, nil
+	}
+	uris := make([]*coresecrets.URI, len(updates))
+	for i, upd := range updates {
+		uris[i] = upd.URI
+	}
+	ownerInfos, err := u.secretService.GetSecretOwnerKinds(ctx, uris)
+	if err != nil {
+		return nil, err
+	}
+	ownerByID := make(map[string]secret.CharmSecretOwnerKind, len(ownerInfos))
+	for _, info := range ownerInfos {
+		ownerByID[info.SecretID] = info.OwnerKind
+	}
+	filtered := updates[:0]
+	for _, update := range updates {
+		kind, ok := ownerByID[update.URI.ID]
+		if !ok {
+			continue
+		}
+		update.OwnerKind = kind
+		filtered = append(filtered, update)
 	}
 	return filtered, nil
 }
