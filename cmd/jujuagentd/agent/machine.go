@@ -168,30 +168,6 @@ func (p machineModelStartupValueProvider) CACert() (string, error) {
 	return p.agent.CurrentConfig().CACert(), nil
 }
 
-func (p machineModelStartupValueProvider) OpenTelemetryEnabled() bool {
-	return p.agent.CurrentConfig().OpenTelemetryEnabled()
-}
-
-func (p machineModelStartupValueProvider) OpenTelemetryEndpoint() string {
-	return p.agent.CurrentConfig().OpenTelemetryEndpoint()
-}
-
-func (p machineModelStartupValueProvider) OpenTelemetryInsecure() bool {
-	return p.agent.CurrentConfig().OpenTelemetryInsecure()
-}
-
-func (p machineModelStartupValueProvider) OpenTelemetryStackTraces() bool {
-	return p.agent.CurrentConfig().OpenTelemetryStackTraces()
-}
-
-func (p machineModelStartupValueProvider) OpenTelemetrySampleRatio() float64 {
-	return p.agent.CurrentConfig().OpenTelemetrySampleRatio()
-}
-
-func (p machineModelStartupValueProvider) OpenTelemetryTailSamplingThreshold() time.Duration {
-	return p.agent.CurrentConfig().OpenTelemetryTailSamplingThreshold()
-}
-
 func (p machineModelStartupValueProvider) LoggingOverride() (string, error) {
 	return p.agent.CurrentConfig().Value(agent.LoggingOverride), nil
 }
