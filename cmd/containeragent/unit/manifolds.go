@@ -197,8 +197,8 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
 			NewHTTPClient: func(purpose corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
 				if purpose == corehttp.LokiPurpose {
-					logger := internallogger.GetLogger("juju.loki")
-					opts = append(opts, internalhttp.WithLogger(logger))
+					l := internallogger.GetLogger("juju.loki")
+					opts = append(opts, internalhttp.WithLogger(l))
 				}
 				return internalhttp.NewClient(opts...)
 			},
