@@ -131,7 +131,7 @@ func (s *manifoldSuite) TestStartValidatesBeforeGettingDependencies(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{})
 
 	w, err := manifold.Start(context.Background(), &mockGetter{
-		getter: func(name string, out interface{}) error {
+		getter: func(name string, out any) error {
 			getterCalled = true
 			return nil
 		},
@@ -142,10 +142,10 @@ func (s *manifoldSuite) TestStartValidatesBeforeGettingDependencies(c *tc.C) {
 }
 
 type mockGetter struct {
-	getter func(name string, out interface{}) error
+	getter func(name string, out any) error
 }
 
-func (g *mockGetter) Get(_ string, out interface{}) error {
+func (g *mockGetter) Get(_ string, out any) error {
 	if g.getter != nil {
 		return g.getter("", out)
 	}

@@ -49,7 +49,6 @@ func (*importSuite) TestImports(c *tc.C) {
 		"core/errors",
 		"core/facades",
 		"core/flightrecorder",
-		"core/http",
 		"core/instance",
 		"core/leadership",
 		"core/lease",
