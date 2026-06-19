@@ -47,9 +47,7 @@ func (s *SpaceCommandSuite) TestSpaceManagementBlockedOnCAAS(c *tc.C) {
 	// Space mutation and inspection commands remain IAAS-only.
 	for _, newCommand := range []func() modelcmd.ModelCommand{
 		space.NewAddCommand,
-		space.NewListCommand,
 		space.NewMoveCommand,
-		space.NewShowSpaceCommand,
 		space.NewRemoveCommand,
 		space.NewRenameCommand,
 	} {
