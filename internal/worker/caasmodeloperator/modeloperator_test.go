@@ -123,9 +123,12 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 	api := &dummyAPI{
 		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
 			return modeloperatorapi.ModelOperatorProvisioningInfo{
-				APIAddresses: apiAddresses[iteration],
-				ImageDetails: resource.DockerImageDetails{RegistryPath: imagePath[iteration]},
-				Version:      ver[iteration],
+				APIAddresses:         apiAddresses[iteration],
+				ImageDetails:         resource.DockerImageDetails{RegistryPath: imagePath[iteration]},
+				Version:              ver[iteration],
+				ControllerCert:       "controller-cert",
+				ControllerPrivateKey: "controller-key",
+				CAPrivateKey:         "ca-key",
 			}, nil
 		},
 		watchProvInfo: func() (watcher.NotifyWatcher, error) {
@@ -150,6 +153,11 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 			addresses, _ := ac.APIAddresses()
 			c.Check(addresses, tc.DeepEquals, apiAddresses[iteration])
 			c.Check(ac.UpgradedToVersion(), tc.Equals, ver[iteration])
+			controllerInfo, ok := ac.ControllerAgentInfo()
+			c.Check(ok, tc.IsTrue)
+			c.Check(controllerInfo.Cert, tc.Equals, "controller-cert")
+			c.Check(controllerInfo.PrivateKey, tc.Equals, "controller-key")
+			c.Check(controllerInfo.CAPrivateKey, tc.Equals, "ca-key")
 
 			if password == "" {
 				password = ac.OldPassword()

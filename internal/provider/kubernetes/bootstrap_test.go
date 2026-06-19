@@ -71,7 +71,7 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.namespace = controllerName
 
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.NameKey: "controller-1",
+		config.NameKey:   "controller-1",
 		"logging-config": "<root>=WARNING;juju.bootstrap=INFO",
 	}))
 	c.Assert(err, tc.ErrorIsNil)
