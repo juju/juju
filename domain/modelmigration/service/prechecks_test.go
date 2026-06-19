@@ -9,7 +9,6 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/modelmigration"
-	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 )
 
 // fullPrecheckArgs returns precheck arguments that exercise every check.
@@ -33,20 +32,17 @@ func fullPrecheckArgs(modelUUID string) modelmigration.ImportPrecheckArgs {
 // expectPrecheckPasses sets up the controller state mock so that every import
 // precheck succeeds.
 func (s *serviceSuite) expectPrecheckPasses(args modelmigration.ImportPrecheckArgs) {
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	for _, u := range args.Users {
-		s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), u).Return(false, true, nil)
-	}
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return(nil, nil)
 	s.controllerState.EXPECT().GetCredentialRevoked(
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(false, true, nil)
 	s.controllerState.EXPECT().SecretBackendExists(gomock.Any(), args.SecretBackend).Return(true, nil)
-	s.controllerState.EXPECT().GetImportClaim(gomock.Any(), args.ModelUUID).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
-	s.controllerState.EXPECT().ModelExists(gomock.Any(), args.ModelUUID).Return(false, nil)
-	s.controllerState.EXPECT().ModelNamespaceExists(gomock.Any(), args.ModelUUID).Return(false, nil)
-	s.controllerState.EXPECT().ModelNameInUse(gomock.Any(), args.ModelName, args.ModelQualifier).Return(false, nil)
+	s.controllerState.EXPECT().CheckImportModelCollision(
+		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
+	).Return(modelmigration.ImportModelCollision{}, nil)
 }
 
 // TestPrecheckImportSuccess asserts that the import prechecks pass when the
@@ -67,7 +63,9 @@ func (s *serviceSuite) TestPrecheckImportCloudNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(false, nil)
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(false, false, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `.*cloud "my-cloud" not found on target controller.*`)
@@ -79,8 +77,9 @@ func (s *serviceSuite) TestPrecheckImportRegionNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(false, nil)
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, false, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `.*cloud region "my-region" not valid for cloud "my-cloud".*`)
@@ -92,9 +91,10 @@ func (s *serviceSuite) TestPrecheckImportUserDisabled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), "alice").Return(true, true, nil)
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return([]string{"alice"}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `.*user "alice" is disabled on the target controller.*`)
@@ -106,20 +106,17 @@ func (s *serviceSuite) TestPrecheckImportMissingUserOK(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	// alice is missing (recreated on import), bob exists and is enabled.
-	s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), "alice").Return(false, false, nil)
-	s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), "bob").Return(false, true, nil)
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return(nil, nil)
 	s.controllerState.EXPECT().GetCredentialRevoked(
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(false, true, nil)
 	s.controllerState.EXPECT().SecretBackendExists(gomock.Any(), args.SecretBackend).Return(true, nil)
-	s.controllerState.EXPECT().GetImportClaim(gomock.Any(), args.ModelUUID).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
-	s.controllerState.EXPECT().ModelExists(gomock.Any(), args.ModelUUID).Return(false, nil)
-	s.controllerState.EXPECT().ModelNamespaceExists(gomock.Any(), args.ModelUUID).Return(false, nil)
-	s.controllerState.EXPECT().ModelNameInUse(gomock.Any(), args.ModelName, args.ModelQualifier).Return(false, nil)
+	s.controllerState.EXPECT().CheckImportModelCollision(
+		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
+	).Return(modelmigration.ImportModelCollision{}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -131,11 +128,10 @@ func (s *serviceSuite) TestPrecheckImportCredentialRevoked(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	for _, u := range args.Users {
-		s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), u).Return(false, true, nil)
-	}
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return(nil, nil)
 	s.controllerState.EXPECT().GetCredentialRevoked(
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(true, true, nil)
@@ -150,11 +146,10 @@ func (s *serviceSuite) TestPrecheckImportSecretBackendNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	for _, u := range args.Users {
-		s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), u).Return(false, true, nil)
-	}
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return(nil, nil)
 	s.controllerState.EXPECT().GetCredentialRevoked(
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(false, true, nil)
@@ -164,29 +159,26 @@ func (s *serviceSuite) TestPrecheckImportSecretBackendNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*secret backend "my-backend" not found on target controller.*`)
 }
 
-// TestPrecheckImportClaimExists asserts the prechecks report an existing import
-// claim for the model UUID.
-func (s *serviceSuite) TestPrecheckImportClaimExists(c *tc.C) {
+// TestPrecheckImportInProgress asserts the prechecks report a model already
+// being imported for the model UUID.
+func (s *serviceSuite) TestPrecheckImportInProgress(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	for _, u := range args.Users {
-		s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), u).Return(false, true, nil)
-	}
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return(nil, nil)
 	s.controllerState.EXPECT().GetCredentialRevoked(
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(false, true, nil)
 	s.controllerState.EXPECT().SecretBackendExists(gomock.Any(), args.SecretBackend).Return(true, nil)
-	s.controllerState.EXPECT().GetImportClaim(gomock.Any(), args.ModelUUID).Return(
-		modelmigration.ImportClaim{
-			SourceMigrationUUID: "src",
-			Phase:               modelmigration.ImportPhaseImporting,
-		}, nil)
+	s.controllerState.EXPECT().CheckImportModelCollision(
+		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
+	).Return(modelmigration.ImportModelCollision{Importing: true}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*already has an import claim on this controller.*`)
+	c.Assert(err, tc.ErrorMatches, `.*already exists on this controller \(currently importing\).*`)
 }
 
 // TestPrecheckImportModelUUIDCollision asserts the prechecks reject a model
@@ -195,21 +187,20 @@ func (s *serviceSuite) TestPrecheckImportModelUUIDCollision(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	for _, u := range args.Users {
-		s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), u).Return(false, true, nil)
-	}
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return(nil, nil)
 	s.controllerState.EXPECT().GetCredentialRevoked(
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(false, true, nil)
 	s.controllerState.EXPECT().SecretBackendExists(gomock.Any(), args.SecretBackend).Return(true, nil)
-	s.controllerState.EXPECT().GetImportClaim(gomock.Any(), args.ModelUUID).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
-	s.controllerState.EXPECT().ModelExists(gomock.Any(), args.ModelUUID).Return(true, nil)
+	s.controllerState.EXPECT().CheckImportModelCollision(
+		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
+	).Return(modelmigration.ImportModelCollision{ModelExists: true}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*model with same UUID already exists.*`)
+	c.Assert(err, tc.ErrorMatches, `.*model ".*" already exists on this controller.*`)
 }
 
 // TestPrecheckImportNameInUse asserts the prechecks reject a model whose
@@ -218,27 +209,24 @@ func (s *serviceSuite) TestPrecheckImportNameInUse(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
-	s.expectPrecheckPassesUntilName(args)
-	s.controllerState.EXPECT().ModelNameInUse(gomock.Any(), args.ModelName, args.ModelQualifier).Return(true, nil)
+	s.expectPrecheckPassesUntilCollision(args)
+	s.controllerState.EXPECT().CheckImportModelCollision(
+		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
+	).Return(modelmigration.ImportModelCollision{ModelNameExists: true}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
 	c.Assert(err, tc.ErrorMatches, `.*model named "prod-model" already exists.*`)
 }
 
-// expectPrecheckPassesUntilName sets up every precheck up to (but not
-// including) the model name/qualifier collision check to succeed.
-func (s *serviceSuite) expectPrecheckPassesUntilName(args modelmigration.ImportPrecheckArgs) {
-	s.controllerState.EXPECT().CloudExists(gomock.Any(), args.Cloud).Return(true, nil)
-	s.controllerState.EXPECT().CloudRegionExists(gomock.Any(), args.Cloud, args.CloudRegion).Return(true, nil)
-	for _, u := range args.Users {
-		s.controllerState.EXPECT().IsUserDisabled(gomock.Any(), u).Return(false, true, nil)
-	}
+// expectPrecheckPassesUntilCollision sets up every precheck up to (but not
+// including) the model identity collision check to succeed.
+func (s *serviceSuite) expectPrecheckPassesUntilCollision(args modelmigration.ImportPrecheckArgs) {
+	s.controllerState.EXPECT().CheckCloudRegion(
+		gomock.Any(), args.Cloud, args.CloudRegion,
+	).Return(true, true, nil)
+	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return(nil, nil)
 	s.controllerState.EXPECT().GetCredentialRevoked(
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(false, true, nil)
 	s.controllerState.EXPECT().SecretBackendExists(gomock.Any(), args.SecretBackend).Return(true, nil)
-	s.controllerState.EXPECT().GetImportClaim(gomock.Any(), args.ModelUUID).Return(
-		modelmigration.ImportClaim{}, modelmigrationerrors.ErrImportNotFound)
-	s.controllerState.EXPECT().ModelExists(gomock.Any(), args.ModelUUID).Return(false, nil)
-	s.controllerState.EXPECT().ModelNamespaceExists(gomock.Any(), args.ModelUUID).Return(false, nil)
 }

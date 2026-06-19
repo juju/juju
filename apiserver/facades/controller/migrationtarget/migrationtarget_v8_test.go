@@ -129,9 +129,8 @@ func (s *v8Suite) mustNewAPIV8WithMinter(c *tc.C, minter facade.LocalMacaroonMin
 	return apiV8
 }
 
-// validPayload returns a v4_0_6 payload whose static checks pass: one
-// application whose charm has a manifest base, no fan config, and an agent
-// version below the target controller version used in tests.
+// validPayload returns a v4_0_6 payload with an agent version below the target
+// controller version used in tests.
 func (s *v8Suite) validPayload() v4_0_6.ModelExport {
 	return v4_0_6.ModelExport{
 		AgentVersion: []v4_0_6.AgentVersion{{
@@ -182,10 +181,10 @@ func (s *v8Suite) expectControllerReady() {
 }
 
 // TestPrechecksSuccess runs the full precheck routine over a well-formed
-// envelope: the static payload checks and controller-readiness checks pass,
-// and the environmental checks delegated to the modelmigration domain return
-// no error. It also asserts the envelope's semantic fields are mapped onto the
-// precheck arguments handed to the domain.
+// envelope: the controller-readiness checks pass and the environmental checks
+// delegated to the modelmigration domain return no error. It also asserts the
+// envelope's semantic fields are mapped onto the precheck arguments handed to
+// the domain.
 func (s *v8Suite) TestPrechecksSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectControllerReady()
@@ -311,34 +310,7 @@ func (s *v8Suite) TestPrechecksPayloadVersionUnknown(c *tc.C) {
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Assert(err, tc.ErrorMatches, `model export payload version "4.0.5" not supported`)
-}
-
-// TestPrechecksCharmWithoutManifest verifies the static charm-manifest check
-// runs over the decoded payload.
-func (s *v8Suite) TestPrechecksCharmWithoutManifest(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	payload := s.validPayload()
-	payload.CharmManifestBase = nil
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, payload))
-	c.Assert(err, tc.ErrorMatches,
-		`migration import prechecks: checking model for charms without manifest.yaml: all charms now require a manifest.yaml file, this model hosts charm\(s\) with no manifest.yaml file: ubuntu`)
-}
-
-// TestPrechecksFanConfig verifies the static fan-config check runs over the
-// decoded payload's model config.
-func (s *v8Suite) TestPrechecksFanConfig(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	payload := s.validPayload()
-	payload.ModelConfig = []v4_0_6.ModelConfig{
-		{Key: "fan-config", Value: "10.0.0.0/8=252.0.0.0/8"},
-	}
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, payload))
-	c.Assert(err, tc.ErrorMatches, `.*fan networking not supported.*`)
+	c.Assert(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
 }
 
 // TestPrechecksModelVersionNewerThanController verifies that the model's
@@ -427,9 +399,8 @@ func (s *v8Suite) TestCreateMigrationMacaroonRemoteUserPermissionDenied(c *tc.C)
 // TestImportRunsGuardsThenNoOpSuccess verifies the v8 Import shell runs the
 // mandatory pre-write guards (envelope validation and payload version/decode)
 // and then succeeds as a no-op until the real import path lands. Import must
-// NOT run the static or environmental prechecks, so the precheck service is
-// never primed: any environmental call would surface as an unexpected gomock
-// call.
+// NOT run the environmental prechecks, so the precheck service is never
+// primed: any environmental call would surface as an unexpected gomock call.
 func (s *v8Suite) TestImportRunsGuardsThenNoOpSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

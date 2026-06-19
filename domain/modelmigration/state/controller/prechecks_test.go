@@ -14,67 +14,49 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// TestCloudExists verifies the cloud existence check against a known cloud and
-// an unknown one.
-func (s *stateSuite) TestCloudExists(c *tc.C) {
+// TestCheckCloudRegion verifies the combined cloud/region lookup reports both
+// parts without requiring separate state calls.
+func (s *stateSuite) TestCheckCloudRegion(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	exists, err := st.CloudExists(c.Context(), "my-cloud")
+	cloudExists, regionExists, err := st.CheckCloudRegion(c.Context(), "my-cloud", "my-region")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsTrue)
+	c.Check(cloudExists, tc.IsTrue)
+	c.Check(regionExists, tc.IsTrue)
 
-	exists, err = st.CloudExists(c.Context(), "missing-cloud")
+	cloudExists, regionExists, err = st.CheckCloudRegion(c.Context(), "my-cloud", "other-region")
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsFalse)
+	c.Check(cloudExists, tc.IsTrue)
+	c.Check(regionExists, tc.IsFalse)
+
+	cloudExists, regionExists, err = st.CheckCloudRegion(c.Context(), "missing-cloud", "my-region")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloudExists, tc.IsFalse)
+	c.Check(regionExists, tc.IsFalse)
+
+	cloudExists, regionExists, err = st.CheckCloudRegion(c.Context(), "my-cloud", "")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cloudExists, tc.IsTrue)
+	c.Check(regionExists, tc.IsTrue)
 }
 
-// TestCloudRegionExists verifies the region existence check, including that a
-// region of a different cloud and an unknown cloud both report false.
-func (s *stateSuite) TestCloudRegionExists(c *tc.C) {
+// TestGetDisabledUsers verifies the batched user lookup reports only active
+// disabled users and ignores missing users.
+func (s *stateSuite) TestGetDisabledUsers(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	exists, err := st.CloudRegionExists(c.Context(), "my-cloud", "my-region")
+	disabled, err := st.GetDisabledUsers(c.Context(), []string{s.userName.Name(), "nonexistent-user"})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsTrue)
+	c.Check(disabled, tc.DeepEquals, []string{})
 
-	// "other-region" belongs to "other-cloud", not "my-cloud".
-	exists, err = st.CloudRegionExists(c.Context(), "my-cloud", "other-region")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsFalse)
-
-	exists, err = st.CloudRegionExists(c.Context(), "missing-cloud", "my-region")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsFalse)
-}
-
-// TestIsUserDisabled verifies the user lookup reports existence and that an
-// active, enabled user is not disabled, while an unknown user does not exist.
-func (s *stateSuite) TestIsUserDisabled(c *tc.C) {
-	st := New(s.TxnRunnerFactory(), clock.WallClock)
-
-	disabled, exists, err := st.IsUserDisabled(c.Context(), s.userName.Name())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsTrue)
-	c.Check(disabled, tc.IsFalse)
-
-	_, exists, err = st.IsUserDisabled(c.Context(), "nonexistent-user")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsFalse)
-}
-
-// TestIsUserDisabledDisabled verifies a disabled user is reported as disabled.
-func (s *stateSuite) TestIsUserDisabledDisabled(c *tc.C) {
-	st := New(s.TxnRunnerFactory(), clock.WallClock)
-
-	_, err := s.DB().ExecContext(c.Context(),
+	_, err = s.DB().ExecContext(c.Context(),
 		`INSERT INTO user_authentication (user_uuid, disabled) VALUES (?, TRUE)
 		 ON CONFLICT(user_uuid) DO UPDATE SET disabled = TRUE`, s.userUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	disabled, exists, err := st.IsUserDisabled(c.Context(), s.userName.Name())
+	disabled, err = st.GetDisabledUsers(c.Context(), []string{s.userName.Name(), "nonexistent-user"})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsTrue)
-	c.Check(disabled, tc.IsTrue)
+	c.Check(disabled, tc.DeepEquals, []string{s.userName.Name()})
 }
 
 // TestGetCredentialRevoked verifies the credential lookup reports existence and
@@ -120,37 +102,37 @@ func (s *stateSuite) TestSecretBackendExists(c *tc.C) {
 	c.Check(exists, tc.IsFalse)
 }
 
-// TestModelExists verifies the model existence check against the suite's model
-// and an unknown UUID.
-func (s *stateSuite) TestModelExists(c *tc.C) {
+// TestCheckImportModelCollision verifies the combined model collision lookup
+// reports import, UUID, namespace and name/qualifier collisions.
+func (s *stateSuite) TestCheckImportModelCollision(c *tc.C) {
+	db := s.DB()
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	exists, err := st.ModelExists(c.Context(), s.modelUUID.String())
+	collision, err := st.CheckImportModelCollision(
+		c.Context(), s.modelUUID.String(), "my-test-model", "prod",
+	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsTrue)
+	c.Check(collision.Importing, tc.IsFalse)
+	c.Check(collision.ModelExists, tc.IsTrue)
+	c.Check(collision.ModelNamespaceExists, tc.IsTrue)
+	c.Check(collision.ModelNameExists, tc.IsTrue)
 
-	exists, err = st.ModelExists(c.Context(), tc.Must(c, coremodel.NewUUID).String())
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, ?)",
+		uuid.MustNewUUID().String(), s.modelUUID, uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsFalse)
-}
 
-// TestModelNameInUse verifies the model name/qualifier collision check.
-func (s *stateSuite) TestModelNameInUse(c *tc.C) {
-	st := New(s.TxnRunnerFactory(), clock.WallClock)
-
-	inUse, err := st.ModelNameInUse(c.Context(), "my-test-model", "prod")
+	collision, err = st.CheckImportModelCollision(
+		c.Context(), s.modelUUID.String(), "my-test-model", "prod",
+	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(inUse, tc.IsTrue)
+	c.Check(collision.Importing, tc.IsTrue)
 
-	// Same name, different qualifier.
-	inUse, err = st.ModelNameInUse(c.Context(), "my-test-model", "staging")
+	collision, err = st.CheckImportModelCollision(
+		c.Context(), tc.Must(c, coremodel.NewUUID).String(), "other-model", "prod",
+	)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(inUse, tc.IsFalse)
-
-	// Different name, same qualifier.
-	inUse, err = st.ModelNameInUse(c.Context(), "other-model", "prod")
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(inUse, tc.IsFalse)
+	c.Check(collision, tc.DeepEquals, modelmigration.ImportModelCollision{})
 }
 
 // TestGetImportClaim verifies the claim projection for each import phase.
@@ -193,20 +175,4 @@ func (s *stateSuite) TestGetImportClaimNotFound(c *tc.C) {
 
 	_, err := st.GetImportClaim(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
-}
-
-// TestModelNamespaceExists verifies the namespace existence check for a model
-// with a registered namespace and for an unknown model UUID.
-func (s *stateSuite) TestModelNamespaceExists(c *tc.C) {
-	st := New(s.TxnRunnerFactory(), clock.WallClock)
-
-	// The suite's model is created through the model state and has a
-	// registered namespace.
-	exists, err := st.ModelNamespaceExists(c.Context(), s.modelUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsTrue)
-
-	exists, err = st.ModelNamespaceExists(c.Context(), tc.Must(c, coremodel.NewUUID).String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.IsFalse)
 }

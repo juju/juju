@@ -317,11 +317,6 @@ type modelNameQualifierArg struct {
 	Qualifier string `db:"qualifier"`
 }
 
-// userDisabled is the projection of a user's disabled flag.
-type userDisabled struct {
-	Disabled bool `db:"disabled"`
-}
-
 // credentialRevoked is the projection of a cloud credential's revoked flag.
 type credentialRevoked struct {
 	Revoked bool `db:"revoked"`

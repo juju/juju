@@ -5,12 +5,12 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/modelmigration"
-	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -48,21 +48,14 @@ func (s *Service) PrecheckImport(ctx context.Context, args modelmigration.Import
 // precheckCloudAndRegion verifies the model's cloud exists on the target and,
 // if set, that the cloud region is known to that cloud.
 func (s *Service) precheckCloudAndRegion(ctx context.Context, args modelmigration.ImportPrecheckArgs) error {
-	exists, err := s.controllerState.CloudExists(ctx, args.Cloud)
+	cloudExists, regionExists, err := s.controllerState.CheckCloudRegion(ctx, args.Cloud, args.CloudRegion)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if !exists {
+	if !cloudExists {
 		return errors.Errorf("model's cloud %q not found on target controller", args.Cloud)
 	}
-	if args.CloudRegion == "" {
-		return nil
-	}
-	regionExists, err := s.controllerState.CloudRegionExists(ctx, args.Cloud, args.CloudRegion)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if !regionExists {
+	if args.CloudRegion != "" && !regionExists {
 		return errors.Errorf(
 			"model's cloud region %q not valid for cloud %q on target controller",
 			args.CloudRegion, args.Cloud)
@@ -74,18 +67,24 @@ func (s *Service) precheckCloudAndRegion(ctx context.Context, args modelmigratio
 // missing user is fine (it is recreated on import), but an existing user must
 // not be disabled.
 func (s *Service) precheckUsers(ctx context.Context, users []string) error {
+	names := make([]string, 0, len(users))
 	for _, u := range users {
 		name, err := user.NewName(u)
 		if err != nil {
 			return errors.Errorf("model user name %q %w", u, coreerrors.NotValid)
 		}
-		disabled, exists, err := s.controllerState.IsUserDisabled(ctx, name.Name())
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if exists && disabled {
-			return errors.Errorf("model user %q is disabled on the target controller", u)
-		}
+		names = append(names, name.Name())
+	}
+	disabledUsers, err := s.controllerState.GetDisabledUsers(ctx, names)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if len(disabledUsers) == 1 {
+		return errors.Errorf("model user %q is disabled on the target controller", disabledUsers[0])
+	}
+	if len(disabledUsers) > 1 {
+		return errors.Errorf("model users %q are disabled on the target controller",
+			strings.Join(disabledUsers, ", "))
 	}
 	return nil
 }
@@ -132,41 +131,22 @@ func (s *Service) precheckSecretBackend(ctx context.Context, backend string) err
 
 // precheckModelCollisions rejects imports that would collide with live rows on
 // the target's shared-namespace tables (model, model_namespace) or with an
-// existing import claim, and rejects model name/qualifier conflicts.
+// existing import, and rejects model name/qualifier conflicts.
 func (s *Service) precheckModelCollisions(ctx context.Context, args modelmigration.ImportPrecheckArgs) error {
-	claim, err := s.controllerState.GetImportClaim(ctx, args.ModelUUID)
-	if err == nil {
-		return errors.Errorf(
-			"model %q already has an import claim on this controller (phase %q, source migration %q, updated %s)",
-			args.ModelUUID, claim.Phase, claim.SourceMigrationUUID,
-			claim.UpdatedAt.Format("2006-01-02 15:04:05"))
-	} else if !errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
-		return errors.Errorf("retrieving import claim for model %q: %w", args.ModelUUID, err)
-	}
-
-	// No import claim: any live row for this UUID is a hard collision.
-	modelExists, err := s.controllerState.ModelExists(ctx, args.ModelUUID)
+	collision, err := s.controllerState.CheckImportModelCollision(
+		ctx, args.ModelUUID, args.ModelName, args.ModelQualifier,
+	)
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if modelExists {
-		return errors.Errorf("model with same UUID already exists (%s)", args.ModelUUID)
+	if collision.Importing {
+		return errors.Errorf("model %q already exists on this controller (currently importing)",
+			args.ModelUUID)
 	}
-
-	nsExists, err := s.controllerState.ModelNamespaceExists(ctx, args.ModelUUID)
-	if err != nil {
-		return errors.Capture(err)
+	if collision.ModelExists || collision.ModelNamespaceExists {
+		return errors.Errorf("model %q already exists on this controller", args.ModelUUID)
 	}
-	if nsExists {
-		return errors.Errorf(
-			"model database namespace for %q already exists on target controller", args.ModelUUID)
-	}
-
-	nameInUse, err := s.controllerState.ModelNameInUse(ctx, args.ModelName, args.ModelQualifier)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if nameInUse {
+	if collision.ModelNameExists {
 		return errors.Errorf("model named %q already exists", args.ModelName)
 	}
 	return nil

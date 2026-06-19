@@ -608,7 +608,7 @@ func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 
 // MigrationImportService runs the environmental v8 import prechecks against
 // the target controller database. The migrationtarget facade stays thin: it
-// assembles the typed precheck arguments from the envelope and delegates the
+// assembles the typed precheck arguments from the v8 args and delegates the
 // cross-domain reads to the modelmigration domain.
 type MigrationImportService interface {
 	// PrecheckImport runs the environmental prechecks for a v8 model migration
@@ -618,10 +618,10 @@ type MigrationImportService interface {
 	PrecheckImport(ctx context.Context, args modelmigration.ImportPrecheckArgs) error
 }
 
-// APIV8 implements the MigrationTarget v8 facade: typed-envelope
-// (params.SerializedModelV2) prechecks and import. It embeds the v7 API for
-// the methods that are unchanged (Abort, Activate, AdoptResources, etc.) and
-// shadows Prechecks and Import with the v8 envelope signatures — the inverse
+// APIV8 implements the MigrationTarget v8 facade for typed
+// params.SerializedModelV2 prechecks and import. It embeds the v7 API for the
+// unchanged methods (Abort, Activate, AdoptResources, etc.) and shadows
+// Prechecks and Import with the v8 args signatures — the inverse
 // of the legacy.go adapter pattern, because Go cannot overload method names
 // by parameter type.
 type APIV8 struct {
@@ -646,30 +646,39 @@ func NewAPIV8(
 }
 
 // Prechecks ensures that the target controller is ready to accept the model
-// described by the v8 envelope. It performs schema, payload-version, static
-// payload and environmental checks without writing any target-side rows and
-// without deserializing a description.Model.
-func (api *APIV8) Prechecks(ctx context.Context, envelope params.SerializedModelV2) error {
-	return api.prechecks(ctx, envelope)
+// described by the v8 args. It performs schema, payload-version and
+// environmental checks without writing any target-side rows and without
+// deserializing a description.Model.
+func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) error {
+	view, err := api.importGuard(ctx, args)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := api.targetPrechecks(ctx, args, view); err != nil {
+		return errors.Errorf("migration target prechecks failed: %w", err)
+	}
+
+	return nil
 }
 
-// Import accepts a v8 model migration envelope. The full import path (durable
+// Import accepts v8 model migration args. The full import path (durable
 // claim, controller-fact application and model-DB import) is not implemented
 // yet; the method runs only the mandatory pre-write guards and then succeeds
-// as a no-op shell WITHOUT importing anything, so the source-side migration
+// as a no-op shell without importing anything, so the source-side migration
 // worker can be exercised against this facade during development.
 //
-// Unlike Prechecks, Import deliberately does NOT re-run the static payload or
-// environmental prechecks. Per the spec (WS4a / Task 6) the only work that
-// must precede the first target-side write is schema validation, payload
-// version/decode preparation and the non-empty SourceMigrationUUID check —
-// exactly what guards covers. The equivalent collision checks become
+// Unlike Prechecks, Import deliberately does NOT re-run the environmental
+// prechecks. Per the spec (WS4a / Task 6) the only work that must precede the
+// first target-side write is schema validation, payload version/decode
+// preparation and the non-empty SourceMigrationUUID check — exactly what
+// importGuard covers. The equivalent collision checks become
 // structural guarded writes inside the real import path (UNIQUE(model_uuid)
 // claim insert, compare-or-insert controller facts), so Import does not
 // duplicate the Prechecks routine. This mirrors v7, where Import does not
 // re-run Prechecks either.
-func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2) error {
-	if _, err := api.guards(ctx, envelope); err != nil {
+func (api *APIV8) Import(ctx context.Context, args params.SerializedModelV2) error {
+	if _, err := api.importGuard(ctx, args); err != nil {
 		return errors.Capture(err)
 	}
 
@@ -678,77 +687,54 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 	// controller-fact application and the V2 model-DB import. This must land
 	// before a 4.1 release ships.
 	api.logger.Warningf(ctx,
-		"MigrationTarget v8 Import for model %q is a no-op shell; the model was NOT imported",
-		envelope.ModelInfo.UUID)
+		"migrationtarget v8 import for model %q is a no-op shell; the model was not imported",
+		args.ModelInfo.UUID)
 	return nil
 }
 
-// prechecks is the v8 precheck routine used by Prechecks. It runs the
-// mandatory pre-write guards followed by the static payload and environmental
-// checks. It must not write any target-side rows.
-func (api *APIV8) prechecks(ctx context.Context, envelope params.SerializedModelV2) error {
-	view, err := api.guards(ctx, envelope)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	// Static payload checks (charm manifests, fan config).
-	if err := migration.ImportPayloadPrecheck(ctx, view); err != nil {
-		return errors.Errorf("migration import prechecks: %w", err)
-	}
-
-	// Environmental checks against the target controller.
-	if err := api.targetPrechecks(ctx, envelope, view); err != nil {
-		return errors.Errorf("migration target prechecks failed: %w", err)
-	}
-
-	return nil
-}
-
-// guards runs the mandatory pre-write guards that must pass before any
-// target-side row is written on the v8 import path: envelope identity
+// importGuard runs the mandatory pre-write checks that must pass before any
+// target-side row is written on the v8 import path: model identity
 // validation (including a non-empty source migration UUID) and the payload
-// version/decode checks. It returns the version-neutral static-check view of
-// the decoded payload for callers that go on to run the static/environmental
+// version/decode checks. It returns the version-neutral projection view of
+// the decoded payload for callers that go on to run environmental
 // prechecks. It must not write any target-side rows.
 //
 // There is no runtime controller-schema guard: the v8 import objects are
 // guaranteed present by the time the facade serves requests, because the
 // controllerupgrader manifold gates the apiserver behind completion of the
 // controller-DB schema upgrade (see the migrationtarget v8 spec, §4.6).
-func (api *APIV8) guards(ctx context.Context, envelope params.SerializedModelV2) (export.StaticCheckView, error) {
-	// Envelope sanity first: nothing else is meaningful without a valid
+func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2) (export.ProjectionView, error) {
+	// Model sanity first: nothing else is meaningful without a valid
 	// model identity.
-	if err := validateEnvelopeModelInfo(envelope.ModelInfo); err != nil {
-		return export.StaticCheckView{}, errors.Capture(err)
+	if err := validateModelInfo(args.ModelInfo); err != nil {
+		return export.ProjectionView{}, errors.Capture(err)
 	}
 
 	// Payload-version checks. The newer-than-target check runs before the
 	// decoder registry lookup so a payload from a newer Juju gets the
 	// actionable upgrade message rather than an unknown-version error.
 	targetVersion := export.LatestSupportedPayloadVersion()
-	if envelope.PayloadVersion.Compare(targetVersion) > 0 {
-		return export.StaticCheckView{}, errors.Errorf(
+	if args.PayloadVersion.Compare(targetVersion) > 0 {
+		return export.ProjectionView{}, errors.Errorf(
 			"source payload version %q is newer than target %q; upgrade the target controller first %w",
-			envelope.PayloadVersion, targetVersion, coreerrors.NotSupported)
+			args.PayloadVersion, targetVersion, coreerrors.NotSupported)
 	}
 
-	payload, err := export.DecodePayload(envelope.PayloadVersion, envelope.Payload)
+	payload, err := export.DecodePayload(args.PayloadVersion, args.Payload)
 	if err != nil {
-		return export.StaticCheckView{}, errors.Capture(err)
+		return export.ProjectionView{}, errors.Capture(err)
 	}
 
-	view, err := export.StaticCheckViewFor(payload)
+	view, err := export.ProjectionViewForPayload(payload)
 	if err != nil {
-		return export.StaticCheckView{}, errors.Capture(err)
+		return export.ProjectionView{}, errors.Capture(err)
 	}
 
 	return view, nil
 }
 
-// validateEnvelopeModelInfo validates the bootstrap identity fields of the v8
-// envelope.
-func validateEnvelopeModelInfo(info params.SerializedModelInfo) error {
+// validateModelInfo validates the bootstrap identity fields of the v8 args.
+func validateModelInfo(info params.SerializedModelInfo) error {
 	if err := coremodel.UUID(info.UUID).Validate(); err != nil {
 		return errors.Errorf("model UUID %q %w", info.UUID, coreerrors.NotValid)
 	}
@@ -771,7 +757,7 @@ func validateEnvelopeModelInfo(info params.SerializedModelInfo) error {
 // domain (which reads the controller database directly), keeping this facade
 // thin.
 func (api *APIV8) targetPrechecks(
-	ctx context.Context, envelope params.SerializedModelV2, view export.StaticCheckView,
+	ctx context.Context, args params.SerializedModelV2, view export.ProjectionView,
 ) error {
 	// Target controller readiness: upgrade in progress and controller
 	// machine health, mirroring the v7 TargetPrecheck coverage.
@@ -781,45 +767,33 @@ func (api *APIV8) targetPrechecks(
 	}
 	if err := migration.TargetControllerPrecheck(
 		ctx, api.upgradeService, api.statusService, modelAgentService, api.machineService,
+		view.AgentTargetVersion,
 	); err != nil {
 		return errors.Capture(err)
 	}
 
-	// The migrating model's agent version must not be ahead of the target
-	// controller. The version comes from the payload's agent_version row; the
-	// v8 envelope deliberately carries no separate agent version field.
-	controllerVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		return errors.Errorf("retrieving target controller version: %w", err)
-	}
-	if view.AgentTargetVersion != (semversion.Number{}) &&
-		controllerVersion.Compare(view.AgentTargetVersion) < 0 {
-		return errors.Errorf("model has higher version than target controller (%s > %s)",
-			view.AgentTargetVersion, controllerVersion)
-	}
-
 	// Environmental checks against the target controller database, owned by
 	// the modelmigration domain.
-	if err := api.migrationImportService.PrecheckImport(ctx, importPrecheckArgs(envelope)); err != nil {
+	if err := api.migrationImportService.PrecheckImport(ctx, importPrecheckArgs(args)); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
 }
 
 // importPrecheckArgs builds the typed precheck arguments consumed by the
-// modelmigration domain from the v8 envelope's semantic fields.
-func importPrecheckArgs(envelope params.SerializedModelV2) modelmigration.ImportPrecheckArgs {
+// modelmigration domain from the v8 args' semantic fields.
+func importPrecheckArgs(in params.SerializedModelV2) modelmigration.ImportPrecheckArgs {
 	args := modelmigration.ImportPrecheckArgs{
-		ModelUUID:      envelope.ModelInfo.UUID,
-		ModelName:      envelope.ModelInfo.Name,
-		ModelQualifier: envelope.ModelInfo.Qualifier,
-		Cloud:          envelope.ModelInfo.Cloud,
-		CloudRegion:    envelope.ModelInfo.CloudRegion,
+		ModelUUID:      in.ModelInfo.UUID,
+		ModelName:      in.ModelInfo.Name,
+		ModelQualifier: in.ModelInfo.Qualifier,
+		Cloud:          in.ModelInfo.Cloud,
+		CloudRegion:    in.ModelInfo.CloudRegion,
 	}
-	for _, u := range envelope.Users {
+	for _, u := range in.Users {
 		args.Users = append(args.Users, u.Name)
 	}
-	if cred := envelope.ModelCredential; cred != nil {
+	if cred := in.ModelCredential; cred != nil {
 		args.Credential = &modelmigration.ImportPrecheckCredential{
 			Cloud:   cred.Cloud,
 			Owner:   cred.Owner,
@@ -827,8 +801,8 @@ func importPrecheckArgs(envelope params.SerializedModelV2) modelmigration.Import
 			Revoked: cred.Revoked,
 		}
 	}
-	if envelope.SecretBackend != nil {
-		args.SecretBackend = envelope.SecretBackend.Name
+	if in.SecretBackend != nil {
+		args.SecretBackend = in.SecretBackend.Name
 	}
 	return args
 }

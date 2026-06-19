@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
 	coreunit "github.com/juju/juju/core/unit"
-	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/modelmigration"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/environs/config"
@@ -175,40 +174,40 @@ func ImportDescriptionPrecheck(
 	return nil
 }
 
-// ImportPayloadPrecheck checks the decoded v8 model export payload to make
-// sure preconditions for importing are met. This performs static checks on
-// the version-neutral projection of the payload, without requiring a
-// connection to state. It is the SerializedModelV2 counterpart of
-// [ImportDescriptionPrecheck].
-func ImportPayloadPrecheck(ctx context.Context, view export.StaticCheckView) error {
-	if err := checkPayloadForCharmsWithNoManifest(view); err != nil {
-		return internalerrors.Errorf("checking model for charms without manifest.yaml: %w", err)
-	}
-
-	if err := checkNoFanConfig(view.ModelConfig); err != nil {
-		return internalerrors.Errorf("checking model config for fan config: %w", err)
-	}
-
-	return nil
-}
-
 // TargetControllerPrecheck runs the target-controller readiness checks
-// (upgrade in progress, controller machines at the target agent version and
-// with sane status/life) without requiring a description.Model. It is used by
-// the v8 migrationtarget prechecks.
+// (upgrade in progress, controller machines at the target agent version, with
+// sane status/life, and a target agent version not older than the migrating
+// model) without requiring a description.Model. It is used by the v8
+// migrationtarget prechecks.
 func TargetControllerPrecheck(
 	ctx context.Context,
 	upgradeService UpgradeService,
 	statusService StatusService,
 	modelAgentService ModelAgentService,
 	machineService MachineService,
+	modelAgentVersion semversion.Number,
 ) error {
 	controllerCtx := newPrecheckController(
 		upgradeService,
 		statusService,
 		modelAgentService,
 		machineService)
-	return errors.Trace(controllerCtx.checkController(ctx))
+	if err := controllerCtx.checkController(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	if modelAgentVersion == (semversion.Number{}) {
+		return nil
+	}
+	controllerVersion, err := modelAgentService.GetModelTargetAgentVersion(ctx)
+	if err != nil {
+		return errors.Annotate(err, "retrieving target controller version")
+	}
+	if controllerVersion.Compare(modelAgentVersion) < 0 {
+		return errors.Errorf("model has higher version than target controller (%s > %s)",
+			modelAgentVersion, controllerVersion)
+	}
+	return nil
 }
 
 // TargetPrecheck checks the state of the target controller to make
@@ -568,24 +567,6 @@ func versionToMajMin(ver semversion.Number) semversion.Number {
 	ver.Build = 0
 	ver.Tag = ""
 	return ver
-}
-
-// checkPayloadForCharmsWithNoManifest checks the decoded v8 payload for
-// applications that use charms with no bases listed in the manifest. It is
-// the payload counterpart of checkForCharmsWithNoManifest.
-func checkPayloadForCharmsWithNoManifest(view export.StaticCheckView) error {
-	result := set.NewStrings()
-	for appName, charmUUID := range view.Applications {
-		if !view.CharmUUIDsWithManifestBases.Contains(charmUUID) {
-			result.Add(appName)
-		}
-	}
-	if !result.IsEmpty() {
-		return internalerrors.Errorf("all charms now require a manifest.yaml file, this model hosts charm(s) with no manifest.yaml file: %s",
-			strings.Join(result.SortedValues(), ", "),
-		)
-	}
-	return nil
 }
 
 // checkForCharmsWithNoManifest checks the model for applications that use charms

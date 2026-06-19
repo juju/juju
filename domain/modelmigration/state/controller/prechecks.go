@@ -20,101 +20,99 @@ import (
 // model) rather than calling those domain services, so the migrationtarget
 // facade stays thin and the prechecks run as a single domain concern.
 
-// CloudExists reports whether a cloud with the given name exists on the
-// controller.
-func (s *State) CloudExists(ctx context.Context, name string) (bool, error) {
+// CheckCloudRegion reports whether the named cloud exists and, when a region
+// name is supplied, whether that region is known to the cloud.
+func (s *State) CheckCloudRegion(
+	ctx context.Context, cloudName, regionName string,
+) (cloudExists bool, regionExists bool, err error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	arg := cloudArg{CloudName: name}
-	var count countResult
-	stmt, err := s.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM   cloud AS c
-WHERE  c.name = $cloudArg.cloud_name
-`, count, arg)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, arg).Get(&count)
-	})
-	if err != nil {
-		return false, errors.Errorf("checking cloud %q existence: %w", name, err)
-	}
-	return count.Count > 0, nil
-}
-
-// CloudRegionExists reports whether the named region is known to the named
-// cloud on the controller.
-func (s *State) CloudRegionExists(ctx context.Context, cloudName, regionName string) (bool, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
+		return false, false, errors.Capture(err)
 	}
 
 	arg := cloudArg{CloudName: cloudName, RegionName: regionName}
-	var count countResult
-	stmt, err := s.Prepare(`
-SELECT COUNT(*) AS &countResult.count
+	cloudStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
+FROM   cloud AS c
+WHERE  c.name = $cloudArg.cloud_name
+LIMIT 1
+`, countResult{}, arg)
+	if err != nil {
+		return false, false, errors.Capture(err)
+	}
+	regionStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
 FROM   cloud_region AS cr
 JOIN   cloud AS c ON cr.cloud_uuid = c.uuid
 WHERE  c.name = $cloudArg.cloud_name
 AND    cr.name = $cloudArg.region_name
-`, count, arg)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, arg).Get(&count)
-	})
-	if err != nil {
-		return false, errors.Errorf(
-			"checking region %q of cloud %q existence: %w", regionName, cloudName, err)
-	}
-	return count.Count > 0, nil
-}
-
-// IsUserDisabled reports whether an active (non-removed) user with the given
-// name exists on the controller and, when it does, whether it is disabled. A
-// user that does not exist returns exists=false.
-func (s *State) IsUserDisabled(ctx context.Context, name string) (disabled bool, exists bool, err error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return false, false, errors.Capture(err)
-	}
-
-	arg := nameArg{Name: name}
-	var result userDisabled
-	stmt, err := s.Prepare(`
-SELECT COALESCE(vua.disabled, FALSE) AS &userDisabled.disabled
-FROM   v_user_auth AS vua
-WHERE  vua.name = $nameArg.name
-AND    vua.removed = FALSE
-`, result, arg)
+LIMIT 1
+`, countResult{}, arg)
 	if err != nil {
 		return false, false, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, arg).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			exists = false
-			return nil
-		} else if err != nil {
+		cloudExists = false
+		regionExists = false
+
+		var err error
+		cloudExists, err = rowExists(ctx, tx, cloudStmt, arg)
+		if err != nil || !cloudExists {
 			return err
 		}
-		exists = true
-		return nil
+		if regionName == "" {
+			regionExists = true
+			return nil
+		}
+		regionExists, err = rowExists(ctx, tx, regionStmt, arg)
+		return err
 	})
 	if err != nil {
-		return false, false, errors.Errorf("checking user %q: %w", name, err)
+		return false, false, errors.Errorf(
+			"checking cloud %q and region %q existence: %w", cloudName, regionName, err)
 	}
-	return result.Disabled, exists, nil
+	return cloudExists, regionExists, nil
+}
+
+// GetDisabledUsers reports the active users from names that are disabled on
+// the controller. Missing and removed users are omitted.
+func (s *State) GetDisabledUsers(ctx context.Context, names []string) ([]string, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT vua.name AS &nameArg.name
+FROM   v_user_auth AS vua
+WHERE  vua.name IN ($nameList[:])
+AND    vua.removed = FALSE
+AND    COALESCE(vua.disabled, FALSE) = TRUE
+ORDER BY vua.name
+`, nameArg{}, nameList{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []nameArg
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		return getAll(ctx, tx, stmt, &rows, nameList(names))
+	})
+	if err != nil {
+		return nil, errors.Errorf("checking disabled users: %w", err)
+	}
+
+	disabled := make([]string, 0, len(rows))
+	for _, row := range rows {
+		disabled = append(disabled, row.Name)
+	}
+	return disabled, nil
 }
 
 // GetCredentialRevoked reports whether a cloud credential with the given
@@ -137,15 +135,18 @@ FROM   v_cloud_credential AS vcc
 WHERE  vcc.cloud_name = $credentialKeyArg.cloud_name
 AND    vcc.owner_name = $credentialKeyArg.owner_name
 AND    vcc.name = $credentialKeyArg.name
+LIMIT 1
 `, result, arg)
 	if err != nil {
 		return false, false, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result = credentialRevoked{}
+		exists = false
+
 		err := tx.Query(ctx, stmt, arg).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			exists = false
 			return nil
 		} else if err != nil {
 			return err
@@ -169,114 +170,112 @@ func (s *State) SecretBackendExists(ctx context.Context, name string) (bool, err
 	}
 
 	arg := nameArg{Name: name}
-	var count countResult
 	stmt, err := s.Prepare(`
-SELECT COUNT(*) AS &countResult.count
+SELECT 1 AS &countResult.count
 FROM   secret_backend AS sb
 WHERE  sb.name = $nameArg.name
-`, count, arg)
+LIMIT 1
+`, countResult{}, arg)
 	if err != nil {
 		return false, errors.Capture(err)
 	}
 
+	var exists bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, arg).Get(&count)
+		exists = false
+		var err error
+		exists, err = rowExists(ctx, tx, stmt, arg)
+		return err
 	})
 	if err != nil {
 		return false, errors.Errorf("checking secret backend %q existence: %w", name, err)
 	}
-	return count.Count > 0, nil
+	return exists, nil
 }
 
-// ModelExists reports whether a model row with the given UUID exists on the
-// controller.
-func (s *State) ModelExists(ctx context.Context, modelUUID string) (bool, error) {
+// CheckImportModelCollision reports model identity collisions that would block
+// importing the model on the target controller.
+func (s *State) CheckImportModelCollision(
+	ctx context.Context, modelUUID, name, qualifier string,
+) (modelmigration.ImportModelCollision, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return false, errors.Capture(err)
+		return modelmigration.ImportModelCollision{}, errors.Capture(err)
 	}
 
-	arg := modelUUIDArg{ModelUUID: modelUUID}
-	var count countResult
-	stmt, err := s.Prepare(`
-SELECT COUNT(*) AS &countResult.count
+	modelArg := modelUUIDArg{ModelUUID: modelUUID}
+	nameArg := modelNameQualifierArg{Name: name, Qualifier: qualifier}
+	importStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
+FROM   model_migration_import AS mmi
+WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
+LIMIT 1
+`, countResult{}, modelArg)
+	if err != nil {
+		return modelmigration.ImportModelCollision{}, errors.Capture(err)
+	}
+	modelStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
 FROM   model AS m
 WHERE  m.uuid = $modelUUIDArg.model_uuid
-`, count, arg)
+LIMIT 1
+`, countResult{}, modelArg)
 	if err != nil {
-		return false, errors.Capture(err)
+		return modelmigration.ImportModelCollision{}, errors.Capture(err)
 	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, arg).Get(&count)
-	})
+	namespaceStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
+FROM   model_namespace AS mn
+WHERE  mn.model_uuid = $modelUUIDArg.model_uuid
+LIMIT 1
+`, countResult{}, modelArg)
 	if err != nil {
-		return false, errors.Errorf("checking model %q existence: %w", modelUUID, err)
+		return modelmigration.ImportModelCollision{}, errors.Capture(err)
 	}
-	return count.Count > 0, nil
-}
-
-// ModelNameInUse reports whether a model with the given name and qualifier
-// already exists on the controller.
-func (s *State) ModelNameInUse(ctx context.Context, name, qualifier string) (bool, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	arg := modelNameQualifierArg{Name: name, Qualifier: qualifier}
-	var count countResult
-	stmt, err := s.Prepare(`
-SELECT COUNT(*) AS &countResult.count
+	nameStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
 FROM   model AS m
 WHERE  m.name = $modelNameQualifierArg.name
 AND    m.qualifier = $modelNameQualifierArg.qualifier
-`, count, arg)
+LIMIT 1
+`, countResult{}, nameArg)
 	if err != nil {
-		return false, errors.Capture(err)
+		return modelmigration.ImportModelCollision{}, errors.Capture(err)
 	}
 
+	var collision modelmigration.ImportModelCollision
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, arg).Get(&count)
+		collision = modelmigration.ImportModelCollision{}
+
+		var err error
+		collision.Importing, err = rowExists(ctx, tx, importStmt, modelArg)
+		if err != nil {
+			return errors.Errorf("checking import for model %q: %w", modelUUID, err)
+		}
+		collision.ModelExists, err = rowExists(ctx, tx, modelStmt, modelArg)
+		if err != nil {
+			return errors.Errorf("checking model %q: %w", modelUUID, err)
+		}
+		collision.ModelNamespaceExists, err = rowExists(ctx, tx, namespaceStmt, modelArg)
+		if err != nil {
+			return errors.Errorf("checking model namespace for model %q: %w", modelUUID, err)
+		}
+		collision.ModelNameExists, err = rowExists(ctx, tx, nameStmt, nameArg)
+		if err != nil {
+			return errors.Errorf(
+				"checking model name %q (qualifier %q): %w", name, qualifier, err)
+		}
+		return nil
 	})
 	if err != nil {
-		return false, errors.Errorf(
-			"checking model name %q (qualifier %q) existence: %w", name, qualifier, err)
+		return modelmigration.ImportModelCollision{}, errors.Errorf(
+			"checking model import collisions for model %q: %w", modelUUID, err)
 	}
-	return count.Count > 0, nil
-}
-
-// ModelNamespaceExists reports whether a model_namespace row exists for the
-// given model UUID.
-func (s *State) ModelNamespaceExists(ctx context.Context, modelUUID string) (bool, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	arg := modelUUIDArg{ModelUUID: modelUUID}
-	var count countResult
-	stmt, err := s.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM   model_namespace AS mn
-WHERE  mn.model_uuid = $modelUUIDArg.model_uuid
-`, count, arg)
-	if err != nil {
-		return false, errors.Capture(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, arg).Get(&count)
-	})
-	if err != nil {
-		return false, errors.Errorf(
-			"checking model namespace existence for model %q: %w", modelUUID, err)
-	}
-	return count.Count > 0, nil
+	return collision, nil
 }
 
 // GetImportClaim returns the target-side import claim for the given model
-// UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim exists.
+// UUID, or [modelmigrationerrors.ErrImportNotFound] when no import exists.
 func (s *State) GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -292,12 +291,15 @@ SELECT mmi.source_migration_uuid AS &importClaimRow.source_migration_uuid,
 FROM   model_migration_import AS mmi
 JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
 WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
+LIMIT 1
 `, row, arg)
 	if err != nil {
 		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		row = importClaimRow{}
+
 		err := tx.Query(ctx, stmt, arg).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
@@ -312,7 +314,7 @@ WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
 	updatedAt, err := time.Parse(time.RFC3339, row.UpdatedAt)
 	if err != nil {
 		return modelmigration.ImportClaim{}, errors.Errorf(
-			"parsing import claim updated_at for model %q: %w", modelUUID, err)
+			"parsing import updated_at for model %q: %w", modelUUID, err)
 	}
 
 	return modelmigration.ImportClaim{
@@ -320,4 +322,15 @@ WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
 		Phase:               modelmigration.ImportPhase(row.PhaseType),
 		UpdatedAt:           updatedAt,
 	}, nil
+}
+
+func rowExists(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, args ...any) (bool, error) {
+	var result countResult
+	err := tx.Query(ctx, stmt, args...).Get(&result)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return result.Count > 0, nil
 }

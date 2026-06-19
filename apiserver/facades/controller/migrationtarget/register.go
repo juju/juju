@@ -51,7 +51,7 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 			}
 			return api, nil
 		}, reflect.TypeFor[*API]())
-		// v8 takes the typed params.SerializedModelV2 envelope for both
+		// v8 takes typed params.SerializedModelV2 args for both
 		// Prechecks and Import. Prechecks runs the full v8 guard and precheck
 		// routine; Import runs the mandatory pre-write guards and is a no-op
 		// shell beyond that (see APIV8.Import) — the real v8 import path must

@@ -37,9 +37,9 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV404(c *tc.C) {
 
 	decoded, err := DecodePayload(semversion.MustParse("4.0.4"), data)
 	c.Assert(err, tc.ErrorIsNil)
-	out, ok := decoded.(*v4_0_4.ModelExport)
+	out, ok := decoded.(v4_0_4.ModelExport)
 	c.Assert(ok, tc.IsTrue)
-	c.Check(*out, tc.DeepEquals, in)
+	c.Check(out, tc.DeepEquals, in)
 }
 
 // TestDecodePayloadRoundTripV406 verifies that a marshalled v4_0_6 payload
@@ -57,9 +57,9 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV406(c *tc.C) {
 
 	decoded, err := DecodePayload(semversion.MustParse("4.0.6"), data)
 	c.Assert(err, tc.ErrorIsNil)
-	out, ok := decoded.(*v4_0_6.ModelExport)
+	out, ok := decoded.(v4_0_6.ModelExport)
 	c.Assert(ok, tc.IsTrue)
-	c.Check(*out, tc.DeepEquals, in)
+	c.Check(out, tc.DeepEquals, in)
 }
 
 // TestDecodePayloadRoundTripV410 verifies that a marshalled v4_1_0 payload
@@ -77,9 +77,9 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV410(c *tc.C) {
 
 	decoded, err := DecodePayload(semversion.MustParse("4.1.0"), data)
 	c.Assert(err, tc.ErrorIsNil)
-	out, ok := decoded.(*v4_1_0.ModelExport)
+	out, ok := decoded.(v4_1_0.ModelExport)
 	c.Assert(ok, tc.IsTrue)
-	c.Check(*out, tc.DeepEquals, in)
+	c.Check(out, tc.DeepEquals, in)
 }
 
 // TestDecodePayloadUnknownVersion verifies that an unknown payload version
@@ -87,7 +87,7 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV410(c *tc.C) {
 func (s *payloadSuite) TestDecodePayloadUnknownVersion(c *tc.C) {
 	_, err := DecodePayload(semversion.MustParse("4.0.5"), []byte("{}"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Assert(err, tc.ErrorMatches, `model export payload version "4.0.5" not supported`)
+	c.Assert(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
 }
 
 // TestDecodePayloadMalformedYAML verifies that undecodable bytes yield a
@@ -98,8 +98,8 @@ func (s *payloadSuite) TestDecodePayloadMalformedYAML(c *tc.C) {
 }
 
 // TestDecoderRegistryCompleteness asserts that every supported export version
-// has a payload decoder and a working static-check view builder. Adding a new
-// export version must extend payloadDecoders and StaticCheckViewFor.
+// has a payload decoder and a working projection view builder. Adding a new
+// export version must extend payloadDecoders and ProjectionViewForPayload.
 func (s *payloadSuite) TestDecoderRegistryCompleteness(c *tc.C) {
 	for _, version := range ExportVersions {
 		decode, ok := payloadDecoders[version]
@@ -108,62 +108,44 @@ func (s *payloadSuite) TestDecoderRegistryCompleteness(c *tc.C) {
 		payload, err := decode([]byte("{}"))
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("decoding empty payload for version %q", version))
 
-		_, err = StaticCheckViewFor(payload)
-		c.Assert(err, tc.ErrorIsNil, tc.Commentf("building static-check view for version %q", version))
+		_, err = ProjectionViewForPayload(payload)
+		c.Assert(err, tc.ErrorIsNil, tc.Commentf("building projection view for version %q", version))
 	}
 }
 
-// TestStaticCheckViewForUnknownType verifies that a payload type outside the
-// registry is rejected with NotSupported.
-func (s *payloadSuite) TestStaticCheckViewForUnknownType(c *tc.C) {
-	_, err := StaticCheckViewFor(struct{}{})
+// TestProjectionViewForPayloadUnknownType verifies that a payload type outside
+// the registry is rejected with NotSupported.
+func (s *payloadSuite) TestProjectionViewForPayloadUnknownType(c *tc.C) {
+	_, err := ProjectionViewForPayload(struct{}{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
-// TestStaticCheckViewExtraction verifies the view projects applications, charm
-// manifest bases, model config and the agent target version.
-func (s *payloadSuite) TestStaticCheckViewExtraction(c *tc.C) {
-	payload := &v4_0_6.ModelExport{
+// TestProjectionViewExtraction verifies the view projects the agent target
+// version.
+func (s *payloadSuite) TestProjectionViewExtraction(c *tc.C) {
+	payload := v4_0_6.ModelExport{
 		AgentVersion: []v4_0_6.AgentVersion{{
 			TargetVersion: "4.0.6",
 		}},
-		Application: []v4_0_6.Application{
-			{Name: "ubuntu", CharmUUID: "charm-1"},
-			{Name: "postgresql", CharmUUID: "charm-2"},
-		},
-		CharmManifestBase: []v4_0_6.CharmManifestBase{
-			{CharmUUID: "charm-1", Risk: "stable"},
-		},
-		ModelConfig: []v4_0_6.ModelConfig{
-			{Key: "fan-config", Value: "10.0.0.0/8=252.0.0.0/8"},
-		},
 	}
 
-	view, err := StaticCheckViewFor(payload)
+	view, err := ProjectionViewForPayload(payload)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(view.Applications, tc.DeepEquals, map[string]string{
-		"ubuntu":     "charm-1",
-		"postgresql": "charm-2",
-	})
-	c.Check(view.CharmUUIDsWithManifestBases.SortedValues(), tc.DeepEquals, []string{"charm-1"})
-	c.Check(view.ModelConfig, tc.DeepEquals, map[string]any{
-		"fan-config": "10.0.0.0/8=252.0.0.0/8",
-	})
 	c.Check(view.AgentTargetVersion, tc.Equals, semversion.MustParse("4.0.6"))
 }
 
-// TestStaticCheckViewNoAgentVersion verifies that a payload without an
+// TestProjectionViewNoAgentVersion verifies that a payload without an
 // agent_version row leaves the view's agent target version zero.
-func (s *payloadSuite) TestStaticCheckViewNoAgentVersion(c *tc.C) {
-	view, err := StaticCheckViewFor(&v4_0_6.ModelExport{})
+func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
+	view, err := ProjectionViewForPayload(v4_0_6.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(view.AgentTargetVersion, tc.Equals, semversion.Number{})
 }
 
-// TestStaticCheckViewMultipleAgentVersionRows verifies that a payload with
+// TestProjectionViewMultipleAgentVersionRows verifies that a payload with
 // more than one agent_version row is rejected as malformed.
-func (s *payloadSuite) TestStaticCheckViewMultipleAgentVersionRows(c *tc.C) {
-	_, err := StaticCheckViewFor(&v4_0_6.ModelExport{
+func (s *payloadSuite) TestProjectionViewMultipleAgentVersionRows(c *tc.C) {
+	_, err := ProjectionViewForPayload(v4_0_6.ModelExport{
 		AgentVersion: []v4_0_6.AgentVersion{
 			{TargetVersion: "4.0.6"},
 			{TargetVersion: "4.0.7"},

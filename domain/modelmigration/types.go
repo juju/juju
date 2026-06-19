@@ -255,6 +255,25 @@ type ImportPrecheckArgs struct {
 	SecretBackend string
 }
 
+// ImportModelCollision reports target-side model identity collisions that
+// block importing a model.
+type ImportModelCollision struct {
+	// Importing is true when a target-side import row already exists for the
+	// model UUID.
+	Importing bool
+
+	// ModelExists is true when a model row already exists for the model UUID.
+	ModelExists bool
+
+	// ModelNamespaceExists is true when a model database namespace already
+	// exists for the model UUID.
+	ModelNamespaceExists bool
+
+	// ModelNameExists is true when the model name and qualifier are already in
+	// use.
+	ModelNameExists bool
+}
+
 // ImportPrecheckCredential is the natural key plus revoked status of the
 // model's cloud credential, used by the import prechecks to compare against
 // any credential already present on the target controller.

@@ -158,34 +158,21 @@ type ControllerState interface {
 	// during model activation.
 	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
 
-	// GetImportClaim returns the target-side import claim for the given model
-	// UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim exists.
-	GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error)
+	// CheckImportModelCollision reports model identity collisions that would
+	// block importing the model on the target controller.
+	CheckImportModelCollision(
+		ctx context.Context, modelUUID, name, qualifier string,
+	) (modelmigration.ImportModelCollision, error)
 
-	// ModelExists reports whether a model row with the given UUID exists on
-	// the controller.
-	ModelExists(ctx context.Context, modelUUID string) (bool, error)
+	// CheckCloudRegion reports whether the named cloud exists and, when a
+	// region name is supplied, whether that region is known to the cloud.
+	CheckCloudRegion(ctx context.Context, cloudName, regionName string) (
+		cloudExists bool, regionExists bool, err error,
+	)
 
-	// ModelNameInUse reports whether a model with the given name and qualifier
-	// already exists on the controller.
-	ModelNameInUse(ctx context.Context, name, qualifier string) (bool, error)
-
-	// ModelNamespaceExists reports whether a model_namespace row exists for
-	// the given model UUID.
-	ModelNamespaceExists(ctx context.Context, modelUUID string) (bool, error)
-
-	// CloudExists reports whether a cloud with the given name exists on the
-	// controller.
-	CloudExists(ctx context.Context, name string) (bool, error)
-
-	// CloudRegionExists reports whether the named region is known to the named
-	// cloud on the controller.
-	CloudRegionExists(ctx context.Context, cloudName, regionName string) (bool, error)
-
-	// IsUserDisabled reports whether an active (non-removed) user with the
-	// given name exists on the controller and, when it does, whether it is
-	// disabled.
-	IsUserDisabled(ctx context.Context, name string) (disabled bool, exists bool, err error)
+	// GetDisabledUsers reports the active users from names that are disabled
+	// on the controller. Missing and removed users are omitted.
+	GetDisabledUsers(ctx context.Context, names []string) ([]string, error)
 
 	// GetCredentialRevoked reports whether a cloud credential with the given
 	// natural key exists on the controller and, when it does, whether it is
