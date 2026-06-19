@@ -201,6 +201,8 @@ func (st *State) grantSecretOwnerManage(ctx context.Context, tx *sqlair.TX, secr
 		perm.ScopeTypeID = domainsecret.ScopeUnit
 	case domainsecret.SubjectApplication:
 		perm.ScopeTypeID = domainsecret.ScopeApplication
+	default:
+		return errors.New("invalid owner type")
 	}
 
 	query := `
