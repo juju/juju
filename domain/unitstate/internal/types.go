@@ -191,6 +191,11 @@ type UpdateSecretArg struct {
 	// RotatePolicy is the new rotation policy (nil if unchanged).
 	RotatePolicy *domainsecret.RotatePolicy
 
+	// NextRotateTime is the computed next rotation time (nil if no change to
+	// the rotation schedule is needed). When the policy changes to
+	// RotateNever, the state layer deletes the secret_rotation row instead.
+	NextRotateTime *time.Time
+
 	// ExpireTime is the expiry time (nil if unchanged).
 	ExpireTime *time.Time
 

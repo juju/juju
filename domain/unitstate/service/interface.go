@@ -55,6 +55,11 @@ type CommitHookState interface {
 
 	// GetModelUUID returns the UUID of the model for the unit state domain.
 	GetModelUUID(ctx context.Context) (string, error)
+
+	// GetSecretRotatePolicy returns the current rotate policy for the
+	// secret identified by the given secret ID. If the secret does not
+	// exist, an error satisfying [secreterrors.SecretNotFound] is returned.
+	GetSecretRotatePolicy(ctx context.Context, secretID string) (secrets.RotatePolicy, error)
 }
 
 // UnitStateState defines a persistence layer interface for retrieving

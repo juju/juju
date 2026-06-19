@@ -312,6 +312,19 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		return errors.Capture(err)
 	}
 
+	// Handle rotation scheduling: delete when policy becomes RotateNever,
+	// insert or update NextRotateTime when switching to a more frequent policy.
+	if update.RotatePolicy != nil && *update.RotatePolicy == domainsecret.RotateNever {
+		if err := st.deleteSecretRotation(ctx, tx, update.SecretID); err != nil {
+			return errors.Errorf("deleting rotation schedule: %w", err)
+		}
+	}
+	if update.NextRotateTime != nil {
+		if err := st.upsertSecretNextRotateTime(ctx, tx, update.SecretID, *update.NextRotateTime); err != nil {
+			return errors.Errorf("updating next rotate time: %w", err)
+		}
+	}
+
 	if update.Label != nil {
 		label := *update.Label
 		switch update.OwnerKind {

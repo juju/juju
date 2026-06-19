@@ -11,8 +11,41 @@ import (
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/errors"
 )
+
+// GetSecretRotatePolicy returns the current rotate policy for the
+// secret identified by the given secret UUID. If the secret metadata
+// does not exist, it returns an error satisfying
+// [secreterrors.SecretNotFound].
+func (st *State) GetSecretRotatePolicy(ctx context.Context, secretUUID string) (coresecrets.RotatePolicy, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return coresecrets.RotateNever, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT srp.policy AS &secretRotatePolicyInfo.policy
+FROM   secret_metadata sm
+       JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
+WHERE  sm.secret_id = $secretID.secret_id`, secretID{}, secretRotatePolicyInfo{})
+	if err != nil {
+		return coresecrets.RotateNever, errors.Capture(err)
+	}
+
+	var info secretRotatePolicyInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, secretID{ID: secretUUID}).Get(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("rotate policy for %q not found", secretUUID).Add(secreterrors.SecretNotFound)
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		return coresecrets.RotateNever, errors.Capture(err)
+	}
+	return coresecrets.RotatePolicy(info.Policy), nil
+}
 
 // updateSecretMetadataFromParams applies non-nil fields from p onto md.
 func updateSecretMetadataFromParams(p domainsecret.UpsertSecretParams, md *secretMetadata) {
@@ -149,6 +182,17 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		SecretID:       secretID,
 		NextRotateTime: next.UTC(),
 	}).Run()
+}
+
+// deleteSecretRotation deletes the secret_rotation row for the given
+// secret. This is used when the rotate policy changes to RotateNever.
+func (st *State) deleteSecretRotation(ctx context.Context, tx *sqlair.TX, secretUUID string) error {
+	query := "DELETE FROM secret_rotation WHERE secret_id = $secretID.secret_id"
+	stmt, err := st.Prepare(query, secretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return tx.Query(ctx, stmt, secretID{ID: secretUUID}).Run()
 }
 
 // setSecretApplicationOwner inserts an application ownership record.

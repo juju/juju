@@ -339,6 +339,10 @@ type secretInfo struct {
 	LatestRevisionUUID     string    `db:"latest_revision_uuid"`
 }
 
+type secretRotatePolicyInfo struct {
+	Policy string `db:"policy"`
+}
+
 type secretMetadata struct {
 	ID                     string    `db:"secret_id"`
 	Version                int       `db:"version"`

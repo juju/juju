@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -500,6 +502,182 @@ func (s *commitHookSuite) TestPrepareSecretUpdatesPartialRollback(c *tc.C) {
 	err := s.svc.CommitHookChanges(c.Context(), arg)
 	c.Check(err, tc.ErrorMatches, `.*adding backend reference for update\[1\].*`)
 	c.Check(firstRolledBack, tc.IsTrue)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicyMoreFrequent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// Mock the current policy as RotateDaily (less frequent than RotateHourly).
+	s.st.EXPECT().GetSecretRotatePolicy(gomock.Any(), uri.ID).
+		Return(coresecrets.RotateDaily, nil)
+
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	hourly := coresecrets.RotateHourly
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &hourly,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	c.Assert(update.NextRotateTime, tc.Not(tc.IsNil))
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateHourly)
+	// NextRotateTime should be roughly now + 1 hour.
+	expected := s.clock.Now().Add(time.Hour)
+	c.Check(update.NextRotateTime.UTC().Truncate(time.Second), tc.Equals, expected.UTC().Truncate(time.Second))
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicyToNever(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// GetSecretRotatePolicy must NOT be called because RotateNever.WillRotate() returns false.
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	never := coresecrets.RotateNever
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &never,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	c.Assert(update.NextRotateTime, tc.IsNil)
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateNever)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicyLessFrequent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// Mock the current policy as RotateHourly (more frequent than RotateDaily).
+	s.st.EXPECT().GetSecretRotatePolicy(gomock.Any(), uri.ID).
+		Return(coresecrets.RotateHourly, nil)
+
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	daily := coresecrets.RotateDaily
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &daily,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	// NextRotateTime should be nil because the new policy is less frequent.
+	c.Assert(update.NextRotateTime, tc.IsNil)
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateDaily)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicySecretNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// Mock GetSecretRotatePolicy to return SecretNotFound, which occurs when
+	// the secret is being created in this transaction or was concurrently deleted.
+	s.st.EXPECT().GetSecretRotatePolicy(gomock.Any(), uri.ID).
+		Return(coresecrets.RotateNever, secreterrors.SecretNotFound)
+
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	hourly := coresecrets.RotateHourly
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &hourly,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	// NextRotateTime should be computed because SecretNotFound is treated as RotateNever.
+	// This implements "last update wins" semantics and handles the case where a secret
+	// is being created in the same transaction or was concurrently deleted.
+	c.Assert(update.NextRotateTime, tc.Not(tc.IsNil))
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateHourly)
+	// NextRotateTime should be roughly now + 1 hour.
+	expected := s.clock.Now().Add(time.Hour)
+	c.Check(update.NextRotateTime.UTC().Truncate(time.Second), tc.Equals, expected.UTC().Truncate(time.Second))
 }
 
 func (s *commitHookSuite) TestParseForSetAndUnsetSettings(c *tc.C) {
