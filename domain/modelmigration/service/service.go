@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -151,7 +152,7 @@ type ControllerState interface {
 		modelUUID string,
 		offerUUIDs []string,
 		offererModels []modelmigrationinternal.OffererModel,
-	) (modelmigration.ControllerModelInfo, error)
+	) (coremodelmigration.ControllerModelInfo, error)
 
 	// GetSourceControllerInfo returns the source controller's identity and
 	// client connection details used by the target controller to dial back
@@ -182,6 +183,43 @@ type ControllerState interface {
 	// SecretBackendExists reports whether a secret backend with the given name
 	// exists on the controller.
 	SecretBackendExists(ctx context.Context, name string) (bool, error)
+
+	// BeginImport inserts a new durable model_migration_import claim
+	// (phase=importing) for modelUUID as the first target-side write of a v8
+	// import, and returns the claim's UUID.
+	// [modelmigrationerrors.ErrImportClaimExists] is returned if a claim
+	// already exists.
+	BeginImport(ctx context.Context, modelUUID, sourceMigrationUUID string) (string, error)
+
+	// GetImportClaim returns the target-side import claim for the given model
+	// UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim exists.
+	GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error)
+
+	// AssertImporting returns nil if a model_migration_import claim exists for
+	// modelUUID and its phase is 'importing'. It returns
+	// [modelmigrationerrors.ErrImportNotFound] if no claim exists, or
+	// [modelmigrationerrors.ErrImportNotImporting] if the claim has moved past
+	// the importing phase.
+	AssertImporting(ctx context.Context, modelUUID string) error
+
+	// ImportOfferPermissions records the offer UUIDs granted permission during
+	// this import claim into model_migration_import_offer, atomically with an
+	// importing-phase assertion for modelUUID.
+	ImportOfferPermissions(ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string) error
+
+	// EnsureExternalControllerMatchesOrInsert compares-or-inserts a single
+	// third-party controller's connection details, failing with
+	// [modelmigrationerrors.ErrExternalControllerMismatch] on a mismatch
+	// rather than overwriting live CMR connection data.
+	EnsureExternalControllerMatchesOrInsert(ctx context.Context, ref coremodelmigration.ExternalController) error
+
+	// ImportExternalControllers applies the third-party external controller
+	// references from a v8 import envelope to the target controller,
+	// atomically with an importing-phase assertion for modelUUID, and records
+	// the durable (offerer_model_uuid, controller_uuid) handoff for Activate.
+	ImportExternalControllers(
+		ctx context.Context, modelUUID, claimUUID string, refs []coremodelmigration.ExternalController,
+	) error
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -221,6 +259,18 @@ type ModelState interface {
 	// excluding pairs offered by this model's own controller, used to select
 	// the third-party external controllers that travel with the migration.
 	GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
+}
+
+// NewImportService constructs a new [Service] for the v8 import driver,
+// which only ever calls the controller-scoped claim methods (BeginImport,
+// AssertImporting, ImportOfferPermissions, ImportExternalControllers). The
+// model-export-only dependencies (modelState, watcherFactory, the provider
+// getters, modelUUID) are intentionally left unset rather than passed as
+// nil by the caller.
+func NewImportService(controllerState ControllerState) *Service {
+	return &Service{
+		controllerState: controllerState,
+	}
 }
 
 // NewService is responsible for constructing a new [Service] to handle model
@@ -374,22 +424,22 @@ func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, erro
 // migrating model and returns them in target-portable semantic form. It first
 // reads the model's hosted offer UUIDs and third-party remote-offerer pairs
 // from the model database, then reads the matching controller-database rows.
-func (s *Service) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
+func (s *Service) GetControllerModelInfo(ctx context.Context) (coremodelmigration.ControllerModelInfo, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	offerUUIDs, err := s.modelState.GetOfferUUIDs(ctx)
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offer UUIDs: %w", err)
+		return coremodelmigration.ControllerModelInfo{}, errors.Errorf("reading model offer UUIDs: %w", err)
 	}
 	offererModels, err := s.modelState.GetThirdPartyOffererModels(ctx)
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading model offerer models: %w", err)
+		return coremodelmigration.ControllerModelInfo{}, errors.Errorf("reading model offerer models: %w", err)
 	}
 
 	info, err := s.controllerState.GetControllerModelInfo(ctx, s.modelUUID, offerUUIDs, offererModels)
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Errorf("reading controller model info for %q: %w", s.modelUUID, err)
+		return coremodelmigration.ControllerModelInfo{}, errors.Errorf("reading controller model info for %q: %w", s.modelUUID, err)
 	}
 	return info, nil
 }

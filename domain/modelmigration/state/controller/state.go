@@ -12,6 +12,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/cloudimagemetadata"
 	"github.com/juju/juju/domain/modelmigration"
@@ -1048,15 +1049,15 @@ func (s *State) GetControllerModelInfo(
 	modelUUID string,
 	offerUUIDs []string,
 	offererModels []modelmigrationinternal.OffererModel,
-) (modelmigration.ControllerModelInfo, error) {
+) (coremodelmigration.ControllerModelInfo, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return coremodelmigration.ControllerModelInfo{}, errors.Capture(err)
 	}
 
-	var info modelmigration.ControllerModelInfo
+	var info coremodelmigration.ControllerModelInfo
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		info = modelmigration.ControllerModelInfo{}
+		info = coremodelmigration.ControllerModelInfo{}
 
 		if info.ModelInfo, err = s.getModelIdentity(ctx, tx, modelUUID); err != nil {
 			return errors.Capture(err)
@@ -1091,7 +1092,7 @@ func (s *State) GetControllerModelInfo(
 		}
 		return nil
 	}); err != nil {
-		return modelmigration.ControllerModelInfo{}, errors.Capture(err)
+		return coremodelmigration.ControllerModelInfo{}, errors.Capture(err)
 	}
 
 	return info, nil
@@ -1101,7 +1102,7 @@ func (s *State) GetControllerModelInfo(
 // credential and life resolved to natural keys.
 func (s *State) getModelIdentity(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) (modelmigration.ModelIdentityInfo, error) {
+) (coremodelmigration.ModelIdentityInfo, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	stmt, err := s.Prepare(`
 SELECT m.uuid AS &modelIdentityRow.uuid,
@@ -1123,18 +1124,18 @@ LEFT JOIN user AS cco ON cco.uuid = cc.owner_uuid
 WHERE  m.uuid = $modelUUIDArg.model_uuid
 `, mUUID, modelIdentityRow{})
 	if err != nil {
-		return modelmigration.ModelIdentityInfo{}, errors.Capture(err)
+		return coremodelmigration.ModelIdentityInfo{}, errors.Capture(err)
 	}
 
 	var identity modelIdentityRow
 	if err := tx.Query(ctx, stmt, mUUID).Get(&identity); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return modelmigration.ModelIdentityInfo{}, errors.Errorf("model %q not found", modelUUID)
+			return coremodelmigration.ModelIdentityInfo{}, errors.Errorf("model %q not found", modelUUID)
 		}
-		return modelmigration.ModelIdentityInfo{}, errors.Errorf("querying model identity: %w", err)
+		return coremodelmigration.ModelIdentityInfo{}, errors.Errorf("querying model identity: %w", err)
 	}
 
-	return modelmigration.ModelIdentityInfo{
+	return coremodelmigration.ModelIdentityInfo{
 		UUID:            identity.UUID,
 		Name:            identity.Name,
 		Qualifier:       identity.Qualifier,
@@ -1151,7 +1152,7 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid
 // offers, the offer permission grants in the same statement.
 func (s *State) getPermissions(
 	ctx context.Context, tx *sqlair.TX, modelUUID string, offerUUIDs []string,
-) ([]modelmigration.ModelPermission, error) {
+) ([]coremodelmigration.ModelPermission, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 
 	var (
@@ -1196,9 +1197,9 @@ WHERE  pot.type = 'model' AND p.grant_on = $modelUUIDArg.model_uuid
 		return nil, errors.Errorf("querying model permissions: %w", err)
 	}
 
-	perms := make([]modelmigration.ModelPermission, 0, len(rows))
+	perms := make([]coremodelmigration.ModelPermission, 0, len(rows))
 	for _, p := range rows {
-		perms = append(perms, modelmigration.ModelPermission{
+		perms = append(perms, coremodelmigration.ModelPermission{
 			ObjectType:  p.ObjectType,
 			GrantOn:     p.GrantOn,
 			SubjectName: p.SubjectName,
@@ -1212,7 +1213,7 @@ WHERE  pot.type = 'model' AND p.grant_on = $modelUUIDArg.model_uuid
 // together with its auth attributes, or nil when the model has no credential.
 func (s *State) getModelCredential(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) (*modelmigration.ModelCloudCredential, error) {
+) (*coremodelmigration.ModelCloudCredential, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	stmt, err := s.Prepare(`
 SELECT vcc.cloud_name AS &credentialRow.cloud,
@@ -1242,7 +1243,7 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid
 	}
 
 	first := rows[0]
-	cred := &modelmigration.ModelCloudCredential{
+	cred := &coremodelmigration.ModelCloudCredential{
 		Cloud:         first.Cloud,
 		Owner:         first.Owner,
 		Name:          first.Name,
@@ -1267,7 +1268,7 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid
 // their owners resolved to usernames.
 func (s *State) getAuthorizedKeys(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) ([]modelmigration.ModelAuthorizedKey, error) {
+) ([]coremodelmigration.ModelAuthorizedKey, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	stmt, err := s.Prepare(`
 SELECT u.name AS &authorizedKeyRow.username,
@@ -1285,9 +1286,9 @@ WHERE  vak.model_uuid = $modelUUIDArg.model_uuid
 		return nil, errors.Errorf("querying authorized keys: %w", err)
 	}
 
-	keys := make([]modelmigration.ModelAuthorizedKey, 0, len(rows))
+	keys := make([]coremodelmigration.ModelAuthorizedKey, 0, len(rows))
 	for _, k := range rows {
-		keys = append(keys, modelmigration.ModelAuthorizedKey{
+		keys = append(keys, coremodelmigration.ModelAuthorizedKey{
 			Username:  k.Username,
 			PublicKey: k.PublicKey,
 		})
@@ -1301,7 +1302,7 @@ WHERE  vak.model_uuid = $modelUUIDArg.model_uuid
 // row for a name so removed rows continue to carry provenance and FK support.
 func (s *State) getUsers(
 	ctx context.Context, tx *sqlair.TX, modelUUID string, names []string,
-) ([]modelmigration.ModelUser, error) {
+) ([]coremodelmigration.ModelUser, error) {
 	if len(names) == 0 {
 		return nil, nil
 	}
@@ -1330,9 +1331,9 @@ WHERE  u.name IN ($nameList[:])
 		return nil, errors.Errorf("querying model users: %w", err)
 	}
 
-	users := make([]modelmigration.ModelUser, 0, len(rows))
+	users := make([]coremodelmigration.ModelUser, 0, len(rows))
 	for _, u := range rows {
-		users = append(users, modelmigration.ModelUser{
+		users = append(users, coremodelmigration.ModelUser{
 			Name:        u.Name,
 			DisplayName: derefString(u.DisplayName),
 			CreatedBy:   derefString(u.CreatedBy),
@@ -1349,7 +1350,7 @@ WHERE  u.name IN ($nameList[:])
 // its name and type, or nil when the model uses the default backend.
 func (s *State) getModelSecretBackend(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) (*modelmigration.ModelSecretBackend, error) {
+) (*coremodelmigration.ModelSecretBackend, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	stmt, err := s.Prepare(`
 SELECT sb.name AS &modelSecretBackendRow.name,
@@ -1370,7 +1371,7 @@ WHERE  msb.model_uuid = $modelUUIDArg.model_uuid
 		}
 		return nil, errors.Errorf("querying model secret backend: %w", err)
 	}
-	return &modelmigration.ModelSecretBackend{
+	return &coremodelmigration.ModelSecretBackend{
 		Name:        row.Name,
 		BackendType: row.BackendType,
 	}, nil
@@ -1380,7 +1381,7 @@ WHERE  msb.model_uuid = $modelUUIDArg.model_uuid
 // their backends, by backend name.
 func (s *State) getSecretBackendRefs(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) ([]modelmigration.SecretBackendReference, error) {
+) ([]coremodelmigration.SecretBackendReference, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	stmt, err := s.Prepare(`
 SELECT sb.name AS &secretBackendRefRow.backend_name,
@@ -1399,9 +1400,9 @@ WHERE  sbr.model_uuid = $modelUUIDArg.model_uuid
 		return nil, errors.Errorf("querying secret backend references: %w", err)
 	}
 
-	refs := make([]modelmigration.SecretBackendReference, 0, len(rows))
+	refs := make([]coremodelmigration.SecretBackendReference, 0, len(rows))
 	for _, r := range rows {
-		refs = append(refs, modelmigration.SecretBackendReference{
+		refs = append(refs, coremodelmigration.SecretBackendReference{
 			BackendName:        r.BackendName,
 			SecretRevisionUUID: r.SecretRevisionUUID,
 			SecretID:           r.SecretID,
@@ -1416,7 +1417,7 @@ WHERE  sbr.model_uuid = $modelUUIDArg.model_uuid
 // singular-controller leases name source controller nodes.
 func (s *State) getApplicationLeadership(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) ([]modelmigration.ApplicationLeadership, error) {
+) ([]coremodelmigration.ApplicationLeadership, error) {
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	leaseType := leaseTypeArg{Type: corelease.ApplicationLeadershipNamespace}
 	stmt, err := s.Prepare(`
@@ -1435,9 +1436,9 @@ WHERE  l.model_uuid = $modelUUIDArg.model_uuid AND lt.type = $leaseTypeArg.type
 		return nil, errors.Errorf("querying application leadership: %w", err)
 	}
 
-	leaders := make([]modelmigration.ApplicationLeadership, 0, len(rows))
+	leaders := make([]coremodelmigration.ApplicationLeadership, 0, len(rows))
 	for _, l := range rows {
-		leaders = append(leaders, modelmigration.ApplicationLeadership{
+		leaders = append(leaders, coremodelmigration.ApplicationLeadership{
 			Application: derefString(l.Name),
 			Leader:      derefString(l.Holder),
 		})
@@ -1450,7 +1451,7 @@ WHERE  l.model_uuid = $modelUUIDArg.model_uuid AND lt.type = $leaseTypeArg.type
 // name. Cached/provider-derived rows are not migrated.
 func (s *State) getCustomCloudImageMetadata(
 	ctx context.Context, tx *sqlair.TX,
-) ([]modelmigration.CloudImageMetadata, error) {
+) ([]coremodelmigration.CloudImageMetadata, error) {
 	source := cloudImageMetadataSource{Source: cloudimagemetadata.CustomSource}
 	stmt, err := s.Prepare(`
 SELECT cim.stream AS &cloudImageMetadataRow.stream,
@@ -1477,9 +1478,9 @@ WHERE  cim.source = $cloudImageMetadataSource.source
 		return nil, errors.Errorf("querying cloud image metadata: %w", err)
 	}
 
-	metadata := make([]modelmigration.CloudImageMetadata, 0, len(rows))
+	metadata := make([]coremodelmigration.CloudImageMetadata, 0, len(rows))
 	for _, m := range rows {
-		metadata = append(metadata, modelmigration.CloudImageMetadata{
+		metadata = append(metadata, coremodelmigration.CloudImageMetadata{
 			Stream:          m.Stream,
 			Region:          m.Region,
 			Version:         m.Version,
@@ -1502,7 +1503,7 @@ WHERE  cim.source = $cloudImageMetadataSource.source
 // third-party controller/model reference.
 func (s *State) getExternalControllers(
 	ctx context.Context, tx *sqlair.TX, offererModels []modelmigrationinternal.OffererModel,
-) ([]modelmigration.ExternalController, error) {
+) ([]coremodelmigration.ExternalController, error) {
 	controllerUUIDs := distinctControllerUUIDs(offererModels)
 	if len(controllerUUIDs) == 0 {
 		return nil, nil
@@ -1563,9 +1564,9 @@ WHERE  controller_uuid IN ($uuidList[:])
 		addrByController[a.ControllerUUID] = append(addrByController[a.ControllerUUID], a.Address)
 	}
 
-	controllers := make([]modelmigration.ExternalController, 0, len(ctrls))
+	controllers := make([]coremodelmigration.ExternalController, 0, len(ctrls))
 	for _, ec := range ctrls {
-		controllers = append(controllers, modelmigration.ExternalController{
+		controllers = append(controllers, coremodelmigration.ExternalController{
 			UUID:           ec.UUID,
 			Alias:          derefString(ec.Alias),
 			CACert:         ec.CACert,
@@ -1581,9 +1582,9 @@ WHERE  controller_uuid IN ($uuidList[:])
 // qualifier, the credential owner, permission subjects and authorized-key
 // owners. First-seen order is preserved.
 func modelUserNames(
-	identity modelmigration.ModelIdentityInfo,
-	perms []modelmigration.ModelPermission,
-	authKeys []modelmigration.ModelAuthorizedKey,
+	identity coremodelmigration.ModelIdentityInfo,
+	perms []coremodelmigration.ModelPermission,
+	authKeys []coremodelmigration.ModelAuthorizedKey,
 ) []string {
 	seen := make(map[string]struct{})
 	var out []string

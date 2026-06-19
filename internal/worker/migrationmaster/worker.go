@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
@@ -107,7 +108,7 @@ type ModelMigrationService interface {
 
 	// GetControllerModelInfo reads the controller-database information scoped to
 	// this migrating model in target-portable semantic form.
-	GetControllerModelInfo(context.Context) (modelmigration.ControllerModelInfo, error)
+	GetControllerModelInfo(context.Context) (coremodelmigration.ControllerModelInfo, error)
 
 	// SetMigrationPhase progresses the active migration to the given phase.
 	SetMigrationPhase(context.Context, coremigration.Phase) error

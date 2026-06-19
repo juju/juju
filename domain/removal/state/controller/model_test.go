@@ -281,6 +281,67 @@ func (s *modelSuite) TestDeleteMigratingModel(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+// TestDeleteMigratingModelWithImportCompanions ensures that deleting a
+// migrating model whose v8 import recorded offer permissions and external
+// controllers (rows in the model_migration_import companion tables) succeeds.
+// Those tables FK onto model_migration_import, so the claim row cannot be
+// deleted before them without violating an enforced foreign-key constraint.
+func (s *modelSuite) TestDeleteMigratingModelWithImportCompanions(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	const claimUUID = "import-claim-uuid"
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid) VALUES (?, ?, 'source-migration-uuid')",
+			claimUUID, modelUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO model_migration_import_offer (migration_uuid, offer_uuid) VALUES (?, 'offer-uuid')",
+			claimUUID); err != nil {
+			return err
+		}
+		// The external-controller companion FKs onto external_controller, so
+		// seed that parent row first.
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO external_controller (uuid, ca_cert) VALUES ('ext-ctrl-uuid', 'cert')"); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO model_migration_import_external_controller_model (migration_uuid, offerer_model_uuid, controller_uuid) VALUES (?, 'offerer-model-uuid', 'ext-ctrl-uuid')",
+			claimUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err = st.DeleteModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Ensure the model is gone.
+	exists, err := st.ModelExists(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.Equals, false)
+
+	// Ensure the claim and both companion rows are also gone.
+	for _, table := range []string{
+		"model_migration_import",
+		"model_migration_import_offer",
+		"model_migration_import_external_controller_model",
+	} {
+		var count int
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&count)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(count, tc.Equals, 0, tc.Commentf("table %q still has rows", table))
+	}
+}
+
 func (s *modelSuite) getModelUUID(c *tc.C) string {
 	var modelUUID string
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {

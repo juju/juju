@@ -20,6 +20,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
@@ -1108,7 +1109,7 @@ func (s *stateSuite) TestGetControllerModelInfoIncludesModelQualifierUser(c *tc.
 	info, err = st.GetControllerModelInfo(c.Context(), s.modelUUID.String(), nil, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	var qualifierUsers []modelmigration.ModelUser
+	var qualifierUsers []coremodelmigration.ModelUser
 	for _, u := range info.Users {
 		if u.Name == ownerName.String() {
 			qualifierUsers = append(qualifierUsers, u)
@@ -1288,15 +1289,15 @@ func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	}
 	c.Check(foundOffer, tc.IsTrue, tc.Commentf("expected offer permission, got %#v", info.Permissions))
 
-	c.Check(info.AuthorizedKeys, tc.DeepEquals, []modelmigration.ModelAuthorizedKey{
+	c.Check(info.AuthorizedKeys, tc.DeepEquals, []coremodelmigration.ModelAuthorizedKey{
 		{Username: "test-user", PublicKey: "ssh-ed25519 AAAAkey"},
 	})
 
-	c.Check(info.Leaders, tc.DeepEquals, []modelmigration.ApplicationLeadership{
+	c.Check(info.Leaders, tc.DeepEquals, []coremodelmigration.ApplicationLeadership{
 		{Application: "app", Leader: "app/0"},
 	})
 
-	c.Check(info.SecretBackendRefs, tc.DeepEquals, []modelmigration.SecretBackendReference{
+	c.Check(info.SecretBackendRefs, tc.DeepEquals, []coremodelmigration.SecretBackendReference{
 		{BackendName: backendName, SecretRevisionUUID: revUUID, SecretID: secretID},
 	})
 
@@ -1318,7 +1319,7 @@ func (s *stateSuite) TestGetControllerModelInfoFullSet(c *tc.C) {
 	))
 
 	c.Assert(info.CloudImageMetadata, tc.HasLen, 1)
-	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, modelmigration.CloudImageMetadata{
+	c.Check(info.CloudImageMetadata[0], tc.DeepEquals, coremodelmigration.CloudImageMetadata{
 		Stream:          "released",
 		Region:          "us-east-1",
 		Version:         "22.04",

@@ -330,3 +330,42 @@ type importClaimRow struct {
 	PhaseType           string `db:"phase_type"`
 	UpdatedAt           string `db:"updated_at"`
 }
+
+// importClaimArg is the insert argument for a new model_migration_import
+// claim. phase_type_id is left unset so the schema DEFAULT (0 = importing)
+// applies.
+type importClaimArg struct {
+	UUID                string `db:"uuid"`
+	ModelUUID           string `db:"model_uuid"`
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+}
+
+// importPhaseRow projects only the phase type of a model_migration_import
+// claim, for the importing-phase assertion run inside a write-group
+// transaction.
+type importPhaseRow struct {
+	PhaseType string `db:"phase_type"`
+}
+
+// importOfferArg is the insert argument for a model_migration_import_offer
+// row.
+type importOfferArg struct {
+	MigrationUUID string `db:"migration_uuid"`
+	OfferUUID     string `db:"offer_uuid"`
+}
+
+// importExternalControllerModelArg is the insert argument for a
+// model_migration_import_external_controller_model row: the durable handoff
+// from Import to Activate for a third-party offerer-model mapping.
+type importExternalControllerModelArg struct {
+	MigrationUUID    string `db:"migration_uuid"`
+	OffererModelUUID string `db:"offerer_model_uuid"`
+	ControllerUUID   string `db:"controller_uuid"`
+}
+
+// externalModelArg is the insert/select argument for an external_model row,
+// using the table's actual column names (uuid is the model UUID).
+type externalModelArg struct {
+	ModelUUID      string `db:"uuid"`
+	ControllerUUID string `db:"controller_uuid"`
+}

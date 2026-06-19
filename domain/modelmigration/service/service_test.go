@@ -17,6 +17,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -515,8 +516,8 @@ func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
 	offererModels := []modelmigrationinternal.OffererModel{
 		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
 	}
-	expected := modelmigration.ControllerModelInfo{
-		ModelInfo: modelmigration.ModelIdentityInfo{UUID: s.modelUUID, Name: "prod"},
+	expected := coremodelmigration.ControllerModelInfo{
+		ModelInfo: coremodelmigration.ModelIdentityInfo{UUID: s.modelUUID, Name: "prod"},
 	}
 
 	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(offerUUIDs, nil)
