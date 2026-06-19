@@ -1821,6 +1821,137 @@ func (s *commitHookSuite) TestUpdateSecretsDifferentChecksumCreatesNewRevision(c
 	c.Check(revCount, tc.Equals, 3)
 }
 
+func (s *commitHookSuite) TestUpdateSecretsRotatePolicyMoreFrequent(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-rotate-freq"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	oldNextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(24 * time.Hour)
+	s.query(c,
+		"INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, ?)",
+		secretID, oldNextRotate)
+
+	policy := secret.RotateHourly
+	newNextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:       secretID,
+			RotatePolicy:   &policy,
+			NextRotateTime: &newNextRotate,
+			Checksum:       "checksum-rotate-freq",
+			OwnerKind:      secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var gotNextRotate time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT next_rotation_time FROM secret_rotation WHERE secret_id = ?",
+			secretID).Scan(&gotNextRotate)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotNextRotate.UTC(), tc.Equals, newNextRotate.UTC())
+}
+
+func (s *commitHookSuite) TestUpdateSecretsRotatePolicyToNever(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-rotate-never"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	nextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)
+	s.query(c,
+		"INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, ?)",
+		secretID, nextRotate)
+
+	policy := secret.RotateNever
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			RotatePolicy: &policy,
+			Checksum:     "checksum-rotate-never",
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var rotationCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_rotation WHERE secret_id = ?",
+			secretID).Scan(&rotationCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rotationCount, tc.Equals, 0)
+}
+
+func (s *commitHookSuite) TestUpdateSecretsRotatePolicyLessFrequentKeepsExistingRotation(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-rotate-less"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	oldNextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)
+	s.query(c,
+		"INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, ?)",
+		secretID, oldNextRotate)
+
+	policy := secret.RotateDaily
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			RotatePolicy: &policy,
+			Checksum:     "checksum-rotate-less",
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var gotNextRotate time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT next_rotation_time FROM secret_rotation WHERE secret_id = ?",
+			secretID).Scan(&gotNextRotate)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotNextRotate.UTC(), tc.Equals, oldNextRotate.UTC())
+}
+
 // addSecretWithOwner inserts a secret with an owner row.
 func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, ownerKind string) {
 	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)

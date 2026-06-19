@@ -17,6 +17,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
@@ -252,6 +253,24 @@ func (s *LeadershipService) prepareSecretUpdates(
 		if update.RotatePolicy != nil {
 			p := domainsecret.MarshallRotatePolicy(update.RotatePolicy)
 			arg.RotatePolicy = &p
+
+			if update.RotatePolicy.WillRotate() {
+				currentPolicy, err := s.st.GetSecretRotatePolicy(ctx, update.URI.ID)
+				if errors.Is(err, secreterrors.SecretNotFound) {
+					// SecretNotFound is expected when the secret is being created
+					// in this same transaction or was concurrently deleted. In both
+					// cases, we treat it as having RotateNever policy. This ensures
+					// NextRotateTime is computed when updating to a policy that
+					// rotates, implementing "last update wins" semantics. Transaction
+					// isolation at the database layer handles actual concurrent deletes.
+					currentPolicy = coresecrets.RotateNever
+				} else if err != nil {
+					return nil, nil, errors.Errorf("getting rotate policy for update[%d]: %w", i, err)
+				}
+				if update.RotatePolicy.LessThan(currentPolicy) {
+					arg.NextRotateTime = update.RotatePolicy.NextRotateTime(s.clock.Now())
+				}
+			}
 		}
 		if update.ExpireTime != nil {
 			arg.ExpireTime = update.ExpireTime
