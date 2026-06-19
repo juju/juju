@@ -32,6 +32,7 @@ import (
 	caasconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/upgrade"
 	internalworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/apiservercertwatcher"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/logsender"
 )
@@ -156,6 +157,21 @@ func (m *ModelCommand) Wait() error {
 	return m.errReason
 }
 
+// CertMaterial returns the current controller certificate material from the
+// agent config.
+func (m *ModelCommand) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
+	info, ok := m.CurrentConfig().ControllerAgentInfo()
+	if !ok {
+		return apiservercertwatcher.CertMaterial{}, errors.NotFoundf("controller agent info")
+	}
+	return apiservercertwatcher.CertMaterial{
+		CACert:               m.CurrentConfig().CACert(),
+		CAPrivateKey:         info.CAPrivateKey,
+		ControllerCert:       info.Cert,
+		ControllerPrivateKey: info.PrivateKey,
+	}, nil
+}
+
 func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 	port := os.Getenv(caasprovider.EnvModelAgentHTTPPort)
 	if port == "" {
@@ -190,6 +206,7 @@ func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 		UpdateLoggerConfig:     updateAgentConfLogging,
 		PreviousAgentVersion:   m.CurrentConfig().UpgradedToVersion(),
 		UpgradeStepsLock:       m.upgradeStepsLock,
+		CertReader:             m,
 	})
 
 	// TODO (stickupkid): There is no Prometheus registry at this level, we

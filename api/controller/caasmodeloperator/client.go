@@ -39,9 +39,12 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 // ModelOperatorProvisioningInfo represents return api information for
 // provisioning a caas model operator
 type ModelOperatorProvisioningInfo struct {
-	APIAddresses []string
-	ImageDetails resource.DockerImageDetails
-	Version      semversion.Number
+	APIAddresses         []string
+	ImageDetails         resource.DockerImageDetails
+	Version              semversion.Number
+	ControllerCert       string
+	ControllerPrivateKey string
+	CAPrivateKey         string
 }
 
 // ModelOperatorProvisioningInfo returns the information needed for a given model
@@ -71,9 +74,12 @@ func (c *Client) ModelOperatorProvisioningInfo(ctx context.Context) (ModelOperat
 	}
 
 	return ModelOperatorProvisioningInfo{
-		APIAddresses: result.APIAddresses,
-		ImageDetails: imageRepo,
-		Version:      result.Version,
+		APIAddresses:         result.APIAddresses,
+		ImageDetails:         imageRepo,
+		Version:              result.Version,
+		ControllerCert:       result.ControllerCert,
+		ControllerPrivateKey: result.ControllerPrivateKey,
+		CAPrivateKey:         result.CAPrivateKey,
 	}, nil
 }
 
