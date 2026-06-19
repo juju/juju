@@ -16,6 +16,7 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+// Identifiers for supported SSH key algorithms.
 const (
 	AlgorithmRSA      = gossh.KeyAlgoRSA
 	AlgorithmECDSA256 = gossh.KeyAlgoECDSA256

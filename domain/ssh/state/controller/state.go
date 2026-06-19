@@ -9,6 +9,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
@@ -25,11 +26,10 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // GetSSHServerHostKey returns the controller jump host key.
-// The boolean indicates whether the key row exists.
-func (st *State) GetSSHServerHostKey(ctx context.Context) (string, bool, error) {
+func (st *State) GetSSHServerHostKey(ctx context.Context) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
-		return "", false, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	id := controllerSSHHostKeyID{ID: domainssh.SSHServerHostKeyUUID}
@@ -38,7 +38,7 @@ SELECT &controllerSSHHostKey.ssh_key
 FROM controller_ssh_host_key
 WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHostKeyID{})
 	if err != nil {
-		return "", false, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
 
 	var key controllerSSHHostKey
@@ -47,7 +47,7 @@ WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHos
 
 		err := tx.Query(ctx, stmt, id).Get(&key)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
+			return errors.Errorf("controller SSH host key not found").Add(coreerrors.NotFound)
 		}
 		if err != nil {
 			return errors.Errorf("querying controller SSH host key: %w", err)
@@ -55,12 +55,9 @@ WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHos
 		return nil
 	})
 	if err != nil {
-		return "", false, errors.Capture(err)
+		return "", errors.Capture(err)
 	}
-	if key.SSHKey == "" {
-		return "", false, nil
-	}
-	return key.SSHKey, true, nil
+	return key.SSHKey, nil
 }
 
 type controllerSSHHostKey struct {

@@ -94,3 +94,8 @@ func (s *KeySuite) TestPrivateKeyAlgorithm(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(algorithm, tc.Equals, ssh.AlgorithmED25519)
 }
+
+func (s *KeySuite) TestPrivateKeyAlgorithm_Error(c *tc.C) {
+	_, err := ssh.PrivateKeyAlgorithm([]byte("not a valid key"))
+	c.Assert(err, tc.Not(tc.ErrorIsNil))
+}

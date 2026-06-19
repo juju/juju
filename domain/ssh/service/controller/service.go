@@ -25,12 +25,9 @@ func (s *Service) SSHServerHostKey(ctx context.Context) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	key, found, err := s.state.GetSSHServerHostKey(ctx)
+	key, err := s.state.GetSSHServerHostKey(ctx)
 	if err != nil {
 		return "", errors.Errorf("getting controller SSH server host key: %w", err)
-	}
-	if !found {
-		return "", errors.Errorf("controller SSH server host key not found")
 	}
 	return key, nil
 }

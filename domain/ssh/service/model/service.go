@@ -42,6 +42,8 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 		return "", errors.Errorf("validating model UUID %q: %w", modelUUID, err)
 	}
 	if modelUUID != s.modelUUID {
+		// This is a programmatic error that should never occur, as the service should have been
+		// created with the correct model UUID beforehand. We return an error here to be defensive.
 		return "", errors.Errorf("virtual hostname model UUID %q does not match service model %q", modelUUID, s.modelUUID)
 	}
 

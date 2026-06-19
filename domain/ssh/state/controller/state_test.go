@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshbootstrap "github.com/juju/juju/domain/ssh/bootstrap"
@@ -28,10 +29,9 @@ func TestStateSuite(t *stdtesting.T) {
 func (s *stateSuite) TestGetSSHServerHostKeyMissing(c *tc.C) {
 	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
 
-	key, found, err := st.GetSSHServerHostKey(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(found, tc.IsFalse)
+	key, err := st.GetSSHServerHostKey(c.Context())
 	c.Check(key, tc.Equals, "")
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *stateSuite) TestGetSSHServerHostKeyExisting(c *tc.C) {
@@ -40,9 +40,8 @@ func (s *stateSuite) TestGetSSHServerHostKeyExisting(c *tc.C) {
 
 	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
 
-	key, found, err := st.GetSSHServerHostKey(c.Context())
+	key, err := st.GetSSHServerHostKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(found, tc.IsTrue)
 	c.Check(key, tc.Equals, jujutesting.SSHServerHostKey)
 
 	var (

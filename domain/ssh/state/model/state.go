@@ -9,9 +9,11 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -101,8 +103,7 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	}
 	upsertStmt, err := st.Prepare(`
 INSERT INTO machine_virtual_ssh_host_key (machine_uuid, algorithm_type_id, ssh_key)
-VALUES ($machineVirtualSSHHostKey.*)
-ON CONFLICT(machine_uuid) DO UPDATE SET algorithm_type_id = excluded.algorithm_type_id, ssh_key = excluded.ssh_key`, machineVirtualSSHHostKey{})
+VALUES ($machineVirtualSSHHostKey.*)`, machineVirtualSSHHostKey{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -118,7 +119,9 @@ ON CONFLICT(machine_uuid) DO UPDATE SET algorithm_type_id = excluded.algorithm_t
 		}
 
 		record := machineVirtualSSHHostKey{MachineUUID: machineUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
-		if err := tx.Query(ctx, upsertStmt, record).Run(); err != nil {
+		if err := tx.Query(ctx, upsertStmt, record).Run(); internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
+			return errors.Errorf("machine virtual SSH host key for %q already exists", machineName).Add(coreerrors.AlreadyExists)
+		} else if err != nil {
 			return errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 		}
 		return nil
@@ -185,7 +188,12 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 
 // SetUnitVirtualHostKeyByUnitName persists the virtual host key for the named
 // unit.
-func (st *State) SetUnitVirtualHostKeyByUnitName(ctx context.Context, unitName string, algorithmTypeID int, sshKey string) error {
+func (st *State) SetUnitVirtualHostKeyByUnitName(
+	ctx context.Context,
+	unitName string,
+	algorithmTypeID int,
+	sshKey string,
+) error {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -201,8 +209,7 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	}
 	upsertStmt, err := st.Prepare(`
 INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
-VALUES ($unitVirtualSSHHostKey.*)
-ON CONFLICT(unit_uuid) DO UPDATE SET algorithm_type_id = excluded.algorithm_type_id, ssh_key = excluded.ssh_key`, unitVirtualSSHHostKey{})
+VALUES ($unitVirtualSSHHostKey.*)`, unitVirtualSSHHostKey{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -218,7 +225,9 @@ ON CONFLICT(unit_uuid) DO UPDATE SET algorithm_type_id = excluded.algorithm_type
 		}
 
 		record := unitVirtualSSHHostKey{UnitUUID: unitUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
-		if err := tx.Query(ctx, upsertStmt, record).Run(); err != nil {
+		if err := tx.Query(ctx, upsertStmt, record).Run(); internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
+			return errors.Errorf("unit virtual SSH host key for %q already exists", unitName).Add(coreerrors.AlreadyExists)
+		} else if err != nil {
 			return errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 		}
 		return nil

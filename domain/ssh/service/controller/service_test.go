@@ -20,8 +20,7 @@ func TestServiceSuite(t *stdtesting.T) {
 
 func (s *serviceSuite) TestSSHServerHostKeyReturnsExisting(c *tc.C) {
 	controllerState := &stubControllerState{
-		key:   testPrivateKey,
-		found: true,
+		key: testPrivateKey,
 	}
 
 	svc := controllersshservice.NewService(controllerState)
@@ -31,21 +30,20 @@ func (s *serviceSuite) TestSSHServerHostKeyReturnsExisting(c *tc.C) {
 }
 
 func (s *serviceSuite) TestSSHServerHostKeyErrorsWhenMissing(c *tc.C) {
-	svc := controllersshservice.NewService(&stubControllerState{})
+	svc := controllersshservice.NewService(&stubControllerState{getErr: context.Canceled})
 
 	key, err := svc.SSHServerHostKey(c.Context())
 	c.Check(key, tc.Equals, "")
-	c.Assert(err, tc.ErrorMatches, `controller SSH server host key not found`)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
 type stubControllerState struct {
 	key    string
-	found  bool
 	getErr error
 }
 
-func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, bool, error) {
-	return s.key, s.found, s.getErr
+func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, error) {
+	return s.key, s.getErr
 }
 
 const testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +
