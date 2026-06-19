@@ -1952,6 +1952,107 @@ func (s *commitHookSuite) TestUpdateSecretsRotatePolicyLessFrequentKeepsExisting
 	c.Check(gotNextRotate.UTC(), tc.Equals, oldNextRotate.UTC())
 }
 
+// TestUpdateSecretsWithExpireTimeOnly verifies that updating a secret with
+// only ExpireTime (no new data, no new value ref) applies the expiry to the
+// existing latest revision. This is Gap 2 from PR#22651 followup.
+func (s *commitHookSuite) TestUpdateSecretsWithExpireTimeOnly(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-expire-only"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	existingRevUUID := s.addSecretRevision(c, secretID, 1)
+
+	expireTime := time.Now().UTC().Truncate(time.Microsecond).Add(48 * time.Hour)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:   secretID,
+			ExpireTime: &expireTime,
+			Checksum:   "checksum-expire-only",
+			OwnerKind:  secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify that no new revision was created
+	var revCount int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 1)
+
+	// Verify that expiry was applied to the existing revision
+	var gotExpire time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT expire_time FROM secret_revision_expire WHERE revision_uuid = ?",
+			existingRevUUID).Scan(&gotExpire)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotExpire.UTC(), tc.Equals, expireTime.UTC())
+}
+
+// TestUpdateSecretsWithExpireTimeAndNewData verifies that updating a secret
+// with both ExpireTime and new data creates a new revision and applies the
+// expiry to that new revision (regression guard).
+func (s *commitHookSuite) TestUpdateSecretsWithExpireTimeAndNewData(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-expire-with-data"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	data := map[string]string{"key1": "newvalue1"}
+	expireTime := time.Now().UTC().Truncate(time.Microsecond).Add(24 * time.Hour)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         data,
+			ExpireTime:   &expireTime,
+			Checksum:     "checksum-expire-with-data",
+			RevisionUUID: revUUID,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify that new revision was created
+	var revCount int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 2)
+
+	// Verify that expiry was applied to the new revision
+	var gotExpire time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT expire_time FROM secret_revision_expire WHERE revision_uuid = ?",
+			revUUID).Scan(&gotExpire)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotExpire.UTC(), tc.Equals, expireTime.UTC())
+
+	// Verify data was stored in the new revision
+	var contentCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_content WHERE revision_uuid = ?",
+			revUUID).Scan(&contentCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(contentCount, tc.Equals, 1)
+}
+
 // addSecretWithOwner inserts a secret with an owner row.
 func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, ownerKind string) {
 	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)
