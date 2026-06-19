@@ -27,10 +27,6 @@ type SecretService interface {
 	// parameters and associates it with a given URI.
 	CreateCharmSecret(context.Context, *coresecrets.URI, secret.CreateCharmSecretParams) error
 
-	// UpdateCharmSecret updates an existing charm secret with the provided
-	// parameters and returns an error if the operation fails.
-	UpdateCharmSecret(context.Context, *coresecrets.URI, secret.UpdateCharmSecretParams) error
-
 	// GetSecretValue retrieves the value and reference of a secret for a
 	// specified URI and revision, using a secret accessor.
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
