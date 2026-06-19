@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -164,7 +164,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 		}
 	}
 
-	agentConfBuf, err := m.updateAgentConf(info.APIAddresses, password, info.Version)
+	agentConfBuf, err := m.updateAgentConf(info, password)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -223,9 +223,8 @@ func NewModelOperatorManager(
 }
 
 func (m *ModelOperatorManager) updateAgentConf(
-	apiAddresses []string,
+	info caasmodeloperator.ModelOperatorProvisioningInfo,
 	password string,
-	ver semversion.Number,
 ) ([]byte, error) {
 	modelTag := names.NewModelTag(m.modelUUID)
 	caCert, err := m.configProvider.CACert()
@@ -249,11 +248,11 @@ func (m *ModelOperatorManager) updateAgentConf(
 			Tag:          modelTag,
 			Controller:   m.controllerTag,
 			Model:        modelTag,
-			APIAddresses: apiAddresses,
+			APIAddresses: info.APIAddresses,
 			CACert:       caCert,
 			Password:     password,
 
-			UpgradedToVersion: ver,
+			UpgradedToVersion: info.Version,
 
 			OpenTelemetryEnabled:               runtimeTracingCfg.Enabled,
 			OpenTelemetryEndpoint:              runtimeTracingCfg.Endpoint,
@@ -266,6 +265,11 @@ func (m *ModelOperatorManager) updateAgentConf(
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating new agent config for model")
 	}
+	conf.SetControllerAgentInfo(controller.ControllerAgentInfo{
+		Cert:         info.ControllerCert,
+		PrivateKey:   info.ControllerPrivateKey,
+		CAPrivateKey: info.CAPrivateKey,
+	})
 
 	return conf.Render()
 }

@@ -33,6 +33,7 @@ type ModelOperatorSuite struct {
 
 	authorizer              *apiservertesting.FakeAuthorizer
 	api                     *API
+	controllerService       *MockControllerService
 	controllerConfigService *MockControllerConfigService
 	controllerNodeService   *MockControllerNodeService
 	modelConfigService      *MockModelConfigService
@@ -48,6 +49,11 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	defer m.setupMocks(c).Finish()
 	// Arrange
 	m.expectControllerConfig()
+	m.controllerService.EXPECT().GetControllerAgentInfo(gomock.Any()).Return(controller.ControllerAgentInfo{
+		Cert:         "controller-cert",
+		PrivateKey:   "controller-key",
+		CAPrivateKey: "ca-key",
+	}, nil)
 
 	addrs := []string{"addresses:1"}
 	m.controllerNodeService.EXPECT().GetAllAPIAddressesForAgents(gomock.Any()).Return(addrs, nil)
@@ -66,6 +72,9 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 
 	c.Assert(info.ImageDetails.Auth, tc.Equals, `xxxxx==`)
 	c.Assert(info.ImageDetails.Repository, tc.Equals, `test-account`)
+	c.Check(info.ControllerCert, tc.Equals, "controller-cert")
+	c.Check(info.ControllerPrivateKey, tc.Equals, "controller-key")
+	c.Check(info.CAPrivateKey, tc.Equals, "ca-key")
 
 	expectedVersion, err := semversion.Parse("4.0.0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -164,6 +173,7 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	m.passwordService = NewMockAgentPasswordService(ctrl)
+	m.controllerService = NewMockControllerService(ctrl)
 	m.controllerConfigService = NewMockControllerConfigService(ctrl)
 	m.controllerNodeService = NewMockControllerNodeService(ctrl)
 	m.modelConfigService = NewMockModelConfigService(ctrl)
@@ -176,7 +186,7 @@ func (m *ModelOperatorSuite) setupMocks(c *tc.C) *gomock.Controller {
 	}
 
 	api, err := NewAPI(m.authorizer, m.passwordService,
-		m.controllerConfigService, m.controllerNodeService, m.modelConfigService,
+		m.controllerService, m.controllerConfigService, m.controllerNodeService, m.modelConfigService,
 		loggertesting.WrapCheckLog(c), model.UUID(internaltesting.ModelTag.Id()),
 		m.watcherRegistry)
 	c.Assert(err, tc.ErrorIsNil)

@@ -32,6 +32,7 @@ type API struct {
 	*common.PasswordChanger
 
 	auth                    facade.Authorizer
+	controllerService       ControllerService
 	controllerConfigService ControllerConfigService
 	controllerNodeService   ControllerNodeService
 	modelConfigService      ModelConfigService
@@ -45,6 +46,7 @@ type API struct {
 func NewAPI(
 	authorizer facade.Authorizer,
 	agentPasswordService AgentPasswordService,
+	controllerService ControllerService,
 	controllerConfigService ControllerConfigService,
 	controllerNodeService ControllerNodeService,
 	modelConfigService ModelConfigService,
@@ -60,6 +62,7 @@ func NewAPI(
 		auth:                    authorizer,
 		APIAddresser:            common.NewAPIAddresser(controllerNodeService, watcherRegistry),
 		PasswordChanger:         common.NewPasswordChanger(agentPasswordService, common.AuthFuncForTagKind(names.ModelTagKind)),
+		controllerService:       controllerService,
 		controllerConfigService: controllerConfigService,
 		controllerNodeService:   controllerNodeService,
 		modelConfigService:      modelConfigService,
@@ -140,6 +143,10 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 	if err != nil {
 		return result, errors.Annotate(err, "getting api addresses")
 	}
+	controllerAgentInfo, err := a.controllerService.GetControllerAgentInfo(ctx)
+	if err != nil {
+		return result, errors.Annotate(err, "getting controller agent info")
+	}
 
 	registryPath, err := podcfg.GetJujuOCIImagePathFromControllerCfg(controllerConfig, vers)
 	if err != nil {
@@ -154,9 +161,12 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 	a.logger.Tracef(ctx, "image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{
-		APIAddresses: apiAddresses.Result,
-		ImageDetails: imageInfo,
-		Version:      vers,
+		APIAddresses:         apiAddresses.Result,
+		ImageDetails:         imageInfo,
+		Version:              vers,
+		ControllerCert:       controllerAgentInfo.Cert,
+		ControllerPrivateKey: controllerAgentInfo.PrivateKey,
+		CAPrivateKey:         controllerAgentInfo.CAPrivateKey,
 	}
 	return result, nil
 }
