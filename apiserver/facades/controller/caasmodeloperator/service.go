@@ -33,6 +33,11 @@ type AgentPasswordService interface {
 	SetModelPassword(ctx context.Context, password string) error
 }
 
+// ControllerService provides access to controller agent serving information.
+type ControllerService interface {
+	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
+}
+
 // ControllerConfigService provides access to the controller configuration.
 type ControllerConfigService interface {
 	// ControllerConfig returns the config values for the controller.

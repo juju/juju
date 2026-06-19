@@ -33,6 +33,7 @@ func newAPIFromContext(stdCtx context.Context, ctx facade.ModelContext) (*API, e
 	return NewAPI(
 		authorizer,
 		domainServices.AgentPassword(),
+		domainServices.Controller(),
 		domainServices.ControllerConfig(),
 		domainServices.ControllerNode(),
 		domainServices.Config(),

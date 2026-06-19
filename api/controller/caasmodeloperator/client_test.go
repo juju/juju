@@ -40,9 +40,12 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 		c.Assert(result, tc.FitsTypeOf, &params.ModelOperatorInfo{})
 
 		*(result.(*params.ModelOperatorInfo)) = params.ModelOperatorInfo{
-			APIAddresses: apiAddresses,
-			ImageDetails: params.DockerImageInfo{RegistryPath: imagePath},
-			Version:      ver,
+			APIAddresses:         apiAddresses,
+			ImageDetails:         params.DockerImageInfo{RegistryPath: imagePath},
+			Version:              ver,
+			ControllerCert:       "controller-cert",
+			ControllerPrivateKey: "controller-key",
+			CAPrivateKey:         "ca-key",
 		}
 		return nil
 	})
@@ -54,6 +57,9 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *tc.C) {
 	c.Assert(result.APIAddresses, tc.DeepEquals, apiAddresses)
 	c.Assert(result.ImageDetails, tc.DeepEquals, resource.DockerImageDetails{RegistryPath: imagePath})
 	c.Assert(result.Version, tc.DeepEquals, ver)
+	c.Check(result.ControllerCert, tc.Equals, "controller-cert")
+	c.Check(result.ControllerPrivateKey, tc.Equals, "controller-key")
+	c.Check(result.CAPrivateKey, tc.Equals, "ca-key")
 }
 
 func (m *ModelOperatorSuite) TestSetPassword(c *tc.C) {
