@@ -284,3 +284,29 @@ func (s *pebbleNoticerSuite) TestMultipleContainers(c *gc.C) {
 		})
 	}
 }
+
+// TestNonRootNoticeReceived verifies that custom notices created by non-root
+// workload services (e.g., a database running as a dedicated user) are
+// received by the pebbleNoticer. This requires NoticesUsersAll to be set
+// in the query options; without it, Pebble's API only returns notices
+// matching the caller's UID.
+func (s *pebbleNoticerSuite) TestNonRootNoticeReceived(c *gc.C) {
+	s.setUpWorker(c, []string{"c1"})
+	defer workertest.CleanKill(c, s.worker)
+
+	nonRootUID := uint32(584788) // e.g., postgres user
+	s.clients["c1"].AddNotice(c, &client.Notice{
+		ID:           "1",
+		UserID:       &nonRootUID,
+		Type:         "custom",
+		Key:          "example.com/workload/ready",
+		LastRepeated: time.Now(),
+	})
+	s.waitWorkloadEvent(c, container.WorkloadEvent{
+		Type:         container.CustomNoticeEvent,
+		WorkloadName: "c1",
+		NoticeID:     "1",
+		NoticeType:   "custom",
+		NoticeKey:    "example.com/workload/ready",
+	})
+}
