@@ -280,6 +280,12 @@ type Config interface {
 	// endpoint.
 	LokiCACert() string
 
+	// LokiInsecureSkipVerify returns whether TLS validation is disabled for
+	// the Loki endpoint. A nil value means the default (verify enabled) is
+	// in effect when connecting to the Loki endpoint, while true/false are
+	// explicit values.
+	LokiInsecureSkipVerify() *bool
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -377,9 +383,9 @@ type configSetterOnly interface {
 	// SetLoggingConfig sets the logging config value for the agent.
 	SetLoggingConfig(string)
 
-	// SetLokiConfig sets the Loki config values for the agent. The endpoint
-	// and CA certificate are updated together.
-	SetLokiConfig(endpoint, caCert string)
+	// SetLokiConfig sets the Loki config values for the agent. The endpoint,
+	// CA certificate and insecure skip verify flag are updated together.
+	SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool)
 
 	// SetQueryTracingEnabled sets whether query tracing is enabled.
 	SetQueryTracingEnabled(bool)
@@ -485,6 +491,7 @@ type configInternal struct {
 	loggingConfig                      string
 	lokiEndpoint                       string
 	lokiCACert                         string
+	lokiInsecureSkipVerify             *bool
 	values                             map[string]string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
@@ -700,6 +707,7 @@ func (c0 *configInternal) Clone() Config {
 		info := *c0.controllerAgentInfo
 		c1.controllerAgentInfo = &info
 	}
+	c1.lokiInsecureSkipVerify = copyBoolPointer(c0.lokiInsecureSkipVerify)
 	return &c1
 }
 
@@ -757,10 +765,31 @@ func (c *configInternal) LokiCACert() string {
 	return c.lokiCACert
 }
 
+// LokiInsecureSkipVerify implements Config.
+func (c *configInternal) LokiInsecureSkipVerify() *bool {
+	return copyBoolPointer(c.lokiInsecureSkipVerify)
+}
+
 // SetLokiConfig implements configSetterOnly.
-func (c *configInternal) SetLokiConfig(endpoint, caCert string) {
+func (c *configInternal) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool) {
 	c.lokiEndpoint = endpoint
-	c.lokiCACert = caCert
+	if caCert != nil {
+		c.lokiCACert = *caCert
+	} else {
+		c.lokiCACert = ""
+	}
+	c.lokiInsecureSkipVerify = copyBoolPointer(insecureSkipVerify)
+}
+
+// copyBoolPointer preserves the Config snapshot contract: callers must not be
+// able to mutate shared agent config state by holding or editing returned
+// pointers outside ChangeConfig.
+func copyBoolPointer(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func (c *configInternal) SetOldPassword(oldPassword string) {

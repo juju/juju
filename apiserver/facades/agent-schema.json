@@ -3174,6 +3174,9 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "insecure-skip-verify": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,

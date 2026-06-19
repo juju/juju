@@ -81,18 +81,29 @@ type WorkerConfig struct {
 
 // ConfigSnapshot is the local logging destination configuration.
 type ConfigSnapshot struct {
-	Mode           BackendType
-	Endpoint       string
-	CACertificate  string
-	ControllerUUID string
-	ModelUUID      string
-	AgentID        string
+	Mode               BackendType
+	Endpoint           string
+	CACertificate      string
+	InsecureSkipVerify *bool
+	ControllerUUID     string
+	ModelUUID          string
+	AgentID            string
 }
 
 func (s ConfigSnapshot) sameBackend(other ConfigSnapshot) bool {
 	if s.Mode == BackendTypeDrain && other.Mode == BackendTypeDrain {
 		return true
 	}
+	if s.InsecureSkipVerify != nil && other.InsecureSkipVerify != nil {
+		if *(s.InsecureSkipVerify) != *(other.InsecureSkipVerify) {
+			return false
+		}
+	} else if s.InsecureSkipVerify == nil || other.InsecureSkipVerify == nil {
+		if s.InsecureSkipVerify != other.InsecureSkipVerify {
+			return false
+		}
+	}
+
 	return s.Mode == other.Mode &&
 		s.Endpoint == other.Endpoint &&
 		s.CACertificate == other.CACertificate
@@ -295,11 +306,12 @@ func (w *logRouter) nextBackendID() string {
 func (w *logRouter) currentSnapshot() ConfigSnapshot {
 	cfg := w.config.Agent.CurrentConfig()
 	snapshot := ConfigSnapshot{
-		Endpoint:       cfg.LokiEndpoint(),
-		CACertificate:  cfg.LokiCACert(),
-		ControllerUUID: cfg.Controller().Id(),
-		ModelUUID:      cfg.Model().Id(),
-		AgentID:        cfg.Tag().String(),
+		Endpoint:           cfg.LokiEndpoint(),
+		CACertificate:      cfg.LokiCACert(),
+		InsecureSkipVerify: cfg.LokiInsecureSkipVerify(),
+		ControllerUUID:     cfg.Controller().Id(),
+		ModelUUID:          cfg.Model().Id(),
+		AgentID:            cfg.Tag().String(),
 	}
 	switch {
 	case w.config.DrainOnly:

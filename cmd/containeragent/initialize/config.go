@@ -103,6 +103,10 @@ func (c *configFromEnv) LokiCACert() string {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) LokiInsecureSkipVerify() *bool {
+	panic("not implemented")
+}
+
 func (c *configFromEnv) Value(key string) string {
 	panic("not implemented")
 }

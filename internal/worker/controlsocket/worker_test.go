@@ -1172,8 +1172,9 @@ func (s *workerSuite) TestSetLokiEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.loggingService.EXPECT().SetLokiConfig(gomock.Any(), logging.LokiConfig{
-		Endpoint:      "http://loki:3100/loki/api/v1/push",
-		CACertificate: "ca-cert",
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: nil,
 	}).Return(nil)
 
 	socket := s.newSocket(c)
@@ -1185,6 +1186,52 @@ func (s *workerSuite) TestSetLokiEndpoint(c *tc.C) {
 		method:     http.MethodPost,
 		endpoint:   "/loki-endpoint",
 		body:       `{"url":"http://loki:3100/loki/api/v1/push","ca_cert":"ca-cert"}`,
+		statusCode: http.StatusOK,
+		response:   ".*updated loki endpoint.*",
+	})
+}
+
+func (s *workerSuite) TestSetLokiEndpointInsecureSkipVerify(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	insecureSkipVerify := true
+	s.loggingService.EXPECT().SetLokiConfig(gomock.Any(), logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &insecureSkipVerify,
+	}).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/loki-endpoint",
+		body:       `{"url":"http://loki:3100/loki/api/v1/push","ca_cert":"ca-cert","insecure_skip_verify":true}`,
+		statusCode: http.StatusOK,
+		response:   ".*updated loki endpoint.*",
+	})
+}
+
+func (s *workerSuite) TestSetLokiEndpointOmitsInsecureSkipVerify(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.loggingService.EXPECT().SetLokiConfig(gomock.Any(), logging.LokiConfig{
+		Endpoint:           "http://loki:3100/loki/api/v1/push",
+		InsecureSkipVerify: nil,
+	}).Return(nil)
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/loki-endpoint",
+		body:       `{"url":"http://loki:3100/loki/api/v1/push"}`,
 		statusCode: http.StatusOK,
 		response:   ".*updated loki endpoint.*",
 	})

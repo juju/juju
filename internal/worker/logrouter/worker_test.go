@@ -307,7 +307,8 @@ func newFixture(c *tc.C, lokiEndpoint string) fixture {
 		Model:             names.NewModelTag("abcdef01-2345-6789-abcd-ef0123456789"),
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	cfg.SetLokiConfig(lokiEndpoint, "")
+	emptyCACert := ""
+	cfg.SetLokiConfig(lokiEndpoint, &emptyCACert, nil)
 	return fixture{
 		agent: &testAgent{
 			cfg: cfg,
@@ -337,7 +338,7 @@ func (a *testAgent) ChangeConfig(change agent.ConfigMutator) error {
 func (a *testAgent) setLokiConfig(endpoint, caCert string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.cfg.SetLokiConfig(endpoint, caCert)
+	a.cfg.SetLokiConfig(endpoint, &caCert, nil)
 }
 
 type backendEvent struct {

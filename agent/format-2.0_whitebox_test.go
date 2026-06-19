@@ -62,7 +62,7 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
 	config.configFilePath = ""
 
 	config.SetLoggingConfig(loggingConfig)
-	config.SetLokiConfig(lokiEndpoint, lokiCACert)
+	config.SetLokiConfig(lokiEndpoint, &lokiCACert, nil)
 
 	data, err := format_2_0.marshal(config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -73,6 +73,22 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
 	c.Check(newConfig.LoggingConfig(), tc.Equals, loggingConfig)
 	c.Check(newConfig.LokiEndpoint(), tc.Equals, lokiEndpoint)
 	c.Check(newConfig.LokiCACert(), tc.Equals, lokiCACert)
+}
+
+func (*format_2_0Suite) TestCloneLokiInsecureSkipVerifyIsolation(c *tc.C) {
+	config := newTestConfig(c)
+	insecureSkipVerify := false
+	config.SetLokiConfig("https://loki.example.com/loki/api/v1/push", nil, &insecureSkipVerify)
+
+	cloned := config.Clone()
+	clonedValue := cloned.LokiInsecureSkipVerify()
+	c.Assert(clonedValue, tc.NotNil)
+
+	*clonedValue = true
+
+	originalValue := config.LokiInsecureSkipVerify()
+	c.Assert(originalValue, tc.NotNil)
+	c.Check(*originalValue, tc.IsFalse)
 }
 
 func (*format_2_0Suite) TestQueryTracing(c *tc.C) {

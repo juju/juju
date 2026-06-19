@@ -110,6 +110,7 @@ type MockConfigMockRecorder struct {
 	loggingConfigExpects                      []*gomock.Call0_1[string]
 	lokiCACertExpects                         []*gomock.Call0_1[string]
 	lokiEndpointExpects                       []*gomock.Call0_1[string]
+	lokiInsecureSkipVerifyExpects             []*gomock.Call0_1[*bool]
 	metricsSpoolDirExpects                    []*gomock.Call0_1[string]
 	modelExpects                              []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                              []*gomock.Call0_1[string]
@@ -429,6 +430,24 @@ func (mr *MockConfigMockRecorder) LokiEndpoint() *MockConfigLokiEndpointCall {
 
 // MockConfigLokiEndpointCall is the typed call wrapper for LokiEndpoint.
 type MockConfigLokiEndpointCall = gomock.Call0_1[string]
+
+// LokiInsecureSkipVerify mocks base method.
+func (m *MockConfig) LokiInsecureSkipVerify() *bool {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiInsecureSkipVerifyExpects, m.ctrl, m, "LokiInsecureSkipVerify")
+}
+
+// LokiInsecureSkipVerify indicates an expected call of LokiInsecureSkipVerify.
+func (mr *MockConfigMockRecorder) LokiInsecureSkipVerify() *MockConfigLokiInsecureSkipVerifyCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*bool](mr.mock.ctrl.T, mr.mock, "LokiInsecureSkipVerify")
+	mr.lokiInsecureSkipVerifyExpects = append(mr.lokiInsecureSkipVerifyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiInsecureSkipVerifyCall is the typed call wrapper for LokiInsecureSkipVerify.
+type MockConfigLokiInsecureSkipVerifyCall = gomock.Call0_1[*bool]
 
 // MetricsSpoolDir mocks base method.
 func (m *MockConfig) MetricsSpoolDir() string {
