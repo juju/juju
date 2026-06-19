@@ -87,7 +87,7 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV410(c *tc.C) {
 func (s *payloadSuite) TestDecodePayloadUnknownVersion(c *tc.C) {
 	_, err := DecodePayload(semversion.MustParse("4.0.5"), []byte("{}"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Assert(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
+	c.Check(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
 }
 
 // TestDecodePayloadMalformedYAML verifies that undecodable bytes yield a

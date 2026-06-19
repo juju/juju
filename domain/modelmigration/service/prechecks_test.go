@@ -68,7 +68,7 @@ func (s *serviceSuite) TestPrecheckImportCloudNotFound(c *tc.C) {
 	).Return(false, false, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*cloud "my-cloud" not found on target controller.*`)
+	c.Check(err, tc.ErrorMatches, `.*cloud "my-cloud" not found on target controller.*`)
 }
 
 // TestPrecheckImportRegionNotFound asserts the prechecks reject a model whose
@@ -82,7 +82,7 @@ func (s *serviceSuite) TestPrecheckImportRegionNotFound(c *tc.C) {
 	).Return(true, false, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*cloud region "my-region" not valid for cloud "my-cloud".*`)
+	c.Check(err, tc.ErrorMatches, `.*cloud region "my-region" not valid for cloud "my-cloud".*`)
 }
 
 // TestPrecheckImportUserDisabled asserts the prechecks reject a model whose
@@ -97,7 +97,7 @@ func (s *serviceSuite) TestPrecheckImportUserDisabled(c *tc.C) {
 	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return([]string{"alice"}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*user "alice" is disabled on the target controller.*`)
+	c.Check(err, tc.ErrorMatches, `.*users "alice" are disabled on the target controller.*`)
 }
 
 // TestPrecheckImportMissingUserOK asserts that a user absent from the target is
@@ -137,7 +137,7 @@ func (s *serviceSuite) TestPrecheckImportCredentialRevoked(c *tc.C) {
 	).Return(true, true, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*credential .* is revoked on the target controller.*`)
+	c.Check(err, tc.ErrorMatches, `.*credential .* is revoked on the target controller.*`)
 }
 
 // TestPrecheckImportSecretBackendNotFound asserts the prechecks reject a model
@@ -156,7 +156,7 @@ func (s *serviceSuite) TestPrecheckImportSecretBackendNotFound(c *tc.C) {
 	s.controllerState.EXPECT().SecretBackendExists(gomock.Any(), args.SecretBackend).Return(false, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*secret backend "my-backend" not found on target controller.*`)
+	c.Check(err, tc.ErrorMatches, `.*secret backend "my-backend" not found on target controller.*`)
 }
 
 // TestPrecheckImportInProgress asserts the prechecks report a model already
@@ -178,7 +178,7 @@ func (s *serviceSuite) TestPrecheckImportInProgress(c *tc.C) {
 	).Return(modelmigration.ImportModelCollision{Importing: true}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*already exists on this controller \(currently importing\).*`)
+	c.Check(err, tc.ErrorMatches, `.*already exists on this controller \(currently importing\).*`)
 }
 
 // TestPrecheckImportModelUUIDCollision asserts the prechecks reject a model
@@ -200,7 +200,7 @@ func (s *serviceSuite) TestPrecheckImportModelUUIDCollision(c *tc.C) {
 	).Return(modelmigration.ImportModelCollision{ModelExists: true}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*model ".*" already exists on this controller.*`)
+	c.Check(err, tc.ErrorMatches, `.*model ".*" already exists on this controller.*`)
 }
 
 // TestPrecheckImportNameInUse asserts the prechecks reject a model whose
@@ -215,7 +215,7 @@ func (s *serviceSuite) TestPrecheckImportNameInUse(c *tc.C) {
 	).Return(modelmigration.ImportModelCollision{ModelNameExists: true}, nil)
 
 	err := s.service().PrecheckImport(c.Context(), args)
-	c.Assert(err, tc.ErrorMatches, `.*model named "prod-model" already exists.*`)
+	c.Check(err, tc.ErrorMatches, `.*model named "prod-model" already exists.*`)
 }
 
 // expectPrecheckPassesUntilCollision sets up every precheck up to (but not

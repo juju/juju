@@ -233,7 +233,7 @@ func (s *v8Suite) TestPrechecksDomainErrorPropagates(c *tc.C) {
 		errors.Errorf("model's cloud %q not found on target controller", "my-cloud"))
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches,
+	c.Check(err, tc.ErrorMatches,
 		`migration target prechecks failed: model's cloud "my-cloud" not found on target controller`)
 }
 
@@ -250,25 +250,25 @@ func (s *v8Suite) TestPrechecksInvalidModelInfo(c *tc.C) {
 	envelope.ModelInfo.UUID = "not-a-uuid"
 	err := api.Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `model UUID "not-a-uuid" not valid`)
+	c.Check(err, tc.ErrorMatches, `model UUID "not-a-uuid" not valid`)
 
 	envelope = valid
 	envelope.ModelInfo.Name = ""
 	err = api.Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `empty model name not valid`)
+	c.Check(err, tc.ErrorMatches, `empty model name not valid`)
 
 	envelope = valid
 	envelope.ModelInfo.Qualifier = ""
 	err = api.Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `empty model qualifier not valid`)
+	c.Check(err, tc.ErrorMatches, `empty model qualifier not valid`)
 
 	envelope = valid
 	envelope.ModelInfo.SourceMigrationUUID = ""
 	err = api.Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `empty source migration UUID not valid`)
+	c.Check(err, tc.ErrorMatches, `empty source migration UUID not valid`)
 }
 
 // TestPrechecksPayloadDecodeError verifies that a malformed payload is
@@ -281,7 +281,7 @@ func (s *v8Suite) TestPrechecksPayloadDecodeError(c *tc.C) {
 	envelope.Payload = []byte("\t: garbage")
 	err := api.Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Assert(err, tc.ErrorMatches, `decoding model export payload at version "4.0.6".*`)
+	c.Check(err, tc.ErrorMatches, `decoding model export payload at version "4.0.6".*`)
 }
 
 // TestPrechecksPayloadVersionNewerThanTarget verifies the
@@ -295,7 +295,7 @@ func (s *v8Suite) TestPrechecksPayloadVersionNewerThanTarget(c *tc.C) {
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
 		`source payload version "9.9.9" is newer than target %q; upgrade the target controller first.*`,
 		export.LatestSupportedPayloadVersion()))
 }
@@ -310,7 +310,7 @@ func (s *v8Suite) TestPrechecksPayloadVersionUnknown(c *tc.C) {
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-	c.Assert(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
+	c.Check(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
 }
 
 // TestPrechecksModelVersionNewerThanController verifies that the model's
@@ -323,7 +323,7 @@ func (s *v8Suite) TestPrechecksModelVersionNewerThanController(c *tc.C) {
 	payload.AgentVersion = []v4_0_6.AgentVersion{{TargetVersion: "4.2.0"}}
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, payload))
-	c.Assert(err, tc.ErrorMatches,
+	c.Check(err, tc.ErrorMatches,
 		`migration target prechecks failed: model has higher version than target controller \(4.2.0 > 4.1.0\)`)
 }
 
@@ -335,7 +335,7 @@ func (s *v8Suite) TestPrechecksUpgradeInProgress(c *tc.C) {
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
-	c.Assert(err, tc.ErrorMatches, `migration target prechecks failed: upgrade in progress`)
+	c.Check(err, tc.ErrorMatches, `migration target prechecks failed: upgrade in progress`)
 }
 
 // TestCreateMigrationMacaroonSuccess verifies v8 delegates macaroon minting

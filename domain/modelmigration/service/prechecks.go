@@ -79,10 +79,7 @@ func (s *Service) precheckUsers(ctx context.Context, users []string) error {
 	if err != nil {
 		return errors.Capture(err)
 	}
-	if len(disabledUsers) == 1 {
-		return errors.Errorf("model user %q is disabled on the target controller", disabledUsers[0])
-	}
-	if len(disabledUsers) > 1 {
+	if len(disabledUsers) >= 1 {
 		return errors.Errorf("model users %q are disabled on the target controller",
 			strings.Join(disabledUsers, ", "))
 	}
