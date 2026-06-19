@@ -257,9 +257,10 @@ SELECT sm.secret_id AS &secretInfo.secret_id,
        sm.auto_prune AS &secretInfo.auto_prune,
        sm.latest_revision_checksum AS &secretInfo.latest_revision_checksum,
        sm.update_time AS &secretInfo.update_time,
-       MAX(sr.revision) AS &secretInfo.latest_revision
+       MAX(sr.revision) AS &secretInfo.latest_revision,
+	   sr.uuid AS &secretInfo.latest_revision_uuid
 FROM   secret_metadata sm
-       LEFT JOIN secret_revision sr ON sr.secret_id = sm.secret_id
+	   JOIN secret_revision sr ON sr.secret_id = sm.secret_id
 WHERE  sm.secret_id = $secretID.secret_id
 GROUP BY sm.secret_id`
 	existingStmt, err := st.Prepare(existingQuery, secretID{}, secretInfo{})
@@ -379,21 +380,6 @@ ON CONFLICT(uuid) DO UPDATE SET update_time=excluded.update_time
 			return errors.Errorf("inserting revision: %w", err)
 		}
 
-		if update.ExpireTime != nil {
-			expStmt, err := st.Prepare(`
-INSERT INTO secret_revision_expire (revision_uuid, expire_time)
-VALUES ($secretRevisionExpire.*)
-ON CONFLICT(revision_uuid) DO UPDATE SET expire_time=excluded.expire_time
-`, secretRevisionExpire{})
-			if err != nil {
-				return errors.Capture(err)
-			}
-			exp := secretRevisionExpire{RevisionUUID: rev.UUID, ExpireTime: *update.ExpireTime}
-			if err := tx.Query(ctx, expStmt, exp).Run(); err != nil {
-				return errors.Errorf("setting revision expiry: %w", err)
-			}
-		}
-
 		if len(update.Data) > 0 {
 			contentStmt, err := st.Prepare(`
 INSERT INTO secret_content (revision_uuid, name, content)
@@ -427,6 +413,30 @@ ON CONFLICT(revision_uuid) DO UPDATE SET backend_uuid=excluded.backend_uuid, rev
 			}
 			if err := tx.Query(ctx, refStmt, ref).Run(); err != nil {
 				return errors.Errorf("setting revision value ref: %w", err)
+			}
+		}
+	}
+
+	// Handle ExpireTime: apply to the new revision if one was created,
+	// otherwise apply to the existing latest revision if it exists.
+	if update.ExpireTime != nil {
+		targetRevisionUUID := update.RevisionUUID
+		if targetRevisionUUID == "" {
+			targetRevisionUUID = info.LatestRevisionUUID
+		}
+
+		if targetRevisionUUID != "" {
+			expStmt, err := st.Prepare(`
+INSERT INTO secret_revision_expire (revision_uuid, expire_time)
+VALUES ($secretRevisionExpire.*)
+ON CONFLICT(revision_uuid) DO UPDATE SET expire_time=excluded.expire_time
+`, secretRevisionExpire{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+			exp := secretRevisionExpire{RevisionUUID: targetRevisionUUID, ExpireTime: *update.ExpireTime}
+			if err := tx.Query(ctx, expStmt, exp).Run(); err != nil {
+				return errors.Errorf("setting revision expiry: %w", err)
 			}
 		}
 	}
