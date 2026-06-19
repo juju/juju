@@ -5,7 +5,8 @@ package migrationtarget_test
 
 import (
 	"context"
-	"errors"
+	stderrors "errors"
+	"fmt"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"gopkg.in/macaroon.v2"
+	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/apiserver"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -20,9 +22,14 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/export"
+	v4_0_6 "github.com/juju/juju/domain/export/types/v4_0_6"
+	"github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -42,6 +49,7 @@ type v8Suite struct {
 	modelMigrationService     *MockModelMigrationService
 	agentService              *MockModelAgentService
 	removalService            *MockRemovalService
+	migrationImportService    *MockMigrationImportService
 
 	modelUUID string
 
@@ -66,6 +74,7 @@ func (s *v8Suite) setupMocks(c *tc.C) *gomock.Controller {
 	s.modelMigrationService = NewMockModelMigrationService(ctrl)
 	s.agentService = NewMockModelAgentService(ctrl)
 	s.removalService = NewMockRemovalService(ctrl)
+	s.migrationImportService = NewMockMigrationImportService(ctrl)
 
 	s.modelUUID = uuid.MustNewUUID().String()
 
@@ -111,14 +120,41 @@ func (s *v8Suite) mustNewAPIV8WithMinter(c *tc.C, minter facade.LocalMacaroonMin
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	apiV8, err := migrationtarget.NewAPIV8(api, minter)
+	apiV8, err := migrationtarget.NewAPIV8(
+		api,
+		minter,
+		s.migrationImportService,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 	return apiV8
 }
 
-func (s *v8Suite) makeEnvelope() params.SerializedModelV2 {
+// validPayload returns a v4_0_6 payload with an agent version below the target
+// controller version used in tests.
+func (s *v8Suite) validPayload() v4_0_6.ModelExport {
+	return v4_0_6.ModelExport{
+		AgentVersion: []v4_0_6.AgentVersion{{
+			TargetVersion: "4.0.6",
+		}},
+		Application: []v4_0_6.Application{{
+			UUID:      "app-uuid",
+			Name:      "ubuntu",
+			CharmUUID: "charm-uuid",
+		}},
+		CharmManifestBase: []v4_0_6.CharmManifestBase{{
+			CharmUUID: "charm-uuid",
+			Risk:      "stable",
+		}},
+	}
+}
+
+func (s *v8Suite) makeEnvelope(c *tc.C, payload v4_0_6.ModelExport) params.SerializedModelV2 {
+	data, err := yaml.Marshal(payload)
+	c.Assert(err, tc.ErrorIsNil)
+
 	return params.SerializedModelV2{
 		PayloadVersion: semversion.MustParse("4.0.6"),
+		Payload:        data,
 		ModelInfo: params.SerializedModelInfo{
 			UUID:                s.modelUUID,
 			Name:                "some-model",
@@ -132,23 +168,174 @@ func (s *v8Suite) makeEnvelope() params.SerializedModelV2 {
 	}
 }
 
-// TestPrechecksNoOpSuccess verifies that v8 Prechecks accepts any envelope
-// and returns success: the real precheck routine is not implemented yet.
-func (s *v8Suite) TestPrechecksNoOpSuccess(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope())
-	c.Assert(err, tc.ErrorIsNil)
+// expectControllerReady primes the target-controller readiness checks
+// (upgrade in progress, controller machine health) and the target controller
+// version used by the agent-version check.
+func (s *v8Suite) expectControllerReady() {
+	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil).AnyTimes()
+	s.agentService.EXPECT().GetMachinesNotAtTargetAgentVersion(gomock.Any()).Return(nil, nil).AnyTimes()
+	s.statusService.EXPECT().CheckMachineStatusesReadyForMigration(gomock.Any()).Return(nil).AnyTimes()
+	s.machineService.EXPECT().AllMachineNames(gomock.Any()).Return(nil, nil).AnyTimes()
+	s.agentService.EXPECT().GetModelTargetAgentVersion(gomock.Any()).Return(
+		semversion.MustParse("4.1.0"), nil).AnyTimes()
 }
 
-// TestImportNoOpSuccess verifies that v8 Import accepts any envelope and
-// returns success without importing anything: the real import path is not
-// implemented yet.
-func (s *v8Suite) TestImportNoOpSuccess(c *tc.C) {
+// TestPrechecksSuccess runs the full precheck routine over a well-formed
+// envelope: the controller-readiness checks pass and the environmental checks
+// delegated to the modelmigration domain return no error. It also asserts the
+// envelope's semantic fields are mapped onto the precheck arguments handed to
+// the domain.
+func (s *v8Suite) TestPrechecksSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectControllerReady()
+
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.Users = []params.ModelUser{{Name: "alice"}, {Name: "bob"}}
+	envelope.ModelCredential = &params.ModelCloudCredential{
+		Cloud:   "my-cloud",
+		Owner:   "carol",
+		Name:    "foobar",
+		Revoked: true,
+	}
+	envelope.SecretBackend = &params.ModelSecretBackend{Name: "myvault"}
+
+	var captured modelmigration.ImportPrecheckArgs
+	s.migrationImportService.EXPECT().PrecheckImport(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, args modelmigration.ImportPrecheckArgs) error {
+			captured = args
+			return nil
+		})
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(captured.ModelUUID, tc.Equals, s.modelUUID)
+	c.Check(captured.ModelName, tc.Equals, "some-model")
+	c.Check(captured.ModelQualifier, tc.Equals, "prod")
+	c.Check(captured.Cloud, tc.Equals, "my-cloud")
+	c.Check(captured.CloudRegion, tc.Equals, "my-region")
+	c.Check(captured.Users, tc.DeepEquals, []string{"alice", "bob"})
+	c.Assert(captured.Credential, tc.NotNil)
+	c.Check(captured.Credential.Cloud, tc.Equals, "my-cloud")
+	c.Check(captured.Credential.Owner, tc.Equals, "carol")
+	c.Check(captured.Credential.Name, tc.Equals, "foobar")
+	c.Check(captured.Credential.Revoked, tc.IsTrue)
+	c.Check(captured.SecretBackend, tc.Equals, "myvault")
+}
+
+// TestPrechecksDomainErrorPropagates verifies that an environmental precheck
+// error from the modelmigration domain is surfaced (wrapped) to the caller.
+func (s *v8Suite) TestPrechecksDomainErrorPropagates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectControllerReady()
+
+	s.migrationImportService.EXPECT().PrecheckImport(gomock.Any(), gomock.Any()).Return(
+		errors.Errorf("model's cloud %q not found on target controller", "my-cloud"))
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
+	c.Check(err, tc.ErrorMatches,
+		`migration target prechecks failed: model's cloud "my-cloud" not found on target controller`)
+}
+
+// TestPrechecksInvalidModelInfo verifies the envelope identity validation:
+// bad model UUID, empty name, empty qualifier and empty source migration
+// UUID are all rejected before any service call.
+func (s *v8Suite) TestPrechecksInvalidModelInfo(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.mustNewAPIV8(c)
+
+	valid := s.makeEnvelope(c, s.validPayload())
+
+	envelope := valid
+	envelope.ModelInfo.UUID = "not-a-uuid"
+	err := api.Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `model UUID "not-a-uuid" not valid`)
+
+	envelope = valid
+	envelope.ModelInfo.Name = ""
+	err = api.Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `empty model name not valid`)
+
+	envelope = valid
+	envelope.ModelInfo.Qualifier = ""
+	err = api.Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `empty model qualifier not valid`)
+
+	envelope = valid
+	envelope.ModelInfo.SourceMigrationUUID = ""
+	err = api.Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `empty source migration UUID not valid`)
+}
+
+// TestPrechecksPayloadDecodeError verifies that a malformed payload is
+// rejected by the decoder with a coded validation error.
+func (s *v8Suite) TestPrechecksPayloadDecodeError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	api := s.mustNewAPIV8(c)
+
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.Payload = []byte("\t: garbage")
+	err := api.Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `decoding model export payload at version "4.0.6".*`)
+}
+
+// TestPrechecksPayloadVersionNewerThanTarget verifies the
+// payload-version-ahead-of-target rejection with the actionable upgrade
+// message, even for versions unknown to the decoder registry.
+func (s *v8Suite) TestPrechecksPayloadVersionNewerThanTarget(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.mustNewAPIV8(c).Import(c.Context(), s.makeEnvelope())
-	c.Assert(err, tc.ErrorIsNil)
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.PayloadVersion = semversion.MustParse("9.9.9")
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches, fmt.Sprintf(
+		`source payload version "9.9.9" is newer than target %q; upgrade the target controller first.*`,
+		export.LatestSupportedPayloadVersion()))
+}
+
+// TestPrechecksPayloadVersionUnknown verifies that a version at or below the
+// target but unknown to the decoder registry yields a clean error.
+func (s *v8Suite) TestPrechecksPayloadVersionUnknown(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.PayloadVersion = semversion.MustParse("4.0.5")
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches, `model export payload version "4.0.5": not supported`)
+}
+
+// TestPrechecksModelVersionNewerThanController verifies that the model's
+// agent version from the payload must not be ahead of the target controller.
+func (s *v8Suite) TestPrechecksModelVersionNewerThanController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectControllerReady()
+
+	payload := s.validPayload()
+	payload.AgentVersion = []v4_0_6.AgentVersion{{TargetVersion: "4.2.0"}}
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, payload))
+	c.Check(err, tc.ErrorMatches,
+		`migration target prechecks failed: model has higher version than target controller \(4.2.0 > 4.1.0\)`)
+}
+
+// TestPrechecksUpgradeInProgress verifies the target-controller readiness
+// check rejects a controller that is mid-upgrade.
+func (s *v8Suite) TestPrechecksUpgradeInProgress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
+
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, s.validPayload()))
+	c.Check(err, tc.ErrorMatches, `migration target prechecks failed: upgrade in progress`)
 }
 
 // TestCreateMigrationMacaroonSuccess verifies v8 delegates macaroon minting
@@ -173,7 +360,7 @@ func (s *v8Suite) TestCreateMigrationMacaroonSuccess(c *tc.C) {
 func (s *v8Suite) TestCreateMigrationMacaroonMinterError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expectedErr := errors.New("mint failed")
+	expectedErr := stderrors.New("mint failed")
 	minter := &testLocalMacaroonMinter{err: expectedErr}
 
 	result, err := s.mustNewAPIV8WithMinter(c, minter).CreateMigrationMacaroon(c.Context())
@@ -207,6 +394,30 @@ func (s *v8Suite) TestCreateMigrationMacaroonRemoteUserPermissionDenied(c *tc.C)
 
 	c.Check(result.Macaroon, tc.IsNil)
 	c.Check(minter.calls, tc.Equals, 0)
+}
+
+// TestImportRunsGuardsThenNoOpSuccess verifies the v8 Import shell runs the
+// mandatory pre-write guards (envelope validation and payload version/decode)
+// and then succeeds as a no-op until the real import path lands. Import must
+// NOT run the environmental prechecks, so the precheck service is never
+// primed: any environmental call would surface as an unexpected gomock call.
+func (s *v8Suite) TestImportRunsGuardsThenNoOpSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.mustNewAPIV8(c).Import(c.Context(), s.makeEnvelope(c, s.validPayload()))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestImportGuardFailure verifies a guard failure in the v8 Import shell is
+// returned as-is, not masked by the no-op success tail.
+func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	envelope := s.makeEnvelope(c, s.validPayload())
+	envelope.PayloadVersion = semversion.MustParse("9.9.9")
+
+	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
 // TestV8Registered asserts MigrationTarget v8 is advertised alongside the

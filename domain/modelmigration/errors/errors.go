@@ -21,10 +21,6 @@ const (
 	// the migration's phase changed concurrently (optimistic-lock conflict).
 	ErrPhaseTransitionInvalid = errors.ConstError("invalid migration phase transition")
 
-	// ErrExternalControllerConflict indicates that an external controller record
-	// cannot be reconciled with supplied migration details.
-	ErrExternalControllerConflict = errors.ConstError("external controller already exists with different details")
-
 	// ErrConflictingMinionReport indicates that a minion submitted a report for
 	// a (migration, phase, entity) triple that already has a report with a
 	// different success value. Reports are idempotent for an identical value but
@@ -35,4 +31,8 @@ const (
 	// no usable API addresses for a target controller to dial back during model
 	// activation, so the migration cannot complete.
 	ErrSourceControllerNoAPIAddresses = errors.ConstError("source controller has no usable API addresses")
+
+	// ErrImportNotFound indicates that no target-side import
+	// (model_migration_import row) exists for the model.
+	ErrImportNotFound = errors.ConstError("import not found")
 )

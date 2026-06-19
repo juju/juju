@@ -51,10 +51,11 @@ func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(regis
 			}
 			return api, nil
 		}, reflect.TypeFor[*API]())
-		// v8 takes the typed params.SerializedModelV2 envelope for both
-		// Prechecks and Import. The methods are envelope-validating no-op
-		// shells for now (see APIV8); the real v8 import path must land
-		// before a 4.1 release ships.
+		// v8 takes typed params.SerializedModelV2 args for both
+		// Prechecks and Import. Prechecks runs the full v8 guard and precheck
+		// routine; Import runs the mandatory pre-write guards and is a no-op
+		// shell beyond that (see APIV8.Import) — the real v8 import path must
+		// land before a 4.1 release ships.
 		registry.MustRegisterForMultiModel("MigrationTarget", 8, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 			api, err := makeFacadeV8(stdCtx, ctx, requiredMigrationFacadeVersions)
 			if err != nil {
@@ -76,7 +77,11 @@ func makeFacadeV8(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return NewAPIV8(api, ctx.LocalMacaroonMinter())
+	return NewAPIV8(
+		api,
+		ctx.LocalMacaroonMinter(),
+		ctx.DomainServices().ModelMigration(),
+	)
 }
 
 func makeFacadeV4(

@@ -157,6 +157,31 @@ type ControllerState interface {
 	// client connection details used by the target controller to dial back
 	// during model activation.
 	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
+
+	// CheckImportModelCollision reports model identity collisions that would
+	// block importing the model on the target controller.
+	CheckImportModelCollision(
+		ctx context.Context, modelUUID, name, qualifier string,
+	) (modelmigration.ImportModelCollision, error)
+
+	// CheckCloudRegion reports whether the named cloud exists and, when a
+	// region name is supplied, whether that region is known to the cloud.
+	CheckCloudRegion(ctx context.Context, cloudName, regionName string) (
+		cloudExists bool, regionExists bool, err error,
+	)
+
+	// GetDisabledUsers reports the active users from names that are disabled
+	// on the controller. Missing and removed users are omitted.
+	GetDisabledUsers(ctx context.Context, names []string) ([]string, error)
+
+	// GetCredentialRevoked reports whether a cloud credential with the given
+	// natural key exists on the controller and, when it does, whether it is
+	// revoked.
+	GetCredentialRevoked(ctx context.Context, cloud, owner, name string) (revoked bool, exists bool, err error)
+
+	// SecretBackendExists reports whether a secret backend with the given name
+	// exists on the controller.
+	SecretBackendExists(ctx context.Context, name string) (bool, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state

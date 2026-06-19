@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/crossmodel"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
@@ -604,38 +606,205 @@ func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 	return params.BytesResult{Result: []byte(caCert)}, nil
 }
 
-// APIV8 implements the MigrationTarget v8 facade: typed-envelope
-// (params.SerializedModelV2) prechecks and import. It embeds the v7 API for
-// the methods that are unchanged (Abort, Activate, AdoptResources, etc.) and
-// shadows Prechecks and Import with the v8 envelope signatures — the inverse
+// MigrationImportService runs the environmental v8 import prechecks against
+// the target controller database. The migrationtarget facade stays thin: it
+// assembles the typed precheck arguments from the v8 args and delegates the
+// cross-domain reads to the modelmigration domain.
+type MigrationImportService interface {
+	// PrecheckImport runs the environmental prechecks for a v8 model migration
+	// import against the target controller (cloud/region existence, user
+	// usability, credential revoked status, secret backend existence, and
+	// model UUID/name collisions). It performs no writes.
+	PrecheckImport(ctx context.Context, args modelmigration.ImportPrecheckArgs) error
+}
+
+// APIV8 implements the MigrationTarget v8 facade for typed
+// params.SerializedModelV2 prechecks and import. It embeds the v7 API for the
+// unchanged methods (Abort, Activate, AdoptResources, etc.) and shadows
+// Prechecks and Import with the v8 args signatures — the inverse
 // of the legacy.go adapter pattern, because Go cannot overload method names
 // by parameter type.
-//
-// Both methods are no-op shells so the migrationmaster worker can be exercised
-// end to end while the rest of the v8 pipeline is developed. The real import
-// path must land before a 4.1 release ships.
 type APIV8 struct {
 	*API
+
 	localMacaroonMinter facade.LocalMacaroonMinter
+
+	migrationImportService MigrationImportService
 }
 
 // NewAPIV8 returns a new MigrationTarget v8 facade wrapping the given v7 API.
-func NewAPIV8(api *API, minter facade.LocalMacaroonMinter) (*APIV8, error) {
-	return &APIV8{API: api, localMacaroonMinter: minter}, nil
+func NewAPIV8(
+	api *API,
+	minter facade.LocalMacaroonMinter,
+	migrationImportService MigrationImportService,
+) (*APIV8, error) {
+	return &APIV8{
+		API:                    api,
+		localMacaroonMinter:    minter,
+		migrationImportService: migrationImportService,
+	}, nil
 }
 
-// Prechecks is a no-op shell for v8 envelope prechecks.
-//
-// TODO(modelmigration): implement v8 prechecks before a 4.1 release ships.
-func (api *APIV8) Prechecks(_ context.Context, _ params.SerializedModelV2) error {
+// Prechecks ensures that the target controller is ready to accept the model
+// described by the v8 args. It performs schema, payload-version and
+// environmental checks without writing any target-side rows and without
+// deserializing a description.Model.
+func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) error {
+	view, err := api.importGuard(ctx, args)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := api.targetPrechecks(ctx, args, view); err != nil {
+		return errors.Errorf("migration target prechecks failed: %w", err)
+	}
+
 	return nil
 }
 
-// Import is a no-op shell for v8 envelope import.
+// Import accepts v8 model migration args. The full import path (durable
+// claim, controller-fact application and model-DB import) is not implemented
+// yet; the method runs only the mandatory pre-write guards and then succeeds
+// as a no-op shell without importing anything, so the source-side migration
+// worker can be exercised against this facade during development.
 //
-// TODO(modelmigration): implement v8 import path before a 4.1 release ships.
-func (api *APIV8) Import(_ context.Context, _ params.SerializedModelV2) error {
+// Unlike Prechecks, Import deliberately does NOT re-run the environmental
+// prechecks. Per the spec (WS4a / Task 6) the only work that must precede the
+// first target-side write is schema validation, payload version/decode
+// preparation and the non-empty SourceMigrationUUID check — exactly what
+// importGuard covers. The equivalent collision checks become
+// structural guarded writes inside the real import path (UNIQUE(model_uuid)
+// claim insert, compare-or-insert controller facts), so Import does not
+// duplicate the Prechecks routine. This mirrors v7, where Import does not
+// re-run Prechecks either.
+func (api *APIV8) Import(ctx context.Context, args params.SerializedModelV2) error {
+	if _, err := api.importGuard(ctx, args); err != nil {
+		return errors.Capture(err)
+	}
+
+	// TODO(modelmigration): implement the v8 import path: durable
+	// model_migration_import claim, target-local model bootstrap,
+	// controller-fact application and the V2 model-DB import. This must land
+	// before a 4.1 release ships.
+	api.logger.Warningf(ctx,
+		"migrationtarget v8 import for model %q is a no-op shell; the model was not imported",
+		args.ModelInfo.UUID)
 	return nil
+}
+
+// importGuard runs the mandatory pre-write checks that must pass before any
+// target-side row is written on the v8 import path: model identity
+// validation (including a non-empty source migration UUID) and the payload
+// version/decode checks. It returns the version-neutral projection view of
+// the decoded payload for callers that go on to run environmental
+// prechecks. It must not write any target-side rows.
+//
+// There is no runtime controller-schema guard: the v8 import objects are
+// guaranteed present by the time the facade serves requests, because the
+// controllerupgrader manifold gates the apiserver behind completion of the
+// controller-DB schema upgrade (see the migrationtarget v8 spec, §4.6).
+func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2) (export.ProjectionView, error) {
+	// Model sanity first: nothing else is meaningful without a valid
+	// model identity.
+	if err := validateModelInfo(args.ModelInfo); err != nil {
+		return export.ProjectionView{}, errors.Capture(err)
+	}
+
+	// Payload-version checks. The newer-than-target check runs before the
+	// decoder registry lookup so a payload from a newer Juju gets the
+	// actionable upgrade message rather than an unknown-version error.
+	targetVersion := export.LatestSupportedPayloadVersion()
+	if args.PayloadVersion.Compare(targetVersion) > 0 {
+		return export.ProjectionView{}, errors.Errorf(
+			"source payload version %q is newer than target %q; upgrade the target controller first %w",
+			args.PayloadVersion, targetVersion, coreerrors.NotSupported)
+	}
+
+	payload, err := export.DecodePayload(args.PayloadVersion, args.Payload)
+	if err != nil {
+		return export.ProjectionView{}, errors.Capture(err)
+	}
+
+	view, err := export.ProjectionViewForPayload(payload)
+	if err != nil {
+		return export.ProjectionView{}, errors.Capture(err)
+	}
+
+	return view, nil
+}
+
+// validateModelInfo validates the bootstrap identity fields of the v8 args.
+func validateModelInfo(info params.SerializedModelInfo) error {
+	if err := coremodel.UUID(info.UUID).Validate(); err != nil {
+		return errors.Errorf("model UUID %q %w", info.UUID, coreerrors.NotValid)
+	}
+	if info.Name == "" {
+		return errors.Errorf("empty model name %w", coreerrors.NotValid)
+	}
+	if info.Qualifier == "" {
+		return errors.Errorf("empty model qualifier %w", coreerrors.NotValid)
+	}
+	if info.SourceMigrationUUID == "" {
+		return errors.Errorf("empty source migration UUID %w", coreerrors.NotValid)
+	}
+	return nil
+}
+
+// targetPrechecks runs the environmental v8 prechecks against the target
+// controller. The controller-readiness and agent-version checks reuse the
+// existing v7 precheck helpers; the cloud/region, user, credential, secret
+// backend and model-collision checks are delegated to the modelmigration
+// domain (which reads the controller database directly), keeping this facade
+// thin.
+func (api *APIV8) targetPrechecks(
+	ctx context.Context, args params.SerializedModelV2, view export.ProjectionView,
+) error {
+	// Target controller readiness: upgrade in progress and controller
+	// machine health, mirroring the v7 TargetPrecheck coverage.
+	modelAgentService, err := api.modelAgentServiceGetter(ctx, api.controllerModelUUID)
+	if err != nil {
+		return errors.Errorf("cannot get model agent service: %w", err)
+	}
+	if err := migration.TargetControllerPrecheck(
+		ctx, api.upgradeService, api.statusService, modelAgentService, api.machineService,
+		view.AgentTargetVersion,
+	); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Environmental checks against the target controller database, owned by
+	// the modelmigration domain.
+	if err := api.migrationImportService.PrecheckImport(ctx, importPrecheckArgs(args)); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// importPrecheckArgs builds the typed precheck arguments consumed by the
+// modelmigration domain from the v8 args' semantic fields.
+func importPrecheckArgs(in params.SerializedModelV2) modelmigration.ImportPrecheckArgs {
+	args := modelmigration.ImportPrecheckArgs{
+		ModelUUID:      in.ModelInfo.UUID,
+		ModelName:      in.ModelInfo.Name,
+		ModelQualifier: in.ModelInfo.Qualifier,
+		Cloud:          in.ModelInfo.Cloud,
+		CloudRegion:    in.ModelInfo.CloudRegion,
+	}
+	for _, u := range in.Users {
+		args.Users = append(args.Users, u.Name)
+	}
+	if cred := in.ModelCredential; cred != nil {
+		args.Credential = &modelmigration.ImportPrecheckCredential{
+			Cloud:   cred.Cloud,
+			Owner:   cred.Owner,
+			Name:    cred.Name,
+			Revoked: cred.Revoked,
+		}
+	}
+	if in.SecretBackend != nil {
+		args.SecretBackend = in.SecretBackend.Name
+	}
+	return args
 }
 
 // CreateMigrationMacaroon mints a directly-presentable 24h login macaroon for

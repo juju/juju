@@ -289,3 +289,44 @@ type sourceAPIAddress struct {
 	Scope        string `db:"scope"`
 	IsAgent      bool   `db:"is_agent"`
 }
+
+// nameArg holds a single name lookup value for an existence check.
+type nameArg struct {
+	Name string `db:"name"`
+}
+
+// cloudArg holds the cloud (and optionally region) names used by the cloud and
+// cloud-region existence prechecks.
+type cloudArg struct {
+	CloudName  string `db:"cloud_name"`
+	RegionName string `db:"region_name"`
+}
+
+// credentialKeyArg holds the natural key of a cloud credential used by the
+// credential precheck.
+type credentialKeyArg struct {
+	CloudName string `db:"cloud_name"`
+	OwnerName string `db:"owner_name"`
+	Name      string `db:"name"`
+}
+
+// modelNameQualifierArg holds a model name and qualifier used by the model
+// name-collision precheck.
+type modelNameQualifierArg struct {
+	Name      string `db:"name"`
+	Qualifier string `db:"qualifier"`
+}
+
+// credentialRevoked is the projection of a cloud credential's revoked flag.
+type credentialRevoked struct {
+	Revoked bool `db:"revoked"`
+}
+
+// importClaimRow maps a model_migration_import row joined to its phase type.
+// UpdatedAt is read as text because model_migration_import.updated_at is a
+// TEXT column; the query canonicalises it to RFC3339 via strftime.
+type importClaimRow struct {
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+	PhaseType           string `db:"phase_type"`
+	UpdatedAt           string `db:"updated_at"`
+}
