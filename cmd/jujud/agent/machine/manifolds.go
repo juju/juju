@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
@@ -89,6 +90,8 @@ import (
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/logrouter"
+	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/machineactions"
@@ -193,6 +196,16 @@ type ManifoldsConfig struct {
 
 	// LogSink defines an interface for writing log records to a log sink.
 	LogSink corelogger.LogSink
+
+	// LogSource supplies log records to the logrouter. It is the output
+	// channel of the BufferedLogWriter installed on the default loggo
+	// context.
+	LogSource logsender.LogRecordCh
+
+	// LegacyLogSinkWriter is the TaggedRedirectWriter that writes log
+	// records to the legacy log sink. It is managed by the logrouter
+	// based on the active backend mode.
+	LegacyLogSinkWriter loggo.Writer
 
 	// NewDeployContext gives the tests the opportunity to create a
 	// deployer.Context that can be used for testing.
@@ -531,6 +544,26 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:      apiCallerName,
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
+		})),
+
+		// The log router owns the buffered log stream and forwards records to
+		// one active backend at a time.
+		logRouterName: ifNotMigrating(logrouter.Manifold(logrouter.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			HTTPClientName:       httpClientName,
+			LogSource:            config.LogSource,
+			AgentConfigChanged:   config.AgentConfigChanged,
+			Logger:               internallogger.GetLogger("juju.worker.logrouter"),
+			Clock:                config.Clock,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewBackendFunc:       logrouter.NewBackend,
+			RemoveLegacyLogSinkWriter: func() {
+				logsender.RemoveLegacyLogSinkWriter()
+			},
+			AddLegacyLogSinkWriter: func() error {
+				return logsender.AddLegacyLogSinkWriter(config.LegacyLogSinkWriter)
+			},
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
@@ -1487,6 +1520,7 @@ const (
 	loggingConfigUpdaterName           = "logging-config-updater"
 	lokiEndpointUpdaterName            = "loki-endpoint-updater"
 	logSinkName                        = "log-sink"
+	logRouterName                      = "log-router"
 	lxdContainerProvisioner            = "lxd-container-provisioner"
 	machineActionName                  = "machine-action-runner"
 	machinerName                       = "machiner"

@@ -73,6 +73,35 @@ func UninstallBufferedLogWriter() error {
 	return nil
 }
 
+const legacyLogSinkWriterName = "logsink"
+
+// EnsureBufferedLogWriterOnDefaultContext installs a BufferedLogWriter on
+// the default loggo context. If a "buffered-logs" writer is already present
+// it is replaced. Returns the writer and any error.
+func EnsureBufferedLogWriterOnDefaultContext(maxLen int) (*BufferedLogWriter, error) {
+	writer := NewBufferedLogWriter(maxLen)
+	_, _ = loggo.DefaultContext().RemoveWriter(writerName)
+	err := loggo.DefaultContext().AddWriter(writerName, writer)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to set up log buffering")
+	}
+	return writer, nil
+}
+
+// RemoveLegacyLogSinkWriter removes the "logsink" writer from the default
+// loggo context. It is idempotent and returns nil if the writer was not found.
+func RemoveLegacyLogSinkWriter() {
+	_, _ = loggo.DefaultContext().RemoveWriter(legacyLogSinkWriterName)
+}
+
+// AddLegacyLogSinkWriter ensures the "logsink" writer is installed in the
+// default loggo context. If a "logsink" writer is already present it is
+// replaced. Returns any error from installing the writer.
+func AddLegacyLogSinkWriter(writer loggo.Writer) error {
+	_, _ = loggo.DefaultContext().RemoveWriter(legacyLogSinkWriterName)
+	return loggo.DefaultContext().AddWriter(legacyLogSinkWriterName, writer)
+}
+
 // BufferedLogWriter is a loggo.Writer which buffers log messages in
 // memory. These messages are retrieved by reading from the channel
 // returned by the Logs method.

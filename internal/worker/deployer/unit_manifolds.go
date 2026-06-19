@@ -158,15 +158,17 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
 		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			HTTPClientName:       httpClientName,
-			LogSource:            config.LogSource,
-			AgentConfigChanged:   config.AgentConfigChanged,
-			Logger:               config.LoggerContext.GetLogger("juju.worker.logrouter"),
-			Clock:                config.Clock,
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewBackendFunc:       logrouter.NewBackend,
+			AgentName:                 agentName,
+			APICallerName:             apiCallerName,
+			HTTPClientName:            httpClientName,
+			LogSource:                 config.LogSource,
+			AgentConfigChanged:        config.AgentConfigChanged,
+			Logger:                    config.LoggerContext.GetLogger("juju.worker.logrouter"),
+			Clock:                     config.Clock,
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewBackendFunc:            logrouter.NewBackend,
+			RemoveLegacyLogSinkWriter: func() {},
+			AddLegacyLogSinkWriter:    func() error { return nil },
 		}),
 
 		// The migration workers collaborate to run migrations;

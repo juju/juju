@@ -244,15 +244,17 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
 		logRouterName: ifNotDead(logrouter.Manifold(logrouter.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			HTTPClientName:       httpClientName,
-			LogSource:            config.LogSource,
-			AgentConfigChanged:   config.AgentConfigChanged,
-			Logger:               internallogger.GetLogger("juju.worker.logrouter"),
-			Clock:                config.Clock,
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewBackendFunc:       logrouter.NewBackend,
+			AgentName:                 agentName,
+			APICallerName:             apiCallerName,
+			HTTPClientName:            httpClientName,
+			LogSource:                 config.LogSource,
+			AgentConfigChanged:        config.AgentConfigChanged,
+			Logger:                    internallogger.GetLogger("juju.worker.logrouter"),
+			Clock:                     config.Clock,
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewBackendFunc:            logrouter.NewBackend,
+			RemoveLegacyLogSinkWriter: func() {},
+			AddLegacyLogSinkWriter:    func() error { return nil },
 		})),
 
 		// The upgrade steps gate is used to coordinate workers which

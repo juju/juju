@@ -122,7 +122,25 @@ func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock, prometheus.Registerer) BackendFunc {
 			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
 		},
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
 	}
+}
+
+func (s *manifoldSuite) TestValidateRejectsNilRemoveLegacyLogSinkWriter(c *tc.C) {
+	cfg := s.validManifoldConfig(c)
+	cfg.RemoveLegacyLogSinkWriter = nil
+	err := cfg.Validate()
+	c.Assert(err, tc.NotNil)
+	c.Check(err.Error(), tc.Equals, `nil RemoveLegacyLogSinkWriter not valid`)
+}
+
+func (s *manifoldSuite) TestValidateRejectsNilAddLegacyLogSinkWriter(c *tc.C) {
+	cfg := s.validManifoldConfig(c)
+	cfg.AddLegacyLogSinkWriter = nil
+	err := cfg.Validate()
+	c.Assert(err, tc.NotNil)
+	c.Check(err.Error(), tc.Equals, `nil AddLegacyLogSinkWriter not valid`)
 }
 
 type manifoldGetter struct {
