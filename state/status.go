@@ -76,6 +76,26 @@ func (m *ModelStatus) Model() (status.StatusInfo, error) {
 	return m.getStatus(m.model.globalKey(), "model")
 }
 
+// Application returns the status of the application.
+func (m *ModelStatus) Application(appName string) (status.StatusInfo, error) {
+	return m.getStatus(applicationGlobalKey(appName), fmt.Sprintf("application %q", appName))
+}
+
+// ApplicationOperator returns the operator status of the application.
+func (m *ModelStatus) ApplicationOperator(appName string) (status.StatusInfo, error) {
+	return m.getStatus(applicationGlobalOperatorKey(appName), fmt.Sprintf("operator for application %q", appName))
+}
+
+// Relation returns the status of the relation.
+func (m *ModelStatus) Relation(id int) (status.StatusInfo, error) {
+	return m.getStatus(relationGlobalScope(id), "relation")
+}
+
+// RemoteApplication returns the status of the remote application.
+func (m *ModelStatus) RemoteApplication(appName string) (status.StatusInfo, error) {
+	return m.getStatus(remoteApplicationGlobalKey(appName), fmt.Sprintf("saas application %q", appName))
+}
+
 // MachineAgent returns the status of the machine agent.
 func (m *ModelStatus) MachineAgent(machineID string) (status.StatusInfo, error) {
 	return m.getStatus(machineGlobalKey(machineID), "machine")
