@@ -749,6 +749,7 @@ func (st *State) removeBasicMachineData(ctx context.Context, tx *sqlair.TX, mUUI
 		"DELETE FROM machine_agent_presence WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_container_type WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
+		"DELETE FROM machine_virtual_ssh_host_key WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM machine_parent WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM block_device_link_device WHERE machine_uuid = $entityUUID.uuid",
 		"DELETE FROM block_device WHERE machine_uuid = $entityUUID.uuid",

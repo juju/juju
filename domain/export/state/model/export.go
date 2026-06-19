@@ -497,6 +497,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineStatusValue statement: %w", err)
 	}
+	stmtMachineVirtualSshHostKey, err := sqlair.Prepare(`SELECT &MachineVirtualSshHostKey.* FROM "machine_virtual_ssh_host_key"`, v4_1_0.MachineVirtualSshHostKey{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing MachineVirtualSshHostKey statement: %w", err)
+	}
 	stmtMachineVolume, err := sqlair.Prepare(`SELECT &MachineVolume.* FROM "machine_volume"`, v4_1_0.MachineVolume{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing MachineVolume statement: %w", err)
@@ -841,6 +845,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing Space statement: %w", err)
 	}
+	stmtSshKeyAlgorithmType, err := sqlair.Prepare(`SELECT &SshKeyAlgorithmType.* FROM "ssh_key_algorithm_type"`, v4_1_0.SshKeyAlgorithmType{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing SshKeyAlgorithmType statement: %w", err)
+	}
 	stmtStorageAttachment, err := sqlair.Prepare(`SELECT &StorageAttachment.* FROM "storage_attachment"`, v4_1_0.StorageAttachment{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing StorageAttachment statement: %w", err)
@@ -976,6 +984,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	stmtUnitStorageDirective, err := sqlair.Prepare(`SELECT &UnitStorageDirective.* FROM "unit_storage_directive"`, v4_1_0.UnitStorageDirective{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing UnitStorageDirective statement: %w", err)
+	}
+	stmtUnitVirtualSshHostKey, err := sqlair.Prepare(`SELECT &UnitVirtualSshHostKey.* FROM "unit_virtual_ssh_host_key"`, v4_1_0.UnitVirtualSshHostKey{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing UnitVirtualSshHostKey statement: %w", err)
 	}
 	stmtUnitWorkloadStatus, err := sqlair.Prepare(`SELECT &UnitWorkloadStatus.* FROM "unit_workload_status"`, v4_1_0.UnitWorkloadStatus{})
 	if err != nil {
@@ -1357,6 +1369,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtMachineStatusValue).GetAll(&modelExport.MachineStatusValue); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineStatusValue (table machine_status_value): %w", err)
 		}
+		if err := tx.Query(ctx, stmtMachineVirtualSshHostKey).GetAll(&modelExport.MachineVirtualSshHostKey); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying MachineVirtualSshHostKey (table machine_virtual_ssh_host_key): %w", err)
+		}
 		if err := tx.Query(ctx, stmtMachineVolume).GetAll(&modelExport.MachineVolume); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying MachineVolume (table machine_volume): %w", err)
 		}
@@ -1615,6 +1630,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		if err := tx.Query(ctx, stmtSpace).GetAll(&modelExport.Space); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Space (table space): %w", err)
 		}
+		if err := tx.Query(ctx, stmtSshKeyAlgorithmType).GetAll(&modelExport.SshKeyAlgorithmType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying SshKeyAlgorithmType (table ssh_key_algorithm_type): %w", err)
+		}
 		if err := tx.Query(ctx, stmtStorageAttachment).GetAll(&modelExport.StorageAttachment); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying StorageAttachment (table storage_attachment): %w", err)
 		}
@@ -1716,6 +1734,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		}
 		if err := tx.Query(ctx, stmtUnitStorageDirective).GetAll(&modelExport.UnitStorageDirective); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitStorageDirective (table unit_storage_directive): %w", err)
+		}
+		if err := tx.Query(ctx, stmtUnitVirtualSshHostKey).GetAll(&modelExport.UnitVirtualSshHostKey); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying UnitVirtualSshHostKey (table unit_virtual_ssh_host_key): %w", err)
 		}
 		if err := tx.Query(ctx, stmtUnitWorkloadStatus).GetAll(&modelExport.UnitWorkloadStatus); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying UnitWorkloadStatus (table unit_workload_status): %w", err)

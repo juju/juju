@@ -27,6 +27,7 @@ import (
 	service12 "github.com/juju/juju/domain/model/service"
 	service13 "github.com/juju/juju/domain/modeldefaults/service"
 	service14 "github.com/juju/juju/domain/secretbackend/service"
+	controller "github.com/juju/juju/domain/ssh/service/controller"
 	service15 "github.com/juju/juju/domain/tracing/service"
 	service16 "github.com/juju/juju/domain/upgrade/service"
 )
@@ -56,6 +57,7 @@ type MockControllerDomainServicesMockRecorder struct {
 	macaroonExpects                   []*gomock.Call0_1[*service11.Service]
 	modelExpects                      []*gomock.Call0_1[*service12.WatchableService]
 	modelDefaultsExpects              []*gomock.Call0_1[*service13.Service]
+	sSHServerHostKeyExpects           []*gomock.Call0_1[*controller.Service]
 	secretBackendExpects              []*gomock.Call0_1[*service14.WatchableService]
 	tracingExpects                    []*gomock.Call0_1[*service15.WatchableService]
 	upgradeExpects                    []*gomock.Call0_1[*service16.WatchableService]
@@ -342,6 +344,24 @@ func (mr *MockControllerDomainServicesMockRecorder) ModelDefaults() *MockControl
 
 // MockControllerDomainServicesModelDefaultsCall is the typed call wrapper for ModelDefaults.
 type MockControllerDomainServicesModelDefaultsCall = gomock.Call0_1[*service13.Service]
+
+// SSHServerHostKey mocks base method.
+func (m *MockControllerDomainServices) SSHServerHostKey() *controller.Service {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.sSHServerHostKeyExpects, m.ctrl, m, "SSHServerHostKey")
+}
+
+// SSHServerHostKey indicates an expected call of SSHServerHostKey.
+func (mr *MockControllerDomainServicesMockRecorder) SSHServerHostKey() *MockControllerDomainServicesSSHServerHostKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*controller.Service](mr.mock.ctrl.T, mr.mock, "SSHServerHostKey")
+	mr.sSHServerHostKeyExpects = append(mr.sSHServerHostKeyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerDomainServicesSSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
+type MockControllerDomainServicesSSHServerHostKeyCall = gomock.Call0_1[*controller.Service]
 
 // SecretBackend mocks base method.
 func (m *MockControllerDomainServices) SecretBackend() *service14.WatchableService {

@@ -45,6 +45,8 @@ import (
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	sshcontrollerservice "github.com/juju/juju/domain/ssh/service/controller"
+	sshcontrollerstate "github.com/juju/juju/domain/ssh/state/controller"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	tracingstate "github.com/juju/juju/domain/tracing/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
@@ -240,6 +242,13 @@ func (s *ControllerServices) Logging() *loggingservice.WatchableService {
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		),
 		s.controllerWatcherFactory("logging"),
+	)
+}
+
+// SSHServerHostKey returns the controller SSH server host key service.
+func (s *ControllerServices) SSHServerHostKey() *sshcontrollerservice.Service {
+	return sshcontrollerservice.NewService(
+		sshcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
