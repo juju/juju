@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/charm/v8"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -163,6 +164,58 @@ func (s *ModelStatusSuite) TestModelStatusForModel(c *gc.C) {
 	mInfo, err := s.model.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, mInfo)
+}
+
+func (s *ModelStatusSuite) TestRelationStatus(c *gc.C) {
+	relation := s.factory.MakeRelation(c, nil)
+	err := relation.SetStatus(status.StatusInfo{
+		Status:  status.Suspended,
+		Message: "for a while",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msStatus, err := ms.Relation(relation.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	relStatus, err := relation.Status()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(msStatus, jc.DeepEquals, relStatus)
+}
+
+func (s *ModelStatusSuite) TestRemoteApplicationStatus(c *gc.C) {
+	application, err := s.st.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "hosted-mysql",
+		OfferUUID:   "offer-uuid",
+		URL:         "fred/prod.mysql",
+		SourceModel: s.model.ModelTag(),
+		Endpoints: []charm.Relation{{
+			Interface: "mysql",
+			Name:      "db",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	now := testing.ZeroTime()
+	err = application.SetStatus(status.StatusInfo{
+		Status:  status.Active,
+		Message: "ready",
+		Since:   &now,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ms, err := s.model.LoadModelStatus()
+	c.Assert(err, jc.ErrorIsNil)
+
+	msStatus, err := ms.RemoteApplication(application.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	appStatus, err := application.Status()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(msStatus, jc.DeepEquals, appStatus)
 }
 
 func (s *ModelStatusSuite) TestMachineStatus(c *gc.C) {
