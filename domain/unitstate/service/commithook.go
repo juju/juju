@@ -131,7 +131,7 @@ func (s *LeadershipService) prepareSecretCreates(
 	ctx context.Context,
 	creates []unitstate.CreateSecretArg,
 	unitInfo internal.CommitHookUnitInfo,
-) (result []internal.CreateSecretArg, rollbacks []func() error, err error) {
+) (_ []internal.CreateSecretArg, _ []func() error, err error) {
 	if len(creates) == 0 {
 		return nil, nil, nil
 	}
@@ -142,7 +142,8 @@ func (s *LeadershipService) prepareSecretCreates(
 	}
 
 	now := s.clock.Now()
-	result = make([]internal.CreateSecretArg, 0, len(creates))
+	result := make([]internal.CreateSecretArg, 0, len(creates))
+	rollbacks := make([]func() error, 0, len(creates))
 	defer func() {
 		if err != nil {
 			s.rollbackAll(ctx, rollbacks)
@@ -221,7 +222,7 @@ func (s *LeadershipService) prepareSecretCreates(
 func (s *LeadershipService) prepareSecretUpdates(
 	ctx context.Context,
 	updates []unitstate.UpdateSecretArg,
-) (result []internal.UpdateSecretArg, rollbacks []func() error, err error) {
+) (_ []internal.UpdateSecretArg, _ []func() error, err error) {
 	if len(updates) == 0 {
 		return nil, nil, nil
 	}
@@ -231,7 +232,8 @@ func (s *LeadershipService) prepareSecretUpdates(
 		return nil, nil, errors.Errorf("getting model uuid: %w", err)
 	}
 
-	result = make([]internal.UpdateSecretArg, 0, len(updates))
+	result := make([]internal.UpdateSecretArg, 0, len(updates))
+	rollbacks := make([]func() error, 0, len(updates))
 	// Roll back accumulated backend references on any error during
 	// preparation. Failures are logged, not propagated — see rollbackAll.
 	defer func() {

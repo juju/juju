@@ -455,6 +455,53 @@ func (s *commitHookSuite) TestPrepareSecretUpdatesDifferentChecksumAddsBackendRe
 	c.Check(rollbackCalled, tc.IsFalse)
 }
 
+func (s *commitHookSuite) TestPrepareSecretUpdatesPartialRollback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	firstRolledBack := false
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(func() error {
+		firstRolledBack = true
+		return nil
+	}, nil)
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(nil, errors.New("backend boom"))
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{
+			{
+				URI: uri1,
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"a": "1"},
+					Checksum: "checksum-1",
+				},
+			},
+			{
+				URI: uri2,
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"b": "2"},
+					Checksum: "checksum-2",
+				},
+			},
+		},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Check(err, tc.ErrorMatches, `.*adding backend reference for update\[1\].*`)
+	c.Check(firstRolledBack, tc.IsTrue)
+}
+
 func (s *commitHookSuite) TestParseForSetAndUnsetSettings(c *tc.C) {
 	// Arrange
 	input := unitstate.Settings{
