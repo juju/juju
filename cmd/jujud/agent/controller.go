@@ -214,7 +214,8 @@ type controllerAgentCommand struct {
 	// This group is for debugging purposes.
 	logToStdErr bool
 
-	agentTag names.Tag
+	agentTag              names.Tag
+	controllerRuntimePath string
 
 	// The following are set via command-line flags.
 	controllerId string
@@ -240,6 +241,9 @@ func (a *controllerAgentCommand) Init(args []string) error {
 	_, _ = loggo.RemoveWriter("logfile")
 
 	a.agentTag = names.NewControllerAgentTag(a.controllerId)
+	a.controllerRuntimePath = controllerruntimeconfig.ConfigPath(filepath.Join(
+		a.agentInitializer.DataDir(), "agents", "controller-"+a.agentTag.Id(),
+	))
 	if err := agentconfig.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
@@ -273,6 +277,7 @@ func (a *controllerAgentCommand) Run(c *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	controllerAgent.controllerRuntimePath = a.controllerRuntimePath
 	return controllerAgent.Run(c)
 }
 
@@ -445,9 +450,14 @@ func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
 	}
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
+	agentConfig := a.CurrentConfig()
+	controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Prime the log sink and create the writer.
-	logSink, err := PrimeLogSink(a.CurrentConfig())
+	logSink, err := PrimeLogSink(agentConfig)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -458,7 +468,7 @@ func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
 		"logsink", corelogger.NewTaggedRedirectWriter(
 			logSink,
 			a.Tag().String(),
-			a.CurrentConfig().Model().Id(),
+			controllerRuntimeConfig.ControllerModelUUID,
 		),
 	); err != nil {
 		return errors.Trace(err)
@@ -475,12 +485,7 @@ func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	agentConfig := a.CurrentConfig()
 	agentName := a.Tag().String()
-
-	a.controllerRuntimePath = controllerruntimeconfig.ConfigPath(
-		filepath.Join(agentConfig.DataDir(), "agents", "controller-"+a.agentTag.Id()),
-	)
 
 	a.bootstrapLock = gate.NewLock()
 	a.controllerUpgradeLock = gate.NewLock()
