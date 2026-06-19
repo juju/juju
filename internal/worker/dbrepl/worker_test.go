@@ -20,6 +20,11 @@ type dbReplSuite struct {
 	testing.DqliteSuite
 }
 
+func headerFields(output string) []string {
+	firstLine, _, _ := strings.Cut(output, "\n")
+	return strings.Fields(firstLine)
+}
+
 func TestDbReplSuite(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)
 	tc.Run(t, &dbReplSuite{})
@@ -48,10 +53,10 @@ func (s *dbReplSuite) TestForeignKeysList(c *tc.C) {
 
 	// Check that the output contains expected content
 	output := stdout.String()
-	startWithHeader := strings.HasPrefix(output,
-		"child_table\t\tchild_column\tparent_column\tfk_id\tfk_seq\n",
-	)
-	c.Assert(startWithHeader, tc.Equals, true)
+	c.Check(output, tc.Not(tc.Equals), "No foreign key references found for table \"unit\" column \"uuid\"\n")
+	c.Assert(headerFields(output), tc.DeepEquals, []string{
+		"child_table", "child_column", "parent_column", "fk_id", "fk_seq",
+	})
 }
 
 func (s *dbReplSuite) TestForeignKeysListIdentifier(c *tc.C) {
@@ -69,8 +74,8 @@ func (s *dbReplSuite) TestForeignKeysListIdentifier(c *tc.C) {
 
 	// Check that the output contains expected content
 	output := stdout.String()
-	startWithHeader := strings.HasPrefix(output,
-		"child_table\t\tchild_column\tfk_id\tfk_seq\treference_count\n",
-	)
-	c.Assert(startWithHeader, tc.Equals, true)
+	c.Check(output, tc.Not(tc.Equals), "No foreign key references found for table \"unit\" column \"uuid\"\n")
+	c.Assert(headerFields(output), tc.DeepEquals, []string{
+		"child_table", "child_column", "fk_id", "fk_seq", "reference_count",
+	})
 }
