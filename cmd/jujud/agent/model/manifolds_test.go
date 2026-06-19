@@ -5,7 +5,6 @@ package model_test
 
 import (
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -250,6 +249,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"caas-model-operator": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
