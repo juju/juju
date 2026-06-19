@@ -74,6 +74,53 @@ func (s *migrationServiceSuite) TestImportModelCAAS(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *migrationServiceSuite) TestImportModelV2(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, coremodel.NewUUID)
+
+	sExp := s.state.EXPECT()
+	sExp.CloudType(gomock.Any(), "aws").Return("aws", nil)
+	// ImportModelV2 must bootstrap via the claim-free Create path, never via
+	// ImportModel -- the v8 import claim is owned by the modelmigration
+	// domain and must not be duplicated here.
+	sExp.Create(gomock.Any(), uuid, coremodel.IAAS, gomock.Any()).Return(nil)
+
+	svc := s.newService(c)
+
+	err := svc.ImportModelV2(c.Context(), model.ModelImportArgs{
+		UUID: uuid,
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
+			Name:      "foo",
+			Cloud:     "aws",
+			Qualifier: coremodel.Qualifier("jim"),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationServiceSuite) TestImportModelV2CAAS(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := tc.Must(c, coremodel.NewUUID)
+
+	sExp := s.state.EXPECT()
+	sExp.CloudType(gomock.Any(), "k8s").Return(cloud.CloudTypeKubernetes, nil)
+	sExp.Create(gomock.Any(), uuid, coremodel.CAAS, gomock.Any()).Return(nil)
+
+	svc := s.newService(c)
+
+	err := svc.ImportModelV2(c.Context(), model.ModelImportArgs{
+		UUID: uuid,
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
+			Name:      "foo",
+			Cloud:     "k8s",
+			Qualifier: coremodel.Qualifier("jim"),
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *migrationServiceSuite) TestImportModelActivate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

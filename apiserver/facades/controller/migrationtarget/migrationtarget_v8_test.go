@@ -396,20 +396,24 @@ func (s *v8Suite) TestCreateMigrationMacaroonRemoteUserPermissionDenied(c *tc.C)
 	c.Check(minter.calls, tc.Equals, 0)
 }
 
-// TestImportRunsGuardsThenNoOpSuccess verifies the v8 Import shell runs the
-// mandatory pre-write guards (envelope validation and payload version/decode)
-// and then succeeds as a no-op until the real import path lands. Import must
-// NOT run the environmental prechecks, so the precheck service is never
-// primed: any environmental call would surface as an unexpected gomock call.
-func (s *v8Suite) TestImportRunsGuardsThenNoOpSuccess(c *tc.C) {
+// TestImportRunsGuardsThenDelegatesToImportModelV2 verifies the v8 Import
+// runs the mandatory pre-write guards (envelope validation and payload
+// version/decode) and then delegates to ModelImporter.ImportModelV2 with the
+// decoded projection view. Import must NOT run the environmental prechecks,
+// so the precheck service is never primed: any environmental call would
+// surface as an unexpected gomock call.
+func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := s.mustNewAPIV8(c).Import(c.Context(), s.makeEnvelope(c, s.validPayload()))
+	envelope := s.makeEnvelope(c, s.validPayload())
+	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), envelope, gomock.Any()).Return(nil)
+
+	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestImportGuardFailure verifies a guard failure in the v8 Import shell is
-// returned as-is, not masked by the no-op success tail.
+// TestImportGuardFailure verifies a guard failure in the v8 Import is
+// returned as-is, without ever calling ImportModelV2.
 func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -418,6 +422,19 @@ func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
 
 	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+// TestImportPropagatesImportModelV2Error verifies an error from
+// ImportModelV2 is returned as-is by Import.
+func (s *v8Suite) TestImportPropagatesImportModelV2Error(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	envelope := s.makeEnvelope(c, s.validPayload())
+	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), envelope, gomock.Any()).
+		Return(errors.Errorf("boom"))
+
+	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)
+	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
 // TestV8Registered asserts MigrationTarget v8 is advertised alongside the

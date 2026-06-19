@@ -44,6 +44,13 @@ type ModelImporter interface {
 	// ImportModel takes a serialized description model (yaml bytes) and returns
 	// a state model and state state.
 	ImportModel(ctx context.Context, bytes []byte) error
+
+	// ImportModelV2 applies a v8 migration envelope's controller-scoped
+	// semantic data to the target controller: the durable
+	// model_migration_import claim, the target-local model bootstrap, and
+	// the users, credential, permissions, authorized keys, secret backend,
+	// leadership and cloud image metadata carried by the envelope.
+	ImportModelV2(ctx context.Context, envelope params.SerializedModelV2, view export.ProjectionView) error
 }
 
 // CloudService provides a subset of the cloud domain service methods.
@@ -662,11 +669,9 @@ func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) 
 	return nil
 }
 
-// Import accepts v8 model migration args. The full import path (durable
-// claim, controller-fact application and model-DB import) is not implemented
-// yet; the method runs only the mandatory pre-write guards and then succeeds
-// as a no-op shell without importing anything, so the source-side migration
-// worker can be exercised against this facade during development.
+// Import accepts a v8 model migration envelope, claims the model, bootstraps
+// it and applies the envelope's controller-scoped semantic data. Model-DB
+// content import and activation are not yet part of this path (Tasks 7-10).
 //
 // Unlike Prechecks, Import deliberately does NOT re-run the environmental
 // prechecks. Per the spec (WS4a / Task 6) the only work that must precede the
@@ -674,21 +679,18 @@ func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) 
 // preparation and the non-empty SourceMigrationUUID check — exactly what
 // importGuard covers. The equivalent collision checks become
 // structural guarded writes inside the real import path (UNIQUE(model_uuid)
-// claim insert, compare-or-insert controller facts), so Import does not
+// claim insert, compare-or-insert controller data), so Import does not
 // duplicate the Prechecks routine. This mirrors v7, where Import does not
 // re-run Prechecks either.
-func (api *APIV8) Import(ctx context.Context, args params.SerializedModelV2) error {
-	if _, err := api.importGuard(ctx, args); err != nil {
+func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2) error {
+	view, err := api.importGuard(ctx, envelope)
+	if err != nil {
 		return errors.Capture(err)
 	}
 
-	// TODO(modelmigration): implement the v8 import path: durable
-	// model_migration_import claim, target-local model bootstrap,
-	// controller-fact application and the V2 model-DB import. This must land
-	// before a 4.1 release ships.
-	api.logger.Warningf(ctx,
-		"migrationtarget v8 import for model %q is a no-op shell; the model was not imported",
-		args.ModelInfo.UUID)
+	if err := api.modelImporter.ImportModelV2(ctx, envelope, view); err != nil {
+		return errors.Capture(err)
+	}
 	return nil
 }
 

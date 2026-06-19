@@ -67,13 +67,26 @@ func DecodePayload(version semversion.Number, data []byte) (any, error) {
 	return payload, nil
 }
 
+// agentStreamConfigKey is the model_config row key holding the model's
+// configured agent stream. It mirrors environs/config.AgentStreamKey; the
+// constant is duplicated rather than imported so this package, which only
+// decodes and projects payload data, does not take on the much larger
+// environs/config dependency graph for a single well-known string.
+const agentStreamConfigKey = "agent-stream"
+
 // ProjectionView is the version-neutral projection of decoded model export
-// payload fields needed by migration prechecks.
+// payload fields needed by migration prechecks and target-side bootstrap.
 type ProjectionView struct {
 	// AgentTargetVersion is the model's target agent version from the
 	// payload's agent_version row. It is zero when the payload carries no
 	// agent_version row.
 	AgentTargetVersion semversion.Number
+
+	// AgentStream is the model's configured agent stream, read from the
+	// payload's model_config row keyed "agent-stream". It is empty when the
+	// payload carries no such row, meaning the source used the default
+	// stream.
+	AgentStream string
 }
 
 // ProjectionViewForPayload builds the precheck projection from a payload value
@@ -98,6 +111,9 @@ func buildProjectionViewV4_0_11(payload v4_0_11.ModelExport) (ProjectionView, er
 	}); err != nil {
 		return ProjectionView{}, errors.Capture(err)
 	}
+	setAgentStream(&view, len(payload.ModelConfig), func(i int) (string, string) {
+		return payload.ModelConfig[i].Key, payload.ModelConfig[i].Value
+	})
 	return view, nil
 }
 
@@ -108,6 +124,9 @@ func buildProjectionViewV4_1_0(payload v4_1_0.ModelExport) (ProjectionView, erro
 	}); err != nil {
 		return ProjectionView{}, errors.Capture(err)
 	}
+	setAgentStream(&view, len(payload.ModelConfig), func(i int) (string, string) {
+		return payload.ModelConfig[i].Key, payload.ModelConfig[i].Value
+	})
 	return view, nil
 }
 
@@ -131,4 +150,17 @@ func setAgentTargetVersion(view *ProjectionView, rows int, targetVersion func(in
 	}
 	view.AgentTargetVersion = parsed
 	return nil
+}
+
+// setAgentStream scans the payload's model_config rows for the row keyed
+// "agent-stream" into the view. A missing row is not an error: the source
+// simply used the default stream.
+func setAgentStream(view *ProjectionView, rows int, row func(i int) (key, value string)) {
+	for i := range rows {
+		key, value := row(i)
+		if key == agentStreamConfigKey {
+			view.AgentStream = value
+			return
+		}
+	}
 }

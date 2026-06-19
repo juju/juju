@@ -13,6 +13,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// ExternalUserImport is a public alias for the domain-internal
+// [internal.ExternalUserImport] shape, so that callers outside the access
+// domain (e.g. the v8 migration import driver in internal/migration, which
+// cannot import domain/access/internal) can still build the argument to
+// [UserService.ImportExternalUsers].
+type ExternalUserImport = internal.ExternalUserImport
+
 // ImportExternalUsers creates external users from a migrated model on the
 // target controller. Each user is created with [corepermission.EveryoneUserName]
 // as creator (consistent with how external users are created on first

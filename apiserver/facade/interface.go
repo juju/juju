@@ -25,8 +25,10 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/watcherregistry"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -194,6 +196,13 @@ type ModelImporter interface {
 	// ImportModel takes a serialized description model (yaml bytes) and returns
 	// a state model and state state.
 	ImportModel(ctx context.Context, bytes []byte) error
+
+	// ImportModelV2 applies a v8 migration envelope's controller-scoped
+	// semantic data to the target controller: the durable
+	// model_migration_import claim, the target-local model bootstrap, and
+	// the users, credential, permissions, authorized keys, secret backend,
+	// leadership and cloud image metadata carried by the envelope.
+	ImportModelV2(ctx context.Context, envelope params.SerializedModelV2, view export.ProjectionView) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.
