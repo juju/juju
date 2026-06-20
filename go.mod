@@ -326,3 +326,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 replace go.uber.org/mock => go.uber.org/mock v0.4.0
 
 replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.24.0
+
+replace github.com/go-goose/goose/v5 => github.com/xtrusia/goose/v5 v5.0.0-20260629053248-1fcea3b19589
