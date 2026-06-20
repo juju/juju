@@ -331,3 +331,5 @@ replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.2
 
 // Needed to work around a broken transitive dependency of lxd, testcontainers-go/docker.
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.3
+
+replace github.com/go-goose/goose/v5 => github.com/xtrusia/goose/v5 v5.0.0-20260629053248-1fcea3b19589
