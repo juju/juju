@@ -18,8 +18,6 @@ func TestDeltasSuite(t *testing.T) {
 	tc.Run(t, &deltasSuite{})
 }
 
-func ptr[T any](v T) *T { return &v }
-
 // --- BlockDevice ---
 
 func (s *deltasSuite) TestBlockDeviceEmptyInput(c *tc.C) {
@@ -33,17 +31,17 @@ func (s *deltasSuite) TestBlockDeviceCopiesAllFields(c *tc.C) {
 	src := []v4_0_4.BlockDevice{{
 		UUID:               "bd-uuid",
 		MachineUUID:        "machine-uuid",
-		Name:               ptr("sda"),
-		HardwareID:         ptr("hw-id"),
-		Wwn:                ptr("wwn-value"),
-		SerialID:           ptr("serial-1"),
-		BusAddress:         ptr("pci:0000"),
-		SizeMib:            ptr(int64(100)),
-		MountPoint:         ptr("/mnt/data"),
-		InUse:              ptr(true),
-		FilesystemLabel:    ptr("data"),
-		HostFilesystemUUID: ptr("fs-uuid"),
-		FilesystemType:     ptr("ext4"),
+		Name:               new("sda"),
+		HardwareID:         new("hw-id"),
+		Wwn:                new("wwn-value"),
+		SerialID:           new("serial-1"),
+		BusAddress:         new("pci:0000"),
+		SizeMib:            new(int64(100)),
+		MountPoint:         new("/mnt/data"),
+		InUse:              new(true),
+		FilesystemLabel:    new("data"),
+		HostFilesystemUUID: new("fs-uuid"),
+		FilesystemType:     new("ext4"),
 	}}
 
 	d := NewDeltas()
@@ -54,23 +52,23 @@ func (s *deltasSuite) TestBlockDeviceCopiesAllFields(c *tc.C) {
 	bd := got[0]
 	c.Check(bd.UUID, tc.Equals, "bd-uuid")
 	c.Check(bd.MachineUUID, tc.Equals, "machine-uuid")
-	c.Check(bd.Name, tc.DeepEquals, ptr("sda"))
-	c.Check(bd.HardwareID, tc.DeepEquals, ptr("hw-id"))
-	c.Check(bd.Wwn, tc.DeepEquals, ptr("wwn-value"))
-	c.Check(bd.SerialID, tc.DeepEquals, ptr("serial-1"))
-	c.Check(bd.BusAddress, tc.DeepEquals, ptr("pci:0000"))
-	c.Check(bd.SizeMib, tc.DeepEquals, ptr(int64(100)))
-	c.Check(bd.MountPoint, tc.DeepEquals, ptr("/mnt/data"))
-	c.Check(bd.InUse, tc.DeepEquals, ptr(true))
-	c.Check(bd.FilesystemLabel, tc.DeepEquals, ptr("data"))
-	c.Check(bd.HostFilesystemUUID, tc.DeepEquals, ptr("fs-uuid"))
-	c.Check(bd.FilesystemType, tc.DeepEquals, ptr("ext4"))
+	c.Check(bd.Name, tc.DeepEquals, new("sda"))
+	c.Check(bd.HardwareID, tc.DeepEquals, new("hw-id"))
+	c.Check(bd.Wwn, tc.DeepEquals, new("wwn-value"))
+	c.Check(bd.SerialID, tc.DeepEquals, new("serial-1"))
+	c.Check(bd.BusAddress, tc.DeepEquals, new("pci:0000"))
+	c.Check(bd.SizeMib, tc.DeepEquals, new(int64(100)))
+	c.Check(bd.MountPoint, tc.DeepEquals, new("/mnt/data"))
+	c.Check(bd.InUse, tc.DeepEquals, new(true))
+	c.Check(bd.FilesystemLabel, tc.DeepEquals, new("data"))
+	c.Check(bd.HostFilesystemUUID, tc.DeepEquals, new("fs-uuid"))
+	c.Check(bd.FilesystemType, tc.DeepEquals, new("ext4"))
 }
 
 func (s *deltasSuite) TestBlockDeviceProvenanceIDIsAlwaysZero(c *tc.C) {
 	src := []v4_0_4.BlockDevice{
 		{UUID: "bd-1", MachineUUID: "m-uuid"},
-		{UUID: "bd-2", MachineUUID: "m-uuid", Name: ptr("vdb")},
+		{UUID: "bd-2", MachineUUID: "m-uuid", Name: new("vdb")},
 	}
 
 	d := NewDeltas()
@@ -127,8 +125,8 @@ func (s *deltasSuite) TestBlockDeviceProvenanceReturnsBothStaticRows(c *tc.C) {
 	got, err := d.BlockDeviceProvenance(c.Context(), &v4_0_4.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.HasLen, 2)
-	c.Check(got[0], tc.DeepEquals, v4_0_6.BlockDeviceProvenance{ID: ptr(int64(0)), Value: "provider"})
-	c.Check(got[1], tc.DeepEquals, v4_0_6.BlockDeviceProvenance{ID: ptr(int64(1)), Value: "machine"})
+	c.Check(got[0], tc.DeepEquals, v4_0_6.BlockDeviceProvenance{ID: new(int64(0)), Value: "provider"})
+	c.Check(got[1], tc.DeepEquals, v4_0_6.BlockDeviceProvenance{ID: new(int64(1)), Value: "machine"})
 }
 
 func (s *deltasSuite) TestBlockDeviceProvenanceIsStaticRegardlessOfSrc(c *tc.C) {
@@ -156,7 +154,7 @@ func (s *deltasSuite) TestNewTransformAppliesBothDeltas(c *tc.C) {
 
 	src := &v4_0_4.ModelExport{
 		BlockDevice: []v4_0_4.BlockDevice{
-			{UUID: "bd-uuid", MachineUUID: "m-uuid", Name: ptr("vda"), SizeMib: ptr(int64(512))},
+			{UUID: "bd-uuid", MachineUUID: "m-uuid", Name: new("vda"), SizeMib: new(int64(512))},
 		},
 	}
 
@@ -166,8 +164,8 @@ func (s *deltasSuite) TestNewTransformAppliesBothDeltas(c *tc.C) {
 	// BlockDevice: field copied, ProvenanceID defaulted to 0.
 	c.Assert(dst.BlockDevice, tc.HasLen, 1)
 	c.Check(dst.BlockDevice[0].UUID, tc.Equals, "bd-uuid")
-	c.Check(dst.BlockDevice[0].Name, tc.DeepEquals, ptr("vda"))
-	c.Check(dst.BlockDevice[0].SizeMib, tc.DeepEquals, ptr(int64(512)))
+	c.Check(dst.BlockDevice[0].Name, tc.DeepEquals, new("vda"))
+	c.Check(dst.BlockDevice[0].SizeMib, tc.DeepEquals, new(int64(512)))
 	c.Check(dst.BlockDevice[0].ProvenanceID, tc.Equals, int64(0))
 
 	// BlockDeviceProvenance: the two static lookup rows.
