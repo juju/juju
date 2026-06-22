@@ -26,7 +26,7 @@ test_constraints_common() {
 			run "run_constraints_gce"
 			;;
 		"k8s")
-			echo "==> TEST SKIPPED: constraints - there are no tests for k8s provider"
+			run "run_constraints_k8s"
 			;;
 		*)
 			run "run_constraints_vm"
