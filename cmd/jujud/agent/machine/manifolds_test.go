@@ -110,6 +110,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"lease-expiry",
 			"lease-manager",
 			"log-sink",
+			"log-router",
 			"logging-config-updater",
 			"loki-endpoint-updater",
 			"lxd-container-provisioner",
@@ -204,6 +205,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"lease-expiry",
 			"lease-manager",
 			"log-sink",
+			"log-router",
 			"logging-config-updater",
 			"loki-endpoint-updater",
 			"migration-fortress",
@@ -1272,6 +1274,19 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"log-sink": {},
+
+	"log-router": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"machine-action-runner": {
 		"agent",
@@ -2409,6 +2424,19 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"log-sink": {},
+
+	"log-router": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"logging-config-updater": {
 		"agent",

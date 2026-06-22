@@ -70,6 +70,7 @@ import (
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
+	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/wrench"
@@ -438,6 +439,15 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
 
+	// Install the buffered log writer on the default loggo context.
+	// This captures log records for the logrouter to forward to the
+	// active backend (LogSink or Loki).
+	bufferedLogger, err := logsender.EnsureBufferedLogWriterOnDefaultContext(1048576)
+	if err != nil {
+		return errors.Annotate(err, "unable to install buffered log writer")
+	}
+	defer func() { _ = logsender.UninstallBufferedLogWriter() }()
+
 	// Prime the log sink and create the writer.
 	logSink, err := PrimeLogSink(a.CurrentConfig())
 	if err != nil {
@@ -445,12 +455,16 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	}
 	defer logSink.Close()
 
-	// Add the log sink to the default logger context.
-	if err := loggo.DefaultContext().AddWriter("logsink", corelogger.NewTaggedRedirectWriter(
+	// Construct the legacy logsink writer. The logrouter manages its
+	// lifecycle based on the active backend mode.
+	legacyLogSinkWriter := corelogger.NewTaggedRedirectWriter(
 		logSink,
 		a.Tag().String(),
 		a.CurrentConfig().Model().Id(),
-	)); err != nil {
+	)
+
+	// Add the legacy log sink writer to the default logger context.
+	if err := loggo.DefaultContext().AddWriter("logsink", legacyLogSinkWriter); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -496,7 +510,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		a.controllerAgentConfigReadyLock.Unlock()
 	}
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), logSink)
+	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), logSink, bufferedLogger, legacyLogSinkWriter)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
@@ -519,6 +533,8 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
 	logSink corelogger.LogSink,
+	bufferedLogger *logsender.BufferedLogWriter,
+	legacyLogSinkWriter loggo.Writer,
 ) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
@@ -561,6 +577,8 @@ func (a *MachineAgent) makeEngineCreator(
 			PreUpgradeSteps:                   a.preUpgradeSteps,
 			UpgradeSteps:                      a.upgradeSteps,
 			LogSink:                           logSink,
+			LogSource:                         bufferedLogger.Logs(),
+			LegacyLogSinkWriter:               legacyLogSinkWriter,
 			NewDeployContext:                  deployer.NewNestedContext,
 			Clock:                             clock,
 			FlightRecorder:                    flightRecorder,

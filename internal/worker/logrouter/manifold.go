@@ -46,6 +46,14 @@ type ManifoldConfig struct {
 	DrainOnly            bool
 
 	NewBackendFunc BackendFuncFactory
+
+	// RemoveLegacyLogSinkWriter is called when switching to Loki
+	// backend mode. It must be idempotent.
+	RemoveLegacyLogSinkWriter func()
+
+	// AddLegacyLogSinkWriter is called when switching to LogSink
+	// backend mode. It must be idempotent.
+	AddLegacyLogSinkWriter func() error
 }
 
 // Validate validates the manifold configuration.
@@ -73,6 +81,12 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.NewBackendFunc == nil {
 		return errors.NotValidf("nil NewBackendFunc")
+	}
+	if c.RemoveLegacyLogSinkWriter == nil {
+		return errors.NotValidf("nil RemoveLegacyLogSinkWriter")
+	}
+	if c.AddLegacyLogSinkWriter == nil {
+		return errors.NotValidf("nil AddLegacyLogSinkWriter")
 	}
 	return nil
 }
@@ -104,15 +118,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:              a,
-				LogSource:          config.LogSource,
-				AgentConfigChanged: config.AgentConfigChanged,
-				Logger:             config.Logger,
-				Clock:              config.Clock,
-				DrainOnly:          config.DrainOnly,
-				ConvergeTimeout:    defaultConvergeTimeout,
-				RestartDelay:       defaultRestartDelay,
-				NewBackend:         config.NewBackendFunc(apiCaller, httpClient, config.Clock, config.PrometheusRegisterer),
+				Agent:                     a,
+				LogSource:                 config.LogSource,
+				AgentConfigChanged:        config.AgentConfigChanged,
+				Logger:                    config.Logger,
+				Clock:                     config.Clock,
+				DrainOnly:                 config.DrainOnly,
+				ConvergeTimeout:           defaultConvergeTimeout,
+				RestartDelay:              defaultRestartDelay,
+				NewBackend:                config.NewBackendFunc(apiCaller, httpClient, config.Clock, config.PrometheusRegisterer),
+				RemoveLegacyLogSinkWriter: config.RemoveLegacyLogSinkWriter,
+				AddLegacyLogSinkWriter:    config.AddLegacyLogSinkWriter,
 			})
 		},
 	}

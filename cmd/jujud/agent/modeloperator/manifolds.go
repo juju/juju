@@ -111,15 +111,17 @@ func Manifolds(config ManifoldConfig) dependency.Manifolds {
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
 		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			HTTPClientName:       httpClientName,
-			LogSource:            config.LogSource,
-			AgentConfigChanged:   config.AgentConfigChanged,
-			Logger:               internallogger.GetLogger("juju.worker.logrouter"),
-			Clock:                clock.WallClock,
-			PrometheusRegisterer: noopPrometheusRegisterer{},
-			NewBackendFunc:       logrouter.NewBackend,
+			AgentName:                 agentName,
+			APICallerName:             apiCallerName,
+			HTTPClientName:            httpClientName,
+			LogSource:                 config.LogSource,
+			AgentConfigChanged:        config.AgentConfigChanged,
+			Logger:                    internallogger.GetLogger("juju.worker.logrouter"),
+			Clock:                     clock.WallClock,
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewBackendFunc:            logrouter.NewBackend,
+			RemoveLegacyLogSinkWriter: func() {},
+			AddLegacyLogSinkWriter:    func() error { return nil },
 		}),
 
 		caasAdmissionName: caasadmission.Manifold(caasadmission.ManifoldConfig{

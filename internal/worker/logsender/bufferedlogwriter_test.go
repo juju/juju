@@ -185,6 +185,84 @@ func (s *bufferedLogWriterSuite) TestUninstallBufferedLogWriter(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "failed to uninstall log buffering: .+")
 }
 
+func (s *bufferedLogWriterSuite) TestEnsureBufferedLogWriterOnDefaultContext(c *tc.C) {
+	w1, err := logsender.EnsureBufferedLogWriterOnDefaultContext(10)
+	c.Assert(err, tc.ErrorIsNil)
+	defer w1.Close()
+
+	// Verify the writer is registered.
+	writer := loggo.DefaultContext().Writer("buffered-logs")
+	c.Assert(writer, tc.NotNil)
+}
+
+func (s *bufferedLogWriterSuite) TestEnsureBufferedLogWriterOnDefaultContextIdempotent(c *tc.C) {
+	w1, err := logsender.EnsureBufferedLogWriterOnDefaultContext(10)
+	c.Assert(err, tc.ErrorIsNil)
+	defer w1.Close()
+
+	// Second call replaces the writer without error.
+	w2, err := logsender.EnsureBufferedLogWriterOnDefaultContext(20)
+	c.Assert(err, tc.ErrorIsNil)
+	defer w2.Close()
+
+	// The writer is still registered.
+	writer := loggo.DefaultContext().Writer("buffered-logs")
+	c.Assert(writer, tc.NotNil)
+}
+
+type recordingWriter struct {
+	writeCalls int
+}
+
+func (w *recordingWriter) Write(_ context.Context, _ loggo.Entry) error {
+	w.writeCalls++
+	return nil
+}
+
+func (s *bufferedLogWriterSuite) TestAddLegacyLogSinkWriter(c *tc.C) {
+	w := &recordingWriter{}
+	err := logsender.AddLegacyLogSinkWriter(w)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the writer is registered.
+	registered := loggo.DefaultContext().Writer("logsink")
+	c.Assert(registered, tc.NotNil)
+}
+
+func (s *bufferedLogWriterSuite) TestAddLegacyLogSinkWriterIdempotent(c *tc.C) {
+	w1 := &recordingWriter{}
+	err := logsender.AddLegacyLogSinkWriter(w1)
+	c.Assert(err, tc.ErrorIsNil)
+
+	w2 := &recordingWriter{}
+	err = logsender.AddLegacyLogSinkWriter(w2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The writer is still registered.
+	registered := loggo.DefaultContext().Writer("logsink")
+	c.Assert(registered, tc.NotNil)
+}
+
+func (s *bufferedLogWriterSuite) TestRemoveLegacyLogSinkWriter(c *tc.C) {
+	w := &recordingWriter{}
+	err := logsender.AddLegacyLogSinkWriter(w)
+	c.Assert(err, tc.ErrorIsNil)
+
+	logsender.RemoveLegacyLogSinkWriter()
+
+	// Writer should no longer be registered.
+	registered := loggo.DefaultContext().Writer("logsink")
+	c.Assert(registered, tc.IsNil)
+}
+
+func (s *bufferedLogWriterSuite) TestRemoveLegacyLogSinkWriterIdempotent(c *tc.C) {
+	// Removing when not present should not panic.
+	logsender.RemoveLegacyLogSinkWriter()
+
+	// Removing again should still not panic.
+	logsender.RemoveLegacyLogSinkWriter()
+}
+
 func (s *bufferedLogWriterSuite) writeAndReceive(c *tc.C) {
 	now := time.Now()
 	s.writer.Write(

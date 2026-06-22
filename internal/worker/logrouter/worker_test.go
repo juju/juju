@@ -36,14 +36,16 @@ func (s *workerSuite) TestStartsLogSinkWhenLokiEndpointEmpty(c *tc.C) {
 	events := make(chan backendEvent, 10)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:              fixture.agent,
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
-		ConvergeTimeout:    defaultConvergeTimeout,
-		RestartDelay:       time.Millisecond * 10,
-		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -62,14 +64,16 @@ func (s *workerSuite) TestSwitchStopsOldBackendAndStartsNew(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:              fixture.agent,
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
-		ConvergeTimeout:    defaultConvergeTimeout,
-		RestartDelay:       time.Millisecond * 10,
-		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -105,15 +109,17 @@ func (s *workerSuite) TestDrainOnlyOverridesEndpoint(c *tc.C) {
 	events := make(chan backendEvent, 10)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:              fixture.agent,
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
-		DrainOnly:          true,
-		ConvergeTimeout:    defaultConvergeTimeout,
-		RestartDelay:       time.Millisecond * 10,
-		NewBackend:         recordingBackendFunc(events, defaultBackendBufferSize),
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		DrainOnly:                 true,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -129,14 +135,16 @@ func (s *workerSuite) TestBackendFailureFallsBackToDrain(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:              fixture.agent,
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
-		ConvergeTimeout:    defaultConvergeTimeout,
-		RestartDelay:       time.Millisecond * 10,
-		NewBackend:         failingLogSinkBackendFunc(events),
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                failingLogSinkBackendFunc(events),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -174,14 +182,16 @@ func (s *workerSuite) TestBackendStartErrorFallsBackToDrain(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:              fixture.agent,
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
-		ConvergeTimeout:    time.Millisecond * 10,
-		RestartDelay:       time.Millisecond * 10,
-		NewBackend:         errorLogSinkBackendFunc(events),
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           time.Millisecond * 10,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                errorLogSinkBackendFunc(events),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -219,14 +229,16 @@ func (s *workerSuite) TestBackendRestartRefreshesActiveChannel(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:              fixture.agent,
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
-		ConvergeTimeout:    defaultConvergeTimeout,
-		RestartDelay:       time.Millisecond * 10,
-		NewBackend:         restartingLogSinkBackendFunc(events),
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                restartingLogSinkBackendFunc(events),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -582,6 +594,218 @@ func waitForRecordWithin(
 		case <-c.Context().Done():
 			c.Fatalf("timed out waiting for %s record %q", backend, message)
 		}
+	}
+}
+
+func (s *workerSuite) TestManageLegacyLogSinkWriterOnLokiSwitch(c *tc.C) {
+	fixture := newFixture(c, "")
+	events := make(chan backendEvent, 20)
+
+	addCh := make(chan struct{}, 1)
+	removeCh := make(chan struct{}, 1)
+
+	w, err := NewWorker(WorkerConfig{
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() { removeCh <- struct{}{} },
+		AddLegacyLogSinkWriter:    func() error { addCh <- struct{}{}; return nil },
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForEvents(c, events, backendEvent{
+		backend: "drain-only",
+		kind:    "start",
+	}, backendEvent{
+		backend: "logsink",
+		kind:    "start",
+	})
+
+	// Drain initial callbacks.
+	select {
+	case <-addCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for initial AddLegacyLogSinkWriter callback")
+	}
+	drainCh(c, removeCh)
+
+	fixture.agent.setLokiConfig("http://loki/loki/api/v1/push", "")
+	fixture.configChanged.Set(true)
+
+	sendLog(c, fixture.logs, &logsender.LogRecord{
+		Time:    time.Now(),
+		Module:  "test",
+		Level:   loggo.INFO,
+		Message: "routed",
+	})
+	waitForEvents(c, events, backendEvent{
+		backend: "logsink",
+		kind:    "stop",
+	}, backendEvent{
+		backend: "loki",
+		kind:    "start",
+	})
+
+	// Switching to Loki should call RemoveLegacyLogSinkWriter, not Add.
+	select {
+	case <-removeCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for RemoveLegacyLogSinkWriter callback")
+	}
+	select {
+	case <-addCh:
+		c.Fatal("unexpected AddLegacyLogSinkWriter call on Loki switch")
+	default:
+	}
+}
+
+func (s *workerSuite) TestManageLegacyLogSinkWriterOnLogSinkSwitch(c *tc.C) {
+	fixture := newFixture(c, "")
+	events := make(chan backendEvent, 20)
+
+	addCh := make(chan struct{}, 1)
+	removeCh := make(chan struct{}, 1)
+
+	w, err := NewWorker(WorkerConfig{
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() { removeCh <- struct{}{} },
+		AddLegacyLogSinkWriter:    func() error { addCh <- struct{}{}; return nil },
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForEvents(c, events, backendEvent{
+		backend: "drain-only",
+		kind:    "start",
+	}, backendEvent{
+		backend: "logsink",
+		kind:    "start",
+	})
+
+	// Drain initial callbacks.
+	select {
+	case <-addCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for initial AddLegacyLogSinkWriter callback")
+	}
+	drainCh(c, removeCh)
+
+	// Switch to Loki first.
+	fixture.agent.setLokiConfig("http://loki/loki/api/v1/push", "")
+	fixture.configChanged.Set(true)
+
+	sendLog(c, fixture.logs, &logsender.LogRecord{
+		Time:    time.Now(),
+		Module:  "test",
+		Level:   loggo.INFO,
+		Message: "routed",
+	})
+	waitForEvents(c, events, backendEvent{
+		backend: "logsink",
+		kind:    "stop",
+	}, backendEvent{
+		backend: "loki",
+		kind:    "start",
+	})
+
+	// Drain Loki switch callbacks.
+	select {
+	case <-removeCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for RemoveLegacyLogSinkWriter callback")
+	}
+
+	// Switch back to LogSink.
+	fixture.agent.setLokiConfig("", "")
+	fixture.configChanged.Set(true)
+
+	sendLog(c, fixture.logs, &logsender.LogRecord{
+		Time:    time.Now(),
+		Module:  "test",
+		Level:   loggo.INFO,
+		Message: "returned",
+	})
+	waitForEvents(c, events, backendEvent{
+		backend: "loki",
+		kind:    "stop",
+	}, backendEvent{
+		backend: "logsink",
+		kind:    "start",
+	})
+
+	// Returning to LogSink should call AddLegacyLogSinkWriter.
+	select {
+	case <-addCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for AddLegacyLogSinkWriter callback")
+	}
+	select {
+	case <-removeCh:
+		c.Fatal("unexpected RemoveLegacyLogSinkWriter call on LogSink switch")
+	default:
+	}
+}
+
+func drainCh(c *tc.C, ch <-chan struct{}) {
+	select {
+	case <-ch:
+	case <-c.Context().Done():
+		c.Fatal("timed out draining channel")
+	default:
+	}
+}
+
+func (s *workerSuite) TestManageLegacyLogSinkWriterDrainOnly(c *tc.C) {
+	fixture := newFixture(c, "http://loki/loki/api/v1/push")
+	events := make(chan backendEvent, 10)
+
+	addCh := make(chan struct{}, 1)
+	removeCh := make(chan struct{}, 1)
+
+	w, err := NewWorker(WorkerConfig{
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		DrainOnly:                 true,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() { removeCh <- struct{}{} },
+		AddLegacyLogSinkWriter:    func() error { addCh <- struct{}{}; return nil },
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForEvents(c, events, backendEvent{
+		backend: "drain-only",
+		kind:    "start",
+	})
+
+	// In DrainOnly mode, the legacy writer should be present.
+	select {
+	case <-addCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for AddLegacyLogSinkWriter callback")
+	}
+	select {
+	case <-removeCh:
+		c.Fatal("unexpected RemoveLegacyLogSinkWriter call in DrainOnly mode")
+	default:
 	}
 }
 

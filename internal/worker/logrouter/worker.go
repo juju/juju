@@ -77,6 +77,16 @@ type WorkerConfig struct {
 	RestartDelay    time.Duration
 
 	NewBackend BackendFunc
+
+	// RemoveLegacyLogSinkWriter is called when switching to Loki
+	// backend mode. It should remove the legacy "logsink" writer
+	// from the default loggo context. It must be idempotent.
+	RemoveLegacyLogSinkWriter func()
+
+	// AddLegacyLogSinkWriter is called when switching to LogSink
+	// backend mode. It should add the legacy "logsink" writer to
+	// the default loggo context. It must be idempotent.
+	AddLegacyLogSinkWriter func() error
 }
 
 // ConfigSnapshot is the local logging destination configuration.
@@ -225,6 +235,8 @@ func (w *logRouter) loop() error {
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
+	} else {
+		w.manageLegacyLogSinkWriter(ctx, w.activeSnapshot)
 	}
 
 	for {
@@ -272,6 +284,7 @@ func (w *logRouter) switchBackend(
 		w.activeBackendID = backendDrainID
 		w.activeSnapshot = next
 		w.activeRecords = w.drainRecords
+		w.manageLegacyLogSinkWriter(ctx, next)
 		return nil
 	}
 
@@ -295,6 +308,7 @@ func (w *logRouter) switchBackend(
 	w.activeBackendID = backendID
 	w.activeSnapshot = next
 	w.activeRecords = records
+	w.manageLegacyLogSinkWriter(ctx, next)
 	return nil
 }
 
@@ -434,6 +448,21 @@ func sendRecord(ctx context.Context, records logsender.LogRecordCh, record *logs
 
 func (w *logRouter) stopBackend(id string) {
 	_ = w.runner.StopWorker(id)
+}
+
+func (w *logRouter) manageLegacyLogSinkWriter(ctx context.Context, next ConfigSnapshot) {
+	switch next.Mode {
+	case BackendTypeLoki:
+		w.config.RemoveLegacyLogSinkWriter()
+	case BackendTypeLogSink, BackendTypeDrain:
+		if err := w.config.AddLegacyLogSinkWriter(); err != nil {
+			w.config.Logger.Warningf(
+				ctx,
+				"failed to add legacy logsink writer: %v",
+				err,
+			)
+		}
+	}
 }
 
 type configWatcherWorker struct {
