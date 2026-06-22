@@ -7,9 +7,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/juju/errors"
-
-	logerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/wrench"
 )
@@ -52,10 +49,10 @@ var lokiForwardingEnabled = func(
 	ctx context.Context,
 	controllerDomainServices services.ControllerDomainServices,
 ) bool {
-	lokiConfig, err := controllerDomainServices.Logging().GetLokiConfig(ctx)
-	if err != nil && !errors.Is(err, logerrors.LokiConfigNotFound) {
+	enabled, err := controllerDomainServices.Logging().IsLokiEnabled(ctx)
+	if err != nil {
 		logger.Errorf(ctx, "checking Loki config: %v", err)
 		return false
 	}
-	return lokiConfig.Endpoint != ""
+	return enabled
 }
