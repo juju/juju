@@ -48,6 +48,27 @@ func (s *State) DeleteModelImportingStatus(ctx context.Context, modelUUID string
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 
+	// The two import companion tables are keyed by the import claim UUID and
+	// FK onto model_migration_import. They must be deleted before the claim
+	// row itself, otherwise the parent delete fails an enforced foreign-key
+	// constraint when the import had recorded offer permissions or external
+	// controllers.
+	deleteOffersStmt, err := s.Prepare(`
+DELETE FROM model_migration_import_offer
+WHERE  migration_uuid IN (
+       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteExternalControllersStmt, err := s.Prepare(`
+DELETE FROM model_migration_import_external_controller_model
+WHERE  migration_uuid IN (
+       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	stmt, err := s.Prepare(`
 DELETE FROM model_migration_import
 WHERE model_uuid = $modelUUIDArg.model_uuid
@@ -57,6 +78,12 @@ WHERE model_uuid = $modelUUIDArg.model_uuid
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, deleteOffersStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting import offer companions for model %q: %w", modelUUID, err)
+		}
+		if err := tx.Query(ctx, deleteExternalControllersStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting import external controller companions for model %q: %w", modelUUID, err)
+		}
 		if err := tx.Query(ctx, stmt, mUUID).Run(); err != nil {
 			return errors.Errorf("deleting importing status for model %q: %w", modelUUID, err)
 		}

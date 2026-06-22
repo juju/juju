@@ -46,10 +46,11 @@ func (s *Service) BeginImport(ctx context.Context, modelUUID coremodel.UUID, sou
 	if err != nil {
 		return "", errors.Errorf("generating import claim uuid: %w", err)
 	}
+	claimUUIDStr := claimUUID.String()
 
-	claim, err := s.controllerState.BeginImport(ctx, modelUUID.String(), claimUUID.String(), sourceMigrationUUID)
+	claim, err := s.controllerState.BeginImport(ctx, modelUUID.String(), claimUUIDStr, sourceMigrationUUID)
 	if err == nil {
-		return claimUUID.String(), nil
+		return claimUUIDStr, nil
 	}
 	if !errors.Is(err, modelmigrationerrors.ErrImportClaimExists) {
 		return "", errors.Capture(err)

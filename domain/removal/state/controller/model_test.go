@@ -325,7 +325,7 @@ func (s *modelSuite) TestDeleteMigratingModelWithImportCompanions(c *tc.C) {
 	// Ensure the model is gone.
 	exists, err := st.ModelExists(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(exists, tc.Equals, false)
+	c.Check(exists, tc.IsFalse)
 
 	// Ensure the claim and both companion rows are also gone.
 	for _, table := range []string{

@@ -284,7 +284,8 @@ func (s *State) GetImportClaim(ctx context.Context, modelUUID string) (modelmigr
 
 	var claim modelmigration.ImportClaim
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		claim, err = s.getImportClaimTx(ctx, tx, modelUUID)
+		claim = modelmigration.ImportClaim{}
+		claim, err = s.getImportClaim(ctx, tx, modelUUID)
 		return err
 	})
 	if err != nil {
@@ -293,9 +294,9 @@ func (s *State) GetImportClaim(ctx context.Context, modelUUID string) (modelmigr
 	return claim, nil
 }
 
-// getImportClaimTx reads the import claim for modelUUID within tx, returning
+// getImportClaim reads the import claim for modelUUID within tx, returning
 // [modelmigrationerrors.ErrImportNotFound] when no claim exists.
-func (s *State) getImportClaimTx(
+func (s *State) getImportClaim(
 	ctx context.Context, tx *sqlair.TX, modelUUID string,
 ) (modelmigration.ImportClaim, error) {
 	arg := modelUUIDArg{ModelUUID: modelUUID}
