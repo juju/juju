@@ -27,6 +27,27 @@ const (
 	domainPattern        = `[a-zA-Z0-9.-]+`
 )
 
+var (
+	// machineHostnameMatcher parses a machine hostname of the following format:
+	// Machine: 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	// Nested container machine: 1-lxd-0.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	machineHostnameMatcher = regexp.MustCompile(
+		`^(?<machine>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
+	)
+
+	// unitHostnameMatcher parses a unit hostname of the following format:
+	// Unit: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	unitHostnameMatcher = regexp.MustCompile(
+		`^(?<unitnumber>` + unitNumberPattern + `)\.(?<appname>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
+	)
+
+	// containerHostnameMatcher parses a unit container hostname of the following format:
+	// Container: charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	containerHostnameMatcher = regexp.MustCompile(
+		`^(?<containername>` + hostnameLabelPattern + `)\.(?<unitnumber>` + unitNumberPattern + `)\.(?<appname>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
+	)
+)
+
 // HostnameTarget defines what kind of infrastructure the user is targeting.
 type HostnameTarget int
 
@@ -173,27 +194,6 @@ func (i Info) String() string {
 		return "unknown"
 	}
 }
-
-var (
-	// machineHostnameMatcher parses a machine hostname of the following format:
-	// Machine: 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
-	// Nested container machine: 1-lxd-0.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
-	machineHostnameMatcher = regexp.MustCompile(
-		`^(?<machine>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
-	)
-
-	// unitHostnameMatcher parses a unit hostname of the following format:
-	// Unit: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
-	unitHostnameMatcher = regexp.MustCompile(
-		`^(?<unitnumber>` + unitNumberPattern + `)\.(?<appname>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
-	)
-
-	// containerHostnameMatcher parses a unit container hostname of the following format:
-	// Container: charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
-	containerHostnameMatcher = regexp.MustCompile(
-		`^(?<containername>` + hostnameLabelPattern + `)\.(?<unitnumber>` + unitNumberPattern + `)\.(?<appname>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
-	)
-)
 
 func encodeMachineName(machineName string) string {
 	return strings.ReplaceAll(machineName, "/", "-")
