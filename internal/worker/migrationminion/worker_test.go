@@ -462,7 +462,7 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 	workertest.CleanKill(c, w)
 	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
 	c.Assert(s.agent.conf.caCert, tc.DeepEquals, caCert)
-	s.stub.CheckCallNames(c, "Watch", "Lockdown", "API open", "API close", "Report")
+	s.stub.CheckCallNames(c, "Watch", "Lockdown", "API open", "API close", "Report", "API open", "API close")
 	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
 }
 
@@ -538,6 +538,8 @@ func (s *Suite) TestSUCCESSRetryReport(c *tc.C) {
 		"Report",
 		"API open",
 		"Report",
+		"API close",
+		"API open",
 		"API close",
 	})
 }

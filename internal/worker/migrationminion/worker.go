@@ -192,9 +192,6 @@ func New(config Config) (worker.Worker, error) {
 type newDetails struct {
 	targetAPIAddrs []string
 	caCert         string
-	// lokiConfig holds the target controller's Loki configuration.
-	// Empty endpoint means the target has no Loki config.
-	lokiConfig loggerapi.ControllerLokiConfig
 }
 
 // Worker waits for a model migration to be active, then locks down the
@@ -374,16 +371,6 @@ func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) e
 		return errors.Trace(err)
 	}
 
-	// Fetch the target controller's Loki config so the agent's
-	// agent.conf can be rewritten during migration handover. If the
-	// target doesn't support the API or returns not-found, the config
-	// will be empty and the source tuple will be cleared.
-	lokiConfig, lokiErr := w.config.FetchTargetLokiConfig(ctx, conn, w.config.Agent.CurrentConfig().Tag())
-	if lokiErr != nil && !params.IsCodeNotFound(lokiErr) {
-		w.config.Logger.Warningf(ctx, "fetching target controller Loki config, clearing Loki config: %v", lokiErr)
-	}
-	newDetails.lokiConfig = lokiConfig
-
 	// If the validation was successful, we can store the new controller details
 	// for use in the SUCCESS phase.
 	w.newControllerDetails = &newDetails
@@ -470,7 +457,8 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 		}
 	}()
 
-	if err := w.ensureTargetControllerDetails(ctx, status); err != nil {
+	lokiConfig, err := w.targetLokiConfigForHandover(ctx, status)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -490,13 +478,12 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 		// If the target has no Loki config, clear both fields so the
 		// source controller's Loki tuple is never carried onto the
 		// target.
-		loki := w.newControllerDetails.lokiConfig
-		if loki.Endpoint != "" {
+		if lokiConfig.Endpoint != "" {
 			var caCert *string
-			if loki.CACert != "" {
-				caCert = &loki.CACert
+			if lokiConfig.CACert != "" {
+				caCert = &lokiConfig.CACert
 			}
-			conf.SetLokiConfig(loki.Endpoint, caCert, loki.InsecureSkipVerify)
+			conf.SetLokiConfig(lokiConfig.Endpoint, caCert, lokiConfig.InsecureSkipVerify)
 		} else {
 			conf.SetLokiConfig("", nil, nil)
 		}
@@ -515,21 +502,39 @@ func (w *Worker) ensureTargetControllerDetails(ctx context.Context, status watch
 		if err != nil {
 			return errors.Annotate(err, "failed to open API to target controller")
 		}
-
-		// Fetch the target controller's Loki config so the agent's
-		// agent.conf can be rewritten during migration handover. If the
-		// target doesn't support the API or returns not-found, the
-		// config will be empty and the source tuple will be cleared.
-		lokiConfig, lokiErr := w.config.FetchTargetLokiConfig(ctx, conn, w.config.Agent.CurrentConfig().Tag())
-		if lokiErr != nil && !params.IsCodeNotFound(lokiErr) {
-			w.config.Logger.Warningf(ctx, "fetching target controller Loki config, clearing Loki config: %v", lokiErr)
-		}
-		newDetails.lokiConfig = lokiConfig
-
 		_ = conn.Close()
 		w.newControllerDetails = &newDetails
 	}
 	return nil
+}
+
+func (w *Worker) targetLokiConfigForHandover(ctx context.Context, status watcher.MigrationStatus) (loggerapi.ControllerLokiConfig, error) {
+	addrs := status.TargetAPIAddrs
+	caCert := status.TargetCACert
+	if w.newControllerDetails != nil {
+		addrs = w.newControllerDetails.targetAPIAddrs
+		caCert = w.newControllerDetails.caCert
+	}
+
+	conn, newDetails, err := w.dialNewController(
+		ctx,
+		addrs,
+		caCert,
+	)
+	if err != nil {
+		return loggerapi.ControllerLokiConfig{}, errors.Annotate(err, "opening target API for Loki config")
+	}
+	defer func() { _ = conn.Close() }()
+	w.newControllerDetails = &newDetails
+
+	lokiConfig, err := w.config.FetchTargetLokiConfig(ctx, conn, w.config.Agent.CurrentConfig().Tag())
+	if params.IsCodeNotFound(err) {
+		return loggerapi.ControllerLokiConfig{}, nil
+	} else if err != nil {
+		w.config.Logger.Warningf(ctx, "fetching target controller Loki config, clearing Loki config: %v", err)
+		return loggerapi.ControllerLokiConfig{}, nil
+	}
+	return lokiConfig, nil
 }
 
 func (w *Worker) report(ctx context.Context, status watcher.MigrationStatus, success bool) error {
