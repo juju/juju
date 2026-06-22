@@ -44,6 +44,8 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	domainexport "github.com/juju/juju/domain/export"
+	loggingdomain "github.com/juju/juju/domain/logging"
+	logerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testhelpers"
@@ -65,6 +67,7 @@ type Suite struct {
 	modelAgentService       *stubModelAgentService
 	resourceService         *stubResourceService
 	charmService            *stubCharmService
+	loggingService          *stubLoggingService
 	config                  migrationmaster.Config
 }
 
@@ -163,8 +166,9 @@ var (
 			params.ModelArgs{ModelTag: modelTag.String()},
 		},
 	}
-	apiCloseCall = testhelpers.StubCall{FuncName: "Connection.Close"}
-	abortCall    = testhelpers.StubCall{
+	apiCloseCall      = testhelpers.StubCall{FuncName: "Connection.Close"}
+	getLokiConfigCall = testhelpers.StubCall{FuncName: "loggingService.GetLokiConfig"}
+	abortCall         = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Abort",
 		Args: []any{
 			params.ModelArgs{ModelTag: modelTag.String()},
@@ -223,6 +227,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	s.modelAgentService = &stubModelAgentService{stub: s.stub}
 	s.resourceService = &stubResourceService{stub: s.stub}
 	s.charmService = &stubCharmService{stub: s.stub}
+	s.loggingService = &stubLoggingService{stub: s.stub}
 
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
@@ -239,6 +244,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 		APIOpen:                 s.apiOpen,
 		UploadBinaries:          nullUploadBinaries,
 		AgentBinaryStore:        fakeAgentBinaryStore,
+		LoggingService:          s.loggingService,
 		Clock:                   s.clock,
 	}
 }
@@ -373,6 +379,7 @@ func (s *Suite) TestSuccessfulMigration(c *tc.C) {
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
 
 			// LOGTRANSFER
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -433,6 +440,7 @@ func (s *Suite) TestMigrationResume(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -894,6 +902,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -927,6 +936,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -969,6 +979,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *tc.C) {
 			adoptResourcesCall,
 			apiCloseCall,
 			{FuncName: "modelMigrationService.SetMigrationPhase", Args: []any{coremigration.LOGTRANSFER}},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1118,6 +1129,7 @@ func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 		},
 	))
@@ -1132,6 +1144,7 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			apiCloseCall,
@@ -1148,6 +1161,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1165,6 +1179,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1185,6 +1200,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1222,6 +1238,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{time.Time{}}},
@@ -1292,6 +1309,7 @@ func (s *Suite) TestLogTransferChecksLatestTime(c *tc.C) {
 		watchStatusLockdownCalls,
 		[]testhelpers.StubCall{
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+			getLokiConfigCall,
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{FuncName: "StreamModelLog", Args: []any{t}},
@@ -1617,6 +1635,24 @@ type stubCharmService struct {
 func (s *stubCharmService) ListCharmLocators(ctx context.Context, names ...string) ([]applicationcharm.CharmLocator, error) {
 	s.stub.AddCall("charmService.ListCharmLocators")
 	return fakeCharmLocators, nil
+}
+
+type stubLoggingService struct {
+	migrationmaster.LoggingService
+
+	stub *testhelpers.Stub
+
+	// lokiConfig is returned by GetLokiConfig when non-nil.
+	// When nil, GetLokiConfig returns LokiConfigNotFound.
+	lokiConfig *loggingdomain.LokiConfig
+}
+
+func (s *stubLoggingService) GetLokiConfig(ctx context.Context) (loggingdomain.LokiConfig, error) {
+	s.stub.AddCall("loggingService.GetLokiConfig")
+	if s.lokiConfig == nil {
+		return loggingdomain.LokiConfig{}, logerrors.LokiConfigNotFound
+	}
+	return *s.lokiConfig, nil
 }
 
 func (f *stubMasterFacade) StreamModelLog(_ context.Context, start time.Time) (<-chan common.LogMessage, error) {

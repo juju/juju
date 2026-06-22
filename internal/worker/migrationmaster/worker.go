@@ -31,6 +31,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
 	domainexport "github.com/juju/juju/domain/export"
+	loggingdomain "github.com/juju/juju/domain/logging"
+	logerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
@@ -174,6 +176,15 @@ type AgentBinaryStore interface {
 	GetAgentBinaryUsingSHA256(context.Context, string) (io.ReadCloser, int64, error)
 }
 
+// LoggingService provides access to the controller-wide logging configuration
+// used to determine whether Loki forwarding is enabled.
+type LoggingService interface {
+	// GetLokiConfig returns the configured Loki push API endpoint and CA
+	// certificate. If no Loki config has been set, a not-found error is
+	// returned.
+	GetLokiConfig(context.Context) (loggingdomain.LokiConfig, error)
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID               string
@@ -188,6 +199,7 @@ type Config struct {
 	APIOpen                 func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	UploadBinaries          func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
 	AgentBinaryStore        AgentBinaryStore
+	LoggingService          LoggingService
 	Clock                   clock.Clock
 }
 
@@ -228,6 +240,9 @@ func (config Config) Validate() error {
 	}
 	if config.AgentBinaryStore == nil {
 		return errors.NotValidf("nil AgentBinaryStore")
+	}
+	if config.LoggingService == nil {
+		return errors.NotValidf("nil LoggingService")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -271,6 +286,7 @@ type Worker struct {
 	logger              logger.Logger
 	lastFailure         string
 	minionReportTimeout time.Duration
+	migrationId         string
 }
 
 // Kill implements worker.Worker.
@@ -291,6 +307,7 @@ func (w *Worker) run() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	w.migrationId = status.MigrationId
 
 	err = w.config.Guard.Lockdown(ctx)
 	if errors.Cause(err) == fortress.ErrAborted {
@@ -660,11 +677,32 @@ func (w *Worker) transferResources(ctx context.Context, targetInfo coremigration
 }
 
 func (w *Worker) doLOGTRANSFER(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	err := w.transferLogs(ctx, targetInfo, modelUUID)
+	lokiConfig, err := w.config.LoggingService.GetLokiConfig(ctx)
+	if err != nil && !errors.Is(err, logerrors.LokiConfigNotFound) {
+		return coremigration.UNKNOWN, errors.Annotate(err, "checking Loki config for log transfer")
+	}
+	if lokiConfig.Endpoint != "" {
+		w.logger.Infof(ctx, "Loki forwarding enabled on source controller - skipping log transfer for model %s (migration %s)", modelUUID, w.migrationId)
+		w.emitCutoverMarker(ctx, modelUUID)
+		return coremigration.REAP, nil
+	}
+	err = w.transferLogs(ctx, targetInfo, modelUUID)
 	if err != nil {
 		return coremigration.UNKNOWN, errors.Trace(err)
 	}
 	return coremigration.REAP, nil
+}
+
+// emitCutoverMarker logs a cutover marker record at the point where log
+// transfer is skipped because Loki forwarding is enabled. The marker
+// includes the model UUID, migration identifier, and cutover timestamp
+// so operators can correlate logs across the source and target Loki
+// stores.
+func (w *Worker) emitCutoverMarker(ctx context.Context, modelUUID string) {
+	w.logger.Infof(ctx,
+		"MIGRATION CUTOVER: model=%s migration=%s t_cutover=%s",
+		modelUUID, w.migrationId, w.config.Clock.Now().UTC().Format(time.RFC3339Nano),
+	)
 }
 
 func (w *Worker) transferLogs(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) error {
