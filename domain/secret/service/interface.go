@@ -30,8 +30,6 @@ type State interface {
 		metaParams domainsecret.UpsertSecretParams,
 		revisions []domainsecret.UpsertRevisionParams) error
 	CreateUserSecret(ctx context.Context, version int, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
-	CreateCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appUUID coreapplication.UUID, secret domainsecret.UpsertSecretParams) error
-	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitUUID coreunit.UUID, secret domainsecret.UpsertSecretParams) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]domainsecret.SecretOwnerInfo, error)
 	GetLatestRevision(ctx context.Context, uri *secrets.URI) (int, error)
@@ -65,7 +63,6 @@ type State interface {
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
 	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
-	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
 	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
 	GetSecretRevisionUUID(ctx context.Context, uri *secrets.URI, revision int) (string, error)
 	ChangeSecretBackend(

@@ -162,8 +162,6 @@ type MockSecretsConsumerMockRecorder struct {
 	getSecretConsumerExpects           []*gomock.Call3_2[context.Context, *secrets.URI, unit.Name, *secrets.SecretConsumerMetadata, error]
 	getSecretConsumerAndLatestExpects  []*gomock.Call3_3[context.Context, *secrets.URI, unit.Name, *secrets.SecretConsumerMetadata, int, error]
 	getURIByConsumerLabelExpects       []*gomock.Call3_2[context.Context, string, unit.Name, *secrets.URI, error]
-	grantSecretAccessExpects           []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
-	revokeSecretAccessExpects          []*gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
 	watchConsumedSecretsChangesExpects []*gomock.Call2_2[context.Context, unit.Name, watcher.StringsWatcher, error]
 }
 
@@ -250,42 +248,6 @@ func (mr *MockSecretsConsumerMockRecorder) GetURIByConsumerLabel(ctx, label, uni
 
 // MockSecretsConsumerGetURIByConsumerLabelCall is the typed call wrapper for GetURIByConsumerLabel.
 type MockSecretsConsumerGetURIByConsumerLabelCall = gomock.Call3_2[context.Context, string, unit.Name, *secrets.URI, error]
-
-// GrantSecretAccess mocks base method.
-func (m *MockSecretsConsumer) GrantSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessParams) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.grantSecretAccessExpects, m.ctrl, m, "GrantSecretAccess", arg0, arg1, arg2)
-}
-
-// GrantSecretAccess indicates an expected call of GrantSecretAccess.
-func (mr *MockSecretsConsumerMockRecorder) GrantSecretAccess(arg0, arg1, arg2 any) *MockSecretsConsumerGrantSecretAccessCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error](mr.mock.ctrl.T, mr.mock, "GrantSecretAccess", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.grantSecretAccessExpects = append(mr.grantSecretAccessExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockSecretsConsumerGrantSecretAccessCall is the typed call wrapper for GrantSecretAccess.
-type MockSecretsConsumerGrantSecretAccessCall = gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
-
-// RevokeSecretAccess mocks base method.
-func (m *MockSecretsConsumer) RevokeSecretAccess(arg0 context.Context, arg1 *secrets.URI, arg2 secret.SecretAccessParams) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.revokeSecretAccessExpects, m.ctrl, m, "RevokeSecretAccess", arg0, arg1, arg2)
-}
-
-// RevokeSecretAccess indicates an expected call of RevokeSecretAccess.
-func (mr *MockSecretsConsumerMockRecorder) RevokeSecretAccess(arg0, arg1, arg2 any) *MockSecretsConsumerRevokeSecretAccessCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error](mr.mock.ctrl.T, mr.mock, "RevokeSecretAccess", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.revokeSecretAccessExpects = append(mr.revokeSecretAccessExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockSecretsConsumerRevokeSecretAccessCall is the typed call wrapper for RevokeSecretAccess.
-type MockSecretsConsumerRevokeSecretAccessCall = gomock.Call3_1[context.Context, *secrets.URI, secret.SecretAccessParams, error]
 
 // WatchConsumedSecretsChanges mocks base method.
 func (m *MockSecretsConsumer) WatchConsumedSecretsChanges(ctx context.Context, unitName unit.Name) (watcher.StringsWatcher, error) {

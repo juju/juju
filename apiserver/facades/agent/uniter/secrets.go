@@ -23,10 +23,6 @@ import (
 // SecretService provides core secrets operations.
 type SecretService interface {
 
-	// CreateCharmSecret creates a new charm secret with the specified
-	// parameters and associates it with a given URI.
-	CreateCharmSecret(context.Context, *coresecrets.URI, secret.CreateCharmSecretParams) error
-
 	// GetSecretValue retrieves the value and reference of a secret for a
 	// specified URI and revision, using a secret accessor.
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
@@ -48,70 +44,6 @@ type SecretService interface {
 	// ResolveGrantParams resolves a batch of access params, looking up
 	// subject and scope UUIDs. Per-entry errors are in GrantResult.Error.
 	ResolveGrantParams(ctx context.Context, params []secret.SecretAccessParams) []secret.GrantResult
-}
-
-// createSecrets creates new secrets.
-func (u *UniterAPI) createSecrets(ctx context.Context, args params.CreateSecretArgs) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		id, err := u.createSecret(ctx, arg)
-		result.Results[i].Result = id
-		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
-		}
-		result.Results[i].Error = apiServerErrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (u *UniterAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
-	if len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
-		return "", errors.NotValidf("empty secret value")
-	}
-
-	authTag := u.auth.GetAuthTag()
-	// A unit can only create secrets owned by its app
-	// if it is the leader.
-	secretOwner, err := names.ParseTag(arg.OwnerTag)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if !isSameApplication(authTag, secretOwner) {
-		return "", apiServerErrors.ErrPerm
-	}
-
-	var uri *coresecrets.URI
-	if arg.URI != nil {
-		uri, err = coresecrets.ParseURI(*arg.URI)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	} else {
-		uri = coresecrets.NewURI()
-	}
-
-	params := secret.CreateCharmSecretParams{
-		Version: secrets.Version,
-		UpdateCharmSecretParams: fromUpsertParams(arg.UpsertSecretArg, secret.SecretAccessor{
-			Kind: secret.UnitAccessor,
-			ID:   authTag.Id(),
-		}),
-	}
-	switch kind := secretOwner.Kind(); kind {
-	case names.UnitTagKind:
-		params.CharmOwner = secret.CharmSecretOwner{Kind: secret.UnitCharmSecretOwner, ID: secretOwner.Id()}
-	case names.ApplicationTagKind:
-		params.CharmOwner = secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: secretOwner.Id()}
-	default:
-		return "", errors.NotValidf("secret owner kind %q", kind)
-	}
-	err = u.secretService.CreateCharmSecret(ctx, uri, params)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return uri.String(), nil
 }
 
 func fromUpsertParams(p params.UpsertSecretArg, accessor secret.SecretAccessor) secret.UpdateCharmSecretParams {

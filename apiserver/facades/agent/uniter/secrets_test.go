@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
-	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
@@ -70,107 +67,6 @@ func (s *UniterSecretsSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().AuthUnitAgent().Return(true)
 	s.authorizer.EXPECT().GetAuthTag().Return(s.authTag).AnyTimes()
 }
-
-func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	data := map[string]string{"foo": "bar"}
-	checksum, err := coresecrets.NewSecretValue(data).Checksum()
-	c.Assert(err, tc.ErrorIsNil)
-
-	p := secret.CreateCharmSecretParams{
-		Version:    secrets.Version,
-		CharmOwner: secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: "mariadb"},
-		UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
-			Accessor: secret.SecretAccessor{
-				Kind: secret.UnitAccessor,
-				ID:   "mariadb/0",
-			},
-			RotatePolicy: new(coresecrets.RotateDaily),
-			ExpireTime:   new(s.clock.Now()),
-			Description:  new("my secret"),
-			Label:        new("foobar"),
-			Data:         data,
-			Checksum:     checksum,
-		},
-	}
-	var gotURI *coresecrets.URI
-	s.secretService.EXPECT().CreateCharmSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, p secret.CreateCharmSecretParams) error {
-			gotURI = uri
-			return nil
-		},
-	)
-
-	results, err := s.facade.createSecrets(c.Context(), params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			OwnerTag: "application-mariadb",
-			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: new(coresecrets.RotateDaily),
-				ExpireTime:   new(s.clock.Now()),
-				Description:  new("my secret"),
-				Label:        new("foobar"),
-				Params:       map[string]any{"param": 1},
-				Content:      params.SecretContentParams{Data: data, Checksum: checksum},
-			},
-		}, {
-			UpsertSecretArg: params.UpsertSecretArg{},
-		}, {
-			OwnerTag: "application-mysql",
-			UpsertSecretArg: params.UpsertSecretArg{
-				Content: params.SecretContentParams{Data: data},
-			},
-		}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Result: gotURI.String(),
-		}, {
-			Error: &params.Error{Message: `empty secret value not valid`, Code: params.CodeNotValid},
-		}, {
-			Error: &params.Error{Message: `permission denied`, Code: params.CodeUnauthorized},
-		}},
-	})
-}
-
-func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	p := secret.CreateCharmSecretParams{
-		Version:    secrets.Version,
-		CharmOwner: secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: "mariadb"},
-		UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
-			Accessor: secret.SecretAccessor{
-				Kind: secret.UnitAccessor,
-				ID:   "mariadb/0",
-			},
-			Label: new("foobar"),
-			Data:  map[string]string{"foo": "bar"},
-		},
-	}
-	s.secretService.EXPECT().CreateCharmSecret(gomock.Any(), gomock.Any(), p).Return(
-		fmt.Errorf("dup label %w", secreterrors.SecretLabelAlreadyExists),
-	)
-
-	results, err := s.facade.createSecrets(c.Context(), params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			OwnerTag: "application-mariadb",
-			UpsertSecretArg: params.UpsertSecretArg{
-				Label:   new("foobar"),
-				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			},
-		}},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Error: &params.Error{Message: `secret with label "foobar" already exists`, Code: params.CodeAlreadyExists},
-		}},
-	})
-}
-
-// --- prepareSecretCreates tests ---
 
 func (s *UniterSecretsSuite) TestPrepareSecretCreatesEmptyValue(c *tc.C) {
 	defer s.setupMocks(c).Finish()

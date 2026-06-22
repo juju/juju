@@ -490,9 +490,9 @@ func (st State) setSecretUnitOwner(ctx context.Context, tx *sqlair.TX, uri *core
 	return nil
 }
 
-// CreateCharmApplicationSecret creates a secret onwed by the specified
+// CreateCharmApplicationSecret creates a secret owned by the specified
 // application, returning an error satisfying [secreterrors.SecretAlreadyExists]
-// if a secretowned by the same application with the same label already exists.
+// if a secret owned by the same application with the same label already exists.
 // It also returns an error satisfying [applicationerrors.ApplicationNotFound]
 // if the application does not exist, or [secreterrors.SecretLabelAlreadyExists]
 // if the optional label passed as param already exists.
@@ -527,8 +527,6 @@ func (st State) CreateCharmApplicationSecret(ctx context.Context, version int, u
 func (st State) createCharmApplicationSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, appUUID coreapplication.UUID, secret domainsecret.UpsertSecretParams,
 ) error {
-	// todo(gfouillet): this check looks like a lot a service layer validation, and
-	//   may requires to be moved to the service layer when it will be refactored
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
 	}
@@ -548,7 +546,7 @@ func (st State) createCharmApplicationSecret(
 	return nil
 }
 
-// CreateCharmUnitSecret creates a secret onwed by the specified unit,
+// CreateCharmUnitSecret creates a secret owned by the specified unit,
 // returning an error satisfying [secreterrors.SecretAlreadyExists] if a secret
 // owned by the same unit with the same label already exists.
 // It also returns an error satisfying [applicationerrors.UnitNotFound] if
@@ -590,9 +588,6 @@ func (st State) CreateCharmUnitSecret(
 func (st State) createCharmUnitSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, unitUUID coreunit.UUID, secret domainsecret.UpsertSecretParams,
 ) error {
-
-	// todo(gfouillet): this check looks like a lot a service layer validation, and
-	//   may requires to be moved to the service layer when it will be refactored
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
 	}
@@ -1672,34 +1667,6 @@ GROUP BY sr.secret_id`, input, result)
 		info.LatestExpireTime = &result.LatestExpireTime
 	}
 	return info, nil
-}
-
-// GetRotatePolicy returns the rotate policy for the specified secret.
-func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return coresecrets.RotateNever, errors.Capture(err)
-	}
-	stmt, err := st.Prepare(`
-SELECT srp.policy AS &secretInfo.policy
-FROM   secret_metadata sm
-       JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
-WHERE  sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
-	if err != nil {
-		return coresecrets.RotateNever, errors.Capture(err)
-	}
-
-	var info secretInfo
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&info)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("rotate policy for %q not found", uri).Add(secreterrors.SecretNotFound)
-		}
-		return errors.Capture(err)
-	}); err != nil {
-		return coresecrets.RotateNever, errors.Capture(err)
-	}
-	return coresecrets.RotatePolicy(info.RotatePolicy), nil
 }
 
 func (st State) listAllSecrets(ctx context.Context, tx *sqlair.TX) ([]*coresecrets.SecretMetadata, error) {

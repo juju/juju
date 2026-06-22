@@ -37,8 +37,6 @@ type SecretsConsumer interface {
 		ctx context.Context, uri *secrets.URI, unitName unit.Name,
 		refresh, peek bool, labelToUpdate *string) (int, error)
 	WatchConsumedSecretsChanges(ctx context.Context, unitName unit.Name) (watcher.StringsWatcher, error)
-	GrantSecretAccess(context.Context, *secrets.URI, secret.SecretAccessParams) error
-	RevokeSecretAccess(context.Context, *secrets.URI, secret.SecretAccessParams) error
 }
 
 // SecretService provides core secrets operations.
