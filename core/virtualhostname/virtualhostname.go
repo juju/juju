@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/juju/names/v6"
 
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
 )
@@ -18,6 +20,32 @@ const (
 	// ErrNoMatch indicates that the hostname could not be parsed.
 	ErrNoMatch = errors.ConstError("could not parse hostname")
 	Domain     = "juju.local"
+
+	hostnameLabelPattern = `[a-zA-Z0-9-]+`
+	unitNumberPattern    = `\d+`
+	modelUUIDPattern     = `[0-9a-fA-F-]+`
+	domainPattern        = `[a-zA-Z0-9.-]+`
+)
+
+var (
+	// machineHostnameMatcher parses a machine hostname of the following format:
+	// Machine: 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	// Nested container machine: 1-lxd-0.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	machineHostnameMatcher = regexp.MustCompile(
+		`^(?<machine>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
+	)
+
+	// unitHostnameMatcher parses a unit hostname of the following format:
+	// Unit: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	unitHostnameMatcher = regexp.MustCompile(
+		`^(?<unitnumber>` + unitNumberPattern + `)\.(?<appname>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
+	)
+
+	// containerHostnameMatcher parses a unit container hostname of the following format:
+	// Container: charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
+	containerHostnameMatcher = regexp.MustCompile(
+		`^(?<containername>` + hostnameLabelPattern + `)\.(?<unitnumber>` + unitNumberPattern + `)\.(?<appname>` + hostnameLabelPattern + `)\.(?<modeluuid>` + modelUUIDPattern + `)\.(?<domain>` + domainPattern + `)$`,
+	)
 )
 
 // HostnameTarget defines what kind of infrastructure the user is targeting.
@@ -41,17 +69,11 @@ func NewInfoMachineTarget(modelUUID string, machine string) (Info, error) {
 	if !names.IsValidModel(modelUUID) {
 		return Info{}, errors.Errorf("invalid model UUID: %q", modelUUID)
 	}
-	if !names.IsValidMachine(machine) {
-		return Info{}, errors.Errorf("invalid machine number: %s", machine)
+	machineName := coremachine.Name(machine)
+	if err := machineName.Validate(); err != nil {
+		return Info{}, errors.Errorf("invalid machine name %q: %w", machine, err)
 	}
-	if names.IsContainerMachine(machine) {
-		return Info{}, errors.Errorf("container machine not supported")
-	}
-	machineNumber, err := strconv.Atoi(machine)
-	if err != nil {
-		return Info{}, errors.Errorf("failed to parse machine number.")
-	}
-	return newInfo(MachineTarget, modelUUID, machineNumber, 0, "", "")
+	return newInfo(MachineTarget, modelUUID, machineName, 0, "", "")
 }
 
 // NewInfoUnitTarget returns a new Info struct for a unit target.
@@ -70,7 +92,7 @@ func NewInfoUnitTarget(modelUUID string, unit string) (Info, error) {
 	if err != nil {
 		return Info{}, errors.Capture(err)
 	}
-	return newInfo(UnitTarget, modelUUID, 0, unitNumber, applicationName, "")
+	return newInfo(UnitTarget, modelUUID, "", unitNumber, applicationName, "")
 }
 
 // NewInfoContainerTarget returns a new Info struct for a container target.
@@ -89,11 +111,11 @@ func NewInfoContainerTarget(modelUUID string, unit string, container string) (In
 	if err != nil {
 		return Info{}, errors.Capture(err)
 	}
-	return newInfo(ContainerTarget, modelUUID, 0, unitNumber, applicationName, container)
+	return newInfo(ContainerTarget, modelUUID, "", unitNumber, applicationName, container)
 }
 
 // newInfo returns a new Info struct for the given target.
-func newInfo(target HostnameTarget, modelUUID string, machine int, unitNumber int, applicationName string, container string) (Info, error) {
+func newInfo(target HostnameTarget, modelUUID string, machine coremachine.Name, unitNumber int, applicationName string, container string) (Info, error) {
 	info := Info{}
 	switch target {
 	case MachineTarget:
@@ -125,7 +147,7 @@ func newInfo(target HostnameTarget, modelUUID string, machine int, unitNumber in
 type Info struct {
 	target          HostnameTarget
 	modelUUID       coremodel.UUID
-	machine         int
+	machine         coremachine.Name
 	applicationName string
 	unitNumber      int
 	container       string
@@ -148,8 +170,8 @@ func (i Info) ModelUUID() coremodel.UUID {
 	return i.modelUUID
 }
 
-// Machine returns the machine number.
-func (i Info) Machine() (int, bool) {
+// Machine returns the machine name.
+func (i Info) Machine() (coremachine.Name, bool) {
 	return i.machine, i.target == MachineTarget
 }
 
@@ -163,7 +185,7 @@ func (i Info) Target() HostnameTarget {
 func (i Info) String() string {
 	switch i.target {
 	case MachineTarget:
-		return fmt.Sprintf("%d.%s.%s", i.machine, i.modelUUID, Domain)
+		return fmt.Sprintf("%s.%s.%s", encodeMachineName(i.machine.String()), i.modelUUID, Domain)
 	case UnitTarget:
 		return fmt.Sprintf("%d.%s.%s.%s", i.unitNumber, i.applicationName, i.modelUUID, Domain)
 	case ContainerTarget:
@@ -173,61 +195,101 @@ func (i Info) String() string {
 	}
 }
 
-var (
-	// hostnameMatcher parses a hostname of the following formats:
-	// Machine: 1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
-	// Unit: 1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
-	// Container: charm.1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.juju.local
-	// The regular expression doesn't validate the components of the
-	// hostname, it only extracts them for validation separately.
-	// I.e. the extracted UUID may be invalid.
-	hostnameMatcher = regexp.MustCompile(`^(?:(?<containername>[a-zA-Z0-9-]+)\.)?(?<unitnumber>\d+)\.(?:(?<appname>[a-zA-Z0-9-]+)\.)?(?<modeluuid>[0-9a-fA-F-]+)\.(?<domain>[a-zA-Z0-9.-]+)$`)
-)
+func encodeMachineName(machineName string) string {
+	return strings.ReplaceAll(machineName, "/", "-")
+}
+
+func decodeMachineName(machineLabel string) (string, error) {
+	machineName := strings.ReplaceAll(machineLabel, "-", "/")
+	if err := coremachine.Name(machineName).Validate(); err != nil {
+		return "", errors.Errorf("invalid machine name %q: %w", machineName, err)
+	}
+	return machineName, nil
+}
+
+func matchSubexpressions(matcher *regexp.Regexp, hostname string) map[string]string {
+	match := matcher.FindStringSubmatch(hostname)
+	if match == nil {
+		return nil
+	}
+	result := make(map[string]string)
+	for i, name := range matcher.SubexpNames() {
+		if i != 0 && name != "" {
+			result[name] = match[i]
+		}
+	}
+	return result
+}
 
 // Parse parses a virtual Juju hostname
 // that references entities like machines, units
 // and containers.
 func Parse(hostname string) (Info, error) {
-	match := hostnameMatcher.FindStringSubmatch(hostname)
-	if match == nil {
-		return Info{}, ErrNoMatch
+	if result := matchSubexpressions(containerHostnameMatcher, hostname); result != nil {
+		return parseContainerHostname(result)
 	}
-	result := make(map[string]string)
-	for i, name := range hostnameMatcher.SubexpNames() {
-		if i != 0 && name != "" {
-			result[name] = match[i]
-		}
+	if result := matchSubexpressions(unitHostnameMatcher, hostname); result != nil {
+		return parseUnitHostname(result)
 	}
+	if result := matchSubexpressions(machineHostnameMatcher, hostname); result != nil {
+		return parseMachineHostname(result)
+	}
+	return Info{}, ErrNoMatch
+}
 
-	// Validate the components where appropriate.
+func parseContainerHostname(result map[string]string) (Info, error) {
 	if !names.IsValidModel(result["modeluuid"]) {
 		return Info{}, errors.Errorf("invalid model UUID: %q", result["modeluuid"])
 	}
-	if result["appname"] != "" && !names.IsValidApplication(result["appname"]) {
+	if !names.IsValidApplication(result["appname"]) {
 		return Info{}, errors.Errorf("invalid application name: %q", result["appname"])
 	}
-	// unit number and machine number come from the same matching group.
 	unitNumber, err := strconv.Atoi(result["unitnumber"])
 	if err != nil {
-		return Info{}, errors.Errorf("failed to parse unit/machine number: %w", err)
+		return Info{}, errors.Errorf("failed to parse unit number: %w", err)
 	}
 
-	res := Info{}
-	appName := result["appname"]
-	res.modelUUID = coremodel.UUID(result["modeluuid"])
-	res.container = result["containername"]
-	if res.container != "" {
-		res.target = ContainerTarget
-		res.unitNumber = unitNumber
-		res.applicationName = appName
-	} else if appName != "" {
-		res.target = UnitTarget
-		res.unitNumber = unitNumber
-		res.applicationName = appName
-	} else {
-		res.target = MachineTarget
-		res.machine = unitNumber
+	return Info{
+		target:          ContainerTarget,
+		modelUUID:       coremodel.UUID(result["modeluuid"]),
+		container:       result["containername"],
+		unitNumber:      unitNumber,
+		applicationName: result["appname"],
+	}, nil
+}
+
+func parseUnitHostname(result map[string]string) (Info, error) {
+	if !names.IsValidModel(result["modeluuid"]) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", result["modeluuid"])
+	}
+	if !names.IsValidApplication(result["appname"]) {
+		return Info{}, errors.Errorf("invalid application name: %q", result["appname"])
+	}
+	unitNumber, err := strconv.Atoi(result["unitnumber"])
+	if err != nil {
+		return Info{}, errors.Errorf("failed to parse unit number: %w", err)
 	}
 
-	return res, nil
+	return Info{
+		target:          UnitTarget,
+		modelUUID:       coremodel.UUID(result["modeluuid"]),
+		unitNumber:      unitNumber,
+		applicationName: result["appname"],
+	}, nil
+}
+
+func parseMachineHostname(result map[string]string) (Info, error) {
+	if !names.IsValidModel(result["modeluuid"]) {
+		return Info{}, errors.Errorf("invalid model UUID: %q", result["modeluuid"])
+	}
+	machineName, err := decodeMachineName(result["machine"])
+	if err != nil {
+		return Info{}, err
+	}
+
+	return Info{
+		target:    MachineTarget,
+		modelUUID: coremodel.UUID(result["modeluuid"]),
+		machine:   coremachine.Name(machineName),
+	}, nil
 }
