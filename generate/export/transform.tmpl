@@ -38,8 +38,8 @@ func NewTransform(d Deltas) transformer.TransformationFunc[{{.FromToken}}.ModelE
 {{- if not .UsesDeltas}}
 	_ = d // unused while Deltas has no methods
 {{- end}}
-	return func(ctx context.Context, src *{{.FromToken}}.ModelExport) (*{{.ToToken}}.ModelExport, error) {
-		dst := &{{.ToToken}}.ModelExport{}
+	return func(ctx context.Context, src {{.FromToken}}.ModelExport) ({{.ToToken}}.ModelExport, error) {
+		dst := {{.ToToken}}.ModelExport{}
 {{if .UsesDeltas}}
 		var err error
 {{end}}
@@ -54,12 +54,12 @@ func NewTransform(d Deltas) transformer.TransformationFunc[{{.FromToken}}.ModelE
 {{end}}
 {{- range .Changed}}
 		if dst.{{.Name}}, err = d.{{.Name}}(ctx, src.{{.Name}}); err != nil {
-			return nil, errors.Errorf("{{.Name}} delta: %w", err)
+			return {{$.ToToken}}.ModelExport{}, errors.Errorf("{{.Name}} delta: %w", err)
 		}
 {{end}}
 {{- range .New}}
-		if dst.{{.Name}}, err = d.{{.Name}}(ctx, src); err != nil {
-			return nil, errors.Errorf("{{.Name}} delta: %w", err)
+		if dst.{{.Name}}, err = d.{{.Name}}(ctx, &src); err != nil {
+			return {{$.ToToken}}.ModelExport{}, errors.Errorf("{{.Name}} delta: %w", err)
 		}
 {{end}}
 		return dst, nil

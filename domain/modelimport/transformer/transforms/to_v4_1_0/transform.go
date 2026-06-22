@@ -33,8 +33,8 @@ type Deltas interface {
 // into a 4.1.0 payload. It applies identity copies for unchanged tables
 // and delegates changed/new tables to the supplied Deltas implementation.
 func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_6.ModelExport, v4_1_0.ModelExport] {
-	return func(ctx context.Context, src *v4_0_6.ModelExport) (*v4_1_0.ModelExport, error) {
-		dst := &v4_1_0.ModelExport{}
+	return func(ctx context.Context, src v4_0_6.ModelExport) (v4_1_0.ModelExport, error) {
+		dst := v4_1_0.ModelExport{}
 
 		var err error
 
@@ -1249,19 +1249,19 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_6.ModelExport, v
 		}
 
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint); err != nil {
-			return nil, errors.Errorf("Constraint delta: %w", err)
+			return v4_1_0.ModelExport{}, errors.Errorf("Constraint delta: %w", err)
 		}
 
-		if dst.MachineVirtualSshHostKey, err = d.MachineVirtualSshHostKey(ctx, src); err != nil {
-			return nil, errors.Errorf("MachineVirtualSshHostKey delta: %w", err)
+		if dst.MachineVirtualSshHostKey, err = d.MachineVirtualSshHostKey(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("MachineVirtualSshHostKey delta: %w", err)
 		}
 
-		if dst.SshKeyAlgorithmType, err = d.SshKeyAlgorithmType(ctx, src); err != nil {
-			return nil, errors.Errorf("SshKeyAlgorithmType delta: %w", err)
+		if dst.SshKeyAlgorithmType, err = d.SshKeyAlgorithmType(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("SshKeyAlgorithmType delta: %w", err)
 		}
 
-		if dst.UnitVirtualSshHostKey, err = d.UnitVirtualSshHostKey(ctx, src); err != nil {
-			return nil, errors.Errorf("UnitVirtualSshHostKey delta: %w", err)
+		if dst.UnitVirtualSshHostKey, err = d.UnitVirtualSshHostKey(ctx, &src); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("UnitVirtualSshHostKey delta: %w", err)
 		}
 
 		return dst, nil

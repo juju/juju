@@ -15,7 +15,11 @@ import (
 // payload of schema format version Dst. Implementations are produced per
 // version step by a generator-emitted transform.go plus an engineer-written
 // deltas.go (see domain/modelimport/transformer/transforms/<pair>).
-type TransformationFunc[Src, Dst any] func(ctx context.Context, src *Src) (*Dst, error)
+//
+// Src and Dst are passed and returned by value, matching the concrete
+// payload values that [github.com/juju/juju/domain/export.DecodePayload]
+// boxes into the any that feeds [Transformer.Transform].
+type TransformationFunc[Src, Dst any] func(ctx context.Context, src Src) (Dst, error)
 
 // Transformation is the type-erased form of a single version-to-version
 // step. Construct instances with [NewTransformation]; pass a slice of them
@@ -23,8 +27,8 @@ type TransformationFunc[Src, Dst any] func(ctx context.Context, src *Src) (*Dst,
 // wiring packages can hold the registered list without an import cycle.
 type Transformation struct {
 	from, to  semversion.Number
-	srcType   reflect.Type // *Src
-	dstType   reflect.Type // *Dst
+	srcType   reflect.Type // Src
+	dstType   reflect.Type // Dst
 	transform func(ctx context.Context, src any) (any, error)
 }
 
@@ -33,14 +37,14 @@ type Transformation struct {
 // checks the payload's runtime Go type against Src before invoking fn so the
 // erasure boundary stays safe.
 func NewTransformation[Src, Dst any](from, to string, fn TransformationFunc[Src, Dst]) Transformation {
-	expected := reflect.TypeFor[*Src]()
+	expected := reflect.TypeFor[Src]()
 	return Transformation{
 		from:    semversion.MustParse(from),
 		to:      semversion.MustParse(to),
 		srcType: expected,
-		dstType: reflect.TypeFor[*Dst](),
+		dstType: reflect.TypeFor[Dst](),
 		transform: func(ctx context.Context, src any) (any, error) {
-			typed, ok := src.(*Src)
+			typed, ok := src.(Src)
 			if !ok {
 				return nil, errors.Errorf("payload type mismatch: expected %s, got %T",
 					expected, src).Add(ErrPayloadTypeMismatch)

@@ -29,8 +29,8 @@ type Deltas interface {
 // into a 4.0.6 payload. It applies identity copies for unchanged tables
 // and delegates changed/new tables to the supplied Deltas implementation.
 func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_4.ModelExport, v4_0_6.ModelExport] {
-	return func(ctx context.Context, src *v4_0_4.ModelExport) (*v4_0_6.ModelExport, error) {
-		dst := &v4_0_6.ModelExport{}
+	return func(ctx context.Context, src v4_0_4.ModelExport) (v4_0_6.ModelExport, error) {
+		dst := v4_0_6.ModelExport{}
 
 		var err error
 
@@ -1240,11 +1240,11 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_4.ModelExport, v
 		}
 
 		if dst.BlockDevice, err = d.BlockDevice(ctx, src.BlockDevice); err != nil {
-			return nil, errors.Errorf("BlockDevice delta: %w", err)
+			return v4_0_6.ModelExport{}, errors.Errorf("BlockDevice delta: %w", err)
 		}
 
-		if dst.BlockDeviceProvenance, err = d.BlockDeviceProvenance(ctx, src); err != nil {
-			return nil, errors.Errorf("BlockDeviceProvenance delta: %w", err)
+		if dst.BlockDeviceProvenance, err = d.BlockDeviceProvenance(ctx, &src); err != nil {
+			return v4_0_6.ModelExport{}, errors.Errorf("BlockDeviceProvenance delta: %w", err)
 		}
 
 		return dst, nil

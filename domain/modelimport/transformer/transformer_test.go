@@ -37,21 +37,21 @@ func versions(vs ...string) []semversion.Number {
 	return result
 }
 
-func okAtoB(_ context.Context, src *payloadA) (*payloadB, error) {
-	return &payloadB{Val: src.Val + 1}, nil
+func okAtoB(_ context.Context, src payloadA) (payloadB, error) {
+	return payloadB{Val: src.Val + 1}, nil
 }
 
-func okBtoC(_ context.Context, src *payloadB) (*payloadC, error) {
-	return &payloadC{Val: src.Val + 10}, nil
+func okBtoC(_ context.Context, src payloadB) (payloadC, error) {
+	return payloadC{Val: src.Val + 10}, nil
 }
 
-// okAtoC has srcType *payloadA, not *payloadB, so it breaks the chain after okAtoB.
-func okAtoC(_ context.Context, src *payloadA) (*payloadC, error) {
-	return &payloadC{Val: src.Val}, nil
+// okAtoC has srcType payloadA, not payloadB, so it breaks the chain after okAtoB.
+func okAtoC(_ context.Context, src payloadA) (payloadC, error) {
+	return payloadC{Val: src.Val}, nil
 }
 
-func failBtoC(_ context.Context, _ *payloadB) (*payloadC, error) {
-	return nil, errors.Errorf("boom")
+func failBtoC(_ context.Context, _ payloadB) (payloadC, error) {
+	return payloadC{}, errors.Errorf("boom")
 }
 
 func (s *transformerSuite) TestNewRejectsEmptyVersions(c *tc.C) {
@@ -83,7 +83,7 @@ func (s *transformerSuite) TestNewDetectsMissingTransformer(c *tc.C) {
 }
 
 func (s *transformerSuite) TestNewDetectsTypeMismatch(c *tc.C) {
-	// okAtoB outputs *payloadB; okAtoC expects *payloadA — chain is broken.
+	// okAtoB outputs payloadB; okAtoC expects payloadA — chain is broken.
 	transformations := []Transformation{
 		NewTransformation("1.0.0", "1.1.0", okAtoB),
 		NewTransformation("1.1.0", "1.2.0", okAtoC),
@@ -112,10 +112,10 @@ func (s *transformerSuite) TestTransformPassesThroughWhenSrcIsTarget(c *tc.C) {
 	a, err := NewTransformer(nil, versions("1.0.0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	payload := &payloadA{Val: 7}
+	payload := payloadA{Val: 7}
 	got, err := a.Transform(c.Context(), version("1.0.0"), payload)
 	c.Assert(err, tc.ErrorIsNil)
-	// Same pointer — no copy, no transformation ran.
+	// Same value — no transformation ran.
 	c.Check(got, tc.Equals, any(payload))
 }
 
@@ -127,10 +127,10 @@ func (s *transformerSuite) TestTransformWalksChain(c *tc.C) {
 	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0", "1.2.0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	got, err := a.Transform(c.Context(), version("1.0.0"), &payloadA{Val: 1})
+	got, err := a.Transform(c.Context(), version("1.0.0"), payloadA{Val: 1})
 	c.Assert(err, tc.ErrorIsNil)
 	// 1 + 1 (AtoB) + 10 (BtoC) = 12.
-	c.Check(got, tc.DeepEquals, &payloadC{Val: 12})
+	c.Check(got, tc.DeepEquals, payloadC{Val: 12})
 }
 
 func (s *transformerSuite) TestTransformRejectsUnknownSource(c *tc.C) {
@@ -140,7 +140,7 @@ func (s *transformerSuite) TestTransformRejectsUnknownSource(c *tc.C) {
 	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = a.Transform(c.Context(), version("0.9.0"), &payloadA{})
+	_, err = a.Transform(c.Context(), version("0.9.0"), payloadA{})
 	c.Assert(err, tc.ErrorIs, ErrUnknownSourceVersion)
 }
 
@@ -151,8 +151,8 @@ func (s *transformerSuite) TestTransformRejectsPayloadTypeMismatch(c *tc.C) {
 	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Transformation expects *payloadA, we hand it *payloadB.
-	_, err = a.Transform(c.Context(), version("1.0.0"), &payloadB{})
+	// Transformation expects payloadA, we hand it payloadB.
+	_, err = a.Transform(c.Context(), version("1.0.0"), payloadB{})
 	c.Assert(err, tc.ErrorIs, ErrPayloadTypeMismatch)
 }
 
@@ -165,10 +165,10 @@ func (s *transformerSuite) TestTransformFromMidChain(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Starting from "1.1.0" should apply only the BtoC step, not AtoB.
-	got, err := a.Transform(c.Context(), version("1.1.0"), &payloadB{Val: 5})
+	got, err := a.Transform(c.Context(), version("1.1.0"), payloadB{Val: 5})
 	c.Assert(err, tc.ErrorIsNil)
 	// 5 + 10 (BtoC) = 15; AtoB (+1) must not have run.
-	c.Check(got, tc.DeepEquals, &payloadC{Val: 15})
+	c.Check(got, tc.DeepEquals, payloadC{Val: 15})
 }
 
 func (s *transformerSuite) TestTransformPassesThroughWhenSrcIsTargetInMultiStepChain(c *tc.C) {
@@ -179,10 +179,10 @@ func (s *transformerSuite) TestTransformPassesThroughWhenSrcIsTargetInMultiStepC
 	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0", "1.2.0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	payload := &payloadC{Val: 99}
+	payload := payloadC{Val: 99}
 	got, err := a.Transform(c.Context(), version("1.2.0"), payload)
 	c.Assert(err, tc.ErrorIsNil)
-	// Same pointer — no transformation ran.
+	// Same value — no transformation ran.
 	c.Check(got, tc.Equals, any(payload))
 }
 
@@ -193,7 +193,7 @@ func (s *transformerSuite) TestTransformNilPayloadReturnsMismatch(c *tc.C) {
 	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	// nil any fails the *payloadA type assertion inside the closure.
+	// nil any fails the payloadA type assertion inside the closure.
 	_, err = a.Transform(c.Context(), version("1.0.0"), nil)
 	c.Assert(err, tc.ErrorIs, ErrPayloadTypeMismatch)
 }
@@ -206,6 +206,6 @@ func (s *transformerSuite) TestTransformWrapsMidChainErrors(c *tc.C) {
 	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0", "1.2.0"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = a.Transform(c.Context(), version("1.0.0"), &payloadA{Val: 0})
+	_, err = a.Transform(c.Context(), version("1.0.0"), payloadA{Val: 0})
 	c.Assert(err, tc.ErrorMatches, "transforming 1.1.0 -> 1.2.0: boom")
 }

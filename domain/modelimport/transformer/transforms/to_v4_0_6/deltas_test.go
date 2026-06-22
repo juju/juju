@@ -152,7 +152,7 @@ func (s *deltasSuite) TestBlockDeviceProvenanceIsStaticRegardlessOfSrc(c *tc.C) 
 func (s *deltasSuite) TestNewTransformAppliesBothDeltas(c *tc.C) {
 	transform := NewTransform(NewDeltas())
 
-	src := &v4_0_4.ModelExport{
+	src := v4_0_4.ModelExport{
 		BlockDevice: []v4_0_4.BlockDevice{
 			{UUID: "bd-uuid", MachineUUID: "m-uuid", Name: new("vda"), SizeMib: new(int64(512))},
 		},
@@ -177,7 +177,7 @@ func (s *deltasSuite) TestNewTransformAppliesBothDeltas(c *tc.C) {
 func (s *deltasSuite) TestNewTransformEmptyBlockDevices(c *tc.C) {
 	transform := NewTransform(NewDeltas())
 
-	dst, err := transform(c.Context(), &v4_0_4.ModelExport{})
+	dst, err := transform(c.Context(), v4_0_4.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Empty source → empty result; provenance lookup still synthesised.
