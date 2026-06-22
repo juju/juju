@@ -302,11 +302,19 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		Description:            info.Description,
 		RotatePolicyID:         rotatePolicyID,
 		AutoPrune:              info.AutoPrune,
-		LatestRevisionChecksum: update.Checksum,
+		LatestRevisionChecksum: info.LatestRevisionChecksum,
 		UpdateTime:             st.clock.Now().UTC(),
 	}
 	if update.Description != nil {
 		updatedInfo.Description = *update.Description
+	}
+
+	// The checksum belongs to the latest content revision.
+	// Only advance it when this update actually creates a new revision;
+	// a metadata-only update (RevisionUUID == "") carries an empty checksum
+	// and must not clobber the existing value.
+	if update.RevisionUUID != "" {
+		updatedInfo.LatestRevisionChecksum = update.Checksum
 	}
 
 	if err := tx.Query(ctx, upsertMdStmt, updatedInfo).Run(); err != nil {

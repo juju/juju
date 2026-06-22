@@ -1464,6 +1464,7 @@ func (s *commitHookSuite) TestUpdateSecretsMetadata(c *tc.C) {
 	arg := internal.CommitHookChangesArg{
 		UnitUUID: s.unitUUID,
 		SecretUpdates: []internal.UpdateSecretArg{{
+			RevisionUUID: "new-uuid",
 			SecretID:     secretID,
 			RotatePolicy: &policy,
 			Description:  &desc,
@@ -1581,12 +1582,22 @@ func (s *commitHookSuite) TestUpdateSecretsSecretNotFoundIsSkipped(c *tc.C) {
 }
 
 // TestUpdateSecretsWithLabel verifies that updating a secret label works for
-// both unit and application owners.
+// both unit and application owners, and preserves the existing checksum
+// (since metadata-only updates should not clobber the latest content revision's checksum).
 func (s *commitHookSuite) TestUpdateSecretsWithLabel(c *tc.C) {
 	ctx := c.Context()
 	secretID := "update-test-label"
 	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
 	s.addSecretRevision(c, secretID, 1)
+
+	// First, set a real checksum for the revision.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"UPDATE secret_metadata SET latest_revision_checksum = ? WHERE secret_id = ?",
+			"original-checksum", secretID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	newLabel := "new-label"
 	arg := internal.CommitHookChangesArg{
@@ -1594,21 +1605,97 @@ func (s *commitHookSuite) TestUpdateSecretsWithLabel(c *tc.C) {
 		SecretUpdates: []internal.UpdateSecretArg{{
 			SecretID:  secretID,
 			Label:     &newLabel,
-			Checksum:  "checksum",
+			Checksum:  "", // metadata-only: empty checksum from uniter
 			OwnerKind: secret.UnitCharmSecretOwner,
 		}},
 	}
 
 	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
 
-	var gotLabel string
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	var gotLabel, gotChecksum string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx,
 			"SELECT label FROM secret_unit_owner WHERE secret_id = ?",
 			secretID).Scan(&gotLabel)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotLabel, tc.Equals, newLabel)
+
+	// Verify the checksum is preserved, not clobbered by the empty value from the metadata-only update.
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT latest_revision_checksum FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotChecksum)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotChecksum, tc.Equals, "original-checksum")
+
+	// Verify no new revision was created for a metadata-only update.
+	var revCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 1)
+}
+
+// TestUpdateSecretsMetadataOnlyPreservesChecksum verifies that updating a secret
+// with only metadata changes (description, label, rotation) preserves the checksum
+// of the latest content revision and does not create a new revision.
+func (s *commitHookSuite) TestUpdateSecretsMetadataOnlyPreservesChecksum(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-metadata-checksum"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	// Set a real checksum for the revision.
+	originalChecksum := "original-content-checksum"
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"UPDATE secret_metadata SET latest_revision_checksum = ? WHERE secret_id = ?",
+			originalChecksum, secretID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Update only the description (metadata-only).
+	newDesc := "new description"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:    secretID,
+			Description: &newDesc,
+			Checksum:    "", // metadata-only: uniter sends empty checksum
+			OwnerKind:   secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify description was updated.
+	var gotDesc, gotChecksum string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT description, latest_revision_checksum FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotDesc, &gotChecksum)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotDesc, tc.Equals, newDesc)
+
+	// Verify checksum is preserved, not clobbered.
+	c.Check(gotChecksum, tc.Equals, originalChecksum)
+
+	// Verify no new revision was created.
+	var revCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 1)
 }
 
 // TestUpdateSecretsMarksObsolete verifies that after updating a secret, the old
