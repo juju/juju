@@ -193,7 +193,14 @@ func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg interna
 		}
 	}
 
-	// 7. Set ownership and grant manage permission.
+	// 7. Check for label conflicts before setting ownership.
+	if arg.Label != "" {
+		if err := st.ensureNewLabel(ctx, tx, arg.OwnerKind, arg.OwnerUUID, arg.Label, arg.SecretID); err != nil {
+			return err
+		}
+	}
+
+	// 8. Set ownership and grant manage permission.
 	switch arg.OwnerKind {
 	case domainsecret.ApplicationCharmSecretOwner:
 		if err := st.setSecretApplicationOwner(ctx, tx, arg.SecretID, arg.OwnerUUID, arg.Label); err != nil {
@@ -213,6 +220,32 @@ func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg interna
 		return errors.Errorf("unexpected secret owner kind %q", arg.OwnerKind)
 	}
 
+	return nil
+}
+
+// ensureNewLabel verifies if a secret label exists for the specified owner kind, UUID, and label combination.
+// Returns an error if a conflict is detected and a boolean indicating if the operation completed.
+func (st *State) ensureNewLabel(ctx context.Context, tx *sqlair.TX, ownerKind domainsecret.CharmSecretOwnerKind, ownerUUID string, label string, secretID string) error {
+	switch ownerKind {
+	case domainsecret.ApplicationCharmSecretOwner:
+		exists, err := st.checkApplicationSecretLabelExists(ctx, tx, ownerUUID, label, secretID)
+		if err != nil {
+			return errors.Errorf("checking application secret label conflict: %w", err)
+		}
+		if exists {
+			return errors.Errorf("secret with label %q already exists", label).
+				Add(secreterrors.SecretLabelAlreadyExists)
+		}
+	case domainsecret.UnitCharmSecretOwner:
+		exists, err := st.checkUnitSecretLabelExists(ctx, tx, ownerUUID, label, secretID)
+		if err != nil {
+			return errors.Errorf("checking unit secret label conflict: %w", err)
+		}
+		if exists {
+			return errors.Errorf("secret with label %q already exists", label).
+				Add(secreterrors.SecretLabelAlreadyExists)
+		}
+	}
 	return nil
 }
 
@@ -336,6 +369,15 @@ ON CONFLICT(secret_id) DO UPDATE SET
 
 	if update.Label != nil {
 		label := *update.Label
+		if label != "" {
+			ownerUUID, err := st.getSecretOwnerUUID(ctx, tx, update.SecretID, update.OwnerKind)
+			if err != nil {
+				return errors.Errorf("getting secret owner for label conflict check: %w", err)
+			}
+			if err := st.ensureNewLabel(ctx, tx, update.OwnerKind, ownerUUID, label, update.SecretID); err != nil {
+				return err
+			}
+		}
 		switch update.OwnerKind {
 		case domainsecret.ApplicationCharmSecretOwner:
 			ownerStmt, err := st.Prepare(`

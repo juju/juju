@@ -2560,3 +2560,217 @@ VALUES (?, ?)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(secretCount, tc.Equals, 0)
 }
+
+// TestCreateSecretsLabelConflictApplication verifies that creating an
+// application-owned secret with a label already used by another
+// application-owned secret of the same application returns
+// SecretLabelAlreadyExists.
+func (s *commitHookSuite) TestCreateSecretsLabelConflictApplication(c *tc.C) {
+	ctx := c.Context()
+	existingID := "existing-app-label-conflict"
+	s.addSecretWithOwner(c, existingID, s.fakeApplicationUUID1, "application")
+	s.query(c, `UPDATE secret_application_owner SET label = ? WHERE secret_id = ?`,
+		"dup-app-label", existingID)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-app-label-conflict",
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Label:     "dup-app-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestCreateSecretsLabelConflictUnit verifies that creating a unit-owned
+// secret with a label already used by another unit-owned secret of the same
+// unit returns SecretLabelAlreadyExists.
+func (s *commitHookSuite) TestCreateSecretsLabelConflictUnit(c *tc.C) {
+	ctx := c.Context()
+	existingID := "existing-unit-label-conflict"
+	s.addSecretWithOwner(c, existingID, s.unitUUID, "unit")
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"dup-unit-label", existingID)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-unit-label-conflict",
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Label:     "dup-unit-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestCreateSecretsLabelConflictCrossKind verifies that a label conflict is
+// detected across owner kinds: a unit-owned secret's label conflicts with a
+// new application-owned secret of the same application, and vice versa.
+func (s *commitHookSuite) TestCreateSecretsLabelConflictCrossKind(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a unit under fakeApplicationUUID1 so the cross-kind join
+	// (unit → application) can find the conflict.
+	crossUnitUUID := s.addUnitAndNetNode(c, "cross-app/0",
+		s.fakeApplicationUUID1, s.fakeCharmUUID1).String()
+
+	// Seed a unit-owned secret with label "cross-label".
+	existingID := "existing-cross-label"
+	s.addSecretWithOwner(c, existingID, crossUnitUUID, "unit")
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"cross-label", existingID)
+
+	// Attempt to create an application-owned secret with the same label
+	// for the application that owns the unit.
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-cross-label",
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Label:     "cross-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestCreateSecretsLabelNoConflictDifferentOwner verifies that the same label
+// can be used by secrets owned by different owners without error.
+func (s *commitHookSuite) TestCreateSecretsLabelNoConflictDifferentOwner(c *tc.C) {
+	ctx := c.Context()
+	existingID := "existing-diff-owner-label"
+	s.addSecretWithOwner(c, existingID, s.fakeApplicationUUID1, "application")
+	s.query(c, `UPDATE secret_application_owner SET label = ? WHERE secret_id = ?`,
+		"shared-label", existingID)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-diff-owner-label",
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID2,
+			Label:     "shared-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+}
+
+// TestUpdateSecretsLabelConflict verifies that updating a secret's label to
+// one already used by another secret of the same owner returns
+// SecretLabelAlreadyExists.
+func (s *commitHookSuite) TestUpdateSecretsLabelConflict(c *tc.C) {
+	ctx := c.Context()
+
+	// Seed two unit-owned secrets for the same unit; the first has label
+	// "taken-label".
+	secretA := "update-label-conflict-a"
+	secretB := "update-label-conflict-b"
+	s.addSecretWithOwner(c, secretA, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretA, 1)
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"taken-label", secretA)
+
+	s.addSecretWithOwner(c, secretB, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretB, 1)
+
+	// Attempt to update secretB's label to "taken-label".
+	newLabel := "taken-label"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:  secretB,
+			Label:     &newLabel,
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestUpdateSecretsLabelNoConflict verifies that updating a secret's label to
+// a unique value succeeds.
+func (s *commitHookSuite) TestUpdateSecretsLabelNoConflict(c *tc.C) {
+	ctx := c.Context()
+
+	secretA := "update-label-noconflict-a"
+	secretB := "update-label-noconflict-b"
+	s.addSecretWithOwner(c, secretA, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretA, 1)
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"existing-label", secretA)
+
+	s.addSecretWithOwner(c, secretB, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretB, 1)
+
+	newLabel := "unique-label"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:  secretB,
+			Label:     &newLabel,
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotLabel string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT label FROM secret_unit_owner WHERE secret_id = ?",
+			secretB).Scan(&gotLabel)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotLabel, tc.Equals, newLabel)
+}

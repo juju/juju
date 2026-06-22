@@ -231,6 +231,134 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET label=excluded.label`
 	}).Run()
 }
 
+// checkApplicationSecretLabelExists checks whether any secret owned by the
+// given application (including unit-owned secrets of that application) already
+// uses the supplied label, excluding the secret identified by excludeSecretID.
+// An empty label never conflicts. The cross-kind check mirrors the original
+// implementation in domain/secret/state.
+func (st *State) checkApplicationSecretLabelExists(
+	ctx context.Context, tx *sqlair.TX, appUUID, label, excludeSecretID string,
+) (bool, error) {
+	if label == "" {
+		return false, nil
+	}
+	input := secretApplicationOwner{
+		SecretID:        excludeSecretID,
+		ApplicationUUID: appUUID,
+		Label:           label,
+	}
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM (
+    SELECT secret_id
+    FROM   secret_application_owner
+    WHERE  label = $secretApplicationOwner.label
+    AND    application_uuid = $secretApplicationOwner.application_uuid
+    UNION
+    SELECT secret_id
+    FROM   secret_unit_owner
+    JOIN   unit u ON u.uuid = secret_unit_owner.unit_uuid
+    WHERE  label = $secretApplicationOwner.label
+    AND    u.application_uuid = $secretApplicationOwner.application_uuid
+)
+WHERE  secret_id != $secretApplicationOwner.secret_id
+`, input, countResult{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var result countResult
+	if err := tx.Query(ctx, stmt, input).Get(&result); err != nil {
+		return false, errors.Capture(err)
+	}
+	return result.Count > 0, nil
+}
+
+// checkUnitSecretLabelExists checks whether any secret owned by the given unit
+// (including application-owned secrets of the unit's application) already uses
+// the supplied label, excluding the secret identified by excludeSecretID.
+// An empty label never conflicts. The cross-kind check mirrors the original
+// implementation in domain/secret/state.
+func (st *State) checkUnitSecretLabelExists(
+	ctx context.Context, tx *sqlair.TX, unitUUID, label, excludeSecretID string,
+) (bool, error) {
+	if label == "" {
+		return false, nil
+	}
+	input := secretUnitOwner{
+		SecretID: excludeSecretID,
+		UnitUUID: unitUUID,
+		Label:    label,
+	}
+	stmt, err := st.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM (
+    SELECT secret_id
+    FROM   secret_application_owner AS sao
+    JOIN   unit AS u ON sao.application_uuid = u.application_uuid
+    WHERE  label = $secretUnitOwner.label
+    AND    u.uuid = $secretUnitOwner.unit_uuid
+    UNION ALL
+    SELECT secret_id
+    FROM   secret_unit_owner AS suo
+    WHERE  label = $secretUnitOwner.label
+    AND    suo.unit_uuid = $secretUnitOwner.unit_uuid
+)
+WHERE  secret_id != $secretUnitOwner.secret_id
+`, input, countResult{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	var result countResult
+	if err := tx.Query(ctx, stmt, input).Get(&result); err != nil {
+		return false, errors.Capture(err)
+	}
+	return result.Count > 0, nil
+}
+
+// getSecretOwnerUUID resolves the owner UUID for a secret by querying the
+// appropriate owner table based on the supplied owner kind. This is used in
+// the update path where the owner UUID is not carried in UpdateSecretArg.
+func (st *State) getSecretOwnerUUID(
+	ctx context.Context, tx *sqlair.TX, id string,
+	ownerKind domainsecret.CharmSecretOwnerKind,
+) (string, error) {
+	arg := secretID{ID: id}
+	switch ownerKind {
+	case domainsecret.ApplicationCharmSecretOwner:
+		stmt, err := st.Prepare(`
+SELECT application_uuid AS &entityUUID.uuid
+FROM   secret_application_owner
+WHERE  secret_id = $secretID.secret_id
+`, arg, entityUUID{})
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		var result entityUUID
+		if err := tx.Query(ctx, stmt, arg).Get(&result); err != nil {
+			return "", errors.Capture(err)
+		}
+		return result.UUID, nil
+	case domainsecret.UnitCharmSecretOwner:
+		stmt, err := st.Prepare(`
+SELECT unit_uuid AS &entityUUID.uuid
+FROM   secret_unit_owner
+WHERE  secret_id = $secretID.secret_id
+`, arg, entityUUID{})
+		if err != nil {
+			return "", errors.Capture(err)
+		}
+		var result entityUUID
+		if err := tx.Query(ctx, stmt, arg).Get(&result); err != nil {
+			return "", errors.Capture(err)
+		}
+		return result.UUID, nil
+	default:
+		return "", errors.Errorf(
+			"unexpected secret owner kind %q", ownerKind,
+		)
+	}
+}
+
 // grantSecretOwnerManage grants RoleManage permission to the secret owner.
 func (st *State) grantSecretOwnerManage(ctx context.Context, tx *sqlair.TX, secretID, ownerUUID string, ownerType domainsecret.GrantSubjectType) error {
 	perm := secretPermissionGrant{
