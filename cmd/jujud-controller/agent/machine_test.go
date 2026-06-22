@@ -6,7 +6,11 @@ package agent
 import (
 	"testing"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
+
+	internalerrors "github.com/juju/juju/internal/errors"
+	internalworker "github.com/juju/juju/internal/worker"
 )
 
 type MachineSuite struct {
@@ -55,4 +59,68 @@ func (s *MachineSuite) TestIntegrationStub(c *tc.C) {
 - Test model workers respect the singular responsibility flag, by claiming the lease for the model and checking that
   the correct set of workers are started.
 `)
+}
+
+// rebootDispatchSuite tests the error-dispatch logic in MachineAgent.Run that
+// decides whether to call executeRebootOrShutdown. The switch uses errors.Is
+// which correctly traverses Unwrap() chains; the regression was that the old
+// errors.Cause()-based switch silently dropped the reboot when the error was
+// wrapped by internal/errors.Capture (as it is when it travels through
+// core/watcher.NotifyWorker).
+type rebootDispatchSuite struct{}
+
+func TestRebootDispatchSuite(t *testing.T) {
+	tc.Run(t, &rebootDispatchSuite{})
+}
+
+// TestRebootMachineIdentifiedWhenBare confirms that a bare ErrRebootMachine
+// matches the errors.Is check used in the Run() switch.
+func (s *rebootDispatchSuite) TestRebootMachineIdentifiedWhenBare(c *tc.C) {
+	err := internalworker.ErrRebootMachine
+	c.Check(isRebootError(err), tc.IsTrue)
+	c.Check(isShutdownError(err), tc.IsFalse)
+}
+
+// TestShutdownMachineIdentifiedWhenBare confirms that a bare ErrShutdownMachine
+// matches the errors.Is check used in the Run() switch.
+func (s *rebootDispatchSuite) TestShutdownMachineIdentifiedWhenBare(c *tc.C) {
+	err := internalworker.ErrShutdownMachine
+	c.Check(isShutdownError(err), tc.IsTrue)
+	c.Check(isRebootError(err), tc.IsFalse)
+}
+
+// TestRebootMachineIdentifiedWhenCaptured is the regression test: when
+// ErrRebootMachine has been wrapped by internal/errors.Capture (as happens
+// when it travels through core/watcher.NotifyWorker), errors.Is must still
+// identify it.  The old errors.Cause()-based switch did not traverse Unwrap()
+// chains and therefore missed the wrapped sentinel, causing the reboot to be
+// silently dropped.
+func (s *rebootDispatchSuite) TestRebootMachineIdentifiedWhenCaptured(c *tc.C) {
+	wrapped := internalerrors.Capture(internalworker.ErrRebootMachine)
+	c.Check(isRebootError(wrapped), tc.IsTrue)
+}
+
+// TestShutdownMachineIdentifiedWhenCaptured mirrors the above for
+// ErrShutdownMachine.
+func (s *rebootDispatchSuite) TestShutdownMachineIdentifiedWhenCaptured(c *tc.C) {
+	wrapped := internalerrors.Capture(internalworker.ErrShutdownMachine)
+	c.Check(isShutdownError(wrapped), tc.IsTrue)
+}
+
+// TestOtherErrorNotMisidentified ensures that an unrelated error is not
+// dispatched to either reboot or shutdown.
+func (s *rebootDispatchSuite) TestOtherErrorNotMisidentified(c *tc.C) {
+	wrapped := internalerrors.Capture(internalworker.ErrTerminateAgent)
+	c.Check(isRebootError(wrapped), tc.IsFalse)
+	c.Check(isShutdownError(wrapped), tc.IsFalse)
+}
+
+// isRebootError mirrors the first case of the switch in MachineAgent.Run.
+func isRebootError(err error) bool {
+	return jujuerrors.Is(err, internalworker.ErrRebootMachine)
+}
+
+// isShutdownError mirrors the second case of the switch in MachineAgent.Run.
+func isShutdownError(err error) bool {
+	return jujuerrors.Is(err, internalworker.ErrShutdownMachine)
 }

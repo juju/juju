@@ -505,11 +505,11 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err = a.runner.Wait()
-	switch errors.Cause(err) {
-	case internalworker.ErrRebootMachine:
+	switch {
+	case errors.Is(err, internalworker.ErrRebootMachine):
 		logger.Infof(ctx, "Caught reboot error")
 		err = a.executeRebootOrShutdown(params.ShouldReboot)
-	case internalworker.ErrShutdownMachine:
+	case errors.Is(err, internalworker.ErrShutdownMachine):
 		logger.Infof(ctx, "Caught shutdown error")
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
