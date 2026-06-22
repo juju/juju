@@ -199,7 +199,7 @@ run_user_secrets() {
 	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 
 	juju --show-log remove-secret mysecret
-	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
+	check_num_secrets 0
 }
 
 run_secrets_juju() {
