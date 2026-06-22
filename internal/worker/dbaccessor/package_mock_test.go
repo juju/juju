@@ -595,6 +595,7 @@ type MockClient struct {
 // MockClientMockRecorder is the mock recorder for MockClient.
 type MockClientMockRecorder struct {
 	mock           *MockClient
+	closeExpects   []*gomock.Call0_1[error]
 	clusterExpects []*gomock.Call1_2[context.Context, []dqlite.NodeInfo, error]
 	leaderExpects  []*gomock.Call1_2[context.Context, *dqlite.NodeInfo, error]
 }
@@ -610,6 +611,24 @@ func NewMockClient(ctrl *gomock.Controller) *MockClient {
 func (m *MockClient) EXPECT() *MockClientMockRecorder {
 	return m.recorder
 }
+
+// Close mocks base method.
+func (m *MockClient) Close() error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.closeExpects, m.ctrl, m, "Close")
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockClientMockRecorder) Close() *MockClientCloseCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[error](mr.mock.ctrl.T, mr.mock, "Close")
+	mr.closeExpects = append(mr.closeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockClientCloseCall is the typed call wrapper for Close.
+type MockClientCloseCall = gomock.Call0_1[error]
 
 // Cluster mocks base method.
 func (m *MockClient) Cluster(arg0 context.Context) ([]dqlite.NodeInfo, error) {

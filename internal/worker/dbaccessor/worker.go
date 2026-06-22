@@ -407,6 +407,7 @@ func (w *dbWorker) Report(ctx context.Context) map[string]any {
 		leaderID   uint64
 	)
 	if client, err := w.dbApp.Client(ctx); err == nil {
+		defer func() { _ = client.Close() }()
 		if nodeInfo, err := client.Leader(ctx); err == nil {
 			leaderID = nodeInfo.ID
 			leader = nodeInfo.Address
@@ -684,6 +685,7 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 	w.cfg.Logger.Infof(ctx, "serving Dqlite application (ID: %v)", w.dbApp.ID())
 
 	if c, err := w.dbApp.Client(ctx); err == nil {
+		defer func() { _ = c.Close() }()
 		if info, err := c.Cluster(ctx); err == nil {
 			w.cfg.Logger.Infof(ctx, "current cluster: %#v", info)
 		}

@@ -224,6 +224,8 @@ func (w *dbReplWorker) DescribeCluster(ctx context.Context) ([]Node, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting leader client")
 	}
+	defer func() { _ = client.Close() }()
+
 	nodes, err := client.Cluster(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting cluster description")

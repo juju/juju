@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	corelife "github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/quota"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	corestatus "github.com/juju/juju/core/status"
@@ -3477,6 +3479,44 @@ func (s *relationSuite) TestSetRelationUnitSettings(c *tc.C) {
 
 	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
 	c.Assert(foundSettings, tc.DeepEquals, expectedSettings)
+}
+
+func (s *relationSuite) TestSetRelationUnitSettingsExceedMaxSize(c *tc.C) {
+	// Arrange: Add relation with one endpoint.
+	endpoint1 := domainrelation.Endpoint{
+		ApplicationName: s.fakeApplicationName1,
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeContainer,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	relationUUID := s.addRelation(c)
+	relationEndpointUUID1 := s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+
+	// Arrange: Add a unit to the relation.
+	unitName := coreunittesting.GenNewName(c, "app/0")
+	unitUUID := s.addUnit(c, unitName, s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relationUnitUUID := s.addRelationUnit(c, unitUUID, relationEndpointUUID1)
+
+	// Act:
+	err := s.state.SetRelationUnitSettings(
+		c.Context(),
+		relationUnitUUID,
+		map[string]string{
+			"key": strings.Repeat("a", quota.MaxRelationSettingsSize+1),
+		},
+		nil,
+	)
+
+	// Assert:
+	c.Assert(err, tc.ErrorIs, coreerrors.QuotaLimitExceeded)
+
+	foundSettings := s.getRelationUnitSettings(c, relationUnitUUID)
+	c.Assert(foundSettings, tc.HasLen, 0)
 }
 
 func (s *relationSuite) TestSetRelationUnitSettingsNothingToSet(c *tc.C) {
