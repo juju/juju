@@ -6,11 +6,9 @@
 package modelimport
 
 import (
-	"github.com/juju/juju/domain/export/types/v4_0_4"
-	"github.com/juju/juju/domain/export/types/v4_0_6"
+	"github.com/juju/juju/domain/export/types/v4_0_11"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/modelimport/transformer"
-	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_0_6"
 	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_1_0"
 )
 
@@ -18,12 +16,8 @@ import (
 // the controller knows about. It is consumed by NewTransformer (in
 // modelimport.go) alongside export.ExportVersions.
 var registered = []transformer.Transformation{
-	transformer.NewTransformation[v4_0_4.ModelExport, v4_0_6.ModelExport](
-		"4.0.4", "4.0.6",
-		to_v4_0_6.NewTransform(to_v4_0_6.NewDeltas()),
-	),
-	transformer.NewTransformation[v4_0_6.ModelExport, v4_1_0.ModelExport](
-		"4.0.6", "4.1.0",
+	transformer.NewTransformation[v4_0_11.ModelExport, v4_1_0.ModelExport](
+		"4.0.11", "4.1.0",
 		to_v4_1_0.NewTransform(to_v4_1_0.NewDeltas()),
 	),
 }

@@ -11,8 +11,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
-	v4_0_4 "github.com/juju/juju/domain/export/types/v4_0_4"
-	v4_0_6 "github.com/juju/juju/domain/export/types/v4_0_6"
+	v4_0_11 "github.com/juju/juju/domain/export/types/v4_0_11"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 )
 
@@ -22,31 +21,11 @@ func TestPayloadSuite(t *testing.T) {
 	tc.Run(t, &payloadSuite{})
 }
 
-// TestDecodePayloadRoundTripV404 verifies that a marshalled v4_0_4 payload
-// decodes back into the concrete generated type.
-func (s *payloadSuite) TestDecodePayloadRoundTripV404(c *tc.C) {
-	in := v4_0_4.ModelExport{
-		Application: []v4_0_4.Application{{
-			UUID:      "app-uuid",
-			Name:      "ubuntu",
-			CharmUUID: "charm-uuid",
-		}},
-	}
-	data, err := yaml.Marshal(in)
-	c.Assert(err, tc.ErrorIsNil)
-
-	decoded, err := DecodePayload(semversion.MustParse("4.0.4"), data)
-	c.Assert(err, tc.ErrorIsNil)
-	out, ok := decoded.(v4_0_4.ModelExport)
-	c.Assert(ok, tc.IsTrue)
-	c.Check(out, tc.DeepEquals, in)
-}
-
-// TestDecodePayloadRoundTripV406 verifies that a marshalled v4_0_6 payload
+// TestDecodePayloadRoundTripV406 verifies that a marshalled v4_0_11 payload
 // decodes back into the concrete generated type.
 func (s *payloadSuite) TestDecodePayloadRoundTripV406(c *tc.C) {
-	in := v4_0_6.ModelExport{
-		Application: []v4_0_6.Application{{
+	in := v4_0_11.ModelExport{
+		Application: []v4_0_11.Application{{
 			UUID:      "app-uuid",
 			Name:      "ubuntu",
 			CharmUUID: "charm-uuid",
@@ -55,9 +34,9 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV406(c *tc.C) {
 	data, err := yaml.Marshal(in)
 	c.Assert(err, tc.ErrorIsNil)
 
-	decoded, err := DecodePayload(semversion.MustParse("4.0.6"), data)
+	decoded, err := DecodePayload(semversion.MustParse("4.0.11"), data)
 	c.Assert(err, tc.ErrorIsNil)
-	out, ok := decoded.(v4_0_6.ModelExport)
+	out, ok := decoded.(v4_0_11.ModelExport)
 	c.Assert(ok, tc.IsTrue)
 	c.Check(out, tc.DeepEquals, in)
 }
@@ -93,7 +72,7 @@ func (s *payloadSuite) TestDecodePayloadUnknownVersion(c *tc.C) {
 // TestDecodePayloadMalformedYAML verifies that undecodable bytes yield a
 // NotValid error.
 func (s *payloadSuite) TestDecodePayloadMalformedYAML(c *tc.C) {
-	_, err := DecodePayload(semversion.MustParse("4.0.6"), []byte("\t: not yaml"))
+	_, err := DecodePayload(semversion.MustParse("4.0.11"), []byte("\t: not yaml"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -123,21 +102,21 @@ func (s *payloadSuite) TestProjectionViewForPayloadUnknownType(c *tc.C) {
 // TestProjectionViewExtraction verifies the view projects the agent target
 // version.
 func (s *payloadSuite) TestProjectionViewExtraction(c *tc.C) {
-	payload := v4_0_6.ModelExport{
-		AgentVersion: []v4_0_6.AgentVersion{{
-			TargetVersion: "4.0.6",
+	payload := v4_0_11.ModelExport{
+		AgentVersion: []v4_0_11.AgentVersion{{
+			TargetVersion: "4.0.11",
 		}},
 	}
 
 	view, err := ProjectionViewForPayload(payload)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(view.AgentTargetVersion, tc.Equals, semversion.MustParse("4.0.6"))
+	c.Check(view.AgentTargetVersion, tc.Equals, semversion.MustParse("4.0.11"))
 }
 
 // TestProjectionViewNoAgentVersion verifies that a payload without an
 // agent_version row leaves the view's agent target version zero.
 func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
-	view, err := ProjectionViewForPayload(v4_0_6.ModelExport{})
+	view, err := ProjectionViewForPayload(v4_0_11.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(view.AgentTargetVersion, tc.Equals, semversion.Number{})
 }
@@ -145,9 +124,9 @@ func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
 // TestProjectionViewMultipleAgentVersionRows verifies that a payload with
 // more than one agent_version row is rejected as malformed.
 func (s *payloadSuite) TestProjectionViewMultipleAgentVersionRows(c *tc.C) {
-	_, err := ProjectionViewForPayload(v4_0_6.ModelExport{
-		AgentVersion: []v4_0_6.AgentVersion{
-			{TargetVersion: "4.0.6"},
+	_, err := ProjectionViewForPayload(v4_0_11.ModelExport{
+		AgentVersion: []v4_0_11.AgentVersion{
+			{TargetVersion: "4.0.11"},
 			{TargetVersion: "4.0.7"},
 		},
 	})
