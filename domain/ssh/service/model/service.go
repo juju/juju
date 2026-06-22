@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"strconv"
 
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
@@ -49,12 +48,19 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 
 	switch info.Target() {
 	case virtualhostname.MachineTarget:
-		machineNumber, ok := info.Machine()
+		machineName, ok := info.Machine()
 		if !ok {
 			return "", errors.Errorf("missing machine target in virtual hostname")
 		}
-		machineName := coremachine.Name(strconv.Itoa(machineNumber))
-		return s.MachineVirtualHostKey(ctx, machineName)
+		parsedMachineName := coremachine.Name(machineName)
+		if parsedMachineName.IsContainer() {
+			return "", errors.Errorf(
+				"cannot SSH directly to nested machine %q, connect to parent machine %q instead",
+				parsedMachineName,
+				parsedMachineName.Parent(),
+			)
+		}
+		return s.MachineVirtualHostKey(ctx, parsedMachineName)
 	case virtualhostname.UnitTarget, virtualhostname.ContainerTarget:
 		unitName, ok := info.Unit()
 		if !ok {

@@ -49,8 +49,16 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 			desc:     "Machine hostname",
 			hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
-				// Machine and unit are both set and disambiguated by the target type.
-				machine:   1,
+				machine:   "1",
+				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
+				target:    MachineTarget,
+			},
+		},
+		{
+			desc:     "Nested machine hostname",
+			hostname: "1-lxd-0.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
+			result: Info{
+				machine:   "1/lxd/0",
 				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				target:    MachineTarget,
 			},
@@ -84,7 +92,7 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 		{
 			desc:        "Invalid machine number",
 			hostname:    "1a.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
-			expectedErr: `could not parse hostname`,
+			expectedErr: `invalid machine name "1a": machine name`,
 		},
 	}
 	for i, tC := range testCases {
@@ -115,7 +123,17 @@ func (s *HostnameSuite) TestNewInfoMachineTarget(c *tc.C) {
 			expected: Info{
 				target:    MachineTarget,
 				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
-				machine:   1,
+				machine:   "1",
+			},
+		},
+		{
+			desc:      "Valid nested machine target",
+			modelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
+			machine:   "0/lxd/0",
+			expected: Info{
+				target:    MachineTarget,
+				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
+				machine:   "0/lxd/0",
 			},
 		},
 		{
@@ -125,16 +143,10 @@ func (s *HostnameSuite) TestNewInfoMachineTarget(c *tc.C) {
 			expectedErr: ".*invalid model UUID.*",
 		},
 		{
-			desc:        "Invalid machine number",
+			desc:        "Invalid machine name",
 			modelUUID:   "8419cd78-4993-4c3a-928e-c646226beeee",
 			machine:     "-1",
-			expectedErr: "invalid machine number: -1",
-		},
-		{
-			desc:        "Invalid machine number: nested container",
-			modelUUID:   "8419cd78-4993-4c3a-928e-c646226beeee",
-			machine:     "0/lxd/0",
-			expectedErr: "container machine not supported",
+			expectedErr: "invalid machine name \"-1\": .*",
 		},
 	}
 
@@ -247,6 +259,6 @@ func (s *HostnameSuite) TestNewInfoContainerTarget(c *tc.C) {
 }
 
 func (s *HostnameSuite) TestnewInfoInvalidTarget(c *tc.C) {
-	_, err := newInfo(100, "8419cd78-4993-4c3a-928e-c646226beeee", 1, 1, "1", "charm")
+	_, err := newInfo(100, "8419cd78-4993-4c3a-928e-c646226beeee", "1", 1, "1", "charm")
 	c.Assert(err, tc.ErrorMatches, "unknown target: 100")
 }

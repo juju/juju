@@ -95,6 +95,17 @@ func (s *serviceSuite) TestVirtualHostKeyErrorsForDifferentModel(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `virtual hostname model UUID .* does not match service model .*`)
 }
 
+func (s *serviceSuite) TestVirtualHostKeyErrorsForNestedMachine(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
+	svc := modelsshservice.NewService(modelUUID, newStubModelState())
+
+	info, err := virtualhostname.NewInfoMachineTarget(testModelUUID, "1/lxd/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = svc.VirtualHostKey(c.Context(), info)
+	c.Assert(err, tc.ErrorMatches, `cannot SSH directly to nested machine "1/lxd/0", connect to parent machine "1" instead`)
+}
+
 type stubModelState struct {
 	machineExists   map[string]bool
 	machineKeys     map[string]string

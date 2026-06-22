@@ -30,8 +30,7 @@ func (s *HostnameSuite) TestParseContainerHostname(c *tc.C) {
 	c.Check(containerName, tc.Equals, "charm")
 	c.Check(valid, tc.Equals, true)
 
-	machineNumber, valid := res.Machine()
-	c.Check(machineNumber, tc.Equals, 0)
+	_, valid = res.Machine()
 	c.Check(valid, tc.Equals, false)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.ContainerTarget)
@@ -46,12 +45,11 @@ func (s *HostnameSuite) TestParseUnitHostname(c *tc.C) {
 	c.Check(unitName, tc.Equals, "postgresql/1")
 	c.Check(valid, tc.Equals, true)
 
-	containerName, valid := res.Container()
-	c.Check(containerName, tc.Equals, "")
+	_, valid = res.Container()
 	c.Check(valid, tc.Equals, false)
 
-	machineNumber, valid := res.Machine()
-	c.Check(machineNumber, tc.Equals, 0)
+	machineName, valid := res.Machine()
+	c.Check(machineName, tc.Equals, "")
 	c.Check(valid, tc.Equals, false)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.UnitTarget)
@@ -62,16 +60,32 @@ func (s *HostnameSuite) TestParseMachineHostname(c *tc.C) {
 	res, err := virtualhostname.Parse("1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
 	c.Assert(err, tc.IsNil)
 
-	unitName, valid := res.Unit()
-	c.Check(unitName, tc.Equals, "/0")
+	_, valid := res.Unit()
 	c.Check(valid, tc.Equals, false)
 
-	containerName, valid := res.Container()
-	c.Check(containerName, tc.Equals, "")
+	_, valid = res.Container()
 	c.Check(valid, tc.Equals, false)
 
-	machineNumber, valid := res.Machine()
-	c.Check(machineNumber, tc.Equals, 1)
+	machineName, valid := res.Machine()
+	c.Check(machineName, tc.Equals, "1")
+	c.Check(valid, tc.Equals, true)
+
+	c.Check(res.Target(), tc.Equals, virtualhostname.MachineTarget)
+	c.Check(res.ModelUUID(), tc.Equals, coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"))
+}
+
+func (s *HostnameSuite) TestParseNestedMachineHostname(c *tc.C) {
+	res, err := virtualhostname.Parse("1-lxd-0.8419cd78-4993-4c3a-928e-c646226beeee.juju.local")
+	c.Assert(err, tc.IsNil)
+
+	_, valid := res.Unit()
+	c.Check(valid, tc.Equals, false)
+
+	_, valid = res.Container()
+	c.Check(valid, tc.Equals, false)
+
+	machineName, valid := res.Machine()
+	c.Check(machineName, tc.Equals, "1/lxd/0")
 	c.Check(valid, tc.Equals, true)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.MachineTarget)
