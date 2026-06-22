@@ -12,6 +12,11 @@ type lokiConfig struct {
 	InsecureSkipVerify sql.NullBool `db:"insecure_skip_verify"`
 }
 
+// lokiExistsRow is used to query whether any Loki config row exists.
+type lokiExistsRow struct {
+	Enabled bool `db:"enabled"`
+}
+
 // nsBoolToNil converts a pointer to bool into a nullable sql.NullBool suitable
 // for database storage. A nil input maps to invalid NullBool.
 func nsBoolToNil(b *bool) sql.NullBool {

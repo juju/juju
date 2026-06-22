@@ -31,8 +31,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/application/charm"
 	domainexport "github.com/juju/juju/domain/export"
-	loggingdomain "github.com/juju/juju/domain/logging"
-	logerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/migration"
@@ -179,10 +177,9 @@ type AgentBinaryStore interface {
 // LoggingService provides access to the controller-wide logging configuration
 // used to determine whether Loki forwarding is enabled.
 type LoggingService interface {
-	// GetLokiConfig returns the configured Loki push API endpoint and CA
-	// certificate. If no Loki config has been set, a not-found error is
-	// returned.
-	GetLokiConfig(context.Context) (loggingdomain.LokiConfig, error)
+	// IsLokiEnabled returns true if a Loki config exists with a non-empty
+	// endpoint.
+	IsLokiEnabled(context.Context) (bool, error)
 }
 
 // Config defines the operation of a Worker.
@@ -677,11 +674,11 @@ func (w *Worker) transferResources(ctx context.Context, targetInfo coremigration
 }
 
 func (w *Worker) doLOGTRANSFER(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	lokiConfig, err := w.config.LoggingService.GetLokiConfig(ctx)
-	if err != nil && !errors.Is(err, logerrors.LokiConfigNotFound) {
+	lokiEnabled, err := w.config.LoggingService.IsLokiEnabled(ctx)
+	if err != nil {
 		return coremigration.UNKNOWN, errors.Annotate(err, "checking Loki config for log transfer")
 	}
-	if lokiConfig.Endpoint != "" {
+	if lokiEnabled {
 		w.logger.Infof(ctx, "Loki forwarding enabled on source controller - skipping log transfer for model %s (migration %s)", modelUUID, w.migrationId)
 		w.emitCutoverMarker(ctx, modelUUID)
 		return coremigration.REAP, nil

@@ -131,3 +131,34 @@ func (st *State) DeleteLokiConfig(ctx context.Context) error {
 	}
 	return nil
 }
+
+// IsLokiEnabled returns true if a Loki config exists with a non-empty
+// endpoint.
+func (st *State) IsLokiEnabled(ctx context.Context) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Errorf("getting database: %w", err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT enabled AS &lokiExistsRow.enabled
+FROM (
+    SELECT EXISTS (
+        SELECT 1
+        FROM logging_loki_config
+        WHERE endpoint != ''
+    ) AS enabled
+)
+`, lokiExistsRow{})
+	if err != nil {
+		return false, errors.Errorf("preparing statement: %w", err)
+	}
+
+	var row lokiExistsRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&row)
+	}); err != nil {
+		return false, errors.Errorf("checking loki config: %w", err)
+	}
+	return row.Enabled, nil
+}

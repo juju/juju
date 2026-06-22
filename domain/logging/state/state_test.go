@@ -174,3 +174,42 @@ func (s *stateSuite) TestDeleteLokiConfigWhenEmpty(c *tc.C) {
 	err := st.DeleteLokiConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *stateSuite) TestIsLokiEnabledTrue(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.SetLokiConfig(c.Context(), "some-uuid-1", logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	enabled, err := st.IsLokiEnabled(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(enabled, tc.IsTrue)
+}
+
+func (s *stateSuite) TestIsLokiEnabledFalse(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	enabled, err := st.IsLokiEnabled(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(enabled, tc.IsFalse)
+}
+
+func (s *stateSuite) TestIsLokiEnabledAfterDelete(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.SetLokiConfig(c.Context(), "some-uuid-1", logging.LokiConfig{
+		Endpoint:      "http://loki:3100/loki/api/v1/push",
+		CACertificate: "ca-cert",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.DeleteLokiConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	enabled, err := st.IsLokiEnabled(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(enabled, tc.IsFalse)
+}

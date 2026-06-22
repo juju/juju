@@ -44,8 +44,6 @@ import (
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	domainexport "github.com/juju/juju/domain/export"
-	loggingdomain "github.com/juju/juju/domain/logging"
-	logerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/testhelpers"
@@ -167,7 +165,7 @@ var (
 		},
 	}
 	apiCloseCall      = testhelpers.StubCall{FuncName: "Connection.Close"}
-	getLokiConfigCall = testhelpers.StubCall{FuncName: "loggingService.GetLokiConfig"}
+	getLokiConfigCall = testhelpers.StubCall{FuncName: "loggingService.IsLokiEnabled"}
 	abortCall         = testhelpers.StubCall{
 		FuncName: "MigrationTarget.Abort",
 		Args: []any{
@@ -1642,17 +1640,13 @@ type stubLoggingService struct {
 
 	stub *testhelpers.Stub
 
-	// lokiConfig is returned by GetLokiConfig when non-nil.
-	// When nil, GetLokiConfig returns LokiConfigNotFound.
-	lokiConfig *loggingdomain.LokiConfig
+	// lokiEnabled is returned by IsLokiEnabled.
+	lokiEnabled bool
 }
 
-func (s *stubLoggingService) GetLokiConfig(ctx context.Context) (loggingdomain.LokiConfig, error) {
-	s.stub.AddCall("loggingService.GetLokiConfig")
-	if s.lokiConfig == nil {
-		return loggingdomain.LokiConfig{}, logerrors.LokiConfigNotFound
-	}
-	return *s.lokiConfig, nil
+func (s *stubLoggingService) IsLokiEnabled(ctx context.Context) (bool, error) {
+	s.stub.AddCall("loggingService.IsLokiEnabled")
+	return s.lokiEnabled, nil
 }
 
 func (f *stubMasterFacade) StreamModelLog(_ context.Context, start time.Time) (<-chan common.LogMessage, error) {
