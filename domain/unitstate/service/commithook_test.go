@@ -888,6 +888,63 @@ func (s *commitHookSuite) TestPrepareSecretCreatesEmpty(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *commitHookSuite) TestPrepareSecretCreatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"key": "val"},
+					ValueRef: &coresecrets.ValueRef{BackendID: "backend", RevisionID: "rev"},
+				},
+			},
+			URI: uri,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorMatches, `create\[0\]: data and value ref are mutually exclusive`)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				Data:     map[string]string{"key": "val"},
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend", RevisionID: "rev"},
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorMatches, `update\[0\]: data and value ref are mutually exclusive`)
+}
+
 func (s *commitHookSuite) TestCommitHookChangesSecretCreateDeadUnit(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

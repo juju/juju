@@ -152,6 +152,13 @@ func (s *LeadershipService) prepareSecretCreates(
 	}()
 
 	for i, create := range creates {
+		// Defensive check: the facade already enforces this, so this
+		// guards against internal callers or future bugs. Not expected
+		// to be hit in normal operation.
+		if len(create.Data) > 0 && create.ValueRef != nil {
+			return nil, nil, errors.Errorf("create[%d]: data and value ref are mutually exclusive", i)
+		}
+
 		revisionID, err := s.uuidGenerator()
 		if err != nil {
 			return nil, nil, errors.Errorf("generating revision UUID for create[%d]: %w", i, err)
@@ -244,6 +251,13 @@ func (s *LeadershipService) prepareSecretUpdates(
 	}()
 
 	for i, update := range updates {
+		// Defensive check: the facade already enforces this, so this
+		// guards against internal callers or future bugs. Not expected
+		// to be hit in normal operation.
+		if len(update.Data) > 0 && update.ValueRef != nil {
+			return nil, nil, errors.Errorf("update[%d]: data and value ref are mutually exclusive", i)
+		}
+
 		arg := internal.UpdateSecretArg{
 			SecretID:  update.URI.ID,
 			Checksum:  update.Checksum,

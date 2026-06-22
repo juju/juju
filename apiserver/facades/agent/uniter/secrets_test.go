@@ -257,6 +257,21 @@ func (s *UniterSecretsSuite) TestPrepareSecretCreatesWithCustomURI(c *tc.C) {
 	c.Check(result[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
 }
 
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "unit-mariadb/0",
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{
+				Data:     map[string]string{"foo": "bar"},
+				ValueRef: &params.SecretValueRef{BackendID: "backend", RevisionID: "rev"},
+			},
+		},
+	}})
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*must specify either content or a value reference but not both.*`)
+}
+
 // --- prepareSecretUpdates tests ---
 
 func (s *UniterSecretsSuite) TestPrepareSecretUpdatesNotFoundSkipped(c *tc.C) {
@@ -362,6 +377,26 @@ func (s *UniterSecretsSuite) TestPrepareSecretUpdatesNoAttributesSpecified(c *tc
 		UpsertSecretArg: params.UpsertSecretArg{},
 	}})
 	c.Assert(err, tc.ErrorMatches, `updating secrets: at least one attribute to update must be specified`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretUpdatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uri := coresecrets.NewURI()
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+
+	_, err := s.facade.prepareSecretUpdates(c.Context(), unitName, []params.UpdateSecretArg{{
+		URI: uri.String(),
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{
+				Data:     map[string]string{"foo": "bar"},
+				ValueRef: &params.SecretValueRef{BackendID: "backend", RevisionID: "rev"},
+			},
+		},
+	}})
+	c.Assert(err, tc.ErrorMatches, `updating secrets: .*must specify either content or a value reference but not both.*`)
 }
 
 // --- prepareSecretTrackLatest tests ---

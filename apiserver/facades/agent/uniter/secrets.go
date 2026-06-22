@@ -149,6 +149,10 @@ func (u *UniterAPI) prepareSecretCreates(
 			createErrs = append(createErrs, errors.NotValidf("empty secret value"))
 			continue
 		}
+		if len(createArg.Content.Data) > 0 && createArg.Content.ValueRef != nil {
+			createErrs = append(createErrs, errors.New("must specify either content or a value reference but not both"))
+			continue
+		}
 		secretOwner, err := names.ParseTag(createArg.OwnerTag)
 		if err != nil {
 			createErrs = append(createErrs, err)
@@ -679,6 +683,10 @@ func (u *UniterAPI) prepareSecretUpdates(
 		}
 		if !upd.HasUpdate() {
 			updateErrs = append(updateErrs, errors.New("at least one attribute to update must be specified"))
+			continue
+		}
+		if len(upd.Content.Data) > 0 && upd.Content.ValueRef != nil {
+			updateErrs = append(updateErrs, errors.New("must specify either content or a value reference but not both"))
 			continue
 		}
 		var valueRef *coresecrets.ValueRef
