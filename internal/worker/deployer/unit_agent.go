@@ -300,6 +300,9 @@ func (a *UnitAgent) initLogging() (logger.LoggerContext, *logsender.BufferedLogW
 		if _, err = loggerContext.RemoveWriter("file"); err != nil {
 			a.logger.Errorf(context.TODO(), "%q remove writer: %s", a.name, err)
 		}
+		if _, err = loggerContext.RemoveWriter("buffered-logs"); err != nil {
+			a.logger.Errorf(context.TODO(), "%q remove buffered-logs writer: %s", a.name, err)
+		}
 		bufferedLogger.Close()
 		if err = ljLogger.Close(); err != nil {
 			a.logger.Errorf(context.TODO(), "%q lumberjack logger close: %s", a.name, err)

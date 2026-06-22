@@ -446,7 +446,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Annotate(err, "unable to install buffered log writer")
 	}
-	defer bufferedLogger.Close()
+	defer func() { _ = logsender.UninstallBufferedLogWriter() }()
 
 	// Prime the log sink and create the writer.
 	logSink, err := PrimeLogSink(a.CurrentConfig())
