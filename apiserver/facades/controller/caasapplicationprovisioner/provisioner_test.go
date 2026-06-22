@@ -143,12 +143,13 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 	modelInfo := model.ModelInfo{
 		UUID: model.UUID(coretesting.ModelTag.Id()),
 	}
+	appCons := constraints.MustParse("mem=2G cpu-power=200")
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
-	s.modelInfoService.EXPECT().ResolveConstraints(gomock.Any(), constraints.Value{}).Return(constraints.Value{}, nil)
+	s.modelInfoService.EXPECT().ResolveConstraints(gomock.Any(), appCons).Return(appCons, nil)
 
 	s.applicationService.EXPECT().GetApplicationScale(gomock.Any(), "gitlab").Return(3, nil)
 	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return(coreapplication.UUID("deadbeef"), nil)
-	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.UUID("deadbeef")).Return(constraints.Value{}, nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.UUID("deadbeef")).Return(appCons, nil)
 	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
 	s.applicationService.EXPECT().GetApplicationCharmOrigin(gomock.Any(), "gitlab").Return(charm.Origin{
 		Platform: charm.Platform{
@@ -175,6 +176,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 			},
 			CharmModifiedVersion: 10,
 			Scale:                3,
+			Constraints:          appCons,
 			Trust:                true,
 			Base: params.Base{
 				Name:    "ubuntu",

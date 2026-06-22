@@ -27,7 +27,6 @@ import (
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
@@ -435,7 +434,7 @@ func (a *API) provisioningInfo(ctx context.Context, appTag names.ApplicationTag)
 		return nil, errors.Trace(err)
 	}
 	mergedCons, err := a.modelInfoService.ResolveConstraints(ctx, cons)
-	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	resourceTags := tags.ResourceTags(
