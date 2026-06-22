@@ -119,33 +119,33 @@ type MockControllerState struct {
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
-	mock                                           *MockControllerState
-	aggregateMinionReportsExpects                  []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	assertImportingExpects                         []*gomock.Call2_1[context.Context, string, error]
-	beginImportExpects                             []*gomock.Call3_2[context.Context, string, string, string, error]
-	checkCloudRegionExpects                        []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
-	checkImportModelCollisionExpects               []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportModelCollision, error]
-	deleteModelImportingStatusExpects              []*gomock.Call2_1[context.Context, string, error]
-	ensureExternalControllerMatchesOrInsertExpects []*gomock.Call2_1[context.Context, modelmigration.ExternalController, error]
-	getActiveExportExpects                         []*gomock.Call2_2[context.Context, string, internal.Migration, error]
-	getActiveExportUUIDExpects                     []*gomock.Call2_2[context.Context, string, string, error]
-	getControllerModelInfoExpects                  []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
-	getControllerTargetVersionExpects              []*gomock.Call1_2[context.Context, string, error]
-	getCredentialRevokedExpects                    []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
-	getDisabledUsersExpects                        []*gomock.Call2_2[context.Context, []string, []string, error]
-	getImportClaimExpects                          []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
-	getMigrationModeExpects                        []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
-	getSourceControllerInfoExpects                 []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
-	importExternalControllersExpects               []*gomock.Call4_1[context.Context, string, string, []modelmigration.ExternalController, error]
-	importOfferPermissionsExpects                  []*gomock.Call4_1[context.Context, string, string, []string, error]
-	insertExportExpects                            []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
-	insertMinionReportExpects                      []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
-	namespaceForWatchExportExpects                 []*gomock.Call0_1[string]
-	namespaceForWatchMinionSyncExpects             []*gomock.Call0_1[string]
-	namespaceForWatchPhaseExpects                  []*gomock.Call0_1[string]
-	secretBackendExistsExpects                     []*gomock.Call2_2[context.Context, string, bool, error]
-	setPhaseExpects                                []*gomock.Call3_1[context.Context, string, migration.Phase, error]
-	setStatusMessageExpects                        []*gomock.Call3_1[context.Context, string, string, error]
+	mock                                  *MockControllerState
+	aggregateMinionReportsExpects         []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+	assertImportingExpects                []*gomock.Call2_1[context.Context, string, error]
+	beginImportExpects                    []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportClaim, error]
+	checkCloudRegionExpects               []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
+	checkImportModelCollisionExpects      []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportModelCollision, error]
+	deleteModelImportingStatusExpects     []*gomock.Call2_1[context.Context, string, error]
+	ensureExternalControllerExistsExpects []*gomock.Call2_1[context.Context, internal.ExternalController, error]
+	getActiveExportExpects                []*gomock.Call2_2[context.Context, string, internal.Migration, error]
+	getActiveExportUUIDExpects            []*gomock.Call2_2[context.Context, string, string, error]
+	getControllerModelInfoExpects         []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
+	getControllerTargetVersionExpects     []*gomock.Call1_2[context.Context, string, error]
+	getCredentialRevokedExpects           []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
+	getDisabledUsersExpects               []*gomock.Call2_2[context.Context, []string, []string, error]
+	getImportClaimExpects                 []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
+	getMigrationModeExpects               []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
+	getSourceControllerInfoExpects        []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
+	importExternalControllersExpects      []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
+	importOfferPermissionsExpects         []*gomock.Call4_1[context.Context, string, string, []string, error]
+	insertExportExpects                   []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
+	insertMinionReportExpects             []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	namespaceForWatchExportExpects        []*gomock.Call0_1[string]
+	namespaceForWatchMinionSyncExpects    []*gomock.Call0_1[string]
+	namespaceForWatchPhaseExpects         []*gomock.Call0_1[string]
+	secretBackendExistsExpects            []*gomock.Call2_2[context.Context, string, bool, error]
+	setPhaseExpects                       []*gomock.Call3_1[context.Context, string, migration.Phase, error]
+	setStatusMessageExpects               []*gomock.Call3_1[context.Context, string, string, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -197,22 +197,22 @@ func (mr *MockControllerStateMockRecorder) AssertImporting(ctx, modelUUID any) *
 type MockControllerStateAssertImportingCall = gomock.Call2_1[context.Context, string, error]
 
 // BeginImport mocks base method.
-func (m *MockControllerState) BeginImport(ctx context.Context, modelUUID, sourceMigrationUUID string) (string, error) {
+func (m *MockControllerState) BeginImport(ctx context.Context, modelUUID, claimUUID, sourceMigrationUUID string) (modelmigration0.ImportClaim, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.beginImportExpects, m.ctrl, m, "BeginImport", ctx, modelUUID, sourceMigrationUUID)
+	return gomock.Dispatch4_2(&m.recorder.beginImportExpects, m.ctrl, m, "BeginImport", ctx, modelUUID, claimUUID, sourceMigrationUUID)
 }
 
 // BeginImport indicates an expected call of BeginImport.
-func (mr *MockControllerStateMockRecorder) BeginImport(ctx, modelUUID, sourceMigrationUUID any) *MockControllerStateBeginImportCall {
+func (mr *MockControllerStateMockRecorder) BeginImport(ctx, modelUUID, claimUUID, sourceMigrationUUID any) *MockControllerStateBeginImportCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[context.Context, string, string, string, error](mr.mock.ctrl.T, mr.mock, "BeginImport", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(sourceMigrationUUID))
+	call := gomock.NewCall4_2[context.Context, string, string, string, modelmigration0.ImportClaim, error](mr.mock.ctrl.T, mr.mock, "BeginImport", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(claimUUID), gomock.EnsureMatcher(sourceMigrationUUID))
 	mr.beginImportExpects = append(mr.beginImportExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockControllerStateBeginImportCall is the typed call wrapper for BeginImport.
-type MockControllerStateBeginImportCall = gomock.Call3_2[context.Context, string, string, string, error]
+type MockControllerStateBeginImportCall = gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportClaim, error]
 
 // CheckCloudRegion mocks base method.
 func (m *MockControllerState) CheckCloudRegion(ctx context.Context, cloudName, regionName string) (bool, bool, error) {
@@ -268,23 +268,23 @@ func (mr *MockControllerStateMockRecorder) DeleteModelImportingStatus(ctx, model
 // MockControllerStateDeleteModelImportingStatusCall is the typed call wrapper for DeleteModelImportingStatus.
 type MockControllerStateDeleteModelImportingStatusCall = gomock.Call2_1[context.Context, string, error]
 
-// EnsureExternalControllerMatchesOrInsert mocks base method.
-func (m *MockControllerState) EnsureExternalControllerMatchesOrInsert(ctx context.Context, ref modelmigration.ExternalController) error {
+// EnsureExternalControllerExists mocks base method.
+func (m *MockControllerState) EnsureExternalControllerExists(ctx context.Context, ref internal.ExternalController) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.ensureExternalControllerMatchesOrInsertExpects, m.ctrl, m, "EnsureExternalControllerMatchesOrInsert", ctx, ref)
+	return gomock.Dispatch2_1(&m.recorder.ensureExternalControllerExistsExpects, m.ctrl, m, "EnsureExternalControllerExists", ctx, ref)
 }
 
-// EnsureExternalControllerMatchesOrInsert indicates an expected call of EnsureExternalControllerMatchesOrInsert.
-func (mr *MockControllerStateMockRecorder) EnsureExternalControllerMatchesOrInsert(ctx, ref any) *MockControllerStateEnsureExternalControllerMatchesOrInsertCall {
+// EnsureExternalControllerExists indicates an expected call of EnsureExternalControllerExists.
+func (mr *MockControllerStateMockRecorder) EnsureExternalControllerExists(ctx, ref any) *MockControllerStateEnsureExternalControllerExistsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, modelmigration.ExternalController, error](mr.mock.ctrl.T, mr.mock, "EnsureExternalControllerMatchesOrInsert", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ref))
-	mr.ensureExternalControllerMatchesOrInsertExpects = append(mr.ensureExternalControllerMatchesOrInsertExpects, call)
+	call := gomock.NewCall2_1[context.Context, internal.ExternalController, error](mr.mock.ctrl.T, mr.mock, "EnsureExternalControllerExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ref))
+	mr.ensureExternalControllerExistsExpects = append(mr.ensureExternalControllerExistsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerStateEnsureExternalControllerMatchesOrInsertCall is the typed call wrapper for EnsureExternalControllerMatchesOrInsert.
-type MockControllerStateEnsureExternalControllerMatchesOrInsertCall = gomock.Call2_1[context.Context, modelmigration.ExternalController, error]
+// MockControllerStateEnsureExternalControllerExistsCall is the typed call wrapper for EnsureExternalControllerExists.
+type MockControllerStateEnsureExternalControllerExistsCall = gomock.Call2_1[context.Context, internal.ExternalController, error]
 
 // GetActiveExport mocks base method.
 func (m *MockControllerState) GetActiveExport(ctx context.Context, modelUUID string) (internal.Migration, error) {
@@ -449,7 +449,7 @@ func (mr *MockControllerStateMockRecorder) GetSourceControllerInfo(ctx any) *Moc
 type MockControllerStateGetSourceControllerInfoCall = gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 
 // ImportExternalControllers mocks base method.
-func (m *MockControllerState) ImportExternalControllers(ctx context.Context, modelUUID, claimUUID string, refs []modelmigration.ExternalController) error {
+func (m *MockControllerState) ImportExternalControllers(ctx context.Context, modelUUID, claimUUID string, refs []internal.ExternalController) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch4_1(&m.recorder.importExternalControllersExpects, m.ctrl, m, "ImportExternalControllers", ctx, modelUUID, claimUUID, refs)
 }
@@ -457,14 +457,14 @@ func (m *MockControllerState) ImportExternalControllers(ctx context.Context, mod
 // ImportExternalControllers indicates an expected call of ImportExternalControllers.
 func (mr *MockControllerStateMockRecorder) ImportExternalControllers(ctx, modelUUID, claimUUID, refs any) *MockControllerStateImportExternalControllersCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, string, string, []modelmigration.ExternalController, error](mr.mock.ctrl.T, mr.mock, "ImportExternalControllers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(claimUUID), gomock.EnsureMatcher(refs))
+	call := gomock.NewCall4_1[context.Context, string, string, []internal.ExternalController, error](mr.mock.ctrl.T, mr.mock, "ImportExternalControllers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(claimUUID), gomock.EnsureMatcher(refs))
 	mr.importExternalControllersExpects = append(mr.importExternalControllersExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockControllerStateImportExternalControllersCall is the typed call wrapper for ImportExternalControllers.
-type MockControllerStateImportExternalControllersCall = gomock.Call4_1[context.Context, string, string, []modelmigration.ExternalController, error]
+type MockControllerStateImportExternalControllersCall = gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
 
 // ImportOfferPermissions mocks base method.
 func (m *MockControllerState) ImportOfferPermissions(ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string) error {

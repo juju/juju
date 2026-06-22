@@ -7,27 +7,29 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/uuid"
 )
 
 // TestBeginImport verifies that a fresh claim is inserted with phase
-// "importing" and the recorded source migration UUID, and that the claim's
-// UUID is returned.
+// "importing" and the recorded source migration UUID, and that the inserted
+// claim is returned.
 func (s *stateSuite) TestBeginImport(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
 	sourceMigrationUUID := uuid.MustNewUUID().String()
-	claimUUID, err := st.BeginImport(c.Context(), s.modelUUID.String(), sourceMigrationUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(claimUUID, tc.Not(tc.Equals), "")
-
-	claim, err := st.GetImportClaim(c.Context(), s.modelUUID.String())
+	claimUUID := uuid.MustNewUUID().String()
+	claim, err := st.BeginImport(c.Context(), s.modelUUID.String(), claimUUID, sourceMigrationUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(claim.SourceMigrationUUID, tc.Equals, sourceMigrationUUID)
 	c.Check(claim.Phase, tc.Equals, modelmigration.ImportPhaseImporting)
+
+	persisted, err := st.GetImportClaim(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(persisted.SourceMigrationUUID, tc.Equals, sourceMigrationUUID)
+	c.Check(persisted.Phase, tc.Equals, modelmigration.ImportPhaseImporting)
 }
 
 // TestBeginImportEmptySourceMigrationUUID verifies that an empty source
@@ -35,7 +37,7 @@ func (s *stateSuite) TestBeginImport(c *tc.C) {
 func (s *stateSuite) TestBeginImportEmptySourceMigrationUUID(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), "")
+	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String(), "")
 	c.Assert(err, tc.ErrorMatches, ".*empty source migration uuid.*")
 
 	_, err = st.GetImportClaim(c.Context(), s.modelUUID.String())
@@ -43,16 +45,20 @@ func (s *stateSuite) TestBeginImportEmptySourceMigrationUUID(c *tc.C) {
 }
 
 // TestBeginImportDuplicate verifies that a second claim for the same model
-// returns ErrImportClaimExists and does not disturb the existing claim.
+// returns ErrImportClaimExists together with the existing claim, and does not
+// disturb it.
 func (s *stateSuite) TestBeginImportDuplicate(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
 	firstSourceUUID := uuid.MustNewUUID().String()
-	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), firstSourceUUID)
+	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String(), firstSourceUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String())
+	existing, err := st.BeginImport(
+		c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String(), uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportClaimExists)
+	c.Check(existing.SourceMigrationUUID, tc.Equals, firstSourceUUID)
+	c.Check(existing.Phase, tc.Equals, modelmigration.ImportPhaseImporting)
 
 	claim, err := st.GetImportClaim(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -67,7 +73,8 @@ func (s *stateSuite) TestAssertImporting(c *tc.C) {
 	err := st.AssertImporting(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
 
-	claimUUID, err := st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String())
+	claimUUID := uuid.MustNewUUID().String()
+	_, err = st.BeginImport(c.Context(), s.modelUUID.String(), claimUUID, uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = st.AssertImporting(c.Context(), s.modelUUID.String())
@@ -90,7 +97,8 @@ func (s *stateSuite) TestAssertImporting(c *tc.C) {
 func (s *stateSuite) TestImportOfferPermissions(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	claimUUID, err := st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String())
+	claimUUID := uuid.MustNewUUID().String()
+	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), claimUUID, uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	offerUUID1 := uuid.MustNewUUID().String()
@@ -117,46 +125,63 @@ func (s *stateSuite) TestImportOfferPermissions(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotImporting)
 }
 
-// TestEnsureExternalControllerMatchesOrInsert verifies insert-if-absent,
+// TestEnsureExternalControllerExists verifies insert-if-absent,
 // no-op-if-identical and fail-on-mismatch semantics.
-func (s *stateSuite) TestEnsureExternalControllerMatchesOrInsert(c *tc.C) {
+func (s *stateSuite) TestEnsureExternalControllerExists(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	ref := coremodelmigration.ExternalController{
-		UUID:      uuid.MustNewUUID().String(),
-		Alias:     "other",
-		CACert:    "ca-cert",
-		Addresses: []string{"10.0.0.1:17070", "10.0.0.2:17070"},
-	}
+	ctrlUUID := uuid.MustNewUUID().String()
+	ref := externalController(ctrlUUID, "other", "ca-cert", []string{"10.0.0.1:17070", "10.0.0.2:17070"}, nil)
 
-	err := st.EnsureExternalControllerMatchesOrInsert(c.Context(), ref)
+	err := st.EnsureExternalControllerExists(c.Context(), ref)
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
 	err = s.DB().QueryRowContext(c.Context(),
-		"SELECT COUNT(*) FROM external_controller WHERE uuid = ?", ref.UUID).Scan(&count)
+		"SELECT COUNT(*) FROM external_controller WHERE uuid = ?", ctrlUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
 	err = s.DB().QueryRowContext(c.Context(),
-		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ?", ref.UUID).Scan(&count)
+		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ?", ctrlUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 2)
 
 	// Identical details: no-op, no error.
-	err = st.EnsureExternalControllerMatchesOrInsert(c.Context(), ref)
+	err = st.EnsureExternalControllerExists(c.Context(), ref)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Different addresses: fail, do not overwrite.
-	mismatched := ref
-	mismatched.Addresses = []string{"10.0.0.9:17070"}
-	err = st.EnsureExternalControllerMatchesOrInsert(c.Context(), mismatched)
+	mismatched := externalController(ctrlUUID, "other", "ca-cert", []string{"10.0.0.9:17070"}, nil)
+	err = st.EnsureExternalControllerExists(c.Context(), mismatched)
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerMismatch)
 
 	err = s.DB().QueryRowContext(c.Context(),
 		"SELECT COUNT(*) FROM external_controller_address WHERE controller_uuid = ? AND address = ?",
-		ref.UUID, "10.0.0.9:17070").Scan(&count)
+		ctrlUUID, "10.0.0.9:17070").Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+// externalController builds a state-layer external controller reference with
+// freshly generated address row UUIDs, mirroring the service-side
+// translation.
+func externalController(
+	ctrlUUID, alias, caCert string, addrs, consumed []string,
+) modelmigrationinternal.ExternalController {
+	a := make([]modelmigrationinternal.ExternalControllerAddress, len(addrs))
+	for i, addr := range addrs {
+		a[i] = modelmigrationinternal.ExternalControllerAddress{
+			UUID:    uuid.MustNewUUID().String(),
+			Address: addr,
+		}
+	}
+	return modelmigrationinternal.ExternalController{
+		UUID:           ctrlUUID,
+		Alias:          alias,
+		CACert:         caCert,
+		Addresses:      a,
+		ConsumedModels: consumed,
+	}
 }
 
 // TestImportExternalControllers verifies that third-party controllers and
@@ -165,19 +190,16 @@ func (s *stateSuite) TestEnsureExternalControllerMatchesOrInsert(c *tc.C) {
 func (s *stateSuite) TestImportExternalControllers(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 
-	claimUUID, err := st.BeginImport(c.Context(), s.modelUUID.String(), uuid.MustNewUUID().String())
+	claimUUID := uuid.MustNewUUID().String()
+	_, err := st.BeginImport(c.Context(), s.modelUUID.String(), claimUUID, uuid.MustNewUUID().String())
 	c.Assert(err, tc.ErrorIsNil)
 
 	offererModelUUID := uuid.MustNewUUID().String()
-	ref := coremodelmigration.ExternalController{
-		UUID:           uuid.MustNewUUID().String(),
-		Alias:          "third-party",
-		CACert:         "ca-cert",
-		Addresses:      []string{"10.0.0.5:17070"},
-		ConsumedModels: []string{offererModelUUID},
-	}
+	ref := externalController(
+		uuid.MustNewUUID().String(), "third-party", "ca-cert",
+		[]string{"10.0.0.5:17070"}, []string{offererModelUUID})
 
-	err = st.ImportExternalControllers(c.Context(), s.modelUUID.String(), claimUUID, []coremodelmigration.ExternalController{ref})
+	err = st.ImportExternalControllers(c.Context(), s.modelUUID.String(), claimUUID, []modelmigrationinternal.ExternalController{ref})
 	c.Assert(err, tc.ErrorIsNil)
 
 	var count int
@@ -201,12 +223,9 @@ func (s *stateSuite) TestImportExternalControllers(c *tc.C) {
 
 	// A second consumed model on a different controller for the same
 	// offerer model UUID must fail rather than silently re-pointing it.
-	otherRef := coremodelmigration.ExternalController{
-		UUID:           uuid.MustNewUUID().String(),
-		CACert:         "other-ca-cert",
-		ConsumedModels: []string{offererModelUUID},
-	}
+	otherRef := externalController(
+		uuid.MustNewUUID().String(), "", "other-ca-cert", nil, []string{offererModelUUID})
 	err = st.ImportExternalControllers(
-		c.Context(), s.modelUUID.String(), claimUUID, []coremodelmigration.ExternalController{otherRef})
+		c.Context(), s.modelUUID.String(), claimUUID, []modelmigrationinternal.ExternalController{otherRef})
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerMismatch)
 }

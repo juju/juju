@@ -8,13 +8,11 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // These methods implement the target-side v8 import claim, the
@@ -29,31 +27,29 @@ import (
 
 // BeginImport inserts a new durable model_migration_import claim
 // (phase=importing) for modelUUID as the first target-side write of a v8
-// import, and returns the claim's UUID. sourceMigrationUUID is recorded for
-// diagnostics only and must be non-empty.
+// import, using claimUUID as the claim's UUID, and returns the resulting
+// claim. sourceMigrationUUID is recorded for diagnostics only and must be
+// non-empty.
 //
-// If a claim already exists for modelUUID,
-// [modelmigrationerrors.ErrImportClaimExists] is returned. The caller should
-// then call [State.GetImportClaim] to learn the existing claim's phase and
+// If a claim already exists for modelUUID, the existing claim is returned
+// alongside [modelmigrationerrors.ErrImportClaimExists], so the caller can
 // report the correct AlreadyExists wording (a duplicate importing claim,
-// cleanup in progress, or activation in progress).
-func (s *State) BeginImport(ctx context.Context, modelUUID, sourceMigrationUUID string) (string, error) {
+// cleanup in progress, or activation in progress) without a second read.
+func (s *State) BeginImport(
+	ctx context.Context, modelUUID, claimUUID, sourceMigrationUUID string,
+) (modelmigration.ImportClaim, error) {
 	if sourceMigrationUUID == "" {
-		return "", errors.Errorf("empty source migration uuid for model %q", modelUUID)
+		return modelmigration.ImportClaim{}, errors.Errorf(
+			"empty source migration uuid for model %q", modelUUID)
 	}
 
 	db, err := s.DB(ctx)
 	if err != nil {
-		return "", errors.Capture(err)
-	}
-
-	claimUUID, err := uuid.NewUUID()
-	if err != nil {
-		return "", errors.Errorf("generating import claim uuid: %w", err)
+		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 
 	claim := importClaimArg{
-		UUID:                claimUUID.String(),
+		UUID:                claimUUID,
 		ModelUUID:           modelUUID,
 		SourceMigrationUUID: sourceMigrationUUID,
 	}
@@ -62,23 +58,38 @@ INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
 VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid, $importClaimArg.source_migration_uuid)
 `, claim)
 	if err != nil {
-		return "", errors.Capture(err)
+		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 
+	var result modelmigration.ImportClaim
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, claim).Run(); err != nil {
 			if database.IsErrConstraintUnique(err) {
+				// Return the existing claim so the service can report the
+				// correct phase wording without a second query.
+				existing, getErr := s.getImportClaimTx(ctx, tx, modelUUID)
+				if getErr != nil {
+					return errors.Errorf("reading existing import claim: %w", getErr)
+				}
+				result = existing
 				return errors.Errorf(
 					"model %q: %w", modelUUID, modelmigrationerrors.ErrImportClaimExists)
 			}
 			return errors.Errorf("inserting import claim for model %q: %w", modelUUID, err)
 		}
+		result = modelmigration.ImportClaim{
+			SourceMigrationUUID: sourceMigrationUUID,
+			Phase:               modelmigration.ImportPhaseImporting,
+		}
 		return nil
 	})
 	if err != nil {
-		return "", errors.Capture(err)
+		if errors.Is(err, modelmigrationerrors.ErrImportClaimExists) {
+			return result, err
+		}
+		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
-	return claim.UUID, nil
+	return result, nil
 }
 
 // AssertImporting returns nil if a model_migration_import claim exists for
@@ -101,10 +112,10 @@ func (s *State) AssertImporting(ctx context.Context, modelUUID string) error {
 	return nil
 }
 
-// assertImportingTx is the importing-phase assertion used inside a
-// write-group transaction, so the phase check and the write it gates commit
-// atomically.
-func (s *State) assertImportingTx(ctx context.Context, tx *sqlair.TX, modelUUID string) error {
+// ensureImportingState returns nil only while the model_migration_import claim
+// for modelUUID is in the importing phase, run inside a write-group
+// transaction so the phase check and the write it gates commit atomically.
+func (s *State) ensureImportingState(ctx context.Context, tx *sqlair.TX, modelUUID string) error {
 	arg := modelUUIDArg{ModelUUID: modelUUID}
 	var row importPhaseRow
 	stmt, err := s.Prepare(`
@@ -159,11 +170,12 @@ VALUES ($importOfferArg.migration_uuid, $importOfferArg.offer_uuid)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.assertImportingTx(ctx, tx, modelUUID); err != nil {
+		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
 			return errors.Capture(err)
 		}
+		arg := importOfferArg{MigrationUUID: claimUUID}
 		for _, offerUUID := range offerUUIDs {
-			arg := importOfferArg{MigrationUUID: claimUUID, OfferUUID: offerUUID}
+			arg.OfferUUID = offerUUID
 			if err := tx.Query(ctx, insertStmt, arg).Run(); err != nil {
 				return errors.Errorf("recording import offer %q: %w", offerUUID, err)
 			}
@@ -172,28 +184,27 @@ VALUES ($importOfferArg.migration_uuid, $importOfferArg.offer_uuid)
 	})
 }
 
-// EnsureExternalControllerMatchesOrInsert compares the given third-party
-// controller's connection details (alias, CA cert, addresses) against any
-// existing external_controller row with the same UUID. It inserts the
-// controller and its addresses if absent, no-ops if the existing row is
-// identical, and fails with
-// [modelmigrationerrors.ErrExternalControllerMismatch] if they differ.
+// EnsureExternalControllerExists compares the given third-party controller's
+// connection details (alias, CA cert, addresses) against any existing
+// external_controller row with the same UUID. It inserts the controller and
+// its addresses if absent, no-ops if the existing row is identical, and fails
+// with [modelmigrationerrors.ErrExternalControllerMismatch] if they differ.
 // Unlike the legacy importer's UPSERT, a v8 import must never silently
 // overwrite live CMR connection data that other models may share.
-func (s *State) EnsureExternalControllerMatchesOrInsert(
-	ctx context.Context, ref coremodelmigration.ExternalController,
+func (s *State) EnsureExternalControllerExists(
+	ctx context.Context, ref modelmigrationinternal.ExternalController,
 ) error {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return s.ensureExternalControllerMatchesOrInsertTx(ctx, tx, ref)
+		return s.ensureExternalControllerExistsTx(ctx, tx, ref)
 	})
 }
 
-func (s *State) ensureExternalControllerMatchesOrInsertTx(
-	ctx context.Context, tx *sqlair.TX, ref coremodelmigration.ExternalController,
+func (s *State) ensureExternalControllerExistsTx(
+	ctx context.Context, tx *sqlair.TX, ref modelmigrationinternal.ExternalController,
 ) error {
 	ctrlUUID := entityUUID{UUID: ref.UUID}
 
@@ -222,11 +233,7 @@ WHERE  controller_uuid = $entityUUID.uuid
 		return errors.Errorf("looking up external controller %q: %w", ref.UUID, err)
 	}
 	if errors.Is(err, sqlair.ErrNoRows) {
-		addrs, err := newExternalControllerAddresses(ref.Addresses)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		return s.insertExternalController(ctx, tx, info, addrs)
+		return s.insertExternalController(ctx, tx, info, ref.Addresses)
 	}
 
 	var existingAddrs []addressValue
@@ -236,7 +243,7 @@ WHERE  controller_uuid = $entityUUID.uuid
 	}
 	if existing.Alias == info.Alias &&
 		existing.CACert == info.CACert &&
-		addressesMatch(existingAddrs, compareAddresses(ref.Addresses)) {
+		addressesMatch(existingAddrs, ref.Addresses) {
 		return nil
 	}
 	return errors.Errorf(
@@ -293,14 +300,14 @@ INSERT INTO external_model (*) VALUES ($externalModelArg.*)
 // with an importing-phase assertion for modelUUID.
 //
 // For each reference it compares-or-inserts external_controller and
-// external_controller_address via EnsureExternalControllerMatchesOrInsert,
+// external_controller_address via EnsureExternalControllerExists,
 // compares-or-inserts the consumed external_model rows the same way, and
 // records each (offerer_model_uuid, controller_uuid) pair into
 // model_migration_import_external_controller_model -- the durable handoff
 // Activate reads to reconcile offerer-controller mappings even after a
 // controller restart (WS9/WS4.1).
 func (s *State) ImportExternalControllers(
-	ctx context.Context, modelUUID, claimUUID string, refs []coremodelmigration.ExternalController,
+	ctx context.Context, modelUUID, claimUUID string, refs []modelmigrationinternal.ExternalController,
 ) error {
 	if len(refs) == 0 {
 		return nil
@@ -323,24 +330,22 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.assertImportingTx(ctx, tx, modelUUID); err != nil {
+		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
 			return errors.Capture(err)
 		}
+		mapping := importExternalControllerModelArg{MigrationUUID: claimUUID}
 		for _, ref := range refs {
-			if err := s.ensureExternalControllerMatchesOrInsertTx(ctx, tx, ref); err != nil {
+			if err := s.ensureExternalControllerExistsTx(ctx, tx, ref); err != nil {
 				return errors.Capture(err)
 			}
+			mapping.ControllerUUID = ref.UUID
 			for _, consumedModelUUID := range ref.ConsumedModels {
 				if err := s.ensureExternalModelMatchesOrInsertTx(
 					ctx, tx, consumedModelUUID, ref.UUID,
 				); err != nil {
 					return errors.Capture(err)
 				}
-				mapping := importExternalControllerModelArg{
-					MigrationUUID:    claimUUID,
-					OffererModelUUID: consumedModelUUID,
-					ControllerUUID:   ref.UUID,
-				}
+				mapping.OffererModelUUID = consumedModelUUID
 				if err := tx.Query(ctx, insertMappingStmt, mapping).Run(); err != nil {
 					return errors.Errorf(
 						"recording import external controller model %q: %w", consumedModelUUID, err)
@@ -349,33 +354,4 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 		}
 		return nil
 	})
-}
-
-// newExternalControllerAddresses generates a fresh UUID for each address so
-// the rows can be inserted via insertExternalControllerAddresses.
-func newExternalControllerAddresses(
-	addrs []string,
-) ([]modelmigrationinternal.ExternalControllerAddress, error) {
-	out := make([]modelmigrationinternal.ExternalControllerAddress, 0, len(addrs))
-	for _, addr := range addrs {
-		id, err := uuid.NewUUID()
-		if err != nil {
-			return nil, errors.Errorf("generating external controller address uuid: %w", err)
-		}
-		out = append(out, modelmigrationinternal.ExternalControllerAddress{
-			UUID:    id.String(),
-			Address: addr,
-		})
-	}
-	return out, nil
-}
-
-// compareAddresses adapts a plain address list to the shape addressesMatch
-// expects, for comparison only (no UUID needed).
-func compareAddresses(addrs []string) []modelmigrationinternal.ExternalControllerAddress {
-	out := make([]modelmigrationinternal.ExternalControllerAddress, len(addrs))
-	for i, addr := range addrs {
-		out[i] = modelmigrationinternal.ExternalControllerAddress{Address: addr}
-	}
-	return out
 }

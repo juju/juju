@@ -6,12 +6,14 @@ package service
 import (
 	"context"
 
-	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // These methods are thin controller-scoped pass-throughs onto the v8 import
@@ -23,8 +25,8 @@ import (
 
 // BeginImport claims modelUUID for a new v8 import by inserting the durable
 // model_migration_import row (phase=importing) as the first target-side
-// write. sourceMigrationUUID is recorded for diagnostics only and must be
-// non-empty.
+// write, and returns the new claim's UUID. sourceMigrationUUID is recorded
+// for diagnostics only and must be non-empty.
 //
 // If a claim already exists, it returns an error wrapping
 // [coreerrors.AlreadyExists] whose message reflects the existing claim's
@@ -32,27 +34,30 @@ import (
 // progress wording when phase=activating, or a plain occupied-model message
 // otherwise. The v8 facade maps any [coreerrors.AlreadyExists] error to
 // params.CodeAlreadyExists.
-func (s *Service) BeginImport(ctx context.Context, modelUUID, sourceMigrationUUID string) (string, error) {
+func (s *Service) BeginImport(ctx context.Context, modelUUID coremodel.UUID, sourceMigrationUUID string) (string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	claimUUID, err := s.controllerState.BeginImport(ctx, modelUUID, sourceMigrationUUID)
+	if err := modelUUID.Validate(); err != nil {
+		return "", errors.Errorf("validating model uuid: %w", err)
+	}
+
+	claimUUID, err := uuid.NewUUID()
+	if err != nil {
+		return "", errors.Errorf("generating import claim uuid: %w", err)
+	}
+
+	claim, err := s.controllerState.BeginImport(ctx, modelUUID.String(), claimUUID.String(), sourceMigrationUUID)
 	if err == nil {
-		return claimUUID, nil
+		return claimUUID.String(), nil
 	}
 	if !errors.Is(err, modelmigrationerrors.ErrImportClaimExists) {
 		return "", errors.Capture(err)
 	}
 
-	claim, claimErr := s.controllerState.GetImportClaim(ctx, modelUUID)
-	if claimErr != nil {
-		// The claim that caused the conflict is gone again (e.g. a racing
-		// Activate finalised between our failed insert and this read). The
-		// caller still needs a coded AlreadyExists to retry against.
-		return "", errors.Errorf("model import for %s: %w", modelUUID, coreerrors.AlreadyExists)
-	}
-
-	return "", modelmigration.ImportClaimConflictError(modelUUID, claim.Phase)
+	// The existing claim is returned alongside the conflict sentinel, so the
+	// phase-specific wording is built without a second read.
+	return "", modelmigration.ImportClaimConflictError(modelUUID.String(), claim.Phase)
 }
 
 // AssertImporting returns nil if a model_migration_import claim exists for
@@ -64,11 +69,15 @@ func (s *Service) BeginImport(ctx context.Context, modelUUID, sourceMigrationUUI
 // two write groups specifically are guarded as they happen; the writes in
 // between are not individually guarded. Closing that gap with a per-group
 // atomic assertion is deferred to the Task 11 reconciler.
-func (s *Service) AssertImporting(ctx context.Context, modelUUID string) error {
+func (s *Service) AssertImporting(ctx context.Context, modelUUID coremodel.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.controllerState.AssertImporting(ctx, modelUUID)
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.AssertImporting(ctx, modelUUID.String())
 }
 
 // ImportOfferPermissions records the offer UUIDs granted permission during
@@ -78,25 +87,33 @@ func (s *Service) AssertImporting(ctx context.Context, modelUUID string) error {
 // the model DB. The caller is responsible for writing the offer permission
 // rows themselves via the access domain.
 func (s *Service) ImportOfferPermissions(
-	ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string,
+	ctx context.Context, modelUUID coremodel.UUID, claimUUID string, offerUUIDs []string,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.controllerState.ImportOfferPermissions(ctx, modelUUID, claimUUID, offerUUIDs)
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.ImportOfferPermissions(ctx, modelUUID.String(), claimUUID, offerUUIDs)
 }
 
-// EnsureExternalControllerMatchesOrInsert compares-or-inserts a single
-// third-party controller's connection details (alias, CA cert, addresses).
-// It fails with [modelmigrationerrors.ErrExternalControllerMismatch] rather
-// than overwriting live CMR connection data that other models may share.
-func (s *Service) EnsureExternalControllerMatchesOrInsert(
+// EnsureExternalControllerExists compares-or-inserts a single third-party
+// controller's connection details (alias, CA cert, addresses). It fails with
+// [modelmigrationerrors.ErrExternalControllerMismatch] rather than
+// overwriting live CMR connection data that other models may share.
+func (s *Service) EnsureExternalControllerExists(
 	ctx context.Context, ref coremodelmigration.ExternalController,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.controllerState.EnsureExternalControllerMatchesOrInsert(ctx, ref)
+	stateRef, err := externalControllerForState(ref)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return s.controllerState.EnsureExternalControllerExists(ctx, stateRef)
 }
 
 // ImportExternalControllers applies the third-party external controller
@@ -105,10 +122,49 @@ func (s *Service) EnsureExternalControllerMatchesOrInsert(
 // (offerer_model_uuid, controller_uuid) handoff that Activate reads to
 // reconcile offerer-controller mappings even after a controller restart.
 func (s *Service) ImportExternalControllers(
-	ctx context.Context, modelUUID, claimUUID string, refs []coremodelmigration.ExternalController,
+	ctx context.Context, modelUUID coremodel.UUID, claimUUID string, refs []coremodelmigration.ExternalController,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	return s.controllerState.ImportExternalControllers(ctx, modelUUID, claimUUID, refs)
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+
+	stateRefs := make([]modelmigrationinternal.ExternalController, 0, len(refs))
+	for _, ref := range refs {
+		stateRef, err := externalControllerForState(ref)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		stateRefs = append(stateRefs, stateRef)
+	}
+	return s.controllerState.ImportExternalControllers(ctx, modelUUID.String(), claimUUID, stateRefs)
+}
+
+// externalControllerForState translates a v8 envelope external controller
+// reference into the state-layer representation, generating a fresh UUID for
+// each address row so the state layer only persists supplied identifiers.
+func externalControllerForState(
+	ref coremodelmigration.ExternalController,
+) (modelmigrationinternal.ExternalController, error) {
+	addrs := make([]modelmigrationinternal.ExternalControllerAddress, 0, len(ref.Addresses))
+	for _, addr := range ref.Addresses {
+		addrUUID, err := uuid.NewUUID()
+		if err != nil {
+			return modelmigrationinternal.ExternalController{}, errors.Errorf(
+				"generating external controller address uuid: %w", err)
+		}
+		addrs = append(addrs, modelmigrationinternal.ExternalControllerAddress{
+			UUID:    addrUUID.String(),
+			Address: addr,
+		})
+	}
+	return modelmigrationinternal.ExternalController{
+		UUID:           ref.UUID,
+		Alias:          ref.Alias,
+		CACert:         ref.CACert,
+		Addresses:      addrs,
+		ConsumedModels: ref.ConsumedModels,
+	}, nil
 }

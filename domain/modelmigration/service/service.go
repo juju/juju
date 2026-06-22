@@ -186,10 +186,10 @@ type ControllerState interface {
 
 	// BeginImport inserts a new durable model_migration_import claim
 	// (phase=importing) for modelUUID as the first target-side write of a v8
-	// import, and returns the claim's UUID.
-	// [modelmigrationerrors.ErrImportClaimExists] is returned if a claim
-	// already exists.
-	BeginImport(ctx context.Context, modelUUID, sourceMigrationUUID string) (string, error)
+	// import, using claimUUID as the claim's UUID, and returns the resulting
+	// claim. If a claim already exists, the existing claim is returned
+	// alongside [modelmigrationerrors.ErrImportClaimExists].
+	BeginImport(ctx context.Context, modelUUID, claimUUID, sourceMigrationUUID string) (modelmigration.ImportClaim, error)
 
 	// GetImportClaim returns the target-side import claim for the given model
 	// UUID, or [modelmigrationerrors.ErrImportNotFound] when no claim exists.
@@ -207,18 +207,18 @@ type ControllerState interface {
 	// importing-phase assertion for modelUUID.
 	ImportOfferPermissions(ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string) error
 
-	// EnsureExternalControllerMatchesOrInsert compares-or-inserts a single
-	// third-party controller's connection details, failing with
+	// EnsureExternalControllerExists compares-or-inserts a single third-party
+	// controller's connection details, failing with
 	// [modelmigrationerrors.ErrExternalControllerMismatch] on a mismatch
 	// rather than overwriting live CMR connection data.
-	EnsureExternalControllerMatchesOrInsert(ctx context.Context, ref coremodelmigration.ExternalController) error
+	EnsureExternalControllerExists(ctx context.Context, ref modelmigrationinternal.ExternalController) error
 
 	// ImportExternalControllers applies the third-party external controller
 	// references from a v8 import envelope to the target controller,
 	// atomically with an importing-phase assertion for modelUUID, and records
 	// the durable (offerer_model_uuid, controller_uuid) handoff for Activate.
 	ImportExternalControllers(
-		ctx context.Context, modelUUID, claimUUID string, refs []coremodelmigration.ExternalController,
+		ctx context.Context, modelUUID, claimUUID string, refs []modelmigrationinternal.ExternalController,
 	) error
 }
 
