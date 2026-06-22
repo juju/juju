@@ -142,11 +142,24 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 	systemIDs := set.NewStrings(args.SystemIDs...)
 	hostnames := set.NewStrings(args.Hostnames...)
 	for _, machine := range c.machines {
-		if systemIDs.Contains(machine.SystemID()) || hostnames.Contains(machine.Hostname()) {
-			result = append(result, machine)
+		if !systemIDs.Contains(machine.SystemID()) && !hostnames.Contains(machine.Hostname()) {
+			continue
 		}
+		if !ownerDataMatches(machine.OwnerData(), args.OwnerData) {
+			continue
+		}
+		result = append(result, machine)
 	}
 	return result, nil
+}
+
+func ownerDataMatches(ownerData, filter map[string]string) bool {
+	for key, value := range filter {
+		if ownerData[key] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *fakeController) Domains() ([]gomaasapi.Domain, error) {
@@ -265,6 +278,7 @@ type fakeMachine struct {
 	pod           gomaasapi.Pod
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
+	ownerData     map[string]string
 	createDevice  gomaasapi.Device
 	devices       []gomaasapi.Device
 }
@@ -283,8 +297,27 @@ func (m *fakeMachine) Tags() []string {
 }
 
 func (m *fakeMachine) SetOwnerData(data map[string]string) error {
-	m.MethodCall(m, "SetOwnerData", data)
-	return m.NextErr()
+	if m.Stub != nil {
+		m.MethodCall(m, "SetOwnerData", data)
+	}
+	if m.ownerData == nil {
+		m.ownerData = make(map[string]string)
+	}
+	for key, value := range data {
+		m.ownerData[key] = value
+	}
+	if m.Stub != nil {
+		return m.NextErr()
+	}
+	return nil
+}
+
+func (m *fakeMachine) OwnerData() map[string]string {
+	result := make(map[string]string, len(m.ownerData))
+	for key, value := range m.ownerData {
+		result[key] = value
+	}
+	return result
 }
 
 func (m *fakeMachine) CPUCount() int {

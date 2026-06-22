@@ -373,9 +373,10 @@ func (suite *maasEnvironSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) 
 func (suite *maasEnvironSuite) TestStopInstancesDeletesComposedNodes(c *gc.C) {
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.machines = []gomaasapi.Machine{
-		&fakeMachine{systemID: "test1", pod: &fakePod{}},
-		&fakeMachine{systemID: "test2", powerType: "virsh"},
-		&fakeMachine{systemID: "test3", powerType: "ipmi"},
+		// Simulate MAAS server-side filtering by OwnerData.
+		&fakeMachine{systemID: "test1", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
+		&fakeMachine{systemID: "test2", powerType: "virsh", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
+		&fakeMachine{systemID: "test3", powerType: "virsh"},
 	}
 
 	err := suite.makeEnviron(c, controller).StopInstances(suite.callCtx, "test1", "test2", "test3")
@@ -400,7 +401,7 @@ func (suite *maasEnvironSuite) TestStopInstancesDoesNotDeleteNonComposedNodes(c 
 func (suite *maasEnvironSuite) TestStopInstancesReturnsDeleteComposedNodesError(c *gc.C) {
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.machines = []gomaasapi.Machine{
-		&fakeMachine{systemID: "test1", powerType: "lxd"},
+		&fakeMachine{systemID: "test1", powerType: "lxd", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
 	}
 	controller.deleteMachineError = errors.New("delete failed")
 
@@ -642,7 +643,8 @@ func (suite *maasEnvironSuite) TestAcquireNodeStorage(c *gc.C) {
 }
 
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
-	composedMachine := &fakeMachine{systemID: "composed-1", hostname: "vm-1", statusName: "Ready"}
+	composedMachine := &fakeMachine{Stub: &testing.Stub{}, systemID: "composed-1", hostname: "vm-1", statusName: "Ready"}
+	lookupMachine := &fakeMachine{Stub: &testing.Stub{}, systemID: "composed-1", hostname: "vm-1", statusName: "Ready"}
 	pod := &fakePod{
 		name: "pod-a",
 		zone: fakeZone{name: "mossack"},
@@ -676,7 +678,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
 			architecture: arch.HostArch(),
 		},
 		allocateMachineMatches: gomaasapi.ConstraintMatches{Storage: map[string][]gomaasapi.StorageDevice{}},
-		machines:               []gomaasapi.Machine{composedMachine},
+		machines:               []gomaasapi.Machine{lookupMachine},
 	}
 	env := suite.makeEnviron(c, controller)
 
@@ -693,6 +695,12 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(collectDeleteMachineArgs(controller), gc.HasLen, 0)
+	lookupMachine.CheckCallNames(c, "SetOwnerData")
+	ownerDataArg, ok := lookupMachine.Calls()[0].Args[0].(map[string]string)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(ownerDataArg, gc.DeepEquals, map[string]string{
+		composedByJujuDataKey: composedByJujuDataVal})
+	c.Assert(composedMachine.Calls(), gc.HasLen, 0)
 }
 
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchTriesNextPod(c *gc.C) {

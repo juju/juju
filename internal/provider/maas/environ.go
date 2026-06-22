@@ -45,6 +45,11 @@ import (
 const (
 	// The version strings indicating the MAAS API version.
 	apiVersion2 = "2.0"
+
+	// composedByJujuDataKey marks machines composed by Juju so cleanup
+	// can distinguish them from pre-existing MAAS pod machines.
+	composedByJujuDataKey = "juju-composed"
+	composedByJujuDataVal = "true"
 )
 
 var defaultShortRetryStrategy = retry.CallArgs{
@@ -751,6 +756,14 @@ func (env *maasEnviron) composeNode(
 			return "", errors.Annotate(err, "composing machine")
 		}
 		systemID := machine.SystemID()
+		err = env.markComposedMachine(ctx, systemID)
+		if err != nil {
+			if deleteErr := env.maasController.DeleteMachine(systemID); deleteErr != nil {
+				logger.Warningf("failed to delete unmarked composed machine %q: %v", systemID, deleteErr)
+			}
+			return "", errors.Annotate(err, "marking composed machine")
+		}
+
 		logger.Infof("composed machine %q in pod %q", systemID, pod.Name())
 
 		// The composed machine goes through MAAS commissioning before it
@@ -771,6 +784,26 @@ func (env *maasEnviron) composeNode(
 	}
 
 	return "", errors.New("no pods matched the zone requirement")
+}
+
+// markComposedMachine tags a given virtual machine as being created by Juju.
+func (env *maasEnviron) markComposedMachine(ctx context.ProviderCallContext, systemID string) error {
+	// TODO - in gomaasapi SetOwnerData on the returned machine is a no op
+	//  Once gomaasapi is fixed, we no longer need this helper.
+	machines, err := env.maasController.Machines(gomaasapi.MachinesArgs{SystemIDs: []string{systemID}})
+	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Trace(err)
+	}
+	if len(machines) == 0 {
+		return errors.NotFoundf("composed machine %q", systemID)
+	}
+	err = machines[0].SetOwnerData(map[string]string{composedByJujuDataKey: composedByJujuDataVal})
+	if err != nil {
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // waitForComposedMachineReady polls MAAS until the machine with the given
@@ -1170,14 +1203,13 @@ func (env *maasEnviron) releaseNodesIndividually(ctx context.ProviderCallContext
 	return errors.Trace(lastErr)
 }
 
-// deleteAnyComposedNodes determines which instance ids are for VMs provisioned
-// by a pod (rather than pre-existing machines) and deletes them.
-// This is necessary to clean up the composed machines after release,
-// as ReleaseMachine only releases the machine but does not delete it from MAAS,
-// and we don't need composed machines to be reused for future allocations.
+// deleteAnyComposedNodes deletes released machines that Juju explicitly composed.
+// This is necessary to clean up composed machines after release because
+// ReleaseMachine does not delete them from MAAS.
 func (env *maasEnviron) deleteAnyComposedNodes(ctx context.ProviderCallContext, ids []instance.Id) error {
 	machines, err := env.maasController.Machines(gomaasapi.MachinesArgs{
 		SystemIDs: instanceIdsToSystemIDs(ids),
+		OwnerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal},
 	})
 	if err != nil {
 		common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx)
@@ -1185,9 +1217,6 @@ func (env *maasEnviron) deleteAnyComposedNodes(ctx context.ProviderCallContext, 
 	}
 	var lastErr error
 	for _, m := range machines {
-		if m.Pod() == nil && m.PowerType() != "virsh" && m.PowerType() != "lxd" {
-			continue
-		}
 		err = env.maasController.DeleteMachine(m.SystemID())
 		if err != nil {
 			lastErr = err
