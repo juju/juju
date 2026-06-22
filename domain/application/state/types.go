@@ -758,9 +758,22 @@ type revisionUpdaterApplicationNumUnits struct {
 }
 
 type applicationConfig struct {
-	Key   string           `db:"key"`
-	Value sql.Null[string] `db:"value"`
-	Type  string           `db:"type"`
+	ConfigKey   string           `db:"key"`
+	ConfigValue sql.Null[string] `db:"value"`
+	Type        string           `db:"type"`
+}
+
+// Key returns the config key.
+func (c applicationConfig) Key() string {
+	return c.ConfigKey
+}
+
+// Value returns the config value.
+func (c applicationConfig) Value() string {
+	if !c.ConfigValue.Valid {
+		return ""
+	}
+	return c.ConfigValue.V
 }
 
 type setApplicationConfig struct {

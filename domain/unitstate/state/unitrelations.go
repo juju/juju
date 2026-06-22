@@ -9,8 +9,10 @@ import (
 	"encoding/hex"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/quota"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/deployment/charm"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
@@ -200,6 +202,11 @@ func (st *State) setRelationUnitSettings(
 		return errors.Errorf("getting new relation unit settings: %w", err)
 	}
 
+	kv := transform.Slice(newSettings, func(s relationSetting) quota.KeyValue { return s })
+	if err := quota.CheckRelationSettingsSize(kv); err != nil {
+		return errors.Errorf("checking relation unit settings size: %w", err)
+	}
+
 	// Hash the new settings.
 	hash, err := hashSettings(newSettings)
 	if err != nil {
@@ -245,13 +252,16 @@ func (st *State) setRelationApplicationSettings(
 		return errors.Errorf("getting new relation application settings: %w", err)
 	}
 
-	// Hash the new settings.
+	kv := transform.Slice(newSettings, func(s relationSetting) quota.KeyValue { return s })
+	if err := quota.CheckRelationSettingsSize(kv); err != nil {
+		return errors.Errorf("checking relation application settings size: %w", err)
+	}
+
 	hash, err := hashSettings(newSettings)
 	if err != nil {
 		return errors.Errorf("generating hash of relation application settings: %w", err)
 	}
 
-	// Update the hash in the database.
 	err = st.updateApplicationSettingsHash(ctx, tx, endpointUUID, hash)
 	if err != nil {
 		return errors.Errorf("updating relation application settings hash: %w", err)
@@ -389,7 +399,7 @@ func hashSettings(settings []relationSetting) (string, error) {
 	h := sha256.New()
 
 	for _, s := range settings {
-		if _, err := h.Write([]byte(s.Key + " " + s.Value + " ")); err != nil {
+		if _, err := h.Write([]byte(s.Key() + " " + s.Value() + " ")); err != nil {
 			return "", errors.Errorf("writing relation setting: %w", err)
 		}
 	}

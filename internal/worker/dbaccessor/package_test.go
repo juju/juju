@@ -46,6 +46,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.timer = NewMockTimer(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
+	s.client.EXPECT().Close().Return(nil).AnyTimes()
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 	s.nodeManager = NewMockNodeManager(ctrl)
 	s.controllerConfigWatcher = NewMockConfigWatcher(ctrl)

@@ -135,8 +135,18 @@ type applicationSettingsHash struct {
 }
 
 type relationSetting struct {
-	Key   string `db:"key"`
-	Value string `db:"value"`
+	SettingKey   string `db:"key"`
+	SettingValue string `db:"value"`
+}
+
+// Key returns the setting key.
+func (s relationSetting) Key() string {
+	return s.SettingKey
+}
+
+// Value returns the setting value.
+func (s relationSetting) Value() string {
+	return s.SettingValue
 }
 
 type unitSettingsHash struct {

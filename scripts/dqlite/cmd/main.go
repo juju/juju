@@ -240,6 +240,7 @@ func dumpDB(ctx context.Context, db *sql.DB, path, name string) error {
 	if err != nil {
 		return fmt.Errorf("client.New failed %w", err)
 	}
+	defer func() { _ = cli.Close() }()
 
 	files, err := cli.Dump(ctx, name)
 	if err != nil {
