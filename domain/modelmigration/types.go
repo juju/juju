@@ -6,9 +6,11 @@ package modelmigration
 import (
 	"time"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/internal/errors"
 )
 
 // MigrationMachineDiscrepancy describes a divergent machine between what Juju
@@ -50,144 +52,6 @@ type Migration struct {
 	Target           migration.TargetInfo
 }
 
-// ControllerModelInfo aggregates the controller-database records scoped to a
-// single migrating model, in target-portable semantic form. Source-local
-// integer IDs and un-translated source UUID foreign keys are never present:
-// users are identified by username, SSH keys by their material, clouds, regions
-// and credentials by natural key, and secret backends by name.
-type ControllerModelInfo struct {
-	// ModelInfo is the model's bootstrap identity.
-	ModelInfo ModelIdentityInfo
-	// Users are the controller users referenced by the migrated model.
-	Users []ModelUser
-	// ModelCredential is the model's cloud credential, or nil if it has none.
-	ModelCredential *ModelCloudCredential
-	// Permissions are the model and offer permission grants for the model.
-	Permissions []ModelPermission
-	// AuthorizedKeys are the SSH keys authorised for the model.
-	AuthorizedKeys []ModelAuthorizedKey
-	// SecretBackend is the secret backend the model uses, or nil for the default.
-	SecretBackend *ModelSecretBackend
-	// SecretBackendRefs maps the model's secret revisions to their backends.
-	SecretBackendRefs []SecretBackendReference
-	// Leaders are the application-leadership holders for the model. The target
-	// claims fresh leases from these on import; lease times, pins and
-	// singular-controller leases are source-local runtime state and do not
-	// travel.
-	Leaders []ApplicationLeadership
-	// CloudImageMetadata is custom cloud image metadata that must be recreated
-	// on the target controller.
-	CloudImageMetadata []CloudImageMetadata
-	// ExternalControllers are the third-party controllers referenced by the
-	// model's cross-model relations.
-	ExternalControllers []ExternalController
-}
-
-// ModelIdentityInfo is the model's bootstrap identity, with cloud, region and
-// credential carried by natural key.
-type ModelIdentityInfo struct {
-	UUID            string
-	Name            string
-	Qualifier       string
-	Type            string
-	Cloud           string
-	CloudRegion     string
-	CredentialName  string
-	CredentialOwner string
-	Life            string
-}
-
-// ModelUser is the non-authentication profile of a controller user referenced
-// by the migrated model. LastLogin is the user's last login time against this
-// model, or nil if the user never logged in to it.
-type ModelUser struct {
-	Name        string
-	DisplayName string
-	CreatedBy   string
-	CreatedAt   time.Time
-	Removed     bool
-	External    bool
-	LastLogin   *time.Time
-}
-
-// ModelCloudCredential is the model's cloud credential, carried by natural key
-// (Cloud, Owner, Name) plus the provider auth attributes.
-type ModelCloudCredential struct {
-	Cloud         string
-	Owner         string
-	Name          string
-	AuthType      string
-	Attributes    map[string]string
-	Revoked       bool
-	Invalid       bool
-	InvalidReason string
-}
-
-// ModelPermission is a single permission grant on the model or on an offer in
-// the model, with the grantee carried by username.
-type ModelPermission struct {
-	ObjectType  string
-	GrantOn     string
-	SubjectName string
-	Access      string
-}
-
-// ModelAuthorizedKey is an SSH public key authorised for the model, carried by
-// username and key material.
-type ModelAuthorizedKey struct {
-	Username  string
-	PublicKey string
-}
-
-// ModelSecretBackend identifies the secret backend the model uses, by name.
-type ModelSecretBackend struct {
-	Name        string
-	BackendType string
-}
-
-// SecretBackendReference maps a model secret revision to its backend, by
-// backend name.
-type SecretBackendReference struct {
-	BackendName        string
-	SecretRevisionUUID string
-	SecretID           string
-}
-
-// ApplicationLeadership records which unit holds leadership for an application
-// in the model. It is the only lease state that travels with a migration: the
-// target claims a fresh lease for the leader on import.
-type ApplicationLeadership struct {
-	Application string
-	Leader      string
-}
-
-// CloudImageMetadata is one custom cloud image metadata row, carried by
-// semantic fields rather than source-local integer IDs.
-type CloudImageMetadata struct {
-	Stream          string
-	Region          string
-	Version         string
-	Arch            string
-	VirtType        string
-	RootStorageType string
-	RootStorageSize *uint64
-	Source          string
-	Priority        int
-	ImageID         string
-	CreatedAt       time.Time
-}
-
-// ExternalController carries the connection details for a single third-party
-// controller referenced by the model's cross-model relations, plus the model
-// UUIDs on that controller that the model consumes.
-type ExternalController struct {
-	UUID           string
-	Alias          string
-	CACert         string
-	Addresses      []string
-	ConsumedModels []string
-}
-
 // ImportPhase is the phase of a target-side import claim, mirroring the
 // model_migration_import_phase_type lookup table.
 type ImportPhase string
@@ -220,7 +84,29 @@ type ImportClaim struct {
 	UpdatedAt time.Time
 }
 
-// ImportPrecheckArgs carries the target-portable semantic facts from a v8
+// ImportClaimConflictError builds the coded AlreadyExists error returned when
+// a v8 import claim attempt finds an existing claim for modelUUID. The
+// message reflects the existing claim's phase: activation-in-progress
+// wording when phase=activating (the source must retry/continue Activate
+// rather than Abort), cleanup-in-progress wording when phase=aborting, or a
+// plain occupied-model message for a duplicate importing claim. Both
+// [service.Service.BeginImport] and the v8 import driver
+// (internal/migration.ModelImporter.ImportModelV2) use this so the wording
+// stays identical regardless of which caller observes the conflict.
+func ImportClaimConflictError(modelUUID string, phase ImportPhase) error {
+	switch phase {
+	case ImportPhaseActivating:
+		return errors.Errorf(
+			"model import for %s: activation in progress: %w", modelUUID, coreerrors.AlreadyExists)
+	case ImportPhaseAborting:
+		return errors.Errorf(
+			"model import for %s: cleanup in progress: %w", modelUUID, coreerrors.AlreadyExists)
+	default:
+		return errors.Errorf("model import for %s: %w", modelUUID, coreerrors.AlreadyExists)
+	}
+}
+
+// ImportPrecheckArgs carries the target-portable semantic data from a v8
 // migration envelope that the target controller validates before accepting an
 // import. It is assembled by the migrationtarget facade from the typed
 // envelope fields and consumed by the modelmigration import prechecks, which

@@ -282,6 +282,23 @@ func (s *State) GetImportClaim(ctx context.Context, modelUUID string) (modelmigr
 		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 
+	var claim modelmigration.ImportClaim
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		claim = modelmigration.ImportClaim{}
+		claim, err = s.getImportClaim(ctx, tx, modelUUID)
+		return err
+	})
+	if err != nil {
+		return modelmigration.ImportClaim{}, errors.Capture(err)
+	}
+	return claim, nil
+}
+
+// getImportClaim reads the import claim for modelUUID within tx, returning
+// [modelmigrationerrors.ErrImportNotFound] when no claim exists.
+func (s *State) getImportClaim(
+	ctx context.Context, tx *sqlair.TX, modelUUID string,
+) (modelmigration.ImportClaim, error) {
 	arg := modelUUIDArg{ModelUUID: modelUUID}
 	var row importClaimRow
 	stmt, err := s.Prepare(`
@@ -297,17 +314,11 @@ LIMIT 1
 		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		row = importClaimRow{}
-
-		err := tx.Query(ctx, stmt, arg).Get(&row)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf(
-				"model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
-		}
-		return err
-	})
-	if err != nil {
+	err = tx.Query(ctx, stmt, arg).Get(&row)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return modelmigration.ImportClaim{}, errors.Errorf(
+			"model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
+	} else if err != nil {
 		return modelmigration.ImportClaim{}, errors.Capture(err)
 	}
 

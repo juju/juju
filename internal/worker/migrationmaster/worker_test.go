@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	coreresource "github.com/juju/juju/core/resource"
 	resourcetesting "github.com/juju/juju/core/resource/testing"
 	"github.com/juju/juju/core/semversion"
@@ -109,8 +110,8 @@ var (
 		fakeToolsSHA256: semversion.MustParseBinary("2.1.0-ubuntu-amd64"),
 	}
 
-	fakeControllerModelInfo = modelmigration.ControllerModelInfo{
-		ModelInfo: modelmigration.ModelIdentityInfo{
+	fakeControllerModelInfo = coremodelmigration.ControllerModelInfo{
+		ModelInfo: coremodelmigration.ModelIdentityInfo{
 			UUID:      modelUUID,
 			Name:      modelName,
 			Qualifier: modelQualifier.String(),
@@ -1487,10 +1488,10 @@ func (s *stubModelMigrationService) Migration(ctx context.Context) (modelmigrati
 	}, nil
 }
 
-func (s *stubModelMigrationService) GetControllerModelInfo(ctx context.Context) (modelmigration.ControllerModelInfo, error) {
+func (s *stubModelMigrationService) GetControllerModelInfo(ctx context.Context) (coremodelmigration.ControllerModelInfo, error) {
 	s.stub.AddCall("modelMigrationService.GetControllerModelInfo")
 	if s.controllerModelInfoErr != nil {
-		return modelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
+		return coremodelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
 	}
 	return fakeControllerModelInfo, nil
 }

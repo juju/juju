@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmigration
+package migration
 
 import (
 	"github.com/juju/clock"

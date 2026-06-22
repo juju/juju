@@ -22,7 +22,6 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/modeldefaults"
-	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -36,19 +35,6 @@ import (
 type OperationExporter interface {
 	// ExportOperations registers the export operations with the given coordinator.
 	ExportOperations(registry corestorage.ModelStorageRegistryGetter)
-}
-
-// Coordinator describes the interface required for coordinating model
-// migration operations.
-type Coordinator interface {
-	// Add a new operation to the migration. It will be appended at the end of the
-	// list of operations.
-	Add(operations modelmigration.Operation)
-	// Perform executes the migration.
-	// We log in addition to returning errors because the error is ultimately
-	// returned to the caller on the source, and we want them to be reflected
-	// in *this* controller's logs.
-	Perform(ctx context.Context, scope modelmigration.Scope, model description.Model) (err error)
 }
 
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
@@ -110,7 +96,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 	}
 
 	coordinator := modelmigration.NewCoordinator(i.logger)
-	migrations.ImportOperations(
+	ImportOperations(
 		coordinator,
 		modelDefaultsProvider,
 		configGetter,
