@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 )
 
@@ -49,7 +50,7 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 			desc:     "Machine hostname",
 			hostname: "1.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
-				machine:   "1",
+				machine:   coremachine.Name("1"),
 				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				target:    MachineTarget,
 			},
@@ -58,7 +59,7 @@ func (s *HostnameSuite) TestParseHostname(c *tc.C) {
 			desc:     "Nested machine hostname",
 			hostname: "1-lxd-0.8419cd78-4993-4c3a-928e-c646226beeee.juju.local",
 			result: Info{
-				machine:   "1/lxd/0",
+				machine:   coremachine.Name("1/lxd/0"),
 				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
 				target:    MachineTarget,
 			},
@@ -123,7 +124,7 @@ func (s *HostnameSuite) TestNewInfoMachineTarget(c *tc.C) {
 			expected: Info{
 				target:    MachineTarget,
 				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
-				machine:   "1",
+				machine:   coremachine.Name("1"),
 			},
 		},
 		{
@@ -133,7 +134,7 @@ func (s *HostnameSuite) TestNewInfoMachineTarget(c *tc.C) {
 			expected: Info{
 				target:    MachineTarget,
 				modelUUID: coremodel.UUID("8419cd78-4993-4c3a-928e-c646226beeee"),
-				machine:   "0/lxd/0",
+				machine:   coremachine.Name("0/lxd/0"),
 			},
 		},
 		{

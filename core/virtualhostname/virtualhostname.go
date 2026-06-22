@@ -52,7 +52,7 @@ func NewInfoMachineTarget(modelUUID string, machine string) (Info, error) {
 	if err := machineName.Validate(); err != nil {
 		return Info{}, errors.Errorf("invalid machine name %q: %w", machine, err)
 	}
-	return newInfo(MachineTarget, modelUUID, machine, 0, "", "")
+	return newInfo(MachineTarget, modelUUID, machineName, 0, "", "")
 }
 
 // NewInfoUnitTarget returns a new Info struct for a unit target.
@@ -94,7 +94,7 @@ func NewInfoContainerTarget(modelUUID string, unit string, container string) (In
 }
 
 // newInfo returns a new Info struct for the given target.
-func newInfo(target HostnameTarget, modelUUID string, machine string, unitNumber int, applicationName string, container string) (Info, error) {
+func newInfo(target HostnameTarget, modelUUID string, machine coremachine.Name, unitNumber int, applicationName string, container string) (Info, error) {
 	info := Info{}
 	switch target {
 	case MachineTarget:
@@ -126,7 +126,7 @@ func newInfo(target HostnameTarget, modelUUID string, machine string, unitNumber
 type Info struct {
 	target          HostnameTarget
 	modelUUID       coremodel.UUID
-	machine         string
+	machine         coremachine.Name
 	applicationName string
 	unitNumber      int
 	container       string
@@ -150,7 +150,7 @@ func (i Info) ModelUUID() coremodel.UUID {
 }
 
 // Machine returns the machine name.
-func (i Info) Machine() (string, bool) {
+func (i Info) Machine() (coremachine.Name, bool) {
 	return i.machine, i.target == MachineTarget
 }
 
@@ -164,7 +164,7 @@ func (i Info) Target() HostnameTarget {
 func (i Info) String() string {
 	switch i.target {
 	case MachineTarget:
-		return fmt.Sprintf("%s.%s.%s", encodeMachineName(i.machine), i.modelUUID, Domain)
+		return fmt.Sprintf("%s.%s.%s", encodeMachineName(i.machine.String()), i.modelUUID, Domain)
 	case UnitTarget:
 		return fmt.Sprintf("%d.%s.%s.%s", i.unitNumber, i.applicationName, i.modelUUID, Domain)
 	case ContainerTarget:
@@ -290,6 +290,6 @@ func parseMachineHostname(result map[string]string) (Info, error) {
 	return Info{
 		target:    MachineTarget,
 		modelUUID: coremodel.UUID(result["modeluuid"]),
-		machine:   machineName,
+		machine:   coremachine.Name(machineName),
 	}, nil
 }

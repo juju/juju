@@ -52,15 +52,14 @@ func (s *Service) VirtualHostKey(ctx context.Context, info virtualhostname.Info)
 		if !ok {
 			return "", errors.Errorf("missing machine target in virtual hostname")
 		}
-		parsedMachineName := coremachine.Name(machineName)
-		if parsedMachineName.IsContainer() {
+		if machineName.IsContainer() {
 			return "", errors.Errorf(
 				"cannot SSH directly to nested machine %q, connect to parent machine %q instead",
-				parsedMachineName,
-				parsedMachineName.Parent(),
+				machineName,
+				machineName.Parent(),
 			)
 		}
-		return s.MachineVirtualHostKey(ctx, parsedMachineName)
+		return s.MachineVirtualHostKey(ctx, machineName)
 	case virtualhostname.UnitTarget, virtualhostname.ContainerTarget:
 		unitName, ok := info.Unit()
 		if !ok {

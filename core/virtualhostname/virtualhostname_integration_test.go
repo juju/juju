@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
 )
@@ -49,7 +50,7 @@ func (s *HostnameSuite) TestParseUnitHostname(c *tc.C) {
 	c.Check(valid, tc.Equals, false)
 
 	machineName, valid := res.Machine()
-	c.Check(machineName, tc.Equals, "")
+	c.Check(machineName, tc.Equals, coremachine.Name(""))
 	c.Check(valid, tc.Equals, false)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.UnitTarget)
@@ -67,7 +68,7 @@ func (s *HostnameSuite) TestParseMachineHostname(c *tc.C) {
 	c.Check(valid, tc.Equals, false)
 
 	machineName, valid := res.Machine()
-	c.Check(machineName, tc.Equals, "1")
+	c.Check(machineName, tc.Equals, coremachine.Name("1"))
 	c.Check(valid, tc.Equals, true)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.MachineTarget)
@@ -85,7 +86,7 @@ func (s *HostnameSuite) TestParseNestedMachineHostname(c *tc.C) {
 	c.Check(valid, tc.Equals, false)
 
 	machineName, valid := res.Machine()
-	c.Check(machineName, tc.Equals, "1/lxd/0")
+	c.Check(machineName, tc.Equals, coremachine.Name("1/lxd/0"))
 	c.Check(valid, tc.Equals, true)
 
 	c.Check(res.Target(), tc.Equals, virtualhostname.MachineTarget)
