@@ -230,12 +230,13 @@ func (w *logRouter) loop() error {
 	w.activeRecords = drainRecords
 
 	next := w.currentSnapshot()
-	w.manageLegacyLogSinkWriter(ctx, next)
 	if !next.sameBackend(w.activeSnapshot) {
 		err = w.switchBackend(ctx, next)
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
+	} else {
+		w.manageLegacyLogSinkWriter(ctx, w.activeSnapshot)
 	}
 
 	for {
@@ -249,7 +250,6 @@ func (w *logRouter) loop() error {
 			}
 			next := w.currentSnapshot()
 			if !next.sameBackend(w.activeSnapshot) {
-				w.manageLegacyLogSinkWriter(ctx, next)
 				err = w.switchBackend(ctx, next)
 				if err != nil {
 					return internalerrors.Capture(err)
@@ -264,7 +264,6 @@ func (w *logRouter) loop() error {
 			if next.sameBackend(w.activeSnapshot) {
 				continue
 			}
-			w.manageLegacyLogSinkWriter(ctx, next)
 			err = w.switchBackend(ctx, next)
 			if err != nil {
 				return internalerrors.Capture(err)
@@ -285,6 +284,7 @@ func (w *logRouter) switchBackend(
 		w.activeBackendID = backendDrainID
 		w.activeSnapshot = next
 		w.activeRecords = w.drainRecords
+		w.manageLegacyLogSinkWriter(ctx, next)
 		return nil
 	}
 
@@ -308,6 +308,7 @@ func (w *logRouter) switchBackend(
 	w.activeBackendID = backendID
 	w.activeSnapshot = next
 	w.activeRecords = records
+	w.manageLegacyLogSinkWriter(ctx, next)
 	return nil
 }
 

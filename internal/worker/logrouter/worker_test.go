@@ -628,7 +628,11 @@ func (s *workerSuite) TestManageLegacyLogSinkWriterOnLokiSwitch(c *tc.C) {
 	})
 
 	// Drain initial callbacks.
-	drainCh(c, addCh)
+	select {
+	case <-addCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for initial AddLegacyLogSinkWriter callback")
+	}
 	drainCh(c, removeCh)
 
 	fixture.agent.setLokiConfig("http://loki/loki/api/v1/push", "")
@@ -692,7 +696,11 @@ func (s *workerSuite) TestManageLegacyLogSinkWriterOnLogSinkSwitch(c *tc.C) {
 	})
 
 	// Drain initial callbacks.
-	drainCh(c, addCh)
+	select {
+	case <-addCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for initial AddLegacyLogSinkWriter callback")
+	}
 	drainCh(c, removeCh)
 
 	// Switch to Loki first.
@@ -714,7 +722,11 @@ func (s *workerSuite) TestManageLegacyLogSinkWriterOnLogSinkSwitch(c *tc.C) {
 	})
 
 	// Drain Loki switch callbacks.
-	drainCh(c, removeCh)
+	select {
+	case <-removeCh:
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for RemoveLegacyLogSinkWriter callback")
+	}
 
 	// Switch back to LogSink.
 	fixture.agent.setLokiConfig("", "")
