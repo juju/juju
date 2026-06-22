@@ -1244,6 +1244,24 @@ func (s *providerModelServiceSuite) TestResolveConstraintsWithoutModelConstraint
 	c.Check(result, tc.DeepEquals, appCons)
 }
 
+func (s *providerModelServiceSuite) TestResolveConstraintsModelConstraintsError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	boom := errors.New("db down")
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(
+		constraints.Constraints{}, boom,
+	)
+
+	svc := s.providerService(c, modelUUID)
+	result, err := svc.ResolveConstraints(c.Context(), coreconstraints.MustParse("mem=2G"))
+
+	c.Assert(err, tc.ErrorIs, boom)
+	c.Check(result, tc.DeepEquals, coreconstraints.Value{})
+}
+
 func (s *providerModelServiceSuite) TestResolveConstraintsApplicationOverridesModel(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

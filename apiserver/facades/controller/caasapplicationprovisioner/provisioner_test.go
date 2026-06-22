@@ -31,6 +31,7 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/removal"
 	envconfig "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -184,6 +185,39 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *tc.C) {
 			},
 		}},
 	})
+}
+
+func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoResolveConstraintsError(c *tc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	locator := applicationcharm.CharmLocator{
+		Name:     "gitlab",
+		Source:   applicationcharm.CharmHubSource,
+		Revision: -1,
+	}
+	s.applicationService.EXPECT().GetCharmLocatorByApplicationName(gomock.Any(), "gitlab").Return(locator, nil)
+	s.applicationService.EXPECT().IsCharmAvailable(gomock.Any(), locator).Return(true, nil)
+
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.fakeModelConfig())
+
+	modelInfo := model.ModelInfo{
+		UUID: model.UUID(coretesting.ModelTag.Id()),
+	}
+	appCons := constraints.MustParse("mem=2G cpu-power=200")
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
+
+	s.applicationService.EXPECT().GetApplicationUUIDByName(gomock.Any(), "gitlab").Return(coreapplication.UUID("deadbeef"), nil)
+	s.applicationService.EXPECT().GetApplicationConstraints(gomock.Any(), coreapplication.UUID("deadbeef")).Return(appCons, nil)
+	s.applicationService.EXPECT().GetDeviceConstraints(gomock.Any(), "gitlab").Return(map[string]devices.Constraints{}, nil)
+
+	boom := errors.New("boom")
+	s.modelInfoService.EXPECT().ResolveConstraints(gomock.Any(), appCons).Return(constraints.Value{}, boom)
+
+	result, err := s.api.ProvisioningInfo(c.Context(), params.Entities{Entities: []params.Entity{{Tag: "application-gitlab"}}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, tc.ErrorMatches, "boom")
 }
 
 func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(c *tc.C) {

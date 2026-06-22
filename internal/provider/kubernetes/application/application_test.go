@@ -3662,39 +3662,43 @@ func (s *applicationSuite) TestLimits(c *tc.C) {
 
 func (s *applicationSuite) TestEnsureUpdatedConstraints(c *tc.C) {
 	for _, agentVersion := range []string{"3.6.8", "4.0.11"} {
-		app, _ := s.getApp(c, caas.DeploymentStateful, false)
-		charmResourceMemRequest := corev1.ResourceList{
-			corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemRequestMi),
-		}
-		charmResourceMemLimit := corev1.ResourceList{
-			corev1.ResourceMemory: k8sresource.MustParse("2Gi"),
-		}
+		c.Run(agentVersion, func(t *stdtesting.T) {
+			c := &tc.C{T: t}
 
-		workloadResourceLimits := corev1.ResourceList{
-			corev1.ResourceCPU:    k8sresource.MustParse("200m"),
-			corev1.ResourceMemory: k8sresource.MustParse("2048Mi"),
-		}
+			app, _ := s.getApp(c, caas.DeploymentStateful, false)
+			charmResourceMemRequest := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse(constants.CharmMemRequestMi),
+			}
+			charmResourceMemLimit := corev1.ResourceList{
+				corev1.ResourceMemory: k8sresource.MustParse("2Gi"),
+			}
 
-		s.assertEnsure(
-			c, app, false, constraints.MustParse("mem=2G cpu-power=200"), true, true, agentVersion, nil, func() {
-				ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
-				c.Assert(err, tc.ErrorIsNil)
-				for _, ctr := range ss.Spec.Template.Spec.Containers {
-					if ctr.Name == constants.ApplicationCharmContainer {
-						c.Check(ctr.Resources.Requests.Memory().Equal(*charmResourceMemRequest.Memory()), tc.IsTrue)
-						c.Check(ctr.Resources.Limits.Memory().Equal(*charmResourceMemLimit.Memory()), tc.IsTrue)
-						continue
+			workloadResourceLimits := corev1.ResourceList{
+				corev1.ResourceCPU:    k8sresource.MustParse("200m"),
+				corev1.ResourceMemory: k8sresource.MustParse("2048Mi"),
+			}
+
+			s.assertEnsure(
+				c, app, false, constraints.MustParse("mem=2G cpu-power=200"), true, true, agentVersion, nil, func() {
+					ss, err := s.client.AppsV1().StatefulSets("test").Get(c.Context(), "gitlab", metav1.GetOptions{})
+					c.Assert(err, tc.ErrorIsNil)
+					for _, ctr := range ss.Spec.Template.Spec.Containers {
+						if ctr.Name == constants.ApplicationCharmContainer {
+							c.Check(ctr.Resources.Requests.Memory().Equal(*charmResourceMemRequest.Memory()), tc.IsTrue)
+							c.Check(ctr.Resources.Limits.Memory().Equal(*charmResourceMemLimit.Memory()), tc.IsTrue)
+							continue
+						}
+
+						c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadResourceLimits.Cpu()), tc.IsTrue)
+						c.Check(ctr.Resources.Requests.Memory().Equal(*workloadResourceLimits.Memory()), tc.IsTrue)
+
+						c.Check(ctr.Resources.Limits.Cpu().Equal(*workloadResourceLimits.Cpu()), tc.IsTrue)
+						c.Check(ctr.Resources.Limits.Memory().Equal(*workloadResourceLimits.Memory()), tc.IsTrue)
 					}
-
-					c.Check(ctr.Resources.Requests.Cpu().Equal(*workloadResourceLimits.Cpu()), tc.IsTrue)
-					c.Check(ctr.Resources.Requests.Memory().Equal(*workloadResourceLimits.Memory()), tc.IsTrue)
-
-					c.Check(ctr.Resources.Limits.Cpu().Equal(*workloadResourceLimits.Cpu()), tc.IsTrue)
-					c.Check(ctr.Resources.Limits.Memory().Equal(*workloadResourceLimits.Memory()), tc.IsTrue)
-				}
-			},
-			nil,
-		)
+				},
+				nil,
+			)
+		})
 	}
 }
 
