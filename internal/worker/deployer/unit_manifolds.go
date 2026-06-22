@@ -189,15 +189,16 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			// No Logger defined in migrationflag package.
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			FortressName:      migrationFortressName,
-			Clock:             config.Clock,
-			APIOpen:           api.Open,
-			ValidateMigration: config.ValidateMigration,
-			NewFacade:         migrationminion.NewFacade,
-			NewWorker:         migrationminion.NewWorker,
-			Logger:            config.LoggerContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			AgentName:             agentName,
+			APICallerName:         apiCallerName,
+			FortressName:          migrationFortressName,
+			Clock:                 config.Clock,
+			APIOpen:               api.Open,
+			ValidateMigration:     config.ValidateMigration,
+			NewFacade:             migrationminion.NewFacade,
+			NewWorker:             migrationminion.NewWorker,
+			Logger:                config.LoggerContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			FetchTargetLokiConfig: migrationminion.FetchTargetLokiConfig,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
