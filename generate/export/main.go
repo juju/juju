@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:generate go run main.go
+//go:generate go run .
 
 package main
 

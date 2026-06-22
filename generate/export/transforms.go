@@ -49,6 +49,9 @@ func generateTransformPair(from, to string) error {
 	if err := writeTransformFile(from, to, c); err != nil {
 		return fmt.Errorf("writing transform.go: %w", err)
 	}
+	if err := writeTransformDocFile(from, to); err != nil {
+		return fmt.Errorf("writing doc.go: %w", err)
+	}
 	return writeDeltasFileIfAbsent(from, to)
 }
 
@@ -272,6 +275,47 @@ func writeTransformFile(from, to string, c classified) error {
 	}
 
 	path := filepath.Join(dir, "transform.go")
+	fmt.Printf("writing to %s\n", path)
+	return os.WriteFile(path, formatted, 0644)
+}
+
+// writeTransformDocFile renders and writes the doc.go file for the
+// (from -> to) pair. The file is always overwritten; it is generator-owned.
+func writeTransformDocFile(from, to string) error {
+	dir := transformDirFor(from, to)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	tmplBytes, err := os.ReadFile(filepath.Join(generatorDir(), "transform_doc.tmpl"))
+	if err != nil {
+		return err
+	}
+
+	data := struct {
+		FromToken string
+		ToToken   string
+		From      string
+		To        string
+	}{
+		FromToken: versionToken(from),
+		ToToken:   versionToken(to),
+		From:      from,
+		To:        to,
+	}
+
+	t := template.Must(template.New("transform_doc").Parse(string(tmplBytes)))
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, data); err != nil {
+		return err
+	}
+
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("gofmt doc.go: %w\n--- source ---\n%s", err, buf.String())
+	}
+
+	path := filepath.Join(dir, "doc.go")
 	fmt.Printf("writing to %s\n", path)
 	return os.WriteFile(path, formatted, 0644)
 }
