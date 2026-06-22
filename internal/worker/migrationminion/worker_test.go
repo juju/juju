@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	loggerapi "github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/migration"
@@ -31,6 +32,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/params"
 )
 
 var (
@@ -62,6 +64,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	s.guard = newStubGuard(s.stub)
 	s.agent = newStubAgent()
 	s.clock = testclock.NewClock(time.Now())
+
 	s.config = migrationminion.Config{
 		Facade:  s.client,
 		Guard:   s.guard,
@@ -73,6 +76,9 @@ func (s *Suite) SetUpTest(c *tc.C) {
 			return nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
+		FetchTargetLokiConfig: func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
+			return loggerapi.ControllerLokiConfig{}, &params.Error{Code: params.CodeNotFound}
+		},
 	}
 }
 
@@ -741,9 +747,22 @@ type stubAgentConfig struct {
 	tag names.Tag
 	dir string
 
-	mu     sync.Mutex
-	addrs  []string
-	caCert string
+	mu           sync.Mutex
+	addrs        []string
+	caCert       string
+	lokiEndpoint string
+	lokiCACert   string
+}
+
+func (mc *stubAgentConfig) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	mc.lokiEndpoint = endpoint
+	if caCert != nil {
+		mc.lokiCACert = *caCert
+	} else {
+		mc.lokiCACert = ""
+	}
 }
 
 func (mc *stubAgentConfig) SetAPIHostPorts(servers []network.HostPorts) error {

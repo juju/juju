@@ -10,12 +10,14 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	loggerapi "github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/logger"
@@ -31,6 +33,17 @@ const (
 	// ErrRetryable is returned when a retryable error occurs.
 	ErrRetryable = errors.ConstError("retryable")
 )
+
+// LokiConfigFetcher returns the target controller's Loki configuration
+// for the given agent tag.
+type LokiConfigFetcher func(ctx context.Context, conn api.Connection, agentTag names.Tag) (loggerapi.ControllerLokiConfig, error)
+
+// FetchTargetLokiConfig is the default implementation of LokiConfigFetcher.
+// It fetches the config via the logger API client.
+func FetchTargetLokiConfig(ctx context.Context, conn api.Connection, agentTag names.Tag) (loggerapi.ControllerLokiConfig, error) {
+	lokiClient := loggerapi.NewClient(conn)
+	return lokiClient.GetControllerLokiConfig(ctx, agentTag)
+}
 
 // If we only receive one validation change request, then we need to keep
 // retrying until we successfully connect to the target controller, or we fail.
@@ -116,6 +129,11 @@ type Config struct {
 	NewFacade         func(base.APICaller) (Facade, error)
 	Logger            logger.Logger
 
+	// FetchTargetLokiConfig fetches the target controller's Loki
+	// configuration so the agent's agent.conf can be rewritten during
+	// migration handover.
+	FetchTargetLokiConfig LokiConfigFetcher
+
 	// ApplyJitter indicates whether to apply jitter to the retry
 	// backoff. This is useful when retrying validation requests to
 	// avoid flooding the target controller.
@@ -145,6 +163,9 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if config.FetchTargetLokiConfig == nil {
+		return errors.NotValidf("nil FetchTargetLokiConfig")
+	}
 	return nil
 }
 
@@ -171,6 +192,9 @@ func New(config Config) (worker.Worker, error) {
 type newDetails struct {
 	targetAPIAddrs []string
 	caCert         string
+	// lokiConfig holds the target controller's Loki configuration.
+	// Empty endpoint means the target has no Loki config.
+	lokiConfig loggerapi.ControllerLokiConfig
 }
 
 // Worker waits for a model migration to be active, then locks down the
@@ -350,6 +374,16 @@ func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) e
 		return errors.Trace(err)
 	}
 
+	// Fetch the target controller's Loki config so the agent's
+	// agent.conf can be rewritten during migration handover. If the
+	// target doesn't support the API or returns not-found, the config
+	// will be empty and the source tuple will be cleared.
+	lokiConfig, lokiErr := w.config.FetchTargetLokiConfig(ctx, conn, w.config.Agent.CurrentConfig().Tag())
+	if lokiErr != nil && !params.IsCodeNotFound(lokiErr) {
+		w.config.Logger.Warningf(ctx, "fetching target controller Loki config, clearing Loki config: %v", lokiErr)
+	}
+	newDetails.lokiConfig = lokiConfig
+
 	// If the validation was successful, we can store the new controller details
 	// for use in the SUCCESS phase.
 	w.newControllerDetails = &newDetails
@@ -451,6 +485,21 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 			return errors.Trace(err)
 		}
 		conf.SetCACert(w.newControllerDetails.caCert)
+
+		// Rewrite the Loki config with the target controller's tuple.
+		// If the target has no Loki config, clear both fields so the
+		// source controller's Loki tuple is never carried onto the
+		// target.
+		loki := w.newControllerDetails.lokiConfig
+		if loki.Endpoint != "" {
+			var caCert *string
+			if loki.CACert != "" {
+				caCert = &loki.CACert
+			}
+			conf.SetLokiConfig(loki.Endpoint, caCert, loki.InsecureSkipVerify)
+		} else {
+			conf.SetLokiConfig("", nil, nil)
+		}
 		return nil
 	})
 	return errors.Annotate(err, "setting agent config")
@@ -466,6 +515,17 @@ func (w *Worker) ensureTargetControllerDetails(ctx context.Context, status watch
 		if err != nil {
 			return errors.Annotate(err, "failed to open API to target controller")
 		}
+
+		// Fetch the target controller's Loki config so the agent's
+		// agent.conf can be rewritten during migration handover. If the
+		// target doesn't support the API or returns not-found, the
+		// config will be empty and the source tuple will be cleared.
+		lokiConfig, lokiErr := w.config.FetchTargetLokiConfig(ctx, conn, w.config.Agent.CurrentConfig().Tag())
+		if lokiErr != nil && !params.IsCodeNotFound(lokiErr) {
+			w.config.Logger.Warningf(ctx, "fetching target controller Loki config, clearing Loki config: %v", lokiErr)
+		}
+		newDetails.lokiConfig = lokiConfig
+
 		_ = conn.Close()
 		w.newControllerDetails = &newDetails
 	}

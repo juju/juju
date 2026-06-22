@@ -9,10 +9,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	loggerapi "github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -75,6 +77,12 @@ func (*ValidateSuite) TestMissingLogger(c *tc.C) {
 	checkNotValid(c, config, "nil Logger not valid")
 }
 
+func (*ValidateSuite) TestMissingFetchTargetLokiConfig(c *tc.C) {
+	config := validConfig(c)
+	config.FetchTargetLokiConfig = nil
+	checkNotValid(c, config, "nil FetchTargetLokiConfig not valid")
+}
+
 func validConfig(c *tc.C) migrationminion.Config {
 	return migrationminion.Config{
 		Agent:             struct{ agent.Agent }{},
@@ -84,6 +92,9 @@ func validConfig(c *tc.C) migrationminion.Config {
 		APIOpen:           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
 		Logger:            loggertesting.WrapCheckLog(c),
+		FetchTargetLokiConfig: func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
+			return loggerapi.ControllerLokiConfig{}, nil
+		},
 	}
 }
 

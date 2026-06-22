@@ -28,9 +28,10 @@ type ManifoldConfig struct {
 	APIOpen           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(context.Context, base.APICaller) error
 
-	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
-	Logger    logger.Logger
+	NewFacade             func(base.APICaller) (Facade, error)
+	NewWorker             func(Config) (worker.Worker, error)
+	Logger                logger.Logger
+	FetchTargetLokiConfig LokiConfigFetcher
 }
 
 // Validate is called by start to check for bad configuration.
@@ -62,6 +63,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if config.FetchTargetLokiConfig == nil {
+		return errors.NotValidf("nil FetchTargetLokiConfig")
+	}
 	return nil
 }
 
@@ -88,15 +92,16 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(Config{
-		Agent:             agent,
-		Facade:            facade,
-		Guard:             guard,
-		Clock:             config.Clock,
-		APIOpen:           config.APIOpen,
-		ValidateMigration: config.ValidateMigration,
-		NewFacade:         config.NewFacade,
-		Logger:            config.Logger,
-		ApplyJitter:       true,
+		Agent:                 agent,
+		Facade:                facade,
+		Guard:                 guard,
+		Clock:                 config.Clock,
+		APIOpen:               config.APIOpen,
+		ValidateMigration:     config.ValidateMigration,
+		NewFacade:             config.NewFacade,
+		Logger:                config.Logger,
+		FetchTargetLokiConfig: config.FetchTargetLokiConfig,
+		ApplyJitter:           true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
