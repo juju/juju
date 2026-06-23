@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
+	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/services"
 )
@@ -30,9 +31,9 @@ type GetControllerSSHHostKeyServiceFunc = func(getter dependency.Getter, name st
 // services getter from the manifold.
 type GetDomainServicesGetterFunc = func(getter dependency.Getter, name string) (services.DomainServicesGetter, error)
 
-// GetVirtualHostKeyServiceFunc is a helper function that gets the model
-// virtual host key service from the manifold.
-type GetVirtualHostKeyServiceFunc = func(context.Context, services.DomainServicesGetter, model.UUID) (VirtualHostKeyService, error)
+// GetSSHServiceFunc is a helper function that gets the model SSH service from
+// the manifold.
+type GetSSHServiceFunc = func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error)
 
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
@@ -59,14 +60,14 @@ func GetDomainServicesGetter(getter dependency.Getter, name string) (services.Do
 
 }
 
-// GetVirtualHostKeyService gets the model virtual host key service from the
-// current model domain services dependency.
-func GetVirtualHostKeyService(ctx context.Context, domainServicesGetter services.DomainServicesGetter, modelUUID model.UUID) (VirtualHostKeyService, error) {
+// GetSSHService gets the model SSH service from the current model domain
+// services dependency.
+func GetSSHService(ctx context.Context, domainServicesGetter services.DomainServicesGetter, modelUUID model.UUID) (SSHModelService, error) {
 	domainServices, err := domainServicesGetter.ServicesForModel(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return domainServices.SSHVirtualHostKeys(), nil
+	return domainServices.SSH(), nil
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server
@@ -87,9 +88,8 @@ type ManifoldConfig struct {
 	// GetDomainServicesGetter is used to get the model domain services getter
 	// from the manifold.
 	GetDomainServicesGetter GetDomainServicesGetterFunc
-	// GetVirtualHostKeyService is used to get the virtual host key service from
-	// the manifold.
-	GetVirtualHostKeyService GetVirtualHostKeyServiceFunc
+	// GetSSHService is used to get the SSH service from the manifold.
+	GetSSHService GetSSHServiceFunc
 	// Logger is the logger to use for the worker.
 	Logger logger.Logger
 }
@@ -114,8 +114,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetDomainServicesGetter == nil {
 		return errors.NotValidf("nil GetDomainServicesGetter")
 	}
-	if config.GetVirtualHostKeyService == nil {
-		return errors.NotValidf("nil GetVirtualHostKeyService")
+	if config.GetSSHService == nil {
+		return errors.NotValidf("nil GetSSHService")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -158,37 +158,54 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	sshHostKeyService := hostKeyService{
+	sshService := sshService{
 		controllerSSHHostKeyService: controllerSSHHostKeyService,
 		domainServicesGetter:        domainServicesGetter,
-		getVirtualHostKeyService:    config.GetVirtualHostKeyService,
+		getSSHService:               config.GetSSHService,
 	}
 
 	return config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
-		SSHHostKeyService:       sshHostKeyService,
+		SSHService:              sshService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
 		SessionHandler:          &stubSessionHandler{},
 	})
 }
 
-type hostKeyService struct {
+// sshService wraps our ssh domain services to enable two things:
+//  1. Direct controller model accesss via the ControllerSSHHostKeyService interface.
+//  2. Model-scoped access to the SSHModelService interface which underlying calls "ServicesForModel".
+//     We require the SSH server isn't the usual WS approach where the model uuid is populated
+//     by the time we reach the service, and instead, we must call the methods WITH the UUID received
+//     from the virtual host name.
+type sshService struct {
 	controllerSSHHostKeyService ControllerSSHHostKeyService
 	domainServicesGetter        services.DomainServicesGetter
-	getVirtualHostKeyService    GetVirtualHostKeyServiceFunc
+	getSSHService               GetSSHServiceFunc
 }
 
 // SSHServerHostKey returns the controller SSH server host key.
-func (s hostKeyService) SSHServerHostKey(ctx context.Context) (string, error) {
+func (s sshService) SSHServerHostKey(ctx context.Context) (string, error) {
 	return s.controllerSSHHostKeyService.SSHServerHostKey(ctx)
 }
 
 // VirtualHostKey returns the terminating SSH host key for a virtual hostname.
-func (s hostKeyService) VirtualHostKey(ctx context.Context, info virtualhostname.Info) (string, error) {
-	virtualHostKeyService, err := s.getVirtualHostKeyService(ctx, s.domainServicesGetter, info.ModelUUID())
+// The virtual hostname contains the model UUID for the destination model database.
+func (s sshService) VirtualHostKey(ctx context.Context, info virtualhostname.Info) (string, error) {
+	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, info.ModelUUID())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return virtualHostKeyService.VirtualHostKey(ctx, info)
+	return sshService.VirtualHostKey(ctx, info)
+}
+
+// InsertSSHConnRequest inserts a new SSH connection request.
+// The SSH connection request contains the model UUID for the destination model database.
+func (s sshService) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConnRequest) error {
+	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, req.ModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return sshService.InsertSSHConnRequest(ctx, req)
 }

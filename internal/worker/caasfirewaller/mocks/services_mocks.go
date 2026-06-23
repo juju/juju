@@ -91,7 +91,7 @@ type MockModelDomainServicesMockRecorder struct {
 	removalExpects                []*gomock.Call0_1[*service25.WatchableService]
 	resolveExpects                []*gomock.Call0_1[*service26.WatchableService]
 	resourceExpects               []*gomock.Call0_1[*service27.Service]
-	sSHVirtualHostKeysExpects     []*gomock.Call0_1[*model.Service]
+	sSHExpects                    []*gomock.Call0_1[*model.Service]
 	secretExpects                 []*gomock.Call0_1[*service28.WatchableService]
 	statusExpects                 []*gomock.Call0_1[*service30.LeadershipService]
 	storageExpects                []*gomock.Call0_1[*service31.Service]
@@ -687,23 +687,23 @@ func (mr *MockModelDomainServicesMockRecorder) Resource() *MockModelDomainServic
 // MockModelDomainServicesResourceCall is the typed call wrapper for Resource.
 type MockModelDomainServicesResourceCall = gomock.Call0_1[*service27.Service]
 
-// SSHVirtualHostKeys mocks base method.
-func (m *MockModelDomainServices) SSHVirtualHostKeys() *model.Service {
+// SSH mocks base method.
+func (m *MockModelDomainServices) SSH() *model.Service {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.sSHVirtualHostKeysExpects, m.ctrl, m, "SSHVirtualHostKeys")
+	return gomock.Dispatch0_1(&m.recorder.sSHExpects, m.ctrl, m, "SSH")
 }
 
-// SSHVirtualHostKeys indicates an expected call of SSHVirtualHostKeys.
-func (mr *MockModelDomainServicesMockRecorder) SSHVirtualHostKeys() *MockModelDomainServicesSSHVirtualHostKeysCall {
+// SSH indicates an expected call of SSH.
+func (mr *MockModelDomainServicesMockRecorder) SSH() *MockModelDomainServicesSSHCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*model.Service](mr.mock.ctrl.T, mr.mock, "SSHVirtualHostKeys")
-	mr.sSHVirtualHostKeysExpects = append(mr.sSHVirtualHostKeysExpects, call)
+	call := gomock.NewCall0_1[*model.Service](mr.mock.ctrl.T, mr.mock, "SSH")
+	mr.sSHExpects = append(mr.sSHExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelDomainServicesSSHVirtualHostKeysCall is the typed call wrapper for SSHVirtualHostKeys.
-type MockModelDomainServicesSSHVirtualHostKeysCall = gomock.Call0_1[*model.Service]
+// MockModelDomainServicesSSHCall is the typed call wrapper for SSH.
+type MockModelDomainServicesSSHCall = gomock.Call0_1[*model.Service]
 
 // Secret mocks base method.
 func (m *MockModelDomainServices) Secret() *service28.WatchableService {

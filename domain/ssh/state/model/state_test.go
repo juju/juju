@@ -5,17 +5,22 @@ package model_test
 
 import (
 	"context"
+	"database/sql"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/network"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
 	"github.com/juju/juju/internal/uuid"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -157,6 +162,101 @@ func (s *stateSuite) TestEnsureAndGetUnitVirtualHostKey(c *tc.C) {
 	c.Check(algorithmTypeID, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
 }
 
+func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	s.addMachine(c, "1")
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	req := domainssh.SSHConnRequest{
+		TunnelID:            "tunnel-0",
+		MachineID:           "1",
+		Expires:             now.Add(time.Minute),
+		Username:            "juju-reverse-tunnel",
+		Password:            "secret",
+		ControllerAddresses: network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"),
+		UnitPort:            0,
+		EphemeralPublicKey:  []byte("pub"),
+	}
+
+	err := st.InsertSSHConnRequest(c.Context(), req, now)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := st.GetSSHConnRequest(c.Context(), req.TunnelID, now)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.TunnelID, tc.Equals, req.TunnelID)
+	c.Check(got.MachineID, tc.Equals, req.MachineID)
+	c.Check(got.Expires.Equal(req.Expires), tc.IsTrue)
+	c.Check(got.Username, tc.Equals, req.Username)
+	c.Check(got.Password, tc.Equals, req.Password)
+	c.Check(got.ControllerAddresses.EqualTo(req.ControllerAddresses), tc.IsTrue)
+	c.Check(got.UnitPort, tc.Equals, req.UnitPort)
+	c.Check(got.EphemeralPublicKey, tc.DeepEquals, req.EphemeralPublicKey)
+}
+
+func (s *stateSuite) TestInsertSSHConnRequestMachineNotFound(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+
+	err := st.InsertSSHConnRequest(c.Context(), domainssh.SSHConnRequest{
+		TunnelID:  "missing-machine",
+		MachineID: "99",
+		Expires:   now.Add(time.Minute),
+		Username:  "juju-reverse-tunnel",
+		Password:  "secret",
+	}, now)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	s.addMachine(c, "1")
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	req := domainssh.SSHConnRequest{
+		TunnelID:           "remove-me",
+		MachineID:          "1",
+		Expires:            now.Add(time.Minute),
+		Username:           "juju-reverse-tunnel",
+		Password:           "secret",
+		UnitPort:           0,
+		EphemeralPublicKey: []byte("pub"),
+	}
+
+	err := st.InsertSSHConnRequest(c.Context(), req, now)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.RemoveSSHConnRequest(c.Context(), req.TunnelID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetSSHConnRequest(c.Context(), req.TunnelID, now)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+func (s *stateSuite) TestPruneExpiredSSHConnRequests(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	s.addMachine(c, "1")
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	expiredReq := domainssh.SSHConnRequest{TunnelID: "expired", MachineID: "1", Expires: now.Add(-time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
+	activeReq := domainssh.SSHConnRequest{TunnelID: "active", MachineID: "1", Expires: now.Add(time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
+
+	err := st.InsertSSHConnRequest(c.Context(), expiredReq, now.Add(-2*time.Minute))
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.InsertSSHConnRequest(c.Context(), activeReq, now)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.PruneExpiredSSHConnRequests(c.Context(), now)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = st.GetSSHConnRequest(c.Context(), activeReq.TunnelID, now)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = st.GetSSHConnRequest(c.Context(), expiredReq.TunnelID, now)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+func (s *stateSuite) TestWatchSSHConnRequestStatement(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	table, stmt := st.InitialWatchSSHConnRequestsStatement()
+	c.Check(table, tc.Equals, "ssh_connection_request")
+	c.Check(stmt, tc.Equals, "SELECT tunnel_id FROM ssh_connection_request")
+}
+
 func (s *stateSuite) addMachine(c *tc.C, name string) string {
 	machineUUID := uuid.MustNewUUID().String()
 	netNodeUUID := uuid.MustNewUUID().String()
@@ -200,6 +300,19 @@ func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactor
 	return func(context.Context) (coredatabase.TxnRunner, error) {
 		return runner, nil
 	}
+}
+
+func addMachineTxn(c *tc.C, db *sql.DB, name string) string {
+	netNodeUUID := internaluuid.MustNewUUID().String()
+	machineUUID := internaluuid.MustNewUUID().String()
+	_, err := db.ExecContext(c.Context(), `INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(), `
+INSERT INTO machine (uuid, name, net_node_uuid, life_id)
+VALUES (?, ?, ?, (SELECT id FROM life WHERE value = 'alive'))
+`, machineUUID, name, netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return machineUUID
 }
 
 const testPrivateKey = "test-private-key"

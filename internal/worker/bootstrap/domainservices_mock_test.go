@@ -121,8 +121,8 @@ type MockDomainServicesMockRecorder struct {
 	removalExpects                    []*gomock.Call0_1[*service37.WatchableService]
 	resolveExpects                    []*gomock.Call0_1[*service38.WatchableService]
 	resourceExpects                   []*gomock.Call0_1[*service39.Service]
+	sSHExpects                        []*gomock.Call0_1[*model.Service]
 	sSHServerHostKeyExpects           []*gomock.Call0_1[*controller.Service]
-	sSHVirtualHostKeysExpects         []*gomock.Call0_1[*model.Service]
 	secretExpects                     []*gomock.Call0_1[*service40.WatchableService]
 	secretBackendExpects              []*gomock.Call0_1[*service41.WatchableService]
 	statusExpects                     []*gomock.Call0_1[*service42.LeadershipService]
@@ -991,6 +991,24 @@ func (mr *MockDomainServicesMockRecorder) Resource() *MockDomainServicesResource
 // MockDomainServicesResourceCall is the typed call wrapper for Resource.
 type MockDomainServicesResourceCall = gomock.Call0_1[*service39.Service]
 
+// SSH mocks base method.
+func (m *MockDomainServices) SSH() *model.Service {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.sSHExpects, m.ctrl, m, "SSH")
+}
+
+// SSH indicates an expected call of SSH.
+func (mr *MockDomainServicesMockRecorder) SSH() *MockDomainServicesSSHCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*model.Service](mr.mock.ctrl.T, mr.mock, "SSH")
+	mr.sSHExpects = append(mr.sSHExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDomainServicesSSHCall is the typed call wrapper for SSH.
+type MockDomainServicesSSHCall = gomock.Call0_1[*model.Service]
+
 // SSHServerHostKey mocks base method.
 func (m *MockDomainServices) SSHServerHostKey() *controller.Service {
 	m.ctrl.T.Helper()
@@ -1008,24 +1026,6 @@ func (mr *MockDomainServicesMockRecorder) SSHServerHostKey() *MockDomainServices
 
 // MockDomainServicesSSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
 type MockDomainServicesSSHServerHostKeyCall = gomock.Call0_1[*controller.Service]
-
-// SSHVirtualHostKeys mocks base method.
-func (m *MockDomainServices) SSHVirtualHostKeys() *model.Service {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.sSHVirtualHostKeysExpects, m.ctrl, m, "SSHVirtualHostKeys")
-}
-
-// SSHVirtualHostKeys indicates an expected call of SSHVirtualHostKeys.
-func (mr *MockDomainServicesMockRecorder) SSHVirtualHostKeys() *MockDomainServicesSSHVirtualHostKeysCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*model.Service](mr.mock.ctrl.T, mr.mock, "SSHVirtualHostKeys")
-	mr.sSHVirtualHostKeysExpects = append(mr.sSHVirtualHostKeysExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockDomainServicesSSHVirtualHostKeysCall is the typed call wrapper for SSHVirtualHostKeys.
-type MockDomainServicesSSHVirtualHostKeysCall = gomock.Call0_1[*model.Service]
 
 // Secret mocks base method.
 func (m *MockDomainServices) Secret() *service40.WatchableService {

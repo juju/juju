@@ -21,6 +21,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,application_endpoint
@@ -81,6 +82,7 @@ const (
 	tableMachineLxdProfile
 	tableMachineCloudInstance
 	tableMachineRequireReboot
+	tableSSHConnectionRequest
 	tableCharm
 	tableUnit
 	tableUnitPrincipal
@@ -157,6 +159,7 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForMachineLxdProfile("machine_uuid", tableMachineLxdProfile),
 		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
 		triggers.ChangeLogTriggersForMachineRequiresReboot("machine_uuid", tableMachineRequireReboot),
+		triggers.ChangeLogTriggersForSshConnectionRequest("tunnel_id", tableSSHConnectionRequest),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 		// NOTE: we emit the uuid of the principal unit, not the subordinate, when

@@ -194,8 +194,8 @@ type ModelDomainServices interface {
 	ChangeStream() *changestreamservice.Service
 	// Export returns the service for accessing model exports.
 	Export() *exportservice.Service
-	// SSHVirtualHostKeys returns the service for model SSH virtual host keys.
-	SSHVirtualHostKeys() *sshmodelservice.Service
+	// SSH returns the service for model-scoped SSH workflows.
+	SSH() *sshmodelservice.Service
 }
 
 // DomainServices provides access to the services required by the apiserver.

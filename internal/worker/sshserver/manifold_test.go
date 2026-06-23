@@ -33,7 +33,7 @@ type manifoldSuite struct {
 
 	controllerConfigService     *MockControllerConfigService
 	controllerSSHHostKeyService ControllerSSHHostKeyService
-	virtualHostKeyService       VirtualHostKeyService
+	sshService                  SSHModelService
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -64,7 +64,7 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 		cfg.GetControllerConfigService = nil
 		cfg.GetControllerSSHHostKeyService = nil
 		cfg.GetDomainServicesGetter = nil
-		cfg.GetVirtualHostKeyService = nil
+		cfg.GetSSHService = nil
 		cfg.Logger = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
@@ -111,9 +111,9 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
-	// Missing GetVirtualHostKeyService.
+	// Missing GetSSHService.
 	cfg = s.newManifoldConfig(c, func(cfg *ManifoldConfig) {
-		cfg.GetVirtualHostKeyService = nil
+		cfg.GetSSHService = nil
 	})
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), tc.IsTrue)
 
@@ -121,7 +121,7 @@ func (s *manifoldSuite) TestConfigValidate(c *tc.C) {
 
 func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	virtualHostKeyServiceCalled := false
+	sshServiceCalled := false
 
 	// Setup the manifold
 	manifold := Manifold(ManifoldConfig{
@@ -139,9 +139,9 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
 			return stubDomainServicesGetter{}, nil
 		},
-		GetVirtualHostKeyService: func(context.Context, services.DomainServicesGetter, model.UUID) (VirtualHostKeyService, error) {
-			virtualHostKeyServiceCalled = true
-			return s.virtualHostKeyService, nil
+		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error) {
+			sshServiceCalled = true
+			return s.sshService, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})
@@ -158,25 +158,25 @@ func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
 	defer workertest.DirtyKill(c, result)
 
 	c.Check(result, tc.NotNil)
-	c.Check(virtualHostKeyServiceCalled, tc.IsFalse)
+	c.Check(sshServiceCalled, tc.IsFalse)
 	workertest.CleanKill(c, result)
 }
 
-func (s *manifoldSuite) TestHostKeyServiceVirtualHostKeyUsesRequestModelUUID(c *tc.C) {
+func (s *manifoldSuite) TestSSHServiceVirtualHostKeyUsesRequestModelUUID(c *tc.C) {
 	info, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "1")
 	c.Assert(err, tc.ErrorIsNil)
 
 	var resolvedModelUUID model.UUID
-	sshHostKeyService := hostKeyService{
-		controllerSSHHostKeyService: stubSSHHostKeyService{jumpHostKey: testHostKey},
+	sshService := sshService{
+		controllerSSHHostKeyService: stubSSHService{jumpHostKey: testHostKey},
 		domainServicesGetter:        stubDomainServicesGetter{},
-		getVirtualHostKeyService: func(_ context.Context, _ services.DomainServicesGetter, modelUUID model.UUID) (VirtualHostKeyService, error) {
+		getSSHService: func(_ context.Context, _ services.DomainServicesGetter, modelUUID model.UUID) (SSHModelService, error) {
 			resolvedModelUUID = modelUUID
-			return stubSSHHostKeyService{virtualHostKey: testHostKey}, nil
+			return stubSSHService{virtualHostKey: testHostKey}, nil
 		},
 	}
 
-	virtualHostKey, err := sshHostKeyService.VirtualHostKey(c.Context(), info)
+	virtualHostKey, err := sshService.VirtualHostKey(c.Context(), info)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(virtualHostKey, tc.Equals, testHostKey)
 	c.Check(resolvedModelUUID, tc.Equals, info.ModelUUID())
@@ -186,9 +186,9 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	sshHostKeyService := stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey}
-	s.controllerSSHHostKeyService = sshHostKeyService
-	s.virtualHostKeyService = sshHostKeyService
+	sshService := stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey}
+	s.controllerSSHHostKeyService = sshService
+	s.sshService = sshService
 
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
@@ -220,8 +220,8 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
 			return stubDomainServicesGetter{}, nil
 		},
-		GetVirtualHostKeyService: func(context.Context, services.DomainServicesGetter, model.UUID) (VirtualHostKeyService, error) {
-			return s.virtualHostKeyService, nil
+		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error) {
+			return s.sshService, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	}
@@ -254,8 +254,8 @@ func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 		GetDomainServicesGetter: func(dependency.Getter, string) (services.DomainServicesGetter, error) {
 			return stubDomainServicesGetter{}, nil
 		},
-		GetVirtualHostKeyService: func(context.Context, services.DomainServicesGetter, model.UUID) (VirtualHostKeyService, error) {
-			return s.virtualHostKeyService, nil
+		GetSSHService: func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error) {
+			return s.sshService, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
 	})

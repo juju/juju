@@ -71,9 +71,9 @@ func newServerWorkerConfig(
 	modifier func(*ServerWorkerConfig),
 ) *ServerWorkerConfig {
 	cfg := &ServerWorkerConfig{
-		Logger:         l,
-		JumpHostKey:    j,
-		HostKeyService: stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		Logger:      l,
+		JumpHostKey: j,
+		SSHService:  stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 	}
 
 	modifier(cfg)
@@ -99,9 +99,9 @@ func (s *sshServerSuite) TestValidate(c *tc.C) {
 	})
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	// Test no HostKeyService.
+	// Test no SSHService.
 	cfg = newServerWorkerConfig(l, "jumpHostKey", func(cfg *ServerWorkerConfig) {
-		cfg.HostKeyService = nil
+		cfg.SSHService = nil
 	})
 	c.Assert(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
@@ -119,7 +119,7 @@ func (s *sshServerSuite) TestSSHServer(c *tc.C) {
 		Logger:                   loggertesting.WrapCheckLog(c),
 		Listener:                 listener,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		HostKeyService:           stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: jujutesting.SSHServerHostKey},
+		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: jujutesting.SSHServerHostKey},
 		MaxConcurrentConnections: maxConcurrentConnections,
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
@@ -197,7 +197,7 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		HostKeyService:           stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
 	})
@@ -285,7 +285,7 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		Listener:                 listener,
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
-		HostKeyService:           stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		disableAuth:              true,
 		SessionHandler:           s.sessionHandler,
 	})
