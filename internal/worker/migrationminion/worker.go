@@ -531,8 +531,7 @@ func (w *Worker) targetLokiConfigForHandover(ctx context.Context, status watcher
 	if params.IsCodeNotFound(err) {
 		return loggerapi.ControllerLokiConfig{}, nil
 	} else if err != nil {
-		w.config.Logger.Warningf(ctx, "fetching target controller Loki config, clearing Loki config: %v", err)
-		return loggerapi.ControllerLokiConfig{}, nil
+		return loggerapi.ControllerLokiConfig{}, errors.Annotate(err, "fetching target controller Loki config")
 	}
 	return lokiConfig, nil
 }

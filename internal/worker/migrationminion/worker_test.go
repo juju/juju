@@ -466,6 +466,24 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
 }
 
+func (s *Suite) TestSUCCESSFetchTargetLokiConfigError(c *tc.C) {
+	s.config.FetchTargetLokiConfig = func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
+		return loggerapi.ControllerLokiConfig{}, errors.New("loki fetch boom")
+	}
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, tc.ErrorMatches, "fetching target controller Loki config.*")
+}
+
 func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
