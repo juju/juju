@@ -509,9 +509,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                 config.Clock,
 			APIOpen:               api.Open,
 			ValidateMigration:     config.ValidateMigration,
-			NewFacade:             migrationminion.NewFacade,
 			NewWorker:             migrationminion.NewWorker,
 			Logger:                internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			SendReport:            migrationminion.SendReport,
 			FetchTargetLokiConfig: migrationminion.FetchTargetLokiConfig,
 		}),
 

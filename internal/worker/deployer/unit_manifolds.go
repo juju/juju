@@ -195,9 +195,9 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Clock:                 config.Clock,
 			APIOpen:               api.Open,
 			ValidateMigration:     config.ValidateMigration,
-			NewFacade:             migrationminion.NewFacade,
 			NewWorker:             migrationminion.NewWorker,
 			Logger:                config.LoggerContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			SendReport:            migrationminion.SendReport,
 			FetchTargetLokiConfig: migrationminion.FetchTargetLokiConfig,
 		}),
 

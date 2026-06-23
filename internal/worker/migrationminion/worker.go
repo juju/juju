@@ -18,8 +18,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	loggerapi "github.com/juju/juju/api/agent/logger"
+	"github.com/juju/juju/api/agent/migrationminion"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -34,9 +36,21 @@ const (
 	ErrRetryable = errors.ConstError("retryable")
 )
 
-// LokiConfigFetcher returns the target controller's Loki configuration
+// SendReportFunc is a function type that reports the migration phase progress
+// to the migration master.
+type SendReportFunc func(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error
+
+// SendReport is the default implementation of SendReportFunc. It uses the
+// migrationminion API client to report the migration phase progress to the
+// migration master.
+func SendReport(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error {
+	facade := migrationminion.NewClient(conn)
+	return facade.Report(ctx, status.MigrationId, status.Phase, success)
+}
+
+// LokiConfigFetcherFunc returns the target controller's Loki configuration
 // for the given agent tag.
-type LokiConfigFetcher func(ctx context.Context, conn api.Connection, agentTag names.Tag) (loggerapi.ControllerLokiConfig, error)
+type LokiConfigFetcherFunc func(ctx context.Context, conn api.Connection, agentTag names.Tag) (loggerapi.ControllerLokiConfig, error)
 
 // FetchTargetLokiConfig is the default implementation of LokiConfigFetcher.
 // It fetches the config via the logger API client.
@@ -114,25 +128,35 @@ const (
 
 // Facade exposes controller functionality to a Worker.
 type Facade interface {
+	// Watch returns a watcher that will receive migration phase changes.
 	Watch(context.Context) (watcher.MigrationStatusWatcher, error)
+
+	// Report reports the migration phase progress to the migration master.
 	Report(ctx context.Context, migrationId string, phase migration.Phase, success bool) error
 }
 
 // Config defines the operation of a Worker.
 type Config struct {
 	Agent             agent.Agent
-	Facade            Facade
 	Guard             fortress.Guard
-	Clock             clock.Clock
 	APIOpen           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(context.Context, base.APICaller) error
-	NewFacade         func(base.APICaller) (Facade, error)
-	Logger            logger.Logger
+
+	// Facade is used to report back to the existing controller about the
+	// migration phase progress.
+	Facade Facade
+
+	// SendReport is used to report the migration phase progress to the
+	// migration master. It is called with a connection to the target controller.
+	SendReport SendReportFunc
 
 	// FetchTargetLokiConfig fetches the target controller's Loki
 	// configuration so the agent's agent.conf can be rewritten during
 	// migration handover.
-	FetchTargetLokiConfig LokiConfigFetcher
+	FetchTargetLokiConfig LokiConfigFetcherFunc
+
+	Clock  clock.Clock
+	Logger logger.Logger
 
 	// ApplyJitter indicates whether to apply jitter to the retry
 	// backoff. This is useful when retrying validation requests to
@@ -163,14 +187,17 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if config.SendReport == nil {
+		return errors.NotValidf("nil SendReport")
+	}
 	if config.FetchTargetLokiConfig == nil {
 		return errors.NotValidf("nil FetchTargetLokiConfig")
 	}
 	return nil
 }
 
-// New returns a Worker backed by config, or an error.
-func New(config Config) (worker.Worker, error) {
+// NewWorker returns a Worker backed by config, or an error.
+func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -202,6 +229,7 @@ type Worker struct {
 
 	processed            map[string]migration.Phase
 	newControllerDetails *newDetails
+	lokiConfig           *loggerapi.ControllerLokiConfig
 }
 
 // Kill implements worker.Worker.
@@ -215,8 +243,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() error {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
 
 	watch, err := w.config.Facade.Watch(ctx)
 	if err != nil {
@@ -366,14 +393,17 @@ func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) e
 	defer func() { _ = conn.Close() }()
 
 	// Ask the agent to confirm that things look ok.
-	err = w.config.ValidateMigration(ctx, conn)
-	if err != nil {
+	if err := w.config.ValidateMigration(ctx, conn); err != nil {
 		return errors.Trace(err)
 	}
 
-	// If the validation was successful, we can store the new controller details
-	// for use in the SUCCESS phase.
-	w.newControllerDetails = &newDetails
+	// Ensure that the new controller details are persisted in the worker, so
+	// that we can use them later in the SUCCESS phase to update the agent
+	// config.
+	if err := w.fetchAndStoreControllerDetails(ctx, conn, newDetails); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -457,8 +487,7 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 		}
 	}()
 
-	lokiConfig, err := w.targetLokiConfigForHandover(ctx, status)
-	if err != nil {
+	if err := w.ensureTargetControllerDetails(ctx, status); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -478,12 +507,12 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 		// If the target has no Loki config, clear both fields so the
 		// source controller's Loki tuple is never carried onto the
 		// target.
-		if lokiConfig.Endpoint != "" {
+		if w.lokiConfig != nil && w.lokiConfig.Endpoint != "" {
 			var caCert *string
-			if lokiConfig.CACert != "" {
-				caCert = &lokiConfig.CACert
+			if w.lokiConfig.CACert != "" {
+				caCert = &w.lokiConfig.CACert
 			}
-			conf.SetLokiConfig(lokiConfig.Endpoint, caCert, lokiConfig.InsecureSkipVerify)
+			conf.SetLokiConfig(w.lokiConfig.Endpoint, caCert, w.lokiConfig.InsecureSkipVerify)
 		} else {
 			conf.SetLokiConfig("", nil, nil)
 		}
@@ -493,47 +522,42 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 }
 
 func (w *Worker) ensureTargetControllerDetails(ctx context.Context, status watcher.MigrationStatus) error {
-	// If the new details struct is nil, it means that the agent restarted
-	// between the VALIDATION and SUCCESS, or in post SUCCESS phases, and we
-	// need to re-dial the new controller to ensure that we follow any redirects
-	// that may have occurred.
-	if w.newControllerDetails == nil {
+	// If the new details struct is nil or the lokiConfig is nil, it means that
+	// the agent restarted between the VALIDATION and SUCCESS, or in post
+	// SUCCESS phases, and we need to re-dial the new controller to ensure that
+	// we follow any redirects that may have occurred.
+	if w.newControllerDetails == nil || w.lokiConfig == nil {
 		conn, newDetails, err := w.dialNewController(ctx, status.TargetAPIAddrs, status.TargetCACert)
 		if err != nil {
 			return errors.Annotate(err, "failed to open API to target controller")
 		}
-		_ = conn.Close()
-		w.newControllerDetails = &newDetails
+		defer func() { _ = conn.Close() }()
+
+		if err := w.fetchAndStoreControllerDetails(ctx, conn, newDetails); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
 
-func (w *Worker) targetLokiConfigForHandover(ctx context.Context, status watcher.MigrationStatus) (loggerapi.ControllerLokiConfig, error) {
-	addrs := status.TargetAPIAddrs
-	caCert := status.TargetCACert
-	if w.newControllerDetails != nil {
-		addrs = w.newControllerDetails.targetAPIAddrs
-		caCert = w.newControllerDetails.caCert
+func (w *Worker) fetchAndStoreControllerDetails(ctx context.Context, conn api.Connection, details newDetails) error {
+	cfg := w.config.Agent.CurrentConfig()
+	lokiConfig, err := w.config.FetchTargetLokiConfig(ctx, conn, cfg.Tag())
+	// If the target controller doesn't have a Loki config, that's ok.
+	// We'll just clear the agent's Loki config during the SUCCESS phase.
+	if err != nil && !errors.Is(err, coreerrors.NotFound) {
+		return errors.Annotate(err, "failed to fetch target controller Loki config")
 	}
 
-	conn, newDetails, err := w.dialNewController(
-		ctx,
-		addrs,
-		caCert,
-	)
-	if err != nil {
-		return loggerapi.ControllerLokiConfig{}, errors.Annotate(err, "opening target API for Loki config")
-	}
-	defer func() { _ = conn.Close() }()
-	w.newControllerDetails = &newDetails
+	// Store the Loki config for use in the SUCCESS phase, so we can rewrite the
+	// agent.conf to point to the target controller's Loki config.
+	w.lokiConfig = &lokiConfig
 
-	lokiConfig, err := w.config.FetchTargetLokiConfig(ctx, conn, w.config.Agent.CurrentConfig().Tag())
-	if params.IsCodeNotFound(err) {
-		return loggerapi.ControllerLokiConfig{}, nil
-	} else if err != nil {
-		return loggerapi.ControllerLokiConfig{}, errors.Annotate(err, "fetching target controller Loki config")
-	}
-	return lokiConfig, nil
+	// If the validation was successful, we can store the new controller details
+	// for use in the SUCCESS phase.
+	w.newControllerDetails = &details
+
+	return nil
 }
 
 func (w *Worker) report(ctx context.Context, status watcher.MigrationStatus, success bool) error {
@@ -568,12 +592,7 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 			}
 			defer func() { _ = conn.Close() }()
 
-			facade, err := w.config.NewFacade(conn)
-			if err != nil {
-				return err
-			}
-
-			return facade.Report(ctx, status.MigrationId, status.Phase, success)
+			return w.config.SendReport(ctx, conn, status, success)
 		},
 		IsFatalError: func(err error) bool {
 			return false
@@ -591,8 +610,4 @@ func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatu
 		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
 	}
 	return nil
-}
-
-func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

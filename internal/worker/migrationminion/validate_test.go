@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api"
 	loggerapi "github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -45,6 +46,12 @@ func (*ValidateSuite) TestMissingFacade(c *tc.C) {
 	config := validConfig(c)
 	config.Facade = nil
 	checkNotValid(c, config, "nil Facade not valid")
+}
+
+func (*ValidateSuite) TestMissingSendReport(c *tc.C) {
+	config := validConfig(c)
+	config.SendReport = nil
+	checkNotValid(c, config, "nil SendReport not valid")
 }
 
 func (*ValidateSuite) TestMissingClock(c *tc.C) {
@@ -92,6 +99,9 @@ func validConfig(c *tc.C) migrationminion.Config {
 		APIOpen:           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
 		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
 		Logger:            loggertesting.WrapCheckLog(c),
+		SendReport: func(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error {
+			return nil
+		},
 		FetchTargetLokiConfig: func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
 			return loggerapi.ControllerLokiConfig{}, nil
 		},
@@ -107,7 +117,7 @@ func checkNotValid(c *tc.C, config migrationminion.Config, expect string) {
 	err := config.Validate()
 	check(err)
 
-	worker, err := migrationminion.New(config)
+	worker, err := migrationminion.NewWorker(config)
 	c.Check(worker, tc.IsNil)
 	check(err)
 }
