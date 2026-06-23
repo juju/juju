@@ -248,20 +248,21 @@ func (st *State) checkApplicationSecretLabelExists(
 		Label:           label,
 	}
 	stmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM (
+WITH secret AS (
     SELECT secret_id
     FROM   secret_application_owner
     WHERE  label = $secretApplicationOwner.label
     AND    application_uuid = $secretApplicationOwner.application_uuid
-    UNION
+    UNION ALL
     SELECT secret_id
     FROM   secret_unit_owner
     JOIN   unit u ON u.uuid = secret_unit_owner.unit_uuid
     WHERE  label = $secretApplicationOwner.label
     AND    u.application_uuid = $secretApplicationOwner.application_uuid
 )
-WHERE  secret_id != $secretApplicationOwner.secret_id
+SELECT COUNT(*) AS &countResult.count
+FROM secret
+WHERE  secret.secret_id != $secretApplicationOwner.secret_id
 `, input, countResult{})
 	if err != nil {
 		return false, errors.Capture(err)
@@ -290,8 +291,7 @@ func (st *State) checkUnitSecretLabelExists(
 		Label:    label,
 	}
 	stmt, err := st.Prepare(`
-SELECT COUNT(*) AS &countResult.count
-FROM (
+WITH secret AS (
     SELECT secret_id
     FROM   secret_application_owner AS sao
     JOIN   unit AS u ON sao.application_uuid = u.application_uuid
@@ -302,8 +302,10 @@ FROM (
     FROM   secret_unit_owner AS suo
     WHERE  label = $secretUnitOwner.label
     AND    suo.unit_uuid = $secretUnitOwner.unit_uuid
-)
-WHERE  secret_id != $secretUnitOwner.secret_id
+) 
+SELECT COUNT(*) AS &countResult.count
+FROM secret
+WHERE  secret.secret_id != $secretUnitOwner.secret_id
 `, input, countResult{})
 	if err != nil {
 		return false, errors.Capture(err)
