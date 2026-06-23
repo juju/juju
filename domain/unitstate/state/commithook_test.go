@@ -2500,7 +2500,7 @@ func (s *commitHookSuite) TestCreateSecretIDConflict(c *tc.C) {
 
 	err := s.state.CommitHookChanges(ctx, arg)
 	c.Check(err, tc.Not(tc.IsNil))
-	c.Check(err, tc.ErrorMatches, `.*creating secret "create-test-conflict".*`)
+	c.Check(err, tc.ErrorMatches, `create secrets: creating secret "create-test-conflict": secret already exists`)
 }
 
 func (s *commitHookSuite) TestCreateSecretsRollsBackOnStorageFailure(c *tc.C) {

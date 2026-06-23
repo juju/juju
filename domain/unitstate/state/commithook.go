@@ -131,7 +131,26 @@ func (st *State) createSecrets(ctx context.Context, tx *sqlair.TX, creates []int
 // commit-hook transaction: secret, secret_metadata, secret_revision,
 // content/value-ref, expiry, rotation, ownership, and manage permission.
 func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg internal.CreateSecretArg) error {
-	// 1. Insert into secret table (just the ID).
+	// 1. Check if secret ID already exists.
+	checkExistsStmt, err := st.Prepare(`
+SELECT 1 AS &countResult.count
+FROM   secret
+WHERE  id = $createSecretID.id
+LIMIT  1
+`, createSecretID{}, countResult{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var exists countResult
+	err = tx.Query(ctx, checkExistsStmt, createSecretID{ID: arg.SecretID}).Get(&exists)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return errors.Capture(err)
+	}
+	if exists.Count > 0 {
+		return errors.Errorf("secret already exists")
+	}
+
+	// 2. Insert into secret table (just the ID).
 	insertSecretStmt, err := st.Prepare(
 		"INSERT INTO secret (id) VALUES ($createSecretID.id)", createSecretID{})
 	if err != nil {
@@ -141,7 +160,7 @@ func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg interna
 		return errors.Errorf("inserting secret: %w", err)
 	}
 
-	// 2. Insert secret_metadata.
+	// 3. Insert secret_metadata.
 	p := arg.Params
 	md := secretMetadata{
 		ID:      arg.SecretID,
@@ -152,7 +171,7 @@ func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg interna
 		return errors.Errorf("inserting metadata: %w", err)
 	}
 
-	// 3. Insert secret_revision (revision 1).
+	// 4. Insert secret_revision (revision 1).
 	if p.RevisionUUID == nil {
 		return errors.Errorf("revision UUID must be provided")
 	}
@@ -167,7 +186,7 @@ func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg interna
 		return errors.Errorf("inserting revision: %w", err)
 	}
 
-	// 4. Insert content or value reference.
+	// 5. Insert content or value reference.
 	if len(p.Data) > 0 {
 		if err := st.insertSecretContent(ctx, tx, *p.RevisionUUID, p.Data); err != nil {
 			return errors.Errorf("inserting content: %w", err)
@@ -179,28 +198,28 @@ func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg interna
 		}
 	}
 
-	// 5. Insert expiry if set.
+	// 6. Insert expiry if set.
 	if p.ExpireTime != nil {
 		if err := st.upsertSecretRevisionExpiry(ctx, tx, *p.RevisionUUID, *p.ExpireTime); err != nil {
 			return errors.Errorf("inserting revision expiry: %w", err)
 		}
 	}
 
-	// 6. Insert next rotation time if set.
+	// 7. Insert next rotation time if set.
 	if p.NextRotateTime != nil {
 		if err := st.upsertSecretNextRotateTime(ctx, tx, arg.SecretID, *p.NextRotateTime); err != nil {
 			return errors.Errorf("inserting next rotate time: %w", err)
 		}
 	}
 
-	// 7. Check for label conflicts before setting ownership.
+	// 8. Check for label conflicts before setting ownership.
 	if arg.Label != "" {
 		if err := st.ensureNewLabel(ctx, tx, arg.OwnerKind, arg.OwnerUUID, arg.Label, arg.SecretID); err != nil {
 			return err
 		}
 	}
 
-	// 8. Set ownership and grant manage permission.
+	// 9. Set ownership and grant manage permission.
 	switch arg.OwnerKind {
 	case domainsecret.ApplicationCharmSecretOwner:
 		if err := st.setSecretApplicationOwner(ctx, tx, arg.SecretID, arg.OwnerUUID, arg.Label); err != nil {
