@@ -283,7 +283,6 @@ type Worker struct {
 	logger              logger.Logger
 	lastFailure         string
 	minionReportTimeout time.Duration
-	migrationId         string
 }
 
 // Kill implements worker.Worker.
@@ -304,7 +303,6 @@ func (w *Worker) run() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.migrationId = status.MigrationId
 
 	err = w.config.Guard.Lockdown(ctx)
 	if errors.Cause(err) == fortress.ErrAborted {
@@ -333,7 +331,7 @@ func (w *Worker) run() error {
 		case coremigration.SUCCESS:
 			phase, err = w.doSUCCESS(ctx, status)
 		case coremigration.LOGTRANSFER:
-			phase, err = w.doLOGTRANSFER(ctx, status.TargetInfo, status.ModelUUID)
+			phase, err = w.doLOGTRANSFER(ctx, status.TargetInfo, status.ModelUUID, status.MigrationId)
 		case coremigration.REAP:
 			phase, err = w.doREAP(ctx)
 		case coremigration.ABORT:
@@ -673,14 +671,14 @@ func (w *Worker) transferResources(ctx context.Context, targetInfo coremigration
 	return errors.Trace(err)
 }
 
-func (w *Worker) doLOGTRANSFER(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
+func (w *Worker) doLOGTRANSFER(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID, migrationID string) (coremigration.Phase, error) {
 	lokiEnabled, err := w.config.LoggingService.IsLokiEnabled(ctx)
 	if err != nil {
 		return coremigration.UNKNOWN, errors.Annotate(err, "checking Loki config for log transfer")
 	}
 	if lokiEnabled {
-		w.logger.Infof(ctx, "Loki forwarding enabled on source controller - skipping log transfer for model %s (migration %s)", modelUUID, w.migrationId)
-		w.emitCutoverMarker(ctx, modelUUID)
+		w.logger.Infof(ctx, "Loki forwarding enabled on source controller - skipping log transfer for model %s (migration %s)", modelUUID, migrationID)
+		w.emitCutoverMarker(ctx, modelUUID, migrationID)
 		return coremigration.REAP, nil
 	}
 	err = w.transferLogs(ctx, targetInfo, modelUUID)
@@ -695,10 +693,10 @@ func (w *Worker) doLOGTRANSFER(ctx context.Context, targetInfo coremigration.Tar
 // includes the model UUID, migration identifier, and cutover timestamp
 // so operators can correlate logs across the source and target Loki
 // stores.
-func (w *Worker) emitCutoverMarker(ctx context.Context, modelUUID string) {
+func (w *Worker) emitCutoverMarker(ctx context.Context, modelUUID, migrationID string) {
 	w.logger.Infof(ctx,
 		"MIGRATION CUTOVER: model=%s migration=%s t_cutover=%s",
-		modelUUID, w.migrationId, w.config.Clock.Now().UTC().Format(time.RFC3339Nano),
+		modelUUID, migrationID, w.config.Clock.Now().UTC().Format(time.RFC3339Nano),
 	)
 }
 
