@@ -260,24 +260,44 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 		exp.HostArch().Return(arch.AMD64),
 	)
 
+	// assignContainerNICs maps the requested subnet provider IDs (CIDRs)
+	// back to the LXD network (host bridge) hosting them via Subnets().
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworkNames().Return([]string{"ovs-br0", "virbr0", "lxdbr0"}, nil)
+	exp.GetNetworkState("ovs-br0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.0.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+	exp.GetNetworkState("virbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.42.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+	exp.GetNetworkState("lxdbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.99.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	startArgs := s.GetStartInstanceArgs(c)
 	startArgs.SubnetsToZones = []map[network.Id][]string{
-		// The following are bogus subnet names that shouldn't
-		// normally be reported by Subnets(). They are only
-		// here to ensure that assignContainerNICs does not
-		// explode if garbage gets passed in.
 		{
-			"bogus-bridge-10.0.0.0/24": {"locutus"},
-			"subnet-bridge":            {"locutus"},
+			// Unknown subnet, not reported by Subnets(); must be
+			// skipped without exploding.
+			"10.123.0.0/24": {"locutus"},
 		},
 		{
-			"subnet-virbr0-10.42.0.0/24": {"locutus"},
-			// Bridge name with dashes
-			"subnet-ovs-br0-10.0.0.0/24": {"locutus"},
+			"10.42.0.0/24": {"locutus"}, // virbr0
+			"10.0.0.0/24":  {"locutus"}, // ovs-br0
 			// Should be ignored as the default profile already
 			// specifies a device bridged to lxdbr0
-			"subnet-lxdbr0-10.99.0.0/24": {"locutus"},
+			"10.99.0.0/24": {"locutus"},
 		},
 	}
 	res, err := env.StartInstance(c.Context(), startArgs)

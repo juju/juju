@@ -217,7 +217,7 @@ func (env *environ) getContainerSpec(
 	//
 	// If additional non-eth0 NICs are to be added, we need to ensure that
 	// cloud-init correctly configures them.
-	nics, err := env.assignContainerNICs(args)
+	nics, err := env.assignContainerNICs(ctx, args)
 	if err != nil {
 		return cSpec, errors.Trace(err)
 	}
@@ -268,7 +268,7 @@ func (env *environ) getContainerSpec(
 	return cSpec, nil
 }
 
-func (env *environ) assignContainerNICs(instStartParams environs.StartInstanceParams) (map[string]map[string]string, error) {
+func (env *environ) assignContainerNICs(ctx context.Context, instStartParams environs.StartInstanceParams) (map[string]map[string]string, error) {
 	// First, include any nics explicitly requested by the default profile.
 	assignedNICs, err := env.server().GetNICsFromProfile("default")
 	if err != nil {
@@ -282,6 +282,26 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 
 	if assignedNICs == nil {
 		assignedNICs = make(map[string]map[string]string)
+	}
+
+	// The subnet provider IDs reported by Subnets() are the subnet CIDRs;
+	// they no longer encode the host bridge name. To attach a NIC to the
+	// correct bridge we need to map each requested subnet back to the LXD
+	// network (host bridge) that hosts it, which is reported as the subnet's
+	// ProviderNetworkId.
+	requestedSubnetIDs := make([]corenetwork.Id, 0)
+	for _, subnetList := range instStartParams.SubnetsToZones {
+		for providerSubnetID := range subnetList {
+			requestedSubnetIDs = append(requestedSubnetIDs, providerSubnetID)
+		}
+	}
+	subnets, err := env.Subnets(ctx, requestedSubnetIDs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnetBridges := make(map[corenetwork.Id]string, len(subnets))
+	for _, subnet := range subnets {
+		subnetBridges[subnet.ProviderId] = string(subnet.ProviderNetworkId)
 	}
 
 	// We use two sets to de-dup the required NICs and ensure that each
@@ -299,24 +319,12 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 	var nextIndex int
 	for _, subnetList := range instStartParams.SubnetsToZones {
 		for providerSubnetID := range subnetList {
-			subnetID := string(providerSubnetID)
-
-			// Sanity check: make sure we are using the correct subnet
-			// naming conventions (subnet-$hostBridgeName-$CIDR).
-			if !strings.HasPrefix(subnetID, "subnet-") {
+			// Recover the host bridge for this subnet. Unknown subnets
+			// (e.g. ones no longer reported by the provider) are skipped.
+			hostBridge, ok := subnetBridges[providerSubnetID]
+			if !ok || hostBridge == "" {
 				continue
 			}
-
-			// Let's be paranoid here and assume that the bridge
-			// name may also contain dashes. So trim the "subnet-"
-			// prefix and anything from the right-most dash to
-			// recover the bridge name.
-			subnetID = strings.TrimPrefix(subnetID, "subnet-")
-			lastDashIndex := strings.LastIndexByte(subnetID, '-')
-			if lastDashIndex == -1 {
-				continue
-			}
-			hostBridge := subnetID[:lastDashIndex]
 
 			// We have already requested a device on this subnet
 			if requestedHostBridges.Contains(hostBridge) {
