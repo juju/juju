@@ -61,6 +61,9 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		}
 
 		pInfo := provisioningInfoToParams(info)
+		pInfo.LokiEndpoint = shared.LokiEndpoint
+		pInfo.LokiCACert = shared.LokiCACert
+		pInfo.LokiInsecureSkipVerify = shared.LokiInsecureSkipVerify
 		result.Results[i].Result = &pInfo
 	}
 	return result, nil
