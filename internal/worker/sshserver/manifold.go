@@ -174,7 +174,7 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 }
 
 // sshService wraps our ssh domain services to enable two things:
-//  1. Direct controller model accesss via the ControllerSSHHostKeyService interface.
+//  1. Direct controller model access via the ControllerSSHHostKeyService interface.
 //  2. Model-scoped access to the SSHModelService interface which underlying calls "ServicesForModel".
 //     We require the SSH server isn't the usual WS approach where the model uuid is populated
 //     by the time we reach the service, and instead, we must call the methods WITH the UUID received

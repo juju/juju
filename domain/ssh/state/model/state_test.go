@@ -5,7 +5,6 @@ package model_test
 
 import (
 	"context"
-	"database/sql"
 	stdtesting "testing"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainssh "github.com/juju/juju/domain/ssh"
 	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
-	"github.com/juju/juju/internal/uuid"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -258,8 +256,8 @@ func (s *stateSuite) TestWatchSSHConnRequestStatement(c *tc.C) {
 }
 
 func (s *stateSuite) addMachine(c *tc.C, name string) string {
-	machineUUID := uuid.MustNewUUID().String()
-	netNodeUUID := uuid.MustNewUUID().String()
+	machineUUID := internaluuid.MustNewUUID().String()
+	netNodeUUID := internaluuid.MustNewUUID().String()
 	_, err := s.DB().ExecContext(c.Context(), `INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	_, err = s.DB().ExecContext(c.Context(), `
@@ -271,11 +269,11 @@ VALUES (?, ?, ?, (SELECT id FROM life WHERE value = 'alive'))
 }
 
 func (s *stateSuite) addUnit(c *tc.C, name string) string {
-	unitUUID := uuid.MustNewUUID().String()
-	applicationUUID := uuid.MustNewUUID().String()
-	charmUUID := uuid.MustNewUUID().String()
-	netNodeUUID := uuid.MustNewUUID().String()
-	spaceUUID := uuid.MustNewUUID().String()
+	unitUUID := internaluuid.MustNewUUID().String()
+	applicationUUID := internaluuid.MustNewUUID().String()
+	charmUUID := internaluuid.MustNewUUID().String()
+	netNodeUUID := internaluuid.MustNewUUID().String()
+	spaceUUID := internaluuid.MustNewUUID().String()
 
 	_, err := s.DB().ExecContext(c.Context(), `INSERT INTO space (uuid, name) VALUES (?, ?)`, spaceUUID, "space-"+spaceUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -300,19 +298,6 @@ func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactor
 	return func(context.Context) (coredatabase.TxnRunner, error) {
 		return runner, nil
 	}
-}
-
-func addMachineTxn(c *tc.C, db *sql.DB, name string) string {
-	netNodeUUID := internaluuid.MustNewUUID().String()
-	machineUUID := internaluuid.MustNewUUID().String()
-	_, err := db.ExecContext(c.Context(), `INSERT INTO net_node (uuid) VALUES (?)`, netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = db.ExecContext(c.Context(), `
-INSERT INTO machine (uuid, name, net_node_uuid, life_id)
-VALUES (?, ?, ?, (SELECT id FROM life WHERE value = 'alive'))
-`, machineUUID, name, netNodeUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	return machineUUID
 }
 
 const testPrivateKey = "test-private-key"
