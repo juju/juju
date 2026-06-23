@@ -1227,11 +1227,11 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 		return nil
 	}
 
-	err := env.releaseNodes(ctx, ids, true)
+	err := env.deleteAnyComposedNodes(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = env.deleteAnyComposedNodes(ctx, ids)
+	err = env.releaseNodes(ctx, ids, true)
 	if err != nil {
 		return errors.Trace(err)
 	}

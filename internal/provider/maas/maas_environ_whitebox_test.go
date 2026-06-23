@@ -382,6 +382,12 @@ func (suite *maasEnvironSuite) TestStopInstancesDeletesComposedNodes(c *gc.C) {
 	err := suite.makeEnviron(c, controller).StopInstances(suite.callCtx, "test1", "test2", "test3")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(collectDeleteMachineArgs(controller), jc.SameContents, []string{"test1", "test2"})
+	controller.CheckCallNames(c,
+		"DeleteMachine",
+		"DeleteMachine",
+		"ReleaseMachines",
+		"GetFile",
+	)
 }
 
 func (suite *maasEnvironSuite) TestStopInstancesDoesNotDeleteNonComposedNodes(c *gc.C) {
