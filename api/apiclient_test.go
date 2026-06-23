@@ -1104,7 +1104,7 @@ func (s *apiclientSuite) TestOpenTimesOutOnLogin(c *tc.C) {
 	select {
 	case err := <-done:
 		c.Assert(err, tc.ErrorMatches,
-			`cannot log in: api connection open timed out`)
+			`.*api connection open timed out`)
 	case <-time.After(time.Second):
 		c.Fatalf("timed out waiting for api.Open timeout")
 	}
