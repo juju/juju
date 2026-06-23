@@ -268,6 +268,7 @@ var unsupportedConstraints = []string{
 	// use virt-type in StartInstances
 	constraints.VirtType,
 	constraints.AllocatePublicIP,
+	constraints.IPFamily,
 }
 
 // ConstraintsValidator is defined on the Environs interface.

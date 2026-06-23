@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/clock"
 
@@ -142,6 +143,17 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 	mergedCons, err := validator.Merge(domainconstraints.EncodeConstraints(modelCons), domainconstraints.EncodeConstraints(cons))
 	if err != nil {
 		return constraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
+	}
+
+	// Validate merged constraints to catch unsupported constraints.
+	unsupported, err := validator.Validate(mergedCons)
+	if err != nil {
+		// Should never happens, constraint are validated in merge
+		return constraints.Value{}, errors.Capture(err)
+	}
+	if len(unsupported) > 0 {
+		s.logger.Warningf(ctx,
+			"unsupported constraints: %v", strings.Join(unsupported, ","))
 	}
 
 	return mergedCons, nil

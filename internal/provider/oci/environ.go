@@ -316,6 +316,7 @@ var unsupportedConstraints = []string{
 	constraints.VirtType,
 	constraints.Tags,
 	constraints.ImageID,
+	constraints.IPFamily,
 }
 
 // ConstraintsValidator implements environs.Environ.

@@ -2103,6 +2103,53 @@ func (s *environSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	c.Assert(unsupported, tc.SameContents, []string{"tags", "cpu-power", "virt-type"})
 }
 
+func (s *environSuite) TestConstraintsValidatorIPFamilyIPv4(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=ipv4"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestConstraintsValidatorIPFamilyDual(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=dual"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestConstraintsValidatorIPFamilyIPv6Rejected(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=ipv6"))
+	c.Assert(err, tc.ErrorMatches,
+		"invalid constraint value: ip-family=ipv6\nvalid values are: ipv4 dual",
+	)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyDualBasicSKURejected(c *tc.C) {
+	env := s.openEnviron(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=dual"),
+	})
+	c.Assert(err, tc.ErrorMatches,
+		"ip-family=dual requires load-balancer-sku-name=Standard on Azure; "+
+			"Basic SKU is not supported for this configuration",
+	)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyDualStandardSKUAccepted(c *tc.C) {
+	env := s.openEnviron(c)
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=dual"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyIPv4BasicSKUAccepted(c *tc.C) {
+	env := s.openEnviron(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=ipv4"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *environSuite) TestConstraintsValidatorVocabulary(c *tc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))

@@ -35,6 +35,7 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
@@ -500,11 +501,26 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.Context) (constraints.
 		// in instanceTypes.
 		return errors.NotFoundf("%v %q", constraints.InstanceType, instanceTypeName)
 	})
+	validator.RegisterVocabulary(constraints.IPFamily, []string{
+		string(ipfamily.IPv4),
+		string(ipfamily.Dual),
+	})
 	return validator, nil
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (env *azureEnviron) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
+	// Reject ip-family=dual when the load balancer SKU is Basic.
+	// Basic SKU does not support dual-stack public IPs; operators
+	// must use Standard SKU (the default).
+	if args.Constraints.IPFamily != nil &&
+		*args.Constraints.IPFamily == ipfamily.Dual &&
+		env.config.loadBalancerSkuName == string(armnetwork.LoadBalancerSKUNameBasic) {
+		return errors.Errorf(
+			"ip-family=dual requires load-balancer-sku-name=Standard on Azure; " +
+				"Basic SKU is not supported for this configuration")
+	}
+
 	if _, err := env.findPlacementSubnet(ctx, args.Placement); err != nil {
 		return errors.Trace(err)
 	}

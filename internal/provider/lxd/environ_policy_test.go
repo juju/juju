@@ -185,6 +185,7 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 		"cores=2",
 		"cpu-power=250",
 		"virt-type=virtual-machine",
+		"ip-family=dual",
 	}, " "))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
@@ -192,6 +193,7 @@ func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	expected := []string{
 		"tags",
 		"cpu-power",
+		"ip-family",
 	}
 	c.Check(unsupported, tc.SameContents, expected)
 }

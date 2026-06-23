@@ -586,6 +586,7 @@ func (e *Environ) neutron() NetworkingNeutron {
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
+	constraints.IPFamily,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
