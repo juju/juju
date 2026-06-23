@@ -79,6 +79,16 @@ func (s *Service) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHCon
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	modelUUID := req.ModelUUID
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model UUID %q: %w", modelUUID, err)
+	}
+	if modelUUID != s.modelUUID {
+		// This is a programmatic error that should never occur, as the service should have been
+		// created with the correct model UUID beforehand. We return an error here to be defensive.
+		return errors.Errorf("connection request model UUID %q does not match service model %q", modelUUID, s.modelUUID)
+	}
+
 	if err := s.validateRequest(req); err != nil {
 		return errors.Errorf("validating SSH connection request: %w", err)
 	}

@@ -21,9 +21,5 @@ type SSHConnRequest struct {
 	ControllerAddresses network.SpaceAddresses
 	UnitPort            int
 	EphemeralPublicKey  []byte
-
-	// ModelUUID is the UUID of the model that this SSH connection request is for.
-	// It is NOT inserted into the database but instead used to route the conn request
-	// insert to the correct model database.
-	ModelUUID model.UUID
+	ModelUUID           model.UUID
 }

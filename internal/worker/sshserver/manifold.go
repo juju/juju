@@ -175,8 +175,8 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 
 // sshService wraps our ssh domain services to enable two things:
 //  1. Direct controller model access via the ControllerSSHHostKeyService interface.
-//  2. Model-scoped access to the SSHModelService interface which underlying calls "ServicesForModel".
-//     We require the SSH server isn't the usual WS approach where the model uuid is populated
+//  2. Model-scoped access to the SSHModelService interface with underlying calls to "ServicesForModel".
+//     The SSH server doesn't take the apiserver approach where the model uuid is populated
 //     by the time we reach the service, and instead, we must call the methods WITH the UUID received
 //     from the virtual host name.
 type sshService struct {
@@ -203,6 +203,9 @@ func (s sshService) VirtualHostKey(ctx context.Context, info virtualhostname.Inf
 // InsertSSHConnRequest inserts a new SSH connection request.
 // The SSH connection request contains the model UUID for the destination model database.
 func (s sshService) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConnRequest) error {
+	// ModelUUID is the UUID of the model that this SSH connection request is for.
+	// It is NOT inserted into the database but instead used to route the conn request
+	// insert to the correct model database.
 	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, req.ModelUUID)
 	if err != nil {
 		return errors.Trace(err)
