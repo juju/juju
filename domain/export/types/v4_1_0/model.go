@@ -1337,6 +1337,17 @@ type Space struct {
 	Name string `db:"name" json:"name" yaml:"name"`
 }
 
+type SshConnectionRequest struct {
+	TunnelID            string    `db:"tunnel_id" json:"tunnel_id" yaml:"tunnel_id"`
+	MachineUUID         string    `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
+	ExpiresAt           time.Time `db:"expires_at" json:"expires_at" yaml:"expires_at"`
+	Username            string    `db:"username" json:"username" yaml:"username"`
+	Password            string    `db:"password" json:"password" yaml:"password"`
+	ControllerAddresses string    `db:"controller_addresses" json:"controller_addresses" yaml:"controller_addresses"`
+	UnitPort            int64     `db:"unit_port" json:"unit_port" yaml:"unit_port"`
+	EphemeralPublicKey  []byte    `db:"ephemeral_public_key" json:"ephemeral_public_key" yaml:"ephemeral_public_key"`
+}
+
 type SshKeyAlgorithmType struct {
 	ID   *int64 `db:"id" json:"id" yaml:"id"`
 	Type string `db:"type" json:"type" yaml:"type"`
@@ -1816,6 +1827,7 @@ type ModelExport struct {
 	SecretValueRef                           []SecretValueRef                           `json:"secret_value_ref" yaml:"secret_value_ref"`
 	Sequence                                 []Sequence                                 `json:"sequence" yaml:"sequence"`
 	Space                                    []Space                                    `json:"space" yaml:"space"`
+	SshConnectionRequest                     []SshConnectionRequest                     `json:"ssh_connection_request" yaml:"ssh_connection_request"`
 	SshKeyAlgorithmType                      []SshKeyAlgorithmType                      `json:"ssh_key_algorithm_type" yaml:"ssh_key_algorithm_type"`
 	StorageAttachment                        []StorageAttachment                        `json:"storage_attachment" yaml:"storage_attachment"`
 	StorageFilesystem                        []StorageFilesystem                        `json:"storage_filesystem" yaml:"storage_filesystem"`

@@ -8,6 +8,7 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+
 // ChangeLogTriggersForSshConnectionRequest generates the triggers for the
 // ssh_connection_request table.
 func ChangeLogTriggersForSshConnectionRequest(columnName string, namespaceID int) func() schema.Patch {
@@ -40,7 +41,6 @@ BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
 END;
-
 -- delete trigger for SshConnectionRequest
 CREATE TRIGGER trg_log_ssh_connection_request_delete
 AFTER DELETE ON ssh_connection_request FOR EACH ROW
@@ -50,3 +50,4 @@ BEGIN
 END;`, columnName, namespaceID))
 	}
 }
+

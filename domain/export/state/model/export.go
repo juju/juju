@@ -845,6 +845,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing Space statement: %w", err)
 	}
+	stmtSshConnectionRequest, err := sqlair.Prepare(`SELECT &SshConnectionRequest.* FROM "ssh_connection_request"`, v4_1_0.SshConnectionRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing SshConnectionRequest statement: %w", err)
+	}
 	stmtSshKeyAlgorithmType, err := sqlair.Prepare(`SELECT &SshKeyAlgorithmType.* FROM "ssh_key_algorithm_type"`, v4_1_0.SshKeyAlgorithmType{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SshKeyAlgorithmType statement: %w", err)
@@ -1629,6 +1633,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		}
 		if err := tx.Query(ctx, stmtSpace).GetAll(&modelExport.Space); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying Space (table space): %w", err)
+		}
+		if err := tx.Query(ctx, stmtSshConnectionRequest).GetAll(&modelExport.SshConnectionRequest); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying SshConnectionRequest (table ssh_connection_request): %w", err)
 		}
 		if err := tx.Query(ctx, stmtSshKeyAlgorithmType).GetAll(&modelExport.SshKeyAlgorithmType); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying SshKeyAlgorithmType (table ssh_key_algorithm_type): %w", err)
