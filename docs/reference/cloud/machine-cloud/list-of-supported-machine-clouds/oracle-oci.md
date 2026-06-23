@@ -143,8 +143,6 @@ Oracle OCI supports the following {ref}`placement directives <placement-directiv
 (oci-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) is associated with:
-
 - **Compute instance**: Shape from constraint (default flexible shape). Image auto-selected by OS and architecture.
 - **Availability-domain selection**: Without `zones` constraints, Juju launches machines in the first available AD. With `zones`, Juju targets the specified AD.
 - **Boot volume**: Created during instance launch. Size: minimum 50 GiB, maximum 16 TiB. From `root-disk` constraint or default 50 GiB. Lifecycle tied to instance.

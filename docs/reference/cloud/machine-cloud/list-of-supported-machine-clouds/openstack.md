@@ -194,8 +194,6 @@ OpenStack supports the following {ref}`placement directives <placement-directive
 (openstack-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) is associated with:
-
 - **Nova instance**: Compute instance with name `juju-<model-uuid>-<machine-id>`. Flavor selected based on constraints.
 - **Security groups**:
   - Model-wide group: `juju-<controller-uuid>-<model-uuid>`

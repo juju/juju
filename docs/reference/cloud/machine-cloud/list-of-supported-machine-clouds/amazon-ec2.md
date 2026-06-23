@@ -186,8 +186,6 @@ Amazon EC2 supports the following {ref}`placement directives <placement-directiv
 (ec2-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) is associated with:
-
 - **EC2 instance**: Compute instance with name `juju-<model-uuid>-<machine-id>`. Instance type selected based on constraints. IMDSv2 enforced (`HttpTokens=Required`).
 - **Security groups**:
   - Model-wide group: `juju-<model-uuid>`

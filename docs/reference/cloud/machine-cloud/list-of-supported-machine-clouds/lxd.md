@@ -224,8 +224,6 @@ LXD supports the following placement directives:
 (lxd-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) is associated with:
-
 - **LXD instance**: Container (default) or VM (when constrained with `virt-type`). Name: `juju-<modeluuid>-<machinenum>`.
 - **Profiles applied**: In order: (1) `default` (LXD built-in), (2) model profile (`juju-<model>-<id>`), (3) charm profiles (`juju-<model>-<id>-<appname>-<rev>`) if specified by charm.
 - **Constraints via config**: `limits.cpu=<cores>` (CPU cores limit), `limits.memory=<MiB>MiB` (memory limit).
