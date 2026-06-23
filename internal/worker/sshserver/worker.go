@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
-	domainssh "github.com/juju/juju/domain/ssh"
 )
 
 // ControllerConfigService is the interface that the worker uses to get the
@@ -38,12 +37,6 @@ type ControllerSSHHostKeyService interface {
 type SSHModelService interface {
 	// VirtualHostKey returns the terminating host key for a routed destination.
 	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
-
-	// InsertSSHConnRequest stores a one-shot SSH connection request for this
-	// model.
-	//
-	// This is used by the tunneler worker to insert the connection request.
-	InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConnRequest) error
 }
 
 // SSHService resolves controller and terminating SSH host keys.

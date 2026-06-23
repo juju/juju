@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/controller"
 	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher/watchertest"
-	domainssh "github.com/juju/juju/domain/ssh"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -431,10 +430,6 @@ func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
 
 func (s stubSSHService) VirtualHostKey(context.Context, virtualhostname.Info) (string, error) {
 	return s.virtualHostKey, s.virtualErr
-}
-
-func (s stubSSHService) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConnRequest) error {
-	return s.insertConnReqErr
 }
 
 const testHostKey = `-----BEGIN OPENSSH PRIVATE KEY-----

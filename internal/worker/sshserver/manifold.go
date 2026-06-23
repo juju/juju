@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
-	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/services"
 )
@@ -198,17 +197,4 @@ func (s sshService) VirtualHostKey(ctx context.Context, info virtualhostname.Inf
 		return "", errors.Trace(err)
 	}
 	return sshService.VirtualHostKey(ctx, info)
-}
-
-// InsertSSHConnRequest inserts a new SSH connection request.
-// The SSH connection request contains the model UUID for the destination model database.
-func (s sshService) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConnRequest) error {
-	// ModelUUID is the UUID of the model that this SSH connection request is for.
-	// It is NOT inserted into the database but instead used to route the conn request
-	// insert to the correct model database.
-	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, req.ModelUUID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return sshService.InsertSSHConnRequest(ctx, req)
 }

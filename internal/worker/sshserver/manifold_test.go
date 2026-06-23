@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
@@ -181,50 +180,6 @@ func (s *manifoldSuite) TestSSHServiceVirtualHostKeyUsesRequestModelUUID(c *tc.C
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(virtualHostKey, tc.Equals, testHostKey)
 	c.Check(resolvedModelUUID, tc.Equals, info.ModelUUID())
-}
-
-func (s *manifoldSuite) TestSSHServiceInsertSSHConnRequestUsesRequestModelUUID(c *tc.C) {
-	modelUUID := model.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
-	req := domainssh.SSHConnRequest{
-		TunnelID:  "tunnel-0",
-		MachineID: "1",
-		ModelUUID: modelUUID,
-	}
-
-	var resolvedModelUUID model.UUID
-	sshService := sshService{
-		controllerSSHHostKeyService: stubSSHService{jumpHostKey: testHostKey},
-		domainServicesGetter:        stubDomainServicesGetter{},
-		getSSHService: func(_ context.Context, _ services.DomainServicesGetter, modelUUID model.UUID) (SSHModelService, error) {
-			resolvedModelUUID = modelUUID
-			return stubSSHService{virtualHostKey: testHostKey, insertConnReqErr: nil}, nil
-		},
-	}
-
-	err := sshService.InsertSSHConnRequest(c.Context(), req)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(resolvedModelUUID, tc.Equals, modelUUID)
-}
-
-func (s *manifoldSuite) TestSSHServiceInsertSSHConnRequestCorrectlyCallsInsertConnRequest(c *tc.C) {
-	modelUUID := model.UUID("8419cd78-4993-4c3a-928e-c646226beeee")
-	req := domainssh.SSHConnRequest{
-		TunnelID:  "tunnel-0",
-		MachineID: "1",
-		ModelUUID: modelUUID,
-	}
-
-	sshService := sshService{
-		controllerSSHHostKeyService: stubSSHService{jumpHostKey: testHostKey},
-		domainServicesGetter:        stubDomainServicesGetter{},
-		getSSHService: func(_ context.Context, _ services.DomainServicesGetter, modelUUID model.UUID) (SSHModelService, error) {
-			return stubSSHService{insertConnReqErr: errors.New("blah")}, nil
-		},
-	}
-
-	// Verify this by checking the error is returned from the InsertSSHConnRequest call.
-	err := sshService.InsertSSHConnRequest(c.Context(), req)
-	c.Assert(err, tc.ErrorMatches, "blah")
 }
 
 func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
