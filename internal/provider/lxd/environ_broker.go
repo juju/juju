@@ -284,11 +284,9 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 		assignedNICs = make(map[string]map[string]string)
 	}
 
-	// The subnet provider IDs reported by Subnets() are the subnet CIDRs;
-	// they no longer encode the host bridge name. To attach a NIC to the
-	// correct bridge we need to map each requested subnet back to the LXD
-	// network (host bridge) that hosts it, which is reported as the subnet's
-	// ProviderNetworkId.
+	// Map each requested subnet to the LXD network (host bridge) that hosts it.
+	// The subnet's ProviderNetworkId identifies the bridge to attach for a
+	// subnet requested by space constraints.
 	requestedSubnetIDs := make([]corenetwork.Id, 0)
 	for _, subnetList := range instStartParams.SubnetsToZones {
 		for providerSubnetID := range subnetList {
@@ -326,7 +324,10 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 				continue
 			}
 
-			// We have already requested a device on this subnet
+			// A profile or generated device already attaches the container to
+			// the bridge hosting this subnet. Profile NICs are included in
+			// assignedNICs above, so they can satisfy space subnet requirements
+			// without adding a duplicate device.
 			if requestedHostBridges.Contains(hostBridge) {
 				continue
 			}
