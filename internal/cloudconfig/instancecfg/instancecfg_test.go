@@ -143,3 +143,29 @@ func (*instancecfgSuite) TestAgentConfigLogParams(c *tc.C) {
 	c.Assert(config.AgentLogfileMaxSizeMB(), tc.Equals, 123)
 	c.Assert(config.AgentLogfileMaxBackups(), tc.Equals, 7)
 }
+
+// TestAgentConfigLokiConfig verifies that the Loki endpoint and CA cert set on
+// the InstanceConfig reach the generated agent config so a newly provisioned
+// machine starts in the correct forwarding mode on first boot.
+func (*instancecfgSuite) TestAgentConfigLokiConfig(c *tc.C) {
+	insecure := true
+	icfg := instancecfg.InstanceConfig{
+		APIInfo: &api.Info{
+			Addrs:    []string{"1.2.3.4:4321"},
+			CACert:   "cert",
+			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
+			Password: "secret123",
+		},
+		ControllerTag:          names.NewControllerTag(testing.ControllerTag.Id()),
+		DataDir:                "/path/to/datadir/",
+		LokiEndpoint:           "https://loki.example.com/loki/api/v1/push",
+		LokiCACert:             "ca-cert",
+		LokiInsecureSkipVerify: &insecure,
+	}
+	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(config.LokiCACert(), tc.Equals, "ca-cert")
+	c.Assert(config.LokiInsecureSkipVerify(), tc.NotNil)
+	c.Check(*config.LokiInsecureSkipVerify(), tc.IsTrue)
+}

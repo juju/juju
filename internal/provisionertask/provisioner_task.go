@@ -907,6 +907,13 @@ func (task *provisionerTask) constructInstanceConfig(
 
 	instanceConfig.CloudInitUserData = pInfo.CloudInitUserData
 
+	// Inject the controller-wide Loki config so the machine agent starts in
+	// the correct forwarding mode on first boot. When Loki is not active
+	// both fields are empty and the agent falls back to logsink mode.
+	instanceConfig.LokiEndpoint = pInfo.LokiEndpoint
+	instanceConfig.LokiCACert = pInfo.LokiCACert
+	instanceConfig.LokiInsecureSkipVerify = pInfo.LokiInsecureSkipVerify
+
 	return instanceConfig, nil
 }
 
