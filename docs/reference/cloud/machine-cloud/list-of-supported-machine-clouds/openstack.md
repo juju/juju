@@ -197,7 +197,7 @@ OpenStack supports the following {ref}`placement directives <placement-directive
 Each machine (controller or application) receives:
 
 - **Nova instance**: Compute instance with name `juju-<model-uuid>-<machine-id>`. Flavor selected based on constraints.
-- **Security group memberships**: Model-wide group (`juju-<controller-uuid>-<model-uuid>`) plus either a machine-specific group (`juju-<controller-uuid>-<model-uuid>-<machine-id>`) or the shared global group (`juju-<controller-uuid>-<model-uuid>-global`), depending on `firewall-mode`.
+- **Security groups**: Machine is added to the model-wide group (`juju-<controller-uuid>-<model-uuid>`) plus either a machine-specific group (`juju-<controller-uuid>-<model-uuid>-<machine-id>`) or the shared global group (`juju-<controller-uuid>-<model-uuid>-global`), depending on `firewall-mode`.
 - **Network attachments**: Connected to configured internal networks. Multiple NICs if multiple networks configured.
 - **Neutron ports** (if space-aware networking): Pre-created ports with fixed IPs for each subnet/space.
 - **Floating IP** (optional): Allocated from external network if `allocate-public-ip=true` constraint.
