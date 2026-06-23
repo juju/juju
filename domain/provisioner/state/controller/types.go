@@ -3,10 +3,19 @@
 
 package controller
 
+import "database/sql"
+
 // controllerConfigRow holds a single controller config key-value pair.
 type controllerConfigRow struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
+}
+
+// lokiConfigRow holds the controller-wide Loki push API configuration.
+type lokiConfigRow struct {
+	Endpoint           string       `db:"endpoint"`
+	CACertificate      *string      `db:"ca_cert"`
+	InsecureSkipVerify sql.NullBool `db:"insecure_skip_verify"`
 }
 
 // cloudEndpointRow holds cloud endpoint data from a region query.

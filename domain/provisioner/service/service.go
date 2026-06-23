@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -56,6 +58,13 @@ type ControllerState interface {
 	// controller database matching the given version, architecture, region,
 	// stream, and image ID. Empty string parameters are treated as wildcards.
 	GetCachedImageMetadata(ctx context.Context, version, arch, region, stream, imageID string) ([]provisioner.CloudImageMetadata, error)
+
+	// GetLokiConfig returns the configured Loki push API endpoint, CA
+	// certificate, and insecure skip verify setting. If no endpoint is
+	// configured, an error satisfying
+	// [github.com/juju/juju/domain/logging/errors.LokiConfigNotFound] is
+	// returned.
+	GetLokiConfig(ctx context.Context) (logging.LokiConfig, error)
 }
 
 // ImageMetadataFetcher fetches image metadata from external sources
@@ -114,16 +123,28 @@ func (s *Service) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.S
 		)
 	}
 
+	// Step 3: Fetch the controller-wide Loki config. When Loki is not
+	// active the config is empty and agents start in logsink mode.
+	lokiConfig, err := s.controllerSt.GetLokiConfig(ctx)
+	if err != nil && !errors.Is(err, loggingerrors.LokiConfigNotFound) {
+		return provisioner.SharedProvisioningInfo{}, errors.Errorf(
+			"getting controller loki config: %w", err,
+		)
+	}
+
 	return provisioner.SharedProvisioningInfo{
-		Spaces:            sharedState.Spaces,
-		ModelName:         sharedState.ModelName,
-		CloudInitUserData: sharedState.CloudInitUserData,
-		ImageStream:       sharedState.ImageStream,
-		ResourceTags:      sharedState.ResourceTags,
-		CloudType:         sharedState.CloudType,
-		CloudRegion:       sharedState.CloudRegion,
-		CloudName:         sharedState.CloudName,
-		CloudEndpoint:     cloudEndpoint,
+		Spaces:                 sharedState.Spaces,
+		ModelName:              sharedState.ModelName,
+		CloudInitUserData:      sharedState.CloudInitUserData,
+		ImageStream:            sharedState.ImageStream,
+		ResourceTags:           sharedState.ResourceTags,
+		CloudType:              sharedState.CloudType,
+		CloudRegion:            sharedState.CloudRegion,
+		CloudName:              sharedState.CloudName,
+		CloudEndpoint:          cloudEndpoint,
+		LokiEndpoint:           lokiConfig.Endpoint,
+		LokiCACert:             lokiConfig.CACertificate,
+		LokiInsecureSkipVerify: lokiConfig.InsecureSkipVerify,
 	}, nil
 }
 
