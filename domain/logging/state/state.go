@@ -141,14 +141,15 @@ func (st *State) IsLokiEnabled(ctx context.Context) (bool, error) {
 	}
 
 	stmt, err := st.Prepare(`
-SELECT enabled AS &lokiExistsRow.enabled
-FROM (
+WITH loki_check AS (
     SELECT EXISTS (
         SELECT 1
         FROM logging_loki_config
         WHERE endpoint != ''
     ) AS enabled
 )
+SELECT enabled AS &lokiExistsRow.enabled
+FROM loki_check
 `, lokiExistsRow{})
 	if err != nil {
 		return false, errors.Errorf("preparing statement: %w", err)
