@@ -417,11 +417,10 @@ func (r *reportWorker) Report(ctx context.Context) map[string]any {
 }
 
 type stubSSHService struct {
-	jumpHostKey      string
-	virtualHostKey   string
-	jumpErr          error
-	virtualErr       error
-	insertConnReqErr error
+	jumpHostKey    string
+	virtualHostKey string
+	jumpErr        error
+	virtualErr     error
 }
 
 func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
