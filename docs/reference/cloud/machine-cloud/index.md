@@ -168,7 +168,7 @@ credentials:
 Juju credentials can exist on the client, on the controller, or both. When you bootstrap with a client credential, that credential is uploaded to the controller.
 
 ```{ibnote}
-See more: {ref}`credential`, {ref}`manage-credentials`, {ref}`add-a-credential`, {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Credential
+See more: {ref}`credential`, {ref}`manage-credentials`, {ref}`add-a-credential`, {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Credentials
 ```
 
 (machine-credential-patterns)=
@@ -273,7 +273,7 @@ The controller machine itself is provisioned with:
 - **Metadata/tags**: Identification and organization (model UUID, controller UUID, etc.).
 
 ```{ibnote}
-See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Controller
+See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Controllers
 ```
 
 (machine-model)=
@@ -307,7 +307,7 @@ Machine clouds support various model-level configurations that affect resource p
 - **Container networking**: Configuration for nested containers (LXD).
 
 ```{ibnote}
-See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Model
+See more: {ref}`list-of-supported-machine-clouds` > `<cloud name>` > Models
 ```
 
 (machine-machine)=

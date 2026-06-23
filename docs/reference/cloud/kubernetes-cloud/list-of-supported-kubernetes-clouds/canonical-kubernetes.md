@@ -22,13 +22,6 @@ This reference assumes basic familiarity with Juju. If you are new to Juju, star
 - `local-storage`
 - `network`
 
-(canonical-k8s-cloud)=
-## The cloud
-
-```{ibnote}
-See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
-```
-
 (canonical-k8s-controller)=
 ## Controller
 
