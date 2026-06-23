@@ -30,6 +30,7 @@ type MockStateMockRecorder struct {
 	mock                               *MockState
 	deleteLokiConfigExpects            []*gomock.Call1_1[context.Context, error]
 	getLokiConfigExpects               []*gomock.Call1_2[context.Context, logging.LokiConfig, error]
+	isLokiEnabledExpects               []*gomock.Call1_2[context.Context, bool, error]
 	namespaceForWatchLokiConfigExpects []*gomock.Call0_1[string]
 	setLokiConfigExpects               []*gomock.Call3_1[context.Context, string, logging.LokiConfig, error]
 }
@@ -81,6 +82,24 @@ func (mr *MockStateMockRecorder) GetLokiConfig(ctx any) *MockStateGetLokiConfigC
 
 // MockStateGetLokiConfigCall is the typed call wrapper for GetLokiConfig.
 type MockStateGetLokiConfigCall = gomock.Call1_2[context.Context, logging.LokiConfig, error]
+
+// IsLokiEnabled mocks base method.
+func (m *MockState) IsLokiEnabled(ctx context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.isLokiEnabledExpects, m.ctrl, m, "IsLokiEnabled", ctx)
+}
+
+// IsLokiEnabled indicates an expected call of IsLokiEnabled.
+func (mr *MockStateMockRecorder) IsLokiEnabled(ctx any) *MockStateIsLokiEnabledCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, bool, error](mr.mock.ctrl.T, mr.mock, "IsLokiEnabled", gomock.EnsureMatcher(ctx))
+	mr.isLokiEnabledExpects = append(mr.isLokiEnabledExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateIsLokiEnabledCall is the typed call wrapper for IsLokiEnabled.
+type MockStateIsLokiEnabledCall = gomock.Call1_2[context.Context, bool, error]
 
 // NamespaceForWatchLokiConfig mocks base method.
 func (m *MockState) NamespaceForWatchLokiConfig() string {

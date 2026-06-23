@@ -29,6 +29,10 @@ type State interface {
 	// [loggingerrors.LokiConfigNotFound] is returned.
 	GetLokiConfig(ctx context.Context) (logging.LokiConfig, error)
 
+	// IsLokiEnabled returns true if a Loki config exists with a non-empty
+	// endpoint.
+	IsLokiEnabled(ctx context.Context) (bool, error)
+
 	// DeleteLokiConfig removes the configured Loki push API config. If no
 	// config is configured, this is a no-op.
 	DeleteLokiConfig(ctx context.Context) error
@@ -118,6 +122,12 @@ func (s *Service) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error)
 	defer span.End()
 
 	return s.st.GetLokiConfig(ctx)
+}
+
+// IsLokiEnabled returns true if a Loki config exists with a non-empty
+// endpoint.
+func (s *Service) IsLokiEnabled(ctx context.Context) (bool, error) {
+	return s.st.IsLokiEnabled(ctx)
 }
 
 // DeleteLokiConfig removes the configured Loki push API config.

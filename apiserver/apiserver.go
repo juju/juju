@@ -801,6 +801,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerModelUUID.String(),
 	)
 	logSinkHandler = maybeWrapLogSink503Wrench(logSinkHandler)
+	logSinkHandler = maybeWrapLogSink503IfLokiEnabled(logSinkHandler, srv.shared.controllerDomainServices)
 	logSinkAuthorizer := tagKindAuthorizer(stateauthenticator.AgentTags)
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs

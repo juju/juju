@@ -105,6 +105,12 @@ func (*ValidateSuite) TestMissingAgentBinaryStore(c *tc.C) {
 	checkNotValid(c, config, "nil AgentBinaryStore not valid")
 }
 
+func (*ValidateSuite) TestMissingLoggingService(c *tc.C) {
+	config := validConfig()
+	config.LoggingService = nil
+	checkNotValid(c, config, "nil LoggingService not valid")
+}
+
 func (*ValidateSuite) TestMissingClock(c *tc.C) {
 	config := validConfig()
 	config.Clock = nil
@@ -133,6 +139,7 @@ func validConfig() migrationmaster.Config {
 			migrationmaster.ResourceService
 		}{},
 		AgentBinaryStore: struct{ migration.AgentBinaryStore }{},
+		LoggingService:   struct{ migrationmaster.LoggingService }{},
 		Clock:            struct{ clock.Clock }{},
 	}
 }

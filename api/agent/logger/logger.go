@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -68,10 +69,10 @@ func (c *Client) GetControllerLokiConfig(ctx context.Context, agentTag names.Tag
 	args := params.Entity{Tag: agentTag.String()}
 	err := c.facade.FacadeCall(ctx, "GetControllerLokiConfig", args, &result)
 	if err != nil {
-		return ControllerLokiConfig{}, internalerrors.Capture(err)
+		return ControllerLokiConfig{}, internalerrors.Capture(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
-		return ControllerLokiConfig{}, internalerrors.Capture(err)
+		return ControllerLokiConfig{}, internalerrors.Capture(apiservererrors.RestoreError(err))
 	}
 	var caCert string
 	if result.CACert != nil {
@@ -112,10 +113,10 @@ func (c *Client) WatchControllerLokiConfig(ctx context.Context, agentTag names.T
 	args := params.Entity{Tag: agentTag.String()}
 	err := c.facade.FacadeCall(ctx, "WatchControllerLokiConfig", args, &result)
 	if err != nil {
-		return nil, internalerrors.Capture(err)
+		return nil, internalerrors.Capture(apiservererrors.RestoreError(err))
 	}
-	if result.Error != nil {
-		return nil, internalerrors.Capture(result.Error)
+	if err := result.Error; err != nil {
+		return nil, internalerrors.Capture(apiservererrors.RestoreError(err))
 	}
 	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }
