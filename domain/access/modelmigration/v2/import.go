@@ -113,6 +113,10 @@ func ImportModelPermissions(
 	ctx context.Context, controllerDB database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger,
 	perms []coremodelmigration.ModelPermission, inactiveUsers set.Strings,
 ) ([]string, error) {
+	if len(perms) == 0 {
+		return nil, nil
+	}
+
 	accessSvc := newService(controllerDB, clock, logger)
 
 	offerAccess := make(map[string]map[string]corepermission.Access)
@@ -123,8 +127,8 @@ func ImportModelPermissions(
 			continue
 		}
 
-		switch p.ObjectType {
-		case "model":
+		switch corepermission.ObjectType(p.ObjectType) {
+		case corepermission.Model:
 			subject, err := coreuser.NewName(p.SubjectName)
 			if err != nil {
 				return nil, errors.Errorf("invalid permission subject %q: %w", p.SubjectName, err)
@@ -139,7 +143,7 @@ func ImportModelPermissions(
 				return nil, errors.Errorf(
 					"granting %q access to %q on model: %w", p.Access, p.SubjectName, err)
 			}
-		case "offer":
+		case corepermission.Offer:
 			if _, ok := offerAccess[p.GrantOn]; !ok {
 				offerUUIDs = append(offerUUIDs, p.GrantOn)
 				offerAccess[p.GrantOn] = make(map[string]corepermission.Access)
@@ -174,6 +178,10 @@ func ImportLastModelLogins(
 	ctx context.Context, controllerDB database.TxnRunnerFactory, clock clock.Clock, logger logger.Logger,
 	modelUUID coremodel.UUID, users []coremodelmigration.ModelUser, inactiveUsers set.Strings,
 ) error {
+	if len(users) == 0 {
+		return nil
+	}
+
 	accessSvc := newService(controllerDB, clock, logger)
 
 	for _, u := range users {

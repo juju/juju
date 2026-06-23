@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cloud"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -119,6 +120,22 @@ func (s *migrationServiceSuite) TestImportModelV2CAAS(c *tc.C) {
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *migrationServiceSuite) TestImportModelV2ValidationFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := s.newService(c)
+
+	err := svc.ImportModelV2(c.Context(), model.ModelImportArgs{
+		UUID: "not valid",
+		GlobalModelCreationArgs: model.GlobalModelCreationArgs{
+			Cloud:     "aws",
+			Name:      "foo",
+			Qualifier: coremodel.Qualifier("jim"),
+		},
+	})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
 func (s *migrationServiceSuite) TestImportModelActivate(c *tc.C) {

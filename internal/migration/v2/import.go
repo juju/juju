@@ -121,7 +121,7 @@ func ImportModel(
 	}
 
 	if err := leasev2.ImportApplicationLeadership(
-		ctx, deps.ControllerDB, deps.Logger, modelUUIDStr, info.Leaders,
+		ctx, deps.ControllerDB, deps.Logger, modelUUID, info.Leaders,
 	); err != nil {
 		return errors.Errorf("claiming leadership leases for model %q import: %w", modelUUIDStr, err)
 	}
@@ -171,6 +171,9 @@ func controllerModelInfoFromEnvelope(envelope params.SerializedModelV2) coremode
 			Life:            envelope.ModelInfo.Life,
 		},
 	}
+	if n := len(envelope.Users); n > 0 {
+		info.Users = make([]coremodelmigration.ModelUser, 0, n)
+	}
 	for _, u := range envelope.Users {
 		info.Users = append(info.Users, coremodelmigration.ModelUser{
 			Name:        u.Name,
@@ -194,6 +197,9 @@ func controllerModelInfoFromEnvelope(envelope params.SerializedModelV2) coremode
 			InvalidReason: cred.InvalidReason,
 		}
 	}
+	if n := len(envelope.Permissions); n > 0 {
+		info.Permissions = make([]coremodelmigration.ModelPermission, 0, n)
+	}
 	for _, p := range envelope.Permissions {
 		info.Permissions = append(info.Permissions, coremodelmigration.ModelPermission{
 			ObjectType:  p.ObjectType,
@@ -201,6 +207,9 @@ func controllerModelInfoFromEnvelope(envelope params.SerializedModelV2) coremode
 			SubjectName: p.SubjectName,
 			Access:      p.Access,
 		})
+	}
+	if n := len(envelope.AuthorizedKeys); n > 0 {
+		info.AuthorizedKeys = make([]coremodelmigration.ModelAuthorizedKey, 0, n)
 	}
 	for _, k := range envelope.AuthorizedKeys {
 		info.AuthorizedKeys = append(info.AuthorizedKeys, coremodelmigration.ModelAuthorizedKey{
@@ -214,12 +223,24 @@ func controllerModelInfoFromEnvelope(envelope params.SerializedModelV2) coremode
 			BackendType: backend.BackendType,
 		}
 	}
+	if n := len(envelope.SecretBackendRefs); n > 0 {
+		info.SecretBackendRefs = make([]coremodelmigration.SecretBackendReference, 0, n)
+	}
 	for _, ref := range envelope.SecretBackendRefs {
 		info.SecretBackendRefs = append(info.SecretBackendRefs, coremodelmigration.SecretBackendReference{
 			BackendName:        ref.BackendName,
 			SecretRevisionUUID: ref.SecretRevisionUUID,
 			SecretID:           ref.SecretID,
 		})
+	}
+	leaderCount := 0
+	for _, l := range envelope.Leases {
+		if l.Type == corelease.ApplicationLeadershipNamespace {
+			leaderCount++
+		}
+	}
+	if leaderCount > 0 {
+		info.Leaders = make([]coremodelmigration.ApplicationLeadership, 0, leaderCount)
 	}
 	for _, l := range envelope.Leases {
 		if l.Type != corelease.ApplicationLeadershipNamespace {
@@ -229,6 +250,9 @@ func controllerModelInfoFromEnvelope(envelope params.SerializedModelV2) coremode
 			Application: l.Name,
 			Leader:      l.Holder,
 		})
+	}
+	if n := len(envelope.CloudImageMetadata); n > 0 {
+		info.CloudImageMetadata = make([]coremodelmigration.CloudImageMetadata, 0, n)
 	}
 	for _, m := range envelope.CloudImageMetadata {
 		info.CloudImageMetadata = append(info.CloudImageMetadata, coremodelmigration.CloudImageMetadata{
@@ -244,6 +268,9 @@ func controllerModelInfoFromEnvelope(envelope params.SerializedModelV2) coremode
 			ImageID:         m.ImageId,
 			CreatedAt:       m.CreatedAt,
 		})
+	}
+	if n := len(envelope.ExternalControllers); n > 0 {
+		info.ExternalControllers = make([]coremodelmigration.ExternalController, 0, n)
 	}
 	for _, c := range envelope.ExternalControllers {
 		info.ExternalControllers = append(info.ExternalControllers, coremodelmigration.ExternalController{

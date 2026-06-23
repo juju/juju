@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/database"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	leasemigration "github.com/juju/juju/domain/lease/modelmigration"
 	"github.com/juju/juju/domain/lease/service"
@@ -21,7 +22,7 @@ import (
 // target always claims a new guarantee window from now.
 func ImportApplicationLeadership(
 	ctx context.Context, controllerDB database.TxnRunnerFactory, logger logger.Logger,
-	modelUUID string, leaders []coremodelmigration.ApplicationLeadership,
+	modelUUID coremodel.UUID, leaders []coremodelmigration.ApplicationLeadership,
 ) error {
 	if len(leaders) == 0 {
 		return nil
@@ -29,7 +30,7 @@ func ImportApplicationLeadership(
 
 	leaseSvc := service.NewService(state.NewState(controllerDB, logger))
 	for _, l := range leaders {
-		key := corelease.Key{ModelUUID: modelUUID, Namespace: corelease.ApplicationLeadershipNamespace, Lease: l.Application}
+		key := corelease.Key{ModelUUID: modelUUID.String(), Namespace: corelease.ApplicationLeadershipNamespace, Lease: l.Application}
 		req := corelease.Request{Holder: l.Leader, Duration: leasemigration.LeadershipGuarantee}
 		if err := leaseSvc.ClaimLease(ctx, key, req); err != nil {
 			return errors.Errorf("claiming lease for %q: %w", l.Application, err)

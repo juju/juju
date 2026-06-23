@@ -32,7 +32,7 @@ type ExternalUserImport = internal.ExternalUserImport
 //     not exist on the controller.
 func (s *UserService) ImportExternalUsers(
 	ctx context.Context,
-	users []internal.ExternalUserImport,
+	users []ExternalUserImport,
 ) error {
 	if len(users) == 0 {
 		return nil
