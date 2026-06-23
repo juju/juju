@@ -125,7 +125,7 @@ Creates a controller instance on GCE in a single API request. Juju creates the r
 - **Compute instance**: Ubuntu LTS instance. Machine type selected based on hardware constraints (default `n1-standard-1`). Instance creation includes boot disk inline (not separate API call).
 - **Boot disk**: Persistent disk, device name auto-assigned. Default 10 GiB minimum (expanded if constraint/image requires). Type `pd-standard` (default) or `pd-ssd`. Auto-deleted when instance terminates.
 - **Network interface**: Primary interface in specified VPC/subnet or default network. Private IP auto-assigned from subnet CIDR. External NAT with public IP if `allocate-public-ip=true` (default).
-- **Firewall rule**: Global rule `juju-<model-uuid>` targeting instances with tag `juju-<model-uuid>`. Allows ingress from instances with same tag.
+- **Firewall rule**: Global VPC firewall rule `juju-<model-uuid>` targeting instances tagged `juju-<model-uuid>`. Created with no initial rules; rules are added dynamically via `open-ports` with source CIDRs as specified.
 - **Service account** (optional): Attached if credential type is `service-account` or `instance-role` constraint specified. Scopes: `compute`, `devstorage.full_control`. Enables metadata service credentials.
 - **Instance metadata**: Tagged with `juju-controller-uuid`, `juju-is-controller: true`, and bootstrap metadata for controller initialization.
 - **Instance tags**: `juju-<model-uuid>` (for firewall targeting), hostname.

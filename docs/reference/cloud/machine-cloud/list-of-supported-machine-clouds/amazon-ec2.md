@@ -101,10 +101,15 @@ Creates a controller instance on EC2 in a single API request. Juju creates the r
 
 - **EC2 instance**: Ubuntu LTS compute instance. Instance type selected based on hardware constraints (default `m3.medium`). IMDSv2 enforced.
 - **Security groups**:
-  - Juju group: `juju-<model-uuid>` (model-wide, allows internal traffic)
-  - Machine or global group: `juju-<model-uuid>-<machine-id>` or `juju-<model-uuid>-global` based on `firewall-mode` config
-  - Rules: TCP/UDP 0-65535 + ICMP/ICMPv6 ingress from Juju group to itself.
-  - Tagged with `juju-controller=<uuid>` and `juju-model-uuid=<uuid>`
+  - Model-wide group: `juju-<model-uuid>`. Initial ingress rules (self-referencing -- source is the group itself):
+    - TCP ports 0--65535
+    - UDP ports 0--65535
+    - ICMP (all types)
+  - Machine or global group (no Juju-managed initial rules; rules added via `open-ports`):
+    - `firewall-mode=instance` (default): `juju-<model-uuid>-<machine-id>`
+    - `firewall-mode=global`: `juju-<model-uuid>-global`
+  - Machine/global group also receives ICMPv6 rules from `::/0` per RFC 4890 (Packet Too Big, Time Exceeded, Parameter Problem, Echo Request).
+  - All groups tagged with `juju-controller=<controller-uuid>` and `juju-model-uuid=<model-uuid>`.
 - **Network interfaces**: Primary interface in specified or default subnet. Public IP optional.
 - **EBS root volume**: Device `/dev/sda1`, default 32 GiB (controllers), type `gp2`. Configurable encryption, IOPS, throughput.
 - **IAM Role/Instance Profile** (optional): Created if bootstrap constraints specify `instance-role=auto`. Grants the permissions needed for controller operations and is attached to the instance after launch.

@@ -110,19 +110,23 @@ See more: {ref}`manage-metadata`
 
 - **Nova instance**: Ubuntu LTS compute instance. Flavor selected based on hardware constraints.
 - **Security groups**:
-  - Model-wide group: `juju-<controller-uuid>-<model-uuid>`
-  - Machine or global group based on `firewall-mode` config
-  - Tagged with `juju-controller=<uuid>` and `juju-model-uuid=<uuid>`
+  - Model-wide group: `juju-<controller-uuid>-<model-uuid>`. Contains the following ingress rules (self-referencing -- source is the group itself):
+    - TCP ports 1--65535 (IPv4)
+    - TCP ports 1--65535 (IPv6)
+    - UDP ports 1--65535 (IPv4)
+    - UDP ports 1--65535 (IPv6)
+    - ICMP (IPv4)
+    - ICMP (IPv6)
+  - Machine or global group (no Juju-managed initial rules; rules added via `open-ports`):
+    - `firewall-mode=instance` (default): `juju-<controller-uuid>-<model-uuid>-<machine-id>`
+    - `firewall-mode=global`: `juju-<controller-uuid>-<model-uuid>-global`
+  - Optionally the OpenStack `default` security group if `use-default-secgroup=true`.
+  - All groups tagged with `juju-controller=<controller-uuid>` and `juju-model=<model-uuid>`.
 - **Network attachments**: Connected to configured internal networks from model config.
 - **Neutron ports** (if space-aware networking): Pre-created with fixed IPs before instance boot.
 - **Floating IP** (optional): Allocated from external network if `allocate-public-ip=true`.
 - **Root disk**: Local ephemeral disk or Cinder boot volume based on `root-disk-source` constraint.
 - **Instance metadata**: Tagged with `juju-is-controller: true`, `juju-controller-uuid`, and `juju-model-uuid`.
-
-**Security group rules (model-wide):**
-- TCP ports 1-65535: Ingress from same group (IPv4 & IPv6).
-- UDP ports 1-65535: Ingress from same group (IPv4 & IPv6).
-- ICMP: Ingress from same group (IPv4 & IPv6).
 
 (openstack-model)=
 ## Models
@@ -193,7 +197,7 @@ OpenStack supports the following {ref}`placement directives <placement-directive
 Each machine (controller or application) receives:
 
 - **Nova instance**: Compute instance with name `juju-<model-uuid>-<machine-id>`. Flavor selected based on constraints.
-- **Security group memberships**: Model-wide group plus machine-specific or global group based on `firewall-mode`.
+- **Security group memberships**: Model-wide group (`juju-<controller-uuid>-<model-uuid>`) plus either a machine-specific group (`juju-<controller-uuid>-<model-uuid>-<machine-id>`) or the shared global group (`juju-<controller-uuid>-<model-uuid>-global`), depending on `firewall-mode`.
 - **Network attachments**: Connected to configured internal networks. Multiple NICs if multiple networks configured.
 - **Neutron ports** (if space-aware networking): Pre-created ports with fixed IPs for each subnet/space.
 - **Floating IP** (optional): Allocated from external network if `allocate-public-ip=true` constraint.
