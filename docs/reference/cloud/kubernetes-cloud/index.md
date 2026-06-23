@@ -18,12 +18,12 @@ Juju uses the Kubernetes API to deploy and manage applications in that cluster, 
 
 Juju supports many Kubernetes distributions: Amazon EKS, Google GKE, Microsoft AKS, MicroK8s, Canonical Kubernetes, and others.
 
-Kubernetes clouds are very similar in Juju; this page documents the commonalities. The sections below cover Kubernetes-cloud-specific aspects of each Juju entity: the cloud itself, credentials, controllers, models, and pods. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EKS <cloud-kubernetes-eks>`, {ref}`Canonical Kubernetes <cloud-canonical-k8s>`, {ref}`Google GKE <cloud-kubernetes-gke>`, {ref}`MicroK8s <cloud-kubernetes-microk8s>`, or {ref}`Microsoft AKS <cloud-kubernetes-aks>`.
+Kubernetes clouds are very similar in Juju; this page documents the commonalities. For distribution-specific details and differences, see the {ref}`list of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>` or jump directly to your cloud of interest: {ref}`Amazon EKS <cloud-kubernetes-eks>`, {ref}`Canonical Kubernetes <cloud-canonical-k8s>`, {ref}`Google GKE <cloud-kubernetes-gke>`, {ref}`MicroK8s <cloud-kubernetes-microk8s>`, or {ref}`Microsoft AKS <cloud-kubernetes-aks>`.
 
 ## Requirements
 
 - A running Kubernetes cluster (any conformant distribution: EKS, GKE, AKS, MicroK8s, Canonical Kubernetes, etc.).
-- kubectl configured with cluster access.
+- `kubectl` configured with cluster access.
 - Sufficient RBAC permissions to create namespaces, deployments, services, and other resources.
 
 (kubernetes-concept-mapping)=
@@ -52,11 +52,13 @@ On Kubernetes clouds, both the cloud definition and the credentials are typicall
 (kubernetes-definition)=
 A Kubernetes cloud in Juju represents an existing Kubernetes cluster. Juju connects to the cluster via the Kubernetes API and manages application deployments within namespaces.
 
-A Kubernetes cloud definition can be supplied through `juju add-k8s` flows, either interactively (from `kubeconfig`) or as YAML:
+A Kubernetes cloud definition can be supplied through `juju add-k8s` flows, either interactively (from `kubeconfig`) or as YAML. User-defined clouds are stored in `clouds.yaml` (on Linux: `~/.local/share/juju/clouds.yaml`).
 
 ```{tip}
 In most cases you do not need to write this file manually. `juju add-k8s` can read `kubeconfig` and create the cloud definition for you.
 ```
+
+When supplied as YAML, the definition follows this schema:
 
 ```yaml
 clouds:
@@ -163,7 +165,7 @@ When bootstrapping a controller on a Kubernetes cloud, Juju creates a namespace 
 - **`StatefulSet`**: A `StatefulSet` with the controller pod containing two containers: `mongodb` (Juju's state database) and `api-server` (Juju API server).
 - **`Secret`s**: Multiple secrets for TLS certificates (`server.pem`), shared secrets, and optionally docker registry credentials for private image registries.
 - **`ConfigMap`s**: Configuration maps for bootstrap parameters and agent configuration.
-- **`PersistentVolumeClaim`**: Storage for the controller's operator-storage (MongoDB data and API server state).
+- **`PersistentVolume`** and **`PersistentVolumeClaim`**: Storage for the controller's operator-storage (MongoDB data and API server state).
 - **Proxy resources** (if using `ClusterIP` `Service`): Additional `ConfigMap`, `Role`, `RoleBinding`, and `ServiceAccount` for cluster IP proxy access.
 
 (kubernetes-bootstrap-service-type)=
@@ -219,7 +221,7 @@ Kubernetes clouds support the following {ref}`constraints <constraint>`, which h
 
 - {ref}`constraint-cpu-power`. CPU resource request/limit for pods.
 - {ref}`constraint-mem`. Memory resource request/limit for pods.
-- {ref}`constraint-tags`. Used for pod affinity and anti-affinity rules.
+- {ref}`constraint-tags`. Used for pod affinity, anti-affinity, and node affinity rules.
 
 ```{ibnote}
 Constraints like `arch`, `cores`, `instance-type`, `root-disk`, `zones`, and others are not supported on Kubernetes clouds. Kubernetes manages node resources and pod scheduling.
@@ -240,16 +242,24 @@ When deploying an application to a Kubernetes model, Juju creates:
 - **`Service`**: A Kubernetes `Service` to expose the application within the cluster or externally.
 - **`ConfigMap`**: Configuration data for the application.
 - **`Secret`**: Sensitive data like credentials.
-- **`PersistentVolumeClaim`**: If the charm requires storage, one PVC per unit is created based on the configured storage class.
+- **`PersistentVolume`** and **`PersistentVolumeClaim`**: If the charm requires storage, one PV/PVC per unit is created based on the configured storage class.
 
 (kubernetes-pod-deployment-patterns)=
 ### Pod deployment patterns
 
 Kubernetes application pods in Juju follow these patterns:
 
+**Sidecar charms** (current pattern):
+
+- **Init container** (`charm-init`): Prepares the pod environment before the main container starts.
+- **Charm container** (`charm`): Runs the charm logic alongside the workload.
+- **Workload containers**: Defined by the charm (e.g., database, web server).
+
+**Operator charms** (older pattern):
+
 - **Init container** (`juju-init`): Prepares the pod environment before the main container starts.
 - **Operator container** (`juju-operator`): Runs the charm logic and manages the application lifecycle.
-- **Workload containers**: Additional containers defined by the charm (e.g., database, web server).
+- **Workload containers**: Defined by the charm.
 
 (kubernetes-storage)=
 ## Storage
@@ -277,7 +287,7 @@ The `kubernetes` storage provider provisions storage using Kubernetes Persistent
 
 Configuration options:
 
-- **`storage-class`**: The storage class for the Kubernetes cluster to use. It can be any storage class defined in your cluster, for example: `juju-unit-storage`, `juju-charm-storage`, `microk8s-hostpath`, `gp2`, `standard`, etc.
+- **`storage-class`**: The storage class for the Kubernetes cluster to use. It can be any storage class defined in your cluster, for example: `microk8s-hostpath`, `gp2`, `standard`, etc.
 
 - **`storage-provisioner`**: The Kubernetes storage provisioner. For example: `kubernetes.io/no-provisioner`, `kubernetes.io/aws-ebs`, `kubernetes.io/gce-pd`, `microk8s.io/hostpath`, etc.
 

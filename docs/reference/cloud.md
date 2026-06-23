@@ -36,13 +36,3 @@ Machine clouds provision and manage machines on various platforms. You can choos
 See more: {ref}`machine-cloud`, {ref}`list-of-supported-machine-clouds`
 ```
 
-(cloud-definition)=
-## Cloud definition
-
-In Juju, cloud definitions can be provided either interactively or via a YAML file. When provided via file, they are saved in:
-- `public-clouds.yaml` for public clouds (on Linux, typically: `~/.local/share/juju/public-clouds.yaml`)
-- `clouds.yaml` for user-defined clouds (on Linux: `~/.local/share/juju/clouds.yaml`)
-
-For YAML file templates and schema details, see:
-- {ref}`Machine cloud definition <machine-definition>`
-- {ref}`Kubernetes cloud definition <kubernetes-definition>`
