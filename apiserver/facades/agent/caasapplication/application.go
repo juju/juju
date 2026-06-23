@@ -188,7 +188,8 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 
-	//
+	// Expose the tracing endpoint to the unit agent. If the GRPC endpoint is
+	// not set, fall back to the HTTP endpoint.
 	tracingEndpoint := tracingConfig.GRPCEndpoint
 	if tracingEndpoint == "" {
 		tracingEndpoint = tracingConfig.HTTPEndpoint
