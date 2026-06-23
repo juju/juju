@@ -179,8 +179,8 @@ func (env *environ) getImageSources(ctx context.Context) ([]lxd.ServerSpec, erro
 
 // getContainerSpec builds a container spec from the input container image and
 // start-up parameters.
-// Cloud-init config is generated based on the network devices in the default
-// profile and included in the spec config.
+// Cloud-init config is generated based on the network devices in the applied
+// profiles and included in the spec config.
 func (env *environ) getContainerSpec(
 	ctx context.Context, image lxd.SourcedImage, serverVersion string, args environs.StartInstanceParams,
 ) (lxd.ContainerSpec, error) {
@@ -190,7 +190,7 @@ func (env *environ) getContainerSpec(
 	}
 	cSpec := lxd.ContainerSpec{
 		Name:     hostname,
-		Profiles: []string{"default", env.profileName()},
+		Profiles: env.containerProfileNames(),
 		Image:    image,
 		Config:   make(map[string]string),
 	}
@@ -211,7 +211,7 @@ func (env *environ) getContainerSpec(
 	}
 
 	// Assemble the list of NICs that need to be added to the container.
-	// This includes all NICs from the default profile as well as any
+	// This includes all NICs from the applied profiles as well as any
 	// additional NICs required to satisfy any subnets that were requested
 	// due to space constraints.
 	//
@@ -268,20 +268,26 @@ func (env *environ) getContainerSpec(
 	return cSpec, nil
 }
 
+func (env *environ) containerProfileNames() []string {
+	return []string{"default", env.profileName()}
+}
+
 func (env *environ) assignContainerNICs(ctx context.Context, instStartParams environs.StartInstanceParams) (map[string]map[string]string, error) {
-	// First, include any nics explicitly requested by the default profile.
-	assignedNICs, err := env.server().GetNICsFromProfile("default")
-	if err != nil {
-		return nil, errors.Trace(err)
+	// First, include any NICs explicitly requested by the applied profiles.
+	// Later profiles override earlier profiles, matching LXD profile
+	// precedence.
+	assignedNICs := make(map[string]map[string]string)
+	for _, profileName := range env.containerProfileNames() {
+		profileNICs, err := env.server().GetNICsFromProfile(profileName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		maps.Copy(assignedNICs, profileNICs)
 	}
 
 	// No additional NICs required.
 	if len(instStartParams.SubnetsToZones) == 0 {
 		return assignedNICs, nil
-	}
-
-	if assignedNICs == nil {
-		assignedNICs = make(map[string]map[string]string)
 	}
 
 	// Map each requested subnet to the LXD network (host bridge) that hosts it.
