@@ -151,7 +151,7 @@ MAAS supports the following {ref}`placement directives <placement-directive>`:
 (maas-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) receives:
+Each machine (controller or application) is associated with:
 
 - **Bare metal or virtual machine**: Allocated from MAAS inventory matching hardware constraints.
 - **Network interfaces**: Pre-configured NICs with IP addresses allocated from MAAS subnets.

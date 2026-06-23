@@ -189,7 +189,7 @@ Microsoft Azure supports the following {ref}`placement directives <placement-dir
 (azure-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) receives:
+Each machine (controller or application) is associated with:
 
 - **Virtual machine**: Type configurable via `instance-type` constraint.
 - **OS disk**: 30 GiB minimum, `StandardSSD_LRS` type by default. Size and type configurable via `root-disk` and `root-disk-source` constraints.

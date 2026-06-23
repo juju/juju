@@ -178,7 +178,7 @@ If your topology has a cluster without a host, Juju will see this as an availabi
 (vsphere-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) receives:
+Each machine (controller or application) is associated with:
 
 - **VM**: Created by cloning from a template. VM stored in the controller/model folder hierarchy under `<vm-folder>/Juju Controller (<uuid>)/Model "name" (<uuid>)/<machine-name>`.
 - **Hardware resources**: Memory, CPU cores, CPU power from constraints. Hardware version optionally upgraded via `force-vm-hardware-version` model config.

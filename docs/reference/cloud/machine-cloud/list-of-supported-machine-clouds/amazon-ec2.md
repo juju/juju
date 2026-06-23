@@ -186,10 +186,13 @@ Amazon EC2 supports the following {ref}`placement directives <placement-directiv
 (ec2-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) receives:
+Each machine (controller or application) is associated with:
 
 - **EC2 instance**: Compute instance with name `juju-<model-uuid>-<machine-id>`. Instance type selected based on constraints. IMDSv2 enforced (`HttpTokens=Required`).
-- **Security groups**: Machine is added to the model-wide group (`juju-<model-uuid>`) plus either a machine-specific group (`juju-<model-uuid>-<machine-id>`) or the shared global group (`juju-<model-uuid>-global`), based on `firewall-mode`.
+- **Security groups**:
+  - Model-wide group: `juju-<model-uuid>`
+  - Machine-specific group (`firewall-mode=instance`, default): `juju-<model-uuid>-<machine-id>`
+  - Global group (`firewall-mode=global`): `juju-<model-uuid>-global`
 - **Network interfaces**: Primary interface in chosen subnet. Private IPs assigned from subnet CIDR. Public IP optional via `MapPublicIPOnLaunch` or `allocate-public-ip` constraint.
 - **EBS root volume**: Device `/dev/sda1`, default 16 GiB (applications) or 32 GiB (controllers), type `gp2`. Configurable volume type, encryption, IOPS, throughput.
 - **IAM instance profile** (optional): Attached after launch if `instance-role` constraint specified. Enables EC2 metadata service credentials.

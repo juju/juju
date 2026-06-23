@@ -193,7 +193,7 @@ Google GCE supports the following {ref}`placement directives <placement-directiv
 (gce-machine-resources-created-per-machine)=
 ### Resources created per machine
 
-Each machine (controller or application) receives:
+Each machine (controller or application) is associated with:
 
 - **Compute instance**: Instance with name `<model-uuid><machine-id>`. Machine type selected based on constraints. Status sequence: `PROVISIONING` → `STAGING` → `RUNNING`.
 - **Boot disk**: Persistent disk attached inline. Size: max(10 GiB, constraint, image minimum). Type: `pd-standard` (default) or `pd-ssd` via `root-disk-source` constraint. Auto-deleted when instance terminates.
