@@ -152,6 +152,7 @@ func (s *serviceSuite) TestInsertSSHConnRequest(c *tc.C) {
 	svc := modelsshservice.NewService(modelUUID, state, modelsshservice.WithClock(clk))
 
 	req := domainssh.SSHConnRequest{
+		ModelUUID:           modelUUID,
 		TunnelID:            "tunnel-0",
 		MachineID:           "1",
 		Expires:             clk.Now().Add(time.Minute),
