@@ -83,8 +83,8 @@ type fakeController struct {
 	spacesError        error
 	staticRoutes       []gomaasapi.StaticRoute
 	staticRoutesError  error
-	pods               []gomaasapi.Pod
-	podsError          error
+	vmHosts            []gomaasapi.VmHost
+	vmHostsError       error
 	deleteMachineError error
 
 	allocateMachine          gomaasapi.Machine
@@ -240,11 +240,11 @@ func (c *fakeController) DeleteMachine(systemID string) error {
 	return c.deleteMachineError
 }
 
-func (c *fakeController) Pods() ([]gomaasapi.Pod, error) {
-	if c.podsError != nil {
-		return nil, c.podsError
+func (c *fakeController) VmHosts() ([]gomaasapi.VmHost, error) {
+	if c.vmHostsError != nil {
+		return nil, c.vmHostsError
 	}
-	return c.pods, nil
+	return c.vmHosts, nil
 }
 
 type fakeBootResource struct {
@@ -275,7 +275,7 @@ type fakeMachine struct {
 	memory        int
 	architecture  string
 	powerType     string
-	pod           gomaasapi.Pod
+	vmHost        gomaasapi.VmHost
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
 	ownerData     map[string]string
@@ -357,8 +357,8 @@ func (m *fakeMachine) PowerType() string {
 	return m.powerType
 }
 
-func (m *fakeMachine) Pod() gomaasapi.Pod {
-	return m.pod
+func (m *fakeMachine) VmHost() gomaasapi.VmHost {
+	return m.vmHost
 }
 
 func (m *fakeMachine) StatusName() string {
@@ -756,8 +756,8 @@ func (*fakeDomain) Name() string {
 	return "maas"
 }
 
-type fakePod struct {
-	gomaasapi.Pod
+type fakeVmHost struct {
+	gomaasapi.VmHost
 
 	id    int
 	name  string
@@ -770,27 +770,27 @@ type fakePod struct {
 	composeMachineArgsCheck func(gomaasapi.ComposeMachineArgs)
 }
 
-func (p *fakePod) ID() int {
+func (p *fakeVmHost) ID() int {
 	return p.id
 }
 
-func (p *fakePod) Name() string {
+func (p *fakeVmHost) Name() string {
 	return p.name
 }
 
-func (p *fakePod) Type() string {
+func (p *fakeVmHost) Type() string {
 	return p.type_
 }
 
-func (p *fakePod) Zone() gomaasapi.Zone {
+func (p *fakeVmHost) Zone() gomaasapi.Zone {
 	return p.zone
 }
 
-func (p *fakePod) Pool() gomaasapi.Pool {
+func (p *fakeVmHost) Pool() gomaasapi.Pool {
 	return p.pool
 }
 
-func (p *fakePod) ComposeMachine(args gomaasapi.ComposeMachineArgs) (gomaasapi.Machine, error) {
+func (p *fakeVmHost) ComposeMachine(args gomaasapi.ComposeMachineArgs) (gomaasapi.Machine, error) {
 	if p.composeMachineArgsCheck != nil {
 		p.composeMachineArgsCheck(args)
 	}

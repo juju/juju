@@ -702,12 +702,12 @@ func (env *maasEnviron) composeNode(
 	positiveSpaceIDs set.Strings,
 	volumes []volumeInfo,
 ) (string, error) {
-	pods, err := env.maasController.Pods()
+	vmHosts, err := env.maasController.VmHosts()
 	if err != nil {
 		return "", errors.Annotate(err, "listing pods")
 	}
-	if len(pods) == 0 {
-		return "", errors.New("no pods available to compose machine")
+	if len(vmHosts) == 0 {
+		return "", errors.New("no vm hosts available to compose machine")
 	}
 
 	composeArgs := gomaasapi.ComposeMachineArgs{
@@ -745,18 +745,18 @@ func (env *maasEnviron) composeNode(
 
 	// Use the first pod that can commission the machine.
 	var lastComposeErr error
-	for _, pod := range pods {
-		machine, err := pod.ComposeMachine(composeArgs)
+	for _, vmHost := range vmHosts {
+		machine, err := vmHost.ComposeMachine(composeArgs)
 		if err != nil {
 			if gomaasapi.IsNoMatchError(err) || gomaasapi.IsCannotCompleteError(err) {
 				lastComposeErr = err
-				logger.Debugf("pod %q could not compose machine, trying next pod: %v", pod.Name(), err)
+				logger.Debugf("pod %q could not compose machine, trying next pod: %v", vmHost.Name(), err)
 				continue
 			}
 			return "", errors.Annotate(err, "composing machine")
 		}
 		systemID := machine.SystemID()
-		err = env.markComposedMachine(ctx, systemID)
+		err = machine.SetOwnerData(map[string]string{composedByJujuDataKey: composedByJujuDataVal})
 		if err != nil {
 			if deleteErr := env.maasController.DeleteMachine(systemID); deleteErr != nil {
 				logger.Warningf("failed to delete unmarked composed machine %q: %v", systemID, deleteErr)
@@ -764,7 +764,7 @@ func (env *maasEnviron) composeNode(
 			return "", errors.Annotate(err, "marking composed machine")
 		}
 
-		logger.Infof("composed machine %q in pod %q", systemID, pod.Name())
+		logger.Infof("composed machine %q in pod %q", systemID, vmHost.Name())
 
 		// The composed machine goes through MAAS commissioning before it
 		// reaches "Ready" state. AllocateMachine only works on Ready
@@ -783,27 +783,7 @@ func (env *maasEnviron) composeNode(
 		return "", errors.Annotate(lastComposeErr, "composing machine")
 	}
 
-	return "", errors.New("no pods matched the zone requirement")
-}
-
-// markComposedMachine tags a given virtual machine as being created by Juju.
-func (env *maasEnviron) markComposedMachine(ctx context.ProviderCallContext, systemID string) error {
-	// TODO - in gomaasapi SetOwnerData on the returned machine is a no op
-	//  Once gomaasapi is fixed, we no longer need this helper.
-	machines, err := env.maasController.Machines(gomaasapi.MachinesArgs{SystemIDs: []string{systemID}})
-	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return errors.Trace(err)
-	}
-	if len(machines) == 0 {
-		return errors.NotFoundf("composed machine %q", systemID)
-	}
-	err = machines[0].SetOwnerData(map[string]string{composedByJujuDataKey: composedByJujuDataVal})
-	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
-		return errors.Trace(err)
-	}
-	return nil
+	return "", errors.New("no vm host matched the zone requirement")
 }
 
 // waitForComposedMachineReady polls MAAS until the machine with the given
