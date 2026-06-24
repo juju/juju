@@ -15,16 +15,27 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
-	accessv2 "github.com/juju/juju/domain/access/modelmigration/v2"
-	cloudimagemetadatav2 "github.com/juju/juju/domain/cloudimagemetadata/modelmigration/v2"
-	credentialv2 "github.com/juju/juju/domain/credential/modelmigration/v2"
+	"github.com/juju/juju/core/semversion"
+	accessservice "github.com/juju/juju/domain/access/service"
+	accessstate "github.com/juju/juju/domain/access/state"
+	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
+	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
+	credentialservice "github.com/juju/juju/domain/credential/service"
+	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/export"
-	keymanagerv2 "github.com/juju/juju/domain/keymanager/modelmigration/v2"
-	leasev2 "github.com/juju/juju/domain/lease/modelmigration/v2"
-	modelv2 "github.com/juju/juju/domain/model/modelmigration/v2"
+	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
+	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
+	leaseservice "github.com/juju/juju/domain/lease/service"
+	leasestate "github.com/juju/juju/domain/lease/state"
+	domainmodel "github.com/juju/juju/domain/model"
+	modelservice "github.com/juju/juju/domain/model/service"
+	modelmigrationservice "github.com/juju/juju/domain/model/service/migration"
+	modelstatecontroller "github.com/juju/juju/domain/model/state/controller"
+	modelstatemodel "github.com/juju/juju/domain/model/state/model"
 	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
-	secretbackendv2 "github.com/juju/juju/domain/secretbackend/modelmigration/v2"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -45,12 +56,14 @@ type Deps struct {
 // secret backend, leadership and cloud image metadata carried by envelope.
 // Model-DB content import and activation are not part of this function.
 //
-// Each step delegates to the owning domain's modelmigration/v2 package; this
-// function only decodes the envelope once and orchestrates the call order
-// FK-/dependency-safely. AssertImporting (called once, at the end) and the
-// two atomic companion-write assertions inside the claim service are the
-// only importing-phase guards; the per-domain writes in between are not
-// individually guarded (see [migrationclaimservice.Service.AssertImporting]).
+// Each step calls the owning domain's service import method directly (the
+// controller-DB facts have no transformer to run and no per-domain coordinator
+// ownership to honour); this function constructs the controller-scoped domain
+// services once and orchestrates the call order FK-/dependency-safely.
+// AssertImporting (called once, at the end) and the two atomic companion-write
+// assertions inside the claim service are the only importing-phase guards; the
+// per-domain writes in between are not individually guarded (see
+// [migrationclaimservice.Service.AssertImporting]).
 //
 // If a claim already exists for envelope.ModelInfo.UUID, the returned error
 // wraps [coreerrors.AlreadyExists] (phase-specific wording is supplied by the
@@ -63,20 +76,26 @@ func ImportModel(
 	info := controllerModelInfoFromEnvelope(envelope)
 
 	claimSvc := migrationclaimservice.NewImportService(migrationclaimstate.New(deps.ControllerDB, deps.Clock))
+	accessSvc := accessservice.NewService(accessstate.NewState(deps.ControllerDB, deps.Clock, deps.Logger), deps.Clock)
+	credentialSvc := credentialservice.NewService(credentialstate.NewState(deps.ControllerDB), deps.Logger)
+	keymanagerSvc := keymanagerservice.NewService(modelUUID, keymanagerstate.NewState(deps.ControllerDB))
+	secretBackendSvc := secretbackendservice.NewService(secretbackendstate.NewState(deps.ControllerDB, deps.Logger), deps.Logger)
+	leaseSvc := leaseservice.NewService(leasestate.NewState(deps.ControllerDB, deps.Logger))
+	cloudImageSvc := cloudimagemetadataservice.NewService(cloudimagemetadatastate.NewState(deps.ControllerDB, deps.Clock, deps.Logger))
 
 	claimUUID, err := claimSvc.BeginImport(ctx, modelUUID, envelope.ModelInfo.SourceMigrationUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	inactiveUsers, err := accessv2.ImportModelUsers(ctx, deps.ControllerDB, deps.Clock, deps.Logger, info.Users)
+	inactiveUsers, err := accessSvc.ImportModelUsers(ctx, info.Users)
 	if err != nil {
 		return errors.Errorf("resolving users for model %q import: %w", modelUUIDStr, err)
 	}
 
 	var credKey corecredential.Key
 	if info.ModelCredential != nil {
-		credKey, err = credentialv2.ImportModelCredential(ctx, deps.ControllerDB, deps.Logger, *info.ModelCredential)
+		credKey, err = credentialSvc.ImportModelCredential(ctx, *info.ModelCredential)
 		if err != nil {
 			return errors.Errorf("resolving credential for model %q import: %w", modelUUIDStr, err)
 		}
@@ -87,9 +106,9 @@ func ImportModel(
 		secretBackendName = info.SecretBackend.Name
 	}
 	agentStream := agentStreamFromModelConfig(view)
-	if err := modelv2.BootstrapImportedModel(
-		ctx, deps.ControllerDB, deps.ModelDB, deps.Logger, modelUUID,
-		info.ModelInfo, credKey, secretBackendName, agentStream, view.AgentTargetVersion,
+	if err := bootstrapImportedModel(
+		ctx, deps, modelUUID, info.ModelInfo, credKey, secretBackendName,
+		agentStream, view.AgentTargetVersion,
 	); err != nil {
 		return errors.Errorf("bootstrapping model %q: %w", modelUUIDStr, err)
 	}
@@ -97,10 +116,10 @@ func ImportModel(
 	if err := claimSvc.ImportExternalControllers(
 		ctx, modelUUID, claimUUID, info.ExternalControllers,
 	); err != nil {
-		return errors.Errorf("importing external controllers for model %q: %w", modelUUIDStr, err)
+		return errors.Errorf("importing external controllers for model %q import: %w", modelUUIDStr, err)
 	}
 
-	offerUUIDs, err := accessv2.ImportModelPermissions(ctx, deps.ControllerDB, deps.Clock, deps.Logger, info.Permissions, inactiveUsers)
+	offerUUIDs, err := accessSvc.ImportModelPermissions(ctx, info.Permissions, inactiveUsers)
 	if err != nil {
 		return errors.Errorf("applying permissions for model %q import: %w", modelUUIDStr, err)
 	}
@@ -108,31 +127,27 @@ func ImportModel(
 		return errors.Errorf("recording offer permissions for model %q import: %w", modelUUIDStr, err)
 	}
 
-	if err := keymanagerv2.ImportAuthorizedKeys(
-		ctx, deps.ControllerDB, deps.Clock, modelUUID, info.AuthorizedKeys, inactiveUsers,
+	if err := keymanagerSvc.ImportAuthorizedKeys(
+		ctx, info.AuthorizedKeys, inactiveUsers, accessSvc.GetUserUUIDByName,
 	); err != nil {
 		return errors.Errorf("applying authorized keys for model %q import: %w", modelUUIDStr, err)
 	}
 
-	if err := secretbackendv2.ImportSecretBackendReferences(
-		ctx, deps.ControllerDB, deps.Logger, modelUUID, info.SecretBackendRefs,
+	if err := secretBackendSvc.ImportSecretBackendReferences(
+		ctx, modelUUID, info.SecretBackendRefs,
 	); err != nil {
 		return errors.Errorf("applying secret backend references for model %q import: %w", modelUUIDStr, err)
 	}
 
-	if err := leasev2.ImportApplicationLeadership(
-		ctx, deps.ControllerDB, deps.Logger, modelUUID, info.Leaders,
-	); err != nil {
+	if err := leaseSvc.ImportApplicationLeadership(ctx, modelUUID, info.Leaders); err != nil {
 		return errors.Errorf("claiming leadership leases for model %q import: %w", modelUUIDStr, err)
 	}
 
-	if err := accessv2.ImportLastModelLogins(ctx, deps.ControllerDB, deps.Clock, deps.Logger, modelUUID, info.Users, inactiveUsers); err != nil {
+	if err := accessSvc.ImportLastModelLogins(ctx, modelUUID, info.Users, inactiveUsers); err != nil {
 		return errors.Errorf("applying last logins for model %q import: %w", modelUUIDStr, err)
 	}
 
-	if err := cloudimagemetadatav2.ImportCloudImageMetadata(
-		ctx, deps.ControllerDB, deps.Clock, deps.Logger, info.CloudImageMetadata,
-	); err != nil {
+	if err := cloudImageSvc.ImportCloudImageMetadata(ctx, info.CloudImageMetadata); err != nil {
 		return errors.Errorf("applying cloud image metadata for model %q import: %w", modelUUIDStr, err)
 	}
 
@@ -140,6 +155,53 @@ func ImportModel(
 		return errors.Errorf("model %q import interrupted: %w", modelUUIDStr, err)
 	}
 
+	return nil
+}
+
+// bootstrapImportedModel creates the controller-database model row (claim-free:
+// the v8 import claim is owned by the modelmigration domain, not this call) and
+// then establishes the model database's read-only model info, marking it as
+// importing so charm uploads during the migration are handled correctly. It is
+// pure orchestration of two existing model-domain service methods.
+func bootstrapImportedModel(
+	ctx context.Context,
+	deps Deps,
+	modelUUID coremodel.UUID,
+	identity coremodelmigration.ModelIdentityInfo,
+	credKey corecredential.Key,
+	secretBackendName string,
+	agentStream agentbinary.AgentStream,
+	agentTargetVersion semversion.Number,
+) error {
+	migrationSvc := modelmigrationservice.NewMigrationService(
+		modelstatecontroller.NewState(deps.ControllerDB), deps.Logger,
+	)
+	modelSvc := modelservice.NewModelService(
+		modelUUID,
+		modelstatecontroller.NewState(deps.ControllerDB),
+		modelstatemodel.NewState(deps.ModelDB, deps.Logger),
+		modelservice.EnvironVersionProviderGetter(),
+		modelservice.DefaultAgentBinaryFinder(),
+	)
+
+	args := domainmodel.ModelImportArgs{
+		UUID: modelUUID,
+		GlobalModelCreationArgs: domainmodel.GlobalModelCreationArgs{
+			Cloud:         identity.Cloud,
+			CloudRegion:   identity.CloudRegion,
+			Credential:    credKey,
+			Name:          identity.Name,
+			Qualifier:     coremodel.Qualifier(identity.Qualifier),
+			SecretBackend: secretBackendName,
+		},
+	}
+
+	if err := migrationSvc.ImportModelV2(ctx, args); err != nil {
+		return errors.Errorf("creating model %q: %w", identity.Name, err)
+	}
+	if err := modelSvc.CreateImportingModelWithAgentVersionStream(ctx, agentTargetVersion, agentStream); err != nil {
+		return errors.Errorf("creating model %q database: %w", identity.Name, err)
+	}
 	return nil
 }
 

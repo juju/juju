@@ -15,6 +15,7 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	model "github.com/juju/juju/core/model"
+	secrets "github.com/juju/juju/core/secrets"
 	watcher "github.com/juju/juju/core/watcher"
 	secretbackend "github.com/juju/juju/domain/secretbackend"
 )
@@ -29,6 +30,7 @@ type MockState struct {
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
 	mock                                                        *MockState
+	addSecretBackendReferenceExpects                            []*gomock.Call5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error]
 	createSecretBackendExpects                                  []*gomock.Call2_2[context.Context, secretbackend.CreateSecretBackendParams, string, error]
 	deleteSecretBackendExpects                                  []*gomock.Call3_1[context.Context, secretbackend.BackendIdentifier, bool, error]
 	getInternalAndActiveBackendUUIDsExpects                     []*gomock.Call2_3[context.Context, model.UUID, string, string, error]
@@ -57,6 +59,24 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
+
+// AddSecretBackendReference mocks base method.
+func (m *MockState) AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID model.UUID, revisionID, secretID string) (func() error, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch5_2(&m.recorder.addSecretBackendReferenceExpects, m.ctrl, m, "AddSecretBackendReference", ctx, valueRef, modelID, revisionID, secretID)
+}
+
+// AddSecretBackendReference indicates an expected call of AddSecretBackendReference.
+func (mr *MockStateMockRecorder) AddSecretBackendReference(ctx, valueRef, modelID, revisionID, secretID any) *MockStateAddSecretBackendReferenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error](mr.mock.ctrl.T, mr.mock, "AddSecretBackendReference", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(valueRef), gomock.EnsureMatcher(modelID), gomock.EnsureMatcher(revisionID), gomock.EnsureMatcher(secretID))
+	mr.addSecretBackendReferenceExpects = append(mr.addSecretBackendReferenceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateAddSecretBackendReferenceCall is the typed call wrapper for AddSecretBackendReference.
+type MockStateAddSecretBackendReferenceCall = gomock.Call5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error]
 
 // CreateSecretBackend mocks base method.
 func (m *MockState) CreateSecretBackend(ctx context.Context, params secretbackend.CreateSecretBackendParams) (string, error) {
