@@ -1,0 +1,22 @@
+default-base: ubuntu@20.04/stable
+series: focal
+applications:
+  juju-qa-test:
+    charm: juju-qa-test
+    channel: latest/stable
+    revision: 25
+    resources:
+      foo-file: 2
+    num_units: 1
+    to:
+      - "0"
+    options:
+      foo-file: false
+      skill: 0
+      status: hello
+      thing: "\U0001F381"
+      floatiness: 0
+    constraints: arch=amd64
+machines:
+  "0":
+    constraints: arch=amd64

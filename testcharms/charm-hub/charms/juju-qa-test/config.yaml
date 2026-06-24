@@ -16,9 +16,11 @@ options:
     default: 0
     description: Skill level.
     type: int
+  floatiness:
+    default: 0
+    description: Degree of floatiness
+    type: float
   foo-file:
     default: False
     description: Get resource and set log contents of foo-file as Info.
     type: boolean
-
-
