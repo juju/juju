@@ -10,30 +10,24 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/usersecrets"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/services"
 )
 
 // ManifoldConfig describes the resources used by the secretspruner worker.
 type ManifoldConfig struct {
-	APICallerName string
-	Logger        logger.Logger
+	DomainServicesName string
+	Logger             logger.Logger
 
-	NewUserSecretsFacade func(base.APICaller) SecretsFacade
-	NewWorker            func(Config) (worker.Worker, error)
-}
-
-// NewUserSecretsFacade returns a new SecretsFacade.
-func NewUserSecretsFacade(caller base.APICaller) SecretsFacade {
-	return usersecrets.NewClient(caller)
+	NewWorker func(Config) (worker.Worker, error)
 }
 
 // Manifold returns a Manifold that encapsulates the secretspruner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
@@ -41,14 +35,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
+	if cfg.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if cfg.NewUserSecretsFacade == nil {
-		return errors.NotValidf("nil NewUserSecretsFacade")
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -62,17 +53,44 @@ func (cfg ManifoldConfig) start(context context.Context, getter dependency.Gette
 		return nil, errors.Trace(err)
 	}
 
-	var apiCaller base.APICaller
-	if err := getter.Get(cfg.APICallerName, &apiCaller); err != nil {
+	var domainServices services.DomainServices
+	if err := getter.Get(cfg.DomainServicesName, &domainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	facade := &secretServiceAdapter{
+		secretSvc: domainServices.Secret(),
+	}
+
 	worker, err := cfg.NewWorker(Config{
-		SecretsFacade: cfg.NewUserSecretsFacade(apiCaller),
+		SecretsFacade: facade,
 		Logger:        cfg.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return worker, nil
+}
+
+// secretServiceAdapter satisfies the SecretsFacade interface by reading
+// from the domain secret service directly.
+type secretServiceAdapter struct {
+	secretSvc secretService
+}
+
+// secretService is the subset of the domain secret service needed by the
+// secrets-pruner facade adapter.
+type secretService interface {
+	WatchObsoleteUserSecretsToPrune(context.Context) (watcher.NotifyWatcher, error)
+	DeleteObsoleteUserSecretRevisions(context.Context) error
+}
+
+// WatchRevisionsToPrune is part of the SecretsFacade interface.
+func (a *secretServiceAdapter) WatchRevisionsToPrune(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return a.secretSvc.WatchObsoleteUserSecretsToPrune(ctx)
+}
+
+// DeleteObsoleteUserSecretRevisions is part of the SecretsFacade interface.
+func (a *secretServiceAdapter) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
+	return a.secretSvc.DeleteObsoleteUserSecretRevisions(ctx)
 }
