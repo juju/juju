@@ -231,8 +231,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-firewaller": {
-		"agent",
-		"api-caller",
 		"clock",
 		"domain-services",
 		"is-responsible-flag",
@@ -289,8 +287,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"change-stream-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -306,8 +302,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"lease-manager": {},
 
 	"logging-config-updater": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -326,8 +320,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-inactive-flag": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -349,8 +341,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"operation-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -362,8 +352,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"provider-service-factories": {},
 
 	"remote-relation-consumer": {
-		"agent",
-		"api-caller",
 		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
@@ -374,8 +362,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"removal": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -433,8 +419,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"agent": {},
 
 	"agent-binary-fetcher": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -464,8 +448,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"change-stream-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -516,8 +498,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"instance-poller": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -535,8 +515,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"lease-manager": {},
 
 	"logging-config-updater": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -547,6 +525,10 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"log-sink": {},
 
+	"domain-services": {},
+
+	"http-client": {},
+
 	"migration-fortress": {
 		"domain-services",
 		"is-responsible-flag",
@@ -555,8 +537,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-inactive-flag": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -578,8 +558,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"operation-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -591,8 +569,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"provider-service-factories": {},
 
 	"remote-relation-consumer": {
-		"agent",
-		"api-caller",
 		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
@@ -603,8 +579,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"removal": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -612,10 +586,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"not-dead-flag",
 	},
-
-	"domain-services": {},
-
-	"http-client": {},
 
 	"storage-provisioner": {
 		"agent",
