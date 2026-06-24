@@ -210,8 +210,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"api-config-watcher": {"agent"},
 
 	"provider-tracker": {
-		"agent",
-		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
@@ -222,6 +221,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"caas-model-config-manager": {
 		"agent",
 		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
@@ -403,7 +403,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"http-client": {},
 
-	"valid-credential-flag": {"agent", "api-caller"},
+	"valid-credential-flag": {"domain-services"},
 }
 
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
@@ -492,8 +492,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"provider-tracker": {
-		"agent",
-		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
@@ -633,7 +632,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"valid-credential-flag",
 	},
 
-	"valid-credential-flag": {"agent", "api-caller"},
+	"valid-credential-flag": {"domain-services"},
 }
 
 func testManifoldsConfig() model.ManifoldsConfig {

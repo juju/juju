@@ -392,13 +392,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		migrationMinionName: ifControllerUpgradeComplete(disabledManifold(migrationminion.Manifold(migrationminion.ManifoldConfig{
 			// AgentName:         agentName,
 			// APICallerName:     apiCallerName,
-			FortressName:      migrationFortressName,
-			Clock:             config.Clock,
-			APIOpen:           api.Open,
-			ValidateMigration: config.ValidateMigration,
-			NewFacade:         migrationminion.NewFacade,
-			NewWorker:         migrationminion.NewWorker,
-			Logger:            internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			FortressName:          migrationFortressName,
+			Clock:                 config.Clock,
+			APIOpen:               api.Open,
+			ValidateMigration:     config.ValidateMigration,
+			NewWorker:             migrationminion.NewWorker,
+			Logger:                internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			SendReport:            migrationminion.SendReport,
+			FetchTargetLokiConfig: migrationminion.FetchTargetLokiConfig,
 		}))),
 
 		// The primary controller flag manifold will attempt to claim
