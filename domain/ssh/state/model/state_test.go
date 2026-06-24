@@ -10,7 +10,6 @@ import (
 	"github.com/juju/tc"
 
 	coredatabase "github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -47,12 +46,13 @@ func (s *stateSuite) TestGetMachineVirtualHostKeyMissingMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) TestSetAndGetMachineVirtualHostKey(c *tc.C) {
+func (s *stateSuite) TestEnsureAndGetMachineVirtualHostKey(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addMachine(c, "1")
 
-	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	key, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
 
 	key, found, err := st.GetMachineVirtualHostKeyByMachineName(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -68,22 +68,25 @@ func (s *stateSuite) TestSetAndGetMachineVirtualHostKey(c *tc.C) {
 	c.Check(algorithmTypeID, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
 }
 
-func (s *stateSuite) TestSetMachineVirtualHostKeyMissingMachine(c *tc.C) {
+func (s *stateSuite) TestEnsureMachineVirtualHostKeyMissingMachine(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 
-	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "99", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	key, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "99", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	c.Check(key, tc.Equals, "")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
-func (s *stateSuite) TestSetMachineVirtualHostKeyConflicts(c *tc.C) {
+func (s *stateSuite) TestEnsureMachineVirtualHostKeyReturnsExistingOnConflict(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addMachine(c, "1")
 
-	err := st.SetMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	key, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
 
-	err = st.SetMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeRSAID, "different-key")
-	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
+	key, err = st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "1", domainssh.SSHKeyAlgorithmTypeRSAID, "different-key")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
 
 	key, found, err := st.GetMachineVirtualHostKeyByMachineName(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -100,22 +103,25 @@ func (s *stateSuite) TestGetUnitVirtualHostKeyMissingUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestSetUnitVirtualHostKeyMissingUnit(c *tc.C) {
+func (s *stateSuite) TestEnsureUnitVirtualHostKeyMissingUnit(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 
-	err := st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	key, err := st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	c.Check(key, tc.Equals, "")
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestSetUnitVirtualHostKeyConflicts(c *tc.C) {
+func (s *stateSuite) TestEnsureUnitVirtualHostKeyReturnsExistingOnConflict(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addUnit(c, "postgresql/0")
 
-	err := st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	key, err := st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
 
-	err = st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeRSAID, "different-key")
-	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
+	key, err = st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeRSAID, "different-key")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
 
 	key, found, err := st.GetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -132,12 +138,13 @@ func (s *stateSuite) TestGetMachineNameForUnitMissingUnit(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
-func (s *stateSuite) TestSetAndGetUnitVirtualHostKey(c *tc.C) {
+func (s *stateSuite) TestEnsureAndGetUnitVirtualHostKey(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addUnit(c, "postgresql/0")
 
-	err := st.SetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
+	key, err := st.EnsureUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
 
 	key, found, err := st.GetUnitVirtualHostKeyByUnitName(c.Context(), "postgresql/0")
 	c.Assert(err, tc.ErrorIsNil)
