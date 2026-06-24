@@ -404,16 +404,23 @@ func (suite *maasEnvironSuite) TestStopInstancesDoesNotDeleteNonComposedNodes(c 
 	c.Assert(args[0].SystemIDs, jc.SameContents, []string{"test3"})
 }
 
-func (suite *maasEnvironSuite) TestStopInstancesReturnsDeleteComposedNodesError(c *gc.C) {
+func (suite *maasEnvironSuite) TestStopInstancesReturnsDeleteComposedNodeAndReleaseErrors(c *gc.C) {
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.machines = []gomaasapi.Machine{
 		&fakeMachine{systemID: "test1", powerType: "lxd", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
+		&fakeMachine{systemID: "test2", powerType: "lxd", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
 	}
-	controller.deleteMachineError = errors.New("delete failed")
+	controller.deleteMachineErrors = map[string]error{
+		"test2": errors.New("delete test2 failed"),
+	}
+	controller.SetErrors(errors.New("boom"))
 
-	err := suite.makeEnviron(c, controller).StopInstances(suite.callCtx, "test1")
-	c.Assert(err, gc.ErrorMatches, "deleting composed machines: delete failed")
-	c.Assert(collectDeleteMachineArgs(controller), jc.SameContents, []string{"test1"})
+	err := suite.makeEnviron(c, controller).StopInstances(suite.callCtx, "test1", "test2")
+	c.Assert(err, gc.ErrorMatches, "deleting composed machines: delete test2 failed\ncannot release nodes: boom")
+	c.Assert(collectDeleteMachineArgs(controller), jc.SameContents, []string{"test1", "test2"})
+	args := collectReleaseArgs(controller)
+	c.Assert(args, gc.HasLen, 1)
+	c.Assert(args[0].SystemIDs, jc.SameContents, []string{"test1", "test2"})
 }
 
 func (suite *maasEnvironSuite) TestStartInstanceError(c *gc.C) {

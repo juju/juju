@@ -71,21 +71,21 @@ type fakeController struct {
 	gomaasapi.Controller
 	*testing.Stub
 
-	domains            []gomaasapi.Domain
-	bootResources      []gomaasapi.BootResource
-	bootResourcesError error
-	machines           []gomaasapi.Machine
-	machinesError      error
-	machinesArgsCheck  func(gomaasapi.MachinesArgs)
-	zones              []gomaasapi.Zone
-	zonesError         error
-	spaces             []gomaasapi.Space
-	spacesError        error
-	staticRoutes       []gomaasapi.StaticRoute
-	staticRoutesError  error
-	vmHosts            []gomaasapi.VmHost
-	vmHostsError       error
-	deleteMachineError error
+	domains             []gomaasapi.Domain
+	bootResources       []gomaasapi.BootResource
+	bootResourcesError  error
+	machines            []gomaasapi.Machine
+	machinesError       error
+	machinesArgsCheck   func(gomaasapi.MachinesArgs)
+	zones               []gomaasapi.Zone
+	zonesError          error
+	spaces              []gomaasapi.Space
+	spacesError         error
+	staticRoutes        []gomaasapi.StaticRoute
+	staticRoutesError   error
+	vmHosts             []gomaasapi.VmHost
+	vmHostsError        error
+	deleteMachineErrors map[string]error
 
 	allocateMachine          gomaasapi.Machine
 	allocateMachineMatches   gomaasapi.ConstraintMatches
@@ -237,7 +237,7 @@ func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) err
 
 func (c *fakeController) DeleteMachine(systemID string) error {
 	c.MethodCall(c, "DeleteMachine", systemID)
-	return c.deleteMachineError
+	return c.deleteMachineErrors[systemID]
 }
 
 func (c *fakeController) VmHosts() ([]gomaasapi.VmHost, error) {

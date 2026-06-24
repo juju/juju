@@ -6,6 +6,7 @@ package maas
 import (
 	stdcontext "context"
 	"crypto/tls"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -1227,12 +1228,9 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 		return nil
 	}
 
-	err := env.deleteAnyComposedNodes(ctx, ids)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = env.releaseNodes(ctx, ids, true)
-	if err != nil {
+	deleteErr := env.deleteAnyComposedNodes(ctx, ids)
+	releaseErr := env.releaseNodes(ctx, ids, true)
+	if err := stderrors.Join(deleteErr, releaseErr); err != nil {
 		return errors.Trace(err)
 	}
 
