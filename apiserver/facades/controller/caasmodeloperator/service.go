@@ -35,6 +35,8 @@ type AgentPasswordService interface {
 
 // ControllerService provides access to controller agent serving information.
 type ControllerService interface {
+	// GetControllerAgentInfo returns the controller agent information
+	// including the controller ID and API addresses.
 	GetControllerAgentInfo(ctx context.Context) (controller.ControllerAgentInfo, error)
 }
 

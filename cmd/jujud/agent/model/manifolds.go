@@ -140,6 +140,15 @@ type ManifoldsConfig struct {
 	UpdateLoggerConfig   func(string) error
 }
 
+// StartupValueProvider provides information from the runtime.conf to workers
+// in the controller application. It supplies startup configuration values for
+// the model operator and logging override reader.
+//
+// Using an interface rather than passing values directly ensures that workers
+// read the current configuration when they are bounced (restarted). If values
+// were passed directly, workers would retain stale configuration after a bounce
+// until the agent itself is restarted. This interface combines all configuration
+// interfaces required by all workers into a single provider.
 type StartupValueProvider interface {
 	caasmodeloperator.ConfigProvider
 	controllerlogger.LoggingOverrideReader
@@ -250,11 +259,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		// This flag runs on all models, and
 		// indicates if model's cloud credential is valid.
-		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
-			APICallerName: apiCallerName,
-			NewFacade:     credentialvalidator.NewFacade,
-			NewWorker:     credentialvalidator.NewWorker,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
+		validCredentialFlagName: credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			NewWorker:          credentialvalidator.NewWorker,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
 		}),
 
 		// The migration workers collaborate to run migrations;
