@@ -180,7 +180,6 @@ func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
 var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"secrets-pruner": {
-		"agent",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -190,8 +189,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"user-secrets-drain-worker": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -394,7 +391,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"secrets-pruner": {
-		"agent",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -404,8 +400,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"user-secrets-drain-worker": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
