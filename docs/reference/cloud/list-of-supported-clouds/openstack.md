@@ -7,29 +7,23 @@ myst:
 (cloud-openstack)=
 # OpenStack
 
-In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [OpenStack](https://www.openstack.org/software/) is a {ref}`machine cloud <machine-cloud>` and works as described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to.
 ```
 
-(openstack-cloud-requirements)=
+(openstack-requirements)=
 ## Requirements
 
-#### Supported cloud versions
-
-Any version that supports:
+An OpenStack version that supports:
 
 - Compute v2 (Nova).
 - Network v2 (Neutron) (optional, but required for Queens or newer).
 - Volume v2 (Cinder) (optional).
 - Identity v2 or v3 (Keystone).
 
-#### RC file usage
-
-Source the OpenStack RC file (`source <path to file>`). This allows Juju to detect values from preset OpenStack environment variables. Run `juju add-cloud` in interactive mode and accept the suggested defaults.
-
-(openstack-cloud-concepts)=
+(openstack-concepts)=
 ## Concepts
 
 The following table shows how OpenStack abstractions map to Juju concepts:
@@ -50,9 +44,26 @@ The following table shows how OpenStack abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-Type in Juju: `openstack`
+As for all machine clouds, the cloud is registered in Juju via a cloud definition, stored in `clouds.yaml` on the client (on Linux: `~/.local/share/juju/clouds.yaml`) and following this schema:
 
-Name in Juju: User-defined.
+```yaml
+clouds:
+  <cloud-name>:  # User-defined name
+    type: openstack
+    auth-types:
+      - <auth-type>                # See Authentication types below
+    endpoint: <keystone-api-url>  # Keystone API endpoint
+    regions:
+      <region-name>:
+        endpoint: <endpoint>       # Region-specific endpoint (if different)
+    config:                        # Optional: model config defaults
+      <config-key>: <value>        # See Configuration keys below
+```
+
+
+```{tip}
+Source the OpenStack RC file (`source <path to file>`) before running `juju add-cloud` in interactive mode — Juju will detect values from preset OpenStack environment variables and suggest them as defaults.
+```
 
 (openstack-credential)=
 ## Credentials
@@ -60,6 +71,17 @@ Name in Juju: User-defined.
 ```{ibnote}
 See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
+
+As for all machine clouds, credentials are stored in `credentials.yaml` on the client and follow this schema:
+
+```yaml
+credentials:
+  <your-openstack-cloud>  # Cloud name as defined above
+    <credential-name>:             # User-defined credential name
+      auth-type: <auth-type>       # userpass (see Authentication types below)
+      <attribute>: <value>         # Auth-type-specific attributes (see below)
+```
+
 
 ```{important}
 **If you want to use environment variables (recommended):** Source the OpenStack RC file. Run `juju add-credential` and accept the suggested defaults.
@@ -108,16 +130,21 @@ See more: {ref}`manage-metadata`
 (openstack-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
+The controller runs on a Nova instance provisioned using the same mechanisms as workload machines — see {ref}`openstack-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+
+**Compute**
+
 - **Nova instance**: Ubuntu LTS compute instance. Flavor selected based on hardware constraints.
+- **Instance metadata**: Tagged with `juju-is-controller: true`, `juju-controller-uuid`, and `juju-model-uuid`.
+
+**Networking**
+
 - **Security groups**:
-  - Model-wide group: `juju-<controller-uuid>-<model-uuid>`. Contains the following ingress rules (self-referencing -- source is the group itself):
-    - TCP ports 1--65535 (IPv4)
-    - TCP ports 1--65535 (IPv6)
-    - UDP ports 1--65535 (IPv4)
-    - UDP ports 1--65535 (IPv6)
-    - ICMP (IPv4)
-    - ICMP (IPv6)
-  - Machine or global group (no Juju-managed initial rules; rules added via `open-ports`):
+  - Model-wide group: `juju-<controller-uuid>-<model-uuid>`. Ingress rules (self-referencing):
+    - TCP ports 1--65535 (IPv4 and IPv6)
+    - UDP ports 1--65535 (IPv4 and IPv6)
+    - ICMP (IPv4 and IPv6)
+  - Machine or global group (no initial rules; added via `open-ports`):
     - `firewall-mode=instance` (default): `juju-<controller-uuid>-<model-uuid>-<machine-id>`
     - `firewall-mode=global`: `juju-<controller-uuid>-<model-uuid>-global`
   - Optionally the OpenStack `default` security group if `use-default-secgroup=true`.
@@ -125,8 +152,10 @@ See more: {ref}`manage-metadata`
 - **Network attachments**: Connected to configured internal networks from model config.
 - **Neutron ports** (if space-aware networking): Pre-created with fixed IPs before instance boot.
 - **Floating IP** (optional): Allocated from external network if `allocate-public-ip=true`.
+
+**Storage**
+
 - **Root disk**: Local ephemeral disk or Cinder boot volume based on `root-disk-source` constraint.
-- **Instance metadata**: Tagged with `juju-is-controller: true`, `juju-controller-uuid`, and `juju-model-uuid`.
 
 (openstack-model)=
 ## Models
@@ -139,6 +168,8 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 ### Configuration keys
 
 OpenStack supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
+
+**Networking**
 
 (openstack-model-external-network)=
 - **`external-network`**: The network label or UUID to create floating IP addresses on when multiple external networks exist. Type: `string`. Default: `""`.
@@ -171,17 +202,25 @@ OpenStack supports the following {ref}`constraints <constraint>`:
 The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclusive.
 ```
 
-- {ref}`constraint-allocate-public-ip`
+**Compute**
+
 - {ref}`constraint-arch`
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-image-id`. Starting with Juju 3.3. Valid values: An OpenStack image ID.
 - {ref}`constraint-instance-type`. Valid values: Any user-defined OpenStack flavor.
 - {ref}`constraint-mem`
+- {ref}`constraint-virt-type`. Valid values: `kvm`, `lxd`.
+
+**Networking**
+
+- {ref}`constraint-allocate-public-ip`
+- {ref}`constraint-zones`
+
+**Storage**
+
 - {ref}`constraint-root-disk`
 - {ref}`constraint-root-disk-source`. Values: `local` (ephemeral disk, default) or `volume` (Cinder boot volume).
-- {ref}`constraint-virt-type`. Valid values: `kvm`, `lxd`.
-- {ref}`constraint-zones`
 
 (openstack-machine-placement-directives)=
 ### Placement directives
@@ -194,7 +233,16 @@ OpenStack supports the following {ref}`placement directives <placement-directive
 (openstack-machine-resources-created-per-machine)=
 ### Resources created per machine
 
+Applies to all machines, including controller machines. Controller-specific differences are documented in {ref}`openstack-controller-resources-created-at-bootstrap`.
+
+**Compute**
+
 - **Nova instance**: Compute instance with name `juju-<model-uuid>-<machine-id>`. Flavor selected based on constraints.
+- **Root disk**: Local ephemeral disk (default) or Cinder boot volume if `root-disk-source=volume`.
+- **Additional Cinder volumes** (optional): Created when storage specified via storage constraints.
+
+**Networking**
+
 - **Security groups**:
   - Model-wide group: `juju-<controller-uuid>-<model-uuid>`
   - Machine-specific group (`firewall-mode=instance`, default): `juju-<controller-uuid>-<model-uuid>-<machine-id>`
@@ -202,19 +250,29 @@ OpenStack supports the following {ref}`placement directives <placement-directive
 - **Network attachments**: Connected to configured internal networks. Multiple NICs if multiple networks configured.
 - **Neutron ports** (if space-aware networking): Pre-created ports with fixed IPs for each subnet/space.
 - **Floating IP** (optional): Allocated from external network if `allocate-public-ip=true` constraint.
-- **Root disk**: Local ephemeral disk (default) or Cinder boot volume if `root-disk-source=volume`.
-- **Additional Cinder volumes** (optional): Created when storage specified via storage constraints.
 
-**Instance metadata tags:** `juju-model-uuid`, `juju-controller-uuid`, `juju-machine-id`, `juju-units-deployed`.
+**Metadata tags:** `juju-model-uuid`, `juju-controller-uuid`, `juju-machine-id`, `juju-units-deployed`.
 
 (openstack-machine-networking-behavior)=
 ### Networking behavior
 
 - **Network selection**: Uses networks configured via `network` model config. If not specified, attaches to all available internal networks.
-- **Space-aware networking**: Creates dedicated Neutron ports per subnet/space when constraints or endpoint bindings specify spaces. Ports pre-allocated with fixed IPs before boot.
+- **Spaces**: OpenStack supports multiple network devices. Supplying multiple space constraints or endpoint bindings will provision machines with NICs in subnets representing the union of specified spaces. Creates dedicated Neutron ports per subnet/space. Ports pre-allocated with fixed IPs before boot.
 - **Security groups**: Per-model group allows internal traffic. Machine or global group allows user-defined port rules via `open-ports`.
 - **Floating IPs**: Allocated from external network specified in `external-network` config. Attempts to place in same availability zone as instance. Reuses unassigned IPs when available.
 - **Port security**: Respects `port_security_enabled` network attribute. Skips security group creation if port security disabled.
+
+(openstack-machine-storage-behavior)=
+### Storage behavior
+
+```{ibnote}
+See also: {ref}`storage-provider-cinder` for the Cinder storage provider configuration options.
+```
+
+- **Root disk**: Local ephemeral disk by default. Use `root-disk-source=volume` constraint to boot from a Cinder volume instead.
+- **Additional volumes**: Cinder block volumes created on demand when storage is specified via storage constraints.
+- **AZ constraint**: Availability zone is matched to the instance's AZ when possible.
+- **Device path**: Auto-assigned by OpenStack.
 
 (openstack-storage)=
 ## Storage
@@ -223,6 +281,7 @@ OpenStack supports the following {ref}`placement directives <placement-directive
 See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
+(openstack-storage-providers)=
 ### Storage providers
 
 In addition to generic storage providers, OpenStack provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
@@ -232,11 +291,7 @@ In addition to generic storage providers, OpenStack provides the following {ref}
 
 **Type:** Cinder block volumes
 
-**Behavior:**
-- Volumes created with name `juju-<model-uuid>-<volume-tag>`.
-- Availability zone matched to instance AZ when possible.
-- Device path auto-assigned by OpenStack.
-- Volumes tagged with `juju-model-uuid`, `juju-controller-uuid`, `juju-storage-instance`, `juju-storage-owner`.
+**Tagging:** Volumes tagged with `juju-model-uuid`, `juju-controller-uuid`, `juju-storage-instance`, `juju-storage-owner`. Volume names follow the pattern `juju-<model-uuid>-<volume-tag>`.
 
 **Configuration options:**
 

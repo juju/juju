@@ -7,40 +7,45 @@ myst:
 (cloud-manual)=
 # Manual
 
-In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, Manual is a {ref}`machine cloud <machine-cloud>` that adopts existing machines via SSH, and works as described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to.
 ```
-
-(manual-cloud-requirements)=
-## Requirements
-
-The target machines must already exist and be reachable over SSH with sudo access.
-
-- At least two pre-existing machines (one for the controller and one where charms will be deployed).
-- The machines must be running Ubuntu.
-- The machines must be accessible over SSH from the terminal you're running the Juju client from using public key authentication.
-- SSH user must have sudo rights (passwordless sudo preferred, but Juju will prompt for password if needed).
-- The machines must be able to ping one another.
 
 (manual-limitations)=
 ## Limitations
 
 - **No infrastructure creation**: The Manual cloud cannot create new machines. Existing Ubuntu/Debian machines must be adopted via `juju add-machine ssh:[user@]<host>`.
 - **No start/stop operations**: Starting and stopping machines is managed outside Juju.
-- **No firewall control**: All firewall ops (`open-ports`, `close-ports`) are no-ops.
-- **No storage providers**: Users must pre-configure storage or manage it outside Juju.
-- **Limited network discovery**: Subnets, network interfaces, and spaces routing are not supported. Address detection uses DNS lookup to verify hostname is resolvable.
-- **No scaling**: The Manual cloud cannot auto-scale. Each machine must be added explicitly.
+- **No auto-scaling**: Each machine must be added explicitly.
 - **Destroy is limited**: Controller teardown is SSH-based; model teardown does not remove infrastructure.
+- **No firewall control**: All firewall ops (`open-ports`, `close-ports`) are no-ops.
+- **Spaces supported via progressive discovery**: `SupportsSpaces` is enabled, but `reload-spaces` does not discover subnets. Instead, each time a machine is provisioned via `juju add-machine`, its discovered network devices update Juju's known subnet list. New subnets land in the `alpha` space. Define spaces from these subnets after provisioning.
+- **No cloud-specific storage**: Users must pre-configure storage or manage it outside Juju.
 
-The Manual cloud suits situations where you have machines of any nature at your disposal and want to bring them under Juju management without additional infrastructure. If your machines are solely bare metal, you might opt for a {ref}`MAAS cloud <cloud-maas>` instead -- though that requires [IPMI hardware](https://docs.maas.io/en/nodes-power-types) and a MAAS installation. The Manual cloud accepts disparate or mixed hardware (bare metal and virtual) with no extra overhead.
+The Manual cloud suits situations where you have machines of any nature at your disposal and want to bring them under Juju management without additional infrastructure. If your machines are solely bare metal, you might opt for a {ref}`MAAS cloud <cloud-maas>` instead -- though that requires [IPMI hardware](https://docs.maas.io/en/nodes-power-types) and a MAAS installation.
 
-(manual-cloud-concepts)=
+(manual-requirements)=
+## Requirements
+
+The target machines must already exist and be reachable over SSH:
+
+- Running Ubuntu or Debian.
+- Accessible via SSH from the Juju client using public key authentication.
+- SSH user must have sudo rights (passwordless sudo preferred).
+- Machines must be able to ping one another.
+
+(manual-concepts)=
 ## Concepts
 
 The following table shows how Manual cloud behavior maps to Juju concepts:
+
+| Manual cloud concept | Juju |
+| - | - |
+| Any Ubuntu/Debian machine reachable via SSH | {ref}`machine <machine>` |
+| Process on a machine | {ref}`unit <unit>` |
+| Group of units for one workload | {ref}`application <application>` |
 
 (manual-cloud)=
 ## The cloud
@@ -49,11 +54,21 @@ The following table shows how Manual cloud behavior maps to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-Type in Juju: `manual`
+As for all machine clouds, the cloud is registered in Juju via a cloud definition, stored in `clouds.yaml` on the client (on Linux: `~/.local/share/juju/clouds.yaml`) and following this schema:
 
-Name in Juju: User-defined
+```yaml
+clouds:
+  <cloud-name>:  # User-defined name
+    type: manual
+    auth-types:
+      - <auth-type>                # See Authentication types below
+    endpoint: <user>@<host-or-ip>  # SSH connection for controller bootstrap
+    config:                        # Optional: model config defaults
+      <config-key>: <value>        # See Configuration keys below
+```
 
-A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privileges. Machines are not created by Juju -- they must be provisioned externally and brought under Juju management via SSH credentials.
+
+A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privileges. Machines are not created by Juju -- they must be provisioned externally and brought under Juju management via SSH.
 
 (manual-credential)=
 ## Credentials
@@ -61,6 +76,17 @@ A Manual machine is any Ubuntu/Debian system reachable via SSH with sudo privile
 ```{ibnote}
 See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
+
+As for all machine clouds, credentials are stored in `credentials.yaml` on the client and follow this schema:
+
+```yaml
+credentials:
+  <your-manual-cloud>         # Cloud name as defined above
+    <credential-name>:             # User-defined credential name
+      auth-type: <auth-type>       # empty (no attributes required)
+      <attribute>: <value>         # Auth-type-specific attributes (see below)
+```
+
 
 The Manual cloud uses the `empty` authentication type: no credential attributes are required or stored. Juju creates an empty credential automatically when the cloud is added. Running `juju add-credential` is not needed.
 
@@ -111,25 +137,13 @@ See more: https://bugs.launchpad.net/juju/+bug/2030507
 ````
 
 (manual-controller-resources-created-at-bootstrap)=
-### Resources created at bootstrap
+### Resources configured at bootstrap
 
-The Manual cloud does not create infrastructure resources. It configures existing machines:
+The Manual cloud does not create infrastructure resources. It configures the existing controller machine:
 
 - **Ubuntu user**: Created with passwordless sudo if doesn't exist.
 - **Juju agent**: jujud binary downloaded and configured as systemd service.
 - **Machine record**: Instance ID `"manual:"`, status `Running`, address from hostname/IP.
-
-(manual-model)=
-## Models
-
-```{ibnote}
-See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
-```
-
-(manual-model-configuration-keys)=
-### Configuration keys
-
-The Manual cloud has no cloud-specific {ref}`model configuration keys <model-config-cloud-specific-key>`.
 
 (manual-machine)=
 ## Machines
@@ -159,12 +173,20 @@ See more: {ref}`take-your-deployment-offline`
 
 The Manual cloud supports the following {ref}`constraints <constraint>`, which are limited to detectable hardware attributes:
 
+**Compute**
+
 - {ref}`constraint-arch`. For controller: the host architecture. For other machines: the architecture from the machine hardware.
 - {ref}`constraint-container`
 - {ref}`constraint-cores`. Detected from `/proc/cpuinfo`.
 - {ref}`constraint-mem`. Detected from `/proc/meminfo`.
-- {ref}`constraint-root-disk`
+
+**Networking**
+
 - {ref}`constraint-zones`
+
+**Storage**
+
+- {ref}`constraint-root-disk`
 
 (manual-machine-placement-directives)=
 ### Placement directives
@@ -188,10 +210,10 @@ Adding machines with `juju add-machine ssh:[user@]<host>` requires the target to
 **Error on constraints-based placement**: The Manual cloud rejects placement specs without explicit `ssh:[user@]<host>` scheme.
 
 (manual-storage)=
-## Cloud-specific storage providers
+## Storage
 
 ```{ibnote}
 See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
-None. The Manual cloud has no storage support. Users must pre-configure storage or manage it outside Juju.
+The Manual cloud has no cloud-specific storage providers. Users must pre-configure storage or manage it outside Juju.

@@ -29,7 +29,7 @@ In either case, the cloud definition is saved to the directory defined in
 ### Add a machine cloud
 
 ```{ibnote}
-See also: {ref}`list-of-supported-machine-clouds`
+See also: {ref}`list-of-supported-clouds`
 ```
 
 First, check the list of supported machine clouds to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.
@@ -54,7 +54,7 @@ See more: {ref}`command-juju-add-cloud`
 ### Add a Kubernetes cloud
 
 ```{ibnote}
-See also: {ref}`list-of-supported-kubernetes-clouds`
+See also: {ref}`list-of-supported-clouds`
 ```
 
 First, check the list of supported Kubernetes clouds to see if your cloud is supported, or the cloud-specific doc linked from there to see if your cloud must meet any prerequisites.

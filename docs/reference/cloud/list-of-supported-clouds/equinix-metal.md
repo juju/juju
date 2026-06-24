@@ -7,29 +7,22 @@ myst:
 (cloud-equinix)=
 # Equinix Metal
 
-In Juju, [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Equinix Metal](https://deploy.equinix.com/developers/docs/metal/) is a {ref}`machine cloud <machine-cloud>` and works as described below.
 
 ```{caution}
 [Equinix Metal has been sunsetted](https://docs.equinix.com/metal/).
 ```
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to.
 ```
 
-(equinix-cloud-limitations)=
+(equinix-limitations)=
 ## Limitations
 
-#### Firewall limitations
+- **No firewall support**: Equinix Metal does not implement firewall support. Workloads deployed to machines under the same project ID can reach each other even across Juju models. Deployed machines are always assigned both a public and a private IP address. Any deployed charms are implicitly exposed. Access control must be implemented at the application level.
 
-Equinix Metal does not implement firewall support. As a result:
-
-- Workloads deployed to machines under the same project ID can reach each other even across Juju models.
-- Deployed machines are always assigned both a public and a private IP address.
-- Any deployed charms are implicitly exposed.
-- Proper access control mechanisms need to be implemented at the application level to prevent unauthorized access to deployed workloads.
-
-(equinix-cloud-concepts)=
+(equinix-concepts)=
 ## Concepts
 
 The following table shows how Equinix Metal abstractions map to Juju concepts:
@@ -50,9 +43,18 @@ The following table shows how Equinix Metal abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-Type in Juju: `equinix`
+As for all machine clouds, the cloud is registered in Juju via a cloud definition, stored in `clouds.yaml` on the client (on Linux: `~/.local/share/juju/clouds.yaml`) and following this schema:
 
-Name in Juju: `equinix`
+```yaml
+clouds:
+  <cloud-name>:  # Predefined name
+    type: equinix
+    auth-types:
+      - <auth-type>                # See Authentication types below
+    config:                        # Optional: model config defaults
+      <config-key>: <value>        # See Configuration keys below
+```
+
 
 (equinix-credential)=
 ## Credentials
@@ -60,6 +62,17 @@ Name in Juju: `equinix`
 ```{ibnote}
 See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
+
+As for all machine clouds, credentials are stored in `credentials.yaml` on the client and follow this schema:
+
+```yaml
+credentials:
+  equinix                        # Predefined cloud name for Equinix Metal
+    <credential-name>:             # User-defined credential name
+      auth-type: <auth-type>       # access-key (the only type)
+      <attribute>: <value>         # Auth-type-specific attributes (see below)
+```
+
 
 (equinix-credential-authentication-types)=
 ### Authentication types
@@ -74,18 +87,6 @@ Attributes:
 - `project-id`: Equinix Metal project ID (required).
 - `api-token`: Equinix Metal API token (required).
 
-(equinix-model)=
-## Models
-
-```{ibnote}
-See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terraform Provider for Juju | Manage models <tfjuju:manage-models>`
-```
-
-(equinix-model-configuration-keys)=
-### Configuration keys
-
-Equinix Metal has no cloud-specific {ref}`model configuration keys <model-config-cloud-specific-key>`.
-
 (equinix-machine)=
 ## Machines
 
@@ -96,13 +97,18 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 (equinix-machine-constraints)=
 ### Constraints
 
-Equinix Metal supports the following constraints:
+Equinix Metal supports the following {ref}`constraints <constraint>`:
 
-- {ref}`constraint-allocate-public-ip`
+**Compute**
+
 - {ref}`constraint-arch`
 - {ref}`constraint-cores`
 - {ref}`constraint-cpu-power`
 - {ref}`constraint-mem`
+
+**Networking**
+
+- {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-zones`
 
 Constraints not listed above are either not supported or automatically determined by the cloud provider.
@@ -110,7 +116,15 @@ Constraints not listed above are either not supported or automatically determine
 (equinix-machine-placement-directives)=
 ### Placement directives
 
-Equinix Metal supports the following placement directive:
+Equinix Metal supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-zone`
 
+(equinix-storage)=
+## Storage
+
+```{ibnote}
+See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
+```
+
+Equinix Metal has no cloud-specific storage providers.

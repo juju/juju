@@ -7,10 +7,10 @@ myst:
 (cloud-lxd)=
 # LXD
 
-In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines, and works as described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`lxd-appendix-example-workflows`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`lxd-appendix-example-workflows`.
 ```
 
 ```{dropdown} Reasons to use a LXD cloud
@@ -28,15 +28,13 @@ The LXD cloud, especially when used locally, is great for:
 Juju expects to see an operating system-like environment, so a LXD system container fits the bill. Docker containers are laid out for a singular application process, with a self-contained filesystem rather than a base userspace image.
 ```
 
-(lxd-cloud-requirements)=
+(lxd-requirements)=
 ## Requirements
-
-**Juju version compatibility:**
 
 - Juju `2.9.x`: LXD `5.0`
 - Juju `3.x.x`: LXD `5.x`
 
-(lxd-cloud-concepts)=
+(lxd-concepts)=
 ## Concepts
 
 The following table shows how LXD abstractions map to Juju concepts:
@@ -57,46 +55,26 @@ The following table shows how LXD abstractions map to Juju concepts:
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-Type in Juju: `lxd`
+As for all machine clouds, the cloud is registered in Juju via a cloud definition, stored in `clouds.yaml` on the client (on Linux: `~/.local/share/juju/clouds.yaml`) and following this schema:
 
-Name in Juju: `localhost` (for local LXD), user-defined (for remote/clustered LXD)
+```yaml
+clouds:
+  <cloud-name>:  # User-defined name
+    type: lxd
+    auth-types:
+      - <auth-type>                # See Authentication types below
+    endpoint: <lxd-api-url>        # LXD API endpoint (remote only)
+    config:                        # Optional: model config defaults
+      <config-key>: <value>        # See Configuration keys below
+```
 
-(lxd-cloud-other)=
-### Other
 
 (lxd-cloud-localhost-vs-remote)=
-#### Localhost vs. remote LXD
+### Localhost vs. remote LXD
 
 - **Local LXD cloud**: Recognized as `localhost` cloud. Credential pre-defined for admin users.
 - **Clustered LXD cloud**: In Juju, this counts as a remote cloud. You must add its definition to Juju explicitly.
 - **Remote LXD cloud**: Requires the API endpoint URL for the remote LXD server.
-
-(lxd-cloud-clustering)=
-#### LXD clustering
-
-LXD clustering provides high-availability deployment. In a clustered LXD cloud, Juju deploys units across cluster nodes. Availability zones map to cluster member names.
-
-```{ibnote}
-See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/clustering)
-```
-
-(lxd-cloud-projects)=
-#### LXD projects
-
-LXD projects provide isolated namespaces for models (multi-tenancy). Configured via cloud spec `Project` field. Profile, network, storage, and container APIs are scoped to the project.
-
-(lxd-cloud-images)=
-#### LXD images
-
-LXD is image based: All LXD containers come from images and any LXD daemon instance (also called a "remote") can serve images. When LXD is installed, a locally-running remote is provided (Unix domain socket) and the client is configured to talk to it (named 'local'). The client is also configured to talk to several other, non-local, ones (named 'ubuntu', 'ubuntu-daily', and 'images').
-
-An image is identified by its fingerprint (SHA-256 hash), and can be tagged with multiple aliases.
-
-For any image-related command, an image is specified by its alias or by its fingerprint. Both are shown in image lists. An image's *filename* is its *full* fingerprint, while an image *list* displays its *partial* fingerprint. Either type of fingerprint can be used to refer to images.
-
-Juju pulls official cloud images from the 'ubuntu' remote (http://cloud-images.ubuntu.com) and creates the necessary alias. Any subsequent requests will be satisfied by the LXD cache (`/var/lib/lxd/images`).
-
-Image cache expiration and image synchronization mechanisms are built-in.
 
 (lxd-credential)=
 ## Credentials
@@ -104,6 +82,17 @@ Image cache expiration and image synchronization mechanisms are built-in.
 ```{ibnote}
 See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
+
+As for all machine clouds, credentials are stored in `credentials.yaml` on the client and follow this schema:
+
+```yaml
+credentials:
+  localhost                       # or user-defined for remote
+    <credential-name>:             # User-defined credential name
+      auth-type: <auth-type>       # certificate | interactive (see Authentication types below)
+      <attribute>: <value>         # Auth-type-specific attributes (see below)
+```
+
 
 **Local LXD cloud:** If you are a Juju admin user, the credential is already known to Juju. Run `juju bootstrap`, then `juju credentials` to confirm. (Pre-defined credential name in Juju: `localhost`.) Otherwise, add manually as you would a remote.
 
@@ -158,9 +147,16 @@ If `juju bootstrap` hangs, it could be due to a firewall issue. See: [LXD | UFW:
 (lxd-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-- **Model profile**: Name `juju-<modelname>-<shortID>`. Includes settings such as `boot.autostart=true` and `security.nesting=true`. Applied to every container/VM in the model.
+The controller runs on an LXD instance provisioned using the same mechanisms as workload machines — see {ref}`lxd-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+
+**Compute**
+
 - **LXD image**: Downloaded from image servers (simplestreams), filtered by base OS, architecture, and virtualization type, and cached locally in `/var/lib/lxd/images`.
 - **Controller instance**: Created from the selected image with the `default` profile plus the model profile, connected to network and root storage, then started. Instance name: `juju-<modeluuid>-<machinenum>`.
+
+**Storage**
+
+- **Model profile**: Name `juju-<modelname>-<shortID>`. Includes settings such as `boot.autostart=true` and `security.nesting=true`. Applied to every container/VM in the model.
 
 (lxd-model)=
 ## Models
@@ -174,15 +170,10 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 
 LXD supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
 
+**Storage**
+
 (lxd-model-project)=
-#### `project`
-
-The LXD project name to use for Juju's resources.
-
-- **Type**: `string`
-- **Default value**: `"default"`
-- **Immutable**: `false`
-- **Mandatory**: `false`
+- **`project`**: The LXD project name to use for Juju's resources. Type: `string`. Default: `"default"`. Immutable: `false`.
 
 (lxd-machine)=
 ## Machines
@@ -190,8 +181,6 @@ The LXD project name to use for Juju's resources.
 ```{ibnote}
 See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
-
-When provisioning machines on LXD, Juju supports the following constraints and placement directives.
 
 ```{note}
 With LXD system containers, constraints are interpreted as resource *maximums* (as opposed to *minimums*).
@@ -204,19 +193,27 @@ There is a 1:1 correspondence between a Juju machine and a LXD container/VM. Com
 
 LXD supports the following {ref}`constraints <constraint>`:
 
+**Compute**
+
 - {ref}`constraint-arch`. Valid values: Host architecture.
 - {ref}`constraint-cores`
 - {ref}`constraint-instance-type`
 - {ref}`constraint-mem`. The maximum amount of memory that a machine/container will have.
+- {ref}`constraint-virt-type`. Valid values: `container` (default), `virtual-machine`.
+
+**Networking**
+
+- {ref}`constraint-zones`. LXD node name(s). In clustered LXD, specifies which cluster member to place the instance on.
+
+**Storage**
+
 - {ref}`constraint-root-disk`
 - {ref}`constraint-root-disk-source`. The LXD storage pool for the root disk. The default LXD storage pool is used if not specified.
-- {ref}`constraint-virt-type`. Valid values: `container` (default), `virtual-machine`.
-- {ref}`constraint-zones`. LXD node name(s). In clustered LXD, specifies which cluster member to place the instance on.
 
 (lxd-machine-placement-directives)=
 ### Placement directives
 
-LXD supports the following placement directives:
+LXD supports the following {ref}`placement directives <placement-directive>`:
 
 - {ref}`placement-directive-machine`
 - {ref}`placement-directive-zone`: If there's no '=' delimiter, assume it's a node name.
@@ -224,12 +221,22 @@ LXD supports the following placement directives:
 (lxd-machine-resources-created-per-machine)=
 ### Resources created per machine
 
+Applies to all machines, including controller machines. Controller-specific defaults are documented in {ref}`lxd-controller-resources-created-at-bootstrap`.
+
+**Compute**
+
 - **LXD instance**: Container (default) or VM (when constrained with `virt-type`). Name: `juju-<modeluuid>-<machinenum>`.
 - **Profiles applied**: In order: (1) `default` (LXD built-in), (2) model profile (`juju-<model>-<id>`), (3) charm profiles (`juju-<model>-<id>-<appname>-<rev>`) if specified by charm.
 - **Constraints via config**: `limits.cpu=<cores>` (CPU cores limit), `limits.memory=<MiB>MiB` (memory limit).
-- **Root disk device** (if constraint specified): Type `disk`, pool from `root-disk-source`, path `/`, size in MiB.
+
+**Networking**
+
 - **Network interfaces**: Default `eth0` bridged to default network. Additional NICs (`eth1`, `eth2`, etc.) for space constraints. Each NIC: type `nic`, `nictype=bridged`, parent host bridge, generated MAC address.
 - **Cloud-init network config**: Netplan generated for multiple NICs when needed.
+
+**Storage**
+
+- **Root disk device** (if constraint specified): Type `disk`, pool from `root-disk-source`, path `/`, size in MiB.
 
 (lxd-machine-networking-behavior)=
 ### Networking behavior
@@ -239,13 +246,21 @@ LXD supports the following placement directives:
 - **NIC assignment**: Default `eth0` from `default` profile. Additional NICs for space constraints are bridged to host bridges.
 - **IP assignment**: Assigned by host bridge DHCP on the LXD host.
 
-(lxd-machine-other)=
-### Other
+(lxd-machine-storage-behavior)=
+### Storage behavior
+
+```{ibnote}
+See also: {ref}`storage-provider-lxd` for the LXD storage provider configuration options.
+```
+
+- **Storage pools**: Juju storage pool creates a corresponding LXD storage pool. LXD pool for Juju `lxd` pool created on first use (named `juju`).
+- **Volumes stored**: `/var/lib/lxd/storage-pools/<pool-name>`.
+- **Default pools attempted**: `lxd-zfs` (driver `zfs`) then `lxd-btrfs` (driver `btrfs`).
 
 (lxd-machine-charm-profiles)=
-#### Charm profiles
+### Charm profiles
 
-LXD Profiles allows the definition of a configuration that can be applied to any instance. Juju can apply those profiles during the creation or modification of a LXD container.
+LXD Profiles allow a configuration to be applied to any instance. Juju applies charm profiles during the creation or modification of a LXD container.
 
 ```{ibnote}
 See more: [Charmcraft | `lxd-profile.yaml`](https://canonical-charmcraft.readthedocs-hosted.com/stable/reference/files/lxd-profile-yaml-file/)
@@ -258,6 +273,7 @@ See more: [Charmcraft | `lxd-profile.yaml`](https://canonical-charmcraft.readthe
 See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
+(lxd-storage-providers)=
 ### Storage providers
 
 In addition to generic storage providers, LXD provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
@@ -280,18 +296,6 @@ Any other parameters will be passed to LXD (e.g., `zfs.pool_name`).
 See more: [LXD storage configuration](https://documentation.ubuntu.com/lxd/latest/reference/storage_drivers/)
 ```
 
-**Default pools attempted:**
-
-1. `lxd-zfs`: Driver `zfs`, pool `juju-zfs`, `zfs.pool_name=juju-lxd`
-2. `lxd-btrfs`: Driver `btrfs`, pool `juju-btrfs`
-
-**Behavior:**
-
-- Juju storage pool creates corresponding LXD storage pool.
-- LXD pool for Juju `lxd` pool created on first use (named `juju`).
-- Volumes stored in LXD pool: `/var/lib/lxd/storage-pools/<pool-name>`.
-- Use `lxc storage list` to list LXD storage pools.
-
 **Example deployment:**
 
 ```bash
@@ -302,72 +306,29 @@ juju deploy postgresql --storage pgdata=lxd,8G
 ## Appendix: Example workflows
 
 (lxd-appendix-remote-bootstrap)=
-### Add a remote LXD cloud and bootstrap
+### Bootstrap on a remote LXD server
 
-From Juju 2.9.5, the easiest method for bootstrapping a remote LXD server is to add the remote to your local LXC config then bootstrap with `juju`.
+1. Add the remote LXD cloud with `juju add-cloud`, providing the remote server's API endpoint URL.
+2. Add credentials with `juju add-credential` choosing `interactive` or `certificate`.
+3. Bootstrap with `juju bootstrap <cloud-name> <controller-name>`.
 
-**On the remote server:**
+(lxd-appendix-clustering)=
+### LXD clustering
 
-```bash
-# Ensure the LXD daemon is listening on an accessible IP
-lxc config set core.https_address '[::]'
-# Give the LXD daemon a trust password so the client can register credentials
-lxc config set core.trust_password mytrustpassword
+LXD clustering provides high-availability deployment. In a clustered LXD cloud, Juju deploys units across cluster nodes. Availability zones map to cluster member names.
+
+```{ibnote}
+See more: [LXD | Clustering](https://documentation.ubuntu.com/lxd/stable-5.21/clustering)
 ```
 
-**On the bootstrapping client:**
+(lxd-appendix-projects)=
+### LXD projects
 
-```bash
-# Add the remote LXD server to the local LXC config
-lxc remote add myremote 11.22.33.44 --password mytrustpassword
-# Bootstrap juju using the remote name in LXC
-juju bootstrap myremote
-```
+LXD projects provide isolated namespaces for models (multi-tenancy). Configured via cloud spec `Project` field. Profile, network, storage, and container APIs are scoped to the project.
 
-```{note}
-The bootstrapping client must be able to reach the remote LXD containers. This may require the setup of a bridge device with the host's ethernet device.
-```
+(lxd-appendix-images)=
+### LXD images
 
-(lxd-appendix-loop-devices)=
-## Appendix: Loop devices and LXD
+LXD is image-based. All LXD containers come from images and any LXD daemon instance (also called a "remote") can serve images. When LXD is installed, a locally-running remote is provided (Unix domain socket) and the client is configured to talk to it (named 'local'). The client is also configured to talk to several other, non-local, ones (named 'ubuntu', 'ubuntu-daily', and 'images').
 
-LXD (localhost) does not officially support attaching loopback devices for storage out of the box. However, with some configuration you can make this work.
-
-Each container uses the 'default' LXD profile, but also uses a model-specific profile with the name `juju-<model-name>-<model-short-UUID>` where `<model-short-UUID>` is the first 6 characters of the model UUID. Editing a profile will affect all of the containers using it, so you can add loop devices to all LXD containers by editing the 'default' profile, or you can scope it to a model.
-
-To add loop devices to your container, add entries to the 'default', or model-specific, profile, with `lxc profile edit <profile>`:
-
-```yaml
-...
-devices:
-  loop-control:
-    major: "10"
-    minor: "237"
-    path: /dev/loop-control
-    type: unix-char
-  loop0:
-    major: "7"
-    minor: "0"
-    path: /dev/loop0
-    type: unix-block
-  loop1:
-    major: "7"
-    minor: "1"
-    path: /dev/loop1
-    type: unix-block
-...
-  loop9:
-    major: "7"
-    minor: "9"
-    path: /dev/loop9
-    type: unix-block
-```
-
-Doing so will expose the loop devices so the container can acquire them via the `losetup` command. However, it is not sufficient to enable the container to mount filesystems onto the loop devices. One way to achieve that is to make the container "privileged" by adding:
-
-```yaml
-config:
-  security.privileged: "true"
-```
-
-
+An image is identified by its fingerprint (SHA-256 hash), and can be tagged with multiple aliases. Juju pulls official cloud images from the 'ubuntu' remote (http://cloud-images.ubuntu.com) and caches them locally in `/var/lib/lxd/images`.

@@ -1,15 +1,20 @@
+---
+myst:
+  html_meta:
+    description: "Configure and use Microsoft Azure cloud with Juju, including authentication types, managed identity, and Azure-specific requirements."
+---
+
+(cloud-azure)=
 # Microsoft Azure
 
-In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>`. It behaves like all machine clouds, except for a few points of variation related to the cloud, credentials, controllers, models, machines, and storage, described below.
+In Juju, [Microsoft Azure](https://azure.microsoft.com/en-us) is a {ref}`machine cloud <machine-cloud>` and works as described below.
 
 ```{note}
-This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`tutorial`, then use this page together with the generic materials it links to and/or consult the {ref}`example workflows <azure-appendix-example-workflows>`.
+This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to and/or consult the {ref}`example workflows <azure-appendix-example-workflows>`.
 ```
 
-(azure-cloud-requirements)=
+(azure-requirements)=
 ## Requirements
-
-#### Azure API permissions
 
 Juju needs the Azure API permissions listed below to create and manage the Azure resources used during cloud registration and bootstrap:
 
@@ -26,7 +31,7 @@ Juju needs the Azure API permissions listed below to create and manage the Azure
 - `Microsoft.Compute/virtualMachines` (write, read, delete, start, powerOff, restart, deallocate).
 - `Microsoft.Compute/disks` (write, read, delete).
 
-(azure-cloud-concepts)=
+(azure-concepts)=
 ## Concepts
 
 The following table shows how Azure's native abstractions map to Juju concepts:
@@ -40,16 +45,28 @@ The following table shows how Azure's native abstractions map to Juju concepts:
 | [Managed Disk](https://learn.microsoft.com/en-us/azure/virtual-machines/managed-disks-overview) | {ref}`storage <storage>` |
 | [Subnet](https://learn.microsoft.com/en-us/azure/virtual-network/virtual-network-vnet-plan-design-arm) | Network space (roughly) |
 
-(azure-cloud)=
+(azure-cloud-definition)=
 ## The cloud
 
 ```{ibnote}
 See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Terraform Provider for Juju | Manage clouds <tfjuju:manage-clouds>`
 ```
 
-Type in Juju: `azure`
+As for all machine clouds, the cloud is registered in Juju via a cloud definition, stored in `clouds.yaml` on the client (on Linux: `~/.local/share/juju/clouds.yaml`) and following this schema:
 
-Name in Juju: `azure`
+```yaml
+clouds:
+  <cloud-name>:  # Predefined name
+    type: azure
+    auth-types:
+      - <auth-type>                # See Authentication types below
+    regions:
+      <region-name>:               # e.g. eastus
+        endpoint: <endpoint>       # Region-specific Azure API endpoint
+    config:                        # Optional: model config defaults
+      <config-key>: <value>        # See Configuration keys below
+```
+
 
 (azure-credential)=
 ## Credentials
@@ -57,6 +74,17 @@ Name in Juju: `azure`
 ```{ibnote}
 See also: {ref}`credential`, {ref}`Juju | Manage credentials <manage-credentials>`, {ref}`Terraform Provider for Juju | Manage credentials <tfjuju:manage-credentials>`
 ```
+
+As for all machine clouds, credentials are stored in `credentials.yaml` on the client and follow this schema:
+
+```yaml
+credentials:
+  azure                          # Predefined cloud name for Azure
+    <credential-name>:             # User-defined credential name
+      auth-type: <auth-type>       # managed-identity | interactive | service-principal-secret (see Authentication types)
+      <attribute>: <value>         # Auth-type-specific attributes (see below)
+```
+
 
 (azure-credential-authentication-types)=
 ### Authentication types
@@ -103,7 +131,7 @@ See more: {ref}`azure-appendix-workflow-2`, {ref}`azure-appendix-workflow-3`
 ```
 
 (azure-credential-known-issues)=
-### Known issues
+#### Known issues
 
 Credentials occasionally stop working over time. Refresh using credential update or re-add credential.
 
@@ -122,13 +150,20 @@ Creates controller and initial model on Azure.
 (azure-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
+The controller runs on an Azure VM provisioned using the same mechanisms as workload machines — see {ref}`azure-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+
+**Compute**
+
 - **Resource group**: Contains all resources for the model. Auto-generated name or user-specified via `resource-group-name` config.
+- **Controller virtual machine**: Ubuntu LTS. Size configurable via `instance-type` constraint.
+
+**Networking**
+
 - **Virtual network**: Named `juju-internal-network` with `192.168.0.0/16` address space. User-configurable via `network` config.
 - **Subnets**:
-  - Controller subnet (`192.168.16.0/20`) for controller machines
-  - Internal subnet (`192.168.0.0/20`) for application machines
+  - Controller subnet (`192.168.16.0/20`) for controller machines.
+  - Internal subnet (`192.168.0.0/20`) for application machines.
 - **Network security group**: Named `juju-internal-nsg`. Rules: SSH (port 22) to all machines, Juju API (port 17070) to controller subnet.
-- **Controller virtual machine**: Ubuntu LTS. Size configurable via `instance-type` constraint.
 
 (azure-model)=
 ## Models
@@ -141,6 +176,8 @@ See also: {ref}`model`, {ref}`Juju | Manage models <manage-models>`, {ref}`Terra
 ### Configuration keys
 
 Microsoft Azure supports the following {ref}`cloud-specific model configuration keys <model-config-cloud-specific-key>`:
+
+**Networking**
 
 (azure-model-load-balancer-sku-name)=
 - **`load-balancer-sku-name`**: Mirrors the LoadBalancerSkuName type in the Azure SDK. Type: `string`. Default: `"Standard"`. Mandatory.
@@ -158,7 +195,6 @@ Microsoft Azure supports the following {ref}`cloud-specific model configuration 
 See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}`Terraform Provider for Juju | Manage machines <tfjuju:manage-machines>`
 ```
 
-
 (azure-machine-constraints)=
 ### Constraints
 
@@ -168,16 +204,24 @@ Microsoft Azure supports the following {ref}`constraints <constraint>`:
 The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 ```
 
-- {ref}`constraint-allocate-public-ip`
+**Compute**
+
 - {ref}`constraint-arch`. Valid values: `amd64`.
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-instance-role`. Juju 3.6+. Valid values: `auto` or managed identity name in format `<resource-group>/<identity-name>` or `<subscription>/<resource-group>/<identity-name>`.
 - {ref}`constraint-instance-type`. See Azure VM sizes documentation.
 - {ref}`constraint-mem`
+
+**Networking**
+
+- {ref}`constraint-allocate-public-ip`
+- {ref}`constraint-zones`
+
+**Storage**
+
 - {ref}`constraint-root-disk`. Minimum 30 GiB.
 - {ref}`constraint-root-disk-source`. Specifies {ref}`storage pool <storage-pool>` for root disk. Enables encryption configuration.
-- {ref}`constraint-zones`
 
 (azure-machine-placement-directives)=
 ### Placement directives
@@ -189,10 +233,20 @@ Microsoft Azure supports the following {ref}`placement directives <placement-dir
 (azure-machine-resources-created-per-machine)=
 ### Resources created per machine
 
+Applies to all machines, including controller machines. Controller-specific defaults are documented in {ref}`azure-controller-resources-created-at-bootstrap`.
+
+**Compute**
+
 - **Virtual machine**: Type configurable via `instance-type` constraint.
-- **OS disk**: 30 GiB minimum, `StandardSSD_LRS` type by default. Size and type configurable via `root-disk` and `root-disk-source` constraints.
+
+**Networking**
+
 - **Network interface**: Connected to appropriate subnet (controller or internal) with dynamically-allocated private IP address.
 - **Public IP address**: Static IPv4 address created by default. Disable via `allocate-public-ip` constraint.
+
+**Storage**
+
+- **OS disk**: 30 GiB minimum, `StandardSSD_LRS` type by default. Size and type configurable via `root-disk` and `root-disk-source` constraints.
 - **Additional storage**: Created when requested via storage specifications.
 
 **Resource tags:** All resources tagged with `juju-model` (model UUID), `juju-controller` (controller UUID), `juju-machine-name` (machine identifier).
@@ -200,9 +254,20 @@ Microsoft Azure supports the following {ref}`placement directives <placement-dir
 (azure-machine-networking-behavior)=
 ### Networking behavior
 
+- **Spaces:** Azure supports multiple network devices. Supplying multiple {ref}`space <space>` constraints or endpoint bindings will provision machines with NICs in subnets representing the union of specified spaces.
 - **IP addressing**: Private IPs allocated dynamically via DHCP. Public IPs use static allocation.
 - **Subnet placement**: Controller machines → `192.168.16.0/20`; application machines → `192.168.0.0/20`.
 - **NSG rules**: SSH (port 22) accessible on all machines. Juju API (port 17070) accessible on controller subnet only.
+
+(azure-machine-storage-behavior)=
+### Storage behavior
+
+```{ibnote}
+See also: {ref}`storage-provider-azure` for the Azure storage provider configuration options.
+```
+
+- **OS disk**: `StandardSSD_LRS` by default, minimum 30 GiB. Configurable via `root-disk` and `root-disk-source` constraints.
+- **Additional disks**: Created via storage constraints using the configured storage pool.
 
 (azure-storage)=
 ## Storage
@@ -211,6 +276,7 @@ Microsoft Azure supports the following {ref}`placement directives <placement-dir
 See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
+(azure-storage-providers)=
 ### Storage providers
 
 In addition to generic storage providers, Microsoft Azure provides the following {ref}`cloud-specific storage providers <storage-provider-cloud-specific>`:
@@ -279,9 +345,7 @@ With this workflow where you provide the managed identity during `bootstrap` you
 ## Appendix: How to create a managed identity
 
 ```{caution}
-
 This is just an example. For more information please see the upstream cloud documentation. See more: [Microsoft Azure | Managed identities](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview).
-
 ```
 
 To create a managed identity for Juju to use, you will need to use the Azure CLI and be logged in to your account. This is a set up step that can be done ahead of time by an administrator.

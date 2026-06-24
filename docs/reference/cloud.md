@@ -13,26 +13,31 @@ See also: {ref}`manage-clouds`
 ```{toctree}
 :hidden:
 
-cloud/kubernetes-cloud/index
-cloud/machine-cloud/index
+cloud/list-of-supported-clouds/index
 ```
 
 To Juju, a **cloud** (or backing cloud) is any entity that has an API that can provide compute, networking, and optionally storage resources in order for application units to be deployed on them. This includes public clouds such as Amazon Web Services, Google Compute Engine, Microsoft Azure and Kubernetes as well as private OpenStack-based clouds. Juju can also make use of environments which are not clouds per se, but which Juju can nonetheless treat as a cloud. MAAS and LXD fit into this last category. Because of this, in Juju a cloud is sometimes also called, more generally, a **substrate**.
 
 (cloud-types)=
-## Supported clouds
+## Types of clouds
 
-Juju supports Kubernetes and machine clouds. Each cloud type has distinct characteristics and supported providers.
+Juju supports two types of cloud: machine clouds and Kubernetes clouds.
 
-Kubernetes clouds deploy applications into existing Kubernetes clusters. You can choose from many Kubernetes distributions.
+(machine-cloud)=
+### Machine cloud
+
+A **machine cloud** is a cloud that provides machine-level infrastructure. Juju uses the cloud API to provision or allocate machines (bare metal, virtual machines, or system containers), plus the networking and storage resources those machines require.
 
 ```{ibnote}
-See more: {ref}`kubernetes-cloud`, {ref}`list-of-supported-kubernetes-clouds`
+See more: {ref}`List of supported machine clouds <list-of-supported-machine-clouds>`
 ```
 
-Machine clouds provision and manage machines on various platforms. You can choose from bare metal, virtual machine, or container-based clouds.
+(kubernetes-cloud)=
+### Kubernetes cloud
+
+A **Kubernetes cloud** is a cloud backed by an existing Kubernetes cluster. Juju uses the Kubernetes API to deploy and manage applications in that cluster, rather than provisioning machine-level infrastructure directly.
 
 ```{ibnote}
-See more: {ref}`machine-cloud`, {ref}`list-of-supported-machine-clouds`
+See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`
 ```
 
