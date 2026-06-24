@@ -42,7 +42,30 @@ func (s *Service) PrecheckImport(ctx context.Context, args modelmigration.Import
 	if err := s.precheckModelCollisions(ctx, args); err != nil {
 		return errors.Capture(err)
 	}
+	// Non-fatal: a custom cloud image metadata conflict is warned about, never
+	// rejected (target-wins on import).
+	s.precheckCloudImageMetadata(ctx, args.CloudImageMetadata)
 	return nil
+}
+
+// precheckCloudImageMetadata emits a non-fatal warning for each custom cloud
+// image metadata row whose natural key already exists on the target with a
+// different image id. The existing target row is kept (target-wins) at import
+// time, so this check never fails the migration.
+func (s *Service) precheckCloudImageMetadata(ctx context.Context, rows []modelmigration.ImportPrecheckImageMetadata) {
+	if len(rows) == 0 {
+		return
+	}
+	conflicts, err := s.controllerState.GetConflictingCloudImageMetadata(ctx, rows)
+	if err != nil {
+		s.logger.Warningf(ctx, "checking custom cloud image metadata conflicts: %v", err)
+		return
+	}
+	for _, c := range conflicts {
+		s.logger.Warningf(ctx,
+			"custom cloud image metadata conflict for %s/%s/%s/%s: keeping target image %q, source image %q will be skipped on import",
+			c.Stream, c.Region, c.Version, c.Arch, c.ExistingImageID, c.ImageID)
+	}
 }
 
 // precheckCloudAndRegion verifies the model's cloud exists on the target and,

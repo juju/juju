@@ -9,6 +9,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/internal/errors"
 )
 
 // fullPrecheckArgs returns precheck arguments that exercise every check.
@@ -53,7 +54,7 @@ func (s *serviceSuite) TestPrecheckImportSuccess(c *tc.C) {
 	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
 	s.expectPrecheckPasses(args)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -67,7 +68,7 @@ func (s *serviceSuite) TestPrecheckImportCloudNotFound(c *tc.C) {
 		gomock.Any(), args.Cloud, args.CloudRegion,
 	).Return(false, false, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*cloud "my-cloud" not found on target controller.*`)
 }
 
@@ -81,7 +82,7 @@ func (s *serviceSuite) TestPrecheckImportRegionNotFound(c *tc.C) {
 		gomock.Any(), args.Cloud, args.CloudRegion,
 	).Return(true, false, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*cloud region "my-region" not valid for cloud "my-cloud".*`)
 }
 
@@ -96,7 +97,7 @@ func (s *serviceSuite) TestPrecheckImportUserDisabled(c *tc.C) {
 	).Return(true, true, nil)
 	s.controllerState.EXPECT().GetDisabledUsers(gomock.Any(), args.Users).Return([]string{"alice"}, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*users "alice" are disabled on the target controller.*`)
 }
 
@@ -118,7 +119,7 @@ func (s *serviceSuite) TestPrecheckImportMissingUserOK(c *tc.C) {
 		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
 	).Return(modelmigration.ImportModelCollision{}, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -136,7 +137,7 @@ func (s *serviceSuite) TestPrecheckImportCredentialRevoked(c *tc.C) {
 		gomock.Any(), args.Credential.Cloud, args.Credential.Owner, args.Credential.Name,
 	).Return(true, true, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*credential .* is revoked on the target controller.*`)
 }
 
@@ -155,7 +156,7 @@ func (s *serviceSuite) TestPrecheckImportSecretBackendNotFound(c *tc.C) {
 	).Return(false, true, nil)
 	s.controllerState.EXPECT().SecretBackendExists(gomock.Any(), args.SecretBackend).Return(false, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*secret backend "my-backend" not found on target controller.*`)
 }
 
@@ -177,7 +178,7 @@ func (s *serviceSuite) TestPrecheckImportInProgress(c *tc.C) {
 		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
 	).Return(modelmigration.ImportModelCollision{Importing: true}, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*already exists on this controller \(currently importing\).*`)
 }
 
@@ -199,7 +200,7 @@ func (s *serviceSuite) TestPrecheckImportModelUUIDCollision(c *tc.C) {
 		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
 	).Return(modelmigration.ImportModelCollision{ModelExists: true}, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*model ".*" already exists on this controller.*`)
 }
 
@@ -214,8 +215,50 @@ func (s *serviceSuite) TestPrecheckImportNameInUse(c *tc.C) {
 		gomock.Any(), args.ModelUUID, args.ModelName, args.ModelQualifier,
 	).Return(modelmigration.ImportModelCollision{ModelNameExists: true}, nil)
 
-	err := s.service().PrecheckImport(c.Context(), args)
+	err := s.service(c).PrecheckImport(c.Context(), args)
 	c.Check(err, tc.ErrorMatches, `.*model named "prod-model" already exists.*`)
+}
+
+// TestPrecheckImportCloudImageMetadataConflictIsNonFatal asserts a conflicting
+// custom cloud image metadata row is warned about but does not fail the import
+// precheck (target-wins on import).
+func (s *serviceSuite) TestPrecheckImportCloudImageMetadataConflictIsNonFatal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
+	row := modelmigration.ImportPrecheckImageMetadata{
+		Stream: "released", Region: "us-east-1", Version: "24.04", Arch: "amd64",
+		VirtType: "hvm", RootStorageType: "ebs", Source: "custom", ImageID: "ami-source",
+	}
+	args.CloudImageMetadata = []modelmigration.ImportPrecheckImageMetadata{row}
+	s.expectPrecheckPasses(args)
+	s.controllerState.EXPECT().GetConflictingCloudImageMetadata(gomock.Any(), args.CloudImageMetadata).
+		Return([]modelmigration.CloudImageMetadataConflict{{
+			ImportPrecheckImageMetadata: row,
+			ExistingImageID:             "ami-target",
+		}}, nil)
+
+	err := s.service(c).PrecheckImport(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestPrecheckImportCloudImageMetadataErrorIsNonFatal asserts that a failure to
+// look up cloud image metadata conflicts is logged but does not fail the import
+// precheck.
+func (s *serviceSuite) TestPrecheckImportCloudImageMetadataErrorIsNonFatal(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	args := fullPrecheckArgs(tc.Must(c, coremodel.NewUUID).String())
+	args.CloudImageMetadata = []modelmigration.ImportPrecheckImageMetadata{{
+		Stream: "released", Region: "us-east-1", Version: "24.04", Arch: "amd64",
+		VirtType: "hvm", RootStorageType: "ebs", Source: "custom", ImageID: "ami-source",
+	}}
+	s.expectPrecheckPasses(args)
+	s.controllerState.EXPECT().GetConflictingCloudImageMetadata(gomock.Any(), args.CloudImageMetadata).
+		Return(nil, errors.New("boom"))
+
+	err := s.service(c).PrecheckImport(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // expectPrecheckPassesUntilCollision sets up every precheck up to (but not

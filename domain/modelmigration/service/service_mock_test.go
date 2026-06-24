@@ -119,33 +119,34 @@ type MockControllerState struct {
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
-	mock                                  *MockControllerState
-	aggregateMinionReportsExpects         []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	assertImportingExpects                []*gomock.Call2_1[context.Context, string, error]
-	beginImportExpects                    []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportClaim, error]
-	checkCloudRegionExpects               []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
-	checkImportModelCollisionExpects      []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportModelCollision, error]
-	deleteModelImportingStatusExpects     []*gomock.Call2_1[context.Context, string, error]
-	ensureExternalControllerExistsExpects []*gomock.Call2_1[context.Context, internal.ExternalController, error]
-	getActiveExportExpects                []*gomock.Call2_2[context.Context, string, internal.Migration, error]
-	getActiveExportUUIDExpects            []*gomock.Call2_2[context.Context, string, string, error]
-	getControllerModelInfoExpects         []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
-	getControllerTargetVersionExpects     []*gomock.Call1_2[context.Context, string, error]
-	getCredentialRevokedExpects           []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
-	getDisabledUsersExpects               []*gomock.Call2_2[context.Context, []string, []string, error]
-	getImportClaimExpects                 []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
-	getMigrationModeExpects               []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
-	getSourceControllerInfoExpects        []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
-	importExternalControllersExpects      []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
-	importOfferPermissionsExpects         []*gomock.Call4_1[context.Context, string, string, []string, error]
-	insertExportExpects                   []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
-	insertMinionReportExpects             []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
-	namespaceForWatchExportExpects        []*gomock.Call0_1[string]
-	namespaceForWatchMinionSyncExpects    []*gomock.Call0_1[string]
-	namespaceForWatchPhaseExpects         []*gomock.Call0_1[string]
-	secretBackendExistsExpects            []*gomock.Call2_2[context.Context, string, bool, error]
-	setPhaseExpects                       []*gomock.Call3_1[context.Context, string, migration.Phase, error]
-	setStatusMessageExpects               []*gomock.Call3_1[context.Context, string, string, error]
+	mock                                    *MockControllerState
+	aggregateMinionReportsExpects           []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+	assertImportingExpects                  []*gomock.Call2_1[context.Context, string, error]
+	beginImportExpects                      []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportClaim, error]
+	checkCloudRegionExpects                 []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
+	checkImportModelCollisionExpects        []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportModelCollision, error]
+	deleteModelImportingStatusExpects       []*gomock.Call2_1[context.Context, string, error]
+	ensureExternalControllerExistsExpects   []*gomock.Call2_1[context.Context, internal.ExternalController, error]
+	getActiveExportExpects                  []*gomock.Call2_2[context.Context, string, internal.Migration, error]
+	getActiveExportUUIDExpects              []*gomock.Call2_2[context.Context, string, string, error]
+	getConflictingCloudImageMetadataExpects []*gomock.Call2_2[context.Context, []modelmigration0.ImportPrecheckImageMetadata, []modelmigration0.CloudImageMetadataConflict, error]
+	getControllerModelInfoExpects           []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
+	getControllerTargetVersionExpects       []*gomock.Call1_2[context.Context, string, error]
+	getCredentialRevokedExpects             []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
+	getDisabledUsersExpects                 []*gomock.Call2_2[context.Context, []string, []string, error]
+	getImportClaimExpects                   []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
+	getMigrationModeExpects                 []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
+	getSourceControllerInfoExpects          []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
+	importExternalControllersExpects        []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
+	importOfferPermissionsExpects           []*gomock.Call4_1[context.Context, string, string, []string, error]
+	insertExportExpects                     []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
+	insertMinionReportExpects               []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	namespaceForWatchExportExpects          []*gomock.Call0_1[string]
+	namespaceForWatchMinionSyncExpects      []*gomock.Call0_1[string]
+	namespaceForWatchPhaseExpects           []*gomock.Call0_1[string]
+	secretBackendExistsExpects              []*gomock.Call2_2[context.Context, string, bool, error]
+	setPhaseExpects                         []*gomock.Call3_1[context.Context, string, migration.Phase, error]
+	setStatusMessageExpects                 []*gomock.Call3_1[context.Context, string, string, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -321,6 +322,24 @@ func (mr *MockControllerStateMockRecorder) GetActiveExportUUID(ctx, modelUUID an
 
 // MockControllerStateGetActiveExportUUIDCall is the typed call wrapper for GetActiveExportUUID.
 type MockControllerStateGetActiveExportUUIDCall = gomock.Call2_2[context.Context, string, string, error]
+
+// GetConflictingCloudImageMetadata mocks base method.
+func (m *MockControllerState) GetConflictingCloudImageMetadata(ctx context.Context, rows []modelmigration0.ImportPrecheckImageMetadata) ([]modelmigration0.CloudImageMetadataConflict, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getConflictingCloudImageMetadataExpects, m.ctrl, m, "GetConflictingCloudImageMetadata", ctx, rows)
+}
+
+// GetConflictingCloudImageMetadata indicates an expected call of GetConflictingCloudImageMetadata.
+func (mr *MockControllerStateMockRecorder) GetConflictingCloudImageMetadata(ctx, rows any) *MockControllerStateGetConflictingCloudImageMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []modelmigration0.ImportPrecheckImageMetadata, []modelmigration0.CloudImageMetadataConflict, error](mr.mock.ctrl.T, mr.mock, "GetConflictingCloudImageMetadata", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(rows))
+	mr.getConflictingCloudImageMetadataExpects = append(mr.getConflictingCloudImageMetadataExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetConflictingCloudImageMetadataCall is the typed call wrapper for GetConflictingCloudImageMetadata.
+type MockControllerStateGetConflictingCloudImageMetadataCall = gomock.Call2_2[context.Context, []modelmigration0.ImportPrecheckImageMetadata, []modelmigration0.CloudImageMetadataConflict, error]
 
 // GetControllerModelInfo mocks base method.
 func (m *MockControllerState) GetControllerModelInfo(ctx context.Context, modelUUID string, offerUUIDs []string, offererModels []internal.OffererModel) (modelmigration.ControllerModelInfo, error) {

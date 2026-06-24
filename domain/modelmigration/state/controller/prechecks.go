@@ -335,6 +335,71 @@ LIMIT 1
 	}, nil
 }
 
+// GetConflictingCloudImageMetadata reports, for each supplied custom image
+// metadata row, the existing target image id when a row with the same natural
+// key already exists on the controller with a different image id. The existing
+// row is always kept on import (target-wins); this read is used only to warn.
+func (s *State) GetConflictingCloudImageMetadata(
+	ctx context.Context, rows []modelmigration.ImportPrecheckImageMetadata,
+) ([]modelmigration.CloudImageMetadataConflict, error) {
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT cim.stream            AS &cloudImageRow.stream,
+       cim.region            AS &cloudImageRow.region,
+       cim.version           AS &cloudImageRow.version,
+       cim.virt_type         AS &cloudImageRow.virt_type,
+       cim.root_storage_type AS &cloudImageRow.root_storage_type,
+       cim.source            AS &cloudImageRow.source,
+       cim.image_id          AS &cloudImageRow.image_id,
+       a.name                AS &cloudImageRow.arch
+FROM   cloud_image_metadata AS cim
+JOIN   architecture AS a ON cim.architecture_id = a.id
+WHERE  cim.source = 'custom'
+`, cloudImageRow{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var existing []cloudImageRow
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&existing)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("loading custom cloud image metadata: %w", err)
+	}
+
+	type naturalKey struct {
+		stream, region, version, arch, virtType, rootStorageType, source string
+	}
+	byKey := make(map[naturalKey]string, len(existing))
+	for _, e := range existing {
+		byKey[naturalKey{e.Stream, e.Region, e.Version, e.Arch, e.VirtType, e.RootStorageType, e.Source}] = e.ImageID
+	}
+
+	var conflicts []modelmigration.CloudImageMetadataConflict
+	for _, r := range rows {
+		existingID, ok := byKey[naturalKey{r.Stream, r.Region, r.Version, r.Arch, r.VirtType, r.RootStorageType, r.Source}]
+		if ok && existingID != r.ImageID {
+			conflicts = append(conflicts, modelmigration.CloudImageMetadataConflict{
+				ImportPrecheckImageMetadata: r,
+				ExistingImageID:             existingID,
+			})
+		}
+	}
+	return conflicts, nil
+}
+
 func rowExists(ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, args ...any) (bool, error) {
 	var result countResult
 	err := tx.Query(ctx, stmt, args...).Get(&result)

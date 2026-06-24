@@ -75,7 +75,7 @@ func ImportModel(
 	modelUUID := coremodel.UUID(modelUUIDStr)
 	info := controllerModelInfoFromEnvelope(envelope)
 
-	claimSvc := migrationclaimservice.NewImportService(migrationclaimstate.New(deps.ControllerDB, deps.Clock))
+	claimSvc := migrationclaimservice.NewImportService(migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger)
 	accessSvc := accessservice.NewService(accessstate.NewState(deps.ControllerDB, deps.Clock, deps.Logger), deps.Clock)
 	credentialSvc := credentialservice.NewService(credentialstate.NewState(deps.ControllerDB), deps.Logger)
 	keymanagerSvc := keymanagerservice.NewService(modelUUID, keymanagerstate.NewState(deps.ControllerDB))

@@ -806,6 +806,18 @@ func importPrecheckArgs(in params.SerializedModelV2) modelmigration.ImportPreche
 	if in.SecretBackend != nil {
 		args.SecretBackend = in.SecretBackend.Name
 	}
+	for _, m := range in.CloudImageMetadata {
+		args.CloudImageMetadata = append(args.CloudImageMetadata, modelmigration.ImportPrecheckImageMetadata{
+			Stream:          m.Stream,
+			Region:          m.Region,
+			Version:         m.Version,
+			Arch:            m.Arch,
+			VirtType:        m.VirtType,
+			RootStorageType: m.RootStorageType,
+			Source:          m.Source,
+			ImageID:         m.ImageId,
+		})
+	}
 	return args
 }
 

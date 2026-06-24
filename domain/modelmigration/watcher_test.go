@@ -239,5 +239,6 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		providertracker.ProviderGetter[service.InstanceProvider](noopInstanceGetter),
 		providertracker.ProviderGetter[service.ResourceProvider](noopResourceGetter),
+		loggertesting.WrapCheckLog(c),
 	)
 }

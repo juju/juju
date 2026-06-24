@@ -139,6 +139,12 @@ type ImportPrecheckArgs struct {
 	// SecretBackend is the name of the model's secret backend, or empty when
 	// the model has none. When set it must exist on the target controller.
 	SecretBackend string
+
+	// CloudImageMetadata are the model's custom cloud image metadata rows. A
+	// row whose natural key already exists on the target with a different image
+	// id is reported as a non-fatal warning (target-wins); it never fails the
+	// precheck.
+	CloudImageMetadata []ImportPrecheckImageMetadata
 }
 
 // ImportModelCollision reports target-side model identity collisions that
@@ -168,4 +174,28 @@ type ImportPrecheckCredential struct {
 	Owner   string
 	Name    string
 	Revoked bool
+}
+
+// ImportPrecheckImageMetadata is one custom cloud image metadata row carried in
+// the v8 import precheck: its natural key plus the image id the source imports.
+type ImportPrecheckImageMetadata struct {
+	Stream          string
+	Region          string
+	Version         string
+	Arch            string
+	VirtType        string
+	RootStorageType string
+	Source          string
+	ImageID         string
+}
+
+// CloudImageMetadataConflict describes a custom cloud image metadata row whose
+// natural key already exists on the target controller with a different image
+// id. The existing target row is kept; the conflict is surfaced as a non-fatal
+// precheck warning.
+type CloudImageMetadataConflict struct {
+	ImportPrecheckImageMetadata
+
+	// ExistingImageID is the image id currently stored on the target.
+	ExistingImageID string
 }

@@ -176,3 +176,45 @@ func (s *stateSuite) TestGetImportClaimNotFound(c *tc.C) {
 	_, err := st.GetImportClaim(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
 }
+
+// TestGetConflictingCloudImageMetadata verifies a custom row matching by
+// natural key with a different image id is reported, while identical and absent
+// rows are not.
+func (s *stateSuite) TestGetConflictingCloudImageMetadata(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// Seed a custom target row for amd64 (architecture_id 0) with image
+	// ami-target.
+	_, err := s.DB().ExecContext(c.Context(),
+		`INSERT INTO cloud_image_metadata
+		 (uuid, created_at, source, stream, region, version, architecture_id, virt_type, root_storage_type, priority, image_id)
+		 VALUES (?, DATETIME('now'), 'custom', 'released', 'us-east-1', '24.04', 0, 'hvm', 'ebs', 10, 'ami-target')`,
+		uuid.MustNewUUID().String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	conflict := modelmigration.ImportPrecheckImageMetadata{
+		Stream: "released", Region: "us-east-1", Version: "24.04", Arch: "amd64",
+		VirtType: "hvm", RootStorageType: "ebs", Source: "custom", ImageID: "ami-source",
+	}
+	identical := conflict
+	identical.ImageID = "ami-target" // same image as target -> no conflict
+	absent := conflict
+	absent.Region = "eu-west-1" // no target row -> no conflict
+
+	conflicts, err := st.GetConflictingCloudImageMetadata(c.Context(),
+		[]modelmigration.ImportPrecheckImageMetadata{conflict, identical, absent})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conflicts, tc.HasLen, 1)
+	c.Check(conflicts[0].ImageID, tc.Equals, "ami-source")
+	c.Check(conflicts[0].ExistingImageID, tc.Equals, "ami-target")
+	c.Check(conflicts[0].Region, tc.Equals, "us-east-1")
+}
+
+// TestGetConflictingCloudImageMetadataEmpty verifies no rows yields no conflicts.
+func (s *stateSuite) TestGetConflictingCloudImageMetadataEmpty(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	conflicts, err := st.GetConflictingCloudImageMetadata(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflicts, tc.HasLen, 0)
+}
