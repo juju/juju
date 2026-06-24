@@ -405,7 +405,7 @@ func splitSecretRevision(s string) (string, int) {
 	return parts[0], rev
 }
 
-// WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the 
+// WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the
 // expiry time of a secret revision changes.
 func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...secret.CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
