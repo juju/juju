@@ -123,6 +123,16 @@ func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, machineName s
 		return "", errors.Errorf("generating machine virtual SSH host key for %q: %w", machineName, err)
 	}
 	if err := s.state.SetMachineVirtualHostKeyByMachineName(ctx, machineName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
+		if errors.Is(err, coreerrors.AlreadyExists) {
+			key, found, getErr := s.state.GetMachineVirtualHostKeyByMachineName(ctx, machineName)
+			if getErr != nil {
+				return "", errors.Errorf("getting machine virtual SSH host key for %q after concurrent insert: %w", machineName, getErr)
+			}
+			if !found {
+				return "", errors.Errorf("machine virtual SSH host key for %q not found after concurrent insert", machineName)
+			}
+			return key, nil
+		}
 		return "", errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 	}
 	return key, nil
@@ -142,6 +152,16 @@ func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, unitName string)
 		return "", errors.Errorf("generating unit virtual SSH host key for %q: %w", unitName, err)
 	}
 	if err := s.state.SetUnitVirtualHostKeyByUnitName(ctx, unitName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
+		if errors.Is(err, coreerrors.AlreadyExists) {
+			key, found, getErr := s.state.GetUnitVirtualHostKeyByUnitName(ctx, unitName)
+			if getErr != nil {
+				return "", errors.Errorf("getting unit virtual SSH host key for %q after concurrent insert: %w", unitName, getErr)
+			}
+			if !found {
+				return "", errors.Errorf("unit virtual SSH host key for %q not found after concurrent insert", unitName)
+			}
+			return key, nil
+		}
 		return "", errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 	}
 	return key, nil

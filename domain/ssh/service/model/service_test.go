@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	coreunit "github.com/juju/juju/core/unit"
@@ -68,6 +69,36 @@ func (s *serviceSuite) TestUnitVirtualHostKeyGeneratesMissingForCAAS(c *tc.C) {
 	assertPrivateKey(c, key)
 }
 
+func (s *serviceSuite) TestMachineVirtualHostKeyReturnsExistingAfterConcurrentInsert(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	state.machineExists["1"] = true
+	state.machineSetAlreadyExists["1"] = testPrivateKey
+
+	svc := modelsshservice.NewService(modelUUID, state)
+
+	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
+	c.Check(state.machineSetCalls, tc.Equals, 1)
+	c.Check(state.machineKeys["1"], tc.Equals, testPrivateKey)
+}
+
+func (s *serviceSuite) TestUnitVirtualHostKeyReturnsExistingAfterConcurrentInsert(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	state.unitExists["postgresql/0"] = true
+	state.unitSetAlreadyExists["postgresql/0"] = testPrivateKey
+
+	svc := modelsshservice.NewService(modelUUID, state)
+
+	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
+	c.Check(state.unitSetCalls, tc.Equals, 1)
+	c.Check(state.unitKeys["postgresql/0"], tc.Equals, testPrivateKey)
+}
+
 func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
@@ -107,26 +138,30 @@ func (s *serviceSuite) TestVirtualHostKeyErrorsForNestedMachine(c *tc.C) {
 }
 
 type stubModelState struct {
-	machineExists   map[string]bool
-	machineKeys     map[string]string
-	machineAlgos    map[string]int
-	unitExists      map[string]bool
-	unitKeys        map[string]string
-	unitAlgos       map[string]int
-	unitMachines    map[string]string
-	machineSetCalls int
-	unitSetCalls    int
+	machineExists           map[string]bool
+	machineKeys             map[string]string
+	machineAlgos            map[string]int
+	machineSetAlreadyExists map[string]string
+	unitExists              map[string]bool
+	unitKeys                map[string]string
+	unitAlgos               map[string]int
+	unitSetAlreadyExists    map[string]string
+	unitMachines            map[string]string
+	machineSetCalls         int
+	unitSetCalls            int
 }
 
 func newStubModelState() *stubModelState {
 	return &stubModelState{
-		machineExists: make(map[string]bool),
-		machineKeys:   make(map[string]string),
-		machineAlgos:  make(map[string]int),
-		unitExists:    make(map[string]bool),
-		unitKeys:      make(map[string]string),
-		unitAlgos:     make(map[string]int),
-		unitMachines:  make(map[string]string),
+		machineExists:           make(map[string]bool),
+		machineKeys:             make(map[string]string),
+		machineAlgos:            make(map[string]int),
+		machineSetAlreadyExists: make(map[string]string),
+		unitExists:              make(map[string]bool),
+		unitKeys:                make(map[string]string),
+		unitAlgos:               make(map[string]int),
+		unitSetAlreadyExists:    make(map[string]string),
+		unitMachines:            make(map[string]string),
 	}
 }
 
@@ -141,6 +176,12 @@ func (s *stubModelState) GetMachineVirtualHostKeyByMachineName(_ context.Context
 func (s *stubModelState) SetMachineVirtualHostKeyByMachineName(_ context.Context, machineName string, algorithmTypeID int, key string) error {
 	if !s.machineExists[machineName] {
 		return errors.Errorf("machine %q not found", machineName)
+	}
+	if existingKey, ok := s.machineSetAlreadyExists[machineName]; ok {
+		s.machineKeys[machineName] = existingKey
+		s.machineSetCalls++
+		delete(s.machineSetAlreadyExists, machineName)
+		return errors.Errorf("machine virtual SSH host key for %q already exists", machineName).Add(coreerrors.AlreadyExists)
 	}
 	s.machineKeys[machineName] = key
 	s.machineAlgos[machineName] = algorithmTypeID
@@ -159,6 +200,12 @@ func (s *stubModelState) GetUnitVirtualHostKeyByUnitName(_ context.Context, unit
 func (s *stubModelState) SetUnitVirtualHostKeyByUnitName(_ context.Context, unitName string, algorithmTypeID int, key string) error {
 	if !s.unitExists[unitName] {
 		return errors.Errorf("unit %q not found", unitName)
+	}
+	if existingKey, ok := s.unitSetAlreadyExists[unitName]; ok {
+		s.unitKeys[unitName] = existingKey
+		s.unitSetCalls++
+		delete(s.unitSetAlreadyExists, unitName)
+		return errors.Errorf("unit virtual SSH host key for %q already exists", unitName).Add(coreerrors.AlreadyExists)
 	}
 	s.unitKeys[unitName] = key
 	s.unitAlgos[unitName] = algorithmTypeID
