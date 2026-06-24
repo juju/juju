@@ -294,11 +294,6 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 	startArgs := s.GetStartInstanceArgs(c)
 	startArgs.SubnetsToZones = []map[network.Id][]string{
 		{
-			// Unknown subnet, not reported by Subnets(); must be
-			// skipped without exploding.
-			"10.123.0.0/24": {"locutus"},
-		},
-		{
 			"10.42.0.0/24": {"locutus"}, // virbr0
 			"10.0.0.0/24":  {"locutus"}, // ovs-br0
 			// Should be ignored as an applied profile already
@@ -310,6 +305,58 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(res, tc.NotNil)
 	c.Assert(*res.Hardware.AvailabilityZone, tc.DeepEquals, "node01")
+}
+
+func (s *environBrokerSuite) TestStartInstanceUnsatisfiedSubnetReturnsError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	defaultNICs := map[string]map[string]string{
+		"eth0": {
+			"name":    "eth0",
+			"type":    "nic",
+			"hwaddr":  "00:00:00:00:00:01",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+		},
+	}
+
+	exp := svr.EXPECT()
+	// The failure happens in assignContainerNICs, before the container is
+	// created, so no CreateContainerFromSpec call is expected.
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(defaultNICs, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
+	)
+
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworkNames().Return([]string{"lxdbr0"}, nil)
+	exp.GetNetworkState("lxdbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.99.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	startArgs := s.GetStartInstanceArgs(c)
+	startArgs.SubnetsToZones = []map[network.Id][]string{
+		{
+			// No discovered LXD network serves this subnet, so the
+			// requested connectivity cannot be satisfied.
+			"10.250.0.0/24": {"locutus"},
+		},
+	}
+	res, err := env.StartInstance(c.Context(), startArgs)
+	c.Check(err, tc.ErrorMatches, `.*cannot satisfy space requirements: no host bridge found for subnet\(s\).*10.250.0.0/24.*`)
+	c.Assert(res, tc.IsNil)
 }
 
 func (s *environBrokerSuite) TestStartInstanceWithModelProfileSubnetNIC(c *tc.C) {

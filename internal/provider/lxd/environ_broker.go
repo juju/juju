@@ -321,12 +321,16 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 	// Assign any extra NICs required to satisfy the subnet requirements
 	// for this instance.
 	var nextIndex int
+	var unsatisfied []string
 	for _, subnetList := range instStartParams.SubnetsToZones {
 		for providerSubnetID := range subnetList {
-			// Recover the host bridge for this subnet. Unknown subnets
-			// (e.g. ones no longer reported by the provider) are skipped.
+			// Recover the host bridge that hosts this subnet. A subnet with
+			// no host bridge on this LXD host means we cannot provide the
+			// requested connectivity, so we must fail rather than hand back
+			// an under-connected container.
 			hostBridge, ok := subnetBridges[providerSubnetID]
 			if !ok || hostBridge == "" {
+				unsatisfied = append(unsatisfied, string(providerSubnetID))
 				continue
 			}
 
@@ -361,6 +365,12 @@ func (env *environ) assignContainerNICs(ctx context.Context, instStartParams env
 			requestedHostBridges.Add(hostBridge)
 			requestedNICNames.Add(devName)
 		}
+	}
+
+	if len(unsatisfied) > 0 {
+		return nil, errors.Errorf(
+			"cannot satisfy space requirements: no host bridge found for subnet(s) %q",
+			unsatisfied)
 	}
 
 	return assignedNICs, nil
