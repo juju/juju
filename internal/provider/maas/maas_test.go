@@ -6,7 +6,7 @@ package maas
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -71,21 +71,21 @@ type fakeController struct {
 	gomaasapi.Controller
 	*testing.Stub
 
-	domains            []gomaasapi.Domain
-	bootResources      []gomaasapi.BootResource
-	bootResourcesError error
-	machines           []gomaasapi.Machine
-	machinesError      error
-	machinesArgsCheck  func(gomaasapi.MachinesArgs)
-	zones              []gomaasapi.Zone
-	zonesError         error
-	spaces             []gomaasapi.Space
-	spacesError        error
-	staticRoutes       []gomaasapi.StaticRoute
-	staticRoutesError  error
-	pods               []gomaasapi.Pod
-	podsError          error
-	deleteMachineError error
+	domains             []gomaasapi.Domain
+	bootResources       []gomaasapi.BootResource
+	bootResourcesError  error
+	machines            []gomaasapi.Machine
+	machinesError       error
+	machinesArgsCheck   func(gomaasapi.MachinesArgs)
+	zones               []gomaasapi.Zone
+	zonesError          error
+	spaces              []gomaasapi.Space
+	spacesError         error
+	staticRoutes        []gomaasapi.StaticRoute
+	staticRoutesError   error
+	vmHosts             []gomaasapi.VmHost
+	vmHostsError        error
+	deleteMachineErrors map[string]error
 
 	allocateMachine          gomaasapi.Machine
 	allocateMachineMatches   gomaasapi.ConstraintMatches
@@ -142,11 +142,24 @@ func (c *fakeController) Machines(args gomaasapi.MachinesArgs) ([]gomaasapi.Mach
 	systemIDs := set.NewStrings(args.SystemIDs...)
 	hostnames := set.NewStrings(args.Hostnames...)
 	for _, machine := range c.machines {
-		if systemIDs.Contains(machine.SystemID()) || hostnames.Contains(machine.Hostname()) {
-			result = append(result, machine)
+		if !systemIDs.Contains(machine.SystemID()) && !hostnames.Contains(machine.Hostname()) {
+			continue
 		}
+		if !ownerDataMatches(machine.OwnerData(), args.OwnerData) {
+			continue
+		}
+		result = append(result, machine)
 	}
 	return result, nil
+}
+
+func ownerDataMatches(ownerData, filter map[string]string) bool {
+	for key, value := range filter {
+		if ownerData[key] != value {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *fakeController) Domains() ([]gomaasapi.Domain, error) {
@@ -224,14 +237,14 @@ func (c *fakeController) ReleaseMachines(args gomaasapi.ReleaseMachinesArgs) err
 
 func (c *fakeController) DeleteMachine(systemID string) error {
 	c.MethodCall(c, "DeleteMachine", systemID)
-	return c.deleteMachineError
+	return c.deleteMachineErrors[systemID]
 }
 
-func (c *fakeController) Pods() ([]gomaasapi.Pod, error) {
-	if c.podsError != nil {
-		return nil, c.podsError
+func (c *fakeController) VmHosts() ([]gomaasapi.VmHost, error) {
+	if c.vmHostsError != nil {
+		return nil, c.vmHostsError
 	}
-	return c.pods, nil
+	return c.vmHosts, nil
 }
 
 type fakeBootResource struct {
@@ -262,9 +275,10 @@ type fakeMachine struct {
 	memory        int
 	architecture  string
 	powerType     string
-	pod           gomaasapi.Pod
+	vmHost        gomaasapi.VmHost
 	interfaceSet  []gomaasapi.Interface
 	tags          []string
+	ownerData     map[string]string
 	createDevice  gomaasapi.Device
 	devices       []gomaasapi.Device
 }
@@ -283,8 +297,27 @@ func (m *fakeMachine) Tags() []string {
 }
 
 func (m *fakeMachine) SetOwnerData(data map[string]string) error {
-	m.MethodCall(m, "SetOwnerData", data)
-	return m.NextErr()
+	if m.Stub != nil {
+		m.MethodCall(m, "SetOwnerData", data)
+	}
+	if m.ownerData == nil {
+		m.ownerData = make(map[string]string)
+	}
+	for key, value := range data {
+		m.ownerData[key] = value
+	}
+	if m.Stub != nil {
+		return m.NextErr()
+	}
+	return nil
+}
+
+func (m *fakeMachine) OwnerData() map[string]string {
+	result := make(map[string]string, len(m.ownerData))
+	for key, value := range m.ownerData {
+		result[key] = value
+	}
+	return result
 }
 
 func (m *fakeMachine) CPUCount() int {
@@ -324,8 +357,8 @@ func (m *fakeMachine) PowerType() string {
 	return m.powerType
 }
 
-func (m *fakeMachine) Pod() gomaasapi.Pod {
-	return m.pod
+func (m *fakeMachine) VmHost() gomaasapi.VmHost {
+	return m.vmHost
 }
 
 func (m *fakeMachine) StatusName() string {
@@ -723,8 +756,8 @@ func (*fakeDomain) Name() string {
 	return "maas"
 }
 
-type fakePod struct {
-	gomaasapi.Pod
+type fakeVmHost struct {
+	gomaasapi.VmHost
 
 	id    int
 	name  string
@@ -737,27 +770,27 @@ type fakePod struct {
 	composeMachineArgsCheck func(gomaasapi.ComposeMachineArgs)
 }
 
-func (p *fakePod) ID() int {
+func (p *fakeVmHost) ID() int {
 	return p.id
 }
 
-func (p *fakePod) Name() string {
+func (p *fakeVmHost) Name() string {
 	return p.name
 }
 
-func (p *fakePod) Type() string {
+func (p *fakeVmHost) Type() string {
 	return p.type_
 }
 
-func (p *fakePod) Zone() gomaasapi.Zone {
+func (p *fakeVmHost) Zone() gomaasapi.Zone {
 	return p.zone
 }
 
-func (p *fakePod) Pool() gomaasapi.Pool {
+func (p *fakeVmHost) Pool() gomaasapi.Pool {
 	return p.pool
 }
 
-func (p *fakePod) ComposeMachine(args gomaasapi.ComposeMachineArgs) (gomaasapi.Machine, error) {
+func (p *fakeVmHost) ComposeMachine(args gomaasapi.ComposeMachineArgs) (gomaasapi.Machine, error) {
 	if p.composeMachineArgsCheck != nil {
 		p.composeMachineArgsCheck(args)
 	}

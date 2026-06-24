@@ -4,7 +4,7 @@
 package maas
 
 import (
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -43,7 +43,7 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersNoTags(c *gc.C) {
 	}, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
-		{"root", 0, nil}, //root disk
+		{"root", 0, nil}, // root disk
 		{"1", 1954, nil},
 	})
 }
@@ -57,7 +57,7 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithRootDisk(c *gc.C) {
 	}, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
-		{"root", 20, nil}, //root disk
+		{"root", 20, nil}, // root disk
 		{"1", 1954, nil},
 	})
 }
@@ -68,7 +68,7 @@ func (s *volumeSuite) TestBuildMAASVolumeParametersWithTags(c *gc.C) {
 	}, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vInfo, jc.DeepEquals, []volumeInfo{
-		{"root", 0, nil}, //root disk
+		{"root", 0, nil}, // root disk
 		{"1", 1954, []string{"tag1", "tag2"}},
 	})
 }

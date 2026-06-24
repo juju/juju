@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
