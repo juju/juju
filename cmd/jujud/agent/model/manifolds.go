@@ -397,12 +397,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		// The userSecretsDrainWorker is the worker that drains the user secrets
 		// from the inactive backend to the current active backend.
-		userSecretsDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
-			APICallerName:         apiCallerName,
-			Logger:                config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
-			NewSecretsDrainFacade: secretsdrainworker.NewUserSecretsDrainFacade,
-			NewWorker:             secretsdrainworker.NewWorker,
-			NewBackendsClient:     secretsdrainworker.NewUserSecretBackendsClient,
+		userSecretsDrainWorker: ifNotMigrating(secretsdrainworker.ModelManifold(secretsdrainworker.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
+			NewWorker:          secretsdrainworker.NewWorker,
 		})),
 
 		// the operationPruner is the worker that prune operation based on their
