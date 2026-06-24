@@ -19,6 +19,12 @@ type State interface {
 	// SaveMetadata saves a list of cloud image metadata to the state.
 	SaveMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) error
 
+	// CompareOrInsertMetadata inserts cloud image metadata rows that are not
+	// already present, comparing on the natural key and never updating an
+	// existing row. It returns the natural-key conflicts (existing row kept,
+	// supplied image id differs) for the caller to handle.
+	CompareOrInsertMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) ([]cloudimagemetadata.MetadataConflict, error)
+
 	// DeleteMetadataWithImageID removes the metadata associated with the given imageID from the state.
 	DeleteMetadataWithImageID(ctx context.Context, imageID string) error
 

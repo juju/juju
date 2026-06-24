@@ -13,18 +13,22 @@ import (
 )
 
 // ImportCloudImageMetadata recreates the model's custom cloud image metadata
-// rows on the target controller from the v8 migration envelope.
+// rows on the target controller from the v8 migration envelope. It is
+// non-destructive: rows are compared on the natural key and inserted only when
+// absent, never overwriting an existing target row (target-wins). Any
+// natural-key conflicts (existing target image kept, source image skipped) are
+// returned so the caller can surface a non-fatal warning.
 //
 // It is called directly by the v8 migration import driver in
 // internal/migration.
 func (s Service) ImportCloudImageMetadata(
 	ctx context.Context, rows []coremodelmigration.CloudImageMetadata,
-) error {
+) ([]cloudimagemetadata.MetadataConflict, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if len(rows) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	metadata := make([]cloudimagemetadata.Metadata, 0, len(rows))
@@ -45,8 +49,12 @@ func (s Service) ImportCloudImageMetadata(
 			CreationTime: r.CreatedAt,
 		})
 	}
-	if err := s.SaveMetadata(ctx, metadata); err != nil {
-		return errors.Errorf("saving cloud image metadata: %w", err)
+	if err := s.validateAllMetadata(ctx, metadata); err != nil {
+		return nil, err
 	}
-	return nil
+	conflicts, err := s.st.CompareOrInsertMetadata(ctx, metadata)
+	if err != nil {
+		return nil, errors.Errorf("importing cloud image metadata: %w", err)
+	}
+	return conflicts, nil
 }

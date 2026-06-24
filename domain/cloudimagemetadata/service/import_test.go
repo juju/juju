@@ -32,30 +32,9 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) TestImportCloudImageMetadata(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
+func (s *importSuite) envelopeRow() coremodelmigration.CloudImageMetadata {
 	size := uint64(128)
-	createdAt := time.Now().UTC()
-	expected := []cloudimagemetadata.Metadata{{
-		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
-			Stream:          "released",
-			Region:          "us-east-1",
-			Version:         "24.04",
-			Arch:            "amd64",
-			VirtType:        "hvm",
-			RootStorageType: "ebs",
-			RootStorageSize: &size,
-			Source:          cloudimagemetadata.CustomSource,
-		},
-		Priority:     10,
-		ImageID:      "ami-123",
-		CreationTime: createdAt,
-	}}
-	s.state.EXPECT().SupportedArchitectures(gomock.Any()).Return(set.NewStrings("amd64"))
-	s.state.EXPECT().SaveMetadata(gomock.Any(), expected).Return(nil)
-
-	err := NewService(s.state).ImportCloudImageMetadata(c.Context(), []coremodelmigration.CloudImageMetadata{{
+	return coremodelmigration.CloudImageMetadata{
 		Stream:          "released",
 		Region:          "us-east-1",
 		Version:         "24.04",
@@ -66,16 +45,69 @@ func (s *importSuite) TestImportCloudImageMetadata(c *tc.C) {
 		Source:          cloudimagemetadata.CustomSource,
 		Priority:        10,
 		ImageID:         "ami-123",
-		CreatedAt:       createdAt,
-	}})
+		CreatedAt:       time.Now().UTC(),
+	}
+}
+
+// TestImportCloudImageMetadata verifies the import is non-destructive: it
+// validates and delegates to the compare-or-insert state method (never the
+// upsert SaveMetadata).
+func (s *importSuite) TestImportCloudImageMetadata(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	row := s.envelopeRow()
+	expected := []cloudimagemetadata.Metadata{{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
+			Stream:          row.Stream,
+			Region:          row.Region,
+			Version:         row.Version,
+			Arch:            row.Arch,
+			VirtType:        row.VirtType,
+			RootStorageType: row.RootStorageType,
+			RootStorageSize: row.RootStorageSize,
+			Source:          row.Source,
+		},
+		Priority:     row.Priority,
+		ImageID:      row.ImageID,
+		CreationTime: row.CreatedAt,
+	}}
+	s.state.EXPECT().SupportedArchitectures(gomock.Any()).Return(set.NewStrings("amd64"))
+	s.state.EXPECT().CompareOrInsertMetadata(gomock.Any(), expected).Return(nil, nil)
+
+	conflicts, err := NewService(s.state).ImportCloudImageMetadata(c.Context(), []coremodelmigration.CloudImageMetadata{row})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflicts, tc.HasLen, 0)
+}
+
+// TestImportCloudImageMetadataConflict verifies natural-key conflicts reported
+// by the state are passed back to the caller (for a non-fatal warning).
+func (s *importSuite) TestImportCloudImageMetadataConflict(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	row := s.envelopeRow()
+	conflict := cloudimagemetadata.MetadataConflict{
+		MetadataAttributes: cloudimagemetadata.MetadataAttributes{
+			Stream: row.Stream, Region: row.Region, Version: row.Version, Arch: row.Arch,
+			VirtType: row.VirtType, RootStorageType: row.RootStorageType, Source: row.Source,
+		},
+		ExistingImageID: "ami-target",
+		IncomingImageID: "ami-123",
+	}
+	s.state.EXPECT().SupportedArchitectures(gomock.Any()).Return(set.NewStrings("amd64"))
+	s.state.EXPECT().CompareOrInsertMetadata(gomock.Any(), gomock.Any()).
+		Return([]cloudimagemetadata.MetadataConflict{conflict}, nil)
+
+	conflicts, err := NewService(s.state).ImportCloudImageMetadata(c.Context(), []coremodelmigration.CloudImageMetadata{row})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflicts, tc.DeepEquals, []cloudimagemetadata.MetadataConflict{conflict})
 }
 
 func (s *importSuite) TestImportCloudImageMetadataEmpty(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewService(s.state).ImportCloudImageMetadata(c.Context(), nil)
+	conflicts, err := NewService(s.state).ImportCloudImageMetadata(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(conflicts, tc.HasLen, 0)
 }
 
 func (s *importSuite) TestImportCloudImageMetadataError(c *tc.C) {
@@ -83,15 +115,8 @@ func (s *importSuite) TestImportCloudImageMetadataError(c *tc.C) {
 
 	expected := errors.New("boom")
 	s.state.EXPECT().SupportedArchitectures(gomock.Any()).Return(set.NewStrings("amd64"))
-	s.state.EXPECT().SaveMetadata(gomock.Any(), gomock.Any()).Return(expected)
+	s.state.EXPECT().CompareOrInsertMetadata(gomock.Any(), gomock.Any()).Return(nil, expected)
 
-	err := NewService(s.state).ImportCloudImageMetadata(c.Context(), []coremodelmigration.CloudImageMetadata{{
-		Stream:  "released",
-		Region:  "us-east-1",
-		Version: "24.04",
-		Arch:    "amd64",
-		Source:  cloudimagemetadata.CustomSource,
-		ImageID: "ami-123",
-	}})
+	_, err := NewService(s.state).ImportCloudImageMetadata(c.Context(), []coremodelmigration.CloudImageMetadata{s.envelopeRow()})
 	c.Assert(err, tc.ErrorIs, expected)
 }

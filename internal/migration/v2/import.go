@@ -147,8 +147,16 @@ func ImportModel(
 		return errors.Errorf("applying last logins for model %q import: %w", modelUUIDStr, err)
 	}
 
-	if err := cloudImageSvc.ImportCloudImageMetadata(ctx, info.CloudImageMetadata); err != nil {
+	imageConflicts, err := cloudImageSvc.ImportCloudImageMetadata(ctx, info.CloudImageMetadata)
+	if err != nil {
 		return errors.Errorf("applying cloud image metadata for model %q import: %w", modelUUIDStr, err)
+	}
+	for _, c := range imageConflicts {
+		// Non-fatal: the target's custom image metadata is kept (target-wins);
+		// the operator can reconcile via the normal custom-metadata path.
+		deps.Logger.Warningf(ctx,
+			"model %q import: keeping target custom cloud image metadata for %s/%s/%s/%s image %q, skipping source image %q",
+			modelUUIDStr, c.Stream, c.Region, c.Version, c.Arch, c.ExistingImageID, c.IncomingImageID)
 	}
 
 	if err := claimSvc.AssertImporting(ctx, modelUUID); err != nil {
