@@ -280,11 +280,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
 		migrationFortressName: ifNotDead(fortress.Manifold()),
-		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Check:         migrationflag.IsTerminal,
-			NewFacade:     migrationflag.NewFacade,
-			NewWorker:     migrationflag.NewWorker,
+		migrationInactiveFlagName: ifNotDead(migrationflag.ModelManifold(migrationflag.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			Check:              migrationflag.IsTerminal,
+			NewWorker:          migrationflag.NewWorker,
 		})),
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			APICallerName:      apiCallerName,
