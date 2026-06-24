@@ -110,28 +110,42 @@ func (st *State) GetApplicationUUIDByName(ctx context.Context, appName string) (
 
 	var id application.UUID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		app := nameAndUUID{Name: appName}
-		queryApplicationStmt, err := st.Prepare(`
-SELECT uuid AS &nameAndUUID.uuid
-FROM application
-WHERE name = $nameAndUUID.name
-`, app)
+		uuid, err := st.getApplicationUUIDByName(ctx, tx, appName)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("getting UUID for application %q not found", appName).
-				Add(applicationerrors.ApplicationNotFound)
-		} else if err != nil {
-			return errors.Errorf("looking up UUID for application %q: %w", appName, err)
-		}
-		id = application.UUID(app.UUID)
+		id = application.UUID(uuid)
 		return nil
 	}); err != nil {
 		return "", errors.Capture(err)
 	}
 	return id, nil
+}
+
+// getApplicationUUIDByName returns the application UUID of the given application
+// within the supplied transaction.
+func (st *State) getApplicationUUIDByName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	appName string,
+) (string, error) {
+	app := nameAndUUID{Name: appName}
+	queryApplicationStmt, err := st.Prepare(`
+SELECT uuid AS &nameAndUUID.uuid
+FROM application
+WHERE name = $nameAndUUID.name
+`, app)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	err = tx.Query(ctx, queryApplicationStmt, app).Get(&app)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return "", errors.Errorf("getting UUID for application %q not found", appName).
+			Add(applicationerrors.ApplicationNotFound)
+	} else if err != nil {
+		return "", errors.Errorf("looking up UUID for application %q: %w", appName, err)
+	}
+	return app.UUID, nil
 }
 
 // SetRelationApplicationSettings records settings for a specific application
