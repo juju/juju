@@ -181,7 +181,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"secrets-pruner": {
 		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -396,7 +395,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"secrets-pruner": {
 		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
