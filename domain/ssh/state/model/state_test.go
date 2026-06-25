@@ -168,8 +168,8 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 		TunnelID:            "tunnel-0",
 		MachineName:         "1",
 		Expires:             now.Add(time.Minute),
-		Username:            "juju-reverse-tunnel",
-		Password:            "secret",
+		SSHUsername:         "juju-reverse-tunnel",
+		SSHPassword:         "secret",
 		ControllerAddresses: network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"),
 		UnitPort:            0,
 		EphemeralPublicKey:  []byte("pub"),
@@ -183,8 +183,8 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 	c.Check(got.TunnelID, tc.Equals, req.TunnelID)
 	c.Check(got.MachineName, tc.Equals, req.MachineName)
 	c.Check(got.Expires.Equal(req.Expires), tc.IsTrue)
-	c.Check(got.Username, tc.Equals, req.Username)
-	c.Check(got.Password, tc.Equals, req.Password)
+	c.Check(got.SSHUsername, tc.Equals, req.SSHUsername)
+	c.Check(got.SSHPassword, tc.Equals, req.SSHPassword)
 	c.Check(got.ControllerAddresses.EqualTo(req.ControllerAddresses), tc.IsTrue)
 	c.Check(got.UnitPort, tc.Equals, req.UnitPort)
 	c.Check(got.EphemeralPublicKey, tc.DeepEquals, req.EphemeralPublicKey)
@@ -198,8 +198,8 @@ func (s *stateSuite) TestInsertSSHConnRequestMachineNotFound(c *tc.C) {
 		TunnelID:    "missing-machine",
 		MachineName: "99",
 		Expires:     now.Add(time.Minute),
-		Username:    "juju-reverse-tunnel",
-		Password:    "secret",
+		SSHUsername: "juju-reverse-tunnel",
+		SSHPassword: "secret",
 	}, now)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -212,8 +212,8 @@ func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
 		TunnelID:           "remove-me",
 		MachineName:        "1",
 		Expires:            now.Add(time.Minute),
-		Username:           "juju-reverse-tunnel",
-		Password:           "secret",
+		SSHUsername:        "juju-reverse-tunnel",
+		SSHPassword:        "secret",
 		UnitPort:           0,
 		EphemeralPublicKey: []byte("pub"),
 	}
@@ -231,8 +231,8 @@ func (s *stateSuite) TestPruneExpiredSSHConnRequests(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addMachine(c, "1")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
-	expiredReq := domainssh.SSHConnRequest{TunnelID: "expired", MachineName: "1", Expires: now.Add(-time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
-	activeReq := domainssh.SSHConnRequest{TunnelID: "active", MachineName: "1", Expires: now.Add(time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
+	expiredReq := domainssh.SSHConnRequest{TunnelID: "expired", MachineName: "1", Expires: now.Add(-time.Minute), SSHUsername: "juju-reverse-tunnel", SSHPassword: "secret", EphemeralPublicKey: []byte("pub")}
+	activeReq := domainssh.SSHConnRequest{TunnelID: "active", MachineName: "1", Expires: now.Add(time.Minute), SSHUsername: "juju-reverse-tunnel", SSHPassword: "secret", EphemeralPublicKey: []byte("pub")}
 
 	err := st.InsertSSHConnRequest(c.Context(), expiredReq, now.Add(-2*time.Minute))
 	c.Assert(err, tc.ErrorIsNil)

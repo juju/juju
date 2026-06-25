@@ -155,8 +155,8 @@ func (s *serviceSuite) TestInsertSSHConnRequest(c *tc.C) {
 		TunnelID:            "tunnel-0",
 		MachineName:         "1",
 		Expires:             clk.Now().Add(time.Minute),
-		Username:            "juju-reverse-tunnel",
-		Password:            "secret",
+		SSHUsername:            "juju-reverse-tunnel",
+		SSHPassword:            "secret",
 		ControllerAddresses: network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"),
 		EphemeralPublicKey:  []byte("key"),
 	}
@@ -178,8 +178,8 @@ func (s *serviceSuite) TestInsertSSHConnRequestRejectsExpired(c *tc.C) {
 		TunnelID:    "tunnel-0",
 		MachineName: "1",
 		Expires:     clk.Now().Add(-time.Minute),
-		Username:    "juju-reverse-tunnel",
-		Password:    "secret",
+		SSHUsername:    "juju-reverse-tunnel",
+		SSHPassword:    "secret",
 	}
 
 	err := svc.InsertSSHConnRequest(c.Context(), req)
