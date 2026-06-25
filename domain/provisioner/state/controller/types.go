@@ -13,9 +13,9 @@ type controllerConfigRow struct {
 
 // lokiConfigRow holds the controller-wide Loki push API configuration.
 type lokiConfigRow struct {
-	Endpoint           string       `db:"endpoint"`
-	CACertificate      *string      `db:"ca_cert"`
-	InsecureSkipVerify sql.NullBool `db:"insecure_skip_verify"`
+	Endpoint           string           `db:"endpoint"`
+	CACertificate      sql.Null[string] `db:"ca_cert"`
+	InsecureSkipVerify sql.Null[bool]   `db:"insecure_skip_verify"`
 }
 
 // cloudEndpointRow holds cloud endpoint data from a region query.

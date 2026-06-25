@@ -5,7 +5,6 @@ package controller
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/canonical/sqlair"
 
@@ -253,22 +252,16 @@ FROM logging_loki_config
 	}
 
 	var caCert string
-	if row.CACertificate != nil {
-		caCert = *row.CACertificate
+	if row.CACertificate.Valid {
+		caCert = row.CACertificate.V
+	}
+	var isv *bool
+	if row.InsecureSkipVerify.Valid {
+		isv = new(row.InsecureSkipVerify.V)
 	}
 	return logging.LokiConfig{
 		Endpoint:           row.Endpoint,
 		CACertificate:      caCert,
-		InsecureSkipVerify: nsBoolToPtr(row.InsecureSkipVerify),
+		InsecureSkipVerify: isv,
 	}, nil
-}
-
-// nsBoolToPtr converts a nullable sql.NullBool into a pointer to bool.
-// An invalid NullBool maps to nil, while True/False map to boolean pointers.
-func nsBoolToPtr(nb sql.NullBool) *bool {
-	if !nb.Valid {
-		return nil
-	}
-	b := nb.Bool
-	return &b
 }
