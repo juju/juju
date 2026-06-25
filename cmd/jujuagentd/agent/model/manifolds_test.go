@@ -335,8 +335,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-master": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -569,8 +567,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-master": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",

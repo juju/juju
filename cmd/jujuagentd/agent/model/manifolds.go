@@ -121,6 +121,9 @@ type ManifoldsConfig struct {
 	// DomainServices is used to access the domain services.
 	DomainServices services.DomainServices
 
+	// DomainServicesGetter is used to access domain services for other models.
+	DomainServicesGetter services.DomainServicesGetter
+
 	// LeaseManager is used to manage the lease for the model.
 	LeaseManager lease.Manager
 
@@ -277,13 +280,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     migrationflag.NewWorker,
 		})),
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
-			APICallerName:      apiCallerName,
-			DomainServicesName: domainServicesName,
-			FortressName:       migrationFortressName,
-			ModelUUID:          config.ModelUUID,
-			Clock:              config.Clock,
-			NewFacade:          migrationmaster.NewFacade,
-			NewWorker:          config.NewMigrationMaster,
+			DomainServicesName:   domainServicesName,
+			DomainServicesGetter: config.DomainServicesGetter,
+			FortressName:         migrationFortressName,
+			ModelUUID:            config.ModelUUID,
+			LogDir:               config.LogDir,
+			Clock:                config.Clock,
+			NewWorker:            config.NewMigrationMaster,
 		})),
 
 		// Everything else should be wrapped in ifResponsible,
