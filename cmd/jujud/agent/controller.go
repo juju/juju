@@ -694,6 +694,7 @@ func (a *ControllerAgent) startModelWorkers(
 		NewMigrationMaster:            migrationmaster.NewWorker,
 		OperationPrunerInterval:       24 * time.Hour,
 		DomainServices:                cfg.DomainServices,
+		DomainServicesGetter:          cfg.DomainServicesGetter,
 		ProviderServicesGetter:        cfg.ProviderServicesGetter,
 		LeaseManager:                  cfg.LeaseManager,
 		HTTPClientGetter:              cfg.HTTPClientGetter,
