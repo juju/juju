@@ -351,11 +351,11 @@ func (s *environPolSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
+	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm ip-family=dual")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(unsupported, tc.SameContents, []string{"tags", "virt-type"})
+	c.Assert(unsupported, tc.SameContents, []string{"tags", "virt-type", "ip-family"})
 }
 
 func (s *environPolSuite) TestConstraintsValidatorVocabInstType(c *tc.C) {

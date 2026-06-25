@@ -2655,10 +2655,10 @@ func (suite *maasEnvironSuite) TestConstraintsValidator(c *tc.C) {
 	env := suite.makeEnviron(c, controller)
 	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm ip-family=dual")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unsupported, tc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
+	c.Assert(unsupported, tc.SameContents, []string{"cpu-power", "instance-type", "virt-type", "ip-family"})
 }
 
 func (suite *maasEnvironSuite) TestConstraintsValidatorWithUnsupportedArch(c *tc.C) {
@@ -2670,10 +2670,10 @@ func (suite *maasEnvironSuite) TestConstraintsValidatorWithUnsupportedArch(c *tc
 	env := suite.makeEnviron(c, controller)
 	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo virt-type=kvm ip-family=dual")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unsupported, tc.SameContents, []string{"cpu-power", "instance-type", "virt-type"})
+	c.Assert(unsupported, tc.SameContents, []string{"cpu-power", "instance-type", "virt-type", "ip-family"})
 }
 
 func (suite *maasEnvironSuite) TestConstraintsValidatorInvalidCredential(c *tc.C) {
