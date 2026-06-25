@@ -179,8 +179,8 @@ func (env *environ) getImageSources(ctx context.Context) ([]lxd.ServerSpec, erro
 
 // getContainerSpec builds a container spec from the input container image and
 // start-up parameters.
-// Cloud-init config is generated based on the network devices in the default
-// profile and included in the spec config.
+// Cloud-init config is generated based on the network devices in the applied
+// profiles and included in the spec config.
 func (env *environ) getContainerSpec(
 	ctx context.Context, image lxd.SourcedImage, serverVersion string, args environs.StartInstanceParams,
 ) (lxd.ContainerSpec, error) {
@@ -190,7 +190,7 @@ func (env *environ) getContainerSpec(
 	}
 	cSpec := lxd.ContainerSpec{
 		Name:     hostname,
-		Profiles: []string{"default", env.profileName()},
+		Profiles: env.containerProfileNames(),
 		Image:    image,
 		Config:   make(map[string]string),
 	}
@@ -211,13 +211,13 @@ func (env *environ) getContainerSpec(
 	}
 
 	// Assemble the list of NICs that need to be added to the container.
-	// This includes all NICs from the default profile as well as any
+	// This includes all NICs from the applied profiles as well as any
 	// additional NICs required to satisfy any subnets that were requested
 	// due to space constraints.
 	//
 	// If additional non-eth0 NICs are to be added, we need to ensure that
 	// cloud-init correctly configures them.
-	nics, err := env.assignContainerNICs(args)
+	nics, err := env.assignContainerNICs(ctx, args)
 	if err != nil {
 		return cSpec, errors.Trace(err)
 	}
@@ -268,11 +268,21 @@ func (env *environ) getContainerSpec(
 	return cSpec, nil
 }
 
-func (env *environ) assignContainerNICs(instStartParams environs.StartInstanceParams) (map[string]map[string]string, error) {
-	// First, include any nics explicitly requested by the default profile.
-	assignedNICs, err := env.server().GetNICsFromProfile("default")
-	if err != nil {
-		return nil, errors.Trace(err)
+func (env *environ) containerProfileNames() []string {
+	return []string{"default", env.profileName()}
+}
+
+func (env *environ) assignContainerNICs(ctx context.Context, instStartParams environs.StartInstanceParams) (map[string]map[string]string, error) {
+	// First, include any NICs explicitly requested by the applied profiles.
+	// Later profiles override earlier profiles, matching LXD profile
+	// precedence.
+	assignedNICs := make(map[string]map[string]string)
+	for _, profileName := range env.containerProfileNames() {
+		profileNICs, err := env.server().GetNICsFromProfile(profileName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		maps.Copy(assignedNICs, profileNICs)
 	}
 
 	// No additional NICs required.
@@ -280,8 +290,22 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 		return assignedNICs, nil
 	}
 
-	if assignedNICs == nil {
-		assignedNICs = make(map[string]map[string]string)
+	// Map each requested subnet to the LXD network (host bridge) that hosts it.
+	// The subnet's ProviderNetworkId identifies the bridge to attach for a
+	// subnet requested by space constraints.
+	requestedSubnetIDs := make([]corenetwork.Id, 0)
+	for _, subnetList := range instStartParams.SubnetsToZones {
+		for providerSubnetID := range subnetList {
+			requestedSubnetIDs = append(requestedSubnetIDs, providerSubnetID)
+		}
+	}
+	subnets, err := env.Subnets(ctx, requestedSubnetIDs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnetBridges := make(map[corenetwork.Id]string, len(subnets))
+	for _, subnet := range subnets {
+		subnetBridges[subnet.ProviderId] = string(subnet.ProviderNetworkId)
 	}
 
 	// We use two sets to de-dup the required NICs and ensure that each
@@ -297,28 +321,23 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 	// Assign any extra NICs required to satisfy the subnet requirements
 	// for this instance.
 	var nextIndex int
+	var unsatisfied []string
 	for _, subnetList := range instStartParams.SubnetsToZones {
 		for providerSubnetID := range subnetList {
-			subnetID := string(providerSubnetID)
-
-			// Sanity check: make sure we are using the correct subnet
-			// naming conventions (subnet-$hostBridgeName-$CIDR).
-			if !strings.HasPrefix(subnetID, "subnet-") {
+			// Recover the host bridge that hosts this subnet. A subnet with
+			// no host bridge on this LXD host means we cannot provide the
+			// requested connectivity, so we must fail rather than hand back
+			// an under-connected container.
+			hostBridge, ok := subnetBridges[providerSubnetID]
+			if !ok || hostBridge == "" {
+				unsatisfied = append(unsatisfied, string(providerSubnetID))
 				continue
 			}
 
-			// Let's be paranoid here and assume that the bridge
-			// name may also contain dashes. So trim the "subnet-"
-			// prefix and anything from the right-most dash to
-			// recover the bridge name.
-			subnetID = strings.TrimPrefix(subnetID, "subnet-")
-			lastDashIndex := strings.LastIndexByte(subnetID, '-')
-			if lastDashIndex == -1 {
-				continue
-			}
-			hostBridge := subnetID[:lastDashIndex]
-
-			// We have already requested a device on this subnet
+			// A profile or generated device already attaches the container to
+			// the bridge hosting this subnet. Profile NICs are included in
+			// assignedNICs above, so they can satisfy space subnet requirements
+			// without adding a duplicate device.
 			if requestedHostBridges.Contains(hostBridge) {
 				continue
 			}
@@ -346,6 +365,12 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 			requestedHostBridges.Add(hostBridge)
 			requestedNICNames.Add(devName)
 		}
+	}
+
+	if len(unsatisfied) > 0 {
+		return nil, errors.Errorf(
+			"cannot satisfy space requirements: no host bridge found for subnet(s) %q",
+			unsatisfied)
 	}
 
 	return assignedNICs, nil
