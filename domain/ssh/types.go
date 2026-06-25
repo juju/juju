@@ -6,7 +6,6 @@ package ssh
 import (
 	"time"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 )
 
@@ -21,5 +20,4 @@ type SSHConnRequest struct {
 	ControllerAddresses network.SpaceAddresses
 	UnitPort            int
 	EphemeralPublicKey  []byte
-	ModelUUID           model.UUID
 }
