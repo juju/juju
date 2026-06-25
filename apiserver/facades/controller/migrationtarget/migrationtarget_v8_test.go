@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export"
-	v4_0_6 "github.com/juju/juju/domain/export/types/v4_0_6"
+	v4_0_11 "github.com/juju/juju/domain/export/types/v4_0_11"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -129,31 +129,31 @@ func (s *v8Suite) mustNewAPIV8WithMinter(c *tc.C, minter facade.LocalMacaroonMin
 	return apiV8
 }
 
-// validPayload returns a v4_0_6 payload with an agent version below the target
+// validPayload returns a v4_0_11 payload with an agent version below the target
 // controller version used in tests.
-func (s *v8Suite) validPayload() v4_0_6.ModelExport {
-	return v4_0_6.ModelExport{
-		AgentVersion: []v4_0_6.AgentVersion{{
-			TargetVersion: "4.0.6",
+func (s *v8Suite) validPayload() v4_0_11.ModelExport {
+	return v4_0_11.ModelExport{
+		AgentVersion: []v4_0_11.AgentVersion{{
+			TargetVersion: "4.0.11",
 		}},
-		Application: []v4_0_6.Application{{
+		Application: []v4_0_11.Application{{
 			UUID:      "app-uuid",
 			Name:      "ubuntu",
 			CharmUUID: "charm-uuid",
 		}},
-		CharmManifestBase: []v4_0_6.CharmManifestBase{{
+		CharmManifestBase: []v4_0_11.CharmManifestBase{{
 			CharmUUID: "charm-uuid",
 			Risk:      "stable",
 		}},
 	}
 }
 
-func (s *v8Suite) makeEnvelope(c *tc.C, payload v4_0_6.ModelExport) params.SerializedModelV2 {
+func (s *v8Suite) makeEnvelope(c *tc.C, payload v4_0_11.ModelExport) params.SerializedModelV2 {
 	data, err := yaml.Marshal(payload)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return params.SerializedModelV2{
-		PayloadVersion: semversion.MustParse("4.0.6"),
+		PayloadVersion: semversion.MustParse("4.0.11"),
 		Payload:        data,
 		ModelInfo: params.SerializedModelInfo{
 			UUID:                s.modelUUID,
@@ -281,7 +281,7 @@ func (s *v8Suite) TestPrechecksPayloadDecodeError(c *tc.C) {
 	envelope.Payload = []byte("\t: garbage")
 	err := api.Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Check(err, tc.ErrorMatches, `decoding model export payload at version "4.0.6".*`)
+	c.Check(err, tc.ErrorMatches, `decoding model export payload at version "4.0.11".*`)
 }
 
 // TestPrechecksPayloadVersionNewerThanTarget verifies the
@@ -320,7 +320,7 @@ func (s *v8Suite) TestPrechecksModelVersionNewerThanController(c *tc.C) {
 	s.expectControllerReady()
 
 	payload := s.validPayload()
-	payload.AgentVersion = []v4_0_6.AgentVersion{{TargetVersion: "4.2.0"}}
+	payload.AgentVersion = []v4_0_11.AgentVersion{{TargetVersion: "4.2.0"}}
 
 	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, payload))
 	c.Check(err, tc.ErrorMatches,

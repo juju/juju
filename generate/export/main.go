@@ -1,7 +1,7 @@
 // Copyright 2025 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-//go:generate go run main.go
+//go:generate go run .
 
 package main
 
@@ -124,7 +124,19 @@ func generate(ctx context.Context, runner *txnRunner) error {
 		return err
 	}
 
-	return writeServiceModelVersionFile(versionToken, semanticVersion)
+	if err := writeServiceModelVersionFile(versionToken, semanticVersion); err != nil {
+		return err
+	}
+
+	return generateTransforms(exportVersionStrings(export.ExportVersions))
+}
+
+func exportVersionStrings(versions []semversion.Number) []string {
+	result := make([]string, len(versions))
+	for i, v := range versions {
+		result[i] = v.String()
+	}
+	return result
 }
 
 func getTableNames(ctx context.Context, runner *txnRunner) ([]string, error) {

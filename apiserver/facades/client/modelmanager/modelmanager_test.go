@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	blockcommanderrors "github.com/juju/juju/domain/blockcommand/errors"
 	domainexport "github.com/juju/juju/domain/export"
-	"github.com/juju/juju/domain/export/types/v4_0_4"
+	"github.com/juju/juju/domain/export/types/v4_0_11"
 	domainmodel "github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
@@ -635,10 +635,10 @@ func (s *modelManagerSuite) TestDumpModel(c *tc.C) {
 
 	modelUUID, modelTag := generateModelUUIDAndTag(c)
 	expected := &domainexport.ModelExport{
-		Version: semversion.MustParse("4.0.4"),
-		Payload: &v4_0_4.ModelExport{
-			AgentBinaryStore: []v4_0_4.AgentBinaryStore{{
-				Version:         "4.0.4",
+		Version: semversion.MustParse("4.0.11"),
+		Payload: &v4_0_11.ModelExport{
+			AgentBinaryStore: []v4_0_11.AgentBinaryStore{{
+				Version:         "4.0.11",
 				ArchitectureID:  1,
 				ObjectStoreUUID: "object-store-uuid",
 			}},
@@ -660,14 +660,14 @@ func (s *modelManagerSuite) TestDumpModel(c *tc.C) {
 	c.Assert(results.Results[0].Error, tc.IsNil)
 
 	var wireExport struct {
-		Version string             `yaml:"version"`
-		Payload v4_0_4.ModelExport `yaml:"payload"`
+		Version string              `yaml:"version"`
+		Payload v4_0_11.ModelExport `yaml:"payload"`
 	}
 	err := yaml.Unmarshal([]byte(results.Results[0].Result), &wireExport)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(wireExport.Version, tc.Equals, "4.0.4")
+	c.Check(wireExport.Version, tc.Equals, "4.0.11")
 
-	expectedPayload, ok := expected.Payload.(*v4_0_4.ModelExport)
+	expectedPayload, ok := expected.Payload.(*v4_0_11.ModelExport)
 	c.Assert(ok, tc.IsTrue)
 	c.Check(&wireExport.Payload, tc.DeepEquals, expectedPayload)
 }
@@ -695,8 +695,8 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
 	defer s.setUpAPIWithUser(c, user).Finish()
 
 	expected := &domainexport.ModelExport{
-		Version: semversion.MustParse("4.0.4"),
-		Payload: &v4_0_4.ModelExport{},
+		Version: semversion.MustParse("4.0.11"),
+		Payload: &v4_0_11.ModelExport{},
 	}
 
 	s.domainServicesGetter.EXPECT().DomainServicesForModel(
@@ -712,7 +712,7 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *tc.C) {
 
 	c.Assert(results.Results, tc.HasLen, 1)
 	c.Check(results.Results[0].Error, tc.IsNil)
-	c.Check(results.Results[0].Result, tc.Matches, "(?s).*version: 4.0.4.*")
+	c.Check(results.Results[0].Result, tc.Matches, "(?s).*version: 4.0.11.*")
 }
 
 func (s *modelManagerSuite) TestUpdatedModel(c *tc.C) {

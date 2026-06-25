@@ -8,8 +8,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
-	v4_0_4 "github.com/juju/juju/domain/export/types/v4_0_4"
-	v4_0_6 "github.com/juju/juju/domain/export/types/v4_0_6"
+	v4_0_11 "github.com/juju/juju/domain/export/types/v4_0_11"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,9 +23,8 @@ type PayloadDecodeFunc func(data []byte) (any, error)
 // new export version forces this registry (and [ProjectionViewForPayload]) to
 // be updated.
 var payloadDecoders = map[semversion.Number]PayloadDecodeFunc{
-	semversion.MustParse("4.0.4"): decodePayload[v4_0_4.ModelExport],
-	semversion.MustParse("4.0.6"): decodePayload[v4_0_6.ModelExport],
-	semversion.MustParse("4.1.0"): decodePayload[v4_1_0.ModelExport],
+	semversion.MustParse("4.0.11"): decodePayload[v4_0_11.ModelExport],
+	semversion.MustParse("4.1.0"):  decodePayload[v4_1_0.ModelExport],
 }
 
 func decodePayload[T any](data []byte) (any, error) {
@@ -83,10 +81,8 @@ type ProjectionView struct {
 // [coreerrors.NotSupported] for payload types not known to this registry.
 func ProjectionViewForPayload(payload any) (ProjectionView, error) {
 	switch p := payload.(type) {
-	case v4_0_4.ModelExport:
-		return buildProjectionViewV4_0_4(p)
-	case v4_0_6.ModelExport:
-		return buildProjectionViewV4_0_6(p)
+	case v4_0_11.ModelExport:
+		return buildProjectionViewV4_0_11(p)
 	case v4_1_0.ModelExport:
 		return buildProjectionViewV4_1_0(p)
 	default:
@@ -95,17 +91,7 @@ func ProjectionViewForPayload(payload any) (ProjectionView, error) {
 	}
 }
 
-func buildProjectionViewV4_0_4(payload v4_0_4.ModelExport) (ProjectionView, error) {
-	var view ProjectionView
-	if err := setAgentTargetVersion(&view, len(payload.AgentVersion), func(i int) string {
-		return payload.AgentVersion[i].TargetVersion
-	}); err != nil {
-		return ProjectionView{}, errors.Capture(err)
-	}
-	return view, nil
-}
-
-func buildProjectionViewV4_0_6(payload v4_0_6.ModelExport) (ProjectionView, error) {
+func buildProjectionViewV4_0_11(payload v4_0_11.ModelExport) (ProjectionView, error) {
 	var view ProjectionView
 	if err := setAgentTargetVersion(&view, len(payload.AgentVersion), func(i int) string {
 		return payload.AgentVersion[i].TargetVersion
