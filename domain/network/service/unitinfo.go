@@ -5,8 +5,6 @@ package service
 
 import (
 	"context"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/juju/collections/transform"
@@ -199,31 +197,38 @@ func buildUnitNetworkWithIngressAddresses(
 	ingressAddresses []string,
 	isCaas bool,
 ) domainnetwork.UnitNetwork {
-	byDevice := map[string]domainnetwork.DeviceInfo{}
+	var devices []domainnetwork.DeviceInfo
+	deviceIndex := make(map[string]int)
 	for _, addr := range addresses {
 		// The purpose of the method is to get connectivity information for
 		// the unit. Skip loopback addresses to focus on external connectivity.
 		if addr.IP().IsLoopback() {
 			continue
 		}
-
-		devInfo, ok := byDevice[addr.DeviceName]
-		if !ok {
-			devInfo.Name = addr.DeviceName
-			devInfo.MACAddress = addr.MACAddress
+		// Kubernetes service addresses are valid ingress addresses, but are
+		// not locally bindable by the unit workload.
+		if isCaas && addr.Scope != corenetwork.ScopeMachineLocal {
+			continue
 		}
 
-		if !isCaas || addr.Scope == corenetwork.ScopeMachineLocal {
-			devInfo.Addresses = append(devInfo.Addresses, domainnetwork.AddressInfo{
-				Hostname: addr.Host(),
-				Value:    addr.IP().String(),
-				CIDR:     addr.AddressCIDR(),
+		idx, ok := deviceIndex[addr.DeviceName]
+		if !ok {
+			idx = len(devices)
+			deviceIndex[addr.DeviceName] = idx
+			devices = append(devices, domainnetwork.DeviceInfo{
+				Name:       addr.DeviceName,
+				MACAddress: addr.MACAddress,
 			})
 		}
-		byDevice[addr.DeviceName] = devInfo
+
+		devices[idx].Addresses = append(devices[idx].Addresses, domainnetwork.AddressInfo{
+			Hostname: addr.Host(),
+			Value:    addr.IP().String(),
+			CIDR:     addr.AddressCIDR(),
+		})
 	}
 	return domainnetwork.UnitNetwork{
-		DeviceInfos:      slices.Collect(maps.Values(byDevice)),
+		DeviceInfos:      devices,
 		IngressAddresses: normaliseIngressAddresses(ingressAddresses),
 	}
 }

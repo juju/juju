@@ -114,6 +114,35 @@ func (s *NetworkGetSuite) createCommand(c *tc.C) cmd.Command {
 		IngressAddresses: []string{"100.1.2.3", "100.4.3.2"},
 		EgressSubnets:    []string{"192.168.1.0/8", "10.0.0.0/8"},
 	}
+	presetBindings["empty-first"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{
+				MACAddress:    "00:11:22:33:44:44",
+				InterfaceName: "eth4",
+			},
+			{
+				MACAddress:    "00:11:22:33:44:55",
+				InterfaceName: "eth5",
+				Addresses: []params.InterfaceAddress{{
+					Address: "10.44.1.9",
+					CIDR:    "10.44.1.0/24",
+				}},
+			},
+		},
+	}
+	presetBindings["all-empty"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{
+			{InterfaceName: "eth6"},
+			{InterfaceName: "eth7"},
+		},
+	}
+	presetBindings["ingress-egress-only"] = params.NetworkInfoResult{
+		IngressAddresses: []string{"203.0.113.10"},
+		EgressSubnets:    []string{"10.55.0.0/16"},
+	}
+	presetBindings["result-error"] = params.NetworkInfoResult{
+		Error: &params.Error{Message: "network info failed"},
+	}
 
 	hctx.info.NetworkInterface.NetworkInfoResults = presetBindings
 
@@ -157,6 +186,11 @@ func (s *NetworkGetSuite) TestNetworkGet(c *tc.C) {
 		args:    []string{"valid-no-config"},
 		code:    1,
 		out:     `no network config found for binding "valid-no-config"`,
+	}, {
+		summary: "API server error takes precedence over empty network config",
+		args:    []string{"result-error"},
+		code:    1,
+		out:     `network info failed`,
 	}, {
 		summary: "explicitly bound, extra-binding name given with single flag arg",
 		args:    []string{"known-extra", "--ingress-address"},
@@ -238,6 +272,63 @@ bind-addresses:
     address: 10.33.1.8
   macaddress: "00:11:22:33:44:33"
   interfacename: eth3`[1:],
+	}, {
+		summary: "bind address skips an empty first device",
+		args:    []string{"empty-first", "--bind-address"},
+		out:     "10.44.1.9",
+	}, {
+		summary: "primary address skips an empty first device",
+		args:    []string{"empty-first", "--primary-address"},
+		out:     "10.44.1.9",
+	}, {
+		summary: "ingress fallback skips an empty first device",
+		args:    []string{"empty-first", "--ingress-address"},
+		out:     "10.44.1.9",
+	}, {
+		summary: "bind address reports all devices empty",
+		args:    []string{"all-empty", "--bind-address"},
+		code:    1,
+		out:     `no bind address attached to space for binding "all-empty"`,
+	}, {
+		summary: "primary address reports all devices empty",
+		args:    []string{"all-empty", "--primary-address"},
+		code:    1,
+		out:     `no primary address attached to space for binding "all-empty"`,
+	}, {
+		summary: "ingress fallback reports all devices empty",
+		args:    []string{"all-empty", "--ingress-address"},
+		code:    1,
+		out:     `no ingress address attached to space for binding "all-empty"`,
+	}, {
+		summary: "ingress-only result supports ingress flag",
+		args:    []string{"ingress-egress-only", "--ingress-address"},
+		out:     "203.0.113.10",
+	}, {
+		summary: "egress-only result supports egress flag",
+		args:    []string{"ingress-egress-only", "--egress-subnets"},
+		out:     "10.55.0.0/16",
+	}, {
+		summary: "ingress and egress result supports full output without bind devices",
+		args:    []string{"ingress-egress-only"},
+		out: `
+egress-subnets:
+- 10.55.0.0/16
+ingress-addresses:
+- 203.0.113.10`[1:],
+	}, {
+		summary: "ingress and egress result supports JSON output without bind devices",
+		args:    []string{"ingress-egress-only", "--format", "json"},
+		out:     `{"egress-subnets":["10.55.0.0/16"],"ingress-addresses":["203.0.113.10"]}`,
+	}, {
+		summary: "ingress and egress result reports missing bind address",
+		args:    []string{"ingress-egress-only", "--bind-address"},
+		code:    1,
+		out:     `no bind address attached to space for binding "ingress-egress-only"`,
+	}, {
+		summary: "ingress and egress result reports missing primary address",
+		args:    []string{"ingress-egress-only", "--primary-address"},
+		code:    1,
+		out:     `no primary address attached to space for binding "ingress-egress-only"`,
 	}, {
 		summary: "explicit ingress and egress information",
 		args:    []string{"ingress-egress", "--ingress-address", "--bind-address", "--egress-subnets"},

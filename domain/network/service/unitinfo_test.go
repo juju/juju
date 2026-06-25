@@ -528,21 +528,74 @@ func (s *infoSuite) TestGetUnitEndpointNetworksCaasUsesServiceAddressForIngress(
 	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(infos, tc.HasLen, 1)
-	c.Check(infos[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.2"})
+	c.Check(infos[0], tc.DeepEquals, domainnetwork.UnitNetwork{
+		EndpointName: "db",
+		DeviceInfos: []domainnetwork.DeviceInfo{{
+			Name:       "eth0",
+			MACAddress: "aa:bb:cc:dd:ee:ff",
+			Addresses: []domainnetwork.AddressInfo{{
+				Hostname: "10.0.0.1",
+				Value:    "10.0.0.1",
+				CIDR:     "10.0.0.0/24",
+			}},
+		}},
+		IngressAddresses: []string{"10.0.0.2"},
+		EgressSubnets:    []string{"10.0.0.0/24"},
+	})
+}
 
-	devices := transform.SliceToMap(
-		infos[0].DeviceInfos,
-		func(d domainnetwork.DeviceInfo) (string, domainnetwork.DeviceInfo) {
-			return d.Name, d
-		},
-	)
-	c.Assert(devices, tc.HasLen, 2)
-	c.Check(devices["eth0"].Addresses, tc.DeepEquals, []domainnetwork.AddressInfo{{
-		Hostname: "10.0.0.1",
-		Value:    "10.0.0.1",
-		CIDR:     "10.0.0.0/24",
+func (s *infoSuite) TestBuildUnitNetworkPreservesDeviceAndAddressOrder(c *tc.C) {
+	addresses := []networkinternal.UnitAddress{
+		unitAddress("10.0.1.1", "10.0.1.0/24", "eth1",
+			"aa:bb:cc:dd:ee:01", corenetwork.ScopeCloudLocal,
+			corenetwork.EthernetDevice),
+		unitAddress("10.0.0.1", "10.0.0.0/24", "eth0",
+			"aa:bb:cc:dd:ee:00", corenetwork.ScopeCloudLocal,
+			corenetwork.EthernetDevice),
+		unitAddress("10.0.1.2", "10.0.1.0/24", "eth1",
+			"aa:bb:cc:dd:ee:01", corenetwork.ScopeCloudLocal,
+			corenetwork.EthernetDevice),
+	}
+
+	info := buildUnitNetworkWithIngressAddresses(addresses, nil, false)
+
+	c.Check(info.DeviceInfos, tc.DeepEquals, []domainnetwork.DeviceInfo{{
+		Name:       "eth1",
+		MACAddress: "aa:bb:cc:dd:ee:01",
+		Addresses: []domainnetwork.AddressInfo{{
+			Hostname: "10.0.1.1",
+			Value:    "10.0.1.1",
+			CIDR:     "10.0.1.0/24",
+		}, {
+			Hostname: "10.0.1.2",
+			Value:    "10.0.1.2",
+			CIDR:     "10.0.1.0/24",
+		}},
+	}, {
+		Name:       "eth0",
+		MACAddress: "aa:bb:cc:dd:ee:00",
+		Addresses: []domainnetwork.AddressInfo{{
+			Hostname: "10.0.0.1",
+			Value:    "10.0.0.1",
+			CIDR:     "10.0.0.0/24",
+		}},
 	}})
-	c.Check(devices["eth1"].Addresses, tc.HasLen, 0)
+}
+
+func (s *infoSuite) TestBuildUnitNetworkCaasDoesNotEmitEmptyDevices(c *tc.C) {
+	addresses := []networkinternal.UnitAddress{
+		unitAddress("10.0.0.2", "10.0.0.0/24", "service",
+			"aa:bb:cc:dd:ee:02", corenetwork.ScopeCloudLocal,
+			corenetwork.EthernetDevice),
+		unitAddress("127.0.0.1", "127.0.0.0/8", "lo",
+			"00:00:00:00:00:00", corenetwork.ScopeMachineLocal,
+			corenetwork.LoopbackDevice),
+	}
+
+	info := buildUnitNetworkWithIngressAddresses(addresses, []string{"10.0.0.2/24"}, true)
+
+	c.Check(info.DeviceInfos, tc.HasLen, 0)
+	c.Check(info.IngressAddresses, tc.DeepEquals, []string{"10.0.0.2"})
 }
 
 func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitAddresses(c *tc.C) {
@@ -597,6 +650,47 @@ func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedUsesUnitAddresses(c *
 			EgressSubnets:    []string{"192.168.1.0/24"},
 		},
 	})
+}
+
+func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedCaasSkipsServiceAddress(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := coreunit.Name("mysql/0")
+	unitUUID := coreunit.UUID("unit-uuid-123")
+	endpointNames := []string{"db"}
+	addresses := []networkinternal.UnitAddress{
+		unitAddress("10.0.0.2", "10.0.0.0/24", "service",
+			"aa:bb:cc:dd:ee:02", corenetwork.ScopeCloudLocal,
+			corenetwork.EthernetDevice),
+		unitAddress("10.0.0.1", "10.0.0.0/24", "eth0",
+			"aa:bb:cc:dd:ee:01", corenetwork.ScopeMachineLocal,
+			corenetwork.EthernetDevice),
+	}
+
+	s.st.EXPECT().GetUnitUUIDByName(gomock.Any(), unitName).Return(unitUUID, nil)
+	s.st.EXPECT().GetModelEgressSubnets(gomock.Any()).Return([]string{"10.0.0.0/24"}, nil)
+	s.st.EXPECT().IsCaasUnit(gomock.Any(), unitUUID.String()).Return(true, nil)
+	s.st.EXPECT().GetUnitNetworkInfo(
+		gomock.Any(), unitUUID.String(),
+	).Return(unitNetworkInfo([]string{"10.0.0.2"}, addresses...), nil)
+
+	service := NewProviderService(s.st, s.notSupportedProviderGetter, nil, loggertesting.WrapCheckLog(c))
+	infos, err := service.GetUnitEndpointNetworks(c.Context(), unitName, endpointNames)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(infos, tc.DeepEquals, []domainnetwork.UnitNetwork{{
+		EndpointName: "db",
+		DeviceInfos: []domainnetwork.DeviceInfo{{
+			Name:       "eth0",
+			MACAddress: "aa:bb:cc:dd:ee:01",
+			Addresses: []domainnetwork.AddressInfo{{
+				Hostname: "10.0.0.1",
+				Value:    "10.0.0.1",
+				CIDR:     "10.0.0.0/24",
+			}},
+		}},
+		IngressAddresses: []string{"10.0.0.2"},
+		EgressSubnets:    []string{"10.0.0.0/24"},
+	}})
 }
 
 func (s *infoSuite) TestGetUnitEndpointNetworksNotSupportedSortsIngressAddresses(c *tc.C) {

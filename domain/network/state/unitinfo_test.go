@@ -270,6 +270,81 @@ func (s *infoSuite) TestGetUnitEndpointNetworkInfoCaasUnit(c *tc.C) {
 	}})
 }
 
+func (s *infoSuite) TestUnitNetworkInfoTotallyOrdersTiedDevices(c *tc.C) {
+	podNodeUUID := s.addNetNode(c)
+	serviceNodeUUID := s.addNetNode(c)
+	spaceUUID := s.addSpace(c)
+	subnetUUID := s.addSubnet(c, "10.0.0.0/24", spaceUUID)
+
+	podDeviceUUID := s.addLinkLayerDevice(
+		c, podNodeUUID, "same", "00:11:22:33:44:03", corenetwork.EthernetDevice,
+	)
+	s.query(c, `UPDATE link_layer_device SET uuid = ? WHERE uuid = ?`,
+		"device-b-uuid", podDeviceUUID)
+	podDeviceUUID = "device-b-uuid"
+	podAddressUUID := s.addIPAddressWithSubnetAndScope(
+		c, podDeviceUUID, podNodeUUID, subnetUUID, "10.0.0.1",
+		corenetwork.ScopeCloudLocal,
+	)
+	s.query(c, `UPDATE ip_address SET uuid = ? WHERE uuid = ?`,
+		"address-b-uuid", podAddressUUID)
+
+	alphaDeviceUUID := s.addLinkLayerDevice(
+		c, serviceNodeUUID, "alpha", "00:11:22:33:44:01", corenetwork.EthernetDevice,
+	)
+	s.query(c, `UPDATE link_layer_device SET uuid = ? WHERE uuid = ?`,
+		"device-z-uuid", alphaDeviceUUID)
+	alphaDeviceUUID = "device-z-uuid"
+	alphaAddressUUID := s.addIPAddressWithSubnetAndScope(
+		c, alphaDeviceUUID, serviceNodeUUID, subnetUUID, "10.0.0.1",
+		corenetwork.ScopeCloudLocal,
+	)
+	s.query(c, `UPDATE ip_address SET uuid = ? WHERE uuid = ?`,
+		"address-z-uuid", alphaAddressUUID)
+
+	serviceDeviceUUID := s.addLinkLayerDevice(
+		c, serviceNodeUUID, "same", "00:11:22:33:44:02", corenetwork.EthernetDevice,
+	)
+	s.query(c, `UPDATE link_layer_device SET uuid = ? WHERE uuid = ?`,
+		"device-a-uuid", serviceDeviceUUID)
+	serviceDeviceUUID = "device-a-uuid"
+	serviceAddressUUID := s.addIPAddressWithSubnetAndScope(
+		c, serviceDeviceUUID, serviceNodeUUID, subnetUUID, "10.0.0.1",
+		corenetwork.ScopeCloudLocal,
+	)
+	s.query(c, `UPDATE ip_address SET uuid = ? WHERE uuid = ?`,
+		"address-a-uuid", serviceAddressUUID)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addK8sService(c, serviceNodeUUID, appUUID)
+	endpointName := "endpoint1"
+	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, spaceUUID)
+
+	deviceOrder := func(addresses []networkinternal.UnitAddress) []string {
+		return transform.Slice(addresses, func(address networkinternal.UnitAddress) string {
+			return address.DeviceName + "/" + address.MACAddress
+		})
+	}
+	expectedOrder := []string{
+		"alpha/00:11:22:33:44:01",
+		"same/00:11:22:33:44:02",
+		"same/00:11:22:33:44:03",
+	}
+
+	endpointInfo, err := s.state.GetUnitEndpointNetworkInfo(
+		c.Context(), string(unitUUID), []string{endpointName},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(endpointInfo, tc.HasLen, 1)
+	c.Check(deviceOrder(endpointInfo[0].Addresses), tc.DeepEquals, expectedOrder)
+
+	unitInfo, err := s.state.GetUnitNetworkInfo(c.Context(), string(unitUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(deviceOrder(unitInfo.Addresses), tc.DeepEquals, expectedOrder)
+}
+
 func (s *infoSuite) TestGetUnitEndpointNetworkInfoNoAddresses(c *tc.C) {
 	nodeUUID := s.addNetNode(c)
 	spaceUUID := s.addSpace(c)
