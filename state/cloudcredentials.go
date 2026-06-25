@@ -64,11 +64,14 @@ type cloudCredentialDoc struct {
 
 // CloudCredential returns the cloud credential for the given tag.
 func (st *State) CloudCredential(tag names.CloudCredentialTag) (Credential, error) {
-	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
+	coll, cleanup, err := st.db().GetCollection(cloudCredentialsC)
+	if err != nil {
+		return Credential{}, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var doc cloudCredentialDoc
-	err := coll.FindId(cloudCredentialDocID(tag)).One(&doc)
+	err = coll.FindId(cloudCredentialDocID(tag)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return Credential{}, errors.NotFoundf(
 			"cloud credential %q", tag.Id(),
@@ -84,7 +87,10 @@ func (st *State) CloudCredential(tag names.CloudCredentialTag) (Credential, erro
 // CloudCredentials returns the user's cloud credentials for a given cloud,
 // keyed by credential name.
 func (st *State) CloudCredentials(user names.UserTag, cloudName string) (map[string]Credential, error) {
-	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
+	coll, cleanup, err := st.db().GetCollection(cloudCredentialsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	credentials := make(map[string]Credential)
@@ -430,7 +436,10 @@ func (st *State) WatchCredential(cred names.CloudCredentialTag) NotifyWatcher {
 // AllCloudCredentials returns all cloud credentials stored on the controller
 // for a given user.
 func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
-	coll, cleanup := st.db().GetCollection(cloudCredentialsC)
+	coll, cleanup, err := st.db().GetCollection(cloudCredentialsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	// There are 2 ways of getting a credential for a user:
@@ -442,7 +451,7 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 	clause := bson.D{{"owner", user.Id()}}
 
 	var docs []cloudCredentialDoc
-	err := coll.Find(clause).Sort("cloud").All(&docs)
+	err = coll.Find(clause).Sort("cloud").All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting cloud credentials for %q", user.Id())
 	}
@@ -459,7 +468,10 @@ func (st *State) AllCloudCredentials(user names.UserTag) ([]Credential, error) {
 }
 
 func (st *State) modelsWithCredential(tag names.CloudCredentialTag) ([]modelDoc, error) {
-	coll, cleanup := st.db().GetCollection(modelsC)
+	coll, cleanup, err := st.db().GetCollection(modelsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	sel := bson.D{
@@ -468,7 +480,7 @@ func (st *State) modelsWithCredential(tag names.CloudCredentialTag) ([]modelDoc,
 	}
 
 	var docs []modelDoc
-	err := coll.Find(sel).All(&docs)
+	err = coll.Find(sel).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting models that use cloud credential %q", tag.Id())
 	}
@@ -496,7 +508,10 @@ func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]stri
 func (st *State) RemoveModelsCredential(tag names.CloudCredentialTag) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		logger.Tracef("creating operations to remove models credential, attempt %d", attempt)
-		coll, cleanup := st.db().GetCollection(modelsC)
+		coll, cleanup, err := st.db().GetCollection(modelsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer cleanup()
 
 		sel := bson.D{

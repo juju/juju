@@ -180,7 +180,10 @@ func (st *State) OfferConnectionsForUser(username string) ([]*OfferConnection, e
 
 // offerConnections returns the offer connections for the input condition
 func (st *State) offerConnections(condition bson.D) ([]*OfferConnection, error) {
-	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
+	offerConnectionCollection, closer, err := st.db().GetCollection(offerConnectionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var connDocs []offerConnectionDoc
@@ -197,11 +200,14 @@ func (st *State) offerConnections(condition bson.D) ([]*OfferConnection, error) 
 
 // OfferConnectionForRelation returns the offer connection for the specified relation.
 func (st *State) OfferConnectionForRelation(relationKey string) (*OfferConnection, error) {
-	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
+	offerConnectionCollection, closer, err := st.db().GetCollection(offerConnectionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var connDoc offerConnectionDoc
-	err := offerConnectionCollection.Find(bson.D{{"relation-key", relationKey}}).One(&connDoc)
+	err = offerConnectionCollection.Find(bson.D{{"relation-key", relationKey}}).One(&connDoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("offer connection for relation %q", relationKey)
 	}

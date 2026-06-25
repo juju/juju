@@ -119,10 +119,13 @@ func (c *Constraints) ChangeSpaceNameOps(from, to string) []txn.Op {
 
 // AllConstraints returns all constraints in the collection.
 func (st *State) AllConstraints() ([]*Constraints, error) {
-	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	constraintsCollection, closer, err := st.db().GetCollection(constraintsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var docs []constraintsDoc
-	err := constraintsCollection.Find(nil).All(&docs)
+	err = constraintsCollection.Find(nil).All(&docs)
 
 	cons := make([]*Constraints, len(docs))
 	for i, doc := range docs {
@@ -134,7 +137,10 @@ func (st *State) AllConstraints() ([]*Constraints, error) {
 // ConstraintsBySpaceName returns all Constraints that include a positive
 // or negative space constraint for the input space name.
 func (st *State) ConstraintsBySpaceName(spaceName string) ([]*Constraints, error) {
-	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	constraintsCollection, closer, err := st.db().GetCollection(constraintsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []constraintsDoc
@@ -142,7 +148,7 @@ func (st *State) ConstraintsBySpaceName(spaceName string) ([]*Constraints, error
 		{{"spaces", spaceName}},
 		{{"spaces", "^" + spaceName}},
 	}}}
-	err := constraintsCollection.Find(query).All(&docs)
+	err = constraintsCollection.Find(query).All(&docs)
 
 	cons := make([]*Constraints, len(docs))
 	for i, doc := range docs {
@@ -178,7 +184,10 @@ func removeConstraintsOp(id string) txn.Op {
 }
 
 func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
-	constraintsCollection, closer := mb.db().GetCollection(constraintsC)
+	constraintsCollection, closer, err := mb.db().GetCollection(constraintsC)
+	if err != nil {
+		return constraints.Value{}, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc constraintsDoc
@@ -201,11 +210,14 @@ func writeConstraints(mb modelBackend, id string, cons constraints.Value) error 
 // AllConstraints retrieves all the constraints in the model
 // and provides a way to query based on machine or application.
 func (m *Model) AllConstraints() (*ModelConstraints, error) {
-	coll, closer := m.st.db().GetCollection(constraintsC)
+	coll, closer, err := m.st.db().GetCollection(constraintsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []constraintsDoc
-	err := coll.Find(nil).All(&docs)
+	err = coll.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all constraints for model")
 	}

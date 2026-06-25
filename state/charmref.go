@@ -14,7 +14,10 @@ var errCharmInUse = errors.New("charm in use")
 // to a charm and its per-application settings and storage constraints
 // documents. It will fail if the charm is not Alive.
 func appCharmIncRefOps(mb modelBackend, appName string, cURL *string, canCreate bool) ([]txn.Op, error) {
-	charms, cCloser := mb.db().GetCollection(charmsC)
+	charms, cCloser, err := mb.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cCloser()
 
 	// If we're migrating. charm document will not be present. But
@@ -31,7 +34,10 @@ func appCharmIncRefOps(mb modelBackend, appName string, cURL *string, canCreate 
 		checkOps = []txn.Op{checkOp}
 	}
 
-	refcounts, rCloser := mb.db().GetCollection(refcountsC)
+	refcounts, rCloser, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer rCloser()
 
 	getIncRefOp := nsRefcounts.CreateOrIncRefOp
@@ -69,7 +75,10 @@ func appCharmIncRefOps(mb modelBackend, appName string, cURL *string, canCreate 
 // and will accumulate operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
 func appCharmDecRefOps(st modelBackend, appName string, cURL *string, maybeDoFinal bool, op *ForcedOperation) ([]txn.Op, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+	refcounts, closer, err := st.db().GetCollection(refcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	fail := func(e error) ([]txn.Op, error) {
@@ -140,7 +149,10 @@ func charmDestroyOps(st modelBackend, curl string) ([]txn.Op, error) {
 		return nil, errors.BadRequestf("curl is empty")
 	}
 	db := st.db()
-	charms, cCloser := db.GetCollection(charmsC)
+	charms, cCloser, err := db.GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cCloser()
 
 	charmOp, err := nsLife.destroyOp(charms, curl, nil)
@@ -148,7 +160,10 @@ func charmDestroyOps(st modelBackend, curl string) ([]txn.Op, error) {
 		return nil, errors.Annotate(err, "charm")
 	}
 
-	refcounts, rCloser := db.GetCollection(refcountsC)
+	refcounts, rCloser, err := db.GetCollection(refcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer rCloser()
 
 	refcountKey := charmGlobalKey(&curl)

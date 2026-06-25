@@ -1766,7 +1766,10 @@ func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Cha
 	// Update the state in the context to be the valid one from the state pool.
 	ctx.state = st.State
 
-	col, closer := st.db().GetCollection(c.name)
+	col, closer, err := st.db().GetCollection(c.name)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	err = col.FindId(id).One(doc)
@@ -1811,7 +1814,10 @@ func (b *allWatcherBacking) getState(modelUUID string) (*PooledState, error) {
 
 func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[string]allWatcherStateCollection, store multiwatcher.Store) error {
 	// Use a single new MongoDB connection for all the work here.
-	db, closer := st.newDB()
+	db, closer, err := st.newDB()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	start := st.clock().Now()
 	defer func() {
@@ -1847,7 +1853,10 @@ func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[
 }
 
 func loadOneWatcherEntity(ctx *allWatcherContext, db Database, modelUUID string, docType reflect.Type, name string) error {
-	col, closer := db.GetCollection(name)
+	col, closer, err := db.GetCollection(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	infoSlicePtr := reflect.New(reflect.SliceOf(docType))
 
@@ -1931,7 +1940,10 @@ func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 }
 
 func (ctx *allWatcherContext) loadSettings() error {
-	col, closer := ctx.state.db().GetCollection(settingsC)
+	col, closer, err := ctx.state.db().GetCollection(settingsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []settingsDoc
@@ -1949,7 +1961,10 @@ func (ctx *allWatcherContext) loadSettings() error {
 }
 
 func (ctx *allWatcherContext) loadAnnotations() error {
-	col, closer := ctx.state.db().GetCollection(annotationsC)
+	col, closer, err := ctx.state.db().GetCollection(annotationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []annotatorDoc
@@ -1967,7 +1982,10 @@ func (ctx *allWatcherContext) loadAnnotations() error {
 }
 
 func (ctx *allWatcherContext) loadStatuses() error {
-	col, closer := ctx.state.db().GetCollection(statusesC)
+	col, closer, err := ctx.state.db().GetCollection(statusesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []statusDocWithID
@@ -1984,7 +2002,10 @@ func (ctx *allWatcherContext) loadStatuses() error {
 }
 
 func (ctx *allWatcherContext) loadInstanceData() error {
-	col, closer := ctx.state.db().GetCollection(instanceDataC)
+	col, closer, err := ctx.state.db().GetCollection(instanceDataC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []instanceData
@@ -2024,7 +2045,10 @@ func (ctx *allWatcherContext) loadOpenedPortRanges() error {
 }
 
 func (ctx *allWatcherContext) loadPermissions() error {
-	col, closer := ctx.state.db().GetCollection(permissionsC)
+	col, closer, err := ctx.state.db().GetCollection(permissionsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []backingPermission
@@ -2050,7 +2074,10 @@ func (ctx *allWatcherContext) loadPermissions() error {
 }
 
 func (ctx *allWatcherContext) loadConstraints() error {
-	col, closer := ctx.state.db().GetCollection(constraintsC)
+	col, closer, err := ctx.state.db().GetCollection(constraintsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []constraintsDoc
@@ -2081,11 +2108,14 @@ func (ctx *allWatcherContext) getAnnotations(key string) map[string]string {
 		return ctx.annotations[gKey]
 	}
 
-	annotations, closer := ctx.state.db().GetCollection(annotationsC)
+	annotations, closer, err := ctx.state.db().GetCollection(annotationsC)
+	if err != nil {
+		return nil
+	}
 	defer closer()
 
 	var doc annotatorDoc
-	err := annotations.FindId(gKey).One(&doc)
+	err = annotations.FindId(gKey).One(&doc)
 	if err != nil {
 		// We really don't care what the error is. Anything substantial
 		// will be caught by other queries.

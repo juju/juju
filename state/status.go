@@ -34,11 +34,14 @@ type ModelStatus struct {
 // LoadModelStatus retrieves all the status documents for the model
 // at once. Used to primarily speed up status.
 func (m *Model) LoadModelStatus() (*ModelStatus, error) {
-	statuses, closer := m.st.db().GetCollection(statusesC)
+	statuses, closer, err := m.st.db().GetCollection(statusesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []statusDocWithID
-	err := statuses.Find(nil).All(&docs)
+	err = statuses.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read status collection")
 	}
@@ -242,7 +245,10 @@ func unixNanoToTime(i int64) *time.Time {
 // is not found, a NotFoundError referencing badge will be returned.
 func getStatus(db Database, globalKey, badge string) (_ status.StatusInfo, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get status")
-	statuses, closer := db.GetCollection(statusesC)
+	statuses, closer, err := db.GetCollection(statusesC)
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc statusDoc
@@ -257,7 +263,10 @@ func getStatus(db Database, globalKey, badge string) (_ status.StatusInfo, err e
 }
 
 func getEntityKeysForStatus(mb modelBackend, keyType string, status status.Status) ([]string, error) {
-	statuses, closer := mb.db().GetCollection(statusesC)
+	statuses, closer, err := mb.db().GetCollection(statusesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var ids []bson.M
@@ -265,7 +274,7 @@ func getEntityKeysForStatus(mb modelBackend, keyType string, status status.Statu
 		{"_id", bson.D{{"$regex", fmt.Sprintf(".+\\:%s#.+", keyType)}}},
 		{"status", status},
 	}
-	err := statuses.Find(query).Select(bson.D{{"_id", 1}}).All(&ids)
+	err = statuses.Find(query).Select(bson.D{{"_id", 1}}).All(&ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -435,7 +444,10 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
-	history, closer := db.GetCollection(statusesHistoryC)
+	history, closer, err := db.GetCollection(statusesHistoryC)
+	if err != nil {
+		return false, err
+	}
 	defer closer()
 
 	exists, currentID := statusHistoryExists(db, historyDoc)
@@ -455,7 +467,7 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 	}
 
 	historyW := history.Writeable()
-	err := historyW.Insert(historyDoc)
+	err = historyW.Insert(historyDoc)
 	if err != nil {
 		logger.Errorf("failed to write status history: %v", err)
 		return false, err
@@ -466,13 +478,16 @@ func probablyUpdateStatusHistory(db Database, globalKey string, doc statusDoc) (
 func statusHistoryExists(db Database, historyDoc *historicalStatusDoc) (bool, bson.ObjectId) {
 	// Find the current value to see if it is worthwhile adding the new
 	// status value.
-	history, closer := db.GetCollection(statusesHistoryC)
+	history, closer, err := db.GetCollection(statusesHistoryC)
+	if err != nil {
+		return false, ""
+	}
 	defer closer()
 
 	var latest []recordedHistoricalStatusDoc
 	query := history.Find(bson.D{{globalKeyField, historyDoc.GlobalKey}})
 	query = query.Sort("-updated").Limit(1)
-	err := query.All(&latest)
+	err = query.All(&latest)
 	if err == nil && len(latest) == 1 {
 		current := latest[0]
 		// Short circuit the writing to the DB if the status, message,
@@ -511,7 +526,10 @@ func eraseStatusHistory(stop <-chan struct{}, mb modelBackend, globalKey string)
 	// recording. This method would then become a single
 	// Remove operation.
 
-	history, closer := mb.db().GetCollection(statusesHistoryC)
+	history, closer, err := mb.db().GetCollection(statusesHistoryC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	iter := history.Find(bson.D{{
@@ -585,7 +603,10 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 	if err := args.filter.Validate(); err != nil {
 		return nil, errors.Annotate(err, "validating arguments")
 	}
-	statusHistory, closer := args.db.GetCollection(statusesHistoryC)
+	statusHistory, closer, err := args.db.GetCollection(statusesHistoryC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var results []status.StatusInfo
@@ -608,9 +629,12 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 
 // PruneStatusHistory prunes the status history collection.
 func PruneStatusHistory(stop <-chan struct{}, st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	coll, closer := st.db().GetRawCollection(statusesHistoryC)
+	coll, closer, err := st.db().GetRawCollection(statusesHistoryC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
-	err := pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "updated", nil, NanoSeconds)
+	err = pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "updated", nil, NanoSeconds)
 	return errors.Trace(err)
 }

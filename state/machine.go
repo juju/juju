@@ -281,11 +281,14 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 }
 
 func getInstanceData(st *State, id string) (instanceData, error) {
-	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
+	instanceDataCollection, closer, err := st.db().GetCollection(instanceDataC)
+	if err != nil {
+		return instanceData{}, errors.Trace(err)
+	}
 	defer closer()
 
 	var instData instanceData
-	err := instanceDataCollection.FindId(id).One(&instData)
+	err = instanceDataCollection.FindId(id).One(&instData)
 	if err == mgo.ErrNotFound {
 		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 	}
@@ -309,11 +312,14 @@ func removeInstanceDataOp(globalKey string) txn.Op {
 // and provides a way to query hardware characteristics and
 // charm profiles by machine.
 func (m *Model) AllInstanceData() (*ModelInstanceData, error) {
-	coll, closer := m.st.db().GetCollection(instanceDataC)
+	coll, closer, err := m.st.db().GetCollection(instanceDataC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []instanceData
-	err := coll.Find(nil).All(&docs)
+	err = coll.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all instance data for model")
 	}
@@ -686,11 +692,14 @@ func (m *Machine) EnsureDead() error {
 // Containers returns the container ids belonging to a parent machine.
 // TODO(wallyworld): move this method to a service
 func (m *Machine) Containers() ([]string, error) {
-	containerRefs, closer := m.st.db().GetCollection(containerRefsC)
+	containerRefs, closer, err := m.st.db().GetCollection(containerRefsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var mc machineContainers
-	err := containerRefs.FindId(m.doc.DocID).One(&mc)
+	err = containerRefs.FindId(m.doc.DocID).One(&mc)
 	if err == nil {
 		return mc.Children, nil
 	}
@@ -1306,7 +1315,10 @@ func (m *Machine) ApplicationNames() ([]string, error) {
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot get units assigned to machine %v", m)
-	unitsCollection, closer := m.st.db().GetCollection(unitsC)
+	unitsCollection, closer, err := m.st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	pudocs := []unitDoc{}
@@ -1348,7 +1360,10 @@ func (m *Machine) SetProvisioned(
 		return fmt.Errorf("instance id and nonce cannot be empty")
 	}
 
-	coll, closer := m.st.db().GetCollection(instanceDataC)
+	coll, closer, err := m.st.db().GetCollection(instanceDataC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	count, err := coll.Find(bson.D{{"instanceid", id}}).Count()
 	if err != nil {
@@ -2284,14 +2299,17 @@ func (op *UpdateMachineOperation) Done(err error) error {
 }
 
 func (st *State) GetManualMachineArches() (set.Strings, error) {
-	instanceDataCollection, closer := st.db().GetCollection(instanceDataC)
+	instanceDataCollection, closer, err := st.db().GetCollection(instanceDataC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var archDocs []struct {
 		Arch string `bson:"arch"`
 	}
 
-	err := instanceDataCollection.Find(bson.M{
+	err = instanceDataCollection.Find(bson.M{
 		"instanceid": bson.M{
 			"$regex": "^" + manualMachinePrefix,
 		},

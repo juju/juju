@@ -59,11 +59,14 @@ func (sb *storageBackend) BlockDevices(machine names.MachineTag) ([]BlockDeviceI
 }
 
 func getBlockDevices(db Database, machineId string) ([]BlockDeviceInfo, error) {
-	coll, cleanup := db.GetCollection(blockDevicesC)
+	coll, cleanup, err := db.GetCollection(blockDevicesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var d blockDevicesDoc
-	err := coll.FindId(machineId).One(&d)
+	err = coll.FindId(machineId).One(&d)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("block devices not found for machine %q", machineId)
 	} else if err != nil {

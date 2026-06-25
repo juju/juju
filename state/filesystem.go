@@ -397,11 +397,14 @@ func getFilesystemDocByTag(db Database, tag names.FilesystemTag) (filesystemDoc,
 }
 
 func getFilesystemDoc(db Database, query bson.D, description string) (filesystemDoc, error) {
-	coll, cleanup := db.GetCollection(filesystemsC)
+	coll, cleanup, err := db.GetCollection(filesystemsC)
+	if err != nil {
+		return filesystemDoc{}, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var doc filesystemDoc
-	err := coll.Find(query).One(&doc)
+	err = coll.Find(query).One(&doc)
 	if err == mgo.ErrNotFound {
 		return doc, errors.NotFoundf(description)
 	} else if err != nil {
@@ -414,11 +417,14 @@ func getFilesystemDoc(db Database, query bson.D, description string) (filesystem
 }
 
 func getFilesystemDocs(db Database, query interface{}) ([]filesystemDoc, error) {
-	coll, cleanup := db.GetCollection(filesystemsC)
+	coll, cleanup, err := db.GetCollection(filesystemsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var docs []filesystemDoc
-	err := coll.Find(query).All(&docs)
+	err = coll.Find(query).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -433,11 +439,14 @@ func getFilesystemDocs(db Database, query interface{}) ([]filesystemDoc, error) 
 // FilesystemAttachment returns the FilesystemAttachment corresponding to
 // the specified filesystem and machine.
 func (sb *storageBackend) FilesystemAttachment(host names.Tag, filesystem names.FilesystemTag) (FilesystemAttachment, error) {
-	coll, cleanup := sb.mb.db().GetCollection(filesystemAttachmentsC)
+	coll, cleanup, err := sb.mb.db().GetCollection(filesystemAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var att filesystemAttachment
-	err := coll.FindId(filesystemAttachmentId(host.Id(), filesystem.Id())).One(&att.doc)
+	err = coll.FindId(filesystemAttachmentId(host.Id(), filesystem.Id())).One(&att.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("filesystem %q on %q", filesystem.Id(), names.ReadableString(host))
 	} else if err != nil {
@@ -477,11 +486,14 @@ func (sb *storageBackend) UnitFilesystemAttachments(unit names.UnitTag) ([]Files
 }
 
 func (sb *storageBackend) filesystemAttachments(query bson.D) ([]FilesystemAttachment, error) {
-	coll, cleanup := sb.mb.db().GetCollection(filesystemAttachmentsC)
+	coll, cleanup, err := sb.mb.db().GetCollection(filesystemAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var docs []filesystemAttachmentDoc
-	err := coll.Find(query).All(&docs)
+	err = coll.Find(query).All(&docs)
 	if err == mgo.ErrNotFound {
 		return nil, nil
 	} else if err != nil {

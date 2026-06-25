@@ -22,7 +22,7 @@ const (
 	bakeryConfigKey = "bakeryConfig"
 )
 
-type collectionGetterFunc func(name string) (mongo.Collection, func())
+type collectionGetterFunc func(name string) (mongo.Collection, func(), error)
 
 // BakeryConfig defines methods used to access bakery configuration.
 type BakeryConfig interface {
@@ -156,9 +156,12 @@ func (b *bakeryConfig) deserialiseKey(data, label string) (*bakery.KeyPair, erro
 
 func (b *bakeryConfig) bakeryConfigDoc() (*bakeryConfigDoc, error) {
 	var doc bakeryConfigDoc
-	controllers, closer := b.collectionGetter(b.collection)
+	controllers, closer, err := b.collectionGetter(b.collection)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
-	err := controllers.FindId(bakeryConfigKey).One(&doc)
+	err = controllers.FindId(bakeryConfigKey).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("bakery config")
 	}

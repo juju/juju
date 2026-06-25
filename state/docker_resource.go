@@ -130,11 +130,14 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 }
 
 func (dr *dockerMetadataStorage) get(resourceID string) (*dockerMetadataDoc, error) {
-	coll, closer := dr.st.db().GetCollection(dockerResourcesC)
+	coll, closer, err := dr.st.db().GetCollection(dockerResourcesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc dockerMetadataDoc
-	err := coll.FindId(resourceID).One(&doc)
+	err = coll.FindId(resourceID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("Docker resource with ID: %s", resourceID)
 	}

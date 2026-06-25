@@ -16,7 +16,7 @@ import (
 type Config struct {
 	// GetCollection returns a mongo.Collection and a function that
 	// will close any associated resources.
-	GetCollection func() (collection mongo.Collection, closer func())
+	GetCollection func() (collection mongo.Collection, closer func(), err error)
 
 	// GetStorage returns a bakery.Storage and a function that will close
 	// any associated resources.

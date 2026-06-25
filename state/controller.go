@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 
 	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/mongo"
 )
 
 const (
@@ -239,7 +240,10 @@ type ControllerInfo struct {
 // ControllerInfo returns information about
 // the currently configured controller machines.
 func (st *State) ControllerInfo() (*ControllerInfo, error) {
-	session := st.session.Copy()
+	session, err := mongo.CopySession(st.session)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer session.Close()
 	return readRawControllerInfo(session)
 }
@@ -281,11 +285,14 @@ type stateServingInfo struct {
 
 // StateServingInfo returns information for running a controller machine
 func (st *State) StateServingInfo() (jujucontroller.StateServingInfo, error) {
-	controllers, closer := st.db().GetCollection(controllersC)
+	controllers, closer, err := st.db().GetCollection(controllersC)
+	if err != nil {
+		return jujucontroller.StateServingInfo{}, errors.Trace(err)
+	}
 	defer closer()
 
 	var info stateServingInfo
-	err := controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	err = controllers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
 		return jujucontroller.StateServingInfo{}, errors.Trace(err)
 	}
@@ -349,11 +356,14 @@ type sshServerHostKeyDoc struct {
 // during the controller bootstrap process via bootstrap-state and is currently
 // a FIXED value.
 func (st *State) SSHServerHostKey() (string, error) {
-	controllers, closer := st.db().GetCollection(controllersC)
+	controllers, closer, err := st.db().GetCollection(controllersC)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	defer closer()
 
 	var keyDoc sshServerHostKeyDoc
-	err := controllers.Find(bson.D{{"_id", sshServerHostKeyDocId}}).One(&keyDoc)
+	err = controllers.Find(bson.D{{"_id", sshServerHostKeyDocId}}).One(&keyDoc)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

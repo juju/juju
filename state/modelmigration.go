@@ -467,10 +467,13 @@ func (mig *modelMigration) SubmitMinionReport(tag names.Tag, phase migration.Pha
 	}}
 	err = mig.st.db().RunTransaction(ops)
 	if errors.Cause(err) == txn.ErrAborted {
-		coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
+		coll, closer, err := mig.st.db().GetCollection(migrationsMinionSyncC)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		defer closer()
 		var existingDoc modelMigMinionSyncDoc
-		err := coll.FindId(docID).Select(bson.M{"success": 1}).One(&existingDoc)
+		err = coll.FindId(docID).Select(bson.M{"success": 1}).One(&existingDoc)
 		if err != nil {
 			return errors.Annotate(err, "checking existing report")
 		}
@@ -497,7 +500,10 @@ func (mig *modelMigration) MinionReports() (*MinionReports, error) {
 		return nil, errors.Annotate(err, "retrieving phase")
 	}
 
-	coll, closer := mig.st.db().GetCollection(migrationsMinionSyncC)
+	coll, closer, err := mig.st.db().GetCollection(migrationsMinionSyncC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	query := coll.Find(bson.M{"_id": bson.M{
 		"$regex": "^" + mig.minionReportId(phase, ".+"),
@@ -624,10 +630,13 @@ func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert fun
 	// During migrations we know that nothing there are no machines or
 	// units being provisioned or destroyed so a simple query of the
 	// collections will do.
-	coll, closer := mig.st.db().GetCollection(collName)
+	coll, closer, err := mig.st.db().GetCollection(collName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var docs []bson.M
-	err := coll.Find(nil).Select(bson.M{fieldName: 1}).All(&docs)
+	err = coll.Find(nil).Select(bson.M{fieldName: 1}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -647,17 +656,23 @@ func (mig *modelMigration) loadAgentTags(collName, fieldName string, convert fun
 func (mig *modelMigration) Refresh() error {
 	// Only the status document is updated. The modelMigDoc is static
 	// after creation.
-	statusColl, closer := mig.st.db().GetCollection(migrationsStatusC)
+	statusColl, closer, err := mig.st.db().GetCollection(migrationsStatusC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	var statusDoc modelMigStatusDoc
-	err := statusColl.FindId(mig.doc.Id).One(&statusDoc)
+	err = statusColl.FindId(mig.doc.Id).One(&statusDoc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("migration status")
 	} else if err != nil {
 		return errors.Annotate(err, "migration status lookup failed")
 	}
 
-	statusMessageColl, closer := mig.st.db().GetCollection(migrationsStatusMessageC)
+	statusMessageColl, closer, err := mig.st.db().GetCollection(migrationsStatusMessageC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	var statusMessageDoc modelMigStatusMessageDoc
 	err = statusMessageColl.FindId(mig.doc.Id).One(&statusMessageDoc)
@@ -940,7 +955,10 @@ func (st *State) CompletedMigrationForModel(modelUUID string) (ModelMigration, e
 // latestMigration returns the most recent ModelMigration for a model
 // (if any).
 func (st *State) latestMigration(modelUUID string) (ModelMigration, migration.Phase, error) {
-	migColl, closer := st.db().GetCollection(migrationsC)
+	migColl, closer, err := st.db().GetCollection(migrationsC)
+	if err != nil {
+		return nil, migration.UNKNOWN, errors.Trace(err)
+	}
 	defer closer()
 	query := migColl.Find(bson.M{"model-uuid": modelUUID})
 	query = query.Sort("-attempt").Limit(1)
@@ -961,7 +979,10 @@ func (st *State) latestMigration(modelUUID string) (ModelMigration, migration.Ph
 // Migration retrieves a specific ModelMigration by its id. See also
 // LatestMigration and LatestCompletedMigration.
 func (st *State) Migration(id string) (ModelMigration, error) {
-	migColl, closer := st.db().GetCollection(migrationsC)
+	migColl, closer, err := st.db().GetCollection(migrationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	mig, err := st.migrationFromQuery(migColl.FindId(id))
 	if err != nil {
@@ -979,7 +1000,10 @@ func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 		return nil, errors.Annotate(err, "migration lookup failed")
 	}
 
-	statusColl, closer := st.db().GetCollection(migrationsStatusC)
+	statusColl, closer, err := st.db().GetCollection(migrationsStatusC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var statusDoc modelMigStatusDoc
 	err = statusColl.FindId(doc.Id).One(&statusDoc)
@@ -989,7 +1013,10 @@ func (st *State) migrationFromQuery(query mongo.Query) (ModelMigration, error) {
 		return nil, errors.Annotate(err, "migration status lookup failed")
 	}
 
-	statusMessageColl, closer := st.db().GetCollection(migrationsStatusMessageC)
+	statusMessageColl, closer, err := st.db().GetCollection(migrationsStatusMessageC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var statusMessageDoc modelMigStatusMessageDoc
 	err = statusMessageColl.FindId(doc.Id).One(&statusMessageDoc)
@@ -1017,7 +1044,10 @@ func (st *State) IsMigrationActive() (bool, error) {
 // the model with the given UUID. The State provided need not be for
 // the model in question.
 func IsMigrationActive(st *State, modelUUID string) (bool, error) {
-	active, closer := st.db().GetCollection(migrationsActiveC)
+	active, closer, err := st.db().GetCollection(migrationsActiveC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 	n, err := active.FindId(modelUUID).Count()
 	if err != nil {

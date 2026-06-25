@@ -54,7 +54,10 @@ func (m *Model) SetAnnotations(entity GlobalEntity, annotations map[string]strin
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		annotations, closer := m.st.db().GetCollection(annotationsC)
+		annotations, closer, err := m.st.db().GetCollection(annotationsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer closer()
 		if count, err := annotations.FindId(entity.globalKey()).Count(); err != nil {
 			return nil, err
@@ -73,9 +76,12 @@ func (m *Model) SetAnnotations(entity GlobalEntity, annotations map[string]strin
 // Annotations returns all the annotations corresponding to an entity.
 func (m *Model) Annotations(entity GlobalEntity) (map[string]string, error) {
 	doc := new(annotatorDoc)
-	annotations, closer := m.st.db().GetCollection(annotationsC)
+	annotations, closer, err := m.st.db().GetCollection(annotationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
-	err := annotations.FindId(entity.globalKey()).One(doc)
+	err = annotations.FindId(entity.globalKey()).One(doc)
 	if err == mgo.ErrNotFound {
 		// Returning an empty map if there are no annotations.
 		return make(map[string]string), nil

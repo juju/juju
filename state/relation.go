@@ -92,11 +92,14 @@ func (r *Relation) SuspendedReason() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
-	relations, closer := r.st.db().GetCollection(relationsC)
+	relations, closer, err := r.st.db().GetCollection(relationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	doc := relationDoc{}
-	err := relations.FindId(r.doc.DocID).One(&doc)
+	err = relations.FindId(r.doc.DocID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("relation %v", r)
 	}
@@ -395,7 +398,10 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 			return nil, false, errAlreadyDying
 		}
 	}
-	scopes, closer := r.st.db().GetCollection(relationScopesC)
+	scopes, closer, err := r.st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
 	defer closer()
 	sel := bson.M{"_id": bson.M{
 		"$regex": fmt.Sprintf("^%s#", r.st.docID(r.globalScope())),
@@ -538,7 +544,10 @@ func (r *Relation) removeLocalEndpointOps(ep Endpoint, departingUnitName string,
 		// This application may require immediate removal.
 		// Check if the application is Dying, and if so, queue up a potential
 		// cleanup in case this was the last reference.
-		applications, closer := r.st.db().GetCollection(applicationsC)
+		applications, closer, err := r.st.db().GetCollection(applicationsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer closer()
 
 		asserts = append(hasRelation)
@@ -575,7 +584,10 @@ func (r *Relation) removeRemoteEndpointOps(ep Endpoint, unitDying bool) ([]txn.O
 	} else {
 		// The remote application may require immediate removal if all relations are being
 		// removed and it's either dying or on the offering side as a consumer proxy.
-		applications, closer := r.st.db().GetCollection(remoteApplicationsC)
+		applications, closer, err := r.st.db().GetCollection(remoteApplicationsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer closer()
 
 		app := &RemoteApplication{st: r.st}
@@ -693,7 +705,10 @@ func (r *Relation) AllRemoteUnits(appName string) ([]*RelationUnit, error) {
 		return nil, errors.Trace(err)
 	}
 
-	relationScopes, closer := r.st.db().GetCollection(relationScopesC)
+	relationScopes, closer, err := r.st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	ep, err := r.Endpoint(appName)
@@ -788,13 +803,16 @@ type relationSettingsCleanupChange struct {
 
 // Prepare is part of the Change interface.
 func (change relationSettingsCleanupChange) Prepare(db Database) ([]txn.Op, error) {
-	settings, closer := db.GetCollection(settingsC)
+	settings, closer, err := db.GetCollection(settingsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + change.Prefix}}}}
 	var docs []struct {
 		DocID string `bson:"_id"`
 	}
-	err := settings.Find(sel).Select(bson.D{{"_id", 1}}).All(&docs)
+	err = settings.Find(sel).Select(bson.D{{"_id", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -38,7 +38,10 @@ func runForAllModelStates(pool *StatePool, runner func(st *State) error) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	models, closer := st.db().GetCollection(modelsC)
+	models, closer, err := st.db().GetCollection(modelsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var modelDocs []bson.M
@@ -75,7 +78,10 @@ func applyToAllModelSettings(st *State, change func(*settingsDoc) (bool, error))
 		return errors.Trace(err)
 	}
 
-	coll, closer := st.db().GetRawCollection(settingsC)
+	coll, closer, err := st.db().GetRawCollection(settingsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var ids []string
@@ -118,7 +124,10 @@ func AddVirtualHostKeys(pool *StatePool) error {
 		return errors.Trace(err)
 	}
 
-	virtualHostKeysCollection, vhkCloser := st.db().GetRawCollection(virtualHostKeysC)
+	virtualHostKeysCollection, vhkCloser, err := st.db().GetRawCollection(virtualHostKeysC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer vhkCloser()
 	virtualHostKeys := []virtualHostKeyDoc{}
 	err = virtualHostKeysCollection.Find(nil).All(&virtualHostKeys)
@@ -131,7 +140,10 @@ func AddVirtualHostKeys(pool *StatePool) error {
 		hostKeyMap[virtualHostKey.DocId] = struct{}{}
 	}
 
-	machinesCollection, machineCloser := st.db().GetRawCollection(machinesC)
+	machinesCollection, machineCloser, err := st.db().GetRawCollection(machinesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer machineCloser()
 	mdocs := machineDocSlice{}
 	err = machinesCollection.Find(nil).All(&mdocs)
@@ -230,7 +242,10 @@ func SplitMigrationStatusMessages(pool *StatePool) error {
 		return errors.Trace(err)
 	}
 
-	migStatus, closer := st.db().GetCollection(migrationsStatusC)
+	migStatus, closer, err := st.db().GetCollection(migrationsStatusC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	iter := migStatus.Find(nil).Iter()
@@ -279,7 +294,10 @@ func OpenControllerAPIPort(pool *StatePool) error {
 	}
 	apiPort := controllerCfg.APIPort()
 
-	unitsColl, closer := st.db().GetRawCollection(unitsC)
+	unitsColl, closer, err := st.db().GetRawCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var controllerUnits []unitDoc
@@ -331,7 +349,10 @@ func ExposeControllerApplication(pool *StatePool) error {
 		return errors.Trace(err)
 	}
 
-	appsColl, closer := st.db().GetCollection(applicationsC)
+	appsColl, closer, err := st.db().GetCollection(applicationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	var appData bson.M
 	err = appsColl.Find(bson.M{"_id": controllerAppName}).Select(bson.M{"exposed": 1}).One(&appData)
@@ -386,7 +407,10 @@ func PopulateApplicationStorageUniqueID(
 			return nil
 		}
 
-		applicationsColl, closer := st.db().GetCollection(applicationsC)
+		applicationsColl, closer, err := st.db().GetCollection(applicationsC)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		defer closer()
 
 		// Fetch the list of applications with an empty storage unique ID.
@@ -448,7 +472,10 @@ func ConvertScalingToCurrentOperationEnumField(pool *StatePool) error {
 			return nil
 		}
 
-		applicationsColl, closer := st.db().GetCollection(applicationsC)
+		applicationsColl, closer, err := st.db().GetCollection(applicationsC)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		defer closer()
 
 		query := bson.M{"provisioning-state.scaling": bson.M{"$exists": true}}

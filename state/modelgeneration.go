@@ -559,7 +559,10 @@ func (g *Generation) CheckNotComplete() error {
 
 // Refresh refreshes the contents of the generation from the underlying state.
 func (g *Generation) Refresh() error {
-	col, closer := g.st.db().GetCollection(generationsC)
+	col, closer, err := g.st.db().GetCollection(generationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var doc generationDoc
@@ -707,7 +710,10 @@ func (m *Model) Branches() ([]*Generation, error) {
 
 // Branches returns all "in-flight" branches.
 func (st *State) Branches() ([]*Generation, error) {
-	col, closer := st.db().GetCollection(generationsC)
+	col, closer, err := st.db().GetCollection(generationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []generationDoc
@@ -724,7 +730,10 @@ func (st *State) Branches() ([]*Generation, error) {
 
 // CommittedBranches returns all committed branches.
 func (st *State) CommittedBranches() ([]*Generation, error) {
-	col, closer := st.db().GetCollection(generationsC)
+	col, closer, err := st.db().GetCollection(generationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []generationDoc
@@ -793,11 +802,14 @@ func (st *State) CommittedBranch(id int) (*Generation, error) {
 }
 
 func (st *State) getBranchDoc(name string) (*generationDoc, error) {
-	col, closer := st.db().GetCollection(generationsC)
+	col, closer, err := st.db().GetCollection(generationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := &generationDoc{}
-	err := col.Find(bson.M{
+	err = col.Find(bson.M{
 		"name":      name,
 		"completed": 0,
 	}).One(doc)
@@ -815,11 +827,14 @@ func (st *State) getBranchDoc(name string) (*generationDoc, error) {
 }
 
 func (st *State) getCommittedBranchDoc(id int) (*generationDoc, error) {
-	col, closer := st.db().GetCollection(generationsC)
+	col, closer, err := st.db().GetCollection(generationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := &generationDoc{}
-	err := col.Find(bson.M{
+	err = col.Find(bson.M{
 		"generation-id": id,
 	}).One(doc)
 
@@ -879,13 +894,16 @@ type branchesCleanupChange struct{}
 
 // Prepare is part of the Change interface.
 func (change branchesCleanupChange) Prepare(db Database) ([]txn.Op, error) {
-	generations, closer := db.GetCollection(generationsC)
+	generations, closer, err := db.GetCollection(generationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []struct {
 		DocID string `bson:"_id"`
 	}
-	err := generations.Find(nil).Select(bson.D{{"_id", 1}}).All(&docs)
+	err = generations.Find(nil).Select(bson.D{{"_id", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

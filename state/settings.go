@@ -258,10 +258,13 @@ func (s *Settings) Read() error {
 // readSettingsDoc reads the settings doc with the given key.
 func readSettingsDoc(db Database, collection, key string) (*settingsDoc, error) {
 	var doc settingsDoc
-	col, closer := db.GetCollection(collection)
+	col, closer, err := db.GetCollection(collection)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
-	err := col.FindId(key).One(&doc)
+	err = col.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("settings")
 	}
@@ -273,10 +276,13 @@ func readSettingsDocVersion(db Database, collection, key string) (int64, error) 
 	var doc struct {
 		Version int64 `bson:"version"`
 	}
-	col, closer := db.GetCollection(collection)
+	col, closer, err := db.GetCollection(collection)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
-	err := col.FindId(key).Select(bson.M{"version": 1}).One(&doc)
+	err = col.FindId(key).Select(bson.M{"version": 1}).One(&doc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("settings %s", key)
 	}
@@ -377,7 +383,10 @@ func replaceSettings(db Database, collection, key string, values map[string]inte
 
 // listSettings returns all the settings with the specified key prefix.
 func listSettings(backend modelBackend, collection, keyPrefix string) (map[string]map[string]interface{}, error) {
-	col, closer := backend.db().GetRawCollection(collection)
+	col, closer, err := backend.db().GetRawCollection(collection)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var matchingSettings []settingsDoc

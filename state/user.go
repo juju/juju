@@ -39,11 +39,13 @@ func userIDFromGlobalKey(key string) string {
 func (st *State) checkUserExists(name string) (bool, error) {
 	lowercaseName := strings.ToLower(name)
 
-	users, closer := st.db().GetCollection(usersC)
+	users, closer, err := st.db().GetCollection(usersC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	var count int
-	var err error
 	if count, err = users.FindId(lowercaseName).Count(); err != nil {
 		return false, err
 	}
@@ -336,11 +338,14 @@ func createInitialUserOps(controllerUUID string, user names.UserTag, password, s
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	users, closer := st.db().GetCollection(usersC)
+	users, closer, err := st.db().GetCollection(usersC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	name = strings.ToLower(name)
-	err := users.Find(bson.D{{"_id", name}}).One(udoc)
+	err = users.Find(bson.D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
@@ -375,7 +380,10 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	var result []*User
 
-	users, closer := st.db().GetCollection(usersC)
+	users, closer, err := st.db().GetCollection(usersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var query bson.D
@@ -496,11 +504,14 @@ func (u *User) UserTag() names.UserTag {
 // normal case, the LastLogin is the last time that the user connected through
 // the API server.
 func (u *User) LastLogin() (time.Time, error) {
-	lastLogins, closer := u.st.db().GetRawCollection(userLastLoginC)
+	lastLogins, closer, err := u.st.db().GetRawCollection(userLastLoginC)
+	if err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
 	defer closer()
 
 	var lastLogin userLastLoginDoc
-	err := lastLogins.FindId(u.doc.DocID).Select(bson.D{{"last-login", 1}}).One(&lastLogin)
+	err = lastLogins.FindId(u.doc.DocID).Select(bson.D{{"last-login", 1}}).One(&lastLogin)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			err = errors.Wrap(err, newNeverLoggedInError(u.UserTag().Name()))
@@ -517,7 +528,10 @@ func (u *User) UpdateLastLogin() (err error) {
 	if err := u.ensureNotDeleted(); err != nil {
 		return errors.Annotate(err, "cannot update last login")
 	}
-	lastLogins, closer := u.st.db().GetCollection(userLastLoginC)
+	lastLogins, closer, err := u.st.db().GetCollection(userLastLoginC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	lastLoginsW := lastLogins.Writeable()

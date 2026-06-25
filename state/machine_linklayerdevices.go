@@ -46,7 +46,10 @@ func (m *Machine) AllLinkLayerDevices() ([]*LinkLayerDevice, error) {
 func (m *Machine) forEachLinkLayerDeviceDoc(
 	docFieldsToSelect bson.D, callbackFunc func(resultDoc *linkLayerDeviceDoc),
 ) error {
-	linkLayerDevices, closer := m.st.db().GetCollection(linkLayerDevicesC)
+	linkLayerDevices, closer, err := m.st.db().GetCollection(linkLayerDevicesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	query := linkLayerDevices.Find(bson.D{{"machine-id", m.doc.Id}})
@@ -249,7 +252,10 @@ func (st *State) allProviderIDsForLinkLayerDevices() (set.Strings, error) {
 }
 
 func (st *State) allProviderIDsForEntity(entityName string) (set.Strings, error) {
-	idCollection, closer := st.db().GetCollection(providerIDsC)
+	idCollection, closer, err := st.db().GetCollection(providerIDsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	allProviderIDs := set.NewStrings()
@@ -347,7 +353,10 @@ func (m *Machine) assertAliveOp() txn.Op {
 }
 
 func (m *Machine) setDevicesFromDocsOps(newDocs []linkLayerDeviceDoc) ([]txn.Op, error) {
-	devices, closer := m.st.db().GetCollection(linkLayerDevicesC)
+	devices, closer, err := m.st.db().GetCollection(linkLayerDevicesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var ops []txn.Op
@@ -670,7 +679,10 @@ func (m *Machine) verifySubnetAlive(subnet *Subnet) error {
 }
 
 func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.Op, error) {
-	addresses, closer := m.st.db().GetCollection(ipAddressesC)
+	addresses, closer, err := m.st.db().GetCollection(ipAddressesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	providerIDAddrs := make(map[string]string)

@@ -124,7 +124,10 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 
 func (p *modelSummaryProcessor) fillInFromConfig() error {
 	// We use the raw settings because we are reading across model UUIDs
-	rawSettings, closer := p.st.database.GetRawCollection(settingsC)
+	rawSettings, closer, err := p.st.database.GetRawCollection(settingsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	settingIds := make([]string, len(p.modelUUIDs))
@@ -169,7 +172,10 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 
 func (p *modelSummaryProcessor) fillInFromStatus() error {
 	// We use the raw statuses because otherwise it filters by model-uuid
-	rawStatus, closer := p.st.database.GetRawCollection(statusesC)
+	rawStatus, closer, err := p.st.database.GetRawCollection(statusesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	statusIds := make([]string, len(p.modelUUIDs))
 	for i, uuid := range p.modelUUIDs {
@@ -201,7 +207,10 @@ func (p *modelSummaryProcessor) fillInFromStatus() error {
 
 func (p *modelSummaryProcessor) fillInPermissions(permissionIds []string) error {
 	// permissionsC is a global collection, so can be accessed from any state
-	perms, closer := p.st.db().GetCollection(permissionsC)
+	perms, closer, err := p.st.db().GetCollection(permissionsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	query := perms.Find(bson.M{"_id": bson.M{"$in": permissionIds}})
 	iter := query.Iter()
@@ -235,7 +244,10 @@ func (p *modelSummaryProcessor) fillInPermissions(permissionIds []string) error 
 }
 
 func (p *modelSummaryProcessor) fillInMachineSummary() error {
-	machines, closer := p.st.db().GetRawCollection(machinesC)
+	machines, closer, err := p.st.db().GetRawCollection(machinesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	query := machines.Find(bson.M{
 		"model-uuid": bson.M{"$in": p.modelUUIDs},
@@ -267,7 +279,10 @@ func (p *modelSummaryProcessor) fillInMachineSummary() error {
 	if err := iter.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	instances, closer2 := p.st.db().GetRawCollection(instanceDataC)
+	instances, closer2, err := p.st.db().GetRawCollection(instanceDataC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer2()
 	query = instances.Find(bson.M{"_id": bson.M{"$in": machineIds}})
 	query.Select(bson.M{"cpucores": 1, "model-uuid": 1})
@@ -291,7 +306,10 @@ func (p *modelSummaryProcessor) fillInMachineSummary() error {
 }
 
 func (p *modelSummaryProcessor) fillInApplicationSummary() error {
-	units, closer := p.st.db().GetRawCollection(unitsC)
+	units, closer, err := p.st.db().GetRawCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	query := units.Find(bson.M{
 		"model-uuid": bson.M{"$in": p.modelUUIDs},
@@ -324,7 +342,10 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 	// It might be possible to do it differently with an aggregation and $first queries.
 	// $first appears to have been available since Mongo 2.4.
 	// Migrations is a global collection so can be accessed from any State
-	migrations, closer := p.st.db().GetCollection(migrationsC)
+	migrations, closer, err := p.st.db().GetCollection(migrationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	pipe := migrations.Pipe([]bson.M{
 		{"$match": bson.M{"model-uuid": bson.M{"$in": p.modelUUIDs}}},
@@ -369,7 +390,10 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 		return errors.Trace(err)
 	}
 	// Now look up the status documents and join them together
-	migStatus, closer2 := p.st.db().GetCollection(migrationsStatusC)
+	migStatus, closer2, err := p.st.db().GetCollection(migrationsStatusC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer2()
 	query := migStatus.Find(bson.M{"_id": bson.M{"$in": docIds}})
 	query.Batch(100)
@@ -407,7 +431,10 @@ func (p *modelSummaryProcessor) fillInMigration() error {
 	}
 	// Now look up the status message documents and join them together with
 	// the migration documents.
-	migStatusMessage, closer3 := p.st.db().GetCollection(migrationsStatusMessageC)
+	migStatusMessage, closer3, err := p.st.db().GetCollection(migrationsStatusMessageC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer3()
 	query = migStatusMessage.Find(bson.M{"_id": bson.M{"$in": docIds}})
 	query.Batch(100)
@@ -462,7 +489,10 @@ func (p *modelSummaryProcessor) fillInLastAccess() error {
 	for i, modelUUID := range p.modelUUIDs {
 		lastAccessIds[i] = modelUUID + suffix
 	}
-	lastConnections, closer := p.st.db().GetRawCollection(modelUserLastConnectionC)
+	lastConnections, closer, err := p.st.db().GetRawCollection(modelUserLastConnectionC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": lastAccessIds}})
 	query.Select(bson.M{"_id": 1, "model-uuid": 1, "last-connection": 1})
@@ -520,7 +550,10 @@ func (p *modelSummaryProcessor) substituteModelStatusForInvalidCredentials(crede
 		ids = append(ids, cloudCredentialDocID(tag))
 	}
 	// cloudCredentialsC is a global collection, so can be accessed from any state
-	perms, closer := p.st.db().GetCollection(cloudCredentialsC)
+	perms, closer, err := p.st.db().GetCollection(cloudCredentialsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	query := perms.Find(bson.M{"_id": bson.M{"$in": ids}})
 	iter := query.Iter()

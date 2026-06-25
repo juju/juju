@@ -396,7 +396,10 @@ func (i *importer) sequences() error {
 		return nil
 	}
 
-	sequences, closer := i.st.db().GetCollection(sequenceC)
+	sequences, closer, err := i.st.db().GetCollection(sequenceC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	if err := sequences.Writeable().Insert(docs...); err != nil {
@@ -895,11 +898,14 @@ func (i *importer) applications() error {
 }
 
 func (i *importer) loadUnits() error {
-	unitsCollection, closer := i.st.db().GetCollection(unitsC)
+	unitsCollection, closer, err := i.st.db().GetCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	docs := []unitDoc{}
-	err := unitsCollection.Find(nil).All(&docs)
+	err = unitsCollection.Find(nil).All(&docs)
 	if err != nil {
 		return errors.Annotate(err, "cannot get all units")
 	}
@@ -2289,7 +2295,10 @@ func (i *importer) importStatusHistory(globalKey string, history []description.S
 		return nil
 	}
 
-	statusHistory, closer := i.st.db().GetCollection(statusesHistoryC)
+	statusHistory, closer, err := i.st.db().GetCollection(statusesHistoryC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	if err := statusHistory.Writeable().Insert(docs...); err != nil {
@@ -2410,7 +2419,10 @@ func (i *importer) addStorageInstance(storage description.Storage) error {
 	})
 
 	if owner != nil {
-		refcounts, closer := i.st.db().GetCollection(refcountsC)
+		refcounts, closer, err := i.st.db().GetCollection(refcountsC)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		defer closer()
 		storageRefcountKey := entityStorageRefcountKey(owner, storage.Name())
 		incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, 1)

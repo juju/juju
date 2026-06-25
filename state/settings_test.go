@@ -89,7 +89,8 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 	var mgoData struct {
 		Settings settingsMap
 	}
-	settings, closer := s.state.db().GetCollection(settingsC)
+	settings, closer, err := s.state.db().GetCollection(settingsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -175,7 +176,8 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	var mgoData struct {
 		Settings settingsMap
 	}
-	settings, closer := s.state.db().GetCollection(settingsC)
+	settings, closer, err := s.state.db().GetCollection(settingsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,7 +205,8 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.db().GetCollection(settingsC)
+	settings, closer, err := s.state.db().GetCollection(settingsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -268,7 +271,8 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.db().GetCollection(settingsC)
+	settings, closer, err := s.state.db().GetCollection(settingsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,7 +293,8 @@ func (s *SettingsSuite) TestCreateSettingsEscape(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.db().GetCollection(settingsC)
+	settings, closer, err := s.state.db().GetCollection(settingsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	err = settings.FindId(s.key).One(&mgoData)
@@ -448,7 +453,8 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 	var mgoData struct {
 		Settings map[string]interface{}
 	}
-	settings, closer := s.state.db().GetCollection(settingsC)
+	settings, closer, err := s.state.db().GetCollection(settingsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)
@@ -557,7 +563,8 @@ func (s *SettingsSuite) TestReplaceSettings(c *gc.C) {
 	var mgoData struct {
 		Settings settingsMap
 	}
-	settings, closer := s.state.db().GetCollection(settingsC)
+	settings, closer, err := s.state.db().GetCollection(settingsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	err = settings.FindId(s.key).One(&mgoData)
 	c.Assert(err, jc.ErrorIsNil)

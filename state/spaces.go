@@ -243,11 +243,14 @@ func (st *State) addSpaceTxnOps(id, name string, providerId network.Id, isPublic
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
 func (st *State) Space(id string) (*Space, error) {
-	spaces, closer := st.db().GetCollection(spacesC)
+	spaces, closer, err := st.db().GetCollection(spacesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc spaceDoc
-	err := spaces.Find(bson.M{"spaceid": id}).One(&doc)
+	err = spaces.Find(bson.M{"spaceid": id}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("space id %q", id)
 	}
@@ -261,11 +264,14 @@ func (st *State) Space(id string) (*Space, error) {
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
 func (st *State) SpaceByName(name string) (*Space, error) {
-	spaces, closer := st.db().GetCollection(spacesC)
+	spaces, closer, err := st.db().GetCollection(spacesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc spaceDoc
-	err := spaces.Find(bson.M{"name": name}).One(&doc)
+	err = spaces.Find(bson.M{"name": name}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("space %q", name)
 	}
@@ -298,11 +304,14 @@ func (st *State) AllSpaceInfos() (network.SpaceInfos, error) {
 
 // AllSpaces returns all spaces for the model.
 func (st *State) AllSpaces() ([]*Space, error) {
-	spacesCollection, closer := st.db().GetCollection(spacesC)
+	spacesCollection, closer, err := st.db().GetCollection(spacesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []spaceDoc
-	err := spacesCollection.Find(nil).All(&docs)
+	err = spacesCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all spaces")
 	}
@@ -368,11 +377,14 @@ func (s *Space) Remove() (err error) {
 // returns an error that satisfies errors.IsNotFound if the Space has been
 // removed.
 func (s *Space) Refresh() error {
-	spaces, closer := s.st.db().GetCollection(spacesC)
+	spaces, closer, err := s.st.db().GetCollection(spacesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var doc spaceDoc
-	err := spaces.FindId(s.doc.Id).One(&doc)
+	err = spaces.FindId(s.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("space %q", s)
 	} else if err != nil {

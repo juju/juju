@@ -95,7 +95,8 @@ func (s *GetOpsForHostPortsSuite) TestGetOpsForHostPortsChangeWithSpaces(c *gc.C
 		return result
 	}
 
-	controllers, closer := s.state.db().GetCollection(controllersC)
+	controllers, closer, err := s.state.db().GetCollection(controllersC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	ops, err := s.state.getOpsForHostPortsChange(controllers, apiHostPortsKey, addressSlice())

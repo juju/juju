@@ -7,7 +7,10 @@ import (
 	"io"
 
 	"github.com/juju/blobstore/v3"
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
+
+	"github.com/juju/juju/mongo"
 )
 
 const (
@@ -51,15 +54,21 @@ type stateStorage struct {
 	session   *mgo.Session
 }
 
-func (s stateStorage) blobstore() (*mgo.Session, blobstore.ManagedStorage) {
-	session := s.session.Copy()
+func (s stateStorage) blobstore() (*mgo.Session, blobstore.ManagedStorage, error) {
+	session, err := mongo.CopySession(s.session)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	rs := blobstore.NewGridFS(blobstoreDB, blobstoreDB, session)
 	db := session.DB(metadataDB)
-	return session, blobstore.NewManagedStorage(db, rs)
+	return session, blobstore.NewManagedStorage(db, rs), nil
 }
 
 func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error) {
-	session, ms := s.blobstore()
+	session, ms, err := s.blobstore()
+	if err != nil {
+		return nil, -1, errors.Trace(err)
+	}
 	r, length, err = ms.GetForBucket(s.modelUUID, path)
 	if err != nil {
 		session.Close()
@@ -69,19 +78,28 @@ func (s stateStorage) Get(path string) (r io.ReadCloser, length int64, err error
 }
 
 func (s stateStorage) Put(path string, r io.Reader, length int64) error {
-	session, ms := s.blobstore()
+	session, ms, err := s.blobstore()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer session.Close()
 	return ms.PutForBucket(s.modelUUID, path, r, length)
 }
 
 func (s stateStorage) PutAndCheckHash(path string, r io.Reader, length int64, hash string) error {
-	session, ms := s.blobstore()
+	session, ms, err := s.blobstore()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer session.Close()
 	return ms.PutForBucketAndCheckHash(s.modelUUID, path, r, length, hash)
 }
 
 func (s stateStorage) Remove(path string) error {
-	session, ms := s.blobstore()
+	session, ms, err := s.blobstore()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer session.Close()
 	return ms.RemoveForBucket(s.modelUUID, path)
 }

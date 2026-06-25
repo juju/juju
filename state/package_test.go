@@ -6,6 +6,7 @@ package state
 import (
 	"testing"
 
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	jc "github.com/juju/testing/checkers"
@@ -109,7 +110,10 @@ func MustCloseUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, end
 }
 
 func (st *State) ReadBackendRefCount(backendID string) (int, error) {
-	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	refCountCollection, ccloser, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer ccloser()
 
 	key := secretBackendRefCountKey(backendID)
@@ -117,10 +121,11 @@ func (st *State) ReadBackendRefCount(backendID string) (int, error) {
 }
 
 func (st *State) IsSecretRevisionObsolete(c *gc.C, uri *secrets.URI, rev int) bool {
-	col, closer := st.db().GetCollection(secretRevisionsC)
+	col, closer, err := st.db().GetCollection(secretRevisionsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	var doc secretRevisionDoc
-	err := col.FindId(secretRevisionKey(uri, rev)).One(&doc)
+	err = col.FindId(secretRevisionKey(uri, rev)).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.Obsolete
 }

@@ -42,18 +42,18 @@ type Database interface {
 	// GetCollection and TransactionRunner results from the resulting Database
 	// will all share a session; this does not absolve you of responsibility
 	// for calling those collections' closers.
-	Copy() (Database, SessionCloser)
+	Copy() (Database, SessionCloser, error)
 
 	// CopyRaw returns a matching Database with its own session, and the
 	// session, which must be closed when the Database is no longer needed.
-	CopyRaw() (Database, *mgo.Session)
+	CopyRaw() (Database, *mgo.Session, error)
 
 	// CopyForModel returns a matching Database with its own session and
 	// its own modelUUID and a func that must be called when the Database is no
 	// longer needed.
 	//
 	// Same warnings apply for CopyForModel than for Copy.
-	CopyForModel(modelUUID string) (Database, SessionCloser)
+	CopyForModel(modelUUID string) (Database, SessionCloser, error)
 
 	// GetCollection returns the named Collection, and a func that must be
 	// called when the Collection is no longer needed. The returned Collection
@@ -63,17 +63,17 @@ type Database interface {
 	// If the schema specifies model-filtering for the named collection,
 	// the returned collection will automatically filter queries; for details,
 	// see modelStateCollection.
-	GetCollection(name string) (mongo.Collection, SessionCloser)
+	GetCollection(name string) (mongo.Collection, SessionCloser, error)
 
 	// GetCollectionFor returns the named collection, scoped for the
 	// model specified. As for GetCollection, a closer is also returned.
-	GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser)
+	GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser, error)
 
 	// GetRawCollection returns the named mgo Collection. As no
 	// automatic model filtering is performed by the returned
 	// collection it should be rarely used. GetCollection() should be
 	// used in almost all cases.
-	GetRawCollection(name string) (*mgo.Collection, SessionCloser)
+	GetRawCollection(name string) (*mgo.Collection, SessionCloser, error)
 
 	// TransactionRunner returns a runner responsible for making changes to
 	// the database, and a func that must be called when the runner is no longer
@@ -84,7 +84,7 @@ type Database interface {
 	// collections; it will automatically rewrite operations that reference
 	// non-global collections; and it will ensure that non-global documents can
 	// only be inserted while the corresponding model is still Alive.
-	TransactionRunner() (jujutxn.Runner, SessionCloser)
+	TransactionRunner() (jujutxn.Runner, SessionCloser, error)
 
 	// RunTransaction is a convenience method for running a single
 	// transaction.
@@ -130,7 +130,10 @@ var ErrChangeComplete = errors.New("change complete")
 // Apply runs the supplied Change against the supplied Database. If it
 // returns no error, the change succeeded.
 func Apply(db Database, change Change) error {
-	db, dbCloser := db.Copy()
+	db, dbCloser, err := db.Copy()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer dbCloser()
 
 	buildTxn := func(int) ([]txn.Op, error) {
@@ -144,7 +147,10 @@ func Apply(db Database, change Change) error {
 		return ops, nil
 	}
 
-	runner, tCloser := db.TransactionRunner()
+	runner, tCloser, err := db.TransactionRunner()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer tCloser()
 	if err := runner.Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -276,8 +282,11 @@ type database struct {
 // after an mgo/txn transaction is run.
 type RunTransactionObserverFunc func(dbName, modelUUID string, attempt int, duration time.Duration, ops []txn.Op, err error)
 
-func (db *database) copySession(modelUUID string) (*database, *mgo.Session) {
-	session := db.raw.Session.Copy()
+func (db *database) copySession(modelUUID string) (*database, *mgo.Session, error) {
+	session, err := mongo.CopySession(db.raw.Session)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	return &database{
 		raw:            db.raw.With(session),
 		schema:         db.schema,
@@ -286,7 +295,7 @@ func (db *database) copySession(modelUUID string) (*database, *mgo.Session) {
 		ownSession:     true,
 		clock:          db.clock,
 		maxTxnAttempts: db.maxTxnAttempts,
-	}, session
+	}, session, nil
 }
 
 func (db *database) setTracker(tracker *queryTracker) {
@@ -296,24 +305,34 @@ func (db *database) setTracker(tracker *queryTracker) {
 }
 
 // Copy is part of the Database interface.
-func (db *database) Copy() (Database, SessionCloser) {
-	result, session := db.copySession(db.modelUUID)
-	return result, session.Close
+func (db *database) Copy() (Database, SessionCloser, error) {
+	result, session, err := db.copySession(db.modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return result, session.Close, nil
 }
 
 // CopyRaw is part of the Database interface.
-func (db *database) CopyRaw() (Database, *mgo.Session) {
-	return db.copySession(db.modelUUID)
+func (db *database) CopyRaw() (Database, *mgo.Session, error) {
+	result, session, err := db.copySession(db.modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return result, session, nil
 }
 
 // CopyForModel is part of the Database interface.
-func (db *database) CopyForModel(modelUUID string) (Database, SessionCloser) {
-	result, session := db.copySession(modelUUID)
-	return result, session.Close
+func (db *database) CopyForModel(modelUUID string) (Database, SessionCloser, error) {
+	result, session, err := db.copySession(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return result, session.Close, nil
 }
 
 // GetCollection is part of the Database interface.
-func (db *database) GetCollection(name string) (collection mongo.Collection, closer SessionCloser) {
+func (db *database) GetCollection(name string) (collection mongo.Collection, closer SessionCloser, err error) {
 	info, found := db.schema[name]
 	if !found {
 		logger.Errorf("using unknown collection %q", name)
@@ -327,7 +346,10 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 		collection = mongo.WrapCollection(db.raw.C(name))
 		closer = dontCloseAnything
 	} else {
-		collection, closer = mongo.CollectionFromName(db.raw, name)
+		collection, closer, err = mongo.CollectionFromName(db.raw, name)
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "cannot get collection %q", name)
+		}
 	}
 
 	// Apply model filtering.
@@ -347,33 +369,50 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 		// interface a bit to drop Writeable in this situation, but it's
 		// not convenient yet.
 	}
-	return collection, closer
+	return collection, closer, nil
 }
 
 // GetCollectionFor is part of the Database interface.
-func (db *database) GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser) {
-	newDb, dbcloser := db.CopyForModel(modelUUID)
-	collection, closer := newDb.GetCollection(name)
+func (db *database) GetCollectionFor(modelUUID, name string) (mongo.Collection, SessionCloser, error) {
+	newDb, dbcloser, err := db.CopyForModel(modelUUID)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	collection, closer, err := newDb.GetCollection(name)
+	if err != nil {
+		dbcloser()
+		return nil, nil, errors.Trace(err)
+	}
 	return collection, func() {
 		closer()
 		dbcloser()
-	}
+	}, nil
 }
 
 // GetRawCollection is part of the Database interface.
-func (db *database) GetRawCollection(name string) (*mgo.Collection, SessionCloser) {
-	collection, closer := db.GetCollection(name)
-	return collection.Writeable().Underlying(), closer
+func (db *database) GetRawCollection(name string) (*mgo.Collection, SessionCloser, error) {
+	collection, closer, err := db.GetCollection(name)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return collection.Writeable().Underlying(), closer, nil
 }
 
 // TransactionRunner is part of the Database interface.
-func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCloser) {
+func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCloser, err error) {
 	runner = db.runner
 	closer = dontCloseAnything
 	if runner == nil {
 		raw := db.raw
 		if !db.ownSession {
-			session := raw.Session.Copy()
+			session, err := mongo.CopySession(raw.Session)
+			if err != nil {
+				return nil, nil, errors.Annotatef(
+					err,
+					"cannot copy transaction runner session for model %q",
+					db.modelUUID,
+				)
+			}
 			raw = raw.With(session)
 			closer = session.Close
 		}
@@ -412,28 +451,40 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 		rawRunner: runner,
 		modelUUID: db.modelUUID,
 		schema:    db.schema,
-	}, closer
+	}, closer, nil
 }
 
 // RunTransaction is part of the Database interface.
 func (db *database) RunTransaction(ops []txn.Op) error {
-	runner, closer := db.TransactionRunner()
+	runner, closer, err := db.TransactionRunner()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 }
 
 // RunTransactionFor is part of the Database interface.
 func (db *database) RunTransactionFor(modelUUID string, ops []txn.Op) error {
-	newDB, dbcloser := db.CopyForModel(modelUUID)
+	newDB, dbcloser, err := db.CopyForModel(modelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer dbcloser()
-	runner, closer := newDB.TransactionRunner()
+	runner, closer, err := newDB.TransactionRunner()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	return runner.RunTransaction(&jujutxn.Transaction{Ops: ops})
 }
 
 // RunRawTransaction is part of the Database interface.
 func (db *database) RunRawTransaction(ops []txn.Op) error {
-	runner, closer := db.TransactionRunner()
+	runner, closer, err := db.TransactionRunner()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	if multiRunner, ok := runner.(*multiModelRunner); ok {
 		runner = multiRunner.rawRunner
@@ -443,14 +494,20 @@ func (db *database) RunRawTransaction(ops []txn.Op) error {
 
 // Run is part of the Database interface.
 func (db *database) Run(transactions jujutxn.TransactionSource) error {
-	runner, closer := db.TransactionRunner()
+	runner, closer, err := db.TransactionRunner()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	return runner.Run(transactions)
 }
 
 // RunRaw is part of the Database interface.
 func (db *database) RunRaw(transactions jujutxn.TransactionSource) error {
-	runner, closer := db.TransactionRunner()
+	runner, closer, err := db.TransactionRunner()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	if multiRunner, ok := runner.(*multiModelRunner); ok {
 		runner = multiRunner.rawRunner

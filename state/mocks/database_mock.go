@@ -12,12 +12,13 @@ package mocks
 import (
 	reflect "reflect"
 
-	mongo "github.com/juju/juju/mongo"
-	state "github.com/juju/juju/state"
 	mgo "github.com/juju/mgo/v3"
 	txn "github.com/juju/mgo/v3/txn"
 	txn0 "github.com/juju/txn/v3"
 	gomock "go.uber.org/mock/gomock"
+
+	mongo "github.com/juju/juju/mongo"
+	state "github.com/juju/juju/state"
 )
 
 // MockDatabase is a mock of Database interface.
@@ -44,12 +45,13 @@ func (m *MockDatabase) EXPECT() *MockDatabaseMockRecorder {
 }
 
 // Copy mocks base method.
-func (m *MockDatabase) Copy() (state.Database, state.SessionCloser) {
+func (m *MockDatabase) Copy() (state.Database, state.SessionCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Copy")
 	ret0, _ := ret[0].(state.Database)
 	ret1, _ := ret[1].(state.SessionCloser)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Copy indicates an expected call of Copy.
@@ -59,12 +61,13 @@ func (mr *MockDatabaseMockRecorder) Copy() *gomock.Call {
 }
 
 // CopyForModel mocks base method.
-func (m *MockDatabase) CopyForModel(arg0 string) (state.Database, state.SessionCloser) {
+func (m *MockDatabase) CopyForModel(arg0 string) (state.Database, state.SessionCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyForModel", arg0)
 	ret0, _ := ret[0].(state.Database)
 	ret1, _ := ret[1].(state.SessionCloser)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // CopyForModel indicates an expected call of CopyForModel.
@@ -74,12 +77,13 @@ func (mr *MockDatabaseMockRecorder) CopyForModel(arg0 any) *gomock.Call {
 }
 
 // CopyRaw mocks base method.
-func (m *MockDatabase) CopyRaw() (state.Database, *mgo.Session) {
+func (m *MockDatabase) CopyRaw() (state.Database, *mgo.Session, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyRaw")
 	ret0, _ := ret[0].(state.Database)
 	ret1, _ := ret[1].(*mgo.Session)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // CopyRaw indicates an expected call of CopyRaw.
@@ -89,12 +93,13 @@ func (mr *MockDatabaseMockRecorder) CopyRaw() *gomock.Call {
 }
 
 // GetCollection mocks base method.
-func (m *MockDatabase) GetCollection(arg0 string) (mongo.Collection, state.SessionCloser) {
+func (m *MockDatabase) GetCollection(arg0 string) (mongo.Collection, state.SessionCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCollection", arg0)
 	ret0, _ := ret[0].(mongo.Collection)
 	ret1, _ := ret[1].(state.SessionCloser)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetCollection indicates an expected call of GetCollection.
@@ -104,12 +109,13 @@ func (mr *MockDatabaseMockRecorder) GetCollection(arg0 any) *gomock.Call {
 }
 
 // GetCollectionFor mocks base method.
-func (m *MockDatabase) GetCollectionFor(arg0, arg1 string) (mongo.Collection, state.SessionCloser) {
+func (m *MockDatabase) GetCollectionFor(arg0, arg1 string) (mongo.Collection, state.SessionCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCollectionFor", arg0, arg1)
 	ret0, _ := ret[0].(mongo.Collection)
 	ret1, _ := ret[1].(state.SessionCloser)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetCollectionFor indicates an expected call of GetCollectionFor.
@@ -119,12 +125,13 @@ func (mr *MockDatabaseMockRecorder) GetCollectionFor(arg0, arg1 any) *gomock.Cal
 }
 
 // GetRawCollection mocks base method.
-func (m *MockDatabase) GetRawCollection(arg0 string) (*mgo.Collection, state.SessionCloser) {
+func (m *MockDatabase) GetRawCollection(arg0 string) (*mgo.Collection, state.SessionCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRawCollection", arg0)
 	ret0, _ := ret[0].(*mgo.Collection)
 	ret1, _ := ret[1].(state.SessionCloser)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetRawCollection indicates an expected call of GetRawCollection.
@@ -218,12 +225,13 @@ func (mr *MockDatabaseMockRecorder) Schema() *gomock.Call {
 }
 
 // TransactionRunner mocks base method.
-func (m *MockDatabase) TransactionRunner() (txn0.Runner, state.SessionCloser) {
+func (m *MockDatabase) TransactionRunner() (txn0.Runner, state.SessionCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TransactionRunner")
 	ret0, _ := ret[0].(txn0.Runner)
 	ret1, _ := ret[1].(state.SessionCloser)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // TransactionRunner indicates an expected call of TransactionRunner.

@@ -158,7 +158,10 @@ func (m *Model) WatchModelCredential() NotifyWatcher {
 			return false
 		}
 
-		models, closer := m.st.db().GetCollection(modelsC)
+		models, closer, err := m.st.db().GetCollection(modelsC)
+		if err != nil {
+			return false
+		}
 		defer closer()
 
 		var doc *modelDoc

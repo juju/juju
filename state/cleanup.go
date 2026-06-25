@@ -127,7 +127,10 @@ type cancelCleanupOpsArg struct {
 }
 
 func (st *State) cancelCleanupOps(args ...cancelCleanupOpsArg) ([]txn.Op, error) {
-	col, closer := st.db().GetCollection(cleanupsC)
+	col, closer, err := st.db().GetCollection(cleanupsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	patterns := make([]bson.D, len(args))
 	for i, arg := range args {
@@ -137,7 +140,7 @@ func (st *State) cancelCleanupOps(args ...cancelCleanupOpsArg) ([]txn.Op, error)
 		}
 	}
 	var docs []cleanupDoc
-	if err := col.Find(bson.D{{Name: "$or", Value: patterns}}).All(&docs); err != nil {
+	if err = col.Find(bson.D{{Name: "$or", Value: patterns}}).All(&docs); err != nil {
 		return nil, errors.Annotate(err, "cannot get cleanups docs")
 	}
 	var ops []txn.Op
@@ -153,7 +156,10 @@ func (st *State) cancelCleanupOps(args ...cancelCleanupOpsArg) ([]txn.Op, error)
 
 // NeedsCleanup returns true if documents previously marked for removal exist.
 func (st *State) NeedsCleanup() (bool, error) {
-	cleanups, closer := st.db().GetCollection(cleanupsC)
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 	count, err := cleanups.Count()
 	if err != nil {
@@ -170,7 +176,10 @@ type SecretContentDeleter func(uri *secrets.URI, revision int) error
 // of the system.
 func (st *State) Cleanup(secretContentDeleter SecretContentDeleter) (err error) {
 	var doc cleanupDoc
-	cleanups, closer := st.db().GetCollection(cleanupsC)
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	modelUUID := st.ModelUUID()
@@ -306,7 +315,10 @@ func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 		return errors.Annotatef(err, "getting relation %q", prefix)
 	}
 
-	scopes, closer := st.db().GetCollection(relationScopesC)
+	scopes, closer, err := st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	sel := bson.M{"_id": bson.M{
@@ -679,7 +691,10 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams, secret
 	// applications added to it. But we do have to remove the applications
 	// themselves via individual transactions, because they could be in any
 	// state at all.
-	applications, closer := st.db().GetCollection(applicationsC)
+	applications, closer, err := st.db().GetCollection(applicationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	// Note(jam): 2019-04-25 This will only try to shut down Alive applications,
 	//  it doesn't cause applications that are Dying to finish progressing to Dead.
@@ -714,7 +729,10 @@ func (st *State) removeRemoteApplicationsForDyingModel(args DestroyModelParams) 
 	// This won't miss remote applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications themselves
 	// via individual transactions, because they could be in any state at all.
-	remoteApps, closer := st.db().GetCollection(remoteApplicationsC)
+	remoteApps, closer, err := st.db().GetCollection(remoteApplicationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	remoteApp := RemoteApplication{st: st}
 	sel := bson.D{{"life", Alive}}
@@ -791,7 +809,10 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 	// This won't miss units, because a Dying application cannot have units
 	// added to it. But we do have to remove the units themselves via
 	// individual transactions, because they could be in any state at all.
-	units, closer := st.db().GetCollection(unitsC)
+	units, closer, err := st.db().GetCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	sel := bson.D{{"application", applicationname}}
@@ -1658,7 +1679,10 @@ func (st *State) cleanupAttachmentsForDyingStorage(storageId string, cleanupArgs
 	// have attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.db().GetCollection(storageAttachmentsC)
+	coll, closer, err := st.db().GetCollection(storageAttachmentsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var doc storageAttachmentDoc
@@ -1689,7 +1713,10 @@ func (st *State) cleanupAttachmentsForDyingVolume(volumeId string) (err error) {
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := st.db().GetCollection(volumeAttachmentsC)
+	coll, closer, err := st.db().GetCollection(volumeAttachmentsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	sb, err := NewStorageBackend(st)
@@ -1725,7 +1752,10 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 	// attachments added to it. But we do have to remove the attachments
 	// themselves via individual transactions, because they could be in
 	// any state at all.
-	coll, closer := sb.mb.db().GetCollection(filesystemAttachmentsC)
+	coll, closer, err := sb.mb.db().GetCollection(filesystemAttachmentsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var doc filesystemAttachmentDoc

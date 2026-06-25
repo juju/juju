@@ -55,10 +55,10 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 	}
 	s.memStorage = bakery.NewMemRootKeyStore()
 	s.config = Config{
-		GetCollection: func() (mongo.Collection, func()) {
+		GetCollection: func() (mongo.Collection, func(), error) {
 			s.AddCall("GetCollection")
 			s.PopNoErr()
-			return &s.collection, s.closeCollection
+			return &s.collection, s.closeCollection, nil
 		},
 		GetStorage: func(rootKeys *RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
 			s.AddCall("GetStorage", coll, expireAfter)
@@ -218,8 +218,10 @@ func (s *BakeryStorageSuite) TearDownSuite(c *gc.C) {
 
 func (s *BakeryStorageSuite) initService(c *gc.C, enableExpiry bool) {
 	store, err := New(Config{
-		GetCollection: func() (mongo.Collection, func()) {
-			return mongo.CollectionFromName(s.db, s.coll.Name)
+		GetCollection: func() (mongo.Collection, func(), error) {
+			coll, closer, err := mongo.CollectionFromName(s.db, s.coll.Name)
+			c.Assert(err, jc.ErrorIsNil)
+			return coll, closer, nil
 		},
 		GetStorage: func(rootKeys *RootKeys, coll mongo.Collection, expireAfter time.Duration) (storage bakery.RootKeyStore) {
 			return rootKeys.NewStore(coll.Writeable().Underlying(), Policy{
