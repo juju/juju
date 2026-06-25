@@ -34,42 +34,61 @@ type WatcherFactory interface {
 	) (watcher.StringsWatcher, error)
 }
 
-// Service provides serving for SSH connection requests.
-type Service struct {
-	modelUUID      coremodel.UUID
-	state          State
+// WatchableService extends Service with watcher support for SSH connection
+// requests.
+type WatchableService struct {
+	*Service
 	watcherFactory WatcherFactory
-	clock          clock.Clock
 }
 
-// Option mutates a model SSH service during construction.
-type Option func(*Service)
-
-// WithWatcherFactory configures watcher support for SSH connection requests.
-func WithWatcherFactory(wf WatcherFactory) Option {
-	return func(s *Service) {
-		s.watcherFactory = wf
+// NewWatchableService returns a new model SSH service with watcher support.
+func NewWatchableService(state State, modelUUID coremodel.UUID, clk clock.Clock, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service:        NewService(state, modelUUID, clk),
+		watcherFactory: watcherFactory,
 	}
 }
 
-// WithClock configures the clock used for SSH connection request expiry.
-func WithClock(clk clock.Clock) Option {
-	return func(s *Service) {
-		s.clock = clk
+// WatchSSHConnRequest returns a watcher that emits changed tunnel IDs for SSH
+// connection requests in this model.
+//
+// This is used by the sshsession worker to watch for new connection requests.
+func (s *WatchableService) WatchSSHConnRequest(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.state.PruneExpiredSSHConnRequests(ctx, s.clock.Now()); err != nil {
+		return nil, errors.Errorf("pruning expired SSH connection requests: %w", err)
 	}
+
+	table, stmt := s.state.InitialWatchSSHConnRequestsStatement()
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(stmt),
+		"ssh connection request watcher",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
+	if err != nil {
+		return nil, errors.Errorf("creating SSH connection request watcher: %w", err)
+	}
+	return w, nil
+}
+
+// Service provides model-scoped SSH operations: virtual host keys and
+// one-shot SSH connection requests.
+type Service struct {
+	state     State
+	modelUUID coremodel.UUID
+	clock     clock.Clock
 }
 
 // NewService returns a new model SSH service.
-func NewService(modelUUID coremodel.UUID, state State, options ...Option) *Service {
-	svc := &Service{
-		modelUUID: modelUUID,
+func NewService(state State, modelUUID coremodel.UUID, clk clock.Clock) *Service {
+	return &Service{
 		state:     state,
-		clock:     clock.WallClock,
+		modelUUID: modelUUID,
+		clock:     clk,
 	}
-	for _, option := range options {
-		option(svc)
-	}
-	return svc
 }
 
 // InsertSSHConnRequest stores a one-shot SSH connection request for this
@@ -107,35 +126,6 @@ func (s *Service) GetSSHConnRequest(ctx context.Context, tunnelID string) (domai
 		return domainssh.SSHConnRequest{}, errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
 	}
 	return req, nil
-}
-
-// WatchSSHConnRequest returns a watcher that emits changed tunnel IDs for SSH
-// connection requests in this model.
-//
-// This is used by the sshsession worker to watch for new connection requests.
-func (s *Service) WatchSSHConnRequest(ctx context.Context) (watcher.StringsWatcher, error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if s.watcherFactory == nil {
-		return nil, errors.Errorf("watcher factory not configured").Add(coreerrors.NotSupported)
-	}
-
-	if err := s.state.PruneExpiredSSHConnRequests(ctx, s.clock.Now()); err != nil {
-		return nil, errors.Errorf("pruning expired SSH connection requests: %w", err)
-	}
-
-	table, stmt := s.state.InitialWatchSSHConnRequestsStatement()
-	watcher, err := s.watcherFactory.NewNamespaceWatcher(
-		ctx,
-		eventsource.InitialNamespaceChanges(stmt),
-		"ssh connection request watcher",
-		eventsource.NamespaceFilter(table, changestream.All),
-	)
-	if err != nil {
-		return nil, errors.Errorf("creating SSH connection request watcher: %w", err)
-	}
-	return watcher, nil
 }
 
 // RemoveSSHConnRequest removes the SSH connection request for the supplied

@@ -91,7 +91,7 @@ type MockModelDomainServicesMockRecorder struct {
 	removalExpects                []*gomock.Call0_1[*service25.WatchableService]
 	resolveExpects                []*gomock.Call0_1[*service26.WatchableService]
 	resourceExpects               []*gomock.Call0_1[*service27.Service]
-	sSHExpects                    []*gomock.Call0_1[*model.Service]
+	sSHExpects                    []*gomock.Call0_1[*model.WatchableService]
 	secretExpects                 []*gomock.Call0_1[*service28.WatchableService]
 	statusExpects                 []*gomock.Call0_1[*service30.LeadershipService]
 	storageExpects                []*gomock.Call0_1[*service31.Service]
@@ -688,7 +688,7 @@ func (mr *MockModelDomainServicesMockRecorder) Resource() *MockModelDomainServic
 type MockModelDomainServicesResourceCall = gomock.Call0_1[*service27.Service]
 
 // SSH mocks base method.
-func (m *MockModelDomainServices) SSH() *model.Service {
+func (m *MockModelDomainServices) SSH() *model.WatchableService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.sSHExpects, m.ctrl, m, "SSH")
 }
@@ -696,14 +696,14 @@ func (m *MockModelDomainServices) SSH() *model.Service {
 // SSH indicates an expected call of SSH.
 func (mr *MockModelDomainServicesMockRecorder) SSH() *MockModelDomainServicesSSHCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*model.Service](mr.mock.ctrl.T, mr.mock, "SSH")
+	call := gomock.NewCall0_1[*model.WatchableService](mr.mock.ctrl.T, mr.mock, "SSH")
 	mr.sSHExpects = append(mr.sSHExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockModelDomainServicesSSHCall is the typed call wrapper for SSH.
-type MockModelDomainServicesSSHCall = gomock.Call0_1[*model.Service]
+type MockModelDomainServicesSSHCall = gomock.Call0_1[*model.WatchableService]
 
 // Secret mocks base method.
 func (m *MockModelDomainServices) Secret() *service28.WatchableService {

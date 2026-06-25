@@ -195,7 +195,7 @@ type ModelDomainServices interface {
 	// Export returns the service for accessing model exports.
 	Export() *exportservice.Service
 	// SSH returns the service for model-scoped SSH workflows.
-	SSH() *sshmodelservice.Service
+	SSH() *sshmodelservice.WatchableService
 }
 
 // DomainServices provides access to the services required by the apiserver.

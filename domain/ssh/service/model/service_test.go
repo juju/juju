@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
@@ -37,7 +38,7 @@ func (s *serviceSuite) TestMachineVirtualHostKeyGeneratesMissing(c *tc.C) {
 	state := newStubModelState()
 	state.machineExists["1"] = true
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -53,7 +54,7 @@ func (s *serviceSuite) TestUnitVirtualHostKeyUsesBackingMachine(c *tc.C) {
 	state.machineKeys["1"] = testPrivateKey
 	state.unitMachines["postgresql/0"] = "1"
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -67,7 +68,7 @@ func (s *serviceSuite) TestUnitVirtualHostKeyGeneratesMissingForCAAS(c *tc.C) {
 	state := newStubModelState()
 	state.unitExists["postgresql/0"] = true
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -112,7 +113,7 @@ func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
 	state.machineExists["1"] = true
 	state.machineKeys["1"] = testPrivateKey
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	info, err := virtualhostname.NewInfoMachineTarget(testModelUUID, "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -124,7 +125,7 @@ func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
 
 func (s *serviceSuite) TestVirtualHostKeyErrorsForDifferentModel(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
-	svc := modelsshservice.NewService(modelUUID, newStubModelState())
+	svc := modelsshservice.NewService(newStubModelState(), modelUUID, clock.WallClock)
 
 	info, err := virtualhostname.NewInfoMachineTarget("77f44fa2-65f1-41c8-8a8e-3b1f1c8d343d", "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -135,7 +136,7 @@ func (s *serviceSuite) TestVirtualHostKeyErrorsForDifferentModel(c *tc.C) {
 
 func (s *serviceSuite) TestVirtualHostKeyErrorsForNestedMachine(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
-	svc := modelsshservice.NewService(modelUUID, newStubModelState())
+	svc := modelsshservice.NewService(newStubModelState(), modelUUID, clock.WallClock)
 
 	info, err := virtualhostname.NewInfoMachineTarget(testModelUUID, "1/lxd/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -149,15 +150,16 @@ func (s *serviceSuite) TestInsertSSHConnRequest(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
 	state.machineExists["1"] = true
-	svc := modelsshservice.NewService(modelUUID, state, modelsshservice.WithClock(clk))
+	svc := modelsshservice.NewService(state, modelUUID, clk)
 
 	req := domainssh.SSHConnRequest{
-		TunnelID:            "tunnel-0",
+		TunnelID:            testTunnelUUID,
 		MachineName:         "1",
 		Expires:             clk.Now().Add(time.Minute),
-		SSHUsername:            "juju-reverse-tunnel",
-		SSHPassword:            "secret",
+		SSHUsername:         "juju-reverse-tunnel",
+		SSHPassword:         "secret",
 		ControllerAddresses: network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"),
+		UnitPort:            22,
 		EphemeralPublicKey:  []byte("key"),
 	}
 
@@ -172,14 +174,14 @@ func (s *serviceSuite) TestInsertSSHConnRequestRejectsExpired(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
 	state.machineExists["1"] = true
-	svc := modelsshservice.NewService(modelUUID, state, modelsshservice.WithClock(clk))
+	svc := modelsshservice.NewService(state, modelUUID, clk)
 
 	req := domainssh.SSHConnRequest{
-		TunnelID:    "tunnel-0",
+		TunnelID:    testTunnelUUID,
 		MachineName: "1",
 		Expires:     clk.Now().Add(-time.Minute),
-		SSHUsername:    "juju-reverse-tunnel",
-		SSHPassword:    "secret",
+		SSHUsername: "juju-reverse-tunnel",
+		SSHPassword: "secret",
 	}
 
 	err := svc.InsertSSHConnRequest(c.Context(), req)
@@ -190,13 +192,13 @@ func (s *serviceSuite) TestGetSSHConnRequest(c *tc.C) {
 	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
-	state.getReq = domainssh.SSHConnRequest{TunnelID: "tunnel-0", MachineName: "1"}
-	svc := modelsshservice.NewService(modelUUID, state, modelsshservice.WithClock(clk))
+	state.getReq = domainssh.SSHConnRequest{TunnelID: testTunnelUUID, MachineName: "1"}
+	svc := modelsshservice.NewService(state, modelUUID, clk)
 
-	req, err := svc.GetSSHConnRequest(c.Context(), "tunnel-0")
+	req, err := svc.GetSSHConnRequest(c.Context(), testTunnelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(req, tc.DeepEquals, state.getReq)
-	c.Check(state.getTunnelID, tc.Equals, "tunnel-0")
+	c.Check(state.getTunnelID, tc.Equals, testTunnelUUID)
 	c.Check(state.getNow, tc.Equals, clk.Now())
 }
 
@@ -205,12 +207,7 @@ func (s *serviceSuite) TestWatchSSHConnRequest(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
 	watcherFactory := &stubWatcherFactory{watcher: watchertest.NewMockStringsWatcher(make(chan []string))}
-	svc := modelsshservice.NewService(
-		modelUUID,
-		state,
-		modelsshservice.WithClock(clk),
-		modelsshservice.WithWatcherFactory(watcherFactory),
-	)
+	svc := modelsshservice.NewWatchableService(state, modelUUID, clk, watcherFactory)
 
 	w, err := svc.WatchSSHConnRequest(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -223,11 +220,11 @@ func (s *serviceSuite) TestWatchSSHConnRequest(c *tc.C) {
 func (s *serviceSuite) TestRemoveSSHConnRequest(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
-	err := svc.RemoveSSHConnRequest(c.Context(), "tunnel-0")
+	err := svc.RemoveSSHConnRequest(c.Context(), testTunnelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(state.removedTunnelID, tc.Equals, "tunnel-0")
+	c.Check(state.removedTunnelID, tc.Equals, testTunnelUUID)
 }
 
 type stubModelState struct {
@@ -374,6 +371,7 @@ func assertPrivateKey(c *tc.C, key string) {
 
 const (
 	testModelUUID  = "8419cd78-4993-4c3a-928e-c646226beeee"
+	testTunnelUUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 	testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +
 		"b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\n" +
 		"c2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7VHoJY7LZ7yXzuWlSVYAAA\n" +
