@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/pki/ssh"
+	"github.com/juju/juju/internal/uuid"
 )
 
 var (
@@ -163,7 +163,7 @@ func (tt *Tracker) machineHostKeys(req RequestArgs) ([]gossh.PublicKey, error) {
 // The returned tunnelRequest should be used to wait for the tunnel to be established.
 // See Wait() for more information.
 func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.Client, error) {
-	tunnelID, err := uuid.NewRandom()
+	tunnelID, err := uuid.NewUUID()
 	if err != nil {
 		return nil, err
 	}

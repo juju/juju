@@ -20,6 +20,7 @@ import (
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // WatcherFactory describes watcher creation for SSH connection requests.
@@ -97,8 +98,8 @@ func (s *Service) GetSSHConnRequest(ctx context.Context, tunnelID string) (domai
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if tunnelID == "" {
-		return domainssh.SSHConnRequest{}, errors.Errorf("empty tunnel id").Add(coreerrors.NotValid)
+	if !uuid.IsValidUUIDString(tunnelID) {
+		return domainssh.SSHConnRequest{}, errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
 	}
 
 	req, err := s.state.GetSSHConnRequest(ctx, tunnelID, s.clock.Now())
@@ -145,8 +146,8 @@ func (s *Service) RemoveSSHConnRequest(ctx context.Context, tunnelID string) err
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if tunnelID == "" {
-		return errors.Errorf("empty tunnel id").Add(coreerrors.NotValid)
+	if !uuid.IsValidUUIDString(tunnelID) {
+		return errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
 	}
 
 	if err := s.state.RemoveSSHConnRequest(ctx, tunnelID); err != nil {
@@ -298,8 +299,8 @@ func generateHostKey() (string, error) {
 }
 
 func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
-	if req.TunnelID == "" {
-		return errors.Errorf("empty tunnel id").Add(coreerrors.NotValid)
+	if !uuid.IsValidUUIDString(req.TunnelID) {
+		return errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
 	}
 	if req.MachineName == "" {
 		return errors.Errorf("empty machine name").Add(coreerrors.NotValid)
