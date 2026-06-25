@@ -362,7 +362,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName:       apiCallerName,
+			DomainServicesName:  domainServicesName,
 			Clock:               config.Clock,
 			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
 			StorageRegistryName: providerTrackerName,
