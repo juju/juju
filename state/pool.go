@@ -203,6 +203,10 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	})
 	pool.txnWatcherSession, err = mongo.CopySession(args.MongoSession)
 	if err != nil {
+		if stopErr := st.stopWorkers(); stopErr != nil {
+			logger.Errorf("stopping state workers for model %s: %v", args.ControllerModelTag.Id(), stopErr)
+		}
+		st.workers = nil
 		return nil, errors.Annotate(err, "copying mongo session for txn watcher")
 	}
 	if err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
@@ -218,6 +222,10 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 			})
 	}); err != nil {
 		pool.txnWatcherSession.Close()
+		if stopErr := st.stopWorkers(); stopErr != nil {
+			logger.Errorf("stopping state workers for model %s: %v", args.ControllerModelTag.Id(), stopErr)
+		}
+		st.workers = nil
 		return nil, errors.Trace(err)
 	}
 	return pool, nil

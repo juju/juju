@@ -12,13 +12,12 @@ package mocks
 import (
 	reflect "reflect"
 
+	mongo "github.com/juju/juju/mongo"
+	state "github.com/juju/juju/state"
 	mgo "github.com/juju/mgo/v3"
 	txn "github.com/juju/mgo/v3/txn"
 	txn0 "github.com/juju/txn/v3"
 	gomock "go.uber.org/mock/gomock"
-
-	mongo "github.com/juju/juju/mongo"
-	state "github.com/juju/juju/state"
 )
 
 // MockDatabase is a mock of Database interface.
