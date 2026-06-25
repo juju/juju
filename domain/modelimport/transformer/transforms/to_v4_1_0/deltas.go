@@ -45,42 +45,42 @@ func (d deltas) Constraint(_ context.Context, src []v4_0_11.Constraint) ([]v4_1_
 	return result, nil
 }
 
-// RelationApplicationSetting copies all v4_0_11 fields, flattening the nullable
-// value column to a string. The relation_application_setting.value column is
-// nullable in 4.0.11 but NOT NULL in 4.1.0, so a source NULL maps to the empty
-// string, matching the NOT NULL TEXT column's zero value.
+// RelationApplicationSetting copies all v4_0_11 fields into the 4.1.0 schema,
+// where the relation_application_setting.value column is NOT NULL and disallows
+// the empty string. A 4.0.11 row whose value is NULL (or empty) has no valid
+// representation in 4.1.0, so such rows are dropped rather than coerced to "".
+// The result is therefore of variable length.
 func (d deltas) RelationApplicationSetting(_ context.Context, src []v4_0_11.RelationApplicationSetting) ([]v4_1_0.RelationApplicationSetting, error) {
-	result := make([]v4_1_0.RelationApplicationSetting, len(src))
-	for i, s := range src {
-		var value string
-		if s.Value != nil {
-			value = *s.Value
+	result := make([]v4_1_0.RelationApplicationSetting, 0, len(src))
+	for _, s := range src {
+		if s.Value == nil || *s.Value == "" {
+			continue
 		}
-		result[i] = v4_1_0.RelationApplicationSetting{
+		result = append(result, v4_1_0.RelationApplicationSetting{
 			RelationEndpointUUID: s.RelationEndpointUUID,
 			Key:                  s.Key,
-			Value:                value,
-		}
+			Value:                *s.Value,
+		})
 	}
 	return result, nil
 }
 
-// RelationUnitSetting copies all v4_0_11 fields, flattening the nullable value
-// column to a string. The relation_unit_setting.value column is nullable in
-// 4.0.11 but NOT NULL in 4.1.0, so a source NULL maps to the empty string,
-// matching the NOT NULL TEXT column's zero value.
+// RelationUnitSetting copies all v4_0_11 fields into the 4.1.0 schema, where the
+// relation_unit_setting.value column is NOT NULL and disallows the empty string.
+// A 4.0.11 row whose value is NULL (or empty) has no valid representation in
+// 4.1.0, so such rows are dropped rather than coerced to "". The result is
+// therefore of variable length.
 func (d deltas) RelationUnitSetting(_ context.Context, src []v4_0_11.RelationUnitSetting) ([]v4_1_0.RelationUnitSetting, error) {
-	result := make([]v4_1_0.RelationUnitSetting, len(src))
-	for i, s := range src {
-		var value string
-		if s.Value != nil {
-			value = *s.Value
+	result := make([]v4_1_0.RelationUnitSetting, 0, len(src))
+	for _, s := range src {
+		if s.Value == nil || *s.Value == "" {
+			continue
 		}
-		result[i] = v4_1_0.RelationUnitSetting{
+		result = append(result, v4_1_0.RelationUnitSetting{
 			RelationUnitUUID: s.RelationUnitUUID,
 			Key:              s.Key,
-			Value:            value,
-		}
+			Value:            *s.Value,
+		})
 	}
 	return result, nil
 }

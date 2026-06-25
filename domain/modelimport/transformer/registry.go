@@ -35,12 +35,14 @@ type Transformation struct {
 // NewTransformation wraps a typed [TransformationFunc] into a [Transformation]
 // entry. Storage erases the generic type parameters; the returned closure
 // checks the payload's runtime Go type against Src before invoking fn so the
-// erasure boundary stays safe.
-func NewTransformation[Src, Dst any](from, to string, fn TransformationFunc[Src, Dst]) Transformation {
+// erasure boundary stays safe. The caller supplies the from/to versions as
+// parsed [semversion.Number] values, so version parsing (and any failure) is
+// owned by the wiring package rather than buried in this constructor.
+func NewTransformation[Src, Dst any](from, to semversion.Number, fn TransformationFunc[Src, Dst]) Transformation {
 	expected := reflect.TypeFor[Src]()
 	return Transformation{
-		from:    semversion.MustParse(from),
-		to:      semversion.MustParse(to),
+		from:    from,
+		to:      to,
 		srcType: expected,
 		dstType: reflect.TypeFor[Dst](),
 		transform: func(ctx context.Context, src any) (any, error) {

@@ -6,6 +6,7 @@
 package modelimport
 
 import (
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/modelimport/transformer"
 {{- range .TypeVersions}}
 	"github.com/juju/juju/domain/export/types/{{.}}"
@@ -21,7 +22,7 @@ import (
 var registered = []transformer.Transformation{
 {{- range .Pairs}}
 	transformer.NewTransformation[{{.FromToken}}.ModelExport, {{.ToToken}}.ModelExport](
-		{{printf "%q" .From}}, {{printf "%q" .To}},
+		semversion.MustParse({{printf "%q" .From}}), semversion.MustParse({{printf "%q" .To}}),
 		{{.PairPkg}}.NewTransform({{.PairPkg}}.NewDeltas()),
 	),
 {{- end}}
