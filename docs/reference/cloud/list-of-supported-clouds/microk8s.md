@@ -13,6 +13,14 @@ In Juju, [MicroK8s](https://microk8s.io/) is a {ref}`Kubernetes cloud <kubernete
 This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to.
 ```
 
+(microk8s-requirements)=
+## Requirements
+
+**Services that must be enabled:**
+
+- `dns`
+- `hostpath-storage`
+
 ## Concepts
 
 ```{include} ./reuse/k8s/concepts-table.md
@@ -22,14 +30,6 @@ This reference assumes basic familiarity with Juju. If you are new to Juju, star
 
 ```{include} ./reuse/k8s/cloud-definition.md
 ```
-
-(microk8s-requirements)=
-### Requirements
-
-**Services that must be enabled:**
-
-- `dns`
-- `hostpath-storage`
 
 (microk8s-cloud-adding)=
 ### Adding the cloud

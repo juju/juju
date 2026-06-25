@@ -13,6 +13,16 @@ In Juju, [Canonical Kubernetes](https://documentation.ubuntu.com/canonical-kuber
 This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to.
 ```
 
+(canonical-k8s-requirements)=
+## Requirements
+
+**Services that must be enabled:**
+
+- `dns`
+- `ingress` (technically not required, but you need it if you want to do anything meaningful).
+- `local-storage`
+- `network`
+
 ## Concepts
 
 ```{include} ./reuse/k8s/concepts-table.md
@@ -22,16 +32,6 @@ This reference assumes basic familiarity with Juju. If you are new to Juju, star
 
 ```{include} ./reuse/k8s/cloud-definition.md
 ```
-
-(canonical-k8s-requirements)=
-### Requirements
-
-**Services that must be enabled:**
-
-- `dns`
-- `ingress` (technically not required, but you need it if you want to do anything meaningful).
-- `local-storage`
-- `network`
 
 ## Credentials
 
