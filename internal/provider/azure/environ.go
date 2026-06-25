@@ -292,6 +292,10 @@ func (env *azureEnviron) CreateModelResources(ctx context.Context, args environs
 
 // Bootstrap is part of the Environ interface.
 func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	if err := env.validateIPFamilyConstraint(args.BootstrapConstraints); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	needResourceGroup := env.config.resourceGroupName == ""
 	if needResourceGroup && (args.BootstrapConstraints.HasInstanceRole() || env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType) {
 		var instanceRole string
@@ -508,17 +512,24 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.Context) (constraints.
 	return validator, nil
 }
 
-// PrecheckInstance is defined on the environs.InstancePrechecker interface.
-func (env *azureEnviron) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
-	// Reject ip-family=dual when the load balancer SKU is Basic.
-	// Basic SKU does not support dual-stack public IPs; operators
-	// must use Standard SKU (the default).
-	if args.Constraints.IPFamily != nil &&
-		*args.Constraints.IPFamily == ipfamily.Dual &&
+// validateIPFamilyConstraint rejects ip-family=dual when the load balancer
+// SKU is Basic. Basic SKU does not support dual-stack public IPs; operators
+// must use Standard SKU (the default).
+func (env *azureEnviron) validateIPFamilyConstraint(cons constraints.Value) error {
+	if cons.IPFamily != nil &&
+		*cons.IPFamily == ipfamily.Dual &&
 		env.config.loadBalancerSkuName == string(armnetwork.LoadBalancerSKUNameBasic) {
 		return errors.Errorf(
 			"ip-family=dual requires load-balancer-sku-name=Standard on Azure; " +
 				"Basic SKU is not supported for this configuration")
+	}
+	return nil
+}
+
+// PrecheckInstance is defined on the environs.InstancePrechecker interface.
+func (env *azureEnviron) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
+	if err := env.validateIPFamilyConstraint(args.Constraints); err != nil {
+		return errors.Trace(err)
 	}
 
 	if _, err := env.findPlacementSubnet(ctx, args.Placement); err != nil {

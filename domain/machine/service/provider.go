@@ -148,7 +148,7 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 	// Validate merged constraints to catch unsupported constraints.
 	unsupported, err := validator.Validate(mergedCons)
 	if err != nil {
-		// Should never happens, constraint are validated in merge
+		// Should never happen; constraints are validated during merge.
 		return constraints.Value{}, errors.Capture(err)
 	}
 	if len(unsupported) > 0 {
