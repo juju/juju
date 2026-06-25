@@ -13,6 +13,11 @@ In Juju, [Oracle OCI](https://docs.oracle.com/en-us/iaas/Content/home.htm) is a 
 This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to.
 ```
 
+(oci-requirements)=
+## Requirements
+
+An OCI compartment OCID. All resources (VCNs, subnets, instances, volumes) are created in this single compartment. See {ref}`oci-controller-bootstrap-behavior` for how to pass it to Juju.
+
 (oci-concepts)=
 ## Concepts
 
@@ -95,11 +100,7 @@ See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers
 (oci-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
-Creates a controller instance on OCI by provisioning the required network and compute resources, then waiting for them to become ready.
-
-You must specify the compartment OCID via the `compartment-id` model configuration key before bootstrapping. All resources (VCNs, subnets, instances, volumes) are created in this single compartment.
-
-Example: `juju bootstrap --config compartment-id=<compartment OCID> oracle oracle-controller`
+Creates a controller instance on OCI by provisioning the required network and compute resources, then waiting for them to become ready. All resources are created in a single OCI compartment -- you must specify it via the `compartment-id` model configuration key: `juju bootstrap --config compartment-id=<compartment OCID> oracle oracle-controller`.
 
 (oci-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
