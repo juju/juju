@@ -311,11 +311,11 @@ func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
 	if req.TunnelID == "" {
 		return errors.Errorf("empty tunnel id").Add(coreerrors.NotValid)
 	}
-	if req.MachineID == "" {
-		return errors.Errorf("empty machine id").Add(coreerrors.NotValid)
+	if req.MachineName == "" {
+		return errors.Errorf("empty machine name").Add(coreerrors.NotValid)
 	}
-	if err := coremachine.Name(req.MachineID).Validate(); err != nil {
-		return errors.Errorf("validating machine id %q: %w", req.MachineID, err)
+	if err := coremachine.Name(req.MachineName).Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", req.MachineName, err)
 	}
 	if req.Username == "" {
 		return errors.Errorf("empty username").Add(coreerrors.NotValid)

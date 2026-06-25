@@ -166,7 +166,7 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	req := domainssh.SSHConnRequest{
 		TunnelID:            "tunnel-0",
-		MachineID:           "1",
+		MachineName:         "1",
 		Expires:             now.Add(time.Minute),
 		Username:            "juju-reverse-tunnel",
 		Password:            "secret",
@@ -181,7 +181,7 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 	got, err := st.GetSSHConnRequest(c.Context(), req.TunnelID, now)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.TunnelID, tc.Equals, req.TunnelID)
-	c.Check(got.MachineID, tc.Equals, req.MachineID)
+	c.Check(got.MachineName, tc.Equals, req.MachineName)
 	c.Check(got.Expires.Equal(req.Expires), tc.IsTrue)
 	c.Check(got.Username, tc.Equals, req.Username)
 	c.Check(got.Password, tc.Equals, req.Password)
@@ -195,11 +195,11 @@ func (s *stateSuite) TestInsertSSHConnRequestMachineNotFound(c *tc.C) {
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 
 	err := st.InsertSSHConnRequest(c.Context(), domainssh.SSHConnRequest{
-		TunnelID:  "missing-machine",
-		MachineID: "99",
-		Expires:   now.Add(time.Minute),
-		Username:  "juju-reverse-tunnel",
-		Password:  "secret",
+		TunnelID:    "missing-machine",
+		MachineName: "99",
+		Expires:     now.Add(time.Minute),
+		Username:    "juju-reverse-tunnel",
+		Password:    "secret",
 	}, now)
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
@@ -210,7 +210,7 @@ func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	req := domainssh.SSHConnRequest{
 		TunnelID:           "remove-me",
-		MachineID:          "1",
+		MachineName:        "1",
 		Expires:            now.Add(time.Minute),
 		Username:           "juju-reverse-tunnel",
 		Password:           "secret",
@@ -231,8 +231,8 @@ func (s *stateSuite) TestPruneExpiredSSHConnRequests(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	s.addMachine(c, "1")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
-	expiredReq := domainssh.SSHConnRequest{TunnelID: "expired", MachineID: "1", Expires: now.Add(-time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
-	activeReq := domainssh.SSHConnRequest{TunnelID: "active", MachineID: "1", Expires: now.Add(time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
+	expiredReq := domainssh.SSHConnRequest{TunnelID: "expired", MachineName: "1", Expires: now.Add(-time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
+	activeReq := domainssh.SSHConnRequest{TunnelID: "active", MachineName: "1", Expires: now.Add(time.Minute), Username: "juju-reverse-tunnel", Password: "secret", EphemeralPublicKey: []byte("pub")}
 
 	err := st.InsertSSHConnRequest(c.Context(), expiredReq, now.Add(-2*time.Minute))
 	c.Assert(err, tc.ErrorIsNil)

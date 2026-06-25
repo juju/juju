@@ -14,7 +14,7 @@ import (
 // a model.
 type SSHConnRequest struct {
 	TunnelID            string
-	MachineID           string
+	MachineName         string
 	Expires             time.Time
 	Username            string
 	Password            string

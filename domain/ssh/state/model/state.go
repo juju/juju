@@ -359,12 +359,12 @@ VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 		}
 
 		machineUUID := entityUUID{}
-		err := tx.Query(ctx, getMachineUUIDStmt, entityName{Name: req.MachineID}).Get(&machineUUID)
+		err := tx.Query(ctx, getMachineUUIDStmt, entityName{Name: req.MachineName}).Get(&machineUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("machine %q %w", req.MachineID, machineerrors.MachineNotFound)
+			return errors.Errorf("machine %q %w", req.MachineName, machineerrors.MachineNotFound)
 		}
 		if err != nil {
-			return errors.Errorf("querying machine %q: %w", req.MachineID, err)
+			return errors.Errorf("querying machine %q: %w", req.MachineName, err)
 		}
 
 		record := sshConnRequestInsert{
@@ -455,7 +455,7 @@ ORDER BY index_id ASC`, sshConnRequestAddress{}, tunnelID{})
 
 		result = domainssh.SSHConnRequest{
 			TunnelID:            row.TunnelID,
-			MachineID:           row.MachineID,
+			MachineName:         row.MachineID,
 			Expires:             row.ExpiresAt,
 			Username:            row.Username,
 			Password:            row.Password,

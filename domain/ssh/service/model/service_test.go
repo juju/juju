@@ -154,7 +154,7 @@ func (s *serviceSuite) TestInsertSSHConnRequest(c *tc.C) {
 	req := domainssh.SSHConnRequest{
 		ModelUUID:           modelUUID,
 		TunnelID:            "tunnel-0",
-		MachineID:           "1",
+		MachineName:         "1",
 		Expires:             clk.Now().Add(time.Minute),
 		Username:            "juju-reverse-tunnel",
 		Password:            "secret",
@@ -176,11 +176,11 @@ func (s *serviceSuite) TestInsertSSHConnRequestRejectsExpired(c *tc.C) {
 	svc := modelsshservice.NewService(modelUUID, state, modelsshservice.WithClock(clk))
 
 	req := domainssh.SSHConnRequest{
-		TunnelID:  "tunnel-0",
-		MachineID: "1",
-		Expires:   clk.Now().Add(-time.Minute),
-		Username:  "juju-reverse-tunnel",
-		Password:  "secret",
+		TunnelID:    "tunnel-0",
+		MachineName: "1",
+		Expires:     clk.Now().Add(-time.Minute),
+		Username:    "juju-reverse-tunnel",
+		Password:    "secret",
 	}
 
 	err := svc.InsertSSHConnRequest(c.Context(), req)
@@ -191,7 +191,7 @@ func (s *serviceSuite) TestGetSSHConnRequest(c *tc.C) {
 	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
-	state.getReq = domainssh.SSHConnRequest{TunnelID: "tunnel-0", MachineID: "1"}
+	state.getReq = domainssh.SSHConnRequest{TunnelID: "tunnel-0", MachineName: "1"}
 	svc := modelsshservice.NewService(modelUUID, state, modelsshservice.WithClock(clk))
 
 	req, err := svc.GetSSHConnRequest(c.Context(), "tunnel-0")
