@@ -113,7 +113,7 @@ Bootstrap with cloud-specific model-configuration keys `datastore` and `primary-
 (vsphere-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-The controller runs on a vSphere VM provisioned using the same mechanisms as workload machines — see {ref}`vsphere-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+The controller runs on a vSphere VM provisioned using the same mechanisms as workload machines -- see {ref}`vsphere-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 
 **Compute**
 
@@ -260,7 +260,7 @@ Applies to all machines, including controller machines. Controller-specific defa
 See also: {ref}`storage`, {ref}`Juju | Manage storage <manage-storage>`
 ```
 
-VMware vSphere has no cloud-specific storage providers. All storage operations use VMDK provisioning from templates — see {ref}`vsphere-machine-storage-behavior`.
+VMware vSphere has no cloud-specific storage providers. All storage operations use VMDK provisioning from templates -- see {ref}`vsphere-machine-storage-behavior`.
 
 (vsphere-appendix-using-templates)=
 ## Appendix: Using templates

@@ -5,7 +5,7 @@ See also: {ref}`cloud`, {ref}`Juju | Manage clouds <manage-clouds>`, {ref}`Juju 
 As for all Kubernetes clouds, the cloud is registered in Juju via a cloud definition, stored in `clouds.yaml` on the client and following this schema.
 
 ```{tip}
-If using the Juju CLI, you can skip writing this file manually — `juju add-k8s` can read `kubeconfig` and create the cloud definition for you.
+If using the Juju CLI, you can skip writing this file manually -- `juju add-k8s` can read `kubeconfig` and create the cloud definition for you.
 ```
 
 ```yaml

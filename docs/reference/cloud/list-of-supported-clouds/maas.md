@@ -109,7 +109,7 @@ Allocates a machine from MAAS inventory that meets the specified hardware constr
 (maas-controller-resources-created-at-bootstrap)=
 ### Resources allocated at bootstrap
 
-MAAS allocates (rather than creates) existing machines from inventory. The controller runs on a machine provisioned using the same mechanisms as workload machines — see {ref}`maas-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+MAAS allocates (rather than creates) existing machines from inventory. The controller runs on a machine provisioned using the same mechanisms as workload machines -- see {ref}`maas-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 
 **Compute**
 

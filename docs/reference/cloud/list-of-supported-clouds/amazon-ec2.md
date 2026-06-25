@@ -117,7 +117,7 @@ Creates a controller instance on EC2 in a single API request. Juju creates the r
 (ec2-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-The controller runs on an EC2 instance provisioned using the same mechanisms as workload machines — see {ref}`ec2-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+The controller runs on an EC2 instance provisioned using the same mechanisms as workload machines -- see {ref}`ec2-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 
 **Compute**
 

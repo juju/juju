@@ -147,7 +147,7 @@ If `juju bootstrap` hangs, it could be due to a firewall issue. See: [LXD | UFW:
 (lxd-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-The controller runs on an LXD instance provisioned using the same mechanisms as workload machines — see {ref}`lxd-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+The controller runs on an LXD instance provisioned using the same mechanisms as workload machines -- see {ref}`lxd-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 
 **Compute**
 

@@ -62,7 +62,7 @@ clouds:
 
 
 ```{tip}
-Source the OpenStack RC file (`source <path to file>`) before running `juju add-cloud` in interactive mode — Juju will detect values from preset OpenStack environment variables and suggest them as defaults.
+Source the OpenStack RC file (`source <path to file>`) before running `juju add-cloud` in interactive mode -- Juju will detect values from preset OpenStack environment variables and suggest them as defaults.
 ```
 
 (openstack-credential)=
@@ -130,7 +130,7 @@ See more: {ref}`manage-metadata`
 (openstack-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-The controller runs on a Nova instance provisioned using the same mechanisms as workload machines — see {ref}`openstack-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+The controller runs on a Nova instance provisioned using the same mechanisms as workload machines -- see {ref}`openstack-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 
 **Compute**
 

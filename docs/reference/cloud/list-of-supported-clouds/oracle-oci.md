@@ -107,7 +107,7 @@ Creates a controller instance on OCI by provisioning the required network and co
 (oci-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-The controller runs on an OCI instance provisioned using the same mechanisms as workload machines — see {ref}`oci-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+The controller runs on an OCI instance provisioned using the same mechanisms as workload machines -- see {ref}`oci-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 
 **Compute**
 

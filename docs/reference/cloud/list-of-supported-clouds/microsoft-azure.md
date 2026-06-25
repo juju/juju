@@ -150,7 +150,7 @@ Creates controller and initial model on Azure.
 (azure-controller-resources-created-at-bootstrap)=
 ### Resources created at bootstrap
 
-The controller runs on an Azure VM provisioned using the same mechanisms as workload machines — see {ref}`azure-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
+The controller runs on an Azure VM provisioned using the same mechanisms as workload machines -- see {ref}`azure-machine-resources-created-per-machine` for the full per-machine resource model. Controller-specific differences are noted below.
 
 **Compute**
 
