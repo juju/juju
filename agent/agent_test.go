@@ -708,3 +708,122 @@ func (*suite) TestSetOpenTelemetryTailSamplingThreshold(c *tc.C) {
 	queryTracingTailSamplingThreshold = conf.OpenTelemetryTailSamplingThreshold()
 	c.Assert(queryTracingTailSamplingThreshold, tc.Equals, time.Second, tc.Commentf("open telemetry tail sampling threshold setting not updated"))
 }
+
+// TestLokiConfigDefaults verifies that a config created without Loki fields
+// set reports empty values (logsink mode).
+func (*suite) TestLokiConfigDefaults(c *tc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(conf.LokiEndpoint(), tc.Equals, "")
+	c.Check(conf.LokiCACert(), tc.Equals, "")
+	c.Check(conf.LokiInsecureSkipVerify(), tc.IsNil)
+}
+
+// TestNewAgentConfigLokiConfig verifies that Loki fields supplied via
+// AgentConfigParams reach the config so newly provisioned agents start in
+// the correct forwarding mode on first boot.
+func (*suite) TestNewAgentConfigLokiConfig(c *tc.C) {
+	insecure := true
+	params := attributeParams
+	params.LokiEndpoint = "https://loki.example.com/loki/api/v1/push"
+	params.LokiCACert = "ca-cert"
+	params.LokiInsecureSkipVerify = &insecure
+
+	conf, err := agent.NewAgentConfig(params)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(conf.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(conf.LokiCACert(), tc.Equals, "ca-cert")
+	c.Assert(conf.LokiInsecureSkipVerify(), tc.NotNil)
+	c.Check(*conf.LokiInsecureSkipVerify(), tc.IsTrue)
+}
+
+// TestNewStateMachineConfigLokiConfig verifies that Loki fields supplied via
+// AgentConfigParams reach a state-machine (controller) config too.
+func (*suite) TestNewStateMachineConfigLokiConfig(c *tc.C) {
+	insecure := false
+	params := attributeParams
+	params.LokiEndpoint = "https://loki.example.com/loki/api/v1/push"
+	params.LokiCACert = "ca-cert"
+	params.LokiInsecureSkipVerify = &insecure
+
+	conf, err := agent.NewStateMachineConfig(params, stateServingInfo())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(conf.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(conf.LokiCACert(), tc.Equals, "ca-cert")
+	c.Assert(conf.LokiInsecureSkipVerify(), tc.NotNil)
+	c.Check(*conf.LokiInsecureSkipVerify(), tc.IsFalse)
+}
+
+// TestSetLokiConfig verifies that SetLokiConfig updates the endpoint, CA cert
+// and insecure skip verify flag together, and that nil pointers clear the
+// cert/insecure fields.
+func (*suite) TestSetLokiConfig(c *tc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, tc.ErrorIsNil)
+
+	insecure := true
+	cert := "ca-cert"
+	conf.SetLokiConfig("https://loki.example.com/loki/api/v1/push", &cert, &insecure)
+	c.Check(conf.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(conf.LokiCACert(), tc.Equals, "ca-cert")
+	c.Assert(conf.LokiInsecureSkipVerify(), tc.NotNil)
+	c.Check(*conf.LokiInsecureSkipVerify(), tc.IsTrue)
+
+	// Clearing with nil pointers: endpoint set, cert cleared, insecure nil.
+	conf.SetLokiConfig("https://other.example.com", nil, nil)
+	c.Check(conf.LokiEndpoint(), tc.Equals, "https://other.example.com")
+	c.Check(conf.LokiCACert(), tc.Equals, "")
+	c.Check(conf.LokiInsecureSkipVerify(), tc.IsNil)
+}
+
+// TestLokiConfigCloneIsolation verifies that the LokiInsecureSkipVerify
+// pointer returned by a cloned config is independent from the original, so
+// callers cannot mutate shared agent config state by editing the returned
+// pointer.
+func (*suite) TestLokiConfigCloneIsolation(c *tc.C) {
+	insecure := true
+	params := attributeParams
+	params.LokiEndpoint = "https://loki.example.com/loki/api/v1/push"
+	params.LokiCACert = "ca-cert"
+	params.LokiInsecureSkipVerify = &insecure
+
+	conf, err := agent.NewAgentConfig(params)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cloned := conf.Clone()
+	clonedValue := cloned.LokiInsecureSkipVerify()
+	c.Assert(clonedValue, tc.NotNil)
+	c.Check(*clonedValue, tc.IsTrue)
+
+	// Mutating the cloned pointer must not affect the original config.
+	*clonedValue = false
+	originalValue := conf.LokiInsecureSkipVerify()
+	c.Assert(originalValue, tc.NotNil)
+	c.Check(*originalValue, tc.IsTrue)
+}
+
+// TestLokiConfigWriteAndRead verifies that Loki fields survive a write/read
+// round-trip through the serialized agent.conf.
+func (*suite) TestLokiConfigWriteAndRead(c *tc.C) {
+	insecure := true
+	params := attributeParams
+	params.Paths.DataDir = c.MkDir()
+	params.Paths.LogDir = c.MkDir()
+	params.LokiEndpoint = "https://loki.example.com/loki/api/v1/push"
+	params.LokiCACert = "ca-cert"
+	params.LokiInsecureSkipVerify = &insecure
+
+	conf, err := agent.NewAgentConfig(params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(conf.Write(), tc.IsNil)
+
+	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(reread.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(reread.LokiCACert(), tc.Equals, "ca-cert")
+	c.Assert(reread.LokiInsecureSkipVerify(), tc.NotNil)
+	c.Check(*reread.LokiInsecureSkipVerify(), tc.IsTrue)
+}

@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -42,6 +44,7 @@ type CAASApplicationSuite struct {
 	applicationService      *caasapplication.MockApplicationService
 	modelAgentService       *caasapplication.MockModelAgentService
 	tracingService          *caasapplication.MockTracingService
+	lokiConfigService       *caasapplication.MockLokiConfigService
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *tc.C) {
@@ -64,11 +67,12 @@ func (s *CAASApplicationSuite) setupMocks(c *tc.C, authTag string) *gomock.Contr
 	s.applicationService = caasapplication.NewMockApplicationService(ctrl)
 	s.modelAgentService = caasapplication.NewMockModelAgentService(ctrl)
 	s.tracingService = caasapplication.NewMockTracingService(ctrl)
+	s.lokiConfigService = caasapplication.NewMockLokiConfigService(ctrl)
 
 	s.facade = caasapplication.NewFacade(s.authorizer,
 		coretesting.ControllerTag.Id(), s.modelUUID,
 		s.controllerConfigService, s.controllerNodeService, s.applicationService,
-		s.modelAgentService, s.tracingService, loggertesting.WrapCheckLog(c))
+		s.modelAgentService, s.tracingService, s.lokiConfigService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, tc.ErrorIsNil)
 
 	return ctrl
@@ -121,6 +125,7 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 		OpenTelemetrySampleRatio:           &sampleRatio,
 		OpenTelemetryTailSamplingThreshold: &tailSamplingThreshold,
 	}, nil)
+	s.lokiConfigService.EXPECT().GetLokiConfig(gomock.Any()).Return(logging.LokiConfig{}, loggingerrors.LokiConfigNotFound)
 
 	s.applicationService.EXPECT().RegisterCAASUnit(gomock.Any(), application.RegisterCAASUnitParams{
 		ApplicationName: "gitlab",

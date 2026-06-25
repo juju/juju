@@ -6187,6 +6187,15 @@
                                 "type": "string"
                             }
                         },
+                        "loki-cacert": {
+                            "type": "string"
+                        },
+                        "loki-endpoint": {
+                            "type": "string"
+                        },
+                        "loki-insecure-skip-verify": {
+                            "type": "boolean"
+                        },
                         "placement": {
                             "type": "string"
                         },
@@ -6238,13 +6247,13 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "subnet-zones",
+                        "space-subnets",
+                        "ProvisioningNetworkTopology",
                         "constraints",
                         "base",
                         "placement",
-                        "jobs",
-                        "subnet-zones",
-                        "space-subnets",
-                        "ProvisioningNetworkTopology"
+                        "jobs"
                     ]
                 },
                 "ProvisioningInfoResult": {

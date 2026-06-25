@@ -533,6 +533,16 @@ type AgentConfigParams struct {
 	OpenTelemetrySampleRatio           float64
 	OpenTelemetryTailSamplingThreshold time.Duration
 	DqlitePort                         int
+
+	// LokiEndpoint is the initial Loki push API endpoint for this agent.
+	// Empty means logs are sent through the controller logsink.
+	LokiEndpoint string
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -604,6 +614,9 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		openTelemetrySampleRatio:           configParams.OpenTelemetrySampleRatio,
 		openTelemetryTailSamplingThreshold: configParams.OpenTelemetryTailSamplingThreshold,
 		dqlitePort:                         configParams.DqlitePort,
+		lokiEndpoint:                       configParams.LokiEndpoint,
+		lokiCACert:                         configParams.LokiCACert,
+		lokiInsecureSkipVerify:             configParams.LokiInsecureSkipVerify,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{

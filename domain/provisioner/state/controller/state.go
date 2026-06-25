@@ -11,6 +11,8 @@ import (
 	coredb "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/domain/provisioner"
 	"github.com/juju/juju/internal/errors"
 )
@@ -218,4 +220,48 @@ AND ($imageMetadataFlags.has_image_id = 0 OR cim.image_id = $imageMetadataFilter
 		}
 	}
 	return result, nil
+}
+
+// GetLokiConfig returns the configured Loki push API endpoint, CA certificate,
+// and insecure skip verify setting from the controller database. If no
+// endpoint is configured, an error satisfying
+// [loggingerrors.LokiConfigNotFound] is returned.
+func (st *State) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return logging.LokiConfig{}, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &lokiConfigRow.*
+FROM logging_loki_config
+`, lokiConfigRow{})
+	if err != nil {
+		return logging.LokiConfig{}, errors.Capture(err)
+	}
+
+	var row lokiConfigRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return loggingerrors.LokiConfigNotFound
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		return logging.LokiConfig{}, errors.Errorf("getting loki config: %w", err)
+	}
+
+	var caCert string
+	if row.CACertificate.Valid {
+		caCert = row.CACertificate.V
+	}
+	var isv *bool
+	if row.InsecureSkipVerify.Valid {
+		isv = new(row.InsecureSkipVerify.V)
+	}
+	return logging.LokiConfig{
+		Endpoint:           row.Endpoint,
+		CACertificate:      caCert,
+		InsecureSkipVerify: isv,
+	}, nil
 }

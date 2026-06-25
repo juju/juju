@@ -844,6 +844,8 @@ type ProvisioningNetworkTopology struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
+	ProvisioningNetworkTopology
+
 	Constraints       constraints.Value        `json:"constraints"`
 	Base              Base                     `json:"base"`
 	Placement         string                   `json:"placement"`
@@ -858,7 +860,18 @@ type ProvisioningInfo struct {
 	CloudInitUserData map[string]any           `json:"cloudinit-userdata,omitempty"`
 	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
 
-	ProvisioningNetworkTopology
+	// LokiEndpoint is the controller-wide Loki push API endpoint the
+	// provisioned agent should forward logs to on first boot. Empty means
+	// logs are sent through the controller logsink.
+	LokiEndpoint string `json:"loki-endpoint,omitempty"`
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string `json:"loki-cacert,omitempty"`
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool `json:"loki-insecure-skip-verify,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

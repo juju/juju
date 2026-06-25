@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/rpc/params"
 )
@@ -61,6 +63,18 @@ type TracingService interface {
 	GetWorkloadTracingConfig(ctx context.Context) (tracingservice.WorkloadTracingConfig, error)
 }
 
+// LokiConfigService provides access to the controller-wide Loki push API
+// configuration. It is used to seed newly introduced unit agents with the
+// current Loki endpoint so they start in the correct forwarding mode on
+// first boot.
+type LokiConfigService interface {
+	// GetLokiConfig returns the configured Loki push API endpoint and CA
+	// certificate. If no endpoint is configured, an error satisfying
+	// [github.com/juju/juju/domain/logging/errors.LokiConfigNotFound] is
+	// returned.
+	GetLokiConfig(ctx context.Context) (logging.LokiConfig, error)
+}
+
 // Facade defines the API methods on the CAASApplication facade.
 type Facade struct {
 	controllerUUID string
@@ -72,6 +86,7 @@ type Facade struct {
 	applicationService      ApplicationService
 	modelAgentService       ModelAgentService
 	tracingService          TracingService
+	lokiConfigService       LokiConfigService
 	logger                  logger.Logger
 }
 
@@ -85,6 +100,7 @@ func NewFacade(
 	applicationService ApplicationService,
 	modelAgentService ModelAgentService,
 	tracingService TracingService,
+	lokiConfigService LokiConfigService,
 	logger logger.Logger,
 ) *Facade {
 	return &Facade{
@@ -96,6 +112,7 @@ func NewFacade(
 		applicationService:      applicationService,
 		modelAgentService:       modelAgentService,
 		tracingService:          tracingService,
+		lokiConfigService:       lokiConfigService,
 		logger:                  logger,
 	}
 }
@@ -163,6 +180,21 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 	if err != nil {
 		return errResp(err)
 	}
+	// Fetch the controller-wide Loki config so the unit agent starts in the
+	// correct forwarding mode on first boot. When Loki is not active the
+	// config is empty and the agent falls back to logsink mode.
+	lokiConfig, err := f.lokiConfigService.GetLokiConfig(ctx)
+	if err != nil && !errors.Is(err, loggingerrors.LokiConfigNotFound) {
+		return errResp(err)
+	}
+
+	// Expose the tracing endpoint to the unit agent. If the GRPC endpoint is
+	// not set, fall back to the HTTP endpoint.
+	tracingEndpoint := tracingConfig.GRPCEndpoint
+	if tracingEndpoint == "" {
+		tracingEndpoint = tracingConfig.HTTPEndpoint
+	}
+
 	dataDir := paths.DataDir(paths.OSUnixLike)
 	logDir := path.Join(paths.LogDir(paths.OSUnixLike), "juju")
 	conf, err := agent.NewAgentConfig(
@@ -179,12 +211,16 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			Password:          unitPassword,
 			UpgradedToVersion: version,
 
-			OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "",
-			OpenTelemetryEndpoint:              tracingConfig.GRPCEndpoint,
+			OpenTelemetryEnabled:               tracingEndpoint != "",
+			OpenTelemetryEndpoint:              tracingEndpoint,
 			OpenTelemetryInsecure:              openTelemetryInsecure(tracingConfig),
 			OpenTelemetryStackTraces:           openTelemetryStackTraces(tracingConfig),
 			OpenTelemetrySampleRatio:           openTelemetrySampleRatio(tracingConfig),
 			OpenTelemetryTailSamplingThreshold: openTelemetryTailSamplingThreshold,
+
+			LokiEndpoint:           lokiConfig.Endpoint,
+			LokiCACert:             lokiConfig.CACertificate,
+			LokiInsecureSkipVerify: lokiConfig.InsecureSkipVerify,
 		},
 	)
 	if err != nil {

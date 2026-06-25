@@ -13,6 +13,7 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
+	logging "github.com/juju/juju/domain/logging"
 	provisioner "github.com/juju/juju/domain/provisioner"
 )
 
@@ -90,6 +91,7 @@ type MockControllerStateMockRecorder struct {
 	mock                          *MockControllerState
 	getCachedImageMetadataExpects []*gomock.Call6_2[context.Context, string, string, string, string, string, []provisioner.CloudImageMetadata, error]
 	getCloudEndpointExpects       []*gomock.Call3_2[context.Context, string, string, string, error]
+	getLokiConfigExpects          []*gomock.Call1_2[context.Context, logging.LokiConfig, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -139,6 +141,24 @@ func (mr *MockControllerStateMockRecorder) GetCloudEndpoint(ctx, cloudName, regi
 
 // MockControllerStateGetCloudEndpointCall is the typed call wrapper for GetCloudEndpoint.
 type MockControllerStateGetCloudEndpointCall = gomock.Call3_2[context.Context, string, string, string, error]
+
+// GetLokiConfig mocks base method.
+func (m *MockControllerState) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getLokiConfigExpects, m.ctrl, m, "GetLokiConfig", ctx)
+}
+
+// GetLokiConfig indicates an expected call of GetLokiConfig.
+func (mr *MockControllerStateMockRecorder) GetLokiConfig(ctx any) *MockControllerStateGetLokiConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, logging.LokiConfig, error](mr.mock.ctrl.T, mr.mock, "GetLokiConfig", gomock.EnsureMatcher(ctx))
+	mr.getLokiConfigExpects = append(mr.getLokiConfigExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetLokiConfigCall is the typed call wrapper for GetLokiConfig.
+type MockControllerStateGetLokiConfigCall = gomock.Call1_2[context.Context, logging.LokiConfig, error]
 
 // MockImageMetadataFetcher is a mock of ImageMetadataFetcher interface.
 type MockImageMetadataFetcher struct {
