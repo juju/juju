@@ -45,23 +45,28 @@ type expiryTime struct {
 }
 
 type sshConnRequestInsert struct {
-	TunnelID            string    `db:"tunnel_id"`
-	MachineUUID         string    `db:"machine_uuid"`
-	ExpiresAt           time.Time `db:"expires_at"`
-	Username            string    `db:"username"`
-	Password            string    `db:"password"`
-	ControllerAddresses string    `db:"controller_addresses"`
-	UnitPort            int       `db:"unit_port"`
-	EphemeralPublicKey  []byte    `db:"ephemeral_public_key"`
+	TunnelID           string    `db:"tunnel_id"`
+	MachineUUID        string    `db:"machine_uuid"`
+	ExpiresAt          time.Time `db:"expires_at"`
+	Username           string    `db:"username"`
+	Password           string    `db:"password"`
+	UnitPort           int       `db:"unit_port"`
+	EphemeralPublicKey []byte    `db:"ephemeral_public_key"`
 }
 
 type sshConnRequestRecord struct {
-	TunnelID            string    `db:"tunnel_id"`
-	MachineID           string    `db:"machine_id"`
-	ExpiresAt           time.Time `db:"expires_at"`
-	Username            string    `db:"username"`
-	Password            string    `db:"password"`
-	ControllerAddresses string    `db:"controller_addresses"`
-	UnitPort            int       `db:"unit_port"`
-	EphemeralPublicKey  []byte    `db:"ephemeral_public_key"`
+	TunnelID           string    `db:"tunnel_id"`
+	MachineID          string    `db:"machine_id"`
+	ExpiresAt          time.Time `db:"expires_at"`
+	Username           string    `db:"username"`
+	Password           string    `db:"password"`
+	UnitPort           int       `db:"unit_port"`
+	EphemeralPublicKey []byte    `db:"ephemeral_public_key"`
+}
+
+// sshConnRequestAddress mirrors a single row in ssh_connection_request_address.
+type sshConnRequestAddress struct {
+	TunnelID     string `db:"tunnel_id"`
+	IndexID      int    `db:"index_id"`
+	AddressValue string `db:"address_value"`
 }

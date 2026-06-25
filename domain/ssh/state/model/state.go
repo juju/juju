@@ -5,7 +5,6 @@ package model
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -334,11 +333,6 @@ func (st *State) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConn
 		return errors.Capture(err)
 	}
 
-	controllerAddresses, err := marshalControllerAddresses(req.ControllerAddresses)
-	if err != nil {
-		return errors.Errorf("marshalling controller addresses: %w", err)
-	}
-
 	getMachineUUIDStmt, err := st.Prepare(`
 SELECT uuid AS &entityUUID.uuid
 FROM machine
@@ -349,6 +343,12 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	insertStmt, err := st.Prepare(`
 INSERT INTO ssh_connection_request (*)
 VALUES ($sshConnRequestInsert.*)`, sshConnRequestInsert{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertAddrStmt, err := st.Prepare(`
+INSERT INTO ssh_connection_request_address (*)
+VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -368,19 +368,29 @@ VALUES ($sshConnRequestInsert.*)`, sshConnRequestInsert{})
 		}
 
 		record := sshConnRequestInsert{
-			TunnelID:            req.TunnelID,
-			MachineUUID:         machineUUID.UUID,
-			ExpiresAt:           req.Expires,
-			Username:            req.Username,
-			Password:            req.Password,
-			ControllerAddresses: controllerAddresses,
-			UnitPort:            req.UnitPort,
-			EphemeralPublicKey:  req.EphemeralPublicKey,
+			TunnelID:           req.TunnelID,
+			MachineUUID:        machineUUID.UUID,
+			ExpiresAt:          req.Expires,
+			Username:           req.Username,
+			Password:           req.Password,
+			UnitPort:           req.UnitPort,
+			EphemeralPublicKey: req.EphemeralPublicKey,
 		}
 		if err := tx.Query(ctx, insertStmt, record).Run(); internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
 			return errors.Errorf("SSH connection request %q already exists", req.TunnelID).Add(coreerrors.AlreadyExists)
 		} else if err != nil {
 			return errors.Errorf("persisting SSH connection request %q: %w", req.TunnelID, err)
+		}
+
+		for i, addr := range req.ControllerAddresses {
+			addrRow := sshConnRequestAddress{
+				TunnelID:     req.TunnelID,
+				IndexID:      i,
+				AddressValue: addr.Value,
+			}
+			if err := tx.Query(ctx, insertAddrStmt, addrRow).Run(); err != nil {
+				return errors.Errorf("persisting controller address %d for SSH connection request %q: %w", i, req.TunnelID, err)
+			}
 		}
 		return nil
 	}))
@@ -399,12 +409,19 @@ SELECT scr.tunnel_id AS &sshConnRequestRecord.tunnel_id,
        scr.expires_at AS &sshConnRequestRecord.expires_at,
        scr.username AS &sshConnRequestRecord.username,
        scr.password AS &sshConnRequestRecord.password,
-       scr.controller_addresses AS &sshConnRequestRecord.controller_addresses,
        scr.unit_port AS &sshConnRequestRecord.unit_port,
        scr.ephemeral_public_key AS &sshConnRequestRecord.ephemeral_public_key
 FROM ssh_connection_request AS scr
 JOIN machine AS m ON m.uuid = scr.machine_uuid
 WHERE scr.tunnel_id = $tunnelID.tunnel_id`, sshConnRequestRecord{}, tunnelID{})
+	if err != nil {
+		return domainssh.SSHConnRequest{}, errors.Capture(err)
+	}
+	addrStmt, err := st.Prepare(`
+SELECT &sshConnRequestAddress.*
+FROM ssh_connection_request_address
+WHERE tunnel_id = $tunnelID.tunnel_id
+ORDER BY index_id ASC`, sshConnRequestAddress{}, tunnelID{})
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Capture(err)
 	}
@@ -426,9 +443,14 @@ WHERE scr.tunnel_id = $tunnelID.tunnel_id`, sshConnRequestRecord{}, tunnelID{})
 			return errors.Errorf("querying SSH connection request %q: %w", requestTunnelID, err)
 		}
 
-		controllerAddresses, err := unmarshalControllerAddresses(row.ControllerAddresses)
-		if err != nil {
-			return errors.Errorf("unmarshalling controller addresses for %q: %w", requestTunnelID, err)
+		var addrRows []sshConnRequestAddress
+		if err := tx.Query(ctx, addrStmt, tunnelID{TunnelID: requestTunnelID}).GetAll(&addrRows); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying controller addresses for SSH connection request %q: %w", requestTunnelID, err)
+		}
+
+		controllerAddresses := make(network.SpaceAddresses, len(addrRows))
+		for i, a := range addrRows {
+			controllerAddresses[i] = network.NewSpaceAddress(a.AddressValue)
 		}
 
 		result = domainssh.SSHConnRequest{
@@ -456,7 +478,13 @@ func (st *State) RemoveSSHConnRequest(ctx context.Context, requestTunnelID strin
 		return errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`
+	deleteAddrsStmt, err := st.Prepare(`
+DELETE FROM ssh_connection_request_address
+WHERE tunnel_id = $tunnelID.tunnel_id`, tunnelID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteStmt, err := st.Prepare(`
 DELETE FROM ssh_connection_request
 WHERE tunnel_id = $tunnelID.tunnel_id`, tunnelID{})
 	if err != nil {
@@ -464,7 +492,11 @@ WHERE tunnel_id = $tunnelID.tunnel_id`, tunnelID{})
 	}
 
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}).Run()
+		tid := tunnelID{TunnelID: requestTunnelID}
+		if err := tx.Query(ctx, deleteAddrsStmt, tid).Run(); err != nil {
+			return errors.Errorf("deleting controller addresses for SSH connection request %q: %w", requestTunnelID, err)
+		}
+		return tx.Query(ctx, deleteStmt, tid).Run()
 	}))
 }
 
@@ -487,27 +519,23 @@ func (*State) InitialWatchSSHConnRequestsStatement() (string, string) {
 }
 
 func (st *State) pruneExpiredSSHConnRequests(ctx context.Context, tx *sqlair.TX, now time.Time) error {
-	stmt, err := st.Prepare(`
+	deleteAddrsStmt, err := st.Prepare(`
+DELETE FROM ssh_connection_request_address
+WHERE tunnel_id IN (
+    SELECT tunnel_id FROM ssh_connection_request WHERE expires_at <= $expiryTime.expires_at
+)`, expiryTime{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteStmt, err := st.Prepare(`
 DELETE FROM ssh_connection_request
 WHERE expires_at <= $expiryTime.expires_at`, expiryTime{})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return tx.Query(ctx, stmt, expiryTime{ExpiresAt: now}).Run()
-}
-
-func marshalControllerAddresses(addresses network.SpaceAddresses) (string, error) {
-	payload, err := json.Marshal(addresses)
-	if err != nil {
-		return "", errors.Capture(err)
+	t := expiryTime{ExpiresAt: now}
+	if err := tx.Query(ctx, deleteAddrsStmt, t).Run(); err != nil {
+		return errors.Errorf("pruning expired SSH connection request addresses: %w", err)
 	}
-	return string(payload), nil
-}
-
-func unmarshalControllerAddresses(payload string) (network.SpaceAddresses, error) {
-	var addresses network.SpaceAddresses
-	if err := json.Unmarshal([]byte(payload), &addresses); err != nil {
-		return nil, errors.Capture(err)
-	}
-	return addresses, nil
+	return tx.Query(ctx, deleteStmt, t).Run()
 }

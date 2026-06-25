@@ -33,7 +33,7 @@ type WatcherFactory interface {
 	) (watcher.StringsWatcher, error)
 }
 
-// Service provides model-scoped SSH virtual host key workflows.
+// Service provides serving for SSH connection requests.
 type Service struct {
 	modelUUID      coremodel.UUID
 	state          State
@@ -329,5 +329,15 @@ func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
 	if req.Expires.Before(s.clock.Now()) {
 		return errors.Errorf("expiry %v is in the past", req.Expires.UTC()).Add(coreerrors.NotValid)
 	}
+	if len(req.ControllerAddresses) == 0 {
+		return errors.Errorf("empty controller addresses").Add(coreerrors.NotValid)
+	}
+	if req.UnitPort <= 0 {
+		return errors.Errorf("invalid unit port %d", req.UnitPort).Add(coreerrors.NotValid)
+	}
+	if len(req.EphemeralPublicKey) == 0 {
+		return errors.Errorf("empty ephemeral public key").Add(coreerrors.NotValid)
+	}
+
 	return nil
 }
