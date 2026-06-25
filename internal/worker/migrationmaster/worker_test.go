@@ -5,10 +5,12 @@ package migrationmaster_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -231,7 +233,6 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	// tweak parts of this as needed.
 	s.config = migrationmaster.Config{
 		ModelUUID:               modelUUID,
-		Facade:                  s.facade,
 		CharmService:            s.charmService,
 		ModelMigrationService:   s.modelMigrationService,
 		ExportService:           s.exportService,
@@ -244,6 +245,8 @@ func (s *Suite) SetUpTest(c *tc.C) {
 		AgentBinaryStore:        fakeAgentBinaryStore,
 		LoggingService:          s.loggingService,
 		Clock:                   s.clock,
+		SourcePrecheck:          s.facade.Prechecks,
+		StreamModelLog:          s.facade.StreamModelLog,
 	}
 }
 
@@ -1388,6 +1391,13 @@ func assertExpectedCallArgs(c *tc.C, stub *testhelpers.Stub, expectedCalls []tes
 			continue
 		}
 
+		if call.FuncName == "UploadBinaries" {
+			mc := tc.NewMultiChecker()
+			mc.AddExpr(`_[5]`, tc.NotNil)
+			c.Assert(stubCall.Args[:5], mc, call.Args[:5], tc.Commentf("call %s", call.FuncName))
+			continue
+		}
+
 		c.Assert(stubCall, tc.DeepEquals, call, tc.Commentf("call %s", call.FuncName))
 	}
 }
@@ -1427,8 +1437,6 @@ func newStubMasterFacade(stub *testhelpers.Stub) *stubMasterFacade {
 }
 
 type stubMasterFacade struct {
-	migrationmaster.Facade
-
 	stub *testhelpers.Stub
 
 	prechecksErr error
@@ -1621,6 +1629,16 @@ type stubResourceService struct {
 func (s *stubResourceService) ListAllModelResources(ctx context.Context) ([]coreresource.Resource, error) {
 	s.stub.AddCall("resourceService.ListAllModelResources")
 	return s.resources, nil
+}
+
+func (s *stubResourceService) GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName, resName string) (coreresource.UUID, error) {
+	s.stub.AddCall("resourceService.GetResourceUUIDByApplicationAndResourceName", appName, resName)
+	return coreresource.UUID(""), nil
+}
+
+func (s *stubResourceService) OpenResource(ctx context.Context, resourceUUID coreresource.UUID) (coreresource.Resource, io.ReadCloser, error) {
+	s.stub.AddCall("resourceService.OpenResource", resourceUUID)
+	return coreresource.Resource{}, io.NopCloser(strings.NewReader("")), nil
 }
 
 type stubCharmService struct {
