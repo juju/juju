@@ -268,12 +268,10 @@ type ModelState interface {
 	GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
 }
 
-// NewImportService constructs a new [Service] for the v8 import driver,
-// which only ever calls the controller-scoped claim methods (BeginImport,
-// AssertImporting, ImportOfferPermissions, ImportExternalControllers). The
-// model-export-only dependencies (modelState, watcherFactory, the provider
-// getters, modelUUID) are intentionally left unset rather than passed as
-// nil by the caller.
+// NewImportService constructs a new [Service] for the v8 import driver, which
+// only needs controller-scoped claim methods. The model-export-only
+// dependencies (modelState, watcherFactory, the provider getters, modelUUID)
+// are intentionally left unset rather than passed as nil by the caller.
 func NewImportService(controllerState ControllerState, logger logger.Logger) *Service {
 	return &Service{
 		controllerState: controllerState,

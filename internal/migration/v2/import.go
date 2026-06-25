@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/agentbinary"
 	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
-	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
@@ -37,7 +37,6 @@ import (
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/rpc/params"
 )
 
 // Deps bundles the database and ambient dependencies the v8 import
@@ -49,121 +48,297 @@ type Deps struct {
 	Logger       logger.Logger
 }
 
-// ImportModel applies the v8 import envelope's controller-scoped semantic
-// data to the target controller: the durable model_migration_import claim,
-// the target-local model bootstrap (controller model row + model DB in
-// importing mode), and the users, credential, permissions, authorized keys,
-// secret backend, leadership and cloud image metadata carried by envelope.
-// Model-DB content import and activation are not part of this function.
+// ImportModelArgs contains the target-portable controller-scoped data needed
+// to start a v8 model import.
+type ImportModelArgs struct {
+	// SourceMigrationUUID is the source-side migration UUID recorded on the
+	// target import claim.
+	SourceMigrationUUID string
+
+	// ControllerModelInfo is the semantic controller-database snapshot for the
+	// model, decoded from the v8 import envelope by the apiserver facade.
+	ControllerModelInfo coremodelmigration.ControllerModelInfo
+}
+
+// ImportModel applies the v8 import's controller-scoped semantic data to the
+// target controller: the durable model_migration_import claim, the
+// target-local model bootstrap (controller model row + model DB in importing
+// mode), and the users, credential, permissions, authorized keys, secret
+// backend, leadership and cloud image metadata carried by info. Model-DB
+// content import and activation are not part of this function.
 //
-// Each step calls the owning domain's service import method directly (the
-// controller-DB facts have no transformer to run and no per-domain coordinator
-// ownership to honour); this function constructs the controller-scoped domain
-// services once and orchestrates the call order FK-/dependency-safely.
-// AssertImporting (called once, at the end) and the two atomic companion-write
-// assertions inside the claim service are the only importing-phase guards; the
-// per-domain writes in between are not individually guarded (see
-// [migrationclaimservice.Service.AssertImporting]).
+// Each step calls the owning domain's service import method directly. The
+// coordinator constructs the controller-scoped domain services once and
+// orchestrates the call order FK-/dependency-safely.
 //
-// If a claim already exists for envelope.ModelInfo.UUID, the returned error
+// If a claim already exists for info.ModelInfo.UUID, the returned error
 // wraps [coreerrors.AlreadyExists] (phase-specific wording is supplied by the
 // modelmigration domain).
 func ImportModel(
-	ctx context.Context, deps Deps, envelope params.SerializedModelV2, view export.ProjectionView,
+	ctx context.Context,
+	deps Deps,
+	args ImportModelArgs,
+	view export.ProjectionView,
 ) error {
-	modelUUIDStr := envelope.ModelInfo.UUID
+	return newImportCoordinator(deps, args, view).Import(ctx)
+}
+
+// importCoordinator wires the services and semantic input used by the v8
+// import. Construction is separate from execution so the import flow below is
+// only concerned with ordering and error handling.
+type importCoordinator struct {
+	deps                Deps
+	services            importServices
+	modelUUID           coremodel.UUID
+	modelUUIDStr        string
+	sourceMigrationUUID string
+	info                coremodelmigration.ControllerModelInfo
+	view                export.ProjectionView
+}
+
+func newImportCoordinator(
+	deps Deps,
+	args ImportModelArgs,
+	view export.ProjectionView,
+) importCoordinator {
+	info := args.ControllerModelInfo
+	modelUUIDStr := info.ModelInfo.UUID
 	modelUUID := coremodel.UUID(modelUUIDStr)
-	info := controllerModelInfoFromEnvelope(envelope)
+	return importCoordinator{
+		deps:                deps,
+		services:            newImportServices(deps, modelUUID),
+		modelUUID:           modelUUID,
+		modelUUIDStr:        modelUUIDStr,
+		sourceMigrationUUID: args.SourceMigrationUUID,
+		info:                info,
+		view:                view,
+	}
+}
 
-	claimSvc := migrationclaimservice.NewImportService(migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger)
-	accessSvc := accessservice.NewService(accessstate.NewState(deps.ControllerDB, deps.Clock, deps.Logger), deps.Clock)
-	credentialSvc := credentialservice.NewService(credentialstate.NewState(deps.ControllerDB), deps.Logger)
-	keymanagerSvc := keymanagerservice.NewService(modelUUID, keymanagerstate.NewState(deps.ControllerDB))
-	secretBackendSvc := secretbackendservice.NewService(secretbackendstate.NewState(deps.ControllerDB, deps.Logger), deps.Logger)
-	leaseSvc := leaseservice.NewService(leasestate.NewState(deps.ControllerDB, deps.Logger))
-	cloudImageSvc := cloudimagemetadataservice.NewService(cloudimagemetadatastate.NewState(deps.ControllerDB, deps.Clock, deps.Logger))
-
-	claimUUID, err := claimSvc.BeginImport(ctx, modelUUID, envelope.ModelInfo.SourceMigrationUUID)
+func (c importCoordinator) Import(ctx context.Context) error {
+	claimUUID, err := c.beginImport(ctx)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	inactiveUsers, err := accessSvc.ImportModelUsers(ctx, info.Users)
+	inactiveUsers, err := c.importUsers(ctx)
 	if err != nil {
-		return errors.Errorf("resolving users for model %q import: %w", modelUUIDStr, err)
+		return errors.Capture(err)
 	}
 
-	var credKey corecredential.Key
-	if info.ModelCredential != nil {
-		credKey, err = credentialSvc.ImportModelCredential(ctx, *info.ModelCredential)
-		if err != nil {
-			return errors.Errorf("resolving credential for model %q import: %w", modelUUIDStr, err)
-		}
+	credKey, err := c.importCredential(ctx)
+	if err != nil {
+		return errors.Capture(err)
 	}
 
+	if err := c.bootstrapModel(ctx, credKey); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := c.importExternalControllers(ctx, claimUUID); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := c.importPermissions(ctx, claimUUID, inactiveUsers); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := c.importAuthorizedKeys(ctx, inactiveUsers); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := c.importSecretBackendReferences(ctx); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := c.importLeadership(ctx); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := c.importLastLogins(ctx, inactiveUsers); err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := c.importCloudImageMetadata(ctx); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+func (c importCoordinator) beginImport(ctx context.Context) (string, error) {
+	return c.services.claim.BeginImport(ctx, c.modelUUID, c.sourceMigrationUUID)
+}
+
+func (c importCoordinator) importUsers(ctx context.Context) (set.Strings, error) {
+	inactiveUsers, err := c.services.access.ImportModelUsers(ctx, c.info.Users)
+	if err != nil {
+		return nil, errors.Errorf("resolving users for model %q import: %w", c.modelUUIDStr, err)
+	}
+	return inactiveUsers, nil
+}
+
+func (c importCoordinator) importCredential(ctx context.Context) (corecredential.Key, error) {
+	if c.info.ModelCredential == nil {
+		return corecredential.Key{}, nil
+	}
+	credKey, err := c.services.credential.ImportModelCredential(ctx, *c.info.ModelCredential)
+	if err != nil {
+		return corecredential.Key{}, errors.Errorf(
+			"resolving credential for model %q import: %w", c.modelUUIDStr, err)
+	}
+	return credKey, nil
+}
+
+func (c importCoordinator) bootstrapModel(
+	ctx context.Context, credKey corecredential.Key,
+) error {
 	var secretBackendName string
-	if info.SecretBackend != nil {
-		secretBackendName = info.SecretBackend.Name
+	if c.info.SecretBackend != nil {
+		secretBackendName = c.info.SecretBackend.Name
 	}
-	agentStream := agentStreamFromModelConfig(view)
+	agentStream := agentStreamFromModelConfig(c.view)
 	if err := bootstrapImportedModel(
-		ctx, deps, modelUUID, info.ModelInfo, credKey, secretBackendName,
-		agentStream, view.AgentTargetVersion,
+		ctx, c.deps, c.modelUUID, c.info.ModelInfo, credKey, secretBackendName,
+		agentStream, c.view.AgentTargetVersion,
 	); err != nil {
-		return errors.Errorf("bootstrapping model %q: %w", modelUUIDStr, err)
+		return errors.Errorf("bootstrapping model %q: %w", c.modelUUIDStr, err)
 	}
+	return nil
+}
 
-	if err := claimSvc.ImportExternalControllers(
-		ctx, modelUUID, claimUUID, info.ExternalControllers,
+func (c importCoordinator) importExternalControllers(
+	ctx context.Context, claimUUID string,
+) error {
+	if err := c.services.claim.ImportExternalControllers(
+		ctx, c.modelUUID, claimUUID, c.info.ExternalControllers,
 	); err != nil {
-		return errors.Errorf("importing external controllers for model %q import: %w", modelUUIDStr, err)
+		return errors.Errorf(
+			"importing external controllers for model %q import: %w", c.modelUUIDStr, err)
 	}
+	return nil
+}
 
-	offerUUIDs, err := accessSvc.ImportModelPermissions(ctx, info.Permissions, inactiveUsers)
+func (c importCoordinator) importPermissions(
+	ctx context.Context, claimUUID string, inactiveUsers set.Strings,
+) error {
+	offerUUIDs, err := c.services.access.ImportModelPermissions(
+		ctx, c.info.Permissions, inactiveUsers,
+	)
 	if err != nil {
-		return errors.Errorf("applying permissions for model %q import: %w", modelUUIDStr, err)
+		return errors.Errorf("applying permissions for model %q import: %w", c.modelUUIDStr, err)
 	}
-	if err := claimSvc.ImportOfferPermissions(ctx, modelUUID, claimUUID, offerUUIDs); err != nil {
-		return errors.Errorf("recording offer permissions for model %q import: %w", modelUUIDStr, err)
-	}
-
-	if err := keymanagerSvc.ImportAuthorizedKeys(
-		ctx, info.AuthorizedKeys, inactiveUsers, accessSvc.GetUserUUIDByName,
+	if err := c.services.claim.ImportOfferPermissions(
+		ctx, c.modelUUID, claimUUID, offerUUIDs,
 	); err != nil {
-		return errors.Errorf("applying authorized keys for model %q import: %w", modelUUIDStr, err)
+		return errors.Errorf(
+			"recording offer permissions for model %q import: %w", c.modelUUIDStr, err)
 	}
+	return nil
+}
 
-	if err := secretBackendSvc.ImportSecretBackendReferences(
-		ctx, modelUUID, info.SecretBackendRefs,
+func (c importCoordinator) importAuthorizedKeys(
+	ctx context.Context, inactiveUsers set.Strings,
+) error {
+	if err := c.services.keymanager.ImportAuthorizedKeys(
+		ctx, c.info.AuthorizedKeys, inactiveUsers, c.services.access.GetUserUUIDByName,
 	); err != nil {
-		return errors.Errorf("applying secret backend references for model %q import: %w", modelUUIDStr, err)
+		return errors.Errorf(
+			"applying authorized keys for model %q import: %w", c.modelUUIDStr, err)
 	}
+	return nil
+}
 
-	if err := leaseSvc.ImportApplicationLeadership(ctx, modelUUID, info.Leaders); err != nil {
-		return errors.Errorf("claiming leadership leases for model %q import: %w", modelUUIDStr, err)
+func (c importCoordinator) importSecretBackendReferences(ctx context.Context) error {
+	if err := c.services.secretBackend.ImportSecretBackendReferences(
+		ctx, c.modelUUID, c.info.SecretBackendRefs,
+	); err != nil {
+		return errors.Errorf(
+			"applying secret backend references for model %q import: %w", c.modelUUIDStr, err)
 	}
+	return nil
+}
 
-	if err := accessSvc.ImportLastModelLogins(ctx, modelUUID, info.Users, inactiveUsers); err != nil {
-		return errors.Errorf("applying last logins for model %q import: %w", modelUUIDStr, err)
+func (c importCoordinator) importLeadership(ctx context.Context) error {
+	if err := c.services.lease.ImportApplicationLeadership(
+		ctx, c.modelUUID, c.info.Leaders,
+	); err != nil {
+		return errors.Errorf(
+			"claiming leadership leases for model %q import: %w", c.modelUUIDStr, err)
 	}
+	return nil
+}
 
-	imageConflicts, err := cloudImageSvc.ImportCloudImageMetadata(ctx, info.CloudImageMetadata)
+func (c importCoordinator) importLastLogins(
+	ctx context.Context, inactiveUsers set.Strings,
+) error {
+	if err := c.services.access.ImportLastModelLogins(
+		ctx, c.modelUUID, c.info.Users, inactiveUsers,
+	); err != nil {
+		return errors.Errorf(
+			"applying last logins for model %q import: %w", c.modelUUIDStr, err)
+	}
+	return nil
+}
+
+func (c importCoordinator) importCloudImageMetadata(ctx context.Context) error {
+	imageConflicts, err := c.services.cloudImage.ImportCloudImageMetadata(
+		ctx, c.info.CloudImageMetadata,
+	)
 	if err != nil {
-		return errors.Errorf("applying cloud image metadata for model %q import: %w", modelUUIDStr, err)
+		return errors.Errorf(
+			"applying cloud image metadata for model %q import: %w", c.modelUUIDStr, err)
 	}
-	for _, c := range imageConflicts {
+	for _, conflict := range imageConflicts {
 		// Non-fatal: the target's custom image metadata is kept (target-wins);
 		// the operator can reconcile via the normal custom-metadata path.
-		deps.Logger.Warningf(ctx,
+		c.deps.Logger.Warningf(ctx,
 			"model %q import: keeping target custom cloud image metadata for %s/%s/%s/%s image %q, skipping source image %q",
-			modelUUIDStr, c.Stream, c.Region, c.Version, c.Arch, c.ExistingImageID, c.IncomingImageID)
+			c.modelUUIDStr, conflict.Stream, conflict.Region, conflict.Version,
+			conflict.Arch, conflict.ExistingImageID, conflict.IncomingImageID)
 	}
-
-	if err := claimSvc.AssertImporting(ctx, modelUUID); err != nil {
-		return errors.Errorf("model %q import interrupted: %w", modelUUIDStr, err)
-	}
-
 	return nil
+}
+
+// importServices bundles the controller-scoped domain services the v8 import
+// driver orchestrates. They are constructed once at the start of ImportModel
+// and shared across the import steps.
+type importServices struct {
+	claim         *migrationclaimservice.Service
+	access        *accessservice.Service
+	credential    *credentialservice.Service
+	keymanager    *keymanagerservice.Service
+	secretBackend *secretbackendservice.Service
+	lease         *leaseservice.Service
+	cloudImage    *cloudimagemetadataservice.Service
+}
+
+// newImportServices constructs the controller-scoped domain services the v8
+// import driver needs. Each service owns its state and is independent of the
+// others; the import driver is responsible for calling them in FK-safe order.
+func newImportServices(deps Deps, modelUUID coremodel.UUID) importServices {
+	return importServices{
+		claim: migrationclaimservice.NewImportService(
+			migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
+		),
+		access: accessservice.NewService(
+			accessstate.NewState(deps.ControllerDB, deps.Clock, deps.Logger), deps.Clock,
+		),
+		credential: credentialservice.NewService(
+			credentialstate.NewState(deps.ControllerDB), deps.Logger,
+		),
+		keymanager: keymanagerservice.NewService(
+			modelUUID, keymanagerstate.NewState(deps.ControllerDB),
+		),
+		secretBackend: secretbackendservice.NewService(
+			secretbackendstate.NewState(deps.ControllerDB, deps.Logger), deps.Logger,
+		),
+		lease: leaseservice.NewService(
+			leasestate.NewState(deps.ControllerDB, deps.Logger),
+		),
+		cloudImage: cloudimagemetadataservice.NewService(
+			cloudimagemetadatastate.NewState(deps.ControllerDB, deps.Clock, deps.Logger),
+		),
+	}
 }
 
 // bootstrapImportedModel creates the controller-database model row (claim-free:
@@ -220,136 +395,4 @@ func agentStreamFromModelConfig(view export.ProjectionView) agentbinary.AgentStr
 		return agentbinary.AgentStream(view.AgentStream)
 	}
 	return agentbinary.AgentStreamReleased
-}
-
-// controllerModelInfoFromEnvelope decodes a v8 wire envelope's
-// controller-scoped semantic fields into their target-portable domain form.
-// It is the inverse of the source side's envelopeFromControllerModelInfo
-// (internal/worker/migrationmaster/envelope.go), and is run once at the start
-// of import so every step below works from the same typed snapshot.
-func controllerModelInfoFromEnvelope(envelope params.SerializedModelV2) coremodelmigration.ControllerModelInfo {
-	info := coremodelmigration.ControllerModelInfo{
-		ModelInfo: coremodelmigration.ModelIdentityInfo{
-			UUID:            envelope.ModelInfo.UUID,
-			Name:            envelope.ModelInfo.Name,
-			Qualifier:       envelope.ModelInfo.Qualifier,
-			Type:            envelope.ModelInfo.Type,
-			Cloud:           envelope.ModelInfo.Cloud,
-			CloudRegion:     envelope.ModelInfo.CloudRegion,
-			CredentialName:  envelope.ModelInfo.CredentialName,
-			CredentialOwner: envelope.ModelInfo.CredentialOwner,
-			Life:            envelope.ModelInfo.Life,
-		},
-	}
-	if n := len(envelope.Users); n > 0 {
-		info.Users = make([]coremodelmigration.ModelUser, 0, n)
-	}
-	for _, u := range envelope.Users {
-		info.Users = append(info.Users, coremodelmigration.ModelUser{
-			Name:        u.Name,
-			DisplayName: u.DisplayName,
-			CreatedBy:   u.CreatedBy,
-			CreatedAt:   u.CreatedAt,
-			Removed:     u.Removed,
-			External:    u.External,
-			LastLogin:   u.LastLogin,
-		})
-	}
-	if cred := envelope.ModelCredential; cred != nil {
-		info.ModelCredential = &coremodelmigration.ModelCloudCredential{
-			Cloud:         cred.Cloud,
-			Owner:         cred.Owner,
-			Name:          cred.Name,
-			AuthType:      cred.AuthType,
-			Attributes:    cred.Attributes,
-			Revoked:       cred.Revoked,
-			Invalid:       cred.Invalid,
-			InvalidReason: cred.InvalidReason,
-		}
-	}
-	if n := len(envelope.Permissions); n > 0 {
-		info.Permissions = make([]coremodelmigration.ModelPermission, 0, n)
-	}
-	for _, p := range envelope.Permissions {
-		info.Permissions = append(info.Permissions, coremodelmigration.ModelPermission{
-			ObjectType:  p.ObjectType,
-			GrantOn:     p.GrantOn,
-			SubjectName: p.SubjectName,
-			Access:      p.Access,
-		})
-	}
-	if n := len(envelope.AuthorizedKeys); n > 0 {
-		info.AuthorizedKeys = make([]coremodelmigration.ModelAuthorizedKey, 0, n)
-	}
-	for _, k := range envelope.AuthorizedKeys {
-		info.AuthorizedKeys = append(info.AuthorizedKeys, coremodelmigration.ModelAuthorizedKey{
-			Username:  k.Username,
-			PublicKey: k.PublicKey,
-		})
-	}
-	if backend := envelope.SecretBackend; backend != nil {
-		info.SecretBackend = &coremodelmigration.ModelSecretBackend{
-			Name:        backend.Name,
-			BackendType: backend.BackendType,
-		}
-	}
-	if n := len(envelope.SecretBackendRefs); n > 0 {
-		info.SecretBackendRefs = make([]coremodelmigration.SecretBackendReference, 0, n)
-	}
-	for _, ref := range envelope.SecretBackendRefs {
-		info.SecretBackendRefs = append(info.SecretBackendRefs, coremodelmigration.SecretBackendReference{
-			BackendName:        ref.BackendName,
-			SecretRevisionUUID: ref.SecretRevisionUUID,
-			SecretID:           ref.SecretID,
-		})
-	}
-	leaderCount := 0
-	for _, l := range envelope.Leases {
-		if l.Type == corelease.ApplicationLeadershipNamespace {
-			leaderCount++
-		}
-	}
-	if leaderCount > 0 {
-		info.Leaders = make([]coremodelmigration.ApplicationLeadership, 0, leaderCount)
-	}
-	for _, l := range envelope.Leases {
-		if l.Type != corelease.ApplicationLeadershipNamespace {
-			continue
-		}
-		info.Leaders = append(info.Leaders, coremodelmigration.ApplicationLeadership{
-			Application: l.Name,
-			Leader:      l.Holder,
-		})
-	}
-	if n := len(envelope.CloudImageMetadata); n > 0 {
-		info.CloudImageMetadata = make([]coremodelmigration.CloudImageMetadata, 0, n)
-	}
-	for _, m := range envelope.CloudImageMetadata {
-		info.CloudImageMetadata = append(info.CloudImageMetadata, coremodelmigration.CloudImageMetadata{
-			Stream:          m.Stream,
-			Region:          m.Region,
-			Version:         m.Version,
-			Arch:            m.Arch,
-			VirtType:        m.VirtType,
-			RootStorageType: m.RootStorageType,
-			RootStorageSize: m.RootStorageSize,
-			Source:          m.Source,
-			Priority:        m.Priority,
-			ImageID:         m.ImageId,
-			CreatedAt:       m.CreatedAt,
-		})
-	}
-	if n := len(envelope.ExternalControllers); n > 0 {
-		info.ExternalControllers = make([]coremodelmigration.ExternalController, 0, n)
-	}
-	for _, c := range envelope.ExternalControllers {
-		info.ExternalControllers = append(info.ExternalControllers, coremodelmigration.ExternalController{
-			UUID:           c.UUID,
-			Alias:          c.Alias,
-			CACert:         c.CACert,
-			Addresses:      c.Addresses,
-			ConsumedModels: c.ConsumedModels,
-		})
-	}
-	return info
 }

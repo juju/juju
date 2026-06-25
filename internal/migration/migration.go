@@ -21,10 +21,12 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
+	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
@@ -107,6 +109,27 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 	}
 
 	return nil
+}
+
+// ImportModelV2 applies a v8 import's controller-scoped semantic data to the
+// target controller. See [migrationv2.ImportModel] for the orchestration; this
+// method only resolves the migration scope for the model UUID and delegates.
+//
+// If a claim already exists for args.ControllerModelInfo.ModelInfo.UUID, the
+// returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
+// supplied by the modelmigration domain).
+func (i *ModelImporter) ImportModelV2(
+	ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView,
+) error {
+	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
+	scope := i.scope(modelUUID)
+
+	return migrationv2.ImportModel(ctx, migrationv2.Deps{
+		ControllerDB: scope.ControllerDB(),
+		ModelDB:      scope.ModelDB(),
+		Clock:        i.clock,
+		Logger:       i.logger,
+	}, args, view)
 }
 
 type modelDefaultsProvider struct {

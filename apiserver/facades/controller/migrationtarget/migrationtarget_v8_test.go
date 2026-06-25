@@ -8,6 +8,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -24,13 +25,16 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export"
 	v4_0_11 "github.com/juju/juju/domain/export/types/v4_0_11"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
@@ -406,7 +410,122 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
-	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), envelope, gomock.Any()).Return(nil)
+	createdAt := time.Now().UTC().Truncate(time.Second)
+	lastLogin := createdAt.Add(time.Minute)
+	rootStorageSize := uint64(42)
+	envelope.ModelInfo.CredentialName = "cred"
+	envelope.ModelInfo.CredentialOwner = "admin"
+	envelope.Users = []params.ModelUser{{
+		Name:        "bob@external",
+		DisplayName: "Bob",
+		CreatedBy:   "admin",
+		CreatedAt:   createdAt,
+		External:    true,
+		LastLogin:   &lastLogin,
+	}}
+	envelope.ModelCredential = &params.ModelCloudCredential{
+		Cloud:      "my-cloud",
+		Owner:      "admin",
+		Name:       "cred",
+		AuthType:   "access-key",
+		Attributes: map[string]string{"access-key": "value"},
+	}
+	envelope.Permissions = []params.ModelPermission{{
+		ObjectType: "model", GrantOn: s.modelUUID, SubjectName: "bob@external", Access: "read",
+	}}
+	envelope.AuthorizedKeys = []params.ModelAuthorizedKey{{
+		Username: "bob@external", PublicKey: "ssh-ed25519 AAAA bob@host",
+	}}
+	envelope.SecretBackend = &params.ModelSecretBackend{Name: "vault", BackendType: "vault"}
+	envelope.SecretBackendRefs = []params.SecretBackendReference{{
+		BackendName: "vault", SecretRevisionUUID: "secret-rev-uuid", SecretID: "secret:abc",
+	}}
+	envelope.Leases = []params.Lease{
+		{Type: corelease.ApplicationLeadershipNamespace, Name: "ubuntu", Holder: "ubuntu/0"},
+		{Type: "singular", Name: "ignored", Holder: "ignored"},
+	}
+	envelope.CloudImageMetadata = []params.ModelCloudImageMetadata{{
+		Stream:          "released",
+		Region:          "my-region",
+		Version:         "22.04",
+		Arch:            "amd64",
+		VirtType:        "kvm",
+		RootStorageType: "ssd",
+		RootStorageSize: &rootStorageSize,
+		Source:          "custom",
+		Priority:        10,
+		ImageId:         "ami-1234",
+		CreatedAt:       createdAt,
+	}}
+	envelope.ExternalControllers = []params.ExternalControllerRef{{
+		UUID: "controller-uuid", Alias: "prod", CACert: "cert",
+		Addresses: []string{"10.0.0.1:17070"}, ConsumedModels: []string{"remote-model-uuid"},
+	}}
+
+	expected := migrationv2.ImportModelArgs{
+		SourceMigrationUUID: envelope.ModelInfo.SourceMigrationUUID,
+		ControllerModelInfo: coremodelmigration.ControllerModelInfo{
+			ModelInfo: coremodelmigration.ModelIdentityInfo{
+				UUID:            s.modelUUID,
+				Name:            "some-model",
+				Qualifier:       "prod",
+				Type:            "iaas",
+				Cloud:           "my-cloud",
+				CloudRegion:     "my-region",
+				CredentialName:  "cred",
+				CredentialOwner: "admin",
+				Life:            "alive",
+			},
+			Users: []coremodelmigration.ModelUser{{
+				Name:        "bob@external",
+				DisplayName: "Bob",
+				CreatedBy:   "admin",
+				CreatedAt:   createdAt,
+				External:    true,
+				LastLogin:   &lastLogin,
+			}},
+			ModelCredential: &coremodelmigration.ModelCloudCredential{
+				Cloud:      "my-cloud",
+				Owner:      "admin",
+				Name:       "cred",
+				AuthType:   "access-key",
+				Attributes: map[string]string{"access-key": "value"},
+			},
+			Permissions: []coremodelmigration.ModelPermission{{
+				ObjectType: "model", GrantOn: s.modelUUID, SubjectName: "bob@external", Access: "read",
+			}},
+			AuthorizedKeys: []coremodelmigration.ModelAuthorizedKey{{
+				Username: "bob@external", PublicKey: "ssh-ed25519 AAAA bob@host",
+			}},
+			SecretBackend: &coremodelmigration.ModelSecretBackend{
+				Name: "vault", BackendType: "vault",
+			},
+			SecretBackendRefs: []coremodelmigration.SecretBackendReference{{
+				BackendName: "vault", SecretRevisionUUID: "secret-rev-uuid", SecretID: "secret:abc",
+			}},
+			Leaders: []coremodelmigration.ApplicationLeadership{{
+				Application: "ubuntu", Leader: "ubuntu/0",
+			}},
+			CloudImageMetadata: []coremodelmigration.CloudImageMetadata{{
+				Stream:          "released",
+				Region:          "my-region",
+				Version:         "22.04",
+				Arch:            "amd64",
+				VirtType:        "kvm",
+				RootStorageType: "ssd",
+				RootStorageSize: &rootStorageSize,
+				Source:          "custom",
+				Priority:        10,
+				ImageID:         "ami-1234",
+				CreatedAt:       createdAt,
+			}},
+			ExternalControllers: []coremodelmigration.ExternalController{{
+				UUID: "controller-uuid", Alias: "prod", CACert: "cert",
+				Addresses: []string{"10.0.0.1:17070"}, ConsumedModels: []string{"remote-model-uuid"},
+			}},
+		},
+	}
+	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), expected, gomock.Any()).Return(nil)
 
 	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIsNil)
@@ -430,7 +549,7 @@ func (s *v8Suite) TestImportPropagatesImportModelV2Error(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
-	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), envelope, gomock.Any()).
+	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(errors.Errorf("boom"))
 
 	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)

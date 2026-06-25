@@ -96,9 +96,7 @@ VALUES ($importClaimArg.uuid, $importClaimArg.model_uuid, $importClaimArg.source
 // modelUUID and its phase is 'importing'. It returns
 // [modelmigrationerrors.ErrImportNotFound] if no claim exists, or
 // [modelmigrationerrors.ErrImportNotImporting] if the claim has moved past
-// the importing phase (activating or aborting). The v8 import driver calls
-// this immediately before each controller-data write group that is not
-// already covered by an atomic write-group method in this package.
+// the importing phase (activating or aborting).
 func (s *State) AssertImporting(ctx context.Context, modelUUID string) error {
 	claim, err := s.GetImportClaim(ctx, modelUUID)
 	if err != nil {

@@ -89,10 +89,7 @@ type ImportClaim struct {
 // message reflects the existing claim's phase: activation-in-progress
 // wording when phase=activating (the source must retry/continue Activate
 // rather than Abort), cleanup-in-progress wording when phase=aborting, or a
-// plain occupied-model message for a duplicate importing claim. Both
-// [service.Service.BeginImport] and the v8 import driver
-// (internal/migration.ModelImporter.ImportModelV2) use this so the wording
-// stays identical regardless of which caller observes the conflict.
+// plain occupied-model message for a duplicate importing claim.
 func ImportClaimConflictError(modelUUID string, phase ImportPhase) error {
 	switch phase {
 	case ImportPhaseActivating:

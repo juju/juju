@@ -26,9 +26,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/export"
+	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/watcherregistry"
-	"github.com/juju/juju/rpc/params"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -201,8 +201,8 @@ type ModelImporter interface {
 	// semantic data to the target controller: the durable
 	// model_migration_import claim, the target-local model bootstrap, and
 	// the users, credential, permissions, authorized keys, secret backend,
-	// leadership and cloud image metadata carried by the envelope.
-	ImportModelV2(ctx context.Context, envelope params.SerializedModelV2, view export.ProjectionView) error
+	// leadership and cloud image metadata carried by the import args.
+	ImportModelV2(ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.
