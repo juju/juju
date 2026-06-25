@@ -1338,14 +1338,19 @@ type Space struct {
 }
 
 type SshConnectionRequest struct {
-	TunnelID            string    `db:"tunnel_id" json:"tunnel_id" yaml:"tunnel_id"`
-	MachineUUID         string    `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
-	ExpiresAt           time.Time `db:"expires_at" json:"expires_at" yaml:"expires_at"`
-	Username            string    `db:"username" json:"username" yaml:"username"`
-	Password            string    `db:"password" json:"password" yaml:"password"`
-	ControllerAddresses string    `db:"controller_addresses" json:"controller_addresses" yaml:"controller_addresses"`
-	UnitPort            int64     `db:"unit_port" json:"unit_port" yaml:"unit_port"`
-	EphemeralPublicKey  []byte    `db:"ephemeral_public_key" json:"ephemeral_public_key" yaml:"ephemeral_public_key"`
+	TunnelID           string    `db:"tunnel_id" json:"tunnel_id" yaml:"tunnel_id"`
+	MachineUUID        string    `db:"machine_uuid" json:"machine_uuid" yaml:"machine_uuid"`
+	ExpiresAt          time.Time `db:"expires_at" json:"expires_at" yaml:"expires_at"`
+	Username           string    `db:"username" json:"username" yaml:"username"`
+	Password           string    `db:"password" json:"password" yaml:"password"`
+	UnitPort           int64     `db:"unit_port" json:"unit_port" yaml:"unit_port"`
+	EphemeralPublicKey []byte    `db:"ephemeral_public_key" json:"ephemeral_public_key" yaml:"ephemeral_public_key"`
+}
+
+type SshConnectionRequestAddress struct {
+	TunnelID     string `db:"tunnel_id" json:"tunnel_id" yaml:"tunnel_id"`
+	IndexID      int64  `db:"index_id" json:"index_id" yaml:"index_id"`
+	AddressValue string `db:"address_value" json:"address_value" yaml:"address_value"`
 }
 
 type SshKeyAlgorithmType struct {
@@ -1828,6 +1833,7 @@ type ModelExport struct {
 	Sequence                                 []Sequence                                 `json:"sequence" yaml:"sequence"`
 	Space                                    []Space                                    `json:"space" yaml:"space"`
 	SshConnectionRequest                     []SshConnectionRequest                     `json:"ssh_connection_request" yaml:"ssh_connection_request"`
+	SshConnectionRequestAddress              []SshConnectionRequestAddress              `json:"ssh_connection_request_address" yaml:"ssh_connection_request_address"`
 	SshKeyAlgorithmType                      []SshKeyAlgorithmType                      `json:"ssh_key_algorithm_type" yaml:"ssh_key_algorithm_type"`
 	StorageAttachment                        []StorageAttachment                        `json:"storage_attachment" yaml:"storage_attachment"`
 	StorageFilesystem                        []StorageFilesystem                        `json:"storage_filesystem" yaml:"storage_filesystem"`
