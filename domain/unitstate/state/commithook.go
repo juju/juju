@@ -143,7 +143,7 @@ LIMIT  1
 	}
 	var exists countResult
 	err = tx.Query(ctx, checkExistsStmt, createSecretID{ID: arg.SecretID}).Get(&exists)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Capture(err)
 	}
 	if exists.Count > 0 {
