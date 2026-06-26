@@ -510,7 +510,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		)),
 
 		caasModelOperatorName: ifResponsible(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
-			APICallerName:      apiCallerName,
 			BrokerName:         providerTrackerName,
 			DomainServicesName: domainServicesName,
 			ConfigProvider:     config.StartupValueProvider,
