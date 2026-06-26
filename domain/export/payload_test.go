@@ -77,46 +77,35 @@ func (s *payloadSuite) TestDecodePayloadMalformedYAML(c *tc.C) {
 }
 
 // TestDecoderRegistryCompleteness asserts that every supported export version
-// has a payload decoder and a working projection view builder. Adding a new
-// export version must extend payloadDecoders and ProjectionViewForPayload.
+// has a payload decoder. Adding a new export version must extend payloadDecoders.
 func (s *payloadSuite) TestDecoderRegistryCompleteness(c *tc.C) {
 	for _, version := range ExportVersions {
 		decode, ok := payloadDecoders[version]
 		c.Assert(ok, tc.IsTrue, tc.Commentf("no payload decoder for export version %q", version))
 
-		payload, err := decode([]byte("{}"))
+		_, err := decode([]byte("{}"))
 		c.Assert(err, tc.ErrorIsNil, tc.Commentf("decoding empty payload for version %q", version))
-
-		_, err = ProjectionViewForPayload(payload)
-		c.Assert(err, tc.ErrorIsNil, tc.Commentf("building projection view for version %q", version))
 	}
 }
 
-// TestProjectionViewForPayloadUnknownType verifies that a payload type outside
-// the registry is rejected with NotSupported.
-func (s *payloadSuite) TestProjectionViewForPayloadUnknownType(c *tc.C) {
-	_, err := ProjectionViewForPayload(struct{}{})
-	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
-}
-
 // TestProjectionViewExtraction verifies the view projects the agent target
-// version.
+// version from the transformed (latest) payload.
 func (s *payloadSuite) TestProjectionViewExtraction(c *tc.C) {
-	payload := v4_0_11.ModelExport{
-		AgentVersion: []v4_0_11.AgentVersion{{
-			TargetVersion: "4.0.11",
+	payload := v4_1_0.ModelExport{
+		AgentVersion: []v4_1_0.AgentVersion{{
+			TargetVersion: "4.1.0",
 		}},
 	}
 
 	view, err := ProjectionViewForPayload(payload)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(view.AgentTargetVersion, tc.Equals, semversion.MustParse("4.0.11"))
+	c.Check(view.AgentTargetVersion, tc.Equals, semversion.MustParse("4.1.0"))
 }
 
 // TestProjectionViewNoAgentVersion verifies that a payload without an
 // agent_version row leaves the view's agent target version zero.
 func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
-	view, err := ProjectionViewForPayload(v4_0_11.ModelExport{})
+	view, err := ProjectionViewForPayload(v4_1_0.ModelExport{})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(view.AgentTargetVersion, tc.Equals, semversion.Number{})
 }
@@ -124,9 +113,9 @@ func (s *payloadSuite) TestProjectionViewNoAgentVersion(c *tc.C) {
 // TestProjectionViewMultipleAgentVersionRows verifies that a payload with
 // more than one agent_version row is rejected as malformed.
 func (s *payloadSuite) TestProjectionViewMultipleAgentVersionRows(c *tc.C) {
-	_, err := ProjectionViewForPayload(v4_0_11.ModelExport{
-		AgentVersion: []v4_0_11.AgentVersion{
-			{TargetVersion: "4.0.11"},
+	_, err := ProjectionViewForPayload(v4_1_0.ModelExport{
+		AgentVersion: []v4_1_0.AgentVersion{
+			{TargetVersion: "4.1.0"},
 			{TargetVersion: "4.0.7"},
 		},
 	})

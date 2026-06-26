@@ -761,7 +761,7 @@ func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2
 			transformed, latest.ModelExport{})
 	}
 
-	view, err := export.ProjectionViewForPayload(payload)
+	view, err := export.ProjectionViewForPayload(modelDB)
 	if err != nil {
 		return export.ProjectionView{}, nil, errors.Capture(err)
 	}
