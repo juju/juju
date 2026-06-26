@@ -2407,6 +2407,36 @@ func (s *environSuite) TestStartInstanceIPFamilyDualPlacementIPv4OnlySubnet(c *t
 		`.*placement subnet "subnet2" does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
 }
 
+func (s *environSuite) TestStartInstanceIPFamilyDualPlacementNon64IPv6Subnet(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}, {
+		ID:   new("/path/to/subnet3"),
+		Name: new("subnet3"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("10.0.0.0/24"), new("fd00::/56")}, // IPv6 /56, not /64
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Placement = "subnet=subnet3"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*placement subnet "subnet3" does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
 func (s *environSuite) TestConstraintsValidatorVocabulary(c *tc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))

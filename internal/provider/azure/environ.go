@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net"
 	"net/url"
 	"slices"
 	"sort"
@@ -555,9 +556,18 @@ func (env *azureEnviron) validateIPFamilyForCreate(
 		if prefix == nil {
 			continue
 		}
-		addrType, err := network.CIDRAddressType(*prefix)
-		if err == nil && addrType == network.IPv6Address {
-			return nil
+		// Parse the CIDR to extract the prefix length and address family.
+		// Azure requires IPv6 subnets to be exactly /64.
+		_, ipNet, err := net.ParseCIDR(*prefix)
+		if err != nil {
+			continue // Skip malformed prefixes
+		}
+		// Check if this is an IPv6 /64 prefix.
+		if ipNet.IP.To4() == nil {
+			ones, _ := ipNet.Mask.Size()
+			if ones == 64 {
+				return nil
+			}
 		}
 	}
 	return errors.Errorf(
@@ -961,10 +971,6 @@ func (env *azureEnviron) createVirtualMachine(
 		if isDualStack {
 			ipv6PIPName := vmName + "-public-ip-ipv6"
 			ipv6PublicIPAddressId = fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, ipv6PIPName)
-			if env.config.loadBalancerSkuName != string(armnetwork.LoadBalancerSKUNameStandard) {
-				logger.Warningf(ctx, "creating IPv6 public IP for %q with load-balancer-sku-name=%q; "+
-					"Standard SKU is recommended for dual-stack, model configuration ignored", vmName, env.config.loadBalancerSkuName)
-			}
 			res = append(res, armtemplates.Resource{
 				APIVersion: networkAPIVersion,
 				Type:       "Microsoft.Network/publicIPAddresses",
