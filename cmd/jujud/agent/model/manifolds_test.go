@@ -447,8 +447,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"clock": {},
 
 	"compute-provisioner": {
-		"agent",
-		"api-caller",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
