@@ -72,8 +72,8 @@ func (s *stateSuite) TestEnsureMachineVirtualHostKeyMissingMachine(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 
 	key, err := st.EnsureMachineVirtualHostKeyByMachineName(c.Context(), "99", domainssh.SSHKeyAlgorithmTypeED25519ID, testPrivateKey)
-	c.Check(key, tc.Equals, "")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(key, tc.Equals, "")
 }
 
 func (s *stateSuite) TestEnsureMachineVirtualHostKeyReturnsExistingOnConflict(c *tc.C) {

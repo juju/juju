@@ -110,6 +110,7 @@ func (s *Service) UnitVirtualHostKey(ctx context.Context, unitName coreunit.Name
 }
 
 func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, machineName string) (string, error) {
+	// Fast path: check if the machine virtual host key already exists in state.
 	key, found, err := s.state.GetMachineVirtualHostKeyByMachineName(ctx, machineName)
 	if err != nil {
 		return "", errors.Errorf("getting machine virtual SSH host key for %q: %w", machineName, err)
@@ -118,6 +119,8 @@ func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, machineName s
 		return key, nil
 	}
 
+	// Slow path: generate a new machine virtual host key and persist it in state.
+	// The state method handles cases of concurrent requests for the same machine.
 	key, err = generateHostKey()
 	if err != nil {
 		return "", errors.Errorf("generating machine virtual SSH host key for %q: %w", machineName, err)
@@ -135,6 +138,7 @@ func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, machineName s
 }
 
 func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, unitName string) (string, error) {
+	// Fast path: check if the unit virtual host key already exists in state.
 	key, found, err := s.state.GetUnitVirtualHostKeyByUnitName(ctx, unitName)
 	if err != nil {
 		return "", errors.Errorf("getting unit virtual SSH host key for %q: %w", unitName, err)
@@ -143,6 +147,8 @@ func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, unitName string)
 		return key, nil
 	}
 
+	// Slow path: generate a new unit virtual host key and persist it in state.
+	// The state method handles cases of concurrent requests for the same unit.
 	key, err = generateHostKey()
 	if err != nil {
 		return "", errors.Errorf("generating unit virtual SSH host key for %q: %w", unitName, err)

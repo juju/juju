@@ -119,10 +119,10 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 		return "", errors.Capture(err)
 	}
 
-	var key sshPrivateKey
+	actualKey := sshKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		machineUUID := entityUUID{}
-		key = sshPrivateKey{}
+		txKey := sshPrivateKey{}
 		err := tx.Query(ctx, getMachineUUIDStmt, nameRec).Get(&machineUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q %w", machineName, machineerrors.MachineNotFound)
@@ -134,24 +134,24 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 		record := machineVirtualSSHHostKey{MachineUUID: machineUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
 		err = tx.Query(ctx, insertStmt, record).Run()
 		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			err = tx.Query(ctx, getKeyStmt, machineUUID).Get(&key)
+			err = tx.Query(ctx, getKeyStmt, machineUUID).Get(&txKey)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("machine virtual SSH host key for %q not found after concurrent insert", machineName)
 			}
 			if err != nil {
 				return errors.Errorf("querying machine virtual SSH host key for %q after concurrent insert: %w", machineName, err)
 			}
+			actualKey = txKey.SSHKey
 			return nil
 		} else if err != nil {
 			return errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 		}
-		key = sshPrivateKey{SSHKey: sshKey}
 		return nil
 	})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return key.SSHKey, nil
+	return actualKey, nil
 }
 
 // GetUnitVirtualHostKeyByUnitName returns the virtual host key stored for the
@@ -247,10 +247,10 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 		return "", errors.Capture(err)
 	}
 
-	var key sshPrivateKey
+	actualKey := sshKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		unitUUID := entityUUID{}
-		key = sshPrivateKey{}
+		txKey := sshPrivateKey{}
 		err := tx.Query(ctx, getUnitUUIDStmt, nameRec).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("unit %q %w", unitName, applicationerrors.UnitNotFound)
@@ -262,24 +262,24 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 		record := unitVirtualSSHHostKey{UnitUUID: unitUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
 		err = tx.Query(ctx, insertStmt, record).Run()
 		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			err = tx.Query(ctx, getKeyStmt, unitUUID).Get(&key)
+			err = tx.Query(ctx, getKeyStmt, unitUUID).Get(&txKey)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return errors.Errorf("unit virtual SSH host key for %q not found after concurrent insert", unitName)
 			}
 			if err != nil {
 				return errors.Errorf("querying unit virtual SSH host key for %q after concurrent insert: %w", unitName, err)
 			}
+			actualKey = txKey.SSHKey
 			return nil
 		} else if err != nil {
 			return errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 		}
-		key = sshPrivateKey{SSHKey: sshKey}
 		return nil
 	})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
-	return key.SSHKey, nil
+	return actualKey, nil
 }
 
 // GetMachineNameForUnit returns the backing machine for a unit when one exists.
