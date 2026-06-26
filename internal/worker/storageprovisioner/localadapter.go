@@ -16,9 +16,12 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
+	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/watcher"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainblockdevice "github.com/juju/juju/domain/blockdevice"
 	domainlife "github.com/juju/juju/domain/life"
+	removalerrors "github.com/juju/juju/domain/removal/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storageprovisioning"
 	storageprovisioningerrors "github.com/juju/juju/domain/storageprovisioning/errors"
@@ -54,10 +57,13 @@ type storageProvisioningService interface {
 
 	// Filesystem attachment operations
 	GetFilesystemAttachmentUUIDForFilesystemIDMachine(ctx context.Context, filesystemID string, machineUUID machine.UUID) (domainstorage.FilesystemAttachmentUUID, error)
+	GetFilesystemAttachmentUUIDForFilesystemIDUnit(ctx context.Context, filesystemID string, unitUUID coreunit.UUID) (domainstorage.FilesystemAttachmentUUID, error)
 	GetFilesystemAttachmentForMachine(ctx context.Context, filesystemID string, machineUUID machine.UUID) (storageprovisioning.FilesystemAttachment, error)
+	GetFilesystemAttachmentForUnit(ctx context.Context, filesystemID string, unitUUID coreunit.UUID) (storageprovisioning.FilesystemAttachment, error)
 	GetFilesystemAttachmentLife(ctx context.Context, uuid domainstorage.FilesystemAttachmentUUID) (domainlife.Life, error)
 	GetFilesystemAttachmentParams(ctx context.Context, uuid domainstorage.FilesystemAttachmentUUID) (storageprovisioning.FilesystemAttachmentParams, error)
 	SetFilesystemAttachmentProvisionedInfoForMachine(ctx context.Context, filesystemID string, machineUUID machine.UUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
+	SetFilesystemAttachmentProvisionedInfoForUnit(ctx context.Context, filesystemID string, unitUUID coreunit.UUID, info storageprovisioning.FilesystemAttachmentProvisionedInfo) error
 
 	// Attachment ID lookups
 	GetVolumeAttachmentIDs(ctx context.Context, volumeAttachmentUUIDs []string) (map[string]storageprovisioning.VolumeAttachmentID, error)
@@ -98,6 +104,12 @@ type machineService interface {
 	WatchMachineCloudInstances(ctx context.Context, machineUUID machine.UUID) (watcher.NotifyWatcher, error)
 }
 
+// applicationService is the subset of the domain application service needed
+// by the model storage adapters.
+type applicationService interface {
+	GetUnitUUID(ctx context.Context, unitName coreunit.Name) (coreunit.UUID, error)
+}
+
 // removalService is the subset of the domain removal service needed by the
 // model storage adapters.
 type removalService interface {
@@ -129,6 +141,7 @@ type blockDeviceService interface {
 type modelStorageAdapter struct {
 	storageSvc     storageProvisioningService
 	machineSvc     machineService
+	appSvc         applicationService
 	removalSvc     removalService
 	statusSvc      storageStatusService
 	blockDeviceSvc blockDeviceService
@@ -216,25 +229,19 @@ func (a *modelStorageAdapter) WatchVolumeAttachmentPlans(ctx context.Context, sc
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return newAttachmentIDWatcher(w, func(ctx context.Context, ids ...string) ([]watcher.MachineStorageID, error) {
-			attachmentIDs, err := a.storageSvc.GetVolumeAttachmentIDs(ctx, ids)
-			if err != nil {
-				return nil, errors.Trace(err)
+		return newAttachmentIDWatcher(w, func(ctx context.Context, volumeIDs ...string) ([]watcher.MachineStorageID, error) {
+			if len(volumeIDs) == 0 {
+				return nil, nil
 			}
-			var out []watcher.MachineStorageID
-			for _, id := range attachmentIDs {
-				if id.MachineName == nil && id.UnitName == nil {
+			out := make([]watcher.MachineStorageID, 0, len(volumeIDs))
+			for _, volumeID := range volumeIDs {
+				if !names.IsValidVolume(volumeID) {
 					continue
 				}
-				msid := watcher.MachineStorageID{
-					AttachmentTag: names.NewVolumeTag(id.VolumeID).String(),
-				}
-				if id.MachineName != nil {
-					msid.MachineTag = names.NewMachineTag(id.MachineName.String()).String()
-				} else if id.UnitName != nil {
-					msid.MachineTag = names.NewUnitTag(id.UnitName.String()).String()
-				}
-				out = append(out, msid)
+				out = append(out, watcher.MachineStorageID{
+					MachineTag:    scope.String(),
+					AttachmentTag: names.NewVolumeTag(volumeID).String(),
+				})
 			}
 			return out, nil
 		})
@@ -306,16 +313,44 @@ func (a *modelStorageAdapter) VolumeBlockDevices(ctx context.Context, ids []para
 			results[i].Error = &params.Error{Message: err.Error()}
 			continue
 		}
+		if bd.DeviceName == "" || len(bd.DeviceLinks) == 0 {
+			results[i].Error = &params.Error{
+				Message: errors.Errorf(
+					"volume attachment %q on machine %q is not provisioned",
+					volumeTag.Id(), machineTag.Id(),
+				).Error(),
+				Code: params.CodeNotProvisioned,
+			}
+			continue
+		}
+		var provenance params.BlockDeviceProvenance
+		switch bd.Provenance {
+		case coreblockdevice.ProviderProvenance:
+			provenance = params.BlockDeviceProvenanceProvider
+		case coreblockdevice.MachineProvenance:
+			provenance = params.BlockDeviceProvenanceMachine
+		default:
+			results[i].Error = &params.Error{
+				Message: errors.Errorf(
+					"unexpected provenance value: %v", bd.Provenance,
+				).Error(),
+			}
+			continue
+		}
 		results[i].Result = params.BlockDevice{
-			DeviceName:  bd.DeviceName,
-			DeviceLinks: bd.DeviceLinks,
-			Label:       bd.FilesystemLabel,
-			UUID:        bd.FilesystemUUID,
-			HardwareId:  bd.HardwareId,
-			WWN:         bd.WWN,
-			BusAddress:  bd.BusAddress,
-			SizeMiB:     bd.SizeMiB,
-			InUse:       bd.InUse,
+			DeviceName:     bd.DeviceName,
+			DeviceLinks:    bd.DeviceLinks,
+			Label:          bd.FilesystemLabel,
+			UUID:           bd.FilesystemUUID,
+			HardwareId:     bd.HardwareId,
+			WWN:            bd.WWN,
+			BusAddress:     bd.BusAddress,
+			SizeMiB:        bd.SizeMiB,
+			FilesystemType: bd.FilesystemType,
+			InUse:          bd.InUse,
+			MountPoint:     bd.MountPoint,
+			SerialId:       bd.SerialId,
+			Provenance:     provenance,
 		}
 	}
 	return results, nil
@@ -353,7 +388,7 @@ func (a *modelStorageAdapter) VolumeAttachments(ctx context.Context, ids []param
 			results[i].Error = &params.Error{Message: err.Error()}
 			continue
 		}
-		if va.BlockDeviceName == "" && len(va.BlockDeviceLinks) == 0 {
+		if va.BlockDeviceName == "" || len(va.BlockDeviceLinks) == 0 {
 			results[i].Error = &params.Error{Message: errors.Errorf("volume %q is not provisioned", volumeTag.Id()).Error(), Code: params.CodeNotProvisioned}
 			continue
 		}
@@ -399,9 +434,15 @@ func (a *modelStorageAdapter) VolumeAttachmentPlans(ctx context.Context, ids []p
 			results[i].Error = &params.Error{Message: err.Error()}
 			continue
 		}
+		planLife, err := plan.Life.Value()
+		if err != nil {
+			results[i].Error = &params.Error{Message: err.Error()}
+			continue
+		}
 		results[i].Result = params.VolumeAttachmentPlan{
 			VolumeTag:  volumeTag.String(),
 			MachineTag: machineTag.String(),
+			Life:       planLife,
 			PlanInfo: params.VolumeAttachmentPlanInfo{
 				DeviceType:       plan.DeviceType.String(),
 				DeviceAttributes: plan.DeviceAttributes,
@@ -549,6 +590,10 @@ func (a *modelStorageAdapter) SetVolumeInfo(ctx context.Context, vols []params.V
 			results[i].Error = &params.Error{Message: err.Error()}
 			continue
 		}
+		if vol.Info.Pool != "" {
+			results[i].Error = &params.Error{Message: "pool field must not be set"}
+			continue
+		}
 		info := storageprovisioning.VolumeProvisionedInfo{
 			ProviderID: vol.Info.ProviderId,
 			SizeMiB:    vol.Info.SizeMiB,
@@ -618,7 +663,41 @@ func (a *modelStorageAdapter) SetVolumeAttachmentInfo(ctx context.Context, vas [
 			info.BlockDeviceUUID = &blockDevUUID
 		}
 		err = a.storageSvc.SetVolumeAttachmentProvisionedInfo(ctx, attachmentUUID, info)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			results[i].Error = &params.Error{Message: errors.Errorf(
+				"volume attachment for machine %q and volume %q not found",
+				machineTag.Id(), volumeTag.Id(),
+			).Error(), Code: params.CodeNotFound}
+			continue
+		}
 		if err != nil {
+			results[i].Error = &params.Error{Message: err.Error()}
+			continue
+		}
+		if va.Info.PlanInfo == nil {
+			continue
+		}
+		planUUID, err := a.storageSvc.GetVolumeAttachmentPlanUUIDForVolumeIDMachine(ctx, volumeTag.Id(), machineUUID)
+		if err != nil {
+			results[i].Error = &params.Error{Message: err.Error()}
+			continue
+		}
+		planInfo := storageprovisioning.VolumeAttachmentPlanProvisionedInfo{
+			DeviceAttributes: va.Info.PlanInfo.DeviceAttributes,
+		}
+		switch va.Info.PlanInfo.DeviceType {
+		case "local":
+			planInfo.DeviceType = domainstorage.VolumeDeviceTypeLocal
+		case "iscsi":
+			planInfo.DeviceType = domainstorage.VolumeDeviceTypeISCSI
+		}
+		err = a.storageSvc.SetVolumeAttachmentPlanProvisionedInfo(ctx, planUUID, planInfo)
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanNotFound) {
+			results[i].Error = &params.Error{Message: errors.Errorf(
+				"volume attachment plan for machine %q and volume %q not found",
+				machineTag.Id(), volumeTag.Id(),
+			).Error(), Code: params.CodeNotFound}
+		} else if err != nil {
 			results[i].Error = &params.Error{Message: err.Error()}
 		}
 	}
@@ -650,13 +729,23 @@ func (a *modelStorageAdapter) CreateVolumeAttachmentPlans(ctx context.Context, p
 		}
 		var deviceType domainstorage.VolumeDeviceType
 		switch plan.PlanInfo.DeviceType {
-		case "local":
-			deviceType = domainstorage.VolumeDeviceTypeLocal
 		case "iscsi":
 			deviceType = domainstorage.VolumeDeviceTypeISCSI
+		case "local":
+			deviceType = domainstorage.VolumeDeviceTypeLocal
+		default:
+			results[i].Error = &params.Error{
+				Message: errors.Errorf(
+					"plan device type %q not valid", plan.PlanInfo.DeviceType,
+				).Error(),
+				Code: params.CodeNotValid,
+			}
+			continue
 		}
 		_, err = a.storageSvc.CreateVolumeAttachmentPlan(ctx, attachmentUUID, deviceType, plan.PlanInfo.DeviceAttributes)
-		if err != nil {
+		if errors.Is(err, storageprovisioningerrors.VolumeAttachmentPlanAlreadyExists) {
+			continue
+		} else if err != nil {
 			results[i].Error = &params.Error{Message: err.Error()}
 		}
 	}
@@ -717,12 +806,25 @@ func (a *modelStorageAdapter) SetVolumeAttachmentPlanBlockInfo(ctx context.Conte
 			results[i].Error = &params.Error{Message: err.Error()}
 			continue
 		}
-		device := coreblockdevice.BlockDevice{
-			DeviceName: plan.BlockDevice.DeviceName,
-			BusAddress: plan.BlockDevice.BusAddress,
+		if plan.BlockDevice == nil {
+			continue
 		}
-		if len(plan.BlockDevice.DeviceLinks) > 0 {
-			device.DeviceLinks = plan.BlockDevice.DeviceLinks
+		device := coreblockdevice.BlockDevice{
+			DeviceName:      plan.BlockDevice.DeviceName,
+			DeviceLinks:     plan.BlockDevice.DeviceLinks,
+			FilesystemLabel: plan.BlockDevice.Label,
+			FilesystemUUID:  plan.BlockDevice.UUID,
+			HardwareId:      plan.BlockDevice.HardwareId,
+			WWN:             plan.BlockDevice.WWN,
+			BusAddress:      plan.BlockDevice.BusAddress,
+			SizeMiB:         plan.BlockDevice.SizeMiB,
+			FilesystemType:  plan.BlockDevice.FilesystemType,
+			InUse:           plan.BlockDevice.InUse,
+			MountPoint:      plan.BlockDevice.MountPoint,
+			SerialId:        plan.BlockDevice.SerialId,
+		}
+		if domainblockdevice.IsEmpty(device) {
+			continue
 		}
 		blockDevUUID, err := a.blockDeviceSvc.MatchOrCreateBlockDevice(ctx, machineUUID, device)
 		if err != nil {
@@ -857,8 +959,19 @@ func (a *modelStorageAdapter) FilesystemAttachments(ctx context.Context, ids []p
 				results[i].Error = &params.Error{Message: err.Error()}
 				continue
 			}
+		case names.UnitTag:
+			unitUUID, err := a.getUnitUUID(ctx, tag)
+			if err != nil {
+				results[i].Error = &params.Error{Message: err.Error()}
+				continue
+			}
+			fsAttachment, err = a.storageSvc.GetFilesystemAttachmentForUnit(ctx, filesystemTag.Id(), unitUUID)
+			if err != nil {
+				results[i].Error = &params.Error{Message: err.Error()}
+				continue
+			}
 		default:
-			results[i].Error = &params.Error{Message: errors.Errorf("unsupported host tag %T", hostTag).Error()}
+			results[i].Error = &params.Error{Message: errors.Errorf("filesystem attachment host tag %q not valid", hostTag.String()).Error(), Code: params.CodeNotValid}
 			continue
 		}
 		if fsAttachment.MountPoint == "" {
@@ -1009,6 +1122,10 @@ func (a *modelStorageAdapter) SetFilesystemInfo(ctx context.Context, fss []param
 			results[i].Error = &params.Error{Message: err.Error()}
 			continue
 		}
+		if fs.Info.Pool != "" {
+			results[i].Error = &params.Error{Message: "pool field must not be set"}
+			continue
+		}
 		info := storageprovisioning.FilesystemProvisionedInfo{
 			ProviderID: fs.Info.ProviderId,
 			SizeMiB:    fs.Info.SizeMiB,
@@ -1053,11 +1170,39 @@ func (a *modelStorageAdapter) SetFilesystemAttachmentInfo(ctx context.Context, f
 			if err != nil {
 				results[i].Error = &params.Error{Message: err.Error()}
 			}
+		case names.UnitTag:
+			unitUUID, err := a.getUnitUUID(ctx, tag)
+			if err != nil {
+				results[i].Error = &params.Error{Message: err.Error()}
+				continue
+			}
+			err = a.storageSvc.SetFilesystemAttachmentProvisionedInfoForUnit(ctx, filesystemTag.Id(), unitUUID, info)
+			if err != nil {
+				results[i].Error = &params.Error{Message: err.Error()}
+			}
 		default:
-			results[i].Error = &params.Error{Message: errors.Errorf("unsupported host tag %T", hostTag).Error()}
+			results[i].Error = &params.Error{Message: errors.Errorf("filesystem attachment host tag %q not valid", hostTag.String()).Error(), Code: params.CodeNotValid}
 		}
 	}
 	return results, nil
+}
+
+func (a *modelStorageAdapter) getUnitUUID(ctx context.Context, tag names.UnitTag) (coreunit.UUID, error) {
+	unitName, err := coreunit.NewName(tag.Id())
+	if errors.Is(err, coreunit.InvalidUnitName) {
+		return "", errors.Errorf("invalid unit name %q", tag.Id())
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	unitUUID, err := a.appSvc.GetUnitUUID(ctx, unitName)
+	if errors.Is(err, coreunit.InvalidUnitName) {
+		return "", errors.Errorf("invalid unit name %q", unitName)
+	} else if errors.Is(err, applicationerrors.UnitNotFound) {
+		return "", errors.Errorf("unit %q not found", unitName)
+	} else if err != nil {
+		return "", errors.Errorf("getting unit %q UUID: %v", unitName, err)
+	}
+	return unitUUID, nil
 }
 
 // LifecycleManager implementation
@@ -1070,20 +1215,34 @@ func (a *modelStorageAdapter) Life(ctx context.Context, tags []names.Tag) ([]par
 		switch tag := tag.(type) {
 		case names.VolumeTag:
 			uuid, e := a.storageSvc.GetVolumeUUIDForID(ctx, tag.Id())
-			if e != nil {
-				err = e
-				break
+			if errors.Is(e, storageprovisioningerrors.VolumeNotFound) {
+				results[i].Error = &params.Error{Message: errors.Errorf("volume not found for id %q", tag.Id()).Error(), Code: params.CodeNotFound}
+				continue
+			} else if e != nil {
+				results[i].Error = &params.Error{Message: e.Error()}
+				continue
 			}
 			l, err = a.storageSvc.GetVolumeLife(ctx, uuid)
+			if errors.Is(err, storageprovisioningerrors.VolumeNotFound) {
+				results[i].Error = &params.Error{Message: errors.Errorf("volume not found for id %q", tag.Id()).Error(), Code: params.CodeNotFound}
+				continue
+			}
 		case names.FilesystemTag:
 			uuid, e := a.storageSvc.GetFilesystemUUIDForID(ctx, tag.Id())
-			if e != nil {
-				err = e
-				break
+			if errors.Is(e, storageprovisioningerrors.FilesystemNotFound) {
+				results[i].Error = &params.Error{Message: errors.Errorf("filesystem not found for id %q", tag.Id()).Error(), Code: params.CodeNotFound}
+				continue
+			} else if e != nil {
+				results[i].Error = &params.Error{Message: e.Error()}
+				continue
 			}
 			l, err = a.storageSvc.GetFilesystemLife(ctx, uuid)
+			if errors.Is(err, storageprovisioningerrors.FilesystemNotFound) {
+				results[i].Error = &params.Error{Message: errors.Errorf("filesystem not found for id %q", tag.Id()).Error(), Code: params.CodeNotFound}
+				continue
+			}
 		default:
-			results[i].Error = &params.Error{Message: errors.Errorf("invalid tag %q, expected volume or filesystem", tag).Error()}
+			results[i].Error = &params.Error{Message: errors.Errorf("invalid tag %q, expected volume or filesystem", tag).Error(), Code: params.CodeNotValid}
 			continue
 		}
 		if err != nil {
@@ -1183,22 +1342,35 @@ func (a *modelStorageAdapter) AttachmentLife(ctx context.Context, ids []params.M
 				continue
 			}
 		case names.FilesystemTag:
-			machineTag, ok := hostTag.(names.MachineTag)
-			if !ok {
-				results[i].Error = &params.Error{Message: "filesystem attachments only supported on machines"}
+			var fsUUID domainstorage.FilesystemAttachmentUUID
+			switch host := hostTag.(type) {
+			case names.MachineTag:
+				machineUUID, err := a.machineSvc.GetMachineUUID(ctx, machine.Name(host.Id()))
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+				fsUUID, err = a.storageSvc.GetFilesystemAttachmentUUIDForFilesystemIDMachine(ctx, tag.Id(), machineUUID)
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+			case names.UnitTag:
+				unitUUID, err := a.getUnitUUID(ctx, host)
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+				fsUUID, err = a.storageSvc.GetFilesystemAttachmentUUIDForFilesystemIDUnit(ctx, tag.Id(), unitUUID)
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+			default:
+				results[i].Error = &params.Error{Message: errors.Errorf("attachment tag %q is not valid", attachmentTag).Error(), Code: params.CodeNotValid}
 				continue
 			}
-			machineUUID, err := a.machineSvc.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
-			if err != nil {
-				results[i].Error = &params.Error{Message: err.Error()}
-				continue
-			}
-			uuid, err := a.storageSvc.GetFilesystemAttachmentUUIDForFilesystemIDMachine(ctx, tag.Id(), machineUUID)
-			if err != nil {
-				results[i].Error = &params.Error{Message: err.Error()}
-				continue
-			}
-			l, err = a.storageSvc.GetFilesystemAttachmentLife(ctx, uuid)
+			l, err = a.storageSvc.GetFilesystemAttachmentLife(ctx, fsUUID)
 			if err != nil {
 				results[i].Error = &params.Error{Message: err.Error()}
 				continue
@@ -1234,7 +1406,7 @@ func (a *modelStorageAdapter) RemoveAttachments(ctx context.Context, ids []param
 		case names.VolumeTag:
 			machineTag, ok := hostTag.(names.MachineTag)
 			if !ok {
-				results[i].Error = &params.Error{Message: "volume attachments only supported on machines"}
+				results[i].Error = &params.Error{Message: errors.Errorf("tag %q on host %q invalid", id.AttachmentTag, id.MachineTag).Error(), Code: params.CodeNotValid}
 				continue
 			}
 			machineUUID, err := a.machineSvc.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
@@ -1251,40 +1423,58 @@ func (a *modelStorageAdapter) RemoveAttachments(ctx context.Context, ids []param
 				continue
 			}
 			err = a.removalSvc.MarkVolumeAttachmentAsDead(ctx, uuid)
-			if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
+			if errors.Is(err, removalerrors.EntityStillAlive) {
+				results[i].Error = &params.Error{Message: errors.Errorf("volume %q attachment to machine %q is still alive", tag.Id(), machineTag.Id()).Error()}
+			} else if errors.Is(err, storageprovisioningerrors.VolumeAttachmentNotFound) {
 				continue
-			}
-			if err != nil {
+			} else if err != nil {
 				results[i].Error = &params.Error{Message: err.Error()}
 			}
 		case names.FilesystemTag:
-			machineTag, ok := hostTag.(names.MachineTag)
-			if !ok {
-				results[i].Error = &params.Error{Message: "filesystem attachments only supported on machines"}
+			var fsUUID domainstorage.FilesystemAttachmentUUID
+			switch host := hostTag.(type) {
+			case names.MachineTag:
+				machineUUID, err := a.machineSvc.GetMachineUUID(ctx, machine.Name(host.Id()))
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+				fsUUID, err = a.storageSvc.GetFilesystemAttachmentUUIDForFilesystemIDMachine(ctx, tag.Id(), machineUUID)
+				if errors.Is(err, coreerrors.NotFound) {
+					continue
+				}
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+			case names.UnitTag:
+				unitUUID, err := a.getUnitUUID(ctx, host)
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+				fsUUID, err = a.storageSvc.GetFilesystemAttachmentUUIDForFilesystemIDUnit(ctx, tag.Id(), unitUUID)
+				if errors.Is(err, coreerrors.NotFound) {
+					continue
+				}
+				if err != nil {
+					results[i].Error = &params.Error{Message: err.Error()}
+					continue
+				}
+			default:
+				results[i].Error = &params.Error{Message: errors.Errorf("tag %q on host %q invalid", id.AttachmentTag, id.MachineTag).Error(), Code: params.CodeNotValid}
 				continue
 			}
-			machineUUID, err := a.machineSvc.GetMachineUUID(ctx, machine.Name(machineTag.Id()))
-			if err != nil {
-				results[i].Error = &params.Error{Message: err.Error()}
+			err = a.removalSvc.MarkFilesystemAttachmentAsDead(ctx, fsUUID)
+			if errors.Is(err, removalerrors.EntityStillAlive) {
+				results[i].Error = &params.Error{Message: errors.Errorf("filesystem %q attachment to %s %q is still alive", tag.Id(), hostTag.Kind(), hostTag.Id()).Error()}
+			} else if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
 				continue
-			}
-			uuid, err := a.storageSvc.GetFilesystemAttachmentUUIDForFilesystemIDMachine(ctx, tag.Id(), machineUUID)
-			if errors.Is(err, coreerrors.NotFound) {
-				continue
-			}
-			if err != nil {
-				results[i].Error = &params.Error{Message: err.Error()}
-				continue
-			}
-			err = a.removalSvc.MarkFilesystemAttachmentAsDead(ctx, uuid)
-			if errors.Is(err, storageprovisioningerrors.FilesystemAttachmentNotFound) {
-				continue
-			}
-			if err != nil {
+			} else if err != nil {
 				results[i].Error = &params.Error{Message: err.Error()}
 			}
 		default:
-			results[i].Error = &params.Error{Message: errors.Errorf("tag %q on host %q invalid", id.AttachmentTag, id.MachineTag).Error()}
+			results[i].Error = &params.Error{Message: errors.Errorf("tag %q on host %q invalid", id.AttachmentTag, id.MachineTag).Error(), Code: params.CodeNotValid}
 		}
 	}
 	return results, nil
