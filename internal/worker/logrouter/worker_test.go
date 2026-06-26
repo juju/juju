@@ -372,7 +372,7 @@ func newFixture(c *tc.C, lokiEndpoint string) fixture {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	emptyCACert := ""
-	cfg.SetLokiConfig(lokiEndpoint, &emptyCACert, nil)
+	cfg.SetLokiConfig(lokiEndpoint, &emptyCACert, nil, "")
 	return fixture{
 		agent: &testAgent{
 			cfg: cfg,
@@ -402,7 +402,7 @@ func (a *testAgent) ChangeConfig(change agent.ConfigMutator) error {
 func (a *testAgent) setLokiConfig(endpoint, caCert string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.cfg.SetLokiConfig(endpoint, &caCert, nil)
+	a.cfg.SetLokiConfig(endpoint, &caCert, nil, "")
 }
 
 type backendEvent struct {

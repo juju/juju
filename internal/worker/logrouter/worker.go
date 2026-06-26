@@ -100,6 +100,7 @@ type ConfigSnapshot struct {
 	ControllerUUID     string
 	ModelUUID          string
 	AgentID            string
+	OrgID              string
 }
 
 func (s ConfigSnapshot) sameBackend(other ConfigSnapshot) bool {
@@ -337,6 +338,7 @@ func (w *logRouter) currentSnapshot() ConfigSnapshot {
 		ControllerUUID:     cfg.Controller().Id(),
 		ModelUUID:          cfg.Model().Id(),
 		AgentID:            cfg.Tag().String(),
+		OrgID:              cfg.LokiOrgID(),
 	}
 	switch {
 	case w.config.DrainOnly:

@@ -161,6 +161,7 @@ func NewBackend(
 			lokiConfig := loki.DefaultConfig()
 			lokiConfig.HTTPClient = httpClient
 			lokiConfig.Clock = clock
+			lokiConfig.OrgID = snapshot.OrgID
 
 			return backends.NewLoki(backends.LokiConfig{
 				BackendBufferSize:    defaultBackendBufferSize,
