@@ -41,8 +41,8 @@ func (st *State) SetLokiConfig(ctx context.Context, id string, config logging.Lo
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO logging_loki_config (uuid, endpoint, ca_cert, insecure_skip_verify)
-VALUES ($lokiConfig.uuid, $lokiConfig.endpoint, $lokiConfig.ca_cert, $lokiConfig.insecure_skip_verify)`,
+INSERT INTO logging_loki_config (uuid, endpoint, ca_cert, insecure_skip_verify, org_id)
+VALUES ($lokiConfig.uuid, $lokiConfig.endpoint, $lokiConfig.ca_cert, $lokiConfig.insecure_skip_verify, $lokiConfig.org_id)`,
 		lokiConfig{})
 	if err != nil {
 		return errors.Errorf("preparing insert statement: %w", err)
@@ -53,6 +53,7 @@ VALUES ($lokiConfig.uuid, $lokiConfig.endpoint, $lokiConfig.ca_cert, $lokiConfig
 		Endpoint:           config.Endpoint,
 		CACertificate:      &config.CACertificate,
 		InsecureSkipVerify: nsBoolToNil(config.InsecureSkipVerify),
+		OrgID:              config.OrgID,
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -105,6 +106,7 @@ SELECT &lokiConfig.* FROM logging_loki_config
 		Endpoint:           config.Endpoint,
 		CACertificate:      caCert,
 		InsecureSkipVerify: nsBoolToPtr(config.InsecureSkipVerify),
+		OrgID:              config.OrgID,
 	}, nil
 }
 

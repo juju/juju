@@ -15,4 +15,7 @@ type LokiConfig struct {
 	// any host name in that certificate. This must be pointer so we
 	// can distinguish unset from bool values.
 	InsecureSkipVerify *bool
+	// OrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. When empty, no X-Scope-OrgID header is sent.
+	OrgID string
 }
