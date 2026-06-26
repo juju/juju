@@ -194,7 +194,8 @@ ORDER BY endpoint_name,
          ingress_is_secondary, /* primary (0) before secondary (1) */
          ingress_origin_id DESC, /* provider (1) before machine (0) */
          address_value,
-         name
+         name,
+         device_uuid
 `, endpointNetworkInfoRow{}, entityUUID{}, endpoints)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -332,7 +333,9 @@ ORDER BY CASE WHEN ingress_address_value IS NULL THEN 1 ELSE 0 END,
          ingress_device_type_id,
          ingress_is_secondary, /* primary (0) before secondary (1) */
          ingress_origin_id DESC, /* provider (1) before machine (0) */
-         address_value
+         address_value,
+         name,
+         device_uuid
 `, unitNetworkInfoRow{}, entityUUID{})
 	if err != nil {
 		return networkinternal.UnitNetworkInfo{}, errors.Capture(err)
