@@ -11,9 +11,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/api/base"
-	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -32,15 +29,67 @@ type MachineService interface {
 	GetMachineUUID(ctx context.Context, name coremachine.Name) (coremachine.UUID, error)
 }
 
-// GetMachineFunc is a helper function that gets a service from the manifold.
+// GetMachineServiceFunc is a helper function that gets a service from the manifold.
 type GetMachineServiceFunc func(getter dependency.Getter, name string) (MachineService, error)
 
 // GetMachineService is a helper function that gets a service from the
 // manifold.
 func GetMachineService(getter dependency.Getter, name string) (MachineService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory services.ModelDomainServices) MachineService {
-		return factory.Machine()
+	return getDependencyByName(getter, name, func(s services.ModelDomainServices) MachineService {
+		return s.Machine()
 	})
+}
+
+// DomainServices holds the subset of domain services needed by the
+// compute-provisioner manifold. This avoids depending on the full
+// services.DomainServices interface.
+type DomainServices struct {
+	controllerConfig ControllerConfigService
+	modelConfig      ModelConfigService
+	controllerNode   ControllerNodeService
+	modelInfo        ModelInfoService
+	machine          MachineDomainService
+	status           StatusDomainService
+	provisioning     ProvisionerDomainService
+	agentBinary      AgentBinaryDomainService
+	application      ApplicationDomainService
+	agentPassword    AgentPasswordDomainService
+	removal          RemovalDomainService
+}
+
+// GetDomainServicesFunc is a helper function that gets the domain services
+// from the manifold.
+type GetDomainServicesFunc func(getter dependency.Getter, name string) (DomainServices, error)
+
+// GetDomainServices is a helper function that gets the domain services
+// from the manifold.
+func GetDomainServices(getter dependency.Getter, name string) (DomainServices, error) {
+	return getDependencyByName(getter, name, func(s services.DomainServices) DomainServices {
+		return DomainServices{
+			controllerConfig: s.ControllerConfig(),
+			modelConfig:      s.Config(),
+			controllerNode:   s.ControllerNode(),
+			modelInfo:        s.ModelInfo(),
+			machine:          s.Machine(),
+			status:           s.Status(),
+			provisioning:     s.Provisioning(),
+			agentBinary:      s.AgentBinary(),
+			application:      s.Application(),
+			agentPassword:    s.AgentPassword(),
+			removal:          s.Removal(),
+		}
+	})
+}
+
+// getDependencyByName is a helper that extracts a dependency of type A from
+// the getter and transforms it to type B using the provided function.
+func getDependencyByName[A, B any](getter dependency.Getter, name string, fn func(A) B) (B, error) {
+	var a A
+	if err := getter.Get(name, &a); err != nil {
+		var zero B
+		return zero, err
+	}
+	return fn(a), nil
 }
 
 // ManifoldConfig defines an environment provisioner's dependencies. It's not
@@ -49,12 +98,13 @@ func GetMachineService(getter dependency.Getter, name string) (MachineService, e
 // for now we dodge the question because we don't need container provisioners
 // in dependency engines. Yet.
 type ManifoldConfig struct {
-	APICallerName      string
 	EnvironName        string
 	DomainServicesName string
 	GetMachineService  GetMachineServiceFunc
+	GetDomainServices  GetDomainServicesFunc
 	Logger             logger.Logger
 	AgentTag           names.Tag
+	ModelUUID          string
 	NewProvisionerFunc func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, names.Tag, logger.Logger, Environ) (Provisioner, error)
 }
 
@@ -63,7 +113,6 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
 			config.EnvironName,
 			config.DomainServicesName,
 		},
@@ -72,24 +121,54 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var apiCaller base.APICaller
-			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			var environ environs.Environ
 			if err := getter.Get(config.EnvironName, &environ); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			api := apiprovisioner.NewClient(apiCaller)
+			domSvc, err := config.GetDomainServices(getter, config.DomainServicesName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 
 			machineService, err := config.GetMachineService(getter, config.DomainServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			w, err := config.NewProvisionerFunc(api, machineService, api, api, api, config.AgentTag, config.Logger, environ)
+			controllerAPI := &controllerAPIAdapter{
+				ctrlConfigSvc:  domSvc.controllerConfig,
+				modelConfigSvc: domSvc.modelConfig,
+				ctrlNodeSvc:    domSvc.controllerNode,
+				modelUUID:      config.ModelUUID,
+			}
+
+			machinesAPI := &machinesAPIAdapter{
+				machineSvc:       domSvc.machine,
+				statusSvc:        domSvc.status,
+				provisionerSvc:   domSvc.provisioning,
+				ctrlConfigSvc:    domSvc.controllerConfig,
+				modelConfigSvc:   domSvc.modelConfig,
+				modelInfoSvc:     domSvc.modelInfo,
+				agentPasswordSvc: domSvc.agentPassword,
+				removalSvc:       domSvc.removal,
+				machineService:   machineService,
+				modelUUID:        config.ModelUUID,
+			}
+
+			toolsFinder := &toolsFinderAdapter{
+				agentBinarySvc: domSvc.agentBinary,
+				ctrlNodeSvc:    domSvc.controllerNode,
+				modelUUID:      config.ModelUUID,
+			}
+
+			distGroupFinder := &distributionGroupFinderAdapter{
+				machineSvc:     domSvc.machine,
+				appSvc:         domSvc.application,
+				machineService: machineService,
+			}
+
+			w, err := config.NewProvisionerFunc(controllerAPI, machineService, machinesAPI, toolsFinder, distGroupFinder, config.AgentTag, config.Logger, environ)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -101,9 +180,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
-	}
 	if config.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
 	}
@@ -112,6 +188,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetMachineService == nil {
 		return errors.NotValidf("nil GetMachineService")
+	}
+	if config.GetDomainServices == nil {
+		return errors.NotValidf("nil GetDomainServices")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")

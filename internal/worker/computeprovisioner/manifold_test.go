@@ -12,8 +12,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 
-	"github.com/juju/juju/api/base"
-	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -43,13 +41,18 @@ func (s *ManifoldSuite) makeManifold(c *tc.C) dependency.Manifold {
 			computeprovisioner.MachineService
 		}{}, nil
 	}
+	fakeGetDomainServicesFunc := func(getter dependency.Getter, name string) (computeprovisioner.DomainServices, error) {
+		s.stub.AddCall("GetDomainServices")
+		return computeprovisioner.DomainServices{}, nil
+	}
 	return computeprovisioner.Manifold(computeprovisioner.ManifoldConfig{
-		APICallerName:      "api-caller",
 		Logger:             loggertesting.WrapCheckLog(c),
 		EnvironName:        "environ",
 		DomainServicesName: "fake-domain-services",
 		GetMachineService:  fakeGetMachineServiceFunc,
+		GetDomainServices:  fakeGetDomainServicesFunc,
 		AgentTag:           names.NewMachineTag("0"),
+		ModelUUID:          "fake-model-uuid",
 		NewProvisionerFunc: fakeNewProvFunc,
 	})
 }
@@ -60,26 +63,15 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldSuite) TestManifold(c *tc.C) {
 	manifold := s.makeManifold(c)
-	c.Check(manifold.Inputs, tc.SameContents, []string{"api-caller", "environ", "fake-domain-services"})
+	c.Check(manifold.Inputs, tc.SameContents, []string{"environ", "fake-domain-services"})
 	c.Check(manifold.Output, tc.IsNil)
 	c.Check(manifold.Start, tc.NotNil)
-}
-
-func (s *ManifoldSuite) TestMissingAPICaller(c *tc.C) {
-	manifold := s.makeManifold(c)
-	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
-		"api-caller": dependency.ErrMissing,
-		"environ":    struct{ environs.Environ }{},
-	}))
-	c.Check(w, tc.IsNil)
-	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 	manifold := s.makeManifold(c)
 	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
-		"api-caller": struct{ base.APICaller }{},
-		"environ":    dependency.ErrMissing,
+		"environ": dependency.ErrMissing,
 	}))
 	c.Check(w, tc.IsNil)
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
@@ -88,10 +80,9 @@ func (s *ManifoldSuite) TestMissingEnviron(c *tc.C) {
 func (s *ManifoldSuite) TestStarts(c *tc.C) {
 	manifold := s.makeManifold(c)
 	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
-		"api-caller": apitesting.APICallerFunc(nil),
-		"environ":    struct{ environs.Environ }{},
+		"environ": struct{ environs.Environ }{},
 	}))
 	c.Check(w, tc.NotNil)
 	c.Check(err, tc.ErrorIsNil)
-	s.stub.CheckCallNames(c, "GetMachineService", "NewProvisionerFunc")
+	s.stub.CheckCallNames(c, "GetDomainServices", "GetMachineService", "NewProvisionerFunc")
 }
