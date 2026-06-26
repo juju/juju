@@ -24,7 +24,7 @@ import (
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(modelmigration.Operation)
+	Add(modelmigration.Operation[description.Model])
 }
 
 // RegisterImportStoragePools registers the storage pool import operation with
@@ -132,7 +132,7 @@ func (g *ephemeralStorageRegistryGetter) GetStorageRegistry(
 }
 
 type baseImportOperation struct {
-	modelmigration.BaseOperation
+	modelmigration.BaseOperation[description.Model]
 
 	ephemeralProviderConfigGetter providertracker.EphemeralProviderConfigGetter
 

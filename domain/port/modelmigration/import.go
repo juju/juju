@@ -21,7 +21,7 @@ import (
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(modelmigration.Operation)
+	Add(modelmigration.Operation[description.Model])
 }
 
 // RegisterImport registers the import operations with the given coordinator.
@@ -45,7 +45,7 @@ type PortService interface {
 }
 
 type importOperation struct {
-	modelmigration.BaseOperation
+	modelmigration.BaseOperation[description.Model]
 
 	logger      logger.Logger
 	portService PortService

@@ -27,7 +27,7 @@ import (
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(modelmigration.Operation)
+	Add(modelmigration.Operation[description.Model])
 }
 
 // RegisterExternalUsersImport registers the external users import operation
@@ -88,7 +88,7 @@ type ImportOfferAccessService interface {
 }
 
 type importExternalUsersOperation struct {
-	modelmigration.BaseOperation
+	modelmigration.BaseOperation[description.Model]
 
 	service ImportExternalUsersService
 
@@ -133,7 +133,7 @@ func (i *importExternalUsersOperation) Execute(ctx context.Context, model descri
 }
 
 type importOperation struct {
-	modelmigration.BaseOperation
+	modelmigration.BaseOperation[description.Model]
 
 	service ImportService
 
@@ -230,7 +230,7 @@ func RegisterOfferAccessImport(coordinator Coordinator, clock clock.Clock, logge
 }
 
 type offerAccessImportOperation struct {
-	modelmigration.BaseOperation
+	modelmigration.BaseOperation[description.Model]
 
 	service ImportOfferAccessService
 

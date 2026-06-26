@@ -97,7 +97,7 @@ func (stubEphemeralProviderConfigGetter) GetEphemeralProviderConfig(
 type importSuite struct {
 	schematesting.ModelSuite
 
-	coordinator           *coremodelmigration.Coordinator
+	coordinator           *coremodelmigration.Coordinator[description.Model]
 	scope                 coremodelmigration.Scope
 	svc                   *service.Service
 	provisioning          *storageprovisioningservice.Service
@@ -129,7 +129,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.ephemeralFactory = &stubEphemeralProviderFactory{providers: storageProviders}
 	s.ephemeralConfigGetter = stubEphemeralProviderConfigGetter{}
 
-	s.coordinator = coremodelmigration.NewCoordinator(s.logger)
+	s.coordinator = coremodelmigration.NewCoordinator[description.Model](s.logger)
 	s.scope = coremodelmigration.NewScope(
 		nil,
 		s.TxnRunnerFactory(),

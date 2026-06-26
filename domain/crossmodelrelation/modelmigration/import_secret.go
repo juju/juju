@@ -42,7 +42,7 @@ type ImportSecretService interface {
 }
 
 type importSecretOperation struct {
-	modelmigration.BaseOperation
+	modelmigration.BaseOperation[description.Model]
 
 	importService ImportSecretService
 

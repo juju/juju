@@ -74,7 +74,7 @@ func (s *importSuite) TestImportFromModelConfig(c *tc.C) {
 		},
 	})
 
-	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
 	keymanagermodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, nil, s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIsNil)
@@ -110,7 +110,7 @@ func (s *importSuite) TestImportFromModelDescription(c *tc.C) {
 		},
 	})
 
-	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
 	keymanagermodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, nil, s.modelUUID), desc)
 	c.Assert(err, tc.ErrorIsNil)
@@ -153,7 +153,7 @@ func (s *importSuite) TestImportThatFailsRollsback(c *tc.C) {
 		},
 	})
 
-	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
 	keymanagermodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	migrationtesting.RegisterFailingImport(coordinator)
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.TxnRunnerFactory(), nil, nil, nil, s.modelUUID), desc)

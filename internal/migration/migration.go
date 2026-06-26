@@ -22,7 +22,10 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/modeldefaults"
+	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
+	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -97,7 +100,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 		servicesGetter: i.domainServices,
 	}
 
-	coordinator := modelmigration.NewCoordinator(i.logger)
+	coordinator := modelmigration.NewCoordinator[description.Model](i.logger)
 	ImportOperations(
 		coordinator,
 		modelDefaultsProvider,
@@ -111,9 +114,10 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 	return nil
 }
 
-// ImportModelV2 applies a v8 import's controller-scoped semantic data to the
-// target controller. See [migrationv2.ImportModel] for the orchestration; this
-// method only resolves the migration scope for the model UUID and delegates.
+// ImportModelV2 imports a model from a v8 import. It applies the
+// controller-scoped semantic data and the target-local model bootstrap (see
+// [migrationv2.ImportModel]), then runs the model-DB import operations over the
+// transformed payload carried by args.
 //
 // If a claim already exists for args.ControllerModelInfo.ModelInfo.UUID, the
 // returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
@@ -124,12 +128,40 @@ func (i *ModelImporter) ImportModelV2(
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
 
-	return migrationv2.ImportModel(ctx, migrationv2.Deps{
+	// Apply the controller-scoped semantic data and bootstrap the target-local
+	// model (durable import claim, controller model row, model DB in importing
+	// mode). This is the first target-side write group.
+	if err := migrationv2.ImportModel(ctx, migrationv2.Deps{
 		ControllerDB: scope.ControllerDB(),
 		ModelDB:      scope.ModelDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
-	}, args, view)
+	}, args, view); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Run the model-DB import operations over the transformed payload. The
+	// import claim's phase is asserted to still be importing before each
+	// operation, so a concurrent Abort stops the import before the next write.
+	assertImporting := func(ctx context.Context) error {
+		return migrationclaimservice.NewImportService(
+			migrationclaimstate.New(scope.ControllerDB(), i.clock), i.logger,
+		).AssertImporting(ctx, modelUUID)
+	}
+
+	coordinator := modelmigration.NewCoordinator[*latest.ModelExport](i.logger)
+	migrationv2.ImportOperations(coordinator)
+	coordinator.SetBeforeEach(assertImporting)
+	if err := coordinator.Perform(ctx, scope, args.ModelDBPayload); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Final phase recheck after the model-DB operations: if the claim is no
+	// longer importing, the import was aborted and must not be activated.
+	if err := assertImporting(ctx); err != nil {
+		return internalerrors.Errorf("model %q import interrupted: %w", modelUUID, err)
+	}
+	return nil
 }
 
 type modelDefaultsProvider struct {

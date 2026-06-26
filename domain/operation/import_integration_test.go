@@ -116,7 +116,7 @@ func (s *importSuite) TestImportApplicationOperation(c *tc.C) {
 		},
 	})
 
-	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
 	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	applicationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	operationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -190,7 +190,7 @@ func (s *importSuite) TestImportUnitOperation(c *tc.C) {
 		},
 	})
 
-	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
 	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	applicationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	operationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -247,7 +247,7 @@ func (s *importSuite) TestImportMachineOperation(c *tc.C) {
 		},
 	})
 
-	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
 	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	operationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 

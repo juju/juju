@@ -20,7 +20,7 @@ import (
 
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
-	Add(modelmigration.Operation)
+	Add(modelmigration.Operation[description.Model])
 }
 
 // RegisterImport register's a new model migration importer into the supplied
@@ -34,7 +34,7 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger, clock clock.C
 
 // importOperation represents a struct to handle the import operation for cloud image metadata.
 type importOperation struct {
-	modelmigration.BaseOperation
+	modelmigration.BaseOperation[description.Model]
 
 	service ImportService
 	logger  logger.Logger

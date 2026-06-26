@@ -318,8 +318,8 @@ func (s *importSuite) TestImportOffers(c *tc.C) {
 // setupCoordinatorScopeAndService returns the coordinator, scope and service
 // to use in testing import. The scope and service must share the same
 // modelRunner instance for these tests to be successful.
-func (s *importSuite) setupCoordinatorScopeAndService(c *tc.C) (*coremodelmigration.Coordinator, coremodelmigration.Scope, *service.Service) {
-	coordinator := coremodelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
+func (s *importSuite) setupCoordinatorScopeAndService(c *tc.C) (*coremodelmigration.Coordinator[description.Model], coremodelmigration.Scope, *service.Service) {
+	coordinator := coremodelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
 	applicationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	modelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 
