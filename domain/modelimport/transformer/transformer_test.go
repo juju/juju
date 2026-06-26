@@ -209,3 +209,40 @@ func (s *transformerSuite) TestTransformWrapsMidChainErrors(c *tc.C) {
 	_, err = a.Transform(c.Context(), version("1.0.0"), payloadA{Val: 0})
 	c.Assert(err, tc.ErrorMatches, "transforming 1.1.0 -> 1.2.0: boom")
 }
+
+func (s *transformerSuite) TestCanTransformAcceptsTarget(c *tc.C) {
+	transformations := []Transformation{
+		NewTransformation(version("1.0.0"), version("1.1.0"), okAtoB),
+		NewTransformation(version("1.1.0"), version("1.2.0"), okBtoC),
+	}
+	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0", "1.2.0"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The target version needs no transformation and is always walkable.
+	c.Assert(a.CanTransform(version("1.2.0")), tc.ErrorIsNil)
+}
+
+func (s *transformerSuite) TestCanTransformAcceptsChainVersions(c *tc.C) {
+	transformations := []Transformation{
+		NewTransformation(version("1.0.0"), version("1.1.0"), okAtoB),
+		NewTransformation(version("1.1.0"), version("1.2.0"), okBtoC),
+	}
+	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0", "1.2.0"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(a.CanTransform(version("1.0.0")), tc.ErrorIsNil)
+	c.Assert(a.CanTransform(version("1.1.0")), tc.ErrorIsNil)
+}
+
+func (s *transformerSuite) TestCanTransformRejectsUnknownSource(c *tc.C) {
+	transformations := []Transformation{
+		NewTransformation(version("1.0.0"), version("1.1.0"), okAtoB),
+	}
+	a, err := NewTransformer(transformations, versions("1.0.0", "1.1.0"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// An unknown version, and a version newer than the target (which is by
+	// construction not in the forward chain), both surface as unknown.
+	c.Assert(a.CanTransform(version("0.9.0")), tc.ErrorIs, ErrUnknownSourceVersion)
+	c.Assert(a.CanTransform(version("1.2.0")), tc.ErrorIs, ErrUnknownSourceVersion)
+}

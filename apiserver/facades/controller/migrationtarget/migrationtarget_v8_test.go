@@ -525,10 +525,23 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 			}},
 		},
 	}
-	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), expected, gomock.Any()).Return(nil)
+	var got migrationv2.ImportModelArgs
+	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, args migrationv2.ImportModelArgs, _ export.ProjectionView) error {
+			got = args
+			return nil
+		})
 
 	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIsNil)
+
+	// The facade decodes and transforms the model-DB payload to the target
+	// version and threads it through; its exact contents are covered by the
+	// transformer tests, so here we only assert it is populated and then
+	// compare the controller-scoped args verbatim.
+	c.Check(got.ModelDBPayload, tc.NotNil)
+	got.ModelDBPayload = nil
+	c.Check(got, tc.DeepEquals, expected)
 }
 
 // TestImportGuardFailure verifies a guard failure in the v8 Import is

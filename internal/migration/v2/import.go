@@ -23,6 +23,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/latest"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	leaseservice "github.com/juju/juju/domain/lease/service"
@@ -48,8 +49,9 @@ type Deps struct {
 	Logger       logger.Logger
 }
 
-// ImportModelArgs contains the target-portable controller-scoped data needed
-// to start a v8 model import.
+// ImportModelArgs contains the data needed to perform a v8 model import: the
+// target-portable controller-scoped snapshot and the transformed model-DB
+// payload.
 type ImportModelArgs struct {
 	// SourceMigrationUUID is the source-side migration UUID recorded on the
 	// target import claim.
@@ -58,6 +60,13 @@ type ImportModelArgs struct {
 	// ControllerModelInfo is the semantic controller-database snapshot for the
 	// model, decoded from the v8 import envelope by the apiserver facade.
 	ControllerModelInfo coremodelmigration.ControllerModelInfo
+
+	// ModelDBPayload is the model-DB export payload decoded from the envelope
+	// and transformed up to the target schema version by the apiserver facade.
+	// The controller-scoped import in this package does not use it; the model-DB
+	// import operations driven by the migration package's coordinator consume
+	// it. It is nil only for controller-scoped-only callers and tests.
+	ModelDBPayload *latest.ModelExport
 }
 
 // ImportModel applies the v8 import's controller-scoped semantic data to the
