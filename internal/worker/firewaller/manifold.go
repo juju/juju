@@ -10,8 +10,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -21,21 +19,13 @@ import (
 )
 
 // ManifoldConfig describes the resources used by the firewaller worker.
-//
-// TODO(jack-w-shaw): This is a model worker, so domain services can be accessed
-// directly instead of going via an API. However, not all dependencies are
-// available as domain services, so we still need to use the API for some things.
-// Once all dependencies are available as domain services, we can remove the
-// APICaller.
 type ManifoldConfig struct {
-	APICallerName      string
 	DomainServicesName string
 	EnvironName        string
 	ModelUUID          string
 	Logger             logger.Logger
 
 	NewControllerConnection apicaller.NewExternalControllerConnectionFunc
-	NewFirewallerFacade     func(base.APICaller) (FirewallerAPI, error)
 	NewFirewallerWorker     func(Config) (worker.Worker, error)
 }
 
@@ -43,7 +33,6 @@ type ManifoldConfig struct {
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			cfg.APICallerName,
 			cfg.EnvironName,
 			cfg.DomainServicesName,
 		},
@@ -53,9 +42,6 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 // Validate is called by start to check for bad configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
-	}
 	if cfg.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
 	}
@@ -71,9 +57,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewControllerConnection == nil {
 		return errors.NotValidf("nil NewControllerConnection")
 	}
-	if cfg.NewFirewallerFacade == nil {
-		return errors.NotValidf("nil NewFirewallerFacade")
-	}
 	if cfg.NewFirewallerWorker == nil {
 		return errors.NotValidf("nil NewFirewallerWorker")
 	}
@@ -83,11 +66,6 @@ func (cfg ManifoldConfig) Validate() error {
 // start is a StartFunc for a Worker manifold.
 func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var apiConn api.Connection
-	if err := getter.Get(cfg.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -119,9 +97,15 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		}
 	}
 
-	firewallerAPI, err := cfg.NewFirewallerFacade(apiConn)
-	if err != nil {
-		return nil, errors.Trace(err)
+	firewallerAPI := &firewallerAPIAdapter{
+		machineSvc:       domainServices.Machine(),
+		modelConfigSvc:   domainServices.Config(),
+		ctrlConfigSvc:    domainServices.ControllerConfig(),
+		networkSvc:       domainServices.Network(),
+		relationSvc:      domainServices.Relation(),
+		extControllerSvc: domainServices.ExternalController(),
+		appSvc:           domainServices.Application(),
+		modelInfoSvc:     domainServices.ModelInfo(),
 	}
 
 	// Check if the env supports IPV6 CIDRs for firewall ingress rules.

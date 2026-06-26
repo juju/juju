@@ -457,7 +457,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			APICallerName:      apiCallerName,
 			DomainServicesName: domainServicesName,
 			EnvironName:        providerTrackerName,
 			ModelUUID:          config.ModelUUID,
@@ -465,7 +464,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewControllerConnection: apicaller.NewExternalControllerConnection,
 			NewFirewallerWorker:     firewaller.NewWorker,
-			NewFirewallerFacade:     firewaller.NewFirewallerFacade,
 		})),
 		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			DomainServicesName: domainServicesName,

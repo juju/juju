@@ -15,6 +15,11 @@ type Relation struct {
 	life life.Value
 }
 
+// NewRelation creates a new Relation with the given tag and life value.
+func NewRelation(tag names.RelationTag, life life.Value) *Relation {
+	return &Relation{tag: tag, life: life}
+}
+
 // Tag returns the relation tag.
 func (r *Relation) Tag() names.RelationTag {
 	return r.tag

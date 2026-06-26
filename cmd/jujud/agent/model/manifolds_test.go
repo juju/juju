@@ -469,8 +469,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"firewaller": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
