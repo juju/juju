@@ -11,8 +11,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
@@ -36,9 +34,7 @@ type TracingService interface {
 
 // ManifoldConfig describes the resources used by the CAASModelOperatorWorker
 type ManifoldConfig struct {
-	// APICallerName is the name of the api caller dependency to fetch
-	APICallerName string
-	// BrokerName is the name of the api caller dependency to fetch
+	// BrokerName is the name of the broker dependency to fetch
 	BrokerName string
 	// DomainServicesName is the name of the model domain services dependency.
 	DomainServicesName string
@@ -61,7 +57,6 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
 			config.BrokerName,
 			config.DomainServicesName,
 		},
@@ -77,11 +72,6 @@ func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		return nil, errors.Trace(err)
 	}
 
-	var apiCaller base.APICaller
-	if err := getter.Get(m.APICallerName, &apiCaller); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var broker caas.Broker
 	if err := getter.Get(m.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
@@ -92,7 +82,13 @@ func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 		return nil, errors.Trace(err)
 	}
 
-	api := caasmodeloperator.NewClient(apiCaller)
+	api := &modelOperatorAPIAdapter{
+		ctrlConfigSvc:  domainServices.ControllerConfig(),
+		modelConfigSvc: domainServices.Config(),
+		ctrlNodeSvc:    domainServices.ControllerNode(),
+		ctrlSvc:        domainServices.Controller(),
+		agentPwdSvc:    domainServices.AgentPassword(),
+	}
 
 	return NewModelOperatorManager(
 		m.Logger,
@@ -109,9 +105,6 @@ func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter)
 
 // Validate checks all the config fields are valid for the Manifold to start
 func (m ManifoldConfig) Validate() error {
-	if m.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
-	}
 	if m.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
 	}
