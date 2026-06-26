@@ -35,7 +35,7 @@ import (
 type importSuite struct {
 	schematesting.ControllerSuite
 
-	coordinator *coremodelmigration.Coordinator[description.Model]
+	coordinator *coremodelmigration.Coordinator
 	scope       coremodelmigration.Scope
 	svc         *service.Service
 
@@ -56,7 +56,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 	s.adminUserUUID = tc.Must(c, user.NewUUID)
 	s.modelUUID = tc.Must(c, model.NewUUID)
 
-	s.coordinator = coremodelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	s.coordinator = coremodelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 
 	controllerFactory := func(context.Context) (database.TxnRunner, error) {
 		return s.ControllerTxnRunner(), nil

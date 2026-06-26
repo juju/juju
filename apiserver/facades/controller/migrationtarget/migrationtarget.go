@@ -732,17 +732,13 @@ func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2
 		return export.ProjectionView{}, nil, errors.Capture(err)
 	}
 
-	// Defense in depth against drift between the payload decoder registry and
-	// the transformer chain: a payload version that decodes must also be
-	// walkable up to the target schema version. This must not write any rows.
+	// Build the import transformer and run it over the payload to walk it up to
+	// the target schema version before any target-side write. Transform itself
+	// validates that the payload version is in the chain: a payload that
+	// decodes but cannot be transformed is rejected here.
 	transformer, err := modelimport.NewTransformer()
 	if err != nil {
 		return export.ProjectionView{}, nil, errors.Errorf("constructing model import transformer: %w", err)
-	}
-	if err := transformer.CanTransform(args.PayloadVersion); err != nil {
-		return export.ProjectionView{}, nil, errors.Errorf(
-			"model export payload version %q cannot be transformed to target %q: %w",
-			args.PayloadVersion, transformer.Target(), err)
 	}
 
 	// Transform the model-DB payload up to the target schema version before any

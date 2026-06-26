@@ -396,7 +396,7 @@ func (s *importSuite) TestImportSecretWithGrants(c *tc.C) {
 }
 
 func (s *importSuite) doImport(c *tc.C, desc description.Model) {
-	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	secretmodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
 
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(s.ControllerSuite.TxnRunnerFactory(),

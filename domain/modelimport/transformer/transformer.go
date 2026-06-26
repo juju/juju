@@ -167,27 +167,6 @@ func (t *Transformer) Transform(ctx context.Context, srcVersion semversion.Numbe
 	return currentPayload, nil
 }
 
-// CanTransform reports whether the transformer can walk a payload from
-// srcVersion up to the target version, without running it. It returns nil when
-// srcVersion is the target or is one of the configured chain versions, and an
-// [ErrUnknownSourceVersion]-wrapped error otherwise. A version newer than the
-// target is by construction not in the forward chain and so also surfaces as
-// ErrUnknownSourceVersion.
-//
-// It is the no-write counterpart of [Transformer.Transform], used by the v8
-// import prechecks as a defense-in-depth guard against drift between the
-// payload decoder registry and the transformer chain: a payload version that
-// decodes but cannot be walked is rejected before any target-side write.
-func (t *Transformer) CanTransform(srcVersion semversion.Number) error {
-	if srcVersion == t.target {
-		return nil
-	}
-	if t.versionIndex(srcVersion) < 0 {
-		return errors.Errorf("unknown source export version: %q", srcVersion).Add(ErrUnknownSourceVersion)
-	}
-	return nil
-}
-
 // Target returns the schema format version this transformer walks payloads up to.
 func (t *Transformer) Target() semversion.Number {
 	return t.target

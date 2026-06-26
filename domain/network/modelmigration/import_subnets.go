@@ -37,7 +37,7 @@ type SubnetsImportService interface {
 }
 
 type importSubnetsOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 
 	importService SubnetsImportService
 	logger        logger.Logger

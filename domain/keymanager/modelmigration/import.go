@@ -35,7 +35,7 @@ const (
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(modelmigration.Operation[description.Model])
+	Add(modelmigration.Operation)
 }
 
 type importServiceGetterFunc func(coremodel.UUID) ImportService
@@ -89,7 +89,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // importOperation is the type used to describe the import operation for
 // authorized keys between model's.
 type importOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 
 	serviceGetter importServiceGetterFunc
 	userService   UserService

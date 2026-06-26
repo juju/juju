@@ -17,7 +17,7 @@ const IntentionalImportFailure = errors.ConstError("intentional import failure")
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(modelmigration.Operation[description.Model])
+	Add(modelmigration.Operation)
 }
 
 func RegisterFailingImport(coordinator Coordinator) {
@@ -25,7 +25,7 @@ func RegisterFailingImport(coordinator Coordinator) {
 }
 
 type failingImportOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 }
 
 func (i *failingImportOperation) Setup(_ modelmigration.Scope) error {

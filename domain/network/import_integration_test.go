@@ -37,7 +37,7 @@ import (
 type importSuite struct {
 	schematesting.ModelSuite
 
-	coordinator *modelmigration.Coordinator[description.Model]
+	coordinator *modelmigration.Coordinator
 	scope       modelmigration.Scope
 	svc         *service.Service
 }
@@ -49,7 +49,7 @@ func TestImportSuite(t *stdtesting.T) {
 func (s *importSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.coordinator = modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	s.coordinator = modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	s.scope = modelmigration.NewScope(nil, s.TxnRunnerFactory(), nil, nil, model.UUID(s.ModelUUID()))
 
 	s.svc = service.NewService(

@@ -320,7 +320,7 @@ func (s *importSuite) addApplicationWithRelation(
 }
 
 func (s *importSuite) doImport(c *tc.C, desc description.Model) {
-	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	// We need to register both application and relation imports.
 	applicationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	relationmodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))

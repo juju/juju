@@ -14,7 +14,6 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
-	description "github.com/juju/description/v12"
 	model "github.com/juju/juju/core/model"
 	modelmigration "github.com/juju/juju/core/modelmigration"
 	permission "github.com/juju/juju/core/permission"
@@ -33,7 +32,7 @@ type MockCoordinator struct {
 // MockCoordinatorMockRecorder is the mock recorder for MockCoordinator.
 type MockCoordinatorMockRecorder struct {
 	mock       *MockCoordinator
-	addExpects []*gomock.Call1_0[modelmigration.Operation[description.Model]]
+	addExpects []*gomock.Call1_0[modelmigration.Operation]
 }
 
 // NewMockCoordinator creates a new mock instance.
@@ -49,7 +48,7 @@ func (m *MockCoordinator) EXPECT() *MockCoordinatorMockRecorder {
 }
 
 // Add mocks base method.
-func (m *MockCoordinator) Add(arg0 modelmigration.Operation[description.Model]) {
+func (m *MockCoordinator) Add(arg0 modelmigration.Operation) {
 	m.ctrl.T.Helper()
 	gomock.Dispatch1_0(&m.recorder.addExpects, m.ctrl, m, "Add", arg0)
 }
@@ -57,14 +56,14 @@ func (m *MockCoordinator) Add(arg0 modelmigration.Operation[description.Model]) 
 // Add indicates an expected call of Add.
 func (mr *MockCoordinatorMockRecorder) Add(arg0 any) *MockCoordinatorAddCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_0[modelmigration.Operation[description.Model]](mr.mock.ctrl.T, mr.mock, "Add", gomock.EnsureMatcher(arg0))
+	call := gomock.NewCall1_0[modelmigration.Operation](mr.mock.ctrl.T, mr.mock, "Add", gomock.EnsureMatcher(arg0))
 	mr.addExpects = append(mr.addExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockCoordinatorAddCall is the typed call wrapper for Add.
-type MockCoordinatorAddCall = gomock.Call1_0[modelmigration.Operation[description.Model]]
+type MockCoordinatorAddCall = gomock.Call1_0[modelmigration.Operation]
 
 // MockImportExternalUsersService is a mock of ImportExternalUsersService interface.
 type MockImportExternalUsersService struct {

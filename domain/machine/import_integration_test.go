@@ -109,7 +109,7 @@ func (s *importSuite) TestImportMachine(c *tc.C) {
 		Size:    123,
 	})
 
-	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
 		nil, nil, model.UUID(s.ModelUUID())), desc)
@@ -176,7 +176,7 @@ func (s *importSuite) TestImportMachineParentSubordinate(c *tc.C) {
 		Base:      "ubuntu@24.04",
 	})
 
-	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	machinemodelmigration.RegisterImport(coordinator, clock.WallClock, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
 		nil, nil, model.UUID(s.ModelUUID())), desc)

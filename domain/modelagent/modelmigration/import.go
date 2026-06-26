@@ -24,7 +24,7 @@ import (
 // characteristics shared between import operations of this package.
 // Specifically the common need for the import service.
 type baseAgentBinaryImportOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 	importService ImportService
 	logger        logger.Logger
 }
@@ -32,7 +32,7 @@ type baseAgentBinaryImportOperation struct {
 // Coordinator is the interface that is used to add operats to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(modelmigration.Operation[description.Model])
+	Add(modelmigration.Operation)
 }
 
 // ImportService describes the service required for importing agent binary

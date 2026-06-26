@@ -34,7 +34,7 @@ import (
 // Coordinator is the interface that is used to add operations to a migration.
 type Coordinator interface {
 	// Add adds the given operation to the migration.
-	Add(modelmigration.Operation[description.Model])
+	Add(modelmigration.Operation)
 }
 
 // RegisterModelImport register's a new model migration importer into the
@@ -122,7 +122,7 @@ type UserService interface {
 // data related to the model such as cloud credentials and users have already
 // been imported or created in the system.
 type importModelOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 
 	modelImportService     ModelImportService
 	modelDetailServiceFunc ModelDetailServiceFunc
@@ -274,7 +274,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 // importModelConstraintsOperation implements the steps to import a model's
 // constraints.
 type importModelConstraintsOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 	modelDetailServiceFunc ModelDetailServiceFunc
 	logger                 logger.Logger
 }
@@ -323,7 +323,7 @@ func (i *importModelConstraintsOperation) Execute(
 }
 
 type importModelActivatorOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 
 	modelImportService ModelImportService
 

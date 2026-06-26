@@ -46,7 +46,7 @@ type ImportService interface {
 }
 
 type importOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 
 	// injected dependencies.
 	clock  clock.Clock

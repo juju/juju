@@ -87,7 +87,7 @@ func (s *importSuite) TestImportBlockDevices(c *tc.C) {
 		MountPoint:     "/baz/path",
 	})
 
-	coordinator := modelmigration.NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	coordinator := modelmigration.NewCoordinator(loggertesting.WrapCheckLog(c))
 	blockdevicemodelmigration.RegisterImport(coordinator, loggertesting.WrapCheckLog(c))
 	err := coordinator.Perform(c.Context(), modelmigration.NewScope(nil, s.TxnRunnerFactory(),
 		nil, nil, model.UUID(s.ModelUUID())), desc)

@@ -4,11 +4,9 @@
 package modelmigration
 
 import (
-	"context"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/description/v12"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/model"
@@ -20,7 +18,7 @@ import (
 type migrationSuite struct {
 	testhelpers.IsolationSuite
 
-	op        *MockOperation[description.Model]
+	op        *MockOperation
 	txnRunner *MockTxnRunner
 	model     *MockModel
 
@@ -34,7 +32,7 @@ func TestMigrationSuite(t *testing.T) {
 func (s *migrationSuite) TestAdd(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), tc.Equals, 0)
 
 	m.Add(s.op)
@@ -44,7 +42,7 @@ func (s *migrationSuite) TestAdd(c *tc.C) {
 func (s *migrationSuite) TestPerform(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), tc.Equals, 0)
 
 	m.Add(s.op)
@@ -59,10 +57,11 @@ func (s *migrationSuite) TestPerform(c *tc.C) {
 	err := m.Perform(c.Context(), s.scope, s.model)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
 func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), tc.Equals, 0)
 
 	m.Add(s.op)
@@ -82,7 +81,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *tc.C) {
 func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), tc.Equals, 0)
 
 	m.Add(s.op)
@@ -103,7 +102,7 @@ func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *tc.C) {
 func (s *migrationSuite) TestPerformWithRollbackError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), tc.Equals, 0)
 
 	m.Add(s.op)
@@ -121,51 +120,10 @@ func (s *migrationSuite) TestPerformWithRollbackError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `rollback operation at 0 with sad: execute operation op: boom`)
 }
 
-func (s *migrationSuite) TestPerformRunsBeforeEachThenOperation(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	m := NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
-	m.Add(s.op)
-
-	var beforeEachCalls int
-	m.SetBeforeEach(func(context.Context) error {
-		beforeEachCalls++
-		return nil
-	})
-
-	gomock.InOrder(
-		s.op.EXPECT().Name().Return("op"),
-		s.op.EXPECT().Setup(s.scope).Return(nil),
-		s.op.EXPECT().Execute(gomock.Any(), s.model).Return(nil),
-	)
-
-	err := m.Perform(c.Context(), s.scope, s.model)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(beforeEachCalls, tc.Equals, 1)
-}
-
-func (s *migrationSuite) TestPerformBeforeEachFailureStopsOperation(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	m := NewCoordinator[description.Model](loggertesting.WrapCheckLog(c))
-	m.Add(s.op)
-	m.SetBeforeEach(func(context.Context) error {
-		return errors.New("aborting")
-	})
-
-	// Setup and Execute must not run; the operation at the current index is
-	// rolled back, matching the Perform rollback semantics.
-	s.op.EXPECT().Name().Return("op").MinTimes(1)
-	s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(nil)
-
-	err := m.Perform(c.Context(), s.scope, s.model)
-	c.Assert(err, tc.ErrorMatches, `before operation op: aborting`)
-}
-
 func (s *migrationSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.op = NewMockOperation[description.Model](ctrl)
+	s.op = NewMockOperation(ctrl)
 	s.txnRunner = NewMockTxnRunner(ctrl)
 	s.model = NewMockModel(ctrl)
 

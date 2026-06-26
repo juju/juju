@@ -36,7 +36,7 @@ type K8sServiceMigrationService interface {
 }
 
 type importK8sServiceOperation struct {
-	modelmigration.BaseOperation[description.Model]
+	modelmigration.BaseOperation
 
 	migrationService K8sServiceMigrationService
 	logger           logger.Logger
