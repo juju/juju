@@ -11,6 +11,57 @@ myst:
 ```{note}
 Juju 3.6 series is LTS
 ```
+### 🔸 **Juju 3.6.25**
+🗓️ 29 June 2026
+
+🚀 **New features**
+
+### YubiKey support
+
+Using a YubiKey-backed SSH key (`ed25519-sk`) with `juju ssh` is now supported.
+The feature is opt-in, so after installing the Juju snap, connect the U2F interface:
+```
+sudo snap connect juju:u2f-devices
+sudo snap connect juju:ssh-keys
+```
+Then use your YubiKey-backed key with `juju ssh`.
+eg
+```
+juju ssh -i ~/.ssh/id_ed25519_sk <unit>
+```
+
+* fix(snap): add FIDO/U2F security key support for juju ssh by @iyiguncevik in https://github.com/juju/juju/pull/22661
+
+🛠️ **Bug fixes**
+
+### Incorrect MAAS VM removal
+
+In 3.6.24, Juju gained the ability to compose and deploy VMs rather than allocate
+existing physical machines. Juju took ownership of the VMs and deleted them when
+the machine was removed from the model.
+
+For the case where there are VMs already existing, Juju still assumed it owned
+them once they were recruited into the Juju model and allocated.
+This doesn't match expectations. So now an explicit owner data tag is added to
+VMs composed by Juju and only those are removed. Other VMs are simply released.
+
+* fix: tag maas vms created by juju and delete only them by @wallyworld in https://github.com/juju/juju/pull/22700
+
+### Non-root user pebble notices
+
+Juju was only processing Pebble notices for workloads running as the root user.
+Now notices from all workloads are processed. Without this fix, the `pebble-custom-notice` 
+hook would not be triggered for workloads running as non-root users.
+
+*  fix(uniter): include non-root user notices in pebbleNoticer polling by @marceloneppel in  https://github.com/juju/juju/pull/22684
+
+### Juju status speed improvements
+
+Running juju status on large models with many units and relations is now
+approximately 3x faster.
+
+* perf(status): optimize full status lookups by @xtrusia in https://github.com/juju/juju/pull/22686
+
 ### 🔸 **Juju 3.6.24**
 🗓️ 17 June 2026
 
