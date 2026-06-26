@@ -109,6 +109,11 @@ type Config struct {
 	// Clock is passed to the retry logic for testing.
 	// If nil, the wall clock is used.
 	Clock clock.Clock
+
+	// OrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. When set, an X-Scope-OrgID header is
+	// included in every push request.
+	OrgID string
 }
 
 // Validate checks that the Config has valid values and returns an
@@ -163,6 +168,7 @@ type Client struct {
 	asyncFlush bool
 	onError    func(error)
 	onDrop     func(int)
+	orgID      string
 	records    chan Record
 	stats      report
 	tomb       tomb.Tomb
@@ -192,6 +198,7 @@ func NewClient(endpoint string, cfg Config) (*Client, error) {
 		asyncFlush: cfg.AsyncFlush == nil || *cfg.AsyncFlush,
 		onError:    cfg.OnError,
 		onDrop:     cfg.OnDrop,
+		orgID:      cfg.OrgID,
 		records:    make(chan Record, cfg.BufferSize),
 	}
 	c.tomb.Go(c.loop)
@@ -468,6 +475,9 @@ func (c *Client) doRequest(
 		return internalerrors.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.orgID != "" {
+		req.Header.Set("X-Scope-OrgID", c.orgID)
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {
