@@ -51,6 +51,7 @@ type format_2_0Serialization struct {
 	LokiEndpoint           string            `yaml:"lokiendpoint,omitempty"`
 	LokiCACert             string            `yaml:"lokicacert,omitempty"`
 	LokiInsecureSkipVerify *bool             `yaml:"lokiinsecureskipverify,omitempty"`
+	LokiOrgID              string            `yaml:"lokiOrgID,omitempty"`
 	Values                 map[string]string `yaml:"values"`
 
 	AgentLogfileMaxSizeMB  int `yaml:"agent-logfile-max-size"`
@@ -123,6 +124,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		lokiEndpoint:           format.LokiEndpoint,
 		lokiCACert:             format.LokiCACert,
 		lokiInsecureSkipVerify: format.LokiInsecureSkipVerify,
+		lokiOrgID:              format.LokiOrgID,
 		values:                 format.Values,
 
 		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
@@ -188,6 +190,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		LokiEndpoint:           config.lokiEndpoint,
 		LokiCACert:             config.lokiCACert,
 		LokiInsecureSkipVerify: config.lokiInsecureSkipVerify,
+		LokiOrgID:              config.lokiOrgID,
 		Values:                 config.values,
 
 		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,

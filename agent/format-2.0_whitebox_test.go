@@ -62,7 +62,7 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
 	config.configFilePath = ""
 
 	config.SetLoggingConfig(loggingConfig)
-	config.SetLokiConfig(lokiEndpoint, &lokiCACert, nil)
+	config.SetLokiConfig(lokiEndpoint, &lokiCACert, nil, "")
 
 	data, err := format_2_0.marshal(config)
 	c.Assert(err, tc.ErrorIsNil)
@@ -78,7 +78,7 @@ func (*format_2_0Suite) TestMarshalUnmarshal(c *tc.C) {
 func (*format_2_0Suite) TestCloneLokiInsecureSkipVerifyIsolation(c *tc.C) {
 	config := newTestConfig(c)
 	insecureSkipVerify := false
-	config.SetLokiConfig("https://loki.example.com/loki/api/v1/push", nil, &insecureSkipVerify)
+	config.SetLokiConfig("https://loki.example.com/loki/api/v1/push", nil, &insecureSkipVerify, "")
 
 	cloned := config.Clone()
 	clonedValue := cloned.LokiInsecureSkipVerify()
