@@ -188,6 +188,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"unit_state_relation",
 		"unit_state",
 		"ssh_connection_request",
+		"ssh_connection_request_address",
 		"unit_workload_status",
 		"unit_workload_version",
 		"ssh_key_algorithm_type",
