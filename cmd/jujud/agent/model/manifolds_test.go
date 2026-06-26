@@ -215,8 +215,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-model-config-manager": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
