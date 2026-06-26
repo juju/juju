@@ -70,6 +70,7 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 			adapter := &modelStorageAdapter{
 				storageSvc:     domainServices.StorageProvisioning(),
 				machineSvc:     domainServices.Machine(),
+				appSvc:         domainServices.Application(),
 				removalSvc:     domainServices.Removal(),
 				statusSvc:      domainServices.Status(),
 				blockDeviceSvc: domainServices.BlockDevice(),
