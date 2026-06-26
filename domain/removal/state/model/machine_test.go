@@ -15,12 +15,14 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment"
+	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/life"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internalstorage "github.com/juju/juju/internal/storage"
 )
 
 type machineSuite struct {
@@ -1520,6 +1522,143 @@ func (s *machineSuite) TestDeleteMachineWithForce(c *tc.C) {
 	err = s.DB().QueryRow("SELECT count(*) FROM net_node WHERE uuid = ?", netNodeUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
+}
+
+func (s *machineSuite) getMachineNetNode(c *tc.C, machineUUID coremachine.UUID) string {
+	var netNodeUUID string
+	err := s.DB().QueryRow(
+		"SELECT net_node_uuid FROM machine WHERE uuid = ?", machineUUID.String(),
+	).Scan(&netNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(netNodeUUID, tc.Not(tc.Equals), "")
+	return netNodeUUID
+}
+
+// machineWithVolumeAttachment deploys a single-unit application with
+// model-scoped block storage and then removes the unit, leaving a
+// storage_volume_attachment referencing the machine's net node.
+func (s *machineSuite) machineWithVolumeAttachment(c *tc.C) (coremachine.UUID, string) {
+	svc := s.setupStorageApplicationService(c)
+	poolUUID := s.createStoragePool(c, "blk", internalstorage.ProviderType("modelscoped-block"))
+	appUUID := s.deployIAASUnitWithStorage(
+		c, svc, "block-app", "data", internalcharm.StorageBlock, poolUUID)
+
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+	netNodeUUID := s.getMachineNetNode(c, machineUUID)
+
+	s.removeUnitLeavingStorage(c, s.getAllUnitUUIDs(c, appUUID)[0])
+	return machineUUID, netNodeUUID
+}
+
+// machineWithFilesystemAttachment deploys a single-unit application with
+// model-scoped filesystem storage and then removes the unit, leaving a
+// storage_filesystem_attachment referencing the machine's net node.
+func (s *machineSuite) machineWithFilesystemAttachment(c *tc.C) (coremachine.UUID, string) {
+	svc := s.setupStorageApplicationService(c)
+	poolUUID := s.createStoragePool(c, "fs", internalstorage.ProviderType("modelscoped"))
+	appUUID := s.deployIAASUnitWithStorage(
+		c, svc, "fs-app", "data", internalcharm.StorageFilesystem, poolUUID)
+
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+	netNodeUUID := s.getMachineNetNode(c, machineUUID)
+
+	s.removeUnitLeavingStorage(c, s.getAllUnitUUIDs(c, appUUID)[0])
+	return machineUUID, netNodeUUID
+}
+
+// machineWithVolumeAttachmentPlan deploys a single-unit application with
+// model-scoped block storage, records the volume attachment plan as the storage
+// provisioner would, then removes the unit and the volume attachment. This
+// leaves only the storage_volume_attachment_plan referencing the net node,
+// modelling the teardown window where the plan removal job has not yet run.
+// Crucially there is no remaining volume attachment, machine_volume or
+// machine_filesystem, so checkNoMachineDependents does not flag the machine.
+func (s *machineSuite) machineWithVolumeAttachmentPlan(c *tc.C) (coremachine.UUID, string) {
+	svc := s.setupStorageApplicationService(c)
+	poolUUID := s.createStoragePool(c, "blk", internalstorage.ProviderType("modelscoped-block"))
+	appUUID := s.deployIAASUnitWithStorage(
+		c, svc, "block-app", "data", internalcharm.StorageBlock, poolUUID)
+
+	machineUUID := s.getMachineUUIDFromApp(c, appUUID)
+	netNodeUUID := s.getMachineNetNode(c, machineUUID)
+
+	s.createVolumeAttachmentPlan(c, netNodeUUID)
+	s.removeUnitLeavingStorage(c, s.getAllUnitUUIDs(c, appUUID)[0])
+	s.deleteVolumeAttachment(c, netNodeUUID)
+	return machineUUID, netNodeUUID
+}
+
+// markMachineDeadNonForce drives the real, non-force lifecycle to dead. Each
+// step runs checkNoMachineDependents, so it only succeeds for scenarios the
+// dependents check does not flag (i.e. the volume attachment plan case).
+func (s *machineSuite) markMachineDeadNonForce(c *tc.C, st *State, machineUUID coremachine.UUID) {
+	_, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkInstanceAsDead(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkMachineAsDead(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// markMachineDyingForce drives the real, force lifecycle so the machine and its
+// instance are no longer alive. Force deletion does not require dead.
+func (s *machineSuite) markMachineDyingForce(c *tc.C, st *State, machineUUID coremachine.UUID) {
+	_, err := st.EnsureMachineNotAliveCascade(c.Context(), machineUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestDeleteMachineDanglingVolumeAttachmentPlanNonForce is the non-force failing
+// path: checkNoMachineDependents does not account for volume attachment plans,
+// so the machine progresses to dead and DeleteMachine then hits the net node FK.
+func (s *machineSuite) TestDeleteMachineDanglingVolumeAttachmentPlanNonForce(c *tc.C) {
+	machineUUID, _ := s.machineWithVolumeAttachmentPlan(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.markMachineDeadNonForce(c, st, machineUUID)
+
+	err := st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorMatches, ".*net node .* still has storage volume attachment plans")
+}
+
+// TestDeleteMachineDanglingVolumeAttachmentForce is a force failing path. Force
+// skips checkNoMachineDependents entirely, so a lingering volume attachment is
+// not detected before the net node delete is attempted.
+func (s *machineSuite) TestDeleteMachineDanglingVolumeAttachmentForce(c *tc.C) {
+	machineUUID, _ := s.machineWithVolumeAttachment(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.markMachineDyingForce(c, st, machineUUID)
+
+	err := st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorMatches, ".*net node .* still has storage volume attachments")
+}
+
+// TestDeleteMachineDanglingFilesystemAttachmentForce is the filesystem
+// equivalent force failing path.
+func (s *machineSuite) TestDeleteMachineDanglingFilesystemAttachmentForce(c *tc.C) {
+	machineUUID, _ := s.machineWithFilesystemAttachment(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.markMachineDyingForce(c, st, machineUUID)
+
+	err := st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorMatches, ".*net node .* still has storage filesystem attachments")
+}
+
+// TestDeleteMachineDanglingVolumeAttachmentPlanForce is the attachment-plan
+// force failing path.
+func (s *machineSuite) TestDeleteMachineDanglingVolumeAttachmentPlanForce(c *tc.C) {
+	machineUUID, _ := s.machineWithVolumeAttachmentPlan(c)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.markMachineDyingForce(c, st, machineUUID)
+
+	err := st.DeleteMachine(c.Context(), machineUUID.String(), true)
+	c.Check(err, tc.ErrorIs, removalerrors.RemovalJobIncomplete)
+	c.Check(err, tc.ErrorMatches, ".*net node .* still has storage volume attachment plans")
 }
 
 func (s *machineSuite) TestDeleteMachineWithForceNotDyingInstance(c *tc.C) {
