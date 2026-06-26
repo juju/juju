@@ -512,9 +512,9 @@ func (w *Worker) updateAgentConfigForTargetController(ctx context.Context, statu
 			if w.lokiConfig.CACert != "" {
 				caCert = &w.lokiConfig.CACert
 			}
-			conf.SetLokiConfig(w.lokiConfig.Endpoint, caCert, w.lokiConfig.InsecureSkipVerify)
+			conf.SetLokiConfig(w.lokiConfig.Endpoint, caCert, w.lokiConfig.InsecureSkipVerify, w.lokiConfig.OrgID)
 		} else {
-			conf.SetLokiConfig("", nil, nil)
+			conf.SetLokiConfig("", nil, nil, "")
 		}
 		return nil
 	})

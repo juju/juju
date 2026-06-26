@@ -112,6 +112,7 @@ type MockConfigMockRecorder struct {
 	lokiCACertExpects                         []*gomock.Call0_1[string]
 	lokiEndpointExpects                       []*gomock.Call0_1[string]
 	lokiInsecureSkipVerifyExpects             []*gomock.Call0_1[*bool]
+	lokiOrgIDExpects                          []*gomock.Call0_1[string]
 	metricsSpoolDirExpects                    []*gomock.Call0_1[string]
 	modelExpects                              []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                              []*gomock.Call0_1[string]
@@ -449,6 +450,24 @@ func (mr *MockConfigMockRecorder) LokiInsecureSkipVerify() *MockConfigLokiInsecu
 
 // MockConfigLokiInsecureSkipVerifyCall is the typed call wrapper for LokiInsecureSkipVerify.
 type MockConfigLokiInsecureSkipVerifyCall = gomock.Call0_1[*bool]
+
+// LokiOrgID mocks base method.
+func (m *MockConfig) LokiOrgID() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiOrgIDExpects, m.ctrl, m, "LokiOrgID")
+}
+
+// LokiOrgID indicates an expected call of LokiOrgID.
+func (mr *MockConfigMockRecorder) LokiOrgID() *MockConfigLokiOrgIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiOrgID")
+	mr.lokiOrgIDExpects = append(mr.lokiOrgIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiOrgIDCall is the typed call wrapper for LokiOrgID.
+type MockConfigLokiOrgIDCall = gomock.Call0_1[string]
 
 // MetricsSpoolDir mocks base method.
 func (m *MockConfig) MetricsSpoolDir() string {
@@ -802,6 +821,7 @@ type MockConfigSetterMockRecorder struct {
 	lokiCACertExpects                            []*gomock.Call0_1[string]
 	lokiEndpointExpects                          []*gomock.Call0_1[string]
 	lokiInsecureSkipVerifyExpects                []*gomock.Call0_1[*bool]
+	lokiOrgIDExpects                             []*gomock.Call0_1[string]
 	metricsSpoolDirExpects                       []*gomock.Call0_1[string]
 	modelExpects                                 []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                                 []*gomock.Call0_1[string]
@@ -819,7 +839,7 @@ type MockConfigSetterMockRecorder struct {
 	setControllerAgentInfoExpects                []*gomock.Call1_0[controller.ControllerAgentInfo]
 	setDqliteBusyTimeoutExpects                  []*gomock.Call1_0[time.Duration]
 	setLoggingConfigExpects                      []*gomock.Call1_0[string]
-	setLokiConfigExpects                         []*gomock.Call3_0[string, *string, *bool]
+	setLokiConfigExpects                         []*gomock.Call4_0[string, *string, *bool, string]
 	setOldPasswordExpects                        []*gomock.Call1_0[string]
 	setOpenTelemetryEnabledExpects               []*gomock.Call1_0[bool]
 	setOpenTelemetryEndpointExpects              []*gomock.Call1_0[string]
@@ -1176,6 +1196,24 @@ func (mr *MockConfigSetterMockRecorder) LokiInsecureSkipVerify() *MockConfigSett
 // MockConfigSetterLokiInsecureSkipVerifyCall is the typed call wrapper for LokiInsecureSkipVerify.
 type MockConfigSetterLokiInsecureSkipVerifyCall = gomock.Call0_1[*bool]
 
+// LokiOrgID mocks base method.
+func (m *MockConfigSetter) LokiOrgID() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiOrgIDExpects, m.ctrl, m, "LokiOrgID")
+}
+
+// LokiOrgID indicates an expected call of LokiOrgID.
+func (mr *MockConfigSetterMockRecorder) LokiOrgID() *MockConfigSetterLokiOrgIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiOrgID")
+	mr.lokiOrgIDExpects = append(mr.lokiOrgIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterLokiOrgIDCall is the typed call wrapper for LokiOrgID.
+type MockConfigSetterLokiOrgIDCall = gomock.Call0_1[string]
+
 // MetricsSpoolDir mocks base method.
 func (m *MockConfigSetter) MetricsSpoolDir() string {
 	m.ctrl.T.Helper()
@@ -1483,22 +1521,22 @@ func (mr *MockConfigSetterMockRecorder) SetLoggingConfig(arg0 any) *MockConfigSe
 type MockConfigSetterSetLoggingConfigCall = gomock.Call1_0[string]
 
 // SetLokiConfig mocks base method.
-func (m *MockConfigSetter) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool) {
+func (m *MockConfigSetter) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string) {
 	m.ctrl.T.Helper()
-	gomock.Dispatch3_0(&m.recorder.setLokiConfigExpects, m.ctrl, m, "SetLokiConfig", endpoint, caCert, insecureSkipVerify)
+	gomock.Dispatch4_0(&m.recorder.setLokiConfigExpects, m.ctrl, m, "SetLokiConfig", endpoint, caCert, insecureSkipVerify, orgID)
 }
 
 // SetLokiConfig indicates an expected call of SetLokiConfig.
-func (mr *MockConfigSetterMockRecorder) SetLokiConfig(endpoint, caCert, insecureSkipVerify any) *MockConfigSetterSetLokiConfigCall {
+func (mr *MockConfigSetterMockRecorder) SetLokiConfig(endpoint, caCert, insecureSkipVerify, orgID any) *MockConfigSetterSetLokiConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_0[string, *string, *bool](mr.mock.ctrl.T, mr.mock, "SetLokiConfig", gomock.EnsureMatcher(endpoint), gomock.EnsureMatcher(caCert), gomock.EnsureMatcher(insecureSkipVerify))
+	call := gomock.NewCall4_0[string, *string, *bool, string](mr.mock.ctrl.T, mr.mock, "SetLokiConfig", gomock.EnsureMatcher(endpoint), gomock.EnsureMatcher(caCert), gomock.EnsureMatcher(insecureSkipVerify), gomock.EnsureMatcher(orgID))
 	mr.setLokiConfigExpects = append(mr.setLokiConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockConfigSetterSetLokiConfigCall is the typed call wrapper for SetLokiConfig.
-type MockConfigSetterSetLokiConfigCall = gomock.Call3_0[string, *string, *bool]
+type MockConfigSetterSetLokiConfigCall = gomock.Call4_0[string, *string, *bool, string]
 
 // SetOldPassword mocks base method.
 func (m *MockConfigSetter) SetOldPassword(oldPassword string) {
