@@ -107,3 +107,15 @@ func (d deltas) SshKeyAlgorithmType(_ context.Context, _ *v4_0_11.ModelExport) (
 func (d deltas) UnitVirtualSshHostKey(_ context.Context, _ *v4_0_11.ModelExport) ([]v4_1_0.UnitVirtualSshHostKey, error) {
 	return nil, nil
 }
+
+// SshConnectionRequest returns no rows for 4.0.11 payloads. The source schema
+// has no SSH connection request table.
+func (d deltas) SshConnectionRequest(_ context.Context, _ *v4_0_11.ModelExport) ([]v4_1_0.SshConnectionRequest, error) {
+	return nil, nil
+}
+
+// SshConnectionRequestAddress returns no rows for 4.0.11 payloads. The source schema
+// has no SSH connection request address table.
+func (d deltas) SshConnectionRequestAddress(_ context.Context, _ *v4_0_11.ModelExport) ([]v4_1_0.SshConnectionRequestAddress, error) {
+	return nil, nil
+}
