@@ -5,6 +5,8 @@ set -u
 declare -a cmds=()
 declare -i machine=0
 
+: ${juju:=$(command -v juju)}
+
 while (($# > 0)); do
 	case $1 in
 	-h | --help)
@@ -28,6 +30,10 @@ EOF
 	esac
 	shift
 done
+
+if [[ -v SNAP ]] && [[ -n ${SNAP} ]]; then
+	juju=${SNAP}/bin/juju
+fi
 
 read -d '' -r cmds <<'EOF'
 set -x
@@ -55,4 +61,4 @@ exec sudo ${client} localhost:37017/juju \
     --username "${user}" --password "${password}"
 EOF
 
-juju ssh --model controller ${machine} "${cmds}"
+${juju} ssh --model controller ${machine} "${cmds}"
