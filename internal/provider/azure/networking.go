@@ -42,6 +42,19 @@ const (
 	// controllerSubnetPrefix is the address prefix for the subnet that
 	// each controller machine's primary NIC is attached to.
 	controllerSubnetPrefix = "192.168.16.0/20"
+
+	// vnetIPv6Prefix is the ULA IPv6 address prefix added to the VNet
+	// address space to enable dual-stack networking.
+	vnetIPv6Prefix = "fd00::/48"
+
+	// internalSubnetIPv6Prefix is the IPv6 address prefix added to the
+	// internal subnet for dual-stack machines.
+	internalSubnetIPv6Prefix = "fd00::/64"
+
+	// controllerSubnetIPv6Prefix is the IPv6 address prefix added to the
+	// controller subnet for dual-stack machines. It uses a distinct /64
+	// to avoid overlap with the internal subnet.
+	controllerSubnetIPv6Prefix = "fd00:0:0:10::/64"
 )
 
 const (
@@ -132,19 +145,19 @@ func networkTemplateResources(
 	subnets := []*armnetwork.Subnet{{
 		Name: new(internalSubnetName),
 		Properties: &armnetwork.SubnetPropertiesFormat{
-			AddressPrefix: new(internalSubnetPrefix),
+			AddressPrefixes: []*string{new(internalSubnetPrefix), new(internalSubnetIPv6Prefix)},
 			NetworkSecurityGroup: &armnetwork.SecurityGroup{
 				ID: new(nsgID),
 			},
 		},
 	}}
-	addressPrefixes := []*string{new(internalSubnetPrefix)}
+	addressPrefixes := []*string{new(internalSubnetPrefix), new(vnetIPv6Prefix)}
 	if len(apiPorts) > 0 {
 		addressPrefixes = append(addressPrefixes, new(controllerSubnetPrefix))
 		subnets = append(subnets, &armnetwork.Subnet{
 			Name: new(controllerSubnetName),
 			Properties: &armnetwork.SubnetPropertiesFormat{
-				AddressPrefix: new(controllerSubnetPrefix),
+				AddressPrefixes: []*string{new(controllerSubnetPrefix), new(controllerSubnetIPv6Prefix)},
 				NetworkSecurityGroup: &armnetwork.SecurityGroup{
 					ID: new(nsgID),
 				},
