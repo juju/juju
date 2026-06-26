@@ -17,3 +17,11 @@ const ControllerSubnetPrefix = controllerSubnetPrefix
 const InternalSubnetIPv6Prefix = internalSubnetIPv6Prefix
 const ControllerSubnetIPv6Prefix = controllerSubnetIPv6Prefix
 const VnetIPv6Prefix = vnetIPv6Prefix
+
+// Export helper functions for testing.
+var (
+	SubnetProviderIDForFamily    = subnetProviderIDForFamily
+	StripIPFamilySuffix          = stripIPFamilySuffix
+	StripAndDeduplicateSubnetIDs = stripAndDeduplicateSubnetIDs
+)
+
