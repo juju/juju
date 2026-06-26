@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/internal/provider/lxd"
 )
 
+const modelProfileName = "juju-model-2d02ee"
+
 type environBrokerSuite struct {
 	lxd.EnvironSuite
 
@@ -85,6 +87,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *tc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 			Instance: api.Instance{Location: "node01"},
 		}, nil),
@@ -119,6 +122,7 @@ func (s *environBrokerSuite) TestStartInstanceUseZoneFromServerNameWhenContainer
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 			Instance: api.Instance{Location: "none"},
 		}, nil),
@@ -165,6 +169,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *tc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(nics, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 			Instance: api.Instance{Location: "node01"},
 		}, nil),
@@ -254,30 +259,246 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *tc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 			Instance: api.Instance{Location: "node01"},
 		}, nil),
 		exp.HostArch().Return(arch.AMD64),
 	)
 
+	// assignContainerNICs maps the requested subnet provider IDs (CIDRs)
+	// back to the LXD network (host bridge) hosting them via Subnets().
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworkNames().Return([]string{"ovs-br0", "virbr0", "lxdbr0"}, nil)
+	exp.GetNetworkState("ovs-br0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.0.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+	exp.GetNetworkState("virbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.42.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+	exp.GetNetworkState("lxdbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.99.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+
 	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
 	startArgs := s.GetStartInstanceArgs(c)
 	startArgs.SubnetsToZones = []map[network.Id][]string{
-		// The following are bogus subnet names that shouldn't
-		// normally be reported by Subnets(). They are only
-		// here to ensure that assignContainerNICs does not
-		// explode if garbage gets passed in.
 		{
-			"bogus-bridge-10.0.0.0/24": {"locutus"},
-			"subnet-bridge":            {"locutus"},
+			"10.42.0.0/24": {"locutus"}, // virbr0
+			"10.0.0.0/24":  {"locutus"}, // ovs-br0
+			// Should be ignored as an applied profile already
+			// specifies a device bridged to lxdbr0.
+			"10.99.0.0/24": {"locutus"},
 		},
+	}
+	res, err := env.StartInstance(c.Context(), startArgs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, tc.DeepEquals, "node01")
+}
+
+func (s *environBrokerSuite) TestStartInstanceUnsatisfiedSubnetReturnsError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	defaultNICs := map[string]map[string]string{
+		"eth0": {
+			"name":    "eth0",
+			"type":    "nic",
+			"hwaddr":  "00:00:00:00:00:01",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+		},
+	}
+
+	exp := svr.EXPECT()
+	// The failure happens in assignContainerNICs, before the container is
+	// created, so no CreateContainerFromSpec call is expected.
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(defaultNICs, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
+	)
+
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworkNames().Return([]string{"lxdbr0"}, nil)
+	exp.GetNetworkState("lxdbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.99.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	startArgs := s.GetStartInstanceArgs(c)
+	startArgs.SubnetsToZones = []map[network.Id][]string{
 		{
-			"subnet-virbr0-10.42.0.0/24": {"locutus"},
-			// Bridge name with dashes
-			"subnet-ovs-br0-10.0.0.0/24": {"locutus"},
-			// Should be ignored as the default profile already
-			// specifies a device bridged to lxdbr0
-			"subnet-lxdbr0-10.99.0.0/24": {"locutus"},
+			// No discovered LXD network serves this subnet, so the
+			// requested connectivity cannot be satisfied.
+			"10.250.0.0/24": {"locutus"},
+		},
+	}
+	res, err := env.StartInstance(c.Context(), startArgs)
+	c.Check(err, tc.ErrorMatches, `.*cannot satisfy space requirements: no host bridge found for subnet\(s\).*10.250.0.0/24.*`)
+	c.Assert(res, tc.IsNil)
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithModelProfileSubnetNIC(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	defaultNICs := map[string]map[string]string{
+		"eth0": {
+			"name":    "eth0",
+			"type":    "nic",
+			"hwaddr":  "00:00:00:00:00:01",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+		},
+	}
+	modelNICs := map[string]map[string]string{
+		"eno9": {
+			"name":    "eno9",
+			"type":    "nic",
+			"hwaddr":  "00:00:00:00:00:02",
+			"nictype": "bridged",
+			"parent":  "virbr0",
+		},
+	}
+
+	check := func(spec containerlxd.ContainerSpec) bool {
+		c.Check(spec.Devices, tc.HasLen, 2)
+		c.Check(spec.Devices["eth0"], tc.DeepEquals, defaultNICs["eth0"])
+		c.Check(spec.Devices["eno9"], tc.DeepEquals, modelNICs["eno9"])
+		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(defaultNICs, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(modelNICs, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworkNames().Return([]string{"virbr0"}, nil)
+	exp.GetNetworkState("virbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.42.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	startArgs := s.GetStartInstanceArgs(c)
+	startArgs.SubnetsToZones = []map[network.Id][]string{
+		{
+			"10.42.0.0/24": {"locutus"}, // virbr0
+		},
+	}
+	res, err := env.StartInstance(c.Context(), startArgs)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, tc.DeepEquals, "node01")
+}
+
+func (s *environBrokerSuite) TestStartInstanceModelProfileNICOverridesDefaultProfile(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	defaultNICs := map[string]map[string]string{
+		"eth0": {
+			"name":    "eth0",
+			"type":    "nic",
+			"hwaddr":  "00:00:00:00:00:01",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+		},
+	}
+	modelNICs := map[string]map[string]string{
+		"eth0": {
+			"name":    "eth0",
+			"type":    "nic",
+			"hwaddr":  "00:00:00:00:00:02",
+			"nictype": "bridged",
+			"parent":  "virbr0",
+		},
+	}
+
+	check := func(spec containerlxd.ContainerSpec) bool {
+		c.Check(spec.Devices, tc.HasLen, 2)
+		c.Check(spec.Devices["eth0"], tc.DeepEquals, modelNICs["eth0"])
+
+		generatedNIC, ok := spec.Devices["eth1"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(generatedNIC["hwaddr"], tc.HasPrefix, "00:16:3e:")
+		delete(generatedNIC, "hwaddr")
+		c.Check(generatedNIC, tc.DeepEquals, map[string]string{
+			"name":    "eth1",
+			"type":    "nic",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+		})
+		return spec.Config[containerlxd.NetworkConfigKey] == cloudinit.CloudInitNetworkConfigDisabled
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(defaultNICs, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(modelNICs, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	exp.IsClustered().Return(false)
+	exp.Name().Return("locutus")
+	exp.GetNetworkNames().Return([]string{"lxdbr0"}, nil)
+	exp.GetNetworkState("lxdbr0").Return(&api.NetworkState{
+		Type:      "broadcast",
+		State:     "up",
+		Bridge:    &api.NetworkStateBridge{},
+		Addresses: []api.NetworkStateAddress{{Family: "inet", Address: "10.99.0.1", Netmask: "24", Scope: "global"}},
+	}, nil)
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	startArgs := s.GetStartInstanceArgs(c)
+	startArgs.SubnetsToZones = []map[network.Id][]string{
+		{
+			"10.99.0.0/24": {"locutus"}, // lxdbr0
 		},
 	}
 	res, err := env.StartInstance(c.Context(), startArgs)
@@ -331,6 +552,7 @@ func (s *environBrokerSuite) TestStartInstanceWithPlacementAvailable(c *tc.C) {
 		sExp.IsClustered().Return(true),
 		sExp.UseTargetServer(gomock.Any(), "node01").Return(jujuTarget, nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		sExp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		sExp.HostArch().Return(arch.AMD64),
 	)
 
@@ -471,6 +693,7 @@ func (s *environBrokerSuite) TestStartInstanceWithZoneConstraintsAvailable(c *tc
 		sExp.IsClustered().Return(true),
 		sExp.UseTargetServer(gomock.Any(), "node01").Return(jujuTarget, nil),
 		sExp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		sExp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		sExp.HostArch().Return(arch.AMD64),
 	)
 
@@ -570,6 +793,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *tc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 			Instance: api.Instance{Location: "node01"},
 		}, nil),
@@ -585,6 +809,65 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *tc.C) {
 		CpuCores:       &cores,
 		Mem:            &mem,
 		InstanceType:   &it,
+		RootDiskSource: &rootDiskSource,
+	}
+
+	env := s.NewEnviron(c, svr, nil, environscloudspec.CloudSpec{}, invalidator)
+	res, err := env.StartInstance(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+	c.Assert(*res.Hardware.AvailabilityZone, tc.DeepEquals, "node01")
+	c.Assert(res.Hardware.RootDiskSource, tc.NotNil)
+	c.Assert(*res.Hardware.RootDiskSource, tc.Equals, "test-storage-pool")
+}
+
+func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndCustomNICs(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	svr := lxd.NewMockServer(ctrl)
+	invalidator := lxd.NewMockCredentialInvalidator(ctrl)
+
+	nics := map[string]map[string]string{
+		"eno9": {
+			"name":    "eno9",
+			"mtu":     "9000",
+			"nictype": "bridged",
+			"parent":  "lxdbr0",
+			"hwaddr":  "00:00:00:00:00",
+		},
+	}
+
+	check := func(spec containerlxd.ContainerSpec) bool {
+		if spec.Config[containerlxd.NetworkConfigKey] != cloudinit.CloudInitNetworkConfigDisabled {
+			return false
+		}
+		if !reflect.DeepEqual(spec.Devices["eno9"], nics["eno9"]) {
+			return false
+		}
+		return reflect.DeepEqual(spec.Devices["root"], map[string]string{
+			"type": "disk",
+			"pool": "test-storage-pool",
+			"path": "/",
+		})
+	}
+
+	exp := svr.EXPECT()
+	gomock.InOrder(
+		exp.HostArch().Return(arch.AMD64),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.ServerVersion().Return("3.10.0"),
+		exp.GetNICsFromProfile("default").Return(nics, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
+		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
+			Instance: api.Instance{Location: "node01"},
+		}, nil),
+		exp.HostArch().Return(arch.AMD64),
+	)
+
+	args := s.GetStartInstanceArgs(c)
+	rootDiskSource := "test-storage-pool"
+	args.Constraints = constraints.Value{
 		RootDiskSource: &rootDiskSource,
 	}
 
@@ -621,6 +904,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *tc.C
 	exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil)
 	exp.ServerVersion().Return("3.10.0")
 	exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil)
+	exp.GetNICsFromProfile(modelProfileName).Return(nil, nil)
 	exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 		Instance: api.Instance{Location: "node01"},
 	}, nil)
@@ -661,7 +945,7 @@ func (s *environBrokerSuite) TestStartInstanceWithDefaultProfiles(c *tc.C) {
 		if profiles[0] != "default" {
 			return false
 		}
-		if profiles[1] != "juju-model-2d02ee" {
+		if profiles[1] != modelProfileName {
 			return false
 		}
 		return true
@@ -681,6 +965,7 @@ func (s *environBrokerSuite) TestStartInstanceWithDefaultProfiles(c *tc.C) {
 		).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{
 			Instance: api.Instance{Location: "node01"},
 		}, nil),
@@ -722,6 +1007,7 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *tc.C) {
 		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "24.04"), arch.AMD64, instance.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
+		exp.GetNICsFromProfile(modelProfileName).Return(nil, nil),
 		exp.CreateContainerFromSpec(gomock.Any()).Return(&containerlxd.Container{}, fmt.Errorf("not authorized")),
 	)
 

@@ -76,19 +76,6 @@ func (s *storageSuite) getAPI(c *tc.C) (*StorageAPI, *gomock.Controller) {
 	return api, ctrl
 }
 
-func (s *storageSuite) TestStub(c *tc.C) {
-	c.Skip(`This suite is missing the following tests:
-- TestWatchUnitStorageAttachments
-- TestWatchStorageAttachmentVolume
-- TestCAASWatchStorageAttachmentFilesystem
-- TestIAASWatchStorageAttachmentFilesystem
-- TestDestroyUnitStorageAttachments
-- TestWatchStorageAttachmentVolumeAttachmentChanges
-- TestWatchStorageAttachmentStorageAttachmentChanges
-- TestWatchStorageAttachmentBlockDevicesChange
-`)
-}
-
 func (s *storageSuite) TestUnitStorageAttachments(c *tc.C) {
 	api, ctrl := s.getAPI(c)
 	defer ctrl.Finish()

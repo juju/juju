@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"gopkg.in/httprequest.v1"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -335,6 +336,51 @@ func (s *ClientSuite) TestCACert(c *tc.C) {
 	r, err := client.CACert(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(r, tc.Equals, "foo cert")
+}
+
+func (s *ClientSuite) TestCreateMigrationMacaroon(c *tc.C) {
+	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "loc", macaroon.V2)
+	c.Assert(err, tc.ErrorIsNil)
+
+	call := func(objType string, version int, id, request string, args, response any) error {
+		c.Check(objType, tc.Equals, "MigrationTarget")
+		c.Check(request, tc.Equals, "CreateMigrationMacaroon")
+		c.Check(args, tc.Equals, nil)
+		c.Check(response, tc.FitsTypeOf, (*params.CreateMigrationMacaroonResult)(nil))
+		response.(*params.CreateMigrationMacaroonResult).Macaroon = mac
+		return nil
+	}
+	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
+
+	result, err := client.CreateMigrationMacaroon(c.Context())
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, []macaroon.Slice{{mac}})
+}
+
+func (s *ClientSuite) TestCreateMigrationMacaroonEmptyResult(c *tc.C) {
+	call := func(objType string, version int, id, request string, args, response any) error {
+		c.Check(response, tc.FitsTypeOf, (*params.CreateMigrationMacaroonResult)(nil))
+		return nil
+	}
+	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
+
+	result, err := client.CreateMigrationMacaroon(c.Context())
+
+	c.Check(result, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "target returned no migration macaroon")
+}
+
+func (s *ClientSuite) TestCreateMigrationMacaroonError(c *tc.C) {
+	call := func(objType string, version int, id, request string, args, response any) error {
+		return errors.New("boom")
+	}
+	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
+
+	result, err := client.CreateMigrationMacaroon(c.Context())
+
+	c.Check(result, tc.IsNil)
+	c.Check(err, tc.ErrorMatches, "boom")
 }
 
 func (s *ClientSuite) AssertModelCall(c *tc.C, stub *testhelpers.Stub, tag names.ModelTag, call string, err error, expectError bool) {

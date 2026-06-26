@@ -4,11 +4,15 @@
 package service
 
 import (
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
+	model "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -19,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type commitHookSuite struct {
@@ -26,6 +31,9 @@ type commitHookSuite struct {
 
 	st                *MockState
 	leadershipEnsurer *MockEnsurer
+	secretBackend     *MockSecretBackendReferenceMutator
+	clock             *testclock.Clock
+	uuidGen           func() (uuid.UUID, error)
 }
 
 func TestCommitHookSuite(t *testing.T) {
@@ -339,6 +347,111 @@ func (s *commitHookSuite) TestGetRelationUUIDByKeyRelationNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
 }
 
+func (s *commitHookSuite) TestPrepareSecretUpdatesUUIDGenerationFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Arrange: mock UUID generator to fail
+	uuidErr := errors.New("uuid boom")
+	s.svc.uuidGenerator = func() (uuid.UUID, error) {
+		return uuid.UUID{}, uuidErr
+	}
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	// Secret update with data triggers UUID generation
+	uri := coresecrets.NewURI()
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				Data:     map[string]string{"key": "value"},
+				Checksum: "checksum",
+			},
+		}},
+	}
+
+	// Act
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, `generating revision UUID for update\[0\]: uuid boom`)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesAlwaysAddsBackendRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	)
+
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).Return(nil)
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				Data:     map[string]string{"key": "value"},
+				Checksum: "same-checksum",
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesDifferentChecksumAddsBackendRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	rollbackCalled := false
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), model.UUID("model-uuid"), gomock.Any(), uri.ID,
+	).Return(func() error {
+		rollbackCalled = true
+		return nil
+	}, nil)
+
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).Return(nil)
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				Data:     map[string]string{"key": "value"},
+				Checksum: "new-checksum",
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rollbackCalled, tc.IsFalse)
+}
+
 func (s *commitHookSuite) TestParseForSetAndUnsetSettings(c *tc.C) {
 	// Arrange
 	input := unitstate.Settings{
@@ -388,10 +501,15 @@ func (s *commitHookSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.st = NewMockState(ctrl)
 	s.leadershipEnsurer = NewMockEnsurer(ctrl)
+	s.secretBackend = NewMockSecretBackendReferenceMutator(ctrl)
+	s.clock = testclock.NewClock(time.Now())
+	s.uuidGen = uuid.NewUUID
 
 	s.svc = NewLeadershipService(
 		s.st,
+		s.secretBackend,
 		s.leadershipEnsurer,
+		s.clock,
 		loggertesting.WrapCheckLog(c),
 	)
 
@@ -399,6 +517,7 @@ func (s *commitHookSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.svc = nil
 		s.st = nil
 		s.leadershipEnsurer = nil
+		s.secretBackend = nil
 	})
 
 	return ctrl

@@ -55,9 +55,9 @@ func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controll
 		// registry.Ping() 1st try failed - bearer token was missing.
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://example.com/v2/`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
@@ -74,10 +74,10 @@ func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controll
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
 				if s.isPrivate {
-					c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + authToken}})
+					c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Basic " + authToken}})
 				}
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://auth.example.com/token?scope=repository%3Ajujuqa%2Fjujud-operator%3Apull&service=registry.example.com`)
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
@@ -87,9 +87,9 @@ func (s *baseSuite) getRegistry(c *tc.C) (*internal.BaseClient, *gomock.Controll
 		),
 		s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
-				c.Assert(req.Method, tc.Equals, `GET`)
-				c.Assert(req.URL.String(), tc.Equals, `https://example.com/v2`)
+				c.Check(req.Header, tc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `jwt-token`}})
+				c.Check(req.Method, tc.Equals, `GET`)
+				c.Check(req.URL.String(), tc.Equals, `https://example.com/v2/`)
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),

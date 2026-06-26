@@ -924,7 +924,9 @@ func (s *ProviderModelService) ResolveConstraints(
 	defer span.End()
 
 	modelCons, err := s.modelSt.GetModelConstraints(ctx)
-	if err != nil {
+	if errors.Is(err, modelerrors.ConstraintsNotFound) {
+		modelCons = constraints.Constraints{}
+	} else if err != nil {
 		return coreconstraints.Value{}, errors.Errorf(
 			"getting model constraints for model %q: %w", s.modelUUID, err,
 		)

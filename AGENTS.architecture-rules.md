@@ -56,6 +56,9 @@ Respect Juju layering. Never create new cross-layer dependencies.
 - Do not leak transaction or database details out of state packages.
 - Put logic in state only when it must execute inside a transaction.
 - State sub-packages must use Sqlair for query and mutation.
+- Prefer SQL queries that use `WITH` common table expressions instead of embedded `SELECT` subqueries.
+- SQL queries must use explicit aliases for tables, CTEs, and projected values;
+  use `AS` rather than relying on implicit aliasing.
 - State method arguments should be simple types (`string`, `int`, etc.) or types local to that domain.
 - UUID should be created in the service layer and pushed to the state layer as a string.
 - Domain packages should generally avoid `github.com/juju/names`. Prefer

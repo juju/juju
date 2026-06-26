@@ -72,7 +72,7 @@ func (t *challengeTransport) RoundTrip(req *http.Request) (*http.Response, error
 		case "bearer":
 			tokenTransport := &tokenTransport{
 				transport: t.baseTransport,
-				username:  t.password,
+				username:  t.username,
 				password:  t.password,
 				authToken: t.authToken,
 			}

@@ -239,11 +239,11 @@ func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 		if !lxdnames.IsDefaultCloud(cloudspec.Type) {
 			return nil, nil
 		}
-		server, err := NewServerFactory(lxd.NewHTTPClientFunc(func() *http.Client {
+		server, err := NewServerFactory(func() *http.Client {
 			return jujuhttp.NewClient(
 				jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 			).Client()
-		})).RemoteServer(lxd.CloudSpec{CloudSpec: cloudspec})
+		}).RemoteServer(lxd.CloudSpec{CloudSpec: cloudspec})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -15,15 +15,18 @@ import (
 
 // AgentDone processes the error returned by an exiting agent.
 func AgentDone(logger logger.Logger, err error) error {
-	err = errors.Cause(err)
-	switch err {
-	case jworker.ErrTerminateAgent, jworker.ErrRebootMachine, jworker.ErrShutdownMachine:
+	switch {
+	case errors.Is(err, jworker.ErrTerminateAgent),
+		errors.Is(err, jworker.ErrRebootMachine),
+		errors.Is(err, jworker.ErrShutdownMachine):
 		// These errors are swallowed here because we want to exit
 		// the agent process without error, to avoid the init system
 		// restarting us.
 		err = nil
 	}
-	if ug, ok := err.(*agenterrors.UpgradeReadyError); ok {
+
+	var ug *agenterrors.UpgradeReadyError
+	if errors.As(err, &ug) {
 		if err := ug.ChangeAgentTools(logger); err != nil {
 			// Return and let the init system deal with the restart.
 			err = errors.Annotate(err, "cannot change agent binaries")
@@ -31,7 +34,7 @@ func AgentDone(logger logger.Logger, err error) error {
 			return err
 		}
 	}
-	if err == jworker.ErrRestartAgent {
+	if errors.Is(err, jworker.ErrRestartAgent) {
 		logger.Warningf(context.TODO(), "agent restarting")
 	}
 	return err

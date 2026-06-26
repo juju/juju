@@ -88,6 +88,16 @@ const (
 	CharmMemLimitMi = "1024Mi"
 )
 
+const (
+	// ModelOperatorTargetValue is the value of the operator target for
+	// model operators.
+	ModelOperatorTargetValue = "model"
+
+	// ModelOperatorName is the model operator stack name used for deployment,
+	// service, RBAC resources.
+	ModelOperatorName = "modeloperator"
+)
+
 // DefaultPropagationPolicy returns the default propagation policy.
 func DefaultPropagationPolicy() *metav1.DeletionPropagation {
 	v := metav1.DeletePropagationForeground

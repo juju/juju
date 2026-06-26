@@ -164,6 +164,11 @@ func assertChangeStreamIdle(c *tc.C, label string, states <-chan []string) {
 					if deadline, ok := c.Deadline(); ok {
 						next = time.Until(deadline) - coretesting.LongWait
 					}
+					// Clamp to a positive value so the timer does not
+					// fire immediately when the deadline is near.
+					if next <= 0 {
+						next = time.Second
+					}
 					timer.Reset(next)
 				}
 			}

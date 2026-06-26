@@ -79,10 +79,6 @@ func (c githubContainerRegistry) Ping() error {
 		return nil
 	}
 	url := c.url("/")
-	if !strings.HasSuffix(url, "/") {
-		// github v2 root endpoint requires the trailing slash(otherwise 404 returns).
-		url += "/"
-	}
 	logger.Debugf(context.TODO(), "github ping %q", url)
 	resp, err := c.client.Get(url)
 	if resp != nil {

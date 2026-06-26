@@ -1223,6 +1223,69 @@ func (s *providerModelServiceSuite) TestResolveConstraints(c *tc.C) {
 	c.Check(result, tc.DeepEquals, cons)
 }
 
+func (s *providerModelServiceSuite) TestResolveConstraintsWithoutModelConstraints(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(
+		constraints.Constraints{}, modelerrors.ConstraintsNotFound,
+	)
+
+	validator := coreconstraints.NewValidator()
+	s.mockProvider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
+
+	svc := s.providerService(c, modelUUID)
+	appCons := coreconstraints.MustParse("mem=2G cpu-power=200")
+	result, err := svc.ResolveConstraints(c.Context(), appCons)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, appCons)
+}
+
+func (s *providerModelServiceSuite) TestResolveConstraintsModelConstraintsError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	boom := errors.New("db down")
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(
+		constraints.Constraints{}, boom,
+	)
+
+	svc := s.providerService(c, modelUUID)
+	result, err := svc.ResolveConstraints(c.Context(), coreconstraints.MustParse("mem=2G"))
+
+	c.Assert(err, tc.ErrorIs, boom)
+	c.Check(result, tc.DeepEquals, coreconstraints.Value{})
+}
+
+func (s *providerModelServiceSuite) TestResolveConstraintsApplicationOverridesModel(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+
+	s.mockModelState.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Arch:     new("amd64"),
+		CpuPower: new(uint64(100)),
+		Mem:      new(uint64(512)),
+	}, nil)
+
+	validator := coreconstraints.NewValidator()
+	s.mockProvider.EXPECT().ConstraintsValidator(gomock.Any()).Return(validator, nil)
+
+	svc := s.providerService(c, modelUUID)
+	result, err := svc.ResolveConstraints(
+		c.Context(), coreconstraints.MustParse("mem=2G"),
+	)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result, tc.DeepEquals, coreconstraints.MustParse("arch=amd64 mem=2G cpu-power=100"))
+}
+
 func (s *providerModelServiceSuite) TestGetModelRegion(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

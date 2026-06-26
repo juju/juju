@@ -56,6 +56,14 @@ type TargetInfo struct {
 	SkipUserChecks bool
 }
 
+// NeedsPasswordMacaroon reports whether targetInfo has a password that
+// must be exchanged for a migration macaroon before it can be persisted:
+// that is, a password is present and there's no token or macaroon already
+// usable in its place.
+func (info TargetInfo) NeedsPasswordMacaroon() bool {
+	return info.Password != "" && len(info.Macaroons) == 0 && info.Token == ""
+}
+
 // Validate returns an error if the TargetInfo contains bad data. Nil
 // is returned otherwise.
 func (info *TargetInfo) Validate() error {

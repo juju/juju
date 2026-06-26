@@ -96,6 +96,10 @@ type UpdateSecretArg struct {
 
 	// URI identifies the secret to update.
 	URI *secrets.URI
+
+	// OwnerKind indicates whether the secret is owned by the application
+	// or the unit. This drives the leadership requirement.
+	OwnerKind secret.CharmSecretOwnerKind
 }
 
 // GrantSecretArg holds the pre-resolved args for granting access to a
@@ -340,12 +344,10 @@ func (c CommitHookChangesArg) RequiresLeadership() bool {
 			return true
 		}
 	}
-	// Updates currently go through their own service calls
-	// (outside the txn) which handle leadership internally. Once they
-	// move into the transaction, they will need similar owner-awareness
-	// here.
-	if len(c.SecretUpdates) > 0 {
-		return true
+	for _, s := range c.SecretUpdates {
+		if s.OwnerKind == secret.ApplicationCharmSecretOwner {
+			return true
+		}
 	}
 	// TrackLatestSecrets is a per-unit consumer operation; leadership is not
 	// required.

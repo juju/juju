@@ -22,7 +22,6 @@ type UpdateUserSecretParams struct {
 
 	Description *string
 	Label       *string
-	Params      map[string]any
 	Data        secrets.SecretData
 	Checksum    string
 	AutoPrune   *bool

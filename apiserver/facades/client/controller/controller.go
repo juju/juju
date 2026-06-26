@@ -874,6 +874,12 @@ func (c *ControllerAPI) runMigrationPrechecks(
 		}
 	}
 
+	harvested, err := migration.HarvestMigrationMacaroon(ctx, *targetInfo, client)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	*targetInfo = harvested
+
 	// The full envelope-based target prechecks run in the migrationmaster
 	// worker during QUIESCE (it owns the SerializedModelV2 envelope assembly).
 	// Here we only reject early, at "juju migrate" time, when the target is too

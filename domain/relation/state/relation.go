@@ -353,15 +353,28 @@ func (st *State) ApplicationRelationsInfo(
 			}
 			result.RelationID = rel.ID
 
+			// For peer relations there is a single endpoint and unit data
+			// relates to the local application. For non-peer relations unit
+			// data must represent the counterpart application, so the remote
+			// application is resolved here.
+			unitDataAppUUID := appID.String()
 			if len(eps) == 1 {
 				result.Endpoint = eps[0].EndpointName
 				result.RelatedEndpoint = eps[0].EndpointName
 			} else {
+				var remoteAppName string
 				for _, ep := range eps {
 					if ep.ApplicationName == rel.AppName {
 						result.Endpoint = ep.EndpointName
 					} else {
 						result.RelatedEndpoint = ep.EndpointName
+						remoteAppName = ep.ApplicationName
+					}
+				}
+				if remoteAppName != "" {
+					unitDataAppUUID, err = st.getApplicationUUIDByName(ctx, tx, remoteAppName)
+					if err != nil {
+						return errors.Errorf("getting remote application UUID: %w", err)
 					}
 				}
 			}
@@ -375,7 +388,7 @@ func (st *State) ApplicationRelationsInfo(
 				return s.Key(), s.Value()
 			})
 
-			result.UnitRelationData, err = st.getUnitsRelationData(ctx, tx, rel.UUID, appID.String())
+			result.UnitRelationData, err = st.getUnitsRelationData(ctx, tx, rel.UUID, unitDataAppUUID)
 			if err != nil {
 				return errors.Errorf("getting unit relation data: %w", err)
 			}

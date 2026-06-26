@@ -85,8 +85,8 @@ func (k *kubernetesClient) ensureServiceAccount(ctx context.Context, sa *core.Se
 
 	var existingLabelVersion constants.LabelVersion
 	switch name := sa.GetName(); name {
-	case ExecRBACResourceName, modelOperatorName:
-		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	case ExecRBACResourceName, constants.ModelOperatorName:
+		existingLabelVersion, err = utils.MatchModelOperatorMetaLabelVersion(existing.ObjectMeta)
 	default:
 		existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
 	}
@@ -165,8 +165,8 @@ func (k *kubernetesClient) ensureRole(ctx context.Context, role *rbacv1.Role) (o
 
 	var existingLabelVersion constants.LabelVersion
 	switch name := role.GetName(); name {
-	case ExecRBACResourceName, modelOperatorName:
-		existingLabelVersion, err = utils.MatchOperatorMetaLabelVersion(existing.ObjectMeta, modelOperatorName, OperatorModelTarget)
+	case ExecRBACResourceName, constants.ModelOperatorName:
+		existingLabelVersion, err = utils.MatchModelOperatorMetaLabelVersion(existing.ObjectMeta)
 	default:
 		existingLabelVersion, err = utils.MatchApplicationMetaLabelVersion(existing.ObjectMeta, name)
 	}

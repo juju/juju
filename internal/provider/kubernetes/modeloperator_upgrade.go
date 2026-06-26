@@ -63,5 +63,5 @@ func (k *kubernetesClient) upgradeModelOperator(ctx context.Context, vers semver
 		namespaceFn:    k.Namespace,
 		labelVersionFn: k.LabelVersion,
 	}
-	return modelOperatorUpgrade(ctx, modelOperatorName, vers, broker)
+	return modelOperatorUpgrade(ctx, constants.ModelOperatorName, vers, broker)
 }

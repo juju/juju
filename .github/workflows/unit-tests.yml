@@ -33,7 +33,7 @@ jobs:
           cache: false
 
       - name: Setup LXD
-        uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
+        uses: canonical/setup-lxd@8c6a87bfb56aa48f3fb9b830baa18562d8bfd4ee # v1
 
       - name: "Set up MongoDB"
         run: |

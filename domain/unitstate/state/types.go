@@ -318,3 +318,53 @@ func makeMapFromRelationUnitStateKeyVals(us []unitRelationStateKeyVal) map[int]s
 	}
 	return m
 }
+
+type secretInfo struct {
+	ID                     string    `db:"secret_id"`
+	Version                int       `db:"version"`
+	Description            string    `db:"description"`
+	RotatePolicyID         int       `db:"rotate_policy_id"`
+	AutoPrune              bool      `db:"auto_prune"`
+	LatestRevisionChecksum string    `db:"latest_revision_checksum"`
+	CreateTime             time.Time `db:"create_time"`
+	UpdateTime             time.Time `db:"update_time"`
+	LatestRevision         int       `db:"latest_revision"`
+	LatestRevisionUUID     string    `db:"latest_revision_uuid"`
+}
+
+type secretRevision struct {
+	UUID       string    `db:"uuid"`
+	SecretID   string    `db:"secret_id"`
+	Revision   int       `db:"revision"`
+	CreateTime time.Time `db:"create_time"`
+	UpdateTime time.Time `db:"update_time"`
+}
+
+type secretRevisionExpire struct {
+	RevisionUUID string    `db:"revision_uuid"`
+	ExpireTime   time.Time `db:"expire_time"`
+}
+
+type secretContent struct {
+	RevisionUUID string `db:"revision_uuid"`
+	Name         string `db:"name"`
+	Content      string `db:"content"`
+}
+
+type secretValueRef struct {
+	RevisionUUID string `db:"revision_uuid"`
+	BackendUUID  string `db:"backend_uuid"`
+	RevisionID   string `db:"revision_id"`
+}
+
+type secretApplicationOwner struct {
+	SecretID        string `db:"secret_id"`
+	ApplicationUUID string `db:"application_uuid"`
+	Label           string `db:"label"`
+}
+
+type secretUnitOwner struct {
+	SecretID string `db:"secret_id"`
+	UnitUUID string `db:"unit_uuid"`
+	Label    string `db:"label"`
+}

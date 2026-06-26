@@ -122,17 +122,17 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 		c.Fatalf("timed out waiting for ensureModelOperator return")
 	}
 
-	cm, err := m.client.CoreV1().ConfigMaps(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
+	cm, err := m.client.CoreV1().ConfigMaps(namespace).Get(c.Context(), constants.ModelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cm.Name, tc.Equals, modelOperatorName)
+	c.Assert(cm.Name, tc.Equals, constants.ModelOperatorName)
 	c.Assert(cm.Namespace, tc.Equals, namespace)
-	conf, ok := cm.Data[modelOperatorConfigMapAgentConfKey(modelOperatorName)]
+	conf, ok := cm.Data[modelOperatorConfigMapAgentConfKey(constants.ModelOperatorName)]
 	c.Assert(ok, tc.Equals, true)
 	c.Assert(conf, tc.DeepEquals, string(config.AgentConf))
 
-	d, err := m.client.AppsV1().Deployments(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
+	d, err := m.client.AppsV1().Deployments(namespace).Get(c.Context(), constants.ModelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(d.Name, tc.Equals, modelOperatorName)
+	c.Assert(d.Name, tc.Equals, constants.ModelOperatorName)
 	c.Assert(d.Namespace, tc.Equals, namespace)
 	c.Assert(d.Spec.Template.Spec.Containers[0].Image, tc.Equals, config.ImageDetails.RegistryPath)
 	c.Assert(d.Spec.Template.Spec.Containers[0].Ports[0].ContainerPort, tc.Equals, config.Port)
@@ -141,9 +141,9 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 		c.Assert(d.Spec.Template.Spec.ImagePullSecrets[0].Name, tc.Equals, constants.CAASImageRepoSecretName)
 	}
 
-	r, err := m.client.RbacV1().Roles(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
+	r, err := m.client.RbacV1().Roles(namespace).Get(c.Context(), constants.ModelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(r.Name, tc.Equals, modelOperatorName)
+	c.Assert(r.Name, tc.Equals, constants.ModelOperatorName)
 	c.Assert(r.Namespace, tc.Equals, namespace)
 	c.Assert(r.Rules[0].APIGroups, tc.DeepEquals, []string{""})
 	c.Assert(r.Rules[0].Resources, tc.DeepEquals, []string{"serviceaccounts"})
@@ -153,24 +153,24 @@ func (m *ModelOperatorSuite) assertEnsure(c *tc.C, isPrivateImageRepo bool) {
 		"watch",
 	})
 
-	rb, err := m.client.RbacV1().RoleBindings(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
+	rb, err := m.client.RbacV1().RoleBindings(namespace).Get(c.Context(), constants.ModelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(rb.Name, tc.Equals, modelOperatorName)
+	c.Assert(rb.Name, tc.Equals, constants.ModelOperatorName)
 	c.Assert(rb.Namespace, tc.Equals, namespace)
 	c.Assert(rb.RoleRef.APIGroup, tc.Equals, "rbac.authorization.k8s.io")
 	c.Assert(rb.RoleRef.Kind, tc.Equals, "Role")
-	c.Assert(rb.RoleRef.Name, tc.Equals, modelOperatorName)
+	c.Assert(rb.RoleRef.Name, tc.Equals, constants.ModelOperatorName)
 
-	sa, err := m.client.CoreV1().ServiceAccounts(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
+	sa, err := m.client.CoreV1().ServiceAccounts(namespace).Get(c.Context(), constants.ModelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
 	trueVar := true
-	c.Assert(sa.Name, tc.Equals, modelOperatorName)
+	c.Assert(sa.Name, tc.Equals, constants.ModelOperatorName)
 	c.Assert(sa.Namespace, tc.Equals, namespace)
 	c.Assert(sa.AutomountServiceAccountToken, tc.DeepEquals, &trueVar)
 
-	s, err := m.client.CoreV1().Services(namespace).Get(c.Context(), modelOperatorName, meta.GetOptions{})
+	s, err := m.client.CoreV1().Services(namespace).Get(c.Context(), constants.ModelOperatorName, meta.GetOptions{})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(s.Name, tc.Equals, modelOperatorName)
+	c.Assert(s.Name, tc.Equals, constants.ModelOperatorName)
 	c.Assert(s.Namespace, tc.Equals, namespace)
 	c.Assert(s.Spec.Ports[0].Port, tc.Equals, config.Port)
 
