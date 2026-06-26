@@ -16,6 +16,7 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
@@ -192,6 +193,7 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
 	}).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil).AnyTimes()
 	return ctrl
 }
 
