@@ -512,12 +512,13 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
-			APICallerName: apiCallerName,
-			BrokerName:    providerTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.caasmodelconfigmanager"),
-			NewWorker:     caasmodelconfigmanager.NewWorker,
-			NewFacade:     caasmodelconfigmanager.NewFacade,
-			Clock:         config.Clock,
+			DomainServicesName: domainServicesName,
+			BrokerName:         providerTrackerName,
+			ModelUUID:          config.ModelUUID,
+			GetDomainServices:  caasmodelconfigmanager.GetDomainServices,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.caasmodelconfigmanager"),
+			NewWorker:          caasmodelconfigmanager.NewWorker,
+			Clock:              config.Clock,
 		})),
 
 		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
