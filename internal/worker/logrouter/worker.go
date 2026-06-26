@@ -6,6 +6,7 @@ package logrouter
 import (
 	"context"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -50,6 +51,7 @@ type Agent interface {
 // Backend is a worker that accepts log records.
 type Backend interface {
 	worker.Worker
+	worker.Reporter
 	// LogRecords returns the channel used to submit log records.
 	LogRecords() logsender.LogRecordCh
 }
@@ -191,6 +193,7 @@ type logRouter struct {
 	configChanges chan struct{}
 	backendSeq    int
 
+	activeMu        sync.RWMutex
 	activeBackendID string
 	activeSnapshot  ConfigSnapshot
 	activeRecords   logsender.LogRecordCh
@@ -205,6 +208,18 @@ func (w *logRouter) Kill() {
 // Wait blocks until the worker exits.
 func (w *logRouter) Wait() error {
 	return w.catacomb.Wait()
+}
+
+// Report returns the active log routing backend and reports for all active
+// backend workers.
+func (w *logRouter) Report(ctx context.Context) map[string]any {
+	activeBackendID, activeSnapshot, _ := w.activeBackend()
+	report := map[string]any{
+		"activeBackend":   string(w.reportBackendType(activeBackendID, activeSnapshot)),
+		"activeBackendID": activeBackendID,
+		"backends":        w.backendReports(ctx, activeBackendID),
+	}
+	return report
 }
 
 func (w *logRouter) loop() error {
@@ -225,18 +240,17 @@ func (w *logRouter) loop() error {
 		return w.dyingError(ctx, internalerrors.Capture(err))
 	}
 	w.drainRecords = drainRecords
-	w.activeBackendID = backendDrainID
-	w.activeSnapshot = drainSnapshot
-	w.activeRecords = drainRecords
+	w.setActiveBackend(backendDrainID, drainSnapshot, drainRecords)
 
 	next := w.currentSnapshot()
-	if !next.sameBackend(w.activeSnapshot) {
+	_, activeSnapshot, _ := w.activeBackend()
+	if !next.sameBackend(activeSnapshot) {
 		err = w.switchBackend(ctx, next)
 		if err != nil {
 			return internalerrors.Capture(err)
 		}
 	} else {
-		w.manageLegacyLogSinkWriter(ctx, w.activeSnapshot)
+		w.manageLegacyLogSinkWriter(ctx, activeSnapshot)
 	}
 
 	for {
@@ -249,7 +263,8 @@ func (w *logRouter) loop() error {
 				return nil
 			}
 			next := w.currentSnapshot()
-			if !next.sameBackend(w.activeSnapshot) {
+			_, activeSnapshot, _ := w.activeBackend()
+			if !next.sameBackend(activeSnapshot) {
 				err = w.switchBackend(ctx, next)
 				if err != nil {
 					return internalerrors.Capture(err)
@@ -261,7 +276,8 @@ func (w *logRouter) loop() error {
 
 		case <-w.configChanges:
 			next := w.currentSnapshot()
-			if next.sameBackend(w.activeSnapshot) {
+			_, activeSnapshot, _ := w.activeBackend()
+			if next.sameBackend(activeSnapshot) {
 				continue
 			}
 			err = w.switchBackend(ctx, next)
@@ -276,14 +292,13 @@ func (w *logRouter) switchBackend(
 	ctx context.Context,
 	next ConfigSnapshot,
 ) error {
-	if w.activeBackendID != "" && w.activeBackendID != backendDrainID {
-		w.stopBackend(w.activeBackendID)
+	activeBackendID, _, _ := w.activeBackend()
+	if activeBackendID != "" && activeBackendID != backendDrainID {
+		w.stopBackend(activeBackendID)
 	}
 
 	if next.Mode == BackendTypeDrain {
-		w.activeBackendID = backendDrainID
-		w.activeSnapshot = next
-		w.activeRecords = w.drainRecords
+		w.setActiveBackend(backendDrainID, next, w.drainRecords)
 		w.manageLegacyLogSinkWriter(ctx, next)
 		return nil
 	}
@@ -299,15 +314,11 @@ func (w *logRouter) switchBackend(
 		}
 
 		w.warnConfigApply(ctx, next, err)
-		w.activeBackendID = backendDrainID
-		w.activeSnapshot = next
-		w.activeRecords = w.drainRecords
+		w.setActiveBackend(backendDrainID, next, w.drainRecords)
 		return nil
 	}
 
-	w.activeBackendID = backendID
-	w.activeSnapshot = next
-	w.activeRecords = records
+	w.setActiveBackend(backendID, next, records)
 	w.manageLegacyLogSinkWriter(ctx, next)
 	return nil
 }
@@ -373,7 +384,8 @@ func (w *logRouter) send(
 	if err != nil {
 		return w.dyingError(ctx, internalerrors.Capture(err))
 	}
-	if w.activeBackendID == backendDrainID {
+	activeBackendID, _, _ := w.activeBackend()
+	if activeBackendID == backendDrainID {
 		return w.dyingError(ctx, sendRecord(ctx, records, record))
 	}
 	if ok, err := trySendRecord(ctx, records, record); ok || err != nil {
@@ -385,22 +397,78 @@ func (w *logRouter) send(
 func (w *logRouter) currentBackendRecords(
 	ctx context.Context,
 ) (logsender.LogRecordCh, error) {
-	if w.activeBackendID == backendDrainID {
+	activeBackendID, _, _ := w.activeBackend()
+	if activeBackendID == backendDrainID {
 		return w.drainRecords, nil
 	}
 
-	backend, err := w.runner.Worker(w.activeBackendID, ctx.Done())
+	backend, err := w.runner.Worker(activeBackendID, ctx.Done())
 	if err != nil {
 		return nil, err
 	}
 	recordBackend, ok := backend.(Backend)
 	if !ok {
-		return nil, errors.NotValidf("logrouter backend %q", w.activeBackendID)
+		return nil, errors.NotValidf("logrouter backend %q", activeBackendID)
 	}
 
 	records := recordBackend.LogRecords()
-	w.activeRecords = records
+	w.setActiveRecords(records)
 	return records, nil
+}
+
+func (w *logRouter) activeBackend() (string, ConfigSnapshot, logsender.LogRecordCh) {
+	w.activeMu.RLock()
+	defer w.activeMu.RUnlock()
+	return w.activeBackendID, w.activeSnapshot, w.activeRecords
+}
+
+func (w *logRouter) setActiveBackend(id string, snapshot ConfigSnapshot, records logsender.LogRecordCh) {
+	w.activeMu.Lock()
+	defer w.activeMu.Unlock()
+	w.activeBackendID = id
+	w.activeSnapshot = snapshot
+	w.activeRecords = records
+}
+
+func (w *logRouter) setActiveRecords(records logsender.LogRecordCh) {
+	w.activeMu.Lock()
+	defer w.activeMu.Unlock()
+	w.activeRecords = records
+}
+
+func (w *logRouter) backendReports(ctx context.Context, activeBackendID string) map[string]any {
+	reports := make(map[string]any)
+	for _, id := range w.activeBackendIDs(activeBackendID) {
+		backend, err := w.runner.Worker(id, ctx.Done())
+		if err != nil {
+			reports[id] = map[string]any{"error": err.Error()}
+			continue
+		}
+		reporter, ok := backend.(worker.Reporter)
+		if !ok {
+			reports[id] = map[string]any{"error": "backend does not implement reporter"}
+			continue
+		}
+		reports[id] = reporter.Report(ctx)
+	}
+	return reports
+}
+
+func (w *logRouter) activeBackendIDs(activeBackendID string) []string {
+	if activeBackendID == "" {
+		return nil
+	}
+	if activeBackendID == backendDrainID {
+		return []string{backendDrainID}
+	}
+	return []string{backendDrainID, activeBackendID}
+}
+
+func (w *logRouter) reportBackendType(activeBackendID string, snapshot ConfigSnapshot) BackendType {
+	if activeBackendID == backendDrainID {
+		return BackendTypeDrain
+	}
+	return snapshot.Mode
 }
 
 func (w *logRouter) dyingError(ctx context.Context, err error) error {

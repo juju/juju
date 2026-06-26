@@ -4,6 +4,8 @@
 package backends
 
 import (
+	"context"
+
 	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/internal/worker/logsender"
@@ -27,4 +29,18 @@ func NewLogSink(logSenderAPI logsender.LogSenderAPI, backendBufferSize int) (Bac
 // LogRecords returns the channel on which log records are sent to the backend.
 func (w *logSinkBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
+}
+
+// Report returns a report of the underlying logsink worker when available.
+func (w *logSinkBackend) Report(ctx context.Context) map[string]any {
+	m := map[string]any{
+		"name": "log-sink-backend",
+	}
+
+	reporter, ok := w.Worker.(worker.Reporter)
+	if !ok {
+		return m
+	}
+	m["client"] = reporter.Report(ctx)
+	return m
 }

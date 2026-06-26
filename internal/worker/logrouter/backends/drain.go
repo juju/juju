@@ -4,6 +4,8 @@
 package backends
 
 import (
+	"context"
+
 	"github.com/juju/worker/v5/catacomb"
 
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -44,6 +46,14 @@ func (w *drainBackend) Wait() error {
 // LogRecords returns the channel on which log records are sent to the backend.
 func (w *drainBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
+}
+
+// Report returns a report of the drain backend's current state.
+func (w *drainBackend) Report(_ context.Context) map[string]any {
+	return map[string]any{
+		"name":            "drain-backend",
+		"bufferedRecords": len(w.records),
+	}
 }
 
 func (w *drainBackend) loop() error {

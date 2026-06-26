@@ -4,6 +4,8 @@
 package backends
 
 import (
+	"context"
+
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,6 +31,7 @@ type LokiConfig struct {
 type LokiClient interface {
 	worker.Worker
 	Push(...loki.Record) error
+	Report(ctx context.Context) map[string]any
 }
 
 // NewLokiClientFunc returns a Loki client worker.
@@ -100,6 +103,14 @@ func (w *lokiBackend) Wait() error {
 // LogRecords returns the channel that the log router will send log records to.
 func (w *lokiBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
+}
+
+// Report returns a report of the backend's current state.
+func (w *lokiBackend) Report(ctx context.Context) map[string]any {
+	return map[string]any{
+		"name":   "loki-backend",
+		"client": w.client.Report(ctx),
+	}
 }
 
 func (w *lokiBackend) loop() error {

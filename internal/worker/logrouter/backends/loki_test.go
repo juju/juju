@@ -4,6 +4,7 @@
 package backends
 
 import (
+	"context"
 	"net/http"
 	"sync/atomic"
 	"testing"
@@ -114,4 +115,10 @@ func (c *recordingLokiClient) waitRecord(t *tc.C) loki.Record {
 		t.Fatalf("timed out waiting for loki record")
 	}
 	return loki.Record{}
+}
+
+func (c *recordingLokiClient) Report(ctx context.Context) map[string]any {
+	return map[string]any{
+		"records": len(c.records),
+	}
 }

@@ -4,6 +4,7 @@
 package logrouter
 
 import (
+	"context"
 	stderrors "errors"
 	"strconv"
 	"sync"
@@ -299,6 +300,57 @@ func (s *workerSuite) TestBackendRestartRefreshesActiveChannel(c *tc.C) {
 	c.Fatalf("timed out waiting for logsink-2 record %q", "second")
 }
 
+func (s *workerSuite) TestReportIncludesActiveBackendAndBackendReports(c *tc.C) {
+	fixture := newFixture(c, "")
+	events := make(chan backendEvent, 10)
+
+	w, err := NewWorker(WorkerConfig{
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForEvents(c, events, backendEvent{
+		backend: "drain-only",
+		kind:    "start",
+	}, backendEvent{
+		backend: "logsink",
+		kind:    "start",
+	})
+
+	reporter, ok := w.(interface {
+		Report(context.Context) map[string]any
+	})
+	c.Assert(ok, tc.IsTrue)
+	var report map[string]any
+	for a := internaltesting.LongAttempt.Start(); a.Next(); {
+		report = reporter.Report(c.Context())
+		if report["activeBackend"] == "logsink" {
+			break
+		}
+	}
+	c.Check(report["activeBackend"], tc.Equals, "logsink")
+	c.Check(report["activeBackendID"], tc.Equals, "backend-1")
+
+	backends, ok := report["backends"].(map[string]any)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(backends["drain"], tc.DeepEquals, map[string]any{
+		"name": "drain-only",
+	})
+	c.Check(backends["backend-1"], tc.DeepEquals, map[string]any{
+		"name": "logsink",
+	})
+}
+
 type fixture struct {
 	agent         *testAgent
 	logs          logsender.LogRecordCh
@@ -434,6 +486,12 @@ func (w *recordingBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
 }
 
+func (w *recordingBackend) Report(_ context.Context) map[string]any {
+	return map[string]any{
+		"name": w.name,
+	}
+}
+
 func (w *recordingBackend) loop() error {
 	for {
 		select {
@@ -476,6 +534,10 @@ func (w *failingBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
 }
 
+func (w *failingBackend) Report(_ context.Context) map[string]any {
+	return nil
+}
+
 type restartingBackend struct {
 	tomb      tomb.Tomb
 	name      string
@@ -509,6 +571,12 @@ func (w *restartingBackend) Wait() error {
 func (w *restartingBackend) LogRecords() logsender.LogRecordCh {
 	w.reportStart()
 	return w.records
+}
+
+func (w *restartingBackend) Report(_ context.Context) map[string]any {
+	return map[string]any{
+		"name": w.name,
+	}
 }
 
 func (w *restartingBackend) loop() error {
