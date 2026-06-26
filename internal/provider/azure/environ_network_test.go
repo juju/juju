@@ -54,6 +54,8 @@ func (s *environSuite) TestSubnetsSuccessNew(c *tc.C) {
 
 	// We wait for common resource creation, then query subnets
 	// in the default virtual network created for every model.
+	// This now tests the case where a subnet has both IPv4 and IPv6 prefixes.
+	// The new behavior is to return two SubnetInfo rows (one per family).
 	s.sender = azuretesting.Senders{
 		makeSender("/deployments/common", s.commonDeployment),
 		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
@@ -81,9 +83,21 @@ func (s *environSuite) TestSubnetsSuccessNew(c *tc.C) {
 	subs, err := netEnv.Subnets(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(subs, tc.HasLen, 1)
+	// With AddressPrefixes containing both IPv4 and IPv6, we get two entries.
+	c.Assert(subs, tc.HasLen, 2)
+
+	// Sort by CIDR to ensure predictable order.
+	if subs[0].CIDR > subs[1].CIDR {
+		subs[0], subs[1] = subs[1], subs[0]
+	}
+
+	// IPv4 entry: bare ProviderId
 	c.Check(subs[0].ProviderId, tc.Equals, corenetwork.Id("provider-sub-id"))
 	c.Check(subs[0].CIDR, tc.Equals, "10.0.0.0/24")
+
+	// IPv6 entry: :ipv6 suffix
+	c.Check(subs[1].ProviderId, tc.Equals, corenetwork.Id("provider-sub-id:ipv6"))
+	c.Check(subs[1].CIDR, tc.Equals, "fd00:27e8:ed0b::/64")
 }
 
 func (s *environSuite) TestNetworkInterfacesSuccess(c *tc.C) {
@@ -347,4 +361,358 @@ func (s *environSuite) TestNetworkTemplateResourcesNoControllerSubnet(c *tc.C) {
 	c.Assert(vnetProps.Subnets, tc.HasLen, 1)
 	c.Assert(vnetProps.Subnets[0].Properties.AddressPrefixes, tc.HasLen, 2)
 	c.Check(toValue(vnetProps.Subnets[0].Properties.AddressPrefixes[1]), tc.Equals, azure.InternalSubnetIPv6Prefix)
+}
+
+// TestSubnetsDualStackSubnet tests that allSubnets() emits two SubnetInfo rows
+// (one per IP family) for a dual-stack subnet, with the IPv6 one suffixed :ipv6.
+func (s *environSuite) TestSubnetsDualStackSubnet(c *tc.C) {
+	env := s.openEnviron(c)
+
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{
+				{
+					ID: new("provider-dual-stack-subnet"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefixes: []*string{
+							new("192.168.0.0/20"),
+							new("fd00::/64"),
+						},
+					},
+				},
+			},
+		}),
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, tc.IsTrue)
+
+	subs, err := netEnv.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Should have two entries: one IPv4, one IPv6.
+	c.Assert(subs, tc.HasLen, 2)
+
+	// Sort by CIDR to ensure predictable order.
+	if subs[0].CIDR > subs[1].CIDR {
+		subs[0], subs[1] = subs[1], subs[0]
+	}
+
+	// IPv4 entry: bare ProviderId.
+	c.Check(subs[0].ProviderId, tc.Equals, corenetwork.Id("provider-dual-stack-subnet"))
+	c.Check(subs[0].CIDR, tc.Equals, "192.168.0.0/20")
+
+	// IPv6 entry: :ipv6 suffix.
+	c.Check(subs[1].ProviderId, tc.Equals, corenetwork.Id("provider-dual-stack-subnet:ipv6"))
+	c.Check(subs[1].CIDR, tc.Equals, "fd00::/64")
+}
+
+// TestSubnetsIPv4OnlySubnet tests regression: IPv4-only subnets still return
+// one entry with bare ProviderId.
+func (s *environSuite) TestSubnetsIPv4OnlySubnet(c *tc.C) {
+	env := s.openEnviron(c)
+
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{
+				{
+					ID: new("provider-ipv4-only-subnet"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: new("10.0.0.0/24"),
+					},
+				},
+			},
+		}),
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, tc.IsTrue)
+
+	subs, err := netEnv.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Should have one entry (IPv4 only).
+	c.Assert(subs, tc.HasLen, 1)
+	c.Check(subs[0].ProviderId, tc.Equals, corenetwork.Id("provider-ipv4-only-subnet"))
+	c.Check(subs[0].CIDR, tc.Equals, "10.0.0.0/24")
+}
+
+// TestNetworkInterfacesDualStackNIC tests that a NIC with both IPv4 and IPv6
+// IP configurations gets tagged with the correct per-family CIDR and ProviderSubnetID.
+func (s *environSuite) TestNetworkInterfacesDualStackNIC(c *tc.C) {
+	env := s.openEnviron(c)
+
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{
+				{
+					ID: new("dual-stack-subnet"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefixes: []*string{
+							new("192.168.0.0/20"),
+							new("fd00::/64"),
+						},
+					},
+				},
+			},
+		}),
+		makeSender(".*/networkInterfaces", armnetwork.InterfaceListResult{
+			Value: []*armnetwork.Interface{
+				{
+					ID: new("dual-stack-nic"),
+					Properties: &armnetwork.InterfacePropertiesFormat{
+						Primary: new(true),
+						IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
+							{
+								Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+									PrivateIPAddress:          new("192.168.0.10"),
+									PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+									PrivateIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
+									Subnet: &armnetwork.Subnet{
+										ID: new("dual-stack-subnet"),
+									},
+									Primary: new(false),
+								},
+							},
+							{
+								Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+									PrivateIPAddress:          new("fd00::10"),
+									PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+									PrivateIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv6),
+									Subnet: &armnetwork.Subnet{
+										ID: new("dual-stack-subnet"),
+									},
+									Primary: new(true),
+								},
+							},
+						},
+					},
+					Tags: map[string]*string{
+						"juju-machine-name": new("machine-0"),
+					},
+				},
+			},
+		}),
+		makeSender(".*/publicIPAddresses", armnetwork.PublicIPAddressListResult{}),
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, tc.IsTrue)
+
+	res, err := netEnv.NetworkInterfaces(c.Context(), []instance.Id{"machine-0"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(res, tc.HasLen, 1)
+	c.Assert(res[0], tc.HasLen, 1)
+
+	nic := res[0][0]
+	// IPv6 address should be primary (appear first).
+	c.Assert(nic.Addresses, tc.HasLen, 2)
+
+	// Check IPv6 address: should have :ipv6 suffix and correct CIDR.
+	ipv6Addr := nic.Addresses[0]
+	c.Check(ipv6Addr.Value, tc.Equals, "fd00::10")
+	c.Check(ipv6Addr.CIDR, tc.Equals, "fd00::/64")
+	c.Check(ipv6Addr.ProviderSubnetID, tc.Equals, corenetwork.Id("dual-stack-subnet:ipv6"))
+
+	// Check IPv4 address: bare ProviderSubnetID.
+	ipv4Addr := nic.Addresses[1]
+	c.Check(ipv4Addr.Value, tc.Equals, "192.168.0.10")
+	c.Check(ipv4Addr.CIDR, tc.Equals, "192.168.0.0/20")
+	c.Check(ipv4Addr.ProviderSubnetID, tc.Equals, corenetwork.Id("dual-stack-subnet"))
+}
+
+// TestNetworkInterfacesDualStackNICLegacyModel tests backward compatibility:
+// when allSubnets() returns only bare-ID IPv4 entries (simulating a legacy
+// model with IPv4-only subnets), an IPv6 IP configuration gets no CIDR tag.
+// This is a documented fallback behavior.
+func (s *environSuite) TestNetworkInterfacesDualStackNICLegacyModel(c *tc.C) {
+	env := s.openEnviron(c)
+
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		// Legacy model: only bare IPv4 subnet, no :ipv6 entry.
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{
+				{
+					ID: new("legacy-subnet"),
+					Properties: &armnetwork.SubnetPropertiesFormat{
+						AddressPrefix: new("10.0.0.0/24"),
+					},
+				},
+			},
+		}),
+		makeSender(".*/networkInterfaces", armnetwork.InterfaceListResult{
+			Value: []*armnetwork.Interface{
+				{
+					ID: new("legacy-nic"),
+					Properties: &armnetwork.InterfacePropertiesFormat{
+						Primary: new(true),
+						IPConfigurations: []*armnetwork.InterfaceIPConfiguration{
+							{
+								Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+									PrivateIPAddress:          new("10.0.0.10"),
+									PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+									PrivateIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv4),
+									Subnet: &armnetwork.Subnet{
+										ID: new("legacy-subnet"),
+									},
+									Primary: new(false),
+								},
+							},
+							{
+								Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+									PrivateIPAddress:          new("fd00::10"),
+									PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+									PrivateIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv6),
+									Subnet: &armnetwork.Subnet{
+										ID: new("legacy-subnet"),
+									},
+									Primary: new(true),
+								},
+							},
+						},
+					},
+					Tags: map[string]*string{
+						"juju-machine-name": new("machine-0"),
+					},
+				},
+			},
+		}),
+		makeSender(".*/publicIPAddresses", armnetwork.PublicIPAddressListResult{}),
+	}
+
+	netEnv, ok := environs.SupportsNetworking(env)
+	c.Assert(ok, tc.IsTrue)
+
+	res, err := netEnv.NetworkInterfaces(c.Context(), []instance.Id{"machine-0"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(res, tc.HasLen, 1)
+	c.Assert(res[0], tc.HasLen, 1)
+
+	nic := res[0][0]
+	c.Assert(nic.Addresses, tc.HasLen, 2)
+
+	// IPv6 address: lookup for :ipv6 suffixed ID misses, so no CIDR tag.
+	ipv6Addr := nic.Addresses[0]
+	c.Check(ipv6Addr.Value, tc.Equals, "fd00::10")
+	c.Check(ipv6Addr.CIDR, tc.Equals, "") // No CIDR tag (legacy fallback).
+	c.Check(ipv6Addr.ProviderSubnetID, tc.Equals, corenetwork.Id("legacy-subnet:ipv6"))
+
+	// IPv4 address: tagged as expected.
+	ipv4Addr := nic.Addresses[1]
+	c.Check(ipv4Addr.Value, tc.Equals, "10.0.0.10")
+	c.Check(ipv4Addr.CIDR, tc.Equals, "10.0.0.0/24")
+	c.Check(ipv4Addr.ProviderSubnetID, tc.Equals, corenetwork.Id("legacy-subnet"))
+}
+
+// TestStripIPFamilySuffix tests the stripIPFamilySuffix helper.
+func (s *environSuite) TestStripIPFamilySuffix(c *tc.C) {
+	testCases := []struct {
+		input    string
+		expected string
+	}{
+		{
+			input:    "/subscriptions/abc123/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/subnet:ipv6",
+			expected: "/subscriptions/abc123/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/subnet",
+		},
+		{
+			input:    "/subscriptions/abc123/stuff:ipv4",
+			expected: "/subscriptions/abc123/stuff",
+		},
+		{
+			input:    "/subscriptions/abc123/stuff:other",
+			expected: "/subscriptions/abc123/stuff:other", // :other is not a valid suffix, left alone.
+		},
+		{
+			input:    "plain-id",
+			expected: "plain-id", // No colon, unchanged.
+		},
+		{
+			input:    "",
+			expected: "", // Empty string, unchanged.
+		},
+	}
+
+	for _, test := range testCases {
+		got := azure.StripIPFamilySuffix(test.input)
+		c.Check(got, tc.Equals, test.expected, tc.Commentf("stripIPFamilySuffix(%q)", test.input))
+	}
+}
+
+// TestSubnetProviderIDForFamily tests the subnetProviderIDForFamily helper.
+func (s *environSuite) TestSubnetProviderIDForFamily(c *tc.C) {
+	testCases := []struct {
+		azureID  string
+		isIPv6   bool
+		expected corenetwork.Id
+	}{
+		{
+			azureID:  "/subscriptions/abc/providers/Microsoft.Network/virtualNetworks/vnet/subnets/subnet",
+			isIPv6:   false,
+			expected: corenetwork.Id("/subscriptions/abc/providers/Microsoft.Network/virtualNetworks/vnet/subnets/subnet"),
+		},
+		{
+			azureID:  "/subscriptions/abc/providers/Microsoft.Network/virtualNetworks/vnet/subnets/subnet",
+			isIPv6:   true,
+			expected: corenetwork.Id("/subscriptions/abc/providers/Microsoft.Network/virtualNetworks/vnet/subnets/subnet:ipv6"),
+		},
+	}
+
+	for _, test := range testCases {
+		got := azure.SubnetProviderIDForFamily(test.azureID, test.isIPv6)
+		c.Check(got, tc.Equals, test.expected, tc.Commentf("SubnetProviderIDForFamily(%q, %v)", test.azureID, test.isIPv6))
+	}
+}
+
+// TestStripAndDeduplicateSubnetIDs tests the stripAndDeduplicateSubnetIDs helper.
+func (s *environSuite) TestStripAndDeduplicateSubnetIDs(c *tc.C) {
+	testCases := []struct {
+		input    []corenetwork.Id
+		expected []corenetwork.Id
+	}{
+		{
+			input: []corenetwork.Id{
+				"subnet-1",
+				"subnet-1:ipv6",
+				"subnet-2",
+			},
+			expected: []corenetwork.Id{
+				"subnet-1",
+				"subnet-2",
+			},
+		},
+		{
+			input: []corenetwork.Id{
+				"subnet-1:ipv6",
+				"subnet-1",
+			},
+			expected: []corenetwork.Id{
+				"subnet-1",
+			},
+		},
+		{
+			input: []corenetwork.Id{
+				"subnet-1",
+				"subnet-2",
+			},
+			expected: []corenetwork.Id{
+				"subnet-1",
+				"subnet-2",
+			},
+		},
+		{
+			input:    []corenetwork.Id{},
+			expected: []corenetwork.Id{},
+		},
+	}
+
+	for _, test := range testCases {
+		got := azure.StripAndDeduplicateSubnetIDs(test.input)
+		c.Check(got, tc.DeepEquals, test.expected, tc.Commentf("StripAndDeduplicateSubnetIDs(%v)", test.input))
+	}
 }
