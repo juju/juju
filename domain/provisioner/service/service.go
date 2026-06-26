@@ -145,6 +145,7 @@ func (s *Service) GetPreludeProvisioningInfo(ctx context.Context) (provisioner.S
 		LokiEndpoint:           lokiConfig.Endpoint,
 		LokiCACert:             lokiConfig.CACertificate,
 		LokiInsecureSkipVerify: lokiConfig.InsecureSkipVerify,
+		LokiOrgID:              lokiConfig.OrgID,
 	}, nil
 }
 
