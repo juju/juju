@@ -55,7 +55,6 @@ var facadeVersions = facades.FacadeVersions{
 	"DiskManager":                  {2, 3},
 	"EntityWatcher":                {2},
 	"FilesystemAttachmentsWatcher": {2},
-	"Firewaller":                   {7},
 	"HighAvailability":             {2, 3},
 	"HostKeyReporter":              {1},
 	"ImageMetadata":                {3},
