@@ -102,6 +102,7 @@ type LokiConfigResult struct {
 	Endpoint           string  `json:"endpoint"`
 	CACert             *string `json:"ca-cert,omitempty"`
 	InsecureSkipVerify *bool   `json:"insecure-skip-verify,omitempty"`
+	OrgID              string  `json:"org-id,omitempty"`
 }
 
 // MapResult holds a generic map or an error.
@@ -872,6 +873,10 @@ type ProvisioningInfo struct {
 	// for the Loki endpoint. A nil value means the default (verify
 	// enabled) is in effect.
 	LokiInsecureSkipVerify *bool `json:"loki-insecure-skip-verify,omitempty"`
+
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string `json:"loki-org-id,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

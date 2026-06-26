@@ -33,6 +33,7 @@ type ControllerLokiConfig struct {
 	Endpoint           string
 	CACert             string
 	InsecureSkipVerify *bool
+	OrgID              string
 }
 
 // NewClient returns a version of the logger client that provides functionality
@@ -82,6 +83,7 @@ func (c *Client) GetControllerLokiConfig(ctx context.Context, agentTag names.Tag
 		Endpoint:           result.Endpoint,
 		CACert:             caCert,
 		InsecureSkipVerify: result.InsecureSkipVerify,
+		OrgID:              result.OrgID,
 	}, nil
 }
 
