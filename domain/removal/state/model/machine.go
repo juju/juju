@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
-	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -869,68 +868,9 @@ WHERE  net_node_uuid = $node.uuid`
 			Add(removalerrors.RemovalJobIncomplete)
 	}
 
-	// Start by deleting any IP addresses associated with the net node.
-	deleteProviderIPQuery := `
-DELETE FROM provider_ip_address
-WHERE address_uuid IN (
-    SELECT uuid FROM ip_address WHERE net_node_uuid = $node.uuid
-)`
-	deleteProviderIPStmt, err := st.Prepare(deleteProviderIPQuery, node{})
+	err = st.removeNetNodeLLDs(ctx, tx, netNodeUUIDRec.UUID)
 	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := tx.Query(ctx, deleteProviderIPStmt, netNodeUUIDRec).Run(); err != nil {
-		return errors.Errorf("deleting net node IP address provider IDs: %w", err)
-	}
-
-	deleteProviderIPStmt, err = st.Prepare("DELETE FROM ip_address WHERE net_node_uuid = $node.uuid", node{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := tx.Query(ctx, deleteProviderIPStmt, netNodeUUIDRec).Run(); err != nil {
-		return errors.Errorf("deleting net node IP addresses: %w", err)
-	}
-
-	// Get all link-layer devices associated with the net node.
-	selectDevices := `
-SELECT uuid AS &entityUUID.uuid
-FROM   link_layer_device
-WHERE  net_node_uuid = $node.uuid`
-	devStmt, err := st.Prepare(selectDevices, entityUUID{}, netNodeUUIDRec)
-	if err != nil {
-		return errors.Errorf("preparing devices for deletion statement: %w", err)
-	}
-
-	var devsToDelete []entityUUID
-	if err := tx.Query(ctx, devStmt, netNodeUUIDRec).GetAll(&devsToDelete); err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("running devices for deletion query: %w", err)
-		}
-	}
-
-	llDevicesToDelete := uuids(transform.Slice(devsToDelete, func(d entityUUID) string { return d.UUID }))
-
-	// Delete all relations that reference the link-layer devices and the devices themselves.
-	deleteDevicesRelations := []string{
-		`DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:]) OR parent_uuid IN ($uuids[:])`,
-		`DELETE FROM provider_link_layer_device WHERE device_uuid IN ($uuids[:])`,
-		`DELETE FROM link_layer_device_dns_domain WHERE device_uuid IN ($uuids[:])`,
-		`DELETE FROM link_layer_device_dns_address WHERE device_uuid IN ($uuids[:])`,
-		`DELETE FROM link_layer_device WHERE uuid IN ($uuids[:])`,
-	}
-	for _, query := range deleteDevicesRelations {
-		stmt, err := st.Prepare(query, llDevicesToDelete)
-		if err != nil {
-			return errors.Capture(err)
-		}
-
-		if err := tx.Query(ctx, stmt, llDevicesToDelete).Run(); err != nil {
-			removeErr := errors.Errorf("deleting reference to machine network in query %q: %w", query, err)
-			if database.IsErrConstraintForeignKey(err) {
-				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
-			}
-			return removeErr
-		}
+		return errors.Errorf("removing net node link-layer devices: %w", err)
 	}
 
 	// Delete the net node fqdn and hostname addresses before deleting the net node.
@@ -959,6 +899,86 @@ WHERE  net_node_uuid = $node.uuid`
 	if err := tx.Query(ctx, deleteNetNodeStmt, netNodeUUIDRec).Run(); err != nil {
 		return errors.Errorf("deleting net node: %w", err)
 	}
+	return nil
+}
+
+func (st *State) removeNetNodeLLDs(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
+	type node entityUUID
+	netNodeUUIDRec := node{UUID: netNodeUUID}
+
+	// Start by deleting any IP addresses associated with the device. IP addresses
+	// are (currently) owned by LLDs
+	deleteProviderIPQuery := `
+DELETE FROM provider_ip_address
+WHERE address_uuid IN (
+    SELECT uuid FROM ip_address WHERE net_node_uuid = $node.uuid
+)`
+	deleteProviderIPStmt, err := st.Prepare(deleteProviderIPQuery, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteProviderIPStmt, netNodeUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting net node IP address provider IDs: %w", err)
+	}
+
+	deleteProviderIPStmt, err = st.Prepare(`DELETE FROM ip_address WHERE net_node_uuid = $node.uuid`, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteProviderIPStmt, netNodeUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting net node IP addresses: %w", err)
+	}
+
+	// Get all link-layer devices associated with the net node.
+	selectDevices := `
+SELECT uuid AS &entityUUID.uuid
+FROM   link_layer_device
+WHERE  net_node_uuid = $node.uuid`
+	devStmt, err := st.Prepare(selectDevices, entityUUID{}, netNodeUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing devices for deletion statement: %w", err)
+	}
+
+	var devsToDelete []entityUUID
+	if err := tx.Query(ctx, devStmt, netNodeUUIDRec).GetAll(&devsToDelete); errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("running devices for deletion query: %w", err)
+	}
+
+	llDevicesToDelete := entityUUIDs(devsToDelete).uuids()
+
+	// Delete all relations that reference the link-layer devices and the devices themselves.
+	//
+	// NOTE: parent-child LLDs MUST have both members associated with the same net node,
+	// so it is safe to delete only via one the child half of the relation.
+	deleteDevicesReferencer := []string{
+		`DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM provider_link_layer_device WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_domain WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_address WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_route WHERE device_uuid IN ($uuids[:])`,
+	}
+	for _, query := range deleteDevicesReferencer {
+		stmt, err := st.Prepare(query, llDevicesToDelete)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		if err := tx.Query(ctx, stmt, llDevicesToDelete).Run(); err != nil {
+			return errors.Errorf("deleting reference to link layer device in query %q: %w", query, err)
+		}
+	}
+
+	deleteDevicesQuery := `DELETE FROM link_layer_device WHERE uuid IN ($uuids[:])`
+	deleteDevicesStmt, err := st.Prepare(deleteDevicesQuery, llDevicesToDelete)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteDevicesStmt, llDevicesToDelete).Run(); err != nil {
+		return errors.Errorf("deleting link-layer devices: %w", err)
+	}
+
 	return nil
 }
 

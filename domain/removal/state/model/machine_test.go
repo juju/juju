@@ -2066,6 +2066,24 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	ipUUID := s.addIPAddress(c, machineUUID.String(), lldParentUUID, subnetUUID)
 	s.addIPAddressProviderID(c, "whatever", ipUUID)
 
+	// Add records to the tables that reference link-layer devices. These
+	// should all be deleted when the machine (and its devices) are deleted.
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO link_layer_device_dns_domain (device_uuid, search_domain) VALUES (?, ?)",
+		lldParentUUID, "example.com",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO link_layer_device_dns_address (device_uuid, dns_address) VALUES (?, ?)",
+		lldParentUUID, "10.0.0.1",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = s.DB().ExecContext(c.Context(),
+		"INSERT INTO link_layer_device_route (device_uuid, destination_cidr, gateway_ip, metric) VALUES (?, ?, ?, ?)",
+		lldParentUUID, "10.0.0.0/16", "10.0.0.1", 0,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	s.advanceMachineLife(c, machineUUID, life.Dead)
@@ -2090,6 +2108,19 @@ func (s *machineSuite) TestDeleteMachineWithLinkLayerDevice(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 
 	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device WHERE uuid = ?", lldChildUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	// The tables referencing the link-layer devices should also be cleaned up.
+	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device_dns_domain WHERE device_uuid = ?", lldParentUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device_dns_address WHERE device_uuid = ?", lldParentUUID).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+
+	err = s.DB().QueryRow("SELECT count(*) FROM link_layer_device_route WHERE device_uuid = ?", lldParentUUID).Scan(&count)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
 }
