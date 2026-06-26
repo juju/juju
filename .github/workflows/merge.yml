@@ -85,11 +85,12 @@ jobs:
       - name: Notify if merge has conflicts
         if: steps.merge.outputs.conflicts == 'true' && steps.message.outputs.message != ''
         env:
+          MM_URL: ${{ secrets.MM_URL }}
           MM_TOKEN: ${{ secrets.MM_TOKEN }}
+          MM_CHANNEL: ${{ secrets.MM_CHANNEL }}
           MESSAGE: ${{ steps.message.outputs.message }}
         run: |
-          # install mmctl
-          curl https://releases.mattermost.com/mmctl/v11.8.1/linux_amd64.tar -Lo mmctl.tar
+          curl https://releases.mattermost.com/mmctl/v10.11.6/linux_amd64.tar -Lo mmctl.tar
           tar -xvf mmctl.tar
-          ./mmctl auth login 'https://chat.canonical.com' --name Charmhub --access-token $MM_TOKEN
-          ./mmctl post create Charmhub:juju-dev --message "$MESSAGE"
+          ./mmctl auth login "$MM_URL" --name Charmhub --access-token $MM_TOKEN
+          ./mmctl post create $MM_CHANNEL --message "$MESSAGE"
