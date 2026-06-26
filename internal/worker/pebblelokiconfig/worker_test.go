@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package pebblelokiconfig_test
+package pebblelokiconfig
 
 import (
 	"strings"
@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/api/agent/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/pebblelokiconfig"
 )
 
 func TestWorkerSuite(t *testing.T) {
@@ -43,7 +42,7 @@ type workerSuite struct {
 
 	changes chan struct{}
 
-	workerConfig pebblelokiconfig.WorkerConfig
+	workerConfig WorkerConfig
 }
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
@@ -68,12 +67,12 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.nw.EXPECT().Kill().AnyTimes()
 	s.nw.EXPECT().Wait().Return(nil).AnyTimes()
 
-	s.workerConfig = pebblelokiconfig.WorkerConfig{
+	s.workerConfig = WorkerConfig{
 		Agent:  s.agent,
 		API:    s.api,
 		Clock:  clock.WallClock,
 		Logger: loggertesting.WrapCheckLog(c),
-		NewPebbleClient: func(string) (pebblelokiconfig.PebbleClient, error) {
+		NewPebbleClient: func(string) (PebbleClient, error) {
 			return s.pebble, nil
 		},
 	}
@@ -100,7 +99,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 func (s *workerSuite) TestWorkerConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	c.Check(pebblelokiconfig.WorkerConfig{}.Validate(), tc.ErrorMatches, "missing agent not valid")
+	c.Check(WorkerConfig{}.Validate(), tc.ErrorMatches, "missing agent not valid")
 
 	config := s.workerConfig
 	config.API = nil
@@ -128,7 +127,7 @@ func (s *workerSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 
 	config := s.workerConfig
 	config.Agent = nil
-	w, err := pebblelokiconfig.NewWorker(config)
+	w, err := NewWorker(config)
 	c.Assert(w, tc.IsNil)
 	c.Check(err, tc.ErrorMatches, "missing agent not valid")
 }
@@ -138,7 +137,7 @@ func (s *workerSuite) TestNewWorkerWatchError(c *tc.C) {
 
 	s.expectWatchError(errors.New("watch boom"))
 
-	w, err := pebblelokiconfig.NewWorker(s.workerConfig)
+	w, err := NewWorker(s.workerConfig)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 	err = workertest.CheckKilled(c, w)
@@ -348,7 +347,7 @@ func (s *workerSuite) TestNewPebbleClientErrorRetried(c *tc.C) {
 	done := make(chan struct{})
 	var mu sync.Mutex
 	callCount := 0
-	s.workerConfig.NewPebbleClient = func(string) (pebblelokiconfig.PebbleClient, error) {
+	s.workerConfig.NewPebbleClient = func(string) (PebbleClient, error) {
 		mu.Lock()
 		callCount++
 		mu.Unlock()
@@ -395,7 +394,7 @@ func (s *workerSuite) TestBuildLayerYAML(c *tc.C) {
 		Endpoint: "https://loki.example.com/loki/api/v1/push",
 		CACert:   "ca-cert",
 	}
-	data, err := pebblelokiconfig.BuildLayerYAML(
+	data, err := BuildLayerYAML(
 		lokiConfig,
 		names.NewMachineTag("0"),
 		names.NewControllerTag("controller-uuid"),
@@ -422,7 +421,7 @@ func (s *workerSuite) TestBuildLayerYAML(c *tc.C) {
 func (s *workerSuite) TestBuildLayerYAMLNoReservedLabels(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	data, err := pebblelokiconfig.BuildLayerYAML(
+	data, err := BuildLayerYAML(
 		logger.ControllerLokiConfig{Endpoint: "https://loki.example.com"},
 		names.NewMachineTag("0"),
 		names.NewControllerTag("controller-uuid"),
@@ -442,7 +441,7 @@ func (s *workerSuite) TestBuildLayerYAMLNoReservedLabels(c *tc.C) {
 func (s *workerSuite) TestBuildLayerYAMLUsesCorrectServiceName(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	data, err := pebblelokiconfig.BuildLayerYAML(
+	data, err := BuildLayerYAML(
 		logger.ControllerLokiConfig{Endpoint: "https://loki.example.com"},
 		names.NewMachineTag("0"),
 		names.NewControllerTag("controller-uuid"),
@@ -461,19 +460,19 @@ func (s *workerSuite) TestBuildLayerYAMLUsesCorrectServiceName(c *tc.C) {
 
 func (s *workerSuite) TestResolvePebbleSocketConfigured(c *tc.C) {
 	defer s.setupMocks(c).Finish()
-	c.Check(pebblelokiconfig.ResolvePebbleSocket("/custom/socket"), tc.Equals, "/custom/socket")
+	c.Check(ResolvePebbleSocket("/custom/socket"), tc.Equals, "/custom/socket")
 }
 
 func (s *workerSuite) TestResolvePebbleSocketEnv(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.PatchEnvironment("PEBBLE_SOCKET", "/env/socket")
-	c.Check(pebblelokiconfig.ResolvePebbleSocket(""), tc.Equals, "/env/socket")
+	c.Check(ResolvePebbleSocket(""), tc.Equals, "/env/socket")
 }
 
 func (s *workerSuite) TestResolvePebbleSocketDefault(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.PatchEnvironment("PEBBLE_SOCKET", "")
-	c.Check(pebblelokiconfig.ResolvePebbleSocket(""), tc.Equals, "/var/lib/pebble/default/.pebble.socket")
+	c.Check(ResolvePebbleSocket(""), tc.Equals, "/var/lib/pebble/default/.pebble.socket")
 }
 
 // --- IsIncompatiblePebbleError tests ---
@@ -495,7 +494,7 @@ func (s *workerSuite) TestIsIncompatiblePebbleError(c *tc.C) {
 	}
 	for _, test := range tests {
 		c.Logf("test: %s", test.name)
-		c.Check(pebblelokiconfig.IsIncompatiblePebbleError(test.err), tc.Equals, test.expected)
+		c.Check(IsIncompatiblePebbleError(test.err), tc.Equals, test.expected)
 	}
 }
 
@@ -504,28 +503,28 @@ func (s *workerSuite) TestIsIncompatiblePebbleError(c *tc.C) {
 func (s *workerSuite) TestManifoldConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	c.Check(pebblelokiconfig.ManifoldConfig{}.Validate(), tc.ErrorMatches, "empty AgentName not valid")
+	c.Check(ManifoldConfig{}.Validate(), tc.ErrorMatches, "empty AgentName not valid")
 
-	config := pebblelokiconfig.ManifoldConfig{
+	config := ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "",
 	}
 	c.Check(config.Validate(), tc.ErrorMatches, "empty APICallerName not valid")
 
-	config = pebblelokiconfig.ManifoldConfig{
+	config = ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	}
 	c.Check(config.Validate(), tc.ErrorMatches, "missing Clock not valid")
 
-	config = pebblelokiconfig.ManifoldConfig{
+	config = ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 		Clock:         clock.WallClock,
 	}
 	c.Check(config.Validate(), tc.ErrorMatches, "missing Logger not valid")
 
-	config = pebblelokiconfig.ManifoldConfig{
+	config = ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 		Clock:         clock.WallClock,
@@ -533,7 +532,7 @@ func (s *workerSuite) TestManifoldConfigValidate(c *tc.C) {
 	}
 	c.Check(config.Validate(), tc.ErrorMatches, "missing NewPebbleClient not valid")
 
-	config.NewPebbleClient = func(string) (pebblelokiconfig.PebbleClient, error) {
+	config.NewPebbleClient = func(string) (PebbleClient, error) {
 		return nil, nil
 	}
 	c.Check(config.Validate(), tc.ErrorIsNil)
@@ -544,7 +543,7 @@ func (s *workerSuite) TestManifoldConfigValidate(c *tc.C) {
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	s.expectWatch()
 	c.Assert(s.workerConfig.Validate(), tc.ErrorIsNil)
-	w, err := pebblelokiconfig.NewWorker(s.workerConfig)
+	w, err := NewWorker(s.workerConfig)
 	c.Assert(err, tc.ErrorIsNil)
 	return w
 }

@@ -3,7 +3,7 @@
 
 package pebblelokiconfig
 
-//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination pebble_client_mock_test.go github.com/juju/juju/internal/worker/pebblelokiconfig PebbleClient,LoggerAPI
-//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination notify_watcher_mock_test.go github.com/juju/juju/core/watcher NotifyWatcher
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig -destination pebble_client_mock_test.go github.com/juju/juju/internal/worker/pebblelokiconfig PebbleClient,LoggerAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig -destination notify_watcher_mock_test.go github.com/juju/juju/core/watcher NotifyWatcher
