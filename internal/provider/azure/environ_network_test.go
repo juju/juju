@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
 )
 
@@ -278,4 +279,72 @@ func (s *environSuite) TestNetworkInterfacesPartialMatch(c *tc.C) {
 	c.Assert(res, tc.HasLen, 2)
 	c.Assert(res[0], tc.HasLen, 1, tc.Commentf("expected to get 1 NIC for machine-0"))
 	c.Assert(res[1], tc.IsNil, tc.Commentf("expected a nil slice for non-matched machines"))
+}
+
+func (s *environSuite) TestNetworkTemplateResourcesDualStack(c *tc.C) {
+	// networkTemplateResources should always produce a dual-stack VNet
+	// and dual-stack subnets, regardless of any constraint.
+	resources, deps := azure.NetworkTemplateResources("westus", s.envTags, []int{17070}, nil)
+
+	// First resource: NSG.
+	c.Assert(resources, tc.HasLen, 2)
+	c.Check(resources[0].Name, tc.Equals, azure.SecurityGroupName)
+
+	// Second resource: VNet.
+	vnet := resources[1]
+	c.Check(vnet.Name, tc.Equals, azure.InternalNetworkName)
+
+	vnetProps, ok := vnet.Properties.(*armnetwork.VirtualNetworkPropertiesFormat)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(vnetProps.AddressSpace, tc.NotNil)
+
+	// VNet address space must include both IPv4 prefixes and the IPv6 ULA prefix.
+	addrPrefixes := vnetProps.AddressSpace.AddressPrefixes
+	c.Assert(addrPrefixes, tc.HasLen, 3)
+	c.Check(toValue(addrPrefixes[0]), tc.Equals, azure.InternalSubnetPrefix)
+	c.Check(toValue(addrPrefixes[1]), tc.Equals, azure.VnetIPv6Prefix)
+	c.Check(toValue(addrPrefixes[2]), tc.Equals, azure.ControllerSubnetPrefix)
+
+	// Subnets: internal + controller (since apiPorts is non-empty).
+	c.Assert(vnetProps.Subnets, tc.HasLen, 2)
+
+	internalSubnet := vnetProps.Subnets[0]
+	c.Assert(toValue(internalSubnet.Name), tc.Equals, azure.InternalSubnetName)
+	c.Assert(internalSubnet.Properties.AddressPrefixes, tc.HasLen, 2)
+	c.Check(toValue(internalSubnet.Properties.AddressPrefixes[0]), tc.Equals, azure.InternalSubnetPrefix)
+	c.Check(toValue(internalSubnet.Properties.AddressPrefixes[1]), tc.Equals, azure.InternalSubnetIPv6Prefix)
+	// AddressPrefix (singular) should be nil when using AddressPrefixes.
+	c.Check(internalSubnet.Properties.AddressPrefix, tc.IsNil)
+
+	controllerSubnet := vnetProps.Subnets[1]
+	c.Assert(toValue(controllerSubnet.Name), tc.Equals, azure.ControllerSubnetName)
+	c.Assert(controllerSubnet.Properties.AddressPrefixes, tc.HasLen, 2)
+	c.Check(toValue(controllerSubnet.Properties.AddressPrefixes[0]), tc.Equals, azure.ControllerSubnetPrefix)
+	c.Check(toValue(controllerSubnet.Properties.AddressPrefixes[1]), tc.Equals, azure.ControllerSubnetIPv6Prefix)
+
+	// NSG ID is returned as a dependency.
+	c.Assert(deps, tc.HasLen, 1)
+}
+
+func (s *environSuite) TestNetworkTemplateResourcesNoControllerSubnet(c *tc.C) {
+	// When no API ports are given, no controller subnet should be created,
+	// but the VNet and internal subnet should still be dual-stack.
+	resources, _ := azure.NetworkTemplateResources("westus", s.envTags, nil, nil)
+
+	c.Assert(resources, tc.HasLen, 2)
+	vnet := resources[1]
+
+	vnetProps, ok := vnet.Properties.(*armnetwork.VirtualNetworkPropertiesFormat)
+	c.Assert(ok, tc.IsTrue)
+
+	// VNet: internal IPv4 + IPv6 ULA only (no controller prefix).
+	addrPrefixes := vnetProps.AddressSpace.AddressPrefixes
+	c.Assert(addrPrefixes, tc.HasLen, 2)
+	c.Check(toValue(addrPrefixes[0]), tc.Equals, azure.InternalSubnetPrefix)
+	c.Check(toValue(addrPrefixes[1]), tc.Equals, azure.VnetIPv6Prefix)
+
+	// Only one subnet (internal, no controller).
+	c.Assert(vnetProps.Subnets, tc.HasLen, 1)
+	c.Assert(vnetProps.Subnets[0].Properties.AddressPrefixes, tc.HasLen, 2)
+	c.Check(toValue(vnetProps.Subnets[0].Properties.AddressPrefixes[1]), tc.Equals, azure.InternalSubnetIPv6Prefix)
 }
