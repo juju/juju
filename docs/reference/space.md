@@ -30,49 +30,5 @@ Endpoint bindings can be specified during deployment with `juju deploy --bind` o
 
 ## Support for spaces in Juju providers
 
-Support for spaces by the different Juju providers falls into one of three cases.
-
-### Spaces inherited from the substrate
-
-This is the case for MAAS, as described below.
-
-#### MAAS
-
-The concept of spaces is native to MAAS and its API can be used to modify the space/subnet topology. As such, Juju does not permit editing of spaces in a MAAS model. MAAS spaces and subnets are read and loaded into Juju when a new model is created.
-
-If spaces or subnets are changed in MAAS, they can be reloaded into Juju via Juju's `reload-spaces` command.
-
-```{important}
-
-The `reload-spaces` command does not currently pull in all information. This is being worked upon. See [LP #1747998](https://bugs.launchpad.net/juju/+bug/1747998).
-
-```
-
-For other providers, `reload-spaces` will fall back to refreshing the known subnets if subnet discovery is supported. One scenario for this usage would be adding a subnet to an AWS VPC that Juju is using, and then issuing the `reload-spaces` command so that the new subnet is available for association with a Juju space.
-
-### Subnets inherited from the substrate
-
-This is the case for EC2, OpenStack and Azure, and LXD. Inherited subnets are then grouped into spaces at the discretion of the Juju administrator.
-
-#### EC2
-
-Machines on Amazon EC2 are provisioned with a single network device. At this time, specifying multiple space constraints and/or bindings will result in selection of a *single intersecting* space in order to provision the machine.
-
-#### OpenStack and Azure
-
-The OpenStack and Azure providers support multiple network devices. Supplying multiple space constraints and/or bindings will provision machines with NICs in subnets representing the *union* of specified spaces.
-
-#### LXD
-
-LXD automatically detects any subnets belonging to bridge networks that it has access to. It is up to the Juju user to define spaces using these subnets.
-
-### Subnets discovered progressively
-
-This is the case for the Manual provider, as described below.
-
-#### Manual
-
-For the Manual provider, space support differs somewhat from other providers. The `reload-spaces` command does not discover subnets. Instead, each time a manual machine is provisioned, its discovered network devices are used to update Juju's known subnet list.
-
-Accordingly, the machines to be used in a manual provider must be provisioned by Juju before their subnets can be grouped into spaces. When provisioning a machine results in discovery of a new subnet, that subnet will reside in the _alpha_ space.
+Support for spaces may vary from one cloud to another. For cloud-specific details, see the networking behavior section in each cloud's reference doc: {ref}`Amazon EC2 <cloud-ec2>`, {ref}`Microsoft Azure <cloud-azure>`, {ref}`OpenStack <cloud-openstack>`, {ref}`LXD <cloud-lxd>`, {ref}`MAAS <cloud-maas>`, {ref}`Manual <cloud-manual>`.
 

@@ -326,6 +326,7 @@ new_tab_link_show_external_link_icon = True
 
 exclude_patterns = [
     "doc-cheat-sheet*",
+    "agents/**",
 ]
 
 # Adds custom CSS files, located under 'html_static_path'

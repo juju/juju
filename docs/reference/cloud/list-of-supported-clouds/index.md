@@ -10,27 +10,27 @@ myst:
 ```{toctree}
 :hidden:
 
-Amazon EC2 <the-amazon-ec2-cloud-and-juju>
-Amazon EKS <the-amazon-eks-cloud-and-juju>
-Equinix Metal <the-equinix-metal-cloud-and-juju>
-Canonical K8s <the-canonical-ks-cloud-and-juju>
-Google GCE <the-google-gce-cloud-and-juju>
-Google GKE <the-google-gke-cloud-and-juju>
-LXD <the-lxd-cloud-and-juju>
-MAAS <the-maas-cloud-and-juju>
-Manual <the-manual-cloud-and-juju>
-MicroK8s <the-microk8s-cloud-and-juju>
-Microsoft Azure <the-microsoft-azure-cloud-and-juju>
-Microsoft AKS <the-microsoft-aks-cloud-and-juju>
-OpenStack <the-openstack-cloud-and-juju>
-Oracle OCI <the-oracle-oci-cloud-and-juju>
-VMware vSphere <the-vmware-vsphere-cloud-and-juju>
+Amazon EC2 <amazon-ec2>
+Amazon EKS <amazon-eks>
+Canonical K8s <canonical-kubernetes>
+Equinix Metal <equinix-metal>
+Google GCE <google-gce>
+Google GKE <google-gke>
+LXD <lxd>
+MAAS <maas>
+Manual <manual>
+MicroK8s <microk8s>
+Microsoft AKS <microsoft-aks>
+Microsoft Azure <microsoft-azure>
+OpenStack <openstack>
+Oracle OCI <oracle-oci>
+VMware vSphere <vmware-vsphere>
 ```
 
-Juju supports all of the following clouds. Click to find out more about using your cloud(s) of interest with Juju.
+Juju supports all of the following clouds.
 
 (list-of-supported-machine-clouds)=
-## List of supported machine clouds
+## Machine clouds
 
 - {ref}`Amazon EC2 <cloud-ec2>`
 - {ref}`Equinix Metal <cloud-equinix>`
@@ -44,12 +44,10 @@ Juju supports all of the following clouds. Click to find out more about using yo
 - {ref}`VMware vSphere <cloud-vsphere>`
 
 (list-of-supported-kubernetes-clouds)=
-## List of supported Kubernetes clouds
-
-> See also: {ref}`kubernetes-clouds-and-juju`
+## Kubernetes clouds
 
 - {ref}`Amazon EKS <cloud-kubernetes-eks>`
-- {ref}`Canonical K8s <cloud-canonical-k8s>`
+- {ref}`Canonical Kubernetes <cloud-canonical-k8s>`
 - {ref}`Google GKE <cloud-kubernetes-gke>`
 - {ref}`MicroK8s <cloud-kubernetes-microk8s>`
 - {ref}`Microsoft AKS <cloud-kubernetes-aks>`
