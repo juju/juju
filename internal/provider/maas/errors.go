@@ -4,7 +4,7 @@
 package maas
 
 import (
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 
 	"github.com/juju/juju/internal/provider/common"
 )
