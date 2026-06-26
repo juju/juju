@@ -8,6 +8,7 @@ import (
 	"time"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/secret"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -21,6 +22,7 @@ type State interface {
 	UpdateSecretBackend(ctx context.Context, params secretbackend.UpdateSecretBackendParams) (string, error)
 	DeleteSecretBackend(ctx context.Context, _ secretbackend.BackendIdentifier, deleteInUse bool) error
 	GetSecretBackend(context.Context, secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error)
+	AddSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string) (func() error, error)
 	ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error)
 	ListSecretBackendIDs(ctx context.Context) ([]string, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error

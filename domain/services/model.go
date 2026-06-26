@@ -435,6 +435,7 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 		s.controllerWatcherFactory("modelmigration"),
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
+		s.logger.Child("modelmigration"),
 	)
 }
 

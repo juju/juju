@@ -60,15 +60,62 @@ func (s *MigrationService) ImportModel(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	args, modelType, err := s.prepareModelImport(ctx, args)
+	if err != nil {
+		return err
+	}
+
+	return s.st.ImportModel(ctx, args.UUID, modelType, args.GlobalModelCreationArgs)
+}
+
+// ImportModelV2 bootstraps the target-local model identity for a v8
+// migration import: the controller-database model row, model_namespace,
+// admin permissions and secret backend. Unlike ImportModel, it does not
+// insert a model_migration_import row -- the v8 import claim is the durable
+// lock of record and is owned by the modelmigration domain
+// (Service.BeginImport), which must already hold the claim for args.UUID by
+// the time this is called.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists]: When the model uuid is already in use or a
+// model with the same name and owner already exists.
+// - [errors.NotFound]: When the cloud, cloud region, or credential do not
+// exist.
+// - [github.com/juju/juju/domain/access/errors.NotFound]: When the owner of the
+// model can not be found.
+// - [secretbackenderrors.NotFound] When the secret backend for the model
+// cannot be found.
+func (s *MigrationService) ImportModelV2(
+	ctx context.Context,
+	args model.ModelImportArgs,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	args, modelType, err := s.prepareModelImport(ctx, args)
+	if err != nil {
+		return err
+	}
+
+	return s.st.Create(ctx, args.UUID, modelType, args.GlobalModelCreationArgs)
+}
+
+// prepareModelImport validates the import args, resolves the model type from
+// the target cloud, and infers a default secret backend when none was
+// supplied. It is shared by ImportModel and ImportModelV2, which differ only
+// in whether the bootstrap also claims a model_migration_import row.
+func (s *MigrationService) prepareModelImport(
+	ctx context.Context, args model.ModelImportArgs,
+) (model.ModelImportArgs, coremodel.ModelType, error) {
 	if err := args.Validate(); err != nil {
-		return errors.Errorf(
+		return args, "", errors.Errorf(
 			"cannot validate model import args: %w", err,
 		)
 	}
 
 	modelType, err := service.ModelTypeForCloud(ctx, s.st, args.Cloud)
 	if err != nil {
-		return errors.Errorf(
+		return args, "", errors.Errorf(
 			"determining model type when importing model %q: %w",
 			args.Name, err,
 		)
@@ -81,7 +128,7 @@ func (s *MigrationService) ImportModel(
 		case coremodel.IAAS:
 			args.SecretBackend = jujusecrets.BackendName
 		default:
-			return errors.Errorf(
+			return args, "", errors.Errorf(
 				"%w for model type %q when creating model with name %q",
 				secretbackenderrors.NotFound,
 				modelType,
@@ -90,11 +137,7 @@ func (s *MigrationService) ImportModel(
 		}
 	}
 
-	if err := s.st.ImportModel(ctx, args.UUID, modelType, args.GlobalModelCreationArgs); err != nil {
-		return err
-	}
-
-	return nil
+	return args, modelType, nil
 }
 
 // ActivateModel marks the model as active after a successful import or

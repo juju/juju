@@ -26,7 +26,7 @@ func (s *serviceSuite) TestBeginImportSuccess(c *tc.C) {
 	s.controllerState.EXPECT().BeginImport(gomock.Any(), modelUUID.String(), gomock.Any(), "source-uuid").Return(
 		modelmigration.ImportClaim{Phase: modelmigration.ImportPhaseImporting}, nil)
 
-	claimUUID, err := s.service().BeginImport(c.Context(), modelUUID, "source-uuid")
+	claimUUID, err := s.service(c).BeginImport(c.Context(), modelUUID, "source-uuid")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(claimUUID, tc.Not(tc.Equals), "")
 }
@@ -36,7 +36,7 @@ func (s *serviceSuite) TestBeginImportSuccess(c *tc.C) {
 func (s *serviceSuite) TestBeginImportInvalidModelUUID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service().BeginImport(c.Context(), coremodel.UUID("not-a-uuid"), "source-uuid")
+	_, err := s.service(c).BeginImport(c.Context(), coremodel.UUID("not-a-uuid"), "source-uuid")
 	c.Assert(err, tc.ErrorMatches, "validating model uuid.*")
 }
 
@@ -51,7 +51,7 @@ func (s *serviceSuite) TestBeginImportDuplicateImporting(c *tc.C) {
 		modelmigration.ImportClaim{Phase: modelmigration.ImportPhaseImporting},
 		modelmigrationerrors.ErrImportClaimExists)
 
-	_, err := s.service().BeginImport(c.Context(), modelUUID, "source-uuid")
+	_, err := s.service(c).BeginImport(c.Context(), modelUUID, "source-uuid")
 	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
 	c.Check(err, tc.ErrorMatches, "model import for .*")
 }
@@ -66,7 +66,7 @@ func (s *serviceSuite) TestBeginImportDuplicateActivating(c *tc.C) {
 		modelmigration.ImportClaim{Phase: modelmigration.ImportPhaseActivating},
 		modelmigrationerrors.ErrImportClaimExists)
 
-	_, err := s.service().BeginImport(c.Context(), modelUUID, "source-uuid")
+	_, err := s.service(c).BeginImport(c.Context(), modelUUID, "source-uuid")
 	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
 	c.Check(err, tc.ErrorMatches, ".*activation in progress.*")
 }
@@ -81,7 +81,7 @@ func (s *serviceSuite) TestBeginImportDuplicateAborting(c *tc.C) {
 		modelmigration.ImportClaim{Phase: modelmigration.ImportPhaseAborting},
 		modelmigrationerrors.ErrImportClaimExists)
 
-	_, err := s.service().BeginImport(c.Context(), modelUUID, "source-uuid")
+	_, err := s.service(c).BeginImport(c.Context(), modelUUID, "source-uuid")
 	c.Assert(err, tc.ErrorIs, coreerrors.AlreadyExists)
 	c.Check(err, tc.ErrorMatches, ".*cleanup in progress.*")
 }
@@ -94,7 +94,7 @@ func (s *serviceSuite) TestAssertImportingPassesThrough(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	s.controllerState.EXPECT().AssertImporting(gomock.Any(), modelUUID.String()).Return(nil)
 
-	err := s.service().AssertImporting(c.Context(), modelUUID)
+	err := s.service(c).AssertImporting(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -107,7 +107,7 @@ func (s *serviceSuite) TestImportOfferPermissionsPassesThrough(c *tc.C) {
 	offerUUIDs := []string{"offer-1", "offer-2"}
 	s.controllerState.EXPECT().ImportOfferPermissions(gomock.Any(), modelUUID.String(), "claim-uuid", offerUUIDs).Return(nil)
 
-	err := s.service().ImportOfferPermissions(c.Context(), modelUUID, "claim-uuid", offerUUIDs)
+	err := s.service(c).ImportOfferPermissions(c.Context(), modelUUID, "claim-uuid", offerUUIDs)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -129,7 +129,7 @@ func (s *serviceSuite) TestEnsureExternalControllerExistsGeneratesAddressUUIDs(c
 			return nil
 		})
 
-	err := s.service().EnsureExternalControllerExists(c.Context(), ref)
+	err := s.service(c).EnsureExternalControllerExists(c.Context(), ref)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -147,6 +147,6 @@ func (s *serviceSuite) TestImportExternalControllersPassesThrough(c *tc.C) {
 	s.controllerState.EXPECT().ImportExternalControllers(
 		gomock.Any(), modelUUID.String(), "claim-uuid", stateRefs).Return(nil)
 
-	err := s.service().ImportExternalControllers(c.Context(), modelUUID, "claim-uuid", refs)
+	err := s.service(c).ImportExternalControllers(c.Context(), modelUUID, "claim-uuid", refs)
 	c.Assert(err, tc.ErrorIsNil)
 }

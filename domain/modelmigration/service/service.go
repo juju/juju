@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
@@ -71,6 +72,7 @@ type Service struct {
 	modelState      ModelState
 	watcherFactory  WatcherFactory
 	modelUUID       string
+	logger          logger.Logger
 }
 
 // WatcherFactory describes methods for creating watchers used by the
@@ -184,6 +186,11 @@ type ControllerState interface {
 	// exists on the controller.
 	SecretBackendExists(ctx context.Context, name string) (bool, error)
 
+	// GetConflictingCloudImageMetadata reports, for each supplied custom image
+	// metadata row, the existing target image id when a row with the same
+	// natural key already exists on the controller with a different image id.
+	GetConflictingCloudImageMetadata(ctx context.Context, rows []modelmigration.ImportPrecheckImageMetadata) ([]modelmigration.CloudImageMetadataConflict, error)
+
 	// BeginImport inserts a new durable model_migration_import claim
 	// (phase=importing) for modelUUID as the first target-side write of a v8
 	// import, using claimUUID as the claim's UUID, and returns the resulting
@@ -261,15 +268,14 @@ type ModelState interface {
 	GetThirdPartyOffererModels(ctx context.Context) ([]modelmigrationinternal.OffererModel, error)
 }
 
-// NewImportService constructs a new [Service] for the v8 import driver,
-// which only ever calls the controller-scoped claim methods (BeginImport,
-// AssertImporting, ImportOfferPermissions, ImportExternalControllers). The
-// model-export-only dependencies (modelState, watcherFactory, the provider
-// getters, modelUUID) are intentionally left unset rather than passed as
-// nil by the caller.
-func NewImportService(controllerState ControllerState) *Service {
+// NewImportService constructs a new [Service] for the v8 import driver, which
+// only needs controller-scoped claim methods. The model-export-only
+// dependencies (modelState, watcherFactory, the provider getters, modelUUID)
+// are intentionally left unset rather than passed as nil by the caller.
+func NewImportService(controllerState ControllerState, logger logger.Logger) *Service {
 	return &Service{
 		controllerState: controllerState,
+		logger:          logger,
 	}
 }
 
@@ -282,6 +288,7 @@ func NewService(
 	watcherFactory WatcherFactory,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	logger logger.Logger,
 ) *Service {
 	return &Service{
 		controllerState:        controllerState,
@@ -290,6 +297,7 @@ func NewService(
 		instanceProviderGetter: instanceProviderGetter,
 		resourceProviderGetter: resourceProviderGetter,
 		modelUUID:              modelUUID,
+		logger:                 logger,
 	}
 }
 

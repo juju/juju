@@ -62,14 +62,9 @@ func (s *Service) BeginImport(ctx context.Context, modelUUID coremodel.UUID, sou
 }
 
 // AssertImporting returns nil if a model_migration_import claim exists for
-// modelUUID and its phase is 'importing'. The v8 import driver calls this
-// once, after all controller-data write groups have completed, so a non-nil
-// result means Abort or Activate raced ahead of the import at some point
-// during it. ImportOfferPermissions and ImportExternalControllers each fold
-// their own importing-phase assertion atomically into their write, so those
-// two write groups specifically are guarded as they happen; the writes in
-// between are not individually guarded. Closing that gap with a per-group
-// atomic assertion is deferred to the Task 11 reconciler.
+// modelUUID and its phase is 'importing'. Write groups that need race-safe
+// phase gating should prefer methods that fold the importing assertion into
+// the same transaction as the write.
 func (s *Service) AssertImporting(ctx context.Context, modelUUID coremodel.UUID) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

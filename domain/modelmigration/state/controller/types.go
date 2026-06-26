@@ -139,6 +139,20 @@ type countResult struct {
 	Count int `db:"count"`
 }
 
+// cloudImageRow is a custom cloud_image_metadata row with its architecture
+// resolved to a name, used to detect natural-key conflicts during the v8
+// import precheck.
+type cloudImageRow struct {
+	Stream          string `db:"stream"`
+	Region          string `db:"region"`
+	Version         string `db:"version"`
+	Arch            string `db:"arch"`
+	VirtType        string `db:"virt_type"`
+	RootStorageType string `db:"root_storage_type"`
+	Source          string `db:"source"`
+	ImageID         string `db:"image_id"`
+}
+
 // modelIdentityRow is the model's bootstrap identity with cloud, region,
 // credential and life resolved to natural keys. Region and credential columns
 // are nullable.
