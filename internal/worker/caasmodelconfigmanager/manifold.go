@@ -8,23 +8,56 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/internal/services"
 )
+
+// ControllerConfigService provides access to controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
+}
+
+// GetDomainServicesFunc is a helper function that gets the domain services
+// from the manifold.
+type GetDomainServicesFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
+
+// GetDomainServices is a helper function that gets the controller config
+// service from the manifold.
+func GetDomainServices(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	return getDependencyByName(getter, name, func(s services.DomainServices) ControllerConfigService {
+		return s.ControllerConfig()
+	})
+}
+
+// getDependencyByName is a helper that extracts a dependency of type A from
+// the getter and transforms it to type B using the provided function.
+func getDependencyByName[A, B any](getter dependency.Getter, name string, fn func(A) B) (B, error) {
+	var a A
+	if err := getter.Get(name, &a); err != nil {
+		var zero B
+		return zero, err
+	}
+	return fn(a), nil
+}
 
 // ManifoldConfig describes how to configure and construct a Worker,
 // and what registered resources it may depend upon.
 type ManifoldConfig struct {
-	APICallerName string
-	BrokerName    string
+	DomainServicesName string
+	BrokerName         string
+	ModelUUID          string
 
-	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
+	GetDomainServices GetDomainServicesFunc
+	NewWorker         func(Config) (worker.Worker, error)
 
 	Logger logger.Logger
 	Clock  clock.Clock
@@ -32,14 +65,17 @@ type ManifoldConfig struct {
 
 // Validate is called by start to check for bad configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.APICallerName == "" {
-		return errors.NotValidf("empty APICallerName")
+	if config.DomainServicesName == "" {
+		return errors.NotValidf("empty DomainServicesName")
 	}
 	if config.BrokerName == "" {
 		return errors.NotValidf("empty BrokerName")
 	}
-	if config.NewFacade == nil {
-		return errors.NotValidf("nil NewFacade")
+	if config.ModelUUID == "" {
+		return errors.NotValidf("empty ModelUUID")
+	}
+	if config.GetDomainServices == nil {
+		return errors.NotValidf("nil GetDomainServices")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -53,13 +89,8 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var apiCaller base.APICaller
-	if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -68,18 +99,14 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	modelTag, ok := apiCaller.ModelTag()
-	if !ok {
-		return nil, errors.New("API connection is controller-only (should never happen)")
-	}
-
-	facade, err := config.NewFacade(apiCaller)
+	ctrlConfigSvc, err := config.GetDomainServices(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	worker, err := config.NewWorker(Config{
-		ModelTag:     modelTag,
-		Facade:       facade,
+
+	w, err := config.NewWorker(Config{
+		ModelTag:     names.NewModelTag(config.ModelUUID),
+		Facade:       ctrlConfigSvc,
 		Broker:       broker,
 		Logger:       config.Logger,
 		RegistryFunc: registry.New,
@@ -88,7 +115,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return worker, nil
+	return w, nil
 }
 
 // Manifold returns a dependency.Manifold that will run a Worker as
@@ -96,7 +123,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
+			config.DomainServicesName,
 			config.BrokerName,
 		},
 		Start: config.start,
