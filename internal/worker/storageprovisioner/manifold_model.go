@@ -74,6 +74,7 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 				removalSvc:     domainServices.Removal(),
 				statusSvc:      domainServices.Status(),
 				blockDeviceSvc: domainServices.BlockDevice(),
+				clock:          config.Clock,
 			}
 
 			w, err := config.NewWorker(Config{
