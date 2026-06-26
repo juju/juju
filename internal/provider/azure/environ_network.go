@@ -327,17 +327,17 @@ func (env *azureEnviron) defaultControllerSubnet() network.Id {
 	return network.Id(subnetID)
 }
 
-func (env *azureEnviron) findSubnetID(ctx context.Context, subnetName string) (network.Id, error) {
+func (env *azureEnviron) findSubnet(ctx context.Context, subnetName string) (*azurenetwork.Subnet, error) {
 	subnets, err := env.allProviderSubnets(ctx)
 	if err != nil {
-		return "", env.HandleCredentialError(ctx, err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	for _, subnet := range subnets {
 		if toValue(subnet.Name) == subnetName {
-			return network.Id(toValue(subnet.ID)), nil
+			return subnet, nil
 		}
 	}
-	return "", errors.NotFoundf("subnet %q", subnetName)
+	return nil, errors.NotFoundf("subnet %q", subnetName)
 }
 
 // networkInfoForInstance returns the virtual network and subnet to use
@@ -379,12 +379,12 @@ func (env *azureEnviron) networkInfoForInstance(
 		if controller {
 			defaultSubnetName = controllerSubnetName
 		}
-		defaultSubnetID, err := env.findSubnetID(ctx, defaultSubnetName)
+		defaultSubnet, err := env.findSubnet(ctx, defaultSubnetName)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return "", nil, errors.Trace(err)
 		}
 		if err == nil {
-			return vnetID, []network.Id{defaultSubnetID}, nil
+			return vnetID, []network.Id{providerSubnetID(defaultSubnet)}, nil
 		}
 
 		// For deployments without a spaces constraint, there's no subnets to zones mapping.
@@ -479,15 +479,20 @@ func (env *azureEnviron) parsePlacement(placement string) (string, error) {
 	return "", fmt.Errorf("unknown placement directive: %v", placement)
 }
 
-func (env *azureEnviron) findPlacementSubnet(ctx context.Context, placement string) (network.Id, error) {
+// providerSubnetID extracts the network.Id from an Azure subnet resource.
+func providerSubnetID(subnet *azurenetwork.Subnet) network.Id {
+	return network.Id(toValue(toValue(subnet).ID))
+}
+
+func (env *azureEnviron) findPlacementSubnet(ctx context.Context, placement string) (*azurenetwork.Subnet, error) {
 	if placement == "" {
-		return "", nil
+		return nil, nil
 	}
 	subnetName, err := env.parsePlacement(placement)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	logger.Debugf(ctx, "searching for subnet matching placement directive %q", subnetName)
-	return env.findSubnetID(ctx, subnetName)
+	return env.findSubnet(ctx, subnetName)
 }

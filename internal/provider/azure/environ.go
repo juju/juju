@@ -571,9 +571,12 @@ func (env *azureEnviron) PrecheckInstance(ctx context.Context, args environs.Pre
 		return errors.Trace(err)
 	}
 
-	if _, err := env.findPlacementSubnet(ctx, args.Placement); err != nil {
+	// Resolve placement subnet and validate IPv6 support early.
+	_, err := env.findPlacementSubnet(ctx, args.Placement)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
@@ -904,36 +907,22 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	// Resolve placement subnet. For dual-stack, also validate IPv6 support
-	// using the same subnet list to avoid duplicate API calls.
+	// Resolve placement subnet and validate IPv6 support.
+	// findPlacementSubnet returns nil if no placement is specified.
+	placementSubnet, err := env.findPlacementSubnet(ctx, args.Placement)
+	if err != nil {
+		return environs.ZoneIndependentError(err)
+	}
+
+	// Validate ip-family constraints against the placement subnet (if any).
+	if err := env.validateIPFamilyForCreate(ctx, args.Constraints, placementSubnet); err != nil {
+		return environs.ZoneIndependentError(err)
+	}
+
+	// Extract placement subnet ID for use in networkInfoForInstance.
 	var placementSubnetID network.Id
-	if args.Placement != "" {
-		allSubnets, subErr := env.allProviderSubnets(ctx)
-		if subErr != nil {
-			return environs.ZoneIndependentError(subErr)
-		}
-		subnetName, subErr := env.parsePlacement(args.Placement)
-		if subErr != nil {
-			return environs.ZoneIndependentError(subErr)
-		}
-		for _, subnet := range allSubnets {
-			if toValue(subnet.Name) != subnetName {
-				continue
-			}
-			placementSubnetID = network.Id(toValue(subnet.ID))
-			if err := env.validateIPFamilyForCreate(ctx, args.Constraints, subnet); err != nil {
-				return environs.ZoneIndependentError(err)
-			}
-			break
-		}
-		if placementSubnetID == "" {
-			return environs.ZoneIndependentError(errors.NotFoundf("subnet %q", subnetName))
-		}
-	} else {
-		// No placement, but still validate SKU for dual-stack.
-		if err := env.validateIPFamilyForCreate(ctx, args.Constraints, nil); err != nil {
-			return environs.ZoneIndependentError(err)
-		}
+	if placementSubnet != nil {
+		placementSubnetID = providerSubnetID(placementSubnet)
 	}
 	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
 	if err != nil {
