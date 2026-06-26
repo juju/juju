@@ -135,7 +135,7 @@ func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.P
 }
 
 func GetCloudProviderFromNodeMeta(node core.Node) (string, string) {
-	return getCloudRegionFromNodeMeta(node)
+	return GetCloudRegionFromNodeMeta(node)
 }
 
 func (k *kubernetesClient) GetPod(ctx context.Context, podName string) (*core.Pod, error) {
