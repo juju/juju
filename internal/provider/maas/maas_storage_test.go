@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/internal/testhelpers"

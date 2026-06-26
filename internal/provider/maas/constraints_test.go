@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"

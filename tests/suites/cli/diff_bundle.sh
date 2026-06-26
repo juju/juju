@@ -6,14 +6,13 @@ run_diff_bundle_reflexive() {
 	ensure "test-cli-diff-bundle-reflexive" "${file}"
 
 	# Check that numbers are considered equal, even if YAML and JSON choose to interpret them differently
+	# The juju-qa-test charm includes both int and float options
+	# so we install it from a bundle and then compare the model to the bundle
 
-	# Apache has integer config options
-	juju deploy apache2
-	# PostgreSQL has float config options
-	# that default to integral values
-	juju deploy postgresql
+	bundle="./test/suites/cli/bundles/juju-qa-test_full-options_bundle.yaml"
 
-	juju diff-bundle <(juju export-bundle --include-charm-defaults --include-series) | check "{}"
+	juju deploy bundle
+	juju diff-bundle "${bundle}" | check "{}"
 
 	destroy_model "test-cli-diff-bundle-reflexive"
 }

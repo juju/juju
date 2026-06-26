@@ -60,7 +60,7 @@ require (
 	github.com/juju/errors v1.0.0
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
-	github.com/juju/gomaasapi/v2 v2.4.0
+	github.com/juju/gomaasapi/v3 v3.0.0
 	github.com/juju/idmclient/v2 v2.0.1
 	github.com/juju/jsonschema v1.0.1
 	github.com/juju/loggo/v2 v2.2.0
@@ -83,8 +83,8 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.1.6
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mattn/go-sqlite3 v1.14.33
-	github.com/microsoft/kiota-abstractions-go v1.5.3
-	github.com/microsoft/kiota-http-go v1.1.1
+	github.com/microsoft/kiota-abstractions-go v1.9.4
+	github.com/microsoft/kiota-http-go v1.5.6
 	github.com/microsoftgraph/msgraph-sdk-go v1.28.0
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/mapstructure v1.5.0
@@ -160,7 +160,6 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/ebpf v0.11.0 // indirect
-	github.com/cjlapao/common-go v0.0.39 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/cosiner/argv v0.1.0 // indirect
@@ -260,7 +259,7 @@ require (
 	github.com/sony/gobreaker v0.5.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/std-uritemplate/std-uritemplate/go v0.0.47 // indirect
+	github.com/std-uritemplate/std-uritemplate/go/v2 v2.0.3 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
