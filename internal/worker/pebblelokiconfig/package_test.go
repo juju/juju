@@ -1,0 +1,9 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package pebblelokiconfig
+
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination pebble_client_mock_test.go . PebbleClient,LoggerAPI
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
+//go:generate go run github.com/canonical/gomock/mockgen -package pebblelokiconfig_test -destination notify_watcher_mock_test.go github.com/juju/juju/core/watcher NotifyWatcher
