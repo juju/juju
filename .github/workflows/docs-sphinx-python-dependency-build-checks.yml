@@ -69,3 +69,18 @@ jobs:
             install \
             PIPOPTS="--no-binary :all: --only-binary canonical-sphinx" \
             || ( cat .venv/pip_install.log && exit 1 )
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-mm
+        with:
+          mm_url: ${{ secrets.MM_URL }}
+          mm_token: ${{ secrets.MM_TOKEN }}
+          channel: ${{ secrets.MM_CHANNEL }}
+          message: |
+            🤖 **Beep boop! Build failure detected!**
+
+            📍 **Branch:** `${{ github.ref_name }}`
+            🔗 **Workflow run:** [Click here to investigate](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ⚠️ The Sphinx venv build has failed. Please review the logs and fix the issue.
