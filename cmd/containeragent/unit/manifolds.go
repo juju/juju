@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
+	"github.com/juju/juju/internal/worker/pebblelokiconfig"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	"github.com/juju/juju/internal/worker/retrystrategy"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
@@ -353,6 +354,14 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
+		pebbleLokiConfigName: ifNotMigrating(pebblelokiconfig.Manifold(pebblelokiconfig.ManifoldConfig{
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			Clock:           config.Clock,
+			Logger:          internallogger.GetLogger("juju.worker.pebblelokiconfig"),
+			NewPebbleClient: pebblelokiconfig.DefaultPebbleClient,
+		})),
+
 		// Probe HTTP server is a http server for handling probe requests from
 		// Kubernetes. It provides a mux that is used by the caas prober to
 		// register handlers.
@@ -513,6 +522,7 @@ const (
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
 	lokiEndpointUpdaterName  = "loki-endpoint-updater"
+	pebbleLokiConfigName     = "pebble-loki-config"
 	apiAddressUpdaterName    = "api-address-updater"
 
 	caasUnitTerminationWorker = "caas-unit-termination-worker"

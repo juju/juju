@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/logger"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
 )
 
 // LoggerAPI represents the API calls the worker makes.
@@ -97,7 +97,7 @@ func (w *lokiEndpointUpdater) TearDown() error {
 
 func (w *lokiEndpointUpdater) update(ctx context.Context) error {
 	lokiConfig, err := w.config.API.GetControllerLokiConfig(ctx, w.tag)
-	if params.IsCodeNotFound(err) {
+	if errors.Is(err, coreerrors.NotFound) {
 		lokiConfig = logger.ControllerLokiConfig{}
 		err = nil
 	}

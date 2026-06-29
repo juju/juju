@@ -63,6 +63,7 @@ func (*importSuite) TestImports(c *tc.C) {
 		"core/objectstore",
 		"core/os/ostype",
 		"core/paths",
+		"core/pebble",
 		"core/permission",
 		"core/relation",
 		"core/resource",

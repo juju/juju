@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
+	"github.com/juju/juju/core/pebble"
 	internallogger "github.com/juju/juju/internal/logger"
 	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	pebbleidentity "github.com/juju/juju/internal/service/pebble/identity"
@@ -248,7 +249,7 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 	containerAgentLayer := pebbleplan.Layer{
 		Summary: "Juju container agent service",
 		Services: map[string]*pebbleplan.Service{
-			"container-agent": {
+			pebble.ContainerAgentService: {
 				Summary:  "Juju container agent",
 				Override: pebbleplan.ReplaceOverride,
 				Command: fmt.Sprintf("%s unit --data-dir %s --append-env \"PATH=$PATH:%s\" --show-log %s",
