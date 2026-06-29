@@ -90,7 +90,6 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASOperatorUpgrader",
 	"CAASModelConfigManager",
 	"CAASApplication",
-	"CAASApplicationProvisioner",
 )
 
 // caasModelFacadeMethods limits facades that are only partially supported on

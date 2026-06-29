@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
-	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/application"
@@ -40,6 +39,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
+	provisionertypes "github.com/juju/juju/internal/worker/caasapplicationprovisioner/types"
 )
 
 func TestOpsSuite(t *testing.T) {
@@ -403,7 +403,7 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *tc.C) {
 	gomock.InOrder(
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(units, nil),
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(ps, nil),
-		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID),
 		app.EXPECT().Scale(1).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
@@ -579,7 +579,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorage(c *tc.C) {
 	}
 
 	// FilesystemProvisioningInfo with filesystem attachments
-	provisioningInfo := api.FilesystemProvisioningInfo{
+	provisioningInfo := provisionertypes.FilesystemProvisioningInfo{
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,
@@ -627,7 +627,7 @@ func (s *OpsSuite) TestEnsureScaleWithAttachStorageEnsurePVCsFails(c *tc.C) {
 	}
 
 	// FilesystemProvisioningInfo with filesystem attachments
-	provisioningInfo := api.FilesystemProvisioningInfo{
+	provisioningInfo := provisionertypes.FilesystemProvisioningInfo{
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "data",
 			Size:        100,
@@ -826,7 +826,7 @@ func (s *OpsSuite) TestAppDying(c *tc.C) {
 		applicationService.EXPECT().GetApplicationScalingState(gomock.Any(), "test").Return(applicationservice.ScalingState{}, nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, true).Return(nil),
 		applicationService.EXPECT().GetAllUnitLifeForApplication(gomock.Any(), appUUID).Return(nil, nil),
-		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(api.FilesystemProvisioningInfo{}, nil),
+		facade.EXPECT().FilesystemProvisioningInfo(gomock.Any(), "test").Return(provisionertypes.FilesystemProvisioningInfo{}, nil),
 		app.EXPECT().EnsurePVCs(gomock.Any(), gomock.Any(), storageUniqueID).Return(nil),
 		app.EXPECT().Scale(0).Return(nil),
 		applicationService.EXPECT().SetApplicationScalingState(gomock.Any(), "test", 0, false).Return(nil),
@@ -871,7 +871,7 @@ func (s *OpsSuite) TestProvisioningInfo(c *tc.C) {
 	ro := mocks.NewMockOpener(ctrl)
 	resourceOpenerGetter.EXPECT().ResourceOpenerForApplication(gomock.Any(), appId, "test").Return(ro, nil)
 
-	facadePi := api.ProvisioningInfo{
+	facadePi := provisionertypes.ProvisioningInfo{
 		ImageDetails: coreresource.DockerImageDetails{
 			RegistryPath: "test-repo/jujud-operator:2.9.99",
 			ImageRepoDetails: coreresource.ImageRepoDetails{

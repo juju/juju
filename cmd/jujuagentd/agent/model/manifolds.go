@@ -523,11 +523,11 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
 			caasapplicationprovisioner.ManifoldConfig{
-				APICallerName:      apiCallerName,
 				DomainServicesName: domainServicesName,
 				BrokerName:         providerTrackerName,
 				ClockName:          clockName,
 				NewWorker:          caasapplicationprovisioner.NewProvisionerWorker,
+				GetDomainServices:  caasapplicationprovisioner.GetDomainServices,
 				Logger:             config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
 			},
 		)),
