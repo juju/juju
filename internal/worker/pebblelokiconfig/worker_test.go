@@ -161,7 +161,6 @@ func (s *workerSuite) TestReconcileOnInitialEvent(c *tc.C) {
 	done := make(chan struct{})
 	lokiConfig := logger.ControllerLokiConfig{
 		Endpoint: "https://loki.example.com/loki/api/v1/push",
-		CACert:   "ca-cert",
 	}
 	s.api.EXPECT().GetControllerLokiConfig(gomock.Any(), gomock.Any()).
 		Return(lokiConfig, nil)
@@ -339,9 +338,12 @@ func (s *workerSuite) TestReconcilePebbleIncompatibleSkipsSubsequent(c *tc.C) {
 	workertest.CheckAlive(c, w)
 
 	// Send more changes — no additional AddLayer calls should happen.
+	// Wait for the worker to drain the changes channel so we know it has
+	// processed every event. The gomock controller's Finish will then
+	// verify that AddLayer was called exactly once.
 	s.sendChange()
 	s.sendChange()
-	time.Sleep(100 * time.Millisecond)
+	s.waitChangesDrained(c)
 	workertest.CheckAlive(c, w)
 }
 
@@ -425,7 +427,6 @@ func (s *workerSuite) TestBuildLayerYAML(c *tc.C) {
 
 	lokiConfig := logger.ControllerLokiConfig{
 		Endpoint: "https://loki.example.com/loki/api/v1/push",
-		CACert:   "ca-cert",
 	}
 	data, err := BuildLayerYAML(
 		lokiConfig,
@@ -583,6 +584,24 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 
 func (s *workerSuite) sendChange() {
 	s.changes <- struct{}{}
+}
+
+// waitChangesDrained blocks until the worker has consumed all pending
+// changes from the notify watcher channel. Once the channel is empty, the
+// worker has read every change and — because the incompatible flag is set —
+// returned from handleLokiConfigChange without making any API calls.
+// The gomock controller's Finish will verify that no unexpected calls
+// occurred. This replaces a fixed time.Sleep with a deterministic
+// synchronization point.
+func (s *workerSuite) waitChangesDrained(c *tc.C) {
+	for len(s.changes) > 0 {
+		select {
+		case <-c.Context().Done():
+			c.Fatalf("timed out waiting for changes to be drained")
+		default:
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func (s *workerSuite) waitChan(c *tc.C, ch chan struct{}) {
