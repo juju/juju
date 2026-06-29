@@ -78,9 +78,14 @@ jobs:
           EMAIL_TO_MM_USER: ${{ secrets.EMAIL_TO_MM_USER }}
           IGNORE_EMAILS: ${{ secrets.MERGE_NOTIFY_IGNORE_EMAILS }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
           MESSAGE=$(try-merge errmsg)
-          echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"
+          echo "message<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$MESSAGE" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Notify if merge has conflicts
         if: steps.merge.outputs.conflicts == 'true' && steps.message.outputs.message != ''
