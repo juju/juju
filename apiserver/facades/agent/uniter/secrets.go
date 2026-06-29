@@ -22,8 +22,9 @@ import (
 
 // SecretService provides core secrets operations.
 type SecretService interface {
-	CreateCharmSecret(context.Context, *coresecrets.URI, secret.CreateCharmSecretParams) error
-	UpdateCharmSecret(context.Context, *coresecrets.URI, secret.UpdateCharmSecretParams) error
+
+	// GetSecretValue retrieves the value and reference of a secret for a
+	// specified URI and revision, using a secret accessor.
 	GetSecretValue(context.Context, *coresecrets.URI, int, secret.SecretAccessor) (coresecrets.SecretValue, *coresecrets.ValueRef, error)
 
 	// CheckSecretManageAccess verifies the unit has RoleManage access on
@@ -45,70 +46,6 @@ type SecretService interface {
 	ResolveGrantParams(ctx context.Context, params []secret.SecretAccessParams) []secret.GrantResult
 }
 
-// createSecrets creates new secrets.
-func (u *UniterAPI) createSecrets(ctx context.Context, args params.CreateSecretArgs) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		id, err := u.createSecret(ctx, arg)
-		result.Results[i].Result = id
-		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
-			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
-		}
-		result.Results[i].Error = apiServerErrors.ServerError(err)
-	}
-	return result, nil
-}
-
-func (u *UniterAPI) createSecret(ctx context.Context, arg params.CreateSecretArg) (string, error) {
-	if len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
-		return "", errors.NotValidf("empty secret value")
-	}
-
-	authTag := u.auth.GetAuthTag()
-	// A unit can only create secrets owned by its app
-	// if it is the leader.
-	secretOwner, err := names.ParseTag(arg.OwnerTag)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if !isSameApplication(authTag, secretOwner) {
-		return "", apiServerErrors.ErrPerm
-	}
-
-	var uri *coresecrets.URI
-	if arg.URI != nil {
-		uri, err = coresecrets.ParseURI(*arg.URI)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-	} else {
-		uri = coresecrets.NewURI()
-	}
-
-	params := secret.CreateCharmSecretParams{
-		Version: secrets.Version,
-		UpdateCharmSecretParams: fromUpsertParams(arg.UpsertSecretArg, secret.SecretAccessor{
-			Kind: secret.UnitAccessor,
-			ID:   authTag.Id(),
-		}),
-	}
-	switch kind := secretOwner.Kind(); kind {
-	case names.UnitTagKind:
-		params.CharmOwner = secret.CharmSecretOwner{Kind: secret.UnitCharmSecretOwner, ID: secretOwner.Id()}
-	case names.ApplicationTagKind:
-		params.CharmOwner = secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: secretOwner.Id()}
-	default:
-		return "", errors.NotValidf("secret owner kind %q", kind)
-	}
-	err = u.secretService.CreateCharmSecret(ctx, uri, params)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return uri.String(), nil
-}
-
 func fromUpsertParams(p params.UpsertSecretArg, accessor secret.SecretAccessor) secret.UpdateCharmSecretParams {
 	var valueRef *coresecrets.ValueRef
 	if p.Content.ValueRef != nil {
@@ -127,6 +64,81 @@ func fromUpsertParams(p params.UpsertSecretArg, accessor secret.SecretAccessor) 
 		ValueRef:     valueRef,
 		Checksum:     p.Content.Checksum,
 	}
+}
+
+// prepareSecretCreates validates and converts a list of create args from the
+// wire format into domain types ready for CommitHookChanges. Per-entry
+// validation errors are collected; only structural URI parse errors cause
+// an immediate abort.
+func (u *UniterAPI) prepareSecretCreates(
+	ctx context.Context, creates []params.CreateSecretArg,
+) ([]unitstate.CreateSecretArg, error) {
+	authTag := u.auth.GetAuthTag()
+	secretCreates := make([]unitstate.CreateSecretArg, 0, len(creates))
+	var createErrs []error
+	for _, createArg := range creates {
+		secretCreate, err := u.buildSecretCreateArg(createArg, authTag)
+		if err != nil {
+			createErrs = append(createErrs, err)
+			continue
+		}
+		secretCreates = append(secretCreates, *secretCreate)
+	}
+	if len(createErrs) > 0 {
+		return nil, internalerrors.Errorf(
+			"creating secrets: %w", internalerrors.Join(createErrs...))
+	}
+	return secretCreates, nil
+}
+
+// buildSecretCreateArg validates a single CreateSecretArg and converts it
+// into a domain-level CreateSecretArg ready for CommitHookChanges.
+func (u *UniterAPI) buildSecretCreateArg(
+	createArg params.CreateSecretArg,
+	authTag names.Tag,
+) (*unitstate.CreateSecretArg, error) {
+	if len(createArg.Content.Data) == 0 && createArg.Content.ValueRef == nil {
+		return nil, errors.NotValidf("empty secret value")
+	}
+	if len(createArg.Content.Data) > 0 && createArg.Content.ValueRef != nil {
+		return nil, errors.New("must specify either content or a value reference but not both")
+	}
+	secretOwner, err := names.ParseTag(createArg.OwnerTag)
+	if err != nil {
+		return nil, err
+	}
+	if !isSameApplication(authTag, secretOwner) {
+		return nil, apiServerErrors.ErrPerm
+	}
+
+	createParams := secret.CreateCharmSecretParams{
+		Version: secrets.Version,
+		UpdateCharmSecretParams: fromUpsertParams(createArg.UpsertSecretArg, secret.SecretAccessor{
+			Kind: secret.UnitAccessor,
+			ID:   authTag.Id(),
+		}),
+	}
+	switch kind := secretOwner.Kind(); kind {
+	case names.UnitTagKind:
+		createParams.CharmOwner = secret.CharmSecretOwner{Kind: secret.UnitCharmSecretOwner, ID: secretOwner.Id()}
+	case names.ApplicationTagKind:
+		createParams.CharmOwner = secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: secretOwner.Id()}
+	default:
+		return nil, errors.NotValidf("secret owner kind %q", kind)
+	}
+	var uri *coresecrets.URI
+	if createArg.URI != nil {
+		uri, err = coresecrets.ParseURI(*createArg.URI)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		uri = coresecrets.NewURI()
+	}
+	return &unitstate.CreateSecretArg{
+		CreateCharmSecretParams: createParams,
+		URI:                     uri,
+	}, nil
 }
 
 // isSameApplication returns true if the authenticated entity and the specified entity are in the same application.
@@ -611,6 +623,10 @@ func (u *UniterAPI) prepareSecretUpdates(
 		}
 		if !upd.HasUpdate() {
 			updateErrs = append(updateErrs, errors.New("at least one attribute to update must be specified"))
+			continue
+		}
+		if len(upd.Content.Data) > 0 && upd.Content.ValueRef != nil {
+			updateErrs = append(updateErrs, errors.New("must specify either content or a value reference but not both"))
 			continue
 		}
 		var valueRef *coresecrets.ValueRef

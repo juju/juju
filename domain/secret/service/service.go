@@ -318,88 +318,6 @@ func (s *SecretService) CreateUserSecret(ctx context.Context, uri *secrets.URI, 
 	return nil
 }
 
-// CreateCharmSecret creates a charm secret with the specified parameters,
-// returning an error satisfying [secreterrors.SecretLabelAlreadyExists] if the
-// secret owner already has a secret with the same label.
-func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI, params domainsecret.CreateCharmSecretParams) (errOut error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer func() {
-		span.RecordError(errOut)
-		span.End()
-	}()
-
-	if len(params.Data) > 0 && params.ValueRef != nil {
-		return errors.New("must specify either content or a value reference but not both")
-	}
-
-	now := s.clock.Now()
-	p := domainsecret.UpsertSecretParams{
-		Description: params.Description,
-		Label:       params.Label,
-		ValueRef:    params.ValueRef,
-		Checksum:    params.Checksum,
-		CreateTime:  now,
-		UpdateTime:  now,
-	}
-	if len(params.Data) > 0 {
-		p.Data = make(map[string]string)
-		maps.Copy(p.Data, params.Data)
-	}
-
-	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
-	p.RotatePolicy = &rotatePolicy
-	if params.RotatePolicy.WillRotate() {
-		p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
-	}
-	p.ExpireTime = params.ExpireTime
-
-	revisionID, err := s.uuidGenerator()
-	if err != nil {
-		return errors.Capture(err)
-	}
-	p.RevisionUUID = new(revisionID.String())
-
-	modelID, err := s.secretState.GetModelUUID(ctx)
-	if err != nil {
-		return errors.Errorf("getting model uuid: %w", err)
-	}
-	rollBack, err := s.secretBackendState.AddSecretBackendReference(ctx, p.ValueRef, modelID, revisionID.String(), uri.ID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	defer func() {
-		if errOut != nil {
-			if err := rollBack(); err != nil {
-				s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
-			}
-		}
-	}()
-	switch params.CharmOwner.Kind {
-	case domainsecret.ApplicationCharmSecretOwner:
-		unitName, err := coreunit.NewName(params.Accessor.ID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		appName := unitName.Application()
-		if err := s.leaderEnsurer.LeadershipCheck(appName, params.Accessor.ID).Check(); err != nil {
-			if leadership.IsNotLeaderError(err) {
-				return secreterrors.PermissionDenied
-			}
-			return errors.Capture(err)
-		}
-		if err := s.createCharmApplicationSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
-			return errors.Errorf("creating charm secret %q: %w", uri.ID, err)
-		}
-	case domainsecret.UnitCharmSecretOwner:
-		if err := s.createCharmUnitSecret(ctx, params.Version, uri, params.CharmOwner.ID, p); err != nil {
-			return errors.Errorf("creating charm secret %q: %w", uri.ID, err)
-		}
-	default:
-		return errors.Errorf("unexpected secret owner kind %q for secret %q", params.CharmOwner.Kind, uri.ID)
-	}
-	return nil
-}
-
 // UpdateUserSecret updates a user secret with the specified parameters, returning an error
 // satisfying [secreterrors.SecretNotFound] if the secret does not exist.
 // It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
@@ -494,108 +412,6 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		}
 		return nil
 	})
-}
-
-// UpdateCharmSecret updates a charm secret with the specified parameters, returning an error
-// satisfying [secreterrors.SecretNotFound] if the secret does not exist.
-// It also returns an error satisfying [secreterrors.SecretLabelAlreadyExists] if
-// the secret owner already has a secret with the same label.
-// It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
-func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI, params domainsecret.UpdateCharmSecretParams) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	if len(params.Data) > 0 && params.ValueRef != nil {
-		return errors.New("must specify either content or a value reference but not both")
-	}
-
-	withCaveat, err := s.getManagementCaveat(ctx, uri, params.Accessor)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	p := domainsecret.UpsertSecretParams{
-		Description: params.Description,
-		Label:       params.Label,
-		ValueRef:    params.ValueRef,
-		ExpireTime:  params.ExpireTime,
-		Checksum:    params.Checksum,
-		UpdateTime:  s.clock.Now(),
-	}
-	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
-	p.RotatePolicy = &rotatePolicy
-	if params.RotatePolicy.WillRotate() {
-		policy, err := s.secretState.GetRotatePolicy(ctx, uri)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		// If the policy is less than the new policy, update the next rotation time.
-		if params.RotatePolicy.LessThan(policy) {
-			p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
-		}
-	}
-	if len(params.Data) > 0 {
-		p.Data = make(map[string]string)
-		maps.Copy(p.Data, params.Data)
-	}
-
-	return withCaveat(ctx, func(innerCtx context.Context) (errOut error) {
-		if p.ValueRef != nil || len(p.Data) != 0 {
-			revisionID, err := s.uuidGenerator()
-			if err != nil {
-				return errors.Capture(err)
-			}
-			p.RevisionUUID = new(revisionID.String())
-
-			modelID, err := s.secretState.GetModelUUID(innerCtx)
-			if err != nil {
-				return errors.Errorf("getting model uuid: %w", err)
-			}
-			rollBack, err := s.secretBackendState.AddSecretBackendReference(
-				innerCtx, p.ValueRef, modelID, revisionID.String(), uri.ID)
-			if err != nil {
-				return errors.Capture(err)
-			}
-			defer func() {
-				if errOut != nil {
-					if err := rollBack(); err != nil {
-						s.logger.Warningf(ctx, "failed to roll back secret reference count: %v", err)
-					}
-				}
-			}()
-		}
-
-		err := s.secretState.UpdateSecret(innerCtx, uri, p)
-		if err != nil {
-			return errors.Errorf("updating charm secret %q: %w", uri.ID, err)
-		}
-		return nil
-	})
-}
-
-func (s *SecretService) createCharmApplicationSecret(ctx context.Context, version int, uri *secrets.URI, appName string,
-	params domainsecret.UpsertSecretParams) error {
-	appUUID, err := s.getApplicationUUIDByName(ctx, appName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := s.secretState.CreateCharmApplicationSecret(ctx, version, uri, appUUID,
-		params); err != nil {
-		return errors.Errorf("creating application secret: %w", err)
-	}
-	return nil
-}
-
-func (s *SecretService) createCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string,
-	params domainsecret.UpsertSecretParams) error {
-	unitUUID, err := s.getUnitUUIDByName(ctx, unitName)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := s.secretState.CreateCharmUnitSecret(ctx, version, uri, unitUUID, params); err != nil {
-		return errors.Errorf("creating unit secret: %w", err)
-	}
-	return nil
 }
 
 // ListSecrets returns the secrets matching the specified terms.
@@ -889,17 +705,9 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 					return nil, nil, errors.Capture(err)
 				}
 				if isOwner {
-					// TODO(secrets) - this should be updated when the consumed revision is looked up
-					// but if the secret is a cross model secret, we get the content from the other
-					// model and don't do the update. The logic should be reworked so local lookups
-					// can ge done in a single txn.
-					// Update the label.
-					err := s.UpdateCharmSecret(ctx, uri, domainsecret.UpdateCharmSecretParams{
-						Label: &label,
-						Accessor: domainsecret.SecretAccessor{
-							Kind: domainsecret.UnitAccessor,
-							ID:   unitName.String(),
-						},
+					err := s.secretState.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
+						Label:      &label,
+						UpdateTime: s.clock.Now(),
 					})
 					if err != nil {
 						return nil, nil, errors.Capture(err)

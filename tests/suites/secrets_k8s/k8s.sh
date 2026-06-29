@@ -207,7 +207,7 @@ run_user_secrets() {
 	check_contains "$(juju exec --unit snappass-test/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 
 	juju --show-log remove-secret $secret_uri
-	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
+	check_num_secrets 0
 	until [[ -z $(kubectl -n "$model_name" get secrets -o json | yq -r '.items[].metadata.name | select(. == "'"${secret_short_uri}"'-1")') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
 			echo "Failed: user secret was not deleted."

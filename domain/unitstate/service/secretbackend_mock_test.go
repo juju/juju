@@ -26,8 +26,9 @@ type MockSecretBackendReferenceMutator struct {
 
 // MockSecretBackendReferenceMutatorMockRecorder is the mock recorder for MockSecretBackendReferenceMutator.
 type MockSecretBackendReferenceMutatorMockRecorder struct {
-	mock                             *MockSecretBackendReferenceMutator
-	addSecretBackendReferenceExpects []*gomock.Call5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error]
+	mock                                *MockSecretBackendReferenceMutator
+	addSecretBackendReferenceExpects    []*gomock.Call5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error]
+	updateSecretBackendReferenceExpects []*gomock.Call5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error]
 }
 
 // NewMockSecretBackendReferenceMutator creates a new mock instance.
@@ -59,3 +60,21 @@ func (mr *MockSecretBackendReferenceMutatorMockRecorder) AddSecretBackendReferen
 
 // MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall is the typed call wrapper for AddSecretBackendReference.
 type MockSecretBackendReferenceMutatorAddSecretBackendReferenceCall = gomock.Call5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error]
+
+// UpdateSecretBackendReference mocks base method.
+func (m *MockSecretBackendReferenceMutator) UpdateSecretBackendReference(ctx context.Context, valueRef *secrets.ValueRef, modelID model.UUID, revisionID, secretID string) (func() error, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch5_2(&m.recorder.updateSecretBackendReferenceExpects, m.ctrl, m, "UpdateSecretBackendReference", ctx, valueRef, modelID, revisionID, secretID)
+}
+
+// UpdateSecretBackendReference indicates an expected call of UpdateSecretBackendReference.
+func (mr *MockSecretBackendReferenceMutatorMockRecorder) UpdateSecretBackendReference(ctx, valueRef, modelID, revisionID, secretID any) *MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error](mr.mock.ctrl.T, mr.mock, "UpdateSecretBackendReference", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(valueRef), gomock.EnsureMatcher(modelID), gomock.EnsureMatcher(revisionID), gomock.EnsureMatcher(secretID))
+	mr.updateSecretBackendReferenceExpects = append(mr.updateSecretBackendReferenceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall is the typed call wrapper for UpdateSecretBackendReference.
+type MockSecretBackendReferenceMutatorUpdateSecretBackendReferenceCall = gomock.Call5_2[context.Context, *secrets.ValueRef, model.UUID, string, string, func() error, error]

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/domain/secret"
+	domainsecret "github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/internal/errors"
 )
@@ -46,6 +46,9 @@ type CommitHookUnitInfo struct {
 	// MachineUUID is the UUID of the unit's machine, if the unit is
 	// machine-backed.
 	MachineUUID *string
+
+	// ApplicationUUID is the UUID of the unit's application.
+	ApplicationUUID string
 }
 
 // CommitHookChangesArg contains data needed to commit a hook change
@@ -80,8 +83,9 @@ type CommitHookChangesArg struct {
 	// hook transaction.
 	AddStorage []unitstate.PreparedStorageAdd
 
-	// SecretCreates contains charm secrets to create.
-	SecretCreates []unitstate.CreateSecretArg
+	// SecretCreates contains pre-computed charm secrets to create inside
+	// the transaction.
+	SecretCreates []CreateSecretArg
 
 	// TrackLatestSecrets is a slice of URIs for which the latest revision should
 	// be tracked.
@@ -112,6 +116,30 @@ type DeleteSecretArg struct {
 	ArgJSON *string
 }
 
+// CreateSecretArg holds a pre-computed secret creation request ready for the
+// state layer. All values are resolved and computed outside the transaction.
+type CreateSecretArg struct {
+	// SecretID is the short ID stored in the database (from URI.ID).
+	SecretID string
+
+	// Version is the secret version (typically 1).
+	Version int
+
+	// OwnerKind indicates whether the secret is owned by an application
+	// or a unit.
+	OwnerKind domainsecret.CharmSecretOwnerKind
+
+	// OwnerUUID is the resolved application UUID or unit UUID of the owner.
+	OwnerUUID string
+
+	// Label is the optional secret label.
+	Label string
+
+	// Params contains the pre-computed parameters for creating the secret
+	// (timestamps, revision ID, data, value ref, rotate policy, etc.).
+	Params domainsecret.UpsertSecretParams
+}
+
 // secretDeletionArg is the JSON payload stored in the removal table's arg
 // column when scheduling a charm-secret deletion with specific revisions.
 type secretDeletionArg struct {
@@ -128,16 +156,16 @@ type GrantSecretArg struct {
 	SubjectUUID string
 
 	// SubjectTypeID is the type of the subject entity.
-	SubjectTypeID secret.GrantSubjectType
+	SubjectTypeID domainsecret.GrantSubjectType
 
 	// ScopeUUID is the resolved UUID of the access scope entity.
 	ScopeUUID string
 
 	// ScopeTypeID is the type of the scope entity.
-	ScopeTypeID secret.GrantScopeType
+	ScopeTypeID domainsecret.GrantScopeType
 
 	// RoleID is the role being granted.
-	RoleID secret.Role
+	RoleID domainsecret.Role
 }
 
 // RevokeSecretArg holds a pre-resolved secret revoke request ready for the
@@ -150,7 +178,7 @@ type RevokeSecretArg struct {
 	SubjectUUID string
 
 	// SubjectTypeID is the type of the subject entity.
-	SubjectTypeID secret.GrantSubjectType
+	SubjectTypeID domainsecret.GrantSubjectType
 }
 
 // UpdateSecretArg holds a pre-resolved secret update request ready for the
@@ -161,7 +189,12 @@ type UpdateSecretArg struct {
 	SecretID string
 
 	// RotatePolicy is the new rotation policy (nil if unchanged).
-	RotatePolicy *secret.RotatePolicy
+	RotatePolicy *domainsecret.RotatePolicy
+
+	// NextRotateTime is the computed next rotation time (nil if no change to
+	// the rotation schedule is needed). When the policy changes to
+	// RotateNever, the state layer deletes the secret_rotation row instead.
+	NextRotateTime *time.Time
 
 	// ExpireTime is the expiry time (nil if unchanged).
 	ExpireTime *time.Time
@@ -189,12 +222,13 @@ type UpdateSecretArg struct {
 	RevisionUUID string
 
 	// OwnerKind indicates whether the secret is owned by application or unit.
-	OwnerKind secret.CharmSecretOwnerKind
+	OwnerKind domainsecret.CharmSecretOwnerKind
 }
 
 // TransformCommitHookChangesArg takes a domain package CommitHookChangesArg
 // struct and return an internal package CommitHookChangesArg struct. Does not
-// include RelationSettings.
+// include RelationSettings. SecretCreates and SecretUpdates are handled
+// separately by the service layer's pre-computation step.
 func TransformCommitHookChangesArg(
 	in unitstate.CommitHookChangesArg, unitInfo CommitHookUnitInfo,
 ) (CommitHookChangesArg, error) {
@@ -220,7 +254,7 @@ func TransformCommitHookChangesArg(
 		OpenPorts:          in.OpenPorts,
 		ClosePorts:         in.ClosePorts,
 		CharmState:         in.CharmState,
-		SecretCreates:      in.SecretCreates,
+		SecretCreates:      nil, // will be populated outside this function
 		TrackLatestSecrets: in.TrackLatestSecrets,
 		SecretUpdates:      nil, // will be populated outside this function
 		SecretGrants:       secretGrants,

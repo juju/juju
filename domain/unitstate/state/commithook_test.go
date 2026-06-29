@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/tc"
@@ -1463,6 +1464,7 @@ func (s *commitHookSuite) TestUpdateSecretsMetadata(c *tc.C) {
 	arg := internal.CommitHookChangesArg{
 		UnitUUID: s.unitUUID,
 		SecretUpdates: []internal.UpdateSecretArg{{
+			RevisionUUID: "new-uuid",
 			SecretID:     secretID,
 			RotatePolicy: &policy,
 			Description:  &desc,
@@ -1580,12 +1582,22 @@ func (s *commitHookSuite) TestUpdateSecretsSecretNotFoundIsSkipped(c *tc.C) {
 }
 
 // TestUpdateSecretsWithLabel verifies that updating a secret label works for
-// both unit and application owners.
+// both unit and application owners, and preserves the existing checksum
+// (since metadata-only updates should not clobber the latest content revision's checksum).
 func (s *commitHookSuite) TestUpdateSecretsWithLabel(c *tc.C) {
 	ctx := c.Context()
 	secretID := "update-test-label"
 	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
 	s.addSecretRevision(c, secretID, 1)
+
+	// First, set a real checksum for the revision.
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"UPDATE secret_metadata SET latest_revision_checksum = ? WHERE secret_id = ?",
+			"original-checksum", secretID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 
 	newLabel := "new-label"
 	arg := internal.CommitHookChangesArg{
@@ -1593,21 +1605,97 @@ func (s *commitHookSuite) TestUpdateSecretsWithLabel(c *tc.C) {
 		SecretUpdates: []internal.UpdateSecretArg{{
 			SecretID:  secretID,
 			Label:     &newLabel,
-			Checksum:  "checksum",
+			Checksum:  "", // metadata-only: empty checksum from uniter
 			OwnerKind: secret.UnitCharmSecretOwner,
 		}},
 	}
 
 	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
 
-	var gotLabel string
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	var gotLabel, gotChecksum string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx,
 			"SELECT label FROM secret_unit_owner WHERE secret_id = ?",
 			secretID).Scan(&gotLabel)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotLabel, tc.Equals, newLabel)
+
+	// Verify the checksum is preserved, not clobbered by the empty value from the metadata-only update.
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT latest_revision_checksum FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotChecksum)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotChecksum, tc.Equals, "original-checksum")
+
+	// Verify no new revision was created for a metadata-only update.
+	var revCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 1)
+}
+
+// TestUpdateSecretsMetadataOnlyPreservesChecksum verifies that updating a secret
+// with only metadata changes (description, label, rotation) preserves the checksum
+// of the latest content revision and does not create a new revision.
+func (s *commitHookSuite) TestUpdateSecretsMetadataOnlyPreservesChecksum(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-metadata-checksum"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	// Set a real checksum for the revision.
+	originalChecksum := "original-content-checksum"
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"UPDATE secret_metadata SET latest_revision_checksum = ? WHERE secret_id = ?",
+			originalChecksum, secretID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Update only the description (metadata-only).
+	newDesc := "new description"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:    secretID,
+			Description: &newDesc,
+			Checksum:    "", // metadata-only: uniter sends empty checksum
+			OwnerKind:   secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify description was updated.
+	var gotDesc, gotChecksum string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT description, latest_revision_checksum FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotDesc, &gotChecksum)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotDesc, tc.Equals, newDesc)
+
+	// Verify checksum is preserved, not clobbered.
+	c.Check(gotChecksum, tc.Equals, originalChecksum)
+
+	// Verify no new revision was created.
+	var revCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 1)
 }
 
 // TestUpdateSecretsMarksObsolete verifies that after updating a secret, the old
@@ -1820,6 +1908,238 @@ func (s *commitHookSuite) TestUpdateSecretsDifferentChecksumCreatesNewRevision(c
 	c.Check(revCount, tc.Equals, 3)
 }
 
+func (s *commitHookSuite) TestUpdateSecretsRotatePolicyMoreFrequent(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-rotate-freq"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	oldNextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(24 * time.Hour)
+	s.query(c,
+		"INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, ?)",
+		secretID, oldNextRotate)
+
+	policy := secret.RotateHourly
+	newNextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:       secretID,
+			RotatePolicy:   &policy,
+			NextRotateTime: &newNextRotate,
+			Checksum:       "checksum-rotate-freq",
+			OwnerKind:      secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var gotNextRotate time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT next_rotation_time FROM secret_rotation WHERE secret_id = ?",
+			secretID).Scan(&gotNextRotate)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotNextRotate.UTC(), tc.Equals, newNextRotate.UTC())
+}
+
+func (s *commitHookSuite) TestUpdateSecretsRotatePolicyToNever(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-rotate-never"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	nextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)
+	s.query(c,
+		"INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, ?)",
+		secretID, nextRotate)
+
+	policy := secret.RotateNever
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			RotatePolicy: &policy,
+			Checksum:     "checksum-rotate-never",
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var rotationCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_rotation WHERE secret_id = ?",
+			secretID).Scan(&rotationCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(rotationCount, tc.Equals, 0)
+}
+
+func (s *commitHookSuite) TestUpdateSecretsRotatePolicyLessFrequentKeepsExistingRotation(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-rotate-less"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	oldNextRotate := time.Now().UTC().Truncate(time.Microsecond).Add(time.Hour)
+	s.query(c,
+		"INSERT INTO secret_rotation (secret_id, next_rotation_time) VALUES (?, ?)",
+		secretID, oldNextRotate)
+
+	policy := secret.RotateDaily
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			RotatePolicy: &policy,
+			Checksum:     "checksum-rotate-less",
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?",
+			secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var gotNextRotate time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT next_rotation_time FROM secret_rotation WHERE secret_id = ?",
+			secretID).Scan(&gotNextRotate)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotNextRotate.UTC(), tc.Equals, oldNextRotate.UTC())
+}
+
+// TestUpdateSecretsWithExpireTimeOnly verifies that updating a secret with
+// only ExpireTime (no new data, no new value ref) applies the expiry to the
+// existing latest revision. This is Gap 2 from PR#22651 followup.
+func (s *commitHookSuite) TestUpdateSecretsWithExpireTimeOnly(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-expire-only"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	existingRevUUID := s.addSecretRevision(c, secretID, 1)
+
+	expireTime := time.Now().UTC().Truncate(time.Microsecond).Add(48 * time.Hour)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:   secretID,
+			ExpireTime: &expireTime,
+			Checksum:   "checksum-expire-only",
+			OwnerKind:  secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify that no new revision was created
+	var revCount int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 1)
+
+	// Verify that expiry was applied to the existing revision
+	var gotExpire time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT expire_time FROM secret_revision_expire WHERE revision_uuid = ?",
+			existingRevUUID).Scan(&gotExpire)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotExpire.UTC(), tc.Equals, expireTime.UTC())
+}
+
+// TestUpdateSecretsWithExpireTimeAndNewData verifies that updating a secret
+// with both ExpireTime and new data creates a new revision and applies the
+// expiry to that new revision (regression guard).
+func (s *commitHookSuite) TestUpdateSecretsWithExpireTimeAndNewData(c *tc.C) {
+	ctx := c.Context()
+	secretID := "update-test-expire-with-data"
+	s.addSecretWithOwner(c, secretID, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretID, 1)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	data := map[string]string{"key1": "newvalue1"}
+	expireTime := time.Now().UTC().Truncate(time.Microsecond).Add(24 * time.Hour)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:     secretID,
+			Data:         data,
+			ExpireTime:   &expireTime,
+			Checksum:     "checksum-expire-with-data",
+			RevisionUUID: revUUID,
+			OwnerKind:    secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	// Verify that new revision was created
+	var revCount int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_revision WHERE secret_id = ?",
+			secretID).Scan(&revCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revCount, tc.Equals, 2)
+
+	// Verify that expiry was applied to the new revision
+	var gotExpire time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT expire_time FROM secret_revision_expire WHERE revision_uuid = ?",
+			revUUID).Scan(&gotExpire)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotExpire.UTC(), tc.Equals, expireTime.UTC())
+
+	// Verify data was stored in the new revision
+	var contentCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT count(*) FROM secret_content WHERE revision_uuid = ?",
+			revUUID).Scan(&contentCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(contentCount, tc.Equals, 1)
+}
+
 // addSecretWithOwner inserts a secret with an owner row.
 func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, ownerKind string) {
 	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)
@@ -1830,4 +2150,627 @@ func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, owner
 	case "application":
 		s.query(c, `INSERT INTO secret_application_owner (secret_id, application_uuid) VALUES (?, ?)`, secretID, ownerUUID)
 	}
+}
+
+func (s *commitHookSuite) TestCreateSecretsUnitOwned(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-unit"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Label:     "my-unit-secret",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-unit",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var count int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT count(*) FROM secret WHERE id = ?", secretID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+
+	var label string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_unit_owner WHERE secret_id = ?", secretID).Scan(&label)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label, tc.Equals, "my-unit-secret")
+
+	var roleID int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT role_id FROM secret_permission WHERE secret_id = ? AND subject_uuid = ?", secretID, s.unitUUID).Scan(&roleID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(roleID, tc.Equals, int(secret.RoleManage))
+}
+
+func (s *commitHookSuite) TestCreateSecretsApplicationOwned(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-app"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Label:     "my-app-secret",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-app",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var label string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_application_owner WHERE secret_id = ?", secretID).Scan(&label)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label, tc.Equals, "my-app-secret")
+
+	var roleID int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT role_id FROM secret_permission WHERE secret_id = ? AND subject_uuid = ?", secretID, s.fakeApplicationUUID1).Scan(&roleID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(roleID, tc.Equals, int(secret.RoleManage))
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithRotatePolicy(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-rotate"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	nextRotate := now.Add(24 * time.Hour)
+
+	policy := secret.RotateDaily
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID:   &revUUID,
+				RotatePolicy:   &policy,
+				NextRotateTime: &nextRotate,
+				CreateTime:     now,
+				UpdateTime:     now,
+				Checksum:       "checksum-rotate",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotPolicyID int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT rotate_policy_id FROM secret_metadata WHERE secret_id = ?", secretID).Scan(&gotPolicyID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotPolicyID, tc.Equals, int(policy))
+
+	var gotNextRotate time.Time
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT next_rotation_time FROM secret_rotation WHERE secret_id = ?", secretID).Scan(&gotNextRotate)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotNextRotate.UTC(), tc.Equals, nextRotate.UTC())
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithExpireTime(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-expire"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	expireTime := now.Add(48 * time.Hour)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				ExpireTime:   &expireTime,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Checksum:     "checksum-expire",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotExpire time.Time
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT expire_time FROM secret_revision_expire WHERE revision_uuid = ?", revUUID).Scan(&gotExpire)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotExpire.UTC(), tc.Equals, expireTime.UTC())
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithValueRef(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-valref"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				ValueRef: &coresecrets.ValueRef{
+					BackendID:  "backend-uuid",
+					RevisionID: "ext-rev-123",
+				},
+				Checksum: "checksum-valref",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var backendUUID, revisionID string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT backend_uuid, revision_id FROM secret_value_ref WHERE revision_uuid = ?", revUUID).Scan(&backendUUID, &revisionID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(backendUUID, tc.Equals, "backend-uuid")
+	c.Check(revisionID, tc.Equals, "ext-rev-123")
+}
+
+func (s *commitHookSuite) TestCreateSecretsMultiple(c *tc.C) {
+	ctx := c.Context()
+	revUUID1 := tc.Must(c, uuid.NewUUID).String()
+	revUUID2 := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{
+			{
+				SecretID:  "create-multi-1",
+				Version:   1,
+				OwnerKind: secret.UnitCharmSecretOwner,
+				OwnerUUID: s.unitUUID,
+				Label:     "secret-one",
+				Params: secret.UpsertSecretParams{
+					RevisionUUID: &revUUID1,
+					CreateTime:   now,
+					UpdateTime:   now,
+					Data:         coresecrets.SecretData{"a": "1"},
+					Checksum:     "checksum-1",
+				},
+			},
+			{
+				SecretID:  "create-multi-2",
+				Version:   1,
+				OwnerKind: secret.ApplicationCharmSecretOwner,
+				OwnerUUID: s.fakeApplicationUUID1,
+				Label:     "secret-two",
+				Params: secret.UpsertSecretParams{
+					RevisionUUID: &revUUID2,
+					CreateTime:   now,
+					UpdateTime:   now,
+					Data:         coresecrets.SecretData{"b": "2"},
+					Checksum:     "checksum-2",
+				},
+			},
+		},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var count int
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT count(*) FROM secret WHERE id IN ('create-multi-1', 'create-multi-2')").Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 2)
+
+	var label1, label2 string
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx, "SELECT label FROM secret_unit_owner WHERE secret_id = ?", "create-multi-1").Scan(&label1); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_application_owner WHERE secret_id = ?", "create-multi-2").Scan(&label2)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label1, tc.Equals, "secret-one")
+	c.Check(label2, tc.Equals, "secret-two")
+}
+
+func (s *commitHookSuite) TestCreateSecretsWithLabel(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-label"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Label:     "my-labeled-secret",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-label",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var label string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT label FROM secret_unit_owner WHERE secret_id = ?", secretID).Scan(&label)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(label, tc.Equals, "my-labeled-secret")
+}
+
+func (s *commitHookSuite) TestCreateSecretsNoRevisionUUIDFails(c *tc.C) {
+	ctx := c.Context()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "create-no-revuuid",
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				CreateTime: now,
+				UpdateTime: now,
+				Checksum:   "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorMatches, `.*revision UUID must be provided.*`)
+}
+
+func (s *commitHookSuite) TestCreateSecretIDConflict(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-conflict"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	s.addSecret(c, secretID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.Not(tc.IsNil))
+	c.Check(err, tc.ErrorMatches, `create secrets: creating secret "create-test-conflict": secret already exists`)
+}
+
+func (s *commitHookSuite) TestCreateSecretsRollsBackOnStorageFailure(c *tc.C) {
+	ctx := c.Context()
+	secretID := "create-test-rollback"
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	poolUUID := s.addStoragePool(c, "test-pool", "lxd")
+
+	existingStorageUUID := tc.Must(c, domainstorage.NewStorageInstanceUUID)
+	s.query(c, `
+INSERT INTO storage_instance
+    (uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id,
+     storage_pool_uuid, requested_size_mib)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+`, existingStorageUUID.String(), "app", "data",
+		int(domainstorage.StorageKindBlock), "data/0", 0,
+		poolUUID.String(), 1024)
+	s.query(c, `
+INSERT INTO storage_unit_owner (storage_instance_uuid, unit_uuid)
+VALUES (?, ?)
+`, existingStorageUUID.String(), s.unitUUID)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  secretID,
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum-rollback",
+			},
+		}},
+		AddStorage: []unitstate.PreparedStorageAdd{{
+			StorageName: "data",
+			Storage: domainstorage.IAASUnitAddStorageArg{
+				UnitAddStorageArg: domainstorage.UnitAddStorageArg{
+					CountLessThanEqual: 0,
+				},
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Assert(err, tc.ErrorIs, storageerrors.MaxStorageCountPreconditionFailed)
+
+	var secretCount int
+	err = s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT count(*) FROM secret WHERE id = ?", secretID).Scan(&secretCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(secretCount, tc.Equals, 0)
+}
+
+// TestCreateSecretsLabelConflictApplication verifies that creating an
+// application-owned secret with a label already used by another
+// application-owned secret of the same application returns
+// SecretLabelAlreadyExists.
+func (s *commitHookSuite) TestCreateSecretsLabelConflictApplication(c *tc.C) {
+	ctx := c.Context()
+	existingID := "existing-app-label-conflict"
+	s.addSecretWithOwner(c, existingID, s.fakeApplicationUUID1, "application")
+	s.query(c, `UPDATE secret_application_owner SET label = ? WHERE secret_id = ?`,
+		"dup-app-label", existingID)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-app-label-conflict",
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Label:     "dup-app-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestCreateSecretsLabelConflictUnit verifies that creating a unit-owned
+// secret with a label already used by another unit-owned secret of the same
+// unit returns SecretLabelAlreadyExists.
+func (s *commitHookSuite) TestCreateSecretsLabelConflictUnit(c *tc.C) {
+	ctx := c.Context()
+	existingID := "existing-unit-label-conflict"
+	s.addSecretWithOwner(c, existingID, s.unitUUID, "unit")
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"dup-unit-label", existingID)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-unit-label-conflict",
+			Version:   1,
+			OwnerKind: secret.UnitCharmSecretOwner,
+			OwnerUUID: s.unitUUID,
+			Label:     "dup-unit-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestCreateSecretsLabelConflictCrossKind verifies that a label conflict is
+// detected across owner kinds: a unit-owned secret's label conflicts with a
+// new application-owned secret of the same application, and vice versa.
+func (s *commitHookSuite) TestCreateSecretsLabelConflictCrossKind(c *tc.C) {
+	ctx := c.Context()
+
+	// Create a unit under fakeApplicationUUID1 so the cross-kind join
+	// (unit → application) can find the conflict.
+	crossUnitUUID := s.addUnitAndNetNode(c, "cross-app/0",
+		s.fakeApplicationUUID1, s.fakeCharmUUID1).String()
+
+	// Seed a unit-owned secret with label "cross-label".
+	existingID := "existing-cross-label"
+	s.addSecretWithOwner(c, existingID, crossUnitUUID, "unit")
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"cross-label", existingID)
+
+	// Attempt to create an application-owned secret with the same label
+	// for the application that owns the unit.
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-cross-label",
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID1,
+			Label:     "cross-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestCreateSecretsLabelNoConflictDifferentOwner verifies that the same label
+// can be used by secrets owned by different owners without error.
+func (s *commitHookSuite) TestCreateSecretsLabelNoConflictDifferentOwner(c *tc.C) {
+	ctx := c.Context()
+	existingID := "existing-diff-owner-label"
+	s.addSecretWithOwner(c, existingID, s.fakeApplicationUUID1, "application")
+	s.query(c, `UPDATE secret_application_owner SET label = ? WHERE secret_id = ?`,
+		"shared-label", existingID)
+
+	revUUID := tc.Must(c, uuid.NewUUID).String()
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretCreates: []internal.CreateSecretArg{{
+			SecretID:  "new-diff-owner-label",
+			Version:   1,
+			OwnerKind: secret.ApplicationCharmSecretOwner,
+			OwnerUUID: s.fakeApplicationUUID2,
+			Label:     "shared-label",
+			Params: secret.UpsertSecretParams{
+				RevisionUUID: &revUUID,
+				CreateTime:   now,
+				UpdateTime:   now,
+				Data:         coresecrets.SecretData{"key": "val"},
+				Checksum:     "checksum",
+			},
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+}
+
+// TestUpdateSecretsLabelConflict verifies that updating a secret's label to
+// one already used by another secret of the same owner returns
+// SecretLabelAlreadyExists.
+func (s *commitHookSuite) TestUpdateSecretsLabelConflict(c *tc.C) {
+	ctx := c.Context()
+
+	// Seed two unit-owned secrets for the same unit; the first has label
+	// "taken-label".
+	secretA := "update-label-conflict-a"
+	secretB := "update-label-conflict-b"
+	s.addSecretWithOwner(c, secretA, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretA, 1)
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"taken-label", secretA)
+
+	s.addSecretWithOwner(c, secretB, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretB, 1)
+
+	// Attempt to update secretB's label to "taken-label".
+	newLabel := "taken-label"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:  secretB,
+			Label:     &newLabel,
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Check(err, tc.ErrorIs, secreterrors.SecretLabelAlreadyExists)
+}
+
+// TestUpdateSecretsLabelNoConflict verifies that updating a secret's label to
+// a unique value succeeds.
+func (s *commitHookSuite) TestUpdateSecretsLabelNoConflict(c *tc.C) {
+	ctx := c.Context()
+
+	secretA := "update-label-noconflict-a"
+	secretB := "update-label-noconflict-b"
+	s.addSecretWithOwner(c, secretA, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretA, 1)
+	s.query(c, `UPDATE secret_unit_owner SET label = ? WHERE secret_id = ?`,
+		"existing-label", secretA)
+
+	s.addSecretWithOwner(c, secretB, s.unitUUID, "unit")
+	s.addSecretRevision(c, secretB, 1)
+
+	newLabel := "unique-label"
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		SecretUpdates: []internal.UpdateSecretArg{{
+			SecretID:  secretB,
+			Label:     &newLabel,
+			OwnerKind: secret.UnitCharmSecretOwner,
+		}},
+	}
+
+	c.Assert(s.state.CommitHookChanges(ctx, arg), tc.ErrorIsNil)
+
+	var gotLabel string
+	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT label FROM secret_unit_owner WHERE secret_id = ?",
+			secretB).Scan(&gotLabel)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotLabel, tc.Equals, newLabel)
 }

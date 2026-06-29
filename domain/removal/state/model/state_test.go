@@ -52,11 +52,17 @@ import (
 	relationstate "github.com/juju/juju/domain/relation/state"
 	"github.com/juju/juju/domain/removal"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageservice "github.com/juju/juju/domain/storage/service"
+	storagestate "github.com/juju/juju/domain/storage/state"
+	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
+	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalstorage "github.com/juju/juju/internal/storage"
+	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	internaltesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -1376,4 +1382,198 @@ func (caasApplication) Units() ([]caas.Unit, error) {
 	}, {
 		Id: "some-otherapp-0",
 	}}, nil
+}
+
+// storageRegistryGetter returns a storage provider registry exposing the dummy
+// model-scoped providers. Model-scoped (environ) storage is what clouds such as
+// EC2/EBS use: it does not create machine_volume / machine_filesystem rows, so
+// the net-node-scoped storage_volume_attachment / storage_filesystem_attachment
+// (and any volume attachment plan) are the only machine references - matching
+// the conditions in https://github.com/juju/juju/issues/22193.
+func (s *baseSuite) storageRegistryGetter() corestorage.ModelStorageRegistryGetter {
+	return corestorage.ConstModelStorageRegistry(func() internalstorage.ProviderRegistry {
+		return dummystorage.StorageProviders()
+	})
+}
+
+// setupStorageApplicationService is like setupApplicationService but wires in a
+// working storage provider registry so that deploying a storage charm
+// provisions real volume/filesystem attachment rows.
+func (s *baseSuite) setupStorageApplicationService(c *tc.C) *applicationservice.ProviderService {
+	modelDB := func(ctx context.Context) (database.TxnRunner, error) {
+		return s.ModelTxnRunner(), nil
+	}
+
+	providerGetter := func(ctx context.Context) (applicationservice.Provider, error) {
+		return appProvider{}, nil
+	}
+	caasProviderGetter := func(ctx context.Context) (applicationservice.CAASProvider, error) {
+		return appProvider{}, nil
+	}
+	cloudInfoGetter := func(ctx context.Context) (applicationservice.CloudInfoProvider, error) {
+		return nil, coreerrors.NotSupported
+	}
+	registryGetter := s.storageRegistryGetter()
+	state := applicationstate.NewState(modelDB, coremodel.UUID(s.ModelUUID()), clock.WallClock, loggertesting.WrapCheckLog(c))
+	storageSvc := applicationstorageservice.NewService(
+		state,
+		applicationstorageservice.NewStoragePoolProvider(registryGetter, state),
+		loggertesting.WrapCheckLog(c),
+	)
+
+	return applicationservice.NewProviderService(
+		state,
+		storageSvc,
+		domaintesting.NoopLeaderEnsurer(),
+		nil,
+		providerGetter,
+		caasProviderGetter,
+		cloudInfoGetter,
+		nil,
+		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
+		coremodel.UUID(s.ModelUUID()),
+		clock.WallClock,
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
+// createStoragePool creates a storage pool through the storage domain service.
+func (s *baseSuite) createStoragePool(
+	c *tc.C, name string, providerType internalstorage.ProviderType,
+) domainstorage.StoragePoolUUID {
+	svc := storageservice.NewService(
+		storagestate.NewState(s.TxnRunnerFactory()),
+		loggertesting.WrapCheckLog(c),
+		clock.WallClock,
+		s.storageRegistryGetter(),
+	)
+	poolUUID, err := svc.CreateStoragePool(
+		c.Context(), name, domainstorage.ProviderType(providerType.String()), nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return poolUUID
+}
+
+// deployIAASUnitWithStorage deploys a single-unit IAAS application whose charm
+// requires one storage item backed by the supplied pool. Placing the unit
+// provisions the storage instance plus the volume/filesystem attachment against
+// the unit's (machine's) net node. It returns the application UUID.
+func (s *baseSuite) deployIAASUnitWithStorage(
+	c *tc.C,
+	svc *applicationservice.ProviderService,
+	appName, storageName string,
+	storageType internalcharm.StorageType,
+	poolUUID domainstorage.StoragePoolUUID,
+) coreapplication.UUID {
+	ch := &stubCharm{
+		name: "test-charm",
+		storage: map[string]internalcharm.Storage{
+			storageName: {
+				Name:        storageName,
+				Type:        storageType,
+				CountMin:    1,
+				CountMax:    1,
+				MinimumSize: 100,
+			},
+		},
+	}
+
+	appID, err := svc.CreateIAASApplication(c.Context(), appName, ch, corecharm.Origin{
+		Source: corecharm.CharmHub,
+		Platform: corecharm.Platform{
+			Channel:      "24.04",
+			OS:           "ubuntu",
+			Architecture: "amd64",
+		},
+	}, applicationservice.AddApplicationArgs{
+		ReferenceName: appName,
+		DownloadInfo: &charm.DownloadInfo{
+			Provenance:  charm.ProvenanceDownload,
+			DownloadURL: "http://example.com",
+		},
+		ResolvedResources: applicationservice.ResolvedResources{{
+			Name:     "buzz",
+			Revision: new(42),
+			Origin:   charmresource.OriginStore,
+		}},
+		StorageDirectiveOverrides: map[string]applicationservice.StorageDirectiveOverrides{
+			storageName: {
+				PoolUUID: &poolUUID,
+				Count:    new(uint32(1)),
+				Size:     new(uint64(100)),
+			},
+		},
+	}, applicationservice.AddIAASUnitArg{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.setCharmObjectStoreMetadata(c, appID)
+
+	return appID
+}
+
+// removeUnitLeavingStorage drives the real unit removal so that the unit row is
+// deleted while its volume/filesystem attachments remain referencing the net
+// node. This mirrors production, where unit removal and net-node-scoped storage
+// attachment removal are independent jobs.
+//
+// The unit's storage_attachment (unit<->instance link) must be torn down for
+// the unit row to be deletable; that is driven here through the removal domain
+// too. The net-node-scoped storage_volume_attachment / storage_filesystem_
+// attachment rows are deliberately left in place.
+func (s *baseSuite) removeUnitLeavingStorage(c *tc.C, unitUUID unit.UUID) {
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	cascaded, err := st.EnsureUnitNotAliveCascade(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, saUUID := range cascaded.StorageAttachmentUUIDs {
+		_, err := st.EnsureStorageAttachmentDeadCascade(c.Context(), saUUID)
+		c.Assert(err, tc.ErrorIsNil)
+		err = st.DeleteStorageAttachment(c.Context(), saUUID)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	err = st.DeleteUnit(c.Context(), unitUUID.String(), true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// volumeAttachmentUUIDForNetNode reads the UUID of the volume attachment on the
+// supplied net node. This is a read-only lookup; in production this is known
+// from the storage provisioning watchers.
+func (s *baseSuite) volumeAttachmentUUIDForNetNode(c *tc.C, netNodeUUID string) string {
+	var vaUUID string
+	err := s.DB().QueryRow(
+		"SELECT uuid FROM storage_volume_attachment WHERE net_node_uuid = ?", netNodeUUID,
+	).Scan(&vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	return vaUUID
+}
+
+// createVolumeAttachmentPlan records a volume attachment plan, through the
+// storage provisioning service, for the volume attachment on the supplied net
+// node. The storage provisioner records such a plan for every attached volume.
+func (s *baseSuite) createVolumeAttachmentPlan(c *tc.C, netNodeUUID string) {
+	vaUUID := s.volumeAttachmentUUIDForNetNode(c, netNodeUUID)
+	svc := storageprovisioningservice.NewService(
+		storageprovisioningstate.NewState(s.TxnRunnerFactory()),
+		nil,
+		loggertesting.WrapCheckLog(c),
+	)
+	_, err := svc.CreateVolumeAttachmentPlan(
+		c.Context(),
+		domainstorage.VolumeAttachmentUUID(vaUUID),
+		domainstorage.VolumeDeviceTypeLocal,
+		nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// deleteVolumeAttachment removes the volume attachment on the supplied net node
+// through the removal domain, leaving any volume attachment plan behind. In
+// production the attachment and its plan are removed by independent jobs.
+func (s *baseSuite) deleteVolumeAttachment(c *tc.C, netNodeUUID string) {
+	vaUUID := s.volumeAttachmentUUIDForNetNode(c, netNodeUUID)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err := st.DeleteVolumeAttachment(c.Context(), vaUUID)
+	c.Assert(err, tc.ErrorIsNil)
 }

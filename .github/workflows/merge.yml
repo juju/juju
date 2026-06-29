@@ -84,13 +84,9 @@ jobs:
 
       - name: Notify if merge has conflicts
         if: steps.merge.outputs.conflicts == 'true' && steps.message.outputs.message != ''
-        env:
-          MM_URL: ${{ secrets.MM_URL }}
-          MM_TOKEN: ${{ secrets.MM_TOKEN }}
-          MM_CHANNEL: ${{ secrets.MM_CHANNEL }}
-          MESSAGE: ${{ steps.message.outputs.message }}
-        run: |
-          curl https://releases.mattermost.com/mmctl/v10.11.6/linux_amd64.tar -Lo mmctl.tar
-          tar -xvf mmctl.tar
-          ./mmctl auth login "$MM_URL" --name Charmhub --access-token $MM_TOKEN
-          ./mmctl post create $MM_CHANNEL --message "$MESSAGE"
+        uses: ./.github/actions/notify-mm
+        with:
+          mm_url: ${{ secrets.MM_URL }}
+          mm_token: ${{ secrets.MM_TOKEN }}
+          channel: ${{ secrets.MM_CHANNEL }}
+          message: ${{ steps.message.outputs.message }}
