@@ -181,22 +181,13 @@ type securityGroupInfo struct {
 	ipv6Address    *corenetwork.SpaceAddress // IPv6 private address; nil for IPv4-only machines
 }
 
-// primarySecurityGroupInfo returns info for the NIC's primary corenetwork.Address
-// for the internal virtual network, and any security group on the subnet.
-// The address is used to identify the machine in network security rules.
-func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armnetwork.Interface) (*securityGroupInfo, error) {
+// fetchIPv6Address scans a NIC's IP configurations for an IPv6 address
+// and returns a pointer to the extracted SpaceAddress, or nil if not found.
+func fetchIPv6Address(nic *armnetwork.Interface) *corenetwork.SpaceAddress {
 	if nic == nil || nic.Properties == nil {
-		return nil, errors.NotFoundf("internal network address or security group")
-	}
-	subnets, err := env.subnetsClient()
-	if err != nil {
-		return nil, errors.Trace(err)
+		return nil
 	}
 
-	// First pass: scan for IPv6 configuration (primary-ipv6).
-	// The IPv6 config is non-primary, so we scan separately before the
-	// early return on the primary IPv4 config below.
-	var ipv6Address *corenetwork.SpaceAddress
 	for _, ipConfiguration := range nic.Properties.IPConfigurations {
 		if ipConfiguration.Properties == nil {
 			continue
@@ -216,11 +207,33 @@ func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armne
 			toValue(privateIpAddress),
 			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 		)
-		ipv6Address = new(spaceAddress)
-		break
+		return &spaceAddress
+	}
+	return nil
+}
+
+// fetchPrimaryIPv4AndSecurityGroup finds the primary IPv4 configuration on a NIC
+// and retrieves the associated security group (from NIC or subnet).
+// Returns the private IPv4 address, security group, and any error.
+// The resource group can be extracted from the security group ID if needed.
+func fetchPrimaryIPv4AndSecurityGroup(
+	ctx context.Context,
+	env *azureEnviron,
+	nic *armnetwork.Interface,
+) (
+	string, // primaryAddress
+	*armnetwork.SecurityGroup, // securityGroup
+	error,
+) {
+	if nic == nil || nic.Properties == nil {
+		return "", nil, errors.NotFoundf("internal network address or security group")
 	}
 
-	// Second pass: scan for primary IPv4 configuration and security group.
+	subnets, err := env.subnetsClient()
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+
 	for _, ipConfiguration := range nic.Properties.IPConfigurations {
 		if ipConfiguration.Properties == nil {
 			continue
@@ -232,15 +245,22 @@ func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armne
 		if privateIpAddress == nil {
 			continue
 		}
+
 		securityGroup := nic.Properties.NetworkSecurityGroup
 		if securityGroup == nil && ipConfiguration.Properties.Subnet != nil {
 			idParts := strings.Split(toValue(ipConfiguration.Properties.Subnet.ID), "/")
 			lenParts := len(idParts)
-			subnet, err := subnets.Get(ctx, idParts[lenParts-7], idParts[lenParts-3], idParts[lenParts-1], &armnetwork.SubnetsClientGetOptions{
-				Expand: new("networkSecurityGroup"),
-			})
+			subnet, err := subnets.Get(
+				ctx,
+				idParts[lenParts-7],
+				idParts[lenParts-3],
+				idParts[lenParts-1],
+				&armnetwork.SubnetsClientGetOptions{
+					Expand: new("networkSecurityGroup"),
+				},
+			)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return "", nil, errors.Trace(err)
 			}
 			if subnet.Properties != nil {
 				securityGroup = subnet.Properties.NetworkSecurityGroup
@@ -250,19 +270,37 @@ func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armne
 			continue
 		}
 
-		idParts := strings.Split(toValue(securityGroup.ID), "/")
-		resourceGroup := idParts[len(idParts)-5]
-		return &securityGroupInfo{
-			resourceGroup: resourceGroup,
-			securityGroup: securityGroup,
-			primaryAddress: corenetwork.NewSpaceAddress(
-				toValue(privateIpAddress),
-				corenetwork.WithScope(corenetwork.ScopeCloudLocal),
-			),
-			ipv6Address: ipv6Address,
-		}, nil
+		return toValue(privateIpAddress), securityGroup, nil
 	}
-	return nil, errors.NotFoundf("internal network address or security group")
+	return "", nil, errors.NotFoundf("internal network address or security group")
+}
+
+// primarySecurityGroupInfo returns info for the NIC's primary corenetwork.Address
+// for the internal virtual network, and any security group on the subnet.
+// The address is used to identify the machine in network security rules.
+func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armnetwork.Interface) (*securityGroupInfo, error) {
+	// Fetch IPv6 address (non-blocking, never errors).
+	ipv6Address := fetchIPv6Address(nic)
+
+	// Fetch primary IPv4 and security group.
+	addr, sg, err := fetchPrimaryIPv4AndSecurityGroup(ctx, env, nic)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Extract resource group from security group ID.
+	idParts := strings.Split(toValue(sg.ID), "/")
+	resourceGroup := idParts[len(idParts)-5]
+
+	return &securityGroupInfo{
+		resourceGroup: resourceGroup,
+		securityGroup: sg,
+		primaryAddress: corenetwork.NewSpaceAddress(
+			addr,
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+		),
+		ipv6Address: ipv6Address,
+	}, nil
 }
 
 // getSecurityGroupInfo gets the security group information for
