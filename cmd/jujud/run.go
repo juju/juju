@@ -266,7 +266,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	agentConf := agentconf.NewAgentConf("")
 	controllerAgentFactory := agentcmd.ControllerAgentFactoryFn(
-		agentConf,
 		dbaccessor.NewTrackedDBWorker,
 		func(mt model.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == model.CAAS {
@@ -277,7 +276,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		upgrades.PerformUpgradeSteps,
 		"",
 	)
-	jujud.Register(agentcmd.NewControllerAgentCommand(ctx, controllerAgentFactory, agentConf, agentConf))
+	jujud.Register(agentcmd.NewControllerApplicationCommand(ctx, controllerAgentFactory, agentConf))
 
 	dbReplControllerAgentFactory := agentcmd.DBReplControllerAgentFactoryFn(
 		dbreplaccessor.NewTrackedDBWorker,

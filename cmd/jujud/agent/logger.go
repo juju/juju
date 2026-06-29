@@ -13,7 +13,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/lumberjack/v2"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/logsink"
@@ -24,9 +24,19 @@ const (
 	flushInterval = 2 * time.Second
 )
 
-// PrimeLogSink sets up the logging sink for the agent.
-func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
-	path := filepath.Join(cfg.LogDir(), "logsink.log")
+// PrimeLogSink sets up the logging sink for the controller agent.
+// If maxSizeMB or maxBackups is zero, compiled-in defaults from
+// controller.DefaultAgentLogfileMaxSize and
+// controller.DefaultAgentLogfileMaxBackups are used.
+func PrimeLogSink(logDir string, maxSizeMB, maxBackups int) (*logsink.LogSink, error) {
+	if maxSizeMB == 0 {
+		maxSizeMB = controller.DefaultAgentLogfileMaxSize
+	}
+	if maxBackups == 0 {
+		maxBackups = controller.DefaultAgentLogfileMaxBackups
+	}
+
+	path := filepath.Join(logDir, "logsink.log")
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, paths.LogfilePermission)
 	if err != nil {
 		return nil, errors.Errorf("unable to open log file %q: %w", path, err)
@@ -40,8 +50,8 @@ func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
 
 	logger := &lumberjack.Logger{
 		Filename:   path,
-		MaxSize:    cfg.AgentLogfileMaxSizeMB(),
-		MaxBackups: cfg.AgentLogfileMaxBackups(),
+		MaxSize:    maxSizeMB,
+		MaxBackups: maxBackups,
 		Compress:   true,
 	}
 
