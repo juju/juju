@@ -10,7 +10,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Check for DDL changes
         run: |
@@ -34,7 +34,7 @@ jobs:
     if: github.event.pull_request.draft == false && github.base_ref == 'main'
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Check for DDL patches
         run: |
