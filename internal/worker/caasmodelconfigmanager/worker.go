@@ -14,8 +14,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	"github.com/juju/juju/api/base"
-	api "github.com/juju/juju/api/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
@@ -81,11 +79,6 @@ type manager struct {
 	clock  clock.Clock
 
 	registryFunc func(docker.ImageRepoDetails) (registry.Registry, error)
-}
-
-// NewFacade returns a facade for the caas-model-config-manager worker to use.
-func NewFacade(caller base.APICaller) (Facade, error) {
-	return api.NewClient(caller)
 }
 
 // NewWorker returns a worker that unlocks the model upgrade gate.
