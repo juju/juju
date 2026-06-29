@@ -21,7 +21,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/rpc/params"
 )
 
 type workerSuite struct {
@@ -135,10 +134,10 @@ func (s *workerSuite) TestHandlePersistsEmptyConfigForLogSinkMode(c *tc.C) {
 func (s *workerSuite) TestHandlePersistsEmptyConfigForLokiConfigNotFound(c *tc.C) {
 	oldCACert := "old-ca"
 	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", &oldCACert, nil)
-	s.api.getErr = &params.Error{
-		Code:    params.CodeNotFound,
-		Message: "loki config not found",
-	}
+	// The API client restores params.CodeNotFound errors into a
+	// coreerrors.NotFound-satisfying error before returning them to the
+	// worker, so simulate that translated error here.
+	s.api.getErr = errors.NewNotFound(errors.New("loki config not found"), "")
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/logger"
+	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
@@ -218,6 +219,10 @@ func (w *pebbleLokiConfigWorker) handleLokiConfigChange(ctx context.Context) err
 	}
 
 	lokiConfig, err := w.config.API.GetControllerLokiConfig(ctx, w.agentTag)
+	if errors.Is(err, coreerrors.NotFound) {
+		lokiConfig = logger.ControllerLokiConfig{}
+		err = nil
+	}
 	if err != nil {
 		return errors.Annotate(err, "getting controller loki config")
 	}

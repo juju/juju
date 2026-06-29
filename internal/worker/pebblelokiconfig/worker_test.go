@@ -221,6 +221,38 @@ func (s *workerSuite) TestReconcileEmptyEndpoint(c *tc.C) {
 	s.waitChan(c, done)
 }
 
+func (s *workerSuite) TestReconcileLokiConfigNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+	// The API client restores params.CodeNotFound errors into a
+	// coreerrors.NotFound-satisfying error before returning them to the
+	// worker, so simulate that translated error here.
+	s.api.EXPECT().GetControllerLokiConfig(gomock.Any(), gomock.Any()).
+		Return(logger.ControllerLokiConfig{}, errors.NewNotFound(errors.New("loki config not found"), ""))
+	s.pebble.EXPECT().AddLayer(gomock.Any()).
+		DoAndReturn(func(opts *client.AddLayerOptions) error {
+			var layer layerYAML
+			err := yaml.Unmarshal(opts.LayerData, &layer)
+			c.Assert(err, tc.ErrorIsNil)
+			target := layer.LogTargets["juju-loki"]
+			c.Check(target.Override, tc.Equals, "remove")
+			c.Check(target.Type, tc.Equals, "")
+			c.Check(target.Location, tc.Equals, "")
+			c.Check(target.Services, tc.IsNil)
+			c.Check(target.Labels, tc.IsNil)
+			close(done)
+			return nil
+		})
+	s.pebble.EXPECT().CloseIdleConnections().AnyTimes()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.sendChange()
+	s.waitChan(c, done)
+}
+
 func (s *workerSuite) TestReconcileGetError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
