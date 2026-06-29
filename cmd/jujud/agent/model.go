@@ -162,7 +162,7 @@ func (m *ModelCommand) Wait() error {
 func (m *ModelCommand) CertMaterial() (apiservercertwatcher.CertMaterial, error) {
 	info, ok := m.CurrentConfig().ControllerAgentInfo()
 	if !ok {
-		return apiservercertwatcher.CertMaterial{}, errors.NotFoundf("controller agent info")
+		return apiservercertwatcher.CertMaterial{}, errors.NotFoundf("controller runtime config")
 	}
 	return apiservercertwatcher.CertMaterial{
 		CACert:               m.CurrentConfig().CACert(),
