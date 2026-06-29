@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentconstants "github.com/juju/juju/agent/constants"
+	corepebble "github.com/juju/juju/core/pebble"
 )
 
 const (
@@ -32,8 +33,9 @@ const (
 	AgentHTTPPathStartup = "/startup"
 
 	// DefaultPebbleDir is the default directory Pebble considers when starting
-	// up.
-	DefaultPebbleDir = "/var/lib/pebble/default"
+	// up. It re-exports the canonical value from core/pebble so existing
+	// callers within the k8s provider can continue to use this package.
+	DefaultPebbleDir = corepebble.DefaultPebbleDir
 
 	// JujuExecServerSocketPort is the port used by juju run callbacks.
 	JujuExecServerSocketPort = 30666

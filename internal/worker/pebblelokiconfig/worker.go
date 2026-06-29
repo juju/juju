@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/agent/logger"
 	coreerrors "github.com/juju/juju/core/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/pebble"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -34,13 +35,6 @@ const (
 	// logTargetName is the name of the single log-target entry within the
 	// layer.
 	logTargetName = "juju-loki"
-
-	// containerAgentService is the Pebble service name for the
-	// containeragent process.
-	containerAgentService = "container-agent"
-
-	// defaultPebbleSocket is used when PEBBLE_SOCKET is not set.
-	defaultPebbleSocket = "/var/lib/pebble/default/.pebble.socket"
 
 	// pebbleReservedLabelPrefix is the prefix Pebble reserves for its own
 	// labels. Custom labels must never use this prefix.
@@ -180,7 +174,7 @@ func ResolvePebbleSocket(configured string) string {
 	if env := os.Getenv("PEBBLE_SOCKET"); env != "" {
 		return env
 	}
-	return defaultPebbleSocket
+	return pebble.DefaultPebbleSocket
 }
 
 // Kill implements worker.Worker.Kill.
@@ -343,7 +337,7 @@ func BuildLayerYAML(
 		Override: "replace",
 		Type:     "loki",
 		Location: lokiConfig.Endpoint,
-		Services: []string{containerAgentService},
+		Services: []string{pebble.ContainerAgentService},
 		Labels:   labels,
 	}
 	if lokiConfig.Endpoint == "" {

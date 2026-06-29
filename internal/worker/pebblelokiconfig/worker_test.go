@@ -20,6 +20,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/api/agent/logger"
+	"github.com/juju/juju/core/pebble"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -175,7 +176,7 @@ func (s *workerSuite) TestReconcileOnInitialEvent(c *tc.C) {
 			c.Assert(ok, tc.IsTrue)
 			c.Check(target.Type, tc.Equals, "loki")
 			c.Check(target.Location, tc.Equals, "https://loki.example.com/loki/api/v1/push")
-			c.Check(target.Services, tc.DeepEquals, []string{"container-agent"})
+			c.Check(target.Services, tc.DeepEquals, []string{pebble.ContainerAgentService})
 			c.Check(target.Override, tc.Equals, "replace")
 			c.Check(target.Labels["juju_controller"], tc.Equals, "controller-uuid")
 			c.Check(target.Labels["juju_model"], tc.Equals, "model-uuid")
@@ -443,7 +444,7 @@ func (s *workerSuite) TestBuildLayerYAML(c *tc.C) {
 	c.Assert(ok, tc.IsTrue)
 	c.Check(target.Type, tc.Equals, "loki")
 	c.Check(target.Location, tc.Equals, "https://loki.example.com/loki/api/v1/push")
-	c.Check(target.Services, tc.DeepEquals, []string{"container-agent"})
+	c.Check(target.Services, tc.DeepEquals, []string{pebble.ContainerAgentService})
 	c.Check(target.Override, tc.Equals, "replace")
 	c.Check(target.Labels["juju_controller"], tc.Equals, "controller-uuid")
 	c.Check(target.Labels["juju_model"], tc.Equals, "model-uuid")
@@ -485,7 +486,7 @@ func (s *workerSuite) TestBuildLayerYAMLUsesCorrectServiceName(c *tc.C) {
 	err = yaml.Unmarshal(data, &layer)
 	c.Assert(err, tc.ErrorIsNil)
 	target := layer.LogTargets["juju-loki"]
-	c.Check(target.Services, tc.DeepEquals, []string{"container-agent"})
+	c.Check(target.Services, tc.DeepEquals, []string{pebble.ContainerAgentService})
 }
 
 // --- ResolvePebbleSocket tests ---
@@ -504,7 +505,7 @@ func (s *workerSuite) TestResolvePebbleSocketEnv(c *tc.C) {
 func (s *workerSuite) TestResolvePebbleSocketDefault(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.PatchEnvironment("PEBBLE_SOCKET", "")
-	c.Check(ResolvePebbleSocket(""), tc.Equals, "/var/lib/pebble/default/.pebble.socket")
+	c.Check(ResolvePebbleSocket(""), tc.Equals, pebble.DefaultPebbleSocket)
 }
 
 // --- IsIncompatiblePebbleError tests ---
