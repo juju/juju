@@ -199,7 +199,7 @@ run_user_secrets() {
 	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 
 	juju --show-log remove-secret mysecret
-	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
+	check_num_secrets 0
 }
 
 run_secrets_juju() {
@@ -461,6 +461,39 @@ run_track_latest_revision() {
 	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri")" 'val: two'
 }
 
+# run_atomic_secret_create verifies that multiple secret creations through
+# CommitHookChanges (JUJU-9034) commit atomically in a single hook execution.
+# Two secrets created in one hook must both be readable immediately.
+run_atomic_secret_create() {
+	echo
+
+	# Create two secrets in one hook execution. Both must appear in
+	# secret_ids and be readable immediately, proving atomic commit.
+	echo "Checking: multiple secret-add in one hook commits atomically"
+	output=$(juju exec --unit juju-qa-test/0 -- \
+		"secret_uri1=\$(secret-add val=first --label=create-one); echo \$secret_uri1; secret_uri2=\$(secret-add val=second --label=create-two); echo \$secret_uri2")
+
+	secret_uri1=$(echo "$output" | head -1)
+	secret_uri2=$(echo "$output" | tail -1)
+	secret_id1=${secret_uri1##*/}
+	secret_id2=${secret_uri2##*/}
+
+	# Verify both secrets exist and are readable.
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri1")" 'val: first'
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-get "$secret_uri2")" 'val: second'
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-info-get "$secret_uri1" --format json | yq ".${secret_id1}.label")" 'create-one'
+	check_contains "$(juju exec --unit juju-qa-test/0 -- secret-info-get "$secret_uri2" --format json | yq ".${secret_id2}.label")" 'create-two'
+
+	# Verify both appear in secret-ids output.
+	secret_ids=$(juju exec --unit juju-qa-test/0 -- secret-ids)
+	check_contains "$secret_ids" "$secret_id1"
+	check_contains "$secret_ids" "$secret_id2"
+
+	echo "Cleaning up atomic create secrets"
+	juju exec --unit juju-qa-test/0 -- secret-remove "$secret_uri1"
+	juju exec --unit juju-qa-test/0 -- secret-remove "$secret_uri2"
+}
+
 # run_atomic_secret_update verifies that a unit-owned secret update applied
 # through CommitHookChanges (JUJU-9962) commits atomically with other hook
 # changes. Secret updates now flow through the CommitHookChanges domain
@@ -599,6 +632,7 @@ test_secrets_hook_commit() {
 		wait_for "dummy-source" "$(idle_condition "dummy-source" 0)"
 		wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
 
+		run_atomic_secret_create
 		run_track_latest_revision
 		run_atomic_secret_update
 		run_atomic_secret_update_grant

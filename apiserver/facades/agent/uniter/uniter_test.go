@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/domain/unitstate"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
@@ -3740,6 +3741,109 @@ func (s *commitHookChangesSuite) TestCommitHookChangesUpdateSecrets(c *tc.C) {
 		},
 	)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesCreateSecretsUnitOwned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+
+	data := map[string]string{"foo": "bar"}
+
+	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Assert(len(arg.SecretCreates), tc.Equals, 1)
+			c.Check(arg.SecretCreates[0].URI, tc.Not(tc.IsNil))
+			c.Check(arg.SecretCreates[0].Version, tc.Equals, secrets.Version)
+			c.Check(arg.SecretCreates[0].CharmOwner.Kind, tc.Equals, domainsecret.UnitCharmSecretOwner)
+			c.Check(arg.SecretCreates[0].CharmOwner.ID, tc.Equals, "wordpress/0")
+			c.Check(arg.SecretCreates[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+			return nil
+		})
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			SecretCreates: []params.CreateSecretArg{{
+				OwnerTag: "unit-wordpress/0",
+				UpsertSecretArg: params.UpsertSecretArg{
+					Content: params.SecretContentParams{Data: data},
+				},
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesCreateSecretsAppOwned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+
+	data := map[string]string{"foo": "bar"}
+
+	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Assert(len(arg.SecretCreates), tc.Equals, 1)
+			c.Check(arg.SecretCreates[0].CharmOwner.Kind, tc.Equals, domainsecret.ApplicationCharmSecretOwner)
+			c.Check(arg.SecretCreates[0].CharmOwner.ID, tc.Equals, "wordpress")
+			return nil
+		})
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			SecretCreates: []params.CreateSecretArg{{
+				OwnerTag: "application-wordpress",
+				UpsertSecretArg: params.UpsertSecretArg{
+					Content: params.SecretContentParams{Data: data},
+				},
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesCreateSecretsPermissionDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			SecretCreates: []params.CreateSecretArg{{
+				OwnerTag: "application-mysql",
+				UpsertSecretArg: params.UpsertSecretArg{
+					Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				},
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*permission denied.*`)
+}
+
+func (s *commitHookChangesSuite) TestCommitHookChangesCreateSecretsEmptyValue(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			SecretCreates: []params.CreateSecretArg{{
+				OwnerTag:        "unit-wordpress/0",
+				UpsertSecretArg: params.UpsertSecretArg{},
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*empty secret value.*`)
 }
 
 func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {

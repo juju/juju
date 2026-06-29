@@ -14,6 +14,7 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	relation "github.com/juju/juju/core/relation"
+	secrets "github.com/juju/juju/core/secrets"
 	unitstate "github.com/juju/juju/domain/unitstate"
 	internal "github.com/juju/juju/domain/unitstate/internal"
 )
@@ -33,6 +34,7 @@ type MockStateMockRecorder struct {
 	getModelUUIDExpects                                []*gomock.Call1_2[context.Context, string, error]
 	getPeerRelationUUIDByEndpointIdentifiersExpects    []*gomock.Call2_2[context.Context, relation.EndpointIdentifier, relation.UUID, error]
 	getRegularRelationUUIDByEndpointIdentifiersExpects []*gomock.Call3_2[context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, relation.UUID, error]
+	getSecretRotatePolicyExpects                       []*gomock.Call2_2[context.Context, string, secrets.RotatePolicy, error]
 	getUnitStateExpects                                []*gomock.Call2_2[context.Context, string, unitstate.RetrievedUnitState, error]
 	setUnitStateExpects                                []*gomock.Call2_1[context.Context, unitstate.UnitState, error]
 }
@@ -138,6 +140,24 @@ func (mr *MockStateMockRecorder) GetRegularRelationUUIDByEndpointIdentifiers(ctx
 
 // MockStateGetRegularRelationUUIDByEndpointIdentifiersCall is the typed call wrapper for GetRegularRelationUUIDByEndpointIdentifiers.
 type MockStateGetRegularRelationUUIDByEndpointIdentifiersCall = gomock.Call3_2[context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, relation.UUID, error]
+
+// GetSecretRotatePolicy mocks base method.
+func (m *MockState) GetSecretRotatePolicy(ctx context.Context, secretID string) (secrets.RotatePolicy, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getSecretRotatePolicyExpects, m.ctrl, m, "GetSecretRotatePolicy", ctx, secretID)
+}
+
+// GetSecretRotatePolicy indicates an expected call of GetSecretRotatePolicy.
+func (mr *MockStateMockRecorder) GetSecretRotatePolicy(ctx, secretID any) *MockStateGetSecretRotatePolicyCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, secrets.RotatePolicy, error](mr.mock.ctrl.T, mr.mock, "GetSecretRotatePolicy", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(secretID))
+	mr.getSecretRotatePolicyExpects = append(mr.getSecretRotatePolicyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetSecretRotatePolicyCall is the typed call wrapper for GetSecretRotatePolicy.
+type MockStateGetSecretRotatePolicyCall = gomock.Call2_2[context.Context, string, secrets.RotatePolicy, error]
 
 // GetUnitState mocks base method.
 func (m *MockState) GetUnitState(arg0 context.Context, arg1 string) (unitstate.RetrievedUnitState, error) {

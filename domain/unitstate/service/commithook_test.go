@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -12,14 +13,18 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 
+	coreapplication "github.com/juju/juju/core/application"
 	model "github.com/juju/juju/core/model"
 	corerelation "github.com/juju/juju/core/relation"
 	corerelationtesting "github.com/juju/juju/core/relation/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	coreunit "github.com/juju/juju/core/unit"
 	unittesting "github.com/juju/juju/core/unit/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
 	"github.com/juju/juju/domain/unitstate/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -452,6 +457,229 @@ func (s *commitHookSuite) TestPrepareSecretUpdatesDifferentChecksumAddsBackendRe
 	c.Check(rollbackCalled, tc.IsFalse)
 }
 
+func (s *commitHookSuite) TestPrepareSecretUpdatesPartialRollback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	firstRolledBack := false
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(func() error {
+		firstRolledBack = true
+		return nil
+	}, nil)
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(nil, errors.New("backend boom"))
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{
+			{
+				URI: uri1,
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"a": "1"},
+					Checksum: "checksum-1",
+				},
+			},
+			{
+				URI: uri2,
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"b": "2"},
+					Checksum: "checksum-2",
+				},
+			},
+		},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Check(err, tc.ErrorMatches, `.*adding backend reference for update\[1\].*`)
+	c.Check(firstRolledBack, tc.IsTrue)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicyMoreFrequent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// Mock the current policy as RotateDaily (less frequent than RotateHourly).
+	s.st.EXPECT().GetSecretRotatePolicy(gomock.Any(), uri.ID).
+		Return(coresecrets.RotateDaily, nil)
+
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	hourly := coresecrets.RotateHourly
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &hourly,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	c.Assert(update.NextRotateTime, tc.Not(tc.IsNil))
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateHourly)
+	// NextRotateTime should be roughly now + 1 hour.
+	expected := s.clock.Now().Add(time.Hour)
+	c.Check(update.NextRotateTime.UTC().Truncate(time.Second), tc.Equals, expected.UTC().Truncate(time.Second))
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicyToNever(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// GetSecretRotatePolicy must NOT be called because RotateNever.WillRotate() returns false.
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	never := coresecrets.RotateNever
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &never,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	c.Assert(update.NextRotateTime, tc.IsNil)
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateNever)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicyLessFrequent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// Mock the current policy as RotateHourly (more frequent than RotateDaily).
+	s.st.EXPECT().GetSecretRotatePolicy(gomock.Any(), uri.ID).
+		Return(coresecrets.RotateHourly, nil)
+
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	daily := coresecrets.RotateDaily
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &daily,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	// NextRotateTime should be nil because the new policy is less frequent.
+	c.Assert(update.NextRotateTime, tc.IsNil)
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateDaily)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesRotatePolicySecretNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+
+	// Mock GetSecretRotatePolicy to return SecretNotFound, which occurs when
+	// the secret is being created in this transaction or was concurrently deleted.
+	s.st.EXPECT().GetSecretRotatePolicy(gomock.Any(), uri.ID).
+		Return(coresecrets.RotateNever, secreterrors.SecretNotFound)
+
+	var captured internal.CommitHookChangesArg
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		Do(func(_ context.Context, arg internal.CommitHookChangesArg) {
+			captured = arg
+		}).
+		Return(nil)
+
+	hourly := coresecrets.RotateHourly
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				RotatePolicy: &hourly,
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(len(captured.SecretUpdates), tc.Equals, 1)
+	update := captured.SecretUpdates[0]
+	// NextRotateTime should be computed because SecretNotFound is treated as RotateNever.
+	// This implements "last update wins" semantics and handles the case where a secret
+	// is being created in the same transaction or was concurrently deleted.
+	c.Assert(update.NextRotateTime, tc.Not(tc.IsNil))
+	c.Assert(update.RotatePolicy, tc.Not(tc.IsNil))
+	c.Check(*update.RotatePolicy, tc.Equals, secret.RotateHourly)
+	// NextRotateTime should be roughly now + 1 hour.
+	expected := s.clock.Now().Add(time.Hour)
+	c.Check(update.NextRotateTime.UTC().Truncate(time.Second), tc.Equals, expected.UTC().Truncate(time.Second))
+}
+
 func (s *commitHookSuite) TestParseForSetAndUnsetSettings(c *tc.C) {
 	// Arrange
 	input := unitstate.Settings{
@@ -494,6 +722,323 @@ func (s *commitHookSuite) TestParseForSetAndUnsetSettingsNilSettings(c *tc.C) {
 	// Assert
 	c.Check(obtainedSettings, tc.DeepEquals, unitstate.Settings(nil))
 	c.Check(obtainedKeys, tc.DeepEquals, []string{"key1"})
+}
+
+func (s *commitHookSuite) TestCommitHookChangesCreateAppSecretRequiresLeadership(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	appUUID := tc.Must(c, coreapplication.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{
+		UnitUUID:        unitUUID.String(),
+		ApplicationUUID: appUUID.String(),
+	}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(func() error { return nil }, nil)
+	s.leadershipEnsurer.EXPECT().WithLeader(gomock.Any(), "test", "test/0", gomock.Any()).Return(nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.ApplicationCharmSecretOwner,
+					ID:   "test",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"key": "val"},
+					Checksum: "checksum",
+				},
+			},
+			URI: uri,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestCommitHookChangesCreateUnitSecretNoLeadership(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{
+		UnitUUID: unitUUID.String(),
+	}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(func() error { return nil }, nil)
+	s.st.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).Return(nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"key": "val"},
+					Checksum: "checksum",
+				},
+			},
+			URI: uri,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestPrepareSecretCreatesUUIDGenerationFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuidErr := errors.New("uuid boom")
+	s.svc.uuidGenerator = func() (uuid.UUID, error) {
+		return uuid.UUID{}, uuidErr
+	}
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"key": "val"},
+					Checksum: "checksum",
+				},
+			},
+			URI: uri,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorMatches, `generating revision UUID for create\[0\]: uuid boom`)
+}
+
+func (s *commitHookSuite) TestPrepareSecretCreatesBackendRefFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(nil, errors.New("backend boom"))
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"key": "val"},
+					Checksum: "checksum",
+				},
+			},
+			URI: uri,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Check(err, tc.ErrorMatches, `.*adding backend reference for create\[0\].*`)
+}
+
+func (s *commitHookSuite) TestPrepareSecretCreatesEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+
+	arg := unitstate.CommitHookChangesArg{
+		UnitName:      unitName,
+		SecretCreates: nil,
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *commitHookSuite) TestPrepareSecretCreatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"key": "val"},
+					ValueRef: &coresecrets.ValueRef{BackendID: "backend", RevisionID: "rev"},
+				},
+			},
+			URI: uri,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorMatches, `create\[0\]: data and value ref are mutually exclusive`)
+}
+
+func (s *commitHookSuite) TestPrepareSecretUpdatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretUpdates: []unitstate.UpdateSecretArg{{
+			URI: uri,
+			UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+				Data:     map[string]string{"key": "val"},
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend", RevisionID: "rev"},
+			},
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorMatches, `update\[0\]: data and value ref are mutually exclusive`)
+}
+
+func (s *commitHookSuite) TestCommitHookChangesSecretCreateDeadUnit(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{
+		UnitUUID: unitUUID.String(),
+		UnitLife: life.Dead,
+	}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+
+	uri := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{{
+			CreateCharmSecretParams: secret.CreateCharmSecretParams{
+				Version: 1,
+				CharmOwner: secret.CharmSecretOwner{
+					Kind: secret.UnitCharmSecretOwner,
+					ID:   "test/0",
+				},
+				UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+					Data:     map[string]string{"key": "val"},
+					Checksum: "checksum",
+				},
+			},
+			URI: uri,
+		}},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Assert(err, tc.ErrorMatches, `.*unit "test/0" is dead.*`)
+	c.Assert(err, tc.ErrorIs, applicationerrors.UnitIsDead)
+}
+
+func (s *commitHookSuite) TestPrepareSecretCreatesPartialRollback(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "test/0")
+	unitUUID := tc.Must(c, coreunit.NewUUID)
+	unitInfo := internal.CommitHookUnitInfo{UnitUUID: unitUUID.String()}
+	s.st.EXPECT().GetCommitHookUnitInfo(gomock.Any(), unitName.String()).Return(unitInfo, nil)
+	s.st.EXPECT().GetModelUUID(gomock.Any()).Return("model-uuid", nil)
+
+	firstRolledBack := false
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(func() error {
+		firstRolledBack = true
+		return nil
+	}, nil)
+	s.secretBackend.EXPECT().AddSecretBackendReference(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(nil, errors.New("backend boom"))
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	arg := unitstate.CommitHookChangesArg{
+		UnitName: unitName,
+		SecretCreates: []unitstate.CreateSecretArg{
+			{
+				CreateCharmSecretParams: secret.CreateCharmSecretParams{
+					Version: 1,
+					CharmOwner: secret.CharmSecretOwner{
+						Kind: secret.UnitCharmSecretOwner,
+						ID:   "test/0",
+					},
+					UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+						Data:     map[string]string{"a": "1"},
+						Checksum: "checksum-1",
+					},
+				},
+				URI: uri1,
+			},
+			{
+				CreateCharmSecretParams: secret.CreateCharmSecretParams{
+					Version: 1,
+					CharmOwner: secret.CharmSecretOwner{
+						Kind: secret.UnitCharmSecretOwner,
+						ID:   "test/0",
+					},
+					UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+						Data:     map[string]string{"b": "2"},
+						Checksum: "checksum-2",
+					},
+				},
+				URI: uri2,
+			},
+		},
+	}
+
+	err := s.svc.CommitHookChanges(c.Context(), arg)
+	c.Check(err, tc.ErrorMatches, `.*adding backend reference for create\[1\].*`)
+	c.Check(firstRolledBack, tc.IsTrue)
 }
 
 func (s *commitHookSuite) setupMocks(c *tc.C) *gomock.Controller {

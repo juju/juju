@@ -29,12 +29,10 @@ type MockSecretService struct {
 type MockSecretServiceMockRecorder struct {
 	mock                           *MockSecretService
 	checkSecretManageAccessExpects []*gomock.Call3_1[context.Context, *secrets.URI, unit.Name, error]
-	createCharmSecretExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error]
 	getSecretOwnerKindsExpects     []*gomock.Call2_2[context.Context, []*secrets.URI, []secret.SecretOwnerInfo, error]
 	getSecretValueExpects          []*gomock.Call4_3[context.Context, *secrets.URI, int, secret.SecretAccessor, secrets.SecretValue, *secrets.ValueRef, error]
 	resolveGrantParamsExpects      []*gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.GrantResult]
 	resolveRevokeParamsExpects     []*gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.RevokeResult]
-	updateCharmSecretExpects       []*gomock.Call3_1[context.Context, *secrets.URI, secret.UpdateCharmSecretParams, error]
 }
 
 // NewMockSecretService creates a new mock instance.
@@ -66,24 +64,6 @@ func (mr *MockSecretServiceMockRecorder) CheckSecretManageAccess(ctx, uri, unitN
 
 // MockSecretServiceCheckSecretManageAccessCall is the typed call wrapper for CheckSecretManageAccess.
 type MockSecretServiceCheckSecretManageAccessCall = gomock.Call3_1[context.Context, *secrets.URI, unit.Name, error]
-
-// CreateCharmSecret mocks base method.
-func (m *MockSecretService) CreateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secret.CreateCharmSecretParams) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.createCharmSecretExpects, m.ctrl, m, "CreateCharmSecret", arg0, arg1, arg2)
-}
-
-// CreateCharmSecret indicates an expected call of CreateCharmSecret.
-func (mr *MockSecretServiceMockRecorder) CreateCharmSecret(arg0, arg1, arg2 any) *MockSecretServiceCreateCharmSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error](mr.mock.ctrl.T, mr.mock, "CreateCharmSecret", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.createCharmSecretExpects = append(mr.createCharmSecretExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockSecretServiceCreateCharmSecretCall is the typed call wrapper for CreateCharmSecret.
-type MockSecretServiceCreateCharmSecretCall = gomock.Call3_1[context.Context, *secrets.URI, secret.CreateCharmSecretParams, error]
 
 // GetSecretOwnerKinds mocks base method.
 func (m *MockSecretService) GetSecretOwnerKinds(ctx context.Context, uris []*secrets.URI) ([]secret.SecretOwnerInfo, error) {
@@ -156,21 +136,3 @@ func (mr *MockSecretServiceMockRecorder) ResolveRevokeParams(ctx, params any) *M
 
 // MockSecretServiceResolveRevokeParamsCall is the typed call wrapper for ResolveRevokeParams.
 type MockSecretServiceResolveRevokeParamsCall = gomock.Call2_1[context.Context, []secret.SecretAccessParams, []secret.RevokeResult]
-
-// UpdateCharmSecret mocks base method.
-func (m *MockSecretService) UpdateCharmSecret(arg0 context.Context, arg1 *secrets.URI, arg2 secret.UpdateCharmSecretParams) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.updateCharmSecretExpects, m.ctrl, m, "UpdateCharmSecret", arg0, arg1, arg2)
-}
-
-// UpdateCharmSecret indicates an expected call of UpdateCharmSecret.
-func (mr *MockSecretServiceMockRecorder) UpdateCharmSecret(arg0, arg1, arg2 any) *MockSecretServiceUpdateCharmSecretCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, *secrets.URI, secret.UpdateCharmSecretParams, error](mr.mock.ctrl.T, mr.mock, "UpdateCharmSecret", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
-	mr.updateCharmSecretExpects = append(mr.updateCharmSecretExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockSecretServiceUpdateCharmSecretCall is the typed call wrapper for UpdateCharmSecret.
-type MockSecretServiceUpdateCharmSecretCall = gomock.Call3_1[context.Context, *secrets.URI, secret.UpdateCharmSecretParams, error]

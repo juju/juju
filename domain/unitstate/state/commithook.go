@@ -15,9 +15,8 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
-	"github.com/juju/juju/domain/secret"
+	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
-	"github.com/juju/juju/domain/unitstate"
 	unitstateerrors "github.com/juju/juju/domain/unitstate/errors"
 	"github.com/juju/juju/domain/unitstate/internal"
 	"github.com/juju/juju/internal/errors"
@@ -115,7 +114,157 @@ func (st *State) updateCharmState(ctx context.Context, tx *sqlair.TX, unit entit
 	return st.setUnitStateCharm(ctx, tx, unit, *charmState)
 }
 
-func (st *State) createSecrets(ctx context.Context, tx *sqlair.TX, creates []unitstate.CreateSecretArg) error {
+func (st *State) createSecrets(ctx context.Context, tx *sqlair.TX, creates []internal.CreateSecretArg) error {
+	if len(creates) == 0 {
+		return nil
+	}
+
+	for _, arg := range creates {
+		if err := st.createOneSecret(ctx, tx, arg); err != nil {
+			return errors.Errorf("creating secret %q: %w", arg.SecretID, err)
+		}
+	}
+	return nil
+}
+
+// createOneSecret inserts all records for a single charm secret inside the
+// commit-hook transaction: secret, secret_metadata, secret_revision,
+// content/value-ref, expiry, rotation, ownership, and manage permission.
+func (st *State) createOneSecret(ctx context.Context, tx *sqlair.TX, arg internal.CreateSecretArg) error {
+	// 1. Check if secret ID already exists.
+	checkExistsStmt, err := st.Prepare(`
+SELECT 1 AS &countResult.count
+FROM   secret
+WHERE  id = $createSecretID.id
+LIMIT  1
+`, createSecretID{}, countResult{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var exists countResult
+	err = tx.Query(ctx, checkExistsStmt, createSecretID{ID: arg.SecretID}).Get(&exists)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Capture(err)
+	}
+	if exists.Count > 0 {
+		return errors.Errorf("secret already exists")
+	}
+
+	// 2. Insert into secret table (just the ID).
+	insertSecretStmt, err := st.Prepare(
+		"INSERT INTO secret (id) VALUES ($createSecretID.id)", createSecretID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, insertSecretStmt, createSecretID{ID: arg.SecretID}).Run(); err != nil {
+		return errors.Errorf("inserting secret: %w", err)
+	}
+
+	// 3. Insert secret_metadata.
+	p := arg.Params
+	md := secretMetadata{
+		ID:      arg.SecretID,
+		Version: arg.Version,
+	}
+	updateSecretMetadataFromParams(p, &md)
+	if err := st.upsertSecretMetadata(ctx, tx, md); err != nil {
+		return errors.Errorf("inserting metadata: %w", err)
+	}
+
+	// 4. Insert secret_revision (revision 1).
+	if p.RevisionUUID == nil {
+		return errors.Errorf("revision UUID must be provided")
+	}
+	rev := secretRevision{
+		UUID:       *p.RevisionUUID,
+		SecretID:   arg.SecretID,
+		Revision:   1,
+		CreateTime: p.UpdateTime.UTC(),
+		UpdateTime: p.UpdateTime.UTC(),
+	}
+	if err := st.upsertSecretRevision(ctx, tx, &rev); err != nil {
+		return errors.Errorf("inserting revision: %w", err)
+	}
+
+	// 5. Insert content or value reference.
+	if len(p.Data) > 0 {
+		if err := st.insertSecretContent(ctx, tx, *p.RevisionUUID, p.Data); err != nil {
+			return errors.Errorf("inserting content: %w", err)
+		}
+	}
+	if p.ValueRef != nil {
+		if err := st.upsertSecretValueRef(ctx, tx, *p.RevisionUUID, p.ValueRef); err != nil {
+			return errors.Errorf("inserting value ref: %w", err)
+		}
+	}
+
+	// 6. Insert expiry if set.
+	if p.ExpireTime != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, *p.RevisionUUID, *p.ExpireTime); err != nil {
+			return errors.Errorf("inserting revision expiry: %w", err)
+		}
+	}
+
+	// 7. Insert next rotation time if set.
+	if p.NextRotateTime != nil {
+		if err := st.upsertSecretNextRotateTime(ctx, tx, arg.SecretID, *p.NextRotateTime); err != nil {
+			return errors.Errorf("inserting next rotate time: %w", err)
+		}
+	}
+
+	// 8. Check for label conflicts before setting ownership.
+	if arg.Label != "" {
+		if err := st.ensureNewLabel(ctx, tx, arg.OwnerKind, arg.OwnerUUID, arg.Label, arg.SecretID); err != nil {
+			return err
+		}
+	}
+
+	// 9. Set ownership and grant manage permission.
+	switch arg.OwnerKind {
+	case domainsecret.ApplicationCharmSecretOwner:
+		if err := st.setSecretApplicationOwner(ctx, tx, arg.SecretID, arg.OwnerUUID, arg.Label); err != nil {
+			return errors.Errorf("setting application owner: %w", err)
+		}
+		if err := st.grantSecretOwnerManage(ctx, tx, arg.SecretID, arg.OwnerUUID, domainsecret.SubjectApplication); err != nil {
+			return errors.Errorf("granting owner manage: %w", err)
+		}
+	case domainsecret.UnitCharmSecretOwner:
+		if err := st.setSecretUnitOwner(ctx, tx, arg.SecretID, arg.OwnerUUID, arg.Label); err != nil {
+			return errors.Errorf("setting unit owner: %w", err)
+		}
+		if err := st.grantSecretOwnerManage(ctx, tx, arg.SecretID, arg.OwnerUUID, domainsecret.SubjectUnit); err != nil {
+			return errors.Errorf("granting owner manage: %w", err)
+		}
+	default:
+		return errors.Errorf("unexpected secret owner kind %q", arg.OwnerKind)
+	}
+
+	return nil
+}
+
+// ensureNewLabel verifies if a secret label exists for the specified owner kind, UUID, and label combination.
+// Returns an error if a conflict is detected and a boolean indicating if the operation completed.
+func (st *State) ensureNewLabel(ctx context.Context, tx *sqlair.TX, ownerKind domainsecret.CharmSecretOwnerKind, ownerUUID string, label string, secretID string) error {
+	switch ownerKind {
+	case domainsecret.ApplicationCharmSecretOwner:
+		exists, err := st.checkApplicationSecretLabelExists(ctx, tx, ownerUUID, label, secretID)
+		if err != nil {
+			return errors.Errorf("checking application secret label conflict: %w", err)
+		}
+		if exists {
+			return errors.Errorf("secret with label %q already exists", label).
+				Add(secreterrors.SecretLabelAlreadyExists)
+		}
+	case domainsecret.UnitCharmSecretOwner:
+		exists, err := st.checkUnitSecretLabelExists(ctx, tx, ownerUUID, label, secretID)
+		if err != nil {
+			return errors.Errorf("checking unit secret label conflict: %w", err)
+		}
+		if exists {
+			return errors.Errorf("secret with label %q already exists", label).
+				Add(secreterrors.SecretLabelAlreadyExists)
+		}
+	}
 	return nil
 }
 
@@ -160,9 +309,10 @@ SELECT sm.secret_id AS &secretInfo.secret_id,
        sm.auto_prune AS &secretInfo.auto_prune,
        sm.latest_revision_checksum AS &secretInfo.latest_revision_checksum,
        sm.update_time AS &secretInfo.update_time,
-       MAX(sr.revision) AS &secretInfo.latest_revision
+       MAX(sr.revision) AS &secretInfo.latest_revision,
+	   sr.uuid AS &secretInfo.latest_revision_uuid
 FROM   secret_metadata sm
-       LEFT JOIN secret_revision sr ON sr.secret_id = sm.secret_id
+	   JOIN secret_revision sr ON sr.secret_id = sm.secret_id
 WHERE  sm.secret_id = $secretID.secret_id
 GROUP BY sm.secret_id`
 	existingStmt, err := st.Prepare(existingQuery, secretID{}, secretInfo{})
@@ -204,21 +354,51 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		Description:            info.Description,
 		RotatePolicyID:         rotatePolicyID,
 		AutoPrune:              info.AutoPrune,
-		LatestRevisionChecksum: update.Checksum,
+		LatestRevisionChecksum: info.LatestRevisionChecksum,
 		UpdateTime:             st.clock.Now().UTC(),
 	}
 	if update.Description != nil {
 		updatedInfo.Description = *update.Description
 	}
 
+	// The checksum belongs to the latest content revision.
+	// Only advance it when this update actually creates a new revision;
+	// a metadata-only update (RevisionUUID == "") carries an empty checksum
+	// and must not clobber the existing value.
+	if update.RevisionUUID != "" {
+		updatedInfo.LatestRevisionChecksum = update.Checksum
+	}
+
 	if err := tx.Query(ctx, upsertMdStmt, updatedInfo).Run(); err != nil {
 		return errors.Capture(err)
 	}
 
+	// Handle rotation scheduling: delete when policy becomes RotateNever,
+	// insert or update NextRotateTime when switching to a more frequent policy.
+	if update.RotatePolicy != nil && *update.RotatePolicy == domainsecret.RotateNever {
+		if err := st.deleteSecretRotation(ctx, tx, update.SecretID); err != nil {
+			return errors.Errorf("deleting rotation schedule: %w", err)
+		}
+	}
+	if update.NextRotateTime != nil {
+		if err := st.upsertSecretNextRotateTime(ctx, tx, update.SecretID, *update.NextRotateTime); err != nil {
+			return errors.Errorf("updating next rotate time: %w", err)
+		}
+	}
+
 	if update.Label != nil {
 		label := *update.Label
+		if label != "" {
+			ownerUUID, err := st.getSecretOwnerUUID(ctx, tx, update.SecretID, update.OwnerKind)
+			if err != nil {
+				return errors.Errorf("getting secret owner for label conflict check: %w", err)
+			}
+			if err := st.ensureNewLabel(ctx, tx, update.OwnerKind, ownerUUID, label, update.SecretID); err != nil {
+				return err
+			}
+		}
 		switch update.OwnerKind {
-		case secret.ApplicationCharmSecretOwner:
+		case domainsecret.ApplicationCharmSecretOwner:
 			ownerStmt, err := st.Prepare(`
 INSERT INTO secret_application_owner (secret_id, application_uuid, label)
 SELECT $secretID.secret_id, owner_uuid, $secretApplicationOwner.label
@@ -232,7 +412,7 @@ ON CONFLICT(secret_id, application_uuid) DO UPDATE SET label=excluded.label
 			if err := tx.Query(ctx, ownerStmt, secretID{ID: update.SecretID}, secretApplicationOwner{Label: label}).Run(); err != nil {
 				return errors.Errorf("updating application secret label: %w", err)
 			}
-		case secret.UnitCharmSecretOwner:
+		case domainsecret.UnitCharmSecretOwner:
 			ownerStmt, err := st.Prepare(`
 INSERT INTO secret_unit_owner (secret_id, unit_uuid, label)
 SELECT $secretID.secret_id, owner_uuid, $secretUnitOwner.label
@@ -269,21 +449,6 @@ ON CONFLICT(uuid) DO UPDATE SET update_time=excluded.update_time
 			return errors.Errorf("inserting revision: %w", err)
 		}
 
-		if update.ExpireTime != nil {
-			expStmt, err := st.Prepare(`
-INSERT INTO secret_revision_expire (revision_uuid, expire_time)
-VALUES ($secretRevisionExpire.*)
-ON CONFLICT(revision_uuid) DO UPDATE SET expire_time=excluded.expire_time
-`, secretRevisionExpire{})
-			if err != nil {
-				return errors.Capture(err)
-			}
-			exp := secretRevisionExpire{RevisionUUID: rev.UUID, ExpireTime: *update.ExpireTime}
-			if err := tx.Query(ctx, expStmt, exp).Run(); err != nil {
-				return errors.Errorf("setting revision expiry: %w", err)
-			}
-		}
-
 		if len(update.Data) > 0 {
 			contentStmt, err := st.Prepare(`
 INSERT INTO secret_content (revision_uuid, name, content)
@@ -317,6 +482,30 @@ ON CONFLICT(revision_uuid) DO UPDATE SET backend_uuid=excluded.backend_uuid, rev
 			}
 			if err := tx.Query(ctx, refStmt, ref).Run(); err != nil {
 				return errors.Errorf("setting revision value ref: %w", err)
+			}
+		}
+	}
+
+	// Handle ExpireTime: apply to the new revision if one was created,
+	// otherwise apply to the existing latest revision if it exists.
+	if update.ExpireTime != nil {
+		targetRevisionUUID := update.RevisionUUID
+		if targetRevisionUUID == "" {
+			targetRevisionUUID = info.LatestRevisionUUID
+		}
+
+		if targetRevisionUUID != "" {
+			expStmt, err := st.Prepare(`
+INSERT INTO secret_revision_expire (revision_uuid, expire_time)
+VALUES ($secretRevisionExpire.*)
+ON CONFLICT(revision_uuid) DO UPDATE SET expire_time=excluded.expire_time
+`, secretRevisionExpire{})
+			if err != nil {
+				return errors.Capture(err)
+			}
+			exp := secretRevisionExpire{RevisionUUID: targetRevisionUUID, ExpireTime: *update.ExpireTime}
+			if err := tx.Query(ctx, expStmt, exp).Run(); err != nil {
+				return errors.Errorf("setting revision expiry: %w", err)
 			}
 		}
 	}
@@ -428,13 +617,13 @@ ON CONFLICT(secret_id, subject_uuid) DO UPDATE SET
 
 // subjectExists checks whether the subject entity referenced by uuid still
 // exists in the database, dispatching to the appropriate table based on type.
-func (st *State) subjectExists(ctx context.Context, tx *sqlair.TX, uuid string, t secret.GrantSubjectType) (bool, error) {
+func (st *State) subjectExists(ctx context.Context, tx *sqlair.TX, uuid string, t domainsecret.GrantSubjectType) (bool, error) {
 	switch t {
-	case secret.SubjectUnit:
+	case domainsecret.SubjectUnit:
 		return st.unitExists(ctx, tx, uuid)
-	case secret.SubjectApplication:
+	case domainsecret.SubjectApplication:
 		return st.applicationExists(ctx, tx, uuid)
-	case secret.SubjectModel:
+	case domainsecret.SubjectModel:
 		return st.modelExists(ctx, tx, uuid)
 	default:
 		return false, errors.Errorf("unknown subject type %d", t)
@@ -443,15 +632,15 @@ func (st *State) subjectExists(ctx context.Context, tx *sqlair.TX, uuid string, 
 
 // scopeExists checks whether the scope entity referenced by uuid still
 // exists in the database, dispatching to the appropriate table based on type.
-func (st *State) scopeExists(ctx context.Context, tx *sqlair.TX, uuid string, t secret.GrantScopeType) (bool, error) {
+func (st *State) scopeExists(ctx context.Context, tx *sqlair.TX, uuid string, t domainsecret.GrantScopeType) (bool, error) {
 	switch t {
-	case secret.ScopeUnit:
+	case domainsecret.ScopeUnit:
 		return st.unitExists(ctx, tx, uuid)
-	case secret.ScopeApplication:
+	case domainsecret.ScopeApplication:
 		return st.applicationExists(ctx, tx, uuid)
-	case secret.ScopeModel:
+	case domainsecret.ScopeModel:
 		return st.modelExists(ctx, tx, uuid)
-	case secret.ScopeRelation:
+	case domainsecret.ScopeRelation:
 		return st.relationExists(ctx, tx, uuid)
 	default:
 		return false, errors.Errorf("unknown scope type %d", t)
@@ -527,6 +716,10 @@ func (st *State) relationExists(ctx context.Context, tx *sqlair.TX, id string) (
 // deleted; this method logs each such ID at debug level so callers do not
 // need to.
 func (st *State) filterExistingSecrets(ctx context.Context, tx *sqlair.TX, ids secretIDs) (map[string]struct{}, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
 	stmt, err := st.Prepare(`
 SELECT &secretID.secret_id
 FROM   secret_metadata
@@ -862,6 +1055,7 @@ func (st *State) GetCommitHookUnitInfo(ctx context.Context, name string) (intern
 	stmt, err := st.Prepare(`
 SELECT u.uuid AS &commitHookUnitInfo.unit_uuid,
        u.life_id AS &commitHookUnitInfo.unit_life_id,
+       u.application_uuid AS &commitHookUnitInfo.application_uuid,
        m.uuid AS &commitHookUnitInfo.machine_uuid
 FROM   unit u
 LEFT JOIN machine m ON m.net_node_uuid = u.net_node_uuid
@@ -884,8 +1078,9 @@ WHERE  u.name = $unitName.name
 	}
 
 	retVal := internal.CommitHookUnitInfo{
-		UnitUUID: result.UnitUUID,
-		UnitLife: life.Life(result.UnitLife),
+		UnitUUID:        result.UnitUUID,
+		UnitLife:        life.Life(result.UnitLife),
+		ApplicationUUID: result.ApplicationUUID,
 	}
 	if result.MachineUUID.Valid {
 		retVal.MachineUUID = &result.MachineUUID.String
