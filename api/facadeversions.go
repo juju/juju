@@ -38,7 +38,6 @@ var facadeVersions = facades.FacadeVersions{
 	"CAASAgent":                    {2},
 	"CAASAdmission":                {1},
 	"CAASApplication":              {1},
-	"CAASApplicationProvisioner":   {1},
 	"CAASModelConfigManager":       {1},
 	"CAASModelOperator":            {1},
 	"CAASOperatorUpgrader":         {1},

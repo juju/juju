@@ -13,8 +13,8 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	caasapplicationprovisioner "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	watcher "github.com/juju/juju/core/watcher"
+	provisionertypes "github.com/juju/juju/internal/worker/caasapplicationprovisioner/types"
 )
 
 // MockCAASProvisionerFacade is a mock of CAASProvisionerFacade interface.
@@ -28,8 +28,8 @@ type MockCAASProvisionerFacade struct {
 type MockCAASProvisionerFacadeMockRecorder struct {
 	mock                              *MockCAASProvisionerFacade
 	destroyUnitsExpects               []*gomock.Call2_1[context.Context, []string, error]
-	filesystemProvisioningInfoExpects []*gomock.Call2_2[context.Context, string, caasapplicationprovisioner.FilesystemProvisioningInfo, error]
-	provisioningInfoExpects           []*gomock.Call2_2[context.Context, string, caasapplicationprovisioner.ProvisioningInfo, error]
+	filesystemProvisioningInfoExpects []*gomock.Call2_2[context.Context, string, provisionertypes.FilesystemProvisioningInfo, error]
+	provisioningInfoExpects           []*gomock.Call2_2[context.Context, string, provisionertypes.ProvisioningInfo, error]
 	removeUnitExpects                 []*gomock.Call2_1[context.Context, string, error]
 	watchProvisioningInfoExpects      []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
 }
@@ -65,7 +65,7 @@ func (mr *MockCAASProvisionerFacadeMockRecorder) DestroyUnits(ctx, unitNames any
 type MockCAASProvisionerFacadeDestroyUnitsCall = gomock.Call2_1[context.Context, []string, error]
 
 // FilesystemProvisioningInfo mocks base method.
-func (m *MockCAASProvisionerFacade) FilesystemProvisioningInfo(arg0 context.Context, arg1 string) (caasapplicationprovisioner.FilesystemProvisioningInfo, error) {
+func (m *MockCAASProvisionerFacade) FilesystemProvisioningInfo(arg0 context.Context, arg1 string) (provisionertypes.FilesystemProvisioningInfo, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.filesystemProvisioningInfoExpects, m.ctrl, m, "FilesystemProvisioningInfo", arg0, arg1)
 }
@@ -73,17 +73,17 @@ func (m *MockCAASProvisionerFacade) FilesystemProvisioningInfo(arg0 context.Cont
 // FilesystemProvisioningInfo indicates an expected call of FilesystemProvisioningInfo.
 func (mr *MockCAASProvisionerFacadeMockRecorder) FilesystemProvisioningInfo(arg0, arg1 any) *MockCAASProvisionerFacadeFilesystemProvisioningInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, caasapplicationprovisioner.FilesystemProvisioningInfo, error](mr.mock.ctrl.T, mr.mock, "FilesystemProvisioningInfo", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	call := gomock.NewCall2_2[context.Context, string, provisionertypes.FilesystemProvisioningInfo, error](mr.mock.ctrl.T, mr.mock, "FilesystemProvisioningInfo", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
 	mr.filesystemProvisioningInfoExpects = append(mr.filesystemProvisioningInfoExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockCAASProvisionerFacadeFilesystemProvisioningInfoCall is the typed call wrapper for FilesystemProvisioningInfo.
-type MockCAASProvisionerFacadeFilesystemProvisioningInfoCall = gomock.Call2_2[context.Context, string, caasapplicationprovisioner.FilesystemProvisioningInfo, error]
+type MockCAASProvisionerFacadeFilesystemProvisioningInfoCall = gomock.Call2_2[context.Context, string, provisionertypes.FilesystemProvisioningInfo, error]
 
 // ProvisioningInfo mocks base method.
-func (m *MockCAASProvisionerFacade) ProvisioningInfo(arg0 context.Context, arg1 string) (caasapplicationprovisioner.ProvisioningInfo, error) {
+func (m *MockCAASProvisionerFacade) ProvisioningInfo(arg0 context.Context, arg1 string) (provisionertypes.ProvisioningInfo, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.provisioningInfoExpects, m.ctrl, m, "ProvisioningInfo", arg0, arg1)
 }
@@ -91,14 +91,14 @@ func (m *MockCAASProvisionerFacade) ProvisioningInfo(arg0 context.Context, arg1 
 // ProvisioningInfo indicates an expected call of ProvisioningInfo.
 func (mr *MockCAASProvisionerFacadeMockRecorder) ProvisioningInfo(arg0, arg1 any) *MockCAASProvisionerFacadeProvisioningInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, caasapplicationprovisioner.ProvisioningInfo, error](mr.mock.ctrl.T, mr.mock, "ProvisioningInfo", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	call := gomock.NewCall2_2[context.Context, string, provisionertypes.ProvisioningInfo, error](mr.mock.ctrl.T, mr.mock, "ProvisioningInfo", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
 	mr.provisioningInfoExpects = append(mr.provisioningInfoExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockCAASProvisionerFacadeProvisioningInfoCall is the typed call wrapper for ProvisioningInfo.
-type MockCAASProvisionerFacadeProvisioningInfoCall = gomock.Call2_2[context.Context, string, caasapplicationprovisioner.ProvisioningInfo, error]
+type MockCAASProvisionerFacadeProvisioningInfoCall = gomock.Call2_2[context.Context, string, provisionertypes.ProvisioningInfo, error]
 
 // RemoveUnit mocks base method.
 func (m *MockCAASProvisionerFacade) RemoveUnit(ctx context.Context, unitName string) error {
