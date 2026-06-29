@@ -22,8 +22,8 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/export"
-	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/modeldefaults"
+	modelimport "github.com/juju/juju/domain/modelimport/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -44,21 +44,14 @@ type OperationExporter interface {
 // on the given cloud service.
 type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchemaSourceGetter
 
-// ModelDBImporter is the seam Task 8 fills with the generated domain import.
-// It is nil on ModelImporter until Task 8 wires it in.
-type ModelDBImporter interface {
-	Import(ctx context.Context, payload *latest.ModelExport) error
-}
-
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
 	domainServices services.DomainServicesGetter
 
-	controllerUUID  string
-	scope           modelmigration.ScopeForModel
-	logger          corelogger.Logger
-	clock           clock.Clock
-	modelDBImporter ModelDBImporter // nil until Task 8 wires it in
+	controllerUUID string
+	scope          modelmigration.ScopeForModel
+	logger         corelogger.Logger
+	clock          clock.Clock
 }
 
 // NewModelImporter returns a new ModelImporter that encapsulates the
@@ -141,10 +134,12 @@ func (i *ModelImporter) ImportModelV2(
 		return internalerrors.Capture(err)
 	}
 
-	// Model-DB import: Task 8 fills this seam with the generated domain import.
-	// The payload is decoded and transformed but not yet persisted into the model DB.
-	if args.ModelDBPayload != nil && i.modelDBImporter != nil {
-		if err := i.modelDBImporter.Import(ctx, args.ModelDBPayload); err != nil {
+	// Model-DB import: insert the transformed, target-version payload into the
+	// model DB. The importer is constructed per import because it binds to the
+	// model DB resolved from the scope for this model UUID (the ModelImporter
+	// itself is not bound to a single model).
+	if args.ModelDBPayload != nil {
+		if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
 			return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
 		}
 	}

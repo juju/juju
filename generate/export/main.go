@@ -50,6 +50,36 @@ func (r *txnRunner) Dying() <-chan struct{} {
 	return nil
 }
 
+// bootstrapTables are the target-local identity/agent tables the target creates
+// itself when it bootstraps the model DB during a v8 import (see
+// internal/migration/v2). They must never be inserted from the source payload,
+// so the generated importer excludes them.
+var bootstrapTables = map[string]bool{
+	"model":           true, // read-only model identity (0004-read-only-model.sql)
+	"model_life":      true,
+	"agent_version":   true,
+	"model_agent":     true,
+	"model_migrating": true,
+}
+
+// nonContentTables are operational/changestream tables that are not part of a
+// model's migratable content. The target's changestream starts fresh, so these
+// are excluded from the generated importer. The seeded ones among them
+// (change_log_edit_type, change_log_namespace) are also auto-excluded by
+// getSeededTables; they are listed here for clarity.
+//
+// NOTE: this list (and bootstrapTables) is the import-exclusion contract.
+//
+// TODO audit it for other non-payload tables — e.g. binary/object-store tables
+// whose blobs transfer over separate HTTP endpoints rather than in the YAML
+// payload.
+var nonContentTables = map[string]bool{
+	"change_log":           true,
+	"change_log_witness":   true,
+	"change_log_edit_type": true,
+	"change_log_namespace": true,
+}
+
 func main() {
 	fmt.Printf("Juju version: %s\n", version.Current)
 
@@ -128,7 +158,60 @@ func generate(ctx context.Context, runner *txnRunner) error {
 		return err
 	}
 
+	// The importer is the write-mirror of the exporter. It covers every table the
+	// exporter does, minus the target-local bootstrap tables and the
+	// operational/changestream tables. Tables the schema seeds (lookup tables, and
+	// seeded-extensible tables such as space which has the well-known alpha row plus
+	// user rows) are kept but inserted with ON CONFLICT DO NOTHING: their identical
+	// seed rows are skipped while genuine content rows are inserted. usedTableNames
+	// and structNames are parallel.
+	seeded, err := getSeededTables(ctx, runner, usedTableNames)
+	if err != nil {
+		return err
+	}
+	var importTables []importTableData
+	for i, tableName := range usedTableNames {
+		if bootstrapTables[tableName] || nonContentTables[tableName] {
+			continue
+		}
+		importTables = append(importTables, importTableData{
+			StructName: structNames[i],
+			TableName:  tableName,
+			Seeded:     seeded[tableName],
+		})
+	}
+
+	if err := writeStateImportFile(versionToken, semanticVersion, importTables); err != nil {
+		return err
+	}
+
 	return generateTransforms(exportVersionStrings(export.ExportVersions))
+}
+
+// getSeededTables returns the set of tables that already contain rows after the
+// schema has been applied to the empty in-memory DB. These are the lookup tables
+// the schema seeds (life, secret_role, ip_address_type, ...). The target seeds
+// the same rows, so the importer must not re-insert them (it would collide on the
+// primary key).
+func getSeededTables(ctx context.Context, runner *txnRunner, tableNames []string) (map[string]bool, error) {
+	seeded := make(map[string]bool)
+	err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		for _, tableName := range tableNames {
+			var count int
+			query := fmt.Sprintf("SELECT COUNT(*) FROM %q", tableName)
+			if err := tx.QueryRowContext(ctx, query).Scan(&count); err != nil {
+				return err
+			}
+			if count > 0 {
+				seeded[tableName] = true
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return seeded, nil
 }
 
 func exportVersionStrings(versions []semversion.Number) []string {
@@ -504,4 +587,74 @@ func writeServiceModelVersionFile(versionToken, semanticVersion string) error {
 	testFilePath := filepath.Join(dir, "export_test.go")
 	fmt.Printf("writing to %s\n", testFilePath)
 	return os.WriteFile(testFilePath, testFormatted, 0644)
+}
+
+// importTableData describes one table the generated importer inserts. Seeded
+// marks tables the schema pre-populates, whose inserts use ON CONFLICT DO NOTHING
+// so the (identical) seed rows are skipped while genuine content rows are kept.
+type importTableData struct {
+	StructName string
+	TableName  string
+	Seeded     bool
+}
+
+// writeStateImportFile generates the importer (the write-mirror of the exporter)
+// into domain/modelimport/state/model/import.go, plus a smoke test. It is driven
+// by import.tmpl / import_test.tmpl and the included (non-bootstrap, non-infra)
+// table list.
+func writeStateImportFile(
+	versionToken string,
+	semanticVersion string,
+	tables []importTableData,
+) error {
+	_, filename, _, _ := runtime.Caller(0)
+	currentDir := filepath.Dir(filename)
+
+	repoRoot := filepath.Dir(filepath.Dir(currentDir))
+	dir := filepath.Join(repoRoot, "domain", "modelimport", "state", "model")
+
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	data := struct {
+		VersionToken    string
+		SemanticVersion string
+		Tables          []importTableData
+	}{
+		VersionToken:    versionToken,
+		SemanticVersion: semanticVersion,
+		Tables:          tables,
+	}
+
+	if err := renderImportTemplate(filepath.Join(currentDir, "import.tmpl"), filepath.Join(dir, "import.go"), "import", data); err != nil {
+		return err
+	}
+	if err := renderImportTemplate(filepath.Join(currentDir, "import_test.tmpl"), filepath.Join(dir, "import_test.go"), "import_test", data); err != nil {
+		return err
+	}
+	return nil
+}
+
+// renderImportTemplate parses the template at tmplPath, executes it with data,
+// gofmt-formats the result, and writes it to outPath.
+func renderImportTemplate(tmplPath, outPath, name string, data any) error {
+	tmplBytes, err := os.ReadFile(tmplPath)
+	if err != nil {
+		return err
+	}
+
+	t := template.Must(template.New(name).Parse(string(tmplBytes)))
+	var out bytes.Buffer
+	if err := t.Execute(&out, data); err != nil {
+		return err
+	}
+
+	formatted, err := format.Source(out.Bytes())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("writing to %s\n", outPath)
+	return os.WriteFile(outPath, formatted, 0644)
 }
