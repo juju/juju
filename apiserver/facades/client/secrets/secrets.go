@@ -282,7 +282,6 @@ func fromUpsertParams(modelUUID string, autoPrune *bool, p params.UpsertSecretAr
 		AutoPrune:   autoPrune,
 		Description: p.Description,
 		Label:       p.Label,
-		Params:      p.Params,
 		Data:        p.Content.Data,
 		Checksum:    p.Content.Checksum,
 	}

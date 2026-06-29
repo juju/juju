@@ -11,6 +11,11 @@ myst:
 See also: {ref}`ssh-key`
 ```
 
+If you've bootstrapped a controller, Juju has automatically created an SSH key
+for you that yon use to SSH into the machines or units provisioned through
+Juju. This document covers the other case where you want to add further SSH
+keys to Juju.
+
 (add-an-ssh-key)=
 ## Add an SSH key
 
@@ -64,6 +69,47 @@ If you want to get more details, or get this information for a different model, 
 ```{ibnote}
 See more: {ref}`command-juju-ssh-keys`
 ```
+
+(use-an-ssh-key)=
+## Use an SSH key
+
+To SSH into a machine using a specific private key, pass OpenSSH's `-i`
+flag between the target and a possible remote command. Because `juju ssh`
+passes any options placed after the target to the underlying OpenSSH client,
+other OpenSSH flags can be used in the same way:
+
+```text
+juju ssh ubuntu/0 -i ~/.ssh/my_private_key
+```
+
+The key's public counterpart must be added to the model first (see
+{ref}`add-an-ssh-key`).
+
+```{ibnote}
+See more: {ref}`command-juju-ssh`
+```
+
+````{dropdown} Example: Use a FIDO/U2F security key (e.g. YubiKey)
+:color: success
+
+To use a FIDO/U2F security key with `juju ssh`, generate an SSH key
+backed by the security key, add the public key to the model, and pass
+the private key with the `-i` option:
+
+```text
+ssh-keygen -t ed25519-sk -f ~/.ssh/id_ed25519_sk
+juju add-ssh-key "$(cat ~/.ssh/id_ed25519_sk.pub)"
+juju ssh ubuntu/0 -i ~/.ssh/id_ed25519_sk
+```
+
+When using the Juju snap, the `u2f-devices` interface must be connected
+to allow access to FIDO/U2F security keys. This interface is not
+auto-connected:
+
+```text
+sudo snap connect juju:u2f-devices
+```
+````
 
 ## Remove an SSH key
 

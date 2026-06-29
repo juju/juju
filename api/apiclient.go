@@ -163,16 +163,7 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 		bakeryClient.Client = &httpc
 	}
 
-	httpsTransport := jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
-		TLSConfig: dialResult.tlsConfig,
-	})
-	// http.DefaultTransport uses 100 idle connections and 90s timeout.
-	// Old versions of juju/http were not setting this at all, which meant
-	// that we were not cleaning up idle connections. Since we are creating
-	// a new httpsTransport for each api.Open, we can set the MaxIdleConns
-	// all the way down to a single connection.
-	httpsTransport.MaxIdleConns = 1
-	httpsTransport.IdleConnTimeout = 90 * time.Second
+	httpsTransport := newPrimaryHTTPTransport(dialResult.tlsConfig)
 
 	// Technically, when there's no CACert, we don't need this
 	// machinery because we could just use http.DefaultTransport
@@ -264,6 +255,21 @@ func Open(ctx context.Context, info *Info, opts DialOpts) (Connection, error) {
 		broken:      c.broken,
 	}).run()
 	return c, nil
+}
+
+func newPrimaryHTTPTransport(tlsConfig *tls.Config) *http.Transport {
+	httpsTransport := jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
+		TLSConfig: tlsConfig,
+	})
+	// http.DefaultTransport uses 100 idle connections and 90s timeout.
+	// Old versions of juju/http were not setting this at all, which meant
+	// that we were not cleaning up idle connections. Since we are creating
+	// a new httpsTransport for each api.Open, we can set the MaxIdleConns
+	// all the way down to a single connection.
+	httpsTransport.MaxIdleConns = 1
+	httpsTransport.IdleConnTimeout = 90 * time.Second
+	httpsTransport.Proxy = proxyForRequest
+	return httpsTransport
 }
 
 // CookieURLFromHost creates a url.URL from a given host.

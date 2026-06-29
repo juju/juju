@@ -395,27 +395,6 @@ func (s *uniterLegacySuite) TestRefreshNoArgs(c *tc.C) {
 	c.Assert(results, tc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
 
-func (s *uniterLegacySuite) TestCommitHookChangesWithSecrets(c *tc.C) {
-	c.Skip("Rewrite this in the commitHookChangesSuite once other hook commit concerns are in Dqlite")
-	// See commitHookChangesSuite
-}
-
-func (s *uniterLegacySuite) TestCommitHookChangesWithStorage(c *tc.C) {
-	c.Skip("Rewrite this in the commitHookChangesSuite once other hook commit concerns are in Dqlite")
-
-	// Test-suite uses an older API version. Create a new one and override
-	// authorizer to allow access to the unit we just created.
-
-	// Verify state
-}
-
-func (s *uniterLegacySuite) TestCommitHookChangesWithPortsSidecarApplication(c *tc.C) {
-	c.Skip("Rewrite this in the commitHookChangesSuite other hook commit concerns are in Dqlite")
-}
-
-func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *tc.C) {
-}
-
 func (s *uniterLegacySuite) TestNetworkInfoCAASModelRelation(c *tc.C) {
 }
 

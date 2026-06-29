@@ -18,10 +18,9 @@ run_start_hook_fires_after_reboot() {
 	# fire for the initial charm deployment
 	echo "[+] ensuring that implicit start hook does not fire after initial deployment"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
-	echo "$logs" | sed 's/^/    | /g'
+	echo "${logs//#/    | }"
 	if [ -n "$logs" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "Uniter incorrectly assumed a reboot occurred after initial charm deployment")
+		red "Uniter incorrectly assumed a reboot occurred after initial charm deployment"
 		exit 1
 	fi
 
@@ -33,10 +32,9 @@ run_start_hook_fires_after_reboot() {
 	echo
 	wait_for "$charm" "$(charm_rev "$charm" 22)"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
-	echo "$logs" | sed 's/^/    | /g'
+	echo "${logs//#/    | }"
 	if [ -n "$logs" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "Uniter incorrectly assumed a reboot occurred after restarting the agent")
+		red "Uniter incorrectly assumed a reboot occurred after restarting the agent"
 		exit 1
 	fi
 	sleep 1
@@ -48,10 +46,9 @@ run_start_hook_fires_after_reboot() {
 	sleep 1
 	wait_for "$charm" "$(charm_rev "$charm" 23)"
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
-	echo "$logs" | sed 's/^/    | /g'
+	echo "${logs//#/    | }"
 	if [ -n "$logs" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "Uniter incorrectly assumed a reboot occurred after restarting the agent")
+		red "Uniter incorrectly assumed a reboot occurred after restarting the agent"
 		exit 1
 	fi
 
@@ -60,15 +57,45 @@ run_start_hook_fires_after_reboot() {
 
 	# Trigger a reboot and verify that the implicit start hook fires
 	echo "[+] ensuring that implicit start hook fires after a machine reboot"
+
+	# Record machine uptime before reboot to verify the machine
+	# actually reboots (not just agent restart).
+	uptime_before=$(juju ssh juju-qa-test/0 -- cat /proc/uptime 2>/dev/null | awk '{print int($1)}' || true)
+	echo "   | machine uptime before reboot: ${uptime_before}s"
+
 	juju ssh juju-qa-test/0 'sudo reboot now' || true
 	sleep 1
 	wait_for "$charm" "$(idle_condition "$charm")"
 	echo
 	logs=$(juju debug-log --include-module juju.worker.uniter --replay --no-tail | grep -n "reboot detected" || true)
-	echo "$logs" | sed 's/^/    | /g'
+	echo "${logs//#/    | }"
 	if [ -z "$logs" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "Uniter did not fire start hook after the machine rebooted")
+		red "Uniter did not fire start hook after the machine rebooted"
+		exit 1
+	fi
+
+	# Verify that the machine actually rebooted by checking that uptime
+	# decreased. This catches the failure mode where AgentDone() does not
+	# swallow the sentinel error, causing systemd to restart the agent
+	# instead of the machine rebooting.
+	echo "[+] verifying that the machine actually rebooted (uptime decreased)"
+	uptime_after=$(juju ssh juju-qa-test/0 -- cat /proc/uptime 2>/dev/null | awk '{print int($1)}' || true)
+	echo "   | uptime before: ${uptime_before}s, after: ${uptime_after}s"
+	if [ -z "$uptime_before" ] || [ -z "$uptime_after" ] || [ "$uptime_after" -ge "$uptime_before" ]; then
+		red "Machine uptime did not decrease after reboot; machine may not have actually rebooted"
+		exit 1
+	fi
+
+	# Verify that the machine agent executed the reboot via
+	# executeRebootOrShutdown. This directly tests the code path fixed
+	# in the errors.Cause -> errors.Is change: the machine agent must
+	# recognise ErrRebootMachine through the Unwrap chain and dispatch
+	# to executeRebootOrShutdown.
+	echo "[+] verifying that the machine agent executed the reboot"
+	machine_log=$(juju ssh juju-qa-test/0 -- sudo grep -E "Caught reboot error|Executing reboot" /var/log/juju/machine-0.log 2>/dev/null || true)
+	echo "$machine_log//#/    | }"
+	if [ -z "$machine_log" ]; then
+		red "Machine agent did not log reboot execution in machine-0.log"
 		exit 1
 	fi
 
@@ -97,8 +124,7 @@ run_reboot_monitor_state_cleanup() {
 	num_files=$(juju ssh juju-qa-test/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
 	echo "   | number of monitor state files: ${num_files}"
 	if [ "$num_files" != "2" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "Expected 2 reboot monitor state files to be created; got ${num_files}")
+		red "Expected 2 reboot monitor state files to be created; got ${num_files}"
 		exit 1
 	fi
 
@@ -108,11 +134,10 @@ run_reboot_monitor_state_cleanup() {
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	wait_for_subordinate_count "juju-qa-test"
-	num_files=$(juju ssh juju-qa-test/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
+	num_files=$(juju ssh   juju-qa-test/0 'ls -1 /var/run/juju/reboot-monitor/ | wc -l' 2>/dev/null | tr -d "[:space:]")
 	echo "   | number of monitor state files: ${num_files}"
 	if [ "$num_files" != "1" ]; then
-		# shellcheck disable=SC2046
-		echo $(red "Expected one remaining reboot monitor state file after subordinate removal; got ${num_files}")
+		red "Expected one remaining reboot monitor state file after subordinate removal; got ${num_files}"
 		exit 1
 	fi
 

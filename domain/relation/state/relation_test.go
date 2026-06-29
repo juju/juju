@@ -3802,47 +3802,56 @@ func (s *relationSuite) TestApplicationRelationsInfo(c *tc.C) {
 	unit1 := s.addUnit(c, "three/0", app3, charm3)
 	unit2 := s.addUnit(c, "three/1", app3, charm3)
 
-	// Relate applications 1 and 3. Both of application 3's units
+	// Relate applications 1 and 3. Both of the remote (application 1) units
 	// are in scope and have settings.
 	relID1 := 3
 	relUUID1 := s.addRelationWithID(c, relID1)
-	_ = s.addRelationEndpoint(c, relUUID1, appEndpoint1)
+	relEndpoint1 := s.addRelationEndpoint(c, relUUID1, appEndpoint1)
 	relEndpoint13 := s.addRelationEndpoint(c, relUUID1, appEndpoint3)
-	rel1unit1 := s.addRelationUnit(c, unit1, relEndpoint13)
-	rel1unit2 := s.addRelationUnit(c, unit2, relEndpoint13)
+	app1Unit0 := s.addUnit(c, coreunit.Name(s.fakeApplicationName1+"/0"), s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	app1Unit1 := s.addUnit(c, coreunit.Name(s.fakeApplicationName1+"/1"), s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	rel1unit1 := s.addRelationUnit(c, app1Unit0, relEndpoint1)
+	rel1unit2 := s.addRelationUnit(c, app1Unit1, relEndpoint1)
 	s.addRelationUnitSetting(c, rel1unit1, "foo", "bar")
 	s.addRelationUnitSetting(c, rel1unit2, "foo", "baz")
+	// Add application 3's local units to the relation as well (for symmetry
+	// with a real deployment) but note that for non-peer relations only the
+	// remote application's units are returned.
+	s.addRelationUnit(c, unit1, relEndpoint13)
+	s.addRelationUnit(c, unit2, relEndpoint13)
 	rel13Data := domainrelation.EndpointRelationData{
 		RelationID:      3,
 		Endpoint:        "relation",
 		RelatedEndpoint: "fake-provides",
 		ApplicationData: map[string]string{},
 		UnitRelationData: map[string]domainrelation.RelationData{
-			"three/0": {
+			s.fakeApplicationName1 + "/0": {
 				InScope:  true,
 				UnitData: map[string]string{"foo": "bar"},
 			},
-			"three/1": {
+			s.fakeApplicationName1 + "/1": {
 				InScope:  true,
 				UnitData: map[string]string{"foo": "baz"},
 			},
 		},
 	}
 
-	// Relate applications 2 and 3. Application 3 has settings.
+	// Relate applications 2 and 3. Application 3 has application settings.
 	relID2 := 4
 	relUUID2 := s.addRelationWithID(c, relID2)
 	_ = s.addRelationEndpoint(c, relUUID2, appEndpoint2)
 	relEndpoint23 := s.addRelationEndpoint(c, relUUID2, appEndpoint3)
 	s.addRelationApplicationSetting(c, relEndpoint23, "one", "two")
+	_ = s.addUnit(c, coreunit.Name(s.fakeApplicationName2+"/0"), s.fakeApplicationUUID2, s.fakeCharmUUID2)
+	_ = s.addUnit(c, coreunit.Name(s.fakeApplicationName2+"/1"), s.fakeApplicationUUID2, s.fakeCharmUUID2)
 	rel23Data := domainrelation.EndpointRelationData{
 		RelationID:      4,
 		Endpoint:        "relation",
 		RelatedEndpoint: "fake-provides",
 		ApplicationData: map[string]string{"one": "two"},
 		UnitRelationData: map[string]domainrelation.RelationData{
-			"three/0": {InScope: false},
-			"three/1": {InScope: false},
+			s.fakeApplicationName2 + "/0": {InScope: false},
+			s.fakeApplicationName2 + "/1": {InScope: false},
 		},
 	}
 
@@ -3964,10 +3973,17 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelationLast(c *tc.C) {
 
 	relIDRegular := 4
 	relUUIDRegular := s.addRelationWithID(c, relIDRegular)
-	_ = s.addRelationEndpoint(c, relUUIDRegular, appEndpoint1)
+	relEndpoint1 := s.addRelationEndpoint(c, relUUIDRegular, appEndpoint1)
 	relEndpointRegular := s.addRelationEndpoint(c, relUUIDRegular, appEndpoint3)
-	relRegularUnit1 := s.addRelationUnit(c, unit1, relEndpointRegular)
-	relRegularUnit2 := s.addRelationUnit(c, unit2, relEndpointRegular)
+	app1Unit0 := s.addUnit(c, coreunit.Name(s.fakeApplicationName1+"/0"), s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	app1Unit1 := s.addUnit(c, coreunit.Name(s.fakeApplicationName1+"/1"), s.fakeApplicationUUID1, s.fakeCharmUUID1)
+	relRegularUnit1 := s.addRelationUnit(c, app1Unit0, relEndpoint1)
+	relRegularUnit2 := s.addRelationUnit(c, app1Unit1, relEndpoint1)
+	// Add application 3's local units to the relation as well (for symmetry
+	// with a real deployment) but note that for non-peer relations only the
+	// remote application's units are returned.
+	s.addRelationUnit(c, unit1, relEndpointRegular)
+	s.addRelationUnit(c, unit2, relEndpointRegular)
 	s.addRelationUnitSetting(c, relRegularUnit1, "foo", "bar")
 	s.addRelationUnitSetting(c, relRegularUnit2, "foo", "baz")
 	relRegularData := domainrelation.EndpointRelationData{
@@ -3976,11 +3992,11 @@ func (s *relationSuite) TestApplicationRelationsInfoPeerRelationLast(c *tc.C) {
 		RelatedEndpoint: "fake-provides",
 		ApplicationData: map[string]string{},
 		UnitRelationData: map[string]domainrelation.RelationData{
-			"three/0": {
+			s.fakeApplicationName1 + "/0": {
 				InScope:  true,
 				UnitData: map[string]string{"foo": "bar"},
 			},
-			"three/1": {
+			s.fakeApplicationName1 + "/1": {
 				InScope:  true,
 				UnitData: map[string]string{"foo": "baz"},
 			},

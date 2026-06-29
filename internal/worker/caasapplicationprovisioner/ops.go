@@ -98,7 +98,7 @@ type ApplicationOps interface {
 		broker CAASBroker, applicationService ApplicationService, statusService StatusService,
 		clk clock.Clock, logger logger.Logger) (UpdateStatusState, error)
 
-	RefreshApplicationStatus(ctx context.Context, appName string, appUUID coreapplication.UUID,
+	RefreshOperatorStatus(ctx context.Context, appName string, appUUID coreapplication.UUID,
 		app caas.Application, appLife life.Value, statusService StatusService,
 		clk clock.Clock, logger logger.Logger) error
 
@@ -177,13 +177,13 @@ func (applicationOps) UpdateState(
 	return updateState(ctx, appName, appUUID, app, lastReportedStatus, broker, applicationService, statusService, clk)
 }
 
-func (applicationOps) RefreshApplicationStatus(
+func (applicationOps) RefreshOperatorStatus(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	return refreshApplicationStatus(ctx, appName, appUUID, app, appLife, statusService, clk, logger)
+	return refreshOperatorStatus(ctx, appName, appUUID, app, appLife, statusService, clk, logger)
 }
 
 func (applicationOps) WaitForTerminated(
@@ -320,7 +320,7 @@ func appAlive(ctx context.Context, appName string, appUUID coreapplication.UUID,
 	// TODO(sidecar): implement Equals method for caas.ApplicationConfig
 	if !reflect.DeepEqual(config, *lastApplied) {
 		if err = app.Ensure(config); err != nil {
-			_ = setApplicationStatus(ctx, appName, status.Error, err.Error(), nil, statusService, clk, logger)
+			_ = setOperatorStatus(ctx, appName, status.Error, err.Error(), nil, statusService, clk, logger)
 			return errors.Annotatef(err, "ensuring application %q", appName)
 		}
 		*lastApplied = config
@@ -534,7 +534,7 @@ func updateState(
 	return reportedStatus, nil
 }
 
-func refreshApplicationStatus(
+func refreshOperatorStatus(
 	ctx context.Context,
 	appName string, appUUID coreapplication.UUID, app caas.Application, appLife life.Value,
 	statusService StatusService,
@@ -558,25 +558,26 @@ func refreshApplicationStatus(
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	readyUnitsCount := 0
+	initialisedUnitsCount := 0
 	for _, unit := range unitStatuses {
-		switch unit.Status {
-		case status.Idle, status.Executing:
-			readyUnitsCount++
+		if unit.Status != status.Allocating &&
+			(unit.Status != status.Waiting ||
+				unit.Message != status.MessageInitializingAgent) {
+			initialisedUnitsCount++
 		}
 	}
-	if st.DesiredReplicas > 0 && st.DesiredReplicas > readyUnitsCount {
+	if st.DesiredReplicas > 0 && st.DesiredReplicas > initialisedUnitsCount {
 		// Only set status to waiting for scale up.
 		// When the application gets scaled down, the desired units will be kept running and
 		// the application should be active always.
-		statusErr := setApplicationStatus(ctx, appName, status.Waiting, "waiting for units to settle down", nil, statusService, clk, logger)
+		statusErr := setOperatorStatus(ctx, appName, status.Waiting, "waiting for units to settle down", nil, statusService, clk, logger)
 		if statusErr != nil {
 			return statusErr
 		}
 		// Signal to the caller that units have not yet settled down.
 		return unitsChurning
 	}
-	return setApplicationStatus(ctx, appName, status.Active, "", nil, statusService, clk, logger)
+	return setOperatorStatus(ctx, appName, status.Active, "", nil, statusService, clk, logger)
 }
 
 func waitForTerminated(appName string, app caas.Application,
@@ -801,13 +802,13 @@ func getStorageUniqueID(appUUID coreapplication.UUID) string {
 	return appUUID.String()[:6]
 }
 
-func setApplicationStatus(
+func setOperatorStatus(
 	ctx context.Context,
 	appName string, s status.Status, reason string, data map[string]any,
 	statusService StatusService,
 	clk clock.Clock, logger logger.Logger,
 ) error {
-	logger.Tracef(ctx, "updating application %q status to %q, %q, %v", appName, s, reason, data)
+	logger.Tracef(ctx, "updating application %q operator status to %q, %q, %v", appName, s, reason, data)
 	now := clk.Now()
 	return statusService.SetOperatorStatus(ctx, appName, status.StatusInfo{
 		Status:  s,

@@ -98,10 +98,6 @@ func (c googleContainerRegistry) Ping() error {
 		return nil
 	}
 	url := c.url("/")
-	if !strings.HasSuffix(url, "/") {
-		// gcr v2 root endpoint requires the trailing slash(otherwise 404 returns).
-		url += "/"
-	}
 	logger.Debugf(context.TODO(), "gcr ping %q", url)
 	resp, err := c.client.Get(url)
 	if resp != nil {

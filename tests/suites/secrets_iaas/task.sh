@@ -21,7 +21,7 @@ test_secrets_iaas() {
 	test_user_secret_drain
 	test_obsolete_revisions
 	test_secret_nonleader_unit_owned
-	test_track_latest_revision
+	test_secrets_hook_commit
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true

@@ -22,6 +22,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/deployment/charm"
@@ -214,7 +215,7 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 	// If we're bootstrapping a controller on a lxd virtual machine, we want to
 	// ensure that it has at least 2 cores. Less than 2 cores can cause the
 	// controller to become unresponsive when installing.
-	if !cons.HasCpuCores() && cons.HasVirtType() && *cons.VirtType == "virtual-machine" {
+	if !cons.HasCpuCores() && cons.HasVirtType() && *cons.VirtType == instance.VirtTypeMachine {
 		var cores = uint64(2)
 		cons.CpuCores = &cores
 	}

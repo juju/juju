@@ -3702,6 +3702,46 @@ func (s *commitHookChangesSuite) TestCommitHookChangesGrantSecrets(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *commitHookChangesSuite) TestCommitHookChangesUpdateSecrets(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName, _ := coreunit.NewName("wordpress/0")
+	unitTag := names.NewUnitTag(unitName.String())
+
+	uri := coresecrets.NewURI()
+	data := map[string]string{"foo": "bar"}
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+	s.secretService.EXPECT().GetSecretOwnerKinds(gomock.Any(), []*coresecrets.URI{uri}).
+		Return([]domainsecret.SecretOwnerInfo{{
+			SecretID:  uri.ID,
+			OwnerKind: domainsecret.ApplicationCharmSecretOwner,
+		}}, nil)
+	s.unitStateService.EXPECT().CommitHookChanges(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, arg unitstate.CommitHookChangesArg) error {
+			c.Check(arg.UnitName, tc.Equals, unitName)
+			c.Assert(len(arg.SecretUpdates), tc.Equals, 1)
+			c.Check(arg.SecretUpdates[0].URI.String(), tc.Equals, uri.String())
+			c.Check(arg.SecretUpdates[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+			c.Check(arg.SecretUpdates[0].Checksum, tc.Equals, "checksum")
+			c.Check(arg.SecretUpdates[0].OwnerKind, tc.Equals, domainsecret.ApplicationCharmSecretOwner)
+			return nil
+		})
+
+	err := s.uniter.commitHookChangesForOneUnit(c.Context(), unitTag,
+		params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+			SecretUpdates: []params.UpdateSecretArg{{
+				URI: uri.String(),
+				UpsertSecretArg: params.UpsertSecretArg{
+					Content: params.SecretContentParams{Data: data, Checksum: "checksum"},
+				},
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *commitHookChangesSuite) TestCommitHookChangesOpenPortFail(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -596,6 +596,29 @@ func (s *Service) DeleteSecretBackend(ctx context.Context, params DeleteSecretBa
 	return s.st.DeleteSecretBackend(ctx, params.BackendIdentifier, params.DeleteInUse)
 }
 
+// AddSecretBackendReference adds a reference to track that a secret revision
+// is stored in the specified backend. It returns a rollback function to remove
+// the reference if needed. If valueRef is nil, the reference is to the internal
+// backend.
+func (s *Service) AddSecretBackendReference(
+	ctx context.Context, valueRef *coresecrets.ValueRef, modelID coremodel.UUID, revisionID string, secretID string,
+) (func() error, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if modelID == "" {
+		return nil, errors.Errorf("missing model ID")
+	}
+	if revisionID == "" {
+		return nil, errors.Errorf("missing revision ID")
+	}
+	if secretID == "" {
+		return nil, errors.Errorf("missing secret ID")
+	}
+
+	return s.st.AddSecretBackendReference(ctx, valueRef, modelID, revisionID, secretID)
+}
+
 // RotateBackendToken rotates the token for the given secret backend.
 func (s *Service) RotateBackendToken(ctx context.Context, backendID string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())

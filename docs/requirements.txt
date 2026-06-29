@@ -1,5 +1,5 @@
 # Canonical theme (still needed for Furo theme and custom templates)
-canonical-sphinx>=0.5.1
+canonical-sphinx~=0.6
 
 # Extensions previously auto-loaded by canonical-sphinx
 myst-parser~=4.0
@@ -16,7 +16,7 @@ sphinx-config-options>=0.1.0
 sphinx-contributor-listing>=0.1.0
 sphinx-filtered-toctree>=0.1.0
 sphinx-llm
-sphinx-related-links>=0.1.1
+sphinx-related-links>=0.1.2
 sphinx-roles>=0.1.0
 sphinx-terminal>=1.0.2
 sphinx-ubuntu-images>=0.1.0

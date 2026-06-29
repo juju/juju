@@ -97,6 +97,21 @@ func MatchOperatorMetaLabelVersion(meta meta.ObjectMeta, operatorName, target st
 	return -1, ErrUnexpectedOperatorLabels
 }
 
+// MatchModelOperatorMetaLabelVersion checks to see if the provided resource is running on an older
+// model operator / role labeling scheme or a newer one and returns the detected label version.
+func MatchModelOperatorMetaLabelVersion(meta meta.ObjectMeta) (constants.LabelVersion, error) {
+	for i := constants.LastLabelVersion; i >= constants.FirstLabelVersion; i-- {
+		want := LabelsForModelOperator(i)
+		if i != constants.LegacyLabelVersion {
+			want = labels.Merge(want, LabelsJuju)
+		}
+		if HasLabels(meta.Labels, want) {
+			return i, nil
+		}
+	}
+	return -1, ErrUnexpectedOperatorLabels
+}
+
 // MatchApplicationMetaLabelVersion checks to see if the provided resource is running on an older
 // application labeling scheme or a newer one and returns the detected label version.
 func MatchApplicationMetaLabelVersion(meta meta.ObjectMeta, appName string) (constants.LabelVersion, error) {
@@ -217,6 +232,20 @@ func LabelsForOperator(name, target string, labelVersion constants.LabelVersion)
 	return map[string]string{
 		constants.LabelJujuOperatorName:   name,
 		constants.LabelJujuOperatorTarget: target,
+	}
+}
+
+// LabelsForModelOperator returns the labels that should be placed on a juju
+// model operator.
+func LabelsForModelOperator(labelVersion constants.LabelVersion) labels.Set {
+	if labelVersion == constants.LegacyLabelVersion {
+		return map[string]string{
+			constants.LegacyLabelModelOperator: constants.ModelOperatorName,
+		}
+	}
+	return map[string]string{
+		constants.LabelJujuOperatorName:   constants.ModelOperatorName,
+		constants.LabelJujuOperatorTarget: constants.ModelOperatorTargetValue,
 	}
 }
 

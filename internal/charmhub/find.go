@@ -123,6 +123,10 @@ func (c *findClient) find(ctx context.Context, query string, options ...FindOpti
 	for _, option := range options {
 		option(opts)
 	}
+	if strings.TrimSpace(query) == "" && opts.category == nil {
+		featured := "featured"
+		opts.category = &featured
+	}
 
 	c.logger.Tracef(ctx, "Find(%s)", query)
 	path, err := c.path.Query("q", query)

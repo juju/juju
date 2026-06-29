@@ -335,6 +335,106 @@ func (s *OpenerSuite) TestOpenUnitResourceCacheMiss(c *tc.C) {
 	})
 }
 
+func (s *OpenerSuite) TestOpenPendingUploadedResourceNotAvailableYet(c *tc.C) {
+	defer s.setupMocks(c, true).Finish()
+	res := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "workload-image",
+				Type: charmresource.TypeContainerImage,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: -1,
+		},
+		ApplicationName: "postgresql",
+	}
+	s.resourceService.EXPECT().GetApplicationResourceID(
+		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
+			ApplicationUUID: s.appID,
+			Name:            "workload-image",
+		},
+	).Return(s.resourceUUID, nil)
+	s.resourceService.EXPECT().OpenResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound)
+	s.resourceService.EXPECT().GetResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(res, nil)
+	s.expectNewUnitResourceOpener(c)
+
+	opened, err := s.newUnitResourceOpener(c, 0).OpenResource(c.Context(), "workload-image")
+	c.Check(err, tc.ErrorIs, errors.NotProvisioned)
+	c.Check(opened.ReadCloser, tc.IsNil)
+}
+
+func (s *OpenerSuite) TestOpenUploadedResourceDataMissing(c *tc.C) {
+	defer s.setupMocks(c, true).Finish()
+	res := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "workload-image",
+				Type: charmresource.TypeContainerImage,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: 666,
+		},
+		ApplicationName: "postgresql",
+	}
+	s.resourceService.EXPECT().GetApplicationResourceID(
+		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
+			ApplicationUUID: s.appID,
+			Name:            "workload-image",
+		},
+	).Return(s.resourceUUID, nil)
+	s.resourceService.EXPECT().OpenResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound)
+	s.resourceService.EXPECT().GetResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(res, nil)
+	s.expectNewUnitResourceOpener(c)
+
+	_, err := s.newUnitResourceOpener(c, 0).OpenResource(c.Context(), "workload-image")
+	c.Check(err, tc.ErrorIs, errors.NotFound)
+}
+
+func (s *OpenerSuite) TestOpenUploadedResourceCacheError(c *tc.C) {
+	defer s.setupMocks(c, true).Finish()
+	res := coreresource.Resource{
+		Resource: charmresource.Resource{
+			Meta: charmresource.Meta{
+				Name: "workload-image",
+				Type: charmresource.TypeContainerImage,
+			},
+			Origin:   charmresource.OriginUpload,
+			Revision: 666,
+		},
+		ApplicationName: "postgresql",
+	}
+	s.resourceService.EXPECT().GetApplicationResourceID(
+		gomock.Any(), domainresource.GetApplicationResourceIDArgs{
+			ApplicationUUID: s.appID,
+			Name:            "workload-image",
+		},
+	).Return(s.resourceUUID, nil)
+	s.resourceService.EXPECT().OpenResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(coreresource.Resource{}, nil, resourceerrors.StoredResourceNotFound)
+	s.resourceService.EXPECT().GetResource(
+		gomock.Any(),
+		s.resourceUUID,
+	).Return(res, errors.New("boom"))
+	s.expectNewUnitResourceOpener(c)
+
+	_, err := s.newUnitResourceOpener(c, 0).OpenResource(c.Context(), "workload-image")
+	c.Check(err, tc.ErrorMatches, "boom")
+}
+
 func (s *OpenerSuite) TestOpenResourceThrottle(c *tc.C) {
 	defer s.setupMocks(c, true).Finish()
 	res := coreresource.Resource{

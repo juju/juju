@@ -30,6 +30,7 @@ type MockStateMockRecorder struct {
 	mock                                               *MockState
 	commitHookChangesExpects                           []*gomock.Call2_1[context.Context, internal.CommitHookChangesArg, error]
 	getCommitHookUnitInfoExpects                       []*gomock.Call2_2[context.Context, string, internal.CommitHookUnitInfo, error]
+	getModelUUIDExpects                                []*gomock.Call1_2[context.Context, string, error]
 	getPeerRelationUUIDByEndpointIdentifiersExpects    []*gomock.Call2_2[context.Context, relation.EndpointIdentifier, relation.UUID, error]
 	getRegularRelationUUIDByEndpointIdentifiersExpects []*gomock.Call3_2[context.Context, relation.EndpointIdentifier, relation.EndpointIdentifier, relation.UUID, error]
 	getUnitStateExpects                                []*gomock.Call2_2[context.Context, string, unitstate.RetrievedUnitState, error]
@@ -83,6 +84,24 @@ func (mr *MockStateMockRecorder) GetCommitHookUnitInfo(ctx, unitName any) *MockS
 
 // MockStateGetCommitHookUnitInfoCall is the typed call wrapper for GetCommitHookUnitInfo.
 type MockStateGetCommitHookUnitInfoCall = gomock.Call2_2[context.Context, string, internal.CommitHookUnitInfo, error]
+
+// GetModelUUID mocks base method.
+func (m *MockState) GetModelUUID(ctx context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getModelUUIDExpects, m.ctrl, m, "GetModelUUID", ctx)
+}
+
+// GetModelUUID indicates an expected call of GetModelUUID.
+func (mr *MockStateMockRecorder) GetModelUUID(ctx any) *MockStateGetModelUUIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "GetModelUUID", gomock.EnsureMatcher(ctx))
+	mr.getModelUUIDExpects = append(mr.getModelUUIDExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetModelUUIDCall is the typed call wrapper for GetModelUUID.
+type MockStateGetModelUUIDCall = gomock.Call1_2[context.Context, string, error]
 
 // GetPeerRelationUUIDByEndpointIdentifiers mocks base method.
 func (m *MockState) GetPeerRelationUUIDByEndpointIdentifiers(ctx context.Context, endpoint relation.EndpointIdentifier) (relation.UUID, error) {

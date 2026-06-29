@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"time"
 
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/domain/resource"
 	resourceerrors "github.com/juju/juju/domain/resource/errors"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -194,6 +196,11 @@ func (h *ResourceHandler) upload(service ResourceService, req *http.Request, use
 	reader, uploaded, err := h.getUploadedResource(service, req)
 	if err != nil {
 		return nil, errors.Capture(err)
+	}
+
+	if wrench.IsActive("resources", "upload-delay") {
+		h.logger.Warningf(ctx, "delaying resource upload due to wrench resources/upload-delay")
+		time.Sleep(30 * time.Second)
 	}
 
 	args := resource.StoreResourceArgs{
