@@ -31,7 +31,7 @@ AFTER UPDATE ON operation_task_log FOR EACH ROW
 WHEN 
 	NEW.task_uuid != OLD.task_uuid OR
 	NEW.content != OLD.content OR
-	NEW.created_at != OLD.created_at 
+	NEW.created_at != OLD.created_at
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

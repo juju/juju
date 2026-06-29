@@ -30,6 +30,7 @@ import (
 	flagservice "github.com/juju/juju/domain/flag/service"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
+	loggingservice "github.com/juju/juju/domain/logging/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -52,6 +53,8 @@ import (
 	resourceservice "github.com/juju/juju/domain/resource/service"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	sshcontrollerservice "github.com/juju/juju/domain/ssh/service/controller"
+	sshmodelservice "github.com/juju/juju/domain/ssh/service/model"
 	statusservice "github.com/juju/juju/domain/status/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
@@ -98,7 +101,11 @@ type ControllerDomainServices interface {
 	// ControllerChangeStream returns the global controller change stream.
 	ControllerChangeStream() *changestreamservice.Service
 	// Tracing returns the service for accessing tracing configuration.
-	Tracing() *tracingservice.Service
+	Tracing() *tracingservice.WatchableService
+	// Logging returns the service for accessing logging configuration.
+	Logging() *loggingservice.WatchableService
+	// SSHServerHostKey returns the service for controller SSH server host keys.
+	SSHServerHostKey() *sshcontrollerservice.Service
 }
 
 // ModelDomainServices provides access to the services required by the
@@ -187,6 +194,8 @@ type ModelDomainServices interface {
 	ChangeStream() *changestreamservice.Service
 	// Export returns the service for accessing model exports.
 	Export() *exportservice.Service
+	// SSHVirtualHostKeys returns the service for model SSH virtual host keys.
+	SSHVirtualHostKeys() *sshmodelservice.Service
 }
 
 // DomainServices provides access to the services required by the apiserver.
@@ -260,6 +269,14 @@ type ObjectStoreServices interface {
 type ObjectStoreServicesGetter interface {
 	// ServicesForModel returns a ObjectStoreServices for the given model.
 	ServicesForModel(modelUUID model.UUID) ObjectStoreServices
+}
+
+// TraceServices provides access to the services required by the trace worker.
+// This is a subset of the controller domain services, for use by trace workers
+// that need to operate before the full domain services graph is available.
+type TraceServices interface {
+	// Tracing returns the service for accessing tracing configuration.
+	Tracing() *tracingservice.WatchableService
 }
 
 // UpgradeServices represents a way to get a upgrade services for a controller.

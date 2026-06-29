@@ -8,5 +8,5 @@ pack_charm() {
 	CHARM_NAME=$(basename "$CHARM_DIR")
 
 	charmcraft pack -p "$CHARM_DIR"
-	echo "./${CHARM_NAME}_*.charm"
+	find . -maxdepth 1 -name "${CHARM_NAME}_*.charm" -print
 }

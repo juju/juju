@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
@@ -290,6 +291,7 @@ type machineConstraint struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 	SpaceName        sql.NullString  `db:"space_name"`
 	SpaceExclude     sql.NullBool    `db:"space_exclude"`
 	Tag              sql.NullString  `db:"tag"`
@@ -323,6 +325,7 @@ type machineProvisioningRow struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 	SpaceName        sql.NullString  `db:"space_name"`
 	SpaceExclude     sql.NullBool    `db:"space_exclude"`
 	Tag              sql.NullString  `db:"tag"`
@@ -343,19 +346,20 @@ type setMachineConstraint struct {
 }
 
 type setConstraint struct {
-	UUID             string  `db:"uuid"`
-	Arch             *string `db:"arch"`
-	CPUCores         *uint64 `db:"cpu_cores"`
-	CPUPower         *uint64 `db:"cpu_power"`
-	Mem              *uint64 `db:"mem"`
-	RootDisk         *uint64 `db:"root_disk"`
-	RootDiskSource   *string `db:"root_disk_source"`
-	InstanceRole     *string `db:"instance_role"`
-	InstanceType     *string `db:"instance_type"`
-	ContainerTypeID  *uint64 `db:"container_type_id"`
-	VirtType         *string `db:"virt_type"`
-	AllocatePublicIP *bool   `db:"allocate_public_ip"`
-	ImageID          *string `db:"image_id"`
+	UUID             string             `db:"uuid"`
+	Arch             *string            `db:"arch"`
+	CPUCores         *uint64            `db:"cpu_cores"`
+	CPUPower         *uint64            `db:"cpu_power"`
+	Mem              *uint64            `db:"mem"`
+	RootDisk         *uint64            `db:"root_disk"`
+	RootDiskSource   *string            `db:"root_disk_source"`
+	InstanceRole     *string            `db:"instance_role"`
+	InstanceType     *string            `db:"instance_type"`
+	ContainerTypeID  *uint64            `db:"container_type_id"`
+	VirtType         *string            `db:"virt_type"`
+	AllocatePublicIP *bool              `db:"allocate_public_ip"`
+	ImageID          *string            `db:"image_id"`
+	IPFamily         *ipfamily.IPFamily `db:"ip_family"`
 }
 
 type setConstraintTag struct {
@@ -396,6 +400,7 @@ type dbConstraint struct {
 	VirtType         sql.NullString  `db:"virt_type"`
 	AllocatePublicIP sql.NullBool    `db:"allocate_public_ip"`
 	ImageID          sql.NullString  `db:"image_id"`
+	IPFamily         sql.NullString  `db:"ip_family"`
 }
 
 func (c dbConstraint) toValue(
@@ -439,6 +444,10 @@ func (c dbConstraint) toValue(
 	}
 	if c.ImageID.Valid {
 		rval.ImageID = &c.ImageID.String
+	}
+	if c.IPFamily.Valid {
+		f := ipfamily.IPFamily(c.IPFamily.String)
+		rval.IPFamily = &f
 	}
 	if c.ContainerType.Valid {
 		containerType := instance.ContainerType(c.ContainerType.String)

@@ -11,10 +11,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher"
 )
 
 // TracerGetter is the interface that is used to get a tracer.
@@ -27,7 +29,7 @@ type TracerGetter interface {
 type TracerWorkerFunc func(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
-	endpoint string,
+	endpoint, caCertificate string,
 	insecureSkipVerify bool,
 	showStackTraces bool,
 	sampleRatio float64,
@@ -84,18 +86,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			currentConfig := a.CurrentConfig()
 
-			// For the current implementation, if trace is disabled, return
-			// a noop worker. If the open telemetry does change, then we will
-			// bounce the world and this will be re-evaluated.
-			// This will be evaluated via the agent config worker.
-			if !currentConfig.OpenTelemetryEnabled() {
-				config.Logger.Infof(ctx, "OpenTelemetry disabled, not starting trace worker")
-				return NewNoopWorker(), nil
-			}
-
+			enabled := currentConfig.OpenTelemetryEnabled()
 			endpoint := currentConfig.OpenTelemetryEndpoint()
-
-			config.Logger.Infof(ctx, "OpenTelemetry enabled, starting trace worker using endpoint %q", endpoint)
+			if enabled {
+				config.Logger.Infof(ctx, "OpenTelemetry enabled, starting trace worker using endpoint %q", endpoint)
+			} else {
+				config.Logger.Infof(ctx, "OpenTelemetry disabled, starting trace worker in disabled mode")
+			}
 
 			w, err := NewWorker(WorkerConfig{
 				Clock:                 config.Clock,
@@ -103,11 +100,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				NewTracerWorker:       config.NewTracerWorker,
 				Tag:                   currentConfig.Tag(),
 				Kind:                  config.Kind,
-				Endpoint:              endpoint,
-				InsecureSkipVerify:    currentConfig.OpenTelemetryInsecure(),
-				StackTracesEnabled:    currentConfig.OpenTelemetryStackTraces(),
-				SampleRatio:           currentConfig.OpenTelemetrySampleRatio(),
-				TailSamplingThreshold: currentConfig.OpenTelemetryTailSamplingThreshold(),
+				SampleRatio:           defaultOpenTelemetrySampleRatio,
+				TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+				RuntimeConfigProvider: unitRuntimeConfigProvider{
+					config: currentConfig,
+				},
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -119,10 +116,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func tracerOutput(in worker.Worker, out any) error {
-	if w, ok := in.(*noopWorker); ok {
+	if w, ok := in.(*tracerWorker); ok {
 		return tracerSetOutput(w, out)
 	}
-	if w, ok := in.(*tracerWorker); ok {
+	if w, ok := in.(*noopWorker); ok {
 		return tracerSetOutput(w, out)
 	}
 	return errors.Errorf("expected input of type TracerGetter, got %T", in)
@@ -134,7 +131,72 @@ func tracerSetOutput(in TracerGetter, out any) error {
 		var target TracerGetter = in
 		*out = target
 	default:
-		return errors.Errorf("expected output of Tracer, got %T", out)
+		return errors.Errorf("expected output of TracerGetter, got %T", out)
 	}
 	return nil
+}
+
+type unitRuntimeConfigProvider struct {
+	config agent.Config
+}
+
+// CurrentRuntimeConfig returns the current runtime config for the unit trace
+// worker.
+func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (RuntimeConfig, error) {
+	return RuntimeConfig{
+		Enabled:               p.config.OpenTelemetryEnabled(),
+		Endpoint:              p.config.OpenTelemetryEndpoint(),
+		InsecureSkipVerify:    p.config.OpenTelemetryInsecure(),
+		StackTracesEnabled:    p.config.OpenTelemetryStackTraces(),
+		SampleRatio:           p.config.OpenTelemetrySampleRatio(),
+		TailSamplingThreshold: p.config.OpenTelemetryTailSamplingThreshold(),
+	}, nil
+}
+
+// WatchRuntimeConfig returns an empty watcher, as the unit trace worker does
+// not support hot-reloading of the tracing configuration.
+func (p unitRuntimeConfigProvider) WatchRuntimeConfig(context.Context) (watcher.NotifyWatcher, error) {
+	return emptyNotifyWatcher(), nil
+}
+
+// emptyNotifyWatcher is a watcher that will just prime the watcher as a notify
+// watcher. This will broadcast an initial empty struct{} value to ensure that
+// any watchers that are waiting for changes will receive an initial
+// notification.
+func emptyNotifyWatcher() watcher.NotifyWatcher {
+	var empty struct{}
+	ch := make(chan struct{}, 1)
+	ch <- empty
+	w := &emptyWatcher{
+		ch: ch,
+	}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		close(w.ch)
+		return tomb.ErrDying
+	})
+	return w
+}
+
+type emptyWatcher struct {
+	tomb tomb.Tomb
+	ch   chan struct{}
+}
+
+func (w *emptyWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *emptyWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *emptyWatcher) Changes() <-chan struct{} {
+	return w.ch
+}
+
+func (w *emptyWatcher) Report(_ context.Context) map[string]any {
+	return map[string]any{
+		"type": "emptyNotifyWatcher",
+	}
 }

@@ -5,11 +5,10 @@
 package names
 
 const (
-	Jujuc           = "jujuc"
-	Jujud           = "jujud"
-	JujudController = "jujud-controller"
-	ContainerAgent  = "containeragent"
-	JujudVersions   = "jujud-versions.yaml"
-	JujuExec        = "juju-exec"
-	JujuIntrospect  = "juju-introspect"
+	Jujuc          = "jujuc"
+	Jujud          = "jujud"
+	ContainerAgent = "containeragent"
+	JujudVersions  = "jujud-versions.yaml"
+	JujuExec       = "juju-exec"
+	JujuIntrospect = "juju-introspect"
 )

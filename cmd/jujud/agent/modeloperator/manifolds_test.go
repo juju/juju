@@ -1,4 +1,4 @@
-// Copyright 2022 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package modeloperator_test
@@ -47,7 +47,8 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	c.Check(keys, tc.SameContents, []string{
 		"caas-broker-tracker",
 		"api-caller",
-		"log-sender",
+		"http-client",
+		"log-router",
 		"caas-admission",
 		"caas-rbac-mapper",
 		"certificate-watcher",
@@ -75,7 +76,9 @@ var expectedManifoldsWithDependencies = map[string][]string{
 
 	"api-caller": {"agent", "api-config-watcher"},
 
-	"log-sender": {"agent", "api-caller", "api-config-watcher"},
+	"http-client": {},
+
+	"log-router": {"agent", "api-caller", "api-config-watcher", "http-client"},
 
 	"caas-admission": {
 		"agent",

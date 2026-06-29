@@ -95,6 +95,8 @@ import (
 	secretstate "github.com/juju/juju/domain/secret/state"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
+	sshmodelservice "github.com/juju/juju/domain/ssh/service/model"
+	sshmodelstate "github.com/juju/juju/domain/ssh/state/model"
 	statusservice "github.com/juju/juju/domain/status/service"
 	statusstatecontroller "github.com/juju/juju/domain/status/state/controller"
 	statusstatemodel "github.com/juju/juju/domain/status/state/model"
@@ -415,6 +417,14 @@ func (s *ModelServices) Secret() *secretservice.WatchableService {
 	)
 }
 
+// SSHVirtualHostKeys returns the SSH virtual host key service for the current model.
+func (s *ModelServices) SSHVirtualHostKeys() *sshmodelservice.Service {
+	return sshmodelservice.NewService(
+		s.modelUUID,
+		sshmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
 // ModelMigration returns the model's migration service for supporting migration
 // operations.
 func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
@@ -425,6 +435,7 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 		s.controllerWatcherFactory("modelmigration"),
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
+		s.logger.Child("modelmigration"),
 	)
 }
 

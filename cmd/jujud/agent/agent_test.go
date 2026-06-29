@@ -7,19 +7,14 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	corelogger "github.com/juju/juju/core/logger"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
-	jworker "github.com/juju/juju/internal/worker"
-	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)
@@ -44,22 +39,6 @@ func ParseAgentCommand(ac cmd.Command, args []string) error {
 		"--data-dir", "jd",
 	}
 	return cmdtesting.InitCommand(ac, append(common, args...))
-}
-
-// AgentSuite is a fixture to be used by agent test suites.
-type AgentSuite struct {
-	agenttest.AgentSuite
-}
-
-func (s *AgentSuite) SetUpTest(c *tc.C) {
-	s.AgentSuite.SetUpTest(c)
-
-	s.PatchValue(&proxyupdater.NewWorker, func(proxyupdater.Config) (worker.Worker, error) {
-		return jworker.NoopWorker(), nil
-	})
-
-	// Tests should not try to use internet. Ensure base url is empty.
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }
 
 type agentLoggingSuite struct {

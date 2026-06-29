@@ -24,9 +24,12 @@ type MockState struct {
 
 // MockStateMockRecorder is the mock recorder for MockState.
 type MockStateMockRecorder struct {
-	mock                         *MockState
-	getCharmTracingConfigExpects []*gomock.Call1_2[context.Context, map[string]string, error]
-	setCharmTracingConfigExpects []*gomock.Call3_1[context.Context, map[string]string, []string, error]
+	mock                                          *MockState
+	getCharmTracingConfigExpects                  []*gomock.Call1_2[context.Context, map[string]string, error]
+	getWorkloadTracingConfigExpects               []*gomock.Call1_2[context.Context, map[string]string, error]
+	namespaceForWatchWorkloadTracingConfigExpects []*gomock.Call0_1[string]
+	setCharmTracingConfigExpects                  []*gomock.Call3_1[context.Context, map[string]string, []string, error]
+	setWorkloadTracingConfigExpects               []*gomock.Call3_1[context.Context, map[string]string, []string, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -59,6 +62,42 @@ func (mr *MockStateMockRecorder) GetCharmTracingConfig(ctx any) *MockStateGetCha
 // MockStateGetCharmTracingConfigCall is the typed call wrapper for GetCharmTracingConfig.
 type MockStateGetCharmTracingConfigCall = gomock.Call1_2[context.Context, map[string]string, error]
 
+// GetWorkloadTracingConfig mocks base method.
+func (m *MockState) GetWorkloadTracingConfig(ctx context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getWorkloadTracingConfigExpects, m.ctrl, m, "GetWorkloadTracingConfig", ctx)
+}
+
+// GetWorkloadTracingConfig indicates an expected call of GetWorkloadTracingConfig.
+func (mr *MockStateMockRecorder) GetWorkloadTracingConfig(ctx any) *MockStateGetWorkloadTracingConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetWorkloadTracingConfig", gomock.EnsureMatcher(ctx))
+	mr.getWorkloadTracingConfigExpects = append(mr.getWorkloadTracingConfigExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetWorkloadTracingConfigCall is the typed call wrapper for GetWorkloadTracingConfig.
+type MockStateGetWorkloadTracingConfigCall = gomock.Call1_2[context.Context, map[string]string, error]
+
+// NamespaceForWatchWorkloadTracingConfig mocks base method.
+func (m *MockState) NamespaceForWatchWorkloadTracingConfig() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchWorkloadTracingConfigExpects, m.ctrl, m, "NamespaceForWatchWorkloadTracingConfig")
+}
+
+// NamespaceForWatchWorkloadTracingConfig indicates an expected call of NamespaceForWatchWorkloadTracingConfig.
+func (mr *MockStateMockRecorder) NamespaceForWatchWorkloadTracingConfig() *MockStateNamespaceForWatchWorkloadTracingConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchWorkloadTracingConfig")
+	mr.namespaceForWatchWorkloadTracingConfigExpects = append(mr.namespaceForWatchWorkloadTracingConfigExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateNamespaceForWatchWorkloadTracingConfigCall is the typed call wrapper for NamespaceForWatchWorkloadTracingConfig.
+type MockStateNamespaceForWatchWorkloadTracingConfigCall = gomock.Call0_1[string]
+
 // SetCharmTracingConfig mocks base method.
 func (m *MockState) SetCharmTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error {
 	m.ctrl.T.Helper()
@@ -76,3 +115,21 @@ func (mr *MockStateMockRecorder) SetCharmTracingConfig(ctx, insertions, deletion
 
 // MockStateSetCharmTracingConfigCall is the typed call wrapper for SetCharmTracingConfig.
 type MockStateSetCharmTracingConfigCall = gomock.Call3_1[context.Context, map[string]string, []string, error]
+
+// SetWorkloadTracingConfig mocks base method.
+func (m *MockState) SetWorkloadTracingConfig(ctx context.Context, insertions map[string]string, deletions []string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.setWorkloadTracingConfigExpects, m.ctrl, m, "SetWorkloadTracingConfig", ctx, insertions, deletions)
+}
+
+// SetWorkloadTracingConfig indicates an expected call of SetWorkloadTracingConfig.
+func (mr *MockStateMockRecorder) SetWorkloadTracingConfig(ctx, insertions, deletions any) *MockStateSetWorkloadTracingConfigCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, map[string]string, []string, error](mr.mock.ctrl.T, mr.mock, "SetWorkloadTracingConfig", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(insertions), gomock.EnsureMatcher(deletions))
+	mr.setWorkloadTracingConfigExpects = append(mr.setWorkloadTracingConfigExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateSetWorkloadTracingConfigCall is the typed call wrapper for SetWorkloadTracingConfig.
+type MockStateSetWorkloadTracingConfigCall = gomock.Call3_1[context.Context, map[string]string, []string, error]

@@ -770,6 +770,46 @@ func (s *provisionerMockSuite) TestProvisioningInfoBasicSuccess(c *tc.C) {
 	c.Check(info.EndpointBindings, tc.DeepEquals, map[string]string{})
 }
 
+// TestProvisioningInfoWithLokiConfig verifies that the controller-wide Loki
+// config is injected into the provisioning info so newly provisioned agents
+// start in the correct forwarding mode on first boot.
+func (s *provisionerMockSuite) TestProvisioningInfoWithLokiConfig(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	insecure := true
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
+		Return(coretesting.FakeControllerConfig(), nil)
+	s.provisioningService.EXPECT().GetPreludeProvisioningInfo(gomock.Any()).
+		Return(domainprovisioner.SharedProvisioningInfo{
+			LokiEndpoint:           "https://loki.example.com/loki/api/v1/push",
+			LokiCACert:             "ca-cert",
+			LokiInsecureSkipVerify: &insecure,
+		}, nil)
+
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
+		Return(domainprovisioner.ProvisioningInfo{
+			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
+			EndpointBindings: map[string]string{},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
+		}, nil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+	}}
+	result, err := s.api.ProvisioningInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Result, tc.Not(tc.IsNil))
+
+	info := result.Results[0].Result
+	c.Check(info.LokiEndpoint, tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(info.LokiCACert, tc.Equals, "ca-cert")
+	c.Assert(info.LokiInsecureSkipVerify, tc.NotNil)
+	c.Check(*info.LokiInsecureSkipVerify, tc.IsTrue)
+}
+
 // TestProvisioningInfoWithStorage verifies that volume params are correctly
 // populated in the provisioning info.
 func (s *provisionerMockSuite) TestProvisioningInfoWithStorage(c *tc.C) {

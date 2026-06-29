@@ -198,6 +198,19 @@ type InstanceConfig struct {
 
 	// Profiles is a slice of (lxd) profile names to be used by a container
 	Profiles []string
+
+	// LokiEndpoint is the Loki push API endpoint the machine agent should
+	// forward logs to on first boot. Empty means logs are sent through the
+	// controller logsink.
+	LokiEndpoint string
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -514,14 +527,15 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
 		configParams.DqliteBusyTimeout = cfg.ControllerConfig.DqliteBusyTimeout()
-		configParams.OpenTelemetryEnabled = cfg.ControllerConfig.OpenTelemetryEnabled()
-		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
-		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
-		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
-		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
-		configParams.OpenTelemetryTailSamplingThreshold = cfg.ControllerConfig.OpenTelemetryTailSamplingThreshold()
-		configParams.ObjectStoreType = cfg.ControllerConfig.ObjectStoreType()
 	}
+	configParams.OpenTelemetryEnabled = agent.DefaultOpenTelemetryEnabled
+	configParams.OpenTelemetryInsecure = agent.DefaultOpenTelemetryInsecure
+	configParams.OpenTelemetryStackTraces = agent.DefaultOpenTelemetryStackTraces
+	configParams.OpenTelemetrySampleRatio = agent.DefaultOpenTelemetrySampleRatio
+	configParams.OpenTelemetryTailSamplingThreshold = agent.DefaultOpenTelemetryTailSamplingThreshold
+	configParams.LokiEndpoint = cfg.LokiEndpoint
+	configParams.LokiCACert = cfg.LokiCACert
+	configParams.LokiInsecureSkipVerify = cfg.LokiInsecureSkipVerify
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}

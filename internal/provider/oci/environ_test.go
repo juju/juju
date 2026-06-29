@@ -116,3 +116,14 @@ func (s *environSuite) TestEnsureShapeConfig(c *tc.C) {
 		c.Check(instanceDetails.ShapeConfig, tc.DeepEquals, test.want)
 	}
 }
+
+func (s *environSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
+	var env Environ
+	validator, err := env.ConstraintsValidator(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm ip-family=dual")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unsupported, tc.SameContents, []string{"tags", "virt-type", "ip-family"})
+}

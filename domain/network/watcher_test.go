@@ -45,7 +45,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *tc.C) {
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
 	watcherC.AssertOneChange()
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	// Add a new subnet.
 	subnet := network.SubnetInfo{
@@ -76,7 +76,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *tc.C) {
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	// Initial event.
 	watcherC.AssertOneChange()
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	// Add a new subnet.
 	subnet := network.SubnetInfo{

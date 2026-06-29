@@ -188,9 +188,8 @@ func (s *stateSuite) TestPruneModelLogsWarning(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(pruned, tc.Equals, int64(0))
 
-	c.Check(entries, tc.DeepEquals, []string{
-		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
-	})
+	c.Assert(entries, tc.HasLen, 1)
+	c.Check(entries[0], tc.Matches, ".*WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up")
 
 	// Should not prune anything as there are no new changes. Notice that the
 	// warning is not logged.
@@ -212,10 +211,9 @@ func (s *stateSuite) TestPruneModelLogsWarning(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(pruned, tc.Equals, int64(1))
 
-	c.Check(entries, tc.DeepEquals, []string{
-		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
-		"WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up",
-	})
+	c.Assert(entries, tc.HasLen, 2)
+	c.Check(entries[0], tc.Matches, ".*WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up")
+	c.Check(entries[1], tc.Matches, ".*WARNING: watermarks %q are outside of window, check logs to see if the change stream is keeping up")
 }
 
 func (s *stateSuite) TestLowestWatermark(c *tc.C) {

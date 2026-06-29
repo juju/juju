@@ -67,10 +67,12 @@ var commonModelFacadeNames = set.NewStrings(
 	"UserSecretsDrain",
 	"UserSecretsManager",
 	"Singular",
+	"Spaces",
 	"StatusHistory",
 	"Storage",
 	"StorageProvisioner",
 	"StringsWatcher",
+	"Subnets",
 	"Undertaker",
 	"Uniter",
 	"Upgrader",
@@ -92,9 +94,26 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASApplicationProvisioner",
 )
 
-func caasModelFacadesOnly(facadeName, _ string) error {
+// caasModelFacadeMethods limits facades that are only partially supported on
+// CAAS models. Keep this restriction at the API boundary so unsupported
+// operations cannot be reached by any client.
+var caasModelFacadeMethods = map[string]set.Strings{
+	"Spaces": set.NewStrings(
+		"ListSpaces",
+		"ReloadSpaces",
+		"ShowSpace",
+	),
+}
+
+func caasModelFacadesOnly(facadeName, methodName string) error {
 	if !isCAASModelFacade(facadeName) {
 		return errors.NewNotSupported(nil, fmt.Sprintf("facade %q not supported on container models", facadeName))
+	}
+	if methods, ok := caasModelFacadeMethods[facadeName]; ok && !methods.Contains(methodName) {
+		return errors.NewNotSupported(nil, fmt.Sprintf(
+			"facade method %q not supported on container models",
+			facadeName+"."+methodName,
+		))
 	}
 	return nil
 }

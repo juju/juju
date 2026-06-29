@@ -57,6 +57,22 @@ type Metadata struct {
 	CreationTime time.Time
 }
 
+// MetadataConflict describes a custom cloud image metadata row whose natural
+// key already exists on the controller with a different image id than the one
+// being imported. During a model migration import the existing (target) row is
+// kept and the incoming value is skipped; the conflict is reported so the
+// caller can surface a non-fatal warning.
+type MetadataConflict struct {
+	MetadataAttributes
+
+	// ExistingImageID is the image id currently stored on the target controller.
+	ExistingImageID string
+
+	// IncomingImageID is the image id from the migration envelope that was
+	// skipped in favour of the existing target row.
+	IncomingImageID string
+}
+
 // MetadataFilter contains all metadata attributes that allows to find a particular
 // cloud image metadata. Since size and source are not discriminating attributes
 // for cloud image metadata, they are not included in search criteria.

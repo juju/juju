@@ -73,6 +73,18 @@ type SharedProvisioningInfo struct {
 	// ControllerConfig holds the controller configuration (from
 	// controller DB).
 	ControllerConfig controller.Config
+
+	// LokiEndpoint is the controller-wide Loki push API endpoint. Empty
+	// means no Loki config is set and agents should use logsink mode.
+	LokiEndpoint string
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool
 }
 
 // ProvisioningInfo holds the complete set of information required to

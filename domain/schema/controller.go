@@ -14,16 +14,15 @@ import (
 
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/cloud-triggers.gen.go -package=triggers -tables=cloud,cloud_ca_cert,cloud_credential,cloud_credential_attribute
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/controller-triggers.gen.go -package=triggers -tables=controller_config,controller_node,external_controller,controller_api_address
-// TODO(modelmigration): re-enable migration trigger generation if triggergen
-// can target tables before post-patches. Patch 0031 drops the legacy tables
-// whose trigger functions are still needed before that patch is applied.
-//disabled go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_status,model_migration_minion_sync
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/migration-triggers.gen.go -package=triggers -tables=model_migration_export,model_migration_export_phase,model_migration_export_minion_sync
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/upgrade-triggers.gen.go -package=triggers -tables=upgrade_info,upgrade_info_controller_node
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path,object_store_drain_info,object_store_backend
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/secret-triggers.gen.go -package=triggers -tables=secret_backend_rotation,model_secret_backend
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-triggers.gen.go -package=triggers -tables=model
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/model-authorized-keys-triggers.gen.go -package=triggers -tables=model_authorized_keys
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/user-authentication-triggers.gen.go -package=triggers -tables=user_authentication
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/logging-triggers.gen.go -package=triggers -tables=logging_loki_config
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers/tracing-triggers.gen.go -package=triggers -tables=workload_tracing_config
 
 //go:embed controller/sql/*.sql
 var controllerSchemaDir embed.FS
@@ -33,8 +32,8 @@ const (
 	tableControllerNode
 	tableControllerConfig
 	tableControllerAPIAddress
-	tableModelMigrationStatus
-	tableModelMigrationMinionSync
+	tableModelMigrationExport
+	tableModelMigrationExportPhase
 	tableUpgradeInfo
 	tableCloud
 	tableCloudCACert
@@ -48,6 +47,10 @@ const (
 	tableModelMetadata
 	tableModelAuthorizedKeys
 	tableUserAuthentication
+	tableObjectStoreBackend
+	tableLoggingLokiConfig
+	tableModelMigrationExportMinionSync
+	tableWorkloadTracingConfig
 )
 
 // controllerPostPatchFilesByVersion is used to categorise the post patch files
@@ -61,30 +64,7 @@ const (
 var controllerPostPatchFilesByVersion = []struct {
 	version semversion.Number
 	files   []string
-}{{
-	version: semversion.MustParse("4.0.1"),
-	files: []string{
-		"0026-secret-backend.PATCH.sql",
-		"0027-model-migration-import.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.4"),
-	files: []string{
-		"0028-object-store-node-id.PATCH.sql",
-		"0029-tracing.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.6"),
-	files: []string{
-		"0030-secret-backend.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.12"),
-	files: []string{
-		"0031-model-migration.PATCH.sql",
-		"0032-view-indexes.PATCH.sql",
-	},
-}}
+}{}
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
@@ -113,8 +93,9 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForControllerConfig("key", tableControllerConfig),
 		triggers.ChangeLogTriggersForControllerNode("controller_id", tableControllerNode),
 		triggers.ChangeLogTriggersForControllerApiAddress("controller_id", tableControllerAPIAddress),
-		triggers.ChangeLogTriggersForModelMigrationStatus("uuid", tableModelMigrationStatus),
-		triggers.ChangeLogTriggersForModelMigrationMinionSync("uuid", tableModelMigrationMinionSync),
+		triggers.ChangeLogTriggersForModelMigrationExport("model_uuid", tableModelMigrationExport),
+		triggers.ChangeLogTriggersForModelMigrationExportPhase("model_uuid", tableModelMigrationExportPhase),
+		triggers.ChangeLogTriggersForModelMigrationExportMinionSync("migration_uuid", tableModelMigrationExportMinionSync),
 		triggers.ChangeLogTriggersForUpgradeInfo("uuid", tableUpgradeInfo),
 		triggers.ChangeLogTriggersForUpgradeInfoControllerNode("upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		triggers.ChangeLogTriggersForObjectStoreMetadataPath("path", tableObjectStoreMetadata),
@@ -124,6 +105,9 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForModel("uuid", tableModelMetadata),
 		triggers.ChangeLogTriggersForModelAuthorizedKeys("model_uuid", tableModelAuthorizedKeys),
 		triggers.ChangeLogTriggersForUserAuthentication("user_uuid", tableUserAuthentication),
+		triggers.ChangeLogTriggersForObjectStoreBackend("uuid", tableObjectStoreBackend),
+		triggers.ChangeLogTriggersForLoggingLokiConfig("uuid", tableLoggingLokiConfig),
+		triggers.ChangeLogTriggersForWorkloadTracingConfig("key", tableWorkloadTracingConfig),
 	)
 
 	// Generic triggers.
@@ -132,8 +116,8 @@ func ControllerDDLForVersion(version semversion.Number) *schema.Schema {
 		// they are created by the controller during bootstrap time.
 		// 0 is 'controller', 1 is 'kubernetes'.
 		triggersForImmutableTable("secret_backend",
-			"OLD.backend_type_id IN (0, 1)",
-			"secret backends with type controller or kubernetes are immutable"),
+			"OLD.origin_id = 0 OR OLD.backend_type_id IN (0, 1)",
+			"built-in secret backends or secret backends with type controller or kubernetes are immutable"),
 	)
 
 	var postPatchFiles []string

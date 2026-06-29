@@ -231,6 +231,53 @@ func (s *K8sBrokerSuite) TestConfig(c *tc.C) {
 	c.Assert(s.broker.Config(), tc.DeepEquals, s.cfg)
 }
 
+func (s *K8sBrokerSuite) TestSubnets(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	// The pod-subnet discovery chain resolves Calico first: the IPPool CRD
+	// being installed and served selects calico-ipam, whose pool CIDRs are
+	// authoritative and short-circuit the remaining discoverers.
+	s.mockCustomResourceDefinitionV1.EXPECT().
+		Get(gomock.Any(), "ippools.crd.projectcalico.org", v1.GetOptions{}).
+		Return(&apiextensionsv1.CustomResourceDefinition{
+			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+				Group: "crd.projectcalico.org",
+				Names: apiextensionsv1.CustomResourceDefinitionNames{Plural: "ippools"},
+				Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+					{Name: "v1", Served: true},
+				},
+			},
+		}, nil)
+
+	s.mockDynamicClient.EXPECT().Resource(gomock.Any()).
+		Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(), gomock.Any()).
+		Return(&unstructured.UnstructuredList{
+			Items: []unstructured.Unstructured{
+				{Object: map[string]any{
+					"spec": map[string]any{"cidr": "10.20.0.0/24"},
+				}},
+				{Object: map[string]any{
+					"spec": map[string]any{"cidr": "fd20::/64"},
+				}},
+			},
+		}, nil)
+
+	result, err := s.broker.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
+		{
+			CIDR:       "10.20.0.0/24",
+			ProviderId: "10.20.0.0/24",
+		},
+		{
+			CIDR:       "fd20::/64",
+			ProviderId: "fd20::/64",
+		},
+	})
+}
+
 func (s *K8sBrokerSuite) TestSetConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

@@ -26,4 +26,11 @@ type LocalMacaroonAuthenticator interface {
 	// log in without presenting their password for a set amount
 	// of time.
 	CreateLocalLoginMacaroon(context.Context, names.UserTag, bakery.Version) (*macaroon.Macaroon, error)
+
+	// CreateMigrationMacaroon creates a directly-presentable login macaroon for
+	// the given local user. Unlike CreateLocalLoginMacaroon, the result needs no
+	// discharge: it carries a declared-username first-party caveat and is valid
+	// for localLoginExpiryTime (24h). Intended for use by the migrationmaster
+	// worker so that a cleartext admin password never needs to be persisted.
+	CreateMigrationMacaroon(context.Context, names.UserTag, bakery.Version) (*macaroon.Macaroon, error)
 }

@@ -48,7 +48,7 @@ func (s *exportWatcherSuite) TestWatchForMigration(c *tc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_migration_export")
 	svc := s.setupService(c, factory)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -92,7 +92,7 @@ func (s *exportWatcherSuite) TestWatchMigrationPhase(c *tc.C) {
 
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchMigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -138,7 +138,7 @@ func (s *exportWatcherSuite) TestWatchMinionReports(c *tc.C) {
 	// already exist.
 	migrationUUID := s.insertExport(c)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 	w, err := svc.WatchMinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -239,5 +239,6 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		providertracker.ProviderGetter[service.InstanceProvider](noopInstanceGetter),
 		providertracker.ProviderGetter[service.ResourceProvider](noopResourceGetter),
+		loggertesting.WrapCheckLog(c),
 	)
 }

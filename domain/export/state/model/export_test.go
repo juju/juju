@@ -13,15 +13,15 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
-type exportStateSuiteV4_0_6 struct {
+type exportStateSuiteV4_1_0 struct {
 	schematesting.ModelSuite
 }
 
-func TestExportStateSuiteV4_0_6(t *testing.T) {
-	tc.Run(t, &exportStateSuiteV4_0_6{})
+func TestExportStateSuiteV4_1_0(t *testing.T) {
+	tc.Run(t, &exportStateSuiteV4_1_0{})
 }
 
-func (s *exportStateSuiteV4_0_6) TestExportRuns(c *tc.C) {
+func (s *exportStateSuiteV4_1_0) TestExportRuns(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

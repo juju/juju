@@ -1042,7 +1042,7 @@ func (s *commitHookSuite) TestGrantSecretsAccessScopeGoneIsSkipped(c *tc.C) {
 
 func (s *commitHookSuite) addSecret(c *tc.C, secretID string) {
 	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)
-	s.query(c, `INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, 1, 0)`,
+	s.query(c, `INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, update_time) VALUES (?, 1, 0, DATETIME('now', 'utc'), DATETIME('now', 'utc'))`,
 		secretID)
 }
 
@@ -2143,7 +2143,7 @@ func (s *commitHookSuite) TestUpdateSecretsWithExpireTimeAndNewData(c *tc.C) {
 // addSecretWithOwner inserts a secret with an owner row.
 func (s *commitHookSuite) addSecretWithOwner(c *tc.C, secretID, ownerUUID, ownerKind string) {
 	s.query(c, `INSERT INTO secret (id) VALUES (?)`, secretID)
-	s.query(c, `INSERT INTO secret_metadata (secret_id, version, rotate_policy_id) VALUES (?, 1, 0)`, secretID)
+	s.query(c, `INSERT INTO secret_metadata (secret_id, version, rotate_policy_id, create_time, update_time) VALUES (?, 1, 0, DATETIME('now', 'utc'), DATETIME('now', 'utc'))`, secretID)
 	switch ownerKind {
 	case "unit":
 		s.query(c, `INSERT INTO secret_unit_owner (secret_id, unit_uuid) VALUES (?, ?)`, secretID, ownerUUID)

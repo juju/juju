@@ -55,6 +55,12 @@ Attributes:
 - `domain-name`: The OpenStack domain name. (optional)
 - `project-domain-name`: The OpenStack project domain name. (optional)
 - `user-domain-name`: The OpenStack user domain name. (optional)
+- `trust-id`: The OpenStack Keystone trust ID. (optional; requires Keystone v3)
+
+For Keystone v3 trust authentication, use `userpass` with `username`,
+`password`, `user-domain-name`, `version: "3"`, and `trust-id`. The trust
+defines the delegated project scope, so do not set `tenant-name`, `tenant-id`,
+or `domain-name` with `trust-id`.
 
 ## Notes on `juju bootstrap`
 

@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/semversion"
 )
 
@@ -47,9 +46,12 @@ type format_2_0Serialization struct {
 	APIAddresses []string `yaml:"apiaddresses,omitempty"`
 	APIPassword  string   `yaml:"apipassword,omitempty"`
 
-	OldPassword   string            `yaml:"oldpassword,omitempty"`
-	LoggingConfig string            `yaml:"loggingconfig,omitempty"`
-	Values        map[string]string `yaml:"values"`
+	OldPassword            string            `yaml:"oldpassword,omitempty"`
+	LoggingConfig          string            `yaml:"loggingconfig,omitempty"`
+	LokiEndpoint           string            `yaml:"lokiendpoint,omitempty"`
+	LokiCACert             string            `yaml:"lokicacert,omitempty"`
+	LokiInsecureSkipVerify *bool             `yaml:"lokiinsecureskipverify,omitempty"`
+	Values                 map[string]string `yaml:"values"`
 
 	AgentLogfileMaxSizeMB  int `yaml:"agent-logfile-max-size"`
 	AgentLogfileMaxBackups int `yaml:"agent-logfile-max-backups"`
@@ -70,8 +72,6 @@ type format_2_0Serialization struct {
 	OpenTelemetryStackTraces           bool          `yaml:"opentelemetrystacktraces,omitempty"`
 	OpenTelemetrySampleRatio           string        `yaml:"opentelemetrysampleratio,omitempty"`
 	OpenTelemetryTailSamplingThreshold time.Duration `yaml:"opentelemetrytailsamplingthreshold,omitempty"`
-
-	ObjectStoreType string `yaml:"objectstoretype,omitempty"`
 
 	DqlitePort int `yaml:"dqlite-port,omitempty"`
 }
@@ -111,16 +111,19 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			LogDir:           format.LogDir,
 			MetricsSpoolDir:  format.MetricsSpoolDir,
 		}),
-		jobs:              format.Jobs,
-		upgradedToVersion: *format.UpgradedToVersion,
-		nonce:             format.Nonce,
-		controller:        controllerTag,
-		model:             modelTag,
-		caCert:            format.CACert,
-		statePassword:     format.StatePassword,
-		oldPassword:       format.OldPassword,
-		loggingConfig:     format.LoggingConfig,
-		values:            format.Values,
+		jobs:                   format.Jobs,
+		upgradedToVersion:      *format.UpgradedToVersion,
+		nonce:                  format.Nonce,
+		controller:             controllerTag,
+		model:                  modelTag,
+		caCert:                 format.CACert,
+		statePassword:          format.StatePassword,
+		oldPassword:            format.OldPassword,
+		loggingConfig:          format.LoggingConfig,
+		lokiEndpoint:           format.LokiEndpoint,
+		lokiCACert:             format.LokiCACert,
+		lokiInsecureSkipVerify: format.LokiInsecureSkipVerify,
+		values:                 format.Values,
 
 		agentLogfileMaxSizeMB:  format.AgentLogfileMaxSizeMB,
 		agentLogfileMaxBackups: format.AgentLogfileMaxBackups,
@@ -162,13 +165,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 		config.openTelemetrySampleRatio = sampleRatio
 	}
-	if format.ObjectStoreType != "" {
-		objectStoreType, err := objectstore.ParseObjectStoreType(format.ObjectStoreType)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		config.objectStoreType = objectStoreType
-	}
 	return config, nil
 }
 
@@ -176,20 +172,23 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	controllerTag := config.controller.String()
 	modelTag := config.model.String()
 	format := &format_2_0Serialization{
-		Tag:               config.tag.String(),
-		DataDir:           config.paths.DataDir,
-		TransientDataDir:  config.paths.TransientDataDir,
-		LogDir:            config.paths.LogDir,
-		MetricsSpoolDir:   config.paths.MetricsSpoolDir,
-		Jobs:              config.jobs,
-		UpgradedToVersion: &config.upgradedToVersion,
-		Nonce:             config.nonce,
-		Controller:        controllerTag,
-		Model:             modelTag,
-		CACert:            config.caCert,
-		OldPassword:       config.oldPassword,
-		LoggingConfig:     config.loggingConfig,
-		Values:            config.values,
+		Tag:                    config.tag.String(),
+		DataDir:                config.paths.DataDir,
+		TransientDataDir:       config.paths.TransientDataDir,
+		LogDir:                 config.paths.LogDir,
+		MetricsSpoolDir:        config.paths.MetricsSpoolDir,
+		Jobs:                   config.jobs,
+		UpgradedToVersion:      &config.upgradedToVersion,
+		Nonce:                  config.nonce,
+		Controller:             controllerTag,
+		Model:                  modelTag,
+		CACert:                 config.caCert,
+		OldPassword:            config.oldPassword,
+		LoggingConfig:          config.loggingConfig,
+		LokiEndpoint:           config.lokiEndpoint,
+		LokiCACert:             config.lokiCACert,
+		LokiInsecureSkipVerify: config.lokiInsecureSkipVerify,
+		Values:                 config.values,
 
 		AgentLogfileMaxSizeMB:  config.agentLogfileMaxSizeMB,
 		AgentLogfileMaxBackups: config.agentLogfileMaxBackups,
@@ -222,9 +221,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	}
 	if config.openTelemetrySampleRatio != 0 {
 		format.OpenTelemetrySampleRatio = fmt.Sprintf("%.04f", config.openTelemetrySampleRatio)
-	}
-	if config.objectStoreType != "" {
-		format.ObjectStoreType = config.objectStoreType.String()
 	}
 	return goyaml.Marshal(format)
 }

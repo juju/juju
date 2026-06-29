@@ -12,12 +12,11 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/mocks"
@@ -366,72 +365,6 @@ var newConfigTests = []struct {
 		controller.DqliteBusyTimeout: "-1s",
 	},
 	expectError: `dqlite-busy-timeout value "-1s" must be a positive duration`,
-}, {
-	about: "invalid open telemetry tracing enabled value",
-	config: controller.Config{
-		controller.OpenTelemetryEnabled: "invalid",
-	},
-	expectError: `open-telemetry-enabled: expected bool, got string\("invalid"\)`,
-}, {
-	about: "invalid open telemetry tracing insecure value",
-	config: controller.Config{
-		controller.OpenTelemetryInsecure: "invalid",
-	},
-	expectError: `open-telemetry-insecure: expected bool, got string\("invalid"\)`,
-}, {
-	about: "invalid open telemetry tracing stack traces value",
-	config: controller.Config{
-		controller.OpenTelemetryStackTraces: "invalid",
-	},
-	expectError: `open-telemetry-stack-traces: expected bool, got string\("invalid"\)`,
-}, {
-	about: "invalid open telemetry tracing sample ratio value",
-	config: controller.Config{
-		controller.OpenTelemetrySampleRatio: "invalid",
-	},
-	expectError: `open-telemetry-sample-ratio: strconv.ParseFloat: parsing "invalid": invalid syntax`,
-}, {
-	about: "invalid open telemetry tracing tail sampling threshold value",
-	config: controller.Config{
-		controller.OpenTelemetryTailSamplingThreshold: "invalid",
-	},
-	expectError: `open-telemetry-tail-sampling-threshold: conversion to duration: time: invalid duration "invalid"`,
-}, {
-	about: "invalid object store type value",
-	config: controller.Config{
-		controller.ObjectStoreType: "invalid",
-	},
-	expectError: `invalid object store type "invalid" not valid`,
-}, {
-	about: "invalid object store type type",
-	config: controller.Config{
-		controller.ObjectStoreType: 1,
-	},
-	expectError: `object-store-type: expected string, got int\(1\)`,
-}, {
-	about: "invalid object store s3 endpoint value",
-	config: controller.Config{
-		controller.ObjectStoreS3Endpoint: 1,
-	},
-	expectError: `object-store-s3-endpoint: expected string, got int\(1\)`,
-}, {
-	about: "invalid object store s3 static key value",
-	config: controller.Config{
-		controller.ObjectStoreS3StaticKey: 1,
-	},
-	expectError: `object-store-s3-static-key: expected string, got int\(1\)`,
-}, {
-	about: "invalid object store s3 static secret value",
-	config: controller.Config{
-		controller.ObjectStoreS3StaticSecret: 1,
-	},
-	expectError: `object-store-s3-static-secret: expected string, got int\(1\)`,
-}, {
-	about: "invalid object store s3 static session value",
-	config: controller.Config{
-		controller.ObjectStoreS3StaticSession: 1,
-	},
-	expectError: `object-store-s3-static-session: expected string, got int\(1\)`,
 }, {
 	about: "invalid jujud-controller-snap-source value",
 	config: controller.Config{
@@ -905,79 +838,6 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *tc.C) {
 	c.Assert(cfg2.QueryTracingThreshold(), tc.Equals, time.Second*10)
 }
 
-func (s *ConfigSuite) TestOpenTelemetryEnabled(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryEnabled(), tc.Equals, controller.DefaultOpenTelemetryEnabled)
-
-	cfg[controller.OpenTelemetryEnabled] = true
-	c.Assert(cfg.OpenTelemetryEnabled(), tc.Equals, true)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryInsecure(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryInsecure(), tc.Equals, controller.DefaultOpenTelemetryInsecure)
-
-	cfg[controller.OpenTelemetryInsecure] = true
-	c.Assert(cfg.OpenTelemetryInsecure(), tc.Equals, true)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryStackTraces(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryStackTraces(), tc.Equals, controller.DefaultOpenTelemetryStackTraces)
-
-	cfg[controller.OpenTelemetryStackTraces] = true
-	c.Assert(cfg.OpenTelemetryStackTraces(), tc.Equals, true)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *tc.C) {
-	mURL := "http://meshuggah.com/endpoint"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]any{
-			controller.OpenTelemetryEndpoint: mURL,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.OpenTelemetryEndpoint(), tc.Equals, mURL)
-}
-
-func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetrySampleRatio(), tc.Equals, controller.DefaultOpenTelemetrySampleRatio)
-
-	cfg[controller.OpenTelemetrySampleRatio] = 0.42
-	c.Assert(cfg.OpenTelemetrySampleRatio(), tc.Equals, 0.42)
-}
-
-func (s *ConfigSuite) TestOpenTelemetryTailSamplingThreshold(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert, nil)
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), tc.Equals, controller.DefaultOpenTelemetryTailSamplingThreshold)
-
-	cfg[controller.OpenTelemetryTailSamplingThreshold] = "1s"
-	c.Assert(cfg.OpenTelemetryTailSamplingThreshold(), tc.Equals, time.Second)
-}
-
 func (s *ConfigSuite) TestSSHServerPort(c *tc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -1000,45 +860,4 @@ func (s *ConfigSuite) TestSSHServerConcurrentConnections(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(cfg.SSHMaxConcurrentConnections(), tc.Equals, 10)
-}
-
-func (s *ConfigSuite) TestObjectStoreType(c *tc.C) {
-	backendType := "file"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]any{
-			controller.ObjectStoreType: backendType,
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreType(), tc.Equals, objectstore.FileBackend)
-}
-
-func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]any{
-			controller.ObjectStoreS3Endpoint: "http://localhost:9000",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreS3Endpoint(), tc.Equals, "http://localhost:9000")
-}
-
-func (s *ConfigSuite) TestObjectStoreS3Credentials(c *tc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]any{
-			controller.ObjectStoreS3StaticKey:     "key",
-			controller.ObjectStoreS3StaticSecret:  "secret",
-			controller.ObjectStoreS3StaticSession: "session",
-		},
-	)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreS3StaticKey(), tc.Equals, "key")
-	c.Assert(cfg.ObjectStoreS3StaticSecret(), tc.Equals, "secret")
-	c.Assert(cfg.ObjectStoreS3StaticSession(), tc.Equals, "session")
 }

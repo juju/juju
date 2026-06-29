@@ -21,8 +21,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	loggerapi "github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -62,6 +64,7 @@ func (s *Suite) SetUpTest(c *tc.C) {
 	s.guard = newStubGuard(s.stub)
 	s.agent = newStubAgent()
 	s.clock = testclock.NewClock(time.Now())
+
 	s.config = migrationminion.Config{
 		Facade:  s.client,
 		Guard:   s.guard,
@@ -73,6 +76,13 @@ func (s *Suite) SetUpTest(c *tc.C) {
 			return nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
+		SendReport: func(ctx context.Context, conn api.Connection, status watcher.MigrationStatus, success bool) error {
+			s.stub.MethodCall(s.client, "Report", status.MigrationId, status.Phase, success)
+			return s.stub.NextErr()
+		},
+		FetchTargetLokiConfig: func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
+			return loggerapi.ControllerLokiConfig{}, coreerrors.NotFound
+		},
 	}
 }
 
@@ -82,7 +92,7 @@ func (s *Suite) apiOpen(ctx context.Context, info *api.Info, _ api.DialOpts) (ap
 }
 
 func (s *Suite) TestStartAndStop(c *tc.C) {
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 	s.stub.CheckCallNames(c, "Watch")
@@ -90,7 +100,7 @@ func (s *Suite) TestStartAndStop(c *tc.C) {
 
 func (s *Suite) TestWatchFailure(c *tc.C) {
 	s.client.watchErr = errors.New("boom")
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "setting up watcher: boom")
@@ -98,7 +108,7 @@ func (s *Suite) TestWatchFailure(c *tc.C) {
 
 func (s *Suite) TestClosedWatcherChannel(c *tc.C) {
 	close(s.client.watcher.changes)
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, tc.ErrorMatches, "watcher channel closed")
@@ -109,7 +119,7 @@ func (s *Suite) TestUnlockError(c *tc.C) {
 		Phase: migration.NONE,
 	}
 	s.guard.unlockErr = errors.New("squish")
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
@@ -122,7 +132,7 @@ func (s *Suite) TestLockdownError(c *tc.C) {
 		Phase: migration.QUIESCE,
 	}
 	s.guard.lockdownErr = errors.New("squash")
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = workertest.CheckKilled(c, w)
@@ -165,7 +175,7 @@ func (s *Suite) checkPostSuccessPhase(c *tc.C, phase migration.Phase) {
 		TargetAPIAddrs: addrs,
 		TargetCACert:   caCert,
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -183,7 +193,7 @@ func (s *Suite) checkNonRunningPhase(c *tc.C, phase migration.Phase) {
 	c.Logf("checking %s", phase)
 	s.stub.ResetCalls()
 	s.client.watcher.changes <- watcher.MigrationStatus{Phase: phase}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
@@ -195,7 +205,7 @@ func (s *Suite) TestQUIESCE(c *tc.C) {
 		MigrationId: "id",
 		Phase:       migration.QUIESCE,
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -214,7 +224,7 @@ func (s *Suite) TestVALIDATION(c *tc.C) {
 		TargetAPIAddrs: addrs,
 		TargetCACert:   caCert,
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -249,7 +259,7 @@ func (s *Suite) TestVALIDATIONCanConnectButIsRepeatedlyCalled(c *tc.C) {
 		TargetAPIAddrs: addrs,
 		TargetCACert:   caCert,
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -281,7 +291,7 @@ func (s *Suite) TestVALIDATIONCantConnect(c *tc.C) {
 		s.stub.AddCall("API open")
 		return nil, errors.New("boom")
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -330,7 +340,7 @@ func (s *Suite) TestVALIDATIONCantConnectNotReportForTryAgainError(c *tc.C) {
 		s.stub.AddCall("API open")
 		return nil, apiservererrors.ErrTryAgain
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -377,7 +387,7 @@ func (s *Suite) TestVALIDATIONFail(c *tc.C) {
 		s.stub.AddCall("ValidateMigration")
 		return errors.New("boom")
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -410,7 +420,7 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *tc.C) {
 		return stub.NextErr()
 	}
 
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -445,7 +455,7 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 		TargetAPIAddrs: addrs,
 		TargetCACert:   caCert,
 	}
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 
 	select {
@@ -457,7 +467,27 @@ func (s *Suite) TestSUCCESS(c *tc.C) {
 	c.Assert(s.agent.conf.addrs, tc.DeepEquals, addrs)
 	c.Assert(s.agent.conf.caCert, tc.DeepEquals, caCert)
 	s.stub.CheckCallNames(c, "Watch", "Lockdown", "API open", "API close", "Report")
+	s.stub.CheckCall(c, 2, "API open", &api.Info{Addrs: addrs, CACert: caCert, ModelTag: modelTag, Tag: agentTag, Password: agentPassword})
 	s.stub.CheckCall(c, 4, "Report", "id", migration.SUCCESS, true)
+}
+
+func (s *Suite) TestSUCCESSFetchTargetLokiConfigError(c *tc.C) {
+	s.config.FetchTargetLokiConfig = func(context.Context, api.Connection, names.Tag) (loggerapi.ControllerLokiConfig, error) {
+		return loggerapi.ControllerLokiConfig{}, errors.New("loki fetch boom")
+	}
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w, err := migrationminion.NewWorker(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = workertest.CheckKilled(c, w)
+	c.Check(err, tc.ErrorMatches, "failed to fetch target controller Loki config: loki fetch boom")
 }
 
 func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
@@ -477,17 +507,14 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
 		return nil, apiservererrors.ErrTryAgain
 	}
 	s.stub.SetErrors(rpc.ErrShutdown)
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	// Advance time enough for all of the retries to be exhausted.
-	sleepTime := 100 * time.Millisecond
-	for range 9 {
-		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
-		c.Assert(err, tc.ErrorIsNil)
-		sleepTime = sleepTime * 2
-	}
+	// On the first attempt, SendReport fails with rpc.ErrShutdown. On retry
+	// it succeeds (no more errors). One clock tick for the retry delay.
+	err = s.clock.WaitAdvance(100*time.Millisecond, coretesting.ShortWait, 1)
+	c.Assert(err, tc.ErrorIsNil)
 
 	s.waitForStubCalls(c, []string{
 		"Watch",
@@ -495,14 +522,6 @@ func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *tc.C) {
 		"API open",
 		"API close",
 		"Report",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
-		"API open",
 		"API open",
 		"API open",
 	})
@@ -515,14 +534,11 @@ func (s *Suite) TestSUCCESSRetryReport(c *tc.C) {
 	}
 	s.agent.conf.tag = names.NewUnitTag("app/0")
 	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
-	s.config.NewFacade = func(a base.APICaller) (migrationminion.Facade, error) {
-		return s.config.Facade, nil
-	}
 
 	s.stub.SetErrors(rpc.ErrShutdown)
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
+	defer workertest.DirtyKill(c, w)
 
 	s.waitForStubCalls(c, []string{
 		"Watch",
@@ -568,7 +584,7 @@ func (s *Suite) TestSuccessAfterValidateWithRedirect(c *tc.C) {
 		return nil, errors.Errorf("unexpected address %q", info.Addrs[0])
 	}
 
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -600,7 +616,7 @@ func (s *Suite) TestValidateFailsWithRedirectLoop(c *tc.C) {
 		}
 	}
 
-	w, err := migrationminion.New(s.config)
+	w, err := migrationminion.NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -741,9 +757,22 @@ type stubAgentConfig struct {
 	tag names.Tag
 	dir string
 
-	mu     sync.Mutex
-	addrs  []string
-	caCert string
+	mu           sync.Mutex
+	addrs        []string
+	caCert       string
+	lokiEndpoint string
+	lokiCACert   string
+}
+
+func (mc *stubAgentConfig) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+	mc.lokiEndpoint = endpoint
+	if caCert != nil {
+		mc.lokiCACert = *caCert
+	} else {
+		mc.lokiCACert = ""
+	}
 }
 
 func (mc *stubAgentConfig) SetAPIHostPorts(servers []network.HostPorts) error {

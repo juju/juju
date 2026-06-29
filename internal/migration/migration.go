@@ -21,11 +21,13 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
+	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/modeldefaults"
-	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
+	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
@@ -38,31 +40,25 @@ type OperationExporter interface {
 	ExportOperations(registry corestorage.ModelStorageRegistryGetter)
 }
 
-// Coordinator describes the interface required for coordinating model
-// migration operations.
-type Coordinator interface {
-	// Add a new operation to the migration. It will be appended at the end of the
-	// list of operations.
-	Add(operations modelmigration.Operation)
-	// Perform executes the migration.
-	// We log in addition to returning errors because the error is ultimately
-	// returned to the caller on the source, and we want them to be reflected
-	// in *this* controller's logs.
-	Perform(ctx context.Context, scope modelmigration.Scope, model description.Model) (err error)
-}
-
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
 // on the given cloud service.
 type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchemaSourceGetter
+
+// ModelDBImporter is the seam Task 8 fills with the generated domain import.
+// It is nil on ModelImporter until Task 8 wires it in.
+type ModelDBImporter interface {
+	Import(ctx context.Context, payload *latest.ModelExport) error
+}
 
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
 	domainServices services.DomainServicesGetter
 
-	controllerUUID string
-	scope          modelmigration.ScopeForModel
-	logger         corelogger.Logger
-	clock          clock.Clock
+	controllerUUID  string
+	scope           modelmigration.ScopeForModel
+	logger          corelogger.Logger
+	clock           clock.Clock
+	modelDBImporter ModelDBImporter // nil until Task 8 wires it in
 }
 
 // NewModelImporter returns a new ModelImporter that encapsulates the
@@ -110,7 +106,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 	}
 
 	coordinator := modelmigration.NewCoordinator(i.logger)
-	migrations.ImportOperations(
+	ImportOperations(
 		coordinator,
 		modelDefaultsProvider,
 		configGetter,
@@ -120,6 +116,38 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 		return errors.Trace(err)
 	}
 
+	return nil
+}
+
+// ImportModelV2 applies a v8 import's controller-scoped semantic data to the
+// target controller. See [migrationv2.ImportModel] for the orchestration; this
+// method only resolves the migration scope for the model UUID and delegates.
+//
+// If a claim already exists for args.ControllerModelInfo.ModelInfo.UUID, the
+// returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
+// supplied by the modelmigration domain).
+func (i *ModelImporter) ImportModelV2(
+	ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView,
+) error {
+	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
+	scope := i.scope(modelUUID)
+
+	if err := migrationv2.ImportModel(ctx, migrationv2.Deps{
+		ControllerDB: scope.ControllerDB(),
+		ModelDB:      scope.ModelDB(),
+		Clock:        i.clock,
+		Logger:       i.logger,
+	}, args, view); err != nil {
+		return internalerrors.Capture(err)
+	}
+
+	// Model-DB import: Task 8 fills this seam with the generated domain import.
+	// The payload is decoded and transformed but not yet persisted into the model DB.
+	if args.ModelDBPayload != nil && i.modelDBImporter != nil {
+		if err := i.modelDBImporter.Import(ctx, args.ModelDBPayload); err != nil {
+			return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
+		}
+	}
 	return nil
 }
 

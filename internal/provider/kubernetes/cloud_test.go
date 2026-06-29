@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"

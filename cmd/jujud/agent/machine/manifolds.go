@@ -7,11 +7,13 @@ import (
 	"context"
 	"maps"
 	"net/http"
+	"path"
 	"runtime"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
@@ -22,55 +24,114 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/controller/crosscontroller"
 	proxyconfig "github.com/juju/juju/api/proxy/config"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/flightrecorder"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/environs"
+	internalbootstrap "github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/charmhub"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
+	internalhttp "github.com/juju/juju/internal/http"
+	internallease "github.com/juju/juju/internal/lease"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/upgrades"
 	jupgradesteps "github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
+	"github.com/juju/juju/internal/worker/agentconfigupdater"
+	"github.com/juju/juju/internal/worker/apiaddresssetter"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
+	"github.com/juju/juju/internal/worker/apiremotecaller"
+	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
+	"github.com/juju/juju/internal/worker/apiserver"
+	"github.com/juju/juju/internal/worker/apiservercertwatcher"
+	"github.com/juju/juju/internal/worker/auditconfigupdater"
 	"github.com/juju/juju/internal/worker/authenticationworker"
+	"github.com/juju/juju/internal/worker/bootstrap"
 	"github.com/juju/juju/internal/worker/caasupgrader"
+	"github.com/juju/juju/internal/worker/certupdater"
+	"github.com/juju/juju/internal/worker/changestream"
+	"github.com/juju/juju/internal/worker/changestreampruner"
 	lxdbroker "github.com/juju/juju/internal/worker/containerbroker"
 	"github.com/juju/juju/internal/worker/containerprovisioner"
+	"github.com/juju/juju/internal/worker/controlleragentconfig"
+	"github.com/juju/juju/internal/worker/controllerpresence"
+	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
+	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/diskmanager"
+	workerdomainservices "github.com/juju/juju/internal/worker/domainservices"
+	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
+	"github.com/juju/juju/internal/worker/filenotifywatcher"
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/hostkeyreporter"
+	"github.com/juju/juju/internal/worker/httpclient"
+	"github.com/juju/juju/internal/worker/httpserver"
+	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
+	"github.com/juju/juju/internal/worker/jwtparser"
+	leasemanager "github.com/juju/juju/internal/worker/lease"
+	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/logsink"
+	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machineconverter"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
+	"github.com/juju/juju/internal/worker/modelworkermanager"
+	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/objectstoredrainer"
+	"github.com/juju/juju/internal/worker/objectstorefacade"
+	"github.com/juju/juju/internal/worker/objectstores3caller"
+	"github.com/juju/juju/internal/worker/objectstoreservices"
+	"github.com/juju/juju/internal/worker/providerservices"
+	"github.com/juju/juju/internal/worker/providertracker"
 	"github.com/juju/juju/internal/worker/proxyupdater"
+	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/reboot"
+	"github.com/juju/juju/internal/worker/secretbackendrotate"
+	"github.com/juju/juju/internal/worker/singular"
+	"github.com/juju/juju/internal/worker/sshserver"
+	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
+	"github.com/juju/juju/internal/worker/storageregistry"
 	"github.com/juju/juju/internal/worker/terminationworker"
+	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/traceservices"
+	"github.com/juju/juju/internal/worker/undertaker"
+	"github.com/juju/juju/internal/worker/upgradedatabase"
 	"github.com/juju/juju/internal/worker/upgrader"
+	"github.com/juju/juju/internal/worker/upgradeservices"
 	"github.com/juju/juju/internal/worker/upgradestepsagent"
+	"github.com/juju/juju/internal/worker/upgradestepscontroller"
+	"github.com/juju/juju/internal/worker/watcherregistry"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
+
 	// AgentName is the name of the machine agent, like "machine-12".
 	// This will never change during the execution of an agent, and
 	// is used to provide this as config into a worker rather than
@@ -94,6 +155,16 @@ type ManifoldsConfig struct {
 	// agent was running before the current restart.
 	PreviousAgentVersion semversion.Number
 
+	// BootstrapLock is passed to the bootstrap gate to coordinate
+	// workers that shouldn't do anything until the bootstrap worker
+	// is done.
+	BootstrapLock gate.Lock
+
+	// UpgradeDBLock is passed to the upgrade database gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-database worker is done.
+	UpgradeDBLock gate.Lock
+
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
 	// upgrade-steps worker is done.
@@ -104,9 +175,15 @@ type ManifoldsConfig struct {
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
 
-	// MachineStartup is passed to the machine manifold. It does
-	// machine setup work which relies on an API connection.
-	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
+	// ControllerAgentConfigReadyLock is passed to the controller agent
+	// config ready gate to coordinate the deployer with the
+	// controlleragentconfig worker. On controller machines the deployer
+	// must not start until the configchange.socket exists; on
+	// non-controller machines the caller pre-unlocks this lock.
+	ControllerAgentConfigReadyLock gate.Lock
+
+	// NewDBWorkerFunc returns a tracked db worker.
+	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
@@ -117,9 +194,18 @@ type ManifoldsConfig struct {
 	// worker to perform the upgrade steps.
 	UpgradeSteps upgrades.UpgradeStepsFunc
 
-	// LogSource defines the channel type used to send log message
-	// structs within the machine agent.
+	// LogSink defines an interface for writing log records to a log sink.
+	LogSink corelogger.LogSink
+
+	// LogSource supplies log records to the logrouter. It is the output
+	// channel of the BufferedLogWriter installed on the default loggo
+	// context.
 	LogSource logsender.LogRecordCh
+
+	// LegacyLogSinkWriter is the TaggedRedirectWriter that writes log
+	// records to the legacy log sink. It is managed by the logrouter
+	// based on the active backend mode.
+	LegacyLogSinkWriter loggo.Writer
 
 	// NewDeployContext gives the tests the opportunity to create a
 	// deployer.Context that can be used for testing.
@@ -147,11 +233,23 @@ type ManifoldsConfig struct {
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
 	NewAgentStatusSetter func(context.Context, base.APICaller) (jupgradesteps.StatusSetter, error)
 
+	// ControllerLeaseDuration defines for how long this agent will ask
+	// for controller administration rights.
+	ControllerLeaseDuration time.Duration
+
+	// TransactionPruneInterval defines how frequently mgo/txn transactions
+	// are pruned from the database.
+	TransactionPruneInterval time.Duration
+
 	// RegisterIntrospectionHTTPHandlers is a function that calls the
 	// supplied function to register introspection HTTP handlers. The
 	// function will be passed a path and a handler; the function may
 	// alter the path as it sees fit, e.g. by adding a prefix.
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
+
+	// NewModelWorker returns a new worker for managing the model with
+	// the specified UUID and type.
+	NewModelWorker modelworkermanager.NewModelWorkerFunc
 
 	// MachineLock is a central source for acquiring the machine lock.
 	// This is used by a number of workers to ensure serialisation of actions
@@ -177,19 +275,20 @@ type ManifoldsConfig struct {
 	// context for the unit.
 	SetupLogging func(corelogger.LoggerContext, coreagent.Config)
 
-	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
-	CharmhubHTTPClient HTTPClient
-
-	// S3HTTPClient is the HTTP client used for S3 API requests.
-	S3HTTPClient HTTPClient
+	// DependencyEngineMetrics creates a set of metrics for a model, so it's
+	// possible to know the lifecycle of the workers in the dependency engine.
+	DependencyEngineMetrics modelworkermanager.ModelMetrics
 
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
 	NewEnvironFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (environs.Environ, error)
-}
 
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
+	// NewCAASBrokerFunc is a function opens a CAAS broker.
+	NewCAASBrokerFunc func(context.Context, environs.OpenParams, environs.CredentialInvalidator) (caas.Broker, error)
+
+	// MachineStartup is passed to the machine manifold. It does
+	// machine setup work which relies on an API connection.
+	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -213,15 +312,48 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		return err
 	}
 
+	newExternalControllerWatcherClient := func(ctx context.Context, apiInfo *api.Info) (
+		externalcontrollerupdater.ExternalControllerWatcherClientCloser, string, error,
+	) {
+		conn, err := apicaller.NewExternalControllerConnection(ctx, apiInfo)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
+	}
+
 	var externalUpdateProxyFunc func(proxy.Settings) error
 	if runtime.GOOS == "linux" && !config.IsCaasConfig {
 		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
+	agentConfig := config.Agent.CurrentConfig()
+	agentTag := agentConfig.Tag()
+	controllerTag := agentConfig.Controller()
+
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
+
+		// The upgrade database gate is used to coordinate workers that should
+		// not do anything until the upgrade-database worker has finished
+		// running any required database upgrade steps.
+		isBootstrapGateName: gate.ManifoldEx(config.BootstrapLock),
+		isBootstrapFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  isBootstrapGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		// controllerAgentConfigReadyGateName/FlagName coordinate the deployer
+		// with the controlleragentconfig worker. The deployer must not start
+		// on controller machines until the configchange.socket is available.
+		// On non-controller machines the lock is pre-unlocked by the caller.
+		controllerAgentConfigReadyGateName: gate.ManifoldEx(config.ControllerAgentConfigReadyLock),
+		controllerAgentConfigReadyFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  controllerAgentConfigReadyGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
 
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
@@ -236,6 +368,31 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		flightRecorderName: workerflightrecorder.Manifold(config.FlightRecorder),
 
+		// Each machine agent has a flag manifold/worker which
+		// reports whether or not the agent is a controller.
+		isControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, true),
+
+		// Controller agent config manifold watches the controller
+		// agent config and bounces if it changes.
+		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
+			AgentName:         agentName,
+			Clock:             config.Clock,
+			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
+			NewSocketListener: controlleragentconfig.NewSocketListener,
+			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
+			ReadyUnlocker:     config.ControllerAgentConfigReadyLock,
+		})),
+
+		// The stateconfigwatcher manifold watches the machine agent's
+		// configuration and reports if state serving info is
+		// present. It will bounce itself if state serving info is
+		// added or removed. It is intended as a dependency just for
+		// the state manifold.
+		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+		}),
+
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
 		// change. It's required as part of model migrations.
@@ -244,6 +401,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             internallogger.GetLogger("juju.worker.apiconfigwatcher"),
 		}),
+
+		// The certificate-watcher manifold monitors the API server
+		// certificate in the agent config for changes, and parses
+		// and offers the result to other manifolds. This is only
+		// run by state servers.
+		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
+			AgentName: agentName,
+		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
 		// to some API server. It's used by many other manifolds, which all
@@ -257,6 +422,41 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
 			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
+		}),
+
+		// The upgrade database gate is used to coordinate workers that should
+		// not do anything until the upgrade-database worker has finished
+		// running any required database upgrade steps.
+		upgradeDatabaseGateName: ifController(gate.ManifoldEx(config.UpgradeDBLock)),
+		upgradeDatabaseFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeDatabaseGateName,
+			NewWorker: gate.NewFlagWorker,
+		})),
+
+		// The upgrade-database worker runs soon after the machine agent starts
+		// and runs any steps required to upgrade to the database to the
+		// current version. Once upgrade steps have run, the upgrade-database
+		// gate is unlocked and the worker exits.
+		upgradeDatabaseName: ifController(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
+			AgentName:           agentName,
+			UpgradeDBGateName:   upgradeDatabaseGateName,
+			UpgradeServicesName: upgradeDomainServicesName,
+			DBAccessorName:      dbAccessorName,
+			NewWorker:           upgradedatabase.NewUpgradeDatabaseWorker,
+			Logger:              internallogger.GetLogger("juju.worker.upgradedatabase"),
+			Clock:               config.Clock,
+			UpgradeSteps:        upgradedatabase.UpgradeSteps,
+		})),
+
+		// The upgrade services worker provides domain services for upgrading
+		// the controller. This worker MUST never take on a dependency which relys
+		// on the database upgrade having been performed.
+		upgradeDomainServicesName: upgradeservices.Manifold(upgradeservices.ManifoldConfig{
+			ChangeStreamName:         changeStreamName,
+			Logger:                   internallogger.GetLogger("juju.worker.upgradeservices"),
+			NewUpgradeServices:       upgradeservices.NewUpgradeServices,
+			NewUpgradeServicesGetter: upgradeservices.NewUpgradeServicesGetter,
+			NewWorker:                upgradeservices.NewWorker,
 		}),
 
 		// The upgrade steps gate is used to coordinate workers which
@@ -303,16 +503,30 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     migrationflag.NewWorker,
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			FortressName:      migrationFortressName,
-			Clock:             config.Clock,
-			APIOpen:           api.Open,
-			ValidateMigration: config.ValidateMigration,
-			NewFacade:         migrationminion.NewFacade,
-			NewWorker:         migrationminion.NewWorker,
-			Logger:            internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			AgentName:             agentName,
+			APICallerName:         apiCallerName,
+			FortressName:          migrationFortressName,
+			Clock:                 config.Clock,
+			APIOpen:               api.Open,
+			ValidateMigration:     config.ValidateMigration,
+			NewWorker:             migrationminion.NewWorker,
+			Logger:                internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			SendReport:            migrationminion.SendReport,
+			FetchTargetLokiConfig: migrationminion.FetchTargetLokiConfig,
 		}),
+
+		// Each controller machine runs a singular worker which will
+		// attempt to claim responsibility for running certain workers
+		// that must not be run concurrently by multiple agents.
+		isPrimaryControllerFlagName: ifController(singular.Manifold(singular.ManifoldConfig{
+			AgentName:        agentName,
+			LeaseManagerName: leaseManagerName,
+			Clock:            config.Clock,
+			Duration:         config.ControllerLeaseDuration,
+			Claimant:         agentTag,
+			Entity:           controllerTag,
+			NewWorker:        singular.NewFlagWorker,
+		})),
 
 		// The logging config updater is a leaf worker that indirectly
 		// controls the messages sent via the log sender or rsyslog,
@@ -326,23 +540,60 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
-		// The log sender is a leaf worker that sends log messages to some
-		// API server, when configured so to do. We should only need one of
-		// these in a consolidated agent.
-		//
-		// NOTE: the LogSource will buffer a large number of messages as an upgrade
-		// runs; it currently seems better to fill the buffer and send when stable,
-		// optimising for stable controller upgrades rather than up-to-the-moment
-		// observable normal-machine upgrades.
-		logSenderName: ifNotMigrating(logsender.Manifold(logsender.ManifoldConfig{
-			APICallerName: apiCallerName,
-			LogSource:     config.LogSource,
+		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
+		})),
+
+		// The log router owns the buffered log stream and forwards records to
+		// one active backend at a time.
+		logRouterName: ifNotMigrating(logrouter.Manifold(logrouter.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			HTTPClientName:       httpClientName,
+			LogSource:            config.LogSource,
+			AgentConfigChanged:   config.AgentConfigChanged,
+			Logger:               internallogger.GetLogger("juju.worker.logrouter"),
+			Clock:                config.Clock,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewBackendFunc:       logrouter.NewBackend,
+			RemoveLegacyLogSinkWriter: func() {
+				logsender.RemoveLegacyLogSinkWriter()
+			},
+			AddLegacyLogSinkWriter: func() error {
+				return logsender.AddLegacyLogSinkWriter(config.LegacyLogSinkWriter)
+			},
 		})),
 
 		identityFileWriterName: ifNotMigrating(identityfilewriter.Manifold(identityfilewriter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 		})),
+
+		externalControllerUpdaterName: ifNotMigrating(ifPrimaryController(externalcontrollerupdater.Manifold(
+			externalcontrollerupdater.ManifoldConfig{
+				APICallerName:                      apiCallerName,
+				NewExternalControllerWatcherClient: newExternalControllerWatcherClient,
+			},
+		))),
+
+		traceServicesName: ifController(traceservices.Manifold(traceservices.ManifoldConfig{
+			ChangeStreamName: changeStreamName,
+			Logger:           internallogger.GetLogger("juju.worker.traceservices"),
+			NewWorker:        traceservices.NewWorker,
+			NewTraceServices: traceservices.NewTraceServices,
+		})),
+
+		controllerTraceName: trace.ControllerManifold(trace.ControllerManifoldConfig{
+			AgentName:         agentName,
+			TraceServicesName: traceServicesName,
+			Clock:             config.Clock,
+			Logger:            internallogger.GetLogger("juju.worker.trace"),
+			GetTracingService: trace.GetTracingService,
+			NewTracerWorker:   trace.NewTracerWorker,
+		}),
 
 		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
@@ -352,12 +603,171 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Kind:            coretrace.KindController,
 		}),
 
-		charmhubHTTPClientName: dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(config.CharmhubHTTPClient)
-			},
-			Output: engine.ValueWorkerOutput,
-		},
+		httpServerArgsName: ifBootstrapComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
+			ClockName:             clockName,
+			DomainServicesName:    domainServicesName,
+			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
+		})),
+
+		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
+			AuthorityName:       certificateWatcherName,
+			DomainServicesName:  domainServicesName,
+			MuxName:             httpServerArgsName,
+			APIServerName:       apiServerName,
+			AgentName:           config.AgentName,
+			Clock:               config.Clock,
+			MuxShutdownWait:     config.MuxShutdownWait,
+			LogDir:              agentConfig.LogDir(),
+			Logger:              internallogger.GetLogger("juju.worker.httpserver"),
+			GetControllerConfig: httpserver.GetControllerConfig,
+			NewTLSConfig:        httpserver.NewTLSConfig,
+			NewWorker:           httpserver.NewWorkerShim,
+		}),
+
+		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
+			AgentTag:       agentTag,
+			Clock:          config.Clock,
+			NewWorker:      logsink.NewWorker,
+			NewModelLogger: logsink.NewModelLogger,
+			LogSink:        config.LogSink,
+		}),
+
+		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
+			AgentName:              agentName,
+			AuthenticatorName:      httpServerArgsName,
+			ClockName:              clockName,
+			LogSinkName:            logSinkName,
+			MuxName:                httpServerArgsName,
+			LeaseManagerName:       leaseManagerName,
+			UpgradeGateName:        upgradeStepsGateName,
+			AuditConfigUpdaterName: auditConfigUpdaterName,
+			HTTPClientName:         httpClientName,
+			TraceName:              controllerTraceName,
+			ObjectStoreName:        objectStoreFacadeName,
+			JWTParserName:          jwtParserName,
+			WatcherRegistryName:    watcherRegistryName,
+			FlightRecorderName:     flightRecorderName,
+			ProviderTrackerName:    providerTrackerName,
+
+			// Note that although there is a transient dependency on dbaccessor
+			// via changestream, the direct dependency supplies the capability
+			// to remove databases corresponding to destroyed/migrated models.
+			DomainServicesName: domainServicesName,
+			ChangeStreamName:   changeStreamName,
+
+			PrometheusRegisterer:              config.PrometheusRegisterer,
+			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
+			GetControllerConfigService:        apiserver.GetControllerConfigService,
+			GetModelService:                   apiserver.GetModelService,
+			NewWorker:                         apiserver.NewWorker,
+			NewMetricsCollector:               apiserver.NewMetricsCollector,
+		}),
+
+		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
+			AuthorityName:                certificateWatcherName,
+			LogSinkName:                  logSinkName,
+			DomainServicesName:           domainServicesName,
+			LeaseManagerName:             leaseManagerName,
+			HTTPClientName:               httpClientName,
+			APIRemoteCallerGetterName:    apiRemoteRelationCallerName,
+			ProviderServiceFactoriesName: providerDomainServicesName,
+			NewWorker:                    modelworkermanager.New,
+			NewModelWorker:               config.NewModelWorker,
+			ModelMetrics:                 config.DependencyEngineMetrics,
+			Logger:                       internallogger.GetLogger("juju.workers.modelworkermanager"),
+			GetProviderServicesGetter:    modelworkermanager.GetProviderServicesGetter,
+			GetControllerConfig:          modelworkermanager.GetControllerConfig,
+		})),
+
+		domainServicesName: workerdomainservices.Manifold(workerdomainservices.ManifoldConfig{
+			DBAccessorName:              dbAccessorName,
+			ChangeStreamName:            changeStreamName,
+			ProviderFactoryName:         providerTrackerName,
+			ObjectStoreName:             objectStoreFacadeName,
+			StorageRegistryName:         storageRegistryName,
+			HTTPClientName:              httpClientName,
+			LeaseManagerName:            leaseManagerName,
+			LogSinkName:                 logSinkName,
+			Logger:                      internallogger.GetLogger("juju.worker.services"),
+			Clock:                       config.Clock,
+			LogDir:                      agentConfig.LogDir(),
+			NewWorker:                   workerdomainservices.NewWorker,
+			NewDomainServicesGetter:     workerdomainservices.NewDomainServicesGetter,
+			NewControllerDomainServices: workerdomainservices.NewControllerDomainServices,
+			NewModelDomainServices:      workerdomainservices.NewProviderTrackerModelDomainServices,
+		}),
+
+		providerDomainServicesName: providerservices.Manifold(providerservices.ManifoldConfig{
+			ChangeStreamName:          changeStreamName,
+			Logger:                    internallogger.GetLogger("juju.worker.providerserivces"),
+			NewWorker:                 providerservices.NewWorker,
+			NewProviderServicesGetter: providerservices.NewProviderServicesGetter,
+			NewProviderServices:       providerservices.NewProviderServices,
+		}),
+
+		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
+			LogDir: agentConfig.LogDir(),
+			Clock:  config.Clock,
+			Logger: internallogger.GetLogger("juju.worker.querylogger"),
+		})),
+
+		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{
+			Clock:             config.Clock,
+			Logger:            internallogger.GetLogger("juju.worker.filenotifywatcher"),
+			NewWatcher:        filenotifywatcher.NewWatcher,
+			NewINotifyWatcher: filenotifywatcher.NewINotifyWatcher,
+		})),
+
+		changeStreamName: changestream.Manifold(changestream.ManifoldConfig{
+			AgentName:            agentName,
+			DBAccessor:           dbAccessorName,
+			FileNotifyWatcher:    fileNotifyWatcherName,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.changestream"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWatchableDB:       changestream.NewWatchableDB,
+			NewMetricsCollector:  changestream.NewMetricsCollector,
+		}),
+
+		changeStreamPrunerName: ifPrimaryController(changestreampruner.Manifold(changestreampruner.ManifoldConfig{
+			DomainServiceName:      domainServicesName,
+			Clock:                  config.Clock,
+			Logger:                 internallogger.GetLogger("juju.worker.changestreampruner"),
+			NewWorker:              changestreampruner.NewWorker,
+			GetChangeStreamService: changestreampruner.GetControllerChangeStreamService,
+		})),
+
+		auditConfigUpdaterName: ifDatabaseUpgradeComplete(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
+			AgentName:                  agentName,
+			DomainServicesName:         domainServicesName,
+			NewWorker:                  auditconfigupdater.NewWorker,
+			GetControllerConfigService: auditconfigupdater.GetControllerConfigService,
+		})),
+
+		// The lease expiry worker constantly deletes
+		// leases with an expiry time in the past.
+		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
+			ClockName:      clockName,
+			DBAccessorName: dbAccessorName,
+			TraceName:      controllerTraceName,
+			Logger:         internallogger.GetLogger("juju.worker.leaseexpiry"),
+			NewWorker:      leaseexpiry.NewWorker,
+			NewStore:       leaseexpiry.NewStore,
+		})),
+
+		// The global lease manager tracks lease information in the Dqlite database.
+		leaseManagerName: leasemanager.Manifold(leasemanager.ManifoldConfig{
+			AgentName:            agentName,
+			ClockName:            clockName,
+			DBAccessorName:       dbAccessorName,
+			TraceName:            controllerTraceName,
+			Logger:               internallogger.GetLogger("juju.worker.lease"),
+			LogDir:               agentConfig.LogDir(),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            leasemanager.NewWorker,
+			NewStore:             leasemanager.NewStore,
+			NewSecretaryFinder:   internallease.NewSecretaryFinder,
+		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
@@ -383,6 +793,237 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     credentialvalidator.NewWorker,
 			Logger:        internallogger.GetLogger("juju.worker.credentialvalidator"),
 		}),
+
+		secretBackendRotateName: ifNotMigrating(ifPrimaryController(secretbackendrotate.Manifold(
+			secretbackendrotate.ManifoldConfig{
+				APICallerName: apiCallerName,
+				Logger:        internallogger.GetLogger("juju.worker.secretbackendsrotate"),
+			},
+		))),
+
+		// The controlsocket worker runs on the controller machine.
+		controlSocketName: ifDatabaseUpgradeComplete(controlsocket.Manifold(controlsocket.ManifoldConfig{
+			DomainServicesName:              domainServicesName,
+			ObjectStoreServicesName:         objectStoreServicesName,
+			Logger:                          internallogger.GetLogger("juju.worker.controlsocket"),
+			NewWorker:                       controlsocket.NewWorker,
+			NewSocketListener:               controlsocket.NewSocketListener,
+			SocketName:                      path.Join(agentConfig.DataDir(), "control.socket"),
+			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
+			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
+			PrometheusRegisterer:            config.PrometheusRegisterer,
+			NewMetricsCollector:             controlsocket.NewMetricsCollector,
+		})),
+
+		// The ssh server worker runs on the controller machine.
+		sshServerName: ifController(sshserver.Manifold(sshserver.ManifoldConfig{
+			DomainServicesName:             domainServicesName,
+			Logger:                         internallogger.GetLogger("juju.worker.sshserver"),
+			NewServerWrapperWorker:         sshserver.NewServerWrapperWorker,
+			NewServerWorker:                sshserver.NewServerWorker,
+			GetControllerConfigService:     sshserver.GetControllerConfigService,
+			GetControllerSSHHostKeyService: sshserver.GetControllerSSHHostKeyService,
+			GetDomainServicesGetter:        sshserver.GetDomainServicesGetter,
+			GetVirtualHostKeyService:       sshserver.GetVirtualHostKeyService,
+		})),
+
+		// The objectstore drainer runs on the singular primary controller to
+		// avoid concurrent completion races in HA. It coordinates draining of
+		// blobs between underlying object stores (S3 compatible) and with the
+		// objectstore fortress guards objectstore operations while draining is
+		// in progress.
+		objectStoreFortressName: fortress.Manifold(),
+		objectStoreDrainerName: ifPrimaryController(objectstoredrainer.Manifold(objectstoredrainer.ManifoldConfig{
+			AgentName:                       agentName,
+			S3ClientName:                    objectStoreS3CallerName,
+			ObjectStoreName:                 objectStoreName,
+			ObjectStoreServicesName:         objectStoreServicesName,
+			FortressName:                    objectStoreFortressName,
+			GetControllerService:            objectstoredrainer.GetControllerService,
+			GeObjectStoreServices:           objectstoredrainer.GeObjectStoreServicesGetter,
+			GetControllerObjectStoreService: objectstoredrainer.GetControllerObjectStoreService,
+			GetDrainingService:              objectstoredrainer.GetDrainingService,
+			GetControllerConfigService:      objectstoredrainer.GetControllerConfigService,
+			NewHashFileSystemAccessor:       objectstoredrainer.NewHashFileStoreAccessor,
+			NewDrainerWorker:                objectstoredrainer.NewDrainWorker,
+			SelectFileHash:                  internalobjectstore.SelectFileHash,
+			NewWorker:                       objectstoredrainer.NewWorker,
+			Logger:                          internallogger.GetLogger("juju.worker.objectstoredrainer"),
+			Clock:                           config.Clock,
+		})),
+
+		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
+			AgentName:                  agentName,
+			TraceName:                  controllerTraceName,
+			ObjectStoreServicesName:    objectStoreServicesName,
+			LeaseManagerName:           leaseManagerName,
+			S3ClientName:               objectStoreS3CallerName,
+			APIRemoteCallerName:        apiRemoteCallerName,
+			Clock:                      config.Clock,
+			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
+			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
+			GetControllerConfigService: objectstore.GetControllerConfigService,
+			GetMetadataService:         objectstore.GetMetadataService,
+			GetObjectStoreService:      objectstore.GetObjectStoreService,
+			IsBootstrapController:      internalbootstrap.IsBootstrapController,
+		})),
+
+		// The objectstore facade is a thin wrapper around the objectstore
+		// worker. It guards against any objectstore operations while the
+		// draining is in progress.
+		objectStoreFacadeName: objectstorefacade.Manifold(objectstorefacade.ManifoldConfig{
+			ObjectStoreName: objectStoreName,
+			FortressName:    objectStoreFortressName,
+			NewWorker:       objectstorefacade.NewWorker,
+			Logger:          internallogger.GetLogger("juju.worker.objectstorefacade"),
+		}),
+
+		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
+			ChangeStreamName:             changeStreamName,
+			Clock:                        config.Clock,
+			Logger:                       internallogger.GetLogger("juju.worker.objectstoreservices"),
+			NewWorker:                    objectstoreservices.NewWorker,
+			NewObjectStoreServices:       objectstoreservices.NewObjectStoreServices,
+			NewObjectStoreServicesGetter: objectstoreservices.NewObjectStoreServicesGetter,
+		}),
+
+		objectStoreS3CallerName: ifDatabaseUpgradeComplete(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
+			HTTPClientName:          httpClientName,
+			ObjectStoreServicesName: objectStoreServicesName,
+			NewClient:               objectstores3caller.NewS3Client,
+			Logger:                  internallogger.GetLogger("juju.worker.s3caller"),
+			GetObjectStoreService:   objectstores3caller.GetObjectStoreService,
+			NewWorker:               objectstores3caller.NewWorker,
+		})),
+
+		// Provider tracker manifold is not dependent on the
+		// ifDatabaseUpgradeComplete gate. The provider tracker data must not
+		// change between patch/build versions and should be available to all
+		// workers from the start. This includes the controller and read-only
+		// model data that the provider tracker worker is responsible for.
+		//
+		// Migration away to a major/minor version is the correct way to move
+		// a model for upgrade scenarios.
+		providerTrackerName: providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
+			ProviderServiceFactoriesName: providerDomainServicesName,
+			LogSinkName:                  logSinkName,
+			NewWorker:                    providertracker.NewWorker,
+			NewTrackerWorker:             providertracker.NewTrackerWorker,
+			NewEphemeralProvider:         providertracker.NewEphemeralProvider,
+			GetProviderServicesGetter:    providertracker.GetProviderServicesGetter,
+			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
+				return config.NewEnvironFunc(ctx, args, invalidator)
+			}),
+			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error) {
+				return config.NewCAASBrokerFunc(ctx, args, invalidator)
+			}),
+			Logger: internallogger.GetLogger("juju.worker.providertracker"),
+			Clock:  config.Clock,
+		}),
+
+		storageRegistryName: storageregistry.Manifold(storageregistry.ManifoldConfig{
+			ProviderFactoryName:      providerTrackerName,
+			NewStorageRegistryWorker: storageregistry.NewTrackedWorker,
+			Clock:                    config.Clock,
+			Logger:                   internallogger.GetLogger("juju.worker.storageregistry"),
+		}),
+
+		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
+			NewHTTPClient: func(namespace corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
+				switch namespace {
+				case corehttp.CharmhubPurpose:
+					l := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+					opts = append(opts,
+						internalhttp.WithLogger(l),
+						internalhttp.WithRequestRetrier(charmhub.DefaultRetryPolicy()),
+					)
+
+				case corehttp.S3Purpose:
+					l := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
+					opts = append(opts, internalhttp.WithLogger(l))
+
+				case corehttp.SSHImporterPurpose:
+					l := internallogger.GetLogger("juju.ssh.importer", corelogger.SSHIMPORTER)
+					opts = append(opts, internalhttp.WithLogger(l))
+
+				case corehttp.MacaroonPurpose:
+					l := internallogger.GetLogger("juju.macaroon", corelogger.MACAROON)
+					opts = append(opts, internalhttp.WithLogger(l))
+
+				case corehttp.LokiPurpose:
+					l := internallogger.GetLogger("juju.loki")
+					opts = append(opts, internalhttp.WithLogger(l))
+
+				case corehttp.SimpleStreamPurpose:
+					l := internallogger.GetLogger("juju.simplestream", corelogger.SIMPLESTREAM)
+					opts = append(opts, internalhttp.WithLogger(l))
+				}
+
+				return internalhttp.NewClient(opts...)
+			},
+			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewMetricsCollector:  httpclient.NewMetricsCollector,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
+		}),
+
+		apiRemoteCallerName: ifController(apiremotecaller.Manifold(apiremotecaller.ManifoldConfig{
+			AgentName:               agentName,
+			ObjectStoreServicesName: objectStoreServicesName,
+			Clock:                   config.Clock,
+			Logger:                  internallogger.GetLogger("juju.worker.apiremotecaller"),
+			NewWorker:               apiremotecaller.NewWorker,
+		})),
+
+		controllerPresenceName: controllerpresence.Manifold(controllerpresence.ManifoldConfig{
+			APIRemoteCallerName:         apiRemoteCallerName,
+			DomainServicesName:          domainServicesName,
+			GetDomainServices:           controllerpresence.GetDomainServices,
+			GetControllerDomainServices: controllerpresence.GetControllerDomainServices,
+			NewWorker:                   controllerpresence.NewWorker,
+			Logger:                      internallogger.GetLogger("juju.worker.controllerpresence"),
+			Clock:                       config.Clock,
+		}),
+
+		apiRemoteRelationCallerName: apiremoterelationcaller.Manifold(apiremoterelationcaller.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			NewWorker:                   apiremoterelationcaller.NewWorker,
+			NewAPIInfoGetter:            apiremoterelationcaller.NewAPIInfoGetter,
+			NewConnectionGetter:         apiremoterelationcaller.NewConnectionGetter,
+			GetDomainServicesGetterFunc: apiremoterelationcaller.GetDomainServicesGetter,
+			Logger:                      internallogger.GetLogger("juju.worker.apiremoterelationcaller"),
+			Clock:                       config.Clock,
+		}),
+
+		jwtParserName: ifController(jwtparser.Manifold(jwtparser.ManifoldConfig{
+			GetControllerConfigService: jwtparser.GetControllerConfigService,
+			DomainServicesName:         domainServicesName,
+		})),
+
+		apiAddressSetterName: ifPrimaryController(apiaddresssetter.Manifold(apiaddresssetter.ManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			GetDomainServices:           apiaddresssetter.GetDomainServices,
+			GetControllerDomainServices: apiaddresssetter.GetControllerDomainServices,
+			NewWorker:                   apiaddresssetter.New,
+			Logger:                      internallogger.GetLogger("juju.worker.apiaddresssetter"),
+		})),
+
+		undertakerName: ifController(undertaker.Manifold(undertaker.ManifoldConfig{
+			DBAccessorName:            dbAccessorName,
+			DomainServicesName:        domainServicesName,
+			NewWorker:                 undertaker.NewWorker,
+			GetControllerModelService: undertaker.GetControllerModelService,
+			GetRemovalServiceGetter:   undertaker.GetRemovalServiceGetter,
+			Logger:                    internallogger.GetLogger("juju.worker.undertaker"),
+			Clock:                     config.Clock,
+		})),
+
+		watcherRegistryName: ifController(watcherregistry.Manifold(watcherregistry.ManifoldConfig{
+			NewWorker: watcherregistry.NewWorker,
+			Clock:     config.Clock,
+			Logger:    internallogger.GetLogger("juju.worker.watcherregistry"),
+		})),
 	}
 
 	return manifolds
@@ -391,7 +1032,49 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	agentConfig := config.Agent.CurrentConfig()
+
 	manifolds := dependency.Manifolds{
+		// Bootstrap worker is responsible for setting up the initial machine.
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+			AgentName:               agentName,
+			ObjectStoreName:         objectStoreFacadeName,
+			DomainServicesName:      domainServicesName,
+			HTTPClientName:          httpClientName,
+			BootstrapGateName:       isBootstrapGateName,
+			ProviderFactoryName:     providerTrackerName,
+			RequiresBootstrap:       bootstrap.RequiresBootstrap,
+			PopulateControllerCharm: bootstrap.PopulateIAASControllerCharm,
+			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
+			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
+			Clock:                   config.Clock,
+
+			AgentBinaryUploader:          bootstrap.IAASAgentBinaryUploader,
+			ControllerCharmDeployer:      bootstrap.IAASControllerCharmUploader,
+			ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
+			BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
+			AgentFinalizer:               bootstrap.IAASAgentFinalizer,
+		})),
+
+		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
+			AgentName:                     agentName,
+			APICallerName:                 apiCallerName,
+			DomainServicesName:            domainServicesName,
+			TraceName:                     controllerTraceName,
+			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
+			IsControllerAgentFn:           agentconfigupdater.IAASIsControllerAgent,
+			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
+		})),
+
+		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
+			AgentName:          agentName,
+			DomainServicesName: domainServicesName,
+			GetModelUUID:       toolsversionchecker.GetModelUUID,
+			GetDomainServices:  toolsversionchecker.GetModelDomainServices,
+			NewWorker:          toolsversionchecker.New,
+			Logger:             internallogger.GetLogger("juju.worker.toolsversionchecker"),
+		})),
+
 		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -405,12 +1088,36 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
 
+		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
+			AuthorityName:               certificateWatcherName,
+			DomainServicesName:          domainServicesName,
+			GetControllerDomainServices: certupdater.GetControllerDomainServices,
+			NewWorker:                   certupdater.NewCertificateUpdater,
+			Logger:                      internallogger.GetLogger("juju.worker.certupdater"),
+		})),
+
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
 		// means.
 		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
+		})),
+
+		// DBAccessor is a manifold that provides a DBAccessor worker
+		// that can be used to access the database.
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.IAASNodeManager,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -455,11 +1162,25 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 		}),
 
-		// The upgradesteps worker runs soon after the machine agent starts and
-		// runs any steps required to upgrade to the running jujud version. Once
-		// upgrade steps have run, the upgradesteps gate is unlocked and the
-		// worker exits.
-		upgradeAgentStepsName: upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
+		// The upgradestepscontroller worker runs soon after the machine agent
+		// starts and runs any steps required to upgrade to the running jujud
+		// version. Once upgrade steps have run, the upgradesteps gate is
+		// unlocked and the worker exits.
+		upgradeControllerStepsName: ifController(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			DomainServicesName:   domainServicesName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreUpgradeSteps:      config.PreUpgradeSteps(model.IAAS),
+			UpgradeSteps:         config.UpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			NewControllerWorker:  upgradestepscontroller.NewControllerWorker,
+			GetUpgradeService:    upgradestepscontroller.GetUpgradeService,
+			Logger:               internallogger.GetLogger("juju.worker.upgradestepscontroller"),
+			Clock:                config.Clock,
+		})),
+
+		upgradeAgentStepsName: ifNotController(upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
@@ -469,15 +1190,19 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
-		}),
+		})),
 
 		// The deployer worker is primarily for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
-		// longer needed.
-		deployerName: ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
+		// longer needed. On controller machines it must also wait until the
+		// controlleragentconfig socket is ready (controllerAgentConfigReadyFlag)
+		// so the controller charm's install hook can reach the socket. On
+		// non-controller machines that flag is pre-unlocked.
+		deployerName: ifControllerAgentConfigNeededAndReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
+			HTTPClientName: httpClientName,
 			FlightRecorder: config.FlightRecorder,
 			Clock:          config.Clock,
 			Logger:         internallogger.GetLogger("juju.worker.deployer"),
@@ -485,7 +1210,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,
 			NewDeployContext: config.NewDeployContext,
-		})),
+		}))),
 
 		// The reboot manifold manages a worker which will reboot the
 		// machine when requested. It needs an API connection and
@@ -512,14 +1237,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewBrokerFunc: config.NewBrokerFunc,
 			NewTracker:    lxdbroker.NewWorkerTracker,
 		})),
-		// The machineSetupName manifold runs small tasks required
-		// to setup a machine, but requires the machine agent's API
-		// connection. Once its work is complete, it stops.
-		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
-			APICallerName:  apiCallerName,
-			MachineStartup: config.MachineStartup,
-			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
-		})),
 		lxdContainerProvisioner: ifNotMigrating(containerprovisioner.Manifold(containerprovisioner.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -527,13 +1244,24 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			ContainerType: instance.LXD,
 		})),
-		machineConverterName: ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
+		// isNotControllerFlagName is only used for the machineconverter,
+		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
+		machineConverterName: ifNotController(ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
 			AgentName:        agentName,
 			APICallerName:    apiCallerName,
 			Logger:           internallogger.GetLogger("juju.worker.machineconverter"),
 			NewMachineClient: machineconverter.NewMachineClient,
 			NewAgentClient:   machineconverter.NewAgentClient,
 			NewConverter:     machineconverter.NewConverter,
+		}))),
+
+		// The machineSetupName manifold runs small tasks required
+		// to setup a machine, but requires the machine agent's API
+		// connection. Once its work is complete, it stops.
+		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
+			APICallerName:  apiCallerName,
+			MachineStartup: config.MachineStartup,
+			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
 	}
 
@@ -543,7 +1271,40 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // CAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	agentConfig := config.Agent.CurrentConfig()
+
 	return mergeManifolds(config, dependency.Manifolds{
+		// Bootstrap worker is responsible for setting up the initial machine.
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+			AgentName:               agentName,
+			ObjectStoreName:         objectStoreFacadeName,
+			DomainServicesName:      domainServicesName,
+			HTTPClientName:          httpClientName,
+			BootstrapGateName:       isBootstrapGateName,
+			ProviderFactoryName:     providerTrackerName,
+			RequiresBootstrap:       bootstrap.RequiresBootstrap,
+			PopulateControllerCharm: bootstrap.PopulateCAASControllerCharm,
+			StatusHistory:           domain.NewStatusHistory(internallogger.GetLogger("juju.services"), config.Clock),
+			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
+			Clock:                   config.Clock,
+
+			AgentBinaryUploader:          bootstrap.CAASAgentBinaryUploader,
+			ControllerCharmDeployer:      bootstrap.CAASControllerCharmUploader,
+			ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
+			BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
+			AgentFinalizer:               bootstrap.CAASAgentFinalizer,
+		})),
+
+		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
+			AgentName:                     agentName,
+			APICallerName:                 apiCallerName,
+			DomainServicesName:            domainServicesName,
+			TraceName:                     controllerTraceName,
+			GetControllerDomainServicesFn: agentconfigupdater.GetControllerDomainServices,
+			IsControllerAgentFn:           agentconfigupdater.CAASIsControllerAgent,
+			Logger:                        internallogger.GetLogger("juju.worker.agentconfigupdater"),
+		})),
+
 		// TODO(caas) - when we support HA, only want this on primary
 		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
@@ -553,11 +1314,25 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreviousAgentVersion: config.PreviousAgentVersion,
 		}),
 
-		// The upgradesteps worker runs soon after the machine agent starts and
-		// runs any steps required to upgrade to the running jujud version. Once
-		// upgrade steps have run, the upgradesteps gate is unlocked and the
-		// worker exits.
-		upgradeAgentStepsName: upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
+		// The upgradestepscontroller worker runs soon after the machine agent
+		// starts and runs any steps required to upgrade to the running jujud
+		// version. Once upgrade steps have run, the upgradesteps gate is
+		// unlocked and the worker exits.
+		upgradeControllerStepsName: ifController(upgradestepscontroller.Manifold(upgradestepscontroller.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			DomainServicesName:   domainServicesName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreUpgradeSteps:      config.PreUpgradeSteps(model.CAAS),
+			UpgradeSteps:         config.UpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			NewControllerWorker:  upgradestepscontroller.NewControllerWorker,
+			GetUpgradeService:    upgradestepscontroller.GetUpgradeService,
+			Logger:               internallogger.GetLogger("juju.worker.upgradesteps"),
+			Clock:                config.Clock,
+		})),
+
+		upgradeAgentStepsName: ifNotController(upgradestepsagent.Manifold(upgradestepsagent.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
@@ -565,9 +1340,25 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeSteps:         config.UpgradeSteps,
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
-			Logger:               internallogger.GetLogger("juju.worker.upgrademachinesteps"),
+			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
-		}),
+		})),
+
+		// DBAccessor is a manifold that provides a DBAccessor worker
+		// that can be used to access the database.
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			AgentName:                 agentName,
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			Clock:                     config.Clock,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			LogDir:                    agentConfig.LogDir(),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.CAASNodeManager,
+		})),
 	})
 }
 
@@ -586,6 +1377,21 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
+// ifBootstrapComplete gates against the bootstrap worker completing.
+// This ensures that all blobs (agent binaries and controller charm) are
+// available before the machine agent starts.
+// We currently use this to provide a happier experience for the user
+// when bootstrapping a controller, before immediately going into HA. If the
+// underlying object store storage is slow, then retrying for the agent binary
+// against the controller can lead to slower HA deployment. It might be worth
+// revisiting this in the future, so we release the gate as soon as the binaries
+// are being uploaded.
+var ifBootstrapComplete = engine.Housing{
+	Flags: []string{
+		isBootstrapFlagName,
+	},
+}.Decorate
+
 var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
 		upgradeStepsFlagName,
@@ -600,53 +1406,148 @@ var ifNotMigrating = engine.Housing{
 	Occupy: migrationFortressName,
 }.Decorate
 
+var ifPrimaryController = engine.Housing{
+	Flags: []string{
+		isPrimaryControllerFlagName,
+	},
+}.Decorate
+
+var ifController = engine.Housing{
+	Flags: []string{
+		isControllerFlagName,
+	},
+}.Decorate
+
+var ifNotController = engine.Housing{
+	Flags: []string{
+		isNotControllerFlagName,
+	},
+}.Decorate
+
 var ifCredentialValid = engine.Housing{
 	Flags: []string{
 		validCredentialFlagName,
 	},
 }.Decorate
 
-const (
-	agentName            = "agent"
-	terminationName      = "termination-signal-handler"
-	apiCallerName        = "api-caller"
-	apiConfigWatcherName = "api-config-watcher"
-	clockName            = "clock"
-	flightRecorderName   = "flight-recorder"
+var ifDatabaseUpgradeComplete = engine.Housing{
+	Flags: []string{
+		upgradeDatabaseFlagName,
+	},
+}.Decorate
 
-	upgraderName          = "upgrader"
-	upgradeAgentStepsName = "upgrade-agent-steps-runner"
-	upgradeStepsGateName  = "upgrade-steps-gate"
-	upgradeStepsFlagName  = "upgrade-steps-flag"
-	upgradeCheckGateName  = "upgrade-check-gate"
-	upgradeCheckFlagName  = "upgrade-check-flag"
+// ifControllerAgentConfigNeededAndReady gates a manifold on two conditions:
+// "needed"  - the machine is a controller, so configchange.socket must exist
+//
+//	before the gated worker starts (e.g. the controller charm's
+//	install hook connects to it); on non-controller machines the gate
+//	lock is pre-unlocked by the caller, making this a no-op there.
+//
+// "ready"   - controlleragentconfig has started its socket listener,
+//
+//	meaning configchange.socket is on disk (created synchronously
+//	inside NewWorker before the manifold reports as running).
+var ifControllerAgentConfigNeededAndReady = engine.Housing{
+	Flags: []string{
+		controllerAgentConfigReadyFlagName,
+	},
+}.Decorate
+
+const (
+	agentName              = "agent"
+	agentConfigUpdaterName = "agent-config-updater"
+	terminationName        = "termination-signal-handler"
+	stateConfigWatcherName = "state-config-watcher"
+	apiCallerName          = "api-caller"
+	apiConfigWatcherName   = "api-config-watcher"
+	clockName              = "clock"
+	flightRecorderName     = "flight-recorder"
+
+	bootstrapName       = "bootstrap"
+	isBootstrapGateName = "is-bootstrap-gate"
+	isBootstrapFlagName = "is-bootstrap-flag"
+
+	upgradeDatabaseName     = "upgrade-database-runner"
+	upgradeDatabaseGateName = "upgrade-database-gate"
+	upgradeDatabaseFlagName = "upgrade-database-flag"
+
+	upgraderName               = "upgrader"
+	upgradeControllerStepsName = "upgrade-controller-steps-runner"
+	upgradeAgentStepsName      = "upgrade-agent-steps-runner"
+	upgradeStepsGateName       = "upgrade-steps-gate"
+	upgradeStepsFlagName       = "upgrade-steps-flag"
+	upgradeCheckGateName       = "upgrade-check-gate"
+	upgradeCheckFlagName       = "upgrade-check-flag"
+	upgradeDomainServicesName  = "upgrade-services"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
-	machineSetupName         = "machine-setup"
-	rebootName               = "reboot-executor"
-	loggingConfigUpdaterName = "logging-config-updater"
-	diskManagerName          = "disk-manager"
-	proxyConfigUpdater       = "proxy-config-updater"
-	apiAddressUpdaterName    = "api-address-updater"
-	machinerName             = "machiner"
-	logSenderName            = "log-sender"
-	deployerName             = "deployer"
-	authenticationWorkerName = "ssh-authkeys-updater"
-	storageProvisionerName   = "storage-provisioner"
-	identityFileWriterName   = "ssh-identity-writer"
-	machineActionName        = "machine-action-runner"
-	hostKeyReporterName      = "host-key-reporter"
-	machineConverterName     = "machine-converter"
-	lxdContainerProvisioner  = "lxd-container-provisioner"
-
-	traceName = "trace"
-
-	validCredentialFlagName = "valid-credential-flag"
-
-	brokerTrackerName = "broker-tracker"
-
-	charmhubHTTPClientName = "charmhub-http-client"
+	apiAddressSetterName               = "api-address-setter"
+	apiAddressUpdaterName              = "api-address-updater"
+	apiServerName                      = "api-server"
+	apiRemoteCallerName                = "api-remote-caller"
+	apiRemoteRelationCallerName        = "api-remote-relation-caller"
+	auditConfigUpdaterName             = "audit-config-updater"
+	authenticationWorkerName           = "ssh-authkeys-updater"
+	brokerTrackerName                  = "broker-tracker"
+	certificateUpdaterName             = "certificate-updater"
+	certificateWatcherName             = "certificate-watcher"
+	changeStreamName                   = "change-stream"
+	changeStreamPrunerName             = "change-stream-pruner"
+	controllerAgentConfigName          = "controller-agent-config"
+	controllerAgentConfigReadyGateName = "controller-agent-config-ready-gate"
+	controllerAgentConfigReadyFlagName = "controller-agent-config-ready-flag"
+	controllerPresenceName             = "controller-presence"
+	controlSocketName                  = "control-socket"
+	dbAccessorName                     = "db-accessor"
+	deployerName                       = "deployer"
+	diskManagerName                    = "disk-manager"
+	domainServicesName                 = "domain-services"
+	externalControllerUpdaterName      = "external-controller-updater"
+	fileNotifyWatcherName              = "file-notify-watcher"
+	hostKeyReporterName                = "host-key-reporter"
+	httpClientName                     = "http-client"
+	httpServerArgsName                 = "http-server-args"
+	httpServerName                     = "http-server"
+	identityFileWriterName             = "ssh-identity-writer"
+	isControllerFlagName               = "is-controller-flag"
+	isNotControllerFlagName            = "is-not-controller-flag"
+	isPrimaryControllerFlagName        = "is-primary-controller-flag"
+	jwtParserName                      = "jwt-parser"
+	leaseExpiryName                    = "lease-expiry"
+	leaseManagerName                   = "lease-manager"
+	loggingConfigUpdaterName           = "logging-config-updater"
+	lokiEndpointUpdaterName            = "loki-endpoint-updater"
+	logSinkName                        = "log-sink"
+	logRouterName                      = "log-router"
+	lxdContainerProvisioner            = "lxd-container-provisioner"
+	machineActionName                  = "machine-action-runner"
+	machinerName                       = "machiner"
+	modelWorkerManagerName             = "model-worker-manager"
+	objectStoreName                    = "object-store"
+	objectStoreS3CallerName            = "object-store-s3-caller"
+	objectStoreServicesName            = "object-store-services"
+	objectStoreFortressName            = "object-store-fortress"
+	objectStoreFacadeName              = "object-store-facade"
+	objectStoreDrainerName             = "object-store-drainer"
+	providerDomainServicesName         = "provider-services"
+	providerTrackerName                = "provider-tracker"
+	proxyConfigUpdater                 = "proxy-config-updater"
+	queryLoggerName                    = "query-logger"
+	rebootName                         = "reboot-executor"
+	secretBackendRotateName            = "secret-backend-rotate"
+	sshServerName                      = "ssh-server"
+	machineConverterName               = "machine-converter"
+	storageProvisionerName             = "storage-provisioner"
+	storageRegistryName                = "storage-registry"
+	toolsVersionCheckerName            = "tools-version-checker"
+	controllerTraceName                = "controller-trace"
+	traceName                          = "trace"
+	traceServicesName                  = "trace-services"
+	validCredentialFlagName            = "valid-credential-flag"
+	undertakerName                     = "undertaker"
+	machineSetupName                   = "machine-setup"
+	watcherRegistryName                = "watcher-registry"
 )

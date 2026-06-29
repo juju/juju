@@ -78,7 +78,7 @@ func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusPrinci
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), unitUUID)
@@ -185,7 +185,7 @@ func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusSubord
 	s.addUnit(c, principalUnitUUID, "two/0", appTwoUUID, charmTwoUUID)
 	s.setUnitSubordinate(c, subordinateUnitUUID, principalUnitUUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
@@ -318,7 +318,7 @@ func (s *watcherSuite) TestWatchRelationUnitApplicationLifeSuspendedStatusSubord
 	s.addApplication(c, charmThirdUUID, appThirdUUID, "ldap-integrator")
 	s.addApplicationEndpoint(c, appEndpointThirdUUID, appThirdUUID, charmRelationThirdUUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationUnitApplicationLifeSuspendedStatus(c.Context(), subordinateUnitUUID)
@@ -383,7 +383,7 @@ func (s *watcherSuite) TestWatchRelationsLifeSuspendedStatusForApplication(c *tc
 	unitUUID := unittesting.GenUnitUUID(c)
 	s.addUnit(c, unitUUID, "my-application/0", s.appUUID, s.charmUUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationsLifeSuspendedStatusForApplication(c.Context(), applicationUUID)
@@ -483,7 +483,7 @@ func (s *watcherSuite) TestWatchRelationLifeSuspendedStatus(c *tc.C) {
 	relationUUID := tc.Must(c, relation.NewUUID)
 	s.addRelation(c, relationUUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	svc := s.setupService(c, factory)
 	watcher, err := svc.WatchRelationLifeSuspendedStatus(c.Context(), relationUUID)
@@ -1005,7 +1005,7 @@ VALUES (?,?,?),
 		relationUnitUUID, config.watchedRelationEndpointUUID, config.watched0UUID,
 		uuid.MustNewUUID().String(), config.watchedRelationEndpointUUID, config.watched1UUID)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := svc.WatchRelationUnits(c.Context(), config.relationUUID, config.watchedAppUUID)
 	c.Assert(err, tc.ErrorIsNil)

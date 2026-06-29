@@ -189,6 +189,8 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"unit_state",
 		"unit_workload_status",
 		"unit_workload_version",
+		"ssh_key_algorithm_type",
+		"unit_virtual_ssh_host_key",
 		"unit",
 
 		// Resolve
@@ -220,6 +222,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_placement",
 		"machine_requires_reboot",
 		"machine_ssh_host_key",
+		"machine_virtual_ssh_host_key",
 		"machine_status_value",
 		"machine_status",
 		"machine_volume",
@@ -731,8 +734,9 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_application_remote_consumer_insert",
 		"trg_log_application_remote_consumer_update",
 
-		"trg_log_model_migrating_delete",
 		"trg_log_model_migrating_insert",
+		"trg_log_model_migrating_update",
+		"trg_log_model_migrating_delete",
 
 		"trg_log_application_status_delete",
 		"trg_log_application_status_insert",
@@ -827,7 +831,7 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_custom_relation_life_suspended_update",
 		"trg_log_custom_relation_life_suspended_delete",
 
-		"trg_custom_relation_uuid_empty_constraint",
+		"trg_model_migrating_immutable_update",
 	)
 
 	got := readEntityNames(c, s.DB(), "trigger")

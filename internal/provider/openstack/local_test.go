@@ -1538,10 +1538,10 @@ func (s *localServerSuite) TestConstraintsValidator(c *tc.C) {
 	env := s.Open(c, c.Context(), s.env.Config())
 	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd")
+	cons := constraints.MustParse("arch=amd64 cpu-power=10 virt-type=lxd ip-family=dual")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unsupported, tc.SameContents, []string{"cpu-power"})
+	c.Assert(unsupported, tc.SameContents, []string{"cpu-power", "ip-family"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *tc.C) {

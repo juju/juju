@@ -363,6 +363,17 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_last_login WHERE model_uuid = $entityUUID.uuid",
+		// The two import companion tables are keyed by the import claim UUID
+		// and FK onto model_migration_import. They must be deleted before the
+		// claim row itself, otherwise the parent delete fails an enforced
+		// foreign-key constraint when an aborted v8 import had recorded offer
+		// permissions or external controllers.
+		`DELETE FROM model_migration_import_offer
+		 WHERE migration_uuid IN (
+		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
+		`DELETE FROM model_migration_import_external_controller_model
+		 WHERE migration_uuid IN (
+		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
 		"DELETE FROM model_migration_import WHERE model_uuid = $entityUUID.uuid",
 	}
 

@@ -30,7 +30,7 @@ Integrate two applications. Integrated applications communicate over a common
 interface provided by the Juju controller that enables units to share information.
 This topology allows units to share data, without needing direct connectivity
 between units is restricted by firewall rules. Charms define the logic for
-transferring and interpreting integration data.
+transferring and interpreting relation data.
 
 The most common use of ` + "`juju integrate`" + ` specifies two applications that co-exist
 within the same model:
@@ -61,7 +61,7 @@ applications.
 ` + "`<endpoint>`" + ` is the name of an endpoint defined within the metadata.yaml
 of the charm for ` + "`<application>`" + `. Valid endpoint names are defined within the
 ` + "`provides:`" + ` and ` + "`requires:`" + ` section of that file. Juju will request that you
-specify the ` + "`<endpoint>`" + ` if there is more than one possible integration between
+specify the ` + "`<endpoint>`" + ` if there is more than one possible relation between
 the two applications.
 
 
@@ -71,8 +71,8 @@ Subordinate applications are designed to be deployed alongside a primary
 application. They must define a container scoped endpoint. When that endpoint
 is related to a primary application, wherever a unit of the primary application
 is deployed, a corresponding unit of the subordinate application will also be
-deployed. Integration with the primary application has the same syntax as
-integration any two applications within the same model.
+deployed. Relation with the primary application has the same syntax as
+relation any two applications within the same model.
 
 
 ### Peer relations
@@ -92,7 +92,7 @@ different clouds. This functionality is known as 'cross-model relation' (CMR).
 #### Cross-model relations: different models on the same controller
 
 Integrating applications in models managed by the same controller
-is very similar to adding an integration between applications in the same model:
+is very similar to adding a relation between applications in the same model:
 
     juju integrate <application>[:<endpoint>] <model>.<application>[:<endpoint>]
 
@@ -163,7 +163,7 @@ EasyRSA Certificate Authority hosted in the ` + "`secrets`" + ` model:
 
 Integrate a wordpress application with a mysql application hosted within the
 ` + "`prod`" + ` model, using the ` + "`automation`" + ` user. Facilitate firewall management
-by specifying the routes used for integration data.
+by specifying the routes used for relation data.
 
     juju integrate wordpress automation/prod.mysql --via 192.168.0.0/16,10.0.0.0/8
 `
@@ -206,7 +206,7 @@ func (c *addRelationCommand) Info() *cmd.Info {
 
 func (c *addRelationCommand) Init(args []string) error {
 	if len(args) != 2 {
-		return errors.Errorf("an integration must involve two applications")
+		return errors.Errorf("a relation must involve two applications")
 	}
 	if err := c.validateEndpoints(args); err != nil {
 		return err

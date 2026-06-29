@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 	"github.com/vallerion/rscanner"
@@ -21,18 +22,25 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/crossmodel"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/facades"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
+	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/latest"
+	"github.com/juju/juju/domain/modelimport"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
+	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -41,6 +49,13 @@ type ModelImporter interface {
 	// ImportModel takes a serialized description model (yaml bytes) and returns
 	// a state model and state state.
 	ImportModel(ctx context.Context, bytes []byte) error
+
+	// ImportModelV2 applies a v8 migration envelope's controller-scoped
+	// semantic data to the target controller: the durable
+	// model_migration_import claim, the target-local model bootstrap, and
+	// the users, credential, permissions, authorized keys, secret backend,
+	// leadership and cloud image metadata carried by the import args.
+	ImportModelV2(ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView) error
 }
 
 // CloudService provides a subset of the cloud domain service methods.
@@ -601,4 +616,388 @@ func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 	}
 	caCert, _ := cfg.CACert()
 	return params.BytesResult{Result: []byte(caCert)}, nil
+}
+
+// MigrationImportService runs the environmental v8 import prechecks against
+// the target controller database. The migrationtarget facade stays thin: it
+// assembles the typed precheck arguments from the v8 args and delegates the
+// cross-domain reads to the modelmigration domain.
+type MigrationImportService interface {
+	// PrecheckImport runs the environmental prechecks for a v8 model migration
+	// import against the target controller (cloud/region existence, user
+	// usability, credential revoked status, secret backend existence, and
+	// model UUID/name collisions). It performs no writes.
+	PrecheckImport(ctx context.Context, args modelmigration.ImportPrecheckArgs) error
+}
+
+// APIV8 implements the MigrationTarget v8 facade for typed
+// params.SerializedModelV2 prechecks and import. It embeds the v7 API for the
+// unchanged methods (Abort, Activate, AdoptResources, etc.) and shadows
+// Prechecks and Import with the v8 args signatures — the inverse
+// of the legacy.go adapter pattern, because Go cannot overload method names
+// by parameter type.
+type APIV8 struct {
+	*API
+
+	localMacaroonMinter facade.LocalMacaroonMinter
+
+	migrationImportService MigrationImportService
+}
+
+// NewAPIV8 returns a new MigrationTarget v8 facade wrapping the given v7 API.
+func NewAPIV8(
+	api *API,
+	minter facade.LocalMacaroonMinter,
+	migrationImportService MigrationImportService,
+) (*APIV8, error) {
+	return &APIV8{
+		API:                    api,
+		localMacaroonMinter:    minter,
+		migrationImportService: migrationImportService,
+	}, nil
+}
+
+// Prechecks ensures that the target controller is ready to accept the model
+// described by the v8 args. It performs schema, payload-version and
+// environmental checks without writing any target-side rows and without
+// deserializing a description.Model.
+func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) error {
+	view, _, err := api.importGuard(ctx, args)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := api.targetPrechecks(ctx, args, view); err != nil {
+		return errors.Errorf("migration target prechecks failed: %w", err)
+	}
+
+	return nil
+}
+
+// Import accepts a v8 model migration envelope, claims the model, bootstraps
+// it and applies the envelope's controller-scoped semantic data. Model-DB
+// content import and activation are not yet part of this path (Tasks 7-10).
+//
+// Unlike Prechecks, Import deliberately does NOT re-run the environmental
+// prechecks. Per the spec (WS4a / Task 6) the only work that must precede the
+// first target-side write is schema validation, payload version/decode
+// preparation and the non-empty SourceMigrationUUID check — exactly what
+// importGuard covers. The equivalent collision checks become
+// structural guarded writes inside the real import path (UNIQUE(model_uuid)
+// claim insert, compare-or-insert controller data), so Import does not
+// duplicate the Prechecks routine. This mirrors v7, where Import does not
+// re-run Prechecks either.
+func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2) error {
+	view, modelDB, err := api.importGuard(ctx, envelope)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	if err := api.modelImporter.ImportModelV2(ctx, importModelV2Args(envelope, modelDB), view); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// importGuard runs the mandatory pre-write checks that must pass before any
+// target-side row is written on the v8 import path: model identity
+// validation (including a non-empty source migration UUID) and the payload
+// version/decode checks. It returns the version-neutral projection view of
+// the decoded payload for callers that go on to run environmental
+// prechecks. It must not write any target-side rows.
+//
+// There is no runtime controller-schema guard: the v8 import objects are
+// guaranteed present by the time the facade serves requests, because the
+// controllerupgrader manifold gates the apiserver behind completion of the
+// controller-DB schema upgrade (see the migrationtarget v8 spec, §4.6).
+func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2) (export.ProjectionView, *latest.ModelExport, error) {
+	// Model sanity first: nothing else is meaningful without a valid
+	// model identity.
+	if err := validateModelInfo(args.ModelInfo); err != nil {
+		return export.ProjectionView{}, nil, errors.Capture(err)
+	}
+
+	// Payload-version checks. The newer-than-target check runs before the
+	// decoder registry lookup so a payload from a newer Juju gets the
+	// actionable upgrade message rather than an unknown-version error.
+	targetVersion := export.LatestSupportedPayloadVersion()
+	if args.PayloadVersion.Compare(targetVersion) > 0 {
+		return export.ProjectionView{}, nil, errors.Errorf(
+			"source payload version %q is newer than target %q; upgrade the target controller first %w",
+			args.PayloadVersion, targetVersion, coreerrors.NotSupported)
+	}
+
+	payload, err := export.DecodePayload(args.PayloadVersion, args.Payload)
+	if err != nil {
+		return export.ProjectionView{}, nil, errors.Capture(err)
+	}
+
+	// Build the import transformer and run it over the payload to walk it up to
+	// the target schema version before any target-side write. Transform itself
+	// validates that the payload version is in the chain: a payload that
+	// decodes but cannot be transformed is rejected here.
+	transformer, err := modelimport.NewTransformer()
+	if err != nil {
+		return export.ProjectionView{}, nil, errors.Errorf("constructing model import transformer: %w", err)
+	}
+
+	// Transform the model-DB payload up to the target schema version before any
+	// target-side write. Carrying the transformed payload to the importer here
+	// (no writes) also fully validates the payload is walkable.
+	transformed, err := transformer.Transform(ctx, args.PayloadVersion, payload)
+	if err != nil {
+		return export.ProjectionView{}, nil, errors.Errorf(
+			"transforming model export payload from %q to %q: %w",
+			args.PayloadVersion, transformer.Target(), err)
+	}
+	modelDB, ok := transformed.(latest.ModelExport)
+	if !ok {
+		return export.ProjectionView{}, nil, errors.Errorf(
+			"transformed model export payload has unexpected type %T, want %T",
+			transformed, latest.ModelExport{})
+	}
+
+	view, err := export.ProjectionViewForPayload(modelDB)
+	if err != nil {
+		return export.ProjectionView{}, nil, errors.Capture(err)
+	}
+
+	return view, &modelDB, nil
+}
+
+// validateModelInfo validates the bootstrap identity fields of the v8 args.
+func validateModelInfo(info params.SerializedModelInfo) error {
+	if err := coremodel.UUID(info.UUID).Validate(); err != nil {
+		return errors.Errorf("model UUID %q %w", info.UUID, coreerrors.NotValid)
+	}
+	if info.Name == "" {
+		return errors.Errorf("empty model name %w", coreerrors.NotValid)
+	}
+	if info.Qualifier == "" {
+		return errors.Errorf("empty model qualifier %w", coreerrors.NotValid)
+	}
+	if info.SourceMigrationUUID == "" {
+		return errors.Errorf("empty source migration UUID %w", coreerrors.NotValid)
+	}
+	return nil
+}
+
+// importModelV2Args decodes a v8 wire envelope's controller-scoped semantic
+// fields into their target-portable domain form. It is the inverse of the
+// source side's envelopeFromControllerModelInfo
+// (internal/worker/migrationmaster/envelope.go), and is kept in the apiserver
+// facade so internal migration code does not depend on rpc/params.
+func importModelV2Args(envelope params.SerializedModelV2, modelDBPayload *latest.ModelExport) migrationv2.ImportModelArgs {
+	info := coremodelmigration.ControllerModelInfo{
+		ModelInfo: coremodelmigration.ModelIdentityInfo{
+			UUID:            envelope.ModelInfo.UUID,
+			Name:            envelope.ModelInfo.Name,
+			Qualifier:       envelope.ModelInfo.Qualifier,
+			Type:            envelope.ModelInfo.Type,
+			Cloud:           envelope.ModelInfo.Cloud,
+			CloudRegion:     envelope.ModelInfo.CloudRegion,
+			CredentialName:  envelope.ModelInfo.CredentialName,
+			CredentialOwner: envelope.ModelInfo.CredentialOwner,
+			Life:            envelope.ModelInfo.Life,
+		},
+	}
+	if n := len(envelope.Users); n > 0 {
+		info.Users = make([]coremodelmigration.ModelUser, 0, n)
+	}
+	for _, u := range envelope.Users {
+		info.Users = append(info.Users, coremodelmigration.ModelUser{
+			Name:        u.Name,
+			DisplayName: u.DisplayName,
+			CreatedBy:   u.CreatedBy,
+			CreatedAt:   u.CreatedAt,
+			Removed:     u.Removed,
+			External:    u.External,
+			LastLogin:   u.LastLogin,
+		})
+	}
+	if cred := envelope.ModelCredential; cred != nil {
+		info.ModelCredential = &coremodelmigration.ModelCloudCredential{
+			Cloud:         cred.Cloud,
+			Owner:         cred.Owner,
+			Name:          cred.Name,
+			AuthType:      cred.AuthType,
+			Attributes:    cred.Attributes,
+			Revoked:       cred.Revoked,
+			Invalid:       cred.Invalid,
+			InvalidReason: cred.InvalidReason,
+		}
+	}
+	if n := len(envelope.Permissions); n > 0 {
+		info.Permissions = make([]coremodelmigration.ModelPermission, 0, n)
+	}
+	for _, p := range envelope.Permissions {
+		info.Permissions = append(info.Permissions, coremodelmigration.ModelPermission{
+			ObjectType:  p.ObjectType,
+			GrantOn:     p.GrantOn,
+			SubjectName: p.SubjectName,
+			Access:      p.Access,
+		})
+	}
+	if n := len(envelope.AuthorizedKeys); n > 0 {
+		info.AuthorizedKeys = make([]coremodelmigration.ModelAuthorizedKey, 0, n)
+	}
+	for _, k := range envelope.AuthorizedKeys {
+		info.AuthorizedKeys = append(info.AuthorizedKeys, coremodelmigration.ModelAuthorizedKey{
+			Username:  k.Username,
+			PublicKey: k.PublicKey,
+		})
+	}
+	if backend := envelope.SecretBackend; backend != nil {
+		info.SecretBackend = &coremodelmigration.ModelSecretBackend{
+			Name:        backend.Name,
+			BackendType: backend.BackendType,
+		}
+	}
+	if n := len(envelope.SecretBackendRefs); n > 0 {
+		info.SecretBackendRefs = make([]coremodelmigration.SecretBackendReference, 0, n)
+	}
+	for _, ref := range envelope.SecretBackendRefs {
+		info.SecretBackendRefs = append(info.SecretBackendRefs, coremodelmigration.SecretBackendReference{
+			BackendName:        ref.BackendName,
+			SecretRevisionUUID: ref.SecretRevisionUUID,
+			SecretID:           ref.SecretID,
+		})
+	}
+	leaderCount := 0
+	for _, l := range envelope.Leases {
+		if l.Type == corelease.ApplicationLeadershipNamespace {
+			leaderCount++
+		}
+	}
+	if leaderCount > 0 {
+		info.Leaders = make([]coremodelmigration.ApplicationLeadership, 0, leaderCount)
+	}
+	for _, l := range envelope.Leases {
+		if l.Type != corelease.ApplicationLeadershipNamespace {
+			continue
+		}
+		info.Leaders = append(info.Leaders, coremodelmigration.ApplicationLeadership{
+			Application: l.Name,
+			Leader:      l.Holder,
+		})
+	}
+	if n := len(envelope.CloudImageMetadata); n > 0 {
+		info.CloudImageMetadata = make([]coremodelmigration.CloudImageMetadata, 0, n)
+	}
+	for _, m := range envelope.CloudImageMetadata {
+		info.CloudImageMetadata = append(info.CloudImageMetadata, coremodelmigration.CloudImageMetadata{
+			Stream:          m.Stream,
+			Region:          m.Region,
+			Version:         m.Version,
+			Arch:            m.Arch,
+			VirtType:        m.VirtType,
+			RootStorageType: m.RootStorageType,
+			RootStorageSize: m.RootStorageSize,
+			Source:          m.Source,
+			Priority:        m.Priority,
+			ImageID:         m.ImageId,
+			CreatedAt:       m.CreatedAt,
+		})
+	}
+	if n := len(envelope.ExternalControllers); n > 0 {
+		info.ExternalControllers = make([]coremodelmigration.ExternalController, 0, n)
+	}
+	for _, c := range envelope.ExternalControllers {
+		info.ExternalControllers = append(info.ExternalControllers, coremodelmigration.ExternalController{
+			UUID:           c.UUID,
+			Alias:          c.Alias,
+			CACert:         c.CACert,
+			Addresses:      c.Addresses,
+			ConsumedModels: c.ConsumedModels,
+		})
+	}
+	return migrationv2.ImportModelArgs{
+		SourceMigrationUUID: envelope.ModelInfo.SourceMigrationUUID,
+		ControllerModelInfo: info,
+		ModelDBPayload:      modelDBPayload,
+	}
+}
+
+// targetPrechecks runs the environmental v8 prechecks against the target
+// controller. The controller-readiness and agent-version checks reuse the
+// existing v7 precheck helpers; the cloud/region, user, credential, secret
+// backend and model-collision checks are delegated to the modelmigration
+// domain (which reads the controller database directly), keeping this facade
+// thin.
+func (api *APIV8) targetPrechecks(
+	ctx context.Context, args params.SerializedModelV2, view export.ProjectionView,
+) error {
+	// Target controller readiness: upgrade in progress and controller
+	// machine health, mirroring the v7 TargetPrecheck coverage.
+	modelAgentService, err := api.modelAgentServiceGetter(ctx, api.controllerModelUUID)
+	if err != nil {
+		return errors.Errorf("cannot get model agent service: %w", err)
+	}
+	if err := migration.TargetControllerPrecheck(
+		ctx, api.upgradeService, api.statusService, modelAgentService, api.machineService,
+		view.AgentTargetVersion,
+	); err != nil {
+		return errors.Capture(err)
+	}
+
+	// Environmental checks against the target controller database, owned by
+	// the modelmigration domain.
+	if err := api.migrationImportService.PrecheckImport(ctx, importPrecheckArgs(args)); err != nil {
+		return errors.Capture(err)
+	}
+	return nil
+}
+
+// importPrecheckArgs builds the typed precheck arguments consumed by the
+// modelmigration domain from the v8 args' semantic fields.
+func importPrecheckArgs(in params.SerializedModelV2) modelmigration.ImportPrecheckArgs {
+	args := modelmigration.ImportPrecheckArgs{
+		ModelUUID:      in.ModelInfo.UUID,
+		ModelName:      in.ModelInfo.Name,
+		ModelQualifier: in.ModelInfo.Qualifier,
+		Cloud:          in.ModelInfo.Cloud,
+		CloudRegion:    in.ModelInfo.CloudRegion,
+	}
+	for _, u := range in.Users {
+		args.Users = append(args.Users, u.Name)
+	}
+	if cred := in.ModelCredential; cred != nil {
+		args.Credential = &modelmigration.ImportPrecheckCredential{
+			Cloud:   cred.Cloud,
+			Owner:   cred.Owner,
+			Name:    cred.Name,
+			Revoked: cred.Revoked,
+		}
+	}
+	if in.SecretBackend != nil {
+		args.SecretBackend = in.SecretBackend.Name
+	}
+	for _, m := range in.CloudImageMetadata {
+		args.CloudImageMetadata = append(args.CloudImageMetadata, modelmigration.ImportPrecheckImageMetadata{
+			Stream:          m.Stream,
+			Region:          m.Region,
+			Version:         m.Version,
+			Arch:            m.Arch,
+			VirtType:        m.VirtType,
+			RootStorageType: m.RootStorageType,
+			Source:          m.Source,
+			ImageID:         m.ImageId,
+		})
+	}
+	return args
+}
+
+// CreateMigrationMacaroon mints a directly-presentable 24h login macaroon for
+// the authenticated admin so the migrationmaster worker can reconnect to this
+// controller without a discharge ceremony or a stored cleartext password.
+func (api *APIV8) CreateMigrationMacaroon(ctx context.Context) (params.CreateMigrationMacaroonResult, error) {
+	tag, ok := api.authorizer.GetAuthTag().(names.UserTag)
+	if !ok || !tag.IsLocal() {
+		return params.CreateMigrationMacaroonResult{}, apiservererrors.ErrPerm
+	}
+	mac, err := api.localMacaroonMinter.CreateMigrationMacaroon(ctx, tag, bakery.LatestVersion)
+	if err != nil {
+		return params.CreateMigrationMacaroonResult{}, errors.Capture(err)
+	}
+	return params.CreateMigrationMacaroonResult{Macaroon: mac}, nil
 }

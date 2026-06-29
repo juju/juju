@@ -4,7 +4,7 @@ import sys
 
 import yaml
 
-sys.path.append('./')
+sys.path.append("./")
 sys.path.append(os.path.abspath("./scripts"))
 
 # Configuration for the Sphinx documentation builder.
@@ -117,7 +117,7 @@ html_context = {
     # Product tag image; the orange part of your logo, shown in the page header
     #
     # TODO: To add a tag image, uncomment and update as needed.
-    'product_tag': '_static/logos/juju-logo-no-text.png',
+    "product_tag": "_static/logos/juju-logo-no-text.png",
     # Your Discourse instance URL
     #
     # TODO: Change to your Discourse instance URL or leave empty.
@@ -143,11 +143,9 @@ html_context = {
     # Docs branch in the repo; used in links for viewing the source files
     #
     # TODO: To customise the branch, uncomment and update as needed.
-    'repo_default_branch': 'main',
+    "repo_default_branch": "main",
     # Docs location in the repo; used in links for viewing the source files
     #
-
-
     # TODO: To customise the directory, uncomment and update as needed.
     "repo_folder": "/docs/",
     # TODO: To enable or disable the Previous / Next buttons at the bottom of pages
@@ -155,9 +153,8 @@ html_context = {
     "sequential_nav": "both",
     # TODO: To enable listing contributors on individual pages, set to True
     "display_contributors": False,
-
     # Required for feedback button
-    'github_issues': 'enabled',
+    "github_issues": "enabled",
 }
 
 # Allow opt-in build of the OpenAPI "Hello" example so docs stay clean by default.
@@ -205,9 +202,9 @@ sitemap_show_lastmod = True
 # Exclude generated pages from the sitemap:
 
 sitemap_excludes = [
-    '404/',
-    'genindex/',
-    'search/',
+    "404/",
+    "genindex/",
+    "search/",
 ]
 
 # TODO: Add more pages to sitemap_excludes if needed. Wildcards are supported.
@@ -235,8 +232,8 @@ html_extra_path = ["robots.txt", "sitemapindex.xml"]
 #       the sphinx_reredirects extension will be disabled.
 
 redirects = {
-'user/reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/',
-'reference/charm/charm-naming-guidelines/': 'https://canonical-charmcraft.readthedocs-hosted.com/en/stable/'
+    "user/reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
+    "reference/charm/charm-naming-guidelines/": "https://canonical-charmcraft.readthedocs-hosted.com/en/stable/",
 }
 
 ###########################
@@ -247,10 +244,7 @@ redirects = {
 #
 # TODO: Remove or adjust the ACME entry after you update the contributing guide
 
-linkcheck_ignore = [
-    "http://127.0.0.1:8000",
-    "https://github.com/canonical/ACME/*"
-    ]
+linkcheck_ignore = ["http://127.0.0.1:8000", "https://github.com/canonical/ACME/*"]
 
 # A regex list of URLs where anchors are ignored by 'make linkcheck'
 
@@ -276,7 +270,11 @@ linkcheck_retries = 3
 # NOTE: By default, the following MyST extensions are enabled:
 #       substitution, deflist, linkify
 
-myst_enable_extensions = set(["colon_fence",])
+myst_enable_extensions = set(
+    [
+        "colon_fence",
+    ]
+)
 
 # Custom Sphinx extensions; see
 # https://www.sphinx-doc.org/en/master/usage/extensions/index.html
@@ -304,10 +302,10 @@ extensions = [
     "sphinx_last_updated_by_git",
     "sphinx.ext.intersphinx",
     "sphinx_sitemap",
-    'sphinxext.rediraffe',
-    'sphinx_new_tab_link',
-    'sphinxcontrib.lightbox2',
-    'ibnote',
+    "sphinxext.rediraffe",
+    "sphinx_new_tab_link",
+    "sphinxcontrib.lightbox2",
+    "ibnote",
 ]
 
 # Customize sphinx_llm.txt
@@ -319,7 +317,7 @@ llms_txt_description = (
 )
 ## Get cleaner markdown URLs (e.g., `page.md` instead of `page/index.html.md`):
 llms_txt_suffix_mode = "url-suffix"
-markdown_http_base = "https://documentation.ubuntu.com/juju/4.0"
+markdown_http_base = "https://documentation.ubuntu.com/juju/latest"
 
 
 # Excludes files or directories from processing
@@ -392,19 +390,22 @@ if "discourse_prefix" not in html_context and "discourse" in html_context:
 
 # Workaround for substitutions.yaml
 
-if os.path.exists('./reuse/substitutions.yaml'):
-    with open('./reuse/substitutions.yaml', 'r') as fd:
+if os.path.exists("./reuse/substitutions.yaml"):
+    with open("./reuse/substitutions.yaml", "r") as fd:
         myst_substitutions = yaml.safe_load(fd.read())
 
 # Add configuration for intersphinx mapping
 
 intersphinx_mapping = {
     # 'juju': ('https://canonical-juju.readthedocs-hosted.com/en/latest/', None),
-    'tfjuju': ('https://documentation.ubuntu.com/terraform-provider-juju/latest/', None),
-    'pyjuju': ('https://pythonlibjuju.readthedocs.io/en/latest/', None),
-    'jaas': ('https://documentation.ubuntu.com/jaas/latest/', None),
-    'charmcraft': ('https://documentation.ubuntu.com/charmcraft/stable/', None),
-    'ops': ('https://documentation.ubuntu.com/ops/latest/', None),
+    "tfjuju": (
+        "https://documentation.ubuntu.com/terraform-provider-juju/latest/",
+        None,
+    ),
+    "pyjuju": ("https://pythonlibjuju.readthedocs.io/en/latest/", None),
+    "jaas": ("https://documentation.ubuntu.com/jaas/latest/", None),
+    "charmcraft": ("https://documentation.ubuntu.com/charmcraft/stable/", None),
+    "ops": ("https://documentation.ubuntu.com/ops/latest/", None),
 }
 
 new_tab_link_show_external_link_icon = True

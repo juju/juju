@@ -166,16 +166,9 @@ type SerializedModelV2 struct {
 	// backends, by backend name.
 	SecretBackendRefs []SecretBackendReference `json:"secret-backend-refs,omitempty"`
 
-	// Leases are the model-scoped application-leadership and singular-controller
-	// leases.
+	// Leases are the model-scoped application-leadership leases. The target
+	// claims a fresh lease per leader on import; lease times are not honoured.
 	Leases []Lease `json:"leases,omitempty"`
-
-	// LeasePins are the expiry pins for the model's leases, linked by lease
-	// natural key.
-	LeasePins []LeasePin `json:"lease-pins,omitempty"`
-
-	// LastLogins are the optional per-user last-login timestamps for the model.
-	LastLogins []ModelLastLogin `json:"last-logins,omitempty"`
 
 	// CloudImageMetadata are custom image metadata rows to recreate on the
 	// target controller.
@@ -248,6 +241,9 @@ type ModelUser struct {
 	Removed bool `json:"removed,omitempty"`
 	// External reports whether the source controller user row is external.
 	External bool `json:"external,omitempty"`
+	// LastLogin is the user's last login time against this model, or nil if
+	// the user never logged in to it.
+	LastLogin *time.Time `json:"last-login,omitempty"`
 }
 
 // ModelCloudCredential is the model's cloud credential carried by natural key
@@ -316,11 +312,12 @@ type SecretBackendReference struct {
 	SecretID string `json:"secret-id"`
 }
 
-// Lease is a model-scoped lease (application-leadership or
-// singular-controller). It is carried by its natural key (Type + Name) rather
-// than the source-local lease UUID so LeasePin can reference it portably.
+// Lease is a model-scoped application-leadership lease. Only the application
+// and its leader travel; the target claims a fresh lease on import, so Start
+// and Expiry are not honoured. Singular-controller leases and lease pins do
+// not travel (see spec §6.2 row 25).
 type Lease struct {
-	// Type is "application-leadership" or "singular-controller".
+	// Type is "application-leadership".
 	Type string `json:"type"`
 	// Name is the lease name (e.g. the application name for leadership leases).
 	Name string `json:"name"`
@@ -330,24 +327,6 @@ type Lease struct {
 	Start time.Time `json:"start"`
 	// Expiry is when the lease expires.
 	Expiry time.Time `json:"expiry"`
-}
-
-// LeasePin pins a lease so it cannot expire. It references its lease by the
-// lease natural key rather than the source-local lease UUID.
-type LeasePin struct {
-	// LeaseType is the type of the pinned lease.
-	LeaseType string `json:"lease-type"`
-	// LeaseName is the name of the pinned lease.
-	LeaseName string `json:"lease-name"`
-	// EntityID is the entity that pinned the lease.
-	EntityID string `json:"entity-id"`
-}
-
-// ModelLastLogin is a per-user last-login timestamp for the model, carried by
-// username.
-type ModelLastLogin struct {
-	Username string    `json:"username"`
-	Time     time.Time `json:"time"`
 }
 
 // ModelCloudImageMetadata carries one custom cloud image metadata row to
@@ -522,8 +501,10 @@ type AdoptResourcesArgs struct {
 	SourceControllerVersion semversion.Number `json:"source-controller-version"`
 }
 
-// CreateMigrationMacaroonResult holds a reusable login macaroon minted by the
-// target controller for the authenticated user, for migration use only.
+// CreateMigrationMacaroonResult holds the reusable login macaroon minted by
+// the target controller for the authenticated admin user. The migrationmaster
+// worker presents this macaroon when reconnecting to the target, so that a
+// cleartext admin password never needs to be persisted in the controller DB.
 type CreateMigrationMacaroonResult struct {
 	Macaroon *macaroon.Macaroon `json:"macaroon"`
 }

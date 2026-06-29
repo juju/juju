@@ -6,6 +6,7 @@ package trace
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -19,12 +20,17 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/watcher"
 	internalworker "github.com/juju/juju/internal/worker"
 )
 
 const (
 	// States which report the state of the worker.
-	stateStarted = "started"
+	stateStarted       = "started"
+	stateWorkersKilled = "workersKilled"
+
+	defaultOpenTelemetrySampleRatio           = 0.1
+	defaultOpenTelemetryTailSamplingThreshold = time.Millisecond
 )
 
 // TrackedTracer is a Tracer that is also a worker, to ensure the lifecycle of
@@ -44,11 +50,22 @@ type WorkerConfig struct {
 	Tag  names.Tag
 	Kind coretrace.Kind
 
+	Enabled               bool
 	Endpoint              string
+	CACertificate         string
 	InsecureSkipVerify    bool
 	StackTracesEnabled    bool
 	SampleRatio           float64
 	TailSamplingThreshold time.Duration
+
+	RuntimeConfigProvider RuntimeConfigProvider
+}
+
+// RuntimeConfigProvider defines a source of runtime tracing config updates.
+// The worker uses this to get initial config and watch for subsequent updates.
+type RuntimeConfigProvider interface {
+	CurrentRuntimeConfig(context.Context) (RuntimeConfig, error)
+	WatchRuntimeConfig(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // Validate ensures that the config values are valid.
@@ -68,11 +85,31 @@ func (c *WorkerConfig) Validate() error {
 	if c.Kind == "" {
 		return errors.NotValidf("nil or empty Kind")
 	}
-	// If we are enabled, then we require an endpoint.
-	if c.Endpoint == "" {
+	if c.RuntimeConfigProvider == nil {
+		return errors.NotValidf("nil RuntimeConfigProvider")
+	}
+	// If tracing is enabled, then we require an endpoint.
+	if c.Enabled && c.Endpoint == "" {
 		return errors.NotValidf("empty Endpoint")
 	}
 	return nil
+}
+
+// RuntimeConfig defines mutable tracing runtime configuration.
+type RuntimeConfig struct {
+	Enabled               bool
+	Endpoint              string
+	CACertificate         string
+	InsecureSkipVerify    bool
+	StackTracesEnabled    bool
+	SampleRatio           float64
+	TailSamplingThreshold time.Duration
+}
+
+// IsEnabled returns true if the runtime config is enabled and has a non-empty
+// endpoint.
+func (c RuntimeConfig) IsEnabled() bool {
+	return c.Enabled && c.Endpoint != ""
 }
 
 // traceRequest is used to pass requests for Tracer
@@ -85,6 +122,8 @@ type traceRequest struct {
 type tracerWorker struct {
 	internalStates chan string
 	cfg            WorkerConfig
+	configMu       sync.RWMutex
+	runtimeConfig  RuntimeConfig
 	catacomb       catacomb.Catacomb
 
 	tracerRunner *worker.Runner
@@ -121,6 +160,15 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, err
 	w := &tracerWorker{
 		internalStates: internalStates,
 		cfg:            cfg,
+		runtimeConfig: RuntimeConfig{
+			Enabled:               cfg.Enabled,
+			Endpoint:              cfg.Endpoint,
+			CACertificate:         cfg.CACertificate,
+			InsecureSkipVerify:    cfg.InsecureSkipVerify,
+			StackTracesEnabled:    cfg.StackTracesEnabled,
+			SampleRatio:           cfg.SampleRatio,
+			TailSamplingThreshold: cfg.TailSamplingThreshold,
+		},
 		tracerRunner:   runner,
 		tracerRequests: make(chan traceRequest),
 	}
@@ -148,8 +196,20 @@ func (w *tracerWorker) loop() (err error) {
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
 
-	ctx, cancel := w.scopedContext()
-	defer cancel()
+	ctx := w.catacomb.Context(context.Background())
+
+	if err := w.reloadRuntimeConfig(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	runtimeConfigWatcher, err := w.cfg.RuntimeConfigProvider.WatchRuntimeConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.catacomb.Add(runtimeConfigWatcher); err != nil {
+		return errors.Trace(err)
+	}
 
 	for {
 		select {
@@ -169,6 +229,20 @@ func (w *tracerWorker) loop() (err error) {
 			case req.done <- nil:
 			case <-w.catacomb.Dying():
 				return w.catacomb.ErrDying()
+			}
+
+		case _, ok := <-runtimeConfigWatcher.Changes():
+			if !ok {
+				select {
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				default:
+					return errors.New("runtime config watcher channel closed")
+				}
+			}
+
+			if err := w.reloadRuntimeConfig(ctx); err != nil {
+				return errors.Trace(err)
 			}
 
 		case <-w.catacomb.Dying():
@@ -234,14 +308,29 @@ func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.Tracer
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
 	tracked, err := w.tracerRunner.Worker(ns.String(), w.catacomb.Dying())
-	if err != nil {
-		return nil, errors.Trace(err)
+	if errors.Is(err, errors.NotFound) {
+		// This can happen if the worker was swapped out after the request was
+		// processed. In this case, it's better to return a noop tracer than to
+		// return an error, as the caller will likely not be able to do anything
+		// about the error, and we don't want to crash the worker for this case.
+		return coretrace.NoopTracer{}, nil
+	} else if err != nil {
+		select {
+		case <-w.catacomb.Dying():
+			return nil, coretrace.ErrTracerDying
+		default:
+			return nil, errors.Trace(err)
+		}
 	}
 
 	return tracked.(coretrace.Tracer), nil
 }
 
 func (w *tracerWorker) workerFromCache(namespace coretrace.TaggedTracerNamespace) (coretrace.Tracer, error) {
+	if runtimeCfg := w.getRuntimeConfig(); !runtimeCfg.IsEnabled() {
+		return coretrace.NoopTracer{}, nil
+	}
+
 	// If the worker already exists, return the existing worker early.
 	if tracer, err := w.tracerRunner.Worker(namespace.String(), w.catacomb.Dying()); err == nil {
 		return tracer.(coretrace.Tracer), nil
@@ -264,15 +353,21 @@ func (w *tracerWorker) workerFromCache(namespace coretrace.TaggedTracerNamespace
 }
 
 func (w *tracerWorker) initTracer(ctx context.Context, namespace coretrace.TaggedTracerNamespace) error {
+	runtimeCfg := w.getRuntimeConfig()
+	if !runtimeCfg.IsEnabled() {
+		return nil
+	}
+
 	err := w.tracerRunner.StartWorker(ctx, namespace.String(), func(ctx context.Context) (worker.Worker, error) {
 		return w.cfg.NewTracerWorker(
 			ctx,
 			namespace,
-			w.cfg.Endpoint,
-			w.cfg.InsecureSkipVerify,
-			w.cfg.StackTracesEnabled,
-			w.cfg.SampleRatio,
-			w.cfg.TailSamplingThreshold,
+			runtimeCfg.Endpoint,
+			runtimeCfg.CACertificate,
+			runtimeCfg.InsecureSkipVerify,
+			runtimeCfg.StackTracesEnabled,
+			runtimeCfg.SampleRatio,
+			runtimeCfg.TailSamplingThreshold,
 			w.cfg.Logger,
 			NewClient,
 		)
@@ -283,12 +378,65 @@ func (w *tracerWorker) initTracer(ctx context.Context, namespace coretrace.Tagge
 	return errors.Trace(err)
 }
 
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *tracerWorker) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
+func (w *tracerWorker) applyConfig(config RuntimeConfig) error {
+	config = normalizeRuntimeConfig(config)
+	current := w.getRuntimeConfig()
+	w.setRuntimeConfig(config)
+
+	if !runtimeConfigChanged(current, config) {
+		return nil
+	}
+
+	return w.stopTrackedTracers()
+}
+
+func normalizeRuntimeConfig(config RuntimeConfig) RuntimeConfig {
+	// Endpoint is required when enabled. If an endpoint is not present, force
+	// the worker into disabled mode.
+	if config.Endpoint == "" {
+		config.Enabled = false
+	}
+	return config
+}
+
+func runtimeConfigChanged(current, next RuntimeConfig) bool {
+	return current != next
+}
+
+func (w *tracerWorker) stopTrackedTracers() error {
+	for _, workerName := range w.tracerRunner.WorkerNames() {
+		err := w.tracerRunner.StopAndRemoveWorker(workerName, w.catacomb.Dying())
+		if errors.Is(errors.Cause(err), errors.NotFound) {
+			continue
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	w.reportInternalState(stateWorkersKilled)
+
+	return nil
+}
+
+func (w *tracerWorker) reloadRuntimeConfig(ctx context.Context) error {
+	runtimeConfig, err := w.cfg.RuntimeConfigProvider.CurrentRuntimeConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return w.applyConfig(runtimeConfig)
+}
+
+func (w *tracerWorker) getRuntimeConfig() RuntimeConfig {
+	w.configMu.RLock()
+	defer w.configMu.RUnlock()
+	return w.runtimeConfig
+}
+
+func (w *tracerWorker) setRuntimeConfig(config RuntimeConfig) {
+	w.configMu.Lock()
+	defer w.configMu.Unlock()
+	w.runtimeConfig = config
 }
 
 func (w *tracerWorker) reportInternalState(state string) {

@@ -139,6 +139,20 @@ type countResult struct {
 	Count int `db:"count"`
 }
 
+// cloudImageRow is a custom cloud_image_metadata row with its architecture
+// resolved to a name, used to detect natural-key conflicts during the v8
+// import precheck.
+type cloudImageRow struct {
+	Stream          string `db:"stream"`
+	Region          string `db:"region"`
+	Version         string `db:"version"`
+	Arch            string `db:"arch"`
+	VirtType        string `db:"virt_type"`
+	RootStorageType string `db:"root_storage_type"`
+	Source          string `db:"source"`
+	ImageID         string `db:"image_id"`
+}
+
 // modelIdentityRow is the model's bootstrap identity with cloud, region,
 // credential and life resolved to natural keys. Region and credential columns
 // are nullable.
@@ -288,4 +302,90 @@ type sourceAPIAddress struct {
 	Address      string `db:"address"`
 	Scope        string `db:"scope"`
 	IsAgent      bool   `db:"is_agent"`
+}
+
+// nameArg holds a single name lookup value for an existence check.
+type nameArg struct {
+	Name string `db:"name"`
+}
+
+// cloudArg holds the cloud (and optionally region) names used by the cloud and
+// cloud-region existence prechecks.
+type cloudArg struct {
+	CloudName  string `db:"cloud_name"`
+	RegionName string `db:"region_name"`
+}
+
+// credentialKeyArg holds the natural key of a cloud credential used by the
+// credential precheck.
+type credentialKeyArg struct {
+	CloudName string `db:"cloud_name"`
+	OwnerName string `db:"owner_name"`
+	Name      string `db:"name"`
+}
+
+// modelNameQualifierArg holds a model name and qualifier used by the model
+// name-collision precheck.
+type modelNameQualifierArg struct {
+	Name      string `db:"name"`
+	Qualifier string `db:"qualifier"`
+}
+
+// credentialRevoked is the projection of a cloud credential's revoked flag.
+type credentialRevoked struct {
+	Revoked bool `db:"revoked"`
+}
+
+// importClaimRow maps a model_migration_import row joined to its phase type.
+// UpdatedAt is read as text because model_migration_import.updated_at is a
+// TEXT column; the query canonicalises it to RFC3339 via strftime.
+type importClaimRow struct {
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+	PhaseType           string `db:"phase_type"`
+	UpdatedAt           string `db:"updated_at"`
+}
+
+// importClaimArg is the insert argument for a new model_migration_import
+// claim. phase_type_id is left unset so the schema DEFAULT (0 = importing)
+// applies.
+type importClaimArg struct {
+	UUID                string `db:"uuid"`
+	ModelUUID           string `db:"model_uuid"`
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+}
+
+// importPhaseRow projects only the phase type of a model_migration_import
+// claim, for the importing-phase assertion run inside a write-group
+// transaction.
+type importPhaseRow struct {
+	PhaseType string `db:"phase_type"`
+}
+
+// importOfferArg is the insert argument for a model_migration_import_offer
+// row.
+type importOfferArg struct {
+	MigrationUUID string `db:"migration_uuid"`
+	OfferUUID     string `db:"offer_uuid"`
+}
+
+// importOfferRow projects the offer_uuid column from model_migration_import_offer,
+// used to read back recorded offer UUIDs for abort compensation.
+type importOfferRow struct {
+	OfferUUID string `db:"offer_uuid"`
+}
+
+// importExternalControllerModelArg is the insert argument for a
+// model_migration_import_external_controller_model row: the durable handoff
+// from Import to Activate for a third-party offerer-model mapping.
+type importExternalControllerModelArg struct {
+	MigrationUUID    string `db:"migration_uuid"`
+	OffererModelUUID string `db:"offerer_model_uuid"`
+	ControllerUUID   string `db:"controller_uuid"`
+}
+
+// externalModelArg is the insert/select argument for an external_model row,
+// using the table's actual column names (uuid is the model UUID).
+type externalModelArg struct {
+	ModelUUID      string `db:"uuid"`
+	ControllerUUID string `db:"controller_uuid"`
 }

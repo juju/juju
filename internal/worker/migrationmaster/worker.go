@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
@@ -107,7 +108,7 @@ type ModelMigrationService interface {
 
 	// GetControllerModelInfo reads the controller-database information scoped to
 	// this migrating model in target-portable semantic form.
-	GetControllerModelInfo(context.Context) (modelmigration.ControllerModelInfo, error)
+	GetControllerModelInfo(context.Context) (coremodelmigration.ControllerModelInfo, error)
 
 	// SetMigrationPhase progresses the active migration to the given phase.
 	SetMigrationPhase(context.Context, coremigration.Phase) error
@@ -173,6 +174,14 @@ type AgentBinaryStore interface {
 	GetAgentBinaryUsingSHA256(context.Context, string) (io.ReadCloser, int64, error)
 }
 
+// LoggingService provides access to the controller-wide logging configuration
+// used to determine whether Loki forwarding is enabled.
+type LoggingService interface {
+	// IsLokiEnabled returns true if a Loki config exists with a non-empty
+	// endpoint.
+	IsLokiEnabled(context.Context) (bool, error)
+}
+
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID               string
@@ -187,6 +196,7 @@ type Config struct {
 	APIOpen                 func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	UploadBinaries          func(context.Context, migration.UploadBinariesConfig, logger.Logger) error
 	AgentBinaryStore        AgentBinaryStore
+	LoggingService          LoggingService
 	Clock                   clock.Clock
 }
 
@@ -227,6 +237,9 @@ func (config Config) Validate() error {
 	}
 	if config.AgentBinaryStore == nil {
 		return errors.NotValidf("nil AgentBinaryStore")
+	}
+	if config.LoggingService == nil {
+		return errors.NotValidf("nil LoggingService")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -318,7 +331,7 @@ func (w *Worker) run() error {
 		case coremigration.SUCCESS:
 			phase, err = w.doSUCCESS(ctx, status)
 		case coremigration.LOGTRANSFER:
-			phase, err = w.doLOGTRANSFER(ctx, status.TargetInfo, status.ModelUUID)
+			phase, err = w.doLOGTRANSFER(ctx, status.TargetInfo, status.ModelUUID, status.MigrationId)
 		case coremigration.REAP:
 			phase, err = w.doREAP(ctx)
 		case coremigration.ABORT:
@@ -658,12 +671,33 @@ func (w *Worker) transferResources(ctx context.Context, targetInfo coremigration
 	return errors.Trace(err)
 }
 
-func (w *Worker) doLOGTRANSFER(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {
-	err := w.transferLogs(ctx, targetInfo, modelUUID)
+func (w *Worker) doLOGTRANSFER(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID, migrationID string) (coremigration.Phase, error) {
+	lokiEnabled, err := w.config.LoggingService.IsLokiEnabled(ctx)
+	if err != nil {
+		return coremigration.UNKNOWN, errors.Annotate(err, "checking Loki config for log transfer")
+	}
+	if lokiEnabled {
+		w.logger.Infof(ctx, "Loki forwarding enabled on source controller - skipping log transfer for model %s (migration %s)", modelUUID, migrationID)
+		w.emitCutoverMarker(ctx, modelUUID, migrationID)
+		return coremigration.REAP, nil
+	}
+	err = w.transferLogs(ctx, targetInfo, modelUUID)
 	if err != nil {
 		return coremigration.UNKNOWN, errors.Trace(err)
 	}
 	return coremigration.REAP, nil
+}
+
+// emitCutoverMarker logs a cutover marker record at the point where log
+// transfer is skipped because Loki forwarding is enabled. The marker
+// includes the model UUID, migration identifier, and cutover timestamp
+// so operators can correlate logs across the source and target Loki
+// stores.
+func (w *Worker) emitCutoverMarker(ctx context.Context, modelUUID, migrationID string) {
+	w.logger.Infof(ctx,
+		"MIGRATION CUTOVER: model=%s migration=%s t_cutover=%s",
+		modelUUID, migrationID, w.config.Clock.Now().UTC().Format(time.RFC3339Nano),
+	)
 }
 
 func (w *Worker) transferLogs(ctx context.Context, targetInfo coremigration.TargetInfo, modelUUID string) error {

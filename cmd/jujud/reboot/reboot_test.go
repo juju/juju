@@ -156,7 +156,7 @@ func (s *NixRebootSuite) TestReboot(c *tc.C) {
 	err := reboot.ScheduleAction(params.ShouldReboot, 15)
 	c.Assert(err, tc.ErrorIsNil)
 	testhelpers.AssertEchoArgs(c, rebootBin, expectedParams...)
-	filetesting.File{Path: s.rebootScriptName, Data: expectedRebootScript, Perm: 0755}.Check(c, s.tmpDir)
+	filetesting.File{Path: s.rebootScriptName, Data: expectedRebootScript, Perm: 0o755}.Check(c, s.tmpDir)
 }
 
 func (s *NixRebootSuite) TestShutdownNoContainers(c *tc.C) {
@@ -165,7 +165,7 @@ func (s *NixRebootSuite) TestShutdownNoContainers(c *tc.C) {
 	err := reboot.ScheduleAction(params.ShouldShutdown, 15)
 	c.Assert(err, tc.ErrorIsNil)
 	testhelpers.AssertEchoArgs(c, rebootBin, expectedParams...)
-	filetesting.File{Path: s.rebootScriptName, Data: expectedShutdownScript, Perm: 0755}.Check(c, s.tmpDir)
+	filetesting.File{Path: s.rebootScriptName, Data: expectedShutdownScript, Perm: 0o755}.Check(c, s.tmpDir)
 }
 
 func (s *NixRebootSuite) rebootScript() string {

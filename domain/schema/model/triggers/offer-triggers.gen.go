@@ -30,7 +30,7 @@ CREATE TRIGGER trg_log_offer_update
 AFTER UPDATE ON offer FOR EACH ROW
 WHEN 
 	NEW.uuid != OLD.uuid OR
-	NEW.name != OLD.name 
+	NEW.name != OLD.name
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

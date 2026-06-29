@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -94,6 +94,14 @@ type StringResult struct {
 // that returns a string or an error.
 type StringResults struct {
 	Results []StringResult `json:"results"`
+}
+
+// LokiConfigResult holds a controller Loki configuration or an error.
+type LokiConfigResult struct {
+	Error              *Error  `json:"error,omitempty"`
+	Endpoint           string  `json:"endpoint"`
+	CACert             *string `json:"ca-cert,omitempty"`
+	InsecureSkipVerify *bool   `json:"insecure-skip-verify,omitempty"`
 }
 
 // MapResult holds a generic map or an error.
@@ -836,6 +844,8 @@ type ProvisioningNetworkTopology struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
+	ProvisioningNetworkTopology
+
 	Constraints       constraints.Value        `json:"constraints"`
 	Base              Base                     `json:"base"`
 	Placement         string                   `json:"placement"`
@@ -850,7 +860,18 @@ type ProvisioningInfo struct {
 	CloudInitUserData map[string]any           `json:"cloudinit-userdata,omitempty"`
 	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
 
-	ProvisioningNetworkTopology
+	// LokiEndpoint is the controller-wide Loki push API endpoint the
+	// provisioned agent should forward logs to on first boot. Empty means
+	// logs are sent through the controller logsink.
+	LokiEndpoint string `json:"loki-endpoint,omitempty"`
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string `json:"loki-cacert,omitempty"`
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool `json:"loki-insecure-skip-verify,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

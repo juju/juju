@@ -10,7 +10,9 @@ import (
 	"mime"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -63,6 +65,41 @@ func contentLengthMiddleware(next http.Handler, errorWriter MiddlewareErrorWrite
 		r.Body = http.MaxBytesReader(resp, r.Body, maxPayloadBytes)
 
 		next.ServeHTTP(resp, r)
+	})
+}
+
+func loggingMiddleware(next http.Handler, logger logger.Logger) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, r *http.Request) {
+		logger.Debugf(r.Context(), "Received request: %s %s", r.Method, r.URL.Path)
+		next.ServeHTTP(resp, r)
+	})
+}
+
+type statusResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (w *statusResponseWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *statusResponseWriter) Write(data []byte) (int, error) {
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
+	}
+	return w.ResponseWriter.Write(data)
+}
+
+func metricsMiddleware(next http.Handler, collector *Collector, endpoint string) http.Handler {
+	return http.HandlerFunc(func(resp http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		recorder := &statusResponseWriter{ResponseWriter: resp}
+
+		next.ServeHTTP(recorder, r)
+
+		collector.recordRequest(endpoint, r.Method, recorder.statusCode, time.Since(start).Seconds())
 	})
 }
 

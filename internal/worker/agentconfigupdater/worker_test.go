@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -268,247 +269,6 @@ func (s *WorkerSuite) TestUpdateDqliteBusyTimeout(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
 }
 
-func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	newConfig[controller.OpenTelemetryEnabled] = true
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	newConfig[controller.OpenTelemetryEndpoint] = "http://foo.bar"
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	newConfig[controller.OpenTelemetryInsecure] = true
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	newConfig[controller.OpenTelemetryStackTraces] = true
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	newConfig[controller.OpenTelemetrySampleRatio] = 0.42
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
-func (s *WorkerSuite) TestUpdateOpenTelemetryTailSamplingThreshold(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	newConfig := maps.Clone(s.controllerConfig)
-	d := time.Second
-	newConfig[controller.OpenTelemetryTailSamplingThreshold] = d.String()
-
-	w, ch, dispatched1, dispatched2 := s.runScenario(c, newConfig)
-	defer workertest.DirtyKill(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched1:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	// Snap channel is the same, worker still alive.
-	workertest.CheckAlive(c, w)
-
-	select {
-	case ch <- []string{}:
-	case <-c.Context().Done():
-		c.Fatalf("event not sent")
-	}
-
-	select {
-	case <-dispatched2:
-	case <-c.Context().Done():
-		c.Fatalf("event not handled")
-	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, tc.ErrorIs, jworker.ErrRestartAgent)
-}
-
 func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -519,38 +279,26 @@ func (s *WorkerSuite) setupMocks(c *tc.C) *gomock.Controller {
 			queryTracingEnabled:                controller.DefaultQueryTracingEnabled,
 			queryTracingThreshold:              controller.DefaultQueryTracingThreshold,
 			dqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
-			openTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
+			openTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
 			openTelemetryEndpoint:              "",
-			openTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
-			openTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
-			openTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
-			openTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
+			openTelemetryInsecure:              agent.DefaultOpenTelemetryInsecure,
+			openTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
+			openTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
+			openTelemetryTailSamplingThreshold: agent.DefaultOpenTelemetryTailSamplingThreshold,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
-		Agent:                              s.agent,
-		ControllerConfigService:            s.controllerConfigService,
-		QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
-		QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
-		DqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
-		OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
-		OpenTelemetryEndpoint:              "",
-		OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
-		OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
-		OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
-		OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
-		Logger:                             loggertesting.WrapCheckLog(c),
+		Agent:                   s.agent,
+		ControllerConfigService: s.controllerConfigService,
+		QueryTracingEnabled:     controller.DefaultQueryTracingEnabled,
+		QueryTracingThreshold:   controller.DefaultQueryTracingThreshold,
+		DqliteBusyTimeout:       controller.DefaultDqliteBusyTimeout,
+		Logger:                  loggertesting.WrapCheckLog(c),
 	}
 	s.controllerConfig = controller.Config{
-		controller.QueryTracingEnabled:                controller.DefaultQueryTracingEnabled,
-		controller.QueryTracingThreshold:              controller.DefaultQueryTracingThreshold,
-		controller.DqliteBusyTimeout:                  controller.DefaultDqliteBusyTimeout,
-		controller.OpenTelemetryEnabled:               controller.DefaultOpenTelemetryEnabled,
-		controller.OpenTelemetryEndpoint:              "",
-		controller.OpenTelemetryInsecure:              controller.DefaultOpenTelemetryInsecure,
-		controller.OpenTelemetryStackTraces:           controller.DefaultOpenTelemetryStackTraces,
-		controller.OpenTelemetrySampleRatio:           controller.DefaultOpenTelemetrySampleRatio,
-		controller.OpenTelemetryTailSamplingThreshold: controller.DefaultOpenTelemetryTailSamplingThreshold,
+		controller.QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
+		controller.QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+		controller.DqliteBusyTimeout:     controller.DefaultDqliteBusyTimeout,
 	}
 	return ctrl
 }

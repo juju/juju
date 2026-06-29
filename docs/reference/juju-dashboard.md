@@ -79,11 +79,11 @@ The machine details view displays all machine information for the selected machi
 ### Relations view
 
 
-The integrations view (sometimes called relations) displays the information about each integration in a model. This view is accessible from the model details view as an option in the tabbed navigation at the top of the page.
+The relations view displays the information about each relation in a model. This view is accessible from the model details view as an option in the tabbed navigation at the top of the page.
 
 ![Juju dashboard relations view](juju-dashboard-relations-view.png)
 
-This view provides information about each integration and acts as an at a glance overview of the health of your models relations and a status to help you debug any issues.
+This view provides information about each relation and acts as an at a glance overview of the health of your models relations and a status to help you debug any issues.
 
 ### Configuring applications
 

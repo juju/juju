@@ -26,6 +26,7 @@ func (*ImportTest) TestImports(c *tc.C) {
 		"core/arch",
 		"core/errors",
 		"core/instance",
+		"core/network/ipfamily",
 		"core/status",
 		"internal/errors",
 		"internal/stringcompare",

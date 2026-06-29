@@ -17,7 +17,6 @@ import (
 	api "github.com/juju/juju/api"
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
-	objectstore "github.com/juju/juju/core/objectstore"
 	semversion "github.com/juju/juju/core/semversion"
 	names "github.com/juju/names/v6"
 	shell "github.com/juju/utils/v4/shell"
@@ -109,10 +108,12 @@ type MockConfigMockRecorder struct {
 	jobsExpects                               []*gomock.Call0_1[[]model.MachineJob]
 	logDirExpects                             []*gomock.Call0_1[string]
 	loggingConfigExpects                      []*gomock.Call0_1[string]
+	lokiCACertExpects                         []*gomock.Call0_1[string]
+	lokiEndpointExpects                       []*gomock.Call0_1[string]
+	lokiInsecureSkipVerifyExpects             []*gomock.Call0_1[*bool]
 	metricsSpoolDirExpects                    []*gomock.Call0_1[string]
 	modelExpects                              []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                              []*gomock.Call0_1[string]
-	objectStoreTypeExpects                    []*gomock.Call0_1[objectstore.BackendType]
 	oldPasswordExpects                        []*gomock.Call0_1[string]
 	openTelemetryEnabledExpects               []*gomock.Call0_1[bool]
 	openTelemetryEndpointExpects              []*gomock.Call0_1[string]
@@ -394,6 +395,60 @@ func (mr *MockConfigMockRecorder) LoggingConfig() *MockConfigLoggingConfigCall {
 // MockConfigLoggingConfigCall is the typed call wrapper for LoggingConfig.
 type MockConfigLoggingConfigCall = gomock.Call0_1[string]
 
+// LokiCACert mocks base method.
+func (m *MockConfig) LokiCACert() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiCACertExpects, m.ctrl, m, "LokiCACert")
+}
+
+// LokiCACert indicates an expected call of LokiCACert.
+func (mr *MockConfigMockRecorder) LokiCACert() *MockConfigLokiCACertCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiCACert")
+	mr.lokiCACertExpects = append(mr.lokiCACertExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiCACertCall is the typed call wrapper for LokiCACert.
+type MockConfigLokiCACertCall = gomock.Call0_1[string]
+
+// LokiEndpoint mocks base method.
+func (m *MockConfig) LokiEndpoint() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiEndpointExpects, m.ctrl, m, "LokiEndpoint")
+}
+
+// LokiEndpoint indicates an expected call of LokiEndpoint.
+func (mr *MockConfigMockRecorder) LokiEndpoint() *MockConfigLokiEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "LokiEndpoint")
+	mr.lokiEndpointExpects = append(mr.lokiEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiEndpointCall is the typed call wrapper for LokiEndpoint.
+type MockConfigLokiEndpointCall = gomock.Call0_1[string]
+
+// LokiInsecureSkipVerify mocks base method.
+func (m *MockConfig) LokiInsecureSkipVerify() *bool {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.lokiInsecureSkipVerifyExpects, m.ctrl, m, "LokiInsecureSkipVerify")
+}
+
+// LokiInsecureSkipVerify indicates an expected call of LokiInsecureSkipVerify.
+func (mr *MockConfigMockRecorder) LokiInsecureSkipVerify() *MockConfigLokiInsecureSkipVerifyCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*bool](mr.mock.ctrl.T, mr.mock, "LokiInsecureSkipVerify")
+	mr.lokiInsecureSkipVerifyExpects = append(mr.lokiInsecureSkipVerifyExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigLokiInsecureSkipVerifyCall is the typed call wrapper for LokiInsecureSkipVerify.
+type MockConfigLokiInsecureSkipVerifyCall = gomock.Call0_1[*bool]
+
 // MetricsSpoolDir mocks base method.
 func (m *MockConfig) MetricsSpoolDir() string {
 	m.ctrl.T.Helper()
@@ -447,24 +502,6 @@ func (mr *MockConfigMockRecorder) Nonce() *MockConfigNonceCall {
 
 // MockConfigNonceCall is the typed call wrapper for Nonce.
 type MockConfigNonceCall = gomock.Call0_1[string]
-
-// ObjectStoreType mocks base method.
-func (m *MockConfig) ObjectStoreType() objectstore.BackendType {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.objectStoreTypeExpects, m.ctrl, m, "ObjectStoreType")
-}
-
-// ObjectStoreType indicates an expected call of ObjectStoreType.
-func (mr *MockConfigMockRecorder) ObjectStoreType() *MockConfigObjectStoreTypeCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[objectstore.BackendType](mr.mock.ctrl.T, mr.mock, "ObjectStoreType")
-	mr.objectStoreTypeExpects = append(mr.objectStoreTypeExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigObjectStoreTypeCall is the typed call wrapper for ObjectStoreType.
-type MockConfigObjectStoreTypeCall = gomock.Call0_1[objectstore.BackendType]
 
 // OldPassword mocks base method.
 func (m *MockConfig) OldPassword() string {

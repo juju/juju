@@ -32,7 +32,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSpaceNotMutable(c *tc.C) {
 	// Test that if ensureSpacesAreMutable fails, the MoveSubnets
 	// function returns an error
 	// Set providerSpaces to true to make ensureSpacesNotProviderSourced fail
-	defer s.SetupMocks(c, false, true).Finish()
+	defer s.SetupMocks(c, true, true).Finish()
 
 	// Arrange
 	args := params.MoveSubnetsParams{
@@ -50,10 +50,19 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSpaceNotMutable(c *tc.C) {
 	c.Assert(results.Results, tc.HasLen, 0)
 }
 
+func (s *moveSubnetsAPISuite) TestMoveSubnetsSpacesNotSupported(c *tc.C) {
+	defer s.SetupMocks(c, false, false).Finish()
+
+	results, err := s.API.MoveSubnets(c.Context(), params.MoveSubnetsParams{})
+	c.Assert(err, tc.ErrorMatches, "spaces not supported")
+	c.Check(err, tc.Satisfies, params.IsCodeNotSupported)
+	c.Check(results, tc.DeepEquals, params.MoveSubnetsResults{})
+}
+
 // TestMoveSubnetsInvalidSpaceTag ensures that the MoveSubnets function returns
 // an error when an invalid space tag is provided.
 func (s *moveSubnetsAPISuite) TestMoveSubnetsInvalidSpaceTag(c *tc.C) {
-	defer s.SetupMocks(c, false, false).Finish()
+	defer s.SetupMocks(c, true, false).Finish()
 
 	// Arrange: invalid space tag
 	args := params.MoveSubnetsParams{
@@ -75,7 +84,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsInvalidSpaceTag(c *tc.C) {
 // TestMoveSubnetsNoSubnets validates that the MoveSubnets function
 // returns an error when no subnets are specified.
 func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSubnets(c *tc.C) {
-	defer s.SetupMocks(c, false, false).Finish()
+	defer s.SetupMocks(c, true, false).Finish()
 
 	// Arrange: no subnets
 	args := params.MoveSubnetsParams{
@@ -97,7 +106,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNoSubnets(c *tc.C) {
 // TestMoveSubnetsInvalidSubnetTag validates that the MoveSubnets function
 // correctly returns an error for invalid subnet tags.
 func (s *moveSubnetsAPISuite) TestMoveSubnetsInvalidSubnetTag(c *tc.C) {
-	defer s.SetupMocks(c, false, false).Finish()
+	defer s.SetupMocks(c, true, false).Finish()
 
 	// Arrange: invalid subnet tag
 	args := params.MoveSubnetsParams{
@@ -119,7 +128,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsInvalidSubnetTag(c *tc.C) {
 // TestMoveSubnetsServiceFailure validates that the MoveSubnets function
 // correctly handles service failures by returning errors.
 func (s *moveSubnetsAPISuite) TestMoveSubnetsGetAllSubnetsFailure(c *tc.C) {
-	defer s.SetupMocks(c, false, false).Finish()
+	defer s.SetupMocks(c, true, false).Finish()
 
 	// Arrange: Set up the NetworkService mock to return an error
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, errors.New("service failure"))
@@ -143,7 +152,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsGetAllSubnetsFailure(c *tc.C) {
 // TestMoveSubnetsServiceFailure validates that the MoveSubnets function
 // correctly handles service failures by returning errors.
 func (s *moveSubnetsAPISuite) TestMoveSubnetsServiceFailure(c *tc.C) {
-	defer s.SetupMocks(c, false, false).Finish()
+	defer s.SetupMocks(c, true, false).Finish()
 
 	// Arrange: Set up the NetworkService mock to return an error
 	s.NetworkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
@@ -173,7 +182,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsServiceFailure(c *tc.C) {
 // TestMoveSubnetsSuccessForced validates that the MoveSubnets function
 // successfully moves subnets when forced mode is enabled.
 func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccessForced(c *tc.C) {
-	defer s.SetupMocks(c, false, false).Finish()
+	defer s.SetupMocks(c, true, false).Finish()
 
 	// Arrange: a subnet moved from default to dmz
 	subnetUUID := domainnetwork.SubnetUUID(uuid.MustNewUUID().String())
@@ -227,7 +236,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccessForced(c *tc.C) {
 // TestMoveSubnetsSuccessSeveralSubnets validates the successful movement of
 // multiple subnets to a new space (not forced)
 func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccessSeveralSubnets(c *tc.C) {
-	defer s.SetupMocks(c, false, false).Finish()
+	defer s.SetupMocks(c, true, false).Finish()
 
 	// Arrange: two subnet, from either default-1 and default-2 spaces, moved
 	// to dmz

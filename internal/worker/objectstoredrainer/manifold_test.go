@@ -4,6 +4,7 @@
 package objectstoredrainer
 
 import (
+	"context"
 	"testing"
 
 	gomock "github.com/canonical/gomock/gomock"
@@ -15,17 +16,16 @@ import (
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
-	agent "github.com/juju/juju/agent"
-	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	internaltesting "github.com/juju/juju/internal/testing"
-	internalworker "github.com/juju/juju/internal/worker"
 )
 
 type manifoldSuite struct {
@@ -73,11 +73,11 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.GetGuardService = nil
+	cfg.GetControllerConfigService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.GetControllerConfigService = nil
+	cfg.GetDrainingService = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -114,7 +114,7 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		GeObjectStoreServices: func(g dependency.Getter, s string) (ObjectStoreServicesGetter, error) {
 			return nil, nil
 		},
-		GetGuardService: func(dependency.Getter, string) (GuardService, error) {
+		GetDrainingService: func(dependency.Getter, string) (DrainingService, error) {
 			return s.guardService, nil
 		},
 		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
@@ -159,70 +159,15 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
 
 	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.FileBackend.String()
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
-
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
 
 	w, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) TestStartObjectStoreTypeChangedWhilstDraining(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
-
-	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
-
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
-
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-
-	w, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
-	c.Assert(err, tc.ErrorIsNil)
-	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) TestStartUpdatesObjectStoreType(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
-	s.agentConfigSetter.EXPECT().ObjectStoreType().Return(objectstore.FileBackend)
-	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
-
-	cfg := internaltesting.FakeControllerConfig()
-	cfg[controller.ObjectStoreType] = objectstore.S3Backend.String()
-
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
-
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseUnknown, nil)
-
-	s.agentConfigSetter.EXPECT().SetObjectStoreType(objectstore.S3Backend)
-
-	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(fn agent.ConfigMutator) error {
-		return fn(s.agentConfigSetter)
-	})
-
-	_, err := Manifold(s.getConfig(c)).Start(c.Context(), s.newGetter())
-	c.Assert(err, tc.ErrorIs, internalworker.ErrRestartAgent)
 }
 
 // Note: This replicates the ability to get a controller domain services and
@@ -242,4 +187,202 @@ type stubObjectStoreServices struct {
 
 func (s *stubObjectStoreServices) ObjectStore() *objectstoreservice.WatchableService {
 	return nil
+}
+
+// getConfigWithRealWorker returns a ManifoldConfig that uses the real NewWorker
+// constructor, allowing manifold-level tests to exercise the full startup and
+// crash-recovery flow.
+func (s *manifoldSuite) getConfigWithRealWorker(c *tc.C) ManifoldConfig {
+	return ManifoldConfig{
+		AgentName:               "agent",
+		FortressName:            "fortress",
+		ObjectStoreServicesName: "object-store-services",
+		ObjectStoreName:         "object-store",
+		S3ClientName:            "s3-client",
+		GetControllerService: func(g dependency.Getter, name string) (ControllerService, error) {
+			return s.controllerService, nil
+		},
+		GeObjectStoreServices: func(g dependency.Getter, name string) (ObjectStoreServicesGetter, error) {
+			return s.objectStoreServicesGetter, nil
+		},
+		GetDrainingService: func(dependency.Getter, string) (DrainingService, error) {
+			return s.guardService, nil
+		},
+		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
+			return s.controllerConfigService, nil
+		},
+		GetControllerObjectStoreService: func(getter dependency.Getter, name string) (objectstore.ObjectStoreMetadata, error) {
+			return s.controllerObjectStoreMetadata, nil
+		},
+		NewHashFileSystemAccessor: func(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
+			return s.hashFileSystemAccessor
+		},
+		SelectFileHash: func(m objectstore.Metadata) string {
+			return m.SHA384
+		},
+		NewDrainerWorker: func(completed chan<- drainResult, fileSystem HashFileSystemAccessor, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, rootBucket, namespace string, selectFileHash SelectFileHashFunc, clk clock.Clock, logger logger.Logger) worker.Worker {
+			return newTestWorker(completed)
+		},
+		NewWorker: NewWorker,
+		Logger:    loggertesting.WrapCheckLog(c),
+		Clock:     clock.WallClock,
+	}
+}
+
+// setupManifoldStartExpectations sets up the common expectations for the
+// manifold start method (controller config, agent config, data dir).
+func (s *manifoldSuite) setupManifoldStartExpectations(c *tc.C) {
+	cfg := internaltesting.FakeControllerConfig()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil)
+	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+}
+
+// TestManifoldRecoverFromFlushWorkersCrash exercises the full manifold start →
+// worker crash → manifold restart → worker succeeds cycle when the crash occurs
+// during FlushWorkers in completeDraining.
+func (s *manifoldSuite) TestManifoldRecoverFromFlushWorkersCrash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// --- First start: worker enters draining, FlushWorkers fails ---
+
+	s.setupManifoldStartExpectations(c)
+
+	draining1 := make(chan struct{})
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(draining1), nil
+	})
+	// Worker main loop reads phase from watcher.
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseError).Return(nil)
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
+
+	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(errors.New("flush timeout"))
+
+	w1, err := Manifold(s.getConfigWithRealWorker(c)).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case draining1 <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for draining event")
+	}
+
+	err = workertest.CheckKilled(c, w1)
+	c.Assert(err, tc.ErrorMatches, ".*flush timeout.*")
+
+	// --- Second start: simulates dependency engine restart ---
+	// The manifold re-creates the worker and the idempotent completion path
+	// succeeds on retry.
+
+	s.setupManifoldStartExpectations(c)
+
+	draining2 := make(chan struct{})
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(draining2), nil
+	})
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
+
+	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
+
+	done := make(chan struct{})
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
+		defer close(done)
+		return nil
+	})
+
+	w2, err := Manifold(s.getConfigWithRealWorker(c)).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w2)
+
+	select {
+	case draining2 <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for draining event")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for completion")
+	}
+
+	workertest.CleanKill(c, w2)
+}
+
+// TestManifoldRecoverFromSetPhaseCrash exercises the full manifold start →
+// worker crash → manifold restart → worker succeeds cycle when the crash occurs
+// during SetDrainingPhase(PhaseCompleted) in completeDraining.
+func (s *manifoldSuite) TestManifoldRecoverFromSetPhaseCrash(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// --- First start: all steps succeed except the final commit ---
+
+	s.setupManifoldStartExpectations(c)
+
+	draining1 := make(chan struct{})
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(draining1), nil
+	})
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseError).Return(nil)
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
+
+	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
+	// SetDrainingPhase(PhaseCompleted) fails, simulating a crash before commit.
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).Return(errors.New("connection reset"))
+
+	w1, err := Manifold(s.getConfigWithRealWorker(c)).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
+
+	select {
+	case draining1 <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for draining event")
+	}
+
+	err = workertest.CheckKilled(c, w1)
+	c.Assert(err, tc.ErrorMatches, ".*connection reset.*")
+
+	// --- Second start: recovery succeeds ---
+
+	s.setupManifoldStartExpectations(c)
+
+	draining2 := make(chan struct{})
+	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
+		return watchertest.NewMockNotifyWatcher(draining2), nil
+	})
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseDraining, nil)
+	s.guard.EXPECT().Lockdown(gomock.Any()).Return(nil)
+	s.controllerService.EXPECT().GetModelNamespaces(gomock.Any()).Return(nil, nil)
+
+	s.objectStoreFlusher.EXPECT().FlushWorkers(gomock.Any()).Return(nil)
+
+	done := make(chan struct{})
+	s.guardService.EXPECT().SetDrainingPhase(gomock.Any(), objectstore.PhaseCompleted).DoAndReturn(func(ctx context.Context, p objectstore.Phase) error {
+		defer close(done)
+		return nil
+	})
+
+	w2, err := Manifold(s.getConfigWithRealWorker(c)).Start(c.Context(), s.newGetter())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w2)
+
+	select {
+	case draining2 <- struct{}{}:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for draining event")
+	}
+
+	select {
+	case <-done:
+	case <-c.Context().Done():
+		c.Fatalf("timeout waiting for completion")
+	}
+
+	workertest.CleanKill(c, w2)
 }

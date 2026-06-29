@@ -2103,6 +2103,133 @@ func (s *environSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	c.Assert(unsupported, tc.SameContents, []string{"tags", "cpu-power", "virt-type"})
 }
 
+func (s *environSuite) TestConstraintsValidatorIPFamilyIPv4(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=ipv4"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestConstraintsValidatorIPFamilyDual(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=dual"))
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestConstraintsValidatorIPFamilyIPv6Rejected(c *tc.C) {
+	validator := s.constraintsValidator(c)
+	_, err := validator.Validate(constraints.MustParse("ip-family=ipv6"))
+	c.Assert(err, tc.ErrorMatches,
+		"invalid constraint value: ip-family=ipv6\nvalid values are: ipv4 dual",
+	)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyDualBasicSKURejected(c *tc.C) {
+	env := s.openEnviron(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=dual"),
+	})
+	c.Assert(err, tc.ErrorMatches,
+		"ip-family=dual requires load-balancer-sku-name=Standard on Azure; "+
+			"Basic SKU is not supported for this configuration",
+	)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyDualStandardSKUAccepted(c *tc.C) {
+	env := s.openEnviron(c)
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=dual"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestPrecheckInstanceIPFamilyIPv4BasicSKUAccepted(c *tc.C) {
+	env := s.openEnviron(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
+	err := env.PrecheckInstance(c.Context(), environs.PrecheckInstanceParams{
+		Constraints: constraints.MustParse("ip-family=ipv4"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *environSuite) TestBootstrapIPFamilyDualBasicSKURejected(c *tc.C) {
+	defer envtesting.DisableFinishBootstrap(c)()
+
+	ctx := envtesting.BootstrapTestContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender, testing.Attrs{"load-balancer-sku-name": "Basic"})
+
+	// ConstraintsValidator is invoked before Bootstrap and needs the SKU
+	// listing to succeed so that the bootstrap-specific conflict check in
+	// azureEnviron.Bootstrap is reached.
+	s.sender = append(s.sender, s.resourceSKUsSender())
+
+	err := bootstrap.Bootstrap(
+		ctx, env, bootstrap.BootstrapParams{
+			ControllerConfig:     testing.FakeControllerConfig(),
+			AdminSecret:          jujutesting.AdminSecret,
+			CAPrivateKey:         testing.CAKey,
+			BootstrapBase:        corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints: constraints.MustParse("ip-family=dual"),
+			BuildAgentTarball: func(
+				build bool, _ string, _ func(semversion.Number) semversion.Number,
+			) (*sync.BuiltAgent, error) {
+				c.Assert(build, tc.IsFalse)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		},
+	)
+	c.Assert(err, tc.ErrorMatches,
+		"ip-family=dual requires load-balancer-sku-name=Standard on Azure; "+
+			"Basic SKU is not supported for this configuration",
+	)
+}
+
+func (s *environSuite) TestBootstrapIPFamilyDualStandardSKUAccepted(c *tc.C) {
+	defer envtesting.DisableFinishBootstrap(c)()
+
+	ctx := envtesting.BootstrapTestContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, s.credentialInvalidator, &s.sender)
+
+	authorizedKeys := make([]string, 0, len(s.sshPublicKeys))
+	for _, key := range s.sshPublicKeys {
+		authorizedKeys = append(authorizedKeys, *key.KeyData)
+	}
+
+	s.sender = append(s.sender, s.resourceSKUsSender())
+	s.sender = append(s.sender, s.initResourceGroupSenders(resourceGroupName)...)
+	s.sender = append(s.sender, s.startInstanceSendersNoSizes()...)
+	s.requests = nil
+	err := bootstrap.Bootstrap(
+		ctx, env, bootstrap.BootstrapParams{
+			ControllerModelAuthorizedKeys: authorizedKeys,
+			ControllerConfig:              testing.FakeControllerConfig(),
+			AdminSecret:                   jujutesting.AdminSecret,
+			CAPrivateKey:                  testing.CAKey,
+			BootstrapBase:                 corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:          constraints.MustParse("ip-family=dual"),
+			BuildAgentTarball: func(
+				build bool, _ string, _ func(semversion.Number) semversion.Number,
+			) (*sync.BuiltAgent, error) {
+				c.Assert(build, tc.IsFalse)
+				return &sync.BuiltAgent{Dir: c.MkDir()}, nil
+			},
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		},
+	)
+
+	if corearch.HostArch() != "amd64" && corearch.HostArch() != "arm64" {
+		// Non amd64/arm64 architectures are not supported for bootstrap.
+		c.Assert(err, tc.ErrorMatches,
+			fmt.Sprintf("model %q of type %s does not support instances running on %q",
+				env.Config().Name(),
+				env.Config().Type(),
+				corearch.HostArch(),
+			),
+		)
+		return
+	}
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *environSuite) TestConstraintsValidatorVocabulary(c *tc.C) {
 	validator := s.constraintsValidator(c)
 	_, err := validator.Validate(constraints.MustParse("arch=s390x"))

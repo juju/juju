@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/names/v6"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v4/exec"
@@ -37,12 +37,13 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
-	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	_ "github.com/juju/juju/internal/provider/all"         // Import the providers.
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
@@ -74,6 +75,13 @@ const (
 	ExitStatusCodeErr = 2
 	// ExitStatusCodePanic is the value that is returned when we exit due to an unhandled panic.
 	ExitStatusCodePanic = 3
+
+	// bufferedLogWriterMaxLength is the maximum number of bytes that the
+	// buffered log writer will keep in memory before it starts dropping
+	// log messages. This is a safeguard to prevent unbounded memory usage
+	// if the agent produces a large amount of log output before the unit
+	// agent can read it.
+	bufferedLogWriterMaxLength = 1048576
 )
 
 func getenv(name string) (string, error) {
@@ -200,12 +208,10 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
+	// OfficialBuild is a monotonic integer set by Jenkins.
+	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
 	// GoBuildTags is the build tags used to build the binary.
 	GoBuildTags string `json:"go-build-tags,omitempty" yaml:"go-build-tags,omitempty"`
-	// Official is true if this is an official build.
-	Official bool `json:"official" yaml:"official"`
-	// Grade reflects the snap grade value.
-	Grade string `json:"grade,omitempty" yaml:"grade,omitempty"`
 }
 
 // Main registers subcommands for the jujud executable, and hands over control
@@ -213,11 +219,7 @@ type versionDetail struct {
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	// Assuming an average of 200 bytes per log message, use up to
 	// 200MB for the log buffer.
-	defer logger.Debugf(context.TODO(), "jujud complete, code %d, err %v", code, err)
-	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1048576)
-	if err != nil {
-		return 1, errors.Trace(err)
-	}
+	defer logger.Debugf(ctx, "jujud complete, code %d, err %v", code, err)
 
 	// Set the default transport to use the in-process proxy
 	// configuration.
@@ -239,8 +241,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		GitTreeState: jujuversion.GitTreeState,
 		Compiler:     jujuversion.Compiler,
 		GoBuildTags:  jujuversion.GoBuildTags,
-		Official:     isOfficial(),
-		Grade:        jujuversion.Grade,
 	}
 
 	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
@@ -258,7 +258,13 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), bufferedLogWriterMaxLength)
+	if err != nil {
+		return 1, errors.Trace(err)
+	}
 	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
+
+	jujud.Register(agentcmd.NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
@@ -266,7 +272,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	agentConf := agentconf.NewAgentConf("")
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
-		bufferedLogger,
+		dbaccessor.NewTrackedDBWorker,
 		func(mt model.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == model.CAAS {
 				return upgrades.PreUpgradeStepsCAAS
@@ -278,21 +284,22 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	)
 	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
 
+	safeModeMachineAgentFactory := agentcmd.SafeModeMachineAgentFactoryFn(
+		agentConf,
+		dbaccessor.NewTrackedDBWorker,
+	)
+	jujud.Register(agentcmd.NewSafeModeAgentCommand(ctx, safeModeMachineAgentFactory, agentConf, agentConf))
+
+	dbReplModeMachineAgentFactory := agentcmd.DBReplMachineAgentFactoryFn(
+		agentConf,
+		dbreplaccessor.NewTrackedDBWorker,
+	)
+	jujud.Register(agentcmd.NewDBReplAgentCommand(ctx, dbReplModeMachineAgentFactory, agentConf, agentConf))
+
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
-}
-
-func isOfficial() bool {
-	// If there's an error getting jujud version, play it safe.
-	// We pretend it's not official.
-	jujudPath, err := tools.ExistingJujuLocation()
-	if err != nil {
-		return false
-	}
-	_, err = tools.GetVersionFromFile(jujudPath)
-	return err == nil
 }
 
 // Main is not redundant with main(), because it provides an entry point
@@ -346,12 +353,14 @@ type jujudWriter struct {
 	target io.Writer
 }
 
-func (w *jujudWriter) Write(entry loggo.Entry) {
+func (w *jujudWriter) Write(ctx context.Context, entry loggo.Entry) error {
+	var err error
 	if strings.HasPrefix(entry.Module, "unit.") {
-		fmt.Fprintln(w.target, w.unitFormat(entry))
+		_, err = fmt.Fprintln(w.target, w.unitFormat(entry))
 	} else {
-		fmt.Fprintln(w.target, loggo.DefaultFormatter(entry))
+		_, err = fmt.Fprintln(w.target, loggo.DefaultFormatter(entry))
 	}
+	return err
 }
 
 func (w *jujudWriter) unitFormat(entry loggo.Entry) string {

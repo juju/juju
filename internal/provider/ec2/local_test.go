@@ -1734,10 +1734,10 @@ func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=lxd")
+	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=lxd ip-family=dual")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(unsupported, tc.SameContents, []string{"tags", "virt-type"})
+	c.Assert(unsupported, tc.SameContents, []string{"tags", "virt-type", "ip-family"})
 }
 
 func (t *localServerSuite) TestConstraintsValidatorVocab(c *tc.C) {

@@ -1,11 +1,10 @@
-// Copyright 2020 Canonical Ltd.
+// Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package agent
 
 import (
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -109,23 +108,6 @@ func (m *ModelCommand) maybeCopyAgentConfig() error {
 	return m.ReadConfig(m.Tag().String())
 }
 
-func copyFile(dest, source string) error {
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer df.Close()
-
-	f, err := os.Open(source)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer f.Close()
-
-	_, err = io.Copy(df, f)
-	return errors.Trace(err)
-}
-
 // NewModelCommand creates a new ModelCommand instance properly initialized
 func NewModelCommand(
 	bufferedLogger *logsender.BufferedLogWriter,
@@ -174,7 +156,7 @@ func (m *ModelCommand) Wait() error {
 	return m.errReason
 }
 
-func (m *ModelCommand) Workers(ctx context.Context) (worker.Worker, error) {
+func (m *ModelCommand) Workers(_ context.Context) (worker.Worker, error) {
 	port := os.Getenv(caasprovider.EnvModelAgentHTTPPort)
 	if port == "" {
 		return nil, errors.NotValidf("env %s missing", caasprovider.EnvModelAgentHTTPPort)
@@ -210,21 +192,21 @@ func (m *ModelCommand) Workers(ctx context.Context) (worker.Worker, error) {
 		UpgradeStepsLock:       m.upgradeStepsLock,
 	})
 
-	// TODO (stickupkid): There is no prometheus registry at this level, we
+	// TODO (stickupkid): There is no Prometheus registry at this level, we
 	// should work out the best way to get it into here.
-	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(
+	e, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		dependency.DefaultMetrics(),
 		internaldependency.WrapLogger(internallogger.GetLogger("juju.worker.dependency")),
 	))
 	if err != nil {
 		return nil, err
 	}
-	if err := dependency.Install(engine, manifolds); err != nil {
-		if err := worker.Stop(engine); err != nil {
+	if err := dependency.Install(e, manifolds); err != nil {
+		if err := worker.Stop(e); err != nil {
 			logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
 		}
 		return nil, err
 	}
 
-	return engine, nil
+	return e, nil
 }

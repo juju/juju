@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/voyeur"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/flightrecorder"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
@@ -49,6 +50,7 @@ type UnitAgent struct {
 	configChangedVal *voyeur.Value
 
 	setupLogging       func(logger.LoggerContext, agent.Config)
+	httpClientGetter   corehttp.HTTPClientGetter
 	unitEngineConfig   func() dependency.EngineConfig
 	unitManifolds      func(UnitManifoldsConfig) dependency.Manifolds
 	prometheusRegistry *prometheus.Registry
@@ -66,6 +68,7 @@ type UnitAgentConfig struct {
 	FlightRecorder   flightrecorder.FlightRecorder
 	Clock            clock.Clock
 	Logger           logger.Logger
+	HTTPClientGetter corehttp.HTTPClientGetter
 	UnitEngineConfig func() dependency.EngineConfig
 	UnitManifolds    func(UnitManifoldsConfig) dependency.Manifolds
 	SetupLogging     func(logger.LoggerContext, agent.Config)
@@ -87,6 +90,9 @@ func (u *UnitAgentConfig) Validate() error {
 	}
 	if u.Logger == nil {
 		return errors.NotValidf("missing Logger")
+	}
+	if u.HTTPClientGetter == nil {
+		return errors.NotValidf("missing HTTPClientGetter")
 	}
 	if u.SetupLogging == nil {
 		return errors.NotValidf("missing SetupLogging")
@@ -149,6 +155,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 		agentConf:          conf,
 		configChangedVal:   voyeur.NewValue(true),
 		setupLogging:       config.SetupLogging,
+		httpClientGetter:   config.HTTPClientGetter,
 		unitEngineConfig:   config.UnitEngineConfig,
 		unitManifolds:      config.UnitManifolds,
 		prometheusRegistry: prometheusRegistry,
@@ -198,15 +205,17 @@ func (a *UnitAgent) start(ctx context.Context) (worker.Worker, error) {
 	// construct unit agent manifold
 	a.logger.Tracef(ctx, "creating unit manifolds for %q", a.name)
 	manifolds := a.unitManifolds(UnitManifoldsConfig{
-		LoggerContext:       loggerContext,
-		Agent:               a,
-		LogSource:           bufferedLogger.Logs(),
-		LeadershipGuarantee: 30 * time.Second,
-		AgentConfigChanged:  a.configChangedVal,
-		ValidateMigration:   a.validateMigration,
-		UpdateLoggerConfig:  updateAgentConfLogging,
-		MachineLock:         machineLock,
-		Clock:               a.clock,
+		LoggerContext:        loggerContext,
+		Agent:                a,
+		LogSource:            bufferedLogger.Logs(),
+		LeadershipGuarantee:  30 * time.Second,
+		AgentConfigChanged:   a.configChangedVal,
+		ValidateMigration:    a.validateMigration,
+		UpdateLoggerConfig:   updateAgentConfLogging,
+		MachineLock:          machineLock,
+		Clock:                a.clock,
+		HTTPClientGetter:     a.httpClientGetter,
+		PrometheusRegisterer: a.prometheusRegistry,
 	})
 	depEngineConfig := a.unitEngineConfig()
 	// TODO: tweak IsFatal error func, maybe?
@@ -290,6 +299,9 @@ func (a *UnitAgent) initLogging() (logger.LoggerContext, *logsender.BufferedLogW
 	closeLogging := func() {
 		if _, err = loggerContext.RemoveWriter("file"); err != nil {
 			a.logger.Errorf(context.TODO(), "%q remove writer: %s", a.name, err)
+		}
+		if _, err = loggerContext.RemoveWriter("buffered-logs"); err != nil {
+			a.logger.Errorf(context.TODO(), "%q remove buffered-logs writer: %s", a.name, err)
 		}
 		bufferedLogger.Close()
 		if err = ljLogger.Close(); err != nil {

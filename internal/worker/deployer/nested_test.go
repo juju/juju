@@ -4,6 +4,8 @@
 package deployer_test
 
 import (
+	"context"
+	"net/http"
 	"os"
 	"path"
 	stdtesting "testing"
@@ -11,7 +13,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
@@ -22,8 +23,10 @@ import (
 	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/flightrecorder"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -80,19 +83,32 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 		logger:  logger,
 	}
 	s.config = deployer.ContextConfig{
-		Agent:          s.agent,
-		FlightRecorder: flightrecorder.NoopRecorder{},
-		Clock:          clock.WallClock,
-		Logger:         logger,
+		Agent:            s.agent,
+		FlightRecorder:   flightrecorder.NoopRecorder{},
+		Clock:            clock.WallClock,
+		Logger:           logger,
+		HTTPClientGetter: stubHTTPClientGetter{},
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),
-				loggo.GetLogger("juju.worker.dependency"),
+				internaldependency.WrapLogger(loggertesting.WrapCheckLog(c)),
 			)
 		},
 		SetupLogging:  func(corelogger.LoggerContext, agent.Config) {},
 		UnitManifolds: s.workers.Manifolds,
 	}
+}
+
+type stubHTTPClientGetter struct{}
+
+func (stubHTTPClientGetter) GetHTTPClient(context.Context, corehttp.Purpose) (corehttp.HTTPClient, error) {
+	return stubHTTPClient{}, nil
+}
+
+type stubHTTPClient struct{}
+
+func (stubHTTPClient) Do(*http.Request) (*http.Response, error) {
+	return nil, nil
 }
 
 func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *tc.C) {

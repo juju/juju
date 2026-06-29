@@ -5,13 +5,8 @@
 
 package main
 
-import (
-	"os"
-
-	"github.com/juju/juju/internal/debug/coveruploader"
-)
+import "os"
 
 func main() {
-	coveruploader.Enable()
 	os.Exit(Main(os.Args))
 }

@@ -21,10 +21,6 @@ const (
 	// the migration's phase changed concurrently (optimistic-lock conflict).
 	ErrPhaseTransitionInvalid = errors.ConstError("invalid migration phase transition")
 
-	// ErrExternalControllerConflict indicates that an external controller record
-	// cannot be reconciled with supplied migration details.
-	ErrExternalControllerConflict = errors.ConstError("external controller already exists with different details")
-
 	// ErrConflictingMinionReport indicates that a minion submitted a report for
 	// a (migration, phase, entity) triple that already has a report with a
 	// different success value. Reports are idempotent for an identical value but
@@ -35,4 +31,26 @@ const (
 	// no usable API addresses for a target controller to dial back during model
 	// activation, so the migration cannot complete.
 	ErrSourceControllerNoAPIAddresses = errors.ConstError("source controller has no usable API addresses")
+
+	// ErrImportNotFound indicates that no target-side import
+	// (model_migration_import row) exists for the model.
+	ErrImportNotFound = errors.ConstError("import not found")
+
+	// ErrImportClaimExists indicates that a target-side import claim
+	// (model_migration_import row) already exists for the model. The caller
+	// should read the existing claim's phase to report the correct
+	// AlreadyExists wording (cleanup/activation in progress, or a duplicate
+	// importing claim).
+	ErrImportClaimExists = errors.ConstError("import claim already exists")
+
+	// ErrImportNotImporting indicates that a target-side import claim exists
+	// for the model but has moved past the importing phase (activating or
+	// aborting), so a controller-data write group must stop without writing.
+	ErrImportNotImporting = errors.ConstError("import claim is not in the importing phase")
+
+	// ErrExternalControllerMismatch indicates that a third-party external
+	// controller or external model referenced by a v8 import envelope already
+	// exists on the target with different connection details. A v8 import
+	// never overwrites live CMR connection data.
+	ErrExternalControllerMismatch = errors.ConstError("external controller details do not match")
 )

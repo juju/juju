@@ -391,16 +391,15 @@ func (c *containerUnitAgent) validateMigration(ctx context.Context, apiCaller ba
 
 // AgentDone processes the error returned by an exiting agent.
 func AgentDone(logger corelogger.Logger, err error) error {
-	err = errors.Cause(err)
-	switch err {
-	case internalworker.ErrTerminateAgent:
+	switch {
+	case errors.Is(err, internalworker.ErrTerminateAgent):
 		// These errors are swallowed here because we want to exit
 		// the agent process without error, to avoid the init system
 		// restarting us.
 		logger.Infof(context.TODO(), "agent terminating")
 		err = nil
 	}
-	if err == internalworker.ErrRestartAgent {
+	if errors.Is(err, internalworker.ErrRestartAgent) {
 		// This does not seem to happen for k8s units.
 		logger.Infof(context.TODO(), "agent restarting")
 	}

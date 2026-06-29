@@ -4,6 +4,7 @@
 package logsender
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -11,7 +12,7 @@ import (
 
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 )
 
 // LogRecord represents a log message in an agent which is to be
@@ -70,6 +71,35 @@ func UninstallBufferedLogWriter() error {
 	}
 	bufWriter.Close()
 	return nil
+}
+
+const legacyLogSinkWriterName = "logsink"
+
+// EnsureBufferedLogWriterOnDefaultContext installs a BufferedLogWriter on
+// the default loggo context. If a "buffered-logs" writer is already present
+// it is replaced. Returns the writer and any error.
+func EnsureBufferedLogWriterOnDefaultContext(maxLen int) (*BufferedLogWriter, error) {
+	writer := NewBufferedLogWriter(maxLen)
+	_, _ = loggo.DefaultContext().RemoveWriter(writerName)
+	err := loggo.DefaultContext().AddWriter(writerName, writer)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to set up log buffering")
+	}
+	return writer, nil
+}
+
+// RemoveLegacyLogSinkWriter removes the "logsink" writer from the default
+// loggo context. It is idempotent and returns nil if the writer was not found.
+func RemoveLegacyLogSinkWriter() {
+	_, _ = loggo.DefaultContext().RemoveWriter(legacyLogSinkWriterName)
+}
+
+// AddLegacyLogSinkWriter ensures the "logsink" writer is installed in the
+// default loggo context. If a "logsink" writer is already present it is
+// replaced. Returns any error from installing the writer.
+func AddLegacyLogSinkWriter(writer loggo.Writer) error {
+	_, _ = loggo.DefaultContext().RemoveWriter(legacyLogSinkWriterName)
+	return loggo.DefaultContext().AddWriter(legacyLogSinkWriterName, writer)
 }
 
 // BufferedLogWriter is a loggo.Writer which buffers log messages in
@@ -147,15 +177,20 @@ func (w *BufferedLogWriter) loop() {
 
 // Write sends a new log message to the writer.
 // This implements the loggo.Writer interface.
-func (w *BufferedLogWriter) Write(entry loggo.Entry) {
-	w.in <- &LogRecord{
+func (w *BufferedLogWriter) Write(ctx context.Context, entry loggo.Entry) error {
+	select {
+	case w.in <- &LogRecord{
 		Time:     entry.Timestamp,
 		Module:   entry.Module,
 		Location: fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
 		Level:    entry.Level,
 		Message:  entry.Message,
 		Labels:   entry.Labels,
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
 	}
+	return nil
 }
 
 // Logs returns a channel which emits log messages that have been sent

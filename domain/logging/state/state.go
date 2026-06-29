@@ -1,0 +1,165 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package state
+
+import (
+	"context"
+
+	"github.com/canonical/sqlair"
+
+	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
+	"github.com/juju/juju/internal/errors"
+)
+
+// State implements persistence for logging configuration.
+type State struct {
+	*domain.StateBase
+}
+
+// NewState returns a new state reference.
+func NewState(factory database.TxnRunnerFactory) *State {
+	return &State{
+		StateBase: domain.NewStateBase(factory),
+	}
+}
+
+// SetLokiConfig sets the Loki push API endpoint, CA certificate, and
+// insecure skip verify setting. Any previously stored config is replaced.
+func (st *State) SetLokiConfig(ctx context.Context, id string, config logging.LokiConfig) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Errorf("getting database: %w", err)
+	}
+
+	deleteStmt, err := st.Prepare(`DELETE FROM logging_loki_config`)
+	if err != nil {
+		return errors.Errorf("preparing delete statement: %w", err)
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO logging_loki_config (uuid, endpoint, ca_cert, insecure_skip_verify)
+VALUES ($lokiConfig.uuid, $lokiConfig.endpoint, $lokiConfig.ca_cert, $lokiConfig.insecure_skip_verify)`,
+		lokiConfig{})
+	if err != nil {
+		return errors.Errorf("preparing insert statement: %w", err)
+	}
+
+	dbConfig := lokiConfig{
+		UUID:               id,
+		Endpoint:           config.Endpoint,
+		CACertificate:      &config.CACertificate,
+		InsecureSkipVerify: nsBoolToNil(config.InsecureSkipVerify),
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, deleteStmt).Run(); err != nil {
+			return errors.Errorf("deleting existing loki endpoint: %w", err)
+		}
+		if err := tx.Query(ctx, insertStmt, dbConfig).Run(); err != nil {
+			return errors.Errorf("inserting loki endpoint: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return errors.Errorf("setting loki endpoint: %w", err)
+	}
+	return nil
+}
+
+// GetLokiConfig returns the configured Loki push API endpoint, CA certificate,
+// and insecure skip verify setting. If no endpoint is configured, an error
+// satisfying [loggingerrors.LokiConfigNotFound] is returned.
+func (st *State) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return logging.LokiConfig{}, errors.Errorf("getting database: %w", err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &lokiConfig.* FROM logging_loki_config
+`, lokiConfig{})
+	if err != nil {
+		return logging.LokiConfig{}, errors.Errorf("preparing select statement: %w", err)
+	}
+
+	var config lokiConfig
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Get(&config); errors.Is(err, sqlair.ErrNoRows) {
+			return loggingerrors.LokiConfigNotFound
+		} else if err != nil {
+			return errors.Errorf("getting loki config: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return logging.LokiConfig{}, errors.Errorf("getting loki config: %w", err)
+	}
+
+	var caCert string
+	if config.CACertificate != nil {
+		caCert = *config.CACertificate
+	}
+	return logging.LokiConfig{
+		Endpoint:           config.Endpoint,
+		CACertificate:      caCert,
+		InsecureSkipVerify: nsBoolToPtr(config.InsecureSkipVerify),
+	}, nil
+}
+
+// DeleteLokiConfig removes the configured Loki push API config. If no config
+// is configured, this is a no-op.
+func (st *State) DeleteLokiConfig(ctx context.Context) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Errorf("getting database: %w", err)
+	}
+
+	stmt, err := st.Prepare(`DELETE FROM logging_loki_config`)
+	if err != nil {
+		return errors.Errorf("preparing delete statement: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt).Run(); err != nil {
+			return errors.Errorf("deleting loki endpoint: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return errors.Errorf("deleting loki endpoint: %w", err)
+	}
+	return nil
+}
+
+// IsLokiEnabled returns true if a Loki config exists with a non-empty
+// endpoint.
+func (st *State) IsLokiEnabled(ctx context.Context) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Errorf("getting database: %w", err)
+	}
+
+	stmt, err := st.Prepare(`
+WITH loki_check AS (
+    SELECT EXISTS (
+        SELECT 1
+        FROM logging_loki_config
+        WHERE endpoint != ''
+    ) AS enabled
+)
+SELECT enabled AS &lokiExistsRow.enabled
+FROM loki_check
+`, lokiExistsRow{})
+	if err != nil {
+		return false, errors.Errorf("preparing statement: %w", err)
+	}
+
+	var row lokiExistsRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&row)
+	}); err != nil {
+		return false, errors.Errorf("checking loki config: %w", err)
+	}
+	return row.Enabled, nil
+}

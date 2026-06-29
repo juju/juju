@@ -118,8 +118,8 @@ func (s *modelSecretsSuite) createSecret(c *tc.C, uri *coresecrets.URI, content 
 		}
 		revisionUUID := internaluuid.MustNewUUID().String()
 		_, err = tx.ExecContext(ctx,
-			`INSERT INTO secret_revision (uuid, secret_id, revision, create_time) VALUES (?, ?, ?, ?)`,
-			revisionUUID, uri.ID, 1, now,
+			`INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) VALUES (?, ?, ?, ?, ?)`,
+			revisionUUID, uri.ID, 1, now, now,
 		)
 		if err != nil {
 			return err
@@ -155,9 +155,9 @@ func (s *modelSecretsSuite) addRevision(c *tc.C, uri *coresecrets.URI, content m
 		revisionUUID := internaluuid.MustNewUUID().String()
 		_, err := tx.ExecContext(ctx,
 			`
-INSERT INTO secret_revision (uuid, secret_id, revision, create_time) 
-VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?)`,
-			revisionUUID, uri.ID, uri.ID, now,
+INSERT INTO secret_revision (uuid, secret_id, revision, create_time, update_time) 
+VALUES (?, ?, (SELECT MAX(revision)+1 FROM secret_revision WHERE secret_id=?), ?, ?)`,
+			revisionUUID, uri.ID, uri.ID, now, now,
 		)
 		if err != nil {
 			return err

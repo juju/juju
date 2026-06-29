@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/logging"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/auth"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -102,6 +104,19 @@ type PermissionService interface {
 type TracingService interface {
 	// SetCharmTracingConfig sets the charm tracing configuration to the provided values.
 	SetCharmTracingConfig(ctx context.Context, config tracingservice.CharmTracingConfig) error
+
+	// SetWorkloadTracingConfig sets the workload tracing configuration to the
+	// provided values.
+	SetWorkloadTracingConfig(ctx context.Context, config tracingservice.WorkloadTracingConfig) error
+}
+
+// LoggingService is the interface for the logging service.
+type LoggingService interface {
+	// SetLokiConfig sets the Loki push API endpoint and CA certificate.
+	SetLokiConfig(ctx context.Context, config logging.LokiConfig) error
+
+	// DeleteLokiConfig removes the configured Loki push API config.
+	DeleteLokiConfig(ctx context.Context) error
 }
 
 // Config represents configuration for the controlsocket worker.
@@ -110,6 +125,10 @@ type Config struct {
 	AccessService AccessService
 	// TracingService is the tracing service for the model.
 	TracingService TracingService
+	// LoggingService is the logging service for the controller.
+	LoggingService LoggingService
+	// ObjectStoreService is the object store service for the controller.
+	ObjectStoreService ControllerObjectStoreService
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -118,12 +137,18 @@ type Config struct {
 	Logger logger.Logger
 	// ControllerModelUUID is the uuid of the controller model.
 	ControllerModelUUID model.UUID
+	// MetricsCollector is the collector used by the worker to record request
+	// metrics.
+	MetricsCollector *Collector
 }
 
 // Validate returns an error if config cannot drive the Worker.
 func (config Config) Validate() error {
 	if config.AccessService == nil {
 		return internalerrors.New("nil AccessService").Add(coreerrors.NotValid)
+	}
+	if config.ObjectStoreService == nil {
+		return internalerrors.New("nil ObjectStoreService").Add(coreerrors.NotValid)
 	}
 	if config.ControllerModelUUID == "" {
 		return internalerrors.New("empty ControllerModelUUID").Add(coreerrors.NotValid)
@@ -137,6 +162,9 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return internalerrors.New("nil Logger").Add(coreerrors.NotValid)
 	}
+	if config.MetricsCollector == nil {
+		return internalerrors.New("nil MetricsCollector").Add(coreerrors.NotValid)
+	}
 	return nil
 }
 
@@ -144,13 +172,16 @@ func (config Config) Validate() error {
 type Worker struct {
 	catacomb catacomb.Catacomb
 
-	accessService  AccessService
-	tracingService TracingService
+	accessService      AccessService
+	tracingService     TracingService
+	loggingService     LoggingService
+	objectStoreService ControllerObjectStoreService
 
 	controllerModelUUID model.UUID
 	userCreatorName     user.Name
 
-	logger logger.Logger
+	logger  logger.Logger
+	metrics *Collector
 }
 
 // NewWorker returns a controlsocket worker with the given config.
@@ -167,10 +198,13 @@ func NewWorker(config Config) (worker.Worker, error) {
 	w := &Worker{
 		accessService:       config.AccessService,
 		tracingService:      config.TracingService,
+		loggingService:      config.LoggingService,
+		objectStoreService:  config.ObjectStoreService,
 		controllerModelUUID: config.ControllerModelUUID,
 		userCreatorName:     userCreatorName,
 
-		logger: config.Logger,
+		logger:  config.Logger,
+		metrics: config.MetricsCollector,
 	}
 
 	sl, err := config.NewSocketListener(socketlistener.Config{
@@ -228,9 +262,9 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	//
 	// A user created by this endpoint can be removed by sending a DELETE
 	// request to the /metrics-users/{username} endpoint.
-	r.Handle("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser)).
+	r.Handle("/metrics-users", w.withMetrics("/metrics-users", w.handleJSONPost(w.handleAddMetricsUser))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/metrics-users/{username}", w.handleRemoveMetricsUser).
+	r.Handle("/metrics-users/{username}", w.withMetrics("/metrics-users/{username}", http.HandlerFunc(w.handleRemoveMetricsUser))).
 		Methods(http.MethodDelete)
 
 	// charm-tracing-config endpoint for managing charm tracing configuration.
@@ -246,8 +280,63 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// The worker will update the charm tracing configuration with the provided
 	// values. Any field that are omitted or empty will be removed from the
 	// charm tracing configuration.
-	r.Handle("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig)).
+	r.Handle("/charm-tracing-config", w.withMetrics("/charm-tracing-config", w.handleJSONPost(w.handleSetCharmTracingConfig))).
 		Methods(http.MethodPost)
+
+	// workload-tracing-config endpoint for managing workload tracing
+	// configuration. This is a POST endpoint that accepts a JSON body with the
+	// following format:
+	//
+	// {
+	//   "http_endpoint": <string>,
+	//   "grpc_endpoint": <string>,
+	//   "ca_cert": <string>,
+	//   "open_telemetry_stack_traces": <bool>,
+	//   "open_telemetry_sample_ratio": <float>,
+	//   "open_telemetry_tail_sampling_threshold": <string>,
+	//   "open_telemetry_insecure_skip_verify": <bool>,
+	// }
+	//
+	// The worker will update the workload tracing configuration with the
+	// provided values. Any field that are omitted or empty will be removed from
+	// the workload tracing configuration.
+	r.Handle("/workload-tracing-config", w.withMetrics("/workload-tracing-config", w.handleJSONPost(w.handleSetWorkloadTracingConfig))).
+		Methods(http.MethodPost)
+
+	// s3-credentials endpoint for managing object store credentials when S3 is
+	// used as the backend. This is a POST endpoint that accepts a JSON body
+	// with the following format:
+	//
+	// {
+	//   "endpoint": <string>,
+	//   "access_key": <string>,
+	//   "secret_key": <string>,
+	// }
+	//
+	// The worker will update the object store configuration with the provided
+	// S3 credentials.
+	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials))).
+		Methods(http.MethodPost)
+	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", http.HandlerFunc(w.handleRemoveS3Credentials))).
+		Methods(http.MethodDelete)
+
+	// loki-endpoint endpoint for managing the Loki push API endpoint. This
+	// is a POST endpoint that accepts a JSON body with the following format:
+	//
+	// {
+	//   "url": <string>,
+	// }
+	//
+	// The worker will persist the Loki endpoint in the controller database
+	// so it can be distributed to agents for direct log shipping.
+	r.Handle("/loki-endpoint", w.withMetrics("/loki-endpoint", w.handleJSONPost(w.handleSetLokiEndpoint))).
+		Methods(http.MethodPost)
+	r.Handle("/loki-endpoint", w.withMetrics("/loki-endpoint", http.HandlerFunc(w.handleRemoveLokiEndpoint))).
+		Methods(http.MethodDelete)
+}
+
+func (w *Worker) withMetrics(endpoint string, handler http.Handler) http.Handler {
+	return loggingMiddleware(metricsMiddleware(handler, w.metrics, endpoint), w.logger)
 }
 
 type addMetricsUserBody struct {
@@ -270,7 +359,7 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
 		default:
 			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
-				internalerrors.Errorf("request body is not valid JSON: %v", err))
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
 		}
 		return
 	}
@@ -316,7 +405,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		user, err := w.accessService.GetUserByAuth(ctx, validatedName, password)
 		if err != nil {
 			return http.StatusInternalServerError,
-				fmt.Errorf("retrieving existing user %q: %v", username, err)
+				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
 		}
 
 		// We want this operation to be idempotent, but at the same time, this
@@ -335,7 +424,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		accessLevel, err := w.accessService.ReadUserAccessLevelForTarget(ctx, validatedName, controllerModelID)
 		if err != nil {
 			return http.StatusInternalServerError,
-				fmt.Errorf("retrieving existing user %q: %v", username, err)
+				internalerrors.Errorf("retrieving existing user %q: %w", username, err)
 		} else if accessLevel != permission.ReadAccess {
 			return http.StatusNotFound, fmt.Errorf(
 				"unexpected permission for user %q, expected %q, got %q",
@@ -408,7 +497,7 @@ func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http
 				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
 		default:
 			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
-				internalerrors.Errorf("request body is not valid JSON: %v", err))
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
 		}
 		return
 	}
@@ -424,6 +513,157 @@ func (w *Worker) handleSetCharmTracingConfig(resp http.ResponseWriter, req *http
 	}
 
 	w.writeResponse(ctx, resp, http.StatusOK, "updated charm tracing config")
+}
+
+type setWorkloadTracingConfig struct {
+	HTTPEndpoint                       string   `json:"http_endpoint"`
+	GRPCEndpoint                       string   `json:"grpc_endpoint"`
+	CACert                             string   `json:"ca_cert"`
+	InsecureSkipVerify                 *bool    `json:"insecure_skip_verify"`
+	OpenTelemetryStackTraces           *bool    `json:"open_telemetry_stack_traces"`
+	OpenTelemetrySampleRatio           *float64 `json:"open_telemetry_sample_ratio"`
+	OpenTelemetryTailSamplingThreshold *string  `json:"open_telemetry_tail_sampling_threshold"`
+}
+
+func (w *Worker) handleSetWorkloadTracingConfig(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody setWorkloadTracingConfig
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	err := w.tracingService.SetWorkloadTracingConfig(ctx, tracingservice.WorkloadTracingConfig{
+		HTTPEndpoint:                       parsedBody.HTTPEndpoint,
+		GRPCEndpoint:                       parsedBody.GRPCEndpoint,
+		CACertificate:                      parsedBody.CACert,
+		InsecureSkipVerify:                 parsedBody.InsecureSkipVerify,
+		OpenTelemetryStackTraces:           parsedBody.OpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio:           parsedBody.OpenTelemetrySampleRatio,
+		OpenTelemetryTailSamplingThreshold: parsedBody.OpenTelemetryTailSamplingThreshold,
+	})
+	if internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid workload tracing config: %w", err))
+		return
+	}
+	if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, "updated workload tracing config")
+}
+
+type s3CredentialsRequest struct {
+	Endpoint  string `json:"endpoint"`
+	AccessKey string `json:"access_key"`
+	SecretKey string `json:"secret_key"`
+}
+
+func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody s3CredentialsRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	if err := w.objectStoreService.TransitionBackendToS3(ctx, domainobjectstore.S3Credentials{
+		Endpoint:  parsedBody.Endpoint,
+		AccessKey: parsedBody.AccessKey,
+		SecretKey: parsedBody.SecretKey,
+	}); internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid S3 credentials: %w", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving S3 credentials: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated S3 credentials"))
+}
+
+func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.Request) {
+	// We currently don't allow you to move to another s3 provider. This will
+	// be fixed in future requests.
+	w.writeErrorResponse(req.Context(), resp, http.StatusNotImplemented,
+		internalerrors.New("removing s3 credentials is not supported at this time"))
+}
+
+type lokiEndpointRequest struct {
+	URL                string `json:"url"`
+	CACertificate      string `json:"ca_cert"`
+	InsecureSkipVerify *bool  `json:"insecure_skip_verify"`
+}
+
+func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	var parsedBody lokiEndpointRequest
+	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		switch {
+		case internalerrors.Is(err, io.EOF):
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.New("missing request body"))
+		case internalerrors.As(err, &maxBytesErr):
+			w.writeErrorResponse(ctx, resp, http.StatusRequestEntityTooLarge,
+				internalerrors.Errorf("request body must not exceed %d bytes", maxPayloadBytes))
+		default:
+			w.writeErrorResponse(ctx, resp, http.StatusBadRequest,
+				internalerrors.Errorf("request body is not valid JSON: %w", err))
+		}
+		return
+	}
+
+	if err := w.loggingService.SetLokiConfig(ctx, logging.LokiConfig{
+		Endpoint:           parsedBody.URL,
+		CACertificate:      parsedBody.CACertificate,
+		InsecureSkipVerify: parsedBody.InsecureSkipVerify,
+	}); internalerrors.Is(err, coreerrors.NotValid) {
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid loki endpoint: %w", err))
+		return
+	} else if err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving loki endpoint: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated loki endpoint"))
+}
+
+func (w *Worker) handleRemoveLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+
+	if err := w.loggingService.DeleteLokiConfig(ctx); err != nil {
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("removing loki endpoint: %w", err))
+		return
+	}
+
+	w.writeResponse(ctx, resp, http.StatusOK, infof("removed loki endpoint"))
 }
 
 func (w *Worker) handleJSONPost(fn func(http.ResponseWriter, *http.Request)) http.Handler {
