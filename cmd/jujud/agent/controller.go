@@ -523,7 +523,7 @@ func (a *ControllerAgent) makeEngineCreator(
 		if err != nil {
 			return nil, err
 		}
-		updateAgentConfLogging := func(loggingConfig string) error {
+		updateConfig := func(loggingConfig string) error {
 			return controllerruntimeconfig.ChangeControllerRuntimeConfig(
 				a.controllerRuntimePath,
 				func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
@@ -580,7 +580,7 @@ func (a *ControllerAgent) makeEngineCreator(
 			FlightRecorder:                    flightRecorder,
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
-			UpdateLoggerConfig:                updateAgentConfLogging,
+			UpdateLoggerConfig:                updateConfig,
 			NewAgentStatusSetter:              a.statusSetter,
 			ControllerLeaseDuration:           time.Minute,
 			TransactionPruneInterval:          time.Hour,
@@ -662,11 +662,6 @@ func (a *ControllerAgent) startModelWorkers(
 		return nil, errors.Trace(err)
 	}
 
-	modelAgent, err := model.WrapAgent(a, controllerRuntimeConfig.ControllerUUID, cfg.ModelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	config := agentengine.DependencyEngineConfig(
 		cfg.ModelMetrics,
 		internaldependency.WrapLogger(
@@ -682,8 +677,6 @@ func (a *ControllerAgent) startModelWorkers(
 	}
 
 	manifoldsCfg := model.ManifoldsConfig{
-		Agent:                         modelAgent,
-		AgentConfigChanged:            a.configChangedVal,
 		Authority:                     cfg.Authority,
 		Clock:                         clock.WallClock,
 		LoggingContext:                cfg.LoggerContext,
