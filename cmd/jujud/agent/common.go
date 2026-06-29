@@ -10,7 +10,6 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/caas"
 	agentmodel "github.com/juju/juju/cmd/jujud/agent/model"
@@ -57,13 +56,13 @@ func (a *noopStatusSetter) SetStatus(_ context.Context, _ status.Status, _ strin
 	return nil
 }
 
-func applyTestingOverrides(agentConfig agent.Config, manifoldsCfg *agentmodel.ManifoldsConfig) {
-	if v := agentConfig.Value(agent.CharmRevisionUpdateInterval); v != "" {
-		charmRevisionUpdateInterval, err := time.ParseDuration(v)
+func applyTestingOverrides(charmRevisionUpdateInterval string, manifoldsCfg *agentmodel.ManifoldsConfig) {
+	if charmRevisionUpdateInterval != "" {
+		interval, err := time.ParseDuration(charmRevisionUpdateInterval)
 		if err == nil {
-			manifoldsCfg.CharmRevisionUpdateInterval = charmRevisionUpdateInterval
+			manifoldsCfg.CharmRevisionUpdateInterval = interval
 			logger.Infof(context.TODO(), "model worker charm revision update interval set to %v for testing",
-				charmRevisionUpdateInterval)
+				interval)
 		} else {
 			logger.Warningf(context.TODO(), "invalid charm revision update interval, using default %v: %v",
 				manifoldsCfg.CharmRevisionUpdateInterval, err)
