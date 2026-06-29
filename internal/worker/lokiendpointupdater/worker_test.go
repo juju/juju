@@ -4,10 +4,10 @@
 package lokiendpointupdater
 
 import (
-	"context"
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -17,18 +17,29 @@ import (
 	"github.com/juju/juju/api/agent/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
+var defaultLokiConfig = logger.ControllerLokiConfig{
+	Endpoint: "https://loki.example.com/loki/api/v1/push",
+	CACert:   "ca-cert",
+}
+
 type workerSuite struct {
 	testhelpers.IsolationSuite
-	agent         *fakeAgent
-	api           *fakeAPI
+
+	ctrl          *gomock.Controller
+	agent         *MockAgent
+	agentConfig   *MockConfig
+	api           *MockLoggerAPI
+	notifyWatcher *MockNotifyWatcher
+
+	tag           names.Tag
+	realConfig    agent.ConfigSetterWriter
 	configChanged *voyeur.Value
-	config        WorkerConfig
+	workerConfig  WorkerConfig
 }
 
 func TestWorkerSuite(t *testing.T) {
@@ -37,16 +48,21 @@ func TestWorkerSuite(t *testing.T) {
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.agent = &fakeAgent{config: newAgentConfig(c)}
-	s.api = &fakeAPI{
-		watcher: &mockNotifyWatcher{changes: make(chan struct{})},
-		config: logger.ControllerLokiConfig{
-			Endpoint: "https://loki.example.com/loki/api/v1/push",
-			CACert:   "ca-cert",
-		},
-	}
+	s.ctrl = gomock.NewController(c)
+
+	s.agent = NewMockAgent(s.ctrl)
+	s.agentConfig = NewMockConfig(s.ctrl)
+	s.api = NewMockLoggerAPI(s.ctrl)
+	s.notifyWatcher = NewMockNotifyWatcher(s.ctrl)
+
+	s.tag = names.NewMachineTag("0")
+	s.realConfig = newAgentConfig(c)
 	s.configChanged = voyeur.NewValue(true)
-	s.config = WorkerConfig{
+
+	s.agentConfig.EXPECT().Tag().Return(s.tag).AnyTimes()
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig).AnyTimes()
+
+	s.workerConfig = WorkerConfig{
 		Agent:              s.agent,
 		API:                s.api,
 		AgentConfigChanged: s.configChanged,
@@ -54,183 +70,205 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 	}
 }
 
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	return s.ctrl
+}
+
+// expectCurrentConfigReads sets up the mock expectations for the read side of
+// the current agent config. These are consulted in update() to decide whether
+// the config needs to be written.
+func (s *workerSuite) expectCurrentConfigReads(endpoint, caCert string, insecure *bool) {
+	s.agentConfig.EXPECT().LokiEndpoint().Return(endpoint).AnyTimes()
+	s.agentConfig.EXPECT().LokiCACert().Return(caCert).AnyTimes()
+	s.agentConfig.EXPECT().LokiInsecureSkipVerify().Return(insecure).AnyTimes()
+}
+
+// expectChangeConfig sets up ChangeConfig to invoke the mutator with a real
+// agent.ConfigSetterWriter so that SetLokiConfig is exercised and the written
+// values can be verified afterwards.
+func (s *workerSuite) expectChangeConfig() {
+	s.agent.EXPECT().ChangeConfig(gomock.Any()).
+		DoAndReturn(func(mutator agent.ConfigMutator) error {
+			return mutator(s.realConfig)
+		})
+}
+
+// expectGetLokiConfig sets up the GetControllerLokiConfig expectation.
+func (s *workerSuite) expectGetLokiConfig(config logger.ControllerLokiConfig, err error) {
+	s.api.EXPECT().GetControllerLokiConfig(gomock.Any(), gomock.Any()).
+		Return(config, err)
+}
+
+// expectWatch sets up the WatchControllerLokiConfig expectation.
+func (s *workerSuite) expectWatch() {
+	s.api.EXPECT().WatchControllerLokiConfig(gomock.Any(), gomock.Any()).
+		Return(s.notifyWatcher, nil)
+}
+
+// --- WorkerConfig.Validate tests ---
+
 func (s *workerSuite) TestValidate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Check(WorkerConfig{}.Validate(), tc.ErrorMatches, "missing agent not valid")
 
-	config := s.config
+	config := s.workerConfig
 	config.API = nil
 	c.Check(config.Validate(), tc.ErrorMatches, "missing api not valid")
 
-	config = s.config
+	config = s.workerConfig
 	config.AgentConfigChanged = nil
 	c.Check(config.Validate(), tc.ErrorMatches, "nil AgentConfigChanged not valid")
 
-	config = s.config
+	config = s.workerConfig
 	config.Logger = nil
 	c.Check(config.Validate(), tc.ErrorMatches, "missing logger not valid")
 
-	c.Check(s.config.Validate(), tc.ErrorIsNil)
+	c.Check(s.workerConfig.Validate(), tc.ErrorIsNil)
 }
 
+// --- SetUp tests ---
+
 func (s *workerSuite) TestSetUpPersistsInitialConfigAndStartsWatcher(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectGetLokiConfig(defaultLokiConfig, nil)
+	s.expectCurrentConfigReads("", "", nil)
+	s.expectChangeConfig()
+	s.expectWatch()
+
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 
 	w, err := worker.SetUp(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(w, tc.Equals, s.api.watcher)
-	c.Check(s.agent.config.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
-	c.Check(s.agent.config.LokiCACert(), tc.Equals, "ca-cert")
-	c.Check(s.agent.changeCalls, tc.Equals, 1)
-	c.Check(s.api.getTag, tc.Equals, s.agent.config.Tag())
-	c.Check(s.api.watchTag, tc.Equals, s.agent.config.Tag())
+	c.Check(w, tc.Equals, s.notifyWatcher)
+	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(s.realConfig.LokiCACert(), tc.Equals, "ca-cert")
 	assertConfigChanged(c, changeCh)
 }
 
 func (s *workerSuite) TestSetUpDoesNotWriteUnchangedConfig(c *tc.C) {
-	s.agent.config.SetLokiConfig(s.api.config.Endpoint, &s.api.config.CACert, s.api.config.InsecureSkipVerify)
+	defer s.setupMocks(c).Finish()
+
+	s.expectGetLokiConfig(defaultLokiConfig, nil)
+	s.expectCurrentConfigReads(defaultLokiConfig.Endpoint, defaultLokiConfig.CACert, defaultLokiConfig.InsecureSkipVerify)
+	s.expectWatch()
+
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 
 	_, err := worker.SetUp(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.agent.changeCalls, tc.Equals, 0)
+	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "")
+	c.Check(s.realConfig.LokiCACert(), tc.Equals, "")
 	assertNoConfigChanged(c, changeCh)
 }
 
+// --- Handle tests ---
+
 func (s *workerSuite) TestHandlePersistsChangedConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	oldCACert := "old-ca"
-	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", &oldCACert, nil)
+	s.expectGetLokiConfig(defaultLokiConfig, nil)
+	s.expectCurrentConfigReads("https://old-loki.example.com/loki/api/v1/push", oldCACert, nil)
+	s.expectChangeConfig()
+
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 
 	err := worker.Handle(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.agent.config.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
-	c.Check(s.agent.config.LokiCACert(), tc.Equals, "ca-cert")
-	c.Check(s.agent.changeCalls, tc.Equals, 1)
+	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(s.realConfig.LokiCACert(), tc.Equals, "ca-cert")
 	assertConfigChanged(c, changeCh)
 }
 
 func (s *workerSuite) TestHandlePersistsEmptyConfigForLogSinkMode(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	oldCACert := "old-ca"
-	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", &oldCACert, nil)
-	s.api.config = logger.ControllerLokiConfig{}
+	s.expectGetLokiConfig(logger.ControllerLokiConfig{}, nil)
+	s.expectCurrentConfigReads("https://old-loki.example.com/loki/api/v1/push", oldCACert, nil)
+	s.expectChangeConfig()
+
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 
 	err := worker.Handle(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.agent.config.LokiEndpoint(), tc.Equals, "")
-	c.Check(s.agent.config.LokiCACert(), tc.Equals, "")
-	c.Check(s.agent.changeCalls, tc.Equals, 1)
+	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "")
+	c.Check(s.realConfig.LokiCACert(), tc.Equals, "")
 	assertConfigChanged(c, changeCh)
 }
 
 func (s *workerSuite) TestHandlePersistsEmptyConfigForLokiConfigNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
 	oldCACert := "old-ca"
-	s.agent.config.SetLokiConfig("https://old-loki.example.com/loki/api/v1/push", &oldCACert, nil)
 	// The API client restores params.CodeNotFound errors into a
 	// coreerrors.NotFound-satisfying error before returning them to the
 	// worker, so simulate that translated error here.
-	s.api.getErr = errors.NewNotFound(errors.New("loki config not found"), "")
+	s.expectGetLokiConfig(logger.ControllerLokiConfig{}, errors.NewNotFound(errors.New("loki config not found"), ""))
+	s.expectCurrentConfigReads("https://old-loki.example.com/loki/api/v1/push", oldCACert, nil)
+	s.expectChangeConfig()
+
 	changeCh := watchConfigChanged(s.configChanged)
 	worker := s.newUpdater(c)
 
 	err := worker.Handle(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(s.agent.config.LokiEndpoint(), tc.Equals, "")
-	c.Check(s.agent.config.LokiCACert(), tc.Equals, "")
-	c.Check(s.agent.changeCalls, tc.Equals, 1)
+	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "")
+	c.Check(s.realConfig.LokiCACert(), tc.Equals, "")
 	assertConfigChanged(c, changeCh)
 }
 
 func (s *workerSuite) TestHandleGetError(c *tc.C) {
-	s.api.getErr = errors.New("boom")
+	defer s.setupMocks(c).Finish()
+
+	s.expectGetLokiConfig(logger.ControllerLokiConfig{}, errors.New("boom"))
+	s.expectCurrentConfigReads("", "", nil)
+
 	worker := s.newUpdater(c)
 
 	err := worker.Handle(c.Context())
 
 	c.Assert(err, tc.ErrorMatches, "getting controller loki config: boom")
-	c.Check(s.agent.changeCalls, tc.Equals, 0)
+	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "")
+	c.Check(s.realConfig.LokiCACert(), tc.Equals, "")
 }
 
 func (s *workerSuite) TestHandleChangeConfigError(c *tc.C) {
-	s.agent.changeErr = errors.New("boom")
+	defer s.setupMocks(c).Finish()
+
+	s.expectGetLokiConfig(defaultLokiConfig, nil)
+	s.expectCurrentConfigReads("", "", nil)
+	s.agent.EXPECT().ChangeConfig(gomock.Any()).Return(errors.New("boom"))
+
 	worker := s.newUpdater(c)
 
 	err := worker.Handle(c.Context())
 
 	c.Assert(err, tc.ErrorMatches, "updating agent loki config: boom")
-	c.Check(s.agent.config.LokiEndpoint(), tc.Equals, "")
-	c.Check(s.agent.config.LokiCACert(), tc.Equals, "")
+	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "")
+	c.Check(s.realConfig.LokiCACert(), tc.Equals, "")
 }
+
+// --- Helpers ---
 
 func (s *workerSuite) newUpdater(c *tc.C) *lokiEndpointUpdater {
-	c.Assert(s.config.Validate(), tc.ErrorIsNil)
+	c.Assert(s.workerConfig.Validate(), tc.ErrorIsNil)
 	return &lokiEndpointUpdater{
-		config: s.config,
-		tag:    s.agent.config.Tag(),
+		config: s.workerConfig,
+		tag:    s.tag,
 	}
 }
-
-type fakeAgent struct {
-	config      agent.ConfigSetterWriter
-	changeErr   error
-	changeCalls int
-}
-
-func (a *fakeAgent) CurrentConfig() agent.Config {
-	return a.config
-}
-
-func (a *fakeAgent) ChangeConfig(mutator agent.ConfigMutator) error {
-	if a.changeErr != nil {
-		return a.changeErr
-	}
-	a.changeCalls++
-	return mutator(a.config)
-}
-
-type fakeAPI struct {
-	config   logger.ControllerLokiConfig
-	getErr   error
-	watchErr error
-	watcher  watcher.NotifyWatcher
-	getTag   names.Tag
-	watchTag names.Tag
-}
-
-func (a *fakeAPI) GetControllerLokiConfig(_ context.Context, tag names.Tag) (logger.ControllerLokiConfig, error) {
-	a.getTag = tag
-	return a.config, a.getErr
-}
-
-func (a *fakeAPI) WatchControllerLokiConfig(_ context.Context, tag names.Tag) (watcher.NotifyWatcher, error) {
-	a.watchTag = tag
-	return a.watcher, a.watchErr
-}
-
-type mockNotifyWatcher struct {
-	changes chan struct{}
-}
-
-func (m *mockNotifyWatcher) Kill() {}
-
-func (m *mockNotifyWatcher) Wait() error {
-	return nil
-}
-
-func (m *mockNotifyWatcher) Changes() watcher.NotifyChannel {
-	return m.changes
-}
-
-var _ watcher.NotifyWatcher = (*mockNotifyWatcher)(nil)
 
 func newAgentConfig(c *tc.C) agent.ConfigSetterWriter {
 	cfg, err := agent.NewAgentConfig(agent.AgentConfigParams{
