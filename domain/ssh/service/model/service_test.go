@@ -239,8 +239,6 @@ type stubModelState struct {
 	unitKeys           map[string]string
 	unitAlgos          map[string]int
 	unitMachines       map[string]string
-	machineSetCalls    int
-	unitSetCalls       int
 	insertedReq        domainssh.SSHConnRequest
 	insertNow          time.Time
 	getReq             domainssh.SSHConnRequest
