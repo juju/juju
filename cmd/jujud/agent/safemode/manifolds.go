@@ -7,13 +7,10 @@ import (
 	"maps"
 
 	"github.com/juju/clock"
-	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	coreagent "github.com/juju/juju/agent"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/querylogger"
@@ -22,14 +19,6 @@ import (
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
-	// Agent contains the agent that will be wrapped and made available to
-	// its dependencies via a dependency.Engine.
-	Agent coreagent.Agent
-
-	// AgentConfigChanged is set whenever the controller agent's config
-	// is updated.
-	AgentConfigChanged *voyeur.Value
-
 	// NewDBWorkerFunc returns a tracked db worker.
 	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
@@ -57,11 +46,6 @@ type ManifoldsConfig struct {
 // Thou Shalt Not Use String Literals In This Function. Or Else.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return dependency.Manifolds{
-		// The agent manifold references the enclosing agent, and is the
-		// foundation stone on which most other manifolds ultimately
-		// depend.
-		agentName: agent.Manifold(config.Agent),
-
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running in.
 		terminationName: terminationworker.Manifold(),
@@ -128,7 +112,6 @@ func mergeManifolds(
 }
 
 const (
-	agentName       = "agent"
 	terminationName = "termination-signal-handler"
 
 	controllerAgentConfigName = "controller-agent-config"
