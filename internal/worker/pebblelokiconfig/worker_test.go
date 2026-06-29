@@ -33,7 +33,6 @@ func TestWorkerSuite(t *testing.T) {
 type workerSuite struct {
 	testhelpers.IsolationSuite
 
-	ctrl   *gomock.Controller
 	agent  *MockAgent
 	config *MockConfig
 	api    *MockLoggerAPI
@@ -45,15 +44,26 @@ type workerSuite struct {
 	workerConfig WorkerConfig
 }
 
-func (s *workerSuite) SetUpTest(c *tc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.ctrl = gomock.NewController(c)
+// expectWatch sets up the WatchControllerLokiConfig expectation. Tests
+// must call this (or expectWatchError) instead of relying on a default.
+func (s *workerSuite) expectWatch() {
+	s.api.EXPECT().WatchControllerLokiConfig(gomock.Any(), gomock.Any()).
+		Return(s.nw, nil).AnyTimes()
+}
 
-	s.agent = NewMockAgent(s.ctrl)
-	s.config = NewMockConfig(s.ctrl)
-	s.api = NewMockLoggerAPI(s.ctrl)
-	s.pebble = NewMockPebbleClient(s.ctrl)
-	s.nw = NewMockNotifyWatcher(s.ctrl)
+func (s *workerSuite) expectWatchError(err error) {
+	s.api.EXPECT().WatchControllerLokiConfig(gomock.Any(), gomock.Any()).
+		Return(nil, err).AnyTimes()
+}
+
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.agent = NewMockAgent(ctrl)
+	s.config = NewMockConfig(ctrl)
+	s.api = NewMockLoggerAPI(ctrl)
+	s.pebble = NewMockPebbleClient(ctrl)
+	s.nw = NewMockNotifyWatcher(ctrl)
 
 	s.changes = make(chan struct{}, 10)
 
@@ -76,25 +86,17 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 			return s.pebble, nil
 		},
 	}
-}
 
-// expectWatch sets up the WatchControllerLokiConfig expectation. Tests
-// must call this (or expectWatchError) instead of relying on a default.
-func (s *workerSuite) expectWatch() {
-	s.api.EXPECT().WatchControllerLokiConfig(gomock.Any(), gomock.Any()).
-		Return(s.nw, nil).AnyTimes()
-}
+	c.Cleanup(func() {
+		s.agent = nil
+		s.config = nil
+		s.api = nil
+		s.pebble = nil
+		s.nw = nil
+	})
 
-func (s *workerSuite) expectWatchError(err error) {
-	s.api.EXPECT().WatchControllerLokiConfig(gomock.Any(), gomock.Any()).
-		Return(nil, err).AnyTimes()
+	return ctrl
 }
-
-func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	return s.ctrl
-}
-
-// --- WorkerConfig.Validate tests ---
 
 func (s *workerSuite) TestWorkerConfigValidate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -119,8 +121,6 @@ func (s *workerSuite) TestWorkerConfigValidate(c *tc.C) {
 
 	c.Check(s.workerConfig.Validate(), tc.ErrorIsNil)
 }
-
-// --- NewWorker tests ---
 
 func (s *workerSuite) TestNewWorkerValidatesConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()

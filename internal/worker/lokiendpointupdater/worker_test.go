@@ -30,7 +30,6 @@ var defaultLokiConfig = logger.ControllerLokiConfig{
 type workerSuite struct {
 	testhelpers.IsolationSuite
 
-	ctrl          *gomock.Controller
 	agent         *MockAgent
 	agentConfig   *MockConfig
 	api           *MockLoggerAPI
@@ -48,16 +47,18 @@ func TestWorkerSuite(t *testing.T) {
 
 func (s *workerSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.ctrl = gomock.NewController(c)
-
-	s.agent = NewMockAgent(s.ctrl)
-	s.agentConfig = NewMockConfig(s.ctrl)
-	s.api = NewMockLoggerAPI(s.ctrl)
-	s.notifyWatcher = NewMockNotifyWatcher(s.ctrl)
-
 	s.tag = names.NewMachineTag("0")
 	s.realConfig = newAgentConfig(c)
 	s.configChanged = voyeur.NewValue(true)
+}
+
+func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.agent = NewMockAgent(ctrl)
+	s.agentConfig = NewMockConfig(ctrl)
+	s.api = NewMockLoggerAPI(ctrl)
+	s.notifyWatcher = NewMockNotifyWatcher(ctrl)
 
 	s.agentConfig.EXPECT().Tag().Return(s.tag).AnyTimes()
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig).AnyTimes()
@@ -68,10 +69,15 @@ func (s *workerSuite) SetUpTest(c *tc.C) {
 		AgentConfigChanged: s.configChanged,
 		Logger:             loggertesting.WrapCheckLog(c),
 	}
-}
 
-func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
-	return s.ctrl
+	c.Cleanup(func() {
+		s.agent = nil
+		s.agentConfig = nil
+		s.api = nil
+		s.notifyWatcher = nil
+	})
+
+	return ctrl
 }
 
 // expectCurrentConfigReads sets up the mock expectations for the read side of
@@ -127,8 +133,6 @@ func (s *workerSuite) TestValidate(c *tc.C) {
 	c.Check(s.workerConfig.Validate(), tc.ErrorIsNil)
 }
 
-// --- SetUp tests ---
-
 func (s *workerSuite) TestSetUpPersistsInitialConfigAndStartsWatcher(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -166,8 +170,6 @@ func (s *workerSuite) TestSetUpDoesNotWriteUnchangedConfig(c *tc.C) {
 	c.Check(s.realConfig.LokiCACert(), tc.Equals, "")
 	assertNoConfigChanged(c, changeCh)
 }
-
-// --- Handle tests ---
 
 func (s *workerSuite) TestHandlePersistsChangedConfig(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -259,8 +261,6 @@ func (s *workerSuite) TestHandleChangeConfigError(c *tc.C) {
 	c.Check(s.realConfig.LokiEndpoint(), tc.Equals, "")
 	c.Check(s.realConfig.LokiCACert(), tc.Equals, "")
 }
-
-// --- Helpers ---
 
 func (s *workerSuite) newUpdater(c *tc.C) *lokiEndpointUpdater {
 	c.Assert(s.workerConfig.Validate(), tc.ErrorIsNil)
