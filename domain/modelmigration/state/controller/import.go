@@ -182,6 +182,45 @@ VALUES ($importOfferArg.migration_uuid, $importOfferArg.offer_uuid)
 	})
 }
 
+// GetImportedOfferUUIDs returns the offer UUIDs recorded in
+// model_migration_import_offer for the import claim of the given model. It
+// returns nil (not an error) when no offer rows exist. Used by abort
+// compensation to delete offer-scoped permissions without querying the model DB.
+func (s *State) GetImportedOfferUUIDs(ctx context.Context, modelUUID string) ([]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	arg := modelUUIDArg{ModelUUID: modelUUID}
+	stmt, err := s.Prepare(`
+SELECT mio.offer_uuid AS &importOfferRow.offer_uuid
+FROM   model_migration_import_offer AS mio
+JOIN   model_migration_import AS mi ON mi.uuid = mio.migration_uuid
+WHERE  mi.model_uuid = $modelUUIDArg.model_uuid
+`, importOfferRow{}, arg)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []importOfferRow
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("reading offer UUIDs for model %q: %w", modelUUID, err)
+	}
+	result := make([]string, len(rows))
+	for i, r := range rows {
+		result[i] = r.OfferUUID
+	}
+	return result, nil
+}
+
 // EnsureExternalControllerExists compares the given third-party controller's
 // connection details (alias, CA cert, addresses) against any existing
 // external_controller row with the same UUID. It inserts the controller and

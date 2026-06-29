@@ -32,6 +32,7 @@ type MockStateMockRecorder struct {
 	cloudSupportsAuthTypeExpects []*gomock.Call3_2[context.Context, string, cloud.AuthType, bool, error]
 	cloudTypeExpects             []*gomock.Call2_2[context.Context, string, string, error]
 	createExpects                []*gomock.Call4_1[context.Context, model.UUID, model.ModelType, model0.GlobalModelCreationArgs, error]
+	deleteExpects                []*gomock.Call2_1[context.Context, model.UUID, error]
 	importModelExpects           []*gomock.Call4_1[context.Context, model.UUID, model.ModelType, model0.GlobalModelCreationArgs, error]
 }
 
@@ -118,6 +119,24 @@ func (mr *MockStateMockRecorder) Create(arg0, arg1, arg2, arg3 any) *MockStateCr
 
 // MockStateCreateCall is the typed call wrapper for Create.
 type MockStateCreateCall = gomock.Call4_1[context.Context, model.UUID, model.ModelType, model0.GlobalModelCreationArgs, error]
+
+// Delete mocks base method.
+func (m *MockState) Delete(ctx context.Context, uuid model.UUID) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.deleteExpects, m.ctrl, m, "Delete", ctx, uuid)
+}
+
+// Delete indicates an expected call of Delete.
+func (mr *MockStateMockRecorder) Delete(ctx, uuid any) *MockStateDeleteCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, model.UUID, error](mr.mock.ctrl.T, mr.mock, "Delete", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
+	mr.deleteExpects = append(mr.deleteExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateDeleteCall is the typed call wrapper for Delete.
+type MockStateDeleteCall = gomock.Call2_1[context.Context, model.UUID, error]
 
 // ImportModel mocks base method.
 func (m *MockState) ImportModel(arg0 context.Context, arg1 model.UUID, arg2 model.ModelType, arg3 model0.GlobalModelCreationArgs) error {

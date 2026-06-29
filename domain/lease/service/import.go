@@ -14,6 +14,18 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// DeleteLeadershipForModel deletes all application-leadership leases for the
+// given model. It is idempotent: if no leases exist, it returns nil.
+func (s *Service) DeleteLeadershipForModel(ctx context.Context, modelUUID coremodel.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+	return s.st.DeleteLeadershipForModel(ctx, modelUUID.String())
+}
+
 // LeadershipGuarantee is the amount of time that the lease service will
 // guarantee that the application leader will be the holder of the lease.
 const LeadershipGuarantee = time.Minute
