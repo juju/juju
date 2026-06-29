@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
@@ -130,9 +129,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentRun
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
-			config: &fakeControllerConfig{loggingConfig: "first"},
-		}},
+		agent:                 &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -182,11 +179,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideFieldTakesPrece
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
-			config: &fakeControllerConfig{
-				loggingOverride: "ignored",
-			},
-		}},
+		agent:                 &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -197,9 +190,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideFieldTakesPrece
 
 func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReturnsRuntimeConfigError(c *tc.C) {
 	provider := controllerStartupValueProvider{
-		agent: &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{
-			config: &fakeControllerConfig{},
-		}},
+		agent:                 &ControllerApplication{},
 		controllerRuntimePath: filepath.Join(c.MkDir(), "missing-runtime.conf"),
 	}
 
@@ -228,7 +219,7 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{}},
+		agent:                 &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -260,45 +251,6 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 	c.Check(values.SystemIdentityPath, tc.Equals, filepath.Join(dataDirTwo, agent.SystemIdentity))
 }
 
-type fakeAgentConfigWriter struct {
-	agentconf.AgentConf
-	config agent.Config
-}
-
-func (f *fakeAgentConfigWriter) CurrentConfig() agent.Config {
-	return f.config
-}
-
-type fakeControllerConfig struct {
-	agent.Config
-	loggingConfig   string
-	loggingOverride string
-	caCert          string
-}
-
-func (f *fakeControllerConfig) LoggingConfig() string {
-	return f.loggingConfig
-}
-
-func (f *fakeControllerConfig) Value(key string) string {
-	if key == agent.LoggingOverride {
-		return f.loggingOverride
-	}
-	return ""
-}
-
-func (f *fakeControllerConfig) Tag() names.Tag {
-	return names.NewControllerAgentTag("0")
-}
-
-func (f *fakeControllerConfig) Model() names.ModelTag {
-	return names.NewModelTag("model-uuid")
-}
-
-func (f *fakeControllerConfig) CACert() string {
-	return f.caCert
-}
-
 func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
 	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
@@ -318,7 +270,7 @@ func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfi
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{}},
+		agent:                 &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -348,7 +300,7 @@ func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfi
 
 func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigError(c *tc.C) {
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerAgent{AgentConfigWriter: &fakeAgentConfigWriter{}},
+		agent:                 &ControllerApplication{},
 		controllerRuntimePath: filepath.Join(c.MkDir(), "missing-runtime.conf"),
 	}
 

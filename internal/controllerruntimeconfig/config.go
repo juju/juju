@@ -16,6 +16,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/semversion"
 )
 
 const (
@@ -122,6 +123,31 @@ type ControllerRuntimeConfig struct {
 	// connect to other controllers. These are written at bootstrap time and used
 	// by the api-remote-caller worker.
 	APIAddresses []string `yaml:"api-addresses,omitempty"`
+
+	// UpgradedToVersionNum records the Juju version that the controller has
+	// most recently completed upgrade steps to. A zero value means the
+	// controller has not yet completed any upgrade steps.
+	UpgradedToVersionNum semversion.Number `yaml:"upgraded-to-version,omitempty"`
+
+	// AgentLogfileMaxSizeMB is the maximum size in MB of the agent log file
+	// before rotation. A zero value means use the compiled-in default (240).
+	AgentLogfileMaxSizeMB int `yaml:"agent-logfile-max-size-mb,omitempty"`
+
+	// AgentLogfileMaxBackups is the maximum number of rotated agent log files
+	// to retain. A zero value means use the compiled-in default (2).
+	AgentLogfileMaxBackups int `yaml:"agent-logfile-max-backups,omitempty"`
+
+	// CharmRevisionUpdateInterval overrides the default charm revision
+	// update interval for testing. An empty value means use the default
+	// (24h).
+	CharmRevisionUpdateInterval string `yaml:"charm-revision-update-interval,omitempty"`
+}
+
+// UpgradedToVersion returns the Juju version that the controller has most
+// recently completed upgrade steps to. It implements the upgrade.Version
+// interface so ControllerRuntimeConfig can be passed to internalupgrade.NewLock.
+func (cfg ControllerRuntimeConfig) UpgradedToVersion() semversion.Number {
+	return cfg.UpgradedToVersionNum
 }
 
 // Validate returns an error if any required field is missing or invalid.

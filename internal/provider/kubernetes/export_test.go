@@ -86,6 +86,8 @@ func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
 		CAPrivateKey:          cs.pcfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
 		ControllerCert:        cs.pcfg.Bootstrap.ControllerAgentInfo.Cert,
 		ControllerPrivateKey:  cs.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		AgentLogfileMaxSizeMB: cs.pcfg.Controller.AgentLogfileMaxSizeMB(),
+		AgentLogfileMaxBackups: cs.pcfg.Controller.AgentLogfileMaxBackups(),
 	}
 	data, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
 	c.Assert(err, tc.ErrorIsNil)

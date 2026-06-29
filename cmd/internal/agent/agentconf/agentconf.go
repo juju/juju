@@ -61,15 +61,24 @@ func (c *agentConf) CheckArgs(args []string) error {
 }
 
 func SetupAgentLogging(loggerContext corelogger.LoggerContext, config agent.Config) {
+	loggingOverride := config.Value(agent.LoggingOverride)
+	loggingConfig := config.LoggingConfig()
+	SetupAgentLoggingFromStrings(loggerContext, loggingOverride, loggingConfig)
+}
+
+// SetupAgentLoggingFromStrings initializes logging from explicit override and
+// config strings, typically read from runtime.conf. If loggingOverride is
+// non-empty it takes precedence over loggingConfig.
+func SetupAgentLoggingFromStrings(loggerContext corelogger.LoggerContext, loggingOverride, loggingConfig string) {
 	logger := loggerContext.GetLogger("juju.agent.setup")
-	if loggingOverride := config.Value(agent.LoggingOverride); loggingOverride != "" {
+	if loggingOverride != "" {
 		logger.Infof(context.TODO(), "logging override set for this agent: %q", loggingOverride)
 		loggerContext.ResetLoggerLevels()
 		err := loggerContext.ConfigureLoggers(loggingOverride)
 		if err != nil {
 			logger.Errorf(context.TODO(), "setting logging override %v", err)
 		}
-	} else if loggingConfig := config.LoggingConfig(); loggingConfig != "" {
+	} else if loggingConfig != "" {
 		logger.Infof(context.TODO(), "setting logging config to %q", loggingConfig)
 		// There should only be valid logging configuration strings saved
 		// in the logging config section in the agent.conf file.
