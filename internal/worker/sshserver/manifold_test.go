@@ -16,6 +16,7 @@ import (
 	dt "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
@@ -192,6 +193,12 @@ func (s *manifoldSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerConfigService.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(make(<-chan []string)), nil
 	}).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (controller.Config, error) {
+		return controller.Config{
+			controller.SSHServerPort:               22,
+			controller.SSHMaxConcurrentConnections: 10,
+		}, nil
+	}).AnyTimes()
 	return ctrl
 }
 
@@ -226,7 +233,7 @@ func (s *manifoldSuite) newManifoldConfig(c *tc.C, modifier func(cfg *ManifoldCo
 
 func (s *manifoldSuite) TestManifoldUninstall(c *tc.C) {
 	// Unset feature flag
-	os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
+	_ = os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 
 	defer s.setupMocks(c).Finish()
