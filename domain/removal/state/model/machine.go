@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/domain/removal"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/domain/removal/internal"
-	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -589,32 +588,6 @@ WHERE uuid = $machine.uuid;
 			return errors.Errorf("getting net node: %w", err)
 		}
 
-		// Before proceeding, check that no units (including dead ones) still
-		// reference this machine's net node. Dead units that have not yet been
-		// deleted from the DB hold a FK reference to net_node, so attempting to
-		// delete the net_node while they exist will cause a constraint
-		// violation. Return RemovalJobIncomplete so the machine removal job
-		// retries once the unit removal job has finished.
-		// This applies unconditionally: even force removals cascade separate
-		// removal jobs for units, so by the time this runs those jobs must have
-		// completed.
-		countUnitsOnNetNodeStmt, err := st.Prepare(`
-SELECT COUNT(*) AS &count.count
-FROM   unit
-WHERE  net_node_uuid = $node.uuid`, count{}, node)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		var unitNodeCount count
-		if err := tx.Query(ctx, countUnitsOnNetNodeStmt, node).Get(&unitNodeCount); err != nil {
-			return errors.Errorf("checking units on net node: %w", err)
-		} else if unitNodeCount.Count > 0 {
-			return errors.Errorf(
-				"machine net node still referenced by %d unit(s), waiting for unit removal",
-				unitNodeCount.Count,
-			).Add(removalerrors.RemovalJobIncomplete)
-		}
-
 		// Remove the machine entry
 		if err := tx.Query(ctx, deleteMachineStmt, machine(machineUUIDParam)).Run(); err != nil {
 			return errors.Errorf("deleting machine: %w", err)
@@ -771,68 +744,133 @@ func (st *State) removeNetNode(ctx context.Context, tx *sqlair.TX, netNodeUUID s
 	type node entityUUID
 	netNodeUUIDRec := node{UUID: netNodeUUID}
 
-	// Start by deleting any IP addresses associated with the net node.
-	q := `
-DELETE FROM provider_ip_address
-WHERE address_uuid IN (
-    SELECT uuid FROM ip_address WHERE net_node_uuid = $node.uuid
-)`
-	stmt, err := st.Prepare(q, node{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
-		return errors.Errorf("deleting net node IP address provider IDs: %w", err)
-	}
-
-	stmt, err = st.Prepare("DELETE FROM ip_address WHERE net_node_uuid = $node.uuid", node{})
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
-		return errors.Errorf("deleting net node IP addresses: %w", err)
-	}
-
-	// Get all link-layer devices associated with the net node.
-	selectDevices := `
-SELECT uuid AS &entityUUID.uuid
-FROM   link_layer_device
+	// This is defensive. It is technically impossible for a net node to have
+	// machines at this point. Cloud service net nodes never have machines,
+	// and machine net nodes have already had their machine deleted by this point.
+	// Return RemovalJobIncomplete so this removal job retries later, once the
+	// machine removal job has finished.
+	countNodeMachinesQuery := `
+SELECT COUNT(*) AS &count.count
+FROM   machine
 WHERE  net_node_uuid = $node.uuid`
-	devStmt, err := st.Prepare(selectDevices, entityUUID{}, netNodeUUIDRec)
+	countNodeMachinesStmt, err := st.Prepare(countNodeMachinesQuery, node{}, count{})
 	if err != nil {
-		return errors.Errorf("preparing devices for deletion statement: %w", err)
+		return errors.Capture(err)
+	}
+	var machineCount count
+	if err := tx.Query(ctx, countNodeMachinesStmt, netNodeUUIDRec).Get(&machineCount); err != nil {
+		return errors.Errorf("counting machines on net node: %w", err)
+	} else if machineCount.Count > 0 {
+		return errors.Errorf("net node %q still has machines", netNodeUUIDRec.UUID).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
-	var devsToDelete []entityUUID
-	if err := tx.Query(ctx, devStmt, netNodeUUIDRec).GetAll(&devsToDelete); err != nil {
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("running devices for deletion query: %w", err)
-		}
+	// This is defensive. It is technically impossible for a net node to have
+	// k8s services at this point. IAAS models never have k8s services, and the
+	// k8s service path has already deleted any k8s services that reference this
+	// net node. Return RemovalJobIncomplete so this removal job retries later,
+	// once the k8s service removal job has finished.
+	countK8sServicesQuery := `
+SELECT COUNT(*) AS &count.count
+FROM   k8s_service
+WHERE  net_node_uuid = $node.uuid`
+	countK8sServicesStmt, err := st.Prepare(countK8sServicesQuery, node{}, count{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var k8sServiceCount count
+	if err := tx.Query(ctx, countK8sServicesStmt, netNodeUUIDRec).Get(&k8sServiceCount); err != nil {
+		return errors.Errorf("counting k8s services on net node: %w", err)
+	} else if k8sServiceCount.Count > 0 {
+		return errors.Errorf("net node %q still has k8s services", netNodeUUIDRec.UUID).
+			Add(removalerrors.RemovalJobIncomplete)
 	}
 
-	llDevicesToDelete := uuids(transform.Slice(devsToDelete, func(d entityUUID) string { return d.UUID }))
-
-	// Delete all relations that reference the link-layer devices and the devices themselves.
-	deleteDevicesRelations := []string{
-		`DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:]) OR parent_uuid IN ($uuids[:])`,
-		`DELETE FROM provider_link_layer_device WHERE device_uuid IN ($uuids[:])`,
-		`DELETE FROM link_layer_device_dns_domain WHERE device_uuid IN ($uuids[:])`,
-		`DELETE FROM link_layer_device_dns_address WHERE device_uuid IN ($uuids[:])`,
-		`DELETE FROM link_layer_device WHERE uuid IN ($uuids[:])`,
+	// This is required. Units reference net nodes, and are cleaned up by their
+	// own job, so we need to check that they have been removed before we can
+	// delete the net node. Return RemovalJobIncomplete so the removal job retries
+	// once the unit removal job has finished.
+	countNodeUnitsQuery := `
+SELECT COUNT(*) AS &count.count
+FROM   unit
+WHERE  net_node_uuid = $node.uuid`
+	countNodeUnitsStmt, err := st.Prepare(countNodeUnitsQuery, node{}, count{})
+	if err != nil {
+		return errors.Capture(err)
 	}
-	for _, query := range deleteDevicesRelations {
-		stmt, err := st.Prepare(query, llDevicesToDelete)
-		if err != nil {
-			return errors.Capture(err)
-		}
+	var unitCount count
+	if err := tx.Query(ctx, countNodeUnitsStmt, netNodeUUIDRec).Get(&unitCount); err != nil {
+		return errors.Errorf("counting units on net node: %w", err)
+	} else if unitCount.Count > 0 {
+		return errors.Errorf(
+			"net node still referenced by %d unit(s), waiting for unit removal",
+			unitCount.Count,
+		).Add(removalerrors.RemovalJobIncomplete)
+	}
 
-		if err := tx.Query(ctx, stmt, llDevicesToDelete).Run(); err != nil {
-			removeErr := errors.Errorf("deleting reference to machine network in query %q: %w", query, err)
-			if database.IsErrConstraintForeignKey(err) {
-				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
-			}
-			return removeErr
-		}
+	// This is required. Filesystem attachments reference net nodes, and are cleaned
+	// up by their own job, so we need to check that they have been removed
+	// before we can delete the net node. Return RemovalJobIncomplete so the removal
+	// job retries once the unit removal job has finished.
+	countStorageFilesystemAttachmentsQuery := `
+SELECT COUNT(*) AS &count.count
+FROM   storage_filesystem_attachment
+WHERE  net_node_uuid = $node.uuid`
+	countStorageFilesystemAttachmentsStmt, err := st.Prepare(countStorageFilesystemAttachmentsQuery, node{}, count{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var storageFilesystemAttachmentCount count
+	if err := tx.Query(ctx, countStorageFilesystemAttachmentsStmt, netNodeUUIDRec).Get(&storageFilesystemAttachmentCount); err != nil {
+		return errors.Errorf("counting storage filesystem attachments on net node: %w", err)
+	} else if storageFilesystemAttachmentCount.Count > 0 {
+		return errors.Errorf("net node %q still has storage filesystem attachments", netNodeUUIDRec.UUID).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// This is required. Volume attachments reference net nodes, and are cleaned
+	// up by their own job, so we need to check that they have been removed
+	// before we can delete the net node. Return RemovalJobIncomplete so the
+	// removal job retries once the unit removal job has finished.
+	countStorageVolumeAttachmentsQuery := `
+SELECT COUNT(*) AS &count.count
+FROM   storage_volume_attachment
+WHERE  net_node_uuid = $node.uuid`
+	countStorageVolumeAttachmentsStmt, err := st.Prepare(countStorageVolumeAttachmentsQuery, node{}, count{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var storageVolumeAttachmentCount count
+	if err := tx.Query(ctx, countStorageVolumeAttachmentsStmt, netNodeUUIDRec).Get(&storageVolumeAttachmentCount); err != nil {
+		return errors.Errorf("counting storage volume attachments on net node: %w", err)
+	} else if storageVolumeAttachmentCount.Count > 0 {
+		return errors.Errorf("net node %q still has storage volume attachments", netNodeUUIDRec.UUID).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	// This is required. Volume attachment plans reference net nodes, and are
+	// cleaned up by their own job, so we need to check that they have been removed
+	// before we can delete the net node. Return RemovalJobIncomplete so the removal
+	// job retries once the unit removal job has finished.
+	countStorageVolumeAttachmentPlansQuery := `
+SELECT COUNT(*) AS &count.count
+FROM   storage_volume_attachment_plan
+WHERE  net_node_uuid = $node.uuid`
+	countStorageVolumeAttachmentPlansStmt, err := st.Prepare(countStorageVolumeAttachmentPlansQuery, node{}, count{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	var storageVolumeAttachmentPlanCount count
+	if err := tx.Query(ctx, countStorageVolumeAttachmentPlansStmt, netNodeUUIDRec).Get(&storageVolumeAttachmentPlanCount); err != nil {
+		return errors.Errorf("counting storage volume attachment plans on net node: %w", err)
+	} else if storageVolumeAttachmentPlanCount.Count > 0 {
+		return errors.Errorf("net node %q still has storage volume attachment plans", netNodeUUIDRec.UUID).
+			Add(removalerrors.RemovalJobIncomplete)
+	}
+
+	err = st.removeNetNodeLLDs(ctx, tx, netNodeUUIDRec.UUID)
+	if err != nil {
+		return errors.Errorf("removing net node link-layer devices: %w", err)
 	}
 
 	// Delete the net node fqdn and hostname addresses before deleting the net node.
@@ -853,27 +891,94 @@ WHERE  net_node_uuid = $node.uuid`
 	}
 
 	// Delete the net node.
+	deleteNetNodeQuery := "DELETE FROM net_node WHERE uuid = $node.uuid"
+	deleteNetNodeStmt, err := st.Prepare(deleteNetNodeQuery, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteNetNodeStmt, netNodeUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting net node: %w", err)
+	}
+	return nil
+}
 
-	deleteByNetNode := []string{
-		// TODO (stickupkid): We need to ensure that no unit is still using this
-		// net node. If it is, we need to return an error.
-		"DELETE FROM net_node WHERE uuid = $node.uuid",
+func (st *State) removeNetNodeLLDs(ctx context.Context, tx *sqlair.TX, netNodeUUID string) error {
+	type node entityUUID
+	netNodeUUIDRec := node{UUID: netNodeUUID}
+
+	// Start by deleting any IP addresses associated with the device. IP addresses
+	// are (currently) owned by LLDs
+	deleteProviderIPQuery := `
+DELETE FROM provider_ip_address
+WHERE address_uuid IN (
+    SELECT uuid FROM ip_address WHERE net_node_uuid = $node.uuid
+)`
+	deleteProviderIPStmt, err := st.Prepare(deleteProviderIPQuery, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteProviderIPStmt, netNodeUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting net node IP address provider IDs: %w", err)
 	}
 
-	for _, query := range deleteByNetNode {
-		stmt, err := st.Prepare(query, node{})
+	deleteProviderIPStmt, err = st.Prepare(`DELETE FROM ip_address WHERE net_node_uuid = $node.uuid`, node{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteProviderIPStmt, netNodeUUIDRec).Run(); err != nil {
+		return errors.Errorf("deleting net node IP addresses: %w", err)
+	}
+
+	// Get all link-layer devices associated with the net node.
+	selectDevices := `
+SELECT uuid AS &entityUUID.uuid
+FROM   link_layer_device
+WHERE  net_node_uuid = $node.uuid`
+	devStmt, err := st.Prepare(selectDevices, entityUUID{}, netNodeUUIDRec)
+	if err != nil {
+		return errors.Errorf("preparing devices for deletion statement: %w", err)
+	}
+
+	var devsToDelete []entityUUID
+	if err := tx.Query(ctx, devStmt, netNodeUUIDRec).GetAll(&devsToDelete); errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("running devices for deletion query: %w", err)
+	}
+
+	llDevicesToDelete := entityUUIDs(devsToDelete).uuids()
+
+	// Delete all relations that reference the link-layer devices and the devices themselves.
+	//
+	// NOTE: parent-child LLDs MUST have both members associated with the same net node,
+	// so it is safe to delete only via one the child half of the relation.
+	deleteDevicesReferencer := []string{
+		`DELETE FROM link_layer_device_parent WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM provider_link_layer_device WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_domain WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_dns_address WHERE device_uuid IN ($uuids[:])`,
+		`DELETE FROM link_layer_device_route WHERE device_uuid IN ($uuids[:])`,
+	}
+	for _, query := range deleteDevicesReferencer {
+		stmt, err := st.Prepare(query, llDevicesToDelete)
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		if err := tx.Query(ctx, stmt, netNodeUUIDRec).Run(); err != nil {
-			removeErr := errors.Errorf("deleting net node in query %q: %w", query, err)
-			if database.IsErrConstraintForeignKey(err) {
-				removeErr = removeErr.Add(removalerrors.RemovalJobIncomplete)
-			}
-			return removeErr
+		if err := tx.Query(ctx, stmt, llDevicesToDelete).Run(); err != nil {
+			return errors.Errorf("deleting reference to link layer device in query %q: %w", query, err)
 		}
 	}
+
+	deleteDevicesQuery := `DELETE FROM link_layer_device WHERE uuid IN ($uuids[:])`
+	deleteDevicesStmt, err := st.Prepare(deleteDevicesQuery, llDevicesToDelete)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, deleteDevicesStmt, llDevicesToDelete).Run(); err != nil {
+		return errors.Errorf("deleting link-layer devices: %w", err)
+	}
+
 	return nil
 }
 
