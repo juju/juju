@@ -91,7 +91,5 @@ jobs:
         if: steps.merge.outputs.conflicts == 'true' && steps.message.outputs.message != ''
         uses: ./.github/actions/notify-mm
         with:
-          mm_url: ${{ secrets.MM_URL }}
-          mm_token: ${{ secrets.MM_TOKEN }}
-          channel: ${{ secrets.MM_CHANNEL }}
+          webhook_url: ${{ secrets.MM_WEBHOOK_URL }}
           message: ${{ steps.message.outputs.message }}
