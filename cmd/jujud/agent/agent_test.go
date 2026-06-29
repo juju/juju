@@ -129,7 +129,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentRun
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerApplication{},
+		app:                   &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -179,7 +179,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideFieldTakesPrece
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerApplication{},
+		app:                   &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -190,7 +190,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideFieldTakesPrece
 
 func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReturnsRuntimeConfigError(c *tc.C) {
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerApplication{},
+		app:                   &ControllerApplication{},
 		controllerRuntimePath: filepath.Join(c.MkDir(), "missing-runtime.conf"),
 	}
 
@@ -219,7 +219,7 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerApplication{},
+		app:                   &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -270,7 +270,7 @@ func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfi
 	c.Assert(err, tc.ErrorIsNil)
 
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerApplication{},
+		app:                   &ControllerApplication{},
 		controllerRuntimePath: runtimePath,
 	}
 
@@ -300,7 +300,7 @@ func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfi
 
 func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigError(c *tc.C) {
 	provider := controllerStartupValueProvider{
-		agent:                 &ControllerApplication{},
+		app:                   &ControllerApplication{},
 		controllerRuntimePath: filepath.Join(c.MkDir(), "missing-runtime.conf"),
 	}
 
