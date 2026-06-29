@@ -253,8 +253,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-application-provisioner": {
-		"agent",
-		"api-caller",
 		"clock",
 		"domain-services",
 		"is-responsible-flag",
