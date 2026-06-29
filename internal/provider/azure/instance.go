@@ -177,7 +177,8 @@ func (inst *azureInstance) Addresses(ctx context.Context) (corenetwork.ProviderA
 type securityGroupInfo struct {
 	resourceGroup  string
 	securityGroup  *armnetwork.SecurityGroup
-	primaryAddress corenetwork.SpaceAddress
+	primaryAddress corenetwork.SpaceAddress  // IPv4 private address (always present)
+	ipv6Address    *corenetwork.SpaceAddress // IPv6 private address; nil for IPv4-only machines
 }
 
 // primarySecurityGroupInfo returns info for the NIC's primary corenetwork.Address
@@ -191,6 +192,35 @@ func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armne
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// First pass: scan for IPv6 configuration (primary-ipv6).
+	// The IPv6 config is non-primary, so we scan separately before the
+	// early return on the primary IPv4 config below.
+	var ipv6Address *corenetwork.SpaceAddress
+	for _, ipConfiguration := range nic.Properties.IPConfigurations {
+		if ipConfiguration.Properties == nil {
+			continue
+		}
+		// Check if this is an IPv6 configuration. Use the same detection idiom as
+		// mapAzureInterfaceList in environ_network.go for consistency.
+		isIPv6 := ipConfiguration.Properties.PrivateIPAddressVersion != nil &&
+			toValue(ipConfiguration.Properties.PrivateIPAddressVersion) == armnetwork.IPVersionIPv6
+		if !isIPv6 {
+			continue
+		}
+		privateIpAddress := ipConfiguration.Properties.PrivateIPAddress
+		if privateIpAddress == nil {
+			continue
+		}
+		spaceAddress := corenetwork.NewSpaceAddress(
+			toValue(privateIpAddress),
+			corenetwork.WithScope(corenetwork.ScopeCloudLocal),
+		)
+		ipv6Address = new(spaceAddress)
+		break
+	}
+
+	// Second pass: scan for primary IPv4 configuration and security group.
 	for _, ipConfiguration := range nic.Properties.IPConfigurations {
 		if ipConfiguration.Properties == nil {
 			continue
@@ -229,6 +259,7 @@ func primarySecurityGroupInfo(ctx context.Context, env *azureEnviron, nic *armne
 				toValue(privateIpAddress),
 				corenetwork.WithScope(corenetwork.ScopeCloudLocal),
 			),
+			ipv6Address: ipv6Address,
 		}, nil
 	}
 	return nil, errors.NotFoundf("internal network address or security group")
@@ -339,6 +370,28 @@ func (inst *azureInstance) openPortsOnGroup(
 
 		// rule has a single source CIDR
 		from := rule.SourceCIDRs.SortedValues()[0]
+
+		// Determine destination address based on source CIDR family.
+		// Wildcards/empty are IPv4 by Azure convention; only "::/0" is IPv6 wildcard.
+		destAddr := nsgInfo.primaryAddress.Value
+		if from == firewall.AllNetworksIPV6CIDR {
+			// IPv6 wildcard
+			if nsgInfo.ipv6Address == nil {
+				logger.Debugf(ctx, "skipping IPv6 rule %q: machine has no IPv6 address", ruleName)
+				continue
+			}
+			destAddr = nsgInfo.ipv6Address.Value
+		} else if from != "*" && from != "" && from != firewall.AllNetworksIPV4CIDR {
+			// Specific CIDR: classify family.
+			if at, err := corenetwork.CIDRAddressType(from); err == nil && at == corenetwork.IPv6Address {
+				if nsgInfo.ipv6Address == nil {
+					logger.Debugf(ctx, "skipping IPv6 rule %q: machine has no IPv6 address", ruleName)
+					continue
+				}
+				destAddr = nsgInfo.ipv6Address.Value
+			}
+		}
+
 		securityRule := armnetwork.SecurityRule{
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Description:              new(rule.String()),
@@ -346,7 +399,7 @@ func (inst *azureInstance) openPortsOnGroup(
 				SourcePortRange:          new("*"),
 				DestinationPortRange:     new(portRange),
 				SourceAddressPrefix:      new(from),
-				DestinationAddressPrefix: new(nsgInfo.primaryAddress.Value),
+				DestinationAddressPrefix: new(destAddr),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				Priority:                 new(priority),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
@@ -508,7 +561,13 @@ func (inst *azureInstance) ingressRulesForGroup(ctx context.Context, machineId s
 		// Record the SourceAddressPrefix for the port range.
 		remotePrefix := toValue(rule.Properties.SourceAddressPrefix)
 		if remotePrefix == "" || remotePrefix == "*" {
-			remotePrefix = "0.0.0.0/0"
+			// Determine the destination address family to pick the right wildcard.
+			dest := toValue(rule.Properties.DestinationAddressPrefix)
+			if corenetwork.NewMachineAddress(dest).Type == corenetwork.IPv6Address {
+				remotePrefix = firewall.AllNetworksIPV6CIDR // "::/0"
+			} else {
+				remotePrefix = firewall.AllNetworksIPV4CIDR // "0.0.0.0/0"
+			}
 		}
 		for _, protocol := range protocols {
 			portRange.Protocol = protocol

@@ -2712,3 +2712,15 @@ func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *tc.C) {
 	})
 	c.Assert(arch, tc.Equals, corearch.AMD64)
 }
+
+func (s *environSuite) TestSupportsRulesWithIPV6CIDRs(c *tc.C) {
+	env := s.openEnviron(c)
+
+	// Azure should support IPv6 CIDRs in firewall rules.
+	fwQuerier, ok := env.(environs.FirewallFeatureQuerier)
+	c.Assert(ok, tc.IsTrue)
+	
+	supported, err := fwQuerier.SupportsRulesWithIPV6CIDRs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.Equals, true)
+}
