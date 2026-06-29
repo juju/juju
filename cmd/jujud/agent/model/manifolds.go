@@ -10,13 +10,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/names/v6"
-	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/http"
@@ -27,10 +24,8 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/services"
-	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/agentbinaryfetcher"
 	"github.com/juju/juju/internal/worker/apicaller"
-	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
 	"github.com/juju/juju/internal/worker/asynccharmdownloader"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
@@ -60,25 +55,12 @@ import (
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
-	"github.com/juju/juju/rpc/params"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
 // model agent: that is, for the set of interdependent workers that observe
 // and manipulate a single model.
 type ManifoldsConfig struct {
-	// Agent identifies, and exposes configuration for, the controller
-	// machine running these manifolds and the model the manifolds
-	// should administer.
-	//
-	// You should almost certainly set this value to one created by
-	// model.WrapAgent.
-	Agent coreagent.Agent
-
-	// AgentConfigChanged will be set whenever the agent's api config
-	// is updated
-	AgentConfigChanged *voyeur.Value
-
 	Authority pki.Authority
 
 	// Clock supplies timing services to any manifolds that need them.
@@ -162,24 +144,7 @@ type StartupValueProvider interface {
 // by both IAAS and CAAS models.
 func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	result := dependency.Manifolds{
-		// The first group are foundational; the agent and clock
-		// which wrap those supplied in config, and the api-caller
-		// through which everything else communicates with the
-		// controller.
-		agentName: agent.Manifold(config.Agent),
 		clockName: clockManifold(config.Clock),
-		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
-			AgentName:          agentName,
-			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             config.LoggingContext.GetLogger("juju.worker.apiconfigwatcher"),
-		}),
-		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
-			AgentName:     agentName,
-			APIOpen:       api.Open,
-			NewConnection: apicaller.OnlyConnect,
-			Filter:        apiConnectFilter,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.apicaller"),
-		}),
 
 		// The provider domain services is used to access the provider service.
 		// It's injected into the model worker manager so that it can be used
@@ -568,16 +533,6 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
-func apiConnectFilter(err error) error {
-	// If the model is no longer there, then convert to ErrRemoved so
-	// that the dependency engine for the model is stopped.
-	// See http://pad.lv/1614809
-	if params.IsCodeModelNotFound(err) {
-		return ErrRemoved
-	}
-	return err
-}
-
 var (
 	// ifResponsible wraps a manifold such that it only runs if the
 	// responsibility flag is set.
@@ -619,10 +574,7 @@ var (
 )
 
 const (
-	agentName            = "agent"
-	clockName            = "clock"
-	apiConfigWatcherName = "api-config-watcher"
-	apiCallerName        = "api-caller"
+	clockName = "clock"
 
 	isResponsibleFlagName = "is-responsible-flag"
 	notDeadFlagName       = "not-dead-flag"

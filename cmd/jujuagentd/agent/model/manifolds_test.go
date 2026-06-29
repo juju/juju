@@ -35,10 +35,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), tc.SameContents, []string{
-		"agent",
 		"agent-binary-fetcher",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-relation-caller",
 		"async-charm-downloader",
 		"change-stream-pruner",
@@ -78,9 +75,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 	// NOTE: if this test failed, the cmd/jujud/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), tc.SameContents, []string{
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-relation-caller",
 		"async-charm-downloader",
 		"caas-application-provisioner",
@@ -114,9 +108,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 
 func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
 	exclusions := set.NewStrings(
-		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"api-remote-relation-caller",
 		"clock",
 		"is-responsible-flag",
@@ -180,8 +171,6 @@ func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
 var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"secrets-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -191,8 +180,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"user-secrets-drain-worker": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -201,17 +188,10 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 	},
 
-	"agent": {},
-
-	"api-caller": {"agent"},
-
 	"api-remote-relation-caller": {},
 
-	"api-config-watcher": {"agent"},
-
 	"provider-tracker": {
-		"agent",
-		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
@@ -220,8 +200,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-model-config-manager": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -232,8 +210,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-firewaller": {
-		"agent",
-		"api-caller",
 		"clock",
 		"domain-services",
 		"is-responsible-flag",
@@ -248,8 +224,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-model-operator": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -260,8 +234,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"caas-application-provisioner": {
-		"agent",
-		"api-caller",
 		"clock",
 		"domain-services",
 		"is-responsible-flag",
@@ -290,8 +262,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"change-stream-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -307,8 +277,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"lease-manager": {},
 
 	"logging-config-updater": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -327,8 +295,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-inactive-flag": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -348,8 +314,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"operation-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -361,8 +325,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"provider-service-factories": {},
 
 	"remote-relation-consumer": {
-		"agent",
-		"api-caller",
 		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
@@ -373,8 +335,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"removal": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -384,8 +344,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"storage-provisioner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -402,14 +360,12 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 
 	"http-client": {},
 
-	"valid-credential-flag": {"agent", "api-caller"},
+	"valid-credential-flag": {"domain-services"},
 }
 
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"secrets-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -419,8 +375,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"user-secrets-drain-worker": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -428,12 +382,8 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"not-dead-flag",
 	},
-
-	"agent": {},
 
 	"agent-binary-fetcher": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -441,10 +391,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"not-dead-flag",
 	},
-
-	"api-caller": {"agent"},
-
-	"api-config-watcher": {"agent"},
 
 	"api-remote-relation-caller": {},
 
@@ -463,8 +409,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"change-stream-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -476,8 +420,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"clock": {},
 
 	"compute-provisioner": {
-		"agent",
-		"api-caller",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
@@ -491,8 +433,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"provider-tracker": {
-		"agent",
-		"api-caller",
+		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
 		"log-sink",
@@ -501,8 +442,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"firewaller": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -516,8 +455,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"instance-poller": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -535,8 +472,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"lease-manager": {},
 
 	"logging-config-updater": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -559,8 +494,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-inactive-flag": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -580,8 +513,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"operation-pruner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -593,8 +524,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	"provider-service-factories": {},
 
 	"remote-relation-consumer": {
-		"agent",
-		"api-caller",
 		"api-remote-relation-caller",
 		"domain-services",
 		"is-responsible-flag",
@@ -605,8 +534,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"removal": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -616,8 +543,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"storage-provisioner": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -630,12 +555,11 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"valid-credential-flag",
 	},
 
-	"valid-credential-flag": {"agent", "api-caller"},
+	"valid-credential-flag": {"domain-services"},
 }
 
 func testManifoldsConfig() model.ManifoldsConfig {
 	return model.ManifoldsConfig{
-		Agent:                &mockAgent{},
 		LoggingContext:       internallogger.DefaultContext(),
 		ModelUUID:            "mock-model-uuid",
 		AgentTag:             names.NewMachineTag("123"),
