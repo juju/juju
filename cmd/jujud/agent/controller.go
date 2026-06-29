@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo/v3"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/names/v6"
-	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -25,7 +24,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
-	agentconfig "github.com/juju/juju/agent/config"
 	agentengine "github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api"
@@ -37,6 +35,7 @@ import (
 	agentcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
@@ -67,7 +66,7 @@ import (
 // It implements both ControllerStartupValueProvider (for controller
 // manifolds) and model.StartupValueProvider (for model manifolds).
 type controllerStartupValueProvider struct {
-	agent                 *ControllerAgent
+	agent                 *ControllerApplication
 	controllerRuntimePath string
 }
 
@@ -183,32 +182,28 @@ func (p controllerStartupValueProvider) CACert() (string, error) {
 	return cfg.CACert, nil
 }
 
-type controllerAgentFactoryFnType func(names.Tag) (*ControllerAgent, error)
+type ControllerApplicationFactoryFnType func(names.Tag) (*ControllerApplication, error)
 
-// NewControllerAgentCommand creates a Command that handles parsing
-// command-line arguments and instantiating and running a
-// ControllerAgent.
-func NewControllerAgentCommand(
+// NewControllerApplicationCommand creates a Command that handles parsing
+// command-line arguments and instantiating and running a ControllerApplication.
+func NewControllerApplicationCommand(
 	ctx *cmd.Context,
-	controllerAgentFactory controllerAgentFactoryFnType,
+	controllerAgentFactory ControllerApplicationFactoryFnType,
 	agentInitializer AgentInitializer,
-	configFetcher agentconfig.AgentConfigWriter,
 ) cmd.Command {
-	return &controllerAgentCommand{
+	return &controllerApplicationCommand{
 		ctx:                    ctx,
 		controllerAgentFactory: controllerAgentFactory,
 		agentInitializer:       agentInitializer,
-		currentConfig:          configFetcher,
 	}
 }
 
-type controllerAgentCommand struct {
+type controllerApplicationCommand struct {
 	cmd.CommandBase
 
 	// This group of arguments is required.
 	agentInitializer       AgentInitializer
-	currentConfig          agentconfig.AgentConfigWriter
-	controllerAgentFactory controllerAgentFactoryFnType
+	controllerAgentFactory ControllerApplicationFactoryFnType
 	ctx                    *cmd.Context
 
 	// This group is for debugging purposes.
@@ -223,7 +218,7 @@ type controllerAgentCommand struct {
 
 // Init is called by the cmd system to initialize the structure for
 // running.
-func (a *controllerAgentCommand) Init(args []string) error {
+func (a *controllerApplicationCommand) Init(args []string) error {
 	if a.controllerId == "" {
 		return errors.New("--controller-id must be set")
 	}
@@ -244,11 +239,13 @@ func (a *controllerAgentCommand) Init(args []string) error {
 	a.controllerRuntimePath = controllerruntimeconfig.ConfigPath(filepath.Join(
 		a.agentInitializer.DataDir(), "agents", "controller-"+a.agentTag.Id(),
 	))
-	if err := agentconfig.ReadAgentConfig(a.currentConfig, a.agentTag.Id()); err != nil {
-		return errors.Errorf("cannot read agent configuration: %v", err)
+
+	runtimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
+	if err != nil {
+		return errors.Errorf("cannot read controller runtime config: %v", err)
 	}
-	config := a.currentConfig.CurrentConfig()
-	if err := os.MkdirAll(config.LogDir(), 0o644); err != nil {
+
+	if err := os.MkdirAll(runtimeConfig.LogDir, 0o644); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 
@@ -257,10 +254,16 @@ func (a *controllerAgentCommand) Init(args []string) error {
 		// github.com/juju/juju/internal/cmd/logging.go
 		ljLogger := &lumberjack.Logger{
 			// eg: "/var/log/juju/controller-0.log"
-			Filename:   agent.LogFilename(config),
-			MaxSize:    config.AgentLogfileMaxSizeMB(),
-			MaxBackups: config.AgentLogfileMaxBackups(),
+			Filename:   filepath.Join(runtimeConfig.LogDir, a.agentTag.String()+".log"),
+			MaxSize:    runtimeConfig.AgentLogfileMaxSizeMB,
+			MaxBackups: runtimeConfig.AgentLogfileMaxBackups,
 			Compress:   true,
+		}
+		if ljLogger.MaxSize == 0 {
+			ljLogger.MaxSize = controller.DefaultAgentLogfileMaxSize
+		}
+		if ljLogger.MaxBackups == 0 {
+			ljLogger.MaxBackups = controller.DefaultAgentLogfileMaxBackups
 		}
 		logger.Debugf(context.TODO(),
 			"created rotating log file %q with max size %d MB and max backups %d",
@@ -271,8 +274,8 @@ func (a *controllerAgentCommand) Init(args []string) error {
 	return nil
 }
 
-// Run instantiates a ControllerAgent and runs it.
-func (a *controllerAgentCommand) Run(c *cmd.Context) error {
+// Run instantiates a ControllerApplication and runs it.
+func (a *controllerApplicationCommand) Run(c *cmd.Context) error {
 	controllerAgent, err := a.controllerAgentFactory(a.agentTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -282,14 +285,14 @@ func (a *controllerAgentCommand) Run(c *cmd.Context) error {
 }
 
 // SetFlags adds the requisite flags to run this command.
-func (a *controllerAgentCommand) SetFlags(f *gnuflag.FlagSet) {
+func (a *controllerApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
 	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "log to stderr instead of logsink.log")
 }
 
 // Info returns usage information for the command.
-func (a *controllerAgentCommand) Info() *cmd.Info {
+func (a *controllerApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "controller",
 		Purpose: "run a juju controller agent",
@@ -297,15 +300,14 @@ func (a *controllerAgentCommand) Info() *cmd.Info {
 }
 
 // ControllerAgentFactoryFn returns a function which instantiates a
-// ControllerAgent given a controller agent tag.
+// ControllerApplication given a controller agent tag.
 func ControllerAgentFactoryFn(
-	agentConfWriter agentconfig.AgentConfigWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
-) controllerAgentFactoryFnType {
-	return func(agentTag names.Tag) (*ControllerAgent, error) {
+) ControllerApplicationFactoryFnType {
+	return func(agentTag names.Tag) (*ControllerApplication, error) {
 		runner, err := worker.NewRunner(worker.RunnerParams{
 			Name:          "controller",
 			IsFatal:       agenterrors.IsFatal,
@@ -318,7 +320,6 @@ func ControllerAgentFactoryFn(
 		}
 		return NewControllerAgent(
 			agentTag,
-			agentConfWriter,
 			runner,
 			newDBWorkerFunc,
 			preUpgradeSteps,
@@ -328,24 +329,21 @@ func ControllerAgentFactoryFn(
 	}
 }
 
-// NewControllerAgent instantiates a new ControllerAgent.
+// NewControllerAgent instantiates a new ControllerApplication.
 func NewControllerAgent(
 	agentTag names.Tag,
-	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	preUpgradeSteps PreUpgradeStepsFunc,
 	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
-) (*ControllerAgent, error) {
+) (*ControllerApplication, error) {
 	prometheusRegistry, err := addons.NewPrometheusRegistry()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	a := &ControllerAgent{
+	a := &ControllerApplication{
 		agentTag:           agentTag,
-		AgentConfigWriter:  agentConfWriter,
-		configChangedVal:   voyeur.NewValue(true),
 		workersStarted:     make(chan struct{}),
 		dead:               make(chan struct{}),
 		runner:             runner,
@@ -359,18 +357,15 @@ func NewControllerAgent(
 	return a, nil
 }
 
-// ControllerAgent is responsible for tying together all functionality
+// ControllerApplication is responsible for tying together all functionality
 // needed to orchestrate a jujud instance which controls a controller.
-type ControllerAgent struct {
-	agentconfig.AgentConfigWriter
-
+type ControllerApplication struct {
 	ctx                   *cmd.Context
 	dead                  chan struct{}
 	errReason             error
 	agentTag              names.Tag
 	runner                *worker.Runner
 	rootDir               string
-	configChangedVal      *voyeur.Value
 	controllerRuntimePath string
 
 	workersStarted chan struct{}
@@ -395,69 +390,57 @@ type ControllerAgent struct {
 }
 
 // Wait waits for the controller agent to finish.
-func (a *ControllerAgent) Wait() error {
+func (a *ControllerApplication) Wait() error {
 	<-a.dead
 	return a.errReason
 }
 
 // Stop stops the controller agent.
-func (a *ControllerAgent) Stop() error {
+func (a *ControllerApplication) Stop() error {
 	a.runner.Kill()
 	return a.Wait()
 }
 
 // Done signals the controller agent is finished.
-func (a *ControllerAgent) Done(err error) {
+func (a *ControllerApplication) Done(err error) {
 	a.errReason = err
 	close(a.dead)
 }
 
 // WorkersStarted returns a channel that's closed once all top level
 // workers have been started. This is provided for testing purposes.
-func (a *ControllerAgent) WorkersStarted() <-chan struct{} {
+func (a *ControllerApplication) WorkersStarted() <-chan struct{} {
 	return a.workersStarted
 }
 
 // Tag returns the controller agent's tag.
-func (a *ControllerAgent) Tag() names.Tag {
+func (a *ControllerApplication) Tag() names.Tag {
 	return a.agentTag
 }
 
-// ChangeConfig updates the agent's configuration and notifies
-// listeners of the change.
-func (a *ControllerAgent) ChangeConfig(mutate agent.ConfigMutator) error {
-	err := a.AgentConfigWriter.ChangeConfig(mutate)
-	a.configChangedVal.Set(true)
-	return errors.Trace(err)
-}
-
 // Restart restarts the agent's service.
-func (a *ControllerAgent) Restart() error {
-	name := a.CurrentConfig().Value(agent.AgentServiceName)
-	return service.Restart(name)
+func (a *ControllerApplication) Restart() error {
+	return service.Restart("controller-" + a.agentTag.Id())
 }
 
-func (a *ControllerAgent) registerPrometheusCollectors() error {
+func (a *ControllerApplication) registerPrometheusCollectors() error {
 	return nil
 }
 
-// Run runs a controller agent.
-func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
+// Run runs a controller application.
+func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 	a.ctx = ctx
-	if err := a.ReadConfig(a.Tag().String()); err != nil {
-		return errors.Errorf("cannot read agent configuration: %v", err)
-	}
 
-	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
-	agentConfig := a.CurrentConfig()
 	controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	agentconf.SetupAgentLoggingFromStrings(internallogger.DefaultContext(), controllerRuntimeConfig.LoggingOverride, controllerRuntimeConfig.LoggingConfig)
+
 	// Prime the log sink and create the writer.
-	logSink, err := PrimeLogSink(agentConfig)
+	logSink, err := PrimeLogSink(controllerRuntimeConfig.LogDir, controllerRuntimeConfig.AgentLogfileMaxSizeMB, controllerRuntimeConfig.AgentLogfileMaxBackups)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -490,9 +473,9 @@ func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
 	a.bootstrapLock = gate.NewLock()
 	a.controllerUpgradeLock = gate.NewLock()
 	a.upgradeDBLock = gate.AlreadyUnlocked{}
-	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
+	a.upgradeStepsLock = internalupgrade.NewLock(controllerRuntimeConfig, jujuversion.Current)
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), logSink)
+	createEngine := a.makeEngineCreator(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start.
@@ -501,7 +484,7 @@ func (a *ControllerAgent) Run(ctx *cmd.Context) (err error) {
 	return cmdutil.AgentDone(logger, err)
 }
 
-func (a *ControllerAgent) makeEngineCreator(
+func (a *ControllerApplication) makeEngineCreator(
 	agentName string,
 	previousAgentVersion semversion.Number,
 	logSink corelogger.LogSink,
@@ -637,7 +620,7 @@ func (a *ControllerAgent) makeEngineCreator(
 
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
-func (a *ControllerAgent) validateMigration(
+func (a *ControllerApplication) validateMigration(
 	_ context.Context, _ base.APICaller,
 ) error {
 	return nil
@@ -646,7 +629,7 @@ func (a *ControllerAgent) validateMigration(
 // statusSetter returns a StatusSetter for use during upgrades.
 // The controller agent does not track machine status, so a no-op
 // implementation is returned.
-func (a *ControllerAgent) statusSetter(
+func (a *ControllerApplication) statusSetter(
 	_ context.Context, _ base.APICaller,
 ) (upgradesteps.StatusSetter, error) {
 	return &noopStatusSetter{}, nil
@@ -654,7 +637,7 @@ func (a *ControllerAgent) statusSetter(
 
 // startModelWorkers starts the set of workers that run for every
 // model in each controller, both IAAS and CAAS.
-func (a *ControllerAgent) startModelWorkers(
+func (a *ControllerApplication) startModelWorkers(
 	cfg modelworkermanager.NewModelConfig,
 ) (worker.Worker, error) {
 	controllerRuntimeConfig, err := controllerruntimeconfig.ReadControllerRuntimeConfig(a.controllerRuntimePath)
@@ -719,7 +702,7 @@ func (a *ControllerAgent) startModelWorkers(
 		manifoldsCfg.CharmRevisionUpdateInterval = interval
 	}
 
-	applyTestingOverrides(a.CurrentConfig(), &manifoldsCfg)
+	applyTestingOverrides(controllerRuntimeConfig.CharmRevisionUpdateInterval, &manifoldsCfg)
 
 	var manifolds dependency.Manifolds
 	if cfg.ModelType == coremodel.IAAS {
