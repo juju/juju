@@ -335,8 +335,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-master": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -548,6 +546,10 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 
 	"log-sink": {},
 
+	"domain-services": {},
+
+	"http-client": {},
+
 	"migration-fortress": {
 		"domain-services",
 		"is-responsible-flag",
@@ -565,8 +567,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"migration-master": {
-		"agent",
-		"api-caller",
 		"domain-services",
 		"is-responsible-flag",
 		"lease-manager",
@@ -613,10 +613,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"not-dead-flag",
 	},
-
-	"domain-services": {},
-
-	"http-client": {},
 
 	"storage-provisioner": {
 		"agent",

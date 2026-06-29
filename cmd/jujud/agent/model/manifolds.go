@@ -120,6 +120,9 @@ type ManifoldsConfig struct {
 	// DomainServices is used to access the domain services.
 	DomainServices services.DomainServices
 
+	// DomainServicesGetter is used to access domain services for other models.
+	DomainServicesGetter services.DomainServicesGetter
+
 	// LeaseManager is used to manage the lease for the model.
 	LeaseManager lease.Manager
 
@@ -140,6 +143,15 @@ type ManifoldsConfig struct {
 	UpdateLoggerConfig   func(string) error
 }
 
+// StartupValueProvider provides information from the runtime.conf to workers
+// in the controller application. It supplies startup configuration values for
+// the model operator and logging override reader.
+//
+// Using an interface rather than passing values directly ensures that workers
+// read the current configuration when they are bounced (restarted). If values
+// were passed directly, workers would retain stale configuration after a bounce
+// until the agent itself is restarted. This interface combines all configuration
+// interfaces required by all workers into a single provider.
 type StartupValueProvider interface {
 	caasmodeloperator.ConfigProvider
 	controllerlogger.LoggingOverrideReader
@@ -250,11 +262,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		// This flag runs on all models, and
 		// indicates if model's cloud credential is valid.
-		validCredentialFlagName: credentialvalidator.Manifold(credentialvalidator.ManifoldConfig{
-			APICallerName: apiCallerName,
-			NewFacade:     credentialvalidator.NewFacade,
-			NewWorker:     credentialvalidator.NewWorker,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
+		validCredentialFlagName: credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			NewWorker:          credentialvalidator.NewWorker,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -271,20 +283,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
 		migrationFortressName: ifNotDead(fortress.Manifold()),
-		migrationInactiveFlagName: ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Check:         migrationflag.IsTerminal,
-			NewFacade:     migrationflag.NewFacade,
-			NewWorker:     migrationflag.NewWorker,
+		migrationInactiveFlagName: ifNotDead(migrationflag.ModelManifold(migrationflag.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			Check:              migrationflag.IsTerminal,
+			NewWorker:          migrationflag.NewWorker,
 		})),
 		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
-			APICallerName:      apiCallerName,
-			DomainServicesName: domainServicesName,
-			FortressName:       migrationFortressName,
-			ModelUUID:          config.ModelUUID,
-			Clock:              config.Clock,
-			NewFacade:          migrationmaster.NewFacade,
-			NewWorker:          config.NewMigrationMaster,
+			DomainServicesName:   domainServicesName,
+			DomainServicesGetter: config.DomainServicesGetter,
+			FortressName:         migrationFortressName,
+			ModelUUID:            config.ModelUUID,
+			LogDir:               config.LogDir,
+			Clock:                config.Clock,
+			NewWorker:            config.NewMigrationMaster,
 		})),
 
 		// Everything else should be wrapped in ifResponsible,
@@ -363,7 +375,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 
 		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
-			APICallerName:       apiCallerName,
+			DomainServicesName:  domainServicesName,
 			Clock:               config.Clock,
 			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
 			StorageRegistryName: providerTrackerName,
@@ -382,19 +394,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		secretsPrunerName: ifNotMigrating(secretspruner.Manifold(secretspruner.ManifoldConfig{
-			APICallerName:        apiCallerName,
-			Logger:               config.LoggingContext.GetLogger("juju.worker.secretspruner"),
-			NewUserSecretsFacade: secretspruner.NewUserSecretsFacade,
-			NewWorker:            secretspruner.NewWorker,
+			DomainServicesName: domainServicesName,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.secretspruner"),
+			NewWorker:          secretspruner.NewWorker,
 		})),
 		// The userSecretsDrainWorker is the worker that drains the user secrets
 		// from the inactive backend to the current active backend.
-		userSecretsDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
-			APICallerName:         apiCallerName,
-			Logger:                config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
-			NewSecretsDrainFacade: secretsdrainworker.NewUserSecretsDrainFacade,
-			NewWorker:             secretsdrainworker.NewWorker,
-			NewBackendsClient:     secretsdrainworker.NewUserSecretBackendsClient,
+		userSecretsDrainWorker: ifNotMigrating(secretsdrainworker.ModelManifold(secretsdrainworker.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
+			NewWorker:          secretsdrainworker.NewWorker,
 		})),
 
 		// the operationPruner is the worker that prune operation based on their

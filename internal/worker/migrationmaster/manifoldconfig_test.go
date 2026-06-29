@@ -11,7 +11,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 )
@@ -32,13 +32,13 @@ func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldConfigSuite) validConfig() migrationmaster.ManifoldConfig {
 	return migrationmaster.ManifoldConfig{
-		APICallerName:      "api-caller",
-		DomainServicesName: "domain-services",
-		FortressName:       "fortress",
-		ModelUUID:          "model-uuid",
-		Clock:              struct{ clock.Clock }{},
-		NewFacade:          func(base.APICaller) (migrationmaster.Facade, error) { return nil, nil },
-		NewWorker:          func(migrationmaster.Config) (worker.Worker, error) { return nil, nil },
+		DomainServicesName:   "domain-services",
+		DomainServicesGetter: struct{ services.DomainServicesGetter }{},
+		FortressName:         "fortress",
+		ModelUUID:            "model-uuid",
+		LogDir:               "/tmp/logs",
+		Clock:                struct{ clock.Clock }{},
+		NewWorker:            func(migrationmaster.Config) (worker.Worker, error) { return nil, nil },
 	}
 }
 
@@ -51,14 +51,14 @@ func (s *ManifoldConfigSuite) TestMissingModelUUID(c *tc.C) {
 	s.checkNotValid(c, "empty ModelUUID not valid")
 }
 
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
-	s.config.APICallerName = ""
-	s.checkNotValid(c, "empty APICallerName not valid")
-}
-
 func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
 	s.config.DomainServicesName = ""
 	s.checkNotValid(c, "empty DomainServicesName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingDomainServicesGetter(c *tc.C) {
+	s.config.DomainServicesGetter = nil
+	s.checkNotValid(c, "nil DomainServicesGetter not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingFortressName(c *tc.C) {
@@ -66,14 +66,14 @@ func (s *ManifoldConfigSuite) TestMissingFortressName(c *tc.C) {
 	s.checkNotValid(c, "empty FortressName not valid")
 }
 
+func (s *ManifoldConfigSuite) TestMissingLogDir(c *tc.C) {
+	s.config.LogDir = ""
+	s.checkNotValid(c, "empty LogDir not valid")
+}
+
 func (s *ManifoldConfigSuite) TestMissingClock(c *tc.C) {
 	s.config.Clock = nil
 	s.checkNotValid(c, "nil Clock not valid")
-}
-
-func (s *ManifoldConfigSuite) TestMissingNewFacade(c *tc.C) {
-	s.config.NewFacade = nil
-	s.checkNotValid(c, "nil NewFacade not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewWorker(c *tc.C) {
