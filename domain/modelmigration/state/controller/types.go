@@ -368,6 +368,12 @@ type importOfferArg struct {
 	OfferUUID     string `db:"offer_uuid"`
 }
 
+// importOfferRow projects the offer_uuid column from model_migration_import_offer,
+// used to read back recorded offer UUIDs for abort compensation.
+type importOfferRow struct {
+	OfferUUID string `db:"offer_uuid"`
+}
+
 // importExternalControllerModelArg is the insert argument for a
 // model_migration_import_external_controller_model row: the durable handoff
 // from Import to Activate for a third-party offerer-model mapping.

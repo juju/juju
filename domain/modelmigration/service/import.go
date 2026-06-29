@@ -95,6 +95,21 @@ func (s *Service) ImportOfferPermissions(
 	return s.controllerState.ImportOfferPermissions(ctx, modelUUID.String(), claimUUID, offerUUIDs)
 }
 
+// GetImportedOfferUUIDs returns the offer UUIDs recorded in
+// model_migration_import_offer for the import claim of the given model.
+// Returns nil (not an error) when no offer rows exist. Used by abort
+// compensation to delete offer-scoped permissions without querying the model DB.
+func (s *Service) GetImportedOfferUUIDs(ctx context.Context, modelUUID coremodel.UUID) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.GetImportedOfferUUIDs(ctx, modelUUID.String())
+}
+
 // EnsureExternalControllerExists compares-or-inserts a single third-party
 // controller's connection details (alias, CA cert, addresses). It fails with
 // [modelmigrationerrors.ErrExternalControllerMismatch] rather than

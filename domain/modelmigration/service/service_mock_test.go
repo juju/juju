@@ -135,6 +135,7 @@ type MockControllerStateMockRecorder struct {
 	getCredentialRevokedExpects             []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
 	getDisabledUsersExpects                 []*gomock.Call2_2[context.Context, []string, []string, error]
 	getImportClaimExpects                   []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
+	getImportedOfferUUIDsExpects            []*gomock.Call2_2[context.Context, string, []string, error]
 	getMigrationModeExpects                 []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
 	getSourceControllerInfoExpects          []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 	importExternalControllersExpects        []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
@@ -430,6 +431,24 @@ func (mr *MockControllerStateMockRecorder) GetImportClaim(ctx, modelUUID any) *M
 
 // MockControllerStateGetImportClaimCall is the typed call wrapper for GetImportClaim.
 type MockControllerStateGetImportClaimCall = gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
+
+// GetImportedOfferUUIDs mocks base method.
+func (m *MockControllerState) GetImportedOfferUUIDs(ctx context.Context, modelUUID string) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getImportedOfferUUIDsExpects, m.ctrl, m, "GetImportedOfferUUIDs", ctx, modelUUID)
+}
+
+// GetImportedOfferUUIDs indicates an expected call of GetImportedOfferUUIDs.
+func (mr *MockControllerStateMockRecorder) GetImportedOfferUUIDs(ctx, modelUUID any) *MockControllerStateGetImportedOfferUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetImportedOfferUUIDs", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getImportedOfferUUIDsExpects = append(mr.getImportedOfferUUIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetImportedOfferUUIDsCall is the typed call wrapper for GetImportedOfferUUIDs.
+type MockControllerStateGetImportedOfferUUIDsCall = gomock.Call2_2[context.Context, string, []string, error]
 
 // GetMigrationMode mocks base method.
 func (m *MockControllerState) GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration0.MigrationMode, error) {

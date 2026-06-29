@@ -227,6 +227,11 @@ type ControllerState interface {
 	ImportExternalControllers(
 		ctx context.Context, modelUUID, claimUUID string, refs []modelmigrationinternal.ExternalController,
 	) error
+
+	// GetImportedOfferUUIDs returns the offer UUIDs recorded in
+	// model_migration_import_offer for the import claim of the given model.
+	// Returns nil (not an error) when no offer rows exist.
+	GetImportedOfferUUIDs(ctx context.Context, modelUUID string) ([]string, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state

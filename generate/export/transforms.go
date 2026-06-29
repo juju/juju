@@ -381,16 +381,21 @@ func writeRegisteredFile(versions []string) error {
 
 	type pairData struct {
 		FromToken string
-		ToToken   string
+		ToType    string
 		From      string
 		To        string
 		PairPkg   string
 	}
 
-	// Collect unique type-version tokens (deduped) for import block.
+	// Collect unique non-final type-version tokens (deduped) for imports.
+	// The final transform registers its destination as latest.ModelExport,
+	// creating a compile-time guard that latest tracks the transformer target.
 	seen := map[string]bool{}
 	var typeVersions []string
-	for _, v := range versions {
+	for i, v := range versions {
+		if i == len(versions)-1 {
+			break
+		}
 		tok := versionToken(v)
 		if !seen[tok] {
 			seen[tok] = true
@@ -402,9 +407,13 @@ func writeRegisteredFile(versions []string) error {
 	for i := 0; i < len(versions)-1; i++ {
 		from, to := versions[i], versions[i+1]
 		fromTok, toTok := versionToken(from), versionToken(to)
+		toType := toTok + ".ModelExport"
+		if i == len(versions)-2 {
+			toType = "latest.ModelExport"
+		}
 		pairs = append(pairs, pairData{
 			FromToken: fromTok,
-			ToToken:   toTok,
+			ToType:    toType,
 			From:      from,
 			To:        to,
 			PairPkg:   "to_" + toTok,
@@ -414,9 +423,11 @@ func writeRegisteredFile(versions []string) error {
 	data := struct {
 		TypeVersions []string
 		Pairs        []pairData
+		HasPairs     bool
 	}{
 		TypeVersions: typeVersions,
 		Pairs:        pairs,
+		HasPairs:     len(pairs) > 0,
 	}
 
 	t := template.Must(template.New("registered").Parse(string(tmplBytes)))

@@ -10,6 +10,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/errors"
@@ -20,6 +21,12 @@ import (
 // State is the combined state required by the migration service.
 type State interface {
 	service.CreateModelState
+
+	// Delete removes the model row and all model-scoped controller rows
+	// (model_namespace, model_secret_backend, secret_backend_reference,
+	// model_authorized_keys, permission, model_last_login) for the given model
+	// UUID. Returns [modelerrors.NotFound] when the model does not exist.
+	Delete(ctx context.Context, uuid coremodel.UUID) error
 }
 
 // MigrationService defines a service for interacting with the underlying state based
@@ -138,6 +145,23 @@ func (s *MigrationService) prepareModelImport(
 	}
 
 	return args, modelType, nil
+}
+
+// DeleteImportedModel deletes the controller-database model row and all
+// model-scoped controller rows for an import that is being aborted. It is
+// idempotent: if the model does not exist, it returns nil.
+func (s *MigrationService) DeleteImportedModel(ctx context.Context, modelUUID coremodel.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("invalid model UUID %q: %w", modelUUID, err)
+	}
+	err := s.st.Delete(ctx, modelUUID)
+	if errors.Is(err, modelerrors.NotFound) {
+		return nil
+	}
+	return errors.Capture(err)
 }
 
 // ActivateModel marks the model as active after a successful import or

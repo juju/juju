@@ -23,6 +23,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/latest"
 	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
 	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	leaseservice "github.com/juju/juju/domain/lease/service"
@@ -48,8 +49,9 @@ type Deps struct {
 	Logger       logger.Logger
 }
 
-// ImportModelArgs contains the target-portable controller-scoped data needed
-// to start a v8 model import.
+// ImportModelArgs contains the data needed to perform a v8 model import: the
+// target-portable controller-scoped snapshot and the transformed model-DB
+// payload.
 type ImportModelArgs struct {
 	// SourceMigrationUUID is the source-side migration UUID recorded on the
 	// target import claim.
@@ -58,6 +60,13 @@ type ImportModelArgs struct {
 	// ControllerModelInfo is the semantic controller-database snapshot for the
 	// model, decoded from the v8 import envelope by the apiserver facade.
 	ControllerModelInfo coremodelmigration.ControllerModelInfo
+
+	// ModelDBPayload is the model-DB export payload decoded from the envelope
+	// and transformed up to the target schema version by the apiserver facade.
+	// The controller-scoped import in this package does not use it; the model-DB
+	// import operations driven by the migration package's coordinator consume
+	// it. It is nil only for controller-scoped-only callers and tests.
+	ModelDBPayload *latest.ModelExport
 }
 
 // ImportModel applies the v8 import's controller-scoped semantic data to the
@@ -83,221 +92,470 @@ func ImportModel(
 	return newImportCoordinator(deps, args, view).Import(ctx)
 }
 
-// importCoordinator wires the services and semantic input used by the v8
-// import. Construction is separate from execution so the import flow below is
-// only concerned with ordering and error handling.
+// RemoveOnAbortImport is the abort seam Task 11 will call from AbortImport.
+// It undoes the controller-DB writes performed by ImportModel in reverse order.
+// Each step is idempotent: it is safe to call RemoveOnAbortImport more than once.
+func RemoveOnAbortImport(
+	ctx context.Context,
+	deps Deps,
+	args ImportModelArgs,
+) error {
+	return newImportCoordinator(deps, args, export.ProjectionView{}).RemoveOnAbort(ctx)
+}
+
+// controllerImportOp is a single step in the v8 controller-DB import sequence.
+type controllerImportOp interface {
+	// Name returns the display name of this import step, used in error messages
+	// and logs.
+	Name() string
+
+	// Execute performs the forward controller-DB write for this step, threading
+	// any values downstream steps depend on into st.
+	Execute(ctx context.Context, st *importState) error
+
+	// RemoveOnAbort undoes the controller-DB write when the import is aborted.
+	// It is idempotent and stateless: it derives what to remove from the model
+	// UUID alone and is safe to call more than once.
+	RemoveOnAbort(ctx context.Context) error
+}
+
+// importState is threaded forward through Execute calls to carry values that
+// later steps depend on. RemoveOnAbort methods must not read it.
+type importState struct {
+	claimUUID     string
+	inactiveUsers set.Strings
+	credKey       corecredential.Key
+}
+
+// importCoordinator sequences the controller-DB import steps and exposes both
+// an Import (forward) and a RemoveOnAbort (abort) driver.
 type importCoordinator struct {
-	deps                Deps
-	services            importServices
-	modelUUID           coremodel.UUID
-	modelUUIDStr        string
-	sourceMigrationUUID string
-	info                coremodelmigration.ControllerModelInfo
-	view                export.ProjectionView
+	ops []controllerImportOp
+}
+
+// Import runs each op's Execute in registration order, threading importState
+// forward. The first error aborts the sequence; the caller is responsible for
+// calling RemoveOnAbort.
+func (c *importCoordinator) Import(ctx context.Context) error {
+	var st importState
+	for _, op := range c.ops {
+		if err := op.Execute(ctx, &st); err != nil {
+			return errors.Capture(err)
+		}
+	}
+	return nil
+}
+
+// RemoveOnAbort runs each op's RemoveOnAbort in reverse registration order,
+// collecting all errors. It is idempotent and safe to call more than once.
+func (c *importCoordinator) RemoveOnAbort(ctx context.Context) error {
+	var errs []error
+	for i := len(c.ops) - 1; i >= 0; i-- {
+		if err := c.ops[i].RemoveOnAbort(ctx); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func newImportCoordinator(
 	deps Deps,
 	args ImportModelArgs,
 	view export.ProjectionView,
-) importCoordinator {
+) *importCoordinator {
 	info := args.ControllerModelInfo
 	modelUUIDStr := info.ModelInfo.UUID
 	modelUUID := coremodel.UUID(modelUUIDStr)
-	return importCoordinator{
-		deps:                deps,
-		services:            newImportServices(deps, modelUUID),
-		modelUUID:           modelUUID,
-		modelUUIDStr:        modelUUIDStr,
-		sourceMigrationUUID: args.SourceMigrationUUID,
-		info:                info,
-		view:                view,
-	}
-}
 
-func (c importCoordinator) Import(ctx context.Context) error {
-	claimUUID, err := c.beginImport(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
+	svc := newImportServices(deps, modelUUID)
 
-	inactiveUsers, err := c.importUsers(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	credKey, err := c.importCredential(ctx)
-	if err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.bootstrapModel(ctx, credKey); err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.importExternalControllers(ctx, claimUUID); err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.importPermissions(ctx, claimUUID, inactiveUsers); err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.importAuthorizedKeys(ctx, inactiveUsers); err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.importSecretBackendReferences(ctx); err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.importLeadership(ctx); err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.importLastLogins(ctx, inactiveUsers); err != nil {
-		return errors.Capture(err)
-	}
-
-	if err := c.importCloudImageMetadata(ctx); err != nil {
-		return errors.Capture(err)
-	}
-	return nil
-}
-
-func (c importCoordinator) beginImport(ctx context.Context) (string, error) {
-	return c.services.claim.BeginImport(ctx, c.modelUUID, c.sourceMigrationUUID)
-}
-
-func (c importCoordinator) importUsers(ctx context.Context) (set.Strings, error) {
-	inactiveUsers, err := c.services.access.ImportModelUsers(ctx, c.info.Users)
-	if err != nil {
-		return nil, errors.Errorf("resolving users for model %q import: %w", c.modelUUIDStr, err)
-	}
-	return inactiveUsers, nil
-}
-
-func (c importCoordinator) importCredential(ctx context.Context) (corecredential.Key, error) {
-	if c.info.ModelCredential == nil {
-		return corecredential.Key{}, nil
-	}
-	credKey, err := c.services.credential.ImportModelCredential(ctx, *c.info.ModelCredential)
-	if err != nil {
-		return corecredential.Key{}, errors.Errorf(
-			"resolving credential for model %q import: %w", c.modelUUIDStr, err)
-	}
-	return credKey, nil
-}
-
-func (c importCoordinator) bootstrapModel(
-	ctx context.Context, credKey corecredential.Key,
-) error {
 	var secretBackendName string
-	if c.info.SecretBackend != nil {
-		secretBackendName = c.info.SecretBackend.Name
+	if info.SecretBackend != nil {
+		secretBackendName = info.SecretBackend.Name
 	}
-	agentStream := agentStreamFromModelConfig(c.view)
+	agentStream := agentStreamFromModelConfig(view)
+
+	ops := []controllerImportOp{
+		&opBeginImport{
+			claim:         svc.claim,
+			modelUUID:     modelUUID,
+			modelUUIDStr:  modelUUIDStr,
+			sourceMigUUID: args.SourceMigrationUUID,
+		},
+		&opImportUsers{
+			access:       svc.access,
+			modelUUIDStr: modelUUIDStr,
+			users:        info.Users,
+		},
+		&opImportCredential{
+			credential:      svc.credential,
+			modelUUIDStr:    modelUUIDStr,
+			modelCredential: info.ModelCredential,
+		},
+		&opBootstrapModel{
+			deps:               deps,
+			modelUUID:          modelUUID,
+			modelUUIDStr:       modelUUIDStr,
+			identity:           info.ModelInfo,
+			secretBackendName:  secretBackendName,
+			agentStream:        agentStream,
+			agentTargetVersion: view.AgentTargetVersion,
+		},
+		&opImportExternalControllers{
+			claim:        svc.claim,
+			modelUUID:    modelUUID,
+			modelUUIDStr: modelUUIDStr,
+			refs:         info.ExternalControllers,
+		},
+		&opImportPermissions{
+			access:       svc.access,
+			claim:        svc.claim,
+			modelUUID:    modelUUID,
+			modelUUIDStr: modelUUIDStr,
+			perms:        info.Permissions,
+		},
+		&opImportAuthorizedKeys{
+			keymanager:   svc.keymanager,
+			access:       svc.access,
+			modelUUIDStr: modelUUIDStr,
+			keys:         info.AuthorizedKeys,
+		},
+		&opImportSecretBackendReferences{
+			secretBackend: svc.secretBackend,
+			modelUUID:     modelUUID,
+			modelUUIDStr:  modelUUIDStr,
+			refs:          info.SecretBackendRefs,
+		},
+		&opImportLeadership{
+			lease:        svc.lease,
+			modelUUID:    modelUUID,
+			modelUUIDStr: modelUUIDStr,
+			leaders:      info.Leaders,
+		},
+		&opImportLastLogins{
+			access:       svc.access,
+			modelUUID:    modelUUID,
+			modelUUIDStr: modelUUIDStr,
+			users:        info.Users,
+		},
+		&opImportCloudImageMetadata{
+			cloudImage:   svc.cloudImage,
+			logger:       deps.Logger,
+			modelUUIDStr: modelUUIDStr,
+			metadata:     info.CloudImageMetadata,
+		},
+	}
+
+	return &importCoordinator{ops: ops}
+}
+
+// ---- per-op structs ---------------------------------------------------------
+
+type opBeginImport struct {
+	claim         *migrationclaimservice.Service
+	modelUUID     coremodel.UUID
+	modelUUIDStr  string
+	sourceMigUUID string
+}
+
+func (op *opBeginImport) Name() string { return "begin-import" }
+
+func (op *opBeginImport) Execute(ctx context.Context, st *importState) error {
+	claimUUID, err := op.claim.BeginImport(ctx, op.modelUUID, op.sourceMigUUID)
+	if err != nil {
+		return errors.Errorf("claiming import slot for model %q: %w", op.modelUUIDStr, err)
+	}
+	st.claimUUID = claimUUID
+	return nil
+}
+
+// RemoveOnAbort is a no-op: the import claim is the durable anchor; Task 11
+// removes it as the last step of AbortImport.
+func (op *opBeginImport) RemoveOnAbort(_ context.Context) error { return nil }
+
+// ----
+
+type opImportUsers struct {
+	access       *accessservice.Service
+	modelUUIDStr string
+	users        []coremodelmigration.ModelUser
+}
+
+func (op *opImportUsers) Name() string { return "import-users" }
+
+func (op *opImportUsers) Execute(ctx context.Context, st *importState) error {
+	inactiveUsers, err := op.access.ImportModelUsers(ctx, op.users)
+	if err != nil {
+		return errors.Errorf("resolving users for model %q import: %w", op.modelUUIDStr, err)
+	}
+	st.inactiveUsers = inactiveUsers
+	return nil
+}
+
+// RemoveOnAbort is a no-op: external users are controller-level entities shared
+// across models; permissions are cleaned by opImportPermissions.RemoveOnAbort.
+func (op *opImportUsers) RemoveOnAbort(_ context.Context) error { return nil }
+
+// ----
+
+type opImportCredential struct {
+	credential      *credentialservice.Service
+	modelUUIDStr    string
+	modelCredential *coremodelmigration.ModelCloudCredential
+}
+
+func (op *opImportCredential) Name() string { return "import-credential" }
+
+func (op *opImportCredential) Execute(ctx context.Context, st *importState) error {
+	if op.modelCredential == nil {
+		return nil
+	}
+	credKey, err := op.credential.ImportModelCredential(ctx, *op.modelCredential)
+	if err != nil {
+		return errors.Errorf("resolving credential for model %q import: %w", op.modelUUIDStr, err)
+	}
+	st.credKey = credKey
+	return nil
+}
+
+// RemoveOnAbort is a no-op: credentials are controller-level entities shared
+// across models.
+func (op *opImportCredential) RemoveOnAbort(_ context.Context) error { return nil }
+
+// ----
+
+type opBootstrapModel struct {
+	deps               Deps
+	modelUUID          coremodel.UUID
+	modelUUIDStr       string
+	identity           coremodelmigration.ModelIdentityInfo
+	secretBackendName  string
+	agentStream        agentbinary.AgentStream
+	agentTargetVersion semversion.Number
+}
+
+func (op *opBootstrapModel) Name() string { return "bootstrap-model" }
+
+func (op *opBootstrapModel) Execute(ctx context.Context, st *importState) error {
 	if err := bootstrapImportedModel(
-		ctx, c.deps, c.modelUUID, c.info.ModelInfo, credKey, secretBackendName,
-		agentStream, c.view.AgentTargetVersion,
+		ctx, op.deps, op.modelUUID, op.identity, st.credKey, op.secretBackendName,
+		op.agentStream, op.agentTargetVersion,
 	); err != nil {
-		return errors.Errorf("bootstrapping model %q: %w", c.modelUUIDStr, err)
+		return errors.Errorf("bootstrapping model %q: %w", op.modelUUIDStr, err)
 	}
 	return nil
 }
 
-func (c importCoordinator) importExternalControllers(
-	ctx context.Context, claimUUID string,
-) error {
-	if err := c.services.claim.ImportExternalControllers(
-		ctx, c.modelUUID, claimUUID, c.info.ExternalControllers,
+// RemoveOnAbort deletes the model row and all model-scoped controller rows.
+// Idempotent: if the model was never written (Execute failed) or was already
+// deleted, it returns nil.
+func (op *opBootstrapModel) RemoveOnAbort(ctx context.Context) error {
+	migrationSvc := modelmigrationservice.NewMigrationService(
+		modelstatecontroller.NewState(op.deps.ControllerDB), op.deps.Logger,
+	)
+	return migrationSvc.DeleteImportedModel(ctx, op.modelUUID)
+}
+
+// ----
+
+type opImportExternalControllers struct {
+	claim        *migrationclaimservice.Service
+	modelUUID    coremodel.UUID
+	modelUUIDStr string
+	refs         []coremodelmigration.ExternalController
+}
+
+func (op *opImportExternalControllers) Name() string { return "import-external-controllers" }
+
+func (op *opImportExternalControllers) Execute(ctx context.Context, st *importState) error {
+	if err := op.claim.ImportExternalControllers(
+		ctx, op.modelUUID, st.claimUUID, op.refs,
 	); err != nil {
 		return errors.Errorf(
-			"importing external controllers for model %q import: %w", c.modelUUIDStr, err)
+			"importing external controllers for model %q import: %w", op.modelUUIDStr, err)
 	}
 	return nil
 }
 
-func (c importCoordinator) importPermissions(
-	ctx context.Context, claimUUID string, inactiveUsers set.Strings,
-) error {
-	offerUUIDs, err := c.services.access.ImportModelPermissions(
-		ctx, c.info.Permissions, inactiveUsers,
-	)
+// RemoveOnAbort is a no-op: external_controller rows are shared across models
+// and must not be deleted on a single-model abort.
+func (op *opImportExternalControllers) RemoveOnAbort(_ context.Context) error { return nil }
+
+// ----
+
+type opImportPermissions struct {
+	access       *accessservice.Service
+	claim        *migrationclaimservice.Service
+	modelUUID    coremodel.UUID
+	modelUUIDStr string
+	perms        []coremodelmigration.ModelPermission
+}
+
+func (op *opImportPermissions) Name() string { return "import-permissions" }
+
+func (op *opImportPermissions) Execute(ctx context.Context, st *importState) error {
+	offerUUIDs, err := op.access.ImportModelPermissions(ctx, op.perms, st.inactiveUsers)
 	if err != nil {
-		return errors.Errorf("applying permissions for model %q import: %w", c.modelUUIDStr, err)
+		return errors.Errorf("applying permissions for model %q import: %w", op.modelUUIDStr, err)
 	}
-	if err := c.services.claim.ImportOfferPermissions(
-		ctx, c.modelUUID, claimUUID, offerUUIDs,
+	if err := op.claim.ImportOfferPermissions(
+		ctx, op.modelUUID, st.claimUUID, offerUUIDs,
 	); err != nil {
 		return errors.Errorf(
-			"recording offer permissions for model %q import: %w", c.modelUUIDStr, err)
+			"recording offer permissions for model %q import: %w", op.modelUUIDStr, err)
 	}
 	return nil
 }
 
-func (c importCoordinator) importAuthorizedKeys(
-	ctx context.Context, inactiveUsers set.Strings,
-) error {
-	if err := c.services.keymanager.ImportAuthorizedKeys(
-		ctx, c.info.AuthorizedKeys, inactiveUsers, c.services.access.GetUserUUIDByName,
-	); err != nil {
-		return errors.Errorf(
-			"applying authorized keys for model %q import: %w", c.modelUUIDStr, err)
-	}
-	return nil
-}
-
-func (c importCoordinator) importSecretBackendReferences(ctx context.Context) error {
-	if err := c.services.secretBackend.ImportSecretBackendReferences(
-		ctx, c.modelUUID, c.info.SecretBackendRefs,
-	); err != nil {
-		return errors.Errorf(
-			"applying secret backend references for model %q import: %w", c.modelUUIDStr, err)
-	}
-	return nil
-}
-
-func (c importCoordinator) importLeadership(ctx context.Context) error {
-	if err := c.services.lease.ImportApplicationLeadership(
-		ctx, c.modelUUID, c.info.Leaders,
-	); err != nil {
-		return errors.Errorf(
-			"claiming leadership leases for model %q import: %w", c.modelUUIDStr, err)
-	}
-	return nil
-}
-
-func (c importCoordinator) importLastLogins(
-	ctx context.Context, inactiveUsers set.Strings,
-) error {
-	if err := c.services.access.ImportLastModelLogins(
-		ctx, c.modelUUID, c.info.Users, inactiveUsers,
-	); err != nil {
-		return errors.Errorf(
-			"applying last logins for model %q import: %w", c.modelUUIDStr, err)
-	}
-	return nil
-}
-
-func (c importCoordinator) importCloudImageMetadata(ctx context.Context) error {
-	imageConflicts, err := c.services.cloudImage.ImportCloudImageMetadata(
-		ctx, c.info.CloudImageMetadata,
-	)
+// RemoveOnAbort deletes the model-scoped and offer-scoped permission rows. Offer
+// UUIDs are read back from the model_migration_import_offer companion table so
+// this method is stateless.
+func (op *opImportPermissions) RemoveOnAbort(ctx context.Context) error {
+	offerUUIDs, err := op.claim.GetImportedOfferUUIDs(ctx, op.modelUUID)
 	if err != nil {
 		return errors.Errorf(
-			"applying cloud image metadata for model %q import: %w", c.modelUUIDStr, err)
+			"reading import offer UUIDs for model %q: %w", op.modelUUIDStr, err)
+	}
+	grantOnUUIDs := append([]string{op.modelUUIDStr}, offerUUIDs...)
+	return op.access.DeletePermissionsByGrantOnUUID(ctx, grantOnUUIDs)
+}
+
+// ----
+
+type opImportAuthorizedKeys struct {
+	keymanager   *keymanagerservice.Service
+	access       *accessservice.Service
+	modelUUIDStr string
+	keys         []coremodelmigration.ModelAuthorizedKey
+}
+
+func (op *opImportAuthorizedKeys) Name() string { return "import-authorized-keys" }
+
+func (op *opImportAuthorizedKeys) Execute(ctx context.Context, st *importState) error {
+	if err := op.keymanager.ImportAuthorizedKeys(
+		ctx, op.keys, st.inactiveUsers, op.access.GetUserUUIDByName,
+	); err != nil {
+		return errors.Errorf(
+			"applying authorized keys for model %q import: %w", op.modelUUIDStr, err)
+	}
+	return nil
+}
+
+// RemoveOnAbort deletes all authorized keys stored for the model. The keymanager
+// service already treats this as idempotent.
+func (op *opImportAuthorizedKeys) RemoveOnAbort(ctx context.Context) error {
+	return op.keymanager.DeleteKeysForModel(ctx)
+}
+
+// ----
+
+type opImportSecretBackendReferences struct {
+	secretBackend *secretbackendservice.Service
+	modelUUID     coremodel.UUID
+	modelUUIDStr  string
+	refs          []coremodelmigration.SecretBackendReference
+}
+
+func (op *opImportSecretBackendReferences) Name() string { return "import-secret-backend-refs" }
+
+func (op *opImportSecretBackendReferences) Execute(ctx context.Context, _ *importState) error {
+	if err := op.secretBackend.ImportSecretBackendReferences(
+		ctx, op.modelUUID, op.refs,
+	); err != nil {
+		return errors.Errorf(
+			"applying secret backend references for model %q import: %w", op.modelUUIDStr, err)
+	}
+	return nil
+}
+
+// RemoveOnAbort is a no-op: secret_backend_reference rows are covered by the
+// model.Delete cascade in opBootstrapModel.RemoveOnAbort.
+func (op *opImportSecretBackendReferences) RemoveOnAbort(_ context.Context) error { return nil }
+
+// ----
+
+type opImportLeadership struct {
+	lease        *leaseservice.Service
+	modelUUID    coremodel.UUID
+	modelUUIDStr string
+	leaders      []coremodelmigration.ApplicationLeadership
+}
+
+func (op *opImportLeadership) Name() string { return "import-leadership" }
+
+func (op *opImportLeadership) Execute(ctx context.Context, _ *importState) error {
+	if err := op.lease.ImportApplicationLeadership(
+		ctx, op.modelUUID, op.leaders,
+	); err != nil {
+		return errors.Errorf(
+			"claiming leadership leases for model %q import: %w", op.modelUUIDStr, err)
+	}
+	return nil
+}
+
+// RemoveOnAbort deletes all application-leadership leases for the model.
+func (op *opImportLeadership) RemoveOnAbort(ctx context.Context) error {
+	return op.lease.DeleteLeadershipForModel(ctx, op.modelUUID)
+}
+
+// ----
+
+type opImportLastLogins struct {
+	access       *accessservice.Service
+	modelUUID    coremodel.UUID
+	modelUUIDStr string
+	users        []coremodelmigration.ModelUser
+}
+
+func (op *opImportLastLogins) Name() string { return "import-last-logins" }
+
+func (op *opImportLastLogins) Execute(ctx context.Context, st *importState) error {
+	if err := op.access.ImportLastModelLogins(
+		ctx, op.modelUUID, op.users, st.inactiveUsers,
+	); err != nil {
+		return errors.Errorf(
+			"applying last logins for model %q import: %w", op.modelUUIDStr, err)
+	}
+	return nil
+}
+
+// RemoveOnAbort is a no-op: model_last_login rows are covered by the
+// model.Delete cascade in opBootstrapModel.RemoveOnAbort.
+func (op *opImportLastLogins) RemoveOnAbort(_ context.Context) error { return nil }
+
+// ----
+
+type opImportCloudImageMetadata struct {
+	cloudImage   *cloudimagemetadataservice.Service
+	logger       logger.Logger
+	modelUUIDStr string
+	metadata     []coremodelmigration.CloudImageMetadata
+}
+
+func (op *opImportCloudImageMetadata) Name() string { return "import-cloud-image-metadata" }
+
+func (op *opImportCloudImageMetadata) Execute(ctx context.Context, _ *importState) error {
+	imageConflicts, err := op.cloudImage.ImportCloudImageMetadata(ctx, op.metadata)
+	if err != nil {
+		return errors.Errorf(
+			"applying cloud image metadata for model %q import: %w", op.modelUUIDStr, err)
 	}
 	for _, conflict := range imageConflicts {
 		// Non-fatal: the target's custom image metadata is kept (target-wins);
 		// the operator can reconcile via the normal custom-metadata path.
-		c.deps.Logger.Warningf(ctx,
+		op.logger.Warningf(ctx,
 			"model %q import: keeping target custom cloud image metadata for %s/%s/%s/%s image %q, skipping source image %q",
-			c.modelUUIDStr, conflict.Stream, conflict.Region, conflict.Version,
+			op.modelUUIDStr, conflict.Stream, conflict.Region, conflict.Version,
 			conflict.Arch, conflict.ExistingImageID, conflict.IncomingImageID)
 	}
 	return nil
 }
+
+// RemoveOnAbort is a no-op: cloud image metadata is controller-scoped and
+// shared; target-wins semantics mean no rollback is needed.
+func (op *opImportCloudImageMetadata) RemoveOnAbort(_ context.Context) error { return nil }
+
+// ---- services bundle --------------------------------------------------------
 
 // importServices bundles the controller-scoped domain services the v8 import
 // driver orchestrates. They are constructed once at the start of ImportModel
@@ -340,6 +598,8 @@ func newImportServices(deps Deps, modelUUID coremodel.UUID) importServices {
 		),
 	}
 }
+
+// ---- helpers ----------------------------------------------------------------
 
 // bootstrapImportedModel creates the controller-database model row (claim-free:
 // the v8 import claim is owned by the modelmigration domain, not this call) and

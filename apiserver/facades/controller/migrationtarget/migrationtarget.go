@@ -35,6 +35,8 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/latest"
+	"github.com/juju/juju/domain/modelimport"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
@@ -660,7 +662,7 @@ func NewAPIV8(
 // environmental checks without writing any target-side rows and without
 // deserializing a description.Model.
 func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) error {
-	view, err := api.importGuard(args)
+	view, _, err := api.importGuard(ctx, args)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -686,12 +688,12 @@ func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) 
 // duplicate the Prechecks routine. This mirrors v7, where Import does not
 // re-run Prechecks either.
 func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2) error {
-	view, err := api.importGuard(envelope)
+	view, modelDB, err := api.importGuard(ctx, envelope)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	if err := api.modelImporter.ImportModelV2(ctx, importModelV2Args(envelope), view); err != nil {
+	if err := api.modelImporter.ImportModelV2(ctx, importModelV2Args(envelope, modelDB), view); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
@@ -708,11 +710,11 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 // guaranteed present by the time the facade serves requests, because the
 // controllerupgrader manifold gates the apiserver behind completion of the
 // controller-DB schema upgrade (see the migrationtarget v8 spec, §4.6).
-func (api *APIV8) importGuard(args params.SerializedModelV2) (export.ProjectionView, error) {
+func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2) (export.ProjectionView, *latest.ModelExport, error) {
 	// Model sanity first: nothing else is meaningful without a valid
 	// model identity.
 	if err := validateModelInfo(args.ModelInfo); err != nil {
-		return export.ProjectionView{}, errors.Capture(err)
+		return export.ProjectionView{}, nil, errors.Capture(err)
 	}
 
 	// Payload-version checks. The newer-than-target check runs before the
@@ -720,22 +722,47 @@ func (api *APIV8) importGuard(args params.SerializedModelV2) (export.ProjectionV
 	// actionable upgrade message rather than an unknown-version error.
 	targetVersion := export.LatestSupportedPayloadVersion()
 	if args.PayloadVersion.Compare(targetVersion) > 0 {
-		return export.ProjectionView{}, errors.Errorf(
+		return export.ProjectionView{}, nil, errors.Errorf(
 			"source payload version %q is newer than target %q; upgrade the target controller first %w",
 			args.PayloadVersion, targetVersion, coreerrors.NotSupported)
 	}
 
 	payload, err := export.DecodePayload(args.PayloadVersion, args.Payload)
 	if err != nil {
-		return export.ProjectionView{}, errors.Capture(err)
+		return export.ProjectionView{}, nil, errors.Capture(err)
 	}
 
-	view, err := export.ProjectionViewForPayload(payload)
+	// Build the import transformer and run it over the payload to walk it up to
+	// the target schema version before any target-side write. Transform itself
+	// validates that the payload version is in the chain: a payload that
+	// decodes but cannot be transformed is rejected here.
+	transformer, err := modelimport.NewTransformer()
 	if err != nil {
-		return export.ProjectionView{}, errors.Capture(err)
+		return export.ProjectionView{}, nil, errors.Errorf("constructing model import transformer: %w", err)
 	}
 
-	return view, nil
+	// Transform the model-DB payload up to the target schema version before any
+	// target-side write. Carrying the transformed payload to the importer here
+	// (no writes) also fully validates the payload is walkable.
+	transformed, err := transformer.Transform(ctx, args.PayloadVersion, payload)
+	if err != nil {
+		return export.ProjectionView{}, nil, errors.Errorf(
+			"transforming model export payload from %q to %q: %w",
+			args.PayloadVersion, transformer.Target(), err)
+	}
+	modelDB, ok := transformed.(latest.ModelExport)
+	if !ok {
+		return export.ProjectionView{}, nil, errors.Errorf(
+			"transformed model export payload has unexpected type %T, want %T",
+			transformed, latest.ModelExport{})
+	}
+
+	view, err := export.ProjectionViewForPayload(modelDB)
+	if err != nil {
+		return export.ProjectionView{}, nil, errors.Capture(err)
+	}
+
+	return view, &modelDB, nil
 }
 
 // validateModelInfo validates the bootstrap identity fields of the v8 args.
@@ -760,7 +787,7 @@ func validateModelInfo(info params.SerializedModelInfo) error {
 // source side's envelopeFromControllerModelInfo
 // (internal/worker/migrationmaster/envelope.go), and is kept in the apiserver
 // facade so internal migration code does not depend on rpc/params.
-func importModelV2Args(envelope params.SerializedModelV2) migrationv2.ImportModelArgs {
+func importModelV2Args(envelope params.SerializedModelV2, modelDBPayload *latest.ModelExport) migrationv2.ImportModelArgs {
 	info := coremodelmigration.ControllerModelInfo{
 		ModelInfo: coremodelmigration.ModelIdentityInfo{
 			UUID:            envelope.ModelInfo.UUID,
@@ -887,6 +914,7 @@ func importModelV2Args(envelope params.SerializedModelV2) migrationv2.ImportMode
 	return migrationv2.ImportModelArgs{
 		SourceMigrationUUID: envelope.ModelInfo.SourceMigrationUUID,
 		ControllerModelInfo: info,
+		ModelDBPayload:      modelDBPayload,
 	}
 }
 

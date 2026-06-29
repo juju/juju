@@ -57,6 +57,7 @@ func (s *migrationSuite) TestPerform(c *tc.C) {
 	err := m.Perform(c.Context(), s.scope, s.model)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
 func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

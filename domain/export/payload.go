@@ -8,6 +8,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/export/types/latest"
 	v4_0_11 "github.com/juju/juju/domain/export/types/v4_0_11"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/internal/errors"
@@ -20,8 +21,8 @@ type PayloadDecodeFunc func(data []byte) (any, error)
 // payloadDecoders maps each supported export version to the decoder producing
 // its concrete generated payload type. Every entry of [ExportVersions] must
 // have a decoder here; the completeness is asserted by tests so that adding a
-// new export version forces this registry (and [ProjectionViewForPayload]) to
-// be updated.
+// new export version forces this registry to be updated. [ProjectionViewForPayload]
+// does not need a per-version entry: it runs on the transformed latest payload.
 var payloadDecoders = map[semversion.Number]PayloadDecodeFunc{
 	semversion.MustParse("4.0.11"): decodePayload[v4_0_11.ModelExport],
 	semversion.MustParse("4.1.0"):  decodePayload[v4_1_0.ModelExport],
@@ -89,35 +90,12 @@ type ProjectionView struct {
 	AgentStream string
 }
 
-// ProjectionViewForPayload builds the precheck projection from a payload value
-// returned by [DecodePayload]. It returns an error satisfying
-// [coreerrors.NotSupported] for payload types not known to this registry.
-func ProjectionViewForPayload(payload any) (ProjectionView, error) {
-	switch p := payload.(type) {
-	case v4_0_11.ModelExport:
-		return buildProjectionViewV4_0_11(p)
-	case v4_1_0.ModelExport:
-		return buildProjectionViewV4_1_0(p)
-	default:
-		return ProjectionView{}, errors.Errorf(
-			"model export payload type %T %w", payload, coreerrors.NotSupported)
-	}
-}
-
-func buildProjectionViewV4_0_11(payload v4_0_11.ModelExport) (ProjectionView, error) {
-	var view ProjectionView
-	if err := setAgentTargetVersion(&view, len(payload.AgentVersion), func(i int) string {
-		return payload.AgentVersion[i].TargetVersion
-	}); err != nil {
-		return ProjectionView{}, errors.Capture(err)
-	}
-	setAgentStream(&view, len(payload.ModelConfig), func(i int) (string, string) {
-		return payload.ModelConfig[i].Key, payload.ModelConfig[i].Value
-	})
-	return view, nil
-}
-
-func buildProjectionViewV4_1_0(payload v4_1_0.ModelExport) (ProjectionView, error) {
+// ProjectionViewForPayload builds the precheck projection from the transformed,
+// target-version model-DB payload. Because the transformer normalizes every
+// source version to [latest.ModelExport] before this runs, the projection only
+// ever handles one payload shape: adding a new export version needs a decoder
+// entry and a transformer step, but no change here.
+func ProjectionViewForPayload(payload latest.ModelExport) (ProjectionView, error) {
 	var view ProjectionView
 	if err := setAgentTargetVersion(&view, len(payload.AgentVersion), func(i int) string {
 		return payload.AgentVersion[i].TargetVersion
