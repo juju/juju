@@ -83,7 +83,7 @@ func (s *serviceSuite) TestMachineVirtualHostKeyReturnsExistingAfterConcurrentIn
 	state.machineExists["1"] = true
 	state.machineEnsureKeys["1"] = testPrivateKey
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -98,7 +98,7 @@ func (s *serviceSuite) TestUnitVirtualHostKeyReturnsExistingAfterConcurrentInser
 	state.unitExists["postgresql/0"] = true
 	state.unitEnsureKeys["postgresql/0"] = testPrivateKey
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -272,6 +272,7 @@ func (s *stubModelState) GetMachineVirtualHostKeyByMachineName(_ context.Context
 	return key, found, nil
 }
 
+// EnsureMachineVirtualHostKeyByMachineName(context.Context, string, int, string) (string, error)
 func (s *stubModelState) EnsureMachineVirtualHostKeyByMachineName(_ context.Context, machineName string, algorithmTypeID int, key string) (string, error) {
 	if !s.machineExists[machineName] {
 		return "", errors.Errorf("machine %q not found", machineName)
