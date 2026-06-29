@@ -837,11 +837,6 @@ func (a *MachineAgent) validateMigration(ctx context.Context, apiCaller base.API
 // in each controller, both IAAS and CAAS.
 func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
-	controllerUUID := currentConfig.Controller().Id()
-	modelAgent, err := model.WrapAgent(a, controllerUUID, cfg.ModelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	config := agentengine.DependencyEngineConfig(
 		cfg.ModelMetrics,
@@ -856,8 +851,6 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	}
 
 	manifoldsCfg := model.ManifoldsConfig{
-		Agent:                         modelAgent,
-		AgentConfigChanged:            a.configChangedVal,
 		Authority:                     cfg.Authority,
 		Clock:                         clock.WallClock,
 		LoggingContext:                cfg.LoggerContext,
@@ -873,16 +866,16 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		LeaseManager:                  cfg.LeaseManager,
 		HTTPClientGetter:              cfg.HTTPClientGetter,
 		APIRemoteRelationClientGetter: cfg.APIRemoteRelationClientGetter,
+
+		ModelUUID:            cfg.ModelUUID,
+		AgentTag:             currentConfig.Tag(),
+		ModelTag:             names.NewModelTag(cfg.ModelUUID),
+		DataDir:              currentConfig.DataDir(),
+		LogDir:               currentConfig.LogDir(),
+		ControllerTag:        currentConfig.Controller(),
+		StartupValueProvider: machineModelStartupValueProvider{agent: a},
+		UpdateLoggerConfig:   func(string) error { return nil },
 	}
-	agentConfig := modelAgent.CurrentConfig()
-	manifoldsCfg.ModelUUID = agentConfig.Model().Id()
-	manifoldsCfg.AgentTag = agentConfig.Tag()
-	manifoldsCfg.ModelTag = agentConfig.Model()
-	manifoldsCfg.DataDir = agentConfig.DataDir()
-	manifoldsCfg.LogDir = agentConfig.LogDir()
-	manifoldsCfg.ControllerTag = agentConfig.Controller()
-	manifoldsCfg.StartupValueProvider = machineModelStartupValueProvider{agent: modelAgent}
-	manifoldsCfg.UpdateLoggerConfig = func(string) error { return nil }
 	if wrench.IsActive("charmrevision", "shortinterval") {
 		interval := 10 * time.Second
 		logger.Debugf(context.TODO(), "setting short charmrevision worker interval: %v", interval)
