@@ -204,10 +204,10 @@ func (s *workerSuite) TestReconcileEmptyEndpoint(c *tc.C) {
 			err := yaml.Unmarshal(opts.LayerData, &layer)
 			c.Assert(err, tc.ErrorIsNil)
 			target := layer.LogTargets["juju-loki"]
-			c.Check(target.Override, tc.Equals, "remove")
-			c.Check(target.Type, tc.Equals, "")
-			c.Check(target.Location, tc.Equals, "")
-			c.Check(target.Services, tc.IsNil)
+			c.Check(target.Override, tc.Equals, "replace")
+			c.Check(target.Type, tc.Equals, "loki")
+			c.Check(target.Location, tc.Equals, "http://0.0.0.0:0")
+			c.Check(target.Services, tc.DeepEquals, []string{"-all"})
 			c.Check(target.Labels, tc.IsNil)
 			close(done)
 			return nil
@@ -236,10 +236,10 @@ func (s *workerSuite) TestReconcileLokiConfigNotFound(c *tc.C) {
 			err := yaml.Unmarshal(opts.LayerData, &layer)
 			c.Assert(err, tc.ErrorIsNil)
 			target := layer.LogTargets["juju-loki"]
-			c.Check(target.Override, tc.Equals, "remove")
-			c.Check(target.Type, tc.Equals, "")
-			c.Check(target.Location, tc.Equals, "")
-			c.Check(target.Services, tc.IsNil)
+			c.Check(target.Override, tc.Equals, "replace")
+			c.Check(target.Type, tc.Equals, "loki")
+			c.Check(target.Location, tc.Equals, "http://0.0.0.0:0")
+			c.Check(target.Services, tc.DeepEquals, []string{"-all"})
 			c.Check(target.Labels, tc.IsNil)
 			close(done)
 			return nil

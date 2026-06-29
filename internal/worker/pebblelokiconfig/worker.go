@@ -46,6 +46,20 @@ const (
 	// labels. Custom labels must never use this prefix.
 	pebbleReservedLabelPrefix = "pebble_"
 
+	// disableAllServices is the special service token that, when present
+	// in a log-target's services list, causes Pebble's LogsTo to return
+	// false for every service — effectively disabling the target. See
+	// Pebble's plan.Service.LogsTo and the "Remove services" section of
+	// docs/how-to/forward-logs-to-loki.md.
+	disableAllServices = "-all"
+
+	// disabledLokiLocation is a placeholder location used when the Loki
+	// endpoint is empty. Pebble requires a non-empty location for every
+	// log-target (Plan.Validate), but the location is never contacted
+	// when the target's services list contains -all, so no HTTP request
+	// is ever made to this address.
+	disabledLokiLocation = "http://0.0.0.0:0"
+
 	// retry constants for transient Pebble errors.
 	retryInitialDelay  = 1 * time.Second
 	retryMaxDelay      = 30 * time.Second
@@ -333,7 +347,19 @@ func BuildLayerYAML(
 		Labels:   labels,
 	}
 	if lokiConfig.Endpoint == "" {
-		target = pebbleLogTarget{Override: "remove"}
+		// Pebble does not support an "override: remove" directive and has
+		// no API to delete a log-target. To effectively disable the
+		// target we use "override: replace" with services: [-all], which
+		// causes plan.Service.LogsTo to return false for every service.
+		// A placeholder location is required because Plan.Validate
+		// rejects empty locations, but it is never contacted — no log
+		// entries are forwarded when no service logs to the target.
+		target = pebbleLogTarget{
+			Override: "replace",
+			Type:     "loki",
+			Location: disabledLokiLocation,
+			Services: []string{disableAllServices},
+		}
 	}
 
 	layer := pebbleLayer{
