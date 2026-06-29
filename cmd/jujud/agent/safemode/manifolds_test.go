@@ -32,15 +32,11 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
-	s.assertStartFuncs(c, safemode.IAASManifolds(safemode.ManifoldsConfig{
-		Agent: &mockAgent{},
-	}))
+	s.assertStartFuncs(c, safemode.IAASManifolds(safemode.ManifoldsConfig{}))
 }
 
 func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
-	s.assertStartFuncs(c, safemode.CAASManifolds(safemode.ManifoldsConfig{
-		Agent: &mockAgent{},
-	}))
+	s.assertStartFuncs(c, safemode.CAASManifolds(safemode.ManifoldsConfig{}))
 }
 
 func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
@@ -52,11 +48,8 @@ func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds)
 
 func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
-		safemode.IAASManifolds(safemode.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		safemode.IAASManifolds(safemode.ManifoldsConfig{}),
 		[]string{
-			"agent",
 			"controller-agent-config",
 			"db-accessor",
 			"query-logger",
@@ -67,11 +60,8 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 
 func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
-		safemode.CAASManifolds(safemode.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		safemode.CAASManifolds(safemode.ManifoldsConfig{}),
 		[]string{
-			"agent",
 			"controller-agent-config",
 			"db-accessor",
 			"query-logger",
@@ -93,9 +83,7 @@ func (*ManifoldsSuite) TestNoControllerFlagGuards(c *tc.C) {
 	// The controller binary is always a controller node; no manifold
 	// should reference the removed is-controller-flag or
 	// state-config-watcher workers.
-	manifolds := safemode.IAASManifolds(safemode.ManifoldsConfig{
-		Agent: &mockAgent{},
-	})
+	manifolds := safemode.IAASManifolds(safemode.ManifoldsConfig{})
 
 	for name, manifold := range manifolds {
 		c.Logf("%s", name)
@@ -113,25 +101,19 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		safemode.IAASManifolds(safemode.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		safemode.IAASManifolds(safemode.ManifoldsConfig{}),
 		expectedMachineManifoldsWithDependenciesIAAS,
 	)
 }
 
 func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		safemode.CAASManifolds(safemode.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
+		safemode.CAASManifolds(safemode.ManifoldsConfig{}),
 		expectedMachineManifoldsWithDependenciesCAAS,
 	)
 }
 
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
-
-	"agent": {},
 
 	"controller-agent-config": {},
 
@@ -147,8 +129,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
-	"agent": {},
-
 	"controller-agent-config": {},
 
 	"db-accessor": {
@@ -162,7 +142,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 }
 
 type mockAgent struct {
-	agent.Agent
 	conf mockConfig
 }
 

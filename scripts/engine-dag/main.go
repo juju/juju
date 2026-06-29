@@ -207,12 +207,10 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 			switch agent {
 			case "jujud":
 				return jjudmodel.IAASManifolds(jjudmodel.ManifoldsConfig{
-					Agent:          &mockAgent{},
 					LoggingContext: internallogger.DefaultContext(),
 				})
 			default:
 				return model.IAASManifolds(model.ManifoldsConfig{
-					Agent:          &mockAgent{},
 					LoggingContext: internallogger.DefaultContext(),
 				})
 			}
@@ -220,12 +218,10 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 			switch agent {
 			case "jujud":
 				return jjudmodel.CAASManifolds(jjudmodel.ManifoldsConfig{
-					Agent:          &mockAgent{},
 					LoggingContext: internallogger.DefaultContext(),
 				})
 			default:
 				return model.CAASManifolds(model.ManifoldsConfig{
-					Agent:          &mockAgent{},
 					LoggingContext: internallogger.DefaultContext(),
 				})
 			}
