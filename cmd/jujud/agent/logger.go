@@ -24,7 +24,7 @@ const (
 	flushInterval = 2 * time.Second
 )
 
-// PrimeLogSink sets up the logging sink for the controller agent.
+// PrimeLogSink sets up the logging sink for the controller app.
 // If maxSizeMB or maxBackups is zero, compiled-in defaults from
 // controller.DefaultAgentLogfileMaxSize and
 // controller.DefaultAgentLogfileMaxBackups are used.

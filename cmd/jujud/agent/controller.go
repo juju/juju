@@ -66,7 +66,7 @@ import (
 // It implements both ControllerStartupValueProvider (for controller
 // manifolds) and model.StartupValueProvider (for model manifolds).
 type controllerStartupValueProvider struct {
-	agent                 *ControllerApplication
+	app                   *ControllerApplication
 	controllerRuntimePath string
 }
 
@@ -295,7 +295,7 @@ func (a *controllerApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 func (a *controllerApplicationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "controller",
-		Purpose: "run a juju controller agent",
+		Purpose: "run a juju controller app",
 	})
 }
 
@@ -522,7 +522,7 @@ func (a *ControllerApplication) makeEngineCreator(
 
 		c := clock.WallClock
 		startupValueProvider := controllerStartupValueProvider{
-			agent:                 a,
+			app:                   a,
 			controllerRuntimePath: a.controllerRuntimePath,
 		}
 		flightRecorder := workerflightrecorder.New(
@@ -683,7 +683,7 @@ func (a *ControllerApplication) startModelWorkers(
 		LogDir:        controllerRuntimeConfig.LogDir,
 		ControllerTag: names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
 		StartupValueProvider: controllerStartupValueProvider{
-			agent:                 a,
+			app:                   a,
 			controllerRuntimePath: a.controllerRuntimePath,
 		},
 		UpdateLoggerConfig: func(loggingConfig string) error {
