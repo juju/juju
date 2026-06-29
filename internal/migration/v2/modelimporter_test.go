@@ -31,9 +31,9 @@ import (
 
 // modelImporterSuite is a thin smoke test for ModelImporter.ImportModelV2, the
 // public method the migrationtarget facade calls. The orchestration itself is
-// covered in this package's direct ImportModel tests; this only proves the
-// delegator resolves the migration scope for the model UUID and wires it
-// through correctly.
+// covered in this package's direct ImportControllerModelInfo tests; this only
+// proves the delegator resolves the migration scope for the model UUID and wires
+// it through correctly.
 type modelImporterSuite struct {
 	schematesting.ControllerModelSuite
 

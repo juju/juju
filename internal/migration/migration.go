@@ -113,8 +113,9 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 }
 
 // ImportModelV2 applies a v8 import's controller-scoped semantic data to the
-// target controller. See [migrationv2.ImportModel] for the orchestration; this
-// method only resolves the migration scope for the model UUID and delegates.
+// target controller. See [migrationv2.ImportControllerModelInfo] for the
+// orchestration; this method only resolves the migration scope for the model
+// UUID and delegates.
 //
 // If a claim already exists for args.ControllerModelInfo.ModelInfo.UUID, the
 // returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
@@ -125,12 +126,12 @@ func (i *ModelImporter) ImportModelV2(
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
 
-	if err := migrationv2.ImportModel(ctx, migrationv2.Deps{
+	if err := migrationv2.ImportControllerModelInfo(ctx, migrationv2.Deps{
 		ControllerDB: scope.ControllerDB(),
 		ModelDB:      scope.ModelDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
-	}, args, view); err != nil {
+	}, args.SourceMigrationUUID, args.ControllerModelInfo, view); err != nil {
 		return internalerrors.Capture(err)
 	}
 

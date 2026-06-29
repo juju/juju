@@ -194,8 +194,9 @@ func generate(ctx context.Context, runner *txnRunner) error {
 // the same rows, so the importer must not re-insert them (it would collide on the
 // primary key).
 func getSeededTables(ctx context.Context, runner *txnRunner, tableNames []string) (map[string]bool, error) {
-	seeded := make(map[string]bool)
+	var seeded map[string]bool
 	err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		seeded = make(map[string]bool)
 		for _, tableName := range tableNames {
 			var count int
 			query := fmt.Sprintf("SELECT COUNT(*) FROM %q", tableName)

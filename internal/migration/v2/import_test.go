@@ -43,10 +43,10 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// importV2Suite exercises [migrationv2.ImportModel] end-to-end against real
-// controller and model databases: the decode, the claim, the target-local
-// bootstrap, and the controller-data import steps. It does not exercise
-// model-DB content import (Tasks 7-9) or activation (Task 10).
+// importV2Suite exercises [migrationv2.ImportControllerModelInfo] end-to-end
+// against real controller and model databases: the decode, the claim, the
+// target-local bootstrap, and the controller-data import steps. It does not
+// exercise model-DB content import (Tasks 7-9) or activation (Task 10).
 type importV2Suite struct {
 	schematesting.ControllerModelSuite
 
@@ -62,9 +62,9 @@ func TestImportV2Suite(t *testing.T) {
 func (s *importV2Suite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	// ImportModel refuses to create a model unless the controller's own
-	// model exists and is alive, so a real (activated) model is required
-	// here, not just a bare controller row.
+	// ImportControllerModelInfo refuses to create a model unless the
+	// controller's own model exists and is alive, so a real (activated) model
+	// is required here, not just a bare controller row.
 	controllerModelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "controller")
 	controllerUUID := s.SeedControllerTable(c, controllerModelUUID)
 
@@ -151,42 +151,40 @@ func (s *importV2Suite) TestImportModelHappyPath(c *tc.C) {
 	bobLastLogin := time.Now().UTC().Truncate(time.Second)
 	offerUUID := uuid.MustNewUUID().String()
 
-	importArgs := migrationv2.ImportModelArgs{
-		SourceMigrationUUID: uuid.MustNewUUID().String(),
-		ControllerModelInfo: s.baseControllerModelInfo(modelUUID),
-	}
-	importArgs.ControllerModelInfo.ModelCredential = &coremodelmigration.ModelCloudCredential{
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	info := s.baseControllerModelInfo(modelUUID)
+	info.ModelCredential = &coremodelmigration.ModelCloudCredential{
 		Cloud:      s.cloudName,
 		Owner:      coreuser.AdminUserName.Name(),
 		Name:       s.credentialName,
 		AuthType:   string(cloud.AccessKeyAuthType),
 		Attributes: map[string]string{"access-key": "val"},
 	}
-	importArgs.ControllerModelInfo.Users = []coremodelmigration.ModelUser{
+	info.Users = []coremodelmigration.ModelUser{
 		{Name: coreuser.AdminUserName.Name()},
 		{Name: "bob@external", DisplayName: "Bob", External: true, CreatedAt: time.Now().UTC(), LastLogin: &bobLastLogin},
 		{Name: "alice@external", DisplayName: "Alice", External: true, Removed: true, CreatedAt: time.Now().UTC()},
 		{Name: "carol", DisplayName: "Carol"},
 	}
-	importArgs.ControllerModelInfo.Permissions = []coremodelmigration.ModelPermission{
+	info.Permissions = []coremodelmigration.ModelPermission{
 		{ObjectType: "model", GrantOn: modelUUID.String(), SubjectName: "bob@external", Access: "read"},
 		{ObjectType: "model", GrantOn: modelUUID.String(), SubjectName: "carol", Access: "read"},
 		{ObjectType: "offer", GrantOn: offerUUID, SubjectName: "bob@external", Access: "consume"},
 	}
-	importArgs.ControllerModelInfo.AuthorizedKeys = []coremodelmigration.ModelAuthorizedKey{
+	info.AuthorizedKeys = []coremodelmigration.ModelAuthorizedKey{
 		{Username: "bob@external", PublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC bob@host"},
 		{Username: "carol", PublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe carol@host"},
 	}
-	importArgs.ControllerModelInfo.Leaders = []coremodelmigration.ApplicationLeadership{
+	info.Leaders = []coremodelmigration.ApplicationLeadership{
 		{Application: "myapp", Leader: "myapp/0"},
 	}
-	importArgs.ControllerModelInfo.CloudImageMetadata = []coremodelmigration.CloudImageMetadata{
+	info.CloudImageMetadata = []coremodelmigration.CloudImageMetadata{
 		{Stream: "released", Region: s.cloudName, Version: "22.04", Arch: "amd64", Source: "custom", Priority: 10, ImageID: "ami-1234"},
 	}
 
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migrationv2.ImportModel(c.Context(), deps, importArgs, view)
+	err := migrationv2.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim must still be in the "importing" phase: activation is a
@@ -195,13 +193,13 @@ func (s *importV2Suite) TestImportModelHappyPath(c *tc.C) {
 	claim, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(claim.Phase, tc.Equals, migrationdomain.ImportPhaseImporting)
-	c.Check(claim.SourceMigrationUUID, tc.Equals, importArgs.SourceMigrationUUID)
+	c.Check(claim.SourceMigrationUUID, tc.Equals, sourceMigrationUUID)
 
 	// The controller-DB model row exists with the bootstrap identity.
 	modelSt := modelstatecontroller.NewState(controllerFactory)
 	seed, err := modelSt.GetModelSeedInformation(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(seed.Name, tc.Equals, importArgs.ControllerModelInfo.ModelInfo.Name)
+	c.Check(seed.Name, tc.Equals, info.ModelInfo.Name)
 	c.Check(seed.Cloud, tc.Equals, s.cloudName)
 
 	accessSvc := accessservice.NewService(accessstate.NewState(controllerFactory, clock.WallClock, loggertesting.WrapCheckLog(c)), clock.WallClock)
@@ -270,22 +268,20 @@ func (s *importV2Suite) TestImportModelHappyPath(c *tc.C) {
 	c.Check(allMetadata, tc.HasLen, 1)
 }
 
-// TestImportModelDuplicateClaim verifies a second ImportModel call for the
-// same model UUID fails with a coded AlreadyExists error rather than
+// TestImportModelDuplicateClaim verifies a second ImportControllerModelInfo call
+// for the same model UUID fails with a coded AlreadyExists error rather than
 // silently re-running (or corrupting) the first import's writes.
 func (s *importV2Suite) TestImportModelDuplicateClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	deps, _, _ := s.deps(c, modelUUID)
 
-	importArgs := migrationv2.ImportModelArgs{
-		SourceMigrationUUID: uuid.MustNewUUID().String(),
-		ControllerModelInfo: s.baseControllerModelInfo(modelUUID),
-	}
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+	info := s.baseControllerModelInfo(modelUUID)
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migrationv2.ImportModel(c.Context(), deps, importArgs, view)
+	err := migrationv2.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migrationv2.ImportModel(c.Context(), deps, importArgs, view)
+	err = migrationv2.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }
