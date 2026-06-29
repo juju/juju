@@ -110,6 +110,7 @@ func (s *Service) UnitVirtualHostKey(ctx context.Context, unitName coreunit.Name
 }
 
 func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, machineName string) (string, error) {
+	// Fast path: check if the machine virtual host key already exists in state.
 	key, found, err := s.state.GetMachineVirtualHostKeyByMachineName(ctx, machineName)
 	if err != nil {
 		return "", errors.Errorf("getting machine virtual SSH host key for %q: %w", machineName, err)
@@ -118,17 +119,26 @@ func (s *Service) ensureMachineVirtualHostKey(ctx context.Context, machineName s
 		return key, nil
 	}
 
+	// Slow path: generate a new machine virtual host key and persist it in state.
+	// The state method handles cases of concurrent requests for the same machine.
 	key, err = generateHostKey()
 	if err != nil {
 		return "", errors.Errorf("generating machine virtual SSH host key for %q: %w", machineName, err)
 	}
-	if err := s.state.SetMachineVirtualHostKeyByMachineName(ctx, machineName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
-		return "", errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
+	key, err = s.state.EnsureMachineVirtualHostKeyByMachineName(
+		ctx,
+		machineName,
+		domainssh.SSHKeyAlgorithmTypeED25519ID,
+		key,
+	)
+	if err != nil {
+		return "", errors.Errorf("ensuring machine virtual SSH host key for %q: %w", machineName, err)
 	}
 	return key, nil
 }
 
 func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, unitName string) (string, error) {
+	// Fast path: check if the unit virtual host key already exists in state.
 	key, found, err := s.state.GetUnitVirtualHostKeyByUnitName(ctx, unitName)
 	if err != nil {
 		return "", errors.Errorf("getting unit virtual SSH host key for %q: %w", unitName, err)
@@ -137,12 +147,20 @@ func (s *Service) ensureUnitVirtualHostKey(ctx context.Context, unitName string)
 		return key, nil
 	}
 
+	// Slow path: generate a new unit virtual host key and persist it in state.
+	// The state method handles cases of concurrent requests for the same unit.
 	key, err = generateHostKey()
 	if err != nil {
 		return "", errors.Errorf("generating unit virtual SSH host key for %q: %w", unitName, err)
 	}
-	if err := s.state.SetUnitVirtualHostKeyByUnitName(ctx, unitName, domainssh.SSHKeyAlgorithmTypeED25519ID, key); err != nil {
-		return "", errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
+	key, err = s.state.EnsureUnitVirtualHostKeyByUnitName(
+		ctx,
+		unitName,
+		domainssh.SSHKeyAlgorithmTypeED25519ID,
+		key,
+	)
+	if err != nil {
+		return "", errors.Errorf("ensuring unit virtual SSH host key for %q: %w", unitName, err)
 	}
 	return key, nil
 }

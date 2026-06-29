@@ -33,7 +33,7 @@ func (s *serviceSuite) TestMachineVirtualHostKeyGeneratesMissing(c *tc.C) {
 
 	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(state.machineSetCalls, tc.Equals, 1)
+	c.Check(state.machineEnsureCalls, tc.Equals, 1)
 	c.Check(state.machineKeys["1"], tc.Equals, key)
 	assertPrivateKey(c, key)
 }
@@ -50,8 +50,8 @@ func (s *serviceSuite) TestUnitVirtualHostKeyUsesBackingMachine(c *tc.C) {
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(key, tc.Equals, testPrivateKey)
-	c.Check(state.unitSetCalls, tc.Equals, 0)
-	c.Check(state.machineSetCalls, tc.Equals, 0)
+	c.Check(state.unitEnsureCalls, tc.Equals, 0)
+	c.Check(state.machineEnsureCalls, tc.Equals, 0)
 }
 
 func (s *serviceSuite) TestUnitVirtualHostKeyGeneratesMissingForCAAS(c *tc.C) {
@@ -63,9 +63,39 @@ func (s *serviceSuite) TestUnitVirtualHostKeyGeneratesMissingForCAAS(c *tc.C) {
 
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(state.unitSetCalls, tc.Equals, 1)
+	c.Check(state.unitEnsureCalls, tc.Equals, 1)
 	c.Check(state.unitKeys["postgresql/0"], tc.Equals, key)
 	assertPrivateKey(c, key)
+}
+
+func (s *serviceSuite) TestMachineVirtualHostKeyReturnsExistingAfterConcurrentInsert(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	state.machineExists["1"] = true
+	state.machineEnsureKeys["1"] = testPrivateKey
+
+	svc := modelsshservice.NewService(modelUUID, state)
+
+	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
+	c.Check(state.machineEnsureCalls, tc.Equals, 1)
+	c.Check(state.machineKeys["1"], tc.Equals, testPrivateKey)
+}
+
+func (s *serviceSuite) TestUnitVirtualHostKeyReturnsExistingAfterConcurrentInsert(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	state.unitExists["postgresql/0"] = true
+	state.unitEnsureKeys["postgresql/0"] = testPrivateKey
+
+	svc := modelsshservice.NewService(modelUUID, state)
+
+	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(key, tc.Equals, testPrivateKey)
+	c.Check(state.unitEnsureCalls, tc.Equals, 1)
+	c.Check(state.unitKeys["postgresql/0"], tc.Equals, testPrivateKey)
 }
 
 func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
@@ -107,26 +137,30 @@ func (s *serviceSuite) TestVirtualHostKeyErrorsForNestedMachine(c *tc.C) {
 }
 
 type stubModelState struct {
-	machineExists   map[string]bool
-	machineKeys     map[string]string
-	machineAlgos    map[string]int
-	unitExists      map[string]bool
-	unitKeys        map[string]string
-	unitAlgos       map[string]int
-	unitMachines    map[string]string
-	machineSetCalls int
-	unitSetCalls    int
+	machineExists      map[string]bool
+	machineKeys        map[string]string
+	machineAlgos       map[string]int
+	unitExists         map[string]bool
+	unitKeys           map[string]string
+	unitAlgos          map[string]int
+	unitMachines       map[string]string
+	machineEnsureKeys  map[string]string
+	unitEnsureKeys     map[string]string
+	machineEnsureCalls int
+	unitEnsureCalls    int
 }
 
 func newStubModelState() *stubModelState {
 	return &stubModelState{
-		machineExists: make(map[string]bool),
-		machineKeys:   make(map[string]string),
-		machineAlgos:  make(map[string]int),
-		unitExists:    make(map[string]bool),
-		unitKeys:      make(map[string]string),
-		unitAlgos:     make(map[string]int),
-		unitMachines:  make(map[string]string),
+		machineExists:     make(map[string]bool),
+		machineKeys:       make(map[string]string),
+		machineAlgos:      make(map[string]int),
+		unitExists:        make(map[string]bool),
+		unitKeys:          make(map[string]string),
+		unitAlgos:         make(map[string]int),
+		unitMachines:      make(map[string]string),
+		machineEnsureKeys: make(map[string]string),
+		unitEnsureKeys:    make(map[string]string),
 	}
 }
 
@@ -138,14 +172,20 @@ func (s *stubModelState) GetMachineVirtualHostKeyByMachineName(_ context.Context
 	return key, found, nil
 }
 
-func (s *stubModelState) SetMachineVirtualHostKeyByMachineName(_ context.Context, machineName string, algorithmTypeID int, key string) error {
+func (s *stubModelState) EnsureMachineVirtualHostKeyByMachineName(_ context.Context, machineName string, algorithmTypeID int, key string) (string, error) {
 	if !s.machineExists[machineName] {
-		return errors.Errorf("machine %q not found", machineName)
+		return "", errors.Errorf("machine %q not found", machineName)
+	}
+	if existingKey, ok := s.machineEnsureKeys[machineName]; ok {
+		s.machineKeys[machineName] = existingKey
+		s.machineEnsureCalls++
+		delete(s.machineEnsureKeys, machineName)
+		return existingKey, nil
 	}
 	s.machineKeys[machineName] = key
 	s.machineAlgos[machineName] = algorithmTypeID
-	s.machineSetCalls++
-	return nil
+	s.machineEnsureCalls++
+	return key, nil
 }
 
 func (s *stubModelState) GetUnitVirtualHostKeyByUnitName(_ context.Context, unitName string) (string, bool, error) {
@@ -156,14 +196,20 @@ func (s *stubModelState) GetUnitVirtualHostKeyByUnitName(_ context.Context, unit
 	return key, found, nil
 }
 
-func (s *stubModelState) SetUnitVirtualHostKeyByUnitName(_ context.Context, unitName string, algorithmTypeID int, key string) error {
+func (s *stubModelState) EnsureUnitVirtualHostKeyByUnitName(_ context.Context, unitName string, algorithmTypeID int, key string) (string, error) {
 	if !s.unitExists[unitName] {
-		return errors.Errorf("unit %q not found", unitName)
+		return "", errors.Errorf("unit %q not found", unitName)
+	}
+	if existingKey, ok := s.unitEnsureKeys[unitName]; ok {
+		s.unitKeys[unitName] = existingKey
+		s.unitEnsureCalls++
+		delete(s.unitEnsureKeys, unitName)
+		return existingKey, nil
 	}
 	s.unitKeys[unitName] = key
 	s.unitAlgos[unitName] = algorithmTypeID
-	s.unitSetCalls++
-	return nil
+	s.unitEnsureCalls++
+	return key, nil
 }
 
 func (s *stubModelState) GetMachineNameForUnit(_ context.Context, unitName string) (string, bool, error) {
