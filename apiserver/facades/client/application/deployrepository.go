@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -303,14 +304,23 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	ctx context.Context,
 	curl *charm.URL,
 	origin corecharm.Origin,
+	defaultRepositoryResources map[string]resource.Resource,
 	deployResArg map[string]string,
 	resMeta map[string]resource.Meta,
 ) (applicationservice.ResolvedResources, []*params.PendingResourceUpload, error) {
 	var resourcesToUpload []*params.PendingResourceUpload
 	var resources []resource.Resource
+	resolvedByName := make(map[string]resource.Resource, len(resMeta))
+
+	resourceNames := make([]string, 0, len(resMeta))
+	for name := range resMeta {
+		resourceNames = append(resourceNames, name)
+	}
+	sort.Strings(resourceNames)
 
 	// Solve charm meta against resources args.
-	for name, meta := range resMeta {
+	for _, name := range resourceNames {
+		meta := resMeta[name]
 		r := resource.Resource{
 			Meta:     meta,
 			Origin:   resource.OriginStore,
@@ -333,23 +343,39 @@ func (v *deployFromRepositoryValidator) resolveResources(
 				// A revision is coming from client.
 				r.Revision = providedRev
 			}
+			resources = append(resources, r)
+			continue
+		}
+
+		if res, ok := defaultRepositoryResources[name]; ok {
+			resolvedByName[name] = res
+			continue
 		}
 		resources = append(resources, r)
 	}
 
-	// Solve revision against charm repository.
-	repo, err := v.getCharmRepository(ctx)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
-	if resolveErr != nil {
-		return nil, nil, resolveErr
+	if len(resources) > 0 {
+		// Solve revision against charm repository.
+		repo, err := v.getCharmRepository(ctx)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
+		if resolveErr != nil {
+			return nil, nil, resolveErr
+		}
+		for _, res := range resolvedResources {
+			resolvedByName[res.Name] = res
+		}
 	}
 
 	// Convert it in resolved resources.
-	result := make(applicationservice.ResolvedResources, 0, len(resolvedResources))
-	for _, res := range resolvedResources {
+	result := make(applicationservice.ResolvedResources, 0, len(resourceNames))
+	for _, name := range resourceNames {
+		res, ok := resolvedByName[name]
+		if !ok {
+			continue
+		}
 		var revision *int
 		if res.Revision >= 0 {
 			revision = &res.Revision
@@ -514,7 +540,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	}
 
 	// Resolve resources and validate against the charm metadata.
-	resources, resourcesToUpload, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, dt.resources, charmResult.Charm.Meta().Resources)
+	resources, resourcesToUpload, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, charmResult.RepositoryResources, dt.resources, charmResult.Charm.Meta().Resources)
 	if resolveResErr != nil {
 		errs = append(errs, resolveResErr)
 	}
@@ -1006,6 +1032,9 @@ type charmResult struct {
 	Origin       corecharm.Origin
 	Charm        charm.Charm
 	DownloadInfo corecharm.DownloadInfo
+	// RepositoryResources is a map of resource name to resource.Resource
+	// for all resources defined in the charm's metadata.
+	RepositoryResources map[string]resource.Resource
 }
 
 // getCharm returns the charm being deployed. Either it already has been
@@ -1052,19 +1081,21 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 	})
 	if errors.Is(err, applicationerrors.CharmNotFound) {
 		return charmResult{
-			CharmURL:     resolvedData.URL,
-			Origin:       resolvedOrigin,
-			Charm:        resolvedCharm,
-			DownloadInfo: essentialMetadata.DownloadInfo,
+			CharmURL:            resolvedData.URL,
+			Origin:              resolvedOrigin,
+			Charm:               resolvedCharm,
+			DownloadInfo:        essentialMetadata.DownloadInfo,
+			RepositoryResources: resolvedData.Resources,
 		}, nil
 	} else if err != nil {
 		return charmResult{}, errors.Trace(err)
 	}
 	return charmResult{
-		CharmURL:     resolvedData.URL,
-		Origin:       resolvedOrigin,
-		Charm:        deployedCharm,
-		DownloadInfo: essentialMetadata.DownloadInfo,
+		CharmURL:            resolvedData.URL,
+		Origin:              resolvedOrigin,
+		Charm:               deployedCharm,
+		DownloadInfo:        essentialMetadata.DownloadInfo,
+		RepositoryResources: resolvedData.Resources,
 	}, nil
 
 }
