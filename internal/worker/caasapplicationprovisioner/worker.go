@@ -21,7 +21,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
@@ -36,12 +35,13 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/storageprovisioning"
 	internalworker "github.com/juju/juju/internal/worker"
+	provisionertypes "github.com/juju/juju/internal/worker/caasapplicationprovisioner/types"
 )
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
-	ProvisioningInfo(context.Context, string) (api.ProvisioningInfo, error)
-	FilesystemProvisioningInfo(context.Context, string) (api.FilesystemProvisioningInfo, error)
+	ProvisioningInfo(context.Context, string) (provisionertypes.ProvisioningInfo, error)
+	FilesystemProvisioningInfo(context.Context, string) (provisionertypes.FilesystemProvisioningInfo, error)
 	RemoveUnit(ctx context.Context, unitName string) error
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
 	DestroyUnits(ctx context.Context, unitNames []string) error

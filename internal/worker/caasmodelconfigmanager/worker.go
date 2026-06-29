@@ -83,7 +83,7 @@ type manager struct {
 	registryFunc func(docker.ImageRepoDetails) (registry.Registry, error)
 }
 
-// NewFacade returns a facade for caasapplicationprovisioner worker to use.
+// NewFacade returns a facade for the caas-model-config-manager worker to use.
 func NewFacade(caller base.APICaller) (Facade, error) {
 	return api.NewClient(caller)
 }
