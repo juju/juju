@@ -1,15 +1,9 @@
 name: Send Mattermost notification
-description: Send a message to a Mattermost channel
+description: Send a message to a Mattermost channel via incoming webhook
 
 inputs:
-  mm_token:
-    description: Mattermost access token
-    required: true
-  mm_url:
-    description: Mattermost server URL
-    required: true
-  channel:
-    description: Mattermost channel to post the message to
+  webhook_url:
+    description: Mattermost incoming webhook URL
     required: true
   message:
     description: Message to post
@@ -20,12 +14,11 @@ runs:
   steps:
     - shell: bash
       env:
-        MM_URL: ${{ inputs.mm_url }}
-        MM_TOKEN: ${{ inputs.mm_token }}
-        CHANNEL: ${{ inputs.channel }}
+        WEBHOOK_URL: ${{ inputs.webhook_url }}
         MESSAGE: ${{ inputs.message }}
       run: |
-        curl https://releases.mattermost.com/mmctl/v10.11.6/linux_amd64.tar -Lo mmctl.tar
-        tar -xvf mmctl.tar
-        ./mmctl auth login "$MM_URL" --name Charmhub --access-token $MM_TOKEN
-        ./mmctl post create $MM_CHANNEL --message "$MESSAGE"
+        jq -n --arg text "$MESSAGE" '{text: $text}' | \
+          curl -s -o /dev/null -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -d @- \
+            "$WEBHOOK_URL"
