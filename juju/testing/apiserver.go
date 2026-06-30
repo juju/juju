@@ -649,6 +649,8 @@ func (s noopLogSink) Close() error {
 
 func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
 
+func (noopLogSink) WatchRefresh() <-chan struct{} { return corelogger.NoRefresh() }
+
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator
 }
