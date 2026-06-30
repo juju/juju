@@ -114,6 +114,8 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *tc.C) {
 func (s *LoggersSuite) newModelLogger(c *tc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
 
+	s.logWriter.EXPECT().WatchRefresh().Return(corelogger.NoRefresh()).AnyTimes()
+
 	w, err := NewModelLogger(s.logWriter, model.UUID(s.modelUUID), names.NewUnitTag("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
 

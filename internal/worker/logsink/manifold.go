@@ -27,8 +27,11 @@ type ManifoldConfig struct {
 	// tag on the logs.
 	AgentTag names.Tag
 
-	// LogSink is the log sink for all models.
-	LogSink corelogger.LogSink
+	// LogRouterName is the name of the log-router manifold dependency.
+	// The log router provides the active LogSink (which may forward to
+	// Loki or the controller logsink) and signals refreshes when the
+	// backend changes.
+	LogRouterName string
 
 	// NewWorker creates a log sink worker.
 	NewWorker func(cfg Config) (worker.Worker, error)
@@ -42,8 +45,8 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.LogSink == nil {
-		return errors.NotValidf("nil LogSink")
+	if config.LogRouterName == "" {
+		return errors.NotValidf("empty LogRouterName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -61,16 +64,21 @@ func (config ManifoldConfig) Validate() error {
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{},
+		Inputs: []string{config.LogRouterName},
 		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
+			var logRouter LogRouter
+			if err := getter.Get(config.LogRouterName, &logRouter); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			w, err := config.NewWorker(Config{
 				AgentTag:       config.AgentTag,
-				LogSink:        config.LogSink,
+				LogRouter:      logRouter,
 				Clock:          config.Clock,
 				NewModelLogger: NewModelLogger,
 			})
