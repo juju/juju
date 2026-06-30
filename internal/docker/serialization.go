@@ -22,12 +22,6 @@ func ValidateDockerRegistryPath(path string) error {
 	return nil
 }
 
-// CheckDockerDetails validates the provided resource is suitable for use.
-func CheckDockerDetails(name string, details DockerImageDetails) error {
-	// TODO (veebers): Validate the URL actually works.
-	return ValidateDockerRegistryPath(details.RegistryPath)
-}
-
 // UnmarshalDockerResource unmarshals the docker resource file from data.
 func UnmarshalDockerResource(data []byte) (DockerImageDetails, error) {
 	var resourceBody DockerImageDetails
