@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package v2
+package migration
 
 import (
 	"context"
@@ -50,15 +50,15 @@ type Deps struct {
 }
 
 // ImportModelArgs contains the data needed to perform a v8 model import: the
-// target-portable controller-scoped snapshot and the transformed model-DB
+// target-portable controller-scoped information and the transformed model-DB
 // payload.
 type ImportModelArgs struct {
 	// SourceMigrationUUID is the source-side migration UUID recorded on the
 	// target import claim.
 	SourceMigrationUUID string
 
-	// ControllerModelInfo is the semantic controller-database snapshot for the
-	// model, decoded from the v8 import envelope by the apiserver facade.
+	// ControllerModelInfo is the semantic controller-database information for
+	// the model, decoded from the v8 import envelope by the apiserver facade.
 	ControllerModelInfo coremodelmigration.ControllerModelInfo
 
 	// ModelDBPayload is the model-DB export payload decoded from the envelope

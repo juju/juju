@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -22,12 +21,11 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/export"
-	"github.com/juju/juju/domain/modeldefaults"
-	modelimport "github.com/juju/juju/domain/modelimport/modelmigration"
+	"github.com/juju/juju/domain/modelimport"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
+	"github.com/juju/juju/internal/migration/legacy"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
@@ -77,43 +75,13 @@ func NewModelImporter(
 // the model config based on information from the controller model, and then
 // imports that as a new database model.
 func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
-	model, err := description.Deserialize(bytes)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	configGetter, err := newEphemeralProviderConfigGetter(i.controllerUUID, model, getterShim{servicesGetter: i.domainServices})
-	if err != nil {
-		return internalerrors.Errorf("creating ephemeral provider config getter: %w", err)
-	}
-
-	modelUUID := coremodel.UUID(model.UUID())
-
-	// The domain services are not available during the import, until the
-	// model is created and activated. The model defaults provider is used
-	// to provide the model defaults during the migration, so we allow access
-	// but in a lazy way.
-	modelDefaultsProvider := modelDefaultsProvider{
-		modelUUID:      modelUUID,
-		servicesGetter: i.domainServices,
-	}
-
-	coordinator := modelmigration.NewCoordinator(i.logger)
-	ImportOperations(
-		coordinator,
-		modelDefaultsProvider,
-		configGetter,
-		i.clock,
-		i.logger)
-	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return legacy.ImportModel(
+		ctx, bytes, i.scope, i.domainServices, i.controllerUUID, i.logger, i.clock,
+	)
 }
 
 // ImportModelV2 applies a v8 import's controller-scoped semantic data to the
-// target controller. See [migrationv2.ImportControllerModelInfo] for the
+// target controller. See [ImportControllerModelInfo] for the
 // orchestration; this method only resolves the migration scope for the model
 // UUID and delegates.
 //
@@ -121,12 +89,12 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
 // returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
 // supplied by the modelmigration domain).
 func (i *ModelImporter) ImportModelV2(
-	ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView,
+	ctx context.Context, args ImportModelArgs, view export.ProjectionView,
 ) error {
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
 
-	if err := migrationv2.ImportControllerModelInfo(ctx, migrationv2.Deps{
+	if err := ImportControllerModelInfo(ctx, Deps{
 		ControllerDB: scope.ControllerDB(),
 		ModelDB:      scope.ModelDB(),
 		Clock:        i.clock,
@@ -145,22 +113,6 @@ func (i *ModelImporter) ImportModelV2(
 		}
 	}
 	return nil
-}
-
-type modelDefaultsProvider struct {
-	modelUUID      coremodel.UUID
-	servicesGetter services.DomainServicesGetter
-}
-
-func (p modelDefaultsProvider) ModelDefaults(ctx context.Context) (modeldefaults.Defaults, error) {
-	domainServices, err := p.servicesGetter.ServicesForModel(ctx, p.modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelDefaults := domainServices.ModelDefaults()
-	fn := modelDefaults.ModelDefaultsProvider(p.modelUUID)
-	return fn(ctx)
 }
 
 type CharmService interface {

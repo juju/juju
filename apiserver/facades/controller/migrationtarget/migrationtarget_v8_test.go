@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
@@ -462,7 +462,7 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 		Addresses: []string{"10.0.0.1:17070"}, ConsumedModels: []string{"remote-model-uuid"},
 	}}
 
-	expected := migrationv2.ImportModelArgs{
+	expected := migration.ImportModelArgs{
 		SourceMigrationUUID: envelope.ModelInfo.SourceMigrationUUID,
 		ControllerModelInfo: coremodelmigration.ControllerModelInfo{
 			ModelInfo: coremodelmigration.ModelIdentityInfo{
@@ -525,9 +525,9 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 			}},
 		},
 	}
-	var got migrationv2.ImportModelArgs
+	var got migration.ImportModelArgs
 	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, args migrationv2.ImportModelArgs, _ export.ProjectionView) error {
+		DoAndReturn(func(_ context.Context, args migration.ImportModelArgs, _ export.ProjectionView) error {
 			got = args
 			return nil
 		})

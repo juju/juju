@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -55,7 +54,7 @@ type ModelImporter interface {
 	// model_migration_import claim, the target-local model bootstrap, and
 	// the users, credential, permissions, authorized keys, secret backend,
 	// leadership and cloud image metadata carried by the import args.
-	ImportModelV2(ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView) error
+	ImportModelV2(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
 }
 
 // CloudService provides a subset of the cloud domain service methods.
@@ -756,7 +755,6 @@ func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2
 			"transformed model export payload has unexpected type %T, want %T",
 			transformed, latest.ModelExport{})
 	}
-
 	view, err := export.ProjectionViewForPayload(modelDB)
 	if err != nil {
 		return export.ProjectionView{}, nil, errors.Capture(err)
@@ -787,7 +785,7 @@ func validateModelInfo(info params.SerializedModelInfo) error {
 // source side's envelopeFromControllerModelInfo
 // (internal/worker/migrationmaster/envelope.go), and is kept in the apiserver
 // facade so internal migration code does not depend on rpc/params.
-func importModelV2Args(envelope params.SerializedModelV2, modelDBPayload *latest.ModelExport) migrationv2.ImportModelArgs {
+func importModelV2Args(envelope params.SerializedModelV2, modelDBPayload *latest.ModelExport) migration.ImportModelArgs {
 	info := coremodelmigration.ControllerModelInfo{
 		ModelInfo: coremodelmigration.ModelIdentityInfo{
 			UUID:            envelope.ModelInfo.UUID,
@@ -911,7 +909,7 @@ func importModelV2Args(envelope params.SerializedModelV2, modelDBPayload *latest
 			ConsumedModels: c.ConsumedModels,
 		})
 	}
-	return migrationv2.ImportModelArgs{
+	return migration.ImportModelArgs{
 		SourceMigrationUUID: envelope.ModelInfo.SourceMigrationUUID,
 		ControllerModelInfo: info,
 		ModelDBPayload:      modelDBPayload,

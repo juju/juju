@@ -144,3 +144,12 @@ type ExternalController struct {
 	Addresses      []string
 	ConsumedModels []string
 }
+
+// OffererModel identifies a single (offerer controller, offerer model) pair
+// referenced by a model's remote applications. It is read from model-database
+// payload state and used to select the matching third-party external
+// controller rows from the controller database.
+type OffererModel struct {
+	ControllerUUID string
+	ModelUUID      string
+}

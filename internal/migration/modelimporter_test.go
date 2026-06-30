@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package v2_test
+package migration_test
 
 import (
 	"context"
@@ -25,7 +25,6 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -80,7 +79,7 @@ func (s *modelImporterSuite) TestImportModelV2(c *tc.C) {
 	}
 	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
-	importArgs := migrationv2.ImportModelArgs{
+	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
 		ControllerModelInfo: coremodelmigration.ControllerModelInfo{
 			ModelInfo: coremodelmigration.ModelIdentityInfo{

@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmigration_test
+package modelimport_test
 
 import (
 	"testing"
@@ -11,7 +11,7 @@ import (
 	exportstate "github.com/juju/juju/domain/export/state/model"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
-	importmigration "github.com/juju/juju/domain/modelimport/modelmigration"
+	"github.com/juju/juju/domain/modelimport"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -31,7 +31,7 @@ func (s *importSuite) TestImporterPerformsModelDBImport(c *tc.C) {
 		Sequence: []v4_1_0.Sequence{{Namespace: "machine", Value: 5}},
 	}
 
-	err := importmigration.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), payload)
 	c.Assert(err, tc.ErrorIsNil)
 
 	got, err := exportstate.NewState(s.TxnRunnerFactory()).Export(c.Context())
@@ -41,6 +41,6 @@ func (s *importSuite) TestImporterPerformsModelDBImport(c *tc.C) {
 
 // TestImportNilPayload verifies that importing a nil payload is a no-op.
 func (s *importSuite) TestImportNilPayload(c *tc.C) {
-	err := importmigration.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), nil)
+	err := modelimport.NewImporter(s.TxnRunnerFactory()).Import(c.Context(), nil)
 	c.Assert(err, tc.ErrorIsNil)
 }

@@ -24,7 +24,7 @@ import (
 	unit "github.com/juju/juju/core/unit"
 	export "github.com/juju/juju/domain/export"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
-	v2 "github.com/juju/juju/internal/migration/v2"
+	migration "github.com/juju/juju/internal/migration"
 )
 
 // MockCloudService is a mock of CloudService interface.
@@ -248,7 +248,7 @@ type MockModelImporter struct {
 type MockModelImporterMockRecorder struct {
 	mock                 *MockModelImporter
 	importModelExpects   []*gomock.Call2_1[context.Context, []byte, error]
-	importModelV2Expects []*gomock.Call3_1[context.Context, v2.ImportModelArgs, export.ProjectionView, error]
+	importModelV2Expects []*gomock.Call3_1[context.Context, migration.ImportModelArgs, export.ProjectionView, error]
 }
 
 // NewMockModelImporter creates a new mock instance.
@@ -282,7 +282,7 @@ func (mr *MockModelImporterMockRecorder) ImportModel(ctx, bytes any) *MockModelI
 type MockModelImporterImportModelCall = gomock.Call2_1[context.Context, []byte, error]
 
 // ImportModelV2 mocks base method.
-func (m *MockModelImporter) ImportModelV2(ctx context.Context, args v2.ImportModelArgs, view export.ProjectionView) error {
+func (m *MockModelImporter) ImportModelV2(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch3_1(&m.recorder.importModelV2Expects, m.ctrl, m, "ImportModelV2", ctx, args, view)
 }
@@ -290,14 +290,14 @@ func (m *MockModelImporter) ImportModelV2(ctx context.Context, args v2.ImportMod
 // ImportModelV2 indicates an expected call of ImportModelV2.
 func (mr *MockModelImporterMockRecorder) ImportModelV2(ctx, args, view any) *MockModelImporterImportModelV2Call {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, v2.ImportModelArgs, export.ProjectionView, error](mr.mock.ctrl.T, mr.mock, "ImportModelV2", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args), gomock.EnsureMatcher(view))
+	call := gomock.NewCall3_1[context.Context, migration.ImportModelArgs, export.ProjectionView, error](mr.mock.ctrl.T, mr.mock, "ImportModelV2", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args), gomock.EnsureMatcher(view))
 	mr.importModelV2Expects = append(mr.importModelV2Expects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockModelImporterImportModelV2Call is the typed call wrapper for ImportModelV2.
-type MockModelImporterImportModelV2Call = gomock.Call3_1[context.Context, v2.ImportModelArgs, export.ProjectionView, error]
+type MockModelImporterImportModelV2Call = gomock.Call3_1[context.Context, migration.ImportModelArgs, export.ProjectionView, error]
 
 // MockModelMigrationService is a mock of ModelMigrationService interface.
 type MockModelMigrationService struct {

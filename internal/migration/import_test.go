@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package v2_test
+package migration_test
 
 import (
 	"context"
@@ -39,11 +39,11 @@ import (
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
 )
 
-// importV2Suite exercises [migrationv2.ImportControllerModelInfo] end-to-end
+// importV2Suite exercises [migration.ImportControllerModelInfo] end-to-end
 // against real controller and model databases: the decode, the claim, the
 // target-local bootstrap, and the controller-data import steps. It does not
 // exercise model-DB content import (Tasks 7-9) or activation (Task 10).
@@ -113,17 +113,17 @@ func (s *importV2Suite) SetUpTest(c *tc.C) {
 	modeltesting.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 }
 
-// deps returns the [migrationv2.Deps] together with the controller/model
+// deps returns the [migration.Deps] together with the controller/model
 // txn-runner factories backing it, so tests can build companion services
 // against the same databases.
-func (s *importV2Suite) deps(c *tc.C, modelUUID coremodel.UUID) (migrationv2.Deps, coredatabase.TxnRunnerFactory, coredatabase.TxnRunnerFactory) {
+func (s *importV2Suite) deps(c *tc.C, modelUUID coremodel.UUID) (migration.Deps, coredatabase.TxnRunnerFactory, coredatabase.TxnRunnerFactory) {
 	controllerFactory := s.TxnRunnerFactory()
 	modelRunner := s.ModelTxnRunner(c, modelUUID.String())
 	modelFactory := func(context.Context) (coredatabase.TxnRunner, error) {
 		return modelRunner, nil
 	}
 
-	return migrationv2.Deps{
+	return migration.Deps{
 		ControllerDB: controllerFactory,
 		ModelDB:      modelFactory,
 		Clock:        clock.WallClock,
@@ -184,7 +184,7 @@ func (s *importV2Suite) TestImportModelHappyPath(c *tc.C) {
 
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migrationv2.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err := migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim must still be in the "importing" phase: activation is a
@@ -279,9 +279,9 @@ func (s *importV2Suite) TestImportModelDuplicateClaim(c *tc.C) {
 	info := s.baseControllerModelInfo(modelUUID)
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := migrationv2.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err := migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migrationv2.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
+	err = migration.ImportControllerModelInfo(c.Context(), deps, sourceMigrationUUID, info, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }

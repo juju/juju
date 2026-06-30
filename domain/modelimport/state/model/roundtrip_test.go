@@ -36,7 +36,6 @@ func TestRoundTripSuite(t *testing.T) {
 //     inserted.
 func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	const userSpaceUUID = "11111111-1111-1111-1111-111111111111"
-
 	payload := &v4_1_0.ModelExport{
 		Sequence: []v4_1_0.Sequence{
 			{Namespace: "machine", Value: 7},

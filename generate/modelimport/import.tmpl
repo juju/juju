@@ -16,11 +16,12 @@ import (
 
 // Import inserts all model data carried by the transformed, target-version
 // payload for version {{ .SemanticVersion }} into the model DB. It is the
-// write-mirror of [State.Export]: each table is bulk-inserted from the matching
-// payload slice. Target-local bootstrap tables (model, model_life, agent_version,
-// model_agent, model_migrating) and operational/changestream tables are excluded;
-// seeded tables are inserted with ON CONFLICT DO NOTHING so their identical seed
-// rows (e.g. the alpha space) are skipped while genuine content rows are kept.
+// write-mirror of the generated export state: each ordinary content table is
+// bulk-inserted from the matching payload slice. Target-local bootstrap tables
+// (model, model_life, agent_version, model_agent, model_migrating) and
+// operational/changestream tables are excluded; seeded tables are inserted with
+// ON CONFLICT DO NOTHING so their identical seed rows are skipped while genuine
+// content rows are kept.
 func (st *State) Import(ctx context.Context, p *v{{ .VersionToken }}.ModelExport) error {
 	var err error
 

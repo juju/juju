@@ -64,7 +64,7 @@ func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (as
 		return empty, errors.Annotate(err, "marshalling model payload")
 	}
 
-	info, err := w.config.ModelMigrationService.GetControllerModelInfo(ctx)
+	info, err := w.config.ExportService.GetControllerModelInfo(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "reading controller-db data for model")
 	}

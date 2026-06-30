@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package modelmigration
+package modelimport
 
 import (
 	"context"
@@ -13,12 +13,8 @@ import (
 )
 
 // Importer applies a transformed, target-version model-DB payload to the model
-// database. It is the write side of the V2 model-migration path: the
-// transformed payload's rows already match the target schema by construction,
-// so the importer (see domain/modelimport/state/model) bulk-inserts every
-// content table directly in one transaction. New schema versions regenerate it
-// automatically; engineers add per-table logic only as deltas for the rare
-// table that cannot be a plain insert.
+// database. The transformed payload's rows already match the target schema by
+// construction, so the importer bulk-inserts every content table directly.
 type Importer struct {
 	state *importstate.State
 }
