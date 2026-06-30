@@ -24,6 +24,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/pebble"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/loki"
 )
 
 const (
@@ -323,6 +324,7 @@ func BuildLayerYAML(
 	modelTag names.ModelTag,
 ) ([]byte, error) {
 	labels := map[string]string{
+		"service_name":    loki.DefaultServiceName,
 		"juju_controller": controllerTag.Id(),
 		"juju_model":      modelTag.Id(),
 		"juju_agent":      agentTag.String(),
