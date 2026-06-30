@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
+	corelogger "github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -105,6 +106,19 @@ func (w *lokiBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
 }
 
+// Log implements corelogger.LogSink by converting records to the internal
+// logsender format and submitting them to the backend's record channel.
+func (w *lokiBackend) Log(records []corelogger.LogRecord) error {
+	return sendRecords(w.records, records)
+}
+
+// WatchRefresh implements corelogger.LogSink. Individual backends never
+// change their underlying target; refresh signalling is handled by the log
+// router when switching backends.
+func (w *lokiBackend) WatchRefresh() <-chan struct{} {
+	return corelogger.NoRefresh()
+}
+
 // Report returns a report of the backend's current state.
 func (w *lokiBackend) Report(ctx context.Context) map[string]any {
 	return map[string]any{
@@ -126,12 +140,20 @@ func (w *lokiBackend) loop() error {
 			if rec == nil {
 				continue
 			}
+			modelUUID := w.cfg.ModelUUID
+			if rec.ModelUUID != "" {
+				modelUUID = rec.ModelUUID
+			}
+			agentID := w.cfg.AgentID
+			if rec.Entity != "" {
+				agentID = rec.Entity
+			}
 			if err := w.client.Push(loki.Record{
 				Timestamp:      rec.Time,
 				Line:           rec.Message,
 				ControllerUUID: w.cfg.ControllerUUID,
-				ModelUUID:      w.cfg.ModelUUID,
-				AgentID:        w.cfg.AgentID,
+				ModelUUID:      modelUUID,
+				AgentID:        agentID,
 				Fields: map[string]string{
 					"module":   rec.Module,
 					"location": rec.Location,
