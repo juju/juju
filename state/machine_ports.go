@@ -101,10 +101,13 @@ func (p *machinePortRanges) Changes() ModelOperation {
 
 // Refresh refreshes the port document from state.
 func (p *machinePortRanges) Refresh() error {
-	openedPorts, closer := p.st.db().GetCollection(openedPortsC)
+	openedPorts, closer, err := p.st.db().GetCollection(openedPortsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
-	err := openedPorts.FindId(p.doc.DocID).One(&p.doc)
+	err = openedPorts.FindId(p.doc.DocID).One(&p.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("open port ranges for machine %q", p.MachineID())
 	} else if err != nil {
@@ -251,7 +254,10 @@ func getOpenedPortRangesForAllMachines(st *State) ([]*machinePortRanges, error) 
 	for _, m := range machines {
 		machineIDs = append(machineIDs, m.Id())
 	}
-	openedPorts, closer := st.db().GetCollection(openedPortsC)
+	openedPorts, closer, err := st.db().GetCollection(openedPortsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	docs := []machinePortRangesDoc{}
@@ -281,7 +287,10 @@ func getOpenedMachinePortRanges(st *State, machineID string) (*machinePortRanges
 	}
 	machineExists := err == nil
 
-	openedPorts, closer := st.db().GetCollection(openedPortsC)
+	openedPorts, closer, err := st.db().GetCollection(openedPortsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc machinePortRangesDoc

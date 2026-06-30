@@ -182,11 +182,14 @@ func (st *State) GetBlockForType(t BlockType) (Block, bool, error) {
 }
 
 func getBlockForType(mb modelBackend, t BlockType) (Block, bool, error) {
-	all, closer := mb.db().GetCollection(blocksC)
+	all, closer, err := mb.db().GetCollection(blocksC)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := blockDoc{}
-	err := all.Find(bson.D{{"type", t}}).One(&doc)
+	err = all.Find(bson.D{{"type", t}}).One(&doc)
 
 	switch err {
 	case nil:
@@ -200,11 +203,14 @@ func getBlockForType(mb modelBackend, t BlockType) (Block, bool, error) {
 
 // AllBlocks returns all blocks in the model.
 func (st *State) AllBlocks() ([]Block, error) {
-	blocksCollection, closer := st.db().GetCollection(blocksC)
+	blocksCollection, closer, err := st.db().GetCollection(blocksC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var bdocs []blockDoc
-	err := blocksCollection.Find(nil).All(&bdocs)
+	err = blocksCollection.Find(nil).All(&bdocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all blocks")
 	}
@@ -218,11 +224,14 @@ func (st *State) AllBlocks() ([]Block, error) {
 // AllBlocksForController returns all blocks in any models on
 // the controller.
 func (st *State) AllBlocksForController() ([]Block, error) {
-	blocksCollection, closer := st.db().GetRawCollection(blocksC)
+	blocksCollection, closer, err := st.db().GetRawCollection(blocksC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var bdocs []blockDoc
-	err := blocksCollection.Find(nil).All(&bdocs)
+	err = blocksCollection.Find(nil).All(&bdocs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all blocks")
 	}

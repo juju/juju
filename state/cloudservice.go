@@ -86,11 +86,14 @@ func (c *CloudService) DesiredScaleProtected() bool {
 }
 
 func (c *CloudService) cloudServiceDoc() (*cloudServiceDoc, error) {
-	coll, closer := c.st.db().GetCollection(cloudServicesC)
+	coll, closer, err := c.st.db().GetCollection(cloudServicesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc cloudServiceDoc
-	err := coll.FindId(c.doc.DocID).One(&doc)
+	err = coll.FindId(c.doc.DocID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("cloud service %v", c.Id())
 	}

@@ -331,7 +331,10 @@ func (dev *LinkLayerDevice) Remove() (err error) {
 }
 
 func (dev *LinkLayerDevice) childCount() (int, error) {
-	col, closer := dev.st.db().GetCollection(linkLayerDevicesC)
+	col, closer, err := dev.st.db().GetCollection(linkLayerDevicesC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	children, err := col.Find(bson.M{"$or": []bson.M{
@@ -361,7 +364,10 @@ func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
 
 // AllLinkLayerDevices returns all link layer devices in the model.
 func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
-	devicesCollection, closer := st.db().GetCollection(linkLayerDevicesC)
+	devicesCollection, closer, err := st.db().GetCollection(linkLayerDevicesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var sDocs []linkLayerDeviceDoc
@@ -376,11 +382,14 @@ func (st *State) AllLinkLayerDevices() (devices []*LinkLayerDevice, err error) {
 }
 
 func (st *State) LinkLayerDevice(id string) (*LinkLayerDevice, error) {
-	linkLayerDevices, closer := st.db().GetCollection(linkLayerDevicesC)
+	linkLayerDevices, closer, err := st.db().GetCollection(linkLayerDevicesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc linkLayerDeviceDoc
-	err := linkLayerDevices.FindId(id).One(&doc)
+	err = linkLayerDevices.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("device with ID %q", id)
 	} else if err != nil {
@@ -633,13 +642,16 @@ func (dev *LinkLayerDevice) mtuForChild() (uint, error) {
 		return dev.MTU(), nil
 	}
 
-	linkLayerDevs, closer := dev.st.db().GetCollection(linkLayerDevicesC)
+	linkLayerDevs, closer, err := dev.st.db().GetCollection(linkLayerDevicesC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	var resultDoc struct {
 		MTU uint `bson:"mtu"`
 	}
-	err := linkLayerDevs.Find(bson.D{
+	err = linkLayerDevs.Find(bson.D{
 		{"machine-id", dev.doc.MachineID},
 		{"parent-name", dev.doc.Name},
 		{"type", network.VXLANDevice},

@@ -81,7 +81,10 @@ func removeRebootDocOp(st *State, machineId string) txn.Op {
 }
 
 func (m *Machine) clearFlag() error {
-	reboot, closer := m.st.db().GetCollection(rebootC)
+	reboot, closer, err := m.st.db().GetCollection(rebootC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	docID := m.doc.DocID
@@ -112,7 +115,10 @@ func (m *Machine) SetRebootFlag(flag bool) error {
 
 // GetRebootFlag returns the reboot flag for this machine.
 func (m *Machine) GetRebootFlag() (bool, error) {
-	rebootCol, closer := m.st.db().GetCollection(rebootC)
+	rebootCol, closer, err := m.st.db().GetCollection(rebootC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	count, err := rebootCol.FindId(m.doc.DocID).Count()
@@ -138,7 +144,10 @@ func (m *Machine) machinesToCareAboutRebootsFor() []string {
 // If we are a container, and our parent needs to reboot, this should return:
 // ShouldShutdown
 func (m *Machine) ShouldRebootOrShutdown() (RebootAction, error) {
-	rebootCol, closer := m.st.db().GetCollection(rebootC)
+	rebootCol, closer, err := m.st.db().GetCollection(rebootC)
+	if err != nil {
+		return ShouldDoNothing, errors.Trace(err)
+	}
 	defer closer()
 
 	machines := m.machinesToCareAboutRebootsFor()

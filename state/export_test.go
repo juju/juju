@@ -174,7 +174,10 @@ func SetPolicy(st *State, p Policy) Policy {
 }
 
 func CloudModelRefCount(st *State, cloudName string) (int, error) {
-	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	key := cloudModelRefCountKey(cloudName)
@@ -182,7 +185,10 @@ func CloudModelRefCount(st *State, cloudName string) (int, error) {
 }
 
 func ApplicationSettingsRefCount(st *State, appName string, curl *string) (int, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+	refcounts, closer, err := st.db().GetCollection(refcountsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	key := applicationCharmConfigKey(appName, curl)
@@ -190,7 +196,10 @@ func ApplicationSettingsRefCount(st *State, appName string, curl *string) (int, 
 }
 
 func ApplicationOffersRefCount(st *State, appName string) (int, error) {
-	refcounts, closer := st.db().GetCollection(refcountsC)
+	refcounts, closer, err := st.db().GetCollection(refcountsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	key := applicationOffersRefCountKey(appName)
@@ -198,7 +207,10 @@ func ApplicationOffersRefCount(st *State, appName string) (int, error) {
 }
 
 func ControllerRefCount(st *State, controllerUUID string) (int, error) {
-	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	key := externalControllerRefCountKey(controllerUUID)
@@ -206,7 +218,10 @@ func ControllerRefCount(st *State, controllerUUID string) (int, error) {
 }
 
 func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
-	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	refCountCollection, ccloser, err := st.db().GetCollection(refcountsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer ccloser()
 	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
 	if err != nil {
@@ -216,7 +231,10 @@ func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
 }
 
 func SecretBackendRefCount(st *State, backendID string) (int, error) {
-	refcounts, closer := st.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	key := secretBackendRefCountKey(backendID)
@@ -493,9 +511,12 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 	var doc struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}
-	coll, closer := st.db().GetCollection(collName)
+	coll, closer, err := st.db().GetCollection(collName)
+	if err != nil {
+		return 0, err
+	}
 	defer closer()
-	err := coll.FindId(id).One(&doc)
+	err = coll.FindId(id).One(&doc)
 	if err != nil {
 		return 0, err
 	}
@@ -505,7 +526,10 @@ func TxnRevno(st *State, collName string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given application name.
 func MinUnitsRevno(st *State, applicationname string) (int, error) {
-	minUnitsCollection, closer := st.db().GetCollection(minUnitsC)
+	minUnitsCollection, closer, err := st.db().GetCollection(minUnitsC)
+	if err != nil {
+		return 0, err
+	}
 	defer closer()
 	var doc minUnitsDoc
 	if err := minUnitsCollection.FindId(applicationname).One(&doc); err != nil {
@@ -544,7 +568,10 @@ func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) 
 }
 
 func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
-	upgradeInfos, closer := st.db().GetCollection(upgradeInfoC)
+	upgradeInfos, closer, err := st.db().GetCollection(upgradeInfoC)
+	if err != nil {
+		return nil, err
+	}
 	defer closer()
 
 	var out []*UpgradeInfo
@@ -565,11 +592,14 @@ func UserModelNameIndex(username, modelName string) string {
 }
 
 func (m *Model) UniqueIndexExists() bool {
-	coll, closer := m.st.db().GetCollection(usermodelnameC)
+	coll, closer, err := m.st.db().GetCollection(usermodelnameC)
+	if err != nil {
+		return false
+	}
 	defer closer()
 
 	var doc bson.M
-	err := coll.FindId(m.uniqueIndexID()).One(&doc)
+	err = coll.FindId(m.uniqueIndexID()).One(&doc)
 
 	return err == nil
 }
@@ -591,11 +621,19 @@ func GetUnitModelUUID(unit *Unit) string {
 }
 
 func GetCollection(mb modelBackend, name string) (mongo.Collection, func()) {
-	return mb.db().GetCollection(name)
+	coll, closer, err := mb.db().GetCollection(name)
+	if err != nil {
+		panic(err)
+	}
+	return coll, closer
 }
 
 func GetRawCollection(mb modelBackend, name string) (*mgo.Collection, func()) {
-	return mb.db().GetRawCollection(name)
+	coll, closer, err := mb.db().GetRawCollection(name)
+	if err != nil {
+		panic(err)
+	}
+	return coll, closer
 }
 
 func HasRawAccess(collectionName string) bool {
@@ -625,7 +663,10 @@ func SequenceWithMin(st *State, name string, minVal int) (int, error) {
 }
 
 func SequenceEnsure(st *State, name string, nextVal int) error {
-	sequences, closer := st.db().GetRawCollection(sequenceC)
+	sequences, closer, err := st.db().GetRawCollection(sequenceC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	updater := newDbSeqUpdater(sequences, st.ModelUUID(), name)
 	return updater.ensure(nextVal)
@@ -825,10 +866,11 @@ func RemoveRelationStatus(c *gc.C, rel *Relation) {
 
 func RemoveUnitRelations(c *gc.C, rel *Relation) {
 	st := rel.st
-	scopes, closer := st.db().GetCollection(relationScopesC)
+	scopes, closer, err := st.db().GetCollection(relationScopesC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	scopesW := scopes.Writeable()
-	_, err := scopesW.RemoveAll(nil)
+	_, err = scopesW.RemoveAll(nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -842,7 +884,8 @@ func PrimeUnitStatusHistory(
 ) {
 	globalKey := unit.globalKey()
 
-	history, closer := unit.st.db().GetCollection(statusesHistoryC)
+	history, closer, err := unit.st.db().GetCollection(statusesHistoryC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 	historyW := history.Writeable()
 
@@ -877,7 +920,7 @@ func PrimeUnitStatusHistory(
 		return statusSetOps(unit.st.db(), doc, globalKey)
 	}
 
-	err := unit.st.db().Run(buildTxn)
+	err = unit.st.db().Run(buildTxn)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -886,9 +929,11 @@ func PrimeUnitStatusHistory(
 // approximate size of the entry and limit the number of entries that
 // must be generated for size related tests.
 func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperation int) {
-	operationsCollection, closer := unit.st.db().GetCollection(operationsC)
+	operationsCollection, closer, err := unit.st.db().GetCollection(operationsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
-	actionCollection, closer := unit.st.db().GetCollection(actionsC)
+	actionCollection, closer, err := unit.st.db().GetCollection(actionsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	operationsCollectionWriter := operationsCollection.Writeable()
@@ -924,7 +969,7 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 		}
 	}
 
-	err := operationsCollectionWriter.Insert(operationDocs...)
+	err = operationsCollectionWriter.Insert(operationDocs...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = actionCollectionWriter.Insert(actionDocs...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -932,7 +977,8 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 
 // PrimeLegacyActions creates actions without a parent operation.
 func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
-	actionCollection, closer := unit.st.db().GetCollection(actionsC)
+	actionCollection, closer, err := unit.st.db().GetCollection(actionsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	actionCollectionWriter := actionCollection.Writeable()
@@ -955,7 +1001,7 @@ func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
 		})
 	}
 
-	err := actionCollectionWriter.Insert(actionDocs...)
+	err = actionCollectionWriter.Insert(actionDocs...)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, id := range ids {
 		err = actionCollectionWriter.UpdateId(id, bson.D{{"$unset", bson.M{"operation": 1}}})
@@ -1011,9 +1057,10 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 // of a given kind scheduled.
 func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
-	cleanups, closer := st.db().GetCollection(cleanupsC)
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
-	err := cleanups.Find(nil).All(&docs)
+	err = cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, doc := range docs {
 		if doc.Kind == kind {
@@ -1026,9 +1073,10 @@ func AssertNoCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 // one cleanup of a given kind scheduled.
 func AssertCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 	var docs []cleanupDoc
-	cleanups, closer := st.db().GetCollection(cleanupsC)
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
-	err := cleanups.Find(nil).All(&docs)
+	err = cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, doc := range docs {
 		if doc.Kind == kind {
@@ -1041,9 +1089,10 @@ func AssertCleanupsWithKind(c *gc.C, st *State, kind cleanupKind) {
 // AssertNoCleanups checks that there are no cleanups scheduled.
 func AssertNoCleanups(c *gc.C, st *State) {
 	var docs []cleanupDoc
-	cleanups, closer := st.db().GetCollection(cleanupsC)
+	cleanups, closer, err := st.db().GetCollection(cleanupsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
-	err := cleanups.Find(nil).All(&docs)
+	err = cleanups.Find(nil).All(&docs)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(docs) > 0 {
 		c.Fatalf("unexpected cleanups: %+v", docs)
@@ -1162,21 +1211,23 @@ func ApplicationPortOps(st *State, a description.Application) ([]txn.Op, error) 
 }
 
 func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
-	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
+	secretRotateCollection, closer, err := st.db().GetCollection(secretRotateC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	var doc secretRotationDoc
-	err := secretRotateCollection.FindId(id).One(&doc)
+	err = secretRotateCollection.FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.NextRotateTime.UTC()
 }
 
 func GetSecretBackendNextRotateInfo(c *gc.C, st *State, id string) (string, time.Time) {
-	secretBackendRotateCollection, closer := st.db().GetCollection(secretBackendsRotateC)
+	secretBackendRotateCollection, closer, err := st.db().GetCollection(secretBackendsRotateC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	var doc secretBackendRotationDoc
-	err := secretBackendRotateCollection.FindId(id).One(&doc)
+	err = secretBackendRotateCollection.FindId(id).One(&doc)
 	c.Assert(err, jc.ErrorIsNil)
 	return doc.Name, doc.NextRotateTime.UTC()
 }
@@ -1272,11 +1323,14 @@ func GetCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
 }
 
 func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
-	actionNotifications, closer := m.st.db().GetCollection(actionNotificationsC)
+	actionNotifications, closer, err := m.st.db().GetCollection(actionNotificationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	docs := []actionNotificationDoc{}
-	err := actionNotifications.Find(nil).All(&docs)
+	err = actionNotifications.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all actions")
 	}

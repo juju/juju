@@ -134,11 +134,14 @@ func (st *State) RemoveSSHConnRequest(arg SSHConnRequestRemoveArg) error {
 
 // GetSSHConnRequest returns a ssh connection request by its document ID.
 func (st *State) GetSSHConnRequest(docID string) (SSHConnRequest, error) {
-	vhkeys, closer := st.db().GetCollection(sshConnRequestsC)
+	vhkeys, closer, err := st.db().GetCollection(sshConnRequestsC)
+	if err != nil {
+		return SSHConnRequest{}, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := sshConnRequestDoc{}
-	err := vhkeys.FindId(st.docID(docID)).One(&doc)
+	err = vhkeys.FindId(st.docID(docID)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return SSHConnRequest{}, errors.NotFoundf("sshreqconn key %q", docID)
 	}

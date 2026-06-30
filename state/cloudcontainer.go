@@ -81,11 +81,14 @@ func globalCloudContainerKey(name string) string {
 }
 
 func (u *Unit) cloudContainer() (*cloudContainerDoc, error) {
-	coll, closer := u.st.db().GetCollection(cloudContainersC)
+	coll, closer, err := u.st.db().GetCollection(cloudContainersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc cloudContainerDoc
-	err := coll.FindId(u.globalKey()).One(&doc)
+	err = coll.FindId(u.globalKey()).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("cloud container for unit %v", u.Name())
 	}
@@ -141,11 +144,14 @@ func (u *Unit) removeCloudContainerOps() []txn.Op {
 
 // Containers returns the containers for the specified provider ids.
 func (m *CAASModel) Containers(providerIds ...string) ([]CloudContainer, error) {
-	coll, closer := m.st.db().GetCollection(cloudContainersC)
+	coll, closer, err := m.st.db().GetCollection(cloudContainersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var all []cloudContainerDoc
-	err := coll.Find(bson.D{{"provider-id", bson.D{{"$in", providerIds}}}}).All(&all)
+	err = coll.Find(bson.D{{"provider-id", bson.D{{"$in", providerIds}}}}).All(&all)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -35,11 +35,14 @@ func (st *State) setControllerAccess(access permission.Access, userGlobalKey str
 // controllerUser a model userAccessDoc.
 func (st *State) controllerUser(user names.UserTag) (userAccessDoc, error) {
 	controllerUser := userAccessDoc{}
-	controllerUsers, closer := st.db().GetCollection(controllerUsersC)
+	controllerUsers, closer, err := st.db().GetCollection(controllerUsersC)
+	if err != nil {
+		return userAccessDoc{}, errors.Trace(err)
+	}
 	defer closer()
 
 	username := strings.ToLower(user.Id())
-	err := controllerUsers.FindId(username).One(&controllerUser)
+	err = controllerUsers.FindId(username).One(&controllerUser)
 	if err == mgo.ErrNotFound {
 		return userAccessDoc{}, errors.NotFoundf("controller user %q", user.Id())
 	}

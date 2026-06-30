@@ -296,17 +296,23 @@ func (m *Model) Operation(id string) (Operation, error) {
 // OperationWithActions returns an OperationInfo by Id.
 func (m *Model) OperationWithActions(id string) (*OperationInfo, error) {
 	// First gather the matching actions and record the parent operation ids we need.
-	actionsCollection, aCloser := m.st.db().GetCollection(actionsC)
+	actionsCollection, aCloser, err := m.st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer aCloser()
 
 	var actions []actionDoc
-	err := actionsCollection.Find(bson.D{{"operation", id}}).
+	err = actionsCollection.Find(bson.D{{"operation", id}}).
 		Sort("_id").All(&actions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	operationCollection, oCloser := m.st.db().GetCollection(operationsC)
+	operationCollection, oCloser, err := m.st.db().GetCollection(operationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer oCloser()
 
 	var docs []operationDoc
@@ -331,13 +337,19 @@ func (m *Model) OperationWithActions(id string) (*OperationInfo, error) {
 }
 
 func (st *State) getOperationDoc(id string) (*operationDoc, []ActionStatus, error) {
-	operations, closer := st.db().GetCollection(operationsC)
+	operations, closer, err := st.db().GetCollection(operationsC)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	defer closer()
-	actions, closer := st.db().GetCollection(actionsC)
+	actions, closer, err := st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := operationDoc{}
-	err := operations.FindId(id).One(&doc)
+	err = operations.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, nil, errors.NotFoundf("operation %q", id)
 	}
@@ -358,12 +370,15 @@ func (st *State) getOperationDoc(id string) (*operationDoc, []ActionStatus, erro
 
 // AllOperations returns all Operations.
 func (m *Model) AllOperations() ([]Operation, error) {
-	operations, closer := m.st.db().GetCollection(operationsC)
+	operations, closer, err := m.st.db().GetCollection(operationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	results := []Operation{}
 	docs := []operationDoc{}
-	err := operations.Find(nil).All(&docs)
+	err = operations.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all operations")
 	}
@@ -391,7 +406,10 @@ func (m *Model) ListOperations(
 	offset, limit int,
 ) ([]OperationInfo, bool, error) {
 	// First gather the matching actions and record the parent operation ids we need.
-	actionsCollection, closer := m.st.db().GetCollection(actionsC)
+	actionsCollection, closer, err := m.st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
 	defer closer()
 
 	var receiverIDs []string
@@ -407,7 +425,7 @@ func (m *Model) ListOperations(
 	}
 	actionsQuery := append(receiverTerm, namesTerm...)
 	var actions []actionDoc
-	err := actionsCollection.Find(actionsQuery).
+	err = actionsCollection.Find(actionsQuery).
 		// For now we'll limit what we return to the caller as action results
 		// can be large and show-task can be used to get more detail as needed.
 		Select(bson.D{
@@ -440,7 +458,10 @@ func (m *Model) ListOperations(
 	}
 	operationsQuery := append(idsTerm, statusTerm...)
 
-	operationCollection, closer := m.st.db().GetCollection(operationsC)
+	operationCollection, closer, err := m.st.db().GetCollection(operationsC)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []operationDoc

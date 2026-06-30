@@ -138,10 +138,13 @@ func (p *applicationPortRanges) Remove() error {
 
 // Refresh refreshes the port document from state.
 func (p *applicationPortRanges) Refresh() error {
-	openedPorts, closer := p.st.db().GetCollection(openedPortsC)
+	openedPorts, closer, err := p.st.db().GetCollection(openedPortsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
-	err := openedPorts.FindId(p.doc.DocID).One(&p.doc)
+	err = openedPorts.FindId(p.doc.DocID).One(&p.doc)
 	if err == mgo.ErrNotFound {
 		p.docExists = false
 		return errors.NotFoundf("open port ranges for application %q", p.ApplicationName())
@@ -516,7 +519,10 @@ func removeApplicationPortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
 // applicationPortRanges instance with the docExists flag set to false will be
 // returned instead.
 func getApplicationPortRanges(st *State, appName string) (*applicationPortRanges, error) {
-	openedPorts, closer := st.db().GetCollection(openedPortsC)
+	openedPorts, closer, err := st.db().GetCollection(openedPortsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	docID := st.docID(applicationGlobalKey(appName))
@@ -574,7 +580,10 @@ func getOpenedApplicationPortRangesForAllApplications(st *State) ([]*application
 	for _, app := range apps {
 		appNames = append(appNames, app.Name())
 	}
-	openedPorts, closer := st.db().GetCollection(openedPortsC)
+	openedPorts, closer, err := st.db().GetCollection(openedPortsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	docs := []applicationPortRangesDoc{}
 	err = openedPorts.Find(bson.D{{"application-name", bson.D{{"$in", appNames}}}}).All(&docs)

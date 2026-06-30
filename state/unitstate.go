@@ -243,7 +243,10 @@ func (u *Unit) State() (*UnitState, error) {
 		return us, errors.NotFoundf("unit %s", u.Name())
 	}
 
-	coll, closer := u.st.db().GetCollection(unitStatesC)
+	coll, closer, err := u.st.db().GetCollection(unitStatesC)
+	if err != nil {
+		return us, errors.Trace(err)
+	}
 	defer closer()
 
 	var stDoc unitStateDoc

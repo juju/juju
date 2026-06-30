@@ -153,7 +153,10 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		hub:        pubsub.NewSimpleHub(nil),
 	}
 
-	session := args.MongoSession.Copy()
+	session, err := mongo.CopySession(args.MongoSession)
+	if err != nil {
+		return nil, errors.Annotate(err, "copying mongo session for state pool")
+	}
 	st, err := open(
 		args.ControllerTag,
 		args.ControllerModelTag,
@@ -198,7 +201,14 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
 	})
-	pool.txnWatcherSession = args.MongoSession.Copy()
+	pool.txnWatcherSession, err = mongo.CopySession(args.MongoSession)
+	if err != nil {
+		if stopErr := st.stopWorkers(); stopErr != nil {
+			logger.Errorf("stopping state workers for model %s: %v", args.ControllerModelTag.Id(), stopErr)
+		}
+		st.workers = nil
+		return nil, errors.Annotate(err, "copying mongo session for txn watcher")
+	}
 	if err = pool.watcherRunner.StartWorker(txnLogWorker, func() (worker.Worker, error) {
 		return watcher.NewTxnWatcher(
 			watcher.TxnWatcherConfig{
@@ -212,6 +222,10 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 			})
 	}); err != nil {
 		pool.txnWatcherSession.Close()
+		if stopErr := st.stopWorkers(); stopErr != nil {
+			logger.Errorf("stopping state workers for model %s: %v", args.ControllerModelTag.Id(), stopErr)
+		}
+		st.workers = nil
 		return nil, errors.Trace(err)
 	}
 	return pool, nil
@@ -295,7 +309,10 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 
 func (p *StatePool) openState(modelUUID string) (*State, error) {
 	modelTag := names.NewModelTag(modelUUID)
-	session := p.systemState.session.Copy()
+	session, err := mongo.CopySession(p.systemState.session)
+	if err != nil {
+		return nil, errors.Annotate(err, "copying model state session")
+	}
 	newSt, err := newState(
 		p.systemState.controllerTag,
 		modelTag, p.systemState.controllerModelTag,

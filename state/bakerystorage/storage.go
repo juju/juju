@@ -51,19 +51,28 @@ func (s *storage) ExpireAfter(expireAfter time.Duration) ExpirableStorage {
 
 // RootKey implements Storage.RootKey
 func (s *storage) RootKey(ctx context.Context) ([]byte, []byte, error) {
-	storage, closer := s.getStorage()
+	storage, closer, err := s.getStorage()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	defer closer()
 	return storage.RootKey(ctx)
 }
 
-func (s *storage) getStorage() (bakery.RootKeyStore, func()) {
-	coll, closer := s.config.GetCollection()
-	return s.config.GetStorage(s.rootKeys, coll, s.expireAfter), closer
+func (s *storage) getStorage() (bakery.RootKeyStore, func(), error) {
+	coll, closer, err := s.config.GetCollection()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return s.config.GetStorage(s.rootKeys, coll, s.expireAfter), closer, nil
 }
 
 // Get implements Storage.Get
 func (s *storage) Get(ctx context.Context, id []byte) ([]byte, error) {
-	storage, closer := s.getStorage()
+	storage, closer, err := s.getStorage()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	i, err := storage.Get(ctx, id)
 	if err != nil {
@@ -78,11 +87,14 @@ func (s *storage) Get(ctx context.Context, id []byte) ([]byte, error) {
 // legacyGet is attempted as the id we're looking for was created in a previous
 // version of Juju while using v1 versions of the macaroon-bakery.
 func (s *storage) legacyGet(location []byte) ([]byte, error) {
-	coll, closer := s.config.GetCollection()
+	coll, closer, err := s.config.GetCollection()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get collection")
+	}
 	defer closer()
 
 	var i storageDoc
-	err := coll.FindId(string(location)).One(&i)
+	err = coll.FindId(string(location)).One(&i)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			return nil, bakery.ErrNotFound

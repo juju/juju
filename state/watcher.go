@@ -183,7 +183,7 @@ type lifecycleWatcher struct {
 
 	// coll is a function returning the mongo.Collection holding all
 	// interesting entities
-	coll     func() (mongo.Collection, func())
+	coll     func() (mongo.Collection, func(), error)
 	collName string
 
 	// members is used to select the initial set of interesting entities.
@@ -197,8 +197,8 @@ type lifecycleWatcher struct {
 	life map[string]Life
 }
 
-func collFactory(db Database, collName string) func() (mongo.Collection, func()) {
-	return func() (mongo.Collection, func()) {
+func collFactory(db Database, collName string) func() (mongo.Collection, func(), error) {
+	return func() (mongo.Collection, func(), error) {
 		return db.GetCollection(collName)
 	}
 }
@@ -472,7 +472,10 @@ func (a *Application) WatchScale() NotifyWatcher {
 		if k != a.doc.Name {
 			return false
 		}
-		applications, closer := a.st.db().GetCollection(applicationsC)
+		applications, closer, err := a.st.db().GetCollection(applicationsC)
+		if err != nil {
+			return false
+		}
 		defer closer()
 
 		var scaleField = bson.D{{"scale", 1}}
@@ -668,7 +671,10 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 }
 
 func (w *modelMachineStartTimeWatcher) initialMachineSet() (set.Strings, error) {
-	coll, closer := w.db.GetCollection(machinesC)
+	coll, closer, err := w.db.GetCollection(machinesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	// Select the fields we need from documents that are not referring to
@@ -690,7 +696,10 @@ func (w *modelMachineStartTimeWatcher) initialMachineSet() (set.Strings, error) 
 }
 
 func (w *modelMachineStartTimeWatcher) processChanges(pendingDocs set.Strings) (set.Strings, error) {
-	coll, closer := w.db.GetCollection(machinesC)
+	coll, closer, err := w.db.GetCollection(machinesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	// Select the fields we need from the changed documents that are not
@@ -813,7 +822,10 @@ func (w *lifecycleWatcher) Changes() <-chan []string {
 }
 
 func (w *lifecycleWatcher) initial() (set.Strings, error) {
-	coll, closer := w.coll()
+	coll, closer, err := w.coll()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	ids := make(set.Strings)
@@ -835,7 +847,10 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 }
 
 func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) error {
-	coll, closer := w.coll()
+	coll, closer, err := w.coll()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	// Separate ids into those thought to exist and those known to be removed.
@@ -975,7 +990,10 @@ func (st *State) WatchMinUnits() StringsWatcher {
 func (w *minUnitsWatcher) initial() (set.Strings, error) {
 	applicationnames := make(set.Strings)
 	var doc minUnitsDoc
-	newMinUnits, closer := w.db.GetCollection(minUnitsC)
+	newMinUnits, closer, err := w.db.GetCollection(minUnitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	iter := newMinUnits.Find(nil).Iter()
@@ -994,7 +1012,10 @@ func (w *minUnitsWatcher) merge(applicationnames set.Strings, change watcher.Cha
 		return nil
 	}
 	doc := minUnitsDoc{}
-	newMinUnits, closer := w.db.GetCollection(minUnitsC)
+	newMinUnits, closer, err := w.db.GetCollection(minUnitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	if err := newMinUnits.FindId(change.Id).One(&doc); err != nil {
 		return err
@@ -1131,7 +1152,10 @@ func (w *RelationScopeWatcher) Changes() <-chan *RelationScopeChange {
 
 // initialInfo returns an uncommitted scopeInfo with the current set of units.
 func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
-	relationScopes, closer := w.db.GetCollection(relationScopesC)
+	relationScopes, closer, err := w.db.GetCollection(relationScopesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	docs := []relationScopeDoc{}
@@ -1161,7 +1185,10 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 // document to be read, and whether it's treated as added or removed depends
 // on the value of the document's Departing field.
 func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) error {
-	relationScopes, closer := w.db.GetCollection(relationScopesC)
+	relationScopes, closer, err := w.db.GetCollection(relationScopesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var existIds []string
@@ -1577,7 +1604,10 @@ type relationLifeSuspendedDoc struct {
 var relationLifeSuspendedFields = bson.D{{"_id", 1}, {"life", 1}, {"suspended", 1}}
 
 func (w *relationLifeSuspendedWatcher) initial() (set.Strings, error) {
-	coll, closer := w.db.GetCollection(relationsC)
+	coll, closer, err := w.db.GetCollection(relationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	ids := make(set.Strings)
@@ -1599,7 +1629,10 @@ func (w *relationLifeSuspendedWatcher) initial() (set.Strings, error) {
 }
 
 func (w *relationLifeSuspendedWatcher) merge(ids set.Strings, updates map[interface{}]bool) error {
-	coll, closer := w.db.GetCollection(relationsC)
+	coll, closer, err := w.db.GetCollection(relationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	// Separate ids into those thought to exist and those known to be removed.
@@ -1790,8 +1823,11 @@ func (w *unitsWatcher) watchUnits(names, changes []string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	logger.Tracef("watching %q ids: %q", unitsC, ids)
-	newUnits, closer := w.db.GetCollection(unitsC)
-	err := newUnits.Find(bson.M{"_id": bson.M{"$in": names}}).Select(lifeWatchFields).All(&docs)
+	newUnits, closer, err := w.db.GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = newUnits.Find(bson.M{"_id": bson.M{"$in": names}}).Select(lifeWatchFields).All(&docs)
 	closer()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1881,8 +1917,11 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	logger.Tracef("merging change for %q %q", unitsC, name)
 	var doc lifeWatchDoc
-	units, closer := w.db.GetCollection(unitsC)
-	err := units.FindId(name).Select(lifeWatchFields).One(&doc)
+	units, closer, err := w.db.GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = units.FindId(name).Select(lifeWatchFields).One(&doc)
 	closer()
 	gone := false
 	if err == mgo.ErrNotFound {
@@ -2264,7 +2303,10 @@ func newDocumentFieldWatcher(
 }
 
 func (w *documentFieldWatcher) initial() error {
-	col, closer := w.db.GetCollection(w.collection)
+	col, closer, err := w.db.GetCollection(w.collection)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	field := w.initialKnown
@@ -2289,7 +2331,10 @@ func (w *documentFieldWatcher) merge(change watcher.Change) (bool, error) {
 		}
 		return false, nil
 	}
-	col, closer := w.db.GetCollection(w.collection)
+	col, closer, err := w.db.GetCollection(w.collection)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	// check the field before adding it to the known value
@@ -2546,7 +2591,11 @@ func (w *machineUnitsWatcher) watchNewUnits(unitNames, pending []string, unitCol
 
 	if unitColl == nil {
 		var closer SessionCloser
-		unitColl, closer = w.db.GetCollection(unitsC)
+		var err error
+		unitColl, closer, err = w.db.GetCollection(unitsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer closer()
 	}
 	var doc unitDoc
@@ -2610,7 +2659,10 @@ func (w *machineUnitsWatcher) removeWatchedUnit(unitName string, doc unitDoc, pe
 // use watchNewUnits if you have a new object
 func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []string, err error) {
 	doc := unitDoc{}
-	newUnits, closer := w.db.GetCollection(unitsC)
+	newUnits, closer, err := w.db.GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	err = newUnits.FindId(unitName).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
@@ -2770,7 +2822,7 @@ func (st *State) WatchActionLogs(actionId string) StringsWatcher {
 // actionLogsWatcher reports new action progress messages.
 type actionLogsWatcher struct {
 	commonWatcher
-	coll func() (mongo.Collection, func())
+	coll func() (mongo.Collection, func(), error)
 	out  chan []string
 
 	actionId string
@@ -2802,10 +2854,13 @@ func (w *actionLogsWatcher) messages() ([]string, error) {
 	type messagesDoc struct {
 		Messages []ActionMessage `bson:"messages"`
 	}
-	coll, closer := w.coll()
+	coll, closer, err := w.coll()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var doc messagesDoc
-	err := coll.FindId(w.backend.docID(w.actionId)).Select(bson.D{{"messages", 1}}).One(&doc)
+	err = coll.FindId(w.backend.docID(w.actionId)).Select(bson.D{{"messages", 1}}).One(&doc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -3016,7 +3071,10 @@ func (w *collectionWatcher) initial() ([]string, error) {
 	var doc struct {
 		DocId string `bson:"_id"`
 	}
-	coll, closer := w.db.GetCollection(w.col)
+	coll, closer, err := w.db.GetCollection(w.col)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
@@ -3217,7 +3275,10 @@ func (w *actionNotificationWatcher) loop() error {
 func (w *actionNotificationWatcher) initial() ([]string, error) {
 	var ids []string
 	var doc actionNotificationDoc
-	coll, closer := w.db.GetCollection(actionNotificationsC)
+	coll, closer, err := w.db.GetCollection(actionNotificationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
@@ -3252,7 +3313,10 @@ func (w *actionNotificationWatcher) filterPendingAndMergeIds(changes *[]string, 
 		}
 	}
 
-	coll, closer := w.db.GetCollection(actionNotificationsC)
+	coll, closer, err := w.db.GetCollection(actionNotificationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	// query for all documents that match the ids who
@@ -3387,7 +3451,10 @@ func (w *openedPortsWatcher) Changes() <-chan []string {
 }
 
 func (w *openedPortsWatcher) initial() (set.Strings, error) {
-	ports, closer := w.db.GetCollection(openedPortsC)
+	ports, closer, err := w.db.GetCollection(openedPortsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	portDocs := set.NewStrings()
@@ -3452,7 +3519,10 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 		ids.Add(localID)
 		return nil
 	}
-	openedPorts, closer := w.db.GetCollection(openedPortsC)
+	openedPorts, closer, err := w.db.GetCollection(openedPortsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	currentRevno, err := getTxnRevno(openedPorts, id)
 	closer()
 	if err != nil {
@@ -3708,7 +3778,10 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		}
 
 		// Gather the remote app names.
-		remoteApps, closer := st.db().GetCollection(remoteApplicationsC)
+		remoteApps, closer, err := st.db().GetCollection(remoteApplicationsC)
+		if err != nil {
+			return false
+		}
 		defer closer()
 
 		type remoteAppDoc struct {
@@ -3727,7 +3800,10 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 		}
 
 		// Run a query to pickup any relations to those remote apps.
-		relations, closer := st.db().GetCollection(relationsC)
+		relations, closer, err := st.db().GetCollection(relationsC)
+		if err != nil {
+			return false
+		}
 		defer closer()
 
 		query := bson.D{
@@ -3841,7 +3917,10 @@ func (w *relationNetworksWatcher) Changes() <-chan []string {
 }
 
 func (w *relationNetworksWatcher) loadCIDRs() (bool, error) {
-	coll, closer := w.db.GetCollection(relationNetworksC)
+	coll, closer, err := w.db.GetCollection(relationNetworksC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc struct {
@@ -3849,7 +3928,7 @@ func (w *relationNetworksWatcher) loadCIDRs() (bool, error) {
 		Id       string   `bson:"_id"`
 		CIDRs    []string `bson:"cidrs"`
 	}
-	err := coll.FindId(relationNetworkDocID(w.key, w.direction, relationNetworkAdmin)).One(&doc)
+	err = coll.FindId(relationNetworkDocID(w.key, w.direction, relationNetworkAdmin)).One(&doc)
 	if err == mgo.ErrNotFound {
 		err = coll.FindId(relationNetworkDocID(w.key, w.direction, relationNetworkDefault)).One(&doc)
 	}
@@ -3923,7 +4002,7 @@ func (w *relationNetworksWatcher) loop() error {
 // external controller references.
 type externalControllersWatcher struct {
 	commonWatcher
-	coll func() (mongo.Collection, func())
+	coll func() (mongo.Collection, func(), error)
 	out  chan []string
 }
 
@@ -3952,7 +4031,10 @@ func (w *externalControllersWatcher) initial() (set.Strings, error) {
 	type idDoc struct {
 		Id string `bson:"_id"`
 	}
-	coll, closer := w.coll()
+	coll, closer, err := w.coll()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	changes := make(set.Strings)
 	iter := coll.Find(nil).Select(bson.D{{"_id", 1}}).Iter()
@@ -4111,7 +4193,10 @@ func newSettingsHashWatcher(st *State, localID string) StringsWatcher {
 }
 
 func hashSettings(db Database, id string, name string) (string, error) {
-	settings, closer := db.GetCollection(settingsC)
+	settings, closer, err := db.GetCollection(settingsC)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	defer closer()
 	var doc settingsDoc
 	if err := settings.FindId(id).One(&doc); err == mgo.ErrNotFound {

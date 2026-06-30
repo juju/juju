@@ -658,7 +658,11 @@ func (t *logTailer) tailOplog() error {
 	)
 
 	minOplogTs := t.lastTime.Add(-oplogOverlap)
-	oplogTailer := mongo.NewOplogTailer(mongo.NewOplogSession(t.opLog, oplogSel), minOplogTs)
+	oplogSession, err := mongo.NewOplogSession(t.opLog, oplogSel)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	oplogTailer := mongo.NewOplogTailer(oplogSession, minOplogTs)
 	defer func() { _ = oplogTailer.Stop() }()
 
 	logger.Infof("LogTailer starting oplog tailing: recent id count=%d, lastTime=%s, minOplogTs=%s",

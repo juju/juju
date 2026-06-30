@@ -31,7 +31,10 @@ func (st *State) DumpAll() (map[string]interface{}, error) {
 }
 
 func getModelDoc(mb modelBackend) (map[string]interface{}, error) {
-	coll, closer := mb.db().GetCollection(modelsC)
+	coll, closer, err := mb.db().GetCollection(modelsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc map[string]interface{}
@@ -43,7 +46,10 @@ func getModelDoc(mb modelBackend) (map[string]interface{}, error) {
 }
 
 func getAllModelDocs(mb modelBackend, collectionName string) ([]map[string]interface{}, error) {
-	coll, closer := mb.db().GetCollection(collectionName)
+	coll, closer, err := mb.db().GetCollection(collectionName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var (

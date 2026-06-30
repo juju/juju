@@ -498,7 +498,10 @@ func (st *State) removeMatchingIPAddressesDocOps(findQuery bson.D) ([]txn.Op, er
 }
 
 func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultDoc *ipAddressDoc)) error {
-	addresses, closer := st.db().GetCollection(ipAddressesC)
+	addresses, closer, err := st.db().GetCollection(ipAddressesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	query := addresses.Find(findQuery)
@@ -514,7 +517,10 @@ func (st *State) forEachIPAddressDoc(findQuery bson.D, callbackFunc func(resultD
 
 // AllIPAddresses returns all ip addresses in the model.
 func (st *State) AllIPAddresses() (addresses []*Address, err error) {
-	addressesCollection, closer := st.db().GetCollection(ipAddressesC)
+	addressesCollection, closer, err := st.db().GetCollection(ipAddressesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []ipAddressDoc

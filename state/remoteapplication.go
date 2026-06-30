@@ -831,10 +831,13 @@ func (a *RemoteApplication) String() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
 func (a *RemoteApplication) Refresh() error {
-	applications, closer := a.st.db().GetCollection(remoteApplicationsC)
+	applications, closer, err := a.st.db().GetCollection(remoteApplicationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
-	err := applications.FindId(a.doc.DocID).One(&a.doc)
+	err = applications.FindId(a.doc.DocID).One(&a.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("saas application %q", a)
 	}
@@ -1138,7 +1141,10 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 		return nil, errors.NotValidf("saas application name %q", name)
 	}
 
-	applications, closer := st.db().GetCollection(remoteApplicationsC)
+	applications, closer, err := st.db().GetCollection(remoteApplicationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	appDoc := &remoteApplicationDoc{}
@@ -1154,7 +1160,10 @@ func (st *State) RemoteApplication(name string) (_ *RemoteApplication, err error
 
 // AllRemoteApplications returns all the remote applications used by the model.
 func (st *State) AllRemoteApplications() (applications []*RemoteApplication, err error) {
-	applicationsCollection, closer := st.db().GetCollection(remoteApplicationsC)
+	applicationsCollection, closer, err := st.db().GetCollection(remoteApplicationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	appDocs := []remoteApplicationDoc{}

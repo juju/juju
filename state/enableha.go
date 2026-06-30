@@ -40,7 +40,10 @@ func isController(mdoc *machineDoc) bool {
 var errControllerNotAllowed = errors.New("controller jobs specified but not allowed")
 
 func (st *State) getVotingControllerCount() (int, error) {
-	controllerNodesColl, closer := st.db().GetCollection(controllerNodesC)
+	controllerNodesColl, closer, err := st.db().GetCollection(controllerNodesC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	return controllerNodesColl.Find(bson.M{"wants-vote": true}).Count()
@@ -423,12 +426,15 @@ func convertControllerOps(m *Machine) []txn.Op {
 }
 
 func (st *State) getControllerNodeDoc(id string) (*controllerNodeDoc, error) {
-	controllerNodesColl, closer := st.db().GetCollection(controllerNodesC)
+	controllerNodesColl, closer, err := st.db().GetCollection(controllerNodesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	cdoc := &controllerNodeDoc{}
 	docId := st.docID(id)
-	err := controllerNodesColl.FindId(docId).One(cdoc)
+	err = controllerNodesColl.FindId(docId).One(cdoc)
 
 	switch err {
 	case nil:
@@ -489,14 +495,17 @@ func (st *State) ControllerIds() ([]string, error) {
 // This method is only used when preparing for upgrades since 2.6
 // or earlier used "machineids".
 func (st *State) SafeControllerIds() ([]string, error) {
-	session := st.session.Copy()
+	session, err := mongo.CopySession(st.session)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer session.Close()
 
 	db := session.DB(jujuDB)
 	controllers := db.C(controllersC)
 
 	var info bson.M
-	err := controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&info)
+	err = controllers.Find(bson.D{{"_id", modelGlobalKey}}).One(&info)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("controllers document")
 	}
@@ -592,11 +601,14 @@ func (st *State) HAPrimaryMachine() (names.MachineTag, error) {
 
 // ControllerNodes returns all the controller nodes.
 func (st *State) ControllerNodes() ([]*controllerNode, error) {
-	controllerNodesColl, closer := st.db().GetCollection(controllerNodesC)
+	controllerNodesColl, closer, err := st.db().GetCollection(controllerNodesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []controllerNodeDoc
-	err := controllerNodesColl.Find(nil).All(&docs)
+	err = controllerNodesColl.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

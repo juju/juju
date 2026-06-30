@@ -44,7 +44,10 @@ func (op *unitSetStateOperation) buildTxn(attempt int) ([]txn.Op, error) {
 		return nil, errors.Annotatef(errors.NotFoundf("unit %s", op.u.Name()), "cannot persist state for unit %q", op.u)
 	}
 
-	coll, closer := op.u.st.db().GetCollection(unitStatesC)
+	coll, closer, err := op.u.st.db().GetCollection(unitStatesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	// The state of a unit can only be updated if it is currently alive.

@@ -372,19 +372,24 @@ func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
 func assertStateBecomesClosed(c *gc.C, st *state.State) {
 	// This is gross but I can't see any other way to check for
 	// closedness outside the state package.
-	checkModel := func() {
-		attempt := utils.AttemptStrategy{
-			Total: coretesting.LongWait,
-			Delay: coretesting.ShortWait,
-		}
-		for a := attempt.Start(); a.Next(); {
-			// This will panic once the state is closed.
-			_, _ = st.Model()
-		}
-		// If we got here then st is still open.
-		st.Close()
+	attempt := utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: coretesting.ShortWait,
 	}
-	c.Assert(checkModel, gc.PanicMatches, "Session already closed")
+	var err error
+	for a := attempt.Start(); a.Next(); {
+		// This will error once the state is closed.
+		_, err = st.Model()
+		if err != nil {
+			break
+		}
+	}
+	if err == nil {
+		// If we got here then st is still open.
+		_ = st.Close()
+		return
+	}
+	c.Assert(err, gc.ErrorMatches, ".* Session already closed.*")
 }
 
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, srvSt, st *state.State) {

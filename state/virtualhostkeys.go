@@ -106,11 +106,14 @@ func (st *State) UnitVirtualHostKey(unitID string) (*VirtualHostKey, error) {
 }
 
 func (st *State) virtualHostKey(id string) (*VirtualHostKey, error) {
-	vhkeys, closer := st.db().GetCollection(virtualHostKeysC)
+	vhkeys, closer, err := st.db().GetCollection(virtualHostKeysC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := virtualHostKeyDoc{}
-	err := vhkeys.FindId(st.docID(id)).One(&doc)
+	err = vhkeys.FindId(st.docID(id)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("virtual host key %q", id)
 	}
@@ -125,10 +128,13 @@ func (st *State) virtualHostKey(id string) (*VirtualHostKey, error) {
 // AllVirtualHostKeys returns all virtual host keys.
 func (st *State) AllVirtualHostKeys() ([]*VirtualHostKey, error) {
 	var vhkDocs []virtualHostKeyDoc
-	virtualHostKeysCollection, closer := st.db().GetCollection(virtualHostKeysC)
+	virtualHostKeysCollection, closer, err := st.db().GetCollection(virtualHostKeysC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
-	err := virtualHostKeysCollection.Find(nil).All(&vhkDocs)
+	err = virtualHostKeysCollection.Find(nil).All(&vhkDocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting all virtual host keys")
 	}

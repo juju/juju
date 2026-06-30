@@ -1354,10 +1354,13 @@ func (u *Unit) AvailabilityZone() (string, error) {
 // state. It an error that satisfies errors.IsNotFound if the unit has
 // been removed.
 func (u *Unit) Refresh() error {
-	units, closer := u.st.db().GetCollection(unitsC)
+	units, closer, err := u.st.db().GetCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
-	err := units.FindId(u.doc.DocID).One(&u.doc)
+	err = units.FindId(u.doc.DocID).One(&u.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("unit %q", u)
 	}
@@ -1534,11 +1537,20 @@ func (u *Unit) SetCharmURL(curl string) error {
 		return errors.Errorf("cannot set empty charm url")
 	}
 
-	db, dbCloser := u.st.newDB()
+	db, dbCloser, err := u.st.newDB()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer dbCloser()
-	units, uCloser := db.GetCollection(unitsC)
+	units, uCloser, err := db.GetCollection(unitsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer uCloser()
-	charms, cCloser := db.GetCollection(charmsC)
+	charms, cCloser, err := db.GetCollection(charmsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer cCloser()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1600,7 +1612,7 @@ func (u *Unit) SetCharmURL(curl string) error {
 		}
 		return ops, nil
 	}
-	err := u.st.db().Run(buildTxn)
+	err = u.st.db().Run(buildTxn)
 	if err == nil {
 		u.doc.CharmURL = &curl
 	}
@@ -2119,7 +2131,10 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	if err != nil {
 		return err
 	}
-	machinesCollection, closer := u.st.db().GetCollection(machinesC)
+	machinesCollection, closer, err := u.st.db().GetCollection(machinesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	var host machineDoc
 	if err := machinesCollection.Find(query).One(&host); err == mgo.ErrNotFound {
@@ -2496,7 +2511,10 @@ var hasNoContainersTerm = bson.DocElem{
 // findCleanMachineQuery returns a Mongo query to find clean (and maybe empty)
 // machines with characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (bson.D, error) {
-	db, dbCloser := u.st.newDB()
+	db, dbCloser, err := u.st.newDB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer dbCloser()
 
 	// Select all machines that can accept principal units and are clean.
@@ -2504,10 +2522,13 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	// If we need empty machines, first build up a list of machine ids which
 	// have containers so we can exclude those.
 	if requireEmpty {
-		containerRefsCollection, cCloser := db.GetCollection(containerRefsC)
+		containerRefsCollection, cCloser, err := db.GetCollection(containerRefsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer cCloser()
 
-		err := containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
+		err = containerRefsCollection.Find(bson.D{hasContainerTerm}).All(&containerRefs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2597,11 +2618,14 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		suitableTerms = append(suitableTerms, bson.DocElem{"imageid", *cons.ImageID})
 	}
 	if len(suitableTerms) > 0 {
-		instanceDataCollection, iCloser := db.GetCollection(instanceDataC)
+		instanceDataCollection, iCloser, err := db.GetCollection(instanceDataC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer iCloser()
 
 		var suitableInstanceData []instanceData
-		err := instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
+		err = instanceDataCollection.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
 		if err != nil {
 			return nil, err
 		}
@@ -2691,7 +2715,10 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	// instances for those that are provisioned. Instances
 	// will be distributed across in preference to
 	// unprovisioned machines.
-	machinesCollection, closer := u.st.db().GetCollection(machinesC)
+	machinesCollection, closer, err := u.st.db().GetCollection(machinesC)
+	if err != nil {
+		return failure(errors.Trace(err))
+	}
 	defer closer()
 	var mdocs []*machineDoc
 	if err := machinesCollection.Find(query).All(&mdocs); err != nil {
@@ -3076,7 +3103,10 @@ func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) 
 		return "", "", errors.Trace(err)
 	}
 
-	coll, closer := u.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	coll, closer, err := u.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
 	defer closer()
 
 	var lock upgradeSeriesLockDoc

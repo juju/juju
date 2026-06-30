@@ -46,12 +46,15 @@ func (st *State) setModelAccess(access permission.Access, userGlobalKey, modelUU
 // LastModelConnection returns when this User last connected through the API
 // in UTC. The resulting time will be nil if the user has never logged in.
 func (m *Model) LastModelConnection(user names.UserTag) (time.Time, error) {
-	lastConnections, closer := m.st.db().GetRawCollection(modelUserLastConnectionC)
+	lastConnections, closer, err := m.st.db().GetRawCollection(modelUserLastConnectionC)
+	if err != nil {
+		return time.Time{}, errors.Trace(err)
+	}
 	defer closer()
 
 	username := user.Id()
 	var lastConn modelUserLastConnectionDoc
-	err := lastConnections.FindId(m.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
+	err = lastConnections.FindId(m.st.docID(username)).Select(bson.D{{"last-connection", 1}}).One(&lastConn)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			err = errors.Wrap(err, newNeverConnectedError(username))
@@ -68,7 +71,10 @@ func (m *Model) UpdateLastModelConnection(user names.UserTag) error {
 }
 
 func (m *Model) updateLastModelConnection(user names.UserTag, when time.Time) error {
-	lastConnections, closer := m.st.db().GetCollection(modelUserLastConnectionC)
+	lastConnections, closer, err := m.st.db().GetCollection(modelUserLastConnectionC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	lastConnectionsW := lastConnections.Writeable()
@@ -84,18 +90,21 @@ func (m *Model) updateLastModelConnection(user names.UserTag, when time.Time) er
 		UserName:       user.Id(),
 		LastConnection: when,
 	}
-	_, err := lastConnectionsW.UpsertId(lastConn.ID, lastConn)
+	_, err = lastConnectionsW.UpsertId(lastConn.ID, lastConn)
 	return errors.Trace(err)
 }
 
 // ModelUser a model userAccessDoc.
 func (st *State) modelUser(modelUUID string, user names.UserTag) (userAccessDoc, error) {
 	modelUser := userAccessDoc{}
-	modelUsers, closer := st.db().GetCollectionFor(modelUUID, modelUsersC)
+	modelUsers, closer, err := st.db().GetCollectionFor(modelUUID, modelUsersC)
+	if err != nil {
+		return userAccessDoc{}, errors.Trace(err)
+	}
 	defer closer()
 
 	username := strings.ToLower(user.Id())
-	err := modelUsers.FindId(username).One(&modelUser)
+	err = modelUsers.FindId(username).One(&modelUser)
 	if err == mgo.ErrNotFound {
 		return userAccessDoc{}, errors.NotFoundf("model user %q", username)
 	}
@@ -209,7 +218,10 @@ func (st *State) ModelSummariesForUser(user names.UserTag, isSuperuser bool) ([]
 // This includes the name and UUID, as well as the last time the user connected to that model.
 func (st *State) modelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.Query, SessionCloser, error) {
 	var modelQuery mongo.Query
-	models, closer := st.db().GetCollection(modelsC)
+	models, closer, err := st.db().GetCollection(modelsC)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	if isSuperuser {
 		// Fast path, we just return all the models that aren't Importing
 		modelQuery = models.Find(bson.M{"migration-mode": bson.M{"$ne": MigrationModeImporting}})
@@ -219,7 +231,11 @@ func (st *State) modelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.
 		var modelUUID struct {
 			UUID string `bson:"object-uuid"`
 		}
-		modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
+		modelUsers, userCloser, err := st.db().GetRawCollection(modelUsersC)
+		if err != nil {
+			closer()
+			return nil, nil, errors.Trace(err)
+		}
 		defer userCloser()
 		query := modelUsers.Find(bson.D{{"user", user.Id()}})
 		query.Select(bson.M{"object-uuid": 1, "_id": 0})
@@ -269,7 +285,10 @@ func (st *State) ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]
 	for i, acc := range accessInfo {
 		connDocIds[i] = acc.UUID + ":" + username
 	}
-	lastConnections, closer2 := st.db().GetRawCollection(modelUserLastConnectionC)
+	lastConnections, closer2, err := st.db().GetRawCollection(modelUserLastConnectionC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer2()
 	query := lastConnections.Find(bson.M{"_id": bson.M{"$in": connDocIds}})
 	query.Select(bson.M{"last-connection": 1, "_id": 0, "model-uuid": 1})
@@ -315,11 +334,14 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 		// the models that a particular user can see is to look through the
 		// model user collection. A raw collection is required to support
 		// queries across multiple models.
-		modelUsers, userCloser := st.db().GetRawCollection(modelUsersC)
+		modelUsers, userCloser, err := st.db().GetRawCollection(modelUsersC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer userCloser()
 
 		var userSlice []userAccessDoc
-		err := modelUsers.Find(bson.D{{"user", user.Id()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
+		err = modelUsers.Find(bson.D{{"user", user.Id()}}).Select(bson.D{{"object-uuid", 1}, {"_id", 1}}).All(&userSlice)
 		if err != nil {
 			return nil, err
 		}
@@ -328,7 +350,10 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 		}
 	}
 
-	modelsColl, close := st.db().GetCollection(modelsC)
+	modelsColl, close, err := st.db().GetCollection(modelsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer close()
 	query := modelsColl.Find(bson.M{
 		"_id":            bson.M{"$in": modelUUIDs},

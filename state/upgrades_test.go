@@ -124,17 +124,19 @@ func (s *upgradesSuite) TestUpgradeAddVirtualHostKeys(c *gc.C) {
 		_ = k8sModel.Close()
 	}()
 
-	machinesColl, machinesCloser := s.state.db().GetRawCollection(machinesC)
+	machinesColl, machinesCloser, err := s.state.db().GetRawCollection(machinesC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer machinesCloser()
 
-	err := machinesColl.Insert(bson.M{
+	err = machinesColl.Insert(bson.M{
 		"_id":        ensureModelUUID(machineModel.ModelUUID(), "1"),
 		"machineid":  "1",
 		"model-uuid": machineModel.ModelUUID(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	unitsColl, unitsCloser := s.state.db().GetRawCollection(unitsC)
+	unitsColl, unitsCloser, err := s.state.db().GetRawCollection(unitsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer unitsCloser()
 
 	// The first unit is on a machine model and the second on a k8s model.
@@ -152,7 +154,8 @@ func (s *upgradesSuite) TestUpgradeAddVirtualHostKeys(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	virtualHostKeysColl, vhkCloser := s.state.db().GetRawCollection(virtualHostKeysC)
+	virtualHostKeysColl, vhkCloser, err := s.state.db().GetRawCollection(virtualHostKeysC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer vhkCloser()
 
 	// The hostkey values below are ignored by the checker but must still exist for deepEquals to work.
@@ -182,13 +185,15 @@ func (s *upgradesSuite) TestSplitMigrationStatusMessages(c *gc.C) {
 	model := s.makeModel(c, "m", coretesting.Attrs{}, ModelArgs{Type: ModelTypeIAAS})
 	defer func() { _ = model.Close() }()
 
-	migStatus, closer := s.state.db().GetRawCollection(migrationsStatusC)
+	migStatus, closer, err := s.state.db().GetRawCollection(migrationsStatusC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
-	migStatusMessage, closer2 := s.state.db().GetRawCollection(migrationsStatusMessageC)
+	migStatusMessage, closer2, err := s.state.db().GetRawCollection(migrationsStatusMessageC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer2()
 
-	err := migStatus.Insert(bson.M{
+	err = migStatus.Insert(bson.M{
 		"_id":                ensureModelUUID(model.ModelUUID(), "0"),
 		"start-time":         "1742996705546941797",
 		"success-time":       "1742996716038789910",
@@ -249,7 +254,8 @@ func (s *upgradesSuite) TestOpenControllerAPIPort(c *gc.C) {
 	err = s.state.ApplyOperation(pcp.Changes())
 	c.Assert(err, jc.ErrorIsNil)
 
-	openPorts, closer := s.state.db().GetRawCollection(openedPortsC)
+	openPorts, closer, err := s.state.db().GetRawCollection(openedPortsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	s.assertUpgradedData(c, OpenControllerAPIPort, nil,
@@ -289,11 +295,12 @@ func (s *upgradesSuite) TestOpenControllerAPIPort(c *gc.C) {
 func (s *upgradesSuite) TestExposeControllerApplication(c *gc.C) {
 	AddTestingApplication(c, s.state, "controller", AddTestingCharm(c, s.state, "wordpress"))
 
-	appsColl, closer := s.state.db().GetRawCollection(applicationsC)
+	appsColl, closer, err := s.state.db().GetRawCollection(applicationsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	var appData bson.M
-	err := appsColl.Find(bson.M{"_id": s.state.docID(controllerAppName)}).One(&appData)
+	err = appsColl.Find(bson.M{"_id": s.state.docID(controllerAppName)}).One(&appData)
 	c.Assert(err, jc.ErrorIsNil)
 	exposed, ok := appData["exposed"].(bool)
 	c.Assert(ok, jc.IsTrue)
@@ -319,7 +326,8 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 		_ = state2.Close()
 	}()
 
-	appColl1, closer := state1.db().GetRawCollection(applicationsC)
+	appColl1, closer, err := state1.db().GetRawCollection(applicationsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	model1, err := state1.Model()
@@ -353,7 +361,8 @@ func (s *upgradesSuite) TestPopulateApplicationStorageUniqueID(c *gc.C) {
 	model2, err := state2.Model()
 	c.Assert(err, gc.IsNil)
 
-	appColl2, closer := state2.db().GetRawCollection(applicationsC)
+	appColl2, closer, err := state2.db().GetRawCollection(applicationsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	err = appColl2.Insert(bson.M{
@@ -471,7 +480,8 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 	}()
 
 	// Insert apps to model1 (CAAS model)
-	appColl1, closer := state1.db().GetRawCollection(applicationsC)
+	appColl1, closer, err := state1.db().GetRawCollection(applicationsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	model1, err := state1.Model()
@@ -532,7 +542,8 @@ func (s *upgradesSuite) TestConvertScalingToCurrentOperationEnumField(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	appColl2, closer := state2.db().GetRawCollection(applicationsC)
+	appColl2, closer, err := state2.db().GetRawCollection(applicationsC)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	// Insert apps to model2 (IAAS model)

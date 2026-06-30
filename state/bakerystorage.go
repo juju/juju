@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/bakerystorage"
@@ -18,8 +19,12 @@ import (
 // will expire items at the specified time.
 func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 	return bakerystorage.New(bakerystorage.Config{
-		GetCollection: func() (mongo.Collection, func()) {
-			return st.db().GetCollection(bakeryStorageItemsC)
+		GetCollection: func() (mongo.Collection, func(), error) {
+			coll, closer, err := st.db().GetCollection(bakeryStorageItemsC)
+			if err != nil {
+				return nil, nil, errors.Annotate(err, "getting bakery storage collection")
+			}
+			return coll, closer, nil
 		},
 		GetStorage: func(rootKeys *bakerystorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
 			return rootKeys.NewStore(coll.Writeable().Underlying(), bakerystorage.Policy{
@@ -31,8 +36,12 @@ func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 
 // NewBakeryConfig returns a new bakerystorage.BakeryConfig instance.
 func (st *State) NewBakeryConfig() bakerystorage.BakeryConfig {
-	collectionGetter := func(collection string) (mongo.Collection, func()) {
-		return st.db().GetCollection(collection)
+	collectionGetter := func(collection string) (mongo.Collection, func(), error) {
+		coll, closer, err := st.db().GetCollection(collection)
+		if err != nil {
+			return nil, nil, errors.Annotatef(err, "getting bakery config collection %q", collection)
+		}
+		return coll, closer, nil
 	}
 	return bakerystorage.NewBakeryConfig(controllersC, collectionGetter)
 }

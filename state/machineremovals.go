@@ -45,7 +45,10 @@ func (m *Machine) MarkForRemoval() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Check if it has already been marked first.
 		// If so, we just do nothing and return success.
-		col, close := m.st.db().GetCollection(machineRemovalsC)
+		col, close, err := m.st.db().GetCollection(machineRemovalsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer close()
 
 		remCount, err := col.FindId(m.globalKey()).Count()
@@ -73,11 +76,14 @@ func (m *Machine) MarkForRemoval() (err error) {
 // AllMachineRemovals returns (the ids of) all of the machines that
 // need to be removed but need provider-level cleanup.
 func (st *State) AllMachineRemovals() ([]string, error) {
-	removals, close := st.db().GetCollection(machineRemovalsC)
+	removals, close, err := st.db().GetCollection(machineRemovalsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer close()
 
 	var docs []machineRemovalDoc
-	err := removals.Find(nil).All(&docs)
+	err = removals.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,11 +95,14 @@ func (st *State) AllMachineRemovals() ([]string, error) {
 }
 
 func (st *State) allMachinesMatching(query bson.D) ([]*Machine, error) {
-	machines, close := st.db().GetCollection(machinesC)
+	machines, close, err := st.db().GetCollection(machinesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer close()
 
 	var docs []machineDoc
-	err := machines.Find(query).All(&docs)
+	err = machines.Find(query).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

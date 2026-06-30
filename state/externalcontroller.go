@@ -221,11 +221,14 @@ func (ec *externalControllers) Controller(controllerUUID string) (ExternalContro
 }
 
 func (ec *externalControllers) controller(controllerUUID string) (*externalControllerDoc, error) {
-	coll, closer := ec.st.db().GetCollection(externalControllersC)
+	coll, closer, err := ec.st.db().GetCollection(externalControllersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc externalControllerDoc
-	err := coll.FindId(controllerUUID).One(&doc)
+	err = coll.FindId(controllerUUID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("external controller with UUID %v", controllerUUID)
 	}
@@ -273,11 +276,14 @@ func (st *State) ExternalControllerForModel(modelUUID string) (*externalControll
 }
 
 func (st *State) externalControllerDocsForModels(modelUUIDs ...string) ([]externalControllerDoc, error) {
-	coll, closer := st.db().GetCollection(externalControllersC)
+	coll, closer, err := st.db().GetCollection(externalControllersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []externalControllerDoc
-	err := coll.Find(bson.M{"models": bson.M{"$in": modelUUIDs}}).All(&docs)
+	err = coll.Find(bson.M{"models": bson.M{"$in": modelUUIDs}}).All(&docs)
 	return docs, errors.Trace(err)
 }
 
@@ -321,7 +327,10 @@ func externalControllerRefCountKey(controllerUUID string) string {
 // incExternalControllersRefOp returns a txn.Op that increments the reference
 // count for an external controller. These ref counts are controller wide.
 func incExternalControllersRefOp(mb modelBackend, controllerUUID string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := mb.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	refCountKey := externalControllerRefCountKey(controllerUUID)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, refCountKey, 1)
@@ -331,7 +340,10 @@ func incExternalControllersRefOp(mb modelBackend, controllerUUID string) (txn.Op
 // decExternalControllersRefOp returns a txn.Op that decrements the reference
 // count for an external controller. These ref counts are controller wide.
 func decExternalControllersRefOp(mb modelBackend, controllerUUID string) (txn.Op, bool, error) {
-	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := mb.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return txn.Op{}, false, errors.Trace(err)
+	}
 	defer closer()
 	refCountKey := externalControllerRefCountKey(controllerUUID)
 	decRefOp, isFinal, err := nsRefcounts.DyingDecRefOp(refcounts, refCountKey)

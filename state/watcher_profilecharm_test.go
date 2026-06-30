@@ -189,7 +189,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) workerForScenario(c *gc.
 
 func (s *instanceCharmProfileWatcherCompatibilitySuite) expectInitialCollectionInstanceField(url string) func() {
 	return func() {
-		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
+		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop, nil)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
 			CharmURL: &url,
@@ -214,7 +214,7 @@ func (s *instanceCharmProfileWatcherCompatibilitySuite) expectLoopCollectionFilt
 
 func (s *instanceCharmProfileWatcherCompatibilitySuite) expectMergeCollectionInstanceField(url string) func() {
 	return func() {
-		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop)
+		s.database.EXPECT().GetCollection("applications").Return(s.collection, noop, nil)
 		s.collection.EXPECT().Find(bson.D{{"_id", "1"}}).Return(s.query)
 		s.query.EXPECT().One(gomock.Any()).SetArg(0, state.ApplicationDoc{
 			CharmURL: &url,

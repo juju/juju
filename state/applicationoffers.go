@@ -85,11 +85,14 @@ func ApplicationOfferEndpoint(offer crossmodel.ApplicationOffer, relationName st
 }
 
 func (s *applicationOffers) offerQuery(query bson.D) (*applicationOfferDoc, error) {
-	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
+	applicationOffersCollection, closer, err := s.st.db().GetCollection(applicationOffersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc applicationOfferDoc
-	err := applicationOffersCollection.Find(query).One(&doc)
+	err = applicationOffersCollection.Find(query).One(&doc)
 	return &doc, err
 }
 
@@ -127,11 +130,14 @@ func (s *applicationOffers) ApplicationOfferForUUID(offerUUID string) (*crossmod
 
 // AllApplicationOffers returns all application offers in the model.
 func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.ApplicationOffer, _ error) {
-	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
+	applicationOffersCollection, closer, err := s.st.db().GetCollection(applicationOffersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []applicationOfferDoc
-	err := applicationOffersCollection.Find(bson.D{}).All(&docs)
+	err = applicationOffersCollection.Find(bson.D{}).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting application offer documents")
 	}
@@ -450,7 +456,10 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 
 // applicationOffersDocs returns the offer docs for the given application
 func applicationOffersDocs(st *State, application string) ([]applicationOfferDoc, error) {
-	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
+	applicationOffersCollection, closer, err := st.db().GetCollection(applicationOffersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	query := bson.D{{"application-name", application}}
 	var docs []applicationOfferDoc
@@ -772,7 +781,10 @@ func (s *applicationOffers) makeFilterTerm(filterTerm crossmodel.ApplicationOffe
 
 // ListOffers returns the application offers matching any one of the filter terms.
 func (s *applicationOffers) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]crossmodel.ApplicationOffer, error) {
-	applicationOffersCollection, closer := s.st.db().GetCollection(applicationOffersC)
+	applicationOffersCollection, closer, err := s.st.db().GetCollection(applicationOffersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var offerDocs []applicationOfferDoc

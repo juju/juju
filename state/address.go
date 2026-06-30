@@ -35,9 +35,12 @@ func (st *State) controllerAddresses() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	if model.ModelTag() == cinfo.ModelTag {
-		machines, closer = st.db().GetCollection(machinesC)
+		machines, closer, err = st.db().GetCollection(machinesC)
 	} else {
-		machines, closer = st.db().GetCollectionFor(cinfo.ModelTag.Id(), machinesC)
+		machines, closer, err = st.db().GetCollectionFor(cinfo.ModelTag.Id(), machinesC)
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	defer closer()
 
@@ -107,7 +110,10 @@ type apiHostPortsDoc struct {
 //
 // Each server is represented by one element in the top level slice.
 func (st *State) SetAPIHostPorts(newHostPorts []network.SpaceHostPorts) error {
-	controllers, closer := st.db().GetCollection(controllersC)
+	controllers, closer, err := st.db().GetCollection(controllersC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -344,9 +350,12 @@ func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHost
 // identified by the input key.
 func (st *State) apiHostPortsForKey(key string) ([]network.SpaceHostPorts, error) {
 	var doc apiHostPortsDoc
-	controllers, closer := st.db().GetCollection(controllersC)
+	controllers, closer, err := st.db().GetCollection(controllersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
-	err := controllers.Find(bson.D{{"_id", key}}).One(&doc)
+	err = controllers.Find(bson.D{{"_id", key}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}

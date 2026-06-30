@@ -72,9 +72,15 @@ func (ru *RelationUnit) UnitName() string {
 // intervention; the relation will not be able to become Dead until all units
 // have departed its scopes.
 func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
-	db, dbCloser := ru.st.newDB()
+	db, dbCloser, err := ru.st.newDB()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer dbCloser()
-	relationScopes, rsCloser := db.GetCollection(relationScopesC)
+	relationScopes, rsCloser, err := db.GetCollection(relationScopesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer rsCloser()
 	ruKey := ru.key()
 	relationDocID := ru.relation.doc.DocID
@@ -99,7 +105,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			// unit: this could fail due to the subordinate applications not being Alive,
 			// but this case will always be caught by the check for the relation's
 			// life (because a relation cannot be Alive if its applications are not).)
-			relations, rCloser := db.GetCollection(relationsC)
+			relations, rCloser, err := db.GetCollection(relationsC)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			defer rCloser()
 			if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
 				return nil, errors.Trace(err)
@@ -107,7 +116,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 				return nil, errors.Annotate(stateerrors.ErrCannotEnterScope, prefix+"relation is no longer alive")
 			}
 			if ru.isLocalUnit {
-				units, uCloser := db.GetCollection(unitsC)
+				units, uCloser, err := db.GetCollection(unitsC)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
 				defer uCloser()
 				if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
 					return nil, errors.Trace(err)
@@ -170,7 +182,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		//   exist; or completely overwrite them if they do. This must happen
 		//   before we create the scope doc, because the existence of a scope doc
 		//   is considered to be a guarantee of the existence of a settings doc.
-		settingsColl, sCloser := db.GetCollection(settingsC)
+		settingsColl, sCloser, err := db.GetCollection(settingsC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer sCloser()
 		if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
 			return nil, errors.Trace(err)
@@ -238,7 +253,10 @@ func (ru *RelationUnit) counterpartApplicationSettingsKeys() []string {
 // exists and is Alive, its name will be returned as well; if one exists
 // but is not Alive, ErrCannotEnterScopeYet is returned.
 func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
-	units, closer := ru.st.db().GetCollection(unitsC)
+	units, closer, err := ru.st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
 	defer closer()
 
 	if !ru.isPrincipal || ru.endpoint.Scope != charm.ScopeContainer {
@@ -297,7 +315,10 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 // but does not *actually* leave the scope, to avoid triggering relation
 // cleanup.
 func (ru *RelationUnit) PrepareLeaveScope() error {
-	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
+	relationScopes, closer, err := ru.st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	key := ru.key()
@@ -420,7 +441,10 @@ func (ru *RelationUnit) leaveScopeForcedOps(existingOperation *ForcedOperation) 
 // and will accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be applied.
 func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
-	relationScopes, closer := op.ru.st.db().GetCollection(relationScopesC)
+	relationScopes, closer, err := op.ru.st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	key := op.ru.key()
@@ -559,7 +583,10 @@ func (ru *RelationUnit) Joined() (bool, error) {
 // inScope returns whether a scope document exists satisfying the supplied
 // selector.
 func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
-	relationScopes, closer := ru.st.db().GetCollection(relationScopesC)
+	relationScopes, closer, err := ru.st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	sel = append(sel, bson.D{{"_id", ru.key()}}...)

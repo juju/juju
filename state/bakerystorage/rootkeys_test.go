@@ -12,8 +12,10 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
 
@@ -517,8 +519,10 @@ func (s *RootKeySuite) TestLegacy(c *gc.C) {
 func (s *RootKeySuite) TestUsesSessionFromContext(c *gc.C) {
 	coll := s.testColl(c)
 
-	s1 := coll.Database.Session.Copy()
-	s2 := coll.Database.Session.Copy()
+	s1, err := mongo.CopySession(coll.Database.Session)
+	c.Assert(err, jc.ErrorIsNil)
+	s2, err := mongo.CopySession(coll.Database.Session)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) {
 		s2.Close()
 	})
@@ -530,7 +534,7 @@ func (s *RootKeySuite) TestUsesSessionFromContext(c *gc.C) {
 	s1.Close()
 
 	ctx := ContextWithMgoSession(context.Background(), s2)
-	_, _, err := store.RootKey(ctx)
+	_, _, err = store.RootKey(ctx)
 	c.Assert(err, gc.Equals, nil)
 }
 

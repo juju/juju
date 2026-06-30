@@ -109,14 +109,17 @@ type oplogSession struct {
 //     and o (object).
 //
 // The returned session should be `Close`d when it's no longer needed.
-func NewOplogSession(collection *mgo.Collection, query bson.D) *oplogSession {
+func NewOplogSession(collection *mgo.Collection, query bson.D) (*oplogSession, error) {
 	// Use a fresh session for the tailer.
-	session := collection.Database.Session.Copy()
+	session, err := CopySession(collection.Database.Session)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &oplogSession{
 		session:    session,
 		collection: collection.With(session),
 		query:      query,
-	}
+	}, nil
 }
 
 const oplogTailTimeout = time.Second

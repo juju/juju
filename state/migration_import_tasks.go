@@ -464,11 +464,14 @@ func (s *applicationOffersStateShim) OfferUUID(offerName string) (string, bool) 
 }
 
 func (a applicationOffersStateShim) OfferUUIDForApp(appName string) (string, error) {
-	applicationOffersCollection, closer := a.st.db().GetCollection(applicationOffersC)
+	applicationOffersCollection, closer, err := a.st.db().GetCollection(applicationOffersC)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	defer closer()
 
 	var doc applicationOfferDoc
-	err := applicationOffersCollection.Find(bson.D{{"application-name", appName}}).One(&doc)
+	err = applicationOffersCollection.Find(bson.D{{"application-name", appName}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("offer for app %q", appName)
 	}

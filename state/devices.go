@@ -97,11 +97,14 @@ func (db *deviceBackend) DeviceConstraints(id string) (map[string]DeviceConstrai
 }
 
 func readDeviceConstraints(mb modelBackend, id string) (map[string]DeviceConstraints, error) {
-	coll, closer := mb.db().GetCollection(deviceConstraintsC)
+	coll, closer, err := mb.db().GetCollection(deviceConstraintsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc deviceConstraintsDoc
-	err := coll.FindId(id).One(&doc)
+	err = coll.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("device constraints for %q", id)
 	}

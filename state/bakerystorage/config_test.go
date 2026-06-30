@@ -20,7 +20,7 @@ type ConfigSuite struct {
 	jujutesting.BaseSuite
 	testing.Stub
 
-	collectionGetter func(name string) (mongo.Collection, func())
+	collectionGetter func(name string) (mongo.Collection, func(), error)
 	collection       mockCollection
 	closeCollection  func()
 
@@ -47,10 +47,10 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Close")
 		s.PopNoErr()
 	}
-	s.collectionGetter = func(collection string) (mongo.Collection, func()) {
+	s.collectionGetter = func(collection string) (mongo.Collection, func(), error) {
 		s.AddCall("GetCollection", collection)
 		s.PopNoErr()
-		return &s.collection, s.closeCollection
+		return &s.collection, s.closeCollection, nil
 	}
 }
 

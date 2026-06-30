@@ -49,7 +49,9 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	catalogue := s.Session.DB("catalogue")
 	rs := blobstore.NewGridFS("blobstore", "blobstore", catalogue.Session)
 	var closer func()
-	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
+	var err error
+	s.metadataCollection, closer, err = mongo.CollectionFromName(catalogue, "binarymetadata")
+	c.Assert(err, jc.ErrorIsNil)
 	s.addCleanup(func(*gc.C) { closer() })
 	s.managedStorage = blobstore.NewManagedStorage(s.metadataCollection.Writeable().Underlying().Database, rs)
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{

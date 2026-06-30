@@ -35,11 +35,14 @@ type sshHostKeysDoc struct {
 // NOTE: Currently only machines are supported. This can be
 // generalised to take other tag types later, if and when we need it.
 func (st *State) GetSSHHostKeys(tag names.MachineTag) (SSHHostKeys, error) {
-	coll, closer := st.db().GetCollection(sshHostKeysC)
+	coll, closer, err := st.db().GetCollection(sshHostKeysC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc sshHostKeysDoc
-	err := coll.FindId(machineGlobalKey(tag.Id())).One(&doc)
+	err = coll.FindId(machineGlobalKey(tag.Id())).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("keys")
 	} else if err != nil {
@@ -70,7 +73,10 @@ func keysEqual(a, b []string) bool {
 //
 // See the note for GetSSHHostKeys regarding supported entities.
 func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
-	coll, closer := st.db().GetCollection(sshHostKeysC)
+	coll, closer, err := st.db().GetCollection(sshHostKeysC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	id := machineGlobalKey(tag.Id())
 	doc := sshHostKeysDoc{
