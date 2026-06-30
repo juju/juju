@@ -6,10 +6,15 @@
 package model
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/domain/agentpassword"
+	agentpasswordstate "github.com/juju/juju/domain/agentpassword/state"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -22,11 +27,112 @@ func TestImportStateSuiteV4_1_0(t *testing.T) {
 	tc.Run(t, &importStateSuiteV4_1_0{})
 }
 
-// TestImportEmptyRuns asserts that importing an empty payload is a no-op that
-// commits cleanly against a freshly bootstrapped model DB (every table insert is
-// guarded by a non-empty length check).
-func (s *importStateSuiteV4_1_0) TestImportEmptyRuns(c *tc.C) {
+// TestImportMinimalValidPayloadRuns asserts that importing a payload with only
+// the required model_agent row is a valid no-op for ordinary content tables and
+// still updates the bootstrap model-agent password.
+func (s *importStateSuiteV4_1_0) TestImportMinimalValidPayloadRuns(c *tc.C) {
+	s.bootstrapModel(c)
+
+	passwordHash := "hash"
+	passwordHashAlgorithmID := int64(0)
+	st := NewState(s.TxnRunnerFactory())
+	err := st.Import(c.Context(), &v4_1_0.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{
+			ModelUUID:               s.ModelUUID(),
+			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
+			PasswordHash:            &passwordHash,
+		}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	gotHash, gotAlgorithmID := s.modelAgentPassword(c)
+	c.Check(gotHash, tc.Equals, passwordHash)
+	c.Check(gotAlgorithmID, tc.Equals, passwordHashAlgorithmID)
+}
+
+func (s *importStateSuiteV4_1_0) TestImportRejectsMissingModelAgent(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.Import(c.Context(), &v4_1_0.ModelExport{})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "model export payload has 0 model_agent rows, expected 1.*")
+}
+
+func (s *importStateSuiteV4_1_0) TestImportRejectsMultipleModelAgents(c *tc.C) {
+	passwordHash := "hash"
+	payload := &v4_1_0.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{
+			ModelUUID:    s.ModelUUID(),
+			PasswordHash: &passwordHash,
+		}, {
+			ModelUUID:    s.ModelUUID(),
+			PasswordHash: &passwordHash,
+		}},
+	}
+
+	st := NewState(s.TxnRunnerFactory())
+	err := st.Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "model export payload has 2 model_agent rows, expected 1.*")
+}
+
+func (s *importStateSuiteV4_1_0) TestImportRejectsEmptyModelAgentPassword(c *tc.C) {
+	payload := &v4_1_0.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{
+			ModelUUID: s.ModelUUID(),
+		}},
+	}
+
+	st := NewState(s.TxnRunnerFactory())
+	err := st.Import(c.Context(), payload)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "model export payload model_agent row has empty password_hash.*")
+}
+
+func (s *importStateSuiteV4_1_0) TestImportModelAgentPasswordAuthenticates(c *tc.C) {
+	s.bootstrapModel(c)
+
+	passwordHash := "hash"
+	passwordHashAlgorithmID := int64(0)
+	st := NewState(s.TxnRunnerFactory())
+	err := st.Import(c.Context(), &v4_1_0.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{
+			ModelUUID:               s.ModelUUID(),
+			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
+			PasswordHash:            &passwordHash,
+		}},
+	})
 	c.Assert(err, tc.ErrorIsNil)
+
+	passwordSt := agentpasswordstate.NewModelState(s.TxnRunnerFactory())
+	valid, err := passwordSt.MatchesModelPasswordHash(c.Context(), agentpassword.PasswordHash(passwordHash))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(valid, tc.IsTrue)
+}
+
+func (s *importStateSuiteV4_1_0) bootstrapModel(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+`, s.ModelUUID(), "controller-uuid"); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_agent (model_uuid) VALUES (?)`, s.ModelUUID())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *importStateSuiteV4_1_0) modelAgentPassword(c *tc.C) (string, int64) {
+	var hash string
+	var algorithmID int64
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT password_hash, password_hash_algorithm_id
+FROM   model_agent
+WHERE  model_uuid = ?
+`, s.ModelUUID()).Scan(&hash, &algorithmID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return hash, algorithmID
 }

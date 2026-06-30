@@ -51,12 +51,12 @@ func (r *txnRunner) Dying() <-chan struct{} {
 
 // bootstrapTables are the target-local identity/agent tables the target creates
 // itself when it bootstraps the model DB during a v8 import. They must never be
-// inserted from the source payload, so the generated importer excludes them.
+// inserted from the source payload. model_agent is intentionally not listed:
+// it is merged into the bootstrap row by a generated special case.
 var bootstrapTables = map[string]bool{
 	"model":           true,
 	"model_life":      true,
 	"agent_version":   true,
-	"model_agent":     true,
 	"model_migrating": true,
 }
 
@@ -121,11 +121,16 @@ func generate(ctx context.Context, runner *txnRunner) error {
 	}
 
 	var importTables []importTableData
+	var hasModelAgent bool
 	for _, tableName := range tableNames {
 		if tableName == "sqlite_sequence" {
 			continue
 		}
-		if bootstrapTables[tableName] || nonContentTables[tableName] {
+		switch {
+		case tableName == "model_agent":
+			hasModelAgent = true
+			continue
+		case bootstrapTables[tableName] || nonContentTables[tableName]:
 			continue
 		}
 		importTables = append(importTables, importTableData{
@@ -133,6 +138,9 @@ func generate(ctx context.Context, runner *txnRunner) error {
 			TableName:  tableName,
 			Seeded:     seeded[tableName],
 		})
+	}
+	if !hasModelAgent {
+		return fmt.Errorf("model_agent table not found")
 	}
 
 	return writeStateImportFile(versionToken, semanticVersion, importTables)

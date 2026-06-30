@@ -136,9 +136,16 @@ func (s *v8Suite) mustNewAPIV8WithMinter(c *tc.C, minter facade.LocalMacaroonMin
 // validPayload returns a v4_0_11 payload with an agent version below the target
 // controller version used in tests.
 func (s *v8Suite) validPayload() v4_0_11.ModelExport {
+	passwordHash := "hash"
+	passwordHashAlgorithmID := int64(0)
 	return v4_0_11.ModelExport{
 		AgentVersion: []v4_0_11.AgentVersion{{
 			TargetVersion: "4.0.11",
+		}},
+		ModelAgent: []v4_0_11.ModelAgent{{
+			ModelUUID:               s.modelUUID,
+			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
+			PasswordHash:            &passwordHash,
 		}},
 		Application: []v4_0_11.Application{{
 			UUID:      "app-uuid",
@@ -286,6 +293,17 @@ func (s *v8Suite) TestPrechecksPayloadDecodeError(c *tc.C) {
 	err := api.Prechecks(c.Context(), envelope)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `decoding model export payload at version "4.0.11".*`)
+}
+
+func (s *v8Suite) TestPrechecksRejectsMissingModelAgent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectControllerReady()
+
+	payload := s.validPayload()
+	payload.ModelAgent = nil
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, payload))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "model export payload has 0 model_agent rows, expected 1.*")
 }
 
 // TestPrechecksPayloadVersionNewerThanTarget verifies the

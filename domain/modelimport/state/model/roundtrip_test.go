@@ -4,6 +4,8 @@
 package model_test
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/juju/tc"
@@ -36,7 +38,16 @@ func TestRoundTripSuite(t *testing.T) {
 //     inserted.
 func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	const userSpaceUUID = "11111111-1111-1111-1111-111111111111"
+	s.bootstrapModel(c)
+
+	passwordHash := "hash"
+	passwordHashAlgorithmID := int64(0)
 	payload := &v4_1_0.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{{
+			ModelUUID:               s.ModelUUID(),
+			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
+			PasswordHash:            &passwordHash,
+		}},
 		Sequence: []v4_1_0.Sequence{
 			{Namespace: "machine", Value: 7},
 			{Namespace: "unit", Value: 3},
@@ -59,6 +70,7 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 
 	// FK-free content tables round-trip exactly.
 	c.Check(got.Sequence, tc.SameContents, payload.Sequence)
+	c.Check(got.ModelAgent, tc.DeepEquals, payload.ModelAgent)
 	c.Check(got.ProviderSpace, tc.SameContents, payload.ProviderSpace)
 
 	// The user space was imported; the alpha seed row was preserved exactly once
@@ -77,4 +89,18 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	}
 	c.Check(userSpaces, tc.Equals, 1)
 	c.Check(alphaSpaces, tc.Equals, 1)
+}
+
+func (s *roundTripSuite) bootstrapModel(c *tc.C) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO model (uuid, controller_uuid, name, qualifier, type, cloud, cloud_type)
+VALUES (?, ?, "test-model", "test-qualifier", "iaas", "test-cloud", "test-cloud-type")
+`, s.ModelUUID(), "controller-uuid"); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_agent (model_uuid) VALUES (?)`, s.ModelUUID())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
 }

@@ -755,6 +755,10 @@ func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2
 			"transformed model export payload has unexpected type %T, want %T",
 			transformed, latest.ModelExport{})
 	}
+	if err := modelimport.ValidatePayload(modelDB); err != nil {
+		return export.ProjectionView{}, nil, errors.Capture(err)
+	}
+
 	view, err := export.ProjectionViewForPayload(modelDB)
 	if err != nil {
 		return export.ProjectionView{}, nil, errors.Capture(err)

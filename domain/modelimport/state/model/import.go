@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 )
 
@@ -18,12 +19,15 @@ import (
 // payload for version 4.1.0 into the model DB. It is the
 // write-mirror of the generated export state: each ordinary content table is
 // bulk-inserted from the matching payload slice. Target-local bootstrap tables
-// (model, model_life, agent_version, model_agent, model_migrating) and
-// operational/changestream tables are excluded; seeded tables are inserted with
-// ON CONFLICT DO NOTHING so their identical seed rows are skipped while genuine
-// content rows are kept.
+// (model, model_life, agent_version, model_migrating) and operational/
+// changestream tables are excluded; model_agent is merged into the target
+// bootstrap row; seeded tables are inserted with ON CONFLICT DO NOTHING so
+// their identical seed rows are skipped while genuine content rows are kept.
 func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
-	var err error
+	modelAgent, err := validateModelAgent(p.ModelAgent)
+	if err != nil {
+		return err
+	}
 
 	// Prepare statements first using the typed samples from the generated types package.
 	stmtAgentBinaryStore, err := sqlair.Prepare(`INSERT INTO "agent_binary_store" (*) VALUES ($AgentBinaryStore.*)`, v4_1_0.AgentBinaryStore{})
@@ -973,6 +977,16 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	stmtWorkloadStatusValue, err := sqlair.Prepare(`INSERT INTO "workload_status_value" (*) VALUES ($WorkloadStatusValue.*) ON CONFLICT DO NOTHING`, v4_1_0.WorkloadStatusValue{})
 	if err != nil {
 		return fmt.Errorf("preparing WorkloadStatusValue insert statement: %w", err)
+	}
+
+	stmtModelAgent, err := sqlair.Prepare(`
+UPDATE model_agent
+SET    password_hash = $ModelAgent.password_hash,
+       password_hash_algorithm_id = $ModelAgent.password_hash_algorithm_id
+WHERE  model_uuid = $ModelAgent.model_uuid
+`, v4_1_0.ModelAgent{})
+	if err != nil {
+		return fmt.Errorf("preparing ModelAgent update statement: %w", err)
 	}
 
 	// Foreign key checks are deferred to commit so the inserts need no
@@ -2177,10 +2191,36 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 				return fmt.Errorf("inserting WorkloadStatusValue (table workload_status_value): %w", err)
 			}
 		}
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, stmtModelAgent, modelAgent).Get(&outcome); err != nil {
+			return fmt.Errorf("updating ModelAgent (table model_agent): %w", err)
+		}
+		affected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return fmt.Errorf("checking ModelAgent update result: %w", err)
+		}
+		if affected != 1 {
+			return fmt.Errorf("updating ModelAgent (table model_agent): affected %d rows, expected 1", affected)
+		}
 		return nil
 	}); err != nil {
 		return fmt.Errorf("importing model data: %w", err)
 	}
 
 	return nil
+}
+
+func validateModelAgent(rows []v4_1_0.ModelAgent) (v4_1_0.ModelAgent, error) {
+	if len(rows) != 1 {
+		return v4_1_0.ModelAgent{}, fmt.Errorf(
+			"model export payload has %d model_agent rows, expected 1 %w",
+			len(rows), coreerrors.NotValid)
+	}
+	row := rows[0]
+	if row.PasswordHash == nil || *row.PasswordHash == "" {
+		return v4_1_0.ModelAgent{}, fmt.Errorf(
+			"model export payload model_agent row has empty password_hash %w",
+			coreerrors.NotValid)
+	}
+	return row, nil
 }
