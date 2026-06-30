@@ -33,6 +33,8 @@ type ManifoldSuite struct {
 
 	clock clock.Clock
 	stub  testhelpers.Stub
+
+	logRouter *mockLogRouter
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -48,11 +50,13 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	s.logger = loggertesting.WrapCheckLog(c)
 
+	s.logRouter = &mockLogRouter{sink: loggertesting.WrapCheckLogSink(c)}
+
 	s.getter = s.newGetter(c, nil)
 	s.manifold = Manifold(ManifoldConfig{
-		LogSink:   loggertesting.WrapCheckLogSink(c),
-		Clock:     s.clock,
-		NewWorker: s.newWorker,
+		LogRouterName: "log-router",
+		Clock:         s.clock,
+		NewWorker:     s.newWorker,
 		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
 		},
@@ -64,7 +68,7 @@ func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig(c)
-	cfg.LogSink = nil
+	cfg.LogRouterName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -82,8 +86,8 @@ func (s *ManifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		LogSink:   loggertesting.WrapCheckLogSink(c),
-		NewWorker: s.newWorker,
+		LogRouterName: "log-router",
+		NewWorker:     s.newWorker,
 		NewModelLogger: func(logger.LogSink, model.UUID, names.Tag) (worker.Worker, error) {
 			return nil, nil
 		},
@@ -93,7 +97,8 @@ func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 
 func (s *ManifoldSuite) newGetter(c *tc.C, overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
-		"clock": s.clock,
+		"clock":      s.clock,
+		"log-router": s.logRouter,
 	}
 	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
@@ -109,7 +114,7 @@ func (s *ManifoldSuite) newWorker(config Config) (worker.Worker, error) {
 	})
 }
 
-var expectedInputs = []string{}
+var expectedInputs = []string{"log-router"}
 
 func (s *ManifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(s.manifold.Inputs, tc.SameContents, expectedInputs)
@@ -143,4 +148,12 @@ func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
+}
+
+type mockLogRouter struct {
+	sink logger.LogSink
+}
+
+func (m *mockLogRouter) LogSink() logger.LogSink {
+	return m.sink
 }

@@ -192,6 +192,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(Config{
+		LogRouter: &mockLogRouter{sink: noopLogSink{}},
 		NewModelLogger: func(logger.LogSink, coremodel.UUID, names.Tag) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newLoggerWorker(), nil
@@ -216,6 +217,12 @@ type loggerWorker struct {
 	LogSinkWriter
 	tomb tomb.Tomb
 }
+
+// noopLogSink is a minimal LogSink for tests.
+type noopLogSink struct{}
+
+func (noopLogSink) Log([]logger.LogRecord) error  { return nil }
+func (noopLogSink) WatchRefresh() <-chan struct{} { return logger.NoRefresh() }
 
 func newLoggerWorker() *loggerWorker {
 	w := &loggerWorker{}
