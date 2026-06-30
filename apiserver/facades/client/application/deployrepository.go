@@ -309,7 +309,9 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	resMeta map[string]resource.Meta,
 ) (applicationservice.ResolvedResources, []*params.PendingResourceUpload, error) {
 	var resourcesToUpload []*params.PendingResourceUpload
-	var resources []resource.Resource
+	// Use localOrOverrideResources to track local or overridden values.
+	var localOrOverrideResources []resource.Resource
+	// Use resolvedByName to track the final set of resources.
 	resolvedByName := make(map[string]resource.Resource, len(resMeta))
 
 	resourceNames := make([]string, 0, len(resMeta))
@@ -343,7 +345,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 				// A revision is coming from client.
 				r.Revision = providedRev
 			}
-			resources = append(resources, r)
+			localOrOverrideResources = append(localOrOverrideResources, r)
 			continue
 		}
 
@@ -351,16 +353,16 @@ func (v *deployFromRepositoryValidator) resolveResources(
 			resolvedByName[name] = res
 			continue
 		}
-		resources = append(resources, r)
+		localOrOverrideResources = append(localOrOverrideResources, r)
 	}
 
-	if len(resources) > 0 {
+	if len(localOrOverrideResources) > 0 {
 		// Solve revision against charm repository.
 		repo, err := v.getCharmRepository(ctx)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
+		resolvedResources, resolveErr := repo.ResolveResources(ctx, localOrOverrideResources, corecharm.CharmID{URL: curl, Origin: origin})
 		if resolveErr != nil {
 			return nil, nil, resolveErr
 		}
@@ -943,9 +945,12 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
 
-	// TODO (hml) 2023-05-16
-	// Use resource data found in resolvedData as part of ResolveResource.
-	// Will require a new method on the repo.
+	// ResolveForDeploy returns the resources co-released with the resolved
+	// charm revision in resolvedData.Resources. These are threaded through
+	// charmResult.RepositoryResources into resolveResources, where they are
+	// used directly when the caller supplies no resource overrides — avoiding
+	// a separate ResolveResources call and ensuring the resource revisions
+	// match the charm revision rather than the channel tip.
 	resolvedData, resolveErr := repo.ResolveForDeploy(ctx, corecharm.CharmID{URL: curl, Origin: requestedOrigin})
 	if corecharm.IsUnsupportedBaseError(resolveErr) {
 		if !force {
