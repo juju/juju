@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
@@ -51,9 +50,6 @@ type ManifoldConfig struct {
 	// Logger is the logger used by the worker for its own messages.
 	Logger corelogger.Logger
 
-	// Tag is the controller agent tag.
-	Tag names.Tag
-
 	// LoggingOverrideReader returns the current persisted logging override from
 	// the controller agent config.
 	LoggingOverrideReader LoggingOverrideReader
@@ -72,9 +68,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.Tag == nil {
-		return errors.NotValidf("nil Tag")
 	}
 	if config.LoggingOverrideReader == nil {
 		return errors.NotValidf("nil LoggingOverrideReader")
@@ -121,7 +114,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	workerConfig := Config{
 		Context:         config.LoggerContext,
 		ModelConfigSvc:  modelConfigService,
-		Tag:             config.Tag,
 		Logger:          config.Logger,
 		Override:        loggingOverride,
 		UpdateAgentFunc: config.UpdateAgentFunc,

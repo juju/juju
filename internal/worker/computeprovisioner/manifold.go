@@ -7,11 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	coredependency "github.com/juju/juju/core/dependency"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	coremachine "github.com/juju/juju/core/machine"
@@ -93,9 +92,8 @@ type ManifoldConfig struct {
 	GetMachineService  GetMachineServiceFunc
 	GetDomainServices  GetDomainServicesFunc
 	Logger             logger.Logger
-	AgentTag           names.Tag
 	ModelUUID          string
-	NewProvisionerFunc func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, names.Tag, logger.Logger, Environ) (Provisioner, error)
+	NewProvisionerFunc func(ControllerAPI, MachineService, MachinesAPI, ToolsFinder, DistributionGroupFinder, logger.Logger, Environ) (Provisioner, error)
 }
 
 // Manifold creates a manifold that runs an environment provisioner. See the
@@ -158,7 +156,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				machineService: machineService,
 			}
 
-			w, err := config.NewProvisionerFunc(controllerAPI, machineService, machinesAPI, toolsFinder, distGroupFinder, config.AgentTag, config.Logger, environ)
+			w, err := config.NewProvisionerFunc(controllerAPI, machineService, machinesAPI, toolsFinder, distGroupFinder, config.Logger, environ)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -184,9 +182,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if config.AgentTag == nil {
-		return errors.NotValidf("nil AgentTag")
 	}
 	if config.NewProvisionerFunc == nil {
 		return errors.NotValidf("nil NewProvisionerFunc")

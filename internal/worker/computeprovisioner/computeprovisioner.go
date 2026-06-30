@@ -89,7 +89,6 @@ type environProvisioner struct {
 	controllerAPI           ControllerAPI
 	machineService          MachineService
 	machinesAPI             MachinesAPI
-	agentTag                names.Tag
 	logger                  logger.Logger
 	broker                  environs.InstanceBroker
 	distributionGroupFinder DistributionGroupFinder
@@ -142,10 +141,6 @@ func (p *environProvisioner) getStartTask(ctx context.Context, workerCount int) 
 	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return nil, err
 	}
-	hostTag := p.agentTag
-	if kind := hostTag.Kind(); kind != names.ControllerAgentTagKind && kind != names.MachineTagKind {
-		return nil, errors.Errorf("agent's tag is not a machine or controller agent tag, got %T", hostTag)
-	}
 
 	modelCfg, err := p.controllerAPI.ModelConfig(ctx)
 	if err != nil {
@@ -159,7 +154,6 @@ func (p *environProvisioner) getStartTask(ctx context.Context, workerCount int) 
 
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:               controllerCfg.ControllerUUID(),
-		HostTag:                      hostTag,
 		Logger:                       p.logger,
 		ControllerAPI:                p.controllerAPI,
 		MachinesAPI:                  p.machinesAPI,
@@ -234,7 +228,6 @@ func NewEnvironProvisioner(
 	machinesAPI MachinesAPI,
 	toolsFinder ToolsFinder,
 	distributionGroupFinder DistributionGroupFinder,
-	agentTag names.Tag,
 	logger logger.Logger,
 	environ Environ,
 ) (Provisioner, error) {
@@ -242,7 +235,6 @@ func NewEnvironProvisioner(
 		return nil, errors.NotValidf("missing logger")
 	}
 	p := &environProvisioner{
-		agentTag:                agentTag,
 		logger:                  logger,
 		controllerAPI:           controllerAPI,
 		machineService:          machineService,
@@ -252,7 +244,7 @@ func NewEnvironProvisioner(
 		environ:                 environ,
 	}
 	p.broker = environ
-	logger.Tracef(context.Background(), "Starting environ provisioner for %q", agentTag)
+	logger.Tracef(context.Background(), "Starting environ provisioner")
 
 	err := catacomb.Invoke(catacomb.Plan{
 		Name: "environ-provisioner",
