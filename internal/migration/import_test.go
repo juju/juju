@@ -43,11 +43,11 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// importV2Suite exercises [migration.ImportControllerModelInfo] end-to-end
+// controllerImportSuite exercises [migration.ImportControllerModelInfo] end-to-end
 // against real controller and model databases: the decode, the claim, the
 // target-local bootstrap, and the controller-data import steps. It does not
 // exercise model-DB content import (Tasks 7-9) or activation (Task 10).
-type importV2Suite struct {
+type controllerImportSuite struct {
 	schematesting.ControllerModelSuite
 
 	adminUserUUID  coreuser.UUID
@@ -55,11 +55,11 @@ type importV2Suite struct {
 	credentialName string
 }
 
-func TestImportV2Suite(t *testing.T) {
-	tc.Run(t, &importV2Suite{})
+func TestControllerImportSuite(t *testing.T) {
+	tc.Run(t, &controllerImportSuite{})
 }
 
-func (s *importV2Suite) SetUpTest(c *tc.C) {
+func (s *controllerImportSuite) SetUpTest(c *tc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	// ImportControllerModelInfo refuses to create a model unless the
@@ -116,7 +116,7 @@ func (s *importV2Suite) SetUpTest(c *tc.C) {
 // deps returns the [migration.Deps] together with the controller/model
 // txn-runner factories backing it, so tests can build companion services
 // against the same databases.
-func (s *importV2Suite) deps(c *tc.C, modelUUID coremodel.UUID) (migration.Deps, coredatabase.TxnRunnerFactory, coredatabase.TxnRunnerFactory) {
+func (s *controllerImportSuite) deps(c *tc.C, modelUUID coremodel.UUID) (migration.Deps, coredatabase.TxnRunnerFactory, coredatabase.TxnRunnerFactory) {
 	controllerFactory := s.TxnRunnerFactory()
 	modelRunner := s.ModelTxnRunner(c, modelUUID.String())
 	modelFactory := func(context.Context) (coredatabase.TxnRunner, error) {
@@ -131,7 +131,7 @@ func (s *importV2Suite) deps(c *tc.C, modelUUID coremodel.UUID) (migration.Deps,
 	}, controllerFactory, modelFactory
 }
 
-func (s *importV2Suite) baseControllerModelInfo(modelUUID coremodel.UUID) coremodelmigration.ControllerModelInfo {
+func (s *controllerImportSuite) baseControllerModelInfo(modelUUID coremodel.UUID) coremodelmigration.ControllerModelInfo {
 	return coremodelmigration.ControllerModelInfo{
 		ModelInfo: coremodelmigration.ModelIdentityInfo{
 			UUID:      modelUUID.String(),
@@ -144,7 +144,7 @@ func (s *importV2Suite) baseControllerModelInfo(modelUUID coremodel.UUID) coremo
 	}
 }
 
-func (s *importV2Suite) TestImportModelHappyPath(c *tc.C) {
+func (s *controllerImportSuite) TestImportModelHappyPath(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	deps, controllerFactory, _ := s.deps(c, modelUUID)
 
@@ -271,7 +271,7 @@ func (s *importV2Suite) TestImportModelHappyPath(c *tc.C) {
 // TestImportModelDuplicateClaim verifies a second ImportControllerModelInfo call
 // for the same model UUID fails with a coded AlreadyExists error rather than
 // silently re-running (or corrupting) the first import's writes.
-func (s *importV2Suite) TestImportModelDuplicateClaim(c *tc.C) {
+func (s *controllerImportSuite) TestImportModelDuplicateClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	deps, _, _ := s.deps(c, modelUUID)
 

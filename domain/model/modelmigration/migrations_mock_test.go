@@ -65,22 +65,22 @@ func (mr *MockModelImportServiceMockRecorder) ActivateModel(arg0, arg1 any) *Moc
 // MockModelImportServiceActivateModelCall is the typed call wrapper for ActivateModel.
 type MockModelImportServiceActivateModelCall = gomock.Call2_1[context.Context, model.UUID, error]
 
-// ImportModel mocks base method.
-func (m *MockModelImportService) ImportModel(arg0 context.Context, arg1 model0.ModelImportArgs) error {
+// ImportModelLegacy mocks base method.
+func (m *MockModelImportService) ImportModelLegacy(arg0 context.Context, arg1 model0.ModelImportArgs) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.importModelExpects, m.ctrl, m, "ImportModel", arg0, arg1)
+	return gomock.Dispatch2_1(&m.recorder.importModelExpects, m.ctrl, m, "ImportModelLegacy", arg0, arg1)
 }
 
-// ImportModel indicates an expected call of ImportModel.
-func (mr *MockModelImportServiceMockRecorder) ImportModel(arg0, arg1 any) *MockModelImportServiceImportModelCall {
+// ImportModelLegacy indicates an expected call of ImportModelLegacy.
+func (mr *MockModelImportServiceMockRecorder) ImportModelLegacy(arg0, arg1 any) *MockModelImportServiceImportModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, model0.ModelImportArgs, error](mr.mock.ctrl.T, mr.mock, "ImportModel", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	call := gomock.NewCall2_1[context.Context, model0.ModelImportArgs, error](mr.mock.ctrl.T, mr.mock, "ImportModelLegacy", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
 	mr.importModelExpects = append(mr.importModelExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelImportServiceImportModelCall is the typed call wrapper for ImportModel.
+// MockModelImportServiceImportModelCall is the typed call wrapper for ImportModelLegacy.
 type MockModelImportServiceImportModelCall = gomock.Call2_1[context.Context, model0.ModelImportArgs, error]
 
 // MockModelDetailService is a mock of ModelDetailService interface.

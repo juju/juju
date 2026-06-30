@@ -54,7 +54,7 @@ func (s *ExportImportSuite) exportImport(c *tc.C, leaders map[string]string) {
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
-	err := importer.ImportModel(c.Context(), bytes)
+	err := importer.ImportModelLegacy(c.Context(), bytes)
 	c.Assert(err, tc.ErrorIsNil)
 }
 

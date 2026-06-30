@@ -193,16 +193,15 @@ type LegacyStateExporter interface {
 
 // ModelImporter defines an interface for importing models.
 type ModelImporter interface {
-	// ImportModel takes a serialized description model (yaml bytes) and returns
-	// a state model and state state.
-	ImportModel(ctx context.Context, bytes []byte) error
+	// ImportModelLegacy imports a serialized legacy description model.
+	ImportModelLegacy(ctx context.Context, bytes []byte) error
 
-	// ImportModelV2 applies a v8 migration envelope's controller-scoped
-	// semantic data to the target controller: the durable
-	// model_migration_import claim, the target-local model bootstrap, and
-	// the users, credential, permissions, authorized keys, secret backend,
-	// leadership and cloud image metadata carried by the import args.
-	ImportModelV2(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
+	// ImportModel applies a v8 migration envelope's controller-scoped semantic
+	// data to the target controller: the durable model_migration_import claim,
+	// the target-local model bootstrap, and the users, credential, permissions,
+	// authorized keys, secret backend, leadership and cloud image metadata
+	// carried by the import args.
+	ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.

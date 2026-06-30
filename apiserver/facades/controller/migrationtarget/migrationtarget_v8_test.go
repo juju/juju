@@ -418,13 +418,13 @@ func (s *v8Suite) TestCreateMigrationMacaroonRemoteUserPermissionDenied(c *tc.C)
 	c.Check(minter.calls, tc.Equals, 0)
 }
 
-// TestImportRunsGuardsThenDelegatesToImportModelV2 verifies the v8 Import
+// TestImportRunsGuardsThenDelegatesToImportModel verifies the v8 Import
 // runs the mandatory pre-write guards (envelope validation and payload
-// version/decode) and then delegates to ModelImporter.ImportModelV2 with the
+// version/decode) and then delegates to ModelImporter.ImportModel with the
 // decoded projection view. Import must NOT run the environmental prechecks,
 // so the precheck service is never primed: any environmental call would
 // surface as an unexpected gomock call.
-func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
+func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
@@ -544,7 +544,7 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 		},
 	}
 	var got migration.ImportModelArgs
-	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), gomock.Any(), gomock.Any()).
+	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, args migration.ImportModelArgs, _ export.ProjectionView) error {
 			got = args
 			return nil
@@ -563,7 +563,7 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 }
 
 // TestImportGuardFailure verifies a guard failure in the v8 Import is
-// returned as-is, without ever calling ImportModelV2.
+// returned as-is, without ever calling ImportModel.
 func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -574,13 +574,13 @@ func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
-// TestImportPropagatesImportModelV2Error verifies an error from
-// ImportModelV2 is returned as-is by Import.
-func (s *v8Suite) TestImportPropagatesImportModelV2Error(c *tc.C) {
+// TestImportPropagatesImportModelError verifies an error from
+// ImportModel is returned as-is by Import.
+func (s *v8Suite) TestImportPropagatesImportModelError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
-	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), gomock.Any(), gomock.Any()).
+	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(errors.Errorf("boom"))
 
 	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)

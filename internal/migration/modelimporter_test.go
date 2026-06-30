@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// modelImporterSuite is a thin smoke test for ModelImporter.ImportModelV2, the
+// modelImporterSuite is a thin smoke test for ModelImporter.ImportModel, the
 // public method the migrationtarget facade calls. The orchestration itself is
 // covered in this package's direct ImportControllerModelInfo tests; this only
 // proves the delegator resolves the migration scope for the model UUID and wires
@@ -66,7 +66,7 @@ func (s *modelImporterSuite) SetUpTest(c *tc.C) {
 	modeltesting.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 }
 
-func (s *modelImporterSuite) TestImportModelV2(c *tc.C) {
+func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	controllerFactory := s.TxnRunnerFactory()
 	modelRunner := s.ModelTxnRunner(c, modelUUID.String())
@@ -94,7 +94,7 @@ func (s *modelImporterSuite) TestImportModelV2(c *tc.C) {
 	}
 	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
 
-	err := importer.ImportModelV2(c.Context(), importArgs, view)
+	err := importer.ImportModel(c.Context(), importArgs, view)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim landed against the same controller DB the scope resolved to.
@@ -106,6 +106,6 @@ func (s *modelImporterSuite) TestImportModelV2(c *tc.C) {
 	// A second call against the same scope is rejected as a duplicate claim,
 	// proving the delegator re-resolves the scope per call rather than
 	// caching stale state.
-	err = importer.ImportModelV2(c.Context(), importArgs, view)
+	err = importer.ImportModel(c.Context(), importArgs, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }

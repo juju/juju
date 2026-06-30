@@ -645,7 +645,7 @@ func bootstrapImportedModel(
 		},
 	}
 
-	if err := migrationSvc.ImportModelV2(ctx, args); err != nil {
+	if err := migrationSvc.ImportModel(ctx, args); err != nil {
 		return errors.Errorf("creating model %q: %w", identity.Name, err)
 	}
 	if err := modelSvc.CreateImportingModelWithAgentVersionStream(ctx, agentTargetVersion, agentStream); err != nil {

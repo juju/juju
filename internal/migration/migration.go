@@ -71,24 +71,24 @@ func NewModelImporter(
 	}
 }
 
-// ImportModel deserializes a model description from the bytes, transforms
-// the model config based on information from the controller model, and then
-// imports that as a new database model.
-func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
+// ImportModelLegacy deserializes a legacy description model from the bytes,
+// transforms the model config based on information from the controller model,
+// and imports that as a new database model.
+func (i *ModelImporter) ImportModelLegacy(ctx context.Context, bytes []byte) error {
 	return legacy.ImportModel(
 		ctx, bytes, i.scope, i.domainServices, i.controllerUUID, i.logger, i.clock,
 	)
 }
 
-// ImportModelV2 applies a v8 import's controller-scoped semantic data to the
-// target controller. See [ImportControllerModelInfo] for the
-// orchestration; this method only resolves the migration scope for the model
-// UUID and delegates.
+// ImportModel applies a v8 import's controller-scoped semantic data to the
+// target controller. See [ImportControllerModelInfo] for the orchestration;
+// this method only resolves the migration scope for the model UUID and
+// delegates.
 //
 // If a claim already exists for args.ControllerModelInfo.ModelInfo.UUID, the
 // returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
 // supplied by the modelmigration domain).
-func (i *ModelImporter) ImportModelV2(
+func (i *ModelImporter) ImportModel(
 	ctx context.Context, args ImportModelArgs, view export.ProjectionView,
 ) error {
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
