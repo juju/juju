@@ -611,29 +611,41 @@ func (c *CharmHubRepository) repositoryResources(ctx context.Context, id corecha
 	}
 	var cfg charmhub.RefreshConfig
 	var err error
+
+	// Switch based on whether we know the charm's ID or only its name.
+	// Then, if the charm revision is known, we can use that to get more specific resource data.
+	// If the revision is not known, we can only get the latest resource data for the channel.
+
+	fullySpecified := origin.Channel != nil && !origin.Channel.Empty() && origin.Revision != nil && *origin.Revision >= 0
 	switch {
-	case origin.ID != "" && origin.Channel != nil && !origin.Channel.Empty() && origin.Revision != nil && *origin.Revision >= 0:
-		cfg, err = charmhub.DownloadOneFromChannelRevision(ctx, origin.ID, origin.Channel.String(), *origin.Revision, refBase)
-		if err != nil {
-			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q, %d): %s", origin.ID, origin.Channel.String(), *origin.Revision, err)
-			return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
-		}
-	// Do not get resource data via revision here, it is only provided if explicitly
-	// asked for by resource revision.  The purpose here is to find a resource revision
-	// in the channel, if one was not provided on the cli.
 	case origin.ID != "":
+		if fullySpecified {
+			cfg, err = charmhub.DownloadOneFromChannelRevision(ctx, origin.ID, origin.Channel.String(), *origin.Revision, refBase)
+			if err != nil {
+				c.logger.Errorf(ctx, "creating resources config for charm (%q, %q, %d): %s", origin.ID, origin.Channel.String(), *origin.Revision, err)
+				return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
+			}
+			break
+		}
+
+		// Do not get resource data via revision here, it is only provided if explicitly
+		// asked for by resource revision. The purpose here is to find a resource revision
+		// in the channel, if one was not provided on the cli.
 		cfg, err = charmhub.DownloadOneFromChannel(ctx, origin.ID, origin.Channel.String(), refBase)
 		if err != nil {
 			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q): %s", origin.ID, origin.Channel.String(), err)
 			return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
 		}
-	case origin.ID == "" && origin.Channel != nil && !origin.Channel.Empty() && origin.Revision != nil && *origin.Revision >= 0:
-		cfg, err = charmhub.DownloadOneFromChannelRevisionByName(ctx, curl.Name, origin.Channel.String(), *origin.Revision, refBase)
-		if err != nil {
-			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q, %d): %s", curl.Name, origin.Channel.String(), *origin.Revision, err)
-			return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
-		}
 	case origin.ID == "":
+		if fullySpecified {
+			cfg, err = charmhub.DownloadOneFromChannelRevisionByName(ctx, curl.Name, origin.Channel.String(), *origin.Revision, refBase)
+			if err != nil {
+				c.logger.Errorf(ctx, "creating resources config for charm (%q, %q, %d): %s", curl.Name, origin.Channel.String(), *origin.Revision, err)
+				return nil, internalerrors.Errorf("creating resources config for charm %q: %w", curl.String(), err)
+			}
+			break
+		}
+
 		cfg, err = charmhub.DownloadOneFromChannelByName(ctx, curl.Name, origin.Channel.String(), refBase)
 		if err != nil {
 			c.logger.Errorf(ctx, "creating resources config for charm (%q, %q): %s", curl.Name, origin.Channel.String(), err)
