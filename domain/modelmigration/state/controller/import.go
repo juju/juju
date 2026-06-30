@@ -221,6 +221,144 @@ WHERE  mi.model_uuid = $modelUUIDArg.model_uuid
 	return result, nil
 }
 
+// SetImportPhaseActivating transitions a model_migration_import claim from
+// importing to activating, marking the point of no return for activation.
+// It is idempotent when the claim is already activating and returns
+// [modelmigrationerrors.ErrActivationAborting] when the claim is aborting,
+// [modelmigrationerrors.ErrImportNotFound] when no claim exists.
+func (s *State) SetImportPhaseActivating(ctx context.Context, modelUUID string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	updateStmt, err := s.Prepare(`
+UPDATE model_migration_import
+SET    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'activating'),
+       updated_at    = DATETIME('now', 'utc')
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing')
+`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		claim, err := s.getImportClaim(ctx, tx, modelUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		switch claim.Phase {
+		case modelmigration.ImportPhaseAborting:
+			return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrActivationAborting)
+		case modelmigration.ImportPhaseActivating:
+			return nil // idempotent: already in activating
+		}
+
+		// Phase is importing; CAS to activating.
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, updateStmt, mUUID).Get(&outcome); err != nil {
+			return errors.Errorf("transitioning import to activating for model %q: %w", modelUUID, err)
+		}
+		affected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if affected == 0 {
+			// Concurrent phase change won the race.
+			return errors.Errorf(
+				"model %q import phase changed concurrently: %w",
+				modelUUID, modelmigrationerrors.ErrPhaseTransitionInvalid,
+			)
+		}
+		return nil
+	})
+}
+
+// AssertActivating returns nil if a model_migration_import claim exists for
+// modelUUID and its phase is activating. It returns
+// [modelmigrationerrors.ErrImportNotFound] if no claim exists, or
+// [modelmigrationerrors.ErrPhaseTransitionInvalid] if the phase differs.
+func (s *State) AssertActivating(ctx context.Context, modelUUID string) error {
+	claim, err := s.GetImportClaim(ctx, modelUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if claim.Phase != modelmigration.ImportPhaseActivating {
+		return errors.Errorf(
+			"model %q import claim is %q: %w",
+			modelUUID, claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
+		)
+	}
+	return nil
+}
+
+// DeleteActivatedImport removes the import claim and its FK-dependent companion
+// rows (model_migration_import_offer, model_migration_import_external_controller_model)
+// in a single transaction, asserting that the claim is in the activating phase.
+// It is idempotent when no claim exists (already deleted). Returns
+// [modelmigrationerrors.ErrPhaseTransitionInvalid] when the claim exists but is
+// not in the activating phase.
+func (s *State) DeleteActivatedImport(ctx context.Context, modelUUID string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	deleteOffersStmt, err := s.Prepare(`
+DELETE FROM model_migration_import_offer
+WHERE  migration_uuid IN (
+       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteECMStmt, err := s.Prepare(`
+DELETE FROM model_migration_import_external_controller_model
+WHERE  migration_uuid IN (
+       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteClaimStmt, err := s.Prepare(`
+DELETE FROM model_migration_import
+WHERE model_uuid = $modelUUIDArg.model_uuid
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		claim, err := s.getImportClaim(ctx, tx, modelUUID)
+		if errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
+			return nil // idempotent: already deleted
+		}
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if claim.Phase != modelmigration.ImportPhaseActivating {
+			return errors.Errorf(
+				"model %q import claim is %q, expected activating: %w",
+				modelUUID, claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
+			)
+		}
+
+		if err := tx.Query(ctx, deleteOffersStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting import offer companions for model %q: %w", modelUUID, err)
+		}
+		if err := tx.Query(ctx, deleteECMStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting import external controller companions for model %q: %w", modelUUID, err)
+		}
+		if err := tx.Query(ctx, deleteClaimStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting activated import claim for model %q: %w", modelUUID, err)
+		}
+		return nil
+	})
+}
+
 // EnsureExternalControllerExists compares the given third-party controller's
 // connection details (alias, CA cert, addresses) against any existing
 // external_controller row with the same UUID. It inserts the controller and

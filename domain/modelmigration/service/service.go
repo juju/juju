@@ -91,15 +91,6 @@ type WatcherFactory interface {
 // ControllerState defines the interface required for accessing the underlying
 // state of the model during migration.
 type ControllerState interface {
-	// GetControllerTargetVersion returns the target controller version in use
-	// by the cluster.
-	GetControllerTargetVersion(ctx context.Context) (string, error)
-
-	// DeleteModelImportingStatus removes the entry from the model_migrating
-	// table in the model database, indicating that the model import has
-	// completed or been aborted.
-	DeleteModelImportingStatus(ctx context.Context, modelUUID string) error
-
 	// NamespaceForWatchExport returns the changestream namespace for export
 	// migration start/end changes keyed by model UUID.
 	NamespaceForWatchExport() string
@@ -229,20 +220,6 @@ type ModelState interface {
 	// GetAllInstanceIDs returns all instance IDs from the current model as
 	// juju/collections set.
 	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
-	// GetModelTargetAgentVersion returns the target agent version for this
-	// model.
-	GetModelTargetAgentVersion(context.Context) (string, error)
-	// SetModelTargetAgentVersion is responsible for setting the current target
-	// agent version of the model. This function expects a precondition version
-	// to be supplied. The model's target version at the time the operation is
-	// applied must match the preCondition version or else an error is returned.
-	SetModelTargetAgentVersion(
-		ctx context.Context, preCondition, toVersion string,
-	) error
-	// DeleteModelImportingStatus removes the entry from the model_migrating
-	// table in the model database, indicating that the model import has
-	// completed or been aborted.
-	DeleteModelImportingStatus(ctx context.Context) error
 
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
@@ -838,91 +815,3 @@ func unitNameFromMinionReportKey(key string) (string, error) {
 	return "", errors.Errorf("missing unit number")
 }
 
-// ActivateImport finalises the import of the model by clearing the
-// model_migrating table entry in the model database.
-func (s *Service) ActivateImport(ctx context.Context) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
-	// Before we activate the model after the import, we need to update the
-	// agent version to match the current controller version. This ensures that
-	// all agents after a migration are running the correct version. This was
-	// done previously in two steps, and could cause a model after a migration
-	// to be in a state where it was running a very old agent version until the
-	// the operator manually upgraded the agents.
-
-	desiredTargetVersionStr, err := s.controllerState.GetControllerTargetVersion(ctx)
-	if err != nil {
-		return errors.Errorf("getting current controller agent version: %w", err)
-	} else if desiredTargetVersionStr == "" {
-		// This shouldn't happen, and indicates a programming error somewhere.
-		return errors.Errorf("current controller agent version is not set")
-	}
-
-	desiredTargetVersion, err := semversion.Parse(desiredTargetVersionStr)
-	if err != nil {
-		return errors.Errorf(
-			"parsing current controller agent version %q: %w",
-			desiredTargetVersionStr,
-			err,
-		)
-	}
-
-	currentTargetVersionStr, err := s.modelState.GetModelTargetAgentVersion(ctx)
-	if err != nil {
-		return errors.Errorf("getting current model agent version: %w", err)
-	}
-
-	currentTargetVersion, err := semversion.Parse(currentTargetVersionStr)
-	if err != nil {
-		return errors.Errorf(
-			"parsing current model agent version %q: %w",
-			currentTargetVersionStr,
-			err,
-		)
-	}
-
-	// TODO (stickupkid): We should validate if we have all the binaries
-	// architectures for the desired target version here.
-
-	// If the current target version doesn't match the desired target version,
-	// we need to update it.
-	if currentTargetVersion != desiredTargetVersion {
-		// Update the model target agent version to match the controller's
-		// target agent version.
-		if err = s.modelState.SetModelTargetAgentVersion(
-			ctx, currentTargetVersion.String(), desiredTargetVersion.String(),
-		); err != nil {
-			return errors.Capture(err)
-		}
-	}
-
-	// Delete the migration importing status from the model database. This
-	// should ensure that the model is no longer considered to be importing.
-
-	// As we need to affect both the controller and model databases, we need to
-	// attempt this is a best effort manner. The state layer should ensure
-	// idempotency, so if one operation succeeds and the other fails, we can
-	// retry safely.
-
-	// Attempt to delete the importing status from the model database first, as
-	// that should allow the model to be considered active in this controller.
-	// The controller database entry can be removed later if this step fails,
-	// it shouldn't prevent the model from being used (in theory).
-
-	if err := s.modelState.DeleteModelImportingStatus(ctx); err != nil {
-		return errors.Errorf(
-			"deleting model importing status from model database: %w",
-			err,
-		)
-	}
-
-	if err := s.controllerState.DeleteModelImportingStatus(ctx, s.modelUUID); err != nil {
-		return errors.Errorf(
-			"deleting model importing status from controller database: %w",
-			err,
-		)
-	}
-
-	return nil
-}

@@ -53,4 +53,10 @@ const (
 	// exists on the target with different connection details. A v8 import
 	// never overwrites live CMR connection data.
 	ErrExternalControllerMismatch = errors.ConstError("external controller details do not match")
+
+	// ErrActivationAborting indicates that an activation was attempted on an
+	// import claim that is in the aborting phase. Activation is not possible
+	// once abort has begun; the caller must wait for abort to complete and
+	// retry the full import from the source controller.
+	ErrActivationAborting = errors.ConstError("cannot activate import: cleanup already in progress")
 )

@@ -43,7 +43,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// ModelImporter defines an interface for importing models.
+// ModelImporter defines an interface for importing and activating models.
 type ModelImporter interface {
 	// ImportModelLegacy imports a serialized legacy description model.
 	ImportModelLegacy(ctx context.Context, bytes []byte) error
@@ -54,6 +54,11 @@ type ModelImporter interface {
 	// authorized keys, secret backend, leadership and cloud image metadata
 	// carried by the import args.
 	ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
+
+	// ActivateModel finalises the activation of a model imported via the v8
+	// path, running a durable, idempotent phase machine. It is also safe to
+	// call for legacy (3.6/4.0) imports that have no import claim.
+	ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error
 }
 
 // CloudService provides a subset of the cloud domain service methods.
@@ -101,9 +106,6 @@ type ModelMigrationService interface {
 	// the model against the machines reported by the models cloud and report
 	// any discrepancies.
 	CheckMachines(context.Context) ([]modelmigration.MigrationMachineDiscrepancy, error)
-
-	// ActivateImport finalises the import of the model.
-	ActivateImport(ctx context.Context) error
 
 	// ModelMigrationMode returns the current migration mode for the model.
 	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
@@ -405,25 +407,28 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 	api.logger.Debugf(ctx, "Activate migrating model %q", args.ModelTag)
 
 	modelUUID := coremodel.UUID(modelTag.Id())
-	modelMigrationService, err := api.modelMigrationServiceGetter(ctx, modelUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
 
-	// Add any required external controller records if there are cross
-	// model relations to the source controller that were local but
-	// now need to be external after migration.
-	if len(args.CrossModelUUIDs) > 0 {
+	// Resolve the source controller UUID when a controller tag is provided.
+	sourceControllerUUID := ""
+	if args.ControllerTag != "" {
 		cTag, err := names.ParseControllerTag(args.ControllerTag)
 		if err != nil {
 			return errors.Errorf(
 				"cannot parse controller tag when activating model %q: %w",
-				modelUUID,
-				err,
+				modelUUID, err,
 			)
 		}
+		sourceControllerUUID = cTag.Id()
+	}
+
+	// Add any required external controller records if there are cross model
+	// relations to the source controller that were local but now need to be
+	// external after migration.
+	// This blind upsert is interim: the source-controller registration will
+	// move into ActivateModel's compare-or-insert reconciliation.
+	if len(args.CrossModelUUIDs) > 0 {
 		err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
-			ControllerUUID: cTag.Id(),
+			ControllerUUID: sourceControllerUUID,
 			Alias:          args.ControllerAlias,
 			Addrs:          args.SourceAPIAddrs,
 			CACert:         args.SourceCACert,
@@ -432,16 +437,22 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 		if err != nil {
 			return errors.Errorf(
 				"cannot save source controller %q info when activating model %q: %w",
-				cTag.Id(),
-				modelUUID,
-				err,
+				sourceControllerUUID, modelUUID, err,
 			)
 		}
 	}
 
-	// Activate the import, this will clear any migration flags and allow the
-	// model to be used normally.
-	if err := modelMigrationService.ActivateImport(ctx); err != nil {
+	// Activate the import via the v8 orchestration seam: transitions the claim
+	// to activating, bumps the model agent version, clears the import gate,
+	// and deletes the claim last. Also handles legacy (no-claim) imports.
+	if err := api.modelImporter.ActivateModel(ctx, migration.ActivateModelArgs{
+		ModelUUID:             modelUUID,
+		SourceControllerUUID:  sourceControllerUUID,
+		SourceControllerAlias: args.ControllerAlias,
+		SourceCACert:          args.SourceCACert,
+		SourceAPIAddrs:        args.SourceAPIAddrs,
+		CrossModelUUIDs:       args.CrossModelUUIDs,
+	}); err != nil {
 		return errors.Capture(err)
 	}
 

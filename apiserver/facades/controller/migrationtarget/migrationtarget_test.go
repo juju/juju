@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -243,21 +242,17 @@ func (s *Suite) TestActivate(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectImportModel(c)
-	s.modelMigrationService.EXPECT().ActivateImport(gomock.Any()).Return(nil)
 
 	api := s.mustNewAPI(c, c.MkDir())
 	tag := s.importModel(c, api)
 
-	expectedCI := crossmodel.ControllerInfo{
-		ControllerUUID: jujutesting.ControllerTag.Id(),
-		Alias:          "mycontroller",
-		Addrs:          []string{"10.6.6.6:17070"},
-		CACert:         jujutesting.CACert,
-	}
-	s.externalControllerService.EXPECT().UpdateExternalController(
-		gomock.Any(),
-		expectedCI,
-	).Times(1)
+	s.modelImporter.EXPECT().ActivateModel(gomock.Any(), migration.ActivateModelArgs{
+		ModelUUID:             model.UUID(tag.Id()),
+		SourceControllerUUID:  jujutesting.ControllerTag.Id(),
+		SourceControllerAlias: "mycontroller",
+		SourceCACert:          jujutesting.CACert,
+		SourceAPIAddrs:        []string{"10.6.6.6:17070"},
+	}).Return(nil)
 
 	err := api.Activate(c.Context(), params.ActivateModelArgs{
 		ModelTag:        tag.String(),
