@@ -17,7 +17,8 @@ type SSHConnRequest struct {
 	TunnelID string
 	// MachineName is the name of the machine that the SSH connection is being requested for.
 	MachineName string
-	Expires     time.Time
+	// Expires is the time at which the SSH connection request expires.
+	Expires time.Time
 	// SSHUsername contains the reverse tunnel username to use for the SSH connection.
 	SSHUsername string
 	// SSHPassword contains the reverse tunnel JWT, and is not actually

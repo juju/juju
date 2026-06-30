@@ -16,7 +16,6 @@ import (
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	domainssh "github.com/juju/juju/domain/ssh"
-	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -40,7 +39,7 @@ func (st *State) GetMachineVirtualHostKeyByMachineName(ctx context.Context, mach
 
 	nameRec := entityName{Name: machineName}
 	getMachineUUIDStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.*
 FROM machine
 WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	if err != nil {
@@ -103,15 +102,9 @@ func (st *State) EnsureMachineVirtualHostKeyByMachineName(
 
 	nameRec := entityName{Name: machineName}
 	getMachineUUIDStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.*
 FROM machine
 WHERE name = $entityName.name`, entityUUID{}, entityName{})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	insertStmt, err := st.Prepare(`
-INSERT INTO machine_virtual_ssh_host_key (machine_uuid, algorithm_type_id, ssh_key)
-VALUES ($machineVirtualSSHHostKey.*)`, machineVirtualSSHHostKey{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -122,11 +115,16 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+	insertStmt, err := st.Prepare(`
+INSERT INTO machine_virtual_ssh_host_key (machine_uuid, algorithm_type_id, ssh_key)
+VALUES ($machineVirtualSSHHostKey.*)`, machineVirtualSSHHostKey{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
 
 	actualKey := sshKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		machineUUID := entityUUID{}
-		txKey := sshPrivateKey{}
 		err := tx.Query(ctx, getMachineUUIDStmt, nameRec).Get(&machineUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q %w", machineName, machineerrors.MachineNotFound)
@@ -135,19 +133,17 @@ WHERE machine_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 			return errors.Errorf("querying machine %q: %w", machineName, err)
 		}
 
-		record := machineVirtualSSHHostKey{MachineUUID: machineUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
-		err = tx.Query(ctx, insertStmt, record).Run()
-		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			err = tx.Query(ctx, getKeyStmt, machineUUID).Get(&txKey)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("machine virtual SSH host key for %q not found after concurrent insert", machineName)
-			}
-			if err != nil {
-				return errors.Errorf("querying machine virtual SSH host key for %q after concurrent insert: %w", machineName, err)
-			}
+		txKey := sshPrivateKey{}
+		err = tx.Query(ctx, getKeyStmt, machineUUID).Get(&txKey)
+		if err == nil {
 			actualKey = txKey.SSHKey
 			return nil
-		} else if err != nil {
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying machine virtual SSH host key for %q: %w", machineName, err)
+		}
+
+		record := machineVirtualSSHHostKey{MachineUUID: machineUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
+		if err := tx.Query(ctx, insertStmt, record).Run(); err != nil {
 			return errors.Errorf("persisting machine virtual SSH host key for %q: %w", machineName, err)
 		}
 		return nil
@@ -168,7 +164,7 @@ func (st *State) GetUnitVirtualHostKeyByUnitName(ctx context.Context, unitName s
 
 	nameRec := entityName{Name: unitName}
 	getUnitUUIDStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.*
 FROM unit
 WHERE name = $entityName.name`, entityUUID{}, entityName{})
 	if err != nil {
@@ -231,15 +227,9 @@ func (st *State) EnsureUnitVirtualHostKeyByUnitName(
 
 	nameRec := entityName{Name: unitName}
 	getUnitUUIDStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.*
 FROM unit
 WHERE name = $entityName.name`, entityUUID{}, entityName{})
-	if err != nil {
-		return "", errors.Capture(err)
-	}
-	insertStmt, err := st.Prepare(`
-INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
-VALUES ($unitVirtualSSHHostKey.*)`, unitVirtualSSHHostKey{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
@@ -250,11 +240,16 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 	if err != nil {
 		return "", errors.Capture(err)
 	}
+	insertStmt, err := st.Prepare(`
+INSERT INTO unit_virtual_ssh_host_key (unit_uuid, algorithm_type_id, ssh_key)
+VALUES ($unitVirtualSSHHostKey.*)`, unitVirtualSSHHostKey{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
 
 	actualKey := sshKey
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		unitUUID := entityUUID{}
-		txKey := sshPrivateKey{}
 		err := tx.Query(ctx, getUnitUUIDStmt, nameRec).Get(&unitUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("unit %q %w", unitName, applicationerrors.UnitNotFound)
@@ -263,19 +258,17 @@ WHERE unit_uuid = $entityUUID.uuid`, sshPrivateKey{}, entityUUID{})
 			return errors.Errorf("querying unit %q: %w", unitName, err)
 		}
 
-		record := unitVirtualSSHHostKey{UnitUUID: unitUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
-		err = tx.Query(ctx, insertStmt, record).Run()
-		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
-			err = tx.Query(ctx, getKeyStmt, unitUUID).Get(&txKey)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Errorf("unit virtual SSH host key for %q not found after concurrent insert", unitName)
-			}
-			if err != nil {
-				return errors.Errorf("querying unit virtual SSH host key for %q after concurrent insert: %w", unitName, err)
-			}
+		txKey := sshPrivateKey{}
+		err = tx.Query(ctx, getKeyStmt, unitUUID).Get(&txKey)
+		if err == nil {
 			actualKey = txKey.SSHKey
 			return nil
-		} else if err != nil {
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying unit virtual SSH host key for %q: %w", unitName, err)
+		}
+
+		record := unitVirtualSSHHostKey{UnitUUID: unitUUID.UUID, AlgorithmTypeID: algorithmTypeID, SSHKey: sshKey}
+		if err := tx.Query(ctx, insertStmt, record).Run(); err != nil {
 			return errors.Errorf("persisting unit virtual SSH host key for %q: %w", unitName, err)
 		}
 		return nil
@@ -334,9 +327,16 @@ func (st *State) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConn
 	}
 
 	getMachineUUIDStmt, err := st.Prepare(`
-SELECT uuid AS &entityUUID.uuid
+SELECT &entityUUID.*
 FROM machine
 WHERE name = $entityName.name`, entityUUID{}, entityName{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	checkExistsStmt, err := st.Prepare(`
+SELECT &tunnelID.*
+FROM ssh_connection_request
+WHERE tunnel_id = $tunnelID.tunnel_id`, tunnelID{})
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -353,6 +353,15 @@ VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 		return errors.Capture(err)
 	}
 
+	record := sshConnRequestInsert{
+		TunnelID:           req.TunnelID,
+		ExpiresAt:          req.Expires,
+		Username:           req.SSHUsername,
+		Password:           req.SSHPassword,
+		UnitPort:           req.UnitPort,
+		EphemeralPublicKey: req.EphemeralPublicKey,
+	}
+
 	return errors.Capture(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := st.pruneExpiredSSHConnRequests(ctx, tx, now); err != nil {
 			return errors.Errorf("pruning expired SSH connection requests: %w", err)
@@ -367,18 +376,17 @@ VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 			return errors.Errorf("querying machine %q: %w", req.MachineName, err)
 		}
 
-		record := sshConnRequestInsert{
-			TunnelID:           req.TunnelID,
-			MachineUUID:        machineUUID.UUID,
-			ExpiresAt:          req.Expires,
-			Username:           req.SSHUsername,
-			Password:           req.SSHPassword,
-			UnitPort:           req.UnitPort,
-			EphemeralPublicKey: req.EphemeralPublicKey,
-		}
-		if err := tx.Query(ctx, insertStmt, record).Run(); internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
+		record.MachineUUID = machineUUID.UUID
+
+		existing := tunnelID{}
+		err = tx.Query(ctx, checkExistsStmt, tunnelID{TunnelID: req.TunnelID}).Get(&existing)
+		if err == nil {
 			return errors.Errorf("SSH connection request %q already exists", req.TunnelID).Add(coreerrors.AlreadyExists)
-		} else if err != nil {
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("checking SSH connection request %q: %w", req.TunnelID, err)
+		}
+
+		if err := tx.Query(ctx, insertStmt, record).Run(); err != nil {
 			return errors.Errorf("persisting SSH connection request %q: %w", req.TunnelID, err)
 		}
 

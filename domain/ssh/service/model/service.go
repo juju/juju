@@ -292,9 +292,6 @@ func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
 	if !uuid.IsValidUUIDString(req.TunnelID) {
 		return errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
 	}
-	if req.MachineName == "" {
-		return errors.Errorf("empty machine name").Add(coreerrors.NotValid)
-	}
 	if err := coremachine.Name(req.MachineName).Validate(); err != nil {
 		return errors.Errorf("validating machine name %q: %w", req.MachineName, err)
 	}
