@@ -76,12 +76,12 @@ run_deploy_revision_refresh() {
 	ensure "${model_name}" "${file}"
 
 	# revision 23 is in channel 2.0/edge
-	juju deploy juju-qa-test --revision 23 --channel latest/edge
+	juju deploy juju-qa-test --revision 23 --channel 2.0/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 23)"
 	wait_for "juju-qa-test" "$(active_idle_condition "juju-qa-test")"
 
 	# Once the application is ready, refresh is expected to immediately work.
-	juju refresh juju-qa-test
+	juju refresh juju-qa-test --channel latest/edge
 
 	# revision 21 is in channel latest/edge
 	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" 21)"
