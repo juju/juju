@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
@@ -35,7 +36,7 @@ type GetMachineServiceFunc func(getter dependency.Getter, name string) (MachineS
 // GetMachineService is a helper function that gets a service from the
 // manifold.
 func GetMachineService(getter dependency.Getter, name string) (MachineService, error) {
-	return getDependencyByName(getter, name, func(s services.ModelDomainServices) MachineService {
+	return coredependency.GetDependencyByName(getter, name, func(s services.ModelDomainServices) MachineService {
 		return s.Machine()
 	})
 }
@@ -64,7 +65,7 @@ type GetDomainServicesFunc func(getter dependency.Getter, name string) (DomainSe
 // GetDomainServices is a helper function that gets the domain services
 // from the manifold.
 func GetDomainServices(getter dependency.Getter, name string) (DomainServices, error) {
-	return getDependencyByName(getter, name, func(s services.DomainServices) DomainServices {
+	return coredependency.GetDependencyByName(getter, name, func(s services.DomainServices) DomainServices {
 		return DomainServices{
 			controllerConfig: s.ControllerConfig(),
 			modelConfig:      s.Config(),
@@ -79,17 +80,6 @@ func GetDomainServices(getter dependency.Getter, name string) (DomainServices, e
 			removal:          s.Removal(),
 		}
 	})
-}
-
-// getDependencyByName is a helper that extracts a dependency of type A from
-// the getter and transforms it to type B using the provided function.
-func getDependencyByName[A, B any](getter dependency.Getter, name string, fn func(A) B) (B, error) {
-	var a A
-	if err := getter.Get(name, &a); err != nil {
-		var zero B
-		return zero, err
-	}
-	return fn(a), nil
 }
 
 // ManifoldConfig defines an environment provisioner's dependencies. It's not
