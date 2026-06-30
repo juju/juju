@@ -79,6 +79,9 @@ func (c ManifoldConfig) Validate() error {
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if c.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
 	if c.NewBackendFunc == nil {
 		return errors.NotValidf("nil NewBackendFunc")
 	}
