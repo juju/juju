@@ -182,6 +182,10 @@ func (p controllerStartupValueProvider) CACert() (string, error) {
 	return cfg.CACert, nil
 }
 
+// ControllerApplicationFactoryFnType is a function that creates a
+// ControllerApplication for a given controller agent tag. It allows the
+// command layer to decouple application construction from the agent binary,
+// making it possible to inject test doubles or alternative implementations.
 type ControllerApplicationFactoryFnType func(names.Tag) (*ControllerApplication, error)
 
 // NewControllerApplicationCommand creates a Command that handles parsing
