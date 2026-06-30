@@ -622,6 +622,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"object-store-facade",
@@ -645,6 +646,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"api-address-setter": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -658,6 +660,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-primary-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -672,6 +675,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"api-address-updater": {
@@ -703,6 +714,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"api-remote-relation-caller": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -715,6 +727,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store",
 		"object-store-facade",
 		"object-store-fortress",
@@ -729,9 +742,18 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"api-server": {
+
 		"agent",
 		"api-remote-caller",
 		"audit-config-updater",
@@ -750,6 +772,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"jwt-parser",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -766,9 +789,17 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
 		"watcher-registry",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
 	},
 
 	"audit-config-updater": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -781,6 +812,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -795,9 +827,18 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"bootstrap": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -811,6 +852,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -825,6 +867,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"broker-tracker": {
@@ -840,6 +890,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"certificate-updater": {
+
 		"agent",
 		"api-remote-caller",
 		"certificate-watcher",
@@ -853,6 +904,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -871,6 +923,10 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
 	},
 
 	"certificate-watcher": {
@@ -890,6 +946,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"change-stream-pruner": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -903,6 +960,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-primary-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -917,11 +975,20 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"clock": {},
 
 	"control-socket": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -934,6 +1001,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -948,6 +1016,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"controller-agent-config": {
@@ -963,6 +1039,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"controller-presence": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -975,6 +1052,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -989,6 +1067,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"db-accessor": {
@@ -1071,6 +1157,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"http-client": {},
 
 	"http-server": {
+
 		"agent",
 		"api-remote-caller",
 		"api-server",
@@ -1091,6 +1178,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"jwt-parser",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1107,9 +1195,17 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
 		"watcher-registry",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
 	},
 
 	"http-server-args": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -1124,6 +1220,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1138,9 +1235,18 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"provider-tracker": {
+
 		"agent",
 		"change-stream",
 		"controller-agent-config",
@@ -1148,9 +1254,19 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"file-notify-watcher",
 		"is-controller-flag",
 		"log-sink",
+		"log-router",
 		"provider-services",
 		"query-logger",
 		"state-config-watcher",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"is-bootstrap-flag": {
@@ -1179,6 +1295,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"jwt-parser": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -1191,6 +1308,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1205,6 +1323,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"lease-expiry": {
@@ -1273,7 +1399,19 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"log-sink": {},
+	"log-sink": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"log-router",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"log-router": {
 		"agent",
@@ -1349,6 +1487,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"model-worker-manager": {
+
 		"agent",
 		"api-remote-caller",
 		"api-remote-relation-caller",
@@ -1363,6 +1502,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1381,6 +1521,10 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
 	},
 
 	"provider-services": {
@@ -1556,6 +1700,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"domain-services": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -1567,6 +1712,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1581,6 +1727,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"ssh-authkeys-updater": {
@@ -1608,6 +1762,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"ssh-server": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -1620,6 +1775,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1634,6 +1790,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"state-config-watcher": {"agent"},
@@ -1666,6 +1830,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"storage-registry": {
+
 		"agent",
 		"change-stream",
 		"controller-agent-config",
@@ -1673,10 +1838,20 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"file-notify-watcher",
 		"is-controller-flag",
 		"log-sink",
+		"log-router",
 		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"state-config-watcher",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"termination-signal-handler": {},
@@ -1712,6 +1887,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"object-store",
@@ -1735,6 +1911,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"undertaker": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -1747,6 +1924,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1761,6 +1939,14 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"upgrade-check-flag": {"upgrade-check-gate"},
@@ -1809,6 +1995,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"upgrade-steps-gate": {},
 
 	"upgrade-controller-steps-runner": {
+
 		"agent",
 		"api-caller",
 		"api-remote-caller",
@@ -1823,6 +2010,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -1838,6 +2026,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
 	},
 
 	"upgrade-agent-steps-runner": {
@@ -1889,6 +2082,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"object-store-facade",
@@ -1912,6 +2106,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"api-address-setter": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -1925,6 +2120,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-primary-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store",
 		"object-store-facade",
 		"object-store-fortress",
@@ -1939,6 +2135,14 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"api-caller": {"agent", "api-config-watcher"},
@@ -1958,6 +2162,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"api-remote-relation-caller": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -1970,6 +2175,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store",
 		"object-store-facade",
 		"object-store-fortress",
@@ -1984,9 +2190,18 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"api-server": {
+
 		"agent",
 		"api-remote-caller",
 		"audit-config-updater",
@@ -2005,6 +2220,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"jwt-parser",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2021,9 +2237,17 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
 		"watcher-registry",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
 	},
 
 	"audit-config-updater": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2036,6 +2260,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2050,9 +2275,18 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"bootstrap": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2066,6 +2300,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2080,6 +2315,14 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"certificate-watcher": {
@@ -2099,6 +2342,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"change-stream-pruner": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2112,6 +2356,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-primary-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2126,11 +2371,20 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"clock": {},
 
 	"control-socket": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2143,6 +2397,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2157,6 +2412,14 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"controller-agent-config": {
@@ -2172,6 +2435,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"controller-presence": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2184,6 +2448,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2198,6 +2463,14 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"db-accessor": {
@@ -2259,6 +2532,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"http-client": {},
 
 	"http-server": {
+
 		"agent",
 		"api-remote-caller",
 		"api-server",
@@ -2279,6 +2553,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"jwt-parser",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2295,9 +2570,17 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
 		"watcher-registry",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
 	},
 
 	"http-server-args": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2312,6 +2595,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2326,9 +2610,18 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"provider-tracker": {
+
 		"agent",
 		"change-stream",
 		"controller-agent-config",
@@ -2336,9 +2629,19 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"file-notify-watcher",
 		"is-controller-flag",
 		"log-sink",
+		"log-router",
 		"provider-services",
 		"query-logger",
 		"state-config-watcher",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"is-bootstrap-flag": {
@@ -2365,6 +2668,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"jwt-parser": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2377,6 +2681,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2391,6 +2696,14 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"lease-expiry": {
@@ -2423,7 +2736,19 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 	},
 
-	"log-sink": {},
+	"log-sink": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"log-router",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 
 	"log-router": {
 		"agent",
@@ -2487,6 +2812,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"model-worker-manager": {
+
 		"agent",
 		"api-remote-caller",
 		"api-remote-relation-caller",
@@ -2501,6 +2827,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2519,6 +2846,10 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
 	},
 
 	"provider-services": {
@@ -2682,6 +3013,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"domain-services": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2693,6 +3025,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2707,6 +3040,14 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"ssh-identity-writer": {
@@ -2722,6 +3063,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"ssh-server": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2734,6 +3076,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2748,11 +3091,20 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"state-config-watcher": {"agent"},
 
 	"storage-registry": {
+
 		"agent",
 		"change-stream",
 		"controller-agent-config",
@@ -2760,15 +3112,26 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"file-notify-watcher",
 		"is-controller-flag",
 		"log-sink",
+		"log-router",
 		"provider-services",
 		"provider-tracker",
 		"query-logger",
 		"state-config-watcher",
+		"api-caller",
+		"api-config-watcher",
+		"http-client",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"termination-signal-handler": {},
 
 	"undertaker": {
+
 		"agent",
 		"api-remote-caller",
 		"change-stream",
@@ -2781,6 +3144,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2795,6 +3159,14 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace-services",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
 	},
 
 	"upgrade-check-flag": {"upgrade-check-gate"},
@@ -2843,6 +3215,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"upgrade-steps-gate": {},
 
 	"upgrade-controller-steps-runner": {
+
 		"agent",
 		"api-caller",
 		"api-remote-caller",
@@ -2857,6 +3230,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
+		"log-router",
 		"object-store-facade",
 		"object-store-fortress",
 		"object-store-s3-caller",
@@ -2872,6 +3246,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-steps-gate",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
 	},
 
 	"upgrade-agent-steps-runner": {

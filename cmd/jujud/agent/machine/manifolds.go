@@ -194,9 +194,6 @@ type ManifoldsConfig struct {
 	// worker to perform the upgrade steps.
 	UpgradeSteps upgrades.UpgradeStepsFunc
 
-	// LogSink defines an interface for writing log records to a log sink.
-	LogSink corelogger.LogSink
-
 	// LogSource supplies log records to the logrouter. It is the output
 	// channel of the BufferedLogWriter installed on the default loggo
 	// context.
@@ -626,10 +623,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
 			AgentTag:       agentTag,
+			LogRouterName:  logRouterName,
 			Clock:          config.Clock,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
-			LogSink:        config.LogSink,
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
