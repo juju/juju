@@ -88,7 +88,7 @@ Attributes:
 - `key`: PEM encoded private key (required).
 - `pass-phrase`: Passphrase used to unlock the key (required).
 - `fingerprint`: Private key fingerprint (required).
-- `region`: DEPRECATED -- Region to log into (required).
+- `region`: DEPRECATED -- Region to log into (optional).
 
 (oci-controller)=
 ## Controllers
