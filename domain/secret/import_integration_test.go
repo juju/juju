@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
@@ -56,7 +57,7 @@ func (s *importSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *importSuite) setupService(c *tc.C) *service.SecretService {
-	secretState := state.NewState(s.ModelSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	secretState := state.NewState(s.ModelSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c), clock.WallClock)
 	secretBackendState := secretbackendstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	return service.NewSecretService(
 		secretState,

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coredatabase "github.com/juju/juju/core/database"
@@ -36,14 +37,16 @@ import (
 // State represents database interactions dealing with storage pools.
 type State struct {
 	*domain.StateBase
+	clock  clock.Clock
 	logger logger.Logger
 }
 
 // NewState returns a new secretMetadata state
 // based on the input database factory method.
-func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *State {
+func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger, clock clock.Clock) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
 		logger:    logger,
 	}
 }
