@@ -159,7 +159,6 @@ Oracle OCI supports the following {ref}`constraints <constraint>`:
 
 - {ref}`constraint-arch`. Valid values: `amd64`, `arm64`.
 - {ref}`constraint-cores`
-- {ref}`constraint-cpu-power`
 - {ref}`constraint-instance-type`. Valid values: Any OCI shape. Examples: `VM.Standard.E4.Flex` (flexible VM), `BM.Standard.E4.Bare` (bare metal), `VM.Standard.A1.Flex` (Ampere ARM), `BM.GPU.A100-v2` (GPU).
 - {ref}`constraint-mem`
 
