@@ -25,6 +25,13 @@ type LogRecord struct {
 	Message  string
 	Labels   map[string]string
 
+	// ModelUUID and Entity optionally carry the originating model and
+	// entity for records forwarded from controller-side model log sinks.
+	// When empty, logrouter backends fall back to their configured
+	// topology values.
+	ModelUUID string
+	Entity    string
+
 	// Number of messages dropped after this one due to buffer limit.
 	DroppedAfter int
 }
