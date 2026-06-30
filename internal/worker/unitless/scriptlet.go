@@ -72,11 +72,3 @@ type Event struct {
 	// Attrs are data associated with the event.
 	Attrs map[string]any
 }
-
-// Validate checks that an event has the minimum data needed for dispatch.
-func (e Event) Validate() error {
-	if e.Name == "" {
-		return errors.New("empty scriptlet event name not valid").Add(coreerrors.NotValid)
-	}
-	return nil
-}
