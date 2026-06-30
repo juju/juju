@@ -28,6 +28,12 @@ func (s *CheckLogSink) Log(records []logger.LogRecord) error {
 	return nil
 }
 
+// WatchRefresh implements logger.LogSink. The check sink never changes
+// its underlying target, so the returned channel never fires.
+func (s *CheckLogSink) WatchRefresh() <-chan struct{} {
+	return logger.NoRefresh()
+}
+
 // Write writes a message to the Writer with the given level and module
 // name. The filename and line hold the file name and line number of the
 // code that is generating the log message; the time stamp holds the time
