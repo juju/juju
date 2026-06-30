@@ -149,8 +149,10 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 		DownloadSize:       int64(resp.Entity.Download.Size),
 	}
 
-	// Resources are best effort here and come directly from the Charmhub
-	// resolve response for the supplied origin.
+	// Resources should be populated with either the resources co-released
+	// with the specified charm revision + channel (if both specified), or
+	// the latest resources from the channel (if channel specified), or the
+	// latest resources from the default channel (neither specified).
 	resourceResults, err := transformResourceRevision(resp.Entity.Resources)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, internalerrors.Capture(err)
