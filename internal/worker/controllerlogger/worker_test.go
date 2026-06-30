@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/loggo/v3"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 
@@ -45,7 +44,6 @@ func (s *WorkerSuite) SetUpTest(c *tc.C) {
 	s.config = controllerlogger.Config{
 		Context:        s.context,
 		ModelConfigSvc: s.service,
-		Tag:            names.NewControllerAgentTag("0"),
 		Logger:         loggertesting.WrapCheckLog(c),
 		UpdateAgentFunc: func(v string) error {
 			s.mu.Lock()

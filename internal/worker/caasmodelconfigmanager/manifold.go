@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/docker/registry"

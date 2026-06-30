@@ -111,18 +111,48 @@ type ManifoldsConfig struct {
 	// HTTPClientGetter is used to get a http client for a given namespace.
 	HTTPClientGetter http.HTTPClientGetter
 
-	// APIRemoteRelationClientGetter is used to get a remote relation client
-	// for a given namespace.
+	// APIRemoteRelationClientGetter is used to get a remote relation client for
+	// a given namespace.
 	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
 
-	ModelUUID            string
-	AgentTag             names.Tag
-	ModelTag             names.ModelTag
-	DataDir              string
-	LogDir               string
-	ControllerTag        names.ControllerTag
+	// ModelUUID is the UUID of the model this agent manages.
+	ModelUUID string
+
+	// AgentTag is the tag of the agent process hosting these model workers. It
+	// is used as the Claimant for the model's singular lease (see
+	// isResponsibleFlagName), so that only one agent holds the run-flag for a
+	// given model at any time.
+	//
+	// This is intentionally typed as the generic names.Tag rather than a
+	// concrete tag kind, because jujuagentd's MachineAgent runs both as a
+	// machine agent (names.MachineTag) and as a controller agent
+	// (names.ControllerAgentTag) depending on whether it is started with
+	// --machine-id or --controller-id. The singular lease worker accepts either
+	// kind, so narrowing to names.ControllerAgentTag here would force callers to
+	// perform an unsafe type assertion that panics for machine agents. See
+	// machine.go startModelWorkers.
+	AgentTag names.Tag
+
+	// ModelTag is the tag of the model being managed.
+	ModelTag names.ModelTag
+
+	// DataDir is the directory where the agent stores its data.
+	DataDir string
+
+	// LogDir is the directory where the agent writes its logs.
+	LogDir string
+
+	// ControllerTag is the tag of the controller that owns this model,
+	// identified by the controller's UUID. For example:
+	// "controller-a1b2c3d4-e5f6-7890-abcd-ef1234567890".
+	ControllerTag names.ControllerTag
+
+	// StartupValueProvider supplies startup configuration values for the model
+	// operator and logging override reader.
 	StartupValueProvider ModelStartupValueProvider
-	UpdateLoggerConfig   func(string) error
+
+	// UpdateLoggerConfig updates the agent's logging configuration.
+	UpdateLoggerConfig func(string) error
 }
 
 type ModelStartupValueProvider interface {
@@ -193,7 +223,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:    domainServicesName,
 			LoggerContext:         config.LoggingContext,
 			Logger:                config.LoggingContext.GetLogger("juju.worker.logger"),
-			Tag:                   config.AgentTag,
 			LoggingOverrideReader: config.StartupValueProvider,
 			UpdateAgentFunc:       config.UpdateLoggerConfig,
 		})),
@@ -417,7 +446,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetMachineService:  provisioner.GetMachineService,
 			GetDomainServices:  provisioner.GetDomainServices,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.provisioner"),
-			AgentTag:           config.AgentTag,
 			ModelUUID:          config.ModelUUID,
 			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),
