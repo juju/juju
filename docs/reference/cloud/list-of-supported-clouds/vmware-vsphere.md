@@ -170,7 +170,7 @@ VMware vSphere supports the following {ref}`cloud-specific model configuration k
 - **`datastore`**: The datastore in which to create VMs. If this is not specified, the process will abort unless there is only one datastore available. Type: `string`. Default: none.
 
 (vsphere-model-disk-provisioning-type)=
-- **`disk-provisioning-type`**: Specify how the disk should be provisioned when cloning the VM template. Allowed values: `thickEagerZero` (default), `thick`, `thin`. Type: `string`. Default: `"thick"`.
+- **`disk-provisioning-type`**: Specify how the disk should be provisioned when cloning the VM template. Allowed values: `thin`, `thick` (default), `thick-lazy-zero`. Type: `string`. Default: `"thick"`.
 
 (vsphere-model-enable-disk-uuid)=
 - **`enable-disk-uuid`**: Expose consistent disk UUIDs to the VM, equivalent to `disk.EnableUUID`. Enables consistent `/dev/disk/by-id/` paths in guest OS. Type: `bool`. Default: `true`.
@@ -236,7 +236,7 @@ Applies to all machines, including controller machines. Controller-specific defa
 
 **Storage**
 
-- **Root disk**: VMDK from template, extended post-clone if constraint specifies larger size. Provisioning type: `thin`, `thick`, or `thickEagerZero` via `disk-provisioning-type` config. Datastore selected from compute resource's accessible datastores (must be explicit if multiple available).
+- **Root disk**: VMDK from template, extended post-clone if constraint specifies larger size. Provisioning type: `thin`, `thick`, or `thick-lazy-zero` via `disk-provisioning-type` config. Datastore selected from compute resource's accessible datastores (must be explicit if multiple available).
 
 (vsphere-machine-networking-behavior)=
 ### Networking behavior
@@ -251,7 +251,7 @@ Applies to all machines, including controller machines. Controller-specific defa
 
 - **VMDK only**: All storage operations use VMDK provisioning from templates. Only root disk is supported -- no secondary volumes, snapshots, or persistent volume creation.
 - **Datastore selection**: Must be specified via `datastore` model config if multiple datastores are available; otherwise bootstrap aborts.
-- **Disk provisioning type**: Configurable via `disk-provisioning-type` model config (`thickEagerZero`, `thick`, or `thin`).
+- **Disk provisioning type**: Configurable via `disk-provisioning-type` model config (`thin`, `thick` (default), or `thick-lazy-zero`).
 
 (vsphere-storage)=
 ## Storage

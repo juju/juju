@@ -329,6 +329,22 @@ Workflow heading style: `### <Verb phrase>` (e.g. `### Authenticate with managed
 2. Check `docs/reference/space.md` for cloud-specific spaces behavior (single NIC vs multiple NICs, inherited vs discovered subnets) and add any limitations to `## Limitations`.
 3. Follow the structure and conventions above. The canonical example for machine clouds is `amazon-ec2.md`; for Kubernetes clouds, use `microk8s.md` (stub) alongside the `docs/reference/cloud/list-of-supported-clouds/list-of-supported-clouds/reuse/k8s/` snippets.
 
+### Verifying constraint accuracy against code
+
+The constraint tables are the most error-prone section. Before committing, cross-check each documented constraint against the provider code:
+
+**Step 1 — Check `var unsupportedConstraints`** in `environ_policy.go` (or `environ.go`, `constraints.go` — search with `grep -rn "var unsupportedConstraints" internal/provider/<cloud>/`). Any constraint in this list must **not** appear in the doc's constraint table.
+
+**Step 2 — Check `validator.RegisterConflicts`** calls. The conflict note in the doc must exactly match what is registered. Common mistake: listing a constraint in the conflict group when it is only conditionally conflicting (e.g. OpenStack `root-disk` is validated in `PrecheckInstance`, not `RegisterConflicts`).
+
+**Step 3 — Check `validator.RegisterVocabulary`** for `constraints.Arch` and other vocabulary-restricted constraints. If arch is registered as `[amd64, arm64]`, the doc must say `Valid values: amd64, arm64`.
+
+**Step 4 — Check `RegisterConflictResolver`**. If a conflict has a resolver (e.g. EC2 and Azure allow `instance-type` + `arch` together when they are compatible), the conflict note must mention the exception.
+
+**Step 5 — Check that documented constraints are actually used.** If a constraint is not in `unsupportedConstraints` but is also never referenced in `StartInstances`/`environ.go`, Juju will accept it but silently ignore it. Such constraints should be omitted from the doc (e.g. OCI `cpu-power`).
+
+The storage provider section likewise needs checking against `storage.go`: verify `DefaultPools()` for pool names, `ConfigSchema()` for `account-type` defaults and valid values, and the storage provider type name.
+
 ---
 
 ## Changelog
@@ -342,3 +358,4 @@ Workflow heading style: `### <Verb phrase>` (e.g. `### Authenticate with managed
 | 2026-06-18 | Compacted config key format: anchored bullets, inline Type/Default. Env vars moved under specific auth type. |
 | 2026-06-24 | Major restructure session: entity axis confirmed as primary skeleton. `## Security` → `## Registration` → `## The cloud` + `## Credentials` (promoted); `## Bootstrap` → `## Controllers`; `## Compute`/`## Networking` top-level sections removed; Compute/Networking/Storage as bold sub-groupings within entity sections. `## Prerequisites` split into `## Limitations` (first) + `## Requirements`; both omitted when empty. Spaces behavior incorporated. `### Storage behavior` added parallel to `### Networking behavior` under Machines. Rationale documented. |
 | 2026-06-25 | Removed `## Distribution-specific notes` from K8s cloud template. Cloud-specific details (requirements, adding the cloud, bootstrap prep) moved into the relevant entity section (`## The cloud` or `## Controllers`). Fixed snippet path typo. |
+| 2026-06-30 | Added constraint-accuracy audit procedure to "Adding a new cloud" section. Corrections applied to all clouds: EC2 (`allocate-public-ip`, `virt-type` removed; `arch` added to `instance-type` conflict with resolver note); GCE (`arch` removed from `instance-type` conflict); Azure (`arm64` added to arch vocab; `StandardSSD_LRS` added as default storage account type); OpenStack (`access-key` auth type added; `instance-type` conflict corrected from `[mem, root-disk, cores]` to `[mem, cores]` with `root-disk` conditional note); OCI (`cpu-power` removed -- silently ignored by provider; `region` credential marked optional not required); vSphere (disk-provisioning-type corrected: `thin`, `thick` (default), `thick-lazy-zero` -- `thickEagerZero` does not exist in code). |

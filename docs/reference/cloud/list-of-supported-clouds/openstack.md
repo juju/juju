@@ -106,6 +106,19 @@ Attributes:
 - `project-domain-name`: The OpenStack project domain name (optional).
 - `user-domain-name`: The OpenStack user domain name (optional).
 
+(openstack-credential-access-key)=
+#### `access-key`
+
+For OpenStack deployments that expose an EC2-compatible endpoint.
+
+Attributes:
+
+- `access-key`: The access key to authenticate with (required).
+- `secret-key`: The secret key to authenticate with (required).
+- `tenant-name`: The OpenStack tenant name (optional).
+- `tenant-id`: The OpenStack tenant ID (optional).
+- `version`: The OpenStack identity version (optional).
+
 (openstack-controller)=
 ## Controllers
 

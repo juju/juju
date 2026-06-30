@@ -175,7 +175,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 Amazon EC2 supports the following {ref}`constraints <constraint>`:
 
 ```{note}
-The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclusive.
+The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually exclusive, unless `arch` matches the instance type's architecture, in which case they can be combined.
 ```
 
 **Compute**
@@ -188,11 +188,8 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 - {ref}`constraint-instance-role`. Values: `auto` (creates role automatically) or an [instance profile](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) name.
 - {ref}`constraint-instance-type`. Valid values: Any EC2 instance type. Default: `m3.medium`.
 - {ref}`constraint-mem`
-- {ref}`constraint-virt-type`
-
 **Networking**
 
-- {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-spaces`
 - {ref}`constraint-zones`
 
