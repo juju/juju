@@ -326,6 +326,7 @@ markdown_http_base = "https://documentation.ubuntu.com/juju/4.0"
 
 exclude_patterns = [
     "doc-cheat-sheet*",
+    "agents/**",
 ]
 
 # Adds custom CSS files, located under 'html_static_path'
