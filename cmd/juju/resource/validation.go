@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
+	apidocker "github.com/juju/juju/api/docker"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	charmresource "github.com/juju/juju/internal/charm/resource"
@@ -44,7 +45,7 @@ func ValidateResources(resources map[string]charmresource.Meta) error {
 
 // getDockerDetailsData determines if path is a local file path and extracts the
 // details from that otherwise path is considered to be a registry path.
-func getDockerDetailsData(path string, osOpen osOpenFunc) (docker.DockerImageDetails, error) {
+func getDockerDetailsData(path string, osOpen osOpenFunc) (apidocker.DockerImageDetails, error) {
 	f, err := osOpen(path)
 	if err == nil {
 		defer f.Close()
@@ -54,11 +55,11 @@ func getDockerDetailsData(path string, osOpen osOpenFunc) (docker.DockerImageDet
 		}
 		return details, nil
 	} else if err := docker.ValidateDockerRegistryPath(path); err == nil {
-		return docker.DockerImageDetails{
+		return apidocker.DockerImageDetails{
 			RegistryPath: path,
 		}, nil
 	}
-	return docker.DockerImageDetails{}, errors.NotValidf("filepath or registry path: %s", path)
+	return apidocker.DockerImageDetails{}, errors.NotValidf("filepath or registry path: %s", path)
 
 }
 
@@ -72,13 +73,7 @@ func ValidateResourceDetails(res map[string]string, resMeta map[string]charmreso
 		case charmresource.TypeFile:
 			err = utils.CheckFile(name, value, fs)
 		case charmresource.TypeContainerImage:
-			var dockerDetails docker.DockerImageDetails
-			dockerDetails, err = getDockerDetailsData(value, fs.Open)
-			if err != nil {
-				return errors.Annotatef(err, "resource %q", name)
-			}
-			// At the moment this is the same validation that occurs in getDockerDetailsData
-			err = docker.CheckDockerDetails(name, dockerDetails)
+			err = docker.ValidateDockerRegistryPath(value)
 		default:
 			return fmt.Errorf("unknown resource: %s", name)
 		}
@@ -123,8 +118,8 @@ func (noopCloser) Close() error {
 	return nil
 }
 
-func unMarshalDockerDetails(data io.Reader) (docker.DockerImageDetails, error) {
-	var details docker.DockerImageDetails
+func unMarshalDockerDetails(data io.Reader) (apidocker.DockerImageDetails, error) {
+	var details apidocker.DockerImageDetails
 	contents, err := io.ReadAll(data)
 	if err != nil {
 		return details, errors.Trace(err)
@@ -144,7 +139,7 @@ func unMarshalDockerDetails(data io.Reader) (docker.DockerImageDetails, error) {
 		}
 	}
 	if err := docker.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
-		return docker.DockerImageDetails{}, err
+		return apidocker.DockerImageDetails{}, err
 	}
 	return details, nil
 }
