@@ -94,7 +94,12 @@ func (c ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the logrouter worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.AgentName, config.APICallerName, config.HTTPClientName},
+		Inputs: []string{
+			config.AgentName,
+			config.APICallerName,
+			config.HTTPClientName,
+		},
+		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, internalerrors.Capture(err)
@@ -132,6 +137,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			})
 		},
 	}
+}
+
+// outputFunc extracts the LogRouter interface from the running log router
+// worker so that dependants (such as the log sink) can access the active
+// LogSink.
+func outputFunc(in worker.Worker, out any) error {
+	if w, ok := in.(*logRouter); ok {
+		switch p := out.(type) {
+		case *LogRouter:
+			*p = w
+		case *corelogger.LogSink:
+			*p = w.LogSink()
+		default:
+			return errors.Errorf("unsupported output type %T", out)
+		}
+		return nil
+	}
+	return errors.Errorf("expected *logRouter, got %T", in)
 }
 
 // NewBackend returns the default backend constructor.

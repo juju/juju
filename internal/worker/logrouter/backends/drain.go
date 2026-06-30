@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/worker/v5/catacomb"
 
+	corelogger "github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/worker/logsender"
 )
@@ -46,6 +47,20 @@ func (w *drainBackend) Wait() error {
 // LogRecords returns the channel on which log records are sent to the backend.
 func (w *drainBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
+}
+
+// Log implements corelogger.LogSink by converting records to the internal
+// logsender format and submitting them to the backend's record channel. The
+// records are discarded by the drain loop.
+func (w *drainBackend) Log(records []corelogger.LogRecord) error {
+	return sendRecords(w.records, records)
+}
+
+// WatchRefresh implements corelogger.LogSink. Individual backends never
+// change their underlying target; refresh signalling is handled by the log
+// router when switching backends.
+func (w *drainBackend) WatchRefresh() <-chan struct{} {
+	return corelogger.NoRefresh()
 }
 
 // Report returns a report of the drain backend's current state.

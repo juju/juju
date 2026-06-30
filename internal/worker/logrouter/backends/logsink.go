@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/worker/v5"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/logsender"
 )
 
@@ -29,6 +30,19 @@ func NewLogSink(logSenderAPI logsender.LogSenderAPI, backendBufferSize int) (Bac
 // LogRecords returns the channel on which log records are sent to the backend.
 func (w *logSinkBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
+}
+
+// Log implements corelogger.LogSink by converting records to the internal
+// logsender format and submitting them to the backend's record channel.
+func (w *logSinkBackend) Log(records []corelogger.LogRecord) error {
+	return sendRecords(w.records, records)
+}
+
+// WatchRefresh implements corelogger.LogSink. Individual backends never
+// change their underlying target; refresh signalling is handled by the log
+// router when switching backends.
+func (w *logSinkBackend) WatchRefresh() <-chan struct{} {
+	return corelogger.NoRefresh()
 }
 
 // Report returns a report of the underlying logsink worker when available.
