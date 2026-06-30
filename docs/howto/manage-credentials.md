@@ -22,13 +22,18 @@ See first: {ref}`add-a-cloud`
 
 The procedure for how to add a cloud credential to Juju depends on whether the cloud is a machine (traditional, non-Kubernetes) cloud or rather a Kubernetes cloud.
 
+(add-a-machine-cloud-credential)=
 ### Add a credential for a machine cloud
+
+```{ibnote}
+See also: {ref}`list-of-supported-clouds`
+```
 
 In general, if your cloud is a local LXD cloud and if you have controller {ref}`user-access-controller-superuser` access: Your cloud credential is set up and retrieved automatically for you, so you can skip this step; run `juju credentials` to confirm. (If you only have {ref}`user-access-cloud-add-model` access, you might still be able to make this happen automatically by running `juju autoload-credentials`.)
 
 Otherwise, to add a machine cloud credential to Juju:
 
-1. Choose a cloud authentication type and collect the information required for that type from your cloud account. The authentication types and the information needed for each type depend on your chosen cloud. Run `juju show-cloud` or consult {ref}`the cloud reference doc <list-of-supported-machine-clouds>` to find out.
+1. Choose a cloud authentication type and collect the information required for that type from your cloud account. The authentication types and the information needed for each type depend on your chosen cloud. Run `juju show-cloud` or consult the cloud-specific reference doc to find out.
 
 1. Provide this information to Juju. You may do so in three ways -- interactively, by specifying a YAML file, or automatically, by having Juju check your local YAML files or environment variables. In general, we recommend the interactive method. (The latter two are both error-prone, and the last one is not available for all clouds.)
 
@@ -66,7 +71,12 @@ Otherwise, to add a machine cloud credential to Juju:
     See more: {ref}`command-juju-autoload-credentials`
     ```
 
+(add-a-kubernetes-cloud-credential)=
 ### Add a credential for a Kubernetes cloud
+
+```{ibnote}
+See also: {ref}`list-of-supported-clouds`
+```
 
 For a Kubernetes cloud, credential definitions are added automatically when you add the cloud definition to Juju. Run `juju credentials` to verify.
 
