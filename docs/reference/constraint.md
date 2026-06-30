@@ -86,7 +86,7 @@ A comma-delimited list of Juju network space names that a unit or machine needs 
 (constraint-tags)=
 ### `tags`
 
-Comma-delimited tags assigned to the machine. Tags can be positive, denoting an attribute of the machine, or negative (prefixed with `^`), to denote something that the machine does not have. <p> Example: `tags=virtual,^dualnic` <p> **Note:** Currently only supported by the MAAS provider.
+Comma-delimited tags assigned to the machine. Tags can be positive, denoting an attribute of the machine, or negative (prefixed with `^`), to denote something that the machine does not have. <p> Example: `tags=virtual,^dualnic` <p> **Note:** Supported by MAAS and by Kubernetes clouds (where it is used for pod affinity and anti-affinity).
 
 (constraint-virt-type)=
 ### `virt-type`
