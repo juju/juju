@@ -10,6 +10,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/constraints"
@@ -82,7 +83,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.svc = service.NewSecretService(
 		state.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 			return s.ModelTxnRunner(c, s.modelUUID.String()), nil
-		}, loggertesting.WrapCheckLog(c)),
+		}, loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.secretBackendState,
 		nil,
 		loggertesting.WrapCheckLog(c),
