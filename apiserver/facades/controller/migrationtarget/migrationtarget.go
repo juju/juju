@@ -75,10 +75,6 @@ type ExternalControllerService interface {
 	// ControllerForModel returns the controller record that's associated
 	// with the modelUUID.
 	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
-
-	// UpdateExternalController persists the input controller
-	// record.
-	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 }
 
 // ControllerConfigService provides a subset of the controller config domain
@@ -421,42 +417,18 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 		sourceControllerUUID = cTag.Id()
 	}
 
-	// Add any required external controller records if there are cross model
-	// relations to the source controller that were local but now need to be
-	// external after migration.
-	// This blind upsert is interim: the source-controller registration will
-	// move into ActivateModel's compare-or-insert reconciliation.
-	if len(args.CrossModelUUIDs) > 0 {
-		err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
-			ControllerUUID: sourceControllerUUID,
-			Alias:          args.ControllerAlias,
-			Addrs:          args.SourceAPIAddrs,
-			CACert:         args.SourceCACert,
-			ModelUUIDs:     args.CrossModelUUIDs,
-		})
-		if err != nil {
-			return errors.Errorf(
-				"cannot save source controller %q info when activating model %q: %w",
-				sourceControllerUUID, modelUUID, err,
-			)
-		}
-	}
-
 	// Activate the import via the v8 orchestration seam: transitions the claim
-	// to activating, bumps the model agent version, clears the import gate,
-	// and deletes the claim last. Also handles legacy (no-claim) imports.
-	if err := api.modelImporter.ActivateModel(ctx, migration.ActivateModelArgs{
+	// to activating, reconciles CMR offerer-controller references, bumps the
+	// model agent version, clears the import gate, and deletes the claim last.
+	// Also handles legacy (no-claim) imports.
+	return errors.Capture(api.modelImporter.ActivateModel(ctx, migration.ActivateModelArgs{
 		ModelUUID:             modelUUID,
 		SourceControllerUUID:  sourceControllerUUID,
 		SourceControllerAlias: args.ControllerAlias,
 		SourceCACert:          args.SourceCACert,
 		SourceAPIAddrs:        args.SourceAPIAddrs,
 		CrossModelUUIDs:       args.CrossModelUUIDs,
-	}); err != nil {
-		return errors.Capture(err)
-	}
-
-	return nil
+	}))
 }
 
 // LatestLogTime returns the time of the most recent log record

@@ -12,7 +12,17 @@ import (
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
+
+// newUUID is a package-level variable to allow test-time injection.
+var newUUID = func() (string, error) {
+	u, err := internaluuid.NewUUID()
+	if err != nil {
+		return "", err
+	}
+	return u.String(), nil
+}
 
 // These methods implement the target-side v8 import claim, the
 // importing-phase assertion used to gate controller-data write groups, and
@@ -359,6 +369,36 @@ WHERE model_uuid = $modelUUIDArg.model_uuid
 	})
 }
 
+// EnsureSourceControllerExists is a primitive-typed wrapper around
+// [EnsureExternalControllerExists] for callers outside the
+// domain/modelmigration tree (e.g. internal/migration). It builds the
+// internal representation and generates address row UUIDs before delegating.
+// The semantics are identical: compare-or-insert, never overwrite.
+func (s *State) EnsureSourceControllerExists(
+	ctx context.Context,
+	controllerUUID, alias, caCert string,
+	addrs, consumedModels []string,
+) error {
+	internalAddrs := make([]modelmigrationinternal.ExternalControllerAddress, 0, len(addrs))
+	for _, addr := range addrs {
+		addrUUID, err := newUUID()
+		if err != nil {
+			return errors.Errorf("generating source controller address UUID: %w", err)
+		}
+		internalAddrs = append(internalAddrs, modelmigrationinternal.ExternalControllerAddress{
+			UUID:    addrUUID,
+			Address: addr,
+		})
+	}
+	return s.EnsureExternalControllerExists(ctx, modelmigrationinternal.ExternalController{
+		UUID:           controllerUUID,
+		Alias:          alias,
+		CACert:         caCert,
+		Addresses:      internalAddrs,
+		ConsumedModels: consumedModels,
+	})
+}
+
 // EnsureExternalControllerExists compares the given third-party controller's
 // connection details (alias, CA cert, addresses) against any existing
 // external_controller row with the same UUID. It inserts the controller and
@@ -538,4 +578,58 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 		}
 		return nil
 	})
+}
+
+// ExternalControllerModels holds a third-party offerer-model to controller
+// mapping recorded by ImportExternalControllers during import.
+type ExternalControllerModels struct {
+	OffererModelUUID string
+	ControllerUUID   string
+}
+
+// ExternalControllerModelsForImport returns the third-party offerer-model to
+// controller mappings stored in model_migration_import_external_controller_model
+// for the given model's import claim. These are consumed by ActivateModel to
+// populate application_remote_offerer.offerer_controller_uuid for relations
+// that cross a third-party controller boundary.
+//
+// Returns an empty slice when no mappings exist or when the model has no claim.
+func (s *State) ExternalControllerModelsForImport(
+	ctx context.Context, modelUUID string,
+) ([]ExternalControllerModels, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT mmiecm.offerer_model_uuid AS &importExternalControllerModelArg.offerer_model_uuid,
+       mmiecm.controller_uuid    AS &importExternalControllerModelArg.controller_uuid
+FROM   model_migration_import_external_controller_model AS mmiecm
+JOIN   model_migration_import AS mmi ON mmi.uuid = mmiecm.migration_uuid
+WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid`,
+		importExternalControllerModelArg{}, modelUUIDArg{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []importExternalControllerModelArg
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, stmt, modelUUIDArg{ModelUUID: modelUUID}).GetAll(&rows))
+	}); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, errors.Errorf(
+			"fetching external controller models for import of model %q: %w", modelUUID, err)
+	}
+
+	result := make([]ExternalControllerModels, len(rows))
+	for i, r := range rows {
+		result[i] = ExternalControllerModels{
+			OffererModelUUID: r.OffererModelUUID,
+			ControllerUUID:   r.ControllerUUID,
+		}
+	}
+	return result, nil
 }

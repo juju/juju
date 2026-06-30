@@ -814,4 +814,3 @@ func unitNameFromMinionReportKey(key string) (string, error) {
 	}
 	return "", errors.Errorf("missing unit number")
 }
-

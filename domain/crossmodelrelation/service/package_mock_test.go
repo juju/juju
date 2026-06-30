@@ -185,6 +185,7 @@ type MockModelStateMockRecorder struct {
 	saveMacaroonForRelationExpects                                              []*gomock.Call3_1[context.Context, string, []byte, error]
 	saveRemoteSecretConsumerExpects                                             []*gomock.Call6_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, string, string, error]
 	saveSecretRemoteConsumerExpects                                             []*gomock.Call4_1[context.Context, *secrets.URI, string, secrets.SecretConsumerMetadata, error]
+	setOffererControllerForOffererModelExpects                                  []*gomock.Call3_1[context.Context, string, string, error]
 	updateRemoteSecretRevisionExpects                                           []*gomock.Call4_1[context.Context, *secrets.URI, int, string, error]
 	validateApplicationAndEndpointsForOfferExpects                              []*gomock.Call3_2[context.Context, string, []string, string, error]
 }
@@ -507,6 +508,24 @@ func (mr *MockModelStateMockRecorder) GetOffererModelUUID(ctx, appName any) *Moc
 
 // MockModelStateGetOffererModelUUIDCall is the typed call wrapper for GetOffererModelUUID.
 type MockModelStateGetOffererModelUUIDCall = gomock.Call2_2[context.Context, string, model.UUID, error]
+
+// SetOffererControllerForOffererModel mocks base method.
+func (m *MockModelState) SetOffererControllerForOffererModel(ctx context.Context, offererModelUUID, controllerUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.setOffererControllerForOffererModelExpects, m.ctrl, m, "SetOffererControllerForOffererModel", ctx, offererModelUUID, controllerUUID)
+}
+
+// SetOffererControllerForOffererModel indicates an expected call of SetOffererControllerForOffererModel.
+func (mr *MockModelStateMockRecorder) SetOffererControllerForOffererModel(ctx, offererModelUUID, controllerUUID any) *MockModelStateSetOffererControllerForOffererModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "SetOffererControllerForOffererModel", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(offererModelUUID), gomock.EnsureMatcher(controllerUUID))
+	mr.setOffererControllerForOffererModelExpects = append(mr.setOffererControllerForOffererModelExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateSetOffererControllerForOffererModelCall is the typed call wrapper for SetOffererControllerForOffererModel.
+type MockModelStateSetOffererControllerForOffererModelCall = gomock.Call3_1[context.Context, string, string, error]
 
 // GetOffererRelationUUIDsForConsumers mocks base method.
 func (m *MockModelState) GetOffererRelationUUIDsForConsumers(ctx context.Context, consumerUUIDs ...string) ([]string, error) {

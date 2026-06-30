@@ -6,8 +6,9 @@ package migration
 import (
 	"context"
 
-	"github.com/juju/juju/core/semversion"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/semversion"
+	cmrmodelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state/controller"
 	"github.com/juju/juju/domain/modelmigration"
@@ -86,7 +87,14 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 		}
 	}
 
-	// 2. CMR offerer-controller reconciliation slot.
+	// 2. CMR offerer-controller reconciliation: populate
+	// application_remote_offerer.offerer_controller_uuid while the model is
+	// gated. All updates are idempotent so a retry after a crash is safe.
+	if err := reconcileOffererControllers(ctx, mmCtrl, deps, modelUUIDStr, args); err != nil {
+		return errors.Errorf(
+			"reconciling offerer controller UUIDs for model %q: %w", modelUUIDStr, err,
+		)
+	}
 
 	// 3. Bump model agent version to match controller target, if needed.
 	if err := bumpModelAgentVersion(ctx, mmCtrl, mmModel, modelUUIDStr); err != nil {
@@ -126,6 +134,87 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 		}
 	}
 
+	return nil
+}
+
+// reconcileOffererControllers populates
+// application_remote_offerer.offerer_controller_uuid for all cross-model
+// relations that cross a controller boundary, while the model gate is still
+// held. It handles two cases:
+//
+//   - Source-hosted offerers: applications whose offering model UUID is in
+//     args.CrossModelUUIDs. These lived on the source controller before
+//     migration and now need their controller reference updated to point at the
+//     source controller.
+//
+//   - Third-party offerers: applications whose offering model is hosted on a
+//     controller other than the source, recorded in
+//     model_migration_import_external_controller_model during import. Only
+//     present on the v8 path (hasClaim).
+//
+// The source controller is registered via EnsureExternalControllerExists
+// (compare-or-insert) rather than the legacy blind upsert. All CMR updates are
+// idempotent.
+func reconcileOffererControllers(
+	ctx context.Context,
+	mmCtrl *migrationclaimstate.State,
+	deps Deps,
+	modelUUIDStr string,
+	args ActivateModelArgs,
+) error {
+	if args.SourceControllerUUID == "" {
+		return nil
+	}
+	if len(args.CrossModelUUIDs) > 0 {
+		// Register the source controller using compare-or-insert semantics.
+		if err := mmCtrl.EnsureSourceControllerExists(
+			ctx,
+			args.SourceControllerUUID,
+			args.SourceControllerAlias,
+			args.SourceCACert,
+			args.SourceAPIAddrs,
+			args.CrossModelUUIDs,
+		); err != nil {
+			return errors.Errorf(
+				"registering source controller %q: %w", args.SourceControllerUUID, err,
+			)
+		}
+
+		// Populate offerer_controller_uuid for source-hosted offers.
+		cmrState := cmrmodelstate.NewState(deps.ModelDB, coremodel.UUID(modelUUIDStr), deps.Clock, deps.Logger)
+		for _, offererModelUUID := range args.CrossModelUUIDs {
+			if err := cmrState.SetOffererControllerForOffererModel(
+				ctx, offererModelUUID, args.SourceControllerUUID,
+			); err != nil {
+				return errors.Errorf(
+					"setting offerer controller for source-hosted model %q: %w",
+					offererModelUUID, err,
+				)
+			}
+		}
+	}
+
+	// Third-party offerers (v8 only): mappings recorded during
+	// ImportExternalControllers, read from the companion table.
+	thirdParty, err := mmCtrl.ExternalControllerModelsForImport(ctx, modelUUIDStr)
+	if err != nil {
+		return errors.Errorf(
+			"reading third-party offerer mappings for model %q: %w", modelUUIDStr, err,
+		)
+	}
+	if len(thirdParty) > 0 {
+		cmrState := cmrmodelstate.NewState(deps.ModelDB, coremodel.UUID(modelUUIDStr), deps.Clock, deps.Logger)
+		for _, m := range thirdParty {
+			if err := cmrState.SetOffererControllerForOffererModel(
+				ctx, m.OffererModelUUID, m.ControllerUUID,
+			); err != nil {
+				return errors.Errorf(
+					"setting offerer controller for third-party model %q: %w",
+					m.OffererModelUUID, err,
+				)
+			}
+		}
+	}
 	return nil
 }
 

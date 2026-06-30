@@ -143,6 +143,12 @@ type ModelRemoteApplicationState interface {
 	// application offerer, based on the given application name.
 	GetOffererModelUUID(ctx context.Context, appName string) (coremodel.UUID, error)
 
+	// SetOffererControllerForOffererModel sets the offerer_controller_uuid for
+	// all application_remote_offerer rows whose offerer_model_uuid matches the
+	// given model UUID. Called during model activation to populate the CMR
+	// controller reference. Idempotent.
+	SetOffererControllerForOffererModel(ctx context.Context, offererModelUUID, controllerUUID string) error
+
 	// IsApplicationSynthetic checks if the given application exists in the
 	// model and is a synthetic application, based on the charm source being
 	// 'cmr'.
@@ -621,6 +627,21 @@ func (s *Service) GetOffererModelUUID(ctx context.Context, appName string) (core
 		return coremodel.UUID(""), internalerrors.Capture(err)
 	}
 	return modelUUID, nil
+}
+
+// SetOffererControllerForOffererModel sets the offerer_controller_uuid for all
+// application_remote_offerer rows whose offerer_model_uuid matches the given
+// model UUID, recording which controller hosts the offer. Called during model
+// activation to populate CMR controller references. Idempotent.
+func (s *Service) SetOffererControllerForOffererModel(
+	ctx context.Context, offererModelUUID, controllerUUID string,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return internalerrors.Capture(
+		s.modelState.SetOffererControllerForOffererModel(ctx, offererModelUUID, controllerUUID),
+	)
 }
 
 // GetRelationRemoteModelUUID returns the remote model UUID for the given
