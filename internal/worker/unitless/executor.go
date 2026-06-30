@@ -80,20 +80,18 @@ type starformExecutor struct {
 // Handle handles a single Event, by dispatching it to the Scriptlet associated
 // with the event name, and returning the resulting intents.
 func (e *starformExecutor) Handle(ctx context.Context, event Event) ([]Intent, error) {
-	if err := event.Validate(); err != nil {
-		return nil, errors.Capture(err)
-	}
-
 	attrs, err := attrsToStarlark(event.Attrs)
 	if err != nil {
 		return nil, errors.Errorf("serialising event attrs: %w", err)
 	}
-	collector := new(IntentCollector)
-	if err := e.scriptSet.Handle(ctx, &starform.EventObject{
+	collector := IntentCollector{}
+	eo := starform.EventObject{
 		Name:  event.Name,
 		Attrs: attrs,
-		State: collector,
-	}); err != nil {
+		State: &collector,
+	}
+
+	if err := e.scriptSet.Handle(ctx, &eo); err != nil {
 		return nil, errors.Errorf("handling event %q: %w", event.Name, err)
 	}
 	return collector.Intents(), nil
