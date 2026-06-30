@@ -562,9 +562,9 @@ func testManifoldsConfig() model.ManifoldsConfig {
 	return model.ManifoldsConfig{
 		LoggingContext:       internallogger.DefaultContext(),
 		ModelUUID:            "mock-model-uuid",
-		AgentTag:             names.NewMachineTag("123"),
 		ModelTag:             names.NewModelTag("mock-model-uuid"),
 		ControllerTag:        names.NewControllerTag("mock-controller-uuid"),
+		ControllerAgentTag:   names.NewControllerAgentTag("123"),
 		DataDir:              "/tmp/juju-data",
 		LogDir:               "/tmp/juju-log",
 		StartupValueProvider: mockModelStartupValueProvider{},

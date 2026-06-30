@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -21,7 +20,6 @@ import (
 type Config struct {
 	Context        corelogger.LoggerContext
 	ModelConfigSvc ModelConfigService
-	Tag            names.Tag
 	Logger         corelogger.Logger
 	Override       string
 
@@ -38,9 +36,6 @@ func (c *Config) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
-	}
-	if c.Tag == nil {
-		return errors.NotValidf("missing tag")
 	}
 	return nil
 }
@@ -71,7 +66,7 @@ type loggerWorker struct {
 }
 
 func (l *loggerWorker) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
-	l.config.Logger.Infof(ctx, "controller logger worker started for %q", l.config.Tag.String())
+	l.config.Logger.Infof(ctx, "controller logger worker started")
 	l.setLogging(ctx)
 	return l.config.ModelConfigSvc.Watch(ctx)
 }

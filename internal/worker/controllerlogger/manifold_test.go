@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v3"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	dt "github.com/juju/worker/v5/dependency/testing"
 
@@ -48,7 +47,6 @@ func validManifoldConfig(c *tc.C) controllerlogger.ManifoldConfig {
 		DomainServicesName:    "domain-services",
 		LoggerContext:         internallogger.WrapLoggoContext(loggo.NewContext(loggo.DEBUG)),
 		Logger:                loggertesting.WrapCheckLog(c),
-		Tag:                   names.NewControllerAgentTag("0"),
 		LoggingOverrideReader: stubLoggingOverrideReader{},
 		UpdateAgentFunc:       func(string) error { return nil },
 	}
@@ -68,12 +66,6 @@ func (s *ManifoldSuite) TestValidateNilLoggerContext(c *tc.C) {
 
 func (s *ManifoldSuite) TestValidateNilLogger(c *tc.C) {
 	s.config.Logger = nil
-	err := s.config.Validate()
-	c.Assert(err, tc.ErrorIs, errors.NotValid)
-}
-
-func (s *ManifoldSuite) TestValidateNilTag(c *tc.C) {
-	s.config.Tag = nil
 	err := s.config.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }

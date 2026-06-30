@@ -421,7 +421,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:    domainServicesName,
 			LoggerContext:         internallogger.DefaultContext(),
 			Logger:                internallogger.GetLogger("juju.worker.logger"),
-			Tag:                   config.ControllerAgentTag,
 			LoggingOverrideReader: config.StartupValueProvider,
 			UpdateAgentFunc:       config.UpdateLoggerConfig,
 		})),

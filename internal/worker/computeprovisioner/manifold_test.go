@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
@@ -30,7 +29,7 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *ManifoldSuite) makeManifold(c *tc.C) dependency.Manifold {
 	fakeNewProvFunc := func(computeprovisioner.ControllerAPI, computeprovisioner.MachineService, computeprovisioner.MachinesAPI, computeprovisioner.ToolsFinder,
-		computeprovisioner.DistributionGroupFinder, names.Tag, logger.Logger, computeprovisioner.Environ,
+		computeprovisioner.DistributionGroupFinder, logger.Logger, computeprovisioner.Environ,
 	) (computeprovisioner.Provisioner, error) {
 		s.stub.AddCall("NewProvisionerFunc")
 		return struct{ computeprovisioner.Provisioner }{}, nil
@@ -51,13 +50,12 @@ func (s *ManifoldSuite) makeManifold(c *tc.C) dependency.Manifold {
 		DomainServicesName: "fake-domain-services",
 		GetMachineService:  fakeGetMachineServiceFunc,
 		GetDomainServices:  fakeGetDomainServicesFunc,
-		AgentTag:           names.NewMachineTag("0"),
 		ModelUUID:          "fake-model-uuid",
 		NewProvisionerFunc: fakeNewProvFunc,
 	})
 }
 
-func (s *ManifoldSuite) SetUpTest(c *tc.C) {
+func (s *ManifoldSuite) SetUpTest(_ *tc.C) {
 	s.stub.ResetCalls()
 }
 

@@ -8,14 +8,11 @@ import (
 	"sort"
 	stdtesting "testing"
 
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/safemode"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/testing"
 )
 
@@ -139,55 +136,4 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"query-logger": {},
 
 	"termination-signal-handler": {},
-}
-
-type mockAgent struct {
-	conf mockConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-func (ma *mockAgent) ChangeConfig(f agent.ConfigMutator) error {
-	return f(&ma.conf)
-}
-
-type mockConfig struct {
-	agent.ConfigSetter
-	tag      names.Tag
-	ssiSet   bool
-	ssi      controller.ControllerAgentInfo
-	dataPath string
-}
-
-func (mc *mockConfig) Tag() names.Tag {
-	if mc.tag == nil {
-		return names.NewMachineTag("99")
-	}
-	return mc.tag
-}
-
-func (mc *mockConfig) Controller() names.ControllerTag {
-	return testing.ControllerTag
-}
-
-func (mc *mockConfig) StateServingInfo() (controller.ControllerAgentInfo, bool) {
-	return mc.ssi, mc.ssiSet
-}
-
-func (mc *mockConfig) SetStateServingInfo(info controller.ControllerAgentInfo) {
-	mc.ssiSet = true
-	mc.ssi = info
-}
-
-func (mc *mockConfig) LogDir() string {
-	return "log-dir"
-}
-
-func (mc *mockConfig) DataDir() string {
-	if mc.dataPath != "" {
-		return mc.dataPath
-	}
-	return "data-dir"
 }

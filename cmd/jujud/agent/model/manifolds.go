@@ -115,14 +115,35 @@ type ManifoldsConfig struct {
 	// for a given namespace.
 	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
 
-	ModelUUID            string
-	AgentTag             names.Tag
-	ModelTag             names.ModelTag
-	DataDir              string
-	LogDir               string
-	ControllerTag        names.ControllerTag
+	// ModelUUID is the UUID of the model this agent manages.
+	ModelUUID string
+
+	// ModelTag is the tag of the model being managed.
+	ModelTag names.ModelTag
+
+	// DataDir is the directory where the agent stores its data.
+	DataDir string
+
+	// LogDir is the directory where the agent writes its logs.
+	LogDir string
+
+	// ControllerTag is the tag of the controller that owns this model,
+	// identified by the controller's UUID. For example:
+	// "controller-a1b2c3d4-e5f6-7890-abcd-ef1234567890".
+	ControllerTag names.ControllerTag
+
+	// ControllerAgentTag is the tag of the controller agent process, identified
+	// by its numeric machine ID. For example: "controller-0". It is used as the
+	// Claimant for the singular lease to ensure a single controller agent owns
+	// the model's run-flag lease.
+	ControllerAgentTag names.ControllerAgentTag
+
+	// StartupValueProvider supplies startup configuration values for the model
+	// operator and logging override reader.
 	StartupValueProvider StartupValueProvider
-	UpdateLoggerConfig   func(string) error
+
+	// UpdateLoggerConfig updates the agent's logging configuration.
+	UpdateLoggerConfig func(string) error
 }
 
 // StartupValueProvider provides information from the runtime.conf to workers
@@ -202,7 +223,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DomainServicesName:    domainServicesName,
 			LoggerContext:         config.LoggingContext,
 			Logger:                config.LoggingContext.GetLogger("juju.worker.logger"),
-			Tag:                   config.AgentTag,
 			LoggingOverrideReader: config.StartupValueProvider,
 			UpdateAgentFunc:       config.UpdateLoggerConfig,
 		})),
@@ -221,7 +241,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName: leaseManagerName,
 			Clock:            config.Clock,
 			Duration:         config.RunFlagDuration,
-			Claimant:         config.AgentTag,
+			Claimant:         config.ControllerAgentTag,
 			Entity:           config.ModelTag,
 			NewWorker:        singular.NewFlagWorker,
 		}),
@@ -426,7 +446,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetMachineService:  provisioner.GetMachineService,
 			GetDomainServices:  provisioner.GetDomainServices,
 			Logger:             config.LoggingContext.GetLogger("juju.worker.provisioner"),
-			AgentTag:           config.AgentTag,
 			ModelUUID:          config.ModelUUID,
 			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
 		})),
