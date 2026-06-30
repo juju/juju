@@ -309,21 +309,28 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	resMeta map[string]resource.Meta,
 ) (applicationservice.ResolvedResources, []*params.PendingResourceUpload, error) {
 	var resourcesToUpload []*params.PendingResourceUpload
-	// Use localOrOverrideResources to track local or overridden values.
-	var localOrOverrideResources []resource.Resource
-	// Use resolvedByName to track the final set of resources.
-	resolvedByName := make(map[string]resource.Resource, len(resMeta))
+	// resourcesNeedingResolution contains resources that cannot be satisfied
+	// directly from the resolved charm revision. This includes:
+	//   - explicit CLI overrides, either as a revision or a local file
+	//   - resources missing from defaultRepositoryResources
+	var resourcesNeedingResolution []resource.Resource
+	// resolvedResourcesByName holds the final resource choice keyed by name so
+	// we can merge defaults and overrides, then emit results in stable order.
+	resolvedResourcesByName := make(map[string]resource.Resource, len(resMeta))
 
+	// Preserve a deterministic output order for callers and tests.
 	resourceNames := make([]string, 0, len(resMeta))
 	for name := range resMeta {
 		resourceNames = append(resourceNames, name)
 	}
 	sort.Strings(resourceNames)
 
-	// Solve charm meta against resources args.
+	// Walk the charm metadata and decide, per resource, whether we can reuse the
+	// resolved charm revision's co-released resource, or whether we need the
+	// repository to resolve an explicit override.
 	for _, name := range resourceNames {
 		meta := resMeta[name]
-		r := resource.Resource{
+		resourceToResolve := resource.Resource{
 			Meta:     meta,
 			Origin:   resource.OriginStore,
 			Revision: -1,
@@ -333,7 +340,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 			providedRev, err := strconv.Atoi(deployValue)
 			if err != nil {
 				// A file is coming from the client.
-				r.Origin = resource.OriginUpload
+				resourceToResolve.Origin = resource.OriginUpload
 
 				// Record resources that the client needs to upload.
 				resourcesToUpload = append(resourcesToUpload, &params.PendingResourceUpload{
@@ -342,39 +349,45 @@ func (v *deployFromRepositoryValidator) resolveResources(
 					Filename: deployValue,
 				})
 			} else {
-				// A revision is coming from client.
-				r.Revision = providedRev
+				// A specific store revision is requested by the client.
+				resourceToResolve.Revision = providedRev
 			}
-			localOrOverrideResources = append(localOrOverrideResources, r)
+			resourcesNeedingResolution = append(resourcesNeedingResolution, resourceToResolve)
 			continue
 		}
 
 		if res, ok := defaultRepositoryResources[name]; ok {
-			resolvedByName[name] = res
+			// ResolveForDeploy already gave us the co-released resource for the
+			// resolved charm revision, so reuse it directly.
+			resolvedResourcesByName[name] = res
 			continue
 		}
-		localOrOverrideResources = append(localOrOverrideResources, r)
+
+		// No explicit override and no co-released resource available: ask the
+		// repository to determine the best matching resource revision.
+		resourcesNeedingResolution = append(resourcesNeedingResolution, resourceToResolve)
 	}
 
-	if len(localOrOverrideResources) > 0 {
-		// Solve revision against charm repository.
+	if len(resourcesNeedingResolution) > 0 {
+		// Resolve any outstanding resource selections against the repository.
 		repo, err := v.getCharmRepository(ctx)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		resolvedResources, resolveErr := repo.ResolveResources(ctx, localOrOverrideResources, corecharm.CharmID{URL: curl, Origin: origin})
+		resolvedResources, resolveErr := repo.ResolveResources(ctx, resourcesNeedingResolution, corecharm.CharmID{URL: curl, Origin: origin})
 		if resolveErr != nil {
 			return nil, nil, resolveErr
 		}
 		for _, res := range resolvedResources {
-			resolvedByName[res.Name] = res
+			resolvedResourcesByName[res.Name] = res
 		}
 	}
 
-	// Convert it in resolved resources.
+	// Convert the selected resources into the format expected by the
+	// application service, preserving deterministic ordering.
 	result := make(applicationservice.ResolvedResources, 0, len(resourceNames))
 	for _, name := range resourceNames {
-		res, ok := resolvedByName[name]
+		res, ok := resolvedResourcesByName[name]
 		if !ok {
 			continue
 		}
