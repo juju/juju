@@ -719,7 +719,11 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *tc.
 	}})
 }
 
-func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreWithNoCharmRevisionSpecified(c *tc.C) {
+// TestResolveResourcesFromStoreWithCharmRevisionSpecified tests the same thing
+// as TestResolveResourcesFromStoreNoRevision but specifies a charm revision,
+// i.e. verifies that a resource passed to ResolveResources with no revision
+// will be resolved to the latest revision of the resource for the specified charm revision.
+func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision_CharmRevisionSpecified(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRefreshWithRevisionAndChannel(c, 7, true)
 
