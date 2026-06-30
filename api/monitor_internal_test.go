@@ -90,14 +90,17 @@ func (s *MonitorSuite) TestLaterPingFails(c *tc.C) {
 }
 
 func (s *MonitorSuite) TestPingsTimesOut(c *tc.C) {
-	s.monitor.ping = func(context.Context) error {
-		// Advance the clock only once this ping call is being waited on.
-		s.waitThenAdvance(c, testPingTimeout)
-		return nil
+	s.monitor.ping = func(ctx context.Context) error {
+		// Block until the context is cancelled so that only the
+		// timeout case in pingWithTimeout can fire.
+		<-ctx.Done()
+		return ctx.Err()
 	}
 	go s.monitor.run()
 
-	s.waitThenAdvance(c, testPingPeriod)
+	s.waitThenAdvance(c, testPingPeriod) // in run
+	s.waitForClock(c)                    // in pingWithTimeout
+	s.clock.Advance(testPingTimeout)
 	assertEvent(c, s.broken)
 }
 
