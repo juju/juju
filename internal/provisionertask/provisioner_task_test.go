@@ -1627,7 +1627,6 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 ) provisionertask.ProvisionerTask {
 	w, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:               internaltesting.ControllerTag.Id(),
-		HostTag:                      names.NewMachineTag("0"),
 		Logger:                       loggertesting.WrapCheckLog(c),
 		ControllerAPI:                s.controllerAPI,
 		MachinesAPI:                  s.machinesAPI,
@@ -1663,7 +1662,6 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 ) provisionertask.ProvisionerTask {
 	task, err := provisionertask.NewProvisionerTask(provisionertask.TaskConfig{
 		ControllerUUID:          internaltesting.ControllerTag.Id(),
-		HostTag:                 names.NewMachineTag("0"),
 		Logger:                  loggertesting.WrapCheckLog(c),
 		ControllerAPI:           s.controllerAPI,
 		MachinesAPI:             s.machinesAPI,

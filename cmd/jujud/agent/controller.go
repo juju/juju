@@ -680,12 +680,12 @@ func (a *ControllerApplication) startModelWorkers(
 		HTTPClientGetter:              cfg.HTTPClientGetter,
 		APIRemoteRelationClientGetter: cfg.APIRemoteRelationClientGetter,
 
-		ModelUUID:     cfg.ModelUUID,
-		AgentTag:      a.agentTag,
-		ModelTag:      names.NewModelTag(cfg.ModelUUID),
-		DataDir:       controllerRuntimeConfig.DataDir,
-		LogDir:        controllerRuntimeConfig.LogDir,
-		ControllerTag: names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
+		ModelUUID:          cfg.ModelUUID,
+		ModelTag:           names.NewModelTag(cfg.ModelUUID),
+		DataDir:            controllerRuntimeConfig.DataDir,
+		LogDir:             controllerRuntimeConfig.LogDir,
+		ControllerTag:      names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
+		ControllerAgentTag: a.agentTag.(names.ControllerAgentTag),
 		StartupValueProvider: controllerStartupValueProvider{
 			app:                   a,
 			controllerRuntimePath: a.controllerRuntimePath,

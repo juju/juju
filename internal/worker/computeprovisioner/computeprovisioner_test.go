@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/computeprovisioner"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
@@ -183,13 +183,10 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *tc.C) computeprovision
 	c.Assert(s.machinesAPI, tc.NotNil)
 	s.expectMachinesWatcher()
 
-	machineTag := names.NewMachineTag("0")
-
 	w, err := computeprovisioner.NewEnvironProvisioner(
 		s.controllerAPI, s.machineService, s.machinesAPI,
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},
-		machineTag,
 		loggertesting.WrapCheckLog(c),
 		s.broker)
 	c.Assert(err, tc.ErrorIsNil)
@@ -335,8 +332,9 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *tc.C) {
 	s.sendModelMachinesChange(c, mTag.Id())
 	s.waitForRemovalMark(c, m666)
 
-	// Make sure the nonce is set correctly.
-	c.Assert(strings.HasPrefix(nonce, "machine-0:"), tc.IsTrue)
+	// Make sure the nonce is set.
+	_, err := uuid.UUIDFromString(nonce)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *ProvisionerSuite) TestEnvironProvisionerObservesConfigChangesWorkerCount(c *tc.C) {
