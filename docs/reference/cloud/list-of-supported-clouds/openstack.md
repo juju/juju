@@ -212,7 +212,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 OpenStack supports the following {ref}`constraints <constraint>`:
 
 ```{note}
-The constraints `instance-type` and `[mem, root-disk, cores]` are mutually exclusive.
+The constraints `instance-type` and `[mem, cores]` are mutually exclusive. Additionally, `root-disk` cannot be combined with `instance-type` unless `root-disk-source=volume` is also set.
 ```
 
 **Compute**
