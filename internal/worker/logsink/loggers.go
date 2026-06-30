@@ -49,23 +49,6 @@ func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID, agentTag n
 	return w, nil
 }
 
-// bindWriter adds (or replaces) the model-sink writer in the logger context,
-// binding it to the current log sink.
-func (d *modelLogger) bindWriter() error {
-	writer := corelogger.NewTaggedRedirectWriter(
-		d.logSink,
-		d.agentTag.String(),
-		d.modelUUID.String(),
-	)
-	if _, err := d.loggoContext.ReplaceWriter(modelSinkWriterName, writer); err != nil {
-		// The writer doesn't exist yet; add it for the first time.
-		if err := d.loggoContext.AddWriter(modelSinkWriterName, writer); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // Log writes the given log records to the logger's storage.
 func (d *modelLogger) Log(records []corelogger.LogRecord) error {
 	return d.logSink.Log(records)
@@ -137,4 +120,21 @@ func (d *modelLogger) loop() error {
 			refresh = d.logSink.WatchRefresh()
 		}
 	}
+}
+
+// bindWriter adds (or replaces) the model-sink writer in the logger context,
+// binding it to the current log sink.
+func (d *modelLogger) bindWriter() error {
+	writer := corelogger.NewTaggedRedirectWriter(
+		d.logSink,
+		d.agentTag.String(),
+		d.modelUUID.String(),
+	)
+	if _, err := d.loggoContext.ReplaceWriter(modelSinkWriterName, writer); err != nil {
+		// The writer doesn't exist yet; add it for the first time.
+		if err := d.loggoContext.AddWriter(modelSinkWriterName, writer); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }

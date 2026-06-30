@@ -112,13 +112,14 @@ func (s *manifoldSuite) TestNewBackendReturnsCACertUpdateError(c *tc.C) {
 func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ManifoldConfig{
-		AgentName:          "agent",
-		APICallerName:      "api-caller",
-		HTTPClientName:     "http-client",
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
+		AgentName:            "agent",
+		APICallerName:        "api-caller",
+		HTTPClientName:       "http-client",
+		LogSource:            fixture.logs,
+		AgentConfigChanged:   fixture.configChanged,
+		Logger:               internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                clock.WallClock,
+		PrometheusRegisterer: prometheus.NewRegistry(),
 		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock, prometheus.Registerer) BackendFunc {
 			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
 		},
