@@ -719,7 +719,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *tc.
 	}})
 }
 
-func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevisionWithChannelRevision(c *tc.C) {
+func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreWithNoCharmRevisionSpecified(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectRefreshWithRevisionAndChannel(c, 7, true)
 
@@ -987,7 +987,7 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBas
 		Architecture: arch.DefaultArchitecture, Name: "ubuntu", Channel: "20.04",
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	s.expectCharmRefreshFullWithResources(c, cfg)
+	s.expectCharmRefreshFullWithResourcesAndHash(c, cfg, "SHA256 hash")
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneByRevisionResources(c *tc.C, hash string) {
@@ -998,10 +998,6 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneByRevisionResource
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	s.expectCharmRefreshFullWithResourcesAndHash(c, cfg, hash)
-}
-
-func (s *charmHubRepositorySuite) expectCharmRefreshFullWithResources(c *tc.C, cfg charmhub.RefreshConfig) {
-	s.expectCharmRefreshFullWithResourcesAndHash(c, cfg, "SHA256 hash")
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshFullWithResourcesAndHash(c *tc.C, cfg charmhub.RefreshConfig, hash string) {
@@ -1089,7 +1085,7 @@ func (s *charmHubRepositorySuite) expectRefreshWithRevision(c *tc.C, rev int, id
 			Result:           "download",
 		},
 	}
-	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{c: c, id: id}).Return(resp, nil)
+	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{c: c, requireID: id}).Return(resp, nil)
 }
 
 func (s *charmHubRepositorySuite) expectRefreshWithRevisionAndChannel(c *tc.C, rev int, id bool) {
@@ -1109,7 +1105,7 @@ func (s *charmHubRepositorySuite) expectRefreshWithRevisionAndChannel(c *tc.C, r
 		Name:             "postgresql",
 		Result:           "download",
 	}}
-	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{c: c, id: id, requireRevision: true, requireChannel: true}).Return(resp, nil)
+	s.client.EXPECT().Refresh(gomock.Any(), charmhubConfigMatcher{c: c, requireID: id, requireRevision: true, requireChannel: true}).Return(resp, nil)
 }
 
 func (s *charmHubRepositorySuite) expectListResourceRevisions(rev int) {
@@ -1626,7 +1622,7 @@ func (m RefreshConfigMatcher) String() string {
 // charmhub.RefreshMany config.
 type charmhubConfigMatcher struct {
 	c               *tc.C
-	id              bool
+	requireID       bool
 	requireRevision bool
 	requireChannel  bool
 }
@@ -1640,29 +1636,30 @@ func (m charmhubConfigMatcher) Matches(x any) bool {
 	if err != nil {
 		return false
 	}
-	if m.id && h.Actions[0].ID != nil && *h.Actions[0].ID == "meshuggah" {
-		if m.requireRevision && h.Actions[0].Revision == nil {
-			return false
-		}
-		if m.requireChannel && h.Actions[0].Channel == nil {
-			return false
-		}
-		return true
+	if len(h.Actions) == 0 {
+		return false
 	}
-	if !m.id && h.Actions[0].Name != nil && *h.Actions[0].Name == "ubuntu" {
-		if m.requireRevision && h.Actions[0].Revision == nil {
+	action := h.Actions[0]
+	matchID := action.ID != nil && *action.ID == "meshuggah"
+	matchName := action.Name != nil && *action.Name == "ubuntu"
+	if m.requireID {
+		if !matchID {
 			return false
 		}
-		if m.requireChannel && h.Actions[0].Channel == nil {
-			return false
-		}
-		return true
+	} else if !matchName {
+		return false
 	}
-	return false
+	if m.requireRevision && action.Revision == nil {
+		return false
+	}
+	if m.requireChannel && action.Channel == nil {
+		return false
+	}
+	return true
 }
 
 func (m charmhubConfigMatcher) String() string {
-	if m.id {
+	if m.requireID {
 		return "match id"
 	}
 	return "match name"

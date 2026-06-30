@@ -161,7 +161,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharm
 		tc.Commentf("(Assert) should return the same error as returned when resolving resources on charm repository"))
 }
 
-func (s *deployRepositorySuite) TestResolveResourcesUsesResolvedRepositoryResources(c *tc.C) {
+func (s *deployRepositorySuite) TestResolveResourcesUsesDefaultRepoResources(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resMeta := map[string]resource.Meta{
@@ -193,7 +193,7 @@ func (s *deployRepositorySuite) TestResolveResourcesUsesResolvedRepositoryResour
 	c.Check(resourcesToUpload, tc.IsNil)
 }
 
-func (s *deployRepositorySuite) TestResolveResourcesResolvedRepositoryResourcesStillAllowOverrides(c *tc.C) {
+func (s *deployRepositorySuite) TestResolveResourcesAllowsOverrides(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	resMeta := map[string]resource.Meta{
