@@ -6,7 +6,10 @@ package unitless
 import (
 	"testing"
 
+	"github.com/canonical/starlark/starlark"
 	"github.com/juju/tc"
+
+	coreerrors "github.com/juju/juju/core/errors"
 )
 
 type starformSuite struct{}
@@ -95,4 +98,71 @@ def on_config_changed(event):
 	intents, err := executor.Handle(c.Context(), Event{Name: "update_status"})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(intents, tc.DeepEquals, []Intent{})
+}
+
+func (s *starformSuite) TestValueToStarlarkConvertsTypedSlices(c *tc.C) {
+	value, err := valueToStarlark([]map[string]any{{
+		"names":   []string{"juju", "unitless"},
+		"enabled": true,
+	}, {
+		"ports": []int{80, 443},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+
+	list, ok := value.(*starlark.List)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(list.Len(), tc.Equals, 2)
+
+	first, ok := list.Index(0).(*starlark.Dict)
+	c.Assert(ok, tc.IsTrue)
+	names, found, err := first.Get(starlark.String("names"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.IsTrue)
+	c.Check(names.String(), tc.Equals, `["juju", "unitless"]`)
+
+	second, ok := list.Index(1).(*starlark.Dict)
+	c.Assert(ok, tc.IsTrue)
+	ports, found, err := second.Get(starlark.String("ports"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.IsTrue)
+	c.Check(ports.String(), tc.Equals, `[80, 443]`)
+}
+
+func (s *starformSuite) TestValueToStarlarkConvertsTypedMaps(c *tc.C) {
+	value, err := valueToStarlark(map[string][]string{
+		"names": {"juju", "unitless"},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	dict, ok := value.(*starlark.Dict)
+	c.Assert(ok, tc.IsTrue)
+	names, found, err := dict.Get(starlark.String("names"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.IsTrue)
+	c.Check(names.String(), tc.Equals, `["juju", "unitless"]`)
+
+	value, err = valueToStarlark(map[string]map[string]bool{
+		"features": {
+			"enabled": true,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	dict, ok = value.(*starlark.Dict)
+	c.Assert(ok, tc.IsTrue)
+	featuresValue, found, err := dict.Get(starlark.String("features"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.IsTrue)
+	features, ok := featuresValue.(*starlark.Dict)
+	c.Assert(ok, tc.IsTrue)
+	enabled, found, err := features.Get(starlark.String("enabled"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(found, tc.IsTrue)
+	c.Check(enabled, tc.Equals, starlark.True)
+}
+
+func (s *starformSuite) TestValueToStarlarkRejectsNonStringMapKeys(c *tc.C) {
+	_, err := valueToStarlark(map[int]string{1: "one"})
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, `unsupported map key type int.*`)
 }

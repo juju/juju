@@ -5,6 +5,7 @@ package unitless
 
 import (
 	"context"
+	"reflect"
 	"sort"
 
 	"github.com/canonical/starform/starform"
@@ -130,37 +131,50 @@ func valueToStarlark(value any) (starlark.Value, error) {
 		return starlark.MakeInt64(v), nil
 	case float64:
 		return starlark.Float(v), nil
-	case map[string]string:
-		dict := starlark.NewDict(len(v))
-		keys := make([]string, 0, len(v))
-		for key := range v {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			if err := dict.SetKey(starlark.String(key), starlark.String(v[key])); err != nil {
-				return nil, err
-			}
-		}
-		return dict, nil
-	case map[string]any:
-		dict := starlark.NewDict(len(v))
-		keys := make([]string, 0, len(v))
-		for key := range v {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			value, err := valueToStarlark(v[key])
-			if err != nil {
-				return nil, errors.Errorf("%q: %w", key, err)
-			}
-			if err := dict.SetKey(starlark.String(key), value); err != nil {
-				return nil, err
-			}
-		}
-		return dict, nil
 	default:
+		reflected := reflect.ValueOf(value)
+		switch reflected.Kind() {
+		case reflect.Map:
+			return mapToStarlark(reflected)
+		case reflect.Slice:
+			return sliceToStarlark(reflected)
+		}
 		return nil, errors.Errorf("unsupported value type %T", value).Add(coreerrors.NotValid)
 	}
+}
+
+// mapToStarlark converts a valid map to a starlark.Dict.
+// A valid map at this point means string keys.
+func mapToStarlark(value reflect.Value) (starlark.Value, error) {
+	if value.Type().Key().Kind() != reflect.String {
+		return nil, errors.Errorf("unsupported map key type %s", value.Type().Key()).Add(coreerrors.NotValid)
+	}
+
+	dict := starlark.NewDict(value.Len())
+	keys := value.MapKeys()
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i].String() < keys[j].String()
+	})
+	for _, key := range keys {
+		item, err := valueToStarlark(value.MapIndex(key).Interface())
+		if err != nil {
+			return nil, errors.Errorf("%q: %w", key.String(), err)
+		}
+		if err := dict.SetKey(starlark.String(key.String()), item); err != nil {
+			return nil, err
+		}
+	}
+	return dict, nil
+}
+
+func sliceToStarlark(value reflect.Value) (starlark.Value, error) {
+	result := make([]starlark.Value, value.Len())
+	for i := 0; i < value.Len(); i++ {
+		item, err := valueToStarlark(value.Index(i).Interface())
+		if err != nil {
+			return nil, errors.Errorf("[%d]: %w", i, err)
+		}
+		result[i] = item
+	}
+	return starlark.NewList(result), nil
 }
