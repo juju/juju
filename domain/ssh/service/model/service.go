@@ -6,29 +6,144 @@ package model
 import (
 	"context"
 
+	"github.com/juju/clock"
+
+	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/trace"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/errors"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
+	"github.com/juju/juju/internal/uuid"
 )
 
-// Service provides model-scoped SSH virtual host key workflows.
+// WatcherFactory describes watcher creation for SSH connection requests.
+type WatcherFactory interface {
+	NewNamespaceWatcher(
+		ctx context.Context,
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+}
+
+// WatchableService extends Service with watcher support for SSH connection
+// requests.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new model SSH service with watcher support.
+func NewWatchableService(state State, modelUUID coremodel.UUID, clk clock.Clock, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service:        NewService(state, modelUUID, clk),
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchSSHConnRequest returns a watcher that emits changed tunnel IDs for SSH
+// connection requests in this model.
+//
+// This is used by the sshsession worker to watch for new connection requests.
+func (s *WatchableService) WatchSSHConnRequest(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.state.PruneExpiredSSHConnRequests(ctx, s.clock.Now()); err != nil {
+		return nil, errors.Errorf("pruning expired SSH connection requests: %w", err)
+	}
+
+	table, stmt := s.state.InitialWatchSSHConnRequestsStatement()
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(stmt),
+		"ssh connection request watcher",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
+	if err != nil {
+		return nil, errors.Errorf("creating SSH connection request watcher: %w", err)
+	}
+	return w, nil
+}
+
+// Service provides model-scoped SSH operations: virtual host keys and
+// one-shot SSH connection requests.
 type Service struct {
-	modelUUID coremodel.UUID
 	state     State
+	modelUUID coremodel.UUID
+	clock     clock.Clock
 }
 
 // NewService returns a new model SSH service.
-func NewService(modelUUID coremodel.UUID, state State) *Service {
+func NewService(state State, modelUUID coremodel.UUID, clk clock.Clock) *Service {
 	return &Service{
-		modelUUID: modelUUID,
 		state:     state,
+		modelUUID: modelUUID,
+		clock:     clk,
 	}
+}
+
+// InsertSSHConnRequest stores a one-shot SSH connection request for this
+// model.
+//
+// This is used by the tunneler worker to insert the connection request.
+func (s *Service) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHConnRequest) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.validateRequest(req); err != nil {
+		return errors.Errorf("validating SSH connection request: %w", err)
+	}
+
+	if err := s.state.InsertSSHConnRequest(ctx, req, s.clock.Now()); err != nil {
+		return errors.Errorf("inserting SSH connection request %q: %w", req.TunnelID, err)
+	}
+	return nil
+}
+
+// GetSSHConnRequest returns the SSH connection request for the supplied tunnel
+// ID.
+//
+// This is used by the sshsession worker to retrieve a connection request.
+func (s *Service) GetSSHConnRequest(ctx context.Context, tunnelID string) (domainssh.SSHConnRequest, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !uuid.IsValidUUIDString(tunnelID) {
+		return domainssh.SSHConnRequest{}, errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
+	}
+
+	req, err := s.state.GetSSHConnRequest(ctx, tunnelID, s.clock.Now())
+	if err != nil {
+		return domainssh.SSHConnRequest{}, errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
+	}
+	return req, nil
+}
+
+// RemoveSSHConnRequest removes the SSH connection request for the supplied
+// tunnel ID.
+//
+// This is used by the sshtunneler to remove a connection request after it has been used.
+func (s *Service) RemoveSSHConnRequest(ctx context.Context, tunnelID string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if !uuid.IsValidUUIDString(tunnelID) {
+		return errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
+	}
+
+	if err := s.state.RemoveSSHConnRequest(ctx, tunnelID); err != nil {
+		return errors.Errorf("removing SSH connection request %q: %w", tunnelID, err)
+	}
+	return nil
 }
 
 // VirtualHostKey resolves the terminating SSH host key for a virtual hostname.
@@ -171,4 +286,36 @@ func generateHostKey() (string, error) {
 		return "", errors.Capture(err)
 	}
 	return string(key), nil
+}
+
+func (s *Service) validateRequest(req domainssh.SSHConnRequest) error {
+	if !uuid.IsValidUUIDString(req.TunnelID) {
+		return errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
+	}
+	if err := coremachine.Name(req.MachineName).Validate(); err != nil {
+		return errors.Errorf("validating machine name %q: %w", req.MachineName, err)
+	}
+	if req.SSHUsername == "" {
+		return errors.Errorf("empty username").Add(coreerrors.NotValid)
+	}
+	if req.SSHPassword == "" {
+		return errors.Errorf("empty password").Add(coreerrors.NotValid)
+	}
+	if req.Expires.IsZero() {
+		return errors.Errorf("empty expiry").Add(coreerrors.NotValid)
+	}
+	if req.Expires.Before(s.clock.Now()) {
+		return errors.Errorf("expiry %v is in the past", req.Expires.UTC()).Add(coreerrors.NotValid)
+	}
+	if len(req.ControllerAddresses) == 0 {
+		return errors.Errorf("empty controller addresses").Add(coreerrors.NotValid)
+	}
+	if req.UnitPort <= 0 {
+		return errors.Errorf("invalid unit port %d", req.UnitPort).Add(coreerrors.NotValid)
+	}
+	if len(req.EphemeralPublicKey) == 0 {
+		return errors.Errorf("empty ephemeral public key").Add(coreerrors.NotValid)
+	}
+
+	return nil
 }

@@ -33,22 +33,22 @@ type ControllerSSHHostKeyService interface {
 	SSHServerHostKey(context.Context) (string, error)
 }
 
-// VirtualHostKeyService resolves routed destination host keys.
-type VirtualHostKeyService interface {
+// SSHModelService resolves routed destination host keys.
+type SSHModelService interface {
 	// VirtualHostKey returns the terminating host key for a routed destination.
 	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
 }
 
-// SSHHostKeyService resolves controller and terminating SSH host keys.
-type SSHHostKeyService interface {
+// SSHService resolves controller and terminating SSH host keys.
+type SSHService interface {
 	ControllerSSHHostKeyService
-	VirtualHostKeyService
+	SSHModelService
 }
 
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
 	ControllerConfigService ControllerConfigService
-	SSHHostKeyService       SSHHostKeyService
+	SSHService              SSHService
 	NewServerWorker         func(ServerWorkerConfig) (worker.Worker, error)
 	Logger                  logger.Logger
 	SessionHandler          SessionHandler
@@ -62,8 +62,8 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.NewServerWorker == nil {
 		return errors.NotValidf("NewSSHServer is required")
 	}
-	if c.SSHHostKeyService == nil {
-		return errors.NotValidf("SSHHostKeyService is required")
+	if c.SSHService == nil {
+		return errors.NotValidf("SSHService is required")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("Logger is required")
@@ -161,7 +161,7 @@ func (ssw *serverWrapperWorker) loop() error {
 
 	port := config.SSHServerPort()
 	maxConns := config.SSHMaxConcurrentConnections()
-	jumpHostKey, err := ssw.config.SSHHostKeyService.SSHServerHostKey(ctx)
+	jumpHostKey, err := ssw.config.SSHService.SSHServerHostKey(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,7 +171,7 @@ func (ssw *serverWrapperWorker) loop() error {
 		JumpHostKey:              jumpHostKey,
 		Port:                     port,
 		MaxConcurrentConnections: maxConns,
-		HostKeyService:           ssw.config.SSHHostKeyService,
+		SSHService:               ssw.config.SSHService,
 		SessionHandler:           ssw.config.SessionHandler,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)

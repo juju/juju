@@ -824,7 +824,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerConfigService:     sshserver.GetControllerConfigService,
 			GetControllerSSHHostKeyService: sshserver.GetControllerSSHHostKeyService,
 			GetDomainServicesGetter:        sshserver.GetDomainServicesGetter,
-			GetVirtualHostKeyService:       sshserver.GetVirtualHostKeyService,
+			GetSSHService:                  sshserver.GetSSHService,
 		})),
 
 		// The objectstore drainer runs on the singular primary controller to

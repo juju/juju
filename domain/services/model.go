@@ -417,11 +417,13 @@ func (s *ModelServices) Secret() *secretservice.WatchableService {
 	)
 }
 
-// SSHVirtualHostKeys returns the SSH virtual host key service for the current model.
-func (s *ModelServices) SSHVirtualHostKeys() *sshmodelservice.Service {
-	return sshmodelservice.NewService(
-		s.modelUUID,
+// SSH returns the model SSH service for the current model.
+func (s *ModelServices) SSH() *sshmodelservice.WatchableService {
+	return sshmodelservice.NewWatchableService(
 		sshmodelstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.modelUUID,
+		s.clock,
+		s.modelWatcherFactory("ssh"),
 	)
 }
 

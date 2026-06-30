@@ -47,8 +47,8 @@ type ServerWorkerConfig struct {
 	// we accept for our ssh server.
 	MaxConcurrentConnections int
 
-	// HostKeyService resolves terminating SSH host keys for virtual destinations.
-	HostKeyService SSHHostKeyService
+	// SSHService resolves terminating SSH host keys for virtual destinations.
+	SSHService SSHService
 
 	// disableAuth is a test-only flag that disables authentication.
 	disableAuth bool
@@ -65,8 +65,8 @@ func (c ServerWorkerConfig) Validate() error {
 	if c.JumpHostKey == "" {
 		return errors.NotValidf("empty JumpHostKey")
 	}
-	if c.HostKeyService == nil {
-		return errors.NotValidf("missing HostKeyService")
+	if c.SSHService == nil {
+		return errors.NotValidf("missing SSHService")
 	}
 	if c.SessionHandler == nil {
 		return errors.NotValidf("missing SessionHandler")
@@ -231,7 +231,7 @@ func (s *ServerWorker) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerCon
 		return
 	}
 
-	terminatingHostKey, err := s.config.HostKeyService.VirtualHostKey(ctx, info)
+	terminatingHostKey, err := s.config.SSHService.VirtualHostKey(ctx, info)
 	if err != nil {
 		s.config.Logger.Errorf(ctx, "failed to resolve host key: %v", err)
 		ch.Close()

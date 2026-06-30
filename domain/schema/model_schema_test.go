@@ -187,6 +187,8 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"unit_state_charm",
 		"unit_state_relation",
 		"unit_state",
+		"ssh_connection_request",
+		"ssh_connection_request_address",
 		"unit_workload_status",
 		"unit_workload_version",
 		"ssh_key_algorithm_type",
@@ -541,6 +543,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_machine_requires_reboot_delete",
 		"trg_log_machine_requires_reboot_insert",
 		"trg_log_machine_requires_reboot_update",
+
+		"trg_log_ssh_connection_request_delete",
+		"trg_log_ssh_connection_request_insert",
+		"trg_log_ssh_connection_request_update",
 
 		"trg_log_model_config_delete",
 		"trg_log_model_config_insert",

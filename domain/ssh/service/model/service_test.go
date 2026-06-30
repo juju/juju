@@ -6,14 +6,23 @@ package model_test
 import (
 	"context"
 	stdtesting "testing"
+	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	coreunit "github.com/juju/juju/core/unit"
 	"github.com/juju/juju/core/virtualhostname"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
+	domainssh "github.com/juju/juju/domain/ssh"
 	modelsshservice "github.com/juju/juju/domain/ssh/service/model"
 	"github.com/juju/juju/internal/errors"
 )
@@ -29,7 +38,7 @@ func (s *serviceSuite) TestMachineVirtualHostKeyGeneratesMissing(c *tc.C) {
 	state := newStubModelState()
 	state.machineExists["1"] = true
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -45,7 +54,7 @@ func (s *serviceSuite) TestUnitVirtualHostKeyUsesBackingMachine(c *tc.C) {
 	state.machineKeys["1"] = testPrivateKey
 	state.unitMachines["postgresql/0"] = "1"
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -59,7 +68,7 @@ func (s *serviceSuite) TestUnitVirtualHostKeyGeneratesMissingForCAAS(c *tc.C) {
 	state := newStubModelState()
 	state.unitExists["postgresql/0"] = true
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -74,7 +83,7 @@ func (s *serviceSuite) TestMachineVirtualHostKeyReturnsExistingAfterConcurrentIn
 	state.machineExists["1"] = true
 	state.machineEnsureKeys["1"] = testPrivateKey
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.MachineVirtualHostKey(c.Context(), coremachine.Name("1"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -89,7 +98,7 @@ func (s *serviceSuite) TestUnitVirtualHostKeyReturnsExistingAfterConcurrentInser
 	state.unitExists["postgresql/0"] = true
 	state.unitEnsureKeys["postgresql/0"] = testPrivateKey
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	key, err := svc.UnitVirtualHostKey(c.Context(), coreunit.Name("postgresql/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -104,7 +113,7 @@ func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
 	state.machineExists["1"] = true
 	state.machineKeys["1"] = testPrivateKey
 
-	svc := modelsshservice.NewService(modelUUID, state)
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
 
 	info, err := virtualhostname.NewInfoMachineTarget(testModelUUID, "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -116,7 +125,7 @@ func (s *serviceSuite) TestVirtualHostKeyFromMachineInfo(c *tc.C) {
 
 func (s *serviceSuite) TestVirtualHostKeyErrorsForDifferentModel(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
-	svc := modelsshservice.NewService(modelUUID, newStubModelState())
+	svc := modelsshservice.NewService(newStubModelState(), modelUUID, clock.WallClock)
 
 	info, err := virtualhostname.NewInfoMachineTarget("77f44fa2-65f1-41c8-8a8e-3b1f1c8d343d", "1")
 	c.Assert(err, tc.ErrorIsNil)
@@ -127,7 +136,7 @@ func (s *serviceSuite) TestVirtualHostKeyErrorsForDifferentModel(c *tc.C) {
 
 func (s *serviceSuite) TestVirtualHostKeyErrorsForNestedMachine(c *tc.C) {
 	modelUUID := coremodel.UUID(testModelUUID)
-	svc := modelsshservice.NewService(modelUUID, newStubModelState())
+	svc := modelsshservice.NewService(newStubModelState(), modelUUID, clock.WallClock)
 
 	info, err := virtualhostname.NewInfoMachineTarget(testModelUUID, "1/lxd/0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -136,7 +145,93 @@ func (s *serviceSuite) TestVirtualHostKeyErrorsForNestedMachine(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `cannot SSH directly to nested machine "1/lxd/0", connect to parent machine "1" instead`)
 }
 
+func (s *serviceSuite) TestInsertSSHConnRequest(c *tc.C) {
+	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	state.machineExists["1"] = true
+	svc := modelsshservice.NewService(state, modelUUID, clk)
+
+	req := domainssh.SSHConnRequest{
+		TunnelID:            testTunnelUUID,
+		MachineName:         "1",
+		Expires:             clk.Now().Add(time.Minute),
+		SSHUsername:         "juju-reverse-tunnel",
+		SSHPassword:         "secret",
+		ControllerAddresses: network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"),
+		UnitPort:            22,
+		EphemeralPublicKey:  []byte("key"),
+	}
+
+	err := svc.InsertSSHConnRequest(c.Context(), req)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state.insertedReq, tc.DeepEquals, req)
+	c.Check(state.insertNow, tc.Equals, clk.Now())
+}
+
+func (s *serviceSuite) TestInsertSSHConnRequestRejectsExpired(c *tc.C) {
+	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	state.machineExists["1"] = true
+	svc := modelsshservice.NewService(state, modelUUID, clk)
+
+	req := domainssh.SSHConnRequest{
+		TunnelID:    testTunnelUUID,
+		MachineName: "1",
+		Expires:     clk.Now().Add(-time.Minute),
+		SSHUsername: "juju-reverse-tunnel",
+		SSHPassword: "secret",
+	}
+
+	err := svc.InsertSSHConnRequest(c.Context(), req)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
+func (s *serviceSuite) TestGetSSHConnRequest(c *tc.C) {
+	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	state.getReq = domainssh.SSHConnRequest{TunnelID: testTunnelUUID, MachineName: "1"}
+	svc := modelsshservice.NewService(state, modelUUID, clk)
+
+	req, err := svc.GetSSHConnRequest(c.Context(), testTunnelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(req, tc.DeepEquals, state.getReq)
+	c.Check(state.getTunnelID, tc.Equals, testTunnelUUID)
+	c.Check(state.getNow, tc.Equals, clk.Now())
+}
+
+func (s *serviceSuite) TestWatchSSHConnRequest(c *tc.C) {
+	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	watcherFactory := &stubWatcherFactory{watcher: watchertest.NewMockStringsWatcher(make(chan []string))}
+	svc := modelsshservice.NewWatchableService(state, modelUUID, clk, watcherFactory)
+
+	w, err := svc.WatchSSHConnRequest(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(w, tc.Equals, watcherFactory.watcher)
+	c.Check(state.pruneNow, tc.Equals, clk.Now())
+	c.Check(watcherFactory.summary, tc.Equals, "ssh connection request watcher")
+	c.Check(watcherFactory.namespace, tc.Equals, "ssh_connection_request")
+}
+
+func (s *serviceSuite) TestRemoveSSHConnRequest(c *tc.C) {
+	modelUUID := coremodel.UUID(testModelUUID)
+	state := newStubModelState()
+	svc := modelsshservice.NewService(state, modelUUID, clock.WallClock)
+
+	err := svc.RemoveSSHConnRequest(c.Context(), testTunnelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(state.removedTunnelID, tc.Equals, testTunnelUUID)
+}
+
 type stubModelState struct {
+	machineEnsureKeys  map[string]string
+	unitEnsureKeys     map[string]string
+	machineEnsureCalls int
+	unitEnsureCalls    int
 	machineExists      map[string]bool
 	machineKeys        map[string]string
 	machineAlgos       map[string]int
@@ -144,10 +239,13 @@ type stubModelState struct {
 	unitKeys           map[string]string
 	unitAlgos          map[string]int
 	unitMachines       map[string]string
-	machineEnsureKeys  map[string]string
-	unitEnsureKeys     map[string]string
-	machineEnsureCalls int
-	unitEnsureCalls    int
+	insertedReq        domainssh.SSHConnRequest
+	insertNow          time.Time
+	getReq             domainssh.SSHConnRequest
+	getTunnelID        string
+	getNow             time.Time
+	pruneNow           time.Time
+	removedTunnelID    string
 }
 
 func newStubModelState() *stubModelState {
@@ -172,6 +270,7 @@ func (s *stubModelState) GetMachineVirtualHostKeyByMachineName(_ context.Context
 	return key, found, nil
 }
 
+// EnsureMachineVirtualHostKeyByMachineName(context.Context, string, int, string) (string, error)
 func (s *stubModelState) EnsureMachineVirtualHostKeyByMachineName(_ context.Context, machineName string, algorithmTypeID int, key string) (string, error) {
 	if !s.machineExists[machineName] {
 		return "", errors.Errorf("machine %q not found", machineName)
@@ -220,6 +319,50 @@ func (s *stubModelState) GetMachineNameForUnit(_ context.Context, unitName strin
 	return machineName, found, nil
 }
 
+func (s *stubModelState) InsertSSHConnRequest(_ context.Context, req domainssh.SSHConnRequest, now time.Time) error {
+	s.insertedReq = req
+	s.insertNow = now
+	return nil
+}
+
+func (s *stubModelState) GetSSHConnRequest(_ context.Context, tunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+	s.getTunnelID = tunnelID
+	s.getNow = now
+	return s.getReq, nil
+}
+
+func (s *stubModelState) RemoveSSHConnRequest(_ context.Context, tunnelID string) error {
+	s.removedTunnelID = tunnelID
+	return nil
+}
+
+func (s *stubModelState) PruneExpiredSSHConnRequests(_ context.Context, now time.Time) error {
+	s.pruneNow = now
+	return nil
+}
+
+func (*stubModelState) InitialWatchSSHConnRequestsStatement() (string, string) {
+	return "ssh_connection_request", "SELECT tunnel_id FROM ssh_connection_request"
+}
+
+type stubWatcherFactory struct {
+	watcher   watcher.StringsWatcher
+	namespace string
+	summary   string
+}
+
+func (s *stubWatcherFactory) NewNamespaceWatcher(
+	_ context.Context,
+	_ eventsource.NamespaceQuery,
+	summary string,
+	filterOption eventsource.FilterOption,
+	_ ...eventsource.FilterOption,
+) (watcher.StringsWatcher, error) {
+	s.summary = summary
+	s.namespace = filterOption.Namespace()
+	return s.watcher, nil
+}
+
 func assertPrivateKey(c *tc.C, key string) {
 	_, err := gossh.ParsePrivateKey([]byte(key))
 	c.Assert(err, tc.ErrorIsNil)
@@ -227,6 +370,7 @@ func assertPrivateKey(c *tc.C, key string) {
 
 const (
 	testModelUUID  = "8419cd78-4993-4c3a-928e-c646226beeee"
+	testTunnelUUID = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 	testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +
 		"b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz\n" +
 		"c2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7VHoJY7LZ7yXzuWlSVYAAA\n" +

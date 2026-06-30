@@ -36,7 +36,7 @@ func newServerWrapperWorkerConfig(
 	cfg := &ServerWrapperWorkerConfig{
 		NewServerWorker:         func(ServerWorkerConfig) (worker.Worker, error) { return nil, nil },
 		ControllerConfigService: NewMockControllerConfigService(ctrl),
-		SSHHostKeyService:       stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		SessionHandler:          &MockSessionHandler{},
 	}
@@ -83,12 +83,12 @@ func (s *workerSuite) TestValidate(c *tc.C) {
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
 
-	// Test no SSHHostKeyService.
+	// Test no SSHService.
 	cfg = newServerWrapperWorkerConfig(
 		c,
 		ctrl,
 		func(cfg *ServerWrapperWorkerConfig) {
-			cfg.SSHHostKeyService = nil
+			cfg.SSHService = nil
 		},
 	)
 	c.Assert(cfg.Validate(), tc.ErrorMatches, ".*is required.*")
@@ -117,7 +117,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerCanBeKilled(c *tc.C) {
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
-		SSHHostKeyService:       stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			c.Check(swc.JumpHostKey, tc.Equals, testHostKey)
@@ -195,7 +195,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorker(c *tc.C) {
 	var serverStarted int32
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
-		SSHHostKeyService:       stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			atomic.StoreInt32(&serverStarted, 1)
@@ -283,7 +283,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerRestartsServerWorkerOnPortChange
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
-		SSHHostKeyService:       stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			c.Check(swc.Port, tc.Equals, 22)
@@ -330,7 +330,7 @@ func (s *workerSuite) TestSSHServerWrapperWorkerConfigWatcherClosed(c *tc.C) {
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
-		SSHHostKeyService:       stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return serverWorker, nil
@@ -376,7 +376,7 @@ func (s *workerSuite) TestWrapperWorkerReport(c *tc.C) {
 
 	cfg := ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
-		SSHHostKeyService:       stubSSHHostKeyService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
+		SSHService:              stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
 		Logger:                  loggertesting.WrapCheckLog(c),
 		NewServerWorker: func(swc ServerWorkerConfig) (worker.Worker, error) {
 			return &reportWorker{serverWorker}, nil
@@ -416,18 +416,18 @@ func (r *reportWorker) Report(ctx context.Context) map[string]any {
 	}
 }
 
-type stubSSHHostKeyService struct {
+type stubSSHService struct {
 	jumpHostKey    string
 	virtualHostKey string
 	jumpErr        error
 	virtualErr     error
 }
 
-func (s stubSSHHostKeyService) SSHServerHostKey(context.Context) (string, error) {
+func (s stubSSHService) SSHServerHostKey(context.Context) (string, error) {
 	return s.jumpHostKey, s.jumpErr
 }
 
-func (s stubSSHHostKeyService) VirtualHostKey(context.Context, virtualhostname.Info) (string, error) {
+func (s stubSSHService) VirtualHostKey(context.Context, virtualhostname.Info) (string, error) {
 	return s.virtualHostKey, s.virtualErr
 }
 
