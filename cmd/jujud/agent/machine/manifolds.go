@@ -335,6 +335,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	agentTag := agentConfig.Tag()
 	controllerTag := agentConfig.Controller()
+	apiBackedLogRouterRegisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"log_router": "api_backed"},
+		config.PrometheusRegisterer,
+	)
+	controllerLogRouterRegisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"log_router": "controller_local"},
+		config.PrometheusRegisterer,
+	)
 
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
@@ -562,7 +570,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentConfigChanged:   config.AgentConfigChanged,
 			Logger:               internallogger.GetLogger("juju.worker.logrouter"),
 			Clock:                config.Clock,
-			PrometheusRegisterer: config.PrometheusRegisterer,
+			PrometheusRegisterer: apiBackedLogRouterRegisterer,
 			NewBackendFunc:       logrouter.NewBackend,
 			RemoveLegacyLogSinkWriter: func() {
 				logsender.RemoveLegacyLogSinkWriter()
@@ -639,7 +647,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentConfigChanged:   config.AgentConfigChanged,
 			Logger:               internallogger.GetLogger("juju.worker.logrouter.controller"),
 			Clock:                config.Clock,
-			PrometheusRegisterer: config.PrometheusRegisterer,
+			PrometheusRegisterer: controllerLogRouterRegisterer,
 			LocalLogSink:         config.LocalLogSink,
 			NewBackendFunc:       logrouter.NewControllerBackend,
 		})),

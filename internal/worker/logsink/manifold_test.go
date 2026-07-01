@@ -34,7 +34,7 @@ type ManifoldSuite struct {
 	clock clock.Clock
 	stub  testhelpers.Stub
 
-	logRouter *mockLogRouter
+	logSink logger.LogSink
 }
 
 func TestManifoldSuite(t *testing.T) {
@@ -50,7 +50,7 @@ func (s *ManifoldSuite) SetUpTest(c *tc.C) {
 
 	s.logger = loggertesting.WrapCheckLog(c)
 
-	s.logRouter = &mockLogRouter{sink: loggertesting.WrapCheckLogSink(c)}
+	s.logSink = loggertesting.WrapCheckLogSink(c)
 
 	s.getter = s.newGetter(c, nil)
 	s.manifold = Manifold(ManifoldConfig{
@@ -98,7 +98,7 @@ func (s *ManifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 func (s *ManifoldSuite) newGetter(c *tc.C, overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"clock":      s.clock,
-		"log-router": s.logRouter,
+		"log-router": s.logSink,
 	}
 	maps.Copy(resources, overlay)
 	return dt.StubGetter(resources)
@@ -143,17 +143,20 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	s.stub.CheckCallNames(c, "NewWorker")
 }
 
+func (s *ManifoldSuite) TestStartUsesExportedLogSink(c *tc.C) {
+	w := s.startWorkerClean(c)
+	defer workertest.CleanKill(c, w)
+
+	args := s.stub.Calls()[0].Args
+	c.Assert(args, tc.HasLen, 1)
+	cfg, ok := args[0].(Config)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(cfg.LogRouter.LogSink(), tc.Equals, s.logSink)
+}
+
 func (s *ManifoldSuite) startWorkerClean(c *tc.C) worker.Worker {
 	w, err := s.manifold.Start(c.Context(), s.getter)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
-}
-
-type mockLogRouter struct {
-	sink logger.LogSink
-}
-
-func (m *mockLogRouter) LogSink() logger.LogSink {
-	return m.sink
 }

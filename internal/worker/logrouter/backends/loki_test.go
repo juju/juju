@@ -94,6 +94,40 @@ func (s *lokiSuite) TestUnregistersMetricsCollectorOnStop(c *tc.C) {
 	c.Check(registerer.unregistered.Load(), tc.Equals, int32(1))
 }
 
+func (s *lokiSuite) TestAllowsDistinctWrappedRegisterersOnSharedRegistry(c *tc.C) {
+	registry := prometheus.NewRegistry()
+	apiRegisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"log_router": "api_backed"},
+		registry,
+	)
+	controllerRegisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"log_router": "controller_local"},
+		registry,
+	)
+
+	apiBackend, err := NewLoki(LokiConfig{
+		BackendBufferSize:    1,
+		Endpoint:             "http://loki/loki/api/v1/push",
+		PrometheusRegisterer: apiRegisterer,
+		NewClient: func(string, loki.Config) (LokiClient, error) {
+			return newRecordingLokiClient(), nil
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, apiBackend)
+
+	controllerBackend, err := NewLoki(LokiConfig{
+		BackendBufferSize:    1,
+		Endpoint:             "http://loki/loki/api/v1/push",
+		PrometheusRegisterer: controllerRegisterer,
+		NewClient: func(string, loki.Config) (LokiClient, error) {
+			return newRecordingLokiClient(), nil
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, controllerBackend)
+}
+
 func (s *lokiSuite) TestLokiConfigValidate(c *tc.C) {
 	cfg := validLokiConfig()
 	c.Assert(cfg.Validate(), tc.ErrorIsNil)

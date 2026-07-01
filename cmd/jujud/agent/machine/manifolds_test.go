@@ -502,6 +502,47 @@ func (*ManifoldsSuite) TestObjectStoreDoesNotUseDomainServices(c *tc.C) {
 	c.Check(dependencies.Contains("domain-services"), tc.IsFalse)
 }
 
+func (*ManifoldsSuite) TestMachineLoggingGraphMatchesDualPathPlan(c *tc.C) {
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+
+	controllerLogRouter := manifolds["controller-log-router"]
+	checkContains(c, controllerLogRouter.Inputs, "http-client")
+	checkNotContains(c, controllerLogRouter.Inputs, "api-caller")
+	controllerLogRouterDeps := agenttest.ManifoldDependencies(manifolds, controllerLogRouter)
+	c.Check(controllerLogRouterDeps.Contains("api-caller"), tc.IsFalse)
+
+	controllerLogSink := manifolds["controller-log-sink"]
+	checkContains(c, controllerLogSink.Inputs, "controller-log-router")
+	checkNotContains(c, controllerLogSink.Inputs, "log-router")
+
+	nonControllerLogSink := manifolds["non-controller-log-sink"]
+	checkContains(c, nonControllerLogSink.Inputs, "log-router")
+	checkNotContains(c, nonControllerLogSink.Inputs, "controller-log-router")
+	nonControllerLogSinkDeps := agenttest.ManifoldDependencies(manifolds, nonControllerLogSink)
+	c.Check(nonControllerLogSinkDeps.Contains("api-caller"), tc.IsTrue)
+
+	apiServer := manifolds["api-server"]
+	checkContains(c, apiServer.Inputs, "log-sink")
+}
+
+func (*ManifoldsSuite) TestControllerLogSinkDependsOnControllerLogRouterOnly(c *tc.C) {
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	})
+
+	controllerLogSink := manifolds["controller-log-sink"]
+	checkContains(c, controllerLogSink.Inputs, "controller-log-router")
+	checkNotContains(c, controllerLogSink.Inputs, "api-caller")
+
+	dependencies := agenttest.ManifoldDependencies(manifolds, controllerLogSink)
+	c.Check(dependencies.Contains("controller-log-router"), tc.IsTrue)
+	c.Check(dependencies.Contains("api-caller"), tc.IsFalse)
+}
+
 func (*ManifoldsSuite) TestProviderTrackerDoesNotUseDomainServices(c *tc.C) {
 	// The provider-tracker is a dependency of the domain-services, so we can't
 	// have circular dependencies between the two. Ensuring that the

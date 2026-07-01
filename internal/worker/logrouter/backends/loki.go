@@ -81,6 +81,7 @@ func NewLoki(cfg LokiConfig) (Backend, error) {
 		return nil, errors.NotValidf("loki client metrics source")
 	}
 	metricsCollector := loki.NewMetricsCollector(source)
+	_ = cfg.PrometheusRegisterer.Unregister(metricsCollector)
 	if err := cfg.PrometheusRegisterer.Register(metricsCollector); err != nil {
 		client.Kill()
 		_ = client.Wait()

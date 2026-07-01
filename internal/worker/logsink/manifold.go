@@ -71,14 +71,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var logRouter LogRouter
-			if err := getter.Get(config.LogRouterName, &logRouter); err != nil {
+			var logSink corelogger.LogSink
+			if err := getter.Get(config.LogRouterName, &logSink); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			w, err := config.NewWorker(Config{
 				AgentTag:       config.AgentTag,
-				LogRouter:      logRouter,
+				LogRouter:      StaticLogRouter(logSink),
 				Clock:          config.Clock,
 				NewModelLogger: NewModelLogger,
 			})
