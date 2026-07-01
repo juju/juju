@@ -51,7 +51,7 @@ type format_2_0Serialization struct {
 	LokiEndpoint           string            `yaml:"lokiendpoint,omitempty"`
 	LokiCACert             string            `yaml:"lokicacert,omitempty"`
 	LokiInsecureSkipVerify *bool             `yaml:"lokiinsecureskipverify,omitempty"`
-	LokiOrgID              string            `yaml:"lokiOrgID,omitempty"`
+	LokiOrgID              string            `yaml:"lokiorgid,omitempty"`
 	Values                 map[string]string `yaml:"values"`
 
 	AgentLogfileMaxSizeMB  int `yaml:"agent-logfile-max-size"`

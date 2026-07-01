@@ -23,7 +23,6 @@ type LokiConfig struct {
 	ControllerUUID       string
 	ModelUUID            string
 	AgentID              string
-	OrgID                string
 	PrometheusRegisterer prometheus.Registerer
 	NewClient            NewLokiClientFunc
 }
