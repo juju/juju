@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
@@ -22,12 +23,13 @@ import (
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName      string
-	APICallerName  string
-	HTTPClientName string
-	FlightRecorder flightrecorder.FlightRecorder
-	Clock          clock.Clock
-	Logger         logger.Logger
+	AgentName          string
+	APICallerName      string
+	HTTPClientName     string
+	AgentConfigChanged *voyeur.Value
+	FlightRecorder     flightrecorder.FlightRecorder
+	Clock              clock.Clock
+	Logger             logger.Logger
 
 	UnitEngineConfig func() dependency.EngineConfig
 	SetupLogging     func(logger.LoggerContext, agent.Config)
@@ -44,6 +46,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.HTTPClientName == "" {
 		return errors.NotValidf("empty HTTPClientName")
+	}
+	if c.AgentConfigChanged == nil {
+		return errors.NotValidf("nil AgentConfigChanged")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -100,14 +105,15 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	deployerFacade := apideployer.NewClient(apiCaller)
 	contextConfig := ContextConfig{
-		Agent:            a,
-		FlightRecorder:   config.FlightRecorder,
-		Clock:            config.Clock,
-		Logger:           config.Logger,
-		UnitEngineConfig: config.UnitEngineConfig,
-		SetupLogging:     config.SetupLogging,
-		UnitManifolds:    UnitManifolds,
-		HTTPClientGetter: httpClientGetter,
+		Agent:              a,
+		AgentConfigChanged: config.AgentConfigChanged,
+		FlightRecorder:     config.FlightRecorder,
+		Clock:              config.Clock,
+		Logger:             config.Logger,
+		UnitEngineConfig:   config.UnitEngineConfig,
+		SetupLogging:       config.SetupLogging,
+		UnitManifolds:      UnitManifolds,
+		HTTPClientGetter:   httpClientGetter,
 	}
 
 	context, err := config.NewDeployContext(contextConfig)

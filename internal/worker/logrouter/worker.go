@@ -57,6 +57,10 @@ type Backend interface {
 	LogRecords() logsender.LogRecordCh
 }
 
+type pendingRecordsExporter interface {
+	PendingRecords() []*logsender.LogRecord
+}
+
 // BackendFunc constructs a backend worker.
 type BackendFunc func(BackendType, ConfigSnapshot) (Backend, error)
 
@@ -205,6 +209,7 @@ type logRouter struct {
 	config        WorkerConfig
 	configChanges chan struct{}
 	backendSeq    int
+	routeMu       sync.Mutex
 
 	activeMu        sync.RWMutex
 	activeBackendID string
@@ -270,6 +275,9 @@ func (w *logRouter) refreshChannel() chan struct{} {
 // Log implements corelogger.LogSink by routing records through the same
 // active-backend path as records captured from the agent log stream.
 func (w *logRouter) Log(records []corelogger.LogRecord) error {
+	w.routeMu.Lock()
+	defer w.routeMu.Unlock()
+
 	ctx, cancel := context.WithCancel(w.catacomb.Context(context.Background()))
 	defer cancel()
 	for _, record := range records {
@@ -357,11 +365,15 @@ func (w *logRouter) switchBackend(
 	next ConfigSnapshot,
 ) error {
 	activeBackendID, _, _ := w.activeBackend()
-	if activeBackendID != "" && activeBackendID != backendDrainID {
-		w.stopBackend(activeBackendID)
-	}
+	oldBackend, _ := w.backend(activeBackendID, ctx)
 
 	if next.Mode == BackendTypeDrain {
+		w.routeMu.Lock()
+		defer w.routeMu.Unlock()
+
+		if activeBackendID != "" && activeBackendID != backendDrainID {
+			w.stopBackend(activeBackendID)
+		}
 		w.setActiveBackend(backendDrainID, next, w.drainRecords)
 		w.manageLegacyLogSinkWriter(ctx, next)
 		return nil
@@ -378,12 +390,23 @@ func (w *logRouter) switchBackend(
 		}
 
 		w.warnConfigApply(ctx, next, err)
-		w.setActiveBackend(backendDrainID, next, w.drainRecords)
+		if activeBackendID == "" {
+			w.setActiveBackend(backendDrainID, next, w.drainRecords)
+		}
 		return nil
 	}
 
+	w.routeMu.Lock()
+	defer w.routeMu.Unlock()
+
+	if oldBackend != nil {
+		w.replayPendingRecords(convergeCtx, records, oldBackend)
+	}
 	w.setActiveBackend(backendID, next, records)
 	w.manageLegacyLogSinkWriter(ctx, next)
+	if oldBackend != nil {
+		w.stopBackend(activeBackendID)
+	}
 	return nil
 }
 
@@ -582,6 +605,35 @@ func sendRecord(ctx context.Context, records logsender.LogRecordCh, record *logs
 
 func (w *logRouter) stopBackend(id string) {
 	_ = w.runner.StopWorker(id)
+}
+
+func (w *logRouter) backend(id string, ctx context.Context) (Backend, error) {
+	if id == "" || id == backendDrainID {
+		return nil, nil
+	}
+
+	raw, err := w.runner.Worker(id, ctx.Done())
+	if err != nil {
+		return nil, err
+	}
+	backend, ok := raw.(Backend)
+	if !ok {
+		return nil, errors.NotValidf("logrouter backend %q", id)
+	}
+	return backend, nil
+}
+
+func (w *logRouter) replayPendingRecords(ctx context.Context, records logsender.LogRecordCh, backend Backend) {
+	exporter, ok := backend.(pendingRecordsExporter)
+	if !ok {
+		return
+	}
+
+	for _, record := range exporter.PendingRecords() {
+		if err := sendRecord(ctx, records, record); err != nil {
+			return
+		}
+	}
 }
 
 func (w *logRouter) manageLegacyLogSinkWriter(ctx context.Context, next ConfigSnapshot) {

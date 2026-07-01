@@ -1253,12 +1253,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// so the controller charm's install hook can reach the socket. On
 		// non-controller machines that flag is pre-unlocked.
 		deployerName: ifControllerAgentConfigNeededAndReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			HTTPClientName: httpClientName,
-			FlightRecorder: config.FlightRecorder,
-			Clock:          config.Clock,
-			Logger:         internallogger.GetLogger("juju.worker.deployer"),
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			HTTPClientName:     httpClientName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			FlightRecorder:     config.FlightRecorder,
+			Clock:              config.Clock,
+			Logger:             internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,
