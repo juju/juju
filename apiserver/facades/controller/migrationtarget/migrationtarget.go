@@ -40,22 +40,20 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
 	"github.com/juju/juju/rpc/params"
 )
 
 // ModelImporter defines an interface for importing models.
 type ModelImporter interface {
-	// ImportModel takes a serialized description model (yaml bytes) and returns
-	// a state model and state state.
-	ImportModel(ctx context.Context, bytes []byte) error
+	// ImportModelLegacy imports a serialized legacy description model.
+	ImportModelLegacy(ctx context.Context, bytes []byte) error
 
-	// ImportModelV2 applies a v8 migration envelope's controller-scoped
-	// semantic data to the target controller: the durable
-	// model_migration_import claim, the target-local model bootstrap, and
-	// the users, credential, permissions, authorized keys, secret backend,
-	// leadership and cloud image metadata carried by the import args.
-	ImportModelV2(ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView) error
+	// ImportModel applies a v8 migration envelope's controller-scoped semantic
+	// data to the target controller: the durable model_migration_import claim,
+	// the target-local model bootstrap, and the users, credential, permissions,
+	// authorized keys, secret backend, leadership and cloud image metadata
+	// carried by the import args.
+	ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
 }
 
 // CloudService provides a subset of the cloud domain service methods.
@@ -363,7 +361,7 @@ with an earlier version of the target controller and try again.
 // Import takes a serialized Juju model, deserializes it, and
 // recreates it in the receiving controller.
 func (api *API) Import(ctx context.Context, serialized params.SerializedModel) error {
-	err := api.modelImporter.ImportModel(ctx, serialized.Bytes)
+	err := api.modelImporter.ImportModelLegacy(ctx, serialized.Bytes)
 	if err != nil {
 		return err
 	}
@@ -693,7 +691,7 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 		return errors.Capture(err)
 	}
 
-	if err := api.modelImporter.ImportModelV2(ctx, importModelV2Args(envelope, modelDB), view); err != nil {
+	if err := api.modelImporter.ImportModel(ctx, importModelArgs(envelope, modelDB), view); err != nil {
 		return errors.Capture(err)
 	}
 	return nil
@@ -756,6 +754,9 @@ func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2
 			"transformed model export payload has unexpected type %T, want %T",
 			transformed, latest.ModelExport{})
 	}
+	if err := modelimport.ValidatePayload(modelDB); err != nil {
+		return export.ProjectionView{}, nil, errors.Capture(err)
+	}
 
 	view, err := export.ProjectionViewForPayload(modelDB)
 	if err != nil {
@@ -782,12 +783,12 @@ func validateModelInfo(info params.SerializedModelInfo) error {
 	return nil
 }
 
-// importModelV2Args decodes a v8 wire envelope's controller-scoped semantic
+// importModelArgs decodes a v8 wire envelope's controller-scoped semantic
 // fields into their target-portable domain form. It is the inverse of the
 // source side's envelopeFromControllerModelInfo
 // (internal/worker/migrationmaster/envelope.go), and is kept in the apiserver
 // facade so internal migration code does not depend on rpc/params.
-func importModelV2Args(envelope params.SerializedModelV2, modelDBPayload *latest.ModelExport) migrationv2.ImportModelArgs {
+func importModelArgs(envelope params.SerializedModelV2, modelDBPayload *latest.ModelExport) migration.ImportModelArgs {
 	info := coremodelmigration.ControllerModelInfo{
 		ModelInfo: coremodelmigration.ModelIdentityInfo{
 			UUID:            envelope.ModelInfo.UUID,
@@ -911,7 +912,7 @@ func importModelV2Args(envelope params.SerializedModelV2, modelDBPayload *latest
 			ConsumedModels: c.ConsumedModels,
 		})
 	}
-	return migrationv2.ImportModelArgs{
+	return migration.ImportModelArgs{
 		SourceMigrationUUID: envelope.ModelInfo.SourceMigrationUUID,
 		ControllerModelInfo: info,
 		ModelDBPayload:      modelDBPayload,

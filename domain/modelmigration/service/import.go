@@ -18,7 +18,7 @@ import (
 
 // These methods are thin controller-scoped pass-throughs onto the v8 import
 // claim and migration-specific companion tables. The v8 import driver
-// (internal/migration.ModelImporter.ImportModelV2) calls them directly,
+// (internal/migration.ModelImporter.ImportModel) calls them directly,
 // alongside the per-domain services that own the actual controller-data
 // writes (permissions, users, credential, authorized keys, secret backend,
 // leadership, image metadata).

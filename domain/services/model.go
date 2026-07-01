@@ -484,6 +484,11 @@ func (s *ModelServices) ModelInfo() *modelservice.ProviderModelService {
 func (s *ModelServices) Export() *exportservice.Service {
 	return exportservice.NewService(
 		exportstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		exportservice.ControllerInfoState{
+			Controller: modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock),
+			Model:      modelmigrationstatemodel.New(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID),
+			ModelUUID:  s.modelUUID.String(),
+		},
 	)
 }
 

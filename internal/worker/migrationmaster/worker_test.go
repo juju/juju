@@ -180,7 +180,7 @@ var (
 	// assembleCalls are the service calls recorded by one envelope assembly.
 	assembleCalls = []testhelpers.StubCall{
 		{FuncName: "exportService.Export", Args: nil},
-		{FuncName: "modelMigrationService.GetControllerModelInfo", Args: nil},
+		{FuncName: "exportService.GetControllerModelInfo", Args: nil},
 		{FuncName: "charmService.ListCharmLocators", Args: nil},
 		{FuncName: "modelAgentService.GetModelAgentBinaryMetadata", Args: nil},
 		{FuncName: "resourceService.ListAllModelResources", Args: nil},
@@ -601,7 +601,7 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *tc.C) {
 
 func (s *Suite) TestQUIESCEControllerModelInfoFail(c *tc.C) {
 	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.QUIESCE))
-	s.modelMigrationService.controllerModelInfoErr = errors.New("boom")
+	s.exportService.controllerModelInfoErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
 	s.stub.CheckCalls(c, joinCalls(
@@ -610,7 +610,7 @@ func (s *Suite) TestQUIESCEControllerModelInfoFail(c *tc.C) {
 			{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
 			{FuncName: "facade.Prechecks", Args: []any{}},
 			{FuncName: "exportService.Export", Args: nil},
-			{FuncName: "modelMigrationService.GetControllerModelInfo", Args: nil},
+			{FuncName: "exportService.GetControllerModelInfo", Args: nil},
 		},
 		abortCalls,
 	))
@@ -1455,8 +1455,6 @@ type stubModelMigrationService struct {
 	status         []coremigration.MigrationStatus
 	statusErr      error
 
-	controllerModelInfoErr error
-
 	minionReportsChanges  chan struct{}
 	minionReportsWatchErr error
 	minionReports         []coremigration.MinionReports
@@ -1502,14 +1500,6 @@ func (s *stubModelMigrationService) Migration(ctx context.Context) (modelmigrati
 		PhaseChangedTime: out.PhaseChangedTime,
 		Target:           out.TargetInfo,
 	}, nil
-}
-
-func (s *stubModelMigrationService) GetControllerModelInfo(ctx context.Context) (coremodelmigration.ControllerModelInfo, error) {
-	s.stub.AddCall("modelMigrationService.GetControllerModelInfo")
-	if s.controllerModelInfoErr != nil {
-		return coremodelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
-	}
-	return fakeControllerModelInfo, nil
 }
 
 func (s *stubModelMigrationService) SetMigrationPhase(ctx context.Context, phase coremigration.Phase) error {
@@ -1577,8 +1567,9 @@ func (f *stubMasterFacade) Prechecks(ctx context.Context) error {
 }
 
 type stubExportService struct {
-	stub      *testhelpers.Stub
-	exportErr error
+	stub                   *testhelpers.Stub
+	exportErr              error
+	controllerModelInfoErr error
 }
 
 func (s *stubExportService) Export(ctx context.Context) (*domainexport.ModelExport, error) {
@@ -1590,6 +1581,14 @@ func (s *stubExportService) Export(ctx context.Context) (*domainexport.ModelExpo
 		Version: fakeExportVersion,
 		Payload: fakeExportPayload,
 	}, nil
+}
+
+func (s *stubExportService) GetControllerModelInfo(ctx context.Context) (coremodelmigration.ControllerModelInfo, error) {
+	s.stub.AddCall("exportService.GetControllerModelInfo")
+	if s.controllerModelInfoErr != nil {
+		return coremodelmigration.ControllerModelInfo{}, s.controllerModelInfoErr
+	}
+	return fakeControllerModelInfo, nil
 }
 
 type stubControllerConfigService struct {

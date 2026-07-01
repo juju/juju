@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -22,12 +21,11 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/export"
-	"github.com/juju/juju/domain/export/types/latest"
-	"github.com/juju/juju/domain/modeldefaults"
+	"github.com/juju/juju/domain/modelimport"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
+	"github.com/juju/juju/internal/migration/legacy"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
@@ -44,21 +42,14 @@ type OperationExporter interface {
 // on the given cloud service.
 type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchemaSourceGetter
 
-// ModelDBImporter is the seam Task 8 fills with the generated domain import.
-// It is nil on ModelImporter until Task 8 wires it in.
-type ModelDBImporter interface {
-	Import(ctx context.Context, payload *latest.ModelExport) error
-}
-
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
 	domainServices services.DomainServicesGetter
 
-	controllerUUID  string
-	scope           modelmigration.ScopeForModel
-	logger          corelogger.Logger
-	clock           clock.Clock
-	modelDBImporter ModelDBImporter // nil until Task 8 wires it in
+	controllerUUID string
+	scope          modelmigration.ScopeForModel
+	logger         corelogger.Logger
+	clock          clock.Clock
 }
 
 // NewModelImporter returns a new ModelImporter that encapsulates the
@@ -80,91 +71,48 @@ func NewModelImporter(
 	}
 }
 
-// ImportModel deserializes a model description from the bytes, transforms
-// the model config based on information from the controller model, and then
-// imports that as a new database model.
-func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
-	model, err := description.Deserialize(bytes)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	configGetter, err := newEphemeralProviderConfigGetter(i.controllerUUID, model, getterShim{servicesGetter: i.domainServices})
-	if err != nil {
-		return internalerrors.Errorf("creating ephemeral provider config getter: %w", err)
-	}
-
-	modelUUID := coremodel.UUID(model.UUID())
-
-	// The domain services are not available during the import, until the
-	// model is created and activated. The model defaults provider is used
-	// to provide the model defaults during the migration, so we allow access
-	// but in a lazy way.
-	modelDefaultsProvider := modelDefaultsProvider{
-		modelUUID:      modelUUID,
-		servicesGetter: i.domainServices,
-	}
-
-	coordinator := modelmigration.NewCoordinator(i.logger)
-	ImportOperations(
-		coordinator,
-		modelDefaultsProvider,
-		configGetter,
-		i.clock,
-		i.logger)
-	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+// ImportModelLegacy deserializes a legacy description model from the bytes,
+// transforms the model config based on information from the controller model,
+// and imports that as a new database model.
+func (i *ModelImporter) ImportModelLegacy(ctx context.Context, bytes []byte) error {
+	return legacy.ImportModel(
+		ctx, bytes, i.scope, i.domainServices, i.controllerUUID, i.logger, i.clock,
+	)
 }
 
-// ImportModelV2 applies a v8 import's controller-scoped semantic data to the
-// target controller. See [migrationv2.ImportModel] for the orchestration; this
-// method only resolves the migration scope for the model UUID and delegates.
+// ImportModel applies a v8 import's controller-scoped semantic data to the
+// target controller. See [ImportControllerModelInfo] for the orchestration;
+// this method only resolves the migration scope for the model UUID and
+// delegates.
 //
 // If a claim already exists for args.ControllerModelInfo.ModelInfo.UUID, the
 // returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
 // supplied by the modelmigration domain).
-func (i *ModelImporter) ImportModelV2(
-	ctx context.Context, args migrationv2.ImportModelArgs, view export.ProjectionView,
+func (i *ModelImporter) ImportModel(
+	ctx context.Context, args ImportModelArgs, view export.ProjectionView,
 ) error {
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
 
-	if err := migrationv2.ImportModel(ctx, migrationv2.Deps{
+	if err := ImportControllerModelInfo(ctx, Deps{
 		ControllerDB: scope.ControllerDB(),
 		ModelDB:      scope.ModelDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
-	}, args, view); err != nil {
+	}, args.SourceMigrationUUID, args.ControllerModelInfo, view); err != nil {
 		return internalerrors.Capture(err)
 	}
 
-	// Model-DB import: Task 8 fills this seam with the generated domain import.
-	// The payload is decoded and transformed but not yet persisted into the model DB.
-	if args.ModelDBPayload != nil && i.modelDBImporter != nil {
-		if err := i.modelDBImporter.Import(ctx, args.ModelDBPayload); err != nil {
+	// Model-DB import: insert the transformed, target-version payload into the
+	// model DB. The importer is constructed per import because it binds to the
+	// model DB resolved from the scope for this model UUID (the ModelImporter
+	// itself is not bound to a single model).
+	if args.ModelDBPayload != nil {
+		if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
 			return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
 		}
 	}
 	return nil
-}
-
-type modelDefaultsProvider struct {
-	modelUUID      coremodel.UUID
-	servicesGetter services.DomainServicesGetter
-}
-
-func (p modelDefaultsProvider) ModelDefaults(ctx context.Context) (modeldefaults.Defaults, error) {
-	domainServices, err := p.servicesGetter.ServicesForModel(ctx, p.modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelDefaults := domainServices.ModelDefaults()
-	fn := modelDefaults.ModelDefaultsProvider(p.modelUUID)
-	return fn(ctx)
 }
 
 type CharmService interface {

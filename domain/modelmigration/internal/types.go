@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 )
 
 // ExternalControllerAddress describes an address row to persist for an
@@ -97,11 +98,5 @@ type MigrationAgents struct {
 	Applications []string
 }
 
-// OffererModel identifies a single (offerer controller, offerer model) pair
-// referenced by the model's remote applications. It is the model-database input
-// used to read the matching third-party external controller rows from the
-// controller database.
-type OffererModel struct {
-	ControllerUUID string
-	ModelUUID      string
-}
+// OffererModel is kept as an alias for existing modelmigration state code.
+type OffererModel = coremodelmigration.OffererModel

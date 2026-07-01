@@ -95,7 +95,7 @@ type CharmService interface {
 
 // ModelMigrationService exposes the model migration domain operations the
 // worker uses to drive the source side of a migration: the export lifecycle,
-// phase and status reporting, controller-fact export, and minion reports.
+// phase and status reporting, and minion reports.
 type ModelMigrationService interface {
 	// WatchForMigration returns a notification watcher that fires when this
 	// model starts or stops undergoing migration.
@@ -105,10 +105,6 @@ type ModelMigrationService interface {
 	// not currently being migrated, a migration with phase
 	// [coremigration.NONE] is returned.
 	Migration(context.Context) (modelmigration.Migration, error)
-
-	// GetControllerModelInfo reads the controller-database information scoped to
-	// this migrating model in target-portable semantic form.
-	GetControllerModelInfo(context.Context) (coremodelmigration.ControllerModelInfo, error)
 
 	// SetMigrationPhase progresses the active migration to the given phase.
 	SetMigrationPhase(context.Context, coremigration.Phase) error
@@ -140,6 +136,10 @@ type ExportService interface {
 	// Export returns the model-database contents at the latest supported
 	// payload schema version.
 	Export(context.Context) (*domainexport.ModelExport, error)
+
+	// GetControllerModelInfo reads the controller-database information scoped
+	// to this model in target-portable semantic form.
+	GetControllerModelInfo(context.Context) (coremodelmigration.ControllerModelInfo, error)
 }
 
 // ControllerConfigService provides access to the controller configuration.
