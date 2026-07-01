@@ -112,7 +112,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"log-sink",
 			"controller-log-sink",
 			"non-controller-log-sink",
-			"local-log-router",
+			"controller-log-router",
 			"log-router",
 			"logging-config-updater",
 			"loki-endpoint-updater",
@@ -210,7 +210,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"log-sink",
 			"controller-log-sink",
 			"non-controller-log-sink",
-			"local-log-router",
+			"controller-log-router",
 			"log-router",
 			"logging-config-updater",
 			"loki-endpoint-updater",
@@ -317,7 +317,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"log-sink",
 		"controller-log-sink",
 		"non-controller-log-sink",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -375,6 +375,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"api-remote-caller",
 		"certificate-watcher",
 		"controller-agent-config",
+		"controller-log-router",
 		"controller-log-sink",
 		"trace-services",
 		"db-accessor",
@@ -617,8 +618,7 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
-	"agent": {
-	},
+	"agent": {},
 	"agent-config-updater": {
 		"agent",
 		"api-caller",
@@ -636,7 +636,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -678,7 +678,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-not-controller-flag",
 		"is-primary-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -748,7 +748,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -795,7 +795,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-not-controller-flag",
 		"jwt-parser",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -837,7 +837,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -879,7 +879,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -932,7 +932,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -988,7 +988,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-not-controller-flag",
 		"is-primary-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1012,8 +1012,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"clock": {
-	},
+	"clock": {},
 	"control-socket": {
 		"agent",
 		"api-caller",
@@ -1031,7 +1030,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1063,12 +1062,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"controller-agent-config-ready-flag": {
 		"controller-agent-config-ready-gate",
 	},
-	"controller-agent-config-ready-gate": {
-	},
+	"controller-agent-config-ready-gate": {},
 	"controller-log-sink": {
 		"agent",
+		"http-client",
 		"is-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"state-config-watcher",
 	},
 	"controller-presence": {
@@ -1088,7 +1087,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1169,7 +1168,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1221,8 +1220,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"state-config-watcher",
 	},
-	"flight-recorder": {
-	},
+	"flight-recorder": {},
 	"host-key-reporter": {
 		"agent",
 		"api-caller",
@@ -1234,8 +1232,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"http-client": {
-	},
+	"http-client": {},
 	"http-server": {
 		"agent",
 		"api-caller",
@@ -1261,7 +1258,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-not-controller-flag",
 		"jwt-parser",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1305,7 +1302,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1332,8 +1329,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"is-bootstrap-flag": {
 		"is-bootstrap-gate",
 	},
-	"is-bootstrap-gate": {
-	},
+	"is-bootstrap-gate": {},
 	"is-controller-flag": {
 		"agent",
 		"state-config-watcher",
@@ -1373,7 +1369,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1425,7 +1421,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 		"trace-services",
 	},
-	"local-log-router": {
+	"controller-log-router": {
+		"agent",
+		"http-client",
+		"is-controller-flag",
+		"state-config-watcher",
 	},
 	"log-router": {
 		"agent",
@@ -1447,7 +1447,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"http-client",
 		"is-controller-flag",
 		"is-not-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -1577,7 +1577,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1681,8 +1681,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
-	"object-store-fortress": {
-	},
+	"object-store-fortress": {},
 	"object-store-s3-caller": {
 		"agent",
 		"change-stream",
@@ -1729,7 +1728,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"http-client",
 		"is-controller-flag",
 		"is-not-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1832,7 +1831,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1883,7 +1882,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"http-client",
 		"is-controller-flag",
 		"is-not-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1898,8 +1897,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"termination-signal-handler": {
-	},
+	"termination-signal-handler": {},
 	"tools-version-checker": {
 		"agent",
 		"api-caller",
@@ -1917,7 +1915,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -1971,7 +1969,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2006,8 +2004,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"upgrade-check-flag": {
 		"upgrade-check-gate",
 	},
-	"upgrade-check-gate": {
-	},
+	"upgrade-check-gate": {},
 	"upgrade-controller-steps-runner": {
 		"agent",
 		"api-caller",
@@ -2025,7 +2022,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2085,8 +2082,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"upgrade-steps-flag": {
 		"upgrade-steps-gate",
 	},
-	"upgrade-steps-gate": {
-	},
+	"upgrade-steps-gate": {},
 	"upgrader": {
 		"agent",
 		"api-caller",
@@ -2108,8 +2104,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
-	"agent": {
-	},
+	"agent": {},
 	"agent-config-updater": {
 		"agent",
 		"api-caller",
@@ -2127,7 +2122,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2169,7 +2164,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-not-controller-flag",
 		"is-primary-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2228,7 +2223,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2275,7 +2270,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-not-controller-flag",
 		"jwt-parser",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2317,7 +2312,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2359,7 +2354,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2415,7 +2410,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-not-controller-flag",
 		"is-primary-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2439,8 +2434,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"clock": {
-	},
+	"clock": {},
 	"control-socket": {
 		"agent",
 		"api-caller",
@@ -2458,7 +2452,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2490,12 +2484,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"controller-agent-config-ready-flag": {
 		"controller-agent-config-ready-gate",
 	},
-	"controller-agent-config-ready-gate": {
-	},
+	"controller-agent-config-ready-gate": {},
 	"controller-log-sink": {
 		"agent",
+		"http-client",
 		"is-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"state-config-watcher",
 	},
 	"controller-presence": {
@@ -2515,7 +2509,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2573,7 +2567,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2625,10 +2619,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"state-config-watcher",
 	},
-	"flight-recorder": {
-	},
-	"http-client": {
-	},
+	"flight-recorder": {},
+	"http-client":     {},
 	"http-server": {
 		"agent",
 		"api-caller",
@@ -2654,7 +2646,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-not-controller-flag",
 		"jwt-parser",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2698,7 +2690,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2725,8 +2717,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"is-bootstrap-flag": {
 		"is-bootstrap-gate",
 	},
-	"is-bootstrap-gate": {
-	},
+	"is-bootstrap-gate": {},
 	"is-controller-flag": {
 		"agent",
 		"state-config-watcher",
@@ -2762,7 +2753,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -2814,7 +2805,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 		"trace-services",
 	},
-	"local-log-router": {
+	"controller-log-router": {
+		"agent",
+		"http-client",
+		"is-controller-flag",
+		"state-config-watcher",
 	},
 	"log-router": {
 		"agent",
@@ -2836,7 +2831,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-client",
 		"is-controller-flag",
 		"is-not-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -2909,7 +2904,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -3012,8 +3007,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
-	"object-store-fortress": {
-	},
+	"object-store-fortress": {},
 	"object-store-s3-caller": {
 		"agent",
 		"change-stream",
@@ -3060,7 +3054,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-client",
 		"is-controller-flag",
 		"is-not-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -3141,7 +3135,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -3180,7 +3174,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"http-client",
 		"is-controller-flag",
 		"is-not-controller-flag",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -3195,8 +3189,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
-	"termination-signal-handler": {
-	},
+	"termination-signal-handler": {},
 	"trace": {
 		"agent",
 	},
@@ -3227,7 +3220,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -3261,8 +3254,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"upgrade-check-flag": {
 		"upgrade-check-gate",
 	},
-	"upgrade-check-gate": {
-	},
+	"upgrade-check-gate": {},
 	"upgrade-controller-steps-runner": {
 		"agent",
 		"api-caller",
@@ -3280,7 +3272,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"lease-manager",
-		"local-log-router",
+		"controller-log-router",
 		"log-router",
 		"log-sink",
 		"migration-fortress",
@@ -3340,8 +3332,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"upgrade-steps-flag": {
 		"upgrade-steps-gate",
 	},
-	"upgrade-steps-gate": {
-	},
+	"upgrade-steps-gate": {},
 	"upgrader": {
 		"agent",
 		"api-caller",

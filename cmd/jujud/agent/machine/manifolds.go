@@ -206,10 +206,10 @@ type ManifoldsConfig struct {
 	LegacyLogSinkWriter loggo.Writer
 
 	// LocalLogSink is the primed local log sink used for
-	// controller-local log delivery before the API caller is
-	// available. It is used by the controller log sink manifold
-	// to break the startup dependency cycle between log-router,
-	// log-sink, and api-server.
+	// controller-local log delivery. The controller-only model
+	// logrouter uses this in logsink mode so controller model
+	// loggers can switch away from the file sink without
+	// depending on the API caller.
 	LocalLogSink corelogger.LogSink
 
 	// NewDeployContext gives the tests the opportunity to create a
@@ -629,24 +629,28 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:           httpserver.NewWorkerShim,
 		}),
 
-		// localLogRouterName provides a static LogRouter backed by the
-		// already-primed local log sink. It is used exclusively by the
-		// controller log sink to break the startup dependency cycle
-		// between log-router, log-sink, and api-server.
-		localLogRouterName: dependency.Manifold{
-			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
-				return engine.NewValueWorker(logsink.StaticLogRouter(config.LocalLogSink))
-			},
-			Output: engine.ValueWorkerOutput,
-		},
+		// controllerLogRouterName is a controller-only logrouter used for
+		// model-scoped logging and the logsink API path. It writes to the
+		// local logsink directly in logsink mode, avoiding the cycle:
+		// log-router -> api-caller -> api-server -> log-sink -> log-router.
+		controllerLogRouterName: ifController(logrouter.ControllerManifold(logrouter.ControllerManifoldConfig{
+			AgentName:            agentName,
+			HTTPClientName:       httpClientName,
+			AgentConfigChanged:   config.AgentConfigChanged,
+			Logger:               internallogger.GetLogger("juju.worker.logrouter.controller"),
+			Clock:                config.Clock,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			LocalLogSink:         config.LocalLogSink,
+			NewBackendFunc:       logrouter.NewControllerBackend,
+		})),
 
 		// controllerLogSinkName is the controller-only log sink that
-		// uses the local-log-router (no dependency on logRouterName or
-		// apiCallerName). This avoids the cycle: log-router ->
-		// api-caller -> api-server -> log-sink -> log-router.
+		// uses the controller-local logrouter. This allows controller
+		// model loggers to follow logsink/loki/drain backend changes
+		// without depending on the API caller.
 		controllerLogSinkName: ifController(logsink.Manifold(logsink.ManifoldConfig{
 			AgentTag:       agentTag,
-			LogRouterName:  localLogRouterName,
+			LogRouterName:  controllerLogRouterName,
 			Clock:          config.Clock,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
@@ -1564,7 +1568,7 @@ const (
 	logSinkName                        = "log-sink"
 	controllerLogSinkName              = "controller-log-sink"
 	nonControllerLogSinkName           = "non-controller-log-sink"
-	localLogRouterName                 = "local-log-router"
+	controllerLogRouterName            = "controller-log-router"
 	logRouterName                      = "log-router"
 	lxdContainerProvisioner            = "lxd-container-provisioner"
 	machineActionName                  = "machine-action-runner"
