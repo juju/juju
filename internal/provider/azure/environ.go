@@ -528,13 +528,34 @@ func (env *azureEnviron) validateIPFamilyConstraint(cons constraints.Value) erro
 	return nil
 }
 
-// validateIPFamilyForCreate validates ip-family constraints for VM creation.
-// It combines the SKU check (defensive — validateIPFamilyConstraint should
-// catch this earlier) with the IPv6 subnet placement check. This is the
-// single validation chokepoint called from createVirtualMachine, which is
-// reached by all three code paths: bootstrap, add-machine, and deploy.
-func (env *azureEnviron) validateIPFamilyForCreate(
-	ctx context.Context, cons constraints.Value, placementSubnet *armnetwork.Subnet,
+// hasIPv6Slash64Prefix returns true if at least one CIDR in prefixes is an
+// IPv6 address with a /64 prefix length, which is the only IPv6 prefix size
+// Azure accepts for VNet subnets.
+func hasIPv6Slash64Prefix(prefixes []string) bool {
+	for _, prefix := range prefixes {
+		_, ipNet, err := net.ParseCIDR(prefix)
+		if err != nil {
+			continue // Skip malformed prefixes
+		}
+		if ipNet.IP.To4() == nil {
+			ones, _ := ipNet.Mask.Size()
+			if ones == 64 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// validateIPFamilyForResolvedSubnet validates ip-family constraints for VM
+// creation after the subnet has been resolved. It performs the SKU check and,
+// when a placement subnet was provided, verifies that subnet has an IPv6 /64
+// prefix. When no placement subnet is provided (space constraints, default
+// subnet selection), the SKU check alone is sufficient; Azure itself rejects
+// IPv4-only subnets at NIC creation time.
+func (env *azureEnviron) validateIPFamilyForResolvedSubnet(
+	ctx context.Context, cons constraints.Value,
+	bootstrapping bool, placementSubnet *armnetwork.Subnet,
 ) error {
 	if cons.IPFamily == nil || *cons.IPFamily != ipfamily.Dual {
 		return nil
@@ -544,34 +565,33 @@ func (env *azureEnviron) validateIPFamilyForCreate(
 			"ip-family=dual requires load-balancer-sku-name=Standard on Azure; " +
 				"Basic SKU is not supported for this configuration")
 	}
+
+	// Bootstrap with a Juju-managed VNet: the subnet is created by the
+	// ARM template in networkTemplateResources which is always dual-stack.
+	if bootstrapping && env.config.virtualNetworkName == "" {
+		return nil
+	}
+
+	// When a placement subnet was resolved, verify it has an IPv6 /64 prefix.
 	if placementSubnet == nil {
 		return nil
 	}
 	if placementSubnet.Properties == nil {
 		return errors.Errorf(
-			"placement subnet %q does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; "+
+			"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; "+
 				"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(placementSubnet.Name))
 	}
+	var prefixes []string
 	for _, prefix := range placementSubnet.Properties.AddressPrefixes {
-		if prefix == nil {
-			continue
-		}
-		// Parse the CIDR to extract the prefix length and address family.
-		// Azure requires IPv6 subnets to be exactly /64.
-		_, ipNet, err := net.ParseCIDR(*prefix)
-		if err != nil {
-			continue // Skip malformed prefixes
-		}
-		// Check if this is an IPv6 /64 prefix.
-		if ipNet.IP.To4() == nil {
-			ones, _ := ipNet.Mask.Size()
-			if ones == 64 {
-				return nil
-			}
+		if prefix != nil {
+			prefixes = append(prefixes, *prefix)
 		}
 	}
+	if hasIPv6Slash64Prefix(prefixes) {
+		return nil
+	}
 	return errors.Errorf(
-		"placement subnet %q does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; "+
+		"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; "+
 			"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(placementSubnet.Name))
 }
 
@@ -917,25 +937,27 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	// Resolve placement subnet and validate IPv6 support.
+	// Resolve placement subnet ID for use in networkInfoForInstance.
 	// findPlacementSubnet returns nil if no placement is specified.
 	placementSubnet, err := env.findPlacementSubnet(ctx, args.Placement)
 	if err != nil {
 		return environs.ZoneIndependentError(err)
 	}
-
-	// Validate ip-family constraints against the placement subnet (if any).
-	if err := env.validateIPFamilyForCreate(ctx, args.Constraints, placementSubnet); err != nil {
-		return environs.ZoneIndependentError(err)
-	}
-
-	// Extract placement subnet ID for use in networkInfoForInstance.
 	var placementSubnetID network.Id
 	if placementSubnet != nil {
 		placementSubnetID = providerSubnetID(placementSubnet)
 	}
 	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
 	if err != nil {
+		return environs.ZoneIndependentError(err)
+	}
+
+	// Validate ip-family constraints against the resolved subnet(s).
+	// When a placement subnet was resolved, we have its full details and
+	// can verify IPv6 /64 support directly. Otherwise (space constraints,
+	// default subnet selection), the SKU check is sufficient; Azure itself
+	// rejects IPv4-only subnets at NIC creation time.
+	if err := env.validateIPFamilyForResolvedSubnet(ctx, args.Constraints, bootstrapping, placementSubnet); err != nil {
 		return environs.ZoneIndependentError(err)
 	}
 	logger.Debugf(ctx, "creating instance using vnet %v, subnets %q", vnetId, subnetIds)
