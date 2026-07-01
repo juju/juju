@@ -93,6 +93,7 @@ import (
 	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsink"
+	"github.com/juju/juju/internal/worker/logsinkproxy"
 	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machineconverter"
@@ -666,44 +667,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// logSinkName is a selector that dispatches to either
 		// controllerLogSinkName or nonControllerLogSinkName based on
 		// whether the agent is running on a controller machine.
-		logSinkName: dependency.Manifold{
-			Inputs: []string{
-				isControllerFlagName,
-				controllerLogSinkName,
-				nonControllerLogSinkName,
-			},
-			Output: logSinkSelectorOutput,
-			Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-				var isController engine.Flag
-				if err := getter.Get(isControllerFlagName, &isController); err != nil {
-					return nil, err
-				}
-
-				name := nonControllerLogSinkName
-				if isController.Check() {
-					name = controllerLogSinkName
-				}
-
-				var ml corelogger.ModelLogger
-				if err := getter.Get(name, &ml); err != nil {
-					return nil, err
-				}
-				var lcg corelogger.LoggerContextGetter
-				if err := getter.Get(name, &lcg); err != nil {
-					return nil, err
-				}
-				var msg corelogger.ModelLogSinkGetter
-				if err := getter.Get(name, &msg); err != nil {
-					return nil, err
-				}
-
-				return engine.NewValueWorker(logSinkProxy{
-					ModelLogger:         ml,
-					LoggerContextGetter: lcg,
-					ModelLogSinkGetter:  msg,
-				})
-			},
-		},
+		logSinkName: logsinkproxy.Manifold(logsinkproxy.ManifoldConfig{
+			ControllerFlagName:       isControllerFlagName,
+			ControllerLogSinkName:    controllerLogSinkName,
+			NonControllerLogSinkName: nonControllerLogSinkName,
+		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
@@ -1448,37 +1416,6 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 		},
 		Output: engine.ValueWorkerOutput,
 	}
-}
-
-// logSinkProxy bundles the three interfaces exposed by the log-sink
-// worker so that the logSinkName selector manifold can forward them from
-// the active branch (controller or non-controller).
-type logSinkProxy struct {
-	corelogger.ModelLogger
-	corelogger.LoggerContextGetter
-	corelogger.ModelLogSinkGetter
-}
-
-// logSinkSelectorOutput is the output function for the logSinkName
-// selector manifold. It extracts the proxy from the value worker and
-// serves the requested interface.
-func logSinkSelectorOutput(in worker.Worker, out any) error {
-	raw, err := engine.ExtractValue(in)
-	if err != nil {
-		return err
-	}
-	proxy := raw.(logSinkProxy)
-	switch outPointer := out.(type) {
-	case *corelogger.ModelLogger:
-		*outPointer = proxy.ModelLogger
-	case *corelogger.LoggerContextGetter:
-		*outPointer = proxy.LoggerContextGetter
-	case *corelogger.ModelLogSinkGetter:
-		*outPointer = proxy.ModelLogSinkGetter
-	default:
-		return errors.Errorf("unexpected output type %T", out)
-	}
-	return nil
 }
 
 // ifBootstrapComplete gates against the bootstrap worker completing.
