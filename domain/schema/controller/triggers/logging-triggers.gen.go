@@ -32,7 +32,8 @@ WHEN
 	NEW.uuid != OLD.uuid OR
 	NEW.endpoint != OLD.endpoint OR
 	NEW.ca_cert != OLD.ca_cert OR
-	(NEW.insecure_skip_verify != OLD.insecure_skip_verify OR (NEW.insecure_skip_verify IS NOT NULL AND OLD.insecure_skip_verify IS NULL) OR (NEW.insecure_skip_verify IS NULL AND OLD.insecure_skip_verify IS NOT NULL))
+	(NEW.insecure_skip_verify != OLD.insecure_skip_verify OR (NEW.insecure_skip_verify IS NOT NULL AND OLD.insecure_skip_verify IS NULL) OR (NEW.insecure_skip_verify IS NULL AND OLD.insecure_skip_verify IS NOT NULL)) OR
+	NEW.org_id != OLD.org_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
