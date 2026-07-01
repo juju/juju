@@ -16,16 +16,19 @@ import (
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
 type sshTunnelerSuite struct {
-	state      *MockState
-	controller *MockControllerInfo
-	dialer     *MockSSHDial
-	clock      *MockClock
+	connRequests *MockConnRequestState
+	machines     *MockMachineState
+	controller   *MockControllerInfo
+	dialer       *MockSSHDial
+	clock        *MockClock
 }
 
 func TestSshTunnelerSuite(t *testing.T) {
@@ -35,7 +38,8 @@ func TestSshTunnelerSuite(t *testing.T) {
 func (s *sshTunnelerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockState(ctrl)
+	s.connRequests = NewMockConnRequestState(ctrl)
+	s.machines = NewMockMachineState(ctrl)
 	s.controller = NewMockControllerInfo(ctrl)
 	s.dialer = NewMockSSHDial(ctrl)
 	s.clock = NewMockClock(ctrl)
@@ -45,10 +49,11 @@ func (s *sshTunnelerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *sshTunnelerSuite) newTracker(c *tc.C) *Tracker {
 	args := TrackerArgs{
-		State:          s.state,
-		ControllerInfo: s.controller,
-		Dialer:         s.dialer,
-		Clock:          s.clock,
+		ConnRequestState: s.connRequests,
+		MachineState:     s.machines,
+		ControllerInfo:   s.controller,
+		Dialer:           s.dialer,
+		Clock:            s.clock,
 	}
 	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, tc.ErrorIsNil)
@@ -60,7 +65,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 
 	tunnelTracker := s.newTracker(c)
 
-	sshConnArgs := sshRequestArgs{}
+	var sshConnArgs domainssh.SSHConnRequest
 
 	// use a channel to wait for the tunnel request to be processed
 	tunnelRequested := make(chan struct{})
@@ -74,17 +79,17 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 
 	var hostKeyCallback gossh.HostKeyCallback
 
-	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
+	s.controller.EXPECT().Addresses(gomock.Any()).Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
-	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
-		func(sra sshRequestArgs) error {
+	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ model.UUID, sra domainssh.SSHConnRequest) error {
 			sshConnArgs = sra
 			close(tunnelRequested)
 			return nil
 		},
 	)
-	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return(
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		[]string{string(gossh.MarshalAuthorizedKey(sshPublicHostKey))}, nil)
 	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(c net.Conn, s1 string, s2 gossh.Signer, hkc gossh.HostKeyCallback) (*gossh.Client, error) {
@@ -95,7 +100,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 
 	tunnelReqArgs := RequestArgs{
 		MachineID: "0",
-		ModelUUID: "model-uuid",
+		ModelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 	}
 
 	wg := sync.WaitGroup{}
@@ -122,7 +127,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 	}
 	c.Check(tunnels, tc.HasLen, 1)
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
+	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.SSHPassword)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(tunnelID, tc.Equals, tunnels[0])
 
@@ -156,30 +161,30 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 
 	tunnelTracker := s.newTracker(c)
 
-	sshConnArgs := sshRequestArgs{}
+	var sshConnArgs domainssh.SSHConnRequest
 
 	// use a channel to wait for the tunnel request to be processed
 	tunnelRequested := make(chan struct{})
 
 	now := time.Now()
 
-	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
+	s.controller.EXPECT().Addresses(gomock.Any()).Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
-	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).DoAndReturn(
-		func(sra sshRequestArgs) error {
+	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ model.UUID, sra domainssh.SSHConnRequest) error {
 			sshConnArgs = sra
 			close(tunnelRequested)
 			return nil
 		},
 	)
-	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{}, nil)
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil)
 	s.dialer.EXPECT().Dial(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("failed-to-connect"))
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID: "0",
-		ModelUUID: "model-uuid",
+		ModelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 	}
 
 	wg := sync.WaitGroup{}
@@ -200,7 +205,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 		c.Error("timeout waiting for tunnel request to be processed")
 	}
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.Password)
+	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.SSHPassword)
 	c.Check(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
@@ -313,15 +318,15 @@ func (s *sshTunnelerSuite) TestRequestTunnelTimeout(c *tc.C) {
 
 	now := time.Now()
 	s.clock.EXPECT().Now().Times(1).Return(now)
-	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
+	s.controller.EXPECT().Addresses(gomock.Any()).Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
-	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
-	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{}, nil)
+	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID: "0",
-		ModelUUID: "model-uuid",
+		ModelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 	}
 
 	ctx := c.Context()
@@ -342,15 +347,15 @@ func (s *sshTunnelerSuite) TestRequestTunnelDeadline(c *tc.C) {
 
 	now := time.Now()
 	s.clock.EXPECT().Now().Times(1).Return(now)
-	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
+	s.controller.EXPECT().Addresses(gomock.Any()).Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
-	s.state.EXPECT().InsertSSHConnRequest(gomock.Any()).Return(nil)
-	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{}, nil)
+	s.connRequests.EXPECT().InsertSSHConnRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{}, nil)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID: "0",
-		ModelUUID: "model-uuid",
+		ModelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 	}
 
 	_, err := tunnelTracker.RequestTunnel(c.Context(), tunnelReqArgs)
@@ -383,14 +388,14 @@ func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *tc.C) {
 
 	now := time.Now()
 	s.clock.EXPECT().Now().Times(1).Return(now)
-	s.controller.EXPECT().Addresses().Return([]network.SpaceAddress{
+	s.controller.EXPECT().Addresses(gomock.Any()).Return([]network.SpaceAddress{
 		{MachineAddress: network.NewMachineAddress("1.2.3.4")},
 	}, nil)
-	s.state.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any()).Return([]string{"fake-host-key"}, nil)
+	s.machines.EXPECT().MachineHostKeys(gomock.Any(), gomock.Any(), gomock.Any()).Return([]string{"fake-host-key"}, nil)
 
 	tunnelReqArgs := RequestArgs{
 		MachineID: "0",
-		ModelUUID: "model-uuid",
+		ModelUUID: "8419cd78-4993-4c3a-928e-c646226beeee",
 	}
 
 	_, err := tunnelTracker.RequestTunnel(c.Context(), tunnelReqArgs)
@@ -400,23 +405,31 @@ func (s *sshTunnelerSuite) TestInvalidMachineHostKey(c *tc.C) {
 func (s *sshTunnelerSuite) TestNewTunnelTrackerValidation(c *tc.C) {
 	// Test case: All arguments are valid
 	args := TrackerArgs{
-		State:          s.state,
-		ControllerInfo: s.controller,
-		Dialer:         s.dialer,
-		Clock:          s.clock,
+		ConnRequestState: s.connRequests,
+		MachineState:     s.machines,
+		ControllerInfo:   s.controller,
+		Dialer:           s.dialer,
+		Clock:            s.clock,
 	}
 	tunnelTracker, err := NewTracker(args)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(tunnelTracker, tc.Not(tc.IsNil))
 
-	// Test case: Missing State
-	args.State = nil
+	// Test case: Missing ConnRequestState
+	args.ConnRequestState = nil
 	tunnelTracker, err = NewTracker(args)
-	c.Assert(err, tc.ErrorMatches, "state is required")
+	c.Assert(err, tc.ErrorMatches, "conn request state is required")
+	c.Assert(tunnelTracker, tc.IsNil)
+
+	// Test case: Missing MachineState
+	args.ConnRequestState = s.connRequests
+	args.MachineState = nil
+	tunnelTracker, err = NewTracker(args)
+	c.Assert(err, tc.ErrorMatches, "machine state is required")
 	c.Assert(tunnelTracker, tc.IsNil)
 
 	// Test case: Missing ControllerInfo
-	args.State = s.state
+	args.MachineState = s.machines
 	args.ControllerInfo = nil
 	tunnelTracker, err = NewTracker(args)
 	c.Assert(err, tc.ErrorMatches, "controller info is required")
