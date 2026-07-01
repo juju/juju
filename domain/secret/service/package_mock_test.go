@@ -68,6 +68,7 @@ type MockStateMockRecorder struct {
 	getSecretsRevisionExpiryChangesExpects                      []*gomock.Call3V_2[context.Context, secret.ApplicationOwners, secret.UnitOwners, string, []secret.ExpiryInfo, error]
 	getSecretsRotationChangesExpects                            []*gomock.Call3V_2[context.Context, secret.ApplicationOwners, secret.UnitOwners, string, []secret.RotationInfo, error]
 	getURIByConsumerLabelExpects                                []*gomock.Call3_2[context.Context, string, unit.Name, *secrets.URI, error]
+	getUnitReservedSecretIDsExpects                             []*gomock.Call2_2[context.Context, unit.UUID, []string, error]
 	getUnitUUIDExpects                                          []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	getUnitUUIDsForNamesExpects                                 []*gomock.Call2_2[context.Context, secret.UnitOwners, []string, error]
 	getUserSecretURIByLabelExpects                              []*gomock.Call2_2[context.Context, string, *secrets.URI, error]
@@ -86,6 +87,7 @@ type MockStateMockRecorder struct {
 	listUserSecretsToDrainExpects                               []*gomock.Call1_2[context.Context, []*secrets.SecretMetadataForDrain, error]
 	namespaceForWatchSecretMetadataExpects                      []*gomock.Call0_1[string]
 	namespaceForWatchSecretRevisionObsoleteExpects              []*gomock.Call0_1[string]
+	reserveSecretURIsExpects                                    []*gomock.Call3_1[context.Context, unit.UUID, []string, error]
 	revokeAccessExpects                                         []*gomock.Call3_1[context.Context, *secrets.URI, secret.RevokeParams, error]
 	saveSecretConsumerExpects                                   []*gomock.Call4_1[context.Context, *secrets.URI, unit.Name, secrets.SecretConsumerMetadata, error]
 	scheduleObsoleteUserSecretRevisionsPruningExpects           []*gomock.Call3_1[context.Context, string, time.Time, error]
@@ -668,6 +670,24 @@ func (mr *MockStateMockRecorder) GetURIByConsumerLabel(ctx, label, unitName any)
 // MockStateGetURIByConsumerLabelCall is the typed call wrapper for GetURIByConsumerLabel.
 type MockStateGetURIByConsumerLabelCall = gomock.Call3_2[context.Context, string, unit.Name, *secrets.URI, error]
 
+// GetUnitReservedSecretIDs mocks base method.
+func (m *MockState) GetUnitReservedSecretIDs(ctx context.Context, unitUUID unit.UUID) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitReservedSecretIDsExpects, m.ctrl, m, "GetUnitReservedSecretIDs", ctx, unitUUID)
+}
+
+// GetUnitReservedSecretIDs indicates an expected call of GetUnitReservedSecretIDs.
+func (mr *MockStateMockRecorder) GetUnitReservedSecretIDs(ctx, unitUUID any) *MockStateGetUnitReservedSecretIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, unit.UUID, []string, error](mr.mock.ctrl.T, mr.mock, "GetUnitReservedSecretIDs", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID))
+	mr.getUnitReservedSecretIDsExpects = append(mr.getUnitReservedSecretIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetUnitReservedSecretIDsCall is the typed call wrapper for GetUnitReservedSecretIDs.
+type MockStateGetUnitReservedSecretIDsCall = gomock.Call2_2[context.Context, unit.UUID, []string, error]
+
 // GetUnitUUID mocks base method.
 func (m *MockState) GetUnitUUID(ctx context.Context, name unit.Name) (unit.UUID, error) {
 	m.ctrl.T.Helper()
@@ -991,6 +1011,24 @@ func (mr *MockStateMockRecorder) NamespaceForWatchSecretRevisionObsolete() *Mock
 
 // MockStateNamespaceForWatchSecretRevisionObsoleteCall is the typed call wrapper for NamespaceForWatchSecretRevisionObsolete.
 type MockStateNamespaceForWatchSecretRevisionObsoleteCall = gomock.Call0_1[string]
+
+// ReserveSecretURIs mocks base method.
+func (m *MockState) ReserveSecretURIs(ctx context.Context, unitUUID unit.UUID, secretIDs []string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.reserveSecretURIsExpects, m.ctrl, m, "ReserveSecretURIs", ctx, unitUUID, secretIDs)
+}
+
+// ReserveSecretURIs indicates an expected call of ReserveSecretURIs.
+func (mr *MockStateMockRecorder) ReserveSecretURIs(ctx, unitUUID, secretIDs any) *MockStateReserveSecretURIsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, unit.UUID, []string, error](mr.mock.ctrl.T, mr.mock, "ReserveSecretURIs", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID), gomock.EnsureMatcher(secretIDs))
+	mr.reserveSecretURIsExpects = append(mr.reserveSecretURIsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateReserveSecretURIsCall is the typed call wrapper for ReserveSecretURIs.
+type MockStateReserveSecretURIsCall = gomock.Call3_1[context.Context, unit.UUID, []string, error]
 
 // RevokeAccess mocks base method.
 func (m *MockState) RevokeAccess(ctx context.Context, uri *secrets.URI, params secret.RevokeParams) error {

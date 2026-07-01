@@ -179,6 +179,7 @@ var modelPostPatchFilesByVersion = []struct {
 		"0058-charm-secret-removal.PATCH.sql",
 		"0059-machine-status.PATCH.sql",
 		"0060-view-indexes.PATCH.sql",
+		"0061-secret-reservation.PATCH.sql",
 	},
 }}
 

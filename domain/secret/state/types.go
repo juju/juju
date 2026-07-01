@@ -36,6 +36,12 @@ type secretID struct {
 	ID string `db:"id"`
 }
 
+type secretReservation struct {
+	SecretID  string    `db:"secret_id"`
+	UnitUUID  string    `db:"unit_uuid"`
+	CreatedAt time.Time `db:"created_at"`
+}
+
 type secretBackendID struct {
 	ID string `db:"id"`
 }
