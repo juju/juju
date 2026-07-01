@@ -11,7 +11,6 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/export/types/v{{ .VersionToken }}"
 )
 
@@ -19,16 +18,17 @@ import (
 // payload for version {{ .SemanticVersion }} into the model DB. It is the
 // write-mirror of the generated export state: each ordinary content table is
 // bulk-inserted from the matching payload slice. Target-local bootstrap tables
-// (model, model_life, agent_version, model_migrating) and operational/
-// changestream tables are excluded; model_agent is merged into the target
-// bootstrap row; seeded tables are inserted with ON CONFLICT DO NOTHING so
-// their identical seed rows are skipped while genuine content rows are kept.
+// (model, model_life, agent_version, model_agent, model_migrating) and
+// operational/changestream tables are excluded; seeded tables are inserted
+// with ON CONFLICT DO NOTHING so their identical seed rows are skipped while
+// genuine content rows are kept.
+//
+// Import is purely mechanical and contains no Juju-specific business logic.
+// Corrections that ARE business logic (for example merging the migrated
+// model's agent password into the bootstrap row, or resetting charm
+// blob-residency state) are hand-written, not generated, and run afterwards
+// once this transaction has committed.
 func (st *State) Import(ctx context.Context, p *v{{ .VersionToken }}.ModelExport) error {
-	modelAgent, err := validateModelAgent(p.ModelAgent)
-	if err != nil {
-		return err
-	}
-
 	// Prepare statements first using the typed samples from the generated types package.
 {{- range .Tables }}
 	stmt{{ .StructName }}, err := sqlair.Prepare(`INSERT INTO "{{ .TableName }}" (*) VALUES (${{ .StructName }}.*){{ if .Seeded }} ON CONFLICT DO NOTHING{{ end }}`, v{{ $.VersionToken }}.{{ .StructName }}{})
@@ -36,16 +36,6 @@ func (st *State) Import(ctx context.Context, p *v{{ .VersionToken }}.ModelExport
 		return fmt.Errorf("preparing {{ .StructName }} insert statement: %w", err)
 	}
 {{- end }}
-
-	stmtModelAgent, err := sqlair.Prepare(`
-UPDATE model_agent
-SET    password_hash = $ModelAgent.password_hash,
-       password_hash_algorithm_id = $ModelAgent.password_hash_algorithm_id
-WHERE  model_uuid = $ModelAgent.model_uuid
-`, v{{ .VersionToken }}.ModelAgent{})
-	if err != nil {
-		return fmt.Errorf("preparing ModelAgent update statement: %w", err)
-	}
 
 	// Foreign key checks are deferred to commit so the inserts need no
 	// topological ordering and self-referential rows within a table are
@@ -71,36 +61,10 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 			}
 		}
 {{- end }}
-		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, stmtModelAgent, modelAgent).Get(&outcome); err != nil {
-			return fmt.Errorf("updating ModelAgent (table model_agent): %w", err)
-		}
-		affected, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return fmt.Errorf("checking ModelAgent update result: %w", err)
-		}
-		if affected != 1 {
-			return fmt.Errorf("updating ModelAgent (table model_agent): affected %d rows, expected 1", affected)
-		}
 		return nil
 	}); err != nil {
 		return fmt.Errorf("importing model data: %w", err)
 	}
 
 	return nil
-}
-
-func validateModelAgent(rows []v{{ .VersionToken }}.ModelAgent) (v{{ .VersionToken }}.ModelAgent, error) {
-	if len(rows) != 1 {
-		return v{{ .VersionToken }}.ModelAgent{}, fmt.Errorf(
-			"model export payload has %d model_agent rows, expected 1 %w",
-			len(rows), coreerrors.NotValid)
-	}
-	row := rows[0]
-	if row.PasswordHash == nil || *row.PasswordHash == "" {
-		return v{{ .VersionToken }}.ModelAgent{}, fmt.Errorf(
-			"model export payload model_agent row has empty password_hash %w",
-			coreerrors.NotValid)
-	}
-	return row, nil
 }

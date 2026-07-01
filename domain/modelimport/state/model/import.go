@@ -11,7 +11,6 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 )
 
@@ -19,21 +18,18 @@ import (
 // payload for version 4.1.0 into the model DB. It is the
 // write-mirror of the generated export state: each ordinary content table is
 // bulk-inserted from the matching payload slice. Target-local bootstrap tables
-// (model, model_life, agent_version, model_migrating) and operational/
-// changestream tables are excluded; model_agent is merged into the target
-// bootstrap row; seeded tables are inserted with ON CONFLICT DO NOTHING so
-// their identical seed rows are skipped while genuine content rows are kept.
+// (model, model_life, agent_version, model_agent, model_migrating) and
+// operational/changestream tables are excluded; seeded tables are inserted
+// with ON CONFLICT DO NOTHING so their identical seed rows are skipped while
+// genuine content rows are kept.
+//
+// Import is purely mechanical and contains no Juju-specific business logic.
+// Corrections that ARE business logic (for example merging the migrated
+// model's agent password into the bootstrap row, or resetting charm
+// blob-residency state) are hand-written, not generated, and run afterwards
+// once this transaction has committed.
 func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
-	modelAgent, err := validateModelAgent(p.ModelAgent)
-	if err != nil {
-		return err
-	}
-
 	// Prepare statements first using the typed samples from the generated types package.
-	stmtAgentBinaryStore, err := sqlair.Prepare(`INSERT INTO "agent_binary_store" (*) VALUES ($AgentBinaryStore.*)`, v4_1_0.AgentBinaryStore{})
-	if err != nil {
-		return fmt.Errorf("preparing AgentBinaryStore insert statement: %w", err)
-	}
 	stmtAgentStream, err := sqlair.Prepare(`INSERT INTO "agent_stream" (*) VALUES ($AgentStream.*) ON CONFLICT DO NOTHING`, v4_1_0.AgentStream{})
 	if err != nil {
 		return fmt.Errorf("preparing AgentStream insert statement: %w", err)
@@ -233,10 +229,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	stmtCharmExtraBinding, err := sqlair.Prepare(`INSERT INTO "charm_extra_binding" (*) VALUES ($CharmExtraBinding.*)`, v4_1_0.CharmExtraBinding{})
 	if err != nil {
 		return fmt.Errorf("preparing CharmExtraBinding insert statement: %w", err)
-	}
-	stmtCharmHash, err := sqlair.Prepare(`INSERT INTO "charm_hash" (*) VALUES ($CharmHash.*)`, v4_1_0.CharmHash{})
-	if err != nil {
-		return fmt.Errorf("preparing CharmHash insert statement: %w", err)
 	}
 	stmtCharmManifestBase, err := sqlair.Prepare(`INSERT INTO "charm_manifest_base" (*) VALUES ($CharmManifestBase.*)`, v4_1_0.CharmManifestBase{})
 	if err != nil {
@@ -522,18 +514,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return fmt.Errorf("preparing NetworkAddressScope insert statement: %w", err)
 	}
-	stmtObjectStoreMetadata, err := sqlair.Prepare(`INSERT INTO "object_store_metadata" (*) VALUES ($ObjectStoreMetadata.*)`, v4_1_0.ObjectStoreMetadata{})
-	if err != nil {
-		return fmt.Errorf("preparing ObjectStoreMetadata insert statement: %w", err)
-	}
-	stmtObjectStoreMetadataPath, err := sqlair.Prepare(`INSERT INTO "object_store_metadata_path" (*) VALUES ($ObjectStoreMetadataPath.*)`, v4_1_0.ObjectStoreMetadataPath{})
-	if err != nil {
-		return fmt.Errorf("preparing ObjectStoreMetadataPath insert statement: %w", err)
-	}
-	stmtObjectStorePlacement, err := sqlair.Prepare(`INSERT INTO "object_store_placement" (*) VALUES ($ObjectStorePlacement.*)`, v4_1_0.ObjectStorePlacement{})
-	if err != nil {
-		return fmt.Errorf("preparing ObjectStorePlacement insert statement: %w", err)
-	}
 	stmtOffer, err := sqlair.Prepare(`INSERT INTO "offer" (*) VALUES ($Offer.*)`, v4_1_0.Offer{})
 	if err != nil {
 		return fmt.Errorf("preparing Offer insert statement: %w", err)
@@ -569,10 +549,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	stmtOperationTaskLog, err := sqlair.Prepare(`INSERT INTO "operation_task_log" (*) VALUES ($OperationTaskLog.*)`, v4_1_0.OperationTaskLog{})
 	if err != nil {
 		return fmt.Errorf("preparing OperationTaskLog insert statement: %w", err)
-	}
-	stmtOperationTaskOutput, err := sqlair.Prepare(`INSERT INTO "operation_task_output" (*) VALUES ($OperationTaskOutput.*)`, v4_1_0.OperationTaskOutput{})
-	if err != nil {
-		return fmt.Errorf("preparing OperationTaskOutput insert statement: %w", err)
 	}
 	stmtOperationTaskStatus, err := sqlair.Prepare(`INSERT INTO "operation_task_status" (*) VALUES ($OperationTaskStatus.*)`, v4_1_0.OperationTaskStatus{})
 	if err != nil {
@@ -697,18 +673,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	stmtResource, err := sqlair.Prepare(`INSERT INTO "resource" (*) VALUES ($Resource.*)`, v4_1_0.Resource{})
 	if err != nil {
 		return fmt.Errorf("preparing Resource insert statement: %w", err)
-	}
-	stmtResourceContainerImageMetadataStore, err := sqlair.Prepare(`INSERT INTO "resource_container_image_metadata_store" (*) VALUES ($ResourceContainerImageMetadataStore.*)`, v4_1_0.ResourceContainerImageMetadataStore{})
-	if err != nil {
-		return fmt.Errorf("preparing ResourceContainerImageMetadataStore insert statement: %w", err)
-	}
-	stmtResourceFileStore, err := sqlair.Prepare(`INSERT INTO "resource_file_store" (*) VALUES ($ResourceFileStore.*)`, v4_1_0.ResourceFileStore{})
-	if err != nil {
-		return fmt.Errorf("preparing ResourceFileStore insert statement: %w", err)
-	}
-	stmtResourceImageStore, err := sqlair.Prepare(`INSERT INTO "resource_image_store" (*) VALUES ($ResourceImageStore.*)`, v4_1_0.ResourceImageStore{})
-	if err != nil {
-		return fmt.Errorf("preparing ResourceImageStore insert statement: %w", err)
 	}
 	stmtResourceOriginType, err := sqlair.Prepare(`INSERT INTO "resource_origin_type" (*) VALUES ($ResourceOriginType.*) ON CONFLICT DO NOTHING`, v4_1_0.ResourceOriginType{})
 	if err != nil {
@@ -987,16 +951,6 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		return fmt.Errorf("preparing WorkloadStatusValue insert statement: %w", err)
 	}
 
-	stmtModelAgent, err := sqlair.Prepare(`
-UPDATE model_agent
-SET    password_hash = $ModelAgent.password_hash,
-       password_hash_algorithm_id = $ModelAgent.password_hash_algorithm_id
-WHERE  model_uuid = $ModelAgent.model_uuid
-`, v4_1_0.ModelAgent{})
-	if err != nil {
-		return fmt.Errorf("preparing ModelAgent update statement: %w", err)
-	}
-
 	// Foreign key checks are deferred to commit so the inserts need no
 	// topological ordering and self-referential rows within a table are
 	// accepted; the constraints are still validated atomically at commit.
@@ -1013,11 +967,6 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, deferFKStmt).Run(); err != nil {
 			return fmt.Errorf("deferring foreign keys: %w", err)
-		}
-		if len(p.AgentBinaryStore) > 0 {
-			if err := tx.Query(ctx, stmtAgentBinaryStore, p.AgentBinaryStore).Run(); err != nil {
-				return fmt.Errorf("inserting AgentBinaryStore (table agent_binary_store): %w", err)
-			}
 		}
 		if len(p.AgentStream) > 0 {
 			if err := tx.Query(ctx, stmtAgentStream, p.AgentStream).Run(); err != nil {
@@ -1267,11 +1216,6 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 		if len(p.CharmExtraBinding) > 0 {
 			if err := tx.Query(ctx, stmtCharmExtraBinding, p.CharmExtraBinding).Run(); err != nil {
 				return fmt.Errorf("inserting CharmExtraBinding (table charm_extra_binding): %w", err)
-			}
-		}
-		if len(p.CharmHash) > 0 {
-			if err := tx.Query(ctx, stmtCharmHash, p.CharmHash).Run(); err != nil {
-				return fmt.Errorf("inserting CharmHash (table charm_hash): %w", err)
 			}
 		}
 		if len(p.CharmManifestBase) > 0 {
@@ -1629,21 +1573,6 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 				return fmt.Errorf("inserting NetworkAddressScope (table network_address_scope): %w", err)
 			}
 		}
-		if len(p.ObjectStoreMetadata) > 0 {
-			if err := tx.Query(ctx, stmtObjectStoreMetadata, p.ObjectStoreMetadata).Run(); err != nil {
-				return fmt.Errorf("inserting ObjectStoreMetadata (table object_store_metadata): %w", err)
-			}
-		}
-		if len(p.ObjectStoreMetadataPath) > 0 {
-			if err := tx.Query(ctx, stmtObjectStoreMetadataPath, p.ObjectStoreMetadataPath).Run(); err != nil {
-				return fmt.Errorf("inserting ObjectStoreMetadataPath (table object_store_metadata_path): %w", err)
-			}
-		}
-		if len(p.ObjectStorePlacement) > 0 {
-			if err := tx.Query(ctx, stmtObjectStorePlacement, p.ObjectStorePlacement).Run(); err != nil {
-				return fmt.Errorf("inserting ObjectStorePlacement (table object_store_placement): %w", err)
-			}
-		}
 		if len(p.Offer) > 0 {
 			if err := tx.Query(ctx, stmtOffer, p.Offer).Run(); err != nil {
 				return fmt.Errorf("inserting Offer (table offer): %w", err)
@@ -1687,11 +1616,6 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 		if len(p.OperationTaskLog) > 0 {
 			if err := tx.Query(ctx, stmtOperationTaskLog, p.OperationTaskLog).Run(); err != nil {
 				return fmt.Errorf("inserting OperationTaskLog (table operation_task_log): %w", err)
-			}
-		}
-		if len(p.OperationTaskOutput) > 0 {
-			if err := tx.Query(ctx, stmtOperationTaskOutput, p.OperationTaskOutput).Run(); err != nil {
-				return fmt.Errorf("inserting OperationTaskOutput (table operation_task_output): %w", err)
 			}
 		}
 		if len(p.OperationTaskStatus) > 0 {
@@ -1847,21 +1771,6 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 		if len(p.Resource) > 0 {
 			if err := tx.Query(ctx, stmtResource, p.Resource).Run(); err != nil {
 				return fmt.Errorf("inserting Resource (table resource): %w", err)
-			}
-		}
-		if len(p.ResourceContainerImageMetadataStore) > 0 {
-			if err := tx.Query(ctx, stmtResourceContainerImageMetadataStore, p.ResourceContainerImageMetadataStore).Run(); err != nil {
-				return fmt.Errorf("inserting ResourceContainerImageMetadataStore (table resource_container_image_metadata_store): %w", err)
-			}
-		}
-		if len(p.ResourceFileStore) > 0 {
-			if err := tx.Query(ctx, stmtResourceFileStore, p.ResourceFileStore).Run(); err != nil {
-				return fmt.Errorf("inserting ResourceFileStore (table resource_file_store): %w", err)
-			}
-		}
-		if len(p.ResourceImageStore) > 0 {
-			if err := tx.Query(ctx, stmtResourceImageStore, p.ResourceImageStore).Run(); err != nil {
-				return fmt.Errorf("inserting ResourceImageStore (table resource_image_store): %w", err)
 			}
 		}
 		if len(p.ResourceOriginType) > 0 {
@@ -2209,36 +2118,10 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 				return fmt.Errorf("inserting WorkloadStatusValue (table workload_status_value): %w", err)
 			}
 		}
-		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, stmtModelAgent, modelAgent).Get(&outcome); err != nil {
-			return fmt.Errorf("updating ModelAgent (table model_agent): %w", err)
-		}
-		affected, err := outcome.Result().RowsAffected()
-		if err != nil {
-			return fmt.Errorf("checking ModelAgent update result: %w", err)
-		}
-		if affected != 1 {
-			return fmt.Errorf("updating ModelAgent (table model_agent): affected %d rows, expected 1", affected)
-		}
 		return nil
 	}); err != nil {
 		return fmt.Errorf("importing model data: %w", err)
 	}
 
 	return nil
-}
-
-func validateModelAgent(rows []v4_1_0.ModelAgent) (v4_1_0.ModelAgent, error) {
-	if len(rows) != 1 {
-		return v4_1_0.ModelAgent{}, fmt.Errorf(
-			"model export payload has %d model_agent rows, expected 1 %w",
-			len(rows), coreerrors.NotValid)
-	}
-	row := rows[0]
-	if row.PasswordHash == nil || *row.PasswordHash == "" {
-		return v4_1_0.ModelAgent{}, fmt.Errorf(
-			"model export payload model_agent row has empty password_hash %w",
-			coreerrors.NotValid)
-	}
-	return row, nil
 }

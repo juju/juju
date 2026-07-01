@@ -60,22 +60,72 @@ var bootstrapTables = map[string]bool{
 	"model_migrating": true,
 }
 
-// nonContentTables are operational/changestream tables that are not part of a
-// model's migratable content. The target's changestream starts fresh, so these
-// are excluded from the generated importer. The seeded ones among them
-// (change_log_edit_type, change_log_namespace) are also auto-excluded by
-// getSeededTables; they are listed here for clarity.
+// nonContentTables are tables the generated importer must not populate from
+// the YAML payload, because their rows are not portable model content:
+//
+//   - changestream tables (change_log*): the target's changestream starts
+//     fresh.
+//   - binary-residency tables: these describe binaries/blobs that transfer
+//     over the separate /migrate/{charms,tools,resources} HTTP endpoints, not
+//     in the YAML payload. The binary-transfer phase that runs after import
+//     re-establishes them once each blob has actually landed on this
+//     controller. Importing the source's rows is always wrong (they describe
+//     the source's blobs/object-store, not this controller's), and for most
+//     of them it is also a hard failure: the transfer phase's own insert
+//     collides with the row already carried over from the source (verified
+//     live for charm_hash and agent_binary_store; the same PK/lookup-based
+//     collision applies to the object_store_* and resource_*_store tables
+//     below).
+//
+// The seeded changestream tables (change_log_edit_type, change_log_namespace)
+// are also auto-excluded by getSeededTables; they are listed here for clarity.
 //
 // NOTE: this list (and bootstrapTables) is the import-exclusion contract.
-//
-// TODO audit it for other non-payload tables, for example binary/object-store
-// tables whose blobs transfer over separate HTTP endpoints rather than in the
-// YAML payload.
 var nonContentTables = map[string]bool{
 	"change_log":           true,
 	"change_log_witness":   true,
 	"change_log_edit_type": true,
 	"change_log_namespace": true,
+
+	// charm binary residency: charm_hash is insert-only (its "unmodifiable"
+	// trigger blocks UPDATE), so the binary-transfer phase's re-insert of the
+	// verified hash collides with the row carried over from the source.
+	"charm_hash": true,
+
+	// agent-binary (tools) residency: agent_binary_store's PK is
+	// (version, architecture_id) with no ON CONFLICT in the generated
+	// insert; the /migrate/tools transfer phase re-registers the binary on
+	// upload and collides with the imported row. Reproduced live as
+	// "agent binary already exists for version ... and arch ...".
+	"agent_binary_store": true,
+
+	// object-store residency: all three describe where a blob physically
+	// sits, keyed by the source's object-store UUID and (for
+	// object_store_metadata_path) a path that is deterministic for agent
+	// binaries, so re-uploading the same tool collides on the path PK.
+	// object_store_placement additionally records the *source* controller
+	// node as the blob's location, which is simply wrong on the target.
+	"object_store_metadata":      true,
+	"object_store_metadata_path": true,
+	"object_store_placement":     true,
+
+	// resource binary residency: same pattern as the charm/tools cases. Each
+	// store table's writer pre-checks for an existing row keyed by the
+	// resource's UUID (preserved across import) and fails with
+	// StoredResourceAlreadyExists / ContainerImageMetadataAlreadyStored when
+	// the transfer phase re-uploads the resource.
+	"resource_file_store":                     true,
+	"resource_image_store":                    true,
+	"resource_container_image_metadata_store": true,
+
+	// operation_task_output.store_path is a NOT NULL FK into
+	// object_store_metadata_path, which is itself excluded above (object-store
+	// residency). Unlike charm's blob-residency columns, this column can't be
+	// sanitized to NULL instead of being imported: it's mandatory, so any task
+	// with recorded output would otherwise fail the deferred foreign-key check
+	// at commit. The output blob itself never rode in the YAML payload (it
+	// lives in the object store), so there is nothing valid to carry over.
+	"operation_task_output": true,
 }
 
 func main() {

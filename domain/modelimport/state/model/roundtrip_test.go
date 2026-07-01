@@ -40,14 +40,7 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 	const userSpaceUUID = "11111111-1111-1111-1111-111111111111"
 	s.bootstrapModel(c)
 
-	passwordHash := "hash"
-	passwordHashAlgorithmID := int64(0)
 	payload := &v4_1_0.ModelExport{
-		ModelAgent: []v4_1_0.ModelAgent{{
-			ModelUUID:               s.ModelUUID(),
-			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
-			PasswordHash:            &passwordHash,
-		}},
 		Sequence: []v4_1_0.Sequence{
 			{Namespace: "machine", Value: 7},
 			{Namespace: "unit", Value: 3},
@@ -70,7 +63,6 @@ func (s *roundTripSuite) TestImportExportRoundTrip(c *tc.C) {
 
 	// FK-free content tables round-trip exactly.
 	c.Check(got.Sequence, tc.SameContents, payload.Sequence)
-	c.Check(got.ModelAgent, tc.DeepEquals, payload.ModelAgent)
 	c.Check(got.ProviderSpace, tc.SameContents, payload.ProviderSpace)
 
 	// The user space was imported; the alpha seed row was preserved exactly once

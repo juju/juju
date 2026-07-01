@@ -34,10 +34,12 @@ func (s *validateSuite) TestValidatePayloadMissingModelAgent(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "model export payload has 0 model_agent rows, expected 1.*")
 }
 
-func (s *validateSuite) TestValidatePayloadEmptyModelAgentPassword(c *tc.C) {
+// TestValidatePayloadAllowsEmptyModelAgentPassword asserts that a payload
+// carrying no model_agent password (the normal state for a non-CAAS model)
+// passes validation rather than being rejected.
+func (s *validateSuite) TestValidatePayloadAllowsEmptyModelAgentPassword(c *tc.C) {
 	err := modelimport.ValidatePayload(latest.ModelExport{
 		ModelAgent: []v4_1_0.ModelAgent{{}},
 	})
-	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
-	c.Check(err, tc.ErrorMatches, "model export payload model_agent row has empty password_hash.*")
+	c.Assert(err, tc.ErrorIsNil)
 }
