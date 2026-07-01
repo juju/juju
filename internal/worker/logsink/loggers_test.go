@@ -4,6 +4,7 @@
 package logsink
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -111,8 +112,49 @@ func (s *LoggersSuite) TestLoggerConfigureLoggers(c *tc.C) {
 	c.Check(logs[0].ModelUUID, tc.Equals, s.modelUUID)
 }
 
+func (s *LoggersSuite) TestLoggerRebindsOnRefresh(c *tc.C) {
+	oldSink := &recordingRefreshLogSink{
+		refresh: make(chan struct{}),
+		writes:  make(chan struct{}, 10),
+	}
+	newSink := &recordingRefreshLogSink{
+		refresh: make(chan struct{}),
+		writes:  make(chan struct{}, 10),
+	}
+	router := &switchingLogSink{
+		sink: oldSink,
+	}
+
+	s.modelUUID = uuid.MustNewUUID().String()
+
+	w, err := NewModelLogger(router, model.UUID(s.modelUUID), names.NewUnitTag("foo/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	logger := w.(*modelLogger)
+	defer workertest.CleanKill(c, logger)
+
+	fooLogger := logger.GetLogger("foo")
+	fooLogger.Infof(c.Context(), "before switch")
+	oldSink.waitForWrite(c)
+	c.Assert(oldSink.records, tc.HasLen, 1)
+	c.Assert(newSink.records, tc.HasLen, 0)
+
+	router.mu.Lock()
+	router.sink = newSink
+	router.mu.Unlock()
+	close(oldSink.refresh)
+
+	fooLogger.Infof(c.Context(), "after switch")
+	newSink.waitForWrite(c)
+
+	c.Assert(oldSink.records, tc.HasLen, 1)
+	c.Assert(newSink.records, tc.HasLen, 1)
+	c.Check(newSink.records[0].Message, tc.Equals, "after switch")
+}
+
 func (s *LoggersSuite) newModelLogger(c *tc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
+
+	s.logWriter.EXPECT().WatchRefresh().Return(corelogger.NoRefresh()).AnyTimes()
 
 	w, err := NewModelLogger(s.logWriter, model.UUID(s.modelUUID), names.NewUnitTag("foo/0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -126,4 +168,48 @@ func (s *LoggersSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.logWriter = NewMockLogSink(ctrl)
 
 	return ctrl
+}
+
+type switchingLogSink struct {
+	mu   sync.Mutex
+	sink corelogger.LogSink
+}
+
+func (s *switchingLogSink) Log(records []corelogger.LogRecord) error {
+	s.mu.Lock()
+	sink := s.sink
+	s.mu.Unlock()
+	return sink.Log(records)
+}
+
+func (s *switchingLogSink) WatchRefresh() <-chan struct{} {
+	s.mu.Lock()
+	sink := s.sink
+	s.mu.Unlock()
+	return sink.WatchRefresh()
+}
+
+type recordingRefreshLogSink struct {
+	refresh chan struct{}
+	records []corelogger.LogRecord
+	writes  chan struct{}
+}
+
+func (s *recordingRefreshLogSink) Log(records []corelogger.LogRecord) error {
+	s.records = append(s.records, records...)
+	s.writes <- struct{}{}
+	return nil
+}
+
+func (s *recordingRefreshLogSink) WatchRefresh() <-chan struct{} {
+	return s.refresh
+}
+
+func (s *recordingRefreshLogSink) waitForWrite(c *tc.C) {
+	c.Assert(s.writes, tc.NotNil)
+	select {
+	case <-s.writes:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for log write")
+	}
 }

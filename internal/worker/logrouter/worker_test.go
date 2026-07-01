@@ -8,6 +8,7 @@ import (
 	stderrors "errors"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -103,6 +104,67 @@ func (s *workerSuite) TestSwitchStopsOldBackendAndStartsNew(c *tc.C) {
 		backend: "loki",
 		kind:    "start",
 	})
+}
+
+func (s *workerSuite) TestSwitchReplaysPendingRecordsToNewBackend(c *tc.C) {
+	fixture := newFixture(c, "")
+	events := make(chan backendEvent, 20)
+	var oldBackend *pendingBackend
+
+	w, err := NewWorker(WorkerConfig{
+		Agent:              fixture.agent,
+		LogSource:          fixture.logs,
+		AgentConfigChanged: fixture.configChanged,
+		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:              clock.WallClock,
+		ConvergeTimeout:    defaultConvergeTimeout,
+		RestartDelay:       time.Millisecond * 10,
+		NewBackend: func(backendType BackendType, _ ConfigSnapshot) (Backend, error) {
+			switch backendType {
+			case BackendTypeLogSink:
+				oldBackend = newPendingBackend("logsink", events, &logsender.LogRecord{
+					Time:    time.Now(),
+					Module:  "test",
+					Level:   loggo.INFO,
+					Message: "pending",
+				})
+				return oldBackend, nil
+			default:
+				return newRecordingBackend(string(backendType), events, defaultBackendBufferSize), nil
+			}
+		},
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForEvents(c, events,
+		backendEvent{backend: "drain-only", kind: "start"},
+		backendEvent{backend: "logsink", kind: "start"},
+	)
+
+	fixture.agent.setLokiConfig("http://loki/loki/api/v1/push", "")
+	fixture.configChanged.Set(true)
+
+	sendLog(c, fixture.logs, &logsender.LogRecord{
+		Time:    time.Now(),
+		Module:  "test",
+		Level:   loggo.INFO,
+		Message: "trigger",
+	})
+
+	c.Check(waitForRecord(c, events, "loki", "pending"), tc.DeepEquals, backendEvent{
+		backend: "loki",
+		kind:    "record",
+		message: "pending",
+	})
+	c.Check(waitForRecord(c, events, "loki", "trigger"), tc.DeepEquals, backendEvent{
+		backend: "loki",
+		kind:    "record",
+		message: "trigger",
+	})
+	c.Check(oldBackend.pendingCalls.Load(), tc.Equals, int32(1))
 }
 
 func (s *workerSuite) TestDrainOnlyOverridesEndpoint(c *tc.C) {
@@ -520,6 +582,24 @@ func (w *recordingBackend) reportStop() {
 type failingBackend struct {
 	tomb    tomb.Tomb
 	records logsender.LogRecordCh
+}
+
+type pendingBackend struct {
+	*recordingBackend
+	pending      []*logsender.LogRecord
+	pendingCalls atomic.Int32
+}
+
+func newPendingBackend(name string, events chan<- backendEvent, pending ...*logsender.LogRecord) *pendingBackend {
+	return &pendingBackend{
+		recordingBackend: newRecordingBackend(name, events, defaultBackendBufferSize),
+		pending:          pending,
+	}
+}
+
+func (w *pendingBackend) PendingRecords() []*logsender.LogRecord {
+	w.pendingCalls.Add(1)
+	return append([]*logsender.LogRecord(nil), w.pending...)
 }
 
 func (w *failingBackend) Kill() {

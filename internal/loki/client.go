@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -179,7 +180,9 @@ type Client struct {
 	onDrop     func(int)
 	orgID      string
 	records    chan Record
+	flushToken chan struct{}
 	stats      report
+	wg         sync.WaitGroup
 	tomb       tomb.Tomb
 }
 
@@ -200,15 +203,21 @@ func NewClient(endpoint string, cfg Config) (*Client, error) {
 		return nil, err
 	}
 
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 10 * time.Second}
+	}
+
 	c := &Client{
 		endpoint:   endpoint,
 		cfg:        cfg,
-		http:       cfg.HTTPClient,
+		http:       httpClient,
 		asyncFlush: cfg.AsyncFlush == nil || *cfg.AsyncFlush,
 		onError:    cfg.OnError,
 		onDrop:     cfg.OnDrop,
 		orgID:      cfg.OrgID,
 		records:    make(chan Record, cfg.BufferSize),
+		flushToken: make(chan struct{}, 1),
 	}
 	c.tomb.Go(c.loop)
 	return c, nil
@@ -284,7 +293,9 @@ func (c *Client) Kill() {
 
 // Wait blocks until the client has stopped.
 func (c *Client) Wait() error {
-	return c.tomb.Wait()
+	err := c.tomb.Wait()
+	c.wg.Wait()
+	return err
 }
 
 // loop is the main worker loop. It accumulates records from
@@ -364,7 +375,18 @@ func (c *Client) flushAsync(ctx context.Context, batch []Record) {
 	batchCopy := make([]Record, len(batch))
 	copy(batchCopy, batch)
 
+	select {
+	case c.flushToken <- struct{}{}:
+	case <-c.tomb.Dying():
+		return
+	case <-ctx.Done():
+		return
+	}
+
+	c.wg.Add(1)
 	go func() {
+		defer c.wg.Done()
+		defer func() { <-c.flushToken }()
 		select {
 		case <-c.tomb.Dying():
 			return

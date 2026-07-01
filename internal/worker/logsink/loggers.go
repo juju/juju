@@ -19,28 +19,33 @@ type modelLogger struct {
 	tomb tomb.Tomb
 
 	logSink       corelogger.LogSink
+	agentTag      names.Tag
+	modelUUID     model.UUID
+	loggoContext  *loggo.Context
 	loggerContext corelogger.LoggerContext
 }
 
-// NewModelLogger returns a new model logger instance.
-func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID, agentTag names.Tag) (worker.Worker, error) {
-	// Assign the log sink to the model logger. This redirects the loggo
-	// writer to the underlying log sink.
-	loggerContext := loggo.NewContext(loggo.INFO)
-	if err := loggerContext.AddWriter("model-sink", corelogger.NewTaggedRedirectWriter(
-		logSink,
-		agentTag.String(),
-		modelUUID.String(),
-	)); err != nil {
-		return nil, errors.Annotatef(err, "adding model-sink writer")
-	}
+const modelSinkWriterName = "model-sink"
 
+// NewModelLogger returns a new model logger instance. The model logger
+// installs a TaggedRedirectWriter that forwards log records to the supplied
+// log sink. When the sink's WatchRefresh channel fires (for example when the
+// log router switches its active backend), the writer is removed and
+// re-added so that subsequent records are delivered through the new
+// backend.
+func NewModelLogger(logSink corelogger.LogSink, modelUUID model.UUID, agentTag names.Tag) (worker.Worker, error) {
+	loggoContext := loggo.NewContext(loggo.INFO)
 	w := &modelLogger{
 		logSink:       logSink,
-		loggerContext: internallogger.WrapLoggoContext(loggerContext),
+		agentTag:      agentTag,
+		modelUUID:     modelUUID,
+		loggoContext:  loggoContext,
+		loggerContext: internallogger.WrapLoggoContext(loggoContext),
+	}
+	if err := w.bindWriter(); err != nil {
+		return nil, errors.Trace(err)
 	}
 	w.tomb.Go(w.loop)
-
 	return w, nil
 }
 
@@ -100,7 +105,37 @@ func (d *modelLogger) Wait() error {
 }
 
 func (d *modelLogger) loop() error {
-	// Wait for the heat death of the universe.
-	<-d.tomb.Dying()
-	return tomb.ErrDying
+	refresh := d.logSink.WatchRefresh()
+	for {
+		select {
+		case <-d.tomb.Dying():
+			return tomb.ErrDying
+		case <-refresh:
+			// The active backend has changed; remove the old writer
+			// and re-add it so that subsequent records are delivered
+			// through the new backend.
+			if err := d.bindWriter(); err != nil {
+				return errors.Trace(err)
+			}
+			refresh = d.logSink.WatchRefresh()
+		}
+	}
+}
+
+// bindWriter adds (or replaces) the model-sink writer in the logger context,
+// binding it to the current log sink.
+func (d *modelLogger) bindWriter() error {
+	writer := corelogger.NewTaggedRedirectWriter(
+		d.logSink,
+		d.agentTag.String(),
+		d.modelUUID.String(),
+	)
+
+	// We don't care about the error from RemoveWriter, since it will only fail
+	// if the writer doesn't exist, which is fine.
+	_, _ = d.loggoContext.RemoveWriter(modelSinkWriterName)
+	if err := d.loggoContext.AddWriter(modelSinkWriterName, writer); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

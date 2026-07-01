@@ -93,6 +93,7 @@ import (
 	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsink"
+	"github.com/juju/juju/internal/worker/logsinkproxy"
 	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machineconverter"
@@ -194,9 +195,6 @@ type ManifoldsConfig struct {
 	// worker to perform the upgrade steps.
 	UpgradeSteps upgrades.UpgradeStepsFunc
 
-	// LogSink defines an interface for writing log records to a log sink.
-	LogSink corelogger.LogSink
-
 	// LogSource supplies log records to the logrouter. It is the output
 	// channel of the BufferedLogWriter installed on the default loggo
 	// context.
@@ -206,6 +204,13 @@ type ManifoldsConfig struct {
 	// records to the legacy log sink. It is managed by the logrouter
 	// based on the active backend mode.
 	LegacyLogSinkWriter loggo.Writer
+
+	// LocalLogSink is the primed local log sink used for
+	// controller-local log delivery. The controller-only model
+	// logrouter uses this in logsink mode so controller model
+	// loggers can switch away from the file sink without
+	// depending on the API caller.
+	LocalLogSink corelogger.LogSink
 
 	// NewDeployContext gives the tests the opportunity to create a
 	// deployer.Context that can be used for testing.
@@ -330,6 +335,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	agentConfig := config.Agent.CurrentConfig()
 	agentTag := agentConfig.Tag()
 	controllerTag := agentConfig.Controller()
+	apiBackedLogRouterRegisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"log_router": "api_backed"},
+		config.PrometheusRegisterer,
+	)
+	controllerLogRouterRegisterer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"log_router": "controller_local"},
+		config.PrometheusRegisterer,
+	)
 
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
@@ -557,7 +570,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentConfigChanged:   config.AgentConfigChanged,
 			Logger:               internallogger.GetLogger("juju.worker.logrouter"),
 			Clock:                config.Clock,
-			PrometheusRegisterer: config.PrometheusRegisterer,
+			PrometheusRegisterer: apiBackedLogRouterRegisterer,
 			NewBackendFunc:       logrouter.NewBackend,
 			RemoveLegacyLogSinkWriter: func() {
 				logsender.RemoveLegacyLogSinkWriter()
@@ -624,12 +637,52 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:           httpserver.NewWorkerShim,
 		}),
 
-		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
+		// controllerLogRouterName is a controller-only logrouter used for
+		// model-scoped logging and the logsink API path. It writes to the
+		// local logsink directly in logsink mode, avoiding the cycle:
+		// log-router -> api-caller -> api-server -> log-sink -> log-router.
+		controllerLogRouterName: ifController(logrouter.ControllerManifold(logrouter.ControllerManifoldConfig{
+			AgentName:            agentName,
+			HTTPClientName:       httpClientName,
+			AgentConfigChanged:   config.AgentConfigChanged,
+			Logger:               internallogger.GetLogger("juju.worker.logrouter.controller"),
+			Clock:                config.Clock,
+			PrometheusRegisterer: controllerLogRouterRegisterer,
+			LocalLogSink:         config.LocalLogSink,
+			NewBackendFunc:       logrouter.NewControllerBackend,
+		})),
+
+		// controllerLogSinkName is the controller-only log sink that
+		// uses the controller-local logrouter. This allows controller
+		// model loggers to follow logsink/loki/drain backend changes
+		// without depending on the API caller.
+		controllerLogSinkName: ifController(logsink.Manifold(logsink.ManifoldConfig{
 			AgentTag:       agentTag,
+			LogRouterName:  controllerLogRouterName,
 			Clock:          config.Clock,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
-			LogSink:        config.LogSink,
+		})),
+
+		// nonControllerLogSinkName is the non-controller log sink that
+		// uses the normal log-router (backed by apiCallerName). On
+		// non-controller machines there is no cycle because apiServerName
+		// is not local.
+		nonControllerLogSinkName: ifNotController(logsink.Manifold(logsink.ManifoldConfig{
+			AgentTag:       agentTag,
+			LogRouterName:  logRouterName,
+			Clock:          config.Clock,
+			NewWorker:      logsink.NewWorker,
+			NewModelLogger: logsink.NewModelLogger,
+		})),
+
+		// logSinkName is a selector that dispatches to either
+		// controllerLogSinkName or nonControllerLogSinkName based on
+		// whether the agent is running on a controller machine.
+		logSinkName: logsinkproxy.Manifold(logsinkproxy.ManifoldConfig{
+			ControllerFlagName:       isControllerFlagName,
+			ControllerLogSinkName:    controllerLogSinkName,
+			NonControllerLogSinkName: nonControllerLogSinkName,
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
@@ -1200,12 +1253,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// so the controller charm's install hook can reach the socket. On
 		// non-controller machines that flag is pre-unlocked.
 		deployerName: ifControllerAgentConfigNeededAndReady(ifFullyUpgraded(deployer.Manifold(deployer.ManifoldConfig{
-			AgentName:      agentName,
-			APICallerName:  apiCallerName,
-			HTTPClientName: httpClientName,
-			FlightRecorder: config.FlightRecorder,
-			Clock:          config.Clock,
-			Logger:         internallogger.GetLogger("juju.worker.deployer"),
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			HTTPClientName:     httpClientName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			FlightRecorder:     config.FlightRecorder,
+			Clock:              config.Clock,
+			Logger:             internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,
@@ -1521,6 +1575,9 @@ const (
 	loggingConfigUpdaterName           = "logging-config-updater"
 	lokiEndpointUpdaterName            = "loki-endpoint-updater"
 	logSinkName                        = "log-sink"
+	controllerLogSinkName              = "controller-log-sink"
+	nonControllerLogSinkName           = "non-controller-log-sink"
+	controllerLogRouterName            = "controller-log-router"
 	logRouterName                      = "log-router"
 	lxdContainerProvisioner            = "lxd-container-provisioner"
 	machineActionName                  = "machine-action-runner"

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
@@ -56,8 +57,22 @@ type Backend interface {
 	LogRecords() logsender.LogRecordCh
 }
 
+type pendingRecordsExporter interface {
+	PendingRecords() []*logsender.LogRecord
+}
+
 // BackendFunc constructs a backend worker.
 type BackendFunc func(BackendType, ConfigSnapshot) (Backend, error)
+
+// LogRouter provides access to the log router's LogSink, which delegates to
+// the active backend (logsink, Loki, or drain) and fires a refresh channel
+// when the backend changes.
+type LogRouter interface {
+	// LogSink returns a sink that forwards records to the active
+	// backend. The sink's WatchRefresh channel fires whenever the
+	// active backend changes.
+	LogSink() corelogger.LogSink
+}
 
 // Metrics records logrouter events that are exported elsewhere.
 type Metrics interface {
@@ -172,6 +187,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		config:        config,
 		runner:        runner,
 		configChanges: make(chan struct{}),
+		refreshCh:     make(chan struct{}),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "log-router",
@@ -193,12 +209,19 @@ type logRouter struct {
 	config        WorkerConfig
 	configChanges chan struct{}
 	backendSeq    int
+	routeMu       sync.Mutex
 
 	activeMu        sync.RWMutex
 	activeBackendID string
 	activeSnapshot  ConfigSnapshot
 	activeRecords   logsender.LogRecordCh
 	drainRecords    logsender.LogRecordCh
+
+	// refreshCh is closed and replaced whenever the active backend
+	// changes, allowing LogSink consumers to detect that they should
+	// re-bind to the new backend.
+	refreshMu sync.RWMutex
+	refreshCh chan struct{}
 }
 
 // Kill stops the worker.
@@ -221,6 +244,54 @@ func (w *logRouter) Report(ctx context.Context) map[string]any {
 		"backends":        w.backendReports(ctx, activeBackendID),
 	}
 	return report
+}
+
+// LogSink returns the log router as a stable LogSink. Log calls are routed to
+// the active backend; WatchRefresh fires whenever that backend changes.
+func (w *logRouter) LogSink() corelogger.LogSink {
+	return w
+}
+
+// fireRefresh closes the current refresh channel and replaces it with a new
+// one, signalling to watchers that the active backend has changed and they
+// should re-bind.
+func (w *logRouter) fireRefresh() {
+	w.refreshMu.Lock()
+	defer w.refreshMu.Unlock()
+	if w.refreshCh != nil {
+		close(w.refreshCh)
+	}
+	w.refreshCh = make(chan struct{})
+}
+
+// refreshChannel returns the current refresh channel. A new channel is
+// returned after each call to fireRefresh.
+func (w *logRouter) refreshChannel() chan struct{} {
+	w.refreshMu.RLock()
+	defer w.refreshMu.RUnlock()
+	return w.refreshCh
+}
+
+// Log implements corelogger.LogSink by routing records through the same
+// active-backend path as records captured from the agent log stream.
+func (w *logRouter) Log(records []corelogger.LogRecord) error {
+	w.routeMu.Lock()
+	defer w.routeMu.Unlock()
+
+	ctx, cancel := context.WithCancel(w.catacomb.Context(context.Background()))
+	defer cancel()
+	for _, record := range records {
+		if err := w.send(ctx, toLogSenderRecord(record)); err != nil {
+			return internalerrors.Capture(err)
+		}
+	}
+	return nil
+}
+
+// WatchRefresh implements corelogger.LogSink. The returned channel is closed
+// whenever the active backend changes.
+func (w *logRouter) WatchRefresh() <-chan struct{} {
+	return w.refreshChannel()
 }
 
 func (w *logRouter) loop() error {
@@ -294,11 +365,15 @@ func (w *logRouter) switchBackend(
 	next ConfigSnapshot,
 ) error {
 	activeBackendID, _, _ := w.activeBackend()
-	if activeBackendID != "" && activeBackendID != backendDrainID {
-		w.stopBackend(activeBackendID)
-	}
+	oldBackend, _ := w.backend(activeBackendID, ctx)
 
 	if next.Mode == BackendTypeDrain {
+		w.routeMu.Lock()
+		defer w.routeMu.Unlock()
+
+		if activeBackendID != "" && activeBackendID != backendDrainID {
+			w.stopBackend(activeBackendID)
+		}
 		w.setActiveBackend(backendDrainID, next, w.drainRecords)
 		w.manageLegacyLogSinkWriter(ctx, next)
 		return nil
@@ -315,12 +390,23 @@ func (w *logRouter) switchBackend(
 		}
 
 		w.warnConfigApply(ctx, next, err)
-		w.setActiveBackend(backendDrainID, next, w.drainRecords)
+		if activeBackendID == "" {
+			w.setActiveBackend(backendDrainID, next, w.drainRecords)
+		}
 		return nil
 	}
 
+	w.routeMu.Lock()
+	defer w.routeMu.Unlock()
+
+	if oldBackend != nil {
+		w.replayPendingRecords(convergeCtx, records, oldBackend)
+	}
 	w.setActiveBackend(backendID, next, records)
 	w.manageLegacyLogSinkWriter(ctx, next)
+	if oldBackend != nil {
+		w.stopBackend(activeBackendID)
+	}
 	return nil
 }
 
@@ -426,10 +512,11 @@ func (w *logRouter) activeBackend() (string, ConfigSnapshot, logsender.LogRecord
 
 func (w *logRouter) setActiveBackend(id string, snapshot ConfigSnapshot, records logsender.LogRecordCh) {
 	w.activeMu.Lock()
-	defer w.activeMu.Unlock()
 	w.activeBackendID = id
 	w.activeSnapshot = snapshot
 	w.activeRecords = records
+	w.activeMu.Unlock()
+	w.fireRefresh()
 }
 
 func (w *logRouter) setActiveRecords(records logsender.LogRecordCh) {
@@ -520,6 +607,35 @@ func (w *logRouter) stopBackend(id string) {
 	_ = w.runner.StopWorker(id)
 }
 
+func (w *logRouter) backend(id string, ctx context.Context) (Backend, error) {
+	if id == "" || id == backendDrainID {
+		return nil, nil
+	}
+
+	raw, err := w.runner.Worker(id, ctx.Done())
+	if err != nil {
+		return nil, err
+	}
+	backend, ok := raw.(Backend)
+	if !ok {
+		return nil, errors.NotValidf("logrouter backend %q", id)
+	}
+	return backend, nil
+}
+
+func (w *logRouter) replayPendingRecords(ctx context.Context, records logsender.LogRecordCh, backend Backend) {
+	exporter, ok := backend.(pendingRecordsExporter)
+	if !ok {
+		return
+	}
+
+	for _, record := range exporter.PendingRecords() {
+		if err := sendRecord(ctx, records, record); err != nil {
+			return
+		}
+	}
+}
+
 func (w *logRouter) manageLegacyLogSinkWriter(ctx context.Context, next ConfigSnapshot) {
 	switch next.Mode {
 	case BackendTypeLoki:
@@ -571,5 +687,18 @@ func (w *configWatcherWorker) loop() error {
 
 		case w.changes <- struct{}{}:
 		}
+	}
+}
+
+func toLogSenderRecord(record corelogger.LogRecord) *logsender.LogRecord {
+	return &logsender.LogRecord{
+		Time:      record.Time,
+		Module:    record.Module,
+		Location:  record.Location,
+		Level:     loggo.Level(record.Level),
+		Message:   record.Message,
+		Labels:    record.Labels,
+		ModelUUID: record.ModelUUID,
+		Entity:    record.Entity,
 	}
 }

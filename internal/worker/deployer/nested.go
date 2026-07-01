@@ -13,8 +13,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
@@ -43,8 +45,9 @@ type RebootMonitorStatePurger interface {
 var _ Context = (*nestedContext)(nil)
 
 type nestedContext struct {
-	logger logger.Logger
-	agent  agent.Agent
+	logger             logger.Logger
+	agent              agent.Agent
+	agentConfigChanged *voyeur.Value
 	// agentConfig is a snapshot of the current configuration.
 	agentConfig    agent.Config
 	baseUnitConfig UnitAgentConfig
@@ -63,6 +66,7 @@ type nestedContext struct {
 // needs to run.
 type ContextConfig struct {
 	Agent                    agent.Agent
+	AgentConfigChanged       *voyeur.Value
 	FlightRecorder           flightrecorder.FlightRecorder
 	Clock                    clock.Clock
 	Logger                   logger.Logger
@@ -77,6 +81,9 @@ type ContextConfig struct {
 func (c *ContextConfig) Validate() error {
 	if c.Agent == nil {
 		return errors.NotValidf("missing Agent")
+	}
+	if c.AgentConfigChanged == nil {
+		return errors.NotValidf("missing AgentConfigChanged")
 	}
 	if c.FlightRecorder == nil {
 		return errors.NotValidf("missing FlightRecorder")
@@ -123,9 +130,10 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 
 	agentConfig := config.Agent.CurrentConfig()
 	nContext := &nestedContext{
-		logger:      config.Logger,
-		agent:       config.Agent,
-		agentConfig: agentConfig,
+		logger:             config.Logger,
+		agent:              config.Agent,
+		agentConfigChanged: config.AgentConfigChanged,
+		agentConfig:        agentConfig,
 		baseUnitConfig: UnitAgentConfig{
 			DataDir:          agentConfig.DataDir(),
 			FlightRecorder:   config.FlightRecorder,
@@ -166,6 +174,15 @@ func NewNestedContext(config ContextConfig) (Context, error) {
 			config.Logger.Errorf(context.TODO(), "unable to start workers for unit %q: %v", u, err)
 			nContext.errors[u] = err
 		}
+	}
+
+	err = nContext.runner.StartWorker(context.TODO(), "unit-loki-sync", func(context.Context) (worker.Worker, error) {
+		return newLokiSyncWorker(nContext), nil
+	})
+	if err != nil {
+		nContext.Kill()
+		_ = nContext.Wait()
+		return nil, errors.Trace(err)
 	}
 
 	return nContext, nil
@@ -252,11 +269,11 @@ func (c *nestedContext) DeployUnit(ctx context.Context, unitName, initialPasswor
 	c.logger.Tracef(ctx, "starting the unit workers for %q", unitName)
 
 	agent, err := c.newUnitAgent(unitName)
-	c.units[unitName] = agent
 	if err != nil {
 		c.logger.Errorf(ctx, "unable to create unit agent %q: %v", unitName, err)
 		c.errors[unitName] = err
 	} else {
+		c.units[unitName] = agent
 		if err := c.startUnitWorkers(ctx, unitName); err != nil {
 			c.logger.Errorf(ctx, "unable to start workers for unit %q: %v", unitName, err)
 			c.errors[unitName] = err
@@ -330,11 +347,21 @@ func (c *nestedContext) updateConfigValue(key, value string) error {
 
 func (c *nestedContext) createUnitAgentConfig(ctx context.Context, tag names.UnitTag, initialPassword string) (agent.Config, error) {
 	c.logger.Tracef(ctx, "create unit agent config for %q", tag)
-	dataDir := c.agentConfig.DataDir()
-	logDir := c.agentConfig.LogDir()
-	apiAddresses, err := c.agentConfig.APIAddresses()
+	agentConfig := c.agent.CurrentConfig()
+	c.mu.Lock()
+	c.agentConfig = agentConfig
+	c.mu.Unlock()
+
+	dataDir := agentConfig.DataDir()
+	logDir := agentConfig.LogDir()
+	apiAddresses, err := agentConfig.APIAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	var lokiCACert *string
+	if cert := agentConfig.LokiCACert(); cert != "" {
+		lokiCACert = &cert
 	}
 
 	conf, err := agent.NewAgentConfig(
@@ -344,28 +371,33 @@ func (c *nestedContext) createUnitAgentConfig(ctx context.Context, tag names.Uni
 				LogDir:          logDir,
 				MetricsSpoolDir: agent.DefaultPaths.MetricsSpoolDir,
 			},
-			Tag:               tag,
-			Password:          initialPassword,
-			Nonce:             "unused",
-			Controller:        c.agentConfig.Controller(),
-			Model:             c.agentConfig.Model(),
-			APIAddresses:      apiAddresses,
-			CACert:            c.agentConfig.CACert(),
-			UpgradedToVersion: c.agentConfig.UpgradedToVersion(),
+			Tag:                    tag,
+			Password:               initialPassword,
+			Nonce:                  "unused",
+			Controller:             agentConfig.Controller(),
+			Model:                  agentConfig.Model(),
+			APIAddresses:           apiAddresses,
+			CACert:                 agentConfig.CACert(),
+			UpgradedToVersion:      agentConfig.UpgradedToVersion(),
+			LokiEndpoint:           agentConfig.LokiEndpoint(),
+			LokiCACert:             derefString(lokiCACert),
+			LokiInsecureSkipVerify: agentConfig.LokiInsecureSkipVerify(),
+			LokiOrgID:              agentConfig.LokiOrgID(),
 
-			AgentLogfileMaxBackups: c.agentConfig.AgentLogfileMaxBackups(),
-			AgentLogfileMaxSizeMB:  c.agentConfig.AgentLogfileMaxSizeMB(),
+			AgentLogfileMaxBackups: agentConfig.AgentLogfileMaxBackups(),
+			AgentLogfileMaxSizeMB:  agentConfig.AgentLogfileMaxSizeMB(),
 
-			OpenTelemetryEnabled:               c.agentConfig.OpenTelemetryEnabled(),
-			OpenTelemetryEndpoint:              c.agentConfig.OpenTelemetryEndpoint(),
-			OpenTelemetryInsecure:              c.agentConfig.OpenTelemetryInsecure(),
-			OpenTelemetryStackTraces:           c.agentConfig.OpenTelemetryStackTraces(),
-			OpenTelemetrySampleRatio:           c.agentConfig.OpenTelemetrySampleRatio(),
-			OpenTelemetryTailSamplingThreshold: c.agentConfig.OpenTelemetryTailSamplingThreshold(),
+			OpenTelemetryEnabled:               agentConfig.OpenTelemetryEnabled(),
+			OpenTelemetryEndpoint:              agentConfig.OpenTelemetryEndpoint(),
+			OpenTelemetryInsecure:              agentConfig.OpenTelemetryInsecure(),
+			OpenTelemetryStackTraces:           agentConfig.OpenTelemetryStackTraces(),
+			OpenTelemetrySampleRatio:           agentConfig.OpenTelemetrySampleRatio(),
+			OpenTelemetryTailSamplingThreshold: agentConfig.OpenTelemetryTailSamplingThreshold(),
 		})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	conf.SetLokiConfig(agentConfig.LokiEndpoint(), lokiCACert, agentConfig.LokiInsecureSkipVerify(), agentConfig.LokiOrgID())
 	return conf, errors.Trace(conf.Write())
 }
 
@@ -376,17 +408,23 @@ func (c *nestedContext) RecallUnit(unitName string) error {
 	// Stop runner for unit
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.stopUnitWorkers(unitName); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Remove unit from deployed-units
 	units := c.deployedUnits()
+	if _, ok := c.units[unitName]; ok {
+		if err := c.stopUnitWorkers(unitName); err != nil {
+			return errors.Trace(err)
+		}
+	} else if !units.Contains(unitName) {
+		return nil
+	}
+
 	units.Remove(unitName)
 	allUnits := strings.Join(units.SortedValues(), ",")
 	if err := c.updateConfigValue(deployedUnitsKey, allUnits); err != nil {
 		return errors.Annotatef(err, "couldn't update deployed units to remove %q", unitName)
 	}
+	delete(c.units, unitName)
 
 	// Remove agent directory.
 	tag := names.NewUnitTag(unitName)
@@ -433,4 +471,90 @@ func removeOnErr(err *error, logger logger.Logger, path string) {
 			logger.Errorf(context.Background(), "installer: cannot remove %q: %v", path, err)
 		}
 	}
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+type lokiSyncWorker struct {
+	tomb  tomb.Tomb
+	ctx   *nestedContext
+	watch *voyeur.Watcher
+}
+
+func newLokiSyncWorker(ctx *nestedContext) worker.Worker {
+	w := &lokiSyncWorker{
+		ctx:   ctx,
+		watch: ctx.agentConfigChanged.Watch(),
+	}
+	w.tomb.Go(w.loop)
+	return w
+}
+
+func (w *lokiSyncWorker) Kill() {
+	w.watch.Close()
+	w.tomb.Kill(nil)
+}
+
+func (w *lokiSyncWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *lokiSyncWorker) loop() error {
+	if err := w.ctx.syncUnitLokiConfig(context.TODO()); err != nil {
+		return errors.Trace(err)
+	}
+
+	defer w.watch.Close()
+
+	for {
+		if !w.watch.Next() {
+			return nil
+		}
+
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		default:
+		}
+
+		if err := w.ctx.syncUnitLokiConfig(context.TODO()); err != nil {
+			return errors.Trace(err)
+		}
+	}
+}
+
+func (c *nestedContext) syncUnitLokiConfig(ctx context.Context) error {
+	agentConfig := c.agent.CurrentConfig()
+
+	c.mu.Lock()
+	c.agentConfig = agentConfig
+	units := make([]*UnitAgent, 0, len(c.units))
+	for _, unit := range c.units {
+		units = append(units, unit)
+	}
+	c.mu.Unlock()
+
+	var lokiCACert *string
+	if cert := agentConfig.LokiCACert(); cert != "" {
+		lokiCACert = &cert
+	}
+
+	for _, unit := range units {
+		if unit == nil {
+			continue
+		}
+		changed, err := unit.syncLokiConfig(agentConfig.LokiEndpoint(), lokiCACert, agentConfig.LokiInsecureSkipVerify(), agentConfig.LokiOrgID())
+		if err != nil {
+			return errors.Annotatef(err, "syncing Loki config for %q", unit.name)
+		}
+		if changed {
+			c.logger.Tracef(ctx, "updated Loki config for unit %q", unit.name)
+		}
+	}
+	return nil
 }

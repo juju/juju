@@ -510,7 +510,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		a.controllerAgentConfigReadyLock.Unlock()
 	}
 
-	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), logSink, bufferedLogger, legacyLogSinkWriter)
+	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), bufferedLogger, legacyLogSinkWriter, logSink)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
 		return err
 	}
@@ -532,9 +532,9 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 func (a *MachineAgent) makeEngineCreator(
 	agentName string, previousAgentVersion semversion.Number,
-	logSink corelogger.LogSink,
 	bufferedLogger *logsender.BufferedLogWriter,
 	legacyLogSinkWriter loggo.Writer,
+	localLogSink corelogger.LogSink,
 ) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
 		agentConfig := a.CurrentConfig()
@@ -576,9 +576,9 @@ func (a *MachineAgent) makeEngineCreator(
 			NewDBWorkerFunc:                   a.newDBWorkerFunc,
 			PreUpgradeSteps:                   a.preUpgradeSteps,
 			UpgradeSteps:                      a.upgradeSteps,
-			LogSink:                           logSink,
 			LogSource:                         bufferedLogger.Logs(),
 			LegacyLogSinkWriter:               legacyLogSinkWriter,
+			LocalLogSink:                      localLogSink,
 			NewDeployContext:                  deployer.NewNestedContext,
 			Clock:                             clock,
 			FlightRecorder:                    flightRecorder,

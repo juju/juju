@@ -51,6 +51,30 @@ func (s *clientSuite) TestNewClientDefaults(c *tc.C) {
 	)
 }
 
+func (s *clientSuite) TestNewClientUsesDefaultHTTPClient(c *tc.C) {
+	srv, payloads := newTestServer(c)
+	defer srv.Close()
+
+	cfg := DefaultConfig()
+	cfg.BatchSize = 1
+	client, err := NewClient(srv.URL, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+	defer killAndWait(c, client)
+
+	err = client.Push(Record{
+		Timestamp:      time.Now(),
+		Line:           "default http client",
+		ControllerUUID: "controller",
+		ModelUUID:      "model",
+		AgentID:        "machine-0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	p := waitPayload(c, payloads)
+	c.Assert(p.Streams, tc.HasLen, 1)
+	c.Check(p.Streams[0].Values[0].Line, tc.Equals, "default http client")
+}
+
 func (s *clientSuite) TestNewClientZeroRetriesIsValid(c *tc.C) {
 	cfg := testConfig()
 	cfg.MaxRetries = 0
