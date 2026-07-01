@@ -20,7 +20,21 @@ jobs:
           version=$(grep -r "const version =" core/version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
           majmin=$(echo $version | awk -F'[.-]' '{print $1 "." $2}')
           snap info juju > snap-info.txt
-          channel=$(awk -F':' -v ver=$majmin 'NR == 1, /channels/ {next} {gsub(/ /, "", $1); gsub(/ /, "", $2); if (!match($1,ver)) next; if ($2 == "--") next; print $1; exit}' snap-info.txt)
+          # Find the first snap channel matching the major.minor version,
+          # skipping empty channels and any channels with beta versions.
+          # Upgrading from beta is not supported.
+          channel=$(awk -F':' -v ver=$majmin '
+            NR == 1, /channels/ { next }
+            {
+              gsub(/ /, "", $1)
+              gsub(/ /, "", $2)
+              if (!match($1, ver)) next
+              if ($2 == "--") next
+              if ($1 ~ /beta/) next
+              if ($2 ~ /beta/) next
+              print $1
+              exit
+            }' snap-info.txt)
           echo "version=$version" >> $GITHUB_OUTPUT 
           echo "channel=$channel" >> $GITHUB_OUTPUT
 
