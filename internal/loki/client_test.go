@@ -676,13 +676,14 @@ func (s *clientSuite) TestBuildPayload(c *tc.C) {
 		},
 	}
 
-	payload := buildPayload(records)
+	payload := buildPayload(records, DefaultServiceName)
 	c.Assert(payload.Streams, tc.HasLen, 2)
 
 	c.Check(
 		payload.Streams[0].Stream,
 		tc.DeepEquals,
 		map[string]string{
+			"service_name":    "juju",
 			"juju_controller": "controller",
 			"juju_model":      "model",
 			"juju_agent":      "machine-0",
@@ -705,6 +706,7 @@ func (s *clientSuite) TestBuildPayload(c *tc.C) {
 		payload.Streams[1].Stream,
 		tc.DeepEquals,
 		map[string]string{
+			"service_name":    "juju",
 			"juju_controller": "controller",
 			"juju_model":      "model",
 			"juju_agent":      "unit-app-0",

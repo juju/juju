@@ -3177,6 +3177,9 @@
                         },
                         "insecure-skip-verify": {
                             "type": "boolean"
+                        },
+                        "org-id": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -6195,6 +6198,9 @@
                         },
                         "loki-insecure-skip-verify": {
                             "type": "boolean"
+                        },
+                        "loki-org-id": {
+                            "type": "string"
                         },
                         "placement": {
                             "type": "string"

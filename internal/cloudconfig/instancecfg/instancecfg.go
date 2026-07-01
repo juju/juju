@@ -211,6 +211,10 @@ type InstanceConfig struct {
 	// for the Loki endpoint. A nil value means the default (verify
 	// enabled) is in effect.
 	LokiInsecureSkipVerify *bool
+
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -536,6 +540,7 @@ func (cfg *InstanceConfig) AgentConfig(
 	configParams.LokiEndpoint = cfg.LokiEndpoint
 	configParams.LokiCACert = cfg.LokiCACert
 	configParams.LokiInsecureSkipVerify = cfg.LokiInsecureSkipVerify
+	configParams.LokiOrgID = cfg.LokiOrgID
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}

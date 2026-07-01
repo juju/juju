@@ -12,5 +12,6 @@ import (
 // Backend is a worker that accepts log records.
 type Backend interface {
 	worker.Worker
+	worker.Reporter
 	LogRecords() logsender.LogRecordCh
 }

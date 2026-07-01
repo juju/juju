@@ -85,6 +85,9 @@ type SharedProvisioningInfo struct {
 	// for the Loki endpoint. A nil value means the default (verify
 	// enabled) is in effect.
 	LokiInsecureSkipVerify *bool
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string
 }
 
 // ProvisioningInfo holds the complete set of information required to

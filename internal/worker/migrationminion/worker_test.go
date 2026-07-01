@@ -762,9 +762,10 @@ type stubAgentConfig struct {
 	caCert       string
 	lokiEndpoint string
 	lokiCACert   string
+	lokiOrgID    string
 }
 
-func (mc *stubAgentConfig) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool) {
+func (mc *stubAgentConfig) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string) {
 	mc.mu.Lock()
 	defer mc.mu.Unlock()
 	mc.lokiEndpoint = endpoint
@@ -773,6 +774,7 @@ func (mc *stubAgentConfig) SetLokiConfig(endpoint string, caCert *string, insecu
 	} else {
 		mc.lokiCACert = ""
 	}
+	mc.lokiOrgID = orgID
 }
 
 func (mc *stubAgentConfig) SetAPIHostPorts(servers []network.HostPorts) error {

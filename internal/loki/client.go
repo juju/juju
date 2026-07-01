@@ -25,6 +25,10 @@ import (
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
+// DefaultServiceName is the default value for the service_name Loki stream
+// label when one is not explicitly configured.
+const DefaultServiceName = "juju"
+
 // Record represents a single log entry to push to Loki.
 type Record struct {
 	// Timestamp is when the log entry was produced.
@@ -109,6 +113,16 @@ type Config struct {
 	// Clock is passed to the retry logic for testing.
 	// If nil, the wall clock is used.
 	Clock clock.Clock
+
+	// OrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. When set, an X-Scope-OrgID header is
+	// included in every push request.
+	OrgID string
+
+	// ServiceName is the value of the service_name stream label
+	// included in every pushed log record. It defaults to "juju" when
+	// empty, making Juju agent logs identifiable in Grafana/Loki.
+	ServiceName string
 }
 
 // Validate checks that the Config has valid values and returns an
@@ -163,6 +177,7 @@ type Client struct {
 	asyncFlush bool
 	onError    func(error)
 	onDrop     func(int)
+	orgID      string
 	records    chan Record
 	stats      report
 	tomb       tomb.Tomb
@@ -192,6 +207,7 @@ func NewClient(endpoint string, cfg Config) (*Client, error) {
 		asyncFlush: cfg.AsyncFlush == nil || *cfg.AsyncFlush,
 		onError:    cfg.OnError,
 		onDrop:     cfg.OnDrop,
+		orgID:      cfg.OrgID,
 		records:    make(chan Record, cfg.BufferSize),
 	}
 	c.tomb.Go(c.loop)
@@ -407,7 +423,7 @@ func resetTimer(t *time.Timer, d time.Duration) {
 func (c *Client) pushBatch(
 	ctx context.Context, records []Record,
 ) error {
-	payload := buildPayload(records)
+	payload := buildPayload(records, c.serviceName())
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return internalerrors.Errorf("marshaling payload: %w", err)
@@ -468,6 +484,9 @@ func (c *Client) doRequest(
 		return internalerrors.Errorf("creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if c.orgID != "" {
+		req.Header.Set("X-Scope-OrgID", c.orgID)
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -552,13 +571,22 @@ func (v *pushValue) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// serviceName returns the configured service name, defaulting to
+// DefaultServiceName when unset.
+func (c *Client) serviceName() string {
+	if c.cfg.ServiceName != "" {
+		return c.cfg.ServiceName
+	}
+	return DefaultServiceName
+}
+
 // buildPayload groups records by label set into streams.
-func buildPayload(records []Record) pushPayload {
+func buildPayload(records []Record, serviceName string) pushPayload {
 	groups := make(map[string]*pushStream)
 	order := make([]string, 0)
 
 	for _, r := range records {
-		labels := topologyLabels(r)
+		labels := topologyLabels(r, serviceName)
 		key := labelKey(labels)
 		s, ok := groups[key]
 		if !ok {
@@ -580,8 +608,9 @@ func buildPayload(records []Record) pushPayload {
 	return pushPayload{Streams: streams}
 }
 
-func topologyLabels(r Record) map[string]string {
-	labels := make(map[string]string, 3)
+func topologyLabels(r Record, serviceName string) map[string]string {
+	labels := make(map[string]string, 4)
+	labels["service_name"] = serviceName
 	if r.ControllerUUID != "" {
 		labels["juju_controller"] = r.ControllerUUID
 	}

@@ -97,7 +97,7 @@ func newDebugLogHandler(
 //	   - but the command does not wait for new ones.
 func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	handler := func(conn *websocket.Conn) {
-		socket := &debugLogSocketImpl{conn: conn}
+		var socket debugLogSocket = &debugLogSocketImpl{conn: conn}
 		defer conn.Close()
 
 		// Authentication and authorization has to be done after the http
@@ -117,6 +117,16 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		params, err := readDebugLogParams(req.URL.Query())
 		if err != nil {
 			socket.sendError(err)
+			return
+		}
+
+		// When Loki forwarding is enabled, logs are no longer written to the
+		// logsink log file that debug-log tails. Notify the client that logs
+		// are being forwarded to Loki and close the connection. This is a
+		// server-side notice; no client change is required.
+		if lokiForwardingEnabled(req.Context(), h.ctxt.srv.shared.controllerDomainServices) {
+			logger.Warningf(req.Context(), "debug-log: Loki forwarding enabled, notifying client and closing connection")
+			sendLokiForwardingNotice(socket, params.version)
 			return
 		}
 

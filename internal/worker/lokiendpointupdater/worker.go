@@ -108,7 +108,8 @@ func (w *lokiEndpointUpdater) update(ctx context.Context) error {
 	currentConfig := w.config.Agent.CurrentConfig()
 	if currentConfig.LokiEndpoint() == lokiConfig.Endpoint &&
 		currentConfig.LokiCACert() == lokiConfig.CACert &&
-		configInsecureEquals(currentConfig.LokiInsecureSkipVerify(), lokiConfig.InsecureSkipVerify) {
+		configInsecureEquals(currentConfig.LokiInsecureSkipVerify(), lokiConfig.InsecureSkipVerify) &&
+		currentConfig.LokiOrgID() == lokiConfig.OrgID {
 		return nil
 	}
 
@@ -117,7 +118,7 @@ func (w *lokiEndpointUpdater) update(ctx context.Context) error {
 		caCert = &lokiConfig.CACert
 	}
 	err = w.config.Agent.ChangeConfig(func(setter agent.ConfigSetter) error {
-		setter.SetLokiConfig(lokiConfig.Endpoint, caCert, lokiConfig.InsecureSkipVerify)
+		setter.SetLokiConfig(lokiConfig.Endpoint, caCert, lokiConfig.InsecureSkipVerify, lokiConfig.OrgID)
 		return nil
 	})
 	if err != nil {

@@ -766,17 +766,19 @@ func (*suite) TestSetLokiConfig(c *tc.C) {
 
 	insecure := true
 	cert := "ca-cert"
-	conf.SetLokiConfig("https://loki.example.com/loki/api/v1/push", &cert, &insecure)
+	conf.SetLokiConfig("https://loki.example.com/loki/api/v1/push", &cert, &insecure, "my-org")
 	c.Check(conf.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
 	c.Check(conf.LokiCACert(), tc.Equals, "ca-cert")
 	c.Assert(conf.LokiInsecureSkipVerify(), tc.NotNil)
 	c.Check(*conf.LokiInsecureSkipVerify(), tc.IsTrue)
+	c.Check(conf.LokiOrgID(), tc.Equals, "my-org")
 
 	// Clearing with nil pointers: endpoint set, cert cleared, insecure nil.
-	conf.SetLokiConfig("https://other.example.com", nil, nil)
+	conf.SetLokiConfig("https://other.example.com", nil, nil, "")
 	c.Check(conf.LokiEndpoint(), tc.Equals, "https://other.example.com")
 	c.Check(conf.LokiCACert(), tc.Equals, "")
 	c.Check(conf.LokiInsecureSkipVerify(), tc.IsNil)
+	c.Check(conf.LokiOrgID(), tc.Equals, "")
 }
 
 // TestLokiConfigCloneIsolation verifies that the LokiInsecureSkipVerify

@@ -913,6 +913,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	instanceConfig.LokiEndpoint = pInfo.LokiEndpoint
 	instanceConfig.LokiCACert = pInfo.LokiCACert
 	instanceConfig.LokiInsecureSkipVerify = pInfo.LokiInsecureSkipVerify
+	instanceConfig.LokiOrgID = pInfo.LokiOrgID
 
 	return instanceConfig, nil
 }

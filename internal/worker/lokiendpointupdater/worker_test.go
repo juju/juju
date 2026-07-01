@@ -87,6 +87,7 @@ func (s *workerSuite) expectCurrentConfigReads(endpoint, caCert string, insecure
 	s.agentConfig.EXPECT().LokiEndpoint().Return(endpoint).AnyTimes()
 	s.agentConfig.EXPECT().LokiCACert().Return(caCert).AnyTimes()
 	s.agentConfig.EXPECT().LokiInsecureSkipVerify().Return(insecure).AnyTimes()
+	s.agentConfig.EXPECT().LokiOrgID().Return("").AnyTimes()
 }
 
 // expectChangeConfig sets up ChangeConfig to invoke the mutator with a real

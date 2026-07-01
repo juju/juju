@@ -10,6 +10,7 @@ type lokiConfig struct {
 	Endpoint           string       `db:"endpoint"`
 	CACertificate      *string      `db:"ca_cert"`
 	InsecureSkipVerify sql.NullBool `db:"insecure_skip_verify"`
+	OrgID              string       `db:"org_id"`
 }
 
 // lokiExistsRow is used to query whether any Loki config row exists.

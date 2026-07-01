@@ -286,6 +286,10 @@ type Config interface {
 	// explicit values.
 	LokiInsecureSkipVerify() *bool
 
+	// LokiOrgID returns the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID() string
+
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
@@ -384,8 +388,8 @@ type configSetterOnly interface {
 	SetLoggingConfig(string)
 
 	// SetLokiConfig sets the Loki config values for the agent. The endpoint,
-	// CA certificate and insecure skip verify flag are updated together.
-	SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool)
+	// CA certificate, insecure skip verify flag, and org ID are updated together.
+	SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string)
 
 	// SetQueryTracingEnabled sets whether query tracing is enabled.
 	SetQueryTracingEnabled(bool)
@@ -492,6 +496,7 @@ type configInternal struct {
 	lokiEndpoint                       string
 	lokiCACert                         string
 	lokiInsecureSkipVerify             *bool
+	lokiOrgID                          string
 	values                             map[string]string
 	agentLogfileMaxSizeMB              int
 	agentLogfileMaxBackups             int
@@ -543,6 +548,9 @@ type AgentConfigParams struct {
 	// for the Loki endpoint. A nil value means the default (verify
 	// enabled) is in effect.
 	LokiInsecureSkipVerify *bool
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -617,6 +625,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		lokiEndpoint:                       configParams.LokiEndpoint,
 		lokiCACert:                         configParams.LokiCACert,
 		lokiInsecureSkipVerify:             configParams.LokiInsecureSkipVerify,
+		lokiOrgID:                          configParams.LokiOrgID,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -783,8 +792,13 @@ func (c *configInternal) LokiInsecureSkipVerify() *bool {
 	return copyBoolPointer(c.lokiInsecureSkipVerify)
 }
 
+// LokiOrgID implements Config.
+func (c *configInternal) LokiOrgID() string {
+	return c.lokiOrgID
+}
+
 // SetLokiConfig implements configSetterOnly.
-func (c *configInternal) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool) {
+func (c *configInternal) SetLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string) {
 	c.lokiEndpoint = endpoint
 	if caCert != nil {
 		c.lokiCACert = *caCert
@@ -792,6 +806,7 @@ func (c *configInternal) SetLokiConfig(endpoint string, caCert *string, insecure
 		c.lokiCACert = ""
 	}
 	c.lokiInsecureSkipVerify = copyBoolPointer(insecureSkipVerify)
+	c.lokiOrgID = orgID
 }
 
 // copyBoolPointer preserves the Config snapshot contract: callers must not be

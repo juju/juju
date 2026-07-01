@@ -618,6 +618,7 @@ type lokiEndpointRequest struct {
 	URL                string `json:"url"`
 	CACertificate      string `json:"ca_cert"`
 	InsecureSkipVerify *bool  `json:"insecure_skip_verify"`
+	OrgID              string `json:"org_id"`
 }
 
 func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Request) {
@@ -644,6 +645,7 @@ func (w *Worker) handleSetLokiEndpoint(resp http.ResponseWriter, req *http.Reque
 		Endpoint:           parsedBody.URL,
 		CACertificate:      parsedBody.CACertificate,
 		InsecureSkipVerify: parsedBody.InsecureSkipVerify,
+		OrgID:              parsedBody.OrgID,
 	}); internalerrors.Is(err, coreerrors.NotValid) {
 		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid loki endpoint: %w", err))
 		return
