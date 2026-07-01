@@ -73,9 +73,13 @@ func (st *State) CommitHookChanges(ctx context.Context, arg internal.CommitHookC
 			return errors.Errorf("revoke secrets access: %w", err)
 		}
 
-		// TODO(secrets): clean up unit secret reservations and tokens here,
-		// inside the transaction, once the state-layer implementation is
-		// provided (currently a no-op in domain/secret/state).
+		// Clean up all reservations for this unit. Reservations are
+		// scoped to a single hook attempt and must not outlive it. If
+		// a prior hook failed, its leaked reservations are also
+		// cleared on the next successful commit.
+		if err := st.deleteSecretReservationsForUnit(ctx, tx, arg.UnitUUID); err != nil {
+			return errors.Errorf("deleting secret reservations: %w", err)
+		}
 
 		if err := st.deleteSecrets(ctx, tx, arg.SecretDeletes); err != nil {
 			return errors.Errorf("delete secrets: %w", err)
@@ -125,6 +129,20 @@ func (st *State) createSecrets(ctx context.Context, tx *sqlair.TX, creates []int
 		}
 	}
 	return nil
+}
+
+// deleteSecretReservationsForUnit removes all secret reservations for the
+// given unit. Called during the commit-hook transaction so that reservations
+// never outlive a hook attempt — leaked reservations from a prior failed hook
+// are also cleared.
+func (st *State) deleteSecretReservationsForUnit(ctx context.Context, tx *sqlair.TX, unitUUID string) error {
+	deleteStmt, err := st.Prepare(`
+DELETE FROM secret_reservation
+WHERE unit_uuid = $entityUUID.uuid`, entityUUID{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return errors.Capture(tx.Query(ctx, deleteStmt, entityUUID{UUID: unitUUID}).Run())
 }
 
 // createOneSecret inserts all records for a single charm secret inside the

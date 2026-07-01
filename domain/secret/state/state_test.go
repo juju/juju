@@ -4591,3 +4591,68 @@ func (s *stateSuite) TestUpdateSecretContentWithEmptyValues(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(content, tc.DeepEquals, coresecrets.SecretData{"foo": "", "new": "value", "another_empty": ""})
 }
+
+func (s *stateSuite) TestReserveSecretURIs(c *tc.C) {
+	_, unitUUIDs := s.setupUnits(c, "mysql")
+	unitUUID, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitUUID.String(), tc.Equals, unitUUIDs[0])
+
+	secretIDs := []string{"secret-aaa", "secret-bbb"}
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID, secretIDs)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rows := s.queryRows(c, "SELECT secret_id, unit_uuid, created_at FROM secret_reservation ORDER BY secret_id")
+	c.Assert(rows, tc.HasLen, 2)
+	c.Check(rows[0]["secret_id"], tc.Equals, "secret-aaa")
+	c.Check(rows[0]["unit_uuid"], tc.Equals, unitUUIDs[0])
+	c.Check(rows[0]["created_at"], tc.Not(tc.Equals), "")
+	c.Check(rows[1]["secret_id"], tc.Equals, "secret-bbb")
+	c.Check(rows[1]["unit_uuid"], tc.Equals, unitUUIDs[0])
+	c.Check(rows[1]["created_at"], tc.Not(tc.Equals), "")
+}
+
+func (s *stateSuite) TestReserveSecretURIsEmpty(c *tc.C) {
+	_, unitUUIDs := s.setupUnits(c, "mysql")
+	unitUUID, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitUUID.String(), tc.Equals, unitUUIDs[0])
+
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rows := s.queryRows(c, "SELECT secret_id FROM secret_reservation")
+	c.Check(rows, tc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetUnitReservedSecretIDs(c *tc.C) {
+	s.setupUnits(c, "mysql")
+	unitUUID0, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID1, err := s.getUnitUUID(c, "mysql/1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID0, []string{"secret-a", "secret-b"})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID1, []string{"secret-c"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	got0, err := s.state.GetUnitReservedSecretIDs(c.Context(), unitUUID0)
+	c.Assert(err, tc.ErrorIsNil)
+	slices.Sort(got0)
+	c.Check(got0, tc.DeepEquals, []string{"secret-a", "secret-b"})
+
+	got1, err := s.state.GetUnitReservedSecretIDs(c.Context(), unitUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got1, tc.DeepEquals, []string{"secret-c"})
+}
+
+func (s *stateSuite) TestGetUnitReservedSecretIDsNone(c *tc.C) {
+	_, _ = s.setupUnits(c, "mysql")
+	unitUUID, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetUnitReservedSecretIDs(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
+}

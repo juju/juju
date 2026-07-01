@@ -2774,3 +2774,51 @@ func (s *commitHookSuite) TestUpdateSecretsLabelNoConflict(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(gotLabel, tc.Equals, newLabel)
 }
+
+func (s *commitHookSuite) TestCommitHookDeletesSecretReservations(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: seed two reservations for the unit.
+	s.query(c, `INSERT INTO secret_reservation (secret_id, unit_uuid, created_at) VALUES (?, ?, ?)`,
+		"secret-a", s.unitUUID, time.Now().UTC())
+	s.query(c, `INSERT INTO secret_reservation (secret_id, unit_uuid, created_at) VALUES (?, ?, ?)`,
+		"secret-b", s.unitUUID, time.Now().UTC())
+
+	c.Check(s.countRows(c,
+		"SELECT COUNT(*) FROM secret_reservation WHERE unit_uuid = ?", s.unitUUID), tc.Equals, 2)
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: all reservations for this unit are gone.
+	c.Check(s.countRows(c,
+		"SELECT COUNT(*) FROM secret_reservation WHERE unit_uuid = ?", s.unitUUID), tc.Equals, 0)
+}
+
+func (s *commitHookSuite) TestCommitHookDeletesLeakedSecretReservations(c *tc.C) {
+	ctx := c.Context()
+
+	// Arrange: simulate leaked reservations from a prior failed hook —
+	// they exist in the table but the current CommitHookChangesArg has
+	// no SecretCreates referencing them.
+	s.query(c, `INSERT INTO secret_reservation (secret_id, unit_uuid, created_at) VALUES (?, ?, ?)`,
+		"leaked-secret", s.unitUUID, time.Now().UTC())
+
+	arg := internal.CommitHookChangesArg{
+		UnitUUID: s.unitUUID,
+		// No SecretCreates — the leaked reservation is orphaned.
+	}
+
+	// Act
+	err := s.state.CommitHookChanges(ctx, arg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Assert: leaked reservations are still cleaned up.
+	c.Check(s.countRows(c,
+		"SELECT COUNT(*) FROM secret_reservation WHERE unit_uuid = ?", s.unitUUID), tc.Equals, 0)
+}

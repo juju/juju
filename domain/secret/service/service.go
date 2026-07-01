@@ -65,8 +65,10 @@ type SecretService struct {
 	logger logger.Logger
 }
 
-// CreateSecretURIs returns the specified number of new secret URIs.
-func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error) {
+// CreateSecretURIs returns the specified number of new secret URIs,
+// reserving them for the given accessor so that backend write authority
+// can be validated server-side before the secret is persisted.
+func (s *SecretService) CreateSecretURIs(ctx context.Context, accessor domainsecret.SecretAccessor, count int) ([]*secrets.URI, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -79,12 +81,40 @@ func (s *SecretService) CreateSecretURIs(ctx context.Context, count int) ([]*sec
 		return nil, errors.Errorf("getting model uuid: %w", err)
 	}
 
-	// TODO(secrets): reserve these URIs in state for the owner.
 	result := make([]*secrets.URI, count)
+	secretIDs := make([]string, count)
 	for i := range count {
 		result[i] = secrets.NewURI().WithSource(modelUUID.String())
+		secretIDs[i] = result[i].ID
 	}
+
+	if accessor.Kind == domainsecret.UnitAccessor {
+		unitUUID, err := s.secretState.GetUnitUUID(ctx, coreunit.Name(accessor.ID))
+		if err != nil {
+			return nil, errors.Errorf("getting unit UUID for accessor %q: %w", accessor.ID, err)
+		}
+		if err := s.secretState.ReserveSecretURIs(ctx, unitUUID, secretIDs); err != nil {
+			return nil, errors.Errorf("reserving secret URIs: %w", err)
+		}
+	}
+
 	return result, nil
+}
+
+// GetReservedSecretIDs returns the IDs of secrets that have been reserved
+// by the given accessor but not yet persisted to state.
+func (s *SecretService) GetReservedSecretIDs(ctx context.Context, accessor domainsecret.SecretAccessor) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if accessor.Kind != domainsecret.UnitAccessor {
+		return nil, nil
+	}
+	unitUUID, err := s.secretState.GetUnitUUID(ctx, coreunit.Name(accessor.ID))
+	if err != nil {
+		return nil, errors.Errorf("getting unit UUID for accessor %q: %w", accessor.ID, err)
+	}
+	return s.secretState.GetUnitReservedSecretIDs(ctx, unitUUID)
 }
 
 func (s *SecretService) getBackend(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {

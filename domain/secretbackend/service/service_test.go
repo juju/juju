@@ -784,6 +784,149 @@ func (s *serviceSuite) assertBackendConfigInfoLeaderUnit(c *tc.C, wanted []strin
 	})
 }
 
+// TestBackendConfigInfoWithNewSecretIDs is a regression test for the charm
+// secret creation RBAC issue. Secrets being created in this call are not yet
+// persisted to state, so the granted secrets list is empty. The new secret IDs
+// must still be included in the owned list passed to RestrictedConfig so the K8s
+// backend can pre-create a placeholder and grant the restricted service account
+// patch access to it by name.
+func (s *serviceSuite) TestBackendConfigInfoWithNewSecretIDs(c *tc.C) {
+	s.assertBackendConfigInfoWithNewSecretIDs(c, []string{"new-secret-id"}, []string{"new-secret-id", "owned-1"})
+}
+
+// TestBackendConfigInfoWithNewSecretIDsNoExistingSecrets is a regression test
+// for the pathological case where there are no existing secrets at all (the very
+// first charm secret created on a MicroK8s model with RBAC enabled).
+func (s *serviceSuite) TestBackendConfigInfoWithNewSecretIDsNoExistingSecrets(c *tc.C) {
+	s.assertBackendConfigInfoWithNewSecretIDs(c, []string{"new-secret-id"}, []string{"new-secret-id"})
+}
+
+func (s *serviceSuite) assertBackendConfigInfoWithNewSecretIDs(c *tc.C, newSecretIDs, expectedOwnedIDs []string) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newService(
+		s.mockState, s.logger, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	accessor := coresecrets.Accessor{
+		Kind: coresecrets.UnitAccessor,
+		ID:   "gitlab/0",
+	}
+	token := NewMockToken(ctrl)
+
+	hasExistingSecrets := len(expectedOwnedIDs) > len(newSecretIDs)
+
+	owned := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "owned-1"}, RevisionID: "owned-rev-1"},
+	}
+	ownedRevs := map[string]set.Strings{
+		"owned-1": set.NewStrings("owned-rev-1"),
+	}
+	ownedForListReturned := owned
+	if !hasExistingSecrets {
+		ownedForListReturned = []*coresecrets.SecretRevisionRef{}
+		ownedRevs = map[string]set.Strings{}
+	}
+	read := []*coresecrets.SecretRevisionRef{
+		{URI: &coresecrets.URI{ID: "read-1"}, RevisionID: "read-rev-1"},
+	}
+	readRevs := map[string]set.Strings{
+		"read-1": set.NewStrings("read-rev-1"),
+	}
+	adminCfg := provider.ModelBackendConfig{
+		ControllerUUID: jujutesting.ControllerTag.Id(),
+		ModelUUID:      jujutesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+		},
+	}
+	backend := secretbackend.BackendIdentifier{
+		ID:   "backend-id",
+		Name: "backend1",
+	}
+	s.expectGetSecretBackendConfigForAdminDefault("iaas", backend, []*secretbackend.SecretBackend{{
+		ID:          "backend-id",
+		Name:        "backend1",
+		BackendType: "some-backend",
+	}}...)
+	s.mockRegistry.EXPECT().Initialise(gomock.Any()).Return(nil)
+	token.EXPECT().Check().Return(nil)
+
+	issuedTokenUUID := ""
+	s.mockRegistry.EXPECT().IssuesTokens().Return(false)
+
+	s.mockRegistry.EXPECT().RestrictedConfig(
+		gomock.Any(),
+		&adminCfg,
+		false, false,
+		issuedTokenUUID,
+		accessor,
+		expectedOwnedIDs,
+		ownedRevs,
+		readRevs,
+	).Return(&adminCfg.BackendConfig, nil)
+
+	listGranted := func(
+		ctx context.Context, backendID string, role coresecrets.SecretRole, consumers ...secret.SecretAccessor,
+	) ([]*coresecrets.SecretRevisionRef, error) {
+		c.Assert(backendID, tc.Equals, "backend-id")
+		if role == coresecrets.RoleManage {
+			c.Assert(consumers, tc.DeepEquals, []secret.SecretAccessor{{
+				Kind: secret.UnitAccessor,
+				ID:   "gitlab/0",
+			}, {
+				Kind: secret.ApplicationAccessor,
+				ID:   "gitlab",
+			}})
+			return ownedForListReturned, nil
+		}
+		c.Assert(consumers, tc.DeepEquals, []secret.SecretAccessor{{
+			Kind: secret.UnitAccessor,
+			ID:   "gitlab/0",
+		}, {
+			Kind: secret.ApplicationAccessor,
+			ID:   "gitlab",
+		}})
+		return read, nil
+	}
+	info, err := svc.BackendConfigInfo(c.Context(), BackendConfigParams{
+		GrantedSecretsGetter: listGranted,
+		LeaderToken:          token,
+		Accessor: secret.SecretAccessor{
+			Kind: secret.UnitAccessor,
+			ID:   accessor.ID,
+		},
+		ModelUUID:         coremodel.UUID(jujutesting.ModelTag.Id()),
+		BackendIDs:        []string{"backend-id"},
+		SameController:    false,
+		ReservedSecretIDs: newSecretIDs,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(info, tc.DeepEquals, &provider.ModelBackendConfigInfo{
+		ActiveID: "backend-id",
+		Configs: map[string]provider.ModelBackendConfig{
+			"backend-id": {
+				ControllerUUID: jujutesting.ControllerTag.Id(),
+				ModelUUID:      jujutesting.ModelTag.Id(),
+				ModelName:      "fred",
+				BackendConfig: provider.BackendConfig{
+					BackendType: "some-backend",
+				},
+			},
+		},
+	})
+}
+
 func (s *serviceSuite) TestBackendConfigInfoNonLeaderUnit(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
