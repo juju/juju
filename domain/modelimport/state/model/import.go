@@ -818,6 +818,14 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return fmt.Errorf("preparing Space insert statement: %w", err)
 	}
+	stmtSshConnectionRequest, err := sqlair.Prepare(`INSERT INTO "ssh_connection_request" (*) VALUES ($SshConnectionRequest.*)`, v4_1_0.SshConnectionRequest{})
+	if err != nil {
+		return fmt.Errorf("preparing SshConnectionRequest insert statement: %w", err)
+	}
+	stmtSshConnectionRequestAddress, err := sqlair.Prepare(`INSERT INTO "ssh_connection_request_address" (*) VALUES ($SshConnectionRequestAddress.*)`, v4_1_0.SshConnectionRequestAddress{})
+	if err != nil {
+		return fmt.Errorf("preparing SshConnectionRequestAddress insert statement: %w", err)
+	}
 	stmtSshKeyAlgorithmType, err := sqlair.Prepare(`INSERT INTO "ssh_key_algorithm_type" (*) VALUES ($SshKeyAlgorithmType.*) ON CONFLICT DO NOTHING`, v4_1_0.SshKeyAlgorithmType{})
 	if err != nil {
 		return fmt.Errorf("preparing SshKeyAlgorithmType insert statement: %w", err)
@@ -1989,6 +1997,16 @@ WHERE  model_uuid = $ModelAgent.model_uuid
 		if len(p.Space) > 0 {
 			if err := tx.Query(ctx, stmtSpace, p.Space).Run(); err != nil {
 				return fmt.Errorf("inserting Space (table space): %w", err)
+			}
+		}
+		if len(p.SshConnectionRequest) > 0 {
+			if err := tx.Query(ctx, stmtSshConnectionRequest, p.SshConnectionRequest).Run(); err != nil {
+				return fmt.Errorf("inserting SshConnectionRequest (table ssh_connection_request): %w", err)
+			}
+		}
+		if len(p.SshConnectionRequestAddress) > 0 {
+			if err := tx.Query(ctx, stmtSshConnectionRequestAddress, p.SshConnectionRequestAddress).Run(); err != nil {
+				return fmt.Errorf("inserting SshConnectionRequestAddress (table ssh_connection_request_address): %w", err)
 			}
 		}
 		if len(p.SshKeyAlgorithmType) > 0 {
