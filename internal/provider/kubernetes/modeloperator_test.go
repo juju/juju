@@ -292,15 +292,15 @@ func (m *ModelOperatorSuite) TestPrivateImageRepo(c *tc.C) {
 func (m *ModelOperatorSuite) TestModelOperatorDeploymentStartUpScript(c *tc.C) {
 	modelUUID := "abcd-efff-face"
 	deployment, err := modelOperatorDeployment(
-		modelOperatorName,
+		constants.ModelOperatorName,
 		"test-namespace",
 		map[string]string{},
 		map[string]string{},
 		resource.DockerImageDetails{RegistryPath: "juju/juju:123"},
 		int32(5497),
 		modelUUID,
-		modelOperatorName,
-		modelOperatorName+"-sa",
+		constants.ModelOperatorName,
+		constants.ModelOperatorName+"-sa",
 		nil,
 		nil,
 	)
