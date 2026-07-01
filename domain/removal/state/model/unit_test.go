@@ -778,6 +778,14 @@ VALUES (?, 'some-model', ?, 0)`
 	_, err = s.DB().ExecContext(ctx, q, sID, unitUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
+	// Add a secret reservation that the unit has.
+	// The reservation reference should be deleted;
+	// the deletion would fail due to FK violation.
+	_, err = s.DB().ExecContext(ctx,
+		"INSERT INTO secret_reservation(secret_id, unit_uuid, created_at) VALUES (?, ?, '2025-01-01 00:00:00')",
+		sID+"-reserved", unitUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
 	// We only check the unit life for "alive" in the state layer.
 	// The service layer is responsible for calling DeleteUnit according
 	// to its current life value and whether a forced removal is being actioned.

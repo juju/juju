@@ -89,12 +89,64 @@ func (s *serviceSuite) TestCreateUserSecretURIs(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("wordpress/0")).Return(coreunit.UUID("unit-uuid"), nil)
+	s.state.EXPECT().ReserveSecretURIs(gomock.Any(), coreunit.UUID("unit-uuid"), gomock.Any()).Return(nil)
 
-	got, err := s.service.CreateSecretURIs(c.Context(), 2)
+	accessor := domainsecret.SecretAccessor{
+		Kind: domainsecret.UnitAccessor,
+		ID:   "wordpress/0",
+	}
+	got, err := s.service.CreateSecretURIs(c.Context(), accessor, 2)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.HasLen, 2)
 	c.Assert(got[0].SourceUUID, tc.Equals, coretesting.ModelTag.Id())
 	c.Assert(got[1].SourceUUID, tc.Equals, coretesting.ModelTag.Id())
+}
+
+func (s *serviceSuite) TestCreateSecretURIsNonUnitAccessor(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Only GetModelUUID is expected; the non-unit accessor path must not
+	// call GetUnitUUID or ReserveSecretURIs.
+	s.state.EXPECT().GetModelUUID(gomock.Any()).Return(coremodel.UUID(coretesting.ModelTag.Id()), nil)
+
+	accessor := domainsecret.SecretAccessor{
+		Kind: domainsecret.ApplicationAccessor,
+		ID:   "wordpress",
+	}
+	got, err := s.service.CreateSecretURIs(c.Context(), accessor, 2)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.HasLen, 2)
+	c.Assert(got[0].SourceUUID, tc.Equals, coretesting.ModelTag.Id())
+	c.Assert(got[1].SourceUUID, tc.Equals, coretesting.ModelTag.Id())
+}
+
+func (s *serviceSuite) TestGetReservedSecretIDs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetUnitUUID(gomock.Any(), coreunit.Name("wordpress/0")).Return(coreunit.UUID("unit-uuid"), nil)
+	s.state.EXPECT().GetUnitReservedSecretIDs(gomock.Any(), coreunit.UUID("unit-uuid")).Return([]string{"secret-a", "secret-b"}, nil)
+
+	accessor := domainsecret.SecretAccessor{
+		Kind: domainsecret.UnitAccessor,
+		ID:   "wordpress/0",
+	}
+	got, err := s.service.GetReservedSecretIDs(c.Context(), accessor)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.DeepEquals, []string{"secret-a", "secret-b"})
+}
+
+func (s *serviceSuite) TestGetReservedSecretIDsNonUnitAccessor(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Non-unit accessor must return nil without touching state.
+	accessor := domainsecret.SecretAccessor{
+		Kind: domainsecret.ApplicationAccessor,
+		ID:   "wordpress",
+	}
+	got, err := s.service.GetReservedSecretIDs(c.Context(), accessor)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(got, tc.IsNil)
 }
 
 func (s *serviceSuite) TestCreateUserSecretInternal(c *tc.C) {

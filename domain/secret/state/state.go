@@ -157,6 +157,73 @@ WHERE name=$unit.name`, u)
 	return u.UUID, errors.Capture(err)
 }
 
+// ReserveSecretURIs records that the given secret IDs have been minted for
+// the specified unit but not yet persisted as charm secrets.
+func (st State) ReserveSecretURIs(ctx context.Context, unitUUID coreunit.UUID, secretIDs []string) error {
+	if len(secretIDs) == 0 {
+		return nil
+	}
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	now := time.Now().UTC()
+	reservations := make([]secretReservation, len(secretIDs))
+	for i, id := range secretIDs {
+		reservations[i] = secretReservation{
+			SecretID:  id,
+			UnitUUID:  unitUUID.String(),
+			CreatedAt: now,
+		}
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO secret_reservation (*)
+VALUES ($secretReservation.*)`, secretReservation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, insertStmt, reservations).Run())
+	})
+	return errors.Capture(err)
+}
+
+// GetUnitReservedSecretIDs returns the IDs of all secrets reserved by the
+// given unit that have not yet been persisted.
+func (st State) GetUnitReservedSecretIDs(ctx context.Context, unitUUID coreunit.UUID) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	u := entityRef{UUID: unitUUID.String()}
+	selectStmt, err := st.Prepare(`
+SELECT secret_id AS &secretID.id
+FROM   secret_reservation
+WHERE  unit_uuid = $entityRef.uuid`, secretID{}, u)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var ids []secretID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, selectStmt, u).GetAll(&ids)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting reserved secret IDs for unit %q: %w", unitUUID, err)
+	}
+	result := make([]string, len(ids))
+	for i, s := range ids {
+		result[i] = s.ID
+	}
+	return result, nil
+}
+
 // ImportSecretWithRevisions creates a secret with its metadata and revisions
 // in a single transaction.
 func (st State) ImportSecretWithRevisions(

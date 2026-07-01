@@ -330,6 +330,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"secret_remote_unit_consumer",
 		"secret_permission",
 		"secret_role",
+		"secret_reservation",
 		"secret_grant_subject_type",
 		"secret_grant_scope_type",
 
