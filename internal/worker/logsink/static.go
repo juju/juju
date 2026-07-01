@@ -16,8 +16,8 @@ func (s staticLogRouter) LogSink() corelogger.LogSink {
 }
 
 // StaticLogRouter returns a LogRouter that always delegates to the supplied
-// LogSink. It is intended for controller-local logging where the API-backed
-// log router is not yet available.
+// LogSink. It adapts any refresh-capable sink, including the logrouter's
+// exported sink, to the logsink worker's LogRouter interface.
 func StaticLogRouter(logSink corelogger.LogSink) LogRouter {
 	return staticLogRouter{logSink: logSink}
 }

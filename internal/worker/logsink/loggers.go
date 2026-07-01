@@ -130,11 +130,12 @@ func (d *modelLogger) bindWriter() error {
 		d.agentTag.String(),
 		d.modelUUID.String(),
 	)
-	if _, err := d.loggoContext.ReplaceWriter(modelSinkWriterName, writer); err != nil {
-		// The writer doesn't exist yet; add it for the first time.
-		if err := d.loggoContext.AddWriter(modelSinkWriterName, writer); err != nil {
-			return errors.Trace(err)
-		}
+
+	// We don't care about the error from RemoveWriter, since it will only fail
+	// if the writer doesn't exist, which is fine.
+	_, _ = d.loggoContext.RemoveWriter(modelSinkWriterName)
+	if err := d.loggoContext.AddWriter(modelSinkWriterName, writer); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

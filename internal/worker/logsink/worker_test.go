@@ -192,7 +192,7 @@ func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(Config{
-		LogRouter: &mockLogRouter{sink: noopLogSink{}},
+		LogRouter: StaticLogRouter(noopLogSink{}),
 		NewModelLogger: func(logger.LogSink, coremodel.UUID, names.Tag) (worker.Worker, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newLoggerWorker(), nil

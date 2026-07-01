@@ -170,6 +170,71 @@ func (s *manifoldSuite) TestNewControllerBackendUsesLocalSinkForLogSinkMode(c *t
 	}})
 }
 
+func (s *manifoldSuite) TestNewControllerBackendUsesDrainBackendForDrainMode(c *tc.C) {
+	sink := &recordingLogSink{done: make(chan struct{}, 1)}
+	backendFunc := NewControllerBackend(
+		sink,
+		stubHTTPClient{},
+		clock.WallClock,
+		prometheus.NewRegistry(),
+	)
+
+	backend, err := backendFunc(BackendTypeDrain, ConfigSnapshot{
+		Mode: BackendTypeDrain,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	backend.LogRecords() <- &logsender.LogRecord{
+		Message:   "drained",
+		ModelUUID: "model-uuid",
+		Entity:    "unit-foo-0",
+	}
+
+	for {
+		report := backend.Report(c.Context())
+		c.Assert(report["name"], tc.Equals, "drain-backend")
+		if report["bufferedRecords"] == 0 {
+			break
+		}
+		select {
+		case <-c.Context().Done():
+			c.Fatal("timed out waiting for drain backend to consume record")
+		default:
+		}
+	}
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	c.Check(sink.records, tc.HasLen, 0)
+}
+
+func (s *manifoldSuite) TestNewControllerBackendUsesLokiBackendForLokiMode(c *tc.C) {
+	sink := &recordingLogSink{done: make(chan struct{}, 1)}
+	backendFunc := NewControllerBackend(
+		sink,
+		stubHTTPClient{},
+		clock.WallClock,
+		prometheus.NewRegistry(),
+	)
+
+	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
+		Mode:      BackendTypeLoki,
+		Endpoint:  "http://loki/loki/api/v1/push",
+		ModelUUID: "model-uuid",
+		AgentID:   "machine-0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	report := backend.Report(c.Context())
+	c.Check(report["name"], tc.Equals, "loki-backend")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	c.Check(sink.records, tc.HasLen, 0)
+}
+
 func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ManifoldConfig{
