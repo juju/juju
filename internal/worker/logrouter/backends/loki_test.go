@@ -91,7 +91,7 @@ func (s *lokiSuite) TestUnregistersMetricsCollectorOnStop(c *tc.C) {
 
 	workertest.CleanKill(c, w)
 
-	c.Check(registerer.unregistered.Load(), tc.Equals, int32(1))
+	c.Check(registerer.unregistered.Load(), tc.Equals, int32(2))
 }
 
 func (s *lokiSuite) TestAllowsDistinctWrappedRegisterersOnSharedRegistry(c *tc.C) {

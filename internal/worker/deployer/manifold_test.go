@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/tc"
+	"github.com/juju/utils/v4/voyeur"
 
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -21,12 +22,13 @@ type manifoldSuite struct{}
 
 func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
 	cfg := ManifoldConfig{
-		AgentName:        "agent",
-		APICallerName:    "api-caller",
-		HTTPClientName:   "http-client",
-		Clock:            clock.WallClock,
-		Logger:           internallogger.GetLogger("juju.worker.deployer.test"),
-		NewDeployContext: func(ContextConfig) (Context, error) { return nil, nil },
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		HTTPClientName:     "http-client",
+		AgentConfigChanged: voyeur.NewValue(false),
+		Clock:              clock.WallClock,
+		Logger:             internallogger.GetLogger("juju.worker.deployer.test"),
+		NewDeployContext:   func(ContextConfig) (Context, error) { return nil, nil },
 	}
 
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
@@ -34,11 +36,12 @@ func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
 
 func (s *manifoldSuite) TestValidateRejectsEmptyAgentName(c *tc.C) {
 	cfg := ManifoldConfig{
-		APICallerName:    "api-caller",
-		HTTPClientName:   "http-client",
-		Clock:            clock.WallClock,
-		Logger:           internallogger.GetLogger("juju.worker.deployer.test"),
-		NewDeployContext: func(ContextConfig) (Context, error) { return nil, nil },
+		APICallerName:      "api-caller",
+		HTTPClientName:     "http-client",
+		AgentConfigChanged: voyeur.NewValue(false),
+		Clock:              clock.WallClock,
+		Logger:             internallogger.GetLogger("juju.worker.deployer.test"),
+		NewDeployContext:   func(ContextConfig) (Context, error) { return nil, nil },
 	}
 
 	err := cfg.Validate()
@@ -48,11 +51,12 @@ func (s *manifoldSuite) TestValidateRejectsEmptyAgentName(c *tc.C) {
 
 func (s *manifoldSuite) TestValidateRejectsEmptyAPICallerName(c *tc.C) {
 	cfg := ManifoldConfig{
-		AgentName:        "agent",
-		HTTPClientName:   "http-client",
-		Clock:            clock.WallClock,
-		Logger:           internallogger.GetLogger("juju.worker.deployer.test"),
-		NewDeployContext: func(ContextConfig) (Context, error) { return nil, nil },
+		AgentName:          "agent",
+		HTTPClientName:     "http-client",
+		AgentConfigChanged: voyeur.NewValue(false),
+		Clock:              clock.WallClock,
+		Logger:             internallogger.GetLogger("juju.worker.deployer.test"),
+		NewDeployContext:   func(ContextConfig) (Context, error) { return nil, nil },
 	}
 
 	err := cfg.Validate()
@@ -62,11 +66,12 @@ func (s *manifoldSuite) TestValidateRejectsEmptyAPICallerName(c *tc.C) {
 
 func (s *manifoldSuite) TestValidateRejectsEmptyHTTPClientName(c *tc.C) {
 	cfg := ManifoldConfig{
-		AgentName:        "agent",
-		APICallerName:    "api-caller",
-		Clock:            clock.WallClock,
-		Logger:           internallogger.GetLogger("juju.worker.deployer.test"),
-		NewDeployContext: func(ContextConfig) (Context, error) { return nil, nil },
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		AgentConfigChanged: voyeur.NewValue(false),
+		Clock:              clock.WallClock,
+		Logger:             internallogger.GetLogger("juju.worker.deployer.test"),
+		NewDeployContext:   func(ContextConfig) (Context, error) { return nil, nil },
 	}
 
 	err := cfg.Validate()
@@ -76,11 +81,12 @@ func (s *manifoldSuite) TestValidateRejectsEmptyHTTPClientName(c *tc.C) {
 
 func (s *manifoldSuite) TestValidateRejectsNilClock(c *tc.C) {
 	cfg := ManifoldConfig{
-		AgentName:        "agent",
-		APICallerName:    "api-caller",
-		HTTPClientName:   "http-client",
-		Logger:           internallogger.GetLogger("juju.worker.deployer.test"),
-		NewDeployContext: func(ContextConfig) (Context, error) { return nil, nil },
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		HTTPClientName:     "http-client",
+		AgentConfigChanged: voyeur.NewValue(false),
+		Logger:             internallogger.GetLogger("juju.worker.deployer.test"),
+		NewDeployContext:   func(ContextConfig) (Context, error) { return nil, nil },
 	}
 
 	err := cfg.Validate()
@@ -90,11 +96,12 @@ func (s *manifoldSuite) TestValidateRejectsNilClock(c *tc.C) {
 
 func (s *manifoldSuite) TestValidateRejectsNilLogger(c *tc.C) {
 	cfg := ManifoldConfig{
-		AgentName:        "agent",
-		APICallerName:    "api-caller",
-		HTTPClientName:   "http-client",
-		Clock:            clock.WallClock,
-		NewDeployContext: func(ContextConfig) (Context, error) { return nil, nil },
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		HTTPClientName:     "http-client",
+		AgentConfigChanged: voyeur.NewValue(false),
+		Clock:              clock.WallClock,
+		NewDeployContext:   func(ContextConfig) (Context, error) { return nil, nil },
 	}
 
 	err := cfg.Validate()
@@ -104,11 +111,12 @@ func (s *manifoldSuite) TestValidateRejectsNilLogger(c *tc.C) {
 
 func (s *manifoldSuite) TestValidateRejectsNilNewDeployContext(c *tc.C) {
 	cfg := ManifoldConfig{
-		AgentName:      "agent",
-		APICallerName:  "api-caller",
-		HTTPClientName: "http-client",
-		Clock:          clock.WallClock,
-		Logger:         internallogger.GetLogger("juju.worker.deployer.test"),
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		HTTPClientName:     "http-client",
+		AgentConfigChanged: voyeur.NewValue(false),
+		Clock:              clock.WallClock,
+		Logger:             internallogger.GetLogger("juju.worker.deployer.test"),
 	}
 
 	err := cfg.Validate()
@@ -116,11 +124,27 @@ func (s *manifoldSuite) TestValidateRejectsNilNewDeployContext(c *tc.C) {
 	c.Check(err.Error(), tc.Equals, `nil NewDeployContext not valid`)
 }
 
+func (s *manifoldSuite) TestValidateRejectsNilAgentConfigChanged(c *tc.C) {
+	cfg := ManifoldConfig{
+		AgentName:        "agent",
+		APICallerName:    "api-caller",
+		HTTPClientName:   "http-client",
+		Clock:            clock.WallClock,
+		Logger:           internallogger.GetLogger("juju.worker.deployer.test"),
+		NewDeployContext: func(ContextConfig) (Context, error) { return nil, nil },
+	}
+
+	err := cfg.Validate()
+	c.Check(err, tc.NotNil)
+	c.Check(err.Error(), tc.Equals, `nil AgentConfigChanged not valid`)
+}
+
 func (s *manifoldSuite) TestManifoldHasCorrectInputs(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
-		AgentName:      "agent",
-		APICallerName:  "api-caller",
-		HTTPClientName: "http-client",
+		AgentName:          "agent",
+		APICallerName:      "api-caller",
+		HTTPClientName:     "http-client",
+		AgentConfigChanged: voyeur.NewValue(false),
 	})
 
 	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "api-caller", "http-client"})
