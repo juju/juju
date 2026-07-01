@@ -24,7 +24,7 @@ jobs:
           sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Docker Mirror
         shell: bash
