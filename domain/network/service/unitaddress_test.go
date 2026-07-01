@@ -447,15 +447,6 @@ func (s *unitAddressSuite) TestGetControllerAPIAddresses(c *tc.C) {
 		{
 			SpaceID: network.AlphaSpaceId,
 			MachineAddress: network.MachineAddress{
-				Value:      "54.32.1.2/24",
-				ConfigType: network.ConfigDHCP,
-				Type:       network.IPv4Address,
-				Scope:      network.ScopeMachineLocal,
-			},
-		},
-		{
-			SpaceID: network.AlphaSpaceId,
-			MachineAddress: network.MachineAddress{
 				Value:      "54.32.1.3/24",
 				ConfigType: network.ConfigDHCP,
 				Type:       network.IPv4Address,
@@ -465,15 +456,14 @@ func (s *unitAddressSuite) TestGetControllerAPIAddresses(c *tc.C) {
 	}
 
 	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return("foo", nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
+	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.UUID("foo")).Return(unitAddresses, nil)
 
 	// Act
 	addrs, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	// The three addresses should be returned.
-	c.Check(addrs, tc.DeepEquals, append(unitAddresses[:2], unitAddresses[3:]...))
+	c.Check(addrs, tc.DeepEquals, unitAddresses)
 }
 
 func (s *unitAddressSuite) TestGetControllerAPIAddressesNoAddresses(c *tc.C) {
@@ -482,7 +472,7 @@ func (s *unitAddressSuite) TestGetControllerAPIAddressesNoAddresses(c *tc.C) {
 	// Arrange
 	unitName := unit.Name("foo/0")
 	s.st.EXPECT().GetControllerUnitUUIDByName(gomock.Any(), unitName).Return(unit.UUID("foo"), nil)
-	s.st.EXPECT().GetUnitAndK8sServiceAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
+	s.st.EXPECT().GetControllerAPIAddresses(gomock.Any(), unit.UUID("foo")).Return(network.SpaceAddresses{}, nil)
 
 	// Act
 	_, err := s.service(c).GetControllerAPIAddresses(c.Context(), unitName)

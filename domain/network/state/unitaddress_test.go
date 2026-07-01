@@ -140,6 +140,115 @@ func (s *unitAddressSuite) TestGetUnitAndK8sServiceAddressesNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
 }
 
+func (s *unitAddressSuite) TestGetControllerAPIAddressesExcludesVeth(c *tc.C) {
+	// Arrange
+	nodeUUID := s.addNetNode(c)
+	ethDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth0", "00:11:22:33:44:55",
+		corenetwork.EthernetDevice,
+	)
+	vethDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "veth0", "00:11:22:33:44:66",
+		corenetwork.VirtualEthernetDevice,
+	)
+	localDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, nodeUUID, "eth1", "00:11:22:33:44:77",
+		corenetwork.EthernetDevice,
+	)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	s.addIPAddressWithSubnetAndScope(
+		c, ethDeviceUUID, nodeUUID, subnetUUID, "10.0.0.1",
+		corenetwork.ScopeCloudLocal,
+	)
+	s.addIPAddressWithSubnetAndScope(
+		c, vethDeviceUUID, nodeUUID, subnetUUID, "10.0.0.2",
+		corenetwork.ScopeCloudLocal,
+	)
+	s.addIPAddressWithSubnetAndScope(
+		c, localDeviceUUID, nodeUUID, subnetUUID, "10.0.0.3",
+		corenetwork.ScopeMachineLocal,
+	)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	// Act
+	addr, err := s.state.GetControllerAPIAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.DeepEquals, corenetwork.SpaceAddresses{{
+		SpaceID: corenetwork.SpaceUUID(spaceUUID),
+		Origin:  corenetwork.OriginProvider,
+		MachineAddress: corenetwork.MachineAddress{
+			Value:      "10.0.0.1",
+			CIDR:       cidr,
+			Type:       corenetwork.IPv4Address,
+			Scope:      corenetwork.ScopeCloudLocal,
+			ConfigType: corenetwork.ConfigStatic,
+		},
+	}})
+}
+
+func (s *unitAddressSuite) TestGetControllerAPIAddressesExcludesK8sServiceVeth(c *tc.C) {
+	// Arrange
+	podNodeUUID := s.addNetNode(c)
+	podDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, podNodeUUID, "eth0", "00:11:22:33:44:55",
+		corenetwork.EthernetDevice,
+	)
+
+	svcNodeUUID := s.addNetNode(c)
+	svcVethDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, svcNodeUUID, "veth0", "00:11:22:33:44:66",
+		corenetwork.VirtualEthernetDevice,
+	)
+	svcEthDeviceUUID := s.linkLayerBaseSuite.addLinkLayerDevice(
+		c, svcNodeUUID, "eth1", "00:11:22:33:44:77",
+		corenetwork.EthernetDevice,
+	)
+
+	spaceUUID := s.addSpace(c)
+	subnetUUID, cidr := s.addsubnet(c, spaceUUID)
+	s.addIPAddressWithSubnetAndScope(
+		c, podDeviceUUID, podNodeUUID, subnetUUID, "10.0.0.1",
+		corenetwork.ScopeMachineLocal,
+	)
+	s.addIPAddressWithSubnetAndScope(
+		c, svcVethDeviceUUID, svcNodeUUID, subnetUUID, "10.0.0.2",
+		corenetwork.ScopeCloudLocal,
+	)
+	s.addIPAddressWithSubnetAndScope(
+		c, svcEthDeviceUUID, svcNodeUUID, subnetUUID, "10.0.0.3",
+		corenetwork.ScopeCloudLocal,
+	)
+
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, podNodeUUID)
+	s.addK8sService(c, svcNodeUUID, appUUID)
+
+	// Act
+	addr, err := s.state.GetControllerAPIAddresses(c.Context(), unitUUID)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addr, tc.SameContents, corenetwork.SpaceAddresses{{
+		SpaceID: corenetwork.SpaceUUID(spaceUUID),
+		Origin:  corenetwork.OriginProvider,
+		MachineAddress: corenetwork.MachineAddress{
+			Value:      "10.0.0.3",
+			CIDR:       cidr,
+			Type:       corenetwork.IPv4Address,
+			Scope:      corenetwork.ScopeCloudLocal,
+			ConfigType: corenetwork.ConfigStatic,
+		},
+	}})
+}
+
 func (s *unitAddressSuite) TestGetUnitAddresses(c *tc.C) {
 	// Arrange
 	nodeUUID := s.addNetNode(c)
