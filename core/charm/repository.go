@@ -111,8 +111,12 @@ type ResolvedDataForDeploy struct {
 
 	EssentialMetadata EssentialMetadata
 
-	// Resources is a map of resource names to their current repository revision
-	// based on the supplied origin
+	// Resources is a map of resource names to the resource revisions
+	// co-released with the resolved charm revision for the supplied
+	// origin. When the origin pins a revision (with a channel), these are
+	// the resources released alongside that specific charm revision rather
+	// than the channel tip. Consumers (e.g. deployFromRepositoryValidator)
+	// use these directly when no resource overrides are supplied.
 	Resources map[string]charmresource.Resource
 }
 

@@ -62,6 +62,7 @@ func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *tc.C)
 		c.Context(),
 		charmURL,
 		origin,
+		nil,
 		map[string]string{},
 		resMeta,
 	)
@@ -100,10 +101,10 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 		{Meta: resource.Meta{Name: "override-revision-to-container"}, Origin: resource.OriginUpload, Revision: -1},
 	}
 	expectedResult := applicationservice.ResolvedResources{
-		{Name: "override-revision-to-2", Origin: resource.OriginStore, Revision: new(2)},
 		{Name: "no-override", Origin: resource.OriginStore, Revision: new(1)},
-		{Name: "override-revision-to-file", Origin: resource.OriginUpload, Revision: nil},
+		{Name: "override-revision-to-2", Origin: resource.OriginStore, Revision: new(2)},
 		{Name: "override-revision-to-container", Origin: resource.OriginUpload, Revision: nil},
+		{Name: "override-revision-to-file", Origin: resource.OriginUpload, Revision: nil},
 	}
 	expectedResourcesToUpload := []*params.PendingResourceUpload{
 		{Name: "override-revision-to-file", Filename: "./toad.txt", Type: "file"},
@@ -125,6 +126,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 		c.Context(),
 		charmURL,
 		origin,
+		nil,
 		deployResArg,
 		resMeta,
 	)
@@ -152,16 +154,86 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharm
 	validator := s.expectValidator()
 
 	// Act
-	_, _, err := validator.resolveResources(c.Context(), charmURL, origin, map[string]string{}, resMeta)
+	_, _, err := validator.resolveResources(c.Context(), charmURL, origin, nil, map[string]string{}, resMeta)
 
 	// Assert
 	c.Check(err, tc.ErrorIs, mockRepoError,
 		tc.Commentf("(Assert) should return the same error as returned when resolving resources on charm repository"))
 }
 
+func (s *deployRepositorySuite) TestResolveResourcesUsesDefaultRepoResources(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resMeta := map[string]resource.Meta{
+		"resource1": {Name: "resource1"},
+		"resource2": {Name: "resource2"},
+	}
+	defaultRepositoryResources := map[string]resource.Resource{
+		"resource1": {Meta: resource.Meta{Name: "resource1"}, Origin: resource.OriginStore, Revision: 2},
+		"resource2": {Meta: resource.Meta{Name: "resource2"}, Origin: resource.OriginStore, Revision: 3},
+	}
+	expectedResult := applicationservice.ResolvedResources{
+		{Name: "resource1", Origin: resource.OriginStore, Revision: new(2)},
+		{Name: "resource2", Origin: resource.OriginStore, Revision: new(3)},
+	}
+	charmURL := charm.MustParseURL("ch:ubuntu-0")
+	origin := corecharm.Origin{Source: corecharm.CharmHub}
+	validator := s.expectValidator()
+
+	result, resourcesToUpload, err := validator.resolveResources(
+		c.Context(),
+		charmURL,
+		origin,
+		defaultRepositoryResources,
+		map[string]string{},
+		resMeta,
+	)
+	c.Assert(err, tc.IsNil)
+	c.Check(result, tc.DeepEquals, expectedResult)
+	c.Check(resourcesToUpload, tc.IsNil)
+}
+
+func (s *deployRepositorySuite) TestResolveResourcesAllowsOverrides(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	resMeta := map[string]resource.Meta{
+		"resource1": {Name: "resource1", Type: resource.TypeFile},
+		"resource2": {Name: "resource2", Type: resource.TypeFile},
+	}
+	defaultRepositoryResources := map[string]resource.Resource{
+		"resource1": {Meta: resource.Meta{Name: "resource1"}, Origin: resource.OriginStore, Revision: 2},
+		"resource2": {Meta: resource.Meta{Name: "resource2"}, Origin: resource.OriginStore, Revision: 3},
+	}
+	deployResArg := map[string]string{
+		"resource1": "5",
+	}
+	mockRepoExpectedInput := []resource.Resource{{Meta: resource.Meta{Name: "resource1", Type: resource.TypeFile}, Origin: resource.OriginStore, Revision: 5}}
+	mockRepoResult := []resource.Resource{{Meta: resource.Meta{Name: "resource1"}, Origin: resource.OriginStore, Revision: 5}}
+	expectedResult := applicationservice.ResolvedResources{
+		{Name: "resource1", Origin: resource.OriginStore, Revision: new(5)},
+		{Name: "resource2", Origin: resource.OriginStore, Revision: new(3)},
+	}
+	charmURL := charm.MustParseURL("ch:ubuntu-0")
+	origin := corecharm.Origin{Source: corecharm.CharmHub}
+	s.charmRepository.EXPECT().ResolveResources(gomock.Any(), gomock.InAnyOrder(mockRepoExpectedInput), corecharm.CharmID{URL: charmURL, Origin: origin}).Return(mockRepoResult, nil)
+	validator := s.expectValidator()
+
+	result, resourcesToUpload, err := validator.resolveResources(
+		c.Context(),
+		charmURL,
+		origin,
+		defaultRepositoryResources,
+		deployResArg,
+		resMeta,
+	)
+	c.Assert(err, tc.IsNil)
+	c.Check(result, tc.DeepEquals, expectedResult)
+	c.Check(resourcesToUpload, tc.IsNil)
+}
+
 // expectValidator sets up a mock deployFromRepositoryValidator with predefined expectations for testing purposes.
 func (s *deployRepositorySuite) expectValidator() deployFromRepositoryValidator {
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil).AnyTimes()
 	validator := deployFromRepositoryValidator{
 		modelConfigService: s.modelConfigService,
 		newCharmHubRepository: func(repositoryConfig repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {

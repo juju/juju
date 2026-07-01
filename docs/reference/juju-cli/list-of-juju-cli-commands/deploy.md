@@ -104,8 +104,8 @@ or channel can optionally be specified:
 
     juju deploy postgresql
     juju deploy ch:postgresql --base ubuntu@22.04
-    juju deploy ch:postgresql --channel edge
-    juju deploy ch:ubuntu --revision 17 --channel edge
+    juju deploy ch:postgresql --channel 14/edge
+    juju deploy ch:ubuntu --revision 17 --channel latest/edge
 
 All the above deployments use remote charms found in Charmhub, denoted by the
 `ch:` prefix.  Remote charms with no prefix will be deployed from Charmhub.

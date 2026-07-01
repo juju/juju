@@ -15,7 +15,7 @@ run_refresh_switch_local_to_ch_channel() {
 	juju deploy --channel=stable --base ubuntu@20.04 "${charm_name}"
 	wait_for "refresher" "$(idle_condition "refresher")"
 
-	OUT=$(juju refresh refresher --switch ch:juju-qa-refresher --channel edge 2>&1 || true)
+	OUT=$(juju refresh refresher --switch ch:juju-qa-refresher --channel latest/edge 2>&1 || true)
 	if echo "${OUT}" | grep -v "no change" | grep -E -vq "Added charm-hub charm"; then
 		# shellcheck disable=SC2046
 		echo $(red "failed refreshing charm: ${OUT}")

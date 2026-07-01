@@ -5,7 +5,7 @@ run_charmstore_deploy() {
 
 	ensure "test-charmstore-deploy" "${file}"
 
-	juju deploy snappass-test --revision 8 --channel stable
+	juju deploy snappass-test --revision 8 --channel latest/stable
 	wait_for "snappass-test" "$(idle_condition "snappass-test")"
 
 	# Refresh is removed, add it back in when we support refresh.

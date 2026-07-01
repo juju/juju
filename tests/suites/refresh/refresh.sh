@@ -105,7 +105,7 @@ run_refresh_channel_no_new_revision() {
 	# get revision to ensure it doesn't change
 	cs_revision=$(application_charm_rev "juju-qa-fixed-rev")
 
-	juju refresh juju-qa-fixed-rev --channel edge
+	juju refresh juju-qa-fixed-rev --channel latest/edge
 
 	wait_for "juju-qa-fixed-rev" "$(charm_channel "juju-qa-fixed-rev" "latest/edge")"
 	wait_for "juju-qa-fixed-rev" "$(charm_rev "juju-qa-fixed-rev" "${cs_revision}")"
@@ -123,7 +123,7 @@ run_refresh_revision() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy juju-qa-test --revision 22 --channel stable --base ubuntu@20.04
+	juju deploy juju-qa-test --revision 22 --channel 2.0/stable --base ubuntu@20.04
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
 	# refresh to a revision not at the tip of the stable channel
