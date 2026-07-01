@@ -97,29 +97,21 @@ func (s *Service) GetUnitPublicAddresses(ctx context.Context, unitName unit.Name
 //
 // The following errors may be returned:
 //   - [applicationerrors.UnitNotFound] if the unit does not exist or is
-//     not a controller application unit
-//   - [network.NoAddressError] if the unit has no api address associated
+//     not a controller application unit.
+//   - [network.NoAddressError] if the unit has no suitable API addresses.
 func (s *Service) GetControllerAPIAddresses(ctx context.Context, unitName unit.Name) (network.SpaceAddresses, error) {
 	unitUUID, err := s.st.GetControllerUnitUUIDByName(ctx, unitName)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	addrs, err := s.st.GetUnitAndK8sServiceAddresses(ctx, unitUUID)
+	addrs, err := s.st.GetControllerAPIAddresses(ctx, unitUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	// First remove local-machine scoped addresses.
-	matchedAddrs := make(network.SpaceAddresses, 0)
-	for _, addr := range addrs {
-		if addr.Scope == network.ScopeMachineLocal {
-			continue
-		}
-		matchedAddrs = append(matchedAddrs, addr)
-	}
-	if len(matchedAddrs) == 0 {
+	if len(addrs) == 0 {
 		return nil, network.NoAddressError("API")
 	}
 
-	return matchedAddrs, nil
+	return addrs, nil
 }

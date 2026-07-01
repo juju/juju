@@ -59,6 +59,89 @@ WHERE     ua.unit_uuid = $entityUUID.uuid
 	return encodeIPAddresses(address)
 }
 
+// GetControllerAPIAddresses returns the addresses which can be used as
+// controller API addresses for the specified unit.
+//
+// The addresses are taken from the union of the net node UUIDs of the cloud
+// service (if any) and the net node UUIDs of the unit, where each net node has
+// an associated address.
+//
+// Addresses belonging to virtual Ethernet devices are excluded because those
+// devices are not suitable for advertised ingress.
+//
+// The following errors may be returned:
+// - [uniterrors.UnitNotFound] if the unit does not exist.
+func (st *State) GetControllerAPIAddresses(ctx context.Context, uuid coreunit.UUID) (corenetwork.SpaceAddresses, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var address []spaceAddress
+	ident := entityUUID{UUID: uuid.String()}
+	type apiAddressFilter struct {
+		DeviceTypeName string `db:"device_type_name"`
+		ScopeName      string `db:"scope_name"`
+	}
+	filter := apiAddressFilter{
+		DeviceTypeName: corenetwork.VirtualEthernetDevice.String(),
+		ScopeName:      corenetwork.ScopeMachineLocal.String(),
+	}
+	queryUnitAPIAddressesStmt, err := st.Prepare(`
+WITH unit_net_node AS (
+    SELECT ks.net_node_uuid
+    FROM   unit AS u
+    JOIN   application AS app ON u.application_uuid = app.uuid
+    JOIN   k8s_service AS ks ON app.uuid = ks.application_uuid
+    WHERE  u.uuid = $entityUUID.uuid
+    UNION
+    SELECT u.net_node_uuid
+    FROM   unit AS u
+    WHERE  u.uuid = $entityUUID.uuid
+)
+SELECT ipa.address_value AS &spaceAddress.address_value,
+       iact.name AS &spaceAddress.config_type_name,
+       iat.name AS &spaceAddress.type_name,
+       iao.name AS &spaceAddress.origin_name,
+       ias.name AS &spaceAddress.scope_name,
+       ipa.device_uuid AS &spaceAddress.device_uuid,
+       sn.space_uuid AS &spaceAddress.space_uuid,
+       sn.cidr AS &spaceAddress.cidr
+FROM   unit_net_node AS unn
+JOIN   ip_address AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
+JOIN   link_layer_device AS lld
+       ON ipa.device_uuid = lld.uuid
+       AND unn.net_node_uuid = lld.net_node_uuid
+JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
+JOIN   ip_address_config_type AS iact ON ipa.config_type_id = iact.id
+JOIN   ip_address_type AS iat ON ipa.type_id = iat.id
+JOIN   ip_address_origin AS iao ON ipa.origin_id = iao.id
+JOIN   ip_address_scope AS ias ON ipa.scope_id = ias.id
+LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+WHERE  lldt.name != $apiAddressFilter.device_type_name
+AND    ias.name != $apiAddressFilter.scope_name
+`, spaceAddress{}, entityUUID{}, apiAddressFilter{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		address = nil
+		if err := st.checkUnitNotDead(ctx, tx, ident); err != nil {
+			return errors.Capture(err)
+		}
+		err := tx.Query(ctx, queryUnitAPIAddressesStmt, ident, filter).GetAll(&address)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying API addresses for unit %q: %w", uuid, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return encodeIPAddresses(address)
+}
+
 // GetUnitAddresses returns the addresses of the specified unit.
 //
 // The following errors may be returned:
