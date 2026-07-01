@@ -204,6 +204,13 @@ type ManifoldsConfig struct {
 	// based on the active backend mode.
 	LegacyLogSinkWriter loggo.Writer
 
+	// LocalLogSink is the primed local log sink used for
+	// controller-local log delivery before the API caller is
+	// available. It is used by the controller log sink manifold
+	// to break the startup dependency cycle between log-router,
+	// log-sink, and api-server.
+	LocalLogSink corelogger.LogSink
+
 	// NewDeployContext gives the tests the opportunity to create a
 	// deployer.Context that can be used for testing.
 	NewDeployContext func(deployer.ContextConfig) (deployer.Context, error)
@@ -621,13 +628,82 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:           httpserver.NewWorkerShim,
 		}),
 
-		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
+		// localLogRouterName provides a static LogRouter backed by the
+		// already-primed local log sink. It is used exclusively by the
+		// controller log sink to break the startup dependency cycle
+		// between log-router, log-sink, and api-server.
+		localLogRouterName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(logsink.StaticLogRouter(config.LocalLogSink))
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// controllerLogSinkName is the controller-only log sink that
+		// uses the local-log-router (no dependency on logRouterName or
+		// apiCallerName). This avoids the cycle: log-router ->
+		// api-caller -> api-server -> log-sink -> log-router.
+		controllerLogSinkName: ifController(logsink.Manifold(logsink.ManifoldConfig{
+			AgentTag:       agentTag,
+			LogRouterName:  localLogRouterName,
+			Clock:          config.Clock,
+			NewWorker:      logsink.NewWorker,
+			NewModelLogger: logsink.NewModelLogger,
+		})),
+
+		// nonControllerLogSinkName is the non-controller log sink that
+		// uses the normal log-router (backed by apiCallerName). On
+		// non-controller machines there is no cycle because apiServerName
+		// is not local.
+		nonControllerLogSinkName: ifNotController(logsink.Manifold(logsink.ManifoldConfig{
 			AgentTag:       agentTag,
 			LogRouterName:  logRouterName,
 			Clock:          config.Clock,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
-		}),
+		})),
+
+		// logSinkName is a selector that dispatches to either
+		// controllerLogSinkName or nonControllerLogSinkName based on
+		// whether the agent is running on a controller machine.
+		logSinkName: dependency.Manifold{
+			Inputs: []string{
+				isControllerFlagName,
+				controllerLogSinkName,
+				nonControllerLogSinkName,
+			},
+			Output: logSinkSelectorOutput,
+			Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+				var isController engine.Flag
+				if err := getter.Get(isControllerFlagName, &isController); err != nil {
+					return nil, err
+				}
+
+				name := nonControllerLogSinkName
+				if isController.Check() {
+					name = controllerLogSinkName
+				}
+
+				var ml corelogger.ModelLogger
+				if err := getter.Get(name, &ml); err != nil {
+					return nil, err
+				}
+				var lcg corelogger.LoggerContextGetter
+				if err := getter.Get(name, &lcg); err != nil {
+					return nil, err
+				}
+				var msg corelogger.ModelLogSinkGetter
+				if err := getter.Get(name, &msg); err != nil {
+					return nil, err
+				}
+
+				return engine.NewValueWorker(logSinkProxy{
+					ModelLogger:         ml,
+					LoggerContextGetter: lcg,
+					ModelLogSinkGetter:  msg,
+				})
+			},
+		},
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
@@ -1374,6 +1450,37 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
+// logSinkProxy bundles the three interfaces exposed by the log-sink
+// worker so that the logSinkName selector manifold can forward them from
+// the active branch (controller or non-controller).
+type logSinkProxy struct {
+	corelogger.ModelLogger
+	corelogger.LoggerContextGetter
+	corelogger.ModelLogSinkGetter
+}
+
+// logSinkSelectorOutput is the output function for the logSinkName
+// selector manifold. It extracts the proxy from the value worker and
+// serves the requested interface.
+func logSinkSelectorOutput(in worker.Worker, out any) error {
+	raw, err := engine.ExtractValue(in)
+	if err != nil {
+		return err
+	}
+	proxy := raw.(logSinkProxy)
+	switch outPointer := out.(type) {
+	case *corelogger.ModelLogger:
+		*outPointer = proxy.ModelLogger
+	case *corelogger.LoggerContextGetter:
+		*outPointer = proxy.LoggerContextGetter
+	case *corelogger.ModelLogSinkGetter:
+		*outPointer = proxy.ModelLogSinkGetter
+	default:
+		return errors.Errorf("unexpected output type %T", out)
+	}
+	return nil
+}
+
 // ifBootstrapComplete gates against the bootstrap worker completing.
 // This ensures that all blobs (agent binaries and controller charm) are
 // available before the machine agent starts.
@@ -1518,6 +1625,9 @@ const (
 	loggingConfigUpdaterName           = "logging-config-updater"
 	lokiEndpointUpdaterName            = "loki-endpoint-updater"
 	logSinkName                        = "log-sink"
+	controllerLogSinkName              = "controller-log-sink"
+	nonControllerLogSinkName           = "non-controller-log-sink"
+	localLogRouterName                 = "local-log-router"
 	logRouterName                      = "log-router"
 	lxdContainerProvisioner            = "lxd-container-provisioner"
 	machineActionName                  = "machine-action-runner"
