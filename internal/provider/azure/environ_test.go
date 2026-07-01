@@ -2422,7 +2422,7 @@ func (s *environSuite) TestStartInstanceIPFamilyDualPlacementIPv4OnlySubnet(c *t
 
 	_, err := env.StartInstance(c.Context(), params)
 	c.Assert(err, tc.ErrorMatches,
-		`.*subnet "subnet2" does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+		`.*subnet "subnet2" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
 }
 
 func (s *environSuite) TestStartInstanceIPFamilyDualPlacementNon64IPv6Subnet(c *tc.C) {
@@ -2452,7 +2452,7 @@ func (s *environSuite) TestStartInstanceIPFamilyDualPlacementNon64IPv6Subnet(c *
 
 	_, err := env.StartInstance(c.Context(), params)
 	c.Assert(err, tc.ErrorMatches,
-		`.*subnet "subnet3" does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+		`.*subnet "subnet3" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
 }
 
 func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintIPv4OnlySubnet(c *tc.C) {

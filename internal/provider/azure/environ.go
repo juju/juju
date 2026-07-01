@@ -528,6 +528,28 @@ func (env *azureEnviron) validateIPFamilyConstraint(cons constraints.Value) erro
 	return nil
 }
 
+// subnetAddressPrefixes returns all CIDR prefixes for a subnet, preferring
+// AddressPrefixes (plural, dual-stack) and falling back to AddressPrefix
+// (singular, legacy single-family subnets).
+func subnetAddressPrefixes(props *armnetwork.SubnetPropertiesFormat) []string {
+	if props == nil {
+		return nil
+	}
+	if len(props.AddressPrefixes) > 0 {
+		var prefixes []string
+		for _, p := range props.AddressPrefixes {
+			if p != nil && *p != "" {
+				prefixes = append(prefixes, *p)
+			}
+		}
+		return prefixes
+	}
+	if props.AddressPrefix != nil && *props.AddressPrefix != "" {
+		return []string{*props.AddressPrefix}
+	}
+	return nil
+}
+
 // hasIPv6Slash64Prefix returns true if at least one CIDR in prefixes is an
 // IPv6 address with a /64 prefix length, which is the only IPv6 prefix size
 // Azure accepts for VNet subnets.
@@ -578,20 +600,15 @@ func (env *azureEnviron) validateIPFamilyForResolvedSubnet(
 	}
 	if placementSubnet.Properties == nil {
 		return errors.Errorf(
-			"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; "+
+			"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found; "+
 				"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(placementSubnet.Name))
 	}
-	var prefixes []string
-	for _, prefix := range placementSubnet.Properties.AddressPrefixes {
-		if prefix != nil {
-			prefixes = append(prefixes, *prefix)
-		}
-	}
+	prefixes := subnetAddressPrefixes(placementSubnet.Properties)
 	if hasIPv6Slash64Prefix(prefixes) {
 		return nil
 	}
 	return errors.Errorf(
-		"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found in AddressPrefixes; "+
+		"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found; "+
 			"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(placementSubnet.Name))
 }
 
@@ -601,7 +618,8 @@ func (env *azureEnviron) PrecheckInstance(ctx context.Context, args environs.Pre
 		return errors.Trace(err)
 	}
 
-	// Resolve placement subnet and validate IPv6 support early.
+	// Resolve placement subnet early so a missing-subnet error surfaces
+	// before VM creation. IPv6 validation happens later in createVirtualMachine.
 	_, err := env.findPlacementSubnet(ctx, args.Placement)
 	if err != nil {
 		return errors.Trace(err)

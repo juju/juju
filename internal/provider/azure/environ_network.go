@@ -96,18 +96,7 @@ func (env *azureEnviron) allSubnets(ctx context.Context) ([]network.SubnetInfo, 
 		// Both may be set after PR #22736 (dual-stack VNet templates).
 		// Single-prefix subnets have AddressPrefix set; multi-prefix (dual-stack)
 		// have AddressPrefixes set, and AddressPrefix is nil.
-		var prefixes []string
-		if len(sub.Properties.AddressPrefixes) > 0 {
-			// Use all prefixes from AddressPrefixes (plural).
-			for _, p := range sub.Properties.AddressPrefixes {
-				if p != nil && *p != "" {
-					prefixes = append(prefixes, *p)
-				}
-			}
-		} else if sub.Properties.AddressPrefix != nil && *sub.Properties.AddressPrefix != "" {
-			// Fallback to AddressPrefix (singular) for legacy subnets.
-			prefixes = []string{*sub.Properties.AddressPrefix}
-		}
+		prefixes := subnetAddressPrefixes(sub.Properties)
 
 		if len(prefixes) == 0 {
 			logger.Debugf(ctx, "ignoring subnet %q with empty address prefix", id)
