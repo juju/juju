@@ -24,7 +24,11 @@ type ManifoldConfig engine.AgentAPIManifoldConfig
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	typedConfig := engine.AgentAPIManifoldConfig(config)
 
-	return engine.AgentAPIManifold(typedConfig, newWorker)
+	manifold := engine.AgentAPIManifold(typedConfig, newWorker)
+	// Expose the worker's EphemeralKeysUpdater so that the sshsession worker can
+	// inject and remove ephemeral keys for the lifetime of a reverse tunnel.
+	manifold.Output = output
+	return manifold
 }
 
 func newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
@@ -33,4 +37,19 @@ func newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (work
 		return nil, errors.Annotate(err, "cannot start ssh auth-keys updater worker")
 	}
 	return w, nil
+}
+
+// output extracts an EphemeralKeysUpdater from the running AuthWorker.
+func output(in worker.Worker, out any) error {
+	w, ok := in.(*AuthWorker)
+	if !ok {
+		return errors.Errorf("expected *AuthWorker, got %T", in)
+	}
+	switch outPtr := out.(type) {
+	case *EphemeralKeysUpdater:
+		*outPtr = w
+	default:
+		return errors.Errorf("expected *EphemeralKeysUpdater, got %T", out)
+	}
+	return nil
 }

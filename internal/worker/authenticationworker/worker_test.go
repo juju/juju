@@ -13,7 +13,9 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
+	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/workertest"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -237,4 +239,78 @@ func (s *workerSuite) TestWorkerRestart(c *tc.C) {
 	s.waitSSHKeys(c, append(s.existingKeys, yetAnotherKeyWithCommentPrefix))
 
 	workertest.CleanKill(c, authWorker)
+}
+
+// startWorker starts an auth worker that only reports the existing model keys,
+// and returns it. The watcher never fires so the authorized_keys file settles
+// to the existing keys plus the model key.
+func (s *workerSuite) startWorker(c *tc.C, ctrl *gomock.Controller) worker.Worker {
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+
+	tag := names.NewMachineTag("666")
+	client := mocks.NewMockClient(ctrl)
+	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return(s.existingModelKeys, nil).AnyTimes()
+	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
+
+	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, tag))
+	c.Assert(err, tc.ErrorIsNil)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+	return authWorker
+}
+
+func (s *workerSuite) TestAddAndRemoveEphemeralKey(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	authWorker := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, authWorker)
+
+	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	c.Assert(ok, tc.IsTrue)
+
+	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Adding the ephemeral key writes it into the authorized_keys file, tagged
+	// with the ephemeral comment prefix.
+	err = updater.AddEphemeralKey(pub, "tunnel-0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	ephemeralKey := sshtesting.ValidKeyThree.Key + " Juju:Ephemeral:tunnel-0"
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey, ephemeralKey))
+
+	// Removing the ephemeral key drops it again.
+	err = updater.RemoveEphemeralKey(pub)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+}
+
+func (s *workerSuite) TestEphemeralKeyRemovedOnRestart(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	authWorker := s.startWorker(c, ctrl)
+
+	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	c.Assert(ok, tc.IsTrue)
+
+	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
+	c.Assert(err, tc.ErrorIsNil)
+	err = updater.AddEphemeralKey(pub, "tunnel-0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	ephemeralKey := sshtesting.ValidKeyThree.Key + " Juju:Ephemeral:tunnel-0"
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey, ephemeralKey))
+
+	// Stop the worker, leaving the ephemeral key dangling in authorized_keys.
+	workertest.CleanKill(c, authWorker)
+
+	// A fresh worker must strip any dangling ephemeral keys on startup, since
+	// they carry the Juju comment prefix and are not part of the model keys.
+	authWorker = s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, authWorker)
+
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
 }

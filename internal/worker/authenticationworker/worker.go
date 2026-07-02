@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/worker/v5"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/watcher"
@@ -40,6 +41,25 @@ type keyupdaterWorker struct {
 	nonJujuKeys []string
 }
 
+// EphemeralKeysUpdater adds and removes ephemeral SSH keys from the machine's
+// authorized_keys file. It is consumed by the sshsession worker, which injects
+// an ephemeral key for the lifetime of a reverse SSH tunnel.
+type EphemeralKeysUpdater interface {
+	// AddEphemeralKey adds an ephemeral key to the authorized_keys file,
+	// tagged with the supplied comment for later removal.
+	AddEphemeralKey(key gossh.PublicKey, comment string) error
+	// RemoveEphemeralKey removes a previously added ephemeral key.
+	RemoveEphemeralKey(key gossh.PublicKey) error
+}
+
+// AuthWorker is a worker that keeps track of the machine's authorised ssh keys
+// and ensures the ~/.ssh/authorized_keys file is up to date. It additionally
+// supports adding and removing ephemeral keys, used by the sshsession worker
+// for the lifetime of a reverse SSH tunnel.
+type AuthWorker struct {
+	worker.Worker
+}
+
 // NewWorker returns a worker that keeps track of
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
@@ -57,7 +77,26 @@ func NewWorker(client Client, agentConfig agent.Config) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return w, nil
+	return &AuthWorker{Worker: w}, nil
+}
+
+// AddEphemeralKey adds an ephemeral key to the authorized_keys file. The
+// supplied comment is used to identify the key for later removal.
+func (a *AuthWorker) AddEphemeralKey(key gossh.PublicKey, comment string) error {
+	keyWithComment := ensureJujuEphemeralComment(key, comment)
+	if err := ssh.AddKeys(SSHUser, keyWithComment); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RemoveEphemeralKey removes an ephemeral key from the authorized_keys file.
+func (a *AuthWorker) RemoveEphemeralKey(ephemeralKey gossh.PublicKey) error {
+	fingerprint := gossh.FingerprintLegacyMD5(ephemeralKey)
+	if err := ssh.DeleteKeys(SSHUser, fingerprint); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
