@@ -1,5 +1,7 @@
 cat_mongo_service() {
 	# shellcheck disable=SC2046
+	# Not using juju_exec_output: sudo cat produces no stderr, so the
+	# stdout/stderr mixing bug does not apply.
 	echo $(juju exec -m controller --machine 0 'sudo cat /var/snap/juju-db/common/juju-db.config' | grep "wiredTigerCacheSizeGB")
 }
 
