@@ -6,7 +6,6 @@ package apiserver
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -15,12 +14,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/cmd/cmd"
-	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	coredependency "github.com/juju/juju/core/dependency"
@@ -312,11 +308,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	execEmbeddedCommand := func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusARgs string) int {
-		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", `Type "help" to see a list of commands`, whitelist, true)
-		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
-	}
-
 	w, err := config.NewWorker(ctx, Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
@@ -329,7 +320,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
-		EmbeddedCommand:                   execEmbeddedCommand,
 		LogSink:                           logSink,
 		CharmhubHTTPClient:                charmhubHTTPClient,
 		MacaroonHTTPClient:                macaroonHTTPClient,

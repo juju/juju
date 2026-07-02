@@ -44,7 +44,6 @@ type Config struct {
 	GetAuditConfig                    func() auditlog.Config
 	NewServer                         NewServerFunc
 	MetricsCollector                  *apiserver.Collector
-	EmbeddedCommand                   apiserver.ExecEmbeddedCommandFunc
 	CharmhubHTTPClient                HTTPClient
 	MacaroonHTTPClient                HTTPClient
 	WatcherRegistryGetter             watcherregistry.WatcherRegistryGetter
@@ -189,7 +188,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		GetAuditConfig:                config.GetAuditConfig,
 		FlightRecorder:                config.FlightRecorder,
 		LeaseManager:                  config.LeaseManager,
-		ExecEmbeddedCommand:           config.EmbeddedCommand,
 		LogSink:                       config.LogSink,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 		MacaroonHTTPClient:            config.MacaroonHTTPClient,

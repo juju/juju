@@ -4,11 +4,12 @@
 package jujuc
 
 import (
+	"time"
+
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
-	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/application"
 )
 
@@ -124,7 +125,7 @@ func formatGoalState(gs application.GoalState) formattedGoalState {
 		for name, gs := range units {
 			copiedUnits[name] = goalStateStatusContents{
 				Status: gs.Status,
-				Since:  common.FormatTime(gs.Since, true),
+				Since:  formatTime(gs.Since, true),
 			}
 		}
 		return copiedUnits
@@ -137,4 +138,30 @@ func formatGoalState(gs application.GoalState) formattedGoalState {
 	}
 
 	return result
+}
+
+// formatTime returns a string with the local time formatted in an arbitrary
+// format used for status or and localized tz or in UTC timezone and format
+// RFC3339 if u is specified.
+//
+// If [t] is nil, the unix epoch is returned.
+//
+// This is a duplicate of cmd/common package, but we don't want to import that
+// package into the worker. This is nothing special here, and a bit of
+// duplication is acceptable.
+func formatTime(t *time.Time, formatISO bool) string {
+	if t == nil {
+		t = new(time.Unix(0, 0))
+	}
+	if formatISO {
+		// If requested, use ISO time format.
+		// The format we use is RFC3339 without the "T". From the spec:
+		// NOTE: ISO 8601 defines date and time separated by "T".
+		// Applications using this syntax may choose, for the sake of
+		// readability, to specify a full-date and full-time separated by
+		// (say) a space character.
+		return t.UTC().Format("2006-01-02 15:04:05Z")
+	}
+	// Otherwise use local time.
+	return t.Local().Format("02 Jan 2006 15:04:05Z07:00")
 }
