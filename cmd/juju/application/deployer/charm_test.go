@@ -83,7 +83,7 @@ func (s *charmSuite) TestModelTypeMismatchWarningK8sCharmOnMachineModel(c *tc.C)
 	warning := modelTypeMismatchWarning(c.Context(), m, meta)
 
 	c.Check(warning, tc.Equals,
-		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine (IAAS) model; its workload will not run`)
+		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine model; its workload will not run`)
 }
 
 func (s *charmSuite) TestModelTypeMismatchWarningConsistent(c *tc.C) {

@@ -126,7 +126,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 			params.CodeNotSupported,
 			"attaching storage to CAAS units is not supported",
 		)
-		return params.DeployFromRepositoryInfo{}, nil, []error{err}
+		return info, nil, []error{err}
 	}
 
 	if len(dt.attachStorage) > 0 && dt.numUnits != 1 {
@@ -134,7 +134,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 			params.CodeNotFound,
 			"attaching existing storage can only be done when the number of units is 1",
 		)
-		return params.DeployFromRepositoryInfo{}, nil, []error{err}
+		return info, nil, []error{err}
 	}
 
 	// Dedupe the supplied input to avoid repeated work.
@@ -163,7 +163,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 				"storage instance %q does not exist",
 				storageTag.Id(),
 			)
-			return params.DeployFromRepositoryInfo{}, nil, []error{err}
+			return info, nil, []error{err}
 		} else if err != nil {
 			// Log the error instead of reporting verbatim to client
 			api.logger.Warningf(
@@ -175,7 +175,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 			err = errors.Errorf(
 				"getting information for storage instance %q", storageTag.Id(),
 			)
-			return params.DeployFromRepositoryInfo{}, nil, []error{err}
+			return info, nil, []error{err}
 		}
 
 		storageUUIDsToAttach = append(storageUUIDsToAttach, storageUUID)
@@ -228,7 +228,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 		)
 	}
 	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{
+		return info, nil, []error{
 			handleApplicationDomainDeployError(errors.Trace(err)),
 		}
 	}
@@ -562,8 +562,8 @@ func (v *deployFromRepositoryValidator) modelTypeMismatchWarnings(ctx context.Co
 	if meta == nil {
 		return nil
 	}
-	warning, ok := meta.ModelMismatchWarning(v.modelInfo.Type == coremodel.CAAS, v.modelInfo.Name)
-	if !ok {
+	warning := meta.ModelMismatchWarning(v.modelInfo.Type == coremodel.CAAS, v.modelInfo.Name)
+	if warning == "" {
 		return nil
 	}
 	v.logger.Warningf(ctx, "%s", warning)

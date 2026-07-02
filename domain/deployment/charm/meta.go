@@ -287,26 +287,27 @@ func (m Meta) IsSidecar() bool {
 	return len(m.Containers) > 0
 }
 
-// ModelMismatchWarning returns a user-facing warning, and true, when the charm's
-// type does not match the type of model it is being deployed to:
+// ModelMismatchWarning returns a user-facing warning when the charm's type
+// does not match the type of model it is being deployed to:
 //   - a Kubernetes (sidecar) charm deployed to a machine model, or
 //   - a charm declaring no containers deployed to a Kubernetes model.
 //
 // Subordinate charms declare no containers but are machine charms by nature, so
-// they are never flagged on a Kubernetes model. It returns ("", false) when the
-// placement is consistent. This is messaging-only and never blocks a deploy.
-func (m Meta) ModelMismatchWarning(isCAAS bool, modelName string) (string, bool) {
+// they are never flagged on a Kubernetes model. It returns the empty string
+// when the placement is consistent. This is messaging-only and never blocks a
+// deploy.
+func (m Meta) ModelMismatchWarning(isK8s bool, modelName string) string {
 	switch {
-	case !isCAAS && m.IsSidecar():
+	case !isK8s && m.IsSidecar():
 		return fmt.Sprintf(
-			"%q is a Kubernetes charm (it declares containers) but %q is a machine (IAAS) model; its workload will not run",
-			m.Name, modelName), true
-	case isCAAS && !m.IsSidecar() && !m.Subordinate:
+			"%q is a Kubernetes charm (it declares containers) but %q is a machine model; its workload will not run",
+			m.Name, modelName)
+	case isK8s && !m.IsSidecar() && !m.Subordinate:
 		return fmt.Sprintf(
-			"%q declares no containers but %q is a Kubernetes (CAAS) model; it has no workload to run there",
-			m.Name, modelName), true
+			"%q declares no containers but %q is a Kubernetes model; it has no workload to run there",
+			m.Name, modelName)
 	}
-	return "", false
+	return ""
 }
 
 // Container specifies the possible systems it supports and mounts it wants.

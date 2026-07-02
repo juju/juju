@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -184,7 +185,7 @@ func (s *deployRepositorySuite) TestModelTypeMismatchWarningsK8sCharmOnMachineMo
 
 	c.Assert(warnings, tc.HasLen, 1)
 	c.Check(warnings[0], tc.Equals,
-		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine (IAAS) model; its workload will not run`)
+		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine model; its workload will not run`)
 }
 
 func (s *deployRepositorySuite) TestModelTypeMismatchWarningsNilMeta(c *tc.C) {
@@ -247,6 +248,29 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryWarningsSurviveValidatio
 		validator: stubValidator{
 			dt:   deployTemplate{warnings: []string{"a charm/model mismatch warning"}},
 			errs: []error{errors.New("validation failed")},
+		},
+		logger: loggertesting.WrapCheckLog(c),
+	}
+
+	info, _, errs := api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArg{})
+
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(info.Warnings, tc.DeepEquals, []string{"a charm/model mismatch warning"})
+}
+
+// TestDeployFromRepositoryWarningsSurvivePostValidationError checks that
+// warnings are returned when the deploy fails after validation has already
+// succeeded, e.g. the Kubernetes attach-storage rejection.
+func (s *deployRepositorySuite) TestDeployFromRepositoryWarningsSurvivePostValidationError(c *tc.C) {
+	api := &DeployFromRepositoryAPI{
+		modelType: coremodel.CAAS,
+		validator: stubValidator{
+			dt: deployTemplate{
+				charmURL:      charm.MustParseURL("ch:ubuntu-0"),
+				origin:        corecharm.Origin{Channel: &charm.Channel{Risk: charm.Stable}},
+				attachStorage: []names.StorageTag{names.NewStorageTag("data/0")},
+				warnings:      []string{"a charm/model mismatch warning"},
+			},
 		},
 		logger: loggertesting.WrapCheckLog(c),
 	}

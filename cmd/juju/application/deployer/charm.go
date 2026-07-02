@@ -82,8 +82,7 @@ func modelTypeMismatchWarning(ctx context.Context, m ModelCommand, meta *charm.M
 		// The model name is cosmetic; avoid emitting an empty quoted name.
 		modelName = "the target model"
 	}
-	warning, _ := meta.ModelMismatchWarning(modelType == model.CAAS, modelName)
-	return warning
+	return meta.ModelMismatchWarning(modelType == model.CAAS, modelName)
 }
 
 // deploy is the business logic of deploying a charm after
@@ -97,14 +96,14 @@ func (d *deployCharm) deploy(
 	if err != nil {
 		return err
 	}
-	if err := checkCharmFormat(ctx, d.model, charmInfo); err != nil {
-		return err
-	}
-
 	// Warn (without blocking) if the charm's type does not match the model type,
 	// e.g. a Kubernetes charm on a machine model or vice versa.
 	if warning := modelTypeMismatchWarning(ctx, d.model, charmInfo.Meta); warning != "" {
 		ctx.Warningf("%s", warning)
+	}
+
+	if err := checkCharmFormat(ctx, d.model, charmInfo); err != nil {
+		return err
 	}
 
 	// Check storage on containers is supported.
