@@ -2494,6 +2494,51 @@ func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintIPv4OnlySubne
 	})
 }
 
+func (s *environSuite) TestStartInstanceIPFamilyDualPlacementWithSpaceConstraint(c *tc.C) {
+	// When ip-family=dual is set with both a space constraint and a placement
+	// directive, and the space contains only the :ipv6-suffixed variant of a
+	// dual-stack subnet, the provider must still resolve the placement subnet
+	// correctly.  Previously, the bare placement ID did not match the
+	// :ipv6-suffixed SubnetsToZones key, causing a spurious "subnet not found"
+	// error.
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"beta"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1:ipv6": nil},
+	}
+	params.Placement = "subnet=subnet1"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+
+	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
+		imageReference:    &jammyImageReferenceGen2,
+		diskSizeGB:        32,
+		osProfile:         &s.linuxOsProfile,
+		instanceType:      "Standard_A1",
+		publicIP:          true,
+		subnets:           []string{"/path/to/subnet1"},
+		placementSubnet:   "subnet1",
+		dualStackIPFamily: true,
+	})
+}
+
 func (s *environSuite) TestStartInstanceIPFamilyDualLegacyIPv4OnlySubnet(c *tc.C) {
 	// When ip-family=dual is set without placement, the provider proceeds
 	// to create the VM. The Juju-managed VNet template always creates

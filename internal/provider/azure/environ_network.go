@@ -429,9 +429,13 @@ func (env *azureEnviron) networkInfoForInstance(
 	var subnetIDForZone []network.Id
 	for _, zoneSubnetIDs := range possibleSubnets {
 		// Use placement to select a single subnet if needed.
+		// Strip the :ipv6 suffix before comparing so that a bare
+		// placement ID (e.g. /subnets/foo) matches the suffixed
+		// variant (/subnets/foo:ipv6) emitted by allSubnets().
 		var subnetIDs []network.Id
 		for _, id := range zoneSubnetIDs {
-			if placementSubnetID == "" || placementSubnetID == id {
+			bareID := network.Id(stripIPFamilySuffix(id.String()))
+			if placementSubnetID == "" || placementSubnetID == bareID {
 				subnetIDs = append(subnetIDs, id)
 			}
 		}
@@ -452,7 +456,8 @@ func (env *azureEnviron) networkInfoForInstance(
 		subnetIDs = append(subnetIDs, placementSubnetID)
 	}
 	for _, id := range subnetIDForZone {
-		if id != placementSubnetID {
+		bareID := network.Id(stripIPFamilySuffix(id.String()))
+		if bareID != placementSubnetID {
 			subnetIDs = append(subnetIDs, id)
 		}
 	}
