@@ -6,6 +6,7 @@ package deployer
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -69,6 +70,56 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *tc.C) {
 
 	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *charmSuite) TestModelTypeMismatchWarningK8sCharmOnMachineModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	m := mocks.NewMockModelCommand(ctrl)
+	m.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil)
+	m.EXPECT().ModelDetails(gomock.Any()).Return("machinemodel", nil, nil)
+
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	warning := modelTypeMismatchWarning(c.Context(), m, meta)
+
+	c.Check(warning, tc.Equals,
+		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine (IAAS) model; its workload will not run`)
+}
+
+func (s *charmSuite) TestModelTypeMismatchWarningConsistent(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	m := mocks.NewMockModelCommand(ctrl)
+	m.EXPECT().ModelType(gomock.Any()).Return(model.CAAS, nil)
+	m.EXPECT().ModelDetails(gomock.Any()).Return("k8smodel", nil, nil)
+
+	// A sidecar charm on a Kubernetes model is consistent: no warning.
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	c.Check(modelTypeMismatchWarning(c.Context(), m, meta), tc.Equals, "")
+}
+
+func (s *charmSuite) TestModelTypeMismatchWarningNilMeta(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	// No expectations: a nil Meta must short-circuit before touching the model.
+	m := mocks.NewMockModelCommand(ctrl)
+
+	c.Check(modelTypeMismatchWarning(c.Context(), m, nil), tc.Equals, "")
+}
+
+func (s *charmSuite) TestModelTypeMismatchWarningModelNameFallback(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	m := mocks.NewMockModelCommand(ctrl)
+	m.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil)
+	// ModelDetails failing must not produce an empty quoted model name.
+	m.EXPECT().ModelDetails(gomock.Any()).Return("", nil, errors.New("boom"))
+
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	warning := modelTypeMismatchWarning(c.Context(), m, meta)
+
+	c.Check(strings.Contains(warning, "the target model"), tc.IsTrue)
+	c.Check(strings.Contains(warning, `""`), tc.IsFalse)
 }
 
 func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *tc.C) {
@@ -271,6 +322,7 @@ func (s *charmSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
 	s.modelCommand.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil).AnyTimes()
+	s.modelCommand.EXPECT().ModelDetails(gomock.Any()).Return("test-model", nil, nil).AnyTimes()
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)
 	return ctrl
 }

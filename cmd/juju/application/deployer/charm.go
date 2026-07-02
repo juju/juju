@@ -66,6 +66,26 @@ func checkCharmFormat(ctx context.Context, m ModelCommand, charmInfo *apicharms.
 	return nil
 }
 
+// modelTypeMismatchWarning returns a warning when the charm's type (machine vs
+// Kubernetes) does not match the type of model it is being deployed to, or the
+// empty string when they are consistent. It is advisory only.
+func modelTypeMismatchWarning(ctx context.Context, m ModelCommand, meta *charm.Meta) string {
+	if meta == nil {
+		return ""
+	}
+	modelType, err := m.ModelType(ctx)
+	if err != nil {
+		return ""
+	}
+	modelName, _, err := m.ModelDetails(ctx)
+	if err != nil || modelName == "" {
+		// The model name is cosmetic; avoid emitting an empty quoted name.
+		modelName = "the target model"
+	}
+	warning, _ := meta.ModelMismatchWarning(modelType == model.CAAS, modelName)
+	return warning
+}
+
 // deploy is the business logic of deploying a charm after
 // it's been prepared.
 func (d *deployCharm) deploy(
@@ -79,6 +99,12 @@ func (d *deployCharm) deploy(
 	}
 	if err := checkCharmFormat(ctx, d.model, charmInfo); err != nil {
 		return err
+	}
+
+	// Warn (without blocking) if the charm's type does not match the model type,
+	// e.g. a Kubernetes charm on a machine model or vice versa.
+	if warning := modelTypeMismatchWarning(ctx, d.model, charmInfo.Meta); warning != "" {
+		ctx.Warningf("%s", warning)
 	}
 
 	// Check storage on containers is supported.
@@ -378,6 +404,12 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 		Storage:          c.storage,
 		Trust:            c.trust,
 	})
+
+	// Surface advisory warnings (e.g. a charm/model-type mismatch) before any
+	// errors, so the user sees the context even when the deploy is rejected.
+	for _, warning := range info.Warnings {
+		ctx.Warningf("%s", warning)
+	}
 
 	for _, err := range errs {
 		ctx.Errorf(err.Error())
