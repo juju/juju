@@ -21,6 +21,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/semversion"
 	internallogger "github.com/juju/juju/internal/logger"
 	internaltesting "github.com/juju/juju/internal/testing"
@@ -165,6 +166,88 @@ func (s *workerSuite) TestSwitchReplaysPendingRecordsToNewBackend(c *tc.C) {
 		message: "trigger",
 	})
 	c.Check(oldBackend.pendingCalls.Load(), tc.Equals, int32(1))
+}
+
+func (s *workerSuite) TestConcurrentLogDuringBackendSwitch(c *tc.C) {
+	fixture := newFixture(c, "")
+	events := make(chan backendEvent, 50)
+
+	w, err := NewWorker(WorkerConfig{
+		Agent:                     fixture.agent,
+		LogSource:                 fixture.logs,
+		AgentConfigChanged:        fixture.configChanged,
+		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                     clock.WallClock,
+		ConvergeTimeout:           defaultConvergeTimeout,
+		RestartDelay:              time.Millisecond * 10,
+		NewBackend:                recordingBackendFunc(events, defaultBackendBufferSize),
+		RemoveLegacyLogSinkWriter: func() {},
+		AddLegacyLogSinkWriter:    func() error { return nil },
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	waitForEvents(c, events, backendEvent{
+		backend: "drain-only",
+		kind:    "start",
+	}, backendEvent{
+		backend: "logsink",
+		kind:    "start",
+	})
+
+	logRouter := w.(*logRouter)
+	sink := logRouter.LogSink()
+
+	// Drain backend events in the background so that recordingBackend
+	// Kill/start calls don't block on the events channel while the
+	// test exercises concurrent Log and switchBackend.
+	drainStop := make(chan struct{})
+	drainDone := make(chan struct{})
+	go func() {
+		defer close(drainDone)
+		for {
+			select {
+			case <-events:
+			case <-drainStop:
+				return
+			case <-c.Context().Done():
+				return
+			}
+		}
+	}()
+
+	// Concurrently call Log() while switching backends between logsink and
+	// Loki. This exercises the routeMu serialisation between Log() and
+	// switchBackend(). The worker must not panic or race.
+	var wg sync.WaitGroup
+	const iterations = 20
+
+	wg.Go(func() {
+		for i := range iterations {
+			_ = sink.Log([]corelogger.LogRecord{{
+				Time:    time.Now(),
+				Module:  "test",
+				Level:   corelogger.INFO,
+				Message: "concurrent-" + strconv.Itoa(i),
+			}})
+		}
+	})
+
+	wg.Go(func() {
+		for i := range iterations {
+			if i%2 == 0 {
+				fixture.agent.setLokiConfig("http://loki/loki/api/v1/push", "")
+			} else {
+				fixture.agent.setLokiConfig("", "")
+			}
+			fixture.configChanged.Set(true)
+			time.Sleep(time.Millisecond * 50)
+		}
+	})
+
+	wg.Wait()
+	close(drainStop)
+	<-drainDone
 }
 
 func (s *workerSuite) TestDrainOnlyOverridesEndpoint(c *tc.C) {

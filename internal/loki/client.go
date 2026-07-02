@@ -383,9 +383,7 @@ func (c *Client) flushAsync(ctx context.Context, batch []Record) {
 		return
 	}
 
-	c.wg.Add(1)
-	go func() {
-		defer c.wg.Done()
+	c.wg.Go(func() {
 		defer func() { <-c.flushToken }()
 		select {
 		case <-c.tomb.Dying():
@@ -395,7 +393,7 @@ func (c *Client) flushAsync(ctx context.Context, batch []Record) {
 		default:
 		}
 		c.pushAll(ctx, batchCopy)
-	}()
+	})
 }
 
 // pushAll pushes all records to Loki, splitting into

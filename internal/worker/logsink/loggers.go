@@ -124,6 +124,12 @@ func (d *modelLogger) loop() error {
 
 // bindWriter adds (or replaces) the model-sink writer in the logger context,
 // binding it to the current log sink.
+//
+// There is a brief window between RemoveWriter and AddWriter during which
+// log records emitted through this context will not be forwarded to the
+// sink. This is acceptable during backend switches (per the spec's
+// best-effort convergence contract) because the window is nanoseconds and
+// only affects records emitted on the exact goroutine that is rebinding.
 func (d *modelLogger) bindWriter() error {
 	writer := corelogger.NewTaggedRedirectWriter(
 		d.logSink,

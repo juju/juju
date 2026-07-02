@@ -437,7 +437,9 @@ func (w *logRouter) currentSnapshot() ConfigSnapshot {
 	return snapshot
 }
 
-func (w *logRouter) startBackend(ctx context.Context, id string, snapshot ConfigSnapshot) (logsender.LogRecordCh, error) {
+func (w *logRouter) startBackend(
+	ctx context.Context, id string, snapshot ConfigSnapshot,
+) (logsender.LogRecordCh, error) {
 	err := w.runner.StartWorker(ctx, id, func(context.Context) (worker.Worker, error) {
 		return w.newBackend(snapshot)
 	})

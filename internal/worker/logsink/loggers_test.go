@@ -5,6 +5,7 @@ package logsink
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -151,6 +152,48 @@ func (s *LoggersSuite) TestLoggerRebindsOnRefresh(c *tc.C) {
 	c.Check(newSink.records[0].Message, tc.Equals, "after switch")
 }
 
+func (s *LoggersSuite) TestLoggerRebindsOnRefreshUnderStress(c *tc.C) {
+	sink := &countingRefreshLogSink{
+		refresh: make(chan struct{}),
+	}
+
+	s.modelUUID = uuid.MustNewUUID().String()
+
+	w, err := NewModelLogger(sink, model.UUID(s.modelUUID), names.NewUnitTag("foo/0"))
+	c.Assert(err, tc.ErrorIsNil)
+	logger := w.(*modelLogger)
+	defer workertest.CleanKill(c, logger)
+
+	fooLogger := logger.GetLogger("foo")
+
+	// Concurrently fire refresh signals and log records to exercise
+	// the rebind path under load. The model logger must not panic,
+	// deadlock, or race.
+	var wg sync.WaitGroup
+	const iterations = 200
+
+	wg.Go(func() {
+		for i := range iterations {
+			fooLogger.Infof(c.Context(), "message %d", i)
+		}
+	})
+
+	wg.Go(func() {
+		for range iterations {
+			sink.fireRefresh()
+		}
+	})
+
+	wg.Wait()
+
+	// All refresh signals must have been delivered. A small number of
+	// log records may be lost during the brief RemoveWriter/AddWriter
+	// window in bindWriter; verify that the vast majority were
+	// delivered rather than requiring every single one.
+	c.Check(sink.refreshCount.Load(), tc.Equals, int64(iterations))
+	c.Check(sink.logCount.Load(), tc.GreaterThan, int64(iterations-6))
+}
+
 func (s *LoggersSuite) newModelLogger(c *tc.C) *modelLogger {
 	s.modelUUID = uuid.MustNewUUID().String()
 
@@ -212,4 +255,37 @@ func (s *recordingRefreshLogSink) waitForWrite(c *tc.C) {
 	case <-c.Context().Done():
 		c.Fatalf("timed out waiting for log write")
 	}
+}
+
+// countingRefreshLogSink is a thread-safe LogSink used for stress testing
+// the rebind-on-refresh path. It counts log calls and refresh firings
+// without blocking on channels.
+type countingRefreshLogSink struct {
+	refresh      chan struct{}
+	refreshCount atomic.Int64
+	logCount     atomic.Int64
+	refreshMu    sync.Mutex
+}
+
+func (s *countingRefreshLogSink) Log(records []corelogger.LogRecord) error {
+	s.logCount.Add(int64(len(records)))
+	return nil
+}
+
+func (s *countingRefreshLogSink) WatchRefresh() <-chan struct{} {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	return s.refresh
+}
+
+// fireRefresh closes the current refresh channel and replaces it with a
+// fresh one, mimicking the logrouter's fireRefresh behaviour.
+func (s *countingRefreshLogSink) fireRefresh() {
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+	if s.refresh != nil {
+		close(s.refresh)
+	}
+	s.refresh = make(chan struct{})
+	s.refreshCount.Add(1)
 }

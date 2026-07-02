@@ -68,6 +68,11 @@ func (w *logSinkBackend) LogRecords() logsender.LogRecordCh {
 // PendingRecords returns any records that were retained while the backend was
 // blocked on logsink cutover, followed by records still buffered in the input
 // channel.
+//
+// A record that is in-flight inside loop() (between receiving from the
+// channel and calling appendPending) at the moment the old backend is
+// stopped will not appear in this snapshot. This is acceptable per the
+// spec's best-effort convergence contract during backend switches.
 func (w *logSinkBackend) PendingRecords() []*logsender.LogRecord {
 	w.mu.Lock()
 	defer w.mu.Unlock()

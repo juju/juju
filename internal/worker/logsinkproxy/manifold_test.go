@@ -103,9 +103,13 @@ func (s *ManifoldSuite) TestOutputNotValueWorker(c *jc.C) {
 
 func (s *ManifoldSuite) TestControllerBranchSelected(c *jc.C) {
 	ml := &stubLogSink{}
-	getter := dt.NewStubResources(map[string]interface{}{
-		"is-controller-flag":  engine.NewStaticFlagWorker(true),
-		"controller-log-sink": []interface{}{corelogger.ModelLogger(ml), corelogger.LoggerContextGetter(ml), corelogger.ModelLogSinkGetter(ml)},
+	getter := dt.NewStubResources(map[string]any{
+		"is-controller-flag": engine.NewStaticFlagWorker(true),
+		"controller-log-sink": []any{
+			corelogger.ModelLogger(ml),
+			corelogger.LoggerContextGetter(ml),
+			corelogger.ModelLogSinkGetter(ml),
+		},
 	}).Getter()
 
 	manifold := Manifold(ManifoldConfig{
@@ -125,9 +129,13 @@ func (s *ManifoldSuite) TestControllerBranchSelected(c *jc.C) {
 
 func (s *ManifoldSuite) TestNonControllerBranchSelected(c *jc.C) {
 	ml := &stubLogSink{}
-	getter := dt.NewStubResources(map[string]interface{}{
-		"is-controller-flag":      engine.NewStaticFlagWorker(false),
-		"non-controller-log-sink": []interface{}{corelogger.ModelLogger(ml), corelogger.LoggerContextGetter(ml), corelogger.ModelLogSinkGetter(ml)},
+	getter := dt.NewStubResources(map[string]any{
+		"is-controller-flag": engine.NewStaticFlagWorker(false),
+		"non-controller-log-sink": []any{
+			corelogger.ModelLogger(ml),
+			corelogger.LoggerContextGetter(ml),
+			corelogger.ModelLogSinkGetter(ml),
+		},
 	}).Getter()
 
 	manifold := Manifold(ManifoldConfig{
@@ -146,7 +154,7 @@ func (s *ManifoldSuite) TestNonControllerBranchSelected(c *jc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingActiveBranch(c *jc.C) {
-	getter := dt.NewStubResources(map[string]interface{}{
+	getter := dt.NewStubResources(map[string]any{
 		"is-controller-flag":      engine.NewStaticFlagWorker(true),
 		"controller-log-sink":     dependency.ErrMissing,
 		"non-controller-log-sink": dependency.ErrMissing,
@@ -163,7 +171,7 @@ func (s *ManifoldSuite) TestMissingActiveBranch(c *jc.C) {
 }
 
 func (s *ManifoldSuite) TestMissingFlag(c *jc.C) {
-	getter := dt.NewStubResources(map[string]interface{}{
+	getter := dt.NewStubResources(map[string]any{
 		"is-controller-flag": dependency.ErrMissing,
 	}).Getter()
 
