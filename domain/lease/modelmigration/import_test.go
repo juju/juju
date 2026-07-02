@@ -84,8 +84,8 @@ func (s *importSuite) TestExecuteWithApplications(c *tc.C) {
 	// Expected lease.
 	key := lease.Key{
 		ModelUUID: uuid,
-		Namespace: "postgresql",
-		Lease:     lease.ApplicationLeadershipNamespace,
+		Namespace: lease.ApplicationLeadershipNamespace,
+		Lease:     "postgresql",
 	}
 	req := lease.Request{
 		Holder:   "postgresql/0",
@@ -121,8 +121,8 @@ func (s *importSuite) TestExecuteWithMultipleApplications(c *tc.C) {
 	// Expected lease.
 	key := lease.Key{
 		ModelUUID: uuid,
-		Namespace: "postgresql",
-		Lease:     lease.ApplicationLeadershipNamespace,
+		Namespace: lease.ApplicationLeadershipNamespace,
+		Lease:     "postgresql",
 	}
 	req := lease.Request{
 		Holder:   "postgresql/0",
@@ -133,8 +133,8 @@ func (s *importSuite) TestExecuteWithMultipleApplications(c *tc.C) {
 
 	key = lease.Key{
 		ModelUUID: uuid,
-		Namespace: "wordpress",
-		Lease:     lease.ApplicationLeadershipNamespace,
+		Namespace: lease.ApplicationLeadershipNamespace,
+		Lease:     "wordpress",
 	}
 	req = lease.Request{
 		Holder:   "wordpress/1",
@@ -166,7 +166,7 @@ func (s *importSuite) TestExecuteWithError(c *tc.C) {
 	s.service.EXPECT().ClaimLease(gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 
 	err := op.Execute(c.Context(), model)
-	c.Assert(err, tc.ErrorMatches, `claiming lease for {"postgresql" "`+uuid+`" "application-leadership"}: boom`)
+	c.Assert(err, tc.ErrorMatches, `claiming lease for {"application-leadership" "`+uuid+`" "postgresql"}: boom`)
 }
 
 func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
