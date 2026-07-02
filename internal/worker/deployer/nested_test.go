@@ -175,6 +175,7 @@ func (s *NestedContextSuite) TestContextStops(c *tc.C) {
 	ctx := s.newContext(c)
 	check := tc.NewMultiChecker()
 	check.AddExpr(`_["units"][_]["unit-loki-sync"]["started"]`, tc.Ignore)
+	check.AddExpr(`_["units"][_]["unit-loki-sync"]["state"]`, tc.Ignore)
 
 	report := ctx.Report(c.Context())
 	c.Assert(report, check, map[string]any{
@@ -364,6 +365,7 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, tc.Ignore)
 	check.AddExpr(`_["units"][_][_]["started"]`, tc.Ignore)
 	check.AddExpr(`_["units"][_]["unit-loki-sync"]["started"]`, tc.Ignore)
+	check.AddExpr(`_["units"][_]["unit-loki-sync"]["state"]`, tc.Ignore)
 	// Dates are shown here as an example, but are ignored by the checker.
 	c.Assert(ctx.Report(c.Context()), check, map[string]any{
 		"deployed": []string{"first/0", "second/0", "third/0"},
