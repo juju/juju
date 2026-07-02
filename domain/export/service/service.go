@@ -10,13 +10,9 @@ type Service struct {
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, controllerInfo ...ControllerInfoState) *Service {
-	var info ControllerInfoState
-	if len(controllerInfo) > 0 {
-		info = controllerInfo[0]
-	}
+func NewService(st State, controllerInfo ControllerInfoState) *Service {
 	return &Service{
 		st:             st,
-		controllerInfo: info,
+		controllerInfo: controllerInfo,
 	}
 }

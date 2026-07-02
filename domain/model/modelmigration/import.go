@@ -177,7 +177,7 @@ func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
 func (i *importModelOperation) Execute(ctx context.Context, model description.Model) error {
 	modelName, modelUUID, err := getModelNameAndUUID(model)
 	if err != nil {
-		return errors.Errorf("%w", err).Add(coreerrors.NotValid)
+		return errors.Errorf("invalid model config: %w", err).Add(coreerrors.NotValid)
 	}
 
 	owner, err := coreuser.NewName(model.Owner())

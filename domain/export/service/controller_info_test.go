@@ -62,7 +62,7 @@ func (s *controllerInfoServiceSuite) TestGetControllerModelInfoOfferUUIDsError(c
 }
 
 func (s *controllerInfoServiceSuite) TestGetControllerModelInfoMissingState(c *tc.C) {
-	svc := NewService(nil)
+	svc := NewService(nil, ControllerInfoState{})
 
 	_, err := svc.GetControllerModelInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, "missing controller model info state")

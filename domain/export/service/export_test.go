@@ -29,7 +29,7 @@ func (s *exportServiceSuiteV4_1_0) TestExport(c *tc.C) {
 		export: func(context.Context) (*v4_1_0.ModelExport, error) {
 			return expectedPayload, nil
 		},
-	})
+	}, ControllerInfoState{})
 
 	modelExport, err := svc.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -42,7 +42,7 @@ func (s *exportServiceSuiteV4_1_0) TestExportError(c *tc.C) {
 		export: func(context.Context) (*v4_1_0.ModelExport, error) {
 			return nil, errors.New("boom")
 		},
-	})
+	}, ControllerInfoState{})
 
 	_, err := svc.Export(c.Context())
 	c.Assert(err, tc.ErrorMatches, "exporting model data for version 4.1.0: boom")

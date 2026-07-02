@@ -7,11 +7,11 @@ package model
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/domain/export/types/v{{ .VersionToken }}"
+	"github.com/juju/juju/internal/errors"
 )
 
 // Import inserts all model data carried by the transformed, target-version
@@ -33,7 +33,7 @@ func (st *State) Import(ctx context.Context, p *v{{ .VersionToken }}.ModelExport
 {{- range .Tables }}
 	stmt{{ .StructName }}, err := sqlair.Prepare(`INSERT INTO "{{ .TableName }}" (*) VALUES (${{ .StructName }}.*){{ if .Seeded }} ON CONFLICT DO NOTHING{{ end }}`, v{{ $.VersionToken }}.{{ .StructName }}{})
 	if err != nil {
-		return fmt.Errorf("preparing {{ .StructName }} insert statement: %w", err)
+		return errors.Errorf("preparing {{ .StructName }} insert statement: %w", err)
 	}
 {{- end }}
 
@@ -42,28 +42,28 @@ func (st *State) Import(ctx context.Context, p *v{{ .VersionToken }}.ModelExport
 	// accepted; the constraints are still validated atomically at commit.
 	deferFKStmt, err := sqlair.Prepare(`PRAGMA defer_foreign_keys = 1`)
 	if err != nil {
-		return fmt.Errorf("preparing defer foreign keys statement: %w", err)
+		return errors.Errorf("preparing defer foreign keys statement: %w", err)
 	}
 
 	db, err := st.DB(ctx)
 	if err != nil {
-		return fmt.Errorf("getting db: %w", err)
+		return errors.Errorf("getting db: %w", err)
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, deferFKStmt).Run(); err != nil {
-			return fmt.Errorf("deferring foreign keys: %w", err)
+			return errors.Errorf("deferring foreign keys: %w", err)
 		}
 {{- range .Tables }}
 		if len(p.{{ .StructName }}) > 0 {
 			if err := tx.Query(ctx, stmt{{ .StructName }}, p.{{ .StructName }}).Run(); err != nil {
-				return fmt.Errorf("inserting {{ .StructName }} (table {{ .TableName }}): %w", err)
+				return errors.Errorf("inserting {{ .StructName }} (table {{ .TableName }}): %w", err)
 			}
 		}
 {{- end }}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("importing model data: %w", err)
+		return errors.Errorf("importing model data: %w", err)
 	}
 
 	return nil

@@ -251,32 +251,44 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 	naturalsort.Sort(config.Charms)
 
 	for _, charmURL := range config.Charms {
-		logger.Debugf(ctx, "sending charm %s to target", charmURL)
-		curl, err := charm.ParseURL(charmURL)
-		if err != nil {
-			return errors.Annotate(err, "bad charm URL")
+		if err := uploadCharm(ctx, config, logger, charmURL); err != nil {
+			return err
 		}
-		charmSource, err := domaincharm.ParseCharmSchema(charm.Schema(curl.Schema))
-		if err != nil {
-			return errors.Annotate(err, "bad charm URL schema")
-		}
-		reader, hash, err := config.CharmService.GetCharmArchive(ctx, domaincharm.CharmLocator{
-			Name:     curl.Name,
-			Revision: curl.Revision,
-			Source:   charmSource,
-		})
-		if err != nil {
-			return errors.Annotate(err, "cannot open charm")
-		}
-		defer func() { _ = reader.Close() }()
+	}
+	return nil
+}
 
-		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:8])
-		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, reader); err != nil {
-			return errors.Annotate(err, "cannot upload charm")
-		} else if usedCurl != charmURL {
-			// The target controller shouldn't assign a different charm URL.
-			return errors.Errorf("charm %s unexpectedly assigned %s", charmURL, usedCurl)
-		}
+func uploadCharm(
+	ctx context.Context,
+	config UploadBinariesConfig,
+	logger corelogger.Logger,
+	charmURL string,
+) error {
+	logger.Debugf(ctx, "sending charm %s to target", charmURL)
+	curl, err := charm.ParseURL(charmURL)
+	if err != nil {
+		return errors.Annotate(err, "bad charm URL")
+	}
+	charmSource, err := domaincharm.ParseCharmSchema(charm.Schema(curl.Schema))
+	if err != nil {
+		return errors.Annotate(err, "bad charm URL schema")
+	}
+	reader, hash, err := config.CharmService.GetCharmArchive(ctx, domaincharm.CharmLocator{
+		Name:     curl.Name,
+		Revision: curl.Revision,
+		Source:   charmSource,
+	})
+	if err != nil {
+		return errors.Annotate(err, "cannot open charm")
+	}
+	defer func() { _ = reader.Close() }()
+
+	charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:8])
+	if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, reader); err != nil {
+		return errors.Annotate(err, "cannot upload charm")
+	} else if usedCurl != charmURL {
+		// The target controller shouldn't assign a different charm URL.
+		return errors.Errorf("charm %s unexpectedly assigned %s", charmURL, usedCurl)
 	}
 	return nil
 }
@@ -287,28 +299,41 @@ func uploadTools(
 	logger corelogger.Logger,
 ) error {
 	for sha256Sum, version := range config.Tools {
-		logger.Debugf(
-			ctx,
-			"sending agent binaries for sha256 %q and version %q to target controller",
-			sha256Sum, version,
+		if err := uploadTool(ctx, config, logger, sha256Sum, version); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func uploadTool(
+	ctx context.Context,
+	config UploadBinariesConfig,
+	logger corelogger.Logger,
+	sha256Sum string,
+	version semversion.Binary,
+) error {
+	logger.Debugf(
+		ctx,
+		"sending agent binaries for sha256 %q and version %q to target controller",
+		sha256Sum, version,
+	)
+
+	reader, _, err := config.AgentBinaryStore.GetAgentBinaryUsingSHA256(ctx, sha256Sum)
+	if err != nil {
+		return internalerrors.Errorf(
+			"getting agent binaries for sha %q to upload in migration: %w",
+			sha256Sum, err,
 		)
+	}
+	defer func() { _ = reader.Close() }()
 
-		reader, _, err := config.AgentBinaryStore.GetAgentBinaryUsingSHA256(ctx, sha256Sum)
-		if err != nil {
-			return internalerrors.Errorf(
-				"getting agent binaries for sha %q to upload in migration: %w",
-				sha256Sum, err,
-			)
-		}
-		defer func() { _ = reader.Close() }()
-
-		_, err = config.ToolsUploader.UploadTools(ctx, reader, version)
-		if err != nil {
-			return internalerrors.Errorf(
-				"upladoing agent binaries for sha256 %q and version %q: %w",
-				sha256Sum, version, err,
-			)
-		}
+	_, err = config.ToolsUploader.UploadTools(ctx, reader, version)
+	if err != nil {
+		return internalerrors.Errorf(
+			"uploading agent binaries for sha256 %q and version %q: %w",
+			sha256Sum, version, err,
+		)
 	}
 	return nil
 }
