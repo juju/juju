@@ -2270,6 +2270,37 @@ func (s *environSuite) TestBootstrapIPFamilyDualStandardSKUAccepted(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *environSuite) TestStartInstanceIPFamilyDualBootstrapPlacementIPv4OnlySubnet(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}, {
+		ID:   new("/path/to/subnet2"),
+		Name: new("subnet2"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("10.0.0.0/24"),
+		},
+	}}
+	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
+		bootstrap: false,
+		subnets:   subnets,
+	})
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Placement = "subnet=subnet2"
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+	params.InstanceConfig.Bootstrap = &instancecfg.BootstrapConfig{}
+
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "subnet2" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
 func (s *environSuite) TestStartInstanceIPFamilyDual(c *tc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{

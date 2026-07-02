@@ -590,7 +590,9 @@ func (env *azureEnviron) validateIPFamilyForResolvedSubnet(
 
 	// Bootstrap with a Juju-managed VNet: the subnet is created by the
 	// ARM template in networkTemplateResources which is always dual-stack.
-	if bootstrapping && env.config.virtualNetworkName == "" {
+	// When a placement subnet was specified, it is an existing subnet
+	// (not ARM-created) and must be validated for IPv6 /64 support.
+	if bootstrapping && env.config.virtualNetworkName == "" && placementSubnet == nil {
 		return nil
 	}
 
