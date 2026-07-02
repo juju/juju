@@ -2354,11 +2354,13 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 	results := make([]params.DeployFromRepositoryResult, len(args.Args))
 	for i, entity := range args.Args {
 		info, pending, errs := api.repoDeploy.DeployFromRepository(ctx, entity)
+		// Always set Info so advisory warnings (e.g. a charm/model-type
+		// mismatch) reach the client even when the deploy is rejected.
+		results[i].Info = info
 		if len(errs) > 0 {
 			results[i].Errors = apiservererrors.ServerErrors(errs)
 			continue
 		}
-		results[i].Info = info
 		results[i].PendingResourceUploads = pending
 	}
 	return params.DeployFromRepositoryResults{

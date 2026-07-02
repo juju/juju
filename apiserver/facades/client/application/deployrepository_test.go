@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -11,11 +12,13 @@ import (
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coremodel "github.com/juju/juju/core/model"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/repository"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -169,4 +172,87 @@ func (s *deployRepositorySuite) expectValidator() deployFromRepositoryValidator 
 		},
 	}
 	return validator
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchWarningsK8sCharmOnMachineModel(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.IAAS, Name: "machinemodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	warnings := v.modelTypeMismatchWarnings(c.Context(), meta)
+
+	c.Assert(warnings, tc.HasLen, 1)
+	c.Check(warnings[0], tc.Equals,
+		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine (IAAS) model; its workload will not run`)
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchWarningsNilMeta(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	c.Check(v.modelTypeMismatchWarnings(c.Context(), nil), tc.HasLen, 0)
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchWarningsConsistent(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	// A sidecar charm on a Kubernetes model is consistent: no warning.
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	c.Check(v.modelTypeMismatchWarnings(c.Context(), meta), tc.HasLen, 0)
+}
+
+// TestDeployFromRepositoryReturnsWarningsOnError checks that advisory warnings
+// (e.g. a charm/model-type mismatch) are returned to the client in the result
+// Info even when the deploy is rejected with errors, so they reach the terminal.
+func (s *deployRepositorySuite) TestDeployFromRepositoryReturnsWarningsOnError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectAnyChangeOrRemoval()
+	s.newCAASAPI(c)
+
+	info := params.DeployFromRepositoryInfo{Warnings: []string{"a charm/model mismatch warning"}}
+	s.deployFromRepo.EXPECT().DeployFromRepository(gomock.Any(), gomock.Any()).
+		Return(info, nil, []error{errors.New("rejected")})
+
+	res, err := s.api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArgs{
+		Args: []params.DeployFromRepositoryArg{{CharmName: "x"}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Errors, tc.HasLen, 1)
+	c.Check(res.Results[0].Info.Warnings, tc.DeepEquals, []string{"a charm/model mismatch warning"})
+}
+
+// stubValidator returns preset results, letting us drive the inner
+// DeployFromRepositoryAPI.DeployFromRepository directly.
+type stubValidator struct {
+	dt   deployTemplate
+	errs []error
+}
+
+func (v stubValidator) ValidateArg(context.Context, params.DeployFromRepositoryArg) (deployTemplate, []error) {
+	return v.dt, v.errs
+}
+
+// TestDeployFromRepositoryWarningsSurviveValidationError checks the inner
+// early-return path: when ValidateArg fails, the warnings accumulated on the
+// deployTemplate are still returned in the result Info.
+func (s *deployRepositorySuite) TestDeployFromRepositoryWarningsSurviveValidationError(c *tc.C) {
+	api := &DeployFromRepositoryAPI{
+		validator: stubValidator{
+			dt:   deployTemplate{warnings: []string{"a charm/model mismatch warning"}},
+			errs: []error{errors.New("validation failed")},
+		},
+		logger: loggertesting.WrapCheckLog(c),
+	}
+
+	info, _, errs := api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArg{})
+
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(info.Warnings, tc.DeepEquals, []string{"a charm/model mismatch warning"})
 }

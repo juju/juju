@@ -99,7 +99,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 	dt, errs := api.validator.ValidateArg(ctx, arg)
 
 	if len(errs) > 0 {
-		return params.DeployFromRepositoryInfo{}, nil, errs
+		// Surface advisory warnings (e.g. charm/model-type mismatch) even when
+		// the deploy is rejected, so the user sees the context alongside the error.
+		return params.DeployFromRepositoryInfo{Warnings: dt.warnings}, nil, errs
 	}
 
 	info := params.DeployFromRepositoryInfo{
@@ -112,6 +114,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 		EffectiveChannel: nil,
 		Name:             dt.applicationName,
 		Revision:         dt.charmURL.Revision,
+		Warnings:         dt.warnings,
 	}
 	if dt.dryRun {
 		return info, nil, nil
@@ -382,6 +385,7 @@ type deployTemplate struct {
 	resourcesToUpload []*params.PendingResourceUpload
 	resolvedResources applicationservice.ResolvedResources
 	downloadInfo      corecharm.DownloadInfo
+	warnings          []string
 }
 
 type validatorConfig struct {
@@ -549,6 +553,23 @@ func validateAndParseAttachStorage(input []string, numUnits int) ([]names.Storag
 	return attachStorage, errs
 }
 
+// modelTypeMismatchWarnings returns user-facing warnings when the charm's type
+// (machine vs Kubernetes) does not match the model type. It is advisory only and
+// never blocks the deploy. The warnings are both logged (for clients that do not
+// render result warnings, e.g. some API-only callers) and returned so they can
+// be surfaced on the deploying client's terminal.
+func (v *deployFromRepositoryValidator) modelTypeMismatchWarnings(ctx context.Context, meta *charm.Meta) []string {
+	if meta == nil {
+		return nil
+	}
+	warning, ok := meta.ModelMismatchWarning(v.modelInfo.Type == coremodel.CAAS, v.modelInfo.Name)
+	if !ok {
+		return nil
+	}
+	v.logger.Warningf(ctx, "%s", warning)
+	return []string{warning}
+}
+
 func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Context, resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
@@ -635,6 +656,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 		constraints:       cons,
 		numUnits:          numUnits,
 		resources:         arg.Resources,
+		warnings:          v.modelTypeMismatchWarnings(ctx, resolvedCharm.Meta()),
 	}
 
 	return dt, errs
