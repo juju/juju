@@ -154,6 +154,7 @@ type controllerStack struct {
 	portSSHServer int
 
 	resourceNameService,
+	resourceNameHeadlessService,
 	resourceNameConfigMap,
 	resourceNameSecret, resourceNamedockerSecret,
 	resourceNameVolBootstrapParams, resourceNameVolAgentConf string
@@ -289,6 +290,7 @@ func newControllerStack(
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
 	cs.resourceNameService = cs.getResourceName("service")
+	cs.resourceNameHeadlessService = cs.getResourceName("service-endpoints")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
 	cs.resourceNameSecret = cs.getResourceName("secret")
 	cs.resourceNamedockerSecret = constants.CAASImageRepoSecretName
@@ -398,6 +400,15 @@ func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 	// create service for controller pod.
 	if err = c.createControllerService(ctx); err != nil {
 		return errors.Annotate(err, "creating service for controller")
+	}
+	if environsbootstrap.IsContextDone(ctx) {
+		return environsbootstrap.Cancelled()
+	}
+
+	// Create the headless service governing the controller statefulset so
+	// each pod gets a stable per-ordinal DNS name for Dqlite peering.
+	if err = c.createControllerHeadlessService(ctx); err != nil {
+		return errors.Annotate(err, "creating headless service for controller")
 	}
 	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
@@ -600,8 +611,12 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 	}
 
 	c.addCleanUp(func() {
-		logger.Debugf(context.TODO(), "deleting %q", svcName)
-		_ = c.broker.deleteService(ctx, svcName)
+		logger.Debugf(ctx, "deleting %q", svcName)
+		if err := c.broker.deleteService(ctx, svcName); err != nil {
+			logger.Warningf(ctx,
+				"could not clean up service %q, it may be left dangling: %v",
+				svcName, err)
+		}
 	})
 
 	publicAddressPoller := func() error {
@@ -635,6 +650,54 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 		return errors.Timeoutf("waiting for controller service address fully provisioned")
 	}
 	return errors.Trace(err)
+}
+
+// createControllerHeadlessService creates the headless service that governs
+// the controller StatefulSet. Unlike the routable controller API service, this
+// service has no cluster IP; its sole purpose is to give each controller pod a
+// stable per-ordinal DNS name (controller-<ordinal>.<service>.<namespace>.svc)
+// that Dqlite peers can bind to and dial. PublishNotReadyAddresses is set so a
+// joining pod is resolvable before it becomes Ready, avoiding a join/readiness
+// deadlock. It is labelled as an endpoints service so address lookups exclude
+// it when resolving the controller's routable service.
+func (c *controllerStack) createControllerHeadlessService(ctx context.Context) error {
+	svcName := c.resourceNameHeadlessService
+
+	spec := &core.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: svcName,
+			Labels: providerutils.LabelsMerge(c.stackLabels, labels.Set{
+				constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
+			}),
+			Namespace:   c.broker.Namespace(),
+			Annotations: c.stackAnnotations,
+		},
+		Spec: core.ServiceSpec{
+			Selector:  c.selectorLabels,
+			Type:      core.ServiceTypeClusterIP,
+			ClusterIP: "None",
+			// Publish addresses for not-yet-Ready pods so a joining node is
+			// DNS-resolvable before it becomes Ready; otherwise peers cannot
+			// dial it to admit it into the cluster and it can never become
+			// Ready (a join/readiness deadlock).
+			PublishNotReadyAddresses: true,
+		},
+	}
+
+	logger.Debugf(ctx, "creating controller headless service: \n%+v", spec)
+	if _, err := c.broker.ensureK8sService(ctx, spec); err != nil {
+		return errors.Trace(err)
+	}
+
+	c.addCleanUp(func() {
+		logger.Debugf(ctx, "deleting %q", svcName)
+		if err := c.broker.deleteService(ctx, svcName); err != nil {
+			logger.Warningf(ctx,
+				"could not clean up controller headless service %q, it may be left dangling: %v",
+				svcName, err)
+		}
+	})
+	return nil
 }
 
 func (c *controllerStack) addCleanUp(cleanUp func()) {
@@ -827,7 +890,7 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 			Annotations: c.stackAnnotations,
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: c.resourceNameService,
+			ServiceName: c.resourceNameHeadlessService,
 			Replicas:    &numberOfPods,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: c.selectorLabels,
@@ -857,8 +920,12 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 
 	logger.Tracef(context.TODO(), "creating controller statefulset: \n%+v", controllerStatefulSet)
 	c.addCleanUp(func() {
-		logger.Debugf(context.TODO(), "deleting %q statefulset", controllerStatefulSet.Name)
-		_ = c.broker.deleteStatefulSet(ctx, controllerStatefulSet.Name)
+		logger.Debugf(ctx, "deleting %q statefulset", controllerStatefulSet.Name)
+		if err := c.broker.deleteStatefulSet(ctx, controllerStatefulSet.Name); err != nil {
+			logger.Warningf(ctx,
+				"could not clean up statefulset %q, it may be left dangling: %v",
+				controllerStatefulSet.Name, err)
+		}
 	})
 	w, err := c.broker.WatchUnits(c.stackName)
 	if err != nil {

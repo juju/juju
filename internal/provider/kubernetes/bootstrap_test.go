@@ -408,6 +408,25 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		},
 	}
 
+	headlessSvc := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "juju-controller-test-service-endpoints",
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"app.kubernetes.io/name":       "juju-controller-test",
+				"service.juju.is/type":         "endpoints",
+			},
+			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
+		},
+		Spec: core.ServiceSpec{
+			Selector:                 map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
+			Type:                     core.ServiceType("ClusterIP"),
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+
 	secretControllerAppConfig := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "juju-controller-test-application-config",
@@ -469,7 +488,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: "juju-controller-test-service",
+			ServiceName: "juju-controller-test-service-endpoints",
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
@@ -1036,6 +1055,10 @@ exec /opt/pebble run --http :38811 --verbose
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
+		headless, err := s.mockServices.Get(c.Context(), `juju-controller-test-service-endpoints`, v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(headless, tc.DeepEquals, headlessSvc)
+
 		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(secret, tc.DeepEquals, secretControllerAppConfig)
@@ -1099,6 +1122,10 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	s.ensureJujuNamespaceAnnotations(true, ns)
 
 	ctxDoneChan := make(chan struct{}, 1)
+
+	// Logging during bootstrap/cleanup extracts the trace ID from the
+	// context, so allow Value lookups from the mock context.
+	mockStdCtx.EXPECT().Value(gomock.Any()).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		mockStdCtx.EXPECT().Err().Return(nil),
