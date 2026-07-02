@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	migrationv2 "github.com/juju/juju/internal/migration/v2"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
@@ -136,9 +136,16 @@ func (s *v8Suite) mustNewAPIV8WithMinter(c *tc.C, minter facade.LocalMacaroonMin
 // validPayload returns a v4_0_11 payload with an agent version below the target
 // controller version used in tests.
 func (s *v8Suite) validPayload() v4_0_11.ModelExport {
+	passwordHash := "hash"
+	passwordHashAlgorithmID := int64(0)
 	return v4_0_11.ModelExport{
 		AgentVersion: []v4_0_11.AgentVersion{{
 			TargetVersion: "4.0.11",
+		}},
+		ModelAgent: []v4_0_11.ModelAgent{{
+			ModelUUID:               s.modelUUID,
+			PasswordHashAlgorithmID: &passwordHashAlgorithmID,
+			PasswordHash:            &passwordHash,
 		}},
 		Application: []v4_0_11.Application{{
 			UUID:      "app-uuid",
@@ -288,6 +295,17 @@ func (s *v8Suite) TestPrechecksPayloadDecodeError(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `decoding model export payload at version "4.0.11".*`)
 }
 
+func (s *v8Suite) TestPrechecksRejectsMissingModelAgent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectControllerReady()
+
+	payload := s.validPayload()
+	payload.ModelAgent = nil
+	err := s.mustNewAPIV8(c).Prechecks(c.Context(), s.makeEnvelope(c, payload))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "model export payload has 0 model_agent rows, expected 1.*")
+}
+
 // TestPrechecksPayloadVersionNewerThanTarget verifies the
 // payload-version-ahead-of-target rejection with the actionable upgrade
 // message, even for versions unknown to the decoder registry.
@@ -400,13 +418,13 @@ func (s *v8Suite) TestCreateMigrationMacaroonRemoteUserPermissionDenied(c *tc.C)
 	c.Check(minter.calls, tc.Equals, 0)
 }
 
-// TestImportRunsGuardsThenDelegatesToImportModelV2 verifies the v8 Import
+// TestImportRunsGuardsThenDelegatesToImportModel verifies the v8 Import
 // runs the mandatory pre-write guards (envelope validation and payload
-// version/decode) and then delegates to ModelImporter.ImportModelV2 with the
+// version/decode) and then delegates to ModelImporter.ImportModel with the
 // decoded projection view. Import must NOT run the environmental prechecks,
 // so the precheck service is never primed: any environmental call would
 // surface as an unexpected gomock call.
-func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
+func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
@@ -462,7 +480,7 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 		Addresses: []string{"10.0.0.1:17070"}, ConsumedModels: []string{"remote-model-uuid"},
 	}}
 
-	expected := migrationv2.ImportModelArgs{
+	expected := migration.ImportModelArgs{
 		SourceMigrationUUID: envelope.ModelInfo.SourceMigrationUUID,
 		ControllerModelInfo: coremodelmigration.ControllerModelInfo{
 			ModelInfo: coremodelmigration.ModelIdentityInfo{
@@ -525,9 +543,9 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 			}},
 		},
 	}
-	var got migrationv2.ImportModelArgs
-	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, args migrationv2.ImportModelArgs, _ export.ProjectionView) error {
+	var got migration.ImportModelArgs
+	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, args migration.ImportModelArgs, _ export.ProjectionView) error {
 			got = args
 			return nil
 		})
@@ -545,7 +563,7 @@ func (s *v8Suite) TestImportRunsGuardsThenDelegatesToImportModelV2(c *tc.C) {
 }
 
 // TestImportGuardFailure verifies a guard failure in the v8 Import is
-// returned as-is, without ever calling ImportModelV2.
+// returned as-is, without ever calling ImportModel.
 func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -556,13 +574,13 @@ func (s *v8Suite) TestImportGuardFailure(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
-// TestImportPropagatesImportModelV2Error verifies an error from
-// ImportModelV2 is returned as-is by Import.
-func (s *v8Suite) TestImportPropagatesImportModelV2Error(c *tc.C) {
+// TestImportPropagatesImportModelError verifies an error from
+// ImportModel is returned as-is by Import.
+func (s *v8Suite) TestImportPropagatesImportModelError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	envelope := s.makeEnvelope(c, s.validPayload())
-	s.modelImporter.EXPECT().ImportModelV2(gomock.Any(), gomock.Any(), gomock.Any()).
+	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(errors.Errorf("boom"))
 
 	err := s.mustNewAPIV8(c).Import(c.Context(), envelope)

@@ -556,6 +556,10 @@ else
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
 		./apiserver/facades/agent-schema.json
 endif
+	@echo "Generating exported model schema..."
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
+	@echo "Generating model import schema..."
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
 
 .PHONY: rebuild-triggers
 rebuild-triggers:
@@ -574,6 +578,7 @@ rebuild-export:
 ## rebuild-export: Rebuild the exported schema
 	@echo "Generating exported schema..."
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable

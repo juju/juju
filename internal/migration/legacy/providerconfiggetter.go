@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migration
+package legacy
 
 import (
 	"context"
@@ -109,6 +109,12 @@ type ProviderConfigServicesGetter interface {
 // create an emphemeral provider config.
 type ProviderConfigServices interface {
 	Cloud() CloudService
+}
+
+// CloudService provides access to cloud details used to build an ephemeral
+// provider config during legacy model import.
+type CloudService interface {
+	Cloud(ctx context.Context, name string) (*jujucloud.Cloud, error)
 }
 
 type getterShim struct {

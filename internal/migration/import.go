@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package v2
+package migration
 
 import (
 	"context"
@@ -50,15 +50,15 @@ type Deps struct {
 }
 
 // ImportModelArgs contains the data needed to perform a v8 model import: the
-// target-portable controller-scoped snapshot and the transformed model-DB
+// target-portable controller-scoped information and the transformed model-DB
 // payload.
 type ImportModelArgs struct {
 	// SourceMigrationUUID is the source-side migration UUID recorded on the
 	// target import claim.
 	SourceMigrationUUID string
 
-	// ControllerModelInfo is the semantic controller-database snapshot for the
-	// model, decoded from the v8 import envelope by the apiserver facade.
+	// ControllerModelInfo is the semantic controller-database information for
+	// the model, decoded from the v8 import envelope by the apiserver facade.
 	ControllerModelInfo coremodelmigration.ControllerModelInfo
 
 	// ModelDBPayload is the model-DB export payload decoded from the envelope
@@ -69,38 +69,44 @@ type ImportModelArgs struct {
 	ModelDBPayload *latest.ModelExport
 }
 
-// ImportModel applies the v8 import's controller-scoped semantic data to the
-// target controller: the durable model_migration_import claim, the
+// ImportControllerModelInfo applies the v8 import's controller-scoped semantic
+// data to the target controller: the durable model_migration_import claim, the
 // target-local model bootstrap (controller model row + model DB in importing
 // mode), and the users, credential, permissions, authorized keys, secret
-// backend, leadership and cloud image metadata carried by info. Model-DB
-// content import and activation are not part of this function.
+// backend, leadership and cloud image metadata carried by info. It writes only
+// controller-database state; the model-DB content import and activation are
+// separate concerns handled outside this package.
 //
 // Each step calls the owning domain's service import method directly. The
 // coordinator constructs the controller-scoped domain services once and
 // orchestrates the call order FK-/dependency-safely.
 //
-// If a claim already exists for info.ModelInfo.UUID, the returned error
-// wraps [coreerrors.AlreadyExists] (phase-specific wording is supplied by the
-// modelmigration domain).
-func ImportModel(
+// sourceMigrationUUID is the source-side migration UUID recorded on the target
+// import claim. If a claim already exists for info.ModelInfo.UUID, the returned
+// error wraps [coreerrors.AlreadyExists] (phase-specific wording is supplied by
+// the modelmigration domain).
+func ImportControllerModelInfo(
 	ctx context.Context,
 	deps Deps,
-	args ImportModelArgs,
+	sourceMigrationUUID string,
+	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
 ) error {
-	return newImportCoordinator(deps, args, view).Import(ctx)
+	return newImportCoordinator(deps, sourceMigrationUUID, info, view).Import(ctx)
 }
 
-// RemoveOnAbortImport is the abort seam Task 11 will call from AbortImport.
-// It undoes the controller-DB writes performed by ImportModel in reverse order.
-// Each step is idempotent: it is safe to call RemoveOnAbortImport more than once.
+// RemoveOnAbortImport is the abort seam Task 11 will call from AbortImport. It
+// undoes the controller-DB writes performed by ImportControllerModelInfo in
+// reverse order. Each step is idempotent: it is safe to call RemoveOnAbortImport
+// more than once.
 func RemoveOnAbortImport(
 	ctx context.Context,
 	deps Deps,
 	args ImportModelArgs,
 ) error {
-	return newImportCoordinator(deps, args, export.ProjectionView{}).RemoveOnAbort(ctx)
+	return newImportCoordinator(
+		deps, args.SourceMigrationUUID, args.ControllerModelInfo, export.ProjectionView{},
+	).RemoveOnAbort(ctx)
 }
 
 // controllerImportOp is a single step in the v8 controller-DB import sequence.
@@ -160,10 +166,10 @@ func (c *importCoordinator) RemoveOnAbort(ctx context.Context) error {
 
 func newImportCoordinator(
 	deps Deps,
-	args ImportModelArgs,
+	sourceMigrationUUID string,
+	info coremodelmigration.ControllerModelInfo,
 	view export.ProjectionView,
 ) *importCoordinator {
-	info := args.ControllerModelInfo
 	modelUUIDStr := info.ModelInfo.UUID
 	modelUUID := coremodel.UUID(modelUUIDStr)
 
@@ -180,7 +186,7 @@ func newImportCoordinator(
 			claim:         svc.claim,
 			modelUUID:     modelUUID,
 			modelUUIDStr:  modelUUIDStr,
-			sourceMigUUID: args.SourceMigrationUUID,
+			sourceMigUUID: sourceMigrationUUID,
 		},
 		&opImportUsers{
 			access:       svc.access,
@@ -558,8 +564,8 @@ func (op *opImportCloudImageMetadata) RemoveOnAbort(_ context.Context) error { r
 // ---- services bundle --------------------------------------------------------
 
 // importServices bundles the controller-scoped domain services the v8 import
-// driver orchestrates. They are constructed once at the start of ImportModel
-// and shared across the import steps.
+// driver orchestrates. They are constructed once at the start of
+// ImportControllerModelInfo and shared across the import steps.
 type importServices struct {
 	claim         *migrationclaimservice.Service
 	access        *accessservice.Service
@@ -639,7 +645,7 @@ func bootstrapImportedModel(
 		},
 	}
 
-	if err := migrationSvc.ImportModelV2(ctx, args); err != nil {
+	if err := migrationSvc.ImportModel(ctx, args); err != nil {
 		return errors.Errorf("creating model %q: %w", identity.Name, err)
 	}
 	if err := modelSvc.CreateImportingModelWithAgentVersionStream(ctx, agentTargetVersion, agentStream); err != nil {
