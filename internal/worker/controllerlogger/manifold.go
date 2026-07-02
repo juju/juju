@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	corelogger "github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
@@ -24,12 +23,6 @@ type ModelConfigService interface {
 	// Watch returns a watcher that returns keys for any changes to model
 	// config.
 	Watch(ctx context.Context) (watcher.StringsWatcher, error)
-}
-
-// ModelService provides access to the controller model UUID.
-type ModelService interface {
-	// GetControllerModelUUID returns the UUID of the controller model.
-	GetControllerModelUUID(ctx context.Context) (coremodel.UUID, error)
 }
 
 // LoggingOverrideReader returns the current persisted logging override when the
@@ -91,17 +84,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	modelService, err := getControllerDomainServices(getter, config.DomainServicesName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	controllerModelUUID, err := modelService.GetControllerModelUUID(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelConfigService, err := getModelConfigService(ctx, getter, config.DomainServicesName, controllerModelUUID)
+	modelConfigService, err := getModelConfigService(getter, config.DomainServicesName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,31 +104,15 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	return NewWorker(ctx, workerConfig)
 }
 
-// getControllerDomainServices retrieves the model service from the controller
-// domain services via the dependency getter.
-func getControllerDomainServices(getter dependency.Getter, name string) (ModelService, error) {
-	var controllerServices services.ControllerDomainServices
-	if err := getter.Get(name, &controllerServices); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return controllerServices.Model(), nil
-}
-
-// getModelConfigService retrieves the model config service for the controller
-// model via the domain services getter.
+// getModelConfigService retrieves the model config service from the domain
+// services.
 func getModelConfigService(
-	ctx context.Context,
 	getter dependency.Getter,
 	name string,
-	controllerModelUUID coremodel.UUID,
 ) (ModelConfigService, error) {
-	var domainServicesGetter services.DomainServicesGetter
-	if err := getter.Get(name, &domainServicesGetter); err != nil {
+	var domainServices services.DomainServices
+	if err := getter.Get(name, &domainServices); err != nil {
 		return nil, errors.Trace(err)
 	}
-	ds, err := domainServicesGetter.ServicesForModel(ctx, controllerModelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ds.Config(), nil
+	return domainServices.Config(), nil
 }
