@@ -55,7 +55,7 @@ func metaFormatReasons(ch CharmMeta) (Format, []FormatSelectionReason) {
 		}
 	}
 
-	if len(ch.Meta().Containers) > 0 {
+	if ch.Meta().IsSidecar() {
 		reasons.Add(SelectionContainers)
 	}
 
