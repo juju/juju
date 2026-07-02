@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/ssh"
@@ -85,6 +86,29 @@ func (s *workerSuite) waitSSHKeys(c *tc.C, expected []string) {
 				continue
 			}
 			return
+		}
+	}
+}
+
+// waitSSHKeysUnordered is like waitSSHKeys but compares the authorised keys as
+// a set rather than an ordered list. It is used where the final ordering of
+// keys in the file depends on concurrent operations interleaving, but the set
+// of keys present is deterministic. Ordering in authorized_keys is not
+// significant.
+func (s *workerSuite) waitSSHKeysUnordered(c *tc.C, expected []string) {
+	expectedSet := set.NewStrings(expected...)
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for authorised ssh keys to change")
+		case <-time.After(coretesting.ShortWait):
+			keys, err := ssh.ListKeys(authenticationworker.SSHUser, ssh.FullKeys)
+			c.Assert(err, tc.ErrorIsNil)
+			if set.NewStrings(keys...).Difference(expectedSet).IsEmpty() &&
+				expectedSet.Difference(set.NewStrings(keys...)).IsEmpty() {
+				return
+			}
 		}
 	}
 }
@@ -313,4 +337,53 @@ func (s *workerSuite) TestEphemeralKeyRemovedOnRestart(c *tc.C) {
 	defer workertest.CleanKill(c, authWorker)
 
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+}
+
+func (s *workerSuite) TestAddEphemeralKeyDuringModelChange(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+
+	tag := names.NewMachineTag("666")
+	client := mocks.NewMockClient(ctrl)
+
+	// The model key changes to key three on the watcher fire.
+	changedModelKey := sshtesting.ValidKeyThree.Key + " yetanother@host"
+	gomock.InOrder(
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return(s.existingModelKeys, nil),
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{changedModelKey}, nil),
+	)
+	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
+
+	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, tag))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, authWorker)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+
+	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	c.Assert(ok, tc.IsTrue)
+
+	key4, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyFour.Key))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Add an ephemeral key in a goroutine to simulate it racing with a model
+	// key change being processed by the worker's Handle. The two writers to
+	// authorized_keys must not clobber each other: the final state must contain
+	// both the changed model key and the ephemeral key.
+	go func() {
+		c.Check(updater.AddEphemeralKey(key4, "key4-comment"), tc.ErrorIsNil)
+	}()
+
+	// Fire the watcher so the worker processes the model key change. This
+	// replaces the original model key (existingEnvKey) with the changed key.
+	ch <- struct{}{}
+
+	// The final ordering of keys depends on how AddEphemeralKey interleaves
+	// with the model key update, so compare as a set. The invariant under test
+	// is that neither write clobbers the other: both keys must be present.
+	changedModelKeyWithComment := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
+	ephemeralKeyWithComment := sshtesting.ValidKeyFour.Key + " Juju:Ephemeral:key4-comment"
+	s.waitSSHKeysUnordered(c, append(s.existingKeys, changedModelKeyWithComment, ephemeralKeyWithComment))
 }
