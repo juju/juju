@@ -15,9 +15,9 @@ check_secrets() {
 	wait_for "active" "$(workload_status "dummy-sink" 0).current"
 
 	echo "Apps deployed, creating secrets"
-	secret_owned_by_dummy_source_0=$(juju exec --unit dummy-source/0 -- secret-add --owner unit owned-by=dummy-source/0)
+	secret_owned_by_dummy_source_0=$(juju_exec_output --unit dummy-source/0 -- secret-add --owner unit owned-by=dummy-source/0)
 	secret_owned_by_dummy_source_0_id=${secret_owned_by_dummy_source_0##*/}
-	secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add owned-by=dummy-source-app)
+	secret_owned_by_dummy_source=$(juju_exec_output --unit dummy-source/0 -- secret-add owned-by=dummy-source-app)
 	secret_owned_by_dummy_source_id=${secret_owned_by_dummy_source##*/}
 
 	echo "Checking secrets' backend name with juju secrets --revisions"
@@ -36,8 +36,8 @@ check_secrets() {
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_id" owned-by=dummy-source-app
 
 	echo "Checking secret ids"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-ids)" "$secret_owned_by_dummy_source_id"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-ids)" "$secret_owned_by_dummy_source_0_id"
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-ids)" "$secret_owned_by_dummy_source_id"
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-ids)" "$secret_owned_by_dummy_source_0_id"
 
 	echo "Set a label for the unit owned secret $secret_owned_by_dummy_source_0."
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --label=dummy-source_0
@@ -45,55 +45,53 @@ check_secrets() {
 	juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source" --label=dummy-source-app
 
 	echo "Checking: secret-get by URI - content"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source_0")" 'owned-by: dummy-source/0'
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source")" 'owned-by: dummy-source-app'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source_0")" 'owned-by: dummy-source/0'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source")" 'owned-by: dummy-source-app'
 
 	echo "Checking: secret-get by URI - metadata"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source_0" --format json | yq ".${secret_owned_by_dummy_source_0_id}.owner")" 'unit'
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.owner")" 'application'
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.revision")" '1'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source_0" --format json | yq ".${secret_owned_by_dummy_source_0_id}.owner")" 'unit'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.owner")" 'application'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.revision")" '1'
 
 	echo "Checking: secret-get by label or consumer label - content"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get --label=dummy-source_0)" 'owned-by: dummy-source/0'
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get --label=dummy-source-app)" 'owned-by: dummy-source-app'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get --label=dummy-source_0)" 'owned-by: dummy-source/0'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get --label=dummy-source-app)" 'owned-by: dummy-source-app'
 
 	echo "Checking: secret-get by label - metadata"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get --label=dummy-source_0 --format json | yq ".${secret_owned_by_dummy_source_0_id}.label")" 'dummy-source_0'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-info-get --label=dummy-source_0 --format json | yq ".${secret_owned_by_dummy_source_0_id}.label")" 'dummy-source_0'
 
 	relation_id=$(juju --show-log show-unit dummy-source/0 --format json | yq '."dummy-source/0"."relation-info"[0]."relation-id"')
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source_0" -r "$relation_id"
 	juju exec --unit dummy-source/0 -- secret-grant "$secret_owned_by_dummy_source" -r "$relation_id"
 
 	echo "Checking: secret-get by label - refresh with pending updates"
-	another_secret_owned_by_dummy_source=$(juju exec --unit dummy-source/0 -- secret-add value=1 --label=mysecret)
-	check_contains "$(juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=2; secret-get ${another_secret_owned_by_dummy_source} --refresh")" "2"
-	check_contains "$(juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=3; secret-get --label=mysecret --refresh")" "3"
-	check_contains "$(juju exec --unit dummy-source/0 -- "secret-get --label=mysecret")" "3"
-	check_contains "$(
-		juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=4"
-		juju exec --unit dummy-source/0 -- secret-get --label=mysecret --refresh
-	)" "4"
+	another_secret_owned_by_dummy_source=$(juju_exec_output --unit dummy-source/0 -- secret-add value=1 --label=mysecret)
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=2; secret-get ${another_secret_owned_by_dummy_source} --refresh")" "2"
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=3; secret-get --label=mysecret --refresh")" "3"
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- "secret-get --label=mysecret")" "3"
+	juju exec --unit dummy-source/0 -- "secret-set ${another_secret_owned_by_dummy_source} value=4"
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get --label=mysecret --refresh)" "4"
 
 	echo "Checking: secret-get by URI - consume content by ID"
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source_0" --label=consumer_label_secret_owned_by_dummy_source_0)" 'owned-by: dummy-source/0'
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source" --label=consumer_label_secret_owned_by_dummy_source)" 'owned-by: dummy-source-app'
+	check_contains "$(juju_exec_output --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source_0" --label=consumer_label_secret_owned_by_dummy_source_0)" 'owned-by: dummy-source/0'
+	check_contains "$(juju_exec_output --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source" --label=consumer_label_secret_owned_by_dummy_source)" 'owned-by: dummy-source-app'
 
 	echo "Checking: secret-get by URI - consume content by label"
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get --label=consumer_label_secret_owned_by_dummy_source_0)" 'owned-by: dummy-source/0'
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get --label=consumer_label_secret_owned_by_dummy_source)" 'owned-by: dummy-source-app'
+	check_contains "$(juju_exec_output --unit dummy-sink/0 -- secret-get --label=consumer_label_secret_owned_by_dummy_source_0)" 'owned-by: dummy-source/0'
+	check_contains "$(juju_exec_output --unit dummy-sink/0 -- secret-get --label=consumer_label_secret_owned_by_dummy_source)" 'owned-by: dummy-source-app'
 
 	echo "Set different content for $secret_owned_by_dummy_source."
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_id" foo=bar
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.revision")" '2'
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get --refresh "$secret_owned_by_dummy_source")" 'foo: bar'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-info-get "$secret_owned_by_dummy_source" --format json | yq ".${secret_owned_by_dummy_source_id}.revision")" '2'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get --refresh "$secret_owned_by_dummy_source")" 'foo: bar'
 
 	echo "Checking: secret-revoke by relation ID"
 	juju exec --unit dummy-source/0 -- secret-revoke "$secret_owned_by_dummy_source" --relation "$relation_id"
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source" 2>&1)" 'is not allowed to read this secret'
+	check_contains "$(juju_exec_output --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking: secret-revoke by app name"
 	juju exec --unit dummy-source/0 -- secret-revoke "$secret_owned_by_dummy_source_0" --app dummy-sink
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source_0" 2>&1)" 'is not allowed to read this secret'
+	check_contains "$(juju_exec_output --unit dummy-sink/0 -- secret-get "$secret_owned_by_dummy_source_0" 2>&1)" 'is not allowed to read this secret'
 
 	echo "Checking secret rotate"
 	juju exec --unit dummy-source/0 -- secret-set "$secret_owned_by_dummy_source_0" --rotate daily
@@ -120,11 +118,11 @@ check_secrets() {
 
 	echo "Checking: secret-remove"
 	juju exec --unit dummy-source/0 -- secret-remove "$secret_owned_by_dummy_source_0"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source_0" 2>&1)" 'not found'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source_0" 2>&1)" 'not found'
 	juju exec --unit dummy-source/0 -- secret-remove "$secret_owned_by_dummy_source"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source" 2>&1)" 'not found'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get "$secret_owned_by_dummy_source" 2>&1)" 'not found'
 	juju exec --unit dummy-source/0 -- secret-remove "$another_secret_owned_by_dummy_source"
-	check_contains "$(juju exec --unit dummy-source/0 -- secret-get "$another_secret_owned_by_dummy_source" 2>&1)" 'not found'
+	check_contains "$(juju_exec_output --unit dummy-source/0 -- secret-get "$another_secret_owned_by_dummy_source" 2>&1)" 'not found'
 }
 
 run_user_secrets() {
@@ -160,9 +158,9 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'info'
 
 	# grant secret to the app, and now the application can access the revision 2.
-	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
+	check_contains "$(juju_exec_output --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 	juju --show-log grant-secret mysecret "$app_name"
-	check_contains "$(juju exec --unit "$app_name/0" -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
+	check_contains "$(juju_exec_output --unit "$app_name/0" -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
 	# create a new revision 3.
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
@@ -186,9 +184,9 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
-	check_contains "$(juju exec --unit "$app_name/0" -- secret-get $secret_short_uri --peek)" "owned-by: $model_name-3"
-	check_contains "$(juju exec --unit "$app_name/0" -- secret-get $secret_short_uri --refresh)" "owned-by: $model_name-3"
-	check_contains "$(juju exec --unit "$app_name/0" -- secret-get $secret_short_uri)" "owned-by: $model_name-3"
+	check_contains "$(juju_exec_output --unit "$app_name/0" -- secret-get $secret_short_uri --peek)" "owned-by: $model_name-3"
+	check_contains "$(juju_exec_output --unit "$app_name/0" -- secret-get $secret_short_uri --refresh)" "owned-by: $model_name-3"
+	check_contains "$(juju_exec_output --unit "$app_name/0" -- secret-get $secret_short_uri)" "owned-by: $model_name-3"
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
@@ -196,7 +194,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret mysecret "$app_name"
-	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
+	check_contains "$(juju_exec_output --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
 
 	juju --show-log remove-secret mysecret
 	check_num_secrets 0
@@ -249,7 +247,7 @@ run_obsolete_revisions() {
 	juju --show-log deploy juju-qa-test
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 
-	secret_uri=$(juju --show-log exec -u juju-qa-test/0 -- secret-add foo=bar)
+	secret_uri=$(juju_exec_output -u juju-qa-test/0 -- secret-add foo=bar)
 	# Extract bare secret id (without "secret:" prefix) for matching logs and keep prefixed form for engine report keys.
 	secret_id=${secret_uri##*/}
 	secret_short_uri="secret:${secret_id}"

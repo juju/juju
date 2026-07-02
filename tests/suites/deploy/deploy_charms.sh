@@ -310,6 +310,8 @@ run_deploy_lxd_to_container() {
 	lxd_profile_0="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-0"
 	lxd_profile_1="juju-test-deploy-lxd-container-${short_uuid}-lxd-profile-alt-1"
 
+	# Not using juju_exec_output: lxc profile commands are plain system
+	# commands that produce no stderr noise.
 	OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_0}\"")
 	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
 
@@ -322,6 +324,8 @@ run_deploy_lxd_to_container() {
 
 	attempt=0
 	while true; do
+		# Not using juju_exec_output: lxc profile commands are plain
+		# system commands that produce no stderr noise.
 		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile show \"${lxd_profile_1}\"" || echo 'NOT FOUND')
 		if echo "${OUT}" | grep -E -q "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"; then
 			break
@@ -338,6 +342,8 @@ run_deploy_lxd_to_container() {
 	# Ensure that the old one is removed
 	attempt=0
 	while true; do
+		# Not using juju_exec_output: lxc profile commands are plain
+		# system commands that produce no stderr noise.
 		OUT=$(juju exec --machine 0 -- sh -c "sudo lxc profile list" || echo 'NOT FOUND')
 		if echo "${OUT}" | grep -v "${lxd_profile_0}"; then
 			break
