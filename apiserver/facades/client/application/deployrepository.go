@@ -553,21 +553,20 @@ func validateAndParseAttachStorage(input []string, numUnits int) ([]names.Storag
 	return attachStorage, errs
 }
 
-// modelTypeMismatchWarnings returns user-facing warnings when the charm's type
-// (machine vs Kubernetes) does not match the model type. It is advisory only and
-// never blocks the deploy. The warnings are both logged (for clients that do not
-// render result warnings, e.g. some API-only callers) and returned so they can
-// be surfaced on the deploying client's terminal.
-func (v *deployFromRepositoryValidator) modelTypeMismatchWarnings(ctx context.Context, meta *charm.Meta) []string {
+// modelTypeMismatch checks the charm's type against the model type: a
+// Kubernetes charm on a machine model is rejected with an error, while a
+// charm declaring no containers on a Kubernetes model only yields an advisory
+// warning, which is also logged for clients that do not render result
+// warnings.
+func (v *deployFromRepositoryValidator) modelTypeMismatch(ctx context.Context, meta *charm.Meta) (string, error) {
 	if meta == nil {
-		return nil
+		return "", nil
 	}
-	warning := meta.ModelMismatchWarning(v.modelInfo.Type == coremodel.CAAS, v.modelInfo.Name)
-	if warning == "" {
-		return nil
+	warning, err := meta.ModelMismatch(v.modelInfo.Type == coremodel.CAAS, v.modelInfo.Name)
+	if warning != "" {
+		v.logger.Warningf(ctx, "%s", warning)
 	}
-	v.logger.Warningf(ctx, "%s", warning)
-	return []string{warning}
+	return warning, err
 }
 
 func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Context, resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
@@ -648,6 +647,22 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 		v.logger.Warningf(ctx, "proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
 	}
 
+	// A Kubernetes charm can never run its workload on a machine model, so it
+	// is rejected outright unless --force is given; the inverse direction
+	// cannot be determined with certainty, so it only warns.
+	warning, mismatchErr := v.modelTypeMismatch(ctx, resolvedCharm.Meta())
+	if mismatchErr != nil {
+		if !arg.Force {
+			errs = append(errs, mismatchErr)
+		} else {
+			v.logger.Warningf(ctx, "proceeding with deployment of application even though the charm and model types do not match as --force was specified")
+		}
+	}
+	var warnings []string
+	if warning != "" {
+		warnings = []string{warning}
+	}
+
 	dt := deployTemplate{
 		trust:             arg.Trust || trustFromYAML,
 		applicationName:   appName,
@@ -656,7 +671,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 		constraints:       cons,
 		numUnits:          numUnits,
 		resources:         arg.Resources,
-		warnings:          v.modelTypeMismatchWarnings(ctx, resolvedCharm.Meta()),
+		warnings:          warnings,
 	}
 
 	return dt, errs

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
@@ -175,35 +176,55 @@ func (s *deployRepositorySuite) expectValidator() deployFromRepositoryValidator 
 	return validator
 }
 
-func (s *deployRepositorySuite) TestModelTypeMismatchWarningsK8sCharmOnMachineModel(c *tc.C) {
+func (s *deployRepositorySuite) TestModelTypeMismatchK8sCharmOnMachineModel(c *tc.C) {
 	v := deployFromRepositoryValidator{
 		modelInfo: coremodel.ModelInfo{Type: coremodel.IAAS, Name: "machinemodel"},
 		logger:    loggertesting.WrapCheckLog(c),
 	}
+	// A sidecar charm on a machine model is unambiguous: error.
 	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
-	warnings := v.modelTypeMismatchWarnings(c.Context(), meta)
+	warning, err := v.modelTypeMismatch(c.Context(), meta)
 
-	c.Assert(warnings, tc.HasLen, 1)
-	c.Check(warnings[0], tc.Equals,
-		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine model; its workload will not run`)
+	c.Check(warning, tc.Equals, "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
 }
 
-func (s *deployRepositorySuite) TestModelTypeMismatchWarningsNilMeta(c *tc.C) {
+func (s *deployRepositorySuite) TestModelTypeMismatchMachineCharmOnK8sModel(c *tc.C) {
 	v := deployFromRepositoryValidator{
 		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
 		logger:    loggertesting.WrapCheckLog(c),
 	}
-	c.Check(v.modelTypeMismatchWarnings(c.Context(), nil), tc.HasLen, 0)
+	// A charm with no containers on a Kubernetes model: warn only.
+	meta := &charm.Meta{Name: "mysql"}
+	warning, err := v.modelTypeMismatch(c.Context(), meta)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals,
+		`"mysql" declares no containers but "k8smodel" is a Kubernetes model; it has no workload to run there`)
 }
 
-func (s *deployRepositorySuite) TestModelTypeMismatchWarningsConsistent(c *tc.C) {
+func (s *deployRepositorySuite) TestModelTypeMismatchNilMeta(c *tc.C) {
 	v := deployFromRepositoryValidator{
 		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
 		logger:    loggertesting.WrapCheckLog(c),
 	}
-	// A sidecar charm on a Kubernetes model is consistent: no warning.
+	warning, err := v.modelTypeMismatch(c.Context(), nil)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchConsistent(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	// A sidecar charm on a Kubernetes model is consistent: no warning, no error.
 	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
-	c.Check(v.modelTypeMismatchWarnings(c.Context(), meta), tc.HasLen, 0)
+	warning, err := v.modelTypeMismatch(c.Context(), meta)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
 }
 
 // TestDeployFromRepositoryReturnsWarningsOnError checks that advisory warnings

@@ -53,34 +53,46 @@ func (s *MetaSuite) TestIsSidecar(c *tc.C) {
 	c.Check(emptyContainers.IsSidecar(), tc.IsFalse)
 }
 
-func (s *MetaSuite) TestModelMismatchWarningK8sCharmOnMachineModel(c *tc.C) {
-	// A sidecar charm deployed to a machine model: warn.
+func (s *MetaSuite) TestModelMismatchK8sCharmOnMachineModel(c *tc.C) {
+	// A sidecar charm deployed to a machine model is unambiguous: error.
 	meta := charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
-	c.Check(meta.ModelMismatchWarning(false, "machinemodel"), tc.Equals,
-		`"redis-k8s" is a Kubernetes charm (it declares containers) but "machinemodel" is a machine model; its workload will not run`)
+	warning, err := meta.ModelMismatch(false, "machinemodel")
+	c.Check(warning, tc.Equals, "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+	c.Check(err, tc.ErrorMatches,
+		`"redis-k8s" is a Kubernetes charm \(it declares containers\) but "machinemodel" is a machine model; its workload will not run`)
 }
 
-func (s *MetaSuite) TestModelMismatchWarningMachineCharmOnK8sModel(c *tc.C) {
-	// A charm with no containers deployed to a Kubernetes model: warn.
+func (s *MetaSuite) TestModelMismatchMachineCharmOnK8sModel(c *tc.C) {
+	// A charm with no containers deployed to a Kubernetes model cannot be
+	// classified with certainty: warn only.
 	meta := charm.Meta{Name: "mysql"}
-	c.Check(meta.ModelMismatchWarning(true, "k8smodel"), tc.Equals,
+	warning, err := meta.ModelMismatch(true, "k8smodel")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals,
 		`"mysql" declares no containers but "k8smodel" is a Kubernetes model; it has no workload to run there`)
 }
 
-func (s *MetaSuite) TestModelMismatchWarningNoMismatch(c *tc.C) {
+func (s *MetaSuite) TestModelMismatchNone(c *tc.C) {
 	sidecar := charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
 	machine := charm.Meta{Name: "mysql"}
 
-	// Correct placements produce no warning.
-	c.Check(sidecar.ModelMismatchWarning(true, "k8smodel"), tc.Equals, "")
-	c.Check(machine.ModelMismatchWarning(false, "machinemodel"), tc.Equals, "")
+	// Correct placements produce no warning and no error.
+	warning, err := sidecar.ModelMismatch(true, "k8smodel")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
+	warning, err = machine.ModelMismatch(false, "machinemodel")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
 }
 
-func (s *MetaSuite) TestModelMismatchWarningSubordinateNotWarnedOnK8s(c *tc.C) {
+func (s *MetaSuite) TestModelMismatchSubordinateNotWarnedOnK8s(c *tc.C) {
 	// Subordinates declare no containers but are machine charms by nature; they
 	// must not be flagged as "machine charm on k8s".
 	sub := charm.Meta{Name: "nrpe", Subordinate: true}
-	c.Check(sub.ModelMismatchWarning(true, "k8smodel"), tc.Equals, "")
+	warning, err := sub.ModelMismatch(true, "k8smodel")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
 }
 
 func (s *MetaSuite) TestReadMetaVersion1(c *tc.C) {

@@ -287,27 +287,29 @@ func (m Meta) IsSidecar() bool {
 	return len(m.Containers) > 0
 }
 
-// ModelMismatchWarning returns a user-facing warning when the charm's type
-// does not match the type of model it is being deployed to:
-//   - a Kubernetes (sidecar) charm deployed to a machine model, or
-//   - a charm declaring no containers deployed to a Kubernetes model.
-//
-// Subordinate charms declare no containers but are machine charms by nature, so
-// they are never flagged on a Kubernetes model. It returns the empty string
-// when the placement is consistent. This is messaging-only and never blocks a
-// deploy.
-func (m Meta) ModelMismatchWarning(isK8s bool, modelName string) string {
+// ModelMismatch checks the charm's type against the type of the model it is
+// being deployed to. A Kubernetes (sidecar) charm deployed to a machine model
+// is unambiguous — its declared workload containers can never run — so it is
+// rejected. A charm declaring no containers deployed to a Kubernetes model
+// cannot be classified with certainty (charm metadata has no positive machine
+// charm marker), so it yields an advisory warning instead; subordinate charms
+// declare no containers but are machine charms by nature and are never
+// flagged. Both returns are empty when the placement is consistent.
+// The following errors may be returned:
+//   - [coreerrors.NotSupported] when a Kubernetes charm is deployed to a
+//     machine model.
+func (m Meta) ModelMismatch(isK8s bool, modelName string) (string, error) {
 	switch {
 	case !isK8s && m.IsSidecar():
-		return fmt.Sprintf(
+		return "", internalerrors.Errorf(
 			"%q is a Kubernetes charm (it declares containers) but %q is a machine model; its workload will not run",
-			m.Name, modelName)
+			m.Name, modelName).Add(coreerrors.NotSupported)
 	case isK8s && !m.IsSidecar() && !m.Subordinate:
 		return fmt.Sprintf(
 			"%q declares no containers but %q is a Kubernetes model; it has no workload to run there",
-			m.Name, modelName)
+			m.Name, modelName), nil
 	}
-	return ""
+	return "", nil
 }
 
 // Container specifies the possible systems it supports and mounts it wants.

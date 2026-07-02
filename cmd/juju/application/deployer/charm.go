@@ -66,23 +66,24 @@ func checkCharmFormat(ctx context.Context, m ModelCommand, charmInfo *apicharms.
 	return nil
 }
 
-// modelTypeMismatchWarning returns a warning when the charm's type (machine vs
-// Kubernetes) does not match the type of model it is being deployed to, or the
-// empty string when they are consistent. It is advisory only.
-func modelTypeMismatchWarning(ctx context.Context, m ModelCommand, meta *charm.Meta) string {
+// modelTypeMismatch checks the charm's type against the type of the model it
+// is being deployed to: a Kubernetes charm on a machine model is rejected with
+// an error, while a charm declaring no containers on a Kubernetes model only
+// yields an advisory warning.
+func modelTypeMismatch(ctx context.Context, m ModelCommand, meta *charm.Meta) (string, error) {
 	if meta == nil {
-		return ""
+		return "", nil
 	}
 	modelType, err := m.ModelType(ctx)
 	if err != nil {
-		return ""
+		return "", nil
 	}
 	modelName, _, err := m.ModelDetails(ctx)
 	if err != nil || modelName == "" {
 		// The model name is cosmetic; avoid emitting an empty quoted name.
 		modelName = "the target model"
 	}
-	return meta.ModelMismatchWarning(modelType == model.CAAS, modelName)
+	return meta.ModelMismatch(modelType == model.CAAS, modelName)
 }
 
 // deploy is the business logic of deploying a charm after
@@ -96,9 +97,17 @@ func (d *deployCharm) deploy(
 	if err != nil {
 		return err
 	}
-	// Warn (without blocking) if the charm's type does not match the model type,
-	// e.g. a Kubernetes charm on a machine model or vice versa.
-	if warning := modelTypeMismatchWarning(ctx, d.model, charmInfo.Meta); warning != "" {
+	// A Kubernetes charm can never run its workload on a machine model, so it
+	// is rejected outright unless --force is given; the inverse direction
+	// cannot be determined with certainty, so it only warns.
+	warning, mismatchErr := modelTypeMismatch(ctx, d.model, charmInfo.Meta)
+	if mismatchErr != nil {
+		if !d.force {
+			return mismatchErr
+		}
+		ctx.Warningf("%s", mismatchErr.Error())
+	}
+	if warning != "" {
 		ctx.Warningf("%s", warning)
 	}
 
