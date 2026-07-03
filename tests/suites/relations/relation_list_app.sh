@@ -22,7 +22,7 @@ run_relation_list_app() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source" 1 0)"
 
 	echo "Figure out the right relation IDs to use for our hook tool invocations"
-	sink_rel_id=$(juju exec --unit dummy-source/0 "relation-ids sink" | cut -d':' -f2)
+	sink_rel_id=$(juju_exec_output --unit dummy-source/0 "relation-ids sink" | cut -d':' -f2)
 
 	echo "Remove dummy-sink unit"
 	# the dummy-sink-source relation is still established but there are no units present in the dummy-sink side
@@ -30,7 +30,7 @@ run_relation_list_app() {
 	wait_for null '.applications."dummy-sink".units."dummy-sink/0"'
 
 	echo "Check relation-list hook"
-	juju exec --unit dummy-source/0 "relation-list --app -r ${sink_rel_id}" | check "dummy-sink"
+	juju_exec_output --unit dummy-source/0 "relation-list --app -r ${sink_rel_id}" | check "dummy-sink"
 
 	destroy_model "${model_name}"
 }

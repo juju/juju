@@ -54,8 +54,8 @@ run_secret_drain() {
 	wait_for "active" '.applications["ubuntu-lite"] | ."application-status".current'
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite" 0)"
 
-	secret_owned_by_unit=$(juju exec --unit ubuntu-lite/0 -- secret-add --owner unit owned-by=ubuntu-lite/0)
-	secret_owned_by_app=$(juju exec --unit ubuntu-lite/0 -- secret-add owned-by=ubuntu-lite-app)
+	secret_owned_by_unit=$(juju_exec_output --unit ubuntu-lite/0 -- secret-add --owner unit owned-by=ubuntu-lite/0)
+	secret_owned_by_app=$(juju_exec_output --unit ubuntu-lite/0 -- secret-add owned-by=ubuntu-lite-app)
 
 	juju show-secret --reveal "$secret_owned_by_unit"
 	juju show-secret --reveal "$secret_owned_by_app"
@@ -117,7 +117,7 @@ run_user_secret_drain() {
 	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | yq length)" 1
 
 	juju --show-log grant-secret "$secret_uri" ubuntu-lite
-	check_contains "$(juju exec --unit ubuntu-lite/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+	check_contains "$(juju_exec_output --unit ubuntu-lite/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
 	# change the secret backend to internal.
 	juju model-config secret-backend=auto
@@ -151,7 +151,7 @@ run_user_secret_drain() {
 	done
 
 	# ensure the application can still read the user secret.
-	check_contains "$(juju exec --unit ubuntu-lite/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+	check_contains "$(juju_exec_output --unit ubuntu-lite/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
 	juju show-secret --reveal mysecret
 	juju show-secret --reveal anothersecret
