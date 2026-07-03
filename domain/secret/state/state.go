@@ -168,7 +168,7 @@ func (st State) ReserveSecretURIs(ctx context.Context, unitUUID coreunit.UUID, s
 		return errors.Capture(err)
 	}
 
-	now := time.Now().UTC()
+	now := st.clock.Now().UTC()
 	reservations := make([]secretReservation, len(secretIDs))
 	for i, id := range secretIDs {
 		reservations[i] = secretReservation{
