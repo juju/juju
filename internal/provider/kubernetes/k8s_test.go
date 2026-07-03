@@ -842,6 +842,71 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *tc.C) {
 	c.Assert(caasSvc, tc.DeepEquals, &caas.Service{})
 }
 
+// TestGetServiceSkipsLabelledHeadlessService verifies that GetService excludes
+// a headless service identified by the LabelJujuServiceType label, even when
+// its name does not carry the legacy "-endpoints" suffix, and returns the
+// routable service instead.
+func (s *K8sBrokerSuite) TestGetServiceSkipsLabelledHeadlessService(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
+	labels := k8sutils.LabelsMerge(selectorLabels, k8sutils.LabelsJuju)
+	selector := k8sutils.LabelsToSelector(labels).String()
+
+	// A headless service whose name does NOT end in "-endpoints"; it must be
+	// filtered out via the label, not the legacy suffix.
+	headlessLabels := k8sutils.LabelsMerge(labels, map[string]string{
+		"service.juju.is/type": "endpoints",
+	})
+	svcHeadless := core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name-dqlite",
+			Labels: headlessLabels,
+		},
+		Spec: core.ServiceSpec{
+			Selector:                 selectorLabels,
+			Type:                     core.ServiceTypeClusterIP,
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+	svc := core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: labels,
+		},
+		Spec: core.ServiceSpec{
+			Selector:       selectorLabels,
+			Type:           core.ServiceTypeLoadBalancer,
+			LoadBalancerIP: "10.0.0.1",
+		},
+	}
+	svc.SetUID("uid-xxxxx")
+
+	gomock.InOrder(
+		// Return the headless service first to ensure it is skipped rather
+		// than being picked as the primary service.
+		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: selector}).
+			Return(&core.ServiceList{Items: []core.Service{svcHeadless, svc}}, nil),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	caasSvc, err := s.broker.GetService(c.Context(), "app-name", false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(caasSvc.Id, tc.Equals, "uid-xxxxx")
+	c.Assert(caasSvc.Addresses, tc.DeepEquals, network.ProviderAddresses{
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+	})
+}
+
 func (s *K8sBrokerSuite) assertGetService(c *tc.C, expectedSvcResult *caas.Service, assertCalls ...any) {
 	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
 	labels := k8sutils.LabelsMerge(selectorLabels, k8sutils.LabelsJuju)

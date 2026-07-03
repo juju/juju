@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
@@ -649,7 +649,7 @@ func (k *kubernetesClient) GetService(ctx context.Context, appName string, inclu
 		for _, v := range servicesList.Items {
 			s := v
 			// Ignore any headless service for this app.
-			if !strings.HasSuffix(s.Name, "-endpoints") {
+			if !application.IsManagedHeadlessService(s) {
 				svc = &s
 				break
 			}
