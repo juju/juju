@@ -87,3 +87,87 @@ func (s *importSuite) TestImportSecretBackendReferencesLookupError(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIs, expected)
 }
+
+// TestGetSecretBackendReferenceMapping resolves the revision→target-backend-UUID
+// map read-only: it looks up each distinct backend name once and writes no
+// references.
+func (s *importSuite) TestGetSecretBackendReferenceMapping(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	backend := &secretbackend.SecretBackend{ID: uuid.MustNewUUID().String(), Name: "vault"}
+
+	// One lookup for the two same-named refs; no AddSecretBackendReference.
+	s.state.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{Name: "vault"}).
+		Return(backend, nil)
+
+	revisionMap, err := NewService(s.state, loggertesting.WrapCheckLog(c)).GetSecretBackendReferenceMapping(
+		c.Context(),
+		[]coremodelmigration.SecretBackendReference{{
+			BackendName:        "vault",
+			SecretRevisionUUID: "rev-1",
+			SecretID:           "secret:1",
+		}, {
+			BackendName:        "vault",
+			SecretRevisionUUID: "rev-2",
+			SecretID:           "secret:2",
+		}},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revisionMap, tc.DeepEquals, map[string]string{
+		"rev-1": backend.ID,
+		"rev-2": backend.ID,
+	})
+}
+
+func (s *importSuite) TestGetSecretBackendReferenceMappingDistinctBackends(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	vault := &secretbackend.SecretBackend{ID: uuid.MustNewUUID().String(), Name: "vault"}
+	k8s := &secretbackend.SecretBackend{ID: uuid.MustNewUUID().String(), Name: "k8s"}
+
+	s.state.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{Name: "vault"}).
+		Return(vault, nil)
+	s.state.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{Name: "k8s"}).
+		Return(k8s, nil)
+
+	revisionMap, err := NewService(s.state, loggertesting.WrapCheckLog(c)).GetSecretBackendReferenceMapping(
+		c.Context(),
+		[]coremodelmigration.SecretBackendReference{{
+			BackendName:        "vault",
+			SecretRevisionUUID: "rev-1",
+		}, {
+			BackendName:        "k8s",
+			SecretRevisionUUID: "rev-2",
+		}},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revisionMap, tc.DeepEquals, map[string]string{
+		"rev-1": vault.ID,
+		"rev-2": k8s.ID,
+	})
+}
+
+func (s *importSuite) TestGetSecretBackendReferenceMappingEmpty(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	revisionMap, err := NewService(s.state, loggertesting.WrapCheckLog(c)).GetSecretBackendReferenceMapping(
+		c.Context(), nil,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(revisionMap, tc.IsNil)
+}
+
+func (s *importSuite) TestGetSecretBackendReferenceMappingLookupError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	expected := errors.New("boom")
+	s.state.EXPECT().GetSecretBackend(gomock.Any(), secretbackend.BackendIdentifier{Name: "vault"}).
+		Return(nil, expected)
+
+	revisionMap, err := NewService(s.state, loggertesting.WrapCheckLog(c)).GetSecretBackendReferenceMapping(
+		c.Context(),
+		[]coremodelmigration.SecretBackendReference{{BackendName: "vault", SecretRevisionUUID: "rev-1"}},
+	)
+	c.Assert(err, tc.ErrorIs, expected)
+	c.Check(revisionMap, tc.IsNil)
+}
