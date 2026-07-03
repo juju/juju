@@ -6,10 +6,12 @@ package backends
 import (
 	"context"
 
+	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 	"github.com/prometheus/client_golang/prometheus"
 
+	corelogger "github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/loki"
 	"github.com/juju/juju/internal/worker/logsender"
@@ -27,6 +29,23 @@ type LokiConfig struct {
 	NewClient            NewLokiClientFunc
 }
 
+// Validate checks that the Loki backend config is usable.
+func (c LokiConfig) Validate() error {
+	if c.BackendBufferSize <= 0 {
+		return errors.NotValidf("non-positive BackendBufferSize")
+	}
+	if c.Endpoint == "" {
+		return errors.NotValidf("empty Endpoint")
+	}
+	if c.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
+	if c.NewClient == nil {
+		return errors.NotValidf("nil NewClient")
+	}
+	return nil
+}
+
 // LokiClient is the Loki push client surface used by the backend.
 type LokiClient interface {
 	worker.Worker
@@ -38,33 +57,41 @@ type LokiClient interface {
 type NewLokiClientFunc func(string, loki.Config) (LokiClient, error)
 
 type lokiBackend struct {
-	catacomb catacomb.Catacomb
-	cfg      LokiConfig
-	client   LokiClient
-	records  logsender.LogRecordCh
+	catacomb         catacomb.Catacomb
+	cfg              LokiConfig
+	client           LokiClient
+	metricsCollector *loki.Collector
+	records          logsender.LogRecordCh
 }
 
 // NewLoki returns a backend that sends log records to a Loki endpoint.
 func NewLoki(cfg LokiConfig) (Backend, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
 	client, err := cfg.NewClient(cfg.Endpoint, cfg.ClientConfig)
 	if err != nil {
 		return nil, internalerrors.Capture(err)
 	}
-	var metricsCollector *loki.Collector
-	if cfg.PrometheusRegisterer != nil {
-		if source, ok := client.(loki.MetricsSource); ok {
-			metricsCollector = loki.NewMetricsCollector(source)
-			if err := cfg.PrometheusRegisterer.Register(metricsCollector); err != nil {
-				client.Kill()
-				_ = client.Wait()
-				return nil, internalerrors.Capture(err)
-			}
-		}
+	source, ok := client.(loki.MetricsSource)
+	if !ok {
+		client.Kill()
+		_ = client.Wait()
+		return nil, errors.NotValidf("loki client metrics source")
+	}
+	metricsCollector := loki.NewMetricsCollector(source)
+	_ = cfg.PrometheusRegisterer.Unregister(metricsCollector)
+	if err := cfg.PrometheusRegisterer.Register(metricsCollector); err != nil {
+		client.Kill()
+		_ = client.Wait()
+		return nil, internalerrors.Capture(err)
 	}
 	w := &lokiBackend{
-		cfg:     cfg,
-		client:  client,
-		records: make(logsender.LogRecordCh, cfg.BackendBufferSize),
+		cfg:              cfg,
+		client:           client,
+		metricsCollector: metricsCollector,
+		records:          make(logsender.LogRecordCh, cfg.BackendBufferSize),
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Name: "log-router-loki",
@@ -74,18 +101,10 @@ func NewLoki(cfg LokiConfig) (Backend, error) {
 			client,
 		},
 	}); err != nil {
-		if metricsCollector != nil {
-			_ = cfg.PrometheusRegisterer.Unregister(metricsCollector)
-		}
+		_ = cfg.PrometheusRegisterer.Unregister(metricsCollector)
 		client.Kill()
 		_ = client.Wait()
 		return nil, internalerrors.Capture(err)
-	}
-	if metricsCollector != nil {
-		go func() {
-			_ = w.Wait()
-			_ = cfg.PrometheusRegisterer.Unregister(metricsCollector)
-		}()
 	}
 	return w, nil
 }
@@ -105,6 +124,19 @@ func (w *lokiBackend) LogRecords() logsender.LogRecordCh {
 	return w.records
 }
 
+// Log implements corelogger.LogSink by converting records to the internal
+// logsender format and submitting them to the backend's record channel.
+func (w *lokiBackend) Log(records []corelogger.LogRecord) error {
+	return sendRecords(w.records, records)
+}
+
+// WatchRefresh implements corelogger.LogSink. Individual backends never
+// change their underlying target; refresh signalling is handled by the log
+// router when switching backends.
+func (w *lokiBackend) WatchRefresh() <-chan struct{} {
+	return corelogger.NoRefresh()
+}
+
 // Report returns a report of the backend's current state.
 func (w *lokiBackend) Report(ctx context.Context) map[string]any {
 	return map[string]any{
@@ -114,6 +146,10 @@ func (w *lokiBackend) Report(ctx context.Context) map[string]any {
 }
 
 func (w *lokiBackend) loop() error {
+	defer func() {
+		_ = w.cfg.PrometheusRegisterer.Unregister(w.metricsCollector)
+	}()
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -126,12 +162,20 @@ func (w *lokiBackend) loop() error {
 			if rec == nil {
 				continue
 			}
+			modelUUID := w.cfg.ModelUUID
+			if rec.ModelUUID != "" {
+				modelUUID = rec.ModelUUID
+			}
+			agentID := w.cfg.AgentID
+			if rec.Entity != "" {
+				agentID = rec.Entity
+			}
 			if err := w.client.Push(loki.Record{
 				Timestamp:      rec.Time,
 				Line:           rec.Message,
 				ControllerUUID: w.cfg.ControllerUUID,
-				ModelUUID:      w.cfg.ModelUUID,
-				AgentID:        w.cfg.AgentID,
+				ModelUUID:      modelUUID,
+				AgentID:        agentID,
 				Fields: map[string]string{
 					"module":   rec.Module,
 					"location": rec.Location,

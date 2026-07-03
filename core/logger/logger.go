@@ -223,6 +223,19 @@ type LoggerKey struct {
 // LogSink provides a log sink that writes log messages to a file.
 type LogSink interface {
 	LogWriter
+
+	// WatchRefresh returns a channel that receives a value whenever the
+	// underlying sink implementation changes, signalling that clients
+	// should re-bind to the sink. Sinks whose implementation never
+	// changes return a channel that never fires.
+	WatchRefresh() <-chan struct{}
+}
+
+// NoRefresh returns a channel that never fires. It is intended for use by
+// LogSink implementations whose underlying target never changes, such as a
+// file-backed sink or a drain.
+func NoRefresh() <-chan struct{} {
+	return make(chan struct{})
 }
 
 // TaggedRedirectWriter is a log writer that conforms to a loggo.Writer, but

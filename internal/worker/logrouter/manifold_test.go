@@ -7,6 +7,8 @@ import (
 	"context"
 	stderrors "errors"
 	"net/http"
+	"slices"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -18,8 +20,10 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	corehttp "github.com/juju/juju/core/http"
+	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/loki"
+	"github.com/juju/juju/internal/worker/logsender"
 )
 
 type manifoldSuite struct{}
@@ -36,6 +40,15 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 	})
 
 	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "api-caller", "http-client"})
+}
+
+func (s *manifoldSuite) TestControllerInputs(c *tc.C) {
+	manifold := ControllerManifold(ControllerManifoldConfig{
+		AgentName:      "agent",
+		HTTPClientName: "http-client",
+	})
+
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "http-client"})
 }
 
 func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
@@ -79,6 +92,19 @@ func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
 	defer workertest.CleanKill(c, w)
 }
 
+func (s *manifoldSuite) TestControllerStartCreatesWorkerWithoutAPICaller(c *tc.C) {
+	fixture := newFixture(c, "http://loki/loki/api/v1/push")
+	cfg := s.validControllerManifoldConfig(c)
+	manifold := ControllerManifold(cfg)
+
+	w, err := manifold.Start(c.Context(), manifoldGetter{
+		agent: fixture.agent,
+		http:  stubHTTPClientGetter{},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+}
+
 func (s *manifoldSuite) TestNewBackendUpdatesLokiCACert(c *tc.C) {
 	client := &recordingCACertUpdaterClient{}
 	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock, prometheus.NewRegistry())
@@ -109,21 +135,136 @@ func (s *manifoldSuite) TestNewBackendReturnsCACertUpdateError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, expectErr)
 }
 
+func (s *manifoldSuite) TestNewControllerBackendUsesLocalSinkForLogSinkMode(c *tc.C) {
+	sink := &recordingLogSink{done: make(chan struct{}, 1)}
+	backendFunc := NewControllerBackend(
+		sink,
+		stubHTTPClient{},
+		clock.WallClock,
+		prometheus.NewRegistry(),
+	)
+
+	backend, err := backendFunc(BackendTypeLogSink, ConfigSnapshot{
+		Mode: BackendTypeLogSink,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	backend.LogRecords() <- &logsender.LogRecord{
+		Message:   "hello",
+		ModelUUID: "model-uuid",
+		Entity:    "unit-foo-0",
+	}
+
+	select {
+	case <-sink.done:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for local sink write")
+	}
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	c.Check(sink.records, tc.DeepEquals, []corelogger.LogRecord{{
+		Message:   "hello",
+		ModelUUID: "model-uuid",
+		Entity:    "unit-foo-0",
+	}})
+}
+
+func (s *manifoldSuite) TestNewControllerBackendUsesDrainBackendForDrainMode(c *tc.C) {
+	sink := &recordingLogSink{done: make(chan struct{}, 1)}
+	backendFunc := NewControllerBackend(
+		sink,
+		stubHTTPClient{},
+		clock.WallClock,
+		prometheus.NewRegistry(),
+	)
+
+	backend, err := backendFunc(BackendTypeDrain, ConfigSnapshot{
+		Mode: BackendTypeDrain,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	backend.LogRecords() <- &logsender.LogRecord{
+		Message:   "drained",
+		ModelUUID: "model-uuid",
+		Entity:    "unit-foo-0",
+	}
+
+	for {
+		report := backend.Report(c.Context())
+		c.Assert(report["name"], tc.Equals, "drain-backend")
+		if report["bufferedRecords"] == 0 {
+			break
+		}
+		select {
+		case <-c.Context().Done():
+			c.Fatal("timed out waiting for drain backend to consume record")
+		default:
+		}
+	}
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	c.Check(sink.records, tc.HasLen, 0)
+}
+
+func (s *manifoldSuite) TestNewControllerBackendUsesLokiBackendForLokiMode(c *tc.C) {
+	sink := &recordingLogSink{done: make(chan struct{}, 1)}
+	backendFunc := NewControllerBackend(
+		sink,
+		stubHTTPClient{},
+		clock.WallClock,
+		prometheus.NewRegistry(),
+	)
+
+	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
+		Mode:      BackendTypeLoki,
+		Endpoint:  "http://loki/loki/api/v1/push",
+		ModelUUID: "model-uuid",
+		AgentID:   "machine-0",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	report := backend.Report(c.Context())
+	c.Check(report["name"], tc.Equals, "loki-backend")
+
+	sink.mu.Lock()
+	defer sink.mu.Unlock()
+	c.Check(sink.records, tc.HasLen, 0)
+}
+
 func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ManifoldConfig{
-		AgentName:          "agent",
-		APICallerName:      "api-caller",
-		HTTPClientName:     "http-client",
-		LogSource:          fixture.logs,
-		AgentConfigChanged: fixture.configChanged,
-		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
-		Clock:              clock.WallClock,
+		AgentName:            "agent",
+		APICallerName:        "api-caller",
+		HTTPClientName:       "http-client",
+		LogSource:            fixture.logs,
+		AgentConfigChanged:   fixture.configChanged,
+		Logger:               internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                clock.WallClock,
+		PrometheusRegisterer: prometheus.NewRegistry(),
 		NewBackendFunc: func(base.APICaller, loki.HTTPClient, clock.Clock, prometheus.Registerer) BackendFunc {
 			return recordingBackendFunc(make(chan backendEvent, 10), defaultBackendBufferSize)
 		},
 		RemoveLegacyLogSinkWriter: func() {},
 		AddLegacyLogSinkWriter:    func() error { return nil },
+	}
+}
+
+func (s *manifoldSuite) validControllerManifoldConfig(c *tc.C) ControllerManifoldConfig {
+	fixture := newFixture(c, "http://loki/loki/api/v1/push")
+	return ControllerManifoldConfig{
+		AgentName:            "agent",
+		HTTPClientName:       "http-client",
+		AgentConfigChanged:   fixture.configChanged,
+		Logger:               internallogger.GetLogger("juju.worker.logrouter.test"),
+		Clock:                clock.WallClock,
+		PrometheusRegisterer: prometheus.NewRegistry(),
+		LocalLogSink:         &recordingLogSink{},
+		NewBackendFunc:       NewControllerBackend,
 	}
 }
 
@@ -188,6 +329,30 @@ type stubHTTPClient struct{}
 
 func (stubHTTPClient) Do(*http.Request) (*http.Response, error) {
 	return nil, nil
+}
+
+type recordingLogSink struct {
+	mu      sync.Mutex
+	records []corelogger.LogRecord
+	done    chan struct{}
+}
+
+func (r *recordingLogSink) Log(records []corelogger.LogRecord) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.done == nil {
+		r.done = make(chan struct{}, 1)
+	}
+	r.records = append(r.records, slices.Clone(records)...)
+	select {
+	case r.done <- struct{}{}:
+	default:
+	}
+	return nil
+}
+
+func (r *recordingLogSink) WatchRefresh() <-chan struct{} {
+	return corelogger.NoRefresh()
 }
 
 type recordingCACertUpdaterClient struct {

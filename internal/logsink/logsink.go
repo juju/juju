@@ -87,6 +87,12 @@ func (w *LogSink) Log(records []logger.LogRecord) error {
 	}
 }
 
+// WatchRefresh implements logger.LogSink. The file-backed sink never
+// changes its underlying target, so the returned channel never fires.
+func (w *LogSink) WatchRefresh() <-chan struct{} {
+	return logger.NoRefresh()
+}
+
 // Kill stops the writer.
 func (w *LogSink) Kill() {
 	w.tomb.Kill(nil)

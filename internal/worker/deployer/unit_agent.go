@@ -340,6 +340,26 @@ func (a *UnitAgent) CurrentConfig() agent.Config {
 	return a.agentConf.Clone()
 }
 
+func (a *UnitAgent) syncLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string) (bool, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	current := a.agentConf.Clone()
+	if current.LokiEndpoint() == endpoint &&
+		current.LokiCACert() == stringValue(caCert) &&
+		boolPtrEqual(current.LokiInsecureSkipVerify(), insecureSkipVerify) &&
+		current.LokiOrgID() == orgID {
+		return false, nil
+	}
+
+	a.agentConf.SetLokiConfig(endpoint, caCert, insecureSkipVerify, orgID)
+	if err := a.agentConf.Write(); err != nil {
+		return false, errors.Trace(err)
+	}
+	a.configChangedVal.Set(true)
+	return true, nil
+}
+
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
 func (a *UnitAgent) validateMigration(ctx context.Context, apiCaller base.APICaller) error {
@@ -360,4 +380,21 @@ func (a *UnitAgent) validateMigration(ctx context.Context, apiCaller base.APICal
 			newModelUUID, curModelUUID)
 	}
 	return nil
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func boolPtrEqual(a, b *bool) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
