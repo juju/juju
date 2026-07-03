@@ -32,7 +32,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 	for name := range manifolds {
 		actual.Add(name)
 	}
-	// NOTE: if this test failed, the cmd/jujud/agent tests will
+	// NOTE: if this test failed, the cmd/jujuagentd/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), tc.SameContents, []string{
 		"agent-binary-fetcher",
@@ -72,7 +72,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 	for name := range manifolds {
 		actual.Add(name)
 	}
-	// NOTE: if this test failed, the cmd/jujud/agent tests will
+	// NOTE: if this test failed, the cmd/jujuagentd/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), tc.SameContents, []string{
 		"api-remote-relation-caller",

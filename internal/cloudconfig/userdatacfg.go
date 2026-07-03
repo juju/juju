@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	jujunames "github.com/juju/juju/juju/names"
@@ -484,49 +483,6 @@ func (w *userdataConfig) configureBootstrap() error {
 		return errors.Annotate(err, "marshalling bootstrap params")
 	}
 	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0600)
-
-	// Write the controller runtime config before the bootstrap agent runs.
-	// This provides Dqlite startup values for the controller process without
-	// requiring access to machine-agent config.
-	controllerAgentDir := path.Join(
-		w.icfg.DataDir, "agents", "controller-"+agent.BootstrapControllerId,
-	)
-	logSinkBurst, logSinkRefill, err := controllerruntimeconfig.ParseLogSinkRateLimits(w.icfg.AgentEnvironment)
-	if err != nil {
-		return errors.Annotate(err, "parsing log-sink rate limits")
-	}
-	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:                agent.BootstrapControllerId,
-		ControllerUUID:              w.icfg.ControllerTag.Id(),
-		ControllerModelUUID:         w.icfg.APIInfo.ModelTag.Id(),
-		DataDir:                     w.icfg.DataDir,
-		LoopbackPreferred:           false,
-		LogDir:                      w.icfg.LogDir,
-		APIPort:                     w.icfg.Bootstrap.ControllerAgentInfo.APIPort,
-		AgentPassword:               w.icfg.APIInfo.Password,
-		LoggingConfig:               w.icfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
-		LoggingOverride:             w.icfg.AgentEnvironment[agent.LoggingOverride],
-		QueryTracingEnabled:         w.icfg.ControllerConfig.QueryTracingEnabled(),
-		QueryTracingThreshold:       w.icfg.ControllerConfig.QueryTracingThreshold(),
-		DqliteBusyTimeout:           w.icfg.ControllerConfig.DqliteBusyTimeout(),
-		CACert:                      w.icfg.APIInfo.CACert,
-		CAPrivateKey:                w.icfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
-		ControllerCert:              w.icfg.Bootstrap.ControllerAgentInfo.Cert,
-		ControllerPrivateKey:        w.icfg.Bootstrap.ControllerAgentInfo.PrivateKey,
-		SystemIdentity:              w.icfg.Bootstrap.ControllerAgentInfo.SystemIdentity,
-		LogSinkRateLimitBurst:       logSinkBurst,
-		LogSinkRateLimitRefill:      logSinkRefill,
-		APIAddresses:                w.icfg.APIInfo.Addrs,
-		AgentLogfileMaxSizeMB:       w.icfg.ControllerConfig.AgentLogfileMaxSizeMB(),
-		AgentLogfileMaxBackups:      w.icfg.ControllerConfig.AgentLogfileMaxBackups(),
-		CharmRevisionUpdateInterval: w.icfg.AgentEnvironment[agent.CharmRevisionUpdateInterval],
-	}
-	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
-	if err != nil {
-		return errors.Annotate(err, "rendering controller runtime config")
-	}
-	runtimeCfgPath := controllerruntimeconfig.ConfigPath(controllerAgentDir)
-	w.conf.AddRunTextFile(runtimeCfgPath, string(runtimeCfgContent), 0600)
 
 	loggingOption := "--show-log"
 	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {

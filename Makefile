@@ -124,8 +124,7 @@ endef
 # under the category of Juju agents, that are CGO. These targets are also the
 # ones we are more then likely wanting to cross compile.
 define BUILD_CGO_AGENT_TARGETS
-	$(call tool_platform_paths,jujuagentd,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
-	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,jujuagentd,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
 define BUILD_CGO_BENCH_TARGETS
@@ -166,7 +165,6 @@ endif
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
     INSTALL_TARGETS += jujuagentd
-    INSTALL_TARGETS += jujud
     INSTALL_TARGETS += pebble
 endif
 
@@ -318,13 +316,6 @@ jujuagentd: musl-install-if-missing dqlite-install-if-missing
 ## jujuagentd: Install jujuagentd without updating dependencies
 	${run_cgo_install}
 
-.PHONY: jujud
-jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
-jujud: musl-install-if-missing dqlite-install-if-missing
-## jujud: Install jujud controller binary without updating dependencies
-	${run_cgo_install}
-
 .PHONY: dqlite-repl
 dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite/cmd
 dqlite-repl: EXTRA_BUILD_TAGS += dqlite libsqlite3
@@ -379,12 +370,6 @@ ${BUILD_DIR}/%/bin/jujuagentd: phony_explicit musl-install-if-missing dqlite-ins
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
-
-${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-${BUILD_DIR}/%/bin/jujud: EXTRA_BUILD_TAGS += dqlite libsqlite3
-${BUILD_DIR}/%/bin/jujud: phony_explicit musl-install-if-missing dqlite-install-if-missing
-# build for jujud controller binary
-	$(run_cgo_build)
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit

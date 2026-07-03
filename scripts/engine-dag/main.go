@@ -19,8 +19,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujuagentd/agent/machine"
 	"github.com/juju/juju/cmd/jujuagentd/agent/model"
-	jjudcontroller "github.com/juju/juju/cmd/jujud/agent/controller"
-	jjudmodel "github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -36,7 +34,7 @@ func main() {
 		useModelFlag       = flags.Bool("model", false, "use model manifolds")
 		transitiveDepsFlag = flags.Int("dependency-depth", 0, "include transitive dependencies and how many levels to include")
 		listManifoldsFlag  = flags.Bool("list-manifolds", false, "list all manifolds")
-		agentFlag          = flags.String("agent", "jujuagentd", "agent binary to use (jujuagentd|jujud)")
+		agentFlag          = flags.String("agent", "jujuagentd", "agent binary to use")
 
 		manifoldsFlag = stringslice{}
 	)
@@ -204,61 +202,31 @@ func getManifolds(useModel bool, modelType string, agent string) dependency.Mani
 	if useModel {
 		switch modelType {
 		case "iaas":
-			switch agent {
-			case "jujud":
-				return jjudmodel.IAASManifolds(jjudmodel.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			default:
-				return model.IAASManifolds(model.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			}
+			return model.IAASManifolds(model.ManifoldsConfig{
+				LoggingContext: internallogger.DefaultContext(),
+			})
 		case "caas":
-			switch agent {
-			case "jujud":
-				return jjudmodel.CAASManifolds(jjudmodel.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			default:
-				return model.CAASManifolds(model.ManifoldsConfig{
-					LoggingContext: internallogger.DefaultContext(),
-				})
-			}
+			return model.CAASManifolds(model.ManifoldsConfig{
+				LoggingContext: internallogger.DefaultContext(),
+			})
 		default:
 			panic("unknown model type for model manifolds")
 		}
 	}
 
-	switch agent {
-	case "jujud":
-		switch modelType {
-		case "iaas":
-			return jjudcontroller.IAASManifolds(jjudcontroller.ManifoldsConfig{
-				PreUpgradeSteps: preUpgradeSteps,
-			})
-		case "caas":
-			return jjudcontroller.CAASManifolds(jjudcontroller.ManifoldsConfig{
-				PreUpgradeSteps: preUpgradeSteps,
-			})
-		default:
-			panic("unknown model type for controller manifolds")
-		}
+	switch modelType {
+	case "iaas":
+		return machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		})
+	case "caas":
+		return machine.CAASManifolds(machine.ManifoldsConfig{
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
+		})
 	default:
-		switch modelType {
-		case "iaas":
-			return machine.IAASManifolds(machine.ManifoldsConfig{
-				Agent:           &mockAgent{},
-				PreUpgradeSteps: preUpgradeSteps,
-			})
-		case "caas":
-			return machine.CAASManifolds(machine.ManifoldsConfig{
-				Agent:           &mockAgent{},
-				PreUpgradeSteps: preUpgradeSteps,
-			})
-		default:
-			panic("unknown model type for machine manifolds")
-		}
+		panic("unknown model type for machine manifolds")
 	}
 }
 

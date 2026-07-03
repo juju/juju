@@ -243,7 +243,7 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 
 ````{dropdown} Troubleshooting - machines
 
-Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud; in some cases perform network configuration via `cloud-init`; download the `jujud` binaries from the controller; and start `jujud`, which will download and install the charm.
+Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud; in some cases perform network configuration via `cloud-init`; download the `jujuagentd` binaries from the controller; and start `jujuagentd`, which will download and install the charm.
 
 For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
 
