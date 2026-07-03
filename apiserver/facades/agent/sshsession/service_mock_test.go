@@ -14,6 +14,7 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	controller "github.com/juju/juju/controller"
+	machine "github.com/juju/juju/core/machine"
 	watcher "github.com/juju/juju/core/watcher"
 	ssh "github.com/juju/juju/domain/ssh"
 )
@@ -29,7 +30,7 @@ type MockSSHConnRequestService struct {
 type MockSSHConnRequestServiceMockRecorder struct {
 	mock                       *MockSSHConnRequestService
 	getSSHConnRequestExpects   []*gomock.Call2_2[context.Context, string, ssh.SSHConnRequest, error]
-	watchSSHConnRequestExpects []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	watchSSHConnRequestExpects []*gomock.Call2_2[context.Context, machine.Name, watcher.StringsWatcher, error]
 }
 
 // NewMockSSHConnRequestService creates a new mock instance.
@@ -63,22 +64,22 @@ func (mr *MockSSHConnRequestServiceMockRecorder) GetSSHConnRequest(ctx, tunnelID
 type MockSSHConnRequestServiceGetSSHConnRequestCall = gomock.Call2_2[context.Context, string, ssh.SSHConnRequest, error]
 
 // WatchSSHConnRequest mocks base method.
-func (m *MockSSHConnRequestService) WatchSSHConnRequest(ctx context.Context) (watcher.StringsWatcher, error) {
+func (m *MockSSHConnRequestService) WatchSSHConnRequest(ctx context.Context, machineName machine.Name) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchSSHConnRequestExpects, m.ctrl, m, "WatchSSHConnRequest", ctx)
+	return gomock.Dispatch2_2(&m.recorder.watchSSHConnRequestExpects, m.ctrl, m, "WatchSSHConnRequest", ctx, machineName)
 }
 
 // WatchSSHConnRequest indicates an expected call of WatchSSHConnRequest.
-func (mr *MockSSHConnRequestServiceMockRecorder) WatchSSHConnRequest(ctx any) *MockSSHConnRequestServiceWatchSSHConnRequestCall {
+func (mr *MockSSHConnRequestServiceMockRecorder) WatchSSHConnRequest(ctx, machineName any) *MockSSHConnRequestServiceWatchSSHConnRequestCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchSSHConnRequest", gomock.EnsureMatcher(ctx))
+	call := gomock.NewCall2_2[context.Context, machine.Name, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchSSHConnRequest", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineName))
 	mr.watchSSHConnRequestExpects = append(mr.watchSSHConnRequestExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockSSHConnRequestServiceWatchSSHConnRequestCall is the typed call wrapper for WatchSSHConnRequest.
-type MockSSHConnRequestServiceWatchSSHConnRequestCall = gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+type MockSSHConnRequestServiceWatchSSHConnRequestCall = gomock.Call2_2[context.Context, machine.Name, watcher.StringsWatcher, error]
 
 // MockControllerConfigService is a mock of ControllerConfigService interface.
 type MockControllerConfigService struct {

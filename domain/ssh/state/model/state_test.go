@@ -12,6 +12,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -252,7 +253,54 @@ func (s *stateSuite) TestWatchSSHConnRequestStatement(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	table, stmt := st.InitialWatchSSHConnRequestsStatement()
 	c.Check(table, tc.Equals, "ssh_connection_request")
-	c.Check(stmt, tc.Equals, "SELECT tunnel_id FROM ssh_connection_request")
+	c.Check(stmt, tc.Equals, "SELECT tunnel_id FROM ssh_connection_request WHERE machine_uuid = ?")
+}
+
+// TestGetMachineUUIDByName checks the machine name is resolved to its UUID and
+// that a missing machine yields MachineNotFound.
+func (s *stateSuite) TestGetMachineUUIDByName(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	machineUUID := s.addMachine(c, "1")
+
+	got, err := st.GetMachineUUIDByName(c.Context(), coremachine.Name("1"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, machineUUID)
+
+	_, err = st.GetMachineUUIDByName(c.Context(), coremachine.Name("99"))
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestFilterSSHConnRequestsForMachine checks that only tunnel IDs belonging to
+// the given machine are returned, so a machine cannot observe another machine's
+// requests.
+func (s *stateSuite) TestFilterSSHConnRequestsForMachine(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	machine1UUID := s.addMachine(c, "1")
+	s.addMachine(c, "2")
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+
+	req1 := domainssh.SSHConnRequest{TunnelID: "t-machine-1", MachineName: "1", Expires: now.Add(time.Minute), SSHUsername: "u", SSHPassword: "p", EphemeralPublicKey: []byte("pub")}
+	req2 := domainssh.SSHConnRequest{TunnelID: "t-machine-2", MachineName: "2", Expires: now.Add(time.Minute), SSHUsername: "u", SSHPassword: "p", EphemeralPublicKey: []byte("pub")}
+	c.Assert(st.InsertSSHConnRequest(c.Context(), req1, now), tc.ErrorIsNil)
+	c.Assert(st.InsertSSHConnRequest(c.Context(), req2, now), tc.ErrorIsNil)
+
+	// Only machine 1's tunnel ID is returned, and an unknown ID is dropped.
+	got, err := st.FilterSSHConnRequestsForMachine(
+		c.Context(),
+		[]string{"t-machine-1", "t-machine-2", "unknown"},
+		machine1UUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []string{"t-machine-1"})
+}
+
+// TestFilterSSHConnRequestsForMachineEmpty checks the no-op path for an empty
+// input avoids an invalid IN () query.
+func (s *stateSuite) TestFilterSSHConnRequestsForMachineEmpty(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	got, err := st.FilterSSHConnRequestsForMachine(c.Context(), nil, "some-uuid")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
 }
 
 func (s *stateSuite) addMachine(c *tc.C, name string) string {

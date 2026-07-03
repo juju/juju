@@ -202,17 +202,22 @@ func (s *serviceSuite) TestGetSSHConnRequest(c *tc.C) {
 	c.Check(state.getNow, tc.Equals, clk.Now())
 }
 
+// TestWatchSSHConnRequest checks that the watcher is scoped to the requesting
+// machine: the machine UUID is resolved, the prune runs, and the watcher is
+// created against the ssh_connection_request namespace.
 func (s *serviceSuite) TestWatchSSHConnRequest(c *tc.C) {
 	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
+	state.machineUUIDs["0"] = "machine-uuid-0"
 	watcherFactory := &stubWatcherFactory{watcher: watchertest.NewMockStringsWatcher(make(chan []string))}
 	svc := modelsshservice.NewWatchableService(state, modelUUID, clk, watcherFactory)
 
-	w, err := svc.WatchSSHConnRequest(c.Context())
+	w, err := svc.WatchSSHConnRequest(c.Context(), coremachine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, watcherFactory.watcher)
 	c.Check(state.pruneNow, tc.Equals, clk.Now())
+	c.Check(state.machineUUIDName, tc.Equals, coremachine.Name("0"))
 	c.Check(watcherFactory.summary, tc.Equals, "ssh connection request watcher")
 	c.Check(watcherFactory.namespace, tc.Equals, "ssh_connection_request")
 }
@@ -246,6 +251,8 @@ type stubModelState struct {
 	getNow             time.Time
 	pruneNow           time.Time
 	removedTunnelID    string
+	machineUUIDs       map[string]string
+	machineUUIDName    coremachine.Name
 }
 
 func newStubModelState() *stubModelState {
@@ -259,6 +266,7 @@ func newStubModelState() *stubModelState {
 		unitMachines:      make(map[string]string),
 		machineEnsureKeys: make(map[string]string),
 		unitEnsureKeys:    make(map[string]string),
+		machineUUIDs:      make(map[string]string),
 	}
 }
 
@@ -341,8 +349,21 @@ func (s *stubModelState) PruneExpiredSSHConnRequests(_ context.Context, now time
 	return nil
 }
 
+func (s *stubModelState) GetMachineUUIDByName(_ context.Context, machineName coremachine.Name) (string, error) {
+	s.machineUUIDName = machineName
+	uuid, ok := s.machineUUIDs[machineName.String()]
+	if !ok {
+		return "", errors.Errorf("machine %q not found", machineName)
+	}
+	return uuid, nil
+}
+
+func (*stubModelState) FilterSSHConnRequestsForMachine(_ context.Context, tunnelIDs []string, _ string) ([]string, error) {
+	return tunnelIDs, nil
+}
+
 func (*stubModelState) InitialWatchSSHConnRequestsStatement() (string, string) {
-	return "ssh_connection_request", "SELECT tunnel_id FROM ssh_connection_request"
+	return "ssh_connection_request", "SELECT tunnel_id FROM ssh_connection_request WHERE machine_uuid = ?"
 }
 
 type stubWatcherFactory struct {
@@ -351,10 +372,11 @@ type stubWatcherFactory struct {
 	summary   string
 }
 
-func (s *stubWatcherFactory) NewNamespaceWatcher(
+func (s *stubWatcherFactory) NewNamespaceMapperWatcher(
 	_ context.Context,
 	_ eventsource.NamespaceQuery,
 	summary string,
+	_ eventsource.Mapper,
 	filterOption eventsource.FilterOption,
 	_ ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {

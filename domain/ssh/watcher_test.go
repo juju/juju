@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -36,13 +37,12 @@ func TestWatcherSuite(t *testing.T) {
 
 func (s *watcherSuite) TestWatchSSHConnRequest(c *tc.C) {
 	svc := s.setupService(c)
-	machineUUID := s.addMachine(c, "1")
-	_ = machineUUID
+	s.addMachine(c, "1")
 
 	// Prime the change stream so the watcher sees a clean initial state.
 	s.AssertChangeStreamIdle(c, "ssh watcher test")
 
-	w, err := svc.WatchSSHConnRequest(c.Context())
+	w, err := svc.WatchSSHConnRequest(c.Context(), coremachine.Name("1"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
@@ -68,17 +68,68 @@ func (s *watcherSuite) TestWatchSSHConnRequest(c *tc.C) {
 		w.AssertChange()
 	})
 
-	// Assert watcher fires on remove.
+	// Assert the watcher does not fire on remove: the sshsession worker only
+	// acts on newly added requests, so the watcher is scoped to
+	// changestream.Changed and deletions are not reported.
 	harness.AddTest(c, func(c *tc.C) {
 		err := svc.RemoveSSHConnRequest(c.Context(), tunnelID)
 		c.Assert(err, tc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
-		w.AssertChange()
+		w.AssertNoChange()
 	})
 
 	// Assert no spurious changes.
 	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[[]string]) {
 		w.AssertNoChange()
+	})
+
+	harness.Run(c, []string(nil))
+}
+
+// TestWatchSSHConnRequestScopedToMachine checks the watcher only fires for
+// requests targeting the watched machine, so a machine agent cannot observe
+// another machine's connection requests.
+func (s *watcherSuite) TestWatchSSHConnRequestScopedToMachine(c *tc.C) {
+	svc := s.setupService(c)
+	s.addMachine(c, "1")
+	s.addMachine(c, "2")
+
+	s.AssertChangeStreamIdle(c, "ssh watcher test")
+
+	w, err := svc.WatchSSHConnRequest(c.Context(), coremachine.Name("1"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+
+	now := clock.WallClock.Now()
+	otherReq := domainssh.SSHConnRequest{
+		TunnelID:            internaluuid.MustNewUUID().String(),
+		MachineName:         "2",
+		Expires:             now.Add(time.Minute),
+		SSHUsername:         "juju-reverse-tunnel",
+		SSHPassword:         "secret",
+		ControllerAddresses: network.NewSpaceAddresses("10.0.0.1"),
+		UnitPort:            22,
+		EphemeralPublicKey:  []byte("pubkey"),
+	}
+	ownReq := otherReq
+	ownReq.TunnelID = internaluuid.MustNewUUID().String()
+	ownReq.MachineName = "1"
+
+	// A request for another machine must not fire this machine's watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.InsertSSHConnRequest(c.Context(), otherReq)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
+	// A request for this machine fires the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		err := svc.InsertSSHConnRequest(c.Context(), ownReq)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertChange()
 	})
 
 	harness.Run(c, []string(nil))

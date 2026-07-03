@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	coremachine "github.com/juju/juju/core/machine"
 	domainssh "github.com/juju/juju/domain/ssh"
 )
 
@@ -46,7 +47,16 @@ type State interface {
 	// PruneExpiredSSHConnRequests removes expired SSH connection requests.
 	PruneExpiredSSHConnRequests(context.Context, time.Time) error
 
+	// GetMachineUUIDByName returns the UUID of the named machine.
+	GetMachineUUIDByName(context.Context, coremachine.Name) (string, error)
+
 	// InitialWatchSSHConnRequestsStatement returns the changelog namespace and
-	// initial state statement for SSH connection request watchers.
+	// initial state statement for a machine's SSH connection request watcher.
+	// The initial statement is parameterised by the machine UUID so that the
+	// watcher only reports the machine's own requests.
 	InitialWatchSSHConnRequestsStatement() (string, string)
+
+	// FilterSSHConnRequestsForMachine returns the subset of the supplied tunnel
+	// IDs that identify SSH connection requests targeting the given machine.
+	FilterSSHConnRequestsForMachine(context.Context, []string, string) ([]string, error)
 }

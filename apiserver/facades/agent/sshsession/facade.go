@@ -6,10 +6,13 @@ package sshsession
 import (
 	"context"
 
+	"github.com/juju/names/v6"
 	gossh "golang.org/x/crypto/ssh"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
 )
@@ -18,6 +21,10 @@ import (
 // sshsession worker to watch for and read one-shot SSH connection requests for
 // its model, in order to establish reverse SSH tunnels back to the controller.
 type Facade struct {
+	// authorizer identifies the calling agent. The machine identity is always
+	// taken from authentication, never from the caller's arguments, so an agent
+	// can only observe and read connection requests targeting its own machine.
+	authorizer                  facade.Authorizer
 	service                     SSHConnRequestService
 	controllerConfigService     ControllerConfigService
 	controllerSSHHostKeyService ControllerSSHHostKeyService
@@ -26,12 +33,14 @@ type Facade struct {
 
 // newFacade returns a new SSH session facade.
 func newFacade(
+	authorizer facade.Authorizer,
 	service SSHConnRequestService,
 	controllerConfigService ControllerConfigService,
 	controllerSSHHostKeyService ControllerSSHHostKeyService,
 	watcherRegistry facade.WatcherRegistry,
 ) *Facade {
 	return &Facade{
+		authorizer:                  authorizer,
 		service:                     service,
 		controllerConfigService:     controllerConfigService,
 		controllerSSHHostKeyService: controllerSSHHostKeyService,
@@ -39,11 +48,28 @@ func newFacade(
 	}
 }
 
+// authMachineName returns the name of the authenticated machine agent. The
+// identity comes solely from authentication, so a machine agent cannot request
+// another machine's connection requests by supplying a different name.
+func (f *Facade) authMachineName() (coremachine.Name, error) {
+	machineTag, ok := f.authorizer.GetAuthTag().(names.MachineTag)
+	if !ok {
+		return "", apiservererrors.ErrPerm
+	}
+	return coremachine.Name(machineTag.Id()), nil
+}
+
 // WatchSSHConnRequest starts a watcher that emits the tunnel IDs of SSH
-// connection requests in the model. The machine agent worker sshsession
-// filters the emitted tunnel IDs to those targeting its own machine.
+// connection requests targeting the authenticated machine. The machine is
+// derived from authentication (not from the caller), and scoping happens in the
+// domain service so an agent can only observe requests for its own machine.
 func (f *Facade) WatchSSHConnRequest(ctx context.Context) (params.StringsWatchResult, error) {
-	w, err := f.service.WatchSSHConnRequest(ctx)
+	machineName, err := f.authMachineName()
+	if err != nil {
+		return params.StringsWatchResult{}, err
+	}
+
+	w, err := f.service.WatchSSHConnRequest(ctx, machineName)
 	if err != nil {
 		return params.StringsWatchResult{}, errors.Errorf("watching SSH connection requests: %w", err)
 	}
@@ -61,9 +87,21 @@ func (f *Facade) WatchSSHConnRequest(ctx context.Context) (params.StringsWatchRe
 // GetSSHConnRequest returns the SSH connection request identified by the
 // supplied tunnel ID.
 func (f *Facade) GetSSHConnRequest(ctx context.Context, arg params.SSHConnRequestArg) (params.SSHConnRequestResult, error) {
+	machineName, err := f.authMachineName()
+	if err != nil {
+		return params.SSHConnRequestResult{}, err
+	}
+
 	req, err := f.service.GetSSHConnRequest(ctx, arg.TunnelID)
 	if err != nil {
 		return params.SSHConnRequestResult{}, errors.Errorf("getting SSH connection request %q: %w", arg.TunnelID, err)
+	}
+
+	// Guard against a machine reading another machine's request, which would
+	// leak that request's credentials. This complements the machine-scoped
+	// watcher, which only surfaces this machine's own tunnel IDs.
+	if req.MachineName != machineName.String() {
+		return params.SSHConnRequestResult{}, apiservererrors.ErrPerm
 	}
 
 	addresses := make([]string, len(req.ControllerAddresses))

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/juju/controller"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	domainssh "github.com/juju/juju/domain/ssh"
 )
@@ -15,8 +16,8 @@ import (
 // connection requests for the model.
 type SSHConnRequestService interface {
 	// WatchSSHConnRequest returns a watcher that emits the tunnel IDs of SSH
-	// connection requests in the model.
-	WatchSSHConnRequest(ctx context.Context) (watcher.StringsWatcher, error)
+	// connection requests targeting the named machine.
+	WatchSSHConnRequest(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
 
 	// GetSSHConnRequest returns the SSH connection request for the supplied
 	// tunnel ID.

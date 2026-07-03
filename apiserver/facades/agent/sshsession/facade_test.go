@@ -7,10 +7,14 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	gossh "golang.org/x/crypto/ssh"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
@@ -42,7 +46,10 @@ func (s *facadeSuite) setupMocks(c *tc.C) *gomock.Controller {
 }
 
 func (s *facadeSuite) newFacade() *Facade {
-	return newFacade(s.service, s.controllerCfg, s.hostKeyService, s.watcherRegistry)
+	// The facade always derives the machine from the authenticated tag, so the
+	// tests authenticate as machine "0".
+	authorizer := apiservertesting.FakeAuthorizer{Tag: names.NewMachineTag("0")}
+	return newFacade(authorizer, s.service, s.controllerCfg, s.hostKeyService, s.watcherRegistry)
 }
 
 func (s *facadeSuite) TestWatchSSHConnRequest(c *tc.C) {
@@ -54,7 +61,7 @@ func (s *facadeSuite) TestWatchSSHConnRequest(c *tc.C) {
 	w := watchertest.NewMockStringsWatcher(changes)
 	defer w.Kill()
 
-	s.service.EXPECT().WatchSSHConnRequest(gomock.Any()).Return(w, nil)
+	s.service.EXPECT().WatchSSHConnRequest(gomock.Any(), coremachine.Name("0")).Return(w, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("watcher-id", nil)
 
 	result, err := s.newFacade().WatchSSHConnRequest(c.Context())
@@ -86,6 +93,41 @@ func (s *facadeSuite) TestGetSSHConnRequest(c *tc.C) {
 	c.Check(result.Password, tc.Equals, "jwt")
 	c.Check(result.UnitPort, tc.Equals, 22)
 	c.Check(result.EphemeralPublicKey, tc.DeepEquals, []byte("eph-pub"))
+}
+
+// TestGetSSHConnRequestOtherMachineDenied verifies a machine agent cannot read
+// a connection request targeting a different machine, which would leak that
+// request's credentials.
+func (s *facadeSuite) TestGetSSHConnRequestOtherMachineDenied(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	req := domainssh.SSHConnRequest{
+		TunnelID:    "tunnel-1",
+		MachineName: "1",
+		SSHUsername: "juju-reverse-tunnel",
+		SSHPassword: "jwt",
+	}
+	s.service.EXPECT().GetSSHConnRequest(gomock.Any(), "tunnel-1").Return(req, nil)
+
+	// The facade is scoped to machine "0", so a request for machine "1" is
+	// rejected.
+	_, err := s.newFacade().GetSSHConnRequest(c.Context(), params.SSHConnRequestArg{TunnelID: "tunnel-1"})
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+}
+
+// TestWatchSSHConnRequestNonMachineDenied verifies the watcher rejects a caller
+// whose auth tag is not a machine tag, since the machine identity must come
+// from authentication.
+func (s *facadeSuite) TestWatchSSHConnRequestNonMachineDenied(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	authorizer := apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("app/0")}
+	facade := newFacade(authorizer, s.service, s.controllerCfg, s.hostKeyService, s.watcherRegistry)
+
+	_, err := facade.WatchSSHConnRequest(c.Context())
+	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestControllerSSHPort(c *tc.C) {

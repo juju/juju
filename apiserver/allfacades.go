@@ -127,7 +127,6 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	retrystrategy.Register(registry)
 	secretsdrain.Register(registry)
 	secretsmanager.Register(registry)
-	sshsession.Register(registry)
 	storageprovisioner.Register(registry)
 	uniter.Register(registry)
 	upgrader.Register(registry)

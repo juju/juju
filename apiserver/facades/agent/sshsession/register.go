@@ -22,13 +22,16 @@ func Register(registry facade.FacadeRegistry) {
 func makeFacade(ctx facade.ModelContext) (*Facade, error) {
 	authorizer := ctx.Auth()
 
-	// Only machine agents consume SSH connection requests.
+	// Only machine agents consume SSH connection requests. The specific machine
+	// is derived from the authorizer per-call, so the facade can only ever act
+	// on behalf of the authenticated machine.
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	domainServices := ctx.DomainServices()
 	return newFacade(
+		authorizer,
 		domainServices.SSH(),
 		domainServices.ControllerConfig(),
 		domainServices.SSHServerHostKey(),
