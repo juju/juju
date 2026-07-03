@@ -252,10 +252,6 @@ func (s *ManifoldSuite) TestStart(c *tc.C) {
 	c.Assert(config.NewServer, tc.NotNil)
 	config.NewServer = nil
 
-	// EmbeddedCommand is hard-coded by the manifold to an internal shim.
-	c.Assert(config.EmbeddedCommand, tc.NotNil)
-	config.EmbeddedCommand = nil
-
 	c.Assert(config, tc.DeepEquals, apiserver.Config{
 		AgentConfig:                &s.agent.conf,
 		LocalMacaroonAuthenticator: s.authenticator,

@@ -127,7 +127,6 @@ type Server struct {
 	upgradeComplete        func() bool
 	mux                    *apiserverhttp.Mux
 	metricsCollector       *Collector
-	execEmbeddedCommand    ExecEmbeddedCommandFunc
 
 	// mu guards the fields below it.
 	mu sync.Mutex
@@ -233,9 +232,6 @@ type ServerConfig struct {
 	// MetricsCollector defines all the metrics to be collected for the
 	// apiserver
 	MetricsCollector *Collector
-
-	// ExecEmbeddedCommand is a function which creates an embedded Juju CLI instance.
-	ExecEmbeddedCommand ExecEmbeddedCommandFunc
 
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient facade.HTTPClient
@@ -426,10 +422,9 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 			Burst:  cfg.LogSinkConfig.RateLimitBurst,
 			Clock:  cfg.Clock,
 		},
-		getAuditConfig:      cfg.GetAuditConfig,
-		logSink:             cfg.LogSink,
-		metricsCollector:    cfg.MetricsCollector,
-		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
+		getAuditConfig:   cfg.GetAuditConfig,
+		logSink:          cfg.LogSink,
+		metricsCollector: cfg.MetricsCollector,
 
 		healthStatus: "starting",
 	}
@@ -776,7 +771,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	httpCtxt := httpContext{srv: srv}
 	mainAPIHandler := srv.monitoredHandler(http.HandlerFunc(srv.apiHandler), "api")
 	healthHandler := srv.monitoredHandler(http.HandlerFunc(srv.healthHandler), "health")
-	embeddedCLIHandler := srv.monitoredHandler(newEmbeddedCLIHandler(httpCtxt), "commands")
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: names.NewControllerTag(srv.shared.controllerUUID),
 	}
@@ -964,11 +958,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		tracked:         true,
 		unauthenticated: true,
 	}, {
-		pattern:         modelRoutePrefix + "/commands",
-		handler:         embeddedCLIHandler,
-		tracked:         true,
-		unauthenticated: true,
-	}, {
 		pattern:    modelRoutePrefix + "/tools",
 		handler:    modelToolsUploadHandler,
 		authorizer: toolsUploadAuthorizer,
@@ -1011,11 +1000,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern:         "/api",
 		handler:         mainAPIHandler,
 		tracked:         true,
-		unauthenticated: true,
-		noModelUUID:     true,
-	}, {
-		pattern:         "/commands",
-		handler:         embeddedCLIHandler,
 		unauthenticated: true,
 		noModelUUID:     true,
 	}, {

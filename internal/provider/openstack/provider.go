@@ -34,7 +34,6 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -60,6 +59,11 @@ import (
 
 var logger = internallogger.GetLogger("juju.provider.openstack")
 
+// Non standard json Format
+const FormatCertFilename jsonschema.Format = "cert-filename"
+
+// EnvironProvider implements environs.CloudEnvironProvider for OpenStack
+// clouds.
 type EnvironProvider struct {
 	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
@@ -98,7 +102,7 @@ var cloudSchema = &jsonschema.Schema{
 		cloud.CertFilenameKey: {
 			Singular:      "a path to the CA certificate for your cloud if one is required to access it. (optional)",
 			Type:          []jsonschema.Type{jsonschema.StringType},
-			Format:        interact.FormatCertFilename,
+			Format:        FormatCertFilename,
 			Default:       "",
 			PromptDefault: "none",
 			EnvVars:       []string{"OS_CACERT"},
