@@ -284,6 +284,10 @@ func (s *Service) backendConfigInfo(
 		}
 
 		// Include any secrets reserved by the unit accessor (not yet in state).
+		// Reserved secrets have no revision IDs because they haven't been
+		// persisted yet, so we only add them to the owned set (URI-only).
+		// This is sufficient for the backend to pre-create placeholders and
+		// grant access by name.
 		for _, id := range reservedSecretIDs {
 			owned.Add(id)
 		}
