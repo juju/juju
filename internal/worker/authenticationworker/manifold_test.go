@@ -24,31 +24,31 @@ func (s *manifoldSuite) TestManifoldHasOutput(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
-	})
+	}, Output)
 	c.Check(manifold.Output, tc.NotNil)
 	c.Check(manifold.Inputs, tc.SameContents, []string{"agent", "api-caller"})
 }
 
 func (s *manifoldSuite) TestOutputExtractsEphemeralKeysUpdater(c *tc.C) {
-	in := &AuthWorker{Worker: &stubWorker{}}
+	in := &AuthWorker{}
 
 	var updater EphemeralKeysUpdater
-	err := output(in, &updater)
+	err := Output(in, &updater)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(updater, tc.Equals, in)
 }
 
 func (s *manifoldSuite) TestOutputWrongInputType(c *tc.C) {
 	var updater EphemeralKeysUpdater
-	err := output(&stubWorker{}, &updater)
+	err := Output(&stubWorker{}, &updater)
 	c.Check(err, tc.ErrorMatches, `expected \*AuthWorker, got .*`)
 }
 
 func (s *manifoldSuite) TestOutputWrongOutputType(c *tc.C) {
-	in := &AuthWorker{Worker: &stubWorker{}}
+	in := &AuthWorker{}
 
 	var wrong worker.Worker
-	err := output(in, &wrong)
+	err := Output(in, &wrong)
 	c.Check(err, tc.ErrorMatches, `expected \*EphemeralKeysUpdater, got .*`)
 }
 

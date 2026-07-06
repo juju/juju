@@ -1199,7 +1199,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		})),
+		}, authenticationworker.Output)),
 
 		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
 			AgentName:     agentName,

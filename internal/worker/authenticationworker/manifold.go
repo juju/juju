@@ -21,7 +21,7 @@ type ManifoldConfig engine.AgentAPIManifoldConfig
 
 // Manifold returns a dependency manifold that runs a authenticationworker worker,
 // using the resource names defined in the supplied config.
-func Manifold(config ManifoldConfig) dependency.Manifold {
+func Manifold(config ManifoldConfig, output dependency.OutputFunc) dependency.Manifold {
 	typedConfig := engine.AgentAPIManifoldConfig(config)
 
 	manifold := engine.AgentAPIManifold(typedConfig, newWorker)
@@ -40,7 +40,7 @@ func newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (work
 }
 
 // output extracts an EphemeralKeysUpdater from the running AuthWorker.
-func output(in worker.Worker, out any) error {
+func Output(in worker.Worker, out any) error {
 	w, ok := in.(*AuthWorker)
 	if !ok {
 		return errors.Errorf("expected *AuthWorker, got %T", in)
