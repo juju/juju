@@ -4,8 +4,6 @@
 package unitless
 
 import (
-	"sync"
-
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 
@@ -18,33 +16,24 @@ type IntentType string
 // Intent is a declared action resulting from scriptlet execution.
 type Intent struct {
 	// Type identifies the type of intent.
-	Type    IntentType
+	Type IntentType
 
 	// Args are arguments to pass to service methods that
 	// are called according to the intent type.
-	Args    map[string]any
+	Args map[string]any
 }
 
 // IntentCollector accumulates intents during one scriptlet event.
 type IntentCollector struct {
-	mu      sync.Mutex
 	intents []Intent
 }
 
-// Intents returns a copy of all collected intents.
+// Intents returns all collected intents.
 func (c *IntentCollector) Intents() []Intent {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	result := make([]Intent, len(c.intents))
-	copy(result, c.intents)
-	return result
+	return c.intents
 }
 
 func (c *IntentCollector) append(thread *starlark.Thread, intent Intent) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if err := thread.AddAllocs(starlark.EstimateSize(intent)); err != nil {
 		return errors.Errorf("adding allocations for %q: %w", intent.Type, err)
 	}

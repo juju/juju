@@ -35,9 +35,7 @@ func (s *starformSuite) TestSetStatusIOSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.IOSafe, nil)
 }
 
-func assertSetStatusSafety(
-	c *tc.C, safety starlark.SafetyFlags, configure func(*startest.ST),
-) {
+func assertSetStatusSafety(c *tc.C, safety starlark.SafetyFlags, configure func(*startest.ST)) {
 	collector := &IntentCollector{}
 	st := startest.From(c)
 	st.AddLocal(starformEventObjectLocalKey, &starformEventObjectStorage{Event: &starform.EventObject{

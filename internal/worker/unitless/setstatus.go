@@ -9,13 +9,10 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// IntentSetStatus declares an application status update.
+// IntentSetStatus indicates an application status update.
 const IntentSetStatus IntentType = "status-set"
 
-const setStatusSafety = starlark.MemSafe |
-	starlark.CPUSafe |
-	starlark.TimeSafe |
-	starlark.IOSafe
+const setStatusSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
 var setStatusBuiltin = starlark.NewBuiltinWithSafety("status_set", setStatusSafety, setStatus)
 
