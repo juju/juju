@@ -114,6 +114,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/sshserver"
+	"github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/internal/worker/storageregistry"
@@ -880,6 +881,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetSSHService:                  sshserver.GetSSHService,
 		})),
 
+		// The ssh tunneler worker runs on the controller machine and creates
+		// reverse SSH tunnels to machines.
+		sshTunnelerName: ifController(sshtunneler.Manifold(sshtunneler.ManifoldConfig{
+			DomainServicesName:       domainServicesName,
+			Clock:                    config.Clock,
+			GetControllerNodeService: sshtunneler.GetControllerNodeService,
+			GetDomainServicesGetter:  sshtunneler.GetDomainServicesGetter,
+			GetSSHService:            sshtunneler.GetSSHService,
+			GetMachineService:        sshtunneler.GetMachineService,
+		})),
+
 		// The objectstore drainer runs on the singular primary controller to
 		// avoid concurrent completion races in HA. It coordinates draining of
 		// blobs between underlying object stores (S3 compatible) and with the
@@ -1596,6 +1608,7 @@ const (
 	rebootName                         = "reboot-executor"
 	secretBackendRotateName            = "secret-backend-rotate"
 	sshServerName                      = "ssh-server"
+	sshTunnelerName                    = "ssh-tunneler"
 	machineConverterName               = "machine-converter"
 	storageProvisionerName             = "storage-provisioner"
 	storageRegistryName                = "storage-registry"
