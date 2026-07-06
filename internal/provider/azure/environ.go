@@ -36,7 +36,6 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
@@ -571,13 +570,13 @@ func hasIPv6Slash64Prefix(prefixes []string) bool {
 
 // validateIPFamilyForResolvedSubnet validates ip-family constraints for VM
 // creation after the subnet has been resolved. It performs the SKU check and,
-// when a placement subnet was provided, verifies that subnet has an IPv6 /64
-// prefix. When no placement subnet is provided (space constraints, default
-// subnet selection), the SKU check alone is sufficient; Azure itself rejects
-// IPv4-only subnets at NIC creation time.
+// when a resolved primary subnet was provided, verifies that subnet has an
+// IPv6 /64 prefix. When no primary subnet is available (Juju-managed VNet
+// at bootstrap or ID resolution miss), the SKU check alone is sufficient;
+// Azure itself rejects IPv4-only subnets at NIC creation time.
 func (env *azureEnviron) validateIPFamilyForResolvedSubnet(
 	ctx context.Context, cons constraints.Value,
-	bootstrapping bool, placementSubnet *armnetwork.Subnet,
+	primarySubnet *armnetwork.Subnet,
 ) error {
 	if cons.IPFamily == nil || *cons.IPFamily != ipfamily.Dual {
 		return nil
@@ -588,30 +587,22 @@ func (env *azureEnviron) validateIPFamilyForResolvedSubnet(
 				"Basic SKU is not supported for this configuration")
 	}
 
-	// Bootstrap with a Juju-managed VNet: the subnet is created by the
-	// ARM template in networkTemplateResources which is always dual-stack.
-	// When a placement subnet was specified, it is an existing subnet
-	// (not ARM-created) and must be validated for IPv6 /64 support.
-	if bootstrapping && env.config.virtualNetworkName == "" && placementSubnet == nil {
+	// When a primary subnet was resolved, verify it has an IPv6 /64 prefix.
+	if primarySubnet == nil {
 		return nil
 	}
-
-	// When a placement subnet was resolved, verify it has an IPv6 /64 prefix.
-	if placementSubnet == nil {
-		return nil
-	}
-	if placementSubnet.Properties == nil {
+	if primarySubnet.Properties == nil {
 		return errors.Errorf(
 			"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found; "+
-				"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(placementSubnet.Name))
+				"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(primarySubnet.Name))
 	}
-	prefixes := subnetAddressPrefixes(placementSubnet.Properties)
+	prefixes := subnetAddressPrefixes(primarySubnet.Properties)
 	if hasIPv6Slash64Prefix(prefixes) {
 		return nil
 	}
 	return errors.Errorf(
 		"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found; "+
-			"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(placementSubnet.Name))
+			"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(primarySubnet.Name))
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
@@ -963,21 +954,13 @@ func (env *azureEnviron) createVirtualMachine(
 	if err != nil {
 		return environs.ZoneIndependentError(err)
 	}
-	var placementSubnetID network.Id
-	if placementSubnet != nil {
-		placementSubnetID = providerSubnetID(placementSubnet)
-	}
-	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
+	vnetId, subnetIds, primarySubnet, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnet)
 	if err != nil {
 		return environs.ZoneIndependentError(err)
 	}
 
-	// Validate ip-family constraints against the resolved subnet(s).
-	// When a placement subnet was resolved, we have its full details and
-	// can verify IPv6 /64 support directly. Otherwise (space constraints,
-	// default subnet selection), the SKU check is sufficient; Azure itself
-	// rejects IPv4-only subnets at NIC creation time.
-	if err := env.validateIPFamilyForResolvedSubnet(ctx, args.Constraints, bootstrapping, placementSubnet); err != nil {
+	// Validate ip-family constraints against the resolved primary subnet.
+	if err := env.validateIPFamilyForResolvedSubnet(ctx, args.Constraints, primarySubnet); err != nil {
 		return environs.ZoneIndependentError(err)
 	}
 	logger.Debugf(ctx, "creating instance using vnet %v, subnets %q", vnetId, subnetIds)

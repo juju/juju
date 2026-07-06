@@ -1512,7 +1512,13 @@ func (s *environSuite) assertStartInstanceRequests(
 			if args.diskEncryptionSet != "" && args.vaultName != "" {
 				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+4)
 			} else if args.hasSpaceConstraints {
-				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests-1)
+				if args.dualStackIPFamily {
+					// Dual + space constraint adds a subnets-list
+					// request from findSubnetByID resolution.
+					c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests)
+				} else {
+					c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests-1)
+				}
 			} else if args.withConflictRetry {
 				c.Assert(requests, tc.HasLen, numExpectedStartInstanceRequests+3)
 			} else if args.withQuotaRetry {
@@ -1543,6 +1549,9 @@ func (s *environSuite) assertStartInstanceRequests(
 		c.Assert(requests[nexti()].Method, tc.Equals, "GET") // wait for common deployment
 		if len(args.subnets) == 0 {
 			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // subnets
+		}
+		if args.hasSpaceConstraints && args.dualStackIPFamily {
+			c.Assert(requests[nexti()].Method, tc.Equals, "GET") // subnets (findSubnetByID)
 		}
 	}
 	if args.placementSubnet != "" {
@@ -2487,6 +2496,9 @@ func (s *environSuite) TestStartInstanceIPFamilyDualPlacementNon64IPv6Subnet(c *
 }
 
 func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintIPv4OnlySubnet(c *tc.C) {
+	// When ip-family=dual is set with a space constraint and the selected
+	// subnet is IPv4-only, the provider should fail validation early
+	// instead of deferring to Azure.
 	env := s.openEnviron(c)
 	subnets := []*armnetwork.Subnet{{
 		ID:   new("/path/to/subnet1"),
@@ -2495,11 +2507,20 @@ func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintIPv4OnlySubne
 			AddressPrefix: new("192.168.0.0/20"),
 		},
 	}}
-	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{
-		bootstrap:           false,
-		hasSpaceConstraints: true,
-		subnets:             subnets,
-	})
+	// Build senders manually because the space-constraint + dual path
+	// makes extra API calls (common-deployment + subnets-list for
+	// findSubnetByID). Senders are consumed sequentially:
+	//   tenantID, RG → consumed by openEnviron
+	//   resourceSKUs, ubuntuSKUs, common-deployment, subnets-list
+	//   → consumed by StartInstance
+	s.sender = azuretesting.Senders{
+		makeSender(".*/skus", armcompute.ResourceSKUsResult{Value: s.skus}),
+		makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs),
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: subnets,
+		}),
+	}
 	s.requests = nil
 	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
@@ -2509,20 +2530,9 @@ func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintIPv4OnlySubne
 	}
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
-	result, err := env.StartInstance(c.Context(), params)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.NotNil)
-
-	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:      &jammyImageReferenceGen2,
-		diskSizeGB:          32,
-		osProfile:           &s.linuxOsProfile,
-		instanceType:        "Standard_A1",
-		publicIP:            true,
-		subnets:             []string{"/path/to/subnet1"},
-		hasSpaceConstraints: true,
-		dualStackIPFamily:   true,
-	})
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "subnet1" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
 }
 
 func (s *environSuite) TestStartInstanceIPFamilyDualPlacementWithSpaceConstraint(c *tc.C) {
@@ -2571,11 +2581,9 @@ func (s *environSuite) TestStartInstanceIPFamilyDualPlacementWithSpaceConstraint
 }
 
 func (s *environSuite) TestStartInstanceIPFamilyDualLegacyIPv4OnlySubnet(c *tc.C) {
-	// When ip-family=dual is set without placement, the provider proceeds
-	// to create the VM. The Juju-managed VNet template always creates
-	// dual-stack subnets, so this is safe. If the user configured a
-	// virtual-network-name with an IPv4-only subnet, Azure itself rejects
-	// the NIC creation — Juju does not pre-validate this path.
+	// When ip-family=dual is set without placement, the provider validates
+	// the resolved default subnet. If it is IPv4-only, validation should fail
+	// early rather than deferring to Azure.
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(c, startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
@@ -2583,17 +2591,53 @@ func (s *environSuite) TestStartInstanceIPFamilyDualLegacyIPv4OnlySubnet(c *tc.C
 	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
 	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
 
+	_, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorMatches,
+		`.*subnet "juju-internal-subnet" does not support ip-family=dual: no IPv6 /64 prefix found; add a /64 IPv6 prefix to the subnet or use ip-family=ipv4`)
+}
+
+func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintDualStackSubnet(c *tc.C) {
+	// When ip-family=dual is set with a space constraint and the selected
+	// subnet is dual-stack, the provider should succeed.
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+		},
+	}}
+	s.sender = azuretesting.Senders{
+		makeSender(".*/skus", armcompute.ResourceSKUsResult{Value: s.skus}),
+		makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs),
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: subnets,
+		}),
+		makeSender("/deployments/juju-06f00d-0", s.deployment),
+	}
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"foo"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
 	result, err := env.StartInstance(c.Context(), params)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.NotNil)
 
 	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference:    &jammyImageReferenceGen2,
-		diskSizeGB:        32,
-		osProfile:         &s.linuxOsProfile,
-		instanceType:      "Standard_A1",
-		publicIP:          true,
-		dualStackIPFamily: true,
+		imageReference:      &jammyImageReferenceGen2,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		instanceType:        "Standard_A1",
+		publicIP:            true,
+		subnets:             []string{"/path/to/subnet1"},
+		hasSpaceConstraints: true,
+		dualStackIPFamily:   true,
 	})
 }
 

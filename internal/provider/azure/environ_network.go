@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/environs"
 )
 
@@ -362,14 +363,21 @@ func (env *azureEnviron) networkInfoForInstance(
 	ctx context.Context,
 	args environs.StartInstanceParams,
 	bootstrapping, controller bool,
-	placementSubnetID network.Id,
-) (vnetID string, subnetIDs []network.Id, _ error) {
+	placementSubnet *azurenetwork.Subnet,
+) (vnetID string, subnetIDs []network.Id, primarySubnet *azurenetwork.Subnet, _ error) {
 
 	vnetRG, vnetName := env.networkInfo(ctx)
 	vnetID = fmt.Sprintf(`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`, vnetName)
 	if vnetRG != "" {
 		vnetID = fmt.Sprintf(`[resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s')]`, vnetRG, vnetName)
 	}
+
+	placementSubnetID := providerSubnetID(placementSubnet)
+	isDualStack := args.Constraints.IPFamily != nil && *args.Constraints.IPFamily == ipfamily.Dual
+	// When a placement subnet was provided, it is the primary by default.
+	// Early returns below may override this, and the space-constraints
+	// fallthrough at the bottom uses it to avoid a redundant lookup.
+	primarySubnet = placementSubnet
 
 	constraints := args.Constraints
 
@@ -380,14 +388,14 @@ func (env *azureEnviron) networkInfoForInstance(
 	if !constraints.HasSpaces() {
 		// Use placement if specified.
 		if placementSubnetID != "" {
-			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{placementSubnetID}), nil
+			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{placementSubnetID}), placementSubnet, nil
 		}
 
 		// When bootstrapping the network doesn't exist yet so just
 		// return the relevant subnet ID and it is created as part of
 		// the bootstrap process.
 		if bootstrapping && env.config.virtualNetworkName == "" {
-			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{env.defaultControllerSubnet()}), nil
+			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{env.defaultControllerSubnet()}), nil, nil
 		}
 
 		// Prefer the legacy default subnet if found.
@@ -397,17 +405,17 @@ func (env *azureEnviron) networkInfoForInstance(
 		}
 		defaultSubnet, err := env.findSubnet(ctx, defaultSubnetName)
 		if err != nil && !errors.Is(err, errors.NotFound) {
-			return "", nil, errors.Trace(err)
+			return "", nil, nil, errors.Trace(err)
 		}
 		if err == nil {
-			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{providerSubnetID(defaultSubnet)}), nil
+			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{providerSubnetID(defaultSubnet)}), defaultSubnet, nil
 		}
 
 		// For deployments without a spaces constraint, there's no subnets to zones mapping.
 		// So get all accessible subnets.
 		allSubnets, err := env.allSubnets(ctx)
 		if err != nil {
-			return "", nil, env.HandleCredentialError(ctx, err)
+			return "", nil, nil, env.HandleCredentialError(ctx, err)
 		}
 		subnetIds := make([]network.Id, len(allSubnets))
 		for i, subnet := range allSubnets {
@@ -420,7 +428,7 @@ func (env *azureEnviron) networkInfoForInstance(
 		// If there is no configured zone, consider all subnet IDs.
 		possibleSubnets, err = env.subnetsForZone(args.SubnetsToZones, args.AvailabilityZone)
 		if err != nil {
-			return "", nil, errors.Trace(err)
+			return "", nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -447,7 +455,7 @@ func (env *azureEnviron) networkInfoForInstance(
 		}
 	}
 	if len(subnetIDForZone) == 0 {
-		return "", nil, errors.NotFoundf("subnet for constraint %q", constraints.String())
+		return "", nil, nil, errors.NotFoundf("subnet for constraint %q", constraints.String())
 	}
 
 	// Put any placement subnet first in the list
@@ -462,11 +470,18 @@ func (env *azureEnviron) networkInfoForInstance(
 		}
 	}
 
-	// Strip :ipv6 suffixes and deduplicate. allSubnets() emits two rows per
-	// dual-stack subnet (one IPv4 with bare ID, one IPv6 with :ipv6 suffix),
-	// but ARM templates expect one subnet ID per NIC. Stripping + deduplicating
-	// ensures that happens.
-	return vnetID, stripAndDeduplicateSubnetIDs(subnetIDs), nil
+	dedupedSubnetIDs := stripAndDeduplicateSubnetIDs(subnetIDs)
+
+	// Resolve the primary subnet for validation when ip-family=dual.
+	if isDualStack && len(dedupedSubnetIDs) > 0 && primarySubnet == nil {
+		var err error
+		primarySubnet, err = env.findSubnetByID(ctx, dedupedSubnetIDs[0])
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return "", nil, nil, errors.Trace(err)
+		}
+	}
+
+	return vnetID, dedupedSubnetIDs, primarySubnet, nil
 }
 
 func (env *azureEnviron) subnetsForZone(subnetsToZones []map[network.Id][]string, az string) ([][]network.Id, error) {
@@ -508,6 +523,23 @@ func (env *azureEnviron) parsePlacement(placement string) (string, error) {
 // providerSubnetID extracts the network.Id from an Azure subnet resource.
 func providerSubnetID(subnet *azurenetwork.Subnet) network.Id {
 	return network.Id(toValue(toValue(subnet).ID))
+}
+
+// findSubnetByID resolves an Azure subnet ID to its full resource.
+// It strips the :ipv6 suffix before comparison, so it can look up
+// IDs originating from the Juju allSubnets() path.
+func (env *azureEnviron) findSubnetByID(ctx context.Context, id network.Id) (*azurenetwork.Subnet, error) {
+	subnets, err := env.allProviderSubnets(ctx)
+	if err != nil {
+		return nil, env.HandleCredentialError(ctx, err)
+	}
+	bare := network.Id(stripIPFamilySuffix(id.String()))
+	for _, subnet := range subnets {
+		if network.Id(toValue(subnet.ID)) == bare {
+			return subnet, nil
+		}
+	}
+	return nil, nil
 }
 
 func (env *azureEnviron) findPlacementSubnet(ctx context.Context, placement string) (*azurenetwork.Subnet, error) {

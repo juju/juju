@@ -716,3 +716,68 @@ func (s *environSuite) TestStripAndDeduplicateSubnetIDs(c *tc.C) {
 		c.Check(got, tc.DeepEquals, test.expected, tc.Commentf("StripAndDeduplicateSubnetIDs(%v)", test.input))
 	}
 }
+
+func (s *environSuite) TestFindSubnetByIDSuccess(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefix: new("192.168.0.0/20"),
+		},
+	}, {
+		ID:   new("/path/to/subnet2"),
+		Name: new("subnet2"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("10.0.0.0/24"), new("fd00::/64")},
+		},
+	}}
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: subnets,
+		}),
+	}
+
+	res, err := azure.FindSubnetByID(c.Context(), env, "/path/to/subnet2")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+	c.Assert(toValue(res.Name), tc.Equals, "subnet2")
+}
+
+func (s *environSuite) TestFindSubnetByIDSuccessSuffix(c *tc.C) {
+	env := s.openEnviron(c)
+	subnets := []*armnetwork.Subnet{{
+		ID:   new("/path/to/subnet1"),
+		Name: new("subnet1"),
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			AddressPrefixes: []*string{new("192.168.0.0/20"), new("fd00::/64")},
+		},
+	}}
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: subnets,
+		}),
+	}
+
+	// Look up using a Juju-suffixed ID, should still resolve to subnet1.
+	res, err := azure.FindSubnetByID(c.Context(), env, "/path/to/subnet1:ipv6")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.NotNil)
+	c.Assert(toValue(res.Name), tc.Equals, "subnet1")
+}
+
+func (s *environSuite) TestFindSubnetByIDNotFound(c *tc.C) {
+	env := s.openEnviron(c)
+	s.sender = azuretesting.Senders{
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{},
+		}),
+	}
+
+	res, err := azure.FindSubnetByID(c.Context(), env, "/path/to/subnet1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.IsNil)
+}
