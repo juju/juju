@@ -51,7 +51,7 @@ func NewStarformExecutor(ctx context.Context, config ExecutorConfig) (Executor, 
 
 	scriptSet, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 		App: &starform.AppObject{
-			Name: scriptlet.AppName,
+			Name: "juju",
 			Methods: []*starlark.Builtin{
 				// TODO (manadart 2026-07-06): There will be two builtin types.
 				// 1) Those that append intents (like this one), which will be

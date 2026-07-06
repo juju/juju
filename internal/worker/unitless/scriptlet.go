@@ -17,18 +17,12 @@ const (
 
 // Scriptlet contains the Starform source set for an application.
 type Scriptlet struct {
-	// AppName is the Starlark global application object name.
-	AppName string
-
 	// Sources are the Starform sources to load.
 	Sources []ScriptSource
 }
 
 // Validate checks that a scriptlet can be loaded.
 func (s Scriptlet) Validate() error {
-	if s.AppName == "" {
-		return errors.New("empty scriptlet app name not valid").Add(coreerrors.NotValid)
-	}
 	if len(s.Sources) == 0 {
 		return errors.New("no scriptlet sources not valid").Add(coreerrors.NotValid)
 	}
