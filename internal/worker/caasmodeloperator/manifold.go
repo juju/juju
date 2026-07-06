@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/services"
@@ -24,7 +25,12 @@ import (
 // are passed as direct ManifoldConfig fields, not through the
 // provider.
 type ConfigProvider interface {
+	// CACert returns the controller CA certificate used for agent config
+	// rendering.
 	CACert() (string, error)
+	// ControllerAgentInfo returns the controller certificate and private key
+	// material used for agent config rendering.
+	ControllerAgentInfo() (controller.ControllerAgentInfo, error)
 }
 
 // TracingService provides access to workload tracing configuration.

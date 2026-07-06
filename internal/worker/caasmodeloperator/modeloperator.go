@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
@@ -243,6 +242,10 @@ func (m *ModelOperatorManager) updateAgentConf(
 	if err != nil {
 		return nil, errors.Annotate(err, "reading CA cert")
 	}
+	controllerAgentInfo, err := m.configProvider.ControllerAgentInfo()
+	if err != nil {
+		return nil, errors.Annotate(err, "reading controller agent info")
+	}
 	tracingConfig, err := m.tracingService.GetWorkloadTracingConfig(context.Background())
 	if err != nil {
 		return nil, errors.Annotate(err, "reading workload tracing config")
@@ -277,11 +280,7 @@ func (m *ModelOperatorManager) updateAgentConf(
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating new agent config for model")
 	}
-	conf.SetControllerAgentInfo(controller.ControllerAgentInfo{
-		Cert:         info.ControllerCert,
-		PrivateKey:   info.ControllerPrivateKey,
-		CAPrivateKey: info.CAPrivateKey,
-	})
+	conf.SetControllerAgentInfo(controllerAgentInfo)
 
 	return conf.Render()
 }

@@ -338,12 +338,9 @@ type ConfigResult struct {
 
 // ModelOperatorInfo holds infor needed for a model operator.
 type ModelOperatorInfo struct {
-	APIAddresses         []string          `json:"api-addresses"`
-	ImageDetails         DockerImageInfo   `json:"image-details"`
-	Version              semversion.Number `json:"version"`
-	ControllerCert       string            `json:"controller-cert"`
-	ControllerPrivateKey string            `json:"controller-private-key"`
-	CAPrivateKey         string            `json:"ca-private-key"`
+	APIAddresses []string          `json:"api-addresses"`
+	ImageDetails DockerImageInfo   `json:"image-details"`
+	Version      semversion.Number `json:"version"`
 }
 
 // IssueOperatorCertificateResult contains an x509 certificate

@@ -112,11 +112,6 @@ func (a *modelOperatorAPIAdapter) ModelOperatorProvisioningInfo(ctx context.Cont
 		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting API addresses")
 	}
 
-	controllerAgentInfo, err := a.ctrlSvc.GetControllerAgentInfo(ctx)
-	if err != nil {
-		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting controller agent info")
-	}
-
 	registryPath, err := podcfg.GetJujuOCIImagePathFromControllerCfg(controllerConfig, vers)
 	if err != nil {
 		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting OCI image path")
@@ -130,12 +125,9 @@ func (a *modelOperatorAPIAdapter) ModelOperatorProvisioningInfo(ctx context.Cont
 	imageDetails := convertToDockerImageDetails(docker.ConvertToResourceImageDetails(imageRepoDetails), registryPath)
 
 	return ModelOperatorProvisioningInfo{
-		APIAddresses:         apiAddresses,
-		ImageDetails:         imageDetails,
-		Version:              vers,
-		ControllerCert:       controllerAgentInfo.Cert,
-		ControllerPrivateKey: controllerAgentInfo.PrivateKey,
-		CAPrivateKey:         controllerAgentInfo.CAPrivateKey,
+		APIAddresses: apiAddresses,
+		ImageDetails: imageDetails,
+		Version:      vers,
 	}, nil
 }
 

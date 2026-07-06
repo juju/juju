@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
@@ -31,6 +32,10 @@ type errorTracingService struct{}
 
 func (errorConfigProvider) CACert() (string, error) {
 	return "", errors.New("read failed")
+}
+
+func (errorConfigProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
+	return controller.ControllerAgentInfo{}, errors.New("read failed")
 }
 
 func (errorTracingService) GetWorkloadTracingConfig(context.Context) (tracingservice.WorkloadTracingConfig, error) {
@@ -122,12 +127,9 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 	api := &dummyAPI{
 		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
 			return caasmodeloperator.ModelOperatorProvisioningInfo{
-				APIAddresses:         apiAddresses[iteration],
-				ImageDetails:         resource.DockerImageDetails{RegistryPath: imagePath[iteration]},
-				Version:              ver[iteration],
-				ControllerCert:       "controller-cert",
-				ControllerPrivateKey: "controller-key",
-				CAPrivateKey:         "ca-key",
+				APIAddresses: apiAddresses[iteration],
+				ImageDetails: resource.DockerImageDetails{RegistryPath: imagePath[iteration]},
+				Version:      ver[iteration],
 			}, nil
 		},
 		watchProvInfo: func() (watcher.NotifyWatcher, error) {

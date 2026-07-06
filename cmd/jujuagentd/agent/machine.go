@@ -169,6 +169,14 @@ func (p machineModelStartupValueProvider) CACert() (string, error) {
 	return p.agent.CurrentConfig().CACert(), nil
 }
 
+func (p machineModelStartupValueProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
+	info, ok := p.agent.CurrentConfig().ControllerAgentInfo()
+	if !ok {
+		return controller.ControllerAgentInfo{}, errors.NotFoundf("controller agent info")
+	}
+	return info, nil
+}
+
 func (p machineModelStartupValueProvider) LoggingOverride() (string, error) {
 	return p.agent.CurrentConfig().Value(agent.LoggingOverride), nil
 }
