@@ -23,6 +23,7 @@ type ScriptletService interface {
 	// the application.
 	WatchApplicationEvents(ctx context.Context, applicationUUID string) (watcher.StringsWatcher, error)
 
-	// GetScriptletEvent returns the current snapshot for an event.
+	// GetScriptletEvent returns an Event with attributes related to input event
+	// name, relevant to the application with the input UUID.
 	GetScriptletEvent(ctx context.Context, applicationUUID, eventName string) (Event, error)
 }

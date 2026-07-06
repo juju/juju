@@ -39,9 +39,7 @@ func (s Scriptlet) Validate() error {
 
 // ScriptSource is one Starform source file.
 type ScriptSource struct {
-	// LoadPath is the stable logical Starlark source/load path, not
-	// necessarily a filesystem path. Starform uses it for load resolution,
-	// deterministic ordering, validation, and diagnostics.
+	// LoadPath is the stable logical Starlark source/load path.
 	LoadPath string
 
 	// Source is the Starlark source text.
@@ -58,11 +56,13 @@ func (s ScriptSource) Content(context.Context) ([]byte, error) {
 	return []byte(s.Source), nil
 }
 
-// Event is the current model snapshot to pass to a scriptlet handler.
+// Event is emitted to an application's staged scriptlet when something
+// pertinent to the application changes.
 type Event struct {
 	// Name is the name of the event.
 	Name string
 
-	// Attrs are data associated with the event.
+	// Attrs are data associated with the event,
+	// particular to the application receiving it.
 	Attrs map[string]any
 }

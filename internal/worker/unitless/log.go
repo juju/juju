@@ -21,9 +21,6 @@ func NewStarformLogAdapter(log logger.Logger) starform.Logger {
 }
 
 func (l starformLogAdapter) Log(ctx context.Context, entry starform.LogEntry) {
-	if l.logger == nil {
-		return
-	}
 	switch entry.Level {
 	case starform.DebugLevel:
 		l.logger.Debugf(ctx, "scriptlet %s", entry.String())

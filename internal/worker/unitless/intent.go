@@ -12,18 +12,16 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-// IntentType identifies a scriptlet intent type.
-// Scriptlets may not have side effects; rather, they return intents with data
-// corresponding to individual intent types, which are then actioned at the
-// discretion of the Juju domain.
+// IntentType identifies a type of Intent.
 type IntentType string
 
 // Intent is a declared action resulting from scriptlet execution.
-// We may want to do the following:
-//   - Use a visitor pattern to accumulate intents as Builtins in
-//     NewStarformExecutor.
 type Intent struct {
+	// Type identifies the type of intent.
 	Type    IntentType
+
+	// Args are arguments to pass to service methods that
+	// are called according to the intent type.
 	Args    map[string]any
 }
 
