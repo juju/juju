@@ -65,6 +65,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticKey:             schema.String(),
 	ObjectStoreS3StaticSecret:          schema.String(),
 	ObjectStoreS3StaticSession:         schema.String(),
+	ObjectStoreS3Region:                schema.String(),
 	SystemSSHKeys:                      schema.String(),
 	JujudControllerSnapSource:          schema.String(),
 	SSHServerPort:                      schema.ForceInt(),
@@ -123,6 +124,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticKey:             schema.Omit,
 	ObjectStoreS3StaticSecret:          schema.Omit,
 	ObjectStoreS3StaticSession:         schema.Omit,
+	ObjectStoreS3Region:                schema.Omit,
 	SystemSSHKeys:                      schema.Omit,
 	JujudControllerSnapSource:          DefaultJujudControllerSnapSource,
 	SSHServerPort:                      DefaultSSHServerPort,
@@ -360,6 +362,10 @@ same database.`[1:],
 	ObjectStoreS3StaticSession: {
 		Type:        configschema.Tstring,
 		Description: `The s3 static session for the object store backend`,
+	},
+	ObjectStoreS3Region: {
+		Type:        configschema.Tstring,
+		Description: `The s3 region for signing requests to the object store backend. If empty, the region is derived from the endpoint URL for common AWS forms. If derivation fails, a placeholder is used and a warning is logged for static credentials.`,
 	},
 	SystemSSHKeys: {
 		Type:        configschema.Tstring,

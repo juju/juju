@@ -528,6 +528,19 @@ controller on behalf of workers running for a model.
 **Can be changed after bootstrap:** yes
 
 
+(controller-config-object-store-s3-region)=
+## `object-store-s3-region`
+
+`object-store-s3-region` is the AWS region to use for signing S3 requests.
+When empty, the region is derived from the endpoint URL for common AWS
+forms. If it cannot be derived and static credentials are used, a
+placeholder region is used and a warning is logged.
+
+**Type:** string
+
+**Can be changed after bootstrap:** no
+
+
 (controller-config-object-store-s3-static-key)=
 ## `object-store-s3-static-key`
 

@@ -433,6 +433,12 @@ var newConfigTests = []struct {
 	},
 	expectError: `object-store-s3-static-session: expected string, got int\(1\)`,
 }, {
+	about: "invalid object store s3 region value",
+	config: controller.Config{
+		controller.ObjectStoreS3Region: 1,
+	},
+	expectError: `object-store-s3-region: expected string, got int\(1\)`,
+}, {
 	about: "invalid jujud-controller-snap-source value",
 	config: controller.Config{
 		controller.JujudControllerSnapSource: "latest/stable",
@@ -1041,4 +1047,26 @@ func (s *ConfigSuite) TestObjectStoreS3Credentials(c *tc.C) {
 	c.Assert(cfg.ObjectStoreS3StaticKey(), tc.Equals, "key")
 	c.Assert(cfg.ObjectStoreS3StaticSecret(), tc.Equals, "secret")
 	c.Assert(cfg.ObjectStoreS3StaticSession(), tc.Equals, "session")
+}
+
+func (s *ConfigSuite) TestObjectStoreS3Region(c *tc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]any{
+			controller.ObjectStoreS3Region: "eu-west-1",
+		},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3Region(), tc.Equals, "eu-west-1")
+
+	// When not set, the region defaults to empty (s3client derives it or
+	// uses a placeholder).
+	cfg, err = controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]any{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3Region(), tc.Equals, "")
 }
