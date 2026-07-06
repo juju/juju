@@ -81,6 +81,10 @@ type ImportModelArgs struct {
 // coordinator constructs the controller-scoped domain services once and
 // orchestrates the call order FK-/dependency-safely.
 //
+// It writes only controller-database state. Any source→target rewrite of the
+// model-DB payload (e.g. secret backend UUIDs) is read back and applied
+// separately by reconcileSecretBackendUUIDs once these writes have landed.
+//
 // sourceMigrationUUID is the source-side migration UUID recorded on the target
 // import claim. If a claim already exists for info.ModelInfo.UUID, the returned
 // error wraps [coreerrors.AlreadyExists] (phase-specific wording is supplied by

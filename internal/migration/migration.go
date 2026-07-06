@@ -93,24 +93,41 @@ func (i *ModelImporter) ImportModel(
 ) error {
 	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
 	scope := i.scope(modelUUID)
-
-	if err := ImportControllerModelInfo(ctx, Deps{
+	deps := Deps{
 		ControllerDB: scope.ControllerDB(),
 		ModelDB:      scope.ModelDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
-	}, args.SourceMigrationUUID, args.ControllerModelInfo, view); err != nil {
+	}
+
+	// Apply the controller-scoped data (claim, bootstrap, users, credential,
+	// permissions, secret backend references, ...). Writes only; no return
+	// value beyond the error.
+	if err := ImportControllerModelInfo(
+		ctx, deps, args.SourceMigrationUUID, args.ControllerModelInfo, view,
+	); err != nil {
 		return internalerrors.Capture(err)
+	}
+
+	if args.ModelDBPayload == nil {
+		return nil
+	}
+
+	// Now that the controller data is applied, rewrite the model-DB payload's
+	// secret backend UUIDs from the source controller's to the target's (matched
+	// by name) before the insert. An unmapped revision is a hard error; no
+	// model-DB rows are written.
+	if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
+		return internalerrors.Errorf(
+			"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
 	}
 
 	// Model-DB import: insert the transformed, target-version payload into the
 	// model DB. The importer is constructed per import because it binds to the
 	// model DB resolved from the scope for this model UUID (the ModelImporter
 	// itself is not bound to a single model).
-	if args.ModelDBPayload != nil {
-		if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
-			return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
-		}
+	if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
+		return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
 	}
 	return nil
 }
