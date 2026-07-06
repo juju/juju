@@ -59,7 +59,6 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	service := NewMockScriptletService(ctrl)
 	applicationUUID := "app-uuid-1"
 	scriptlet := Scriptlet{
-		AppName: "juju",
 		Sources: []ScriptSource{{
 			LoadPath: "hooks.star",
 			Source:   "def init(): pass",
@@ -94,9 +93,11 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	executor := &fakeExecutor{
 		handled: make(chan Event, 1),
 		intents: []Intent{{
-			Type:    IntentStatusSet,
-			Status:  "active",
-			Message: "updated",
+			Type: IntentSetStatus,
+			Args: map[string]any{
+				"status":  "active",
+				"message": "updated",
+			},
 		}},
 	}
 	executorConfigs := make(chan ExecutorConfig, 1)
@@ -115,7 +116,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 
 	appChanges <- []string{applicationUUID}
 	executorConfig := waitFor(c, executorConfigs)
-	c.Check(executorConfig.Scriptlet.AppName, tc.Equals, "juju")
+	c.Check(executorConfig.Scriptlet, tc.DeepEquals, scriptlet)
 	waitFor(c, eventWatchers)
 
 	eventChanges <- []string{"config_changed"}

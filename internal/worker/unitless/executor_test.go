@@ -21,7 +21,6 @@ func TestStarformSuite(t *testing.T) {
 func (s *starformSuite) TestHandleCollectsIntents(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
 		Scriptlet: Scriptlet{
-			AppName: "juju",
 			Sources: []ScriptSource{{
 				LoadPath: "hooks.star",
 				Source: `
@@ -47,16 +46,17 @@ def on_config_changed(event):
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(intents, tc.DeepEquals, []Intent{{
-		Type:    IntentStatusSet,
-		Status:  "active",
-		Message: "updated",
+		Type: IntentSetStatus,
+		Args: map[string]any{
+			"status":  "active",
+			"message": "updated",
+		},
 	}})
 }
 
 func (s *starformSuite) TestHandleScriptErrorDiscardsIntents(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
 		Scriptlet: Scriptlet{
-			AppName: "juju",
 			Sources: []ScriptSource{{
 				LoadPath: "hooks.star",
 				Source: `
@@ -80,7 +80,6 @@ def on_config_changed(event):
 func (s *starformSuite) TestHandleUnobservedEventHasNoIntents(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
 		Scriptlet: Scriptlet{
-			AppName: "juju",
 			Sources: []ScriptSource{{
 				LoadPath: "hooks.star",
 				Source: `

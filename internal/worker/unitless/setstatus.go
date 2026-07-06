@@ -9,11 +9,13 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
-const (
-	// IntentSetStatus declares an application status update.
-	IntentSetStatus IntentType = "status-set"
-	setStatusSafety = starlark.NotSafe
-)
+// IntentSetStatus declares an application status update.
+const IntentSetStatus IntentType = "status-set"
+
+const setStatusSafety = starlark.MemSafe |
+	starlark.CPUSafe |
+	starlark.TimeSafe |
+	starlark.IOSafe
 
 var setStatusBuiltin = starlark.NewBuiltinWithSafety("status_set", setStatusSafety, setStatus)
 
@@ -30,8 +32,8 @@ func setStatus(
 		return nil, errors.Errorf("getting IntentCollector from thread: %w", err)
 	}
 	err = collector.append(thread, Intent{
-		Type:    IntentSetStatus,
-		Args:    map[string]any{
+		Type: IntentSetStatus,
+		Args: map[string]any{
 			"status":  status,
 			"message": message,
 		},
@@ -41,5 +43,3 @@ func setStatus(
 	}
 	return starlark.None, nil
 }
-
-
