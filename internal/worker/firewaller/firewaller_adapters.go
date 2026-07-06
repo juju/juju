@@ -225,8 +225,13 @@ func (a *firewallerAPIAdapter) ControllerAPIInfoForModel(ctx context.Context, mo
 	}, nil
 }
 
-// SetRelationStatus implements FirewallerAPI.
-func (a *firewallerAPIAdapter) SetRelationStatus(ctx context.Context, relationKey string, status corerelation.Status, message string) error {
+// SetRelationStatus implements FirewallerAPI. The status parameter is
+// intentionally unused: the relation domain service only supports
+// setting an error status via SetRelationErrorStatus. The previous
+// facade returned NotImplemented for this method, so this adapter
+// changes behavior from "not implemented" to "partially implemented".
+// The firewaller worker does not call this method today.
+func (a *firewallerAPIAdapter) SetRelationStatus(ctx context.Context, relationKey string, _ corerelation.Status, message string) error {
 	rKey, err := corerelation.NewKeyFromString(relationKey)
 	if err != nil {
 		return errors.Trace(err)
