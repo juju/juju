@@ -106,7 +106,8 @@ run_secrets() {
 	echo "Checking: secret-info-get by label - metadata"
 	check_contains "$(juju_exec_output --unit hello/0 -- secret-info-get --label=hello_0 --format json | yq ".${unit_owned_short_uri}.label")" hello_0
 
-	relation_id=$(juju --show-log show-unit hello/0 --format json | yq '."hello/0"."relation-info"[1]."relation-id"')
+	# get non -peers relation id (the relation which endpoint doesnt end by "peers" in this case.
+	relation_id=$(juju --show-log show-unit hello/0 --format json | yq '."hello/0"."relation-info"[] | select(.endpoint | test("-peers$") | not) | ."relation-id"')
 	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
 	juju exec --unit hello/0 -- secret-grant "$app_owned_full_uri" -r "$relation_id"
 

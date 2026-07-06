@@ -136,7 +136,7 @@ func (s *Service) DrainBackendConfigInfo(
 		return nil, errors.Errorf("missing secret backend %q", p.BackendID)
 	}
 	backendCfg, err := s.backendConfigInfo(ctx,
-		p.GrantedSecretsGetter, p.BackendID, &cfg, p.Accessor, p.LeaderToken, true, true)
+		p.GrantedSecretsGetter, p.BackendID, &cfg, p.Accessor, p.LeaderToken, true, true, nil)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -179,7 +179,7 @@ func (s *Service) BackendConfigInfo(
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
 		backendCfg, err := s.backendConfigInfo(ctx,
-			p.GrantedSecretsGetter, backendID, &cfg, p.Accessor, p.LeaderToken, p.SameController, false)
+			p.GrantedSecretsGetter, backendID, &cfg, p.Accessor, p.LeaderToken, p.SameController, false, p.ReservedSecretIDs)
 		if err != nil {
 			return nil, errors.Capture(err)
 		}
@@ -193,6 +193,7 @@ func (s *Service) backendConfigInfo(
 	grantedSecretsGetter secretservice.GrantedSecretsGetter,
 	backendID string, cfg *provider.ModelBackendConfig,
 	accessor secret.SecretAccessor, token leadership.Token, sameController, forDrain bool,
+	reservedSecretIDs []string,
 ) (*provider.ModelBackendConfig, error) {
 	if grantedSecretsGetter == nil {
 		return nil, errors.Errorf("unexpected nil value for GrantedSecretsGetter")
@@ -280,6 +281,15 @@ func (s *Service) backendConfigInfo(
 		}
 		for _, r := range revInfo {
 			readRevisions.Add(r.URI, r.RevisionID)
+		}
+
+		// Include any secrets reserved by the unit accessor (not yet in state).
+		// Reserved secrets have no revision IDs because they haven't been
+		// persisted yet, so we only add them to the owned set (URI-only).
+		// This is sufficient for the backend to pre-create placeholders and
+		// grant access by name.
+		for _, id := range reservedSecretIDs {
+			owned.Add(id)
 		}
 	case secret.ModelAccessor:
 		coreAccessor = coresecrets.Accessor{

@@ -134,16 +134,22 @@ func (s *SecretsManagerAPI) getBackendConfigForDrain(ctx context.Context, arg pa
 func (s *SecretsManagerAPI) getSecretBackendConfig(ctx context.Context, backendIDs []string) (map[string]params.SecretBackendConfigResult, string, error) {
 	appName, _ := names.UnitApplication(s.authTag.Id())
 	token := s.leadershipChecker.LeadershipCheck(appName, s.authTag.Id())
+	accessor := secret.SecretAccessor{
+		Kind: secret.UnitAccessor,
+		ID:   s.authTag.Id(),
+	}
+	reservedSecretIDs, err := s.secretService.GetReservedSecretIDs(ctx, accessor)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
 	cfgInfo, err := s.secretBackendService.BackendConfigInfo(ctx, secretbackendservice.BackendConfigParams{
 		GrantedSecretsGetter: s.secretService.ListGrantedSecretsForBackend,
 		LeaderToken:          token,
-		Accessor: secret.SecretAccessor{
-			Kind: secret.UnitAccessor,
-			ID:   s.authTag.Id(),
-		},
-		ModelUUID:      model.UUID(s.modelUUID),
-		BackendIDs:     backendIDs,
-		SameController: true,
+		Accessor:             accessor,
+		ModelUUID:            model.UUID(s.modelUUID),
+		BackendIDs:           backendIDs,
+		SameController:       true,
+		ReservedSecretIDs:    reservedSecretIDs,
 	})
 	if err != nil {
 		return nil, "", errors.Trace(err)
@@ -207,7 +213,11 @@ func (s *SecretsManagerAPI) CreateSecretURIs(ctx context.Context, arg params.Cre
 	result := params.StringResults{
 		Results: make([]params.StringResult, arg.Count),
 	}
-	uris, err := s.secretService.CreateSecretURIs(ctx, arg.Count)
+	accessor := secret.SecretAccessor{
+		Kind: secret.UnitAccessor,
+		ID:   s.authTag.Id(),
+	}
+	uris, err := s.secretService.CreateSecretURIs(ctx, accessor, arg.Count)
 	if err != nil {
 		return params.StringResults{}, errors.Trace(err)
 	}

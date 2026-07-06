@@ -72,8 +72,13 @@ type SecretsConsumer interface {
 
 // SecretService provides core secrets operations.
 type SecretService interface {
-	// CreateSecretURIs generates the requested number of new secret URIs.
-	CreateSecretURIs(ctx context.Context, count int) ([]*secrets.URI, error)
+	// CreateSecretURIs generates the requested number of new secret URIs,
+	// reserving them for the given accessor.
+	CreateSecretURIs(ctx context.Context, accessor secret.SecretAccessor, count int) ([]*secrets.URI, error)
+
+	// GetReservedSecretIDs returns the IDs of secrets that have been
+	// reserved by the given accessor but not yet persisted.
+	GetReservedSecretIDs(ctx context.Context, accessor secret.SecretAccessor) ([]string, error)
 
 	// GetSecretValue retrieves the value and optional value reference for
 	// the specified secret revision, checking access for the given accessor.

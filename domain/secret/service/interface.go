@@ -32,6 +32,16 @@ type State interface {
 	// GetUnitUUID returns the UUID for the unit with the given name.
 	GetUnitUUID(ctx context.Context, name coreunit.Name) (coreunit.UUID, error)
 
+	// ReserveSecretURIs records that the given secret IDs have been
+	// minted for the specified unit but not yet persisted as charm
+	// secrets. This allows backend write authority to be granted only
+	// for IDs the requesting unit actually reserved.
+	ReserveSecretURIs(ctx context.Context, unitUUID coreunit.UUID, secretIDs []string) error
+
+	// GetUnitReservedSecretIDs returns the IDs of all secrets reserved
+	// by the given unit that have not yet been persisted.
+	GetUnitReservedSecretIDs(ctx context.Context, unitUUID coreunit.UUID) ([]string, error)
+
 	// ImportSecretWithRevisions imports a secret with its revisions,
 	// owner, and metadata into the model.
 	ImportSecretWithRevisions(ctx context.Context, version int, uri *secrets.URI,
