@@ -22,6 +22,7 @@ import (
 	accessstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/export/types/latest"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
@@ -34,8 +35,8 @@ import (
 // modelImporterSuite is a thin smoke test for ModelImporter.ImportModel, the
 // public method the migrationtarget facade calls. The orchestration itself is
 // covered in this package's direct ImportControllerModelInfo tests; this only
-// proves the delegator resolves the migration scope for the model UUID and wires
-// it through correctly.
+// proves the delegator resolves the migration scope for the model UUID and
+// wires it through correctly.
 type modelImporterSuite struct {
 	schematesting.ControllerModelSuite
 
@@ -113,6 +114,56 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
 }
 
+func (s *modelImporterSuite) TestImportModelNoSecretBackendRewriteRows(c *tc.C) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	controllerFactory := s.TxnRunnerFactory()
+	modelRunner := s.ModelTxnRunner(c, modelUUID.String())
+	modelFactory := func(context.Context) (coredatabase.TxnRunner, error) {
+		return modelRunner, nil
+	}
+
+	passwordHash := "some-hash"
+	payload := &latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{
+			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
+		},
+		Sequence: []v4_1_0.Sequence{{Namespace: "machine", Value: 7}},
+	}
+
+	scope := func(coremodel.UUID) coremodelmigration.Scope {
+		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
+	}
+	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+
+	importArgs := migration.ImportModelArgs{
+		SourceMigrationUUID: uuid.MustNewUUID().String(),
+		ControllerModelInfo: coremodelmigration.ControllerModelInfo{
+			ModelInfo: coremodelmigration.ModelIdentityInfo{
+				UUID:      modelUUID.String(),
+				Name:      "imported-model",
+				Qualifier: "prod",
+				Type:      "iaas",
+				Cloud:     s.cloudName,
+				Life:      "alive",
+			},
+		},
+		ModelDBPayload: payload,
+	}
+	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
+
+	err := importer.ImportModel(c.Context(), importArgs, view)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var sequenceValue int64
+	err = modelRunner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			`SELECT value FROM sequence WHERE namespace = ?`, "machine",
+		).Scan(&sequenceValue)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(sequenceValue, tc.Equals, int64(7))
+}
+
 // createExternalSecretBackend inserts a named external secret backend on the
 // controller DB and returns its target UUID.
 func (s *modelImporterSuite) createExternalSecretBackend(c *tc.C, name string) string {
@@ -154,7 +205,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 	revUUID2 := uuid.MustNewUUID().String()
 	passwordHash := "some-hash"
 
-	payload := &v4_1_0.ModelExport{
+	payload := &latest.ModelExport{
 		ModelAgent: []v4_1_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
@@ -248,7 +299,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingRef(c *tc
 	revUUID := uuid.MustNewUUID().String()
 	passwordHash := "some-hash"
 
-	payload := &v4_1_0.ModelExport{
+	payload := &latest.ModelExport{
 		ModelAgent: []v4_1_0.ModelAgent{
 			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
 		},
@@ -292,6 +343,77 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingRef(c *tc
 	c.Assert(err, tc.ErrorMatches, `.*no target secret backend for secret revision.*`)
 
 	// Verify no secret_value_ref rows were committed.
+	var count int
+	err = modelRunner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM secret_value_ref WHERE revision_uuid = ?`, revUUID,
+		).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
+func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingBackend(c *tc.C) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	controllerFactory := s.TxnRunnerFactory()
+	modelRunner := s.ModelTxnRunner(c, modelUUID.String())
+	modelFactory := func(context.Context) (coredatabase.TxnRunner, error) {
+		return modelRunner, nil
+	}
+
+	sourceBackendUUID := uuid.MustNewUUID().String()
+	now := time.Now().UTC()
+	secretID := uuid.MustNewUUID().String()
+	revUUID := uuid.MustNewUUID().String()
+	passwordHash := "some-hash"
+
+	payload := &latest.ModelExport{
+		ModelAgent: []v4_1_0.ModelAgent{
+			{ModelUUID: modelUUID.String(), PasswordHash: &passwordHash},
+		},
+		Secret: []v4_1_0.Secret{
+			{ID: secretID},
+		},
+		SecretMetadata: []v4_1_0.SecretMetadata{
+			{SecretID: secretID, Version: 1, RotatePolicyID: 0, CreateTime: now, UpdateTime: now},
+		},
+		SecretRevision: []v4_1_0.SecretRevision{
+			{UUID: revUUID, SecretID: secretID, Revision: 1, CreateTime: now},
+		},
+		SecretValueRef: []v4_1_0.SecretValueRef{
+			{RevisionUUID: revUUID, BackendUUID: sourceBackendUUID, RevisionID: "ext-rev-1"},
+		},
+	}
+
+	scope := func(coremodel.UUID) coremodelmigration.Scope {
+		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
+	}
+	importer := migration.NewModelImporter(scope, nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+
+	importArgs := migration.ImportModelArgs{
+		SourceMigrationUUID: uuid.MustNewUUID().String(),
+		ControllerModelInfo: coremodelmigration.ControllerModelInfo{
+			ModelInfo: coremodelmigration.ModelIdentityInfo{
+				UUID:      modelUUID.String(),
+				Name:      "imported-model",
+				Qualifier: "prod",
+				Type:      "iaas",
+				Cloud:     s.cloudName,
+				Life:      "alive",
+			},
+			SecretBackendRefs: []coremodelmigration.SecretBackendReference{{
+				BackendName:        "nonexistent",
+				SecretRevisionUUID: revUUID,
+				SecretID:           secretID,
+			}},
+		},
+		ModelDBPayload: payload,
+	}
+	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
+
+	err := importer.ImportModel(c.Context(), importArgs, view)
+	c.Assert(err, tc.ErrorMatches, `.*looking up secret backend "nonexistent".*`)
+
 	var count int
 	err = modelRunner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx,

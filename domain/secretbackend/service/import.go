@@ -74,6 +74,17 @@ func (s *Service) resolveBackendUUIDsByRevision(
 		return nil, nil
 	}
 
+	revisionBackendNames := make(map[string]string, len(refs))
+	for _, ref := range refs {
+		if backendName, ok := revisionBackendNames[ref.SecretRevisionUUID]; ok {
+			return nil, errors.Errorf(
+				"secret revision %q has multiple backend references: %q and %q",
+				ref.SecretRevisionUUID, backendName, ref.BackendName,
+			)
+		}
+		revisionBackendNames[ref.SecretRevisionUUID] = ref.BackendName
+	}
+
 	backendIDs := make(map[string]string)
 	revisionMap := make(map[string]string, len(refs))
 	for _, ref := range refs {

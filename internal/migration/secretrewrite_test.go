@@ -23,18 +23,18 @@ func TestSecretRewriteSuite(t *testing.T) {
 	tc.Run(t, &secretRewriteSuite{})
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_NilPayload(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsNilPayload(c *tc.C) {
 	err := migration.RewriteSecretBackendUUIDs(nil, map[string]string{"rev-1": "target-id"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_EmptyPayload(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsEmptyPayload(c *tc.C) {
 	payload := &latest.ModelExport{}
 	err := migration.RewriteSecretBackendUUIDs(payload, map[string]string{"rev-1": "target-id"})
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_EmptyMap(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsEmptyMap(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretValueRef: []v4_1_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-id"},
@@ -44,7 +44,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_EmptyMap(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `no target secret backend for secret revision "rev-1"`)
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_RewriteBoth(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsRewriteBoth(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretValueRef: []v4_1_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1", RevisionID: "rid-1"},
@@ -67,18 +67,18 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_RewriteBoth(c *tc.C) 
 
 	// Value refs rewritten.
 	c.Check(payload.SecretValueRef[0].BackendUUID, tc.Equals, "target-1")
-	c.Check(payload.SecretValueRef[0].RevisionID, tc.Equals, "rid-1") // unchanged
+	c.Check(payload.SecretValueRef[0].RevisionID, tc.Equals, "rid-1")
 	c.Check(payload.SecretValueRef[1].BackendUUID, tc.Equals, "target-2")
-	c.Check(payload.SecretValueRef[1].RevisionID, tc.Equals, "rid-2") // unchanged
+	c.Check(payload.SecretValueRef[1].RevisionID, tc.Equals, "rid-2")
 
 	// Deleted value refs rewritten.
 	c.Check(payload.SecretDeletedValueRef[0].BackendUUID, tc.Equals, "target-1")
-	c.Check(payload.SecretDeletedValueRef[0].RevisionID, tc.Equals, "rid-1") // unchanged
+	c.Check(payload.SecretDeletedValueRef[0].RevisionID, tc.Equals, "rid-1")
 	c.Check(payload.SecretDeletedValueRef[1].BackendUUID, tc.Equals, "target-3")
-	c.Check(payload.SecretDeletedValueRef[1].RevisionID, tc.Equals, "rid-3") // unchanged
+	c.Check(payload.SecretDeletedValueRef[1].RevisionID, tc.Equals, "rid-3")
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_MissingRevision(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsMissingRevision(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretValueRef: []v4_1_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
@@ -93,7 +93,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_MissingRevision(c *tc
 	c.Assert(err, tc.ErrorMatches, `no target secret backend for secret revision "rev-1"`)
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_MissingDeletedRevision(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsMissingDeletedRevision(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretDeletedValueRef: []v4_1_0.SecretDeletedValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
@@ -108,7 +108,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_MissingDeletedRevisio
 	c.Assert(err, tc.ErrorMatches, `no target secret backend for secret revision "rev-1" \(deleted value ref\)`)
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_DistinctBackends(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsDistinctBackends(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretValueRef: []v4_1_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "src-a"},
@@ -127,7 +127,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_DistinctBackends(c *t
 	c.Check(payload.SecretValueRef[1].BackendUUID, tc.Equals, "tgt-b")
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_OnlyValueRefs(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsOnlyValueRefs(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretValueRef: []v4_1_0.SecretValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
@@ -141,7 +141,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_OnlyValueRefs(c *tc.C
 	c.Check(payload.SecretValueRef[0].BackendUUID, tc.Equals, "target-1")
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_OnlyDeletedRefs(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsOnlyDeletedRefs(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretDeletedValueRef: []v4_1_0.SecretDeletedValueRef{
 			{RevisionUUID: "rev-1", BackendUUID: "source-1"},
@@ -155,7 +155,7 @@ func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_OnlyDeletedRefs(c *tc
 	c.Check(payload.SecretDeletedValueRef[0].BackendUUID, tc.Equals, "target-1")
 }
 
-func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDs_NoRows(c *tc.C) {
+func (s *secretRewriteSuite) TestRewriteSecretBackendUUIDsNoRows(c *tc.C) {
 	payload := &latest.ModelExport{
 		SecretValueRef:        nil,
 		SecretDeletedValueRef: nil,

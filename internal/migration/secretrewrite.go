@@ -50,9 +50,9 @@ func reconcileSecretBackendUUIDs(
 // (the model-DB insert has not run yet, so no rows leak).
 //
 // The rewrite runs after the controller-data import and before any model-DB
-// write. If it errors (missing mapping), the caller returns the error → the v8
-// Import returns a generic import failure → the source enters ABORT → Task 11
-// AbortImport / RemoveOnAbortImport cleans the controller-DB data and the
+// write. If it errors (missing mapping), the caller returns the error. The v8
+// import returns a generic import failure, the source enters ABORT, and Task
+// 11 AbortImport / RemoveOnAbortImport cleans the controller-DB data and the
 // partial model. No model-DB rows were written, so the rewrite needs no
 // compensation of its own.
 func RewriteSecretBackendUUIDs(payload *latest.ModelExport, revisionToTargetBackend map[string]string) error {
@@ -60,7 +60,7 @@ func RewriteSecretBackendUUIDs(payload *latest.ModelExport, revisionToTargetBack
 		return nil
 	}
 
-	if payload.SecretValueRef == nil && payload.SecretDeletedValueRef == nil {
+	if len(payload.SecretValueRef) == 0 && len(payload.SecretDeletedValueRef) == 0 {
 		return nil
 	}
 

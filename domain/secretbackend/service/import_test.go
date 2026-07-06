@@ -88,9 +88,9 @@ func (s *importSuite) TestImportSecretBackendReferencesLookupError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, expected)
 }
 
-// TestGetSecretBackendReferenceMapping resolves the revision→target-backend-UUID
-// map read-only: it looks up each distinct backend name once and writes no
-// references.
+// TestGetSecretBackendReferenceMapping resolves the revision-to-target-backend
+// UUID map read-only: it looks up each distinct backend name once and writes
+// no references.
 func (s *importSuite) TestGetSecretBackendReferenceMapping(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -169,5 +169,22 @@ func (s *importSuite) TestGetSecretBackendReferenceMappingLookupError(c *tc.C) {
 		[]coremodelmigration.SecretBackendReference{{BackendName: "vault", SecretRevisionUUID: "rev-1"}},
 	)
 	c.Assert(err, tc.ErrorIs, expected)
+	c.Check(revisionMap, tc.IsNil)
+}
+
+func (s *importSuite) TestGetSecretBackendReferenceMappingDuplicateRevision(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	revisionMap, err := NewService(s.state, loggertesting.WrapCheckLog(c)).GetSecretBackendReferenceMapping(
+		c.Context(),
+		[]coremodelmigration.SecretBackendReference{{
+			BackendName:        "vault",
+			SecretRevisionUUID: "rev-1",
+		}, {
+			BackendName:        "k8s",
+			SecretRevisionUUID: "rev-1",
+		}},
+	)
+	c.Assert(err, tc.ErrorMatches, `secret revision "rev-1" has multiple backend references: "vault" and "k8s"`)
 	c.Check(revisionMap, tc.IsNil)
 }
