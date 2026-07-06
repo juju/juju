@@ -18,21 +18,13 @@ import (
 // discretion of the Juju domain.
 type IntentType string
 
-const (
-	// IntentStatusSet declares an application status update.
-	IntentStatusSet IntentType = "status-set"
-)
-
 // Intent is a declared action resulting from scriptlet execution.
-// TODO (manadart 2026-06-10): This is a placeholder, and reflects the single
-// status-set intent. It will take a generic form as the feature is evolved.
 // We may want to do the following:
 //   - Use a visitor pattern to accumulate intents as Builtins in
 //     NewStarformExecutor.
 type Intent struct {
 	Type    IntentType
-	Status  string
-	Message string
+	Args    map[string]any
 }
 
 // IntentCollector accumulates intents during one scriptlet event.
@@ -51,14 +43,6 @@ func (c *IntentCollector) Intents() []Intent {
 	return result
 }
 
-func (c *IntentCollector) statusSet(thread *starlark.Thread, status, message string) error {
-	return c.append(thread, Intent{
-		Type:    IntentStatusSet,
-		Status:  status,
-		Message: message,
-	})
-}
-
 func (c *IntentCollector) append(thread *starlark.Thread, intent Intent) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -72,24 +56,6 @@ func (c *IntentCollector) append(thread *starlark.Thread, intent Intent) error {
 		return errors.Errorf("appending intent %q: %w", intent.Type, err)
 	}
 	return nil
-}
-
-func statusSet(
-	thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple,
-) (starlark.Value, error) {
-	var status, message string
-	if err := starlark.UnpackArgs(fn.Name(), args, kwargs, "status", &status, "message?", &message); err != nil {
-		return nil, err
-	}
-
-	collector, err := intentCollectorForThread(thread)
-	if err != nil {
-		return nil, errors.Errorf("getting IntentCollector from thread: %w", err)
-	}
-	if err := collector.statusSet(thread, status, message); err != nil {
-		return nil, err
-	}
-	return starlark.None, nil
 }
 
 func intentCollectorForThread(thread *starlark.Thread) (*IntentCollector, error) {

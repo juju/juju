@@ -53,7 +53,15 @@ func NewStarformExecutor(ctx context.Context, config ExecutorConfig) (Executor, 
 		App: &starform.AppObject{
 			Name: scriptlet.AppName,
 			Methods: []*starlark.Builtin{
-				starlark.NewBuiltinWithSafety("status_set", requiredSafety, statusSet),
+				// TODO (manadart 2026-07-06): There will be two builtin types.
+				// 1) Those that append intents (like this one), which will be
+				//    reusable in agents and probably live in a scriptlet domain.
+				// 2) Those that query external state, and will *not* be common.
+				//    This is because agents will need to go via an API, and
+				//    server-side workers directly via domain services.
+				// I forsee a visitor defined in the domain, which will add all
+				// the intent builtins to a script set.
+				setStatusBuiltin,
 			},
 		},
 		Logger:         config.Logger,
