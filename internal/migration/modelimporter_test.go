@@ -181,9 +181,10 @@ func (s *modelImporterSuite) createExternalSecretBackend(c *tc.C, name string) s
 	return backendUUID
 }
 
-// TestImportModelSecretBackendRewrite verifies that secret_value_ref and
-// secret_deleted_value_ref backend_uuid fields are rewritten from the source
-// controller's backend UUIDs to the target's before the model-DB insert.
+// TestImportModelSecretBackendRewrite verifies that secret_value_ref
+// backend_uuid fields are rewritten from the source controller's backend UUIDs
+// to the target's before the model-DB insert. Deleted value refs do not have
+// controller secret backend references, so they do not require a mapping.
 func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	controllerFactory := s.TxnRunnerFactory()
@@ -244,7 +245,6 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 			},
 			SecretBackendRefs: []coremodelmigration.SecretBackendReference{
 				{BackendName: targetBackendName, SecretRevisionUUID: revUUID1, SecretID: secretID},
-				{BackendName: targetBackendName, SecretRevisionUUID: revUUID2, SecretID: secretID},
 			},
 		},
 		ModelDBPayload: payload,
@@ -267,15 +267,14 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 		tc.Commentf("secret_value_ref should carry target backend UUID, got %q", insertedBackendUUID))
 	c.Check(insertedRevisionID, tc.Equals, "ext-rev-1")
 
-	// Verify secret_deleted_value_ref row carries the target backend UUID.
+	// Verify secret_deleted_value_ref row did not require a backend mapping.
 	err = modelRunner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		return tx.QueryRowContext(ctx,
 			`SELECT backend_uuid, revision_id FROM secret_deleted_value_ref WHERE revision_uuid = ?`, revUUID2,
 		).Scan(&insertedBackendUUID, &insertedRevisionID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(insertedBackendUUID, tc.Equals, targetBackendUUID,
-		tc.Commentf("secret_deleted_value_ref should carry target backend UUID, got %q", insertedBackendUUID))
+	c.Check(insertedBackendUUID, tc.Equals, sourceBackendUUID)
 	c.Check(insertedRevisionID, tc.Equals, "ext-rev-2")
 }
 

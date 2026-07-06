@@ -114,9 +114,9 @@ func (i *ModelImporter) ImportModel(
 	}
 
 	// Now that the controller data is applied, rewrite the model-DB payload's
-	// secret backend UUIDs from the source controller's to the target's (matched
-	// by name) before the insert. An unmapped revision is a hard error; no
-	// model-DB rows are written.
+	// live secret value ref backend UUIDs from the source controller's to the
+	// target's (matched by name) before the insert. An unmapped live revision
+	// is a hard error; no model-DB rows are written.
 	if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
 		return internalerrors.Errorf(
 			"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
@@ -133,9 +133,9 @@ func (i *ModelImporter) ImportModel(
 }
 
 type CharmService interface {
-	// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
-	// charm id, along with the hash of the charm archive. Clients can use the hash
-	// to verify the integrity of the charm archive.
+	// GetCharmArchive returns a ReadCloser stream for the charm archive for a
+	// given charm id, along with the hash of the charm archive. Clients can use
+	// the hash to verify the integrity of the charm archive.
 	GetCharmArchive(context.Context, domaincharm.CharmLocator) (io.ReadCloser, string, error)
 }
 

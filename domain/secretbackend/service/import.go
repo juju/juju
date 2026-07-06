@@ -52,9 +52,9 @@ func (s *Service) ImportSecretBackendReferences(
 // It is read-only: it looks up each distinct backend by name and writes no
 // state. The v8 migration import driver in internal/migration calls it, after
 // the controller-scoped data is applied and before the model-DB insert, to
-// rewrite the model-DB payload's secret_value_ref and secret_deleted_value_ref
-// BackendUUID fields from the source controller's backend UUIDs to the
-// target's. Returns a nil map for an empty refs slice.
+// rewrite the model-DB payload's secret_value_ref BackendUUID fields from the
+// source controller's backend UUIDs to the target's. Returns a nil map for an
+// empty refs slice.
 func (s *Service) GetSecretBackendReferenceMapping(
 	ctx context.Context, refs []coremodelmigration.SecretBackendReference,
 ) (map[string]string, error) {

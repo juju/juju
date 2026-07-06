@@ -37,17 +37,22 @@ func reconcileSecretBackendUUIDs(
 	if err != nil {
 		return errors.Errorf("resolving target secret backends: %w", err)
 	}
-	return RewriteSecretBackendUUIDs(payload, revisionToTargetBackend)
+	return rewriteSecretBackendUUIDs(payload, revisionToTargetBackend)
 }
 
-// RewriteSecretBackendUUIDs rewrites the transformed model-DB payload's
-// secret_value_ref and secret_deleted_value_ref backend UUIDs from the
-// source controller's backend UUIDs to the target's, keyed by secret revision
-// UUID. revisionToTargetBackend maps each external-backed secret revision UUID
-// to the target backend UUID resolved during the controller-data import.
+// rewriteSecretBackendUUIDs rewrites the transformed model-DB payload's
+// secret_value_ref backend UUIDs from the source controller's backend UUIDs to
+// the target's, keyed by secret revision UUID. revisionToTargetBackend maps
+// each external-backed secret revision UUID to the target backend UUID resolved
+// during the controller-data import.
 //
-// A value-ref / deleted-value-ref revision with no mapping is a hard error
-// (the model-DB insert has not run yet, so no rows leak).
+// A value-ref revision with no mapping is a hard error (the model-DB insert has
+// not run yet, so no rows leak). Deleted value refs are not rewritten here:
+// source controllers remove secret_backend_reference rows when revisions move
+// to secret_deleted_value_ref, so there is no revision-to-backend-name mapping
+// available. The cleanup path only reads revision_id from those rows, so
+// keeping them in the payload preserves the deferred external cleanup marker
+// without inventing an impossible target backend mapping.
 //
 // The rewrite runs after the controller-data import and before any model-DB
 // write. If it errors (missing mapping), the caller returns the error. The v8
@@ -55,12 +60,12 @@ func reconcileSecretBackendUUIDs(
 // 11 AbortImport / RemoveOnAbortImport cleans the controller-DB data and the
 // partial model. No model-DB rows were written, so the rewrite needs no
 // compensation of its own.
-func RewriteSecretBackendUUIDs(payload *latest.ModelExport, revisionToTargetBackend map[string]string) error {
+func rewriteSecretBackendUUIDs(payload *latest.ModelExport, revisionToTargetBackend map[string]string) error {
 	if payload == nil {
 		return nil
 	}
 
-	if len(payload.SecretValueRef) == 0 && len(payload.SecretDeletedValueRef) == 0 {
+	if len(payload.SecretValueRef) == 0 {
 		return nil
 	}
 
@@ -72,16 +77,6 @@ func RewriteSecretBackendUUIDs(payload *latest.ModelExport, revisionToTargetBack
 				"no target secret backend for secret revision %q", rev)
 		}
 		payload.SecretValueRef[i].BackendUUID = targetBackend
-	}
-
-	for i := range payload.SecretDeletedValueRef {
-		rev := payload.SecretDeletedValueRef[i].RevisionUUID
-		targetBackend, ok := revisionToTargetBackend[rev]
-		if !ok {
-			return errors.Errorf(
-				"no target secret backend for secret revision %q (deleted value ref)", rev)
-		}
-		payload.SecretDeletedValueRef[i].BackendUUID = targetBackend
 	}
 
 	return nil
