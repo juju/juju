@@ -17,6 +17,8 @@ wait_for_controller_leader() {
 	# leadership can not be determined, so there is no fixed number of attempts
 	# that we can rely on.
 	# shellcheck disable=SC2143
+	# Not using juju_exec_output: uptime is a plain system command that
+	# produces no stderr, so the stdout/stderr mixing bug does not apply.
 	until [[ "$(juju exec -m controller --unit controller/leader uptime | grep load)" ]]; do
 		echo "[+] waiting for controller leadership"
 	done

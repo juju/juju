@@ -10,7 +10,7 @@ run_storage_list() {
 		--storage multi-fs=2
 	wait_for "x" "$(idle_condition "x")"
 
-	storage=$(juju exec --unit x/0 'storage-list')
+	storage=$(juju_exec_output --unit x/0 'storage-list')
 	echo "$storage" | awk -F'/' '/^multi-fs/{count++} END{print count+0}' | check '2'
 	echo "$storage" | awk -F'/' '/^single-fs/{count++} END{print count+0}' | check '1'
 
@@ -28,13 +28,13 @@ run_storage_get() {
 	juju deploy juju-qa-dummy-storage x --storage single-fs=1
 	wait_for "x" "$(idle_condition "x")"
 
-	kind=$(juju exec --unit x/0 'storage-get -s single-fs/0 kind')
+	kind=$(juju_exec_output --unit x/0 'storage-get -s single-fs/0 kind')
 	echo $kind | check 'filesystem'
-	
-	location=$(juju exec --unit x/0 'storage-get -s single-fs/0 location')
+
+	location=$(juju_exec_output --unit x/0 'storage-get -s single-fs/0 location')
 	check_contains "$location" '/srv/single-fs'
 
-	yaml=$(juju exec --unit x/0 'storage-get -s single-fs/0 --format=yaml')
+	yaml=$(juju_exec_output --unit x/0 'storage-get -s single-fs/0 --format=yaml')
 	echo "$yaml" | yq -r '.kind' | check "$kind"
 	echo "$yaml" | yq -r '.location' | check "$location"
 
@@ -52,16 +52,16 @@ run_storage_add() {
 	juju deploy juju-qa-dummy-storage x
 	wait_for "x" "$(idle_condition "x")"
 
-	storage=$(juju exec --unit x/0 'storage-list')
+	storage=$(juju_exec_output --unit x/0 'storage-list')
 	echo "$storage" | awk -F'/' '/^single-fs/{count++} END{print count+0}' | check '0'
 	echo "$storage" | awk -F'/' '/^multi-fs/{count++} END{print count+0}' | check '0'
-	
+
 	juju exec --unit x/0 'storage-add single-fs'
-	storage=$(juju exec --unit x/0 'storage-list')
+	storage=$(juju_exec_output --unit x/0 'storage-list')
 	echo "$storage" | awk -F'/' '/^single-fs/{count++} END{print count+0}' | check '1'
-	
+
 	juju exec --unit x/0 'storage-add multi-fs=2'
-	storage=$(juju exec --unit x/0 'storage-list')
+	storage=$(juju_exec_output --unit x/0 'storage-list')
 	echo "$storage" | awk -F'/' '/^multi-fs/{count++} END{print count+0}' | check '2'
 
 	destroy_model "${model_name}"
@@ -80,7 +80,7 @@ test_storage_hook_tools() {
 
 		run "run_storage_get"
 		run "run_storage_list"
-		
+
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"k8s")
 			echo "==> TEST SKIPPED: storage_add"
