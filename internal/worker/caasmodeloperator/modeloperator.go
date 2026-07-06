@@ -12,10 +12,11 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/resource"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -24,7 +25,7 @@ import (
 
 type ModelOperatorAPI interface {
 	SetPassword(ctx context.Context, password string) error
-	ModelOperatorProvisioningInfo(context.Context) (caasmodeloperator.ModelOperatorProvisioningInfo, error)
+	ModelOperatorProvisioningInfo(context.Context) (ModelOperatorProvisioningInfo, error)
 	WatchModelOperatorProvisioningInfo(context.Context) (watcher.NotifyWatcher, error)
 }
 
@@ -35,6 +36,17 @@ type ModelOperatorBroker interface {
 	ModelOperator(ctx context.Context) (*caas.ModelOperatorConfig, error)
 	ModelOperatorExists(ctx context.Context) (bool, error)
 	GetModelOperatorDeploymentImage(ctx context.Context) (string, error)
+}
+
+// ModelOperatorProvisioningInfo represents return api information for
+// provisioning a caas model operator
+type ModelOperatorProvisioningInfo struct {
+	APIAddresses         []string
+	ImageDetails         resource.DockerImageDetails
+	Version              semversion.Number
+	ControllerCert       string
+	ControllerPrivateKey string
+	CAPrivateKey         string
 }
 
 // ModelOperatorManager defines the worker used for managing model operators in
@@ -76,11 +88,11 @@ func (m *ModelOperatorManager) loop() error {
 	if names.IsValidModel(m.modelUUID) {
 		shortModelID = names.NewModelTag(m.modelUUID).ShortId()
 	}
-	watcher, err := m.api.WatchModelOperatorProvisioningInfo(ctx)
+	w, err := m.api.WatchModelOperatorProvisioningInfo(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "cannot watch model operator [%s] provisioning info", shortModelID)
 	}
-	err = m.catacomb.Add(watcher)
+	err = m.catacomb.Add(w)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -89,7 +101,7 @@ func (m *ModelOperatorManager) loop() error {
 		select {
 		case <-m.catacomb.Dying():
 			return m.catacomb.ErrDying()
-		case <-watcher.Changes():
+		case <-w.Changes():
 			err := m.update(ctx)
 			if err != nil {
 				return errors.Annotatef(err, "failed to update model operator [%s]", shortModelID)
@@ -116,7 +128,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 	}
 
 	setPassword := true
-	password, err := password.RandomPassword()
+	pwd, err := password.RandomPassword()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -131,10 +143,10 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 		}
 		// reuse old password
 		if prevInfo, ok := prevConf.APIInfo(); ok && prevInfo.Password != "" {
-			password = prevInfo.Password
+			pwd = prevInfo.Password
 			setPassword = false
 		} else if prevConf.OldPassword() != "" {
-			password = prevConf.OldPassword()
+			pwd = prevConf.OldPassword()
 			setPassword = false
 		}
 
@@ -158,13 +170,13 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 
 	}
 	if setPassword {
-		err := m.api.SetPassword(ctx, password)
+		err := m.api.SetPassword(ctx, pwd)
 		if err != nil {
 			return errors.Annotate(err, "failed to set model api passwords")
 		}
 	}
 
-	agentConfBuf, err := m.updateAgentConf(info, password)
+	agentConfBuf, err := m.updateAgentConf(info, pwd)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -223,7 +235,7 @@ func NewModelOperatorManager(
 }
 
 func (m *ModelOperatorManager) updateAgentConf(
-	info caasmodeloperator.ModelOperatorProvisioningInfo,
+	info ModelOperatorProvisioningInfo,
 	password string,
 ) ([]byte, error) {
 	modelTag := names.NewModelTag(m.modelUUID)

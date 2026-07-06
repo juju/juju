@@ -63,7 +63,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
-	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
@@ -159,7 +158,6 @@ func AllFacades() *facade.Registry {
 	caasadmission.Register(registry)
 	caasagent.Register(registry)
 	caasapplication.Register(registry)
-	caasmodeloperator.Register(registry)
 	caasoperatorupgrader.Register(registry)
 
 	controller.Register(registry)

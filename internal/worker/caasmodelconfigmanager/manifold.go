@@ -23,7 +23,13 @@ import (
 
 // ControllerConfigService provides access to controller configuration.
 type ControllerConfigService interface {
+	// ControllerConfig returns the current controller configuration. The
+	// worker uses it to read the CAAS image repository details whenever
+	// the controller config changes.
 	ControllerConfig(context.Context) (controller.Config, error)
+	// WatchControllerConfig returns a watcher that observes changes to the
+	// controller configuration, allowing the worker to react to updates
+	// such as a new or changed CAAS image repository.
 	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 

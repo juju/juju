@@ -29,6 +29,10 @@ type ConfigProvider interface {
 
 // TracingService provides access to workload tracing configuration.
 type TracingService interface {
+	// GetWorkloadTracingConfig returns the current workload tracing
+	// configuration. The worker uses it when building the model
+	// operator agent config so that tracing settings are applied to
+	// the running operator.
 	GetWorkloadTracingConfig(ctx context.Context) (tracingservice.WorkloadTracingConfig, error)
 }
 

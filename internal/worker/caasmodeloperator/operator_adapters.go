@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/watcher"
@@ -92,45 +91,45 @@ func (a *modelOperatorAPIAdapter) SetPassword(ctx context.Context, password stri
 }
 
 // ModelOperatorProvisioningInfo implements ModelOperatorAPI.
-func (a *modelOperatorAPIAdapter) ModelOperatorProvisioningInfo(ctx context.Context) (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
+func (a *modelOperatorAPIAdapter) ModelOperatorProvisioningInfo(ctx context.Context) (ModelOperatorProvisioningInfo, error) {
 	controllerConfig, err := a.ctrlConfigSvc.ControllerConfig(ctx)
 	if err != nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting controller config")
+		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting controller config")
 	}
 
 	modelConfig, err := a.modelConfigSvc.ModelConfig(ctx)
 	if err != nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting model config")
+		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting model config")
 	}
 
 	vers, ok := modelConfig.AgentVersion()
 	if !ok {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.New("agent version not set in model config")
+		return ModelOperatorProvisioningInfo{}, errors.New("agent version not set in model config")
 	}
 
 	apiAddresses, err := a.ctrlNodeSvc.GetAllAPIAddressesForAgents(ctx)
 	if err != nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting API addresses")
+		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting API addresses")
 	}
 
 	controllerAgentInfo, err := a.ctrlSvc.GetControllerAgentInfo(ctx)
 	if err != nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting controller agent info")
+		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting controller agent info")
 	}
 
 	registryPath, err := podcfg.GetJujuOCIImagePathFromControllerCfg(controllerConfig, vers)
 	if err != nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting OCI image path")
+		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "getting OCI image path")
 	}
 
 	imageRepoDetails, err := docker.NewImageRepoDetails(controllerConfig.CAASImageRepo())
 	if err != nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.Annotate(err, "parsing image repo details")
+		return ModelOperatorProvisioningInfo{}, errors.Annotate(err, "parsing image repo details")
 	}
 
 	imageDetails := convertToDockerImageDetails(docker.ConvertToResourceImageDetails(imageRepoDetails), registryPath)
 
-	return modeloperatorapi.ModelOperatorProvisioningInfo{
+	return ModelOperatorProvisioningInfo{
 		APIAddresses:         apiAddresses,
 		ImageDetails:         imageDetails,
 		Version:              vers,

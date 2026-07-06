@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/api"
-	apifirewaller "github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -182,7 +181,7 @@ func (a *firewallerAPIAdapter) Unit(ctx context.Context, tag names.UnitTag) (Uni
 }
 
 // Relation implements FirewallerAPI.
-func (a *firewallerAPIAdapter) Relation(ctx context.Context, tag names.RelationTag) (*apifirewaller.Relation, error) {
+func (a *firewallerAPIAdapter) Relation(ctx context.Context, tag names.RelationTag) (*Relation, error) {
 	relationKey, err := corerelation.NewKeyFromString(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -195,7 +194,7 @@ func (a *firewallerAPIAdapter) Relation(ctx context.Context, tag names.RelationT
 	if err != nil {
 		return nil, translateFacadeError(err)
 	}
-	return apifirewaller.NewRelation(tag, details.Life), nil
+	return NewRelation(tag, details.Life), nil
 }
 
 func translateFacadeError(err error) error {

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
-	modeloperatorapi "github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
@@ -39,7 +38,7 @@ func (errorTracingService) GetWorkloadTracingConfig(context.Context) (tracingser
 }
 
 type dummyAPI struct {
-	provInfo      func() (modeloperatorapi.ModelOperatorProvisioningInfo, error)
+	provInfo      func() (caasmodeloperator.ModelOperatorProvisioningInfo, error)
 	setPassword   func(password string) error
 	watchProvInfo func() (watcher.NotifyWatcher, error)
 }
@@ -84,9 +83,9 @@ func (b *dummyBroker) GetModelOperatorDeploymentImage(ctx context.Context) (stri
 	return b.getModelOperatorDeploymentImage(ctx)
 }
 
-func (a *dummyAPI) ModelOperatorProvisioningInfo(ctx context.Context) (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
+func (a *dummyAPI) ModelOperatorProvisioningInfo(_ context.Context) (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
 	if a.provInfo == nil {
-		return modeloperatorapi.ModelOperatorProvisioningInfo{}, nil
+		return caasmodeloperator.ModelOperatorProvisioningInfo{}, nil
 	}
 	return a.provInfo()
 }
@@ -98,7 +97,7 @@ func (a *dummyAPI) WatchModelOperatorProvisioningInfo(ctx context.Context) (watc
 	return a.watchProvInfo()
 }
 
-func (a *dummyAPI) SetPassword(ctx context.Context, p string) error {
+func (a *dummyAPI) SetPassword(_ context.Context, p string) error {
 	if a.setPassword == nil {
 		return nil
 	}
@@ -121,8 +120,8 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *tc.C) {
 
 	changed := make(chan struct{})
 	api := &dummyAPI{
-		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
-			return modeloperatorapi.ModelOperatorProvisioningInfo{
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{
 				APIAddresses:         apiAddresses[iteration],
 				ImageDetails:         resource.DockerImageDetails{RegistryPath: imagePath[iteration]},
 				Version:              ver[iteration],
@@ -222,8 +221,8 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerUpdateErrorContainsS
 
 	changed := make(chan struct{}, 1)
 	api := &dummyAPI{
-		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
-			return modeloperatorapi.ModelOperatorProvisioningInfo{}, errors.New("provisioning info failed")
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{}, errors.New("provisioning info failed")
 		},
 		watchProvInfo: func() (watcher.NotifyWatcher, error) {
 			return watchertest.NewMockNotifyWatcher(changed), nil
@@ -246,8 +245,8 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerCACertErrorContainsS
 
 	changed := make(chan struct{}, 1)
 	api := &dummyAPI{
-		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
-			return modeloperatorapi.ModelOperatorProvisioningInfo{
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{
 				APIAddresses: []string{"fe80:abcd::1"},
 				ImageDetails: resource.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/jujud-operator:1"},
 				Version:      semversion.MustParse("2.8.2"),
@@ -273,8 +272,8 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerTracingErrorContains
 
 	changed := make(chan struct{}, 1)
 	api := &dummyAPI{
-		provInfo: func() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
-			return modeloperatorapi.ModelOperatorProvisioningInfo{
+		provInfo: func() (caasmodeloperator.ModelOperatorProvisioningInfo, error) {
+			return caasmodeloperator.ModelOperatorProvisioningInfo{
 				APIAddresses: []string{"fe80:abcd::1"},
 				ImageDetails: resource.DockerImageDetails{RegistryPath: "docker.io/jujusolutions/jujud-operator:1"},
 				Version:      semversion.MustParse("2.8.2"),

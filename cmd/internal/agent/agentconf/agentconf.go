@@ -60,6 +60,11 @@ func (c *agentConf) CheckArgs(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// SetupAgentLogging initializes agent logging from the given agent config.
+// It reads the logging override and logging config values from the agent
+// config. If a logging override is set, it takes precedence and is used to
+// reconfigure all logger levels. Otherwise, the logging config is applied.
+// A warning is also emitted when developer feature flags are enabled.
 func SetupAgentLogging(loggerContext corelogger.LoggerContext, config agent.Config) {
 	loggingOverride := config.Value(agent.LoggingOverride)
 	loggingConfig := config.LoggingConfig()
