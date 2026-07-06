@@ -281,6 +281,29 @@ func (s *Service) GetAPIAddressesByControllerIDForAgents(ctx context.Context) (m
 	return result, nil
 }
 
+// GetAPIAddressesForControllerIDForAgents returns the agent-reachable API
+// addresses for the given controller node ID, ordered to prefer cloud-local
+// addresses.
+//
+// The following errors may be returned:
+// - [controllernodeerrors.EmptyAPIAddresses] when no API addresses are found
+// for the given controller node ID.
+func (s *Service) GetAPIAddressesForControllerIDForAgents(ctx context.Context, controllerID string) ([]string, error) {
+	addresses, err := s.st.GetAPIAddressesForAgents(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	addrs, ok := addresses[controllerID]
+	if !ok || len(addrs) == 0 {
+		return nil, errors.Errorf(
+			"no API addresses found for controller node %q", controllerID,
+		).Add(controllernodeerrors.EmptyAPIAddresses)
+	}
+
+	return addrs.PrioritizedForScope(controllernode.ScopeMatchCloudLocal), nil
+}
+
 // GetAllAPIAddressesForAgents returns a string slice of api
 // addresses available for agents ordered to prefer local-cloud scoped
 // addresses and IPv4 over IPv6 for each machine.

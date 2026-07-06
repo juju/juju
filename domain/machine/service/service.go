@@ -590,6 +590,33 @@ func (s *Service) GetSSHHostKeys(ctx context.Context, mUUID machine.UUID) ([]str
 	return keys, nil
 }
 
+// GetSSHHostKeysByMachineName returns the SSH host keys for the machine
+// identified by its name.
+//
+// The following errors may be returned:
+// - [coreerrors.NotValid] when the machine name is not valid.
+// - [machineerrors.MachineNotFound] when no machine exists for the supplied
+// name.
+func (s *Service) GetSSHHostKeysByMachineName(ctx context.Context, name machine.Name) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := name.Validate(); err != nil {
+		return nil, errors.Errorf("validating machine name %q: %w", name, err)
+	}
+
+	mUUID, err := s.st.GetMachineUUID(ctx, name)
+	if err != nil {
+		return nil, errors.Errorf("getting UUID for machine %q: %w", name, err)
+	}
+
+	keys, err := s.st.GetSSHHostKeys(ctx, mUUID.String())
+	if err != nil {
+		return nil, errors.Errorf("getting SSH host keys for machine %q: %w", name, err)
+	}
+	return keys, nil
+}
+
 // SetSSHHostKeys sets the SSH host keys for the given machine UUID.
 func (s *Service) SetSSHHostKeys(ctx context.Context, mUUID machine.UUID, keys []string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
