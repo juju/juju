@@ -36,6 +36,7 @@ In Juju, you interact with these resources through clients -- command-line and w
 - {ref}`juju-db-repl`
 - {ref}`juju-web-cli`
 - {ref}`jujuc`
+- {ref}`jujud`
 - {ref}`pebble`
 
 ## Controller
@@ -103,9 +104,10 @@ Supporting infrastructure -- machines, storage volumes, network spaces and subne
 - {ref}`zone`
 - {ref}`ssh-key`
 
-On each machine, agents (`jujuagentd` on machines, `containeragent` on Kubernetes) execute charm code through hooks. Charms use hook commands (provided by `jujuc`) to interact with Juju. On Kubernetes, `containeragent` also orchestrates workload containers using Pebble.
+On each machine, agents (`jujud` on machines, `containeragent` on Kubernetes) execute charm code through hooks. Charms use hook commands (provided by `jujuc`) to interact with Juju. On Kubernetes, `containeragent` also orchestrates workload containers using Pebble.
 
 - {ref}`agent`
+- {ref}`jujud`
 - {ref}`hook`
 - {ref}`hook-command`
 - {ref}`jujuc`
