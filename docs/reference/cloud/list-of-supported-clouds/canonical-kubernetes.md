@@ -33,6 +33,14 @@ This reference assumes basic familiarity with Juju. If you are new to Juju, star
 ```{include} ./reuse/k8s/cloud-definition.md
 ```
 
+**Note for Canonical Kubernetes:** Because this cloud uses `k8s kubectl` rather than the standard `kubectl`, `juju add-k8s` cannot read the `kubeconfig` automatically. Instead, you must pipe it explicitly:
+
+```text
+sudo k8s kubectl config view --raw | juju add-k8s <cloud name> --client
+```
+
+When piping via `stdin`, Juju cannot prompt interactively to ask whether to register the cloud on the client or a controller, so you must specify `--client` (or `--controller <name>`) explicitly.
+
 ## Credentials
 
 ```{include} ./reuse/k8s/auth-types.md
