@@ -305,6 +305,38 @@ func (s *environSuite) TestNetworkTemplateResourcesDualStack(c *tc.C) {
 	c.Assert(resources, tc.HasLen, 2)
 	c.Check(resources[0].Name, tc.Equals, azure.SecurityGroupName)
 
+	// NSG security rules: SSH, IPv4 API, and IPv6 API — all use
+	// singular DestinationAddressPrefix.
+	nsgProps, ok := resources[0].Properties.(*armnetwork.SecurityGroupPropertiesFormat)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(nsgProps.SecurityRules, tc.HasLen, 3)
+
+	var sshRule, apiV4Rule, apiV6Rule *armnetwork.SecurityRule
+	for _, rule := range nsgProps.SecurityRules {
+		switch toValue(rule.Name) {
+		case "SSHInbound":
+			sshRule = rule
+		case "JujuAPIInbound17070":
+			apiV4Rule = rule
+		case "JujuAPIInbound17070IPv6":
+			apiV6Rule = rule
+		}
+	}
+	c.Assert(sshRule, tc.NotNil)
+	c.Assert(sshRule.Properties, tc.NotNil)
+	c.Check(toValue(sshRule.Properties.DestinationAddressPrefix), tc.Equals, "*")
+	c.Check(sshRule.Properties.DestinationAddressPrefixes, tc.IsNil)
+
+	c.Assert(apiV4Rule, tc.NotNil)
+	c.Assert(apiV4Rule.Properties, tc.NotNil)
+	c.Check(toValue(apiV4Rule.Properties.DestinationAddressPrefix), tc.Equals, azure.ControllerSubnetPrefix)
+	c.Check(apiV4Rule.Properties.DestinationAddressPrefixes, tc.IsNil)
+
+	c.Assert(apiV6Rule, tc.NotNil)
+	c.Assert(apiV6Rule.Properties, tc.NotNil)
+	c.Check(toValue(apiV6Rule.Properties.DestinationAddressPrefix), tc.Equals, azure.ControllerSubnetIPv6Prefix)
+	c.Check(apiV6Rule.Properties.DestinationAddressPrefixes, tc.IsNil)
+
 	// Second resource: VNet.
 	vnet := resources[1]
 	c.Check(vnet.Name, tc.Equals, azure.InternalNetworkName)
