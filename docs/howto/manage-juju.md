@@ -33,7 +33,7 @@ To install `juju` from snap, run:
 sudo snap install juju
 ```
 
-To select a particular version, run `snap info juju` to find out what versions are available, then `sudo snap install juju --channel=<track/risk[/branch]>` to install the version of your choice (e.g., `sudo snap install juju --channel=3.4/stable`).
+To select a particular version, run `snap info juju` to find out what versions are available, then `sudo snap install juju --channel=<track/risk[/branch]>` to install the version of your choice (e.g., `sudo snap install juju --channel=3.4/stable`). The output also shows the snap revision number in parentheses next to each version.
 
 ````{dropdown} Example
 
