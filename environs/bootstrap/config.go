@@ -376,7 +376,7 @@ func NewConfig(attrs map[string]any) (Config, error) {
 
 	// Try get the key from the attribute map or try load it from file.
 	// If it isn't present, this is OK, we allow the controller to generate it
-	// on "jujuagentd bootstrap-state" command.
+	// on "jujud bootstrap-state" command.
 	if sshServerHostKey, ok := attrs[SSHServerHostKeyKey].(string); ok {
 		config.SSHServerHostKey = sshServerHostKey
 	} else {

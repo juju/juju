@@ -32,7 +32,7 @@ See more: {ref}`command-juju-add-machine`
 ```
 
 ````{note}
-Issues during machine provisioning can occur at any stage in the following sequence: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujuagentd` binaries from the controller, start `jujuagentd`.
+Issues during machine provisioning can occur at any stage in the following sequence: Provision resources/a machine M from the relevant cloud, via cloud-init maybe network config, download the `jujud` binaries from the controller, start `jujud`.
 
 To troubleshoot, try to gather more information until you understand what caused the issue.
 

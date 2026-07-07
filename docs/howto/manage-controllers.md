@@ -59,7 +59,7 @@ Bootstrap on machines consists of the following steps:
 
 1. Provision resources/a machine M from the relevant cloud, via cloud-init write a nonce file to verify we’ve found the machine we’ve provisioned.
 1. Poll the newly created instance for an IP address, and attempt to connect to M.
-1. Run the machine configuration script for M, which downloads, e.g., the `jujuagentd` binaries, sets up networking, and starts jujuagentd.
+1. Run the machine configuration script for M, which downloads, e.g., the `jujud` binaries, sets up networking, and starts jujud.
 
 For failure at any point, retry the `bootstrap` command with the `--debug`, `--verbose`, and `keep-broken` flags:
 
