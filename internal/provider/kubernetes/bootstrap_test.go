@@ -6,6 +6,7 @@ package kubernetes_test
 import (
 	"context"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/kubernetes"
@@ -120,6 +122,13 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		return controllerStacker
 	}
+}
+
+func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLoggingSettings(c *tc.C) {
+	controllerStacker := s.controllerStackerGetter()
+	content := controllerStacker.GetControllerRuntimeConfigContent(c)
+	c.Check(strings.Contains(content, "logging-config: <root>=WARNING;juju.bootstrap=INFO"), tc.IsTrue)
+	c.Check(strings.Contains(content, "logging-override: juju.bootstrap=TRACE"), tc.IsTrue)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *tc.C) {
@@ -766,6 +775,7 @@ func (s *bootstrapSuite) testBootstrap(c *tc.C, enableServiceLinks bool) {
 			"controller-agent.conf":      controllerStacker.GetControllerAgentConfigContent(c),
 			"controller-unit-agent.conf": controllerStacker.GetControllerUnitAgentConfigContent(c),
 			"controller-nonce-0":         controllerStacker.GetControllerNonce(),
+			controllerruntimeconfig.Filename: controllerStacker.GetControllerRuntimeConfigContent(c),
 		},
 	}
 
@@ -1026,6 +1036,13 @@ exec /opt/pebble run --http :38811 --verbose
 					ReadOnly:  true,
 					MountPath: "/var/lib/juju/bootstrap-params",
 					SubPath:   "bootstrap-params",
+				},
+				{
+					Name:     "juju-controller-test-agent-conf",
+					ReadOnly: true,
+					MountPath: "/var/lib/juju/agents/controller-0/" +
+						controllerruntimeconfig.Filename,
+					SubPath: controllerruntimeconfig.Filename,
 				},
 				{
 					Name:      "charm-data",
