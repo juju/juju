@@ -8,17 +8,21 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/tc"
 
 	proxy "github.com/juju/juju/api/proxy/config"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/testhelpers"
 	jtesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/rpc/params"
 )
 
 type apiclientWhiteboxSuite struct {
@@ -63,6 +67,32 @@ func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *tc.C) {
 	listen.Close()
 	_, err = dialAPI(ctx, info, opts)
 	c.Check(err, tc.NotNil)
+}
+
+func (s *apiclientWhiteboxSuite) TestGorillaDialWebsocketSendsClientVersionHeader(c *tc.C) {
+	headers := make(chan http.Header, 1)
+	upgrader := websocket.Upgrader{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		headers <- r.Header.Clone()
+		ws, err := upgrader.Upgrade(w, r, nil)
+		if err == nil {
+			ws.Close()
+		}
+	}))
+	defer srv.Close()
+
+	srvURL, err := url.Parse(srv.URL)
+	c.Assert(err, tc.ErrorIsNil)
+	conn, err := gorillaDialWebsocket(c.Context(), "ws://"+srvURL.Host+"/api", nil, srvURL.Host)
+	c.Assert(err, tc.ErrorIsNil)
+	defer conn.Close()
+
+	select {
+	case h := <-headers:
+		c.Check(h.Get(params.JujuClientVersion), tc.Equals, jujuversion.Current.String())
+	case <-time.After(jtesting.LongWait):
+		c.Fatalf("timed out waiting %s for the dial to reach the server", jtesting.LongWait)
+	}
 }
 
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiClosed(c *tc.C) {
