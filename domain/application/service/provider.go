@@ -574,6 +574,9 @@ func (s *ProviderService) RegisterCAASUnit(
 	if len(caasUnit.Ports) != 0 {
 		registerArgs.Ports = &caasUnit.Ports
 	}
+	if caasUnit.FQDN != "" {
+		registerArgs.FQDN = &caasUnit.FQDN
+	}
 
 	var storageArg domainstorage.RegisterUnitStorageArg
 	if isRegistered {

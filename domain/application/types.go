@@ -193,6 +193,12 @@ type ContainerAddress struct {
 type AddCAASUnitArg struct {
 	AddUnitArg
 	CloudContainer *CloudContainer
+
+	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
+	// persist as the unit's network identity (an fqdn_address row linked to
+	// the unit's net_node). It is currently only supplied for controller
+	// units.
+	FQDN *string
 }
 
 // AddUnitArg contains parameters for adding a unit to state.
@@ -246,6 +252,11 @@ type RegisterCAASUnitArg struct {
 	NetNodeUUID  domainnetwork.NetNodeUUID
 	OrderedScale bool
 	OrderedId    int
+
+	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
+	// persist as the unit's network identity. It is currently only supplied
+	// for controller units.
+	FQDN *string
 
 	// RegisterUnitStorageArg contains parameters for creating storage and also
 	// attaching existing storage to the unit. Described as well is the set of

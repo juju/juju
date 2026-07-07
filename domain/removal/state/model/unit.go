@@ -735,6 +735,12 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 		return errors.Errorf("deleting cloud container for unit %q: %w", unitUUID, err)
 	}
 
+	if netNodeUUIDRec.UUID != "" {
+		if err := st.deleteNetNodeFQDNAddresses(ctx, tx, netNodeUUIDRec.UUID); err != nil {
+			return errors.Errorf("deleting fqdn addresses for unit %q: %w", unitUUID, err)
+		}
+	}
+
 	if err := st.deleteForeignKeyUnitReferences(ctx, tx, unitUUID); err != nil {
 		return errors.Errorf("deleting unit references for unit %q: %w", unitUUID, err)
 	}
@@ -854,6 +860,71 @@ WHERE net_node_uuid = $entityUUID.uuid`, netNodeIDRec)
 	}
 	if err := tx.Query(ctx, deleteDeviceStmt, netNodeIDRec).Run(); err != nil {
 		return errors.Errorf("removing cloud container link layer devices for %q: %w", netNodeID, err)
+	}
+	return nil
+}
+
+// deleteNetNodeFQDNAddresses deletes the net_node_fqdn_address junction rows
+// for the given net_node and then deletes any fqdn_address rows that are left
+// unreferenced. It is a thin wrapper over deleteNetNodesFQDNAddresses.
+func (st *State) deleteNetNodeFQDNAddresses(ctx context.Context, tx *sqlair.TX, netNodeID string) error {
+	return st.deleteNetNodesFQDNAddresses(ctx, tx, []string{netNodeID})
+}
+
+// deleteNetNodesFQDNAddresses deletes the net_node_fqdn_address junction rows
+// for the given net_nodes and then deletes any fqdn_address rows that are left
+// unreferenced. fqdn_address rows are globally unique and may be shared across
+// net_nodes (many-to-many), so only orphaned rows are removed. This prevents
+// stale fqdn_address rows from colliding with a deterministic FQDN on a later
+// re-creation of the same ordinal.
+func (st *State) deleteNetNodesFQDNAddresses(ctx context.Context, tx *sqlair.TX, netNodeIDs []string) error {
+	if len(netNodeIDs) == 0 {
+		return nil
+	}
+	netNodeUUIDs := uuids(netNodeIDs)
+
+	// Capture the address UUIDs linked to these net nodes before removing the
+	// junction rows.
+	selectAddressesStmt, err := st.Prepare(`
+SELECT   address_uuid AS &entityUUID.uuid
+FROM     net_node_fqdn_address
+WHERE    net_node_uuid IN ($uuids[:])`, entityUUID{}, netNodeUUIDs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteJunctionStmt, err := st.Prepare(`
+DELETE FROM net_node_fqdn_address
+WHERE net_node_uuid IN ($uuids[:])`, netNodeUUIDs)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	deleteOrphanStmt, err := st.Prepare(`
+WITH referenced AS (
+	SELECT nnfa.address_uuid AS uuid
+	FROM   net_node_fqdn_address AS nnfa
+)
+DELETE FROM fqdn_address
+WHERE uuid IN ($uuids[:])
+AND uuid NOT IN referenced`, uuids{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var addressUUIDs entityUUIDs
+	if err := tx.Query(ctx, selectAddressesStmt, netNodeUUIDs).GetAll(&addressUUIDs); errors.Is(err, sqlair.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return errors.Errorf("getting fqdn addresses for net nodes: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteJunctionStmt, netNodeUUIDs).Run(); err != nil {
+		return errors.Errorf("removing fqdn address junctions: %w", err)
+	}
+
+	if err := tx.Query(ctx, deleteOrphanStmt, addressUUIDs.uuids()).Run(); err != nil {
+		return errors.Errorf("removing orphaned fqdn addresses: %w", err)
 	}
 	return nil
 }

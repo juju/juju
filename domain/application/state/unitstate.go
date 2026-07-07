@@ -183,13 +183,15 @@ func (st *State) InsertIAASUnit(
 }
 
 type insertUnitArg struct {
+	application.UnitStatusArg
+
 	CharmUUID       string
 	UnitName        string
 	CloudContainer  *application.CloudContainer
 	Password        *application.PasswordInfo
 	Constraints     constraints.Constraints
 	WorkloadVersion string
-	application.UnitStatusArg
+	FQDN            *string
 }
 
 // insertUnit inserts a unit into state. IAAS or CAAS specific details
@@ -249,6 +251,11 @@ func (st *State) insertUnit(
 	if args.CloudContainer != nil {
 		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, netNodeUUID, args.CloudContainer); err != nil {
 			return errors.Errorf("creating cloud container for unit %q: %w", args.UnitName, err)
+		}
+	}
+	if args.FQDN != nil && *args.FQDN != "" {
+		if err := st.insertNetNodeFQDNAddress(ctx, tx, netNodeUUID, *args.FQDN); err != nil {
+			return errors.Errorf("creating fqdn address for unit %q: %w", args.UnitName, err)
 		}
 	}
 	if err := st.setUnitAgentStatus(ctx, tx, unitUUID, args.AgentStatus); err != nil {
@@ -536,6 +543,57 @@ ON CONFLICT(uuid) DO UPDATE SET
 	// Update the address values.
 	if err = tx.Query(ctx, upsertAddressStmt, ipAddr).Run(); err != nil {
 		return errors.Errorf("updating cloud container address attributes for device %q: %w", deviceUUID, err)
+	}
+	return nil
+}
+
+// networkAddressScopeLocalCloud is the network_address_scope id for the
+// "local-cloud" scope. NOTE: this is the network_address_scope lookup table
+// (fqdn_address/hostname_address), which is distinct from the ip_address_scope
+// table used by ip_address. In network_address_scope: local-host=0,
+// local-cloud=1, public=2. The fqdn_address CHECK constraint forbids
+// local-host (0).
+const networkAddressScopeLocalCloud = 1
+
+// insertNetNodeFQDNAddress persists the given FQDN as an fqdn_address row
+// (scope local-cloud) and links it to the supplied net_node via the
+// net_node_fqdn_address junction. fqdn_address.address is globally unique: a
+// given FQDN identifies exactly one unit, so a collision on insert indicates a
+// stale/orphaned row or a bug and is surfaced as an error rather than silently
+// reused. The net_node must already exist.
+func (st *State) insertNetNodeFQDNAddress(ctx context.Context, tx *sqlair.TX, netNodeUUID, address string) error {
+	addrUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	fqdnAddr := fqdnAddress{
+		UUID:    addrUUID.String(),
+		Address: address,
+		ScopeID: networkAddressScopeLocalCloud,
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO fqdn_address (*) VALUES ($fqdnAddress.*)`, fqdnAddr)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, insertStmt, fqdnAddr).Run(); internaldatabase.IsErrConstraintUnique(err) {
+		return errors.Errorf("fqdn address %q already exists", address)
+	} else if err != nil {
+		return errors.Errorf("inserting fqdn address %q: %w", address, err)
+	}
+
+	junction := netNodeFQDNAddress{
+		NetNodeUUID: netNodeUUID,
+		AddressUUID: fqdnAddr.UUID,
+	}
+	linkStmt, err := st.Prepare(`
+INSERT INTO net_node_fqdn_address (*) VALUES ($netNodeFQDNAddress.*)`, junction)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, linkStmt, junction).Run(); err != nil {
+		return errors.Errorf("linking fqdn address %q to net node %q: %w", address, netNodeUUID, err)
 	}
 	return nil
 }

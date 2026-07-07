@@ -965,6 +965,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 				Placement:            placement,
 				UnitStatusArg:        s.makeCAASUnitStatusArgs(),
 			},
+			FQDN: u.FQDN,
 		}
 		args[i] = arg
 	}

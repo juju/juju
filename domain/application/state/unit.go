@@ -881,6 +881,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			},
 		},
 		CloudContainer: cloudContainer,
+		FQDN:           arg.FQDN,
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1046,6 +1047,7 @@ func (st *State) insertCAASUnitWithName(
 		CloudContainer: args.CloudContainer,
 		Constraints:    args.Constraints,
 		UnitStatusArg:  args.UnitStatusArg,
+		FQDN:           args.FQDN,
 	})
 	if err != nil {
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)

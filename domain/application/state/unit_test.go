@@ -259,6 +259,85 @@ func (s *unitStateSuite) TestRegisterCAASUnit(c *tc.C) {
 	s.assertCAASUnit(c, "bar/0", "passwordhash", "10.6.6.6/8", []string{"0"})
 }
 
+func (s *unitStateSuite) TestRegisterCAASUnitWithFQDN(c *tc.C) {
+	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
+
+	// Allow scaling.
+	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
+		UnitName:     "bar/0",
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"0"}),
+		OrderedScale: true,
+		OrderedId:    0,
+		FQDN:         &fqdn,
+	}
+	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The FQDN is persisted as a local-cloud fqdn_address row linked to the
+	// unit's net_node.
+	var (
+		gotAddress string
+		gotScopeID int
+		gotLinked  bool
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT fa.address, fa.scope_id, 1
+FROM   fqdn_address AS fa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
+JOIN   unit AS u ON u.net_node_uuid = nnfa.net_node_uuid
+WHERE  u.name = ?`, "bar/0").Scan(&gotAddress, &gotScopeID, &gotLinked)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(gotAddress, tc.Equals, fqdn)
+	c.Check(gotScopeID, tc.Equals, 1)
+	c.Check(gotLinked, tc.IsTrue)
+}
+
+// TestRegisterCAASUnitDuplicateFQDN verifies that persisting a unit FQDN that
+// collides with an existing fqdn_address (globally unique) is surfaced as an
+// error rather than silently reused: a given FQDN identifies exactly one unit.
+func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
+	s.createCAASScalingApplication(c, "bar", life.Alive, 1)
+
+	err := s.state.SetApplicationScalingState(c.Context(), "bar", 1, true)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+
+	// Seed a pre-existing fqdn_address row with the same address.
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO fqdn_address (uuid, address, scope_id) VALUES (?, ?, ?)",
+			"existing-fqdn-uuid", fqdn, 1,
+		)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	p := application.RegisterCAASUnitArg{
+		UnitUUID:     tc.Must(c, coreunit.NewUUID),
+		UnitName:     "bar/0",
+		PasswordHash: "passwordhash",
+		ProviderID:   "some-id",
+		Address:      new("10.6.6.6/8"),
+		Ports:        new([]string{"0"}),
+		OrderedScale: true,
+		OrderedId:    0,
+		FQDN:         &fqdn,
+	}
+	err = s.state.RegisterCAASUnit(c.Context(), "bar", p)
+	c.Assert(err, tc.ErrorMatches, `.*fqdn address ".*" already exists.*`)
+}
+
 func (s *unitStateSuite) TestRegisterCAASUnitErrorNotScaling(c *tc.C) {
 	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
 

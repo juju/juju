@@ -32,6 +32,7 @@ type CAASDeployerConfig struct {
 	ApplicationService CAASApplicationService
 	ServiceManager     ServiceManager
 	UnitPassword       string
+	ControllerFQDN     string
 }
 
 // Validate validates the configuration.
@@ -55,6 +56,7 @@ type CAASDeployer struct {
 	applicationService CAASApplicationService
 	serviceManager     ServiceManager
 	unitPassword       string
+	controllerFQDN     string
 }
 
 // NewCAASDeployer returns a new ControllerCharmDeployer for CAAS workloads.
@@ -68,6 +70,7 @@ func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
 		applicationService: config.ApplicationService,
 		serviceManager:     config.ServiceManager,
 		unitPassword:       config.UnitPassword,
+		controllerFQDN:     config.ControllerFQDN,
 	}, nil
 }
 
@@ -95,6 +98,12 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 		return errors.Errorf("creating download info: %w", err)
 	}
 
+	unitArg := applicationservice.AddUnitArg{}
+	if b.controllerFQDN != "" {
+		fqdn := b.controllerFQDN
+		unitArg.FQDN = &fqdn
+	}
+
 	if _, err := b.applicationService.CreateCAASApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		info.Charm,
@@ -115,7 +124,7 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 			Constraints:  b.constraints,
 			IsController: true,
 		},
-		applicationservice.AddUnitArg{},
+		unitArg,
 	); err != nil {
 		return errors.Errorf("creating CAAS controller application: %w", err)
 	}

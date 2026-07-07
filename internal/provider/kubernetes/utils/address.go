@@ -4,10 +4,33 @@
 package utils
 
 import (
+	"fmt"
+
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/provider/kubernetes/constants"
 )
+
+// ControllerPodFQDN returns the stable, cluster-resolvable per-pod DNS name
+// assigned to the controller pod named podName in the given namespace by the
+// controller headless service. It is the single source of truth for the
+// controller pod FQDN string. The form is:
+//
+//	<pod-name>.controller-service-endpoints.<namespace>.svc.cluster.local
+//
+// for example:
+//
+//	controller-0.controller-service-endpoints.controller-a.svc.cluster.local
+func ControllerPodFQDN(podName, namespace string) string {
+	return fmt.Sprintf(
+		"%s.%s.%s.%s",
+		podName,
+		constants.ControllerServiceEndpointsName,
+		namespace,
+		constants.ClusterLocalDomain,
+	)
+}
 
 // GetSvcAddresses returns the network addresses for the given service.
 func GetSvcAddresses(svc *core.Service, includeClusterIP bool) []network.ProviderAddress {

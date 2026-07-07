@@ -236,6 +236,20 @@ type ipAddress struct {
 	DeviceID     string `db:"device_uuid"`
 }
 
+// fqdnAddress is the DB representation of a row in the fqdn_address table.
+type fqdnAddress struct {
+	UUID    string `db:"uuid"`
+	Address string `db:"address"`
+	ScopeID int    `db:"scope_id"`
+}
+
+// netNodeFQDNAddress is the DB representation of a row in the
+// net_node_fqdn_address junction table linking a net_node to an fqdn_address.
+type netNodeFQDNAddress struct {
+	NetNodeUUID string `db:"net_node_uuid"`
+	AddressUUID string `db:"address_uuid"`
+}
+
 type spaceAddress struct {
 	Value        string                      `db:"address_value"`
 	ConfigTypeID int                         `db:"config_type_id"`
