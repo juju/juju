@@ -19,7 +19,9 @@ const NetworkAPIVersion = networkAPIVersion
 var NetworkTemplateResources = networkTemplateResources
 var SubnetProviderIDForFamily = subnetProviderIDForFamily
 var StripIPFamilySuffix = stripIPFamilySuffix
-var StripAndDeduplicateSubnetIDs = stripAndDeduplicateSubnetIDs
+var DeduplicateSubnets = deduplicateSubnets
+
+type SubnetSelection = subnetSelection
 
 const SecurityGroupName = internalSecurityGroupName
 const InternalNetworkName = internalNetworkName

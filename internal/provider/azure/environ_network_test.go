@@ -669,11 +669,18 @@ func (s *environSuite) TestSubnetProviderIDForFamily(c *tc.C) {
 	}
 }
 
-// TestStripAndDeduplicateSubnetIDs tests the stripAndDeduplicateSubnetIDs helper.
-func (s *environSuite) TestStripAndDeduplicateSubnetIDs(c *tc.C) {
+// TestDeduplicateSubnets tests the deduplicateSubnets helper.
+// It verifies that :ipv6-suffixed IDs produce wantIPv6=true,
+// bare IDs produce wantIPv6=false, and duplicates are collapsed
+// with the OR of their wantIPv6 flags.
+func (s *environSuite) TestDeduplicateSubnets(c *tc.C) {
+	type sel struct {
+		id       string
+		wantIPv6 bool
+	}
 	testCases := []struct {
 		input    []corenetwork.Id
-		expected []corenetwork.Id
+		expected []sel
 	}{
 		{
 			input: []corenetwork.Id{
@@ -681,9 +688,9 @@ func (s *environSuite) TestStripAndDeduplicateSubnetIDs(c *tc.C) {
 				"subnet-1:ipv6",
 				"subnet-2",
 			},
-			expected: []corenetwork.Id{
-				"subnet-1",
-				"subnet-2",
+			expected: []sel{
+				{"subnet-1", true},
+				{"subnet-2", false},
 			},
 		},
 		{
@@ -691,8 +698,8 @@ func (s *environSuite) TestStripAndDeduplicateSubnetIDs(c *tc.C) {
 				"subnet-1:ipv6",
 				"subnet-1",
 			},
-			expected: []corenetwork.Id{
-				"subnet-1",
+			expected: []sel{
+				{"subnet-1", true},
 			},
 		},
 		{
@@ -700,20 +707,34 @@ func (s *environSuite) TestStripAndDeduplicateSubnetIDs(c *tc.C) {
 				"subnet-1",
 				"subnet-2",
 			},
-			expected: []corenetwork.Id{
-				"subnet-1",
-				"subnet-2",
+			expected: []sel{
+				{"subnet-1", false},
+				{"subnet-2", false},
 			},
 		},
 		{
 			input:    []corenetwork.Id{},
-			expected: []corenetwork.Id{},
+			expected: []sel{},
+		},
+		{
+			input: []corenetwork.Id{
+				"subnet-1:ipv6",
+				"subnet-2:ipv6",
+			},
+			expected: []sel{
+				{"subnet-1", true},
+				{"subnet-2", true},
+			},
 		},
 	}
 
 	for _, test := range testCases {
-		got := azure.StripAndDeduplicateSubnetIDs(test.input)
-		c.Check(got, tc.DeepEquals, test.expected, tc.Commentf("StripAndDeduplicateSubnetIDs(%v)", test.input))
+		got := azure.DeduplicateSubnets(test.input)
+		want := make([]azure.SubnetSelection, len(test.expected))
+		for i, s := range test.expected {
+			want[i] = azure.SubnetSelection{ID: corenetwork.Id(s.id), WantIPv6: s.wantIPv6}
+		}
+		c.Check(got, tc.DeepEquals, want, tc.Commentf("DeduplicateSubnets(%v)", test.input))
 	}
 }
 

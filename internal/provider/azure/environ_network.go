@@ -364,7 +364,7 @@ func (env *azureEnviron) networkInfoForInstance(
 	args environs.StartInstanceParams,
 	bootstrapping, controller bool,
 	placementSubnet *azurenetwork.Subnet,
-) (vnetID string, subnetIDs []network.Id, primarySubnet *azurenetwork.Subnet, _ error) {
+) (vnetID string, subnetIDs []subnetSelection, primarySubnet *azurenetwork.Subnet, _ error) {
 
 	vnetRG, vnetName := env.networkInfo(ctx)
 	vnetID = fmt.Sprintf(`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`, vnetName)
@@ -388,14 +388,14 @@ func (env *azureEnviron) networkInfoForInstance(
 	if !constraints.HasSpaces() {
 		// Use placement if specified.
 		if placementSubnetID != "" {
-			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{placementSubnetID}), placementSubnet, nil
+			return vnetID, deduplicateSubnets([]network.Id{placementSubnetID}), placementSubnet, nil
 		}
 
 		// When bootstrapping the network doesn't exist yet so just
 		// return the relevant subnet ID and it is created as part of
 		// the bootstrap process.
 		if bootstrapping && env.config.virtualNetworkName == "" {
-			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{env.defaultControllerSubnet()}), nil, nil
+			return vnetID, deduplicateSubnets([]network.Id{env.defaultControllerSubnet()}), nil, nil
 		}
 
 		// Prefer the legacy default subnet if found.
@@ -408,7 +408,7 @@ func (env *azureEnviron) networkInfoForInstance(
 			return "", nil, nil, errors.Trace(err)
 		}
 		if err == nil {
-			return vnetID, stripAndDeduplicateSubnetIDs([]network.Id{providerSubnetID(defaultSubnet)}), defaultSubnet, nil
+			return vnetID, deduplicateSubnets([]network.Id{providerSubnetID(defaultSubnet)}), defaultSubnet, nil
 		}
 
 		// For deployments without a spaces constraint, there's no subnets to zones mapping.
@@ -460,28 +460,26 @@ func (env *azureEnviron) networkInfoForInstance(
 
 	// Put any placement subnet first in the list
 	// so it ia allocated to the primary NIC.
+	var rawSubnetIDs []network.Id
 	if placementSubnetID != "" {
-		subnetIDs = append(subnetIDs, placementSubnetID)
+		rawSubnetIDs = append(rawSubnetIDs, placementSubnetID)
 	}
 	for _, id := range subnetIDForZone {
-		bareID := network.Id(stripIPFamilySuffix(id.String()))
-		if bareID != placementSubnetID {
-			subnetIDs = append(subnetIDs, id)
-		}
+		rawSubnetIDs = append(rawSubnetIDs, id)
 	}
 
-	dedupedSubnetIDs := stripAndDeduplicateSubnetIDs(subnetIDs)
+	subnetIDs = deduplicateSubnets(rawSubnetIDs)
 
 	// Resolve the primary subnet for validation when ip-family=dual.
-	if isDualStack && len(dedupedSubnetIDs) > 0 && primarySubnet == nil {
+	if isDualStack && len(subnetIDs) > 0 && primarySubnet == nil {
 		var err error
-		primarySubnet, err = env.findSubnetByID(ctx, dedupedSubnetIDs[0])
+		primarySubnet, err = env.findSubnetByID(ctx, subnetIDs[0].ID)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return "", nil, nil, errors.Trace(err)
 		}
 	}
 
-	return vnetID, dedupedSubnetIDs, primarySubnet, nil
+	return vnetID, subnetIDs, primarySubnet, nil
 }
 
 func (env *azureEnviron) subnetsForZone(subnetsToZones []map[network.Id][]string, az string) ([][]network.Id, error) {
@@ -579,19 +577,35 @@ func stripIPFamilySuffix(id string) string {
 	return id
 }
 
-// stripAndDeduplicateSubnetIDs removes :ipv6 suffixes from subnet IDs and deduplicates them.
-// This ensures that when allSubnets() emits two rows per dual-stack subnet (one for each
-// family), we only pass one bare Azure subnet ID to ARM templates. The order of the first
-// occurrence is preserved.
-func stripAndDeduplicateSubnetIDs(subnetIDs []network.Id) []network.Id {
-	seen := make(map[string]bool)
-	var result []network.Id
-	for _, id := range subnetIDs {
+// subnetSelection carries a resolved Azure subnet ID (bare, suitable for ARM
+// templates) and whether the originating Juju provider ID carried the :ipv6
+// suffix — meaning the space constraint selected the IPv6 variant of a
+// dual-stack subnet.
+type subnetSelection struct {
+	ID       network.Id
+	WantIPv6 bool
+}
+
+// deduplicateSubnets removes :ipv6/:ipv4 suffixes from subnet IDs, deduplicates
+// by bare ID, and preserves whether any input variant carried the :ipv6 suffix
+// (wantIPv6). The order of the first occurrence is preserved.
+func deduplicateSubnets(ids []network.Id) []subnetSelection {
+	seen := make(map[string]int)
+	var result []subnetSelection
+	for _, id := range ids {
 		bare := stripIPFamilySuffix(id.String())
-		if !seen[bare] {
-			seen[bare] = true
-			result = append(result, network.Id(bare))
+		wantIPv6 := bare != id.String()
+		if idx, ok := seen[bare]; ok {
+			if wantIPv6 {
+				result[idx].WantIPv6 = true
+			}
+			continue
 		}
+		seen[bare] = len(result)
+		result = append(result, subnetSelection{
+			ID:       network.Id(bare),
+			WantIPv6: wantIPv6,
+		})
 	}
 	return result
 }

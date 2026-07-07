@@ -971,6 +971,19 @@ func (env *azureEnviron) createVirtualMachine(
 
 	isDualStack := args.Constraints.IPFamily != nil && *args.Constraints.IPFamily == ipfamily.Dual
 
+	// Reject when a space constraint selected the IPv6 variant of a
+	// dual-stack subnet but ip-family is not dual. Provisioning would
+	// silently violate the constraint.
+	if !isDualStack {
+		for _, sel := range subnetIds {
+			if sel.WantIPv6 {
+				return environs.ZoneIndependentError(errors.Errorf(
+					"subnet %q was selected via an IPv6-only space; "+
+						"set ip-family=dual to provision an IPv6 address", sel.ID))
+			}
+		}
+	}
+
 	var publicIPAddressId string
 	var ipv6PublicIPAddressId string
 	if usePublicIP {
@@ -1014,12 +1027,13 @@ func (env *azureEnviron) createVirtualMachine(
 	// Create one NIC per subnet. The first one is the primary and has
 	// the public IP address if so configured.
 	var nics []*armcompute.NetworkInterfaceReference
-	for i, subnetID := range subnetIds {
+	for i, sel := range subnetIds {
 		primary := i == 0
+		subnetID := string(sel.ID)
 		ipConfig := &armnetwork.InterfaceIPConfigurationPropertiesFormat{
 			Primary:                   new(primary),
 			PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
-			Subnet:                    &armnetwork.Subnet{ID: new(string(subnetID))},
+			Subnet:                    &armnetwork.Subnet{ID: new(subnetID)},
 		}
 		if primary && usePublicIP {
 			ipConfig.PublicIPAddress = &armnetwork.PublicIPAddress{
@@ -1044,7 +1058,7 @@ func (env *azureEnviron) createVirtualMachine(
 				Primary:                   new(false),
 				PrivateIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv6),
 				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
-				Subnet:                    &armnetwork.Subnet{ID: new(string(subnetID))},
+				Subnet:                    &armnetwork.Subnet{ID: new(subnetID)},
 			}
 			if usePublicIP && ipv6PublicIPAddressId != "" {
 				ipv6Props.PublicIPAddress = &armnetwork.PublicIPAddress{
