@@ -15,10 +15,12 @@ import (
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -47,6 +49,7 @@ type ControllerStackerForTest interface {
 	controllerStacker
 	GetControllerAgentConfigContent(*tc.C) string
 	GetControllerUnitAgentConfigContent(*tc.C) string
+	GetControllerRuntimeConfigContent(*tc.C) string
 	GetControllerUnitAgentPassword() string
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
@@ -63,6 +66,33 @@ func (cs *controllerStack) GetControllerUnitAgentConfigContent(c *tc.C) string {
 	agentCfg, err := cs.unitAgentConfig.Render()
 	c.Assert(err, tc.ErrorIsNil)
 	return string(agentCfg)
+}
+
+func (cs *controllerStack) GetControllerRuntimeConfigContent(c *tc.C) string {
+	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:           cs.pcfg.ControllerId,
+		ControllerUUID:         cs.pcfg.ControllerTag.Id(),
+		ControllerModelUUID:    cs.pcfg.APIInfo.ModelTag.Id(),
+		DataDir:                cs.pcfg.DataDir,
+		LoopbackPreferred:      true,
+		LogDir:                 cs.pcfg.LogDir,
+		APIPort:                cs.pcfg.Bootstrap.ControllerAgentInfo.APIPort,
+		AgentPassword:          cs.pcfg.APIInfo.Password,
+		LoggingConfig:          cs.pcfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
+		LoggingOverride:        cs.pcfg.AgentEnvironment[agent.LoggingOverride],
+		QueryTracingEnabled:    cs.pcfg.Controller.QueryTracingEnabled(),
+		QueryTracingThreshold:  cs.pcfg.Controller.QueryTracingThreshold(),
+		DqliteBusyTimeout:      cs.pcfg.Controller.DqliteBusyTimeout(),
+		CACert:                 cs.pcfg.APIInfo.CACert,
+		CAPrivateKey:           cs.pcfg.Bootstrap.ControllerAgentInfo.CAPrivateKey,
+		ControllerCert:         cs.pcfg.Bootstrap.ControllerAgentInfo.Cert,
+		ControllerPrivateKey:   cs.pcfg.Bootstrap.ControllerAgentInfo.PrivateKey,
+		AgentLogfileMaxSizeMB:  cs.pcfg.Controller.AgentLogfileMaxSizeMB(),
+		AgentLogfileMaxBackups: cs.pcfg.Controller.AgentLogfileMaxBackups(),
+	}
+	data, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
+	c.Assert(err, tc.ErrorIsNil)
+	return string(data)
 }
 
 func (cs *controllerStack) GetControllerUnitAgentPassword() string {

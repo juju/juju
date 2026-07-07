@@ -13,8 +13,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujuagentd/agent/model"
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
 )
@@ -563,9 +562,9 @@ func testManifoldsConfig() model.ManifoldsConfig {
 	return model.ManifoldsConfig{
 		LoggingContext:       internallogger.DefaultContext(),
 		ModelUUID:            "mock-model-uuid",
-		AgentTag:             names.NewMachineTag("123"),
 		ModelTag:             names.NewModelTag("mock-model-uuid"),
 		ControllerTag:        names.NewControllerTag("mock-controller-uuid"),
+		ControllerAgentTag:   names.NewControllerAgentTag("123"),
 		DataDir:              "/tmp/juju-data",
 		LogDir:               "/tmp/juju-log",
 		StartupValueProvider: mockModelStartupValueProvider{},
@@ -575,8 +574,5 @@ func testManifoldsConfig() model.ManifoldsConfig {
 
 type mockModelStartupValueProvider struct{}
 
-func (mockModelStartupValueProvider) CACert() (string, error) { return "", nil }
-func (mockModelStartupValueProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
-	return controller.ControllerAgentInfo{}, nil
-}
+func (mockModelStartupValueProvider) CACert() (string, error)          { return "", nil }
 func (mockModelStartupValueProvider) LoggingOverride() (string, error) { return "", nil }

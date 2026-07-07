@@ -5,5 +5,5 @@
 // includes the Loki push API endpoint configuration that is provided by the
 // controller charm via the loki_push_api integration. The endpoint is
 // persisted in the controller database and distributed to agents so they
-// can send logs directly to Loki rather than through jujuagentd.
+// can send logs directly to Loki rather than through jujud-controller.
 package logging
