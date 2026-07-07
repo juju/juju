@@ -96,6 +96,24 @@ func (s *typesSuite) TestValueSourceSupport(c *tc.C) {
 	c.Check(source, tc.Equals, "")
 }
 
+func (s *typesSuite) TestValueSourceSupportsMapValues(c *tc.C) {
+	val := DefaultAttributeValue{
+		Controller: map[string]string{
+			"key": "value",
+		},
+	}
+
+	has, source := val.ValueSource(map[string]string{
+		"key": "value",
+	})
+	c.Check(has, tc.IsTrue)
+	c.Check(source, tc.Equals, "controller")
+
+	has, source = val.ValueSource("value")
+	c.Check(has, tc.IsFalse)
+	c.Check(source, tc.Equals, "")
+}
+
 // testApplyStrategy is a test implementation of ApplyStrategy that is here to
 // just indicate that the Apply method of the strategy has been called.
 type testApplyStrategy struct {

@@ -5,8 +5,10 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/juju/schema"
+	"gopkg.in/yaml.v2"
 )
 
 // These constants define named sources of model config attributes.
@@ -82,6 +84,40 @@ type AttributeDefaultValues struct {
 	// Regions is a slice of Region representing the values as set in each
 	// region.
 	Regions []RegionDefaultValue `json:"regions,omitempty" yaml:"regions,omitempty"`
+}
+
+// MarshalJSON preserves explicitly empty default values.
+func (a AttributeDefaultValues) MarshalJSON() ([]byte, error) {
+	return json.Marshal(a.marshalMap())
+}
+
+// MarshalYAML preserves explicitly empty default values.
+func (a AttributeDefaultValues) MarshalYAML() (any, error) {
+	items := yaml.MapSlice{}
+	if a.Default != nil {
+		items = append(items, yaml.MapItem{Key: "default", Value: a.Default})
+	}
+	if a.Controller != nil {
+		items = append(items, yaml.MapItem{Key: "controller", Value: a.Controller})
+	}
+	if len(a.Regions) > 0 {
+		items = append(items, yaml.MapItem{Key: "regions", Value: a.Regions})
+	}
+	return items, nil
+}
+
+func (a AttributeDefaultValues) marshalMap() map[string]any {
+	values := map[string]any{}
+	if a.Default != nil {
+		values["default"] = a.Default
+	}
+	if a.Controller != nil {
+		values["controller"] = a.Controller
+	}
+	if len(a.Regions) > 0 {
+		values["regions"] = a.Regions
+	}
+	return values
 }
 
 // RegionDefaultValue holds the region information for each region in DefaultSetting.
