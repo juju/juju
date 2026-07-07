@@ -614,6 +614,12 @@ juju-snap:
 	$(call snap_stage,juju)
 	snapcraft pack
 
+.PHONY: jujud-snap
+jujud-snap:
+## jujud-snap: Build the jujud controller snap from snaps/jujud/
+	$(call snap_stage,jujud)
+	snapcraft pack
+
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.
