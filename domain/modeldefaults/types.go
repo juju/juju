@@ -149,11 +149,15 @@ func valuesEqual(val1, val2 any) bool {
 		return false
 	}
 
-	if !reflect.TypeOf(val1).Comparable() ||
-		!reflect.TypeOf(val2).Comparable() {
-		return reflect.DeepEqual(val1, val2)
+	val1Type := reflect.TypeOf(val1)
+	val2Type := reflect.TypeOf(val2)
+	if val1Type != val2Type {
+		return false
 	}
-	return val1 == val2
+	if val1Type.Comparable() {
+		return val1 == val2
+	}
+	return reflect.DeepEqual(val1, val2)
 }
 
 // Apply implements [ApplyStrategy] interface for [PreferDefaultApplyStrategy]
