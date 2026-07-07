@@ -546,7 +546,8 @@ go-install: $(INSTALL_TARGETS)
 rebuild-schema:
 ## rebuild-schema: Rebuild the schema for clients with the latest facades
 	@echo "Generating facade schema..."
-# GOOS and GOARCH environment variables are cleared in case the user is trying to cross architecture compilation.
+# GOOS and GOARCH environment variables are cleared in case the user is trying
+# to cross architecture compilation.
 ifdef SCHEMA_PATH
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/schemagen -admin-facades -facade-group=client "$(SCHEMA_PATH)/schema.json"
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent "$(SCHEMA_PATH)/agent-schema.json"
@@ -556,10 +557,6 @@ else
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
 		./apiserver/facades/agent-schema.json
 endif
-	@echo "Generating exported model schema..."
-	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
-	@echo "Generating model import schema..."
-	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
 
 .PHONY: rebuild-triggers
 rebuild-triggers:

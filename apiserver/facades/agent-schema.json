@@ -6238,6 +6238,27 @@
                                 }
                             }
                         },
+                        "tracing-ca-certificate": {
+                            "type": "string"
+                        },
+                        "tracing-grpc-endpoint": {
+                            "type": "string"
+                        },
+                        "tracing-http-endpoint": {
+                            "type": "string"
+                        },
+                        "tracing-insecure-skip-verify": {
+                            "type": "boolean"
+                        },
+                        "tracing-sample-ratio": {
+                            "type": "number"
+                        },
+                        "tracing-stack-traces": {
+                            "type": "boolean"
+                        },
+                        "tracing-tail-sampling-threshold": {
+                            "type": "string"
+                        },
                         "volume-attachments": {
                             "type": "array",
                             "items": {
