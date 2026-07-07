@@ -664,9 +664,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	isCAASController = jujucloud.CloudIsCAAS(cloud)
-	if isCAASController && refresher.IsLocalURL(c.ControllerCharmPath) {
-		return errors.NotSupportedf("deploying a local controller charm on a k8s controller")
-	}
 	if !isCAASController {
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
