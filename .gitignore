@@ -16,6 +16,7 @@ parts/
 prime/
 stage/
 vendor/
+snap/
 *.snap
 .emacs.desktop
 .emacs.desktop.lock
