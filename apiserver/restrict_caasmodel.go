@@ -31,7 +31,6 @@ var commonModelFacadeNames = set.NewStrings(
 	"CrossController",
 	"CrossModelRelations",
 	"CrossModelSecrets",
-	"ExternalControllerUpdater",
 	"FilesystemAttachmentsWatcher",
 	"LeadershipService",
 	"LifeFlag",
@@ -87,11 +86,8 @@ var caasModelFacadeNames = set.NewStrings(
 	"CAASAdmission",
 	"CAASAgent",
 	"CAASFirewaller",
-	"CAASModelOperator",
 	"CAASOperatorUpgrader",
-	"CAASModelConfigManager",
 	"CAASApplication",
-	"CAASApplicationProvisioner",
 )
 
 // caasModelFacadeMethods limits facades that are only partially supported on

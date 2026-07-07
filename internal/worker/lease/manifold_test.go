@@ -6,6 +6,7 @@ package lease
 import (
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -29,42 +30,59 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
-	cfg.AgentName = ""
+	cfg.ControllerUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
-	cfg.ClockName = ""
+	cfg = s.getConfig()
+	cfg.ControllerModelUUID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.DBAccessorName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.TraceName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
+	cfg.LogDir = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.PrometheusRegisterer = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.NewStore = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
 	cfg.NewSecretaryFinder = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:      "agent",
-		ClockName:      "clock",
-		DBAccessorName: "dbaccessor",
-		TraceName:      "trace",
-
+		ControllerUUID:       "ctrl-uuid-1234",
+		ControllerModelUUID:  "ctrl-model-uuid-5678",
+		DBAccessorName:       "dbaccessor",
+		TraceName:            "trace",
+		Clock:                clock.WallClock,
 		Logger:               s.logger,
+		LogDir:               "/var/log/juju",
 		PrometheusRegisterer: s.prometheusRegisterer,
 		NewWorker: func(mc ManagerConfig) (worker.Worker, error) {
 			return nil, nil

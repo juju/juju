@@ -7,7 +7,7 @@ is aimed to help to understand how to run Juju in debug mode.
 
 ## Setup everything
 
-To debug a jujud, we will use [Delve]. To be able to access to codebase, [Delve] requires
+To debug a jujuagentd, we will use [Delve]. To be able to access to codebase, [Delve] requires
 that a binary has been compiled with specific option. For juju, it implies to set a specific environment variable. So, 
 in order to be able to bootstrap a controller with debugging capabilities, we need to build with the following command:
 
@@ -18,7 +18,7 @@ DEBUG_JUJU=1 make install
 `DEBUG_JUJU` will enable required flags and tags and embed [Delve] into the binary[^1]. 
 
 [^1]: Check the [Makefile](../../Makefile), [dlv package](../../internal/dlv/doc.go) and maybe a 
-[command with debug enabler](../../cmd/jujud/main_debug.go)
+[command with debug enabler](../../cmd/jujuagentd/main_debug.go)
 
 ## Debugging
 
@@ -29,9 +29,9 @@ Once build with debugging capabilities, we can debug Juju on our favorite IDE.
 To debug any juju command, just run the built command with [Delve]. It can be through `delve exec`, or even simply by 
 using `go build` configuration in any good IDE. 
 
-###  `jujud`
+###  `jujuagentd`
 
-Once built with delve, bootstrapping, juju will run `jujud` on the machine with a dedicated unix socket
+Once built with delve, bootstrapping, juju will run `jujuagentd` on the machine with a dedicated unix socket
 to connect a [Delve] remote instance.
 However, the unix socket is on the remote machine, and to access the socket from your local IDE requires
 additional work. That is why we need to open an SSH tunnel to the socket, binding it with a local port on the 
@@ -53,16 +53,16 @@ It will then be possible to link a [Delve] remote session through `127.0.0.1:234
 
 ## What is going under the hood
 
-Behind the scene, `jujud` is running by a [Delve], listening to an unix socket named with the following pattern:
+Behind the scene, `jujuagentd` is running by a [Delve], listening to an unix socket named with the following pattern:
 
-`/path/to/jujud.<subcommand>.socketd`
+`/path/to/jujuagentd.<subcommand>.socketd`
 
-The controller machine will listen on `/var/lib/juju/tools/4.0-beta5.1-ubuntu-amd64/jujud.machine.socketd` with:
+The controller machine will listen on `/var/lib/juju/tools/4.0-beta5.1-ubuntu-amd64/jujuagentd.machine.socketd` with:
 
 * `/path/to`: `/var/lib/juju/tools/4.0-beta5.1-ubuntu-amd64/`
 * `subcommand`: `machine` (in that case, the controller agent has been run by `juju machine <args>`)
 
-If there are multiple `jujud` processes running, you can choose one when running the script.
+If there are multiple `jujuagentd` processes running, you can choose one when running the script.
 
 The script opens an ssh tunnel linking the socket with the local machine on the specified port.
 

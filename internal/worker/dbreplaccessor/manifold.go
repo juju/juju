@@ -11,7 +11,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database"
@@ -39,23 +38,35 @@ type ClusterIntrospector interface {
 type NewDBReplWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
 // NewNodeManagerFunc creates a NodeManager
-type NewNodeManagerFunc func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
+type NewNodeManagerFunc func(database.NodeManagerConfig, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
 
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
-	AgentName       string
-	Clock           clock.Clock
-	Logger          logger.Logger
-	NewApp          NewAppFunc
-	NewDBReplWorker NewDBReplWorkerFunc
-	NewNodeManager  NewNodeManagerFunc
+	DataDir              string
+	CACert               string
+	ControllerCert       string
+	ControllerPrivateKey string
+	Clock                clock.Clock
+	Logger               logger.Logger
+	NewApp               NewAppFunc
+	NewDBReplWorker      NewDBReplWorkerFunc
+	NewNodeManager       NewNodeManagerFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if cfg.DataDir == "" {
+		return errors.NotValidf("empty DataDir")
+	}
+	if cfg.CACert == "" {
+		return errors.NotValidf("empty CACert")
+	}
+	if cfg.ControllerCert == "" {
+		return errors.NotValidf("empty ControllerCert")
+	}
+	if cfg.ControllerPrivateKey == "" {
+		return errors.NotValidf("empty ControllerPrivateKey")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -79,23 +90,21 @@ func (cfg ManifoldConfig) Validate() error {
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-		},
 		Output: dbAccessorOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var thisAgent agent.Agent
-			if err := getter.Get(config.AgentName, &thisAgent); err != nil {
-				return nil, err
+			nodeManagerCfg := database.NodeManagerConfig{
+				DataDir:              config.DataDir,
+				CACert:               config.CACert,
+				ControllerCert:       config.ControllerCert,
+				ControllerPrivateKey: config.ControllerPrivateKey,
 			}
-			agentConfig := thisAgent.CurrentConfig()
 
 			cfg := WorkerConfig{
-				NodeManager:     config.NewNodeManager(agentConfig, config.Logger, coredatabase.NoopSlowQueryLogger{}),
+				NodeManager:     config.NewNodeManager(nodeManagerCfg, config.Logger, coredatabase.NoopSlowQueryLogger{}),
 				Clock:           config.Clock,
 				Logger:          config.Logger,
 				NewApp:          config.NewApp,
@@ -131,12 +140,12 @@ func dbAccessorOutput(in worker.Worker, out any) error {
 
 // IAASNodeManager returns a NodeManager that is configured to use
 // the cloud-local TLS terminated address for Dqlite.
-func IAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func IAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, false, logger, slowQueryLogger)
 }
 
 // CAASNodeManager returns a NodeManager that is configured to use
 // the loopback address for Dqlite.
-func CAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func CAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, true, logger, slowQueryLogger)
 }

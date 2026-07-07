@@ -63,24 +63,6 @@ var (
 // to the newly-migrated model.
 const progressUpdateInterval = 30 * time.Second
 
-// Facade exposes the controller facade functionality the Worker still needs.
-// These are the operations shared with remote callers; everything that is
-// worker-private is reached directly through the domain services instead.
-type Facade interface {
-	// Prechecks performs pre-migration checks on the model and
-	// (source) controller.
-	Prechecks(context.Context) error
-
-	// OpenResource downloads a single resource for an application.
-	OpenResource(context.Context, string, string) (io.ReadCloser, error)
-
-	// StreamModelLog takes a starting time and returns a channel that
-	// will yield the logs on or after that time - these are the logs
-	// that need to be transferred to the target after the migration
-	// is successful.
-	StreamModelLog(context.Context, time.Time) (<-chan common.LogMessage, error)
-}
-
 type CharmService interface {
 	// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
 	// charm id, along with the hash of the charm archive. Clients can use the hash
@@ -157,11 +139,19 @@ type ModelAgentService interface {
 	) (map[machine.Name]coreagentbinary.Metadata, map[unit.Name]coreagentbinary.Metadata, error)
 }
 
-// ResourceService lists the model resources that need binary transfer.
+// ResourceService lists the model resources that need binary transfer
+// and opens resource content for download.
 type ResourceService interface {
 	// ListAllModelResources returns the application and unit resources to
 	// export for all applications in the model.
 	ListAllModelResources(context.Context) ([]resource.Resource, error)
+
+	// GetResourceUUIDByApplicationAndResourceName returns the UUID of the
+	// resource identified by application and resource name.
+	GetResourceUUIDByApplicationAndResourceName(ctx context.Context, appName, resName string) (resource.UUID, error)
+
+	// OpenResource returns the details of and a reader for the resource.
+	OpenResource(ctx context.Context, resourceUUID resource.UUID) (resource.Resource, io.ReadCloser, error)
 }
 
 // AgentBinaryStore provides an interface for interacting with the stored agent
@@ -185,7 +175,6 @@ type LoggingService interface {
 // Config defines the operation of a Worker.
 type Config struct {
 	ModelUUID               string
-	Facade                  Facade
 	CharmService            CharmService
 	ModelMigrationService   ModelMigrationService
 	ExportService           ExportService
@@ -198,15 +187,20 @@ type Config struct {
 	AgentBinaryStore        AgentBinaryStore
 	LoggingService          LoggingService
 	Clock                   clock.Clock
+
+	// SourcePrecheck runs source-side migration prechecks using local
+	// domain services instead of an API facade.
+	SourcePrecheck func(context.Context) error
+
+	// StreamModelLog returns a channel that yields log messages on or
+	// after the given time from the local logsink.log file.
+	StreamModelLog func(context.Context, time.Time) (<-chan common.LogMessage, error)
 }
 
 // Validate returns an error if config cannot drive a Worker.
 func (config Config) Validate() error {
 	if !names.IsValidModel(config.ModelUUID) {
 		return errors.NotValidf("model UUID %q", config.ModelUUID)
-	}
-	if config.Facade == nil {
-		return errors.NotValidf("nil Facade")
 	}
 	if config.CharmService == nil {
 		return errors.NotValidf("nil CharmService")
@@ -243,6 +237,12 @@ func (config Config) Validate() error {
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if config.SourcePrecheck == nil {
+		return errors.NotValidf("nil SourcePrecheck")
+	}
+	if config.StreamModelLog == nil {
+		return errors.NotValidf("nil StreamModelLog")
 	}
 	return nil
 }
@@ -447,7 +447,7 @@ func checkTargetSupportsEnvelope(targetClient *migrationtarget.Client) error {
 
 func (w *Worker) prechecks(ctx context.Context, status coremigration.MigrationStatus) error {
 	w.setInfoStatus(ctx, "performing source prechecks")
-	if err := w.config.Facade.Prechecks(ctx); err != nil {
+	if err := w.config.SourcePrecheck(ctx); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}
 
@@ -569,7 +569,7 @@ func (w *Worker) transferModel(ctx context.Context, status coremigration.Migrati
 		ToolsUploader:    wrapper,
 
 		Resources:          model.resources,
-		ResourceDownloader: w.config.Facade,
+		ResourceDownloader: &resourceDownloaderShim{svc: w.config.ResourceService},
 		ResourceUploader:   wrapper,
 	}, w.logger)
 	if err != nil {
@@ -732,7 +732,7 @@ func (w *Worker) transferLogs(ctx context.Context, targetInfo coremigration.Targ
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	logSource, err := w.config.Facade.StreamModelLog(ctx, latestLogTime)
+	logSource, err := w.config.StreamModelLog(ctx, latestLogTime)
 	if err != nil {
 		return errors.Annotate(err, "opening source log stream")
 	}
@@ -1062,4 +1062,23 @@ func (w *Worker) openAPIConnForModel(ctx context.Context, targetInfo coremigrati
 
 func modelHasMigrated(phase coremigration.Phase) bool {
 	return phase == coremigration.DONE || phase == coremigration.REAPFAILED
+}
+
+// resourceDownloaderShim implements migration.ResourceDownloader by
+// resolving the resource UUID from the application/name pair and opening
+// the resource content through the domain service directly.
+type resourceDownloaderShim struct {
+	svc ResourceService
+}
+
+func (a *resourceDownloaderShim) OpenResource(ctx context.Context, appName, resName string) (io.ReadCloser, error) {
+	uuid, err := a.svc.GetResourceUUIDByApplicationAndResourceName(ctx, appName, resName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	_, reader, err := a.svc.OpenResource(ctx, uuid)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return reader, nil
 }

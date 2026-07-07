@@ -63,19 +63,13 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/apiserver/facades/client/subnets"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
-	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
-	"github.com/juju/juju/apiserver/facades/controller/caasmodelconfigmanager"
-	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelsecrets"
-	"github.com/juju/juju/apiserver/facades/controller/externalcontrollerupdater"
-	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
-	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
 	"github.com/juju/juju/core/facades"
@@ -164,9 +158,6 @@ func AllFacades() *facade.Registry {
 	caasadmission.Register(registry)
 	caasagent.Register(registry)
 	caasapplication.Register(registry)
-	caasapplicationprovisioner.Register(registry)
-	caasmodeloperator.Register(registry)
-	caasmodelconfigmanager.Register(registry)
 	caasoperatorupgrader.Register(registry)
 
 	controller.Register(registry)
@@ -175,10 +166,8 @@ func AllFacades() *facade.Registry {
 	crosscontroller.Register(registry)
 	credentialmanager.Register(registry)
 	credentialvalidator.Register(registry)
-	externalcontrollerupdater.Register(registry)
 	deployer.Register(registry)
 	diskmanager.Register(registry)
-	firewaller.Register(registry)
 	highavailability.Register(registry)
 	hostkeyreporter.Register(registry)
 	imagemetadata.Register(registry)
@@ -208,7 +197,6 @@ func AllFacades() *facade.Registry {
 	retrystrategy.Register(registry)
 	secrets.Register(registry)
 	secretbackends.Register(registry)
-	secretbackendmanager.Register(registry)
 	secretsmanager.Register(registry)
 	secretsdrain.Register(registry)
 	usersecrets.Register(registry)

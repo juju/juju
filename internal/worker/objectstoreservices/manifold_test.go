@@ -34,15 +34,15 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.Clock = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.ChangeStreamName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -78,6 +78,31 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	workertest.CheckAlive(c, w)
+}
+
+func (s *manifoldSuite) TestStartUsesWallClock(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	getter := map[string]any{
+		"changestream": s.dbGetter,
+	}
+
+	var workerConfig Config
+	manifold := Manifold(ManifoldConfig{
+		ChangeStreamName: "changestream",
+		Clock:            clock.WallClock,
+		Logger:           s.logger,
+		NewWorker: func(cfg Config) (worker.Worker, error) {
+			workerConfig = cfg
+			return nil, nil
+		},
+		NewObjectStoreServices:       NewObjectStoreServices,
+		NewObjectStoreServicesGetter: NewObjectStoreServicesGetter,
+	})
+
+	_, err := manifold.Start(c.Context(), dt.StubGetter(getter))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(workerConfig.Clock, tc.Equals, clock.WallClock)
 }
 
 func (s *manifoldSuite) TestOutputObjectStoreServicesGetter(c *tc.C) {

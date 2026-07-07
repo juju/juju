@@ -495,6 +495,7 @@ func (c *controllerStack) getControllerSvcSpec(cloudType string, cfg *podcfg.Boo
 	if cfg == nil {
 		return spec, nil
 	}
+
 	if len(cfg.ControllerServiceType) > 0 {
 		if spec.ServiceType, err = CaasServiceToK8s(caas.ServiceType(cfg.ControllerServiceType)); err != nil {
 			return nil, errors.Trace(err)
@@ -1319,9 +1320,9 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 // service. This will be written to a file in the Pebble layers directory.
 func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) {
 	layer := plan.Layer{
-		Summary: "jujud service",
+		Summary: "jujuagentd service",
 		Services: map[string]*plan.Service{
-			"jujud": {
+			"jujuagentd": {
 				Override: plan.ReplaceOverride,
 				Summary:  "Juju controller agent",
 				Command:  machineCmd,
@@ -1330,7 +1331,7 @@ func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) 
 		},
 	}
 	if env != nil {
-		layer.Services["jujud"].Environment = env
+		layer.Services["jujuagentd"].Environment = env
 	}
 
 	return yaml.Marshal(layer)
@@ -1361,7 +1362,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
 			"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+			c.pathJoin("$JUJU_TOOLS_DIR", "jujuagentd"),
 			loggingOption,
 			c.timeout.String(),
 		)
@@ -1377,7 +1378,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 
 	machineCmd := fmt.Sprintf(
 		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
-		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+		c.pathJoin("$JUJU_TOOLS_DIR", "jujuagentd"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)

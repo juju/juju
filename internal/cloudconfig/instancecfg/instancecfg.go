@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	jujunames "github.com/juju/juju/juju/names"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig.instancecfg")
@@ -565,8 +566,10 @@ func (cfg *InstanceConfig) CharmDir() string {
 func (cfg *InstanceConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
-		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort)),
+		hosts = append(
+			hosts, net.JoinHostPort(
+				"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort),
+			),
 		)
 	}
 	if cfg.APIInfo != nil {
@@ -788,7 +791,7 @@ func NewInstanceConfig(
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		TransientDataDir:        paths.TransientDataDir(osType),
-		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
+		MachineAgentServiceName: jujunames.JujuAgentd + "-" + names.NewMachineTag(machineID).String(),
 		Base:                    base,
 		Tags:                    map[string]string{},
 

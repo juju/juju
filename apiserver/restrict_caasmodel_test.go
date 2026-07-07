@@ -29,7 +29,7 @@ func (s *RestrictCAASModelSuite) SetUpSuite(c *tc.C) {
 }
 
 func (s *RestrictCAASModelSuite) TestAllowed(c *tc.C) {
-	s.assertMethod(c, "CAASModelOperator", 1, "ModelOperatorProvisioningInfo")
+	s.assertMethod(c, "CAASApplication", 1, "UnitIntroduction")
 }
 
 func (s *RestrictCAASModelSuite) TestSubnetsAllowed(c *tc.C) {

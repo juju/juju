@@ -4,6 +4,7 @@
 package caasmodelconfigmanager_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -13,10 +14,12 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 
-	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
@@ -37,14 +40,27 @@ func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.config = s.validConfig(c)
 }
 
+type mockControllerConfigService struct {
+	caasmodelconfigmanager.ControllerConfigService
+}
+
+func (m *mockControllerConfigService) ControllerConfig(context.Context) (controller.Config, error) {
+	return controller.Config{}, nil
+}
+
+func (m *mockControllerConfigService) WatchControllerConfig(context.Context) (watcher.StringsWatcher, error) {
+	return nil, nil
+}
+
 func (s *manifoldSuite) validConfig(c *tc.C) caasmodelconfigmanager.ManifoldConfig {
 	return caasmodelconfigmanager.ManifoldConfig{
-		APICallerName: "api-caller",
-		BrokerName:    "broker",
-		NewWorker: func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
-			return nil, nil
+		DomainServicesName: "domain-services",
+		BrokerName:         "broker",
+		ModelUUID:          "ffffffff-ffff-ffff-ffff-ffffffffffff",
+		GetDomainServices: func(getter dependency.Getter, name string) (caasmodelconfigmanager.ControllerConfigService, error) {
+			return &mockControllerConfigService{}, nil
 		},
-		NewFacade: func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
+		NewWorker: func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 			return nil, nil
 		},
 		Logger: loggertesting.WrapCheckLog(c),
@@ -56,9 +72,9 @@ func (s *manifoldSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *manifoldSuite) TestMissingAPICallerName(c *tc.C) {
-	s.config.APICallerName = ""
-	s.checkNotValid(c, "empty APICallerName not valid")
+func (s *manifoldSuite) TestMissingDomainServicesName(c *tc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
 func (s *manifoldSuite) TestMissingBrokerName(c *tc.C) {
@@ -66,9 +82,14 @@ func (s *manifoldSuite) TestMissingBrokerName(c *tc.C) {
 	s.checkNotValid(c, "empty BrokerName not valid")
 }
 
-func (s *manifoldSuite) TestMissingNewFacade(c *tc.C) {
-	s.config.NewFacade = nil
-	s.checkNotValid(c, "nil NewFacade not valid")
+func (s *manifoldSuite) TestMissingModelUUID(c *tc.C) {
+	s.config.ModelUUID = ""
+	s.checkNotValid(c, "empty ModelUUID not valid")
+}
+
+func (s *manifoldSuite) TestMissingGetDomainServices(c *tc.C) {
+	s.config.GetDomainServices = nil
+	s.checkNotValid(c, "nil GetDomainServices not valid")
 }
 
 func (s *manifoldSuite) TestMissingNewWorker(c *tc.C) {
@@ -97,8 +118,9 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	defer ctrl.Finish()
 
 	called := false
-	s.config.NewFacade = func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
-		return mocks.NewMockFacade(ctrl), nil
+	mockFacade := mocks.NewMockFacade(ctrl)
+	s.config.GetDomainServices = func(getter dependency.Getter, name string) (caasmodelconfigmanager.ControllerConfigService, error) {
+		return mockFacade, nil
 	}
 	s.config.NewWorker = func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 		called = true
@@ -115,22 +137,9 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	}
 	manifold := caasmodelconfigmanager.Manifold(s.config)
 	w, err := manifold.Start(c.Context(), dt.StubGetter(map[string]any{
-		"api-caller": struct{ base.APICaller }{APICaller: &mockAPICaller{}},
-		"broker":     struct{ caas.Broker }{},
+		"broker": struct{ caas.Broker }{},
 	}))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(w, tc.IsNil)
 	c.Assert(called, tc.IsTrue)
-}
-
-type mockAPICaller struct {
-	base.APICaller
-}
-
-func (*mockAPICaller) BestFacadeVersion(facade string) int {
-	return 1
-}
-
-func (*mockAPICaller) ModelTag() (names.ModelTag, bool) {
-	return names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"), true
 }

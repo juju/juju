@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -494,7 +495,7 @@ func (w *userdataConfig) configureBootstrap() error {
 		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
 	bootstrapAgentArgs := []string{
-		featureFlags + w.icfg.JujuTools() + "/jujud",
+		featureFlags + w.icfg.JujuTools() + "/" + jujunames.JujuAgentd,
 		"bootstrap-state",
 		"--timeout", w.icfg.Bootstrap.Timeout.String(),
 		"--data-dir", shquote(w.icfg.DataDir),

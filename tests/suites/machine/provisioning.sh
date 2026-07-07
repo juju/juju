@@ -156,22 +156,22 @@ run_provisioning_with_image_stream() {
 run_provisioning_with_proposed_agent_stream() {
 	echo
 
-	VERSION=$(jujud version)
-	JUJUD_VERSION=$(jujud_version)
-	echo "===> Using jujud version ${JUJUD_VERSION}"
+	VERSION=$(jujuagentd version)
+	JUJUD_VERSION=$(jujuagentd_version)
+	echo "===> Using jujuagentd version ${JUJUD_VERSION}"
 
 	STREAMS_DIR="${TEST_DIR}/proposed-streams"
 	mkdir -p "${STREAMS_DIR}/tools/proposed"
 
-	# Create a tarball of jujud to serve as the agent binary.
-	jujud_path=$(which jujud)
-	cp "${jujud_path}" "${TEST_DIR}/jujud-proposed"
+	# Create a tarball of jujuagentd to serve as the agent binary.
+	jujuagentd_path=$(which jujuagentd)
+	cp "${jujuagentd_path}" "${TEST_DIR}/jujuagentd-proposed"
 	(
 		cd "${TEST_DIR}" || exit
-		mv jujud-proposed jujud
-		tar -zcf "juju-${VERSION}.tgz" jujud >/dev/null
+		mv jujuagentd-proposed jujuagentd
+		tar -zcf "juju-${VERSION}.tgz" jujuagentd >/dev/null
 		mv "juju-${VERSION}.tgz" "${STREAMS_DIR}/tools/proposed/"
-		rm -f jujud
+		rm -f jujuagentd
 	)
 
 	# Generate simplestreams metadata for the "proposed" stream with

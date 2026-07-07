@@ -1,0 +1,638 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package model
+
+import (
+	"context"
+	"maps"
+	"time"
+
+	"github.com/juju/clock"
+	"github.com/juju/names/v6"
+	"github.com/juju/worker/v5"
+	"github.com/juju/worker/v5/dependency"
+
+	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/environs"
+	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/agentbinaryfetcher"
+	"github.com/juju/juju/internal/worker/apicaller"
+	"github.com/juju/juju/internal/worker/apiremoterelationcaller"
+	"github.com/juju/juju/internal/worker/asynccharmdownloader"
+	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
+	"github.com/juju/juju/internal/worker/caasfirewaller"
+	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
+	"github.com/juju/juju/internal/worker/caasmodeloperator"
+	"github.com/juju/juju/internal/worker/changestreampruner"
+	"github.com/juju/juju/internal/worker/charmrevisioner"
+	provisioner "github.com/juju/juju/internal/worker/computeprovisioner"
+	"github.com/juju/juju/internal/worker/controllerlogger"
+	"github.com/juju/juju/internal/worker/credentialvalidator"
+	"github.com/juju/juju/internal/worker/firewaller"
+	"github.com/juju/juju/internal/worker/fortress"
+	"github.com/juju/juju/internal/worker/instancepoller"
+	"github.com/juju/juju/internal/worker/migrationflag"
+	"github.com/juju/juju/internal/worker/migrationmaster"
+	"github.com/juju/juju/internal/worker/modellife"
+	"github.com/juju/juju/internal/worker/modelworkermanager"
+	"github.com/juju/juju/internal/worker/operationpruner"
+	"github.com/juju/juju/internal/worker/providertracker"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/consumerunitrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererrelations"
+	"github.com/juju/juju/internal/worker/remoterelationconsumer/offererunitrelations"
+	"github.com/juju/juju/internal/worker/removal"
+	"github.com/juju/juju/internal/worker/secretsdrainworker"
+	"github.com/juju/juju/internal/worker/secretspruner"
+	"github.com/juju/juju/internal/worker/singular"
+	"github.com/juju/juju/internal/worker/storageprovisioner"
+)
+
+// ManifoldsConfig holds the dependencies and configuration options for a
+// model agent: that is, for the set of interdependent workers that observe
+// and manipulate a single model.
+type ManifoldsConfig struct {
+	Authority pki.Authority
+
+	// Clock supplies timing services to any manifolds that need them.
+	// Only a few workers have been converted to use them fo far.
+	Clock clock.Clock
+
+	// LoggingContext holds the model writers so that the loggers
+	// for the workers running on behalf of other models get their logs
+	// written into the model's logging collection rather than the controller's.
+	LoggingContext corelogger.LoggerContext
+
+	// RunFlagDuration defines for how long this controller will ask
+	// for model administration rights; most of the workers controlled
+	// by this agent will only be started when the run flag is known
+	// to be held.
+	RunFlagDuration time.Duration
+
+	// CharmRevisionUpdateInterval determines how often the charm-
+	// revision worker will check for new revisions of known charms.
+	CharmRevisionUpdateInterval time.Duration
+
+	// NewEnvironFunc is a function opens a provider "environment"
+	// (typically environs.New).
+	NewEnvironFunc environs.NewEnvironFunc
+
+	// NewContainerBrokerFunc is a function opens a CAAS provider.
+	NewContainerBrokerFunc caas.NewContainerBrokerFunc
+
+	// NewMigrationMaster is called to create a new migrationmaster
+	// worker.
+	NewMigrationMaster func(migrationmaster.Config) (worker.Worker, error)
+
+	// OperationPrunerInterval determines how often the operations are pruned
+	OperationPrunerInterval time.Duration
+
+	// ProviderServicesGetter is used to access the provider service.
+	ProviderServicesGetter modelworkermanager.ProviderServicesGetter
+
+	// DomainServices is used to access the domain services.
+	DomainServices services.DomainServices
+
+	// DomainServicesGetter is used to access domain services for other models.
+	DomainServicesGetter services.DomainServicesGetter
+
+	// LeaseManager is used to manage the lease for the model.
+	LeaseManager lease.Manager
+
+	// HTTPClientGetter is used to get a http client for a given namespace.
+	HTTPClientGetter http.HTTPClientGetter
+
+	// APIRemoteRelationClientGetter is used to get a remote relation client for
+	// a given namespace.
+	APIRemoteRelationClientGetter apiremoterelationcaller.APIRemoteCallerGetter
+
+	// ModelUUID is the UUID of the model this agent manages.
+	ModelUUID string
+
+	// AgentTag is the tag of the agent process hosting these model workers. It
+	// is used as the Claimant for the model's singular lease (see
+	// isResponsibleFlagName), so that only one agent holds the run-flag for a
+	// given model at any time.
+	//
+	// This is intentionally typed as the generic names.Tag rather than a
+	// concrete tag kind, because jujuagentd's MachineAgent runs both as a
+	// machine agent (names.MachineTag) and as a controller agent
+	// (names.ControllerAgentTag) depending on whether it is started with
+	// --machine-id or --controller-id. The singular lease worker accepts either
+	// kind, so narrowing to names.ControllerAgentTag here would force callers to
+	// perform an unsafe type assertion that panics for machine agents. See
+	// machine.go startModelWorkers.
+	AgentTag names.Tag
+
+	// ModelTag is the tag of the model being managed.
+	ModelTag names.ModelTag
+
+	// DataDir is the directory where the agent stores its data.
+	DataDir string
+
+	// LogDir is the directory where the agent writes its logs.
+	LogDir string
+
+	// ControllerTag is the tag of the controller that owns this model,
+	// identified by the controller's UUID. For example:
+	// "controller-a1b2c3d4-e5f6-7890-abcd-ef1234567890".
+	ControllerTag names.ControllerTag
+
+	// StartupValueProvider supplies startup configuration values for the model
+	// operator and logging override reader.
+	StartupValueProvider ModelStartupValueProvider
+
+	// UpdateLoggerConfig updates the agent's logging configuration.
+	UpdateLoggerConfig func(string) error
+}
+
+type ModelStartupValueProvider interface {
+	caasmodeloperator.ConfigProvider
+	controllerlogger.LoggingOverrideReader
+}
+
+// commonManifolds returns a set of interdependent dependency manifolds that will
+// run together to administer a model, as configured. These manifolds are used
+// by both IAAS and CAAS models.
+func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
+	result := dependency.Manifolds{
+		clockName: clockManifold(config.Clock),
+
+		// The provider domain services is used to access the provider service.
+		// It's injected into the model worker manager so that it can be used
+		// by the provider and broker workers.
+		providerServiceFactoriesName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.ProviderServicesGetter)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// DomainServices is used to access the domain services.
+		domainServicesName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.DomainServices)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// LeaseManager is used to manage the lease for the model.
+		leaseManagerName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.LeaseManager)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// HTTPClientGetter is used to get a http client for a given namespace.
+		httpClientName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.HTTPClientGetter)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// APIRemoteRelationClientGetter is used to get a remote relation client
+		// for a given namespace.
+		apiRemoteRelationCallerName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.APIRemoteRelationClientGetter)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		logSinkName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(&singularLogSink{context: config.LoggingContext})
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// The logging config updater listens for logging config updates
+		// for the model and configures the logging context appropriately.
+		loggingConfigUpdaterName: ifNotMigrating(controllerlogger.Manifold(controllerlogger.ManifoldConfig{
+			DomainServicesName:    domainServicesName,
+			LoggerContext:         config.LoggingContext,
+			Logger:                config.LoggingContext.GetLogger("juju.worker.logger"),
+			LoggingOverrideReader: config.StartupValueProvider,
+			UpdateAgentFunc:       config.UpdateLoggerConfig,
+		})),
+
+		// All other manifolds should depend on at least one of these, which
+		// handle all the tasks that are safe and sane
+		// to run in *all* controller machines.
+		notDeadFlagName: modellife.Manifold(modellife.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          model.UUID(config.ModelUUID),
+			GetModelService:    modellife.GetModelService,
+			NewWorker:          modellife.NewWorker,
+		}),
+		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
+			ModelUUID:        config.ModelUUID,
+			LeaseManagerName: leaseManagerName,
+			Clock:            config.Clock,
+			Duration:         config.RunFlagDuration,
+			Claimant:         config.AgentTag,
+			Entity:           config.ModelTag,
+			NewWorker:        singular.NewFlagWorker,
+		}),
+		// This flag runs on all models, and
+		// indicates if model's cloud credential is valid.
+		validCredentialFlagName: credentialvalidator.ModelManifold(credentialvalidator.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			NewWorker:          credentialvalidator.NewWorker,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
+		}),
+
+		// The migration workers collaborate to run migrations;
+		// and to create a mechanism for running other workers
+		// so they can't accidentally interfere with a migration
+		// in progress. Such a manifold should (1) depend on the
+		// migration-inactive flag, to know when to start or die;
+		// and (2) occupy the migration-fortress, so as to avoid
+		// possible interference with the minion (which will not
+		// take action until it's gained sole control of the
+		// fortress).
+		//
+		// Note that the fortress and flag will only exist while
+		// the model is not dead, and not upgrading; this frees
+		// their dependencies from model-lifetime/upgrade concerns.
+		migrationFortressName: ifNotDead(fortress.Manifold()),
+		migrationInactiveFlagName: ifNotDead(migrationflag.ModelManifold(migrationflag.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			Check:              migrationflag.IsTerminal,
+			NewWorker:          migrationflag.NewWorker,
+		})),
+		migrationMasterName: ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
+			DomainServicesName:   domainServicesName,
+			DomainServicesGetter: config.DomainServicesGetter,
+			FortressName:         migrationFortressName,
+			ModelUUID:            config.ModelUUID,
+			LogDir:               config.LogDir,
+			Clock:                config.Clock,
+			NewWorker:            config.NewMigrationMaster,
+		})),
+
+		// Everything else should be wrapped in ifResponsible,
+		// ifNotAlive, ifNotDead, or ifNotMigrating (which also
+		// implies NotDead), to ensure that only a single
+		// controller is attempting to administer this model at
+		// any one time.
+		//
+		// NOTE: not perfectly reliable at this stage? i.e. a
+		// worker that ignores its stop signal for "too long"
+		// might continue to take admin actions after the window
+		// of responsibility closes. This *is* a pre-existing
+		// problem, but demands some thought/care: e.g. should
+		// we make sure the apiserver also closes any
+		// connections that lose responsibility..? can we make
+		// sure all possible environ operations are either time-
+		// bounded or interruptible? etc
+		//
+		// On the other hand, all workers *should* be written in
+		// the expectation of dealing with sucky infrastructure
+		// running things in parallel unexpectedly, just because
+		// the universe hates us and will engineer matters such
+		// that it happens sometimes, even when we try to avoid
+		// it.
+
+		charmRevisionerName: ifResponsible(charmrevisioner.Manifold(charmrevisioner.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			HTTPClientName:     httpClientName,
+			NewHTTPClient:      charmrevisioner.NewHTTPClient,
+			NewCharmhubClient:  charmrevisioner.NewCharmhubClient,
+			Period:             config.CharmRevisionUpdateInterval,
+			NewWorker:          charmrevisioner.NewWorker,
+			ModelTag:           config.ModelTag,
+			Clock:              config.Clock,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.charmrevisioner"),
+		})),
+
+		remoteRelationConsumerName: ifNotMigrating(remoterelationconsumer.Manifold(remoterelationconsumer.ManifoldConfig{
+			ModelUUID:                      model.UUID(config.ModelUUID),
+			APIRemoteRelationCallerName:    apiRemoteRelationCallerName,
+			DomainServicesName:             domainServicesName,
+			GetCrossModelServices:          remoterelationconsumer.GetCrossModelService,
+			NewRemoteRelationClientGetter:  remoterelationconsumer.NewRemoteRelationClientGetter,
+			NewWorker:                      remoterelationconsumer.NewWorker,
+			NewLocalConsumerWorker:         remoterelationconsumer.NewLocalConsumerWorker,
+			NewConsumerUnitRelationsWorker: consumerunitrelations.NewWorker,
+			NewOffererUnitRelationsWorker:  offererunitrelations.NewWorker,
+			NewOffererRelationsWorker:      offererrelations.NewWorker,
+			Clock:                          config.Clock,
+			Logger:                         config.LoggingContext.GetLogger("juju.worker.remoterelationconsumer", corelogger.CMR),
+		})),
+
+		removalName: ifNotMigrating(removal.Manifold(removal.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			GetRemovalService:  removal.GetRemovalService,
+			NewWorker:          removal.NewWorker,
+			Clock:              config.Clock,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.removal"),
+		})),
+
+		providerTrackerName: ifCredentialValid(ifResponsible(providertracker.SingularTrackerManifold(config.ModelTag, providertracker.ManifoldConfig{
+			ProviderServiceFactoriesName: providerServiceFactoriesName,
+			LogSinkName:                  logSinkName,
+			NewWorker:                    providertracker.NewWorker,
+			NewTrackerWorker:             providertracker.NewTrackerWorker,
+			NewEphemeralProvider:         providertracker.NewEphemeralProvider,
+			GetProviderServicesGetter:    providertracker.GetModelProviderServicesGetter,
+			GetIAASProvider: providertracker.IAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (environs.Environ, error) {
+				return config.NewEnvironFunc(ctx, args, invalidator)
+			}),
+			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams, invalidator environs.CredentialInvalidator) (caas.Broker, error) {
+				return config.NewContainerBrokerFunc(ctx, args, invalidator)
+			}),
+			Logger: config.LoggingContext.GetLogger("juju.worker.providertracker"),
+			Clock:  config.Clock,
+		}))),
+
+		storageProvisionerName: ifNotMigrating(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
+			DomainServicesName:  domainServicesName,
+			Clock:               config.Clock,
+			Logger:              config.LoggingContext.GetLogger("juju.worker.modelstorageprovisioner"),
+			StorageRegistryName: providerTrackerName,
+			Model:               config.ModelTag,
+			NewWorker:           storageprovisioner.NewStorageProvisioner,
+		})),
+
+		asyncCharmDownloader: ifResponsible(asynccharmdownloader.Manifold(asynccharmdownloader.ManifoldConfig{
+			DomainServicesName:     domainServicesName,
+			HTTPClientName:         httpClientName,
+			NewDownloader:          asynccharmdownloader.NewDownloader,
+			NewHTTPClient:          asynccharmdownloader.NewHTTPClient,
+			NewAsyncDownloadWorker: asynccharmdownloader.NewAsyncDownloadWorker,
+			Logger:                 config.LoggingContext.GetLogger("juju.worker.asynccharmdownloader"),
+			Clock:                  config.Clock,
+		})),
+
+		secretsPrunerName: ifNotMigrating(secretspruner.Manifold(secretspruner.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.secretspruner"),
+			NewWorker:          secretspruner.NewWorker,
+		})),
+		// The userSecretsDrainWorker is the worker that drains the user secrets
+		// from the inactive backend to the current active backend.
+		userSecretsDrainWorker: ifNotMigrating(secretsdrainworker.ModelManifold(secretsdrainworker.ModelManifoldConfig{
+			DomainServicesName: domainServicesName,
+			ModelUUID:          config.ModelUUID,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
+			NewWorker:          secretsdrainworker.NewWorker,
+		})),
+
+		// the operationPruner is the worker that prune operation based on their
+		// age or result/log size periodically
+		operationPrunerName: ifResponsible(ifNotMigrating(operationpruner.Manifold(operationpruner.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			PruneInterval:      config.OperationPrunerInterval,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.operationpruner"),
+			Clock:              config.Clock,
+		}))),
+
+		changeStreamPrunerName: ifResponsible(ifNotMigrating(changestreampruner.Manifold(changestreampruner.ManifoldConfig{
+			DomainServiceName:      domainServicesName,
+			Clock:                  config.Clock,
+			Logger:                 config.LoggingContext.GetLogger("juju.worker.changestreampruner"),
+			NewWorker:              changestreampruner.NewWorker,
+			GetChangeStreamService: changestreampruner.GetModelChangeStreamService,
+		}))),
+	}
+	return result
+}
+
+// IAASManifolds returns a set of interdependent dependency manifolds that will
+// run together to administer an IAAS model, as configured.
+func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	manifolds := dependency.Manifolds{
+		// Everything else should be wrapped in ifResponsible,
+		// ifNotDead, or ifNotMigrating (which also
+		// implies NotDead), to ensure that only a single
+		// controller is attempting to administer this model at
+		// any one time.
+		//
+		// NOTE: not perfectly reliable at this stage? i.e. a
+		// worker that ignores its stop signal for "too long"
+		// might continue to take admin actions after the window
+		// of responsibility closes. This *is* a pre-existing
+		// problem, but demands some thought/care: e.g. should
+		// we make sure the apiserver also closes any
+		// connections that lose responsibility..? can we make
+		// sure all possible environ operations are either time-
+		// bounded or interruptible? etc
+		//
+		// On the other hand, all workers *should* be written in
+		// the expectation of dealing with sucky infrastructure
+		// running things in parallel unexpectedly, just because
+		// the universe hates us and will engineer matters such
+		// that it happens sometimes, even when we try to avoid
+		// it.
+
+		// All the rest depend on ifNotMigrating.
+		computeProvisionerName: ifNotMigrating(provisioner.Manifold(provisioner.ManifoldConfig{
+			EnvironName:        providerTrackerName,
+			DomainServicesName: domainServicesName,
+			GetMachineService:  provisioner.GetMachineService,
+			GetDomainServices:  provisioner.GetDomainServices,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.provisioner"),
+			ModelUUID:          config.ModelUUID,
+			NewProvisionerFunc: provisioner.NewEnvironProvisioner,
+		})),
+		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			EnvironName:        providerTrackerName,
+			ModelUUID:          config.ModelUUID,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.firewaller"),
+
+			NewControllerConnection: apicaller.NewExternalControllerConnection,
+			NewFirewallerWorker:     firewaller.NewWorker,
+		})),
+		instancePollerName: ifNotMigrating(instancepoller.Manifold(instancepoller.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			EnvironName:        providerTrackerName,
+			Clock:              config.Clock,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.instancepoller"),
+		})),
+
+		agentBinaryFetcherName: ifNotMigrating(agentbinaryfetcher.Manifold(agentbinaryfetcher.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			NewWorker:          agentbinaryfetcher.New,
+			GetDomainServices:  agentbinaryfetcher.GetModelDomainServices,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.agentbinaryfetcher"),
+		})),
+	}
+
+	result := commonManifolds(config)
+	maps.Copy(result, manifolds)
+	return result
+}
+
+// CAASManifolds returns a set of interdependent dependency manifolds that will
+// run together to administer a CAAS model, as configured.
+func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	manifolds := dependency.Manifolds{
+		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
+			caasfirewaller.ManifoldConfig{
+				ClockName:            clockName,
+				BrokerName:           providerTrackerName,
+				DomainServicesName:   domainServicesName,
+				NewAppFirewallWorker: caasfirewaller.NewAppFirewallerWorker,
+				NewFirewallWorker:    caasfirewaller.NewFirewallerWorker,
+				Logger:               config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
+			},
+		)),
+
+		caasModelOperatorName: ifResponsible(caasmodeloperator.Manifold(caasmodeloperator.ManifoldConfig{
+			BrokerName:         providerTrackerName,
+			DomainServicesName: domainServicesName,
+			ConfigProvider:     config.StartupValueProvider,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.caasmodeloperator"),
+			ModelUUID:          config.ModelUUID,
+			DataDir:            config.DataDir,
+			LogDir:             config.LogDir,
+			ControllerTag:      config.ControllerTag,
+		})),
+
+		caasmodelconfigmanagerName: ifResponsible(caasmodelconfigmanager.Manifold(caasmodelconfigmanager.ManifoldConfig{
+			DomainServicesName: domainServicesName,
+			BrokerName:         providerTrackerName,
+			ModelUUID:          config.ModelUUID,
+			GetDomainServices:  caasmodelconfigmanager.GetDomainServices,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.caasmodelconfigmanager"),
+			NewWorker:          caasmodelconfigmanager.NewWorker,
+			Clock:              config.Clock,
+		})),
+
+		caasApplicationProvisionerName: ifNotMigrating(caasapplicationprovisioner.Manifold(
+			caasapplicationprovisioner.ManifoldConfig{
+				DomainServicesName: domainServicesName,
+				BrokerName:         providerTrackerName,
+				ClockName:          clockName,
+				NewWorker:          caasapplicationprovisioner.NewProvisionerWorker,
+				GetDomainServices:  caasapplicationprovisioner.GetDomainServices,
+				Logger:             config.LoggingContext.GetLogger("juju.worker.caasapplicationprovisioner"),
+			},
+		)),
+	}
+	result := commonManifolds(config)
+	maps.Copy(result, manifolds)
+	return result
+}
+
+type singularLogSink struct {
+	context corelogger.LoggerContext
+}
+
+func (s *singularLogSink) GetLogWriter(_ context.Context, _ model.UUID) (corelogger.LogWriter, error) {
+	return nil, internalerrors.Errorf("singularLogSink does not support GetLogWriter").Add(errors.NotSupported)
+}
+
+func (s *singularLogSink) GetLoggerContext(_ context.Context, _ model.UUID) (corelogger.LoggerContext, error) {
+	return s.context, nil
+}
+
+// clockManifold expresses a Clock as a ValueWorker manifold.
+func clockManifold(clock clock.Clock) dependency.Manifold {
+	return dependency.Manifold{
+		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+			return engine.NewValueWorker(clock)
+		},
+		Output: engine.ValueWorkerOutput,
+	}
+}
+
+var (
+	// ifResponsible wraps a manifold such that it only runs if the
+	// responsibility flag is set.
+	ifResponsible = engine.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+		},
+	}.Decorate
+
+	// ifNotDead wraps a manifold such that it only runs if the
+	// responsibility flag is set and the model is Alive or Dying.
+	ifNotDead = engine.Housing{
+		Flags: []string{
+			isResponsibleFlagName,
+			notDeadFlagName,
+		},
+	}.Decorate
+
+	// ifNotMigrating wraps a manifold such that it only runs if the
+	// migration-inactive flag is set; and then runs workers only
+	// within Visits to the migration fortress. To avoid redundancy,
+	// it takes advantage of the fact that those migration manifolds
+	// themselves depend on ifNotDead, and eschews repeating those
+	// dependencies.
+	ifNotMigrating = engine.Housing{
+		Flags: []string{
+			migrationInactiveFlagName,
+		},
+		Occupy: migrationFortressName,
+	}.Decorate
+
+	// ifCredentialValid wraps a manifold such that it only runs if
+	// the model has a valid credential.
+	ifCredentialValid = engine.Housing{
+		Flags: []string{
+			validCredentialFlagName,
+		},
+	}.Decorate
+)
+
+const (
+	clockName = "clock"
+
+	isResponsibleFlagName = "is-responsible-flag"
+	notDeadFlagName       = "not-dead-flag"
+
+	migrationFortressName     = "migration-fortress"
+	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMasterName       = "migration-master"
+	agentBinaryFetcherName    = "agent-binary-fetcher"
+
+	apiRemoteRelationCallerName  = "api-remote-relation-caller"
+	asyncCharmDownloader         = "async-charm-downloader"
+	changeStreamPrunerName       = "change-stream-pruner"
+	charmRevisionerName          = "charm-revisioner"
+	computeProvisionerName       = "compute-provisioner"
+	domainServicesName           = "domain-services"
+	firewallerName               = "firewaller"
+	httpClientName               = "http-client"
+	instancePollerName           = "instance-poller"
+	operationPrunerName          = "operation-pruner"
+	leaseManagerName             = "lease-manager"
+	loggingConfigUpdaterName     = "logging-config-updater"
+	lokiEndpointUpdaterName      = "loki-endpoint-updater"
+	machineUndertakerName        = "machine-undertaker"
+	providerServiceFactoriesName = "provider-service-factories"
+	providerTrackerName          = "provider-tracker"
+	remoteRelationConsumerName   = "remote-relation-consumer"
+	remoteRelationOffererName    = "remote-relation-offerer"
+	removalName                  = "removal"
+	storageProvisionerName       = "storage-provisioner"
+	undertakerName               = "undertaker"
+	logSinkName                  = "log-sink"
+
+	caasFirewallerName             = "caas-firewaller"
+	caasModelOperatorName          = "caas-model-operator"
+	caasmodelconfigmanagerName     = "caas-model-config-manager"
+	caasApplicationProvisionerName = "caas-application-provisioner"
+
+	secretsPrunerName      = "secrets-pruner"
+	userSecretsDrainWorker = "user-secrets-drain-worker"
+
+	validCredentialFlagName = "valid-credential-flag"
+)

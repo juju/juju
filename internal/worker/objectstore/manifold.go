@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
@@ -89,14 +88,28 @@ type GetMetadataServiceFunc func(getter dependency.Getter, name string) (Metadat
 // is the initial bootstrap controller.
 type IsBootstrapControllerFunc func(dataDir string) bool
 
+// RootDirReader returns the current local object-store root dir when the
+// manifold starts.
+type RootDirReader interface {
+	ObjectStoreRootDir() (string, error)
+}
+
 // ManifoldConfig defines the configuration for the objectstore manifold.
 type ManifoldConfig struct {
-	AgentName               string
 	TraceName               string
 	ObjectStoreServicesName string
 	LeaseManagerName        string
 	S3ClientName            string
 	APIRemoteCallerName     string
+
+	// RootDirReader returns the current local filesystem root used by the
+	// file-backed object-store.
+	RootDirReader RootDirReader
+
+	// ControllerNodeID is the numeric controller node identifier
+	// (e.g. "0") passed explicitly instead of being derived from
+	// agent config tag.
+	ControllerNodeID string
 
 	Clock                      clock.Clock
 	Logger                     logger.Logger
@@ -109,14 +122,17 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if cfg.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
 	}
 	if cfg.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
+	}
+	if cfg.RootDirReader == nil {
+		return errors.NotValidf("nil RootDirReader")
+	}
+	if cfg.ControllerNodeID == "" {
+		return errors.NotValidf("empty ControllerNodeID")
 	}
 	if cfg.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
@@ -139,11 +155,11 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.APIRemoteCallerName == "" {
 		return errors.NotValidf("empty APIRemoteCallerName")
 	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if cfg.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
@@ -155,7 +171,6 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.TraceName,
 			config.ObjectStoreServicesName,
 			config.LeaseManagerName,
@@ -168,9 +183,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var a agent.Agent
-			if err := getter.Get(config.AgentName, &a); err != nil {
-				return nil, err
+			rootDir, err := config.RootDirReader.ObjectStoreRootDir()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if rootDir == "" {
+				return nil, errors.NotValidf("empty ObjectStoreRootDir")
 			}
 
 			var tracerGetter trace.TracerGetter
@@ -225,16 +243,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			currentConfig := a.CurrentConfig()
-			dataDir := currentConfig.DataDir()
-
-			// The controller node ID is the machine ID of the current
-			// controller.
-			controllerNodeID := currentConfig.Tag().Id()
-
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:              tracerGetter,
-				RootDir:                   dataDir,
+				RootDir:                   rootDir,
 				RootBucket:                rootBucketName,
 				Clock:                     config.Clock,
 				Logger:                    config.Logger,
@@ -254,8 +265,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ModelClaimGetter: modelClaimGetter{
 					manager: leaseManager,
 				},
-				AllowDraining:    AllowDraining(backendInfo, config.IsBootstrapController(dataDir)),
-				ControllerNodeID: controllerNodeID,
+				AllowDraining:    AllowDraining(backendInfo, config.IsBootstrapController(rootDir)),
+				ControllerNodeID: config.ControllerNodeID,
 			})
 			return w, errors.Trace(err)
 		},

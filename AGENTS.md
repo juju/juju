@@ -17,7 +17,7 @@ If guidance conflicts, architectural rules take precedence.
 - `make install` — Full build including schema regeneration.
 - `make go-build` — Build without schema rebuild.
 - `make juju` — Build the CLI client only.
-- `make jujud` — Build the controller binary (includes domain services, dqlite).
+- `make jujuagentd` — Build the machine agent binary.
 
 ## Unit Test Conventions
 

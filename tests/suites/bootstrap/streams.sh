@@ -1,7 +1,7 @@
 run_simplestream_metadata() {
-	VERSION=$(jujud version)
-	JUJUD_VERSION=$(jujud_version)
-	echo "===> Using jujud version ${JUJUD_VERSION}"
+	VERSION=$(jujuagentd version)
+	JUJUAGENTD_VERSION=$(jujuagentd_version)
+	echo "===> Using jujuagentd version ${JUJUAGENTD_VERSION}"
 
 	add_clean_func "remove_bootstrap_tools"
 	add_bootstrap_tools "${VERSION}"
@@ -29,10 +29,11 @@ run_simplestream_metadata() {
 	file="${TEST_DIR}/test-bootstrap-stream.log"
 	juju bootstrap "lxd" "${name}" \
 		--show-log \
+    --build-agent \
 		--config agent-metadata-url="http://${server_address}:8666/" \
 		--config test-mode=true \
 		--bootstrap-base="${BOOTSTRAP_BASE}" \
-		--agent-version="${JUJUD_VERSION}" 2>&1 | OUTPUT "${file}"
+		--agent-version="${JUJUAGENTD_VERSION}" 2>&1 | OUTPUT "${file}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	juju add-model default
@@ -57,15 +58,15 @@ test_bootstrap_simplestream() {
 }
 
 add_bootstrap_tools() {
-	local version jujud_path
+	local version jujuagentd_path
 
 	version=${1}
 
-	jujud_path=$(which jujud)
-	cp "${jujud_path}" "${TEST_DIR}"
+	jujuagentd_path=$(which jujuagentd)
+	cp "${jujuagentd_path}" "${TEST_DIR}"
 	cd "${TEST_DIR}" || exit
 
-	tar -zcvf "juju-${version}.tgz" jujud >/dev/null
+	tar -zcvf "juju-${version}.tgz" jujuagentd >/dev/null
 	cd "${CURRENT_DIR}/.." || exit
 
 	mkdir -p "./tests/suites/bootstrap/streams/tools/released/"

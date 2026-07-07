@@ -163,7 +163,7 @@ func makeNormalConfig(base corebase.Base, build int) *testInstanceConfig {
 // match the given machine ID. If APIInfo are nil, they're not changed.
 func (cfg *testInstanceConfig) setMachineID(id string) *testInstanceConfig {
 	cfg.MachineId = id
-	cfg.MachineAgentServiceName = fmt.Sprintf("jujud-%s", names.NewMachineTag(id).String())
+	cfg.MachineAgentServiceName = fmt.Sprintf("jujuagentd-%s", names.NewMachineTag(id).String())
 	if cfg.APIInfo != nil {
 		cfg.APIInfo.Tag = names.NewMachineTag(id)
 	}
@@ -346,7 +346,7 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+/var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
 /sbin/remove-juju-services
 `,
 	},
@@ -381,7 +381,7 @@ chmod 0600 '/var/lib/juju/agents/machine-0/agent\.conf'
 install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
-/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
+/var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujuagentd bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
 `,
 	},
 
@@ -604,7 +604,7 @@ func (s *cloudinitSuite) TestCloudInit(c *tc.C) {
 
 		tag := names.NewMachineTag(testConfig.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
-		c.Assert(acfg, tc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
+		c.Assert(acfg, tc.Contains, "AGENT_SERVICE_NAME: jujuagentd-"+tag)
 		c.Assert(acfg, tc.Contains, fmt.Sprintf("upgradedToVersion: %s\n", test.upgradedToVersion))
 	}
 }
@@ -829,14 +829,14 @@ postruncmd:
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapLogging(c *tc.C) {
 	scripts := s.bootstrapConfigScripts(c)
-	expected := "jujud bootstrap-state .* --show-log"
+	expected := "jujuagentd bootstrap-state .* --show-log"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
 func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
 	s.SetFeatureFlags("special", "foo")
 	scripts := s.bootstrapConfigScripts(c)
-	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujud bootstrap-state .*"
+	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujuagentd bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
 }
 
@@ -1066,7 +1066,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *tc.C) {
 			Jobs:                    normalMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog("jammy"),
 			MachineNonce:            "FAKE_NONCE",
-			MachineAgentServiceName: "jujud-machine-99",
+			MachineAgentServiceName: "jujuagentd-machine-99",
 		}
 	}
 

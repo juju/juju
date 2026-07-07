@@ -38,9 +38,6 @@ type ManifoldConfig struct {
 
 	// NewModelLogger creates a new model logger.
 	NewModelLogger NewModelLoggerFunc
-
-	// Clock is the clock used by the worker.
-	Clock clock.Clock
 }
 
 // Validate validates the manifold configuration.
@@ -53,9 +50,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewModelLogger == nil {
 		return errors.NotValidf("nil NewModelLogger")
-	}
-	if config.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -79,7 +73,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := config.NewWorker(Config{
 				AgentTag:       config.AgentTag,
 				LogRouter:      StaticLogRouter(logSink),
-				Clock:          config.Clock,
+				Clock:          clock.WallClock,
 				NewModelLogger: NewModelLogger,
 			})
 			if err != nil {

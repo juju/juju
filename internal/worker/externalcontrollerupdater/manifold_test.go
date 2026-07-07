@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
@@ -31,7 +32,8 @@ func (s *ManifoldConfigSuite) SetUpTest(c *tc.C) {
 
 func (s *ManifoldConfigSuite) validConfig() externalcontrollerupdater.ManifoldConfig {
 	return externalcontrollerupdater.ManifoldConfig{
-		APICallerName: "api-caller",
+		DomainServicesName: "domain-services",
+		Clock:              clock.WallClock,
 		NewExternalControllerWatcherClient: func(context.Context, *api.Info) (externalcontrollerupdater.ExternalControllerWatcherClientCloser, string, error) {
 			panic("should not be called")
 		},
@@ -42,14 +44,19 @@ func (s *ManifoldConfigSuite) TestValid(c *tc.C) {
 	c.Check(s.config.Validate(), tc.ErrorIsNil)
 }
 
-func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *tc.C) {
-	s.config.APICallerName = ""
-	s.checkNotValid(c, "empty APICallerName not valid")
+func (s *ManifoldConfigSuite) TestMissingDomainServicesName(c *tc.C) {
+	s.config.DomainServicesName = ""
+	s.checkNotValid(c, "empty DomainServicesName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewExternalControllerWatcherClient(c *tc.C) {
 	s.config.NewExternalControllerWatcherClient = nil
 	s.checkNotValid(c, "nil NewExternalControllerWatcherClient not valid")
+}
+
+func (s *ManifoldConfigSuite) TestNilClock(c *tc.C) {
+	s.config.Clock = nil
+	s.checkNotValid(c, "nil Clock not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *tc.C, expect string) {

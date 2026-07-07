@@ -11,51 +11,83 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/secretsbackendmanager"
 	"github.com/juju/juju/core/logger"
+	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/services"
 )
+
+// SecretBackendService provides access to the secret backend operations
+// required by the worker.
+type SecretBackendService interface {
+	// WatchSecretBackendRotationChanges returns a watcher that fires when
+	// secret backend token rotation schedules change.
+	WatchSecretBackendRotationChanges(ctx context.Context) (corewatcher.SecretBackendRotateWatcher, error)
+	// RotateBackendToken rotates the token for the given secret backend.
+	RotateBackendToken(ctx context.Context, backendID string) error
+}
+
+// GetSecretBackendServiceFunc is a helper function that gets the controller
+// secret backend service from the dependency getter.
+type GetSecretBackendServiceFunc func(getter dependency.Getter, name string) (SecretBackendService, error)
 
 // ManifoldConfig holds dependencies and configuration for a
 // secretbackendrotate worker.
 type ManifoldConfig struct {
-	Logger        logger.Logger
-	APICallerName string
+	Logger                  logger.Logger
+	DomainServicesName      string
+	GetSecretBackendService GetSecretBackendServiceFunc
+	NewWorker               func(Config) (worker.Worker, error)
+}
+
+// Validate validates a manifold config.
+func (c ManifoldConfig) Validate() error {
+	if c.DomainServicesName == "" {
+		return errors.NotValidf("missing DomainServicesName")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if c.GetSecretBackendService == nil {
+		return errors.NotValidf("nil GetSecretBackendService")
+	}
+	if c.NewWorker == nil {
+		return errors.NotValidf("nil NewWorker")
+	}
+	return nil
 }
 
 // Manifold returns a dependency.Manifold that runs a secretbackendrotate worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.APICallerName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
 }
 
-func (c ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (c ManifoldConfig) start(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var apiCaller base.APICaller
-	if err := getter.Get(c.APICallerName, &apiCaller); err != nil {
-		return nil, err
+	svc, err := c.GetSecretBackendService(getter, c.DomainServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return NewWorker(Config{
-		SecretBackendManagerFacade: secretsbackendmanager.NewClient(apiCaller),
+	return c.NewWorker(Config{
+		SecretBackendManagerFacade: svc,
 		Logger:                     c.Logger,
 		Clock:                      clock.WallClock,
 	})
 }
 
-// Validate validates a manifold config.
-func (c ManifoldConfig) Validate() error {
-	if c.APICallerName == "" {
-		return errors.NotValidf("missing APICallerName")
+// GetSecretBackendService retrieves the secret backend service from the
+// controller domain services via the dependency getter.
+func GetSecretBackendService(getter dependency.Getter, name string) (SecretBackendService, error) {
+	var controllerServices services.ControllerDomainServices
+	if err := getter.Get(name, &controllerServices); err != nil {
+		return nil, errors.Trace(err)
 	}
-	if c.Logger == nil {
-		return errors.NotValidf("nil Logger")
-	}
-	return nil
+	return controllerServices.SecretBackend(), nil
 }

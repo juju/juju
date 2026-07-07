@@ -59,6 +59,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
 	}
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
@@ -67,9 +70,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.NewObjectStoreServices == nil {
 		return errors.NotValidf("nil NewObjectStoreServices")
-	}
-	if config.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
