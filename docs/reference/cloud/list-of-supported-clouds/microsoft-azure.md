@@ -216,7 +216,10 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 **Networking**
 
 - {ref}`constraint-allocate-public-ip`
-- {ref}`constraint-zones`
+
+```{note}
+The `zones` constraint is not supported on Azure. Instead, Juju uses [Azure availability sets](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview): for each application, an availability set is created and all units of that application are placed within it. This protects against hardware and infrastructure failures within a region, but does not map to Juju's zone abstraction — charms cannot query which zone they are in.
+```
 
 **Storage**
 
