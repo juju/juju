@@ -29,7 +29,7 @@ type TracerGetter interface {
 type TracerWorkerFunc func(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
-	endpoint, caCertificate string,
+	httpEndpoint, grpcEndpoint, caCertificate string,
 	insecureSkipVerify bool,
 	showStackTraces bool,
 	sampleRatio float64,
@@ -143,14 +143,20 @@ type unitRuntimeConfigProvider struct {
 // CurrentRuntimeConfig returns the current runtime config for the unit trace
 // worker.
 func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (RuntimeConfig, error) {
-	return RuntimeConfig{
+	cfg := RuntimeConfig{
 		Enabled:               p.config.OpenTelemetryEnabled(),
-		Endpoint:              p.config.OpenTelemetryEndpoint(),
 		InsecureSkipVerify:    p.config.OpenTelemetryInsecure(),
 		StackTracesEnabled:    p.config.OpenTelemetryStackTraces(),
 		SampleRatio:           p.config.OpenTelemetrySampleRatio(),
 		TailSamplingThreshold: p.config.OpenTelemetryTailSamplingThreshold(),
-	}, nil
+	}
+	endpoint := p.config.OpenTelemetryEndpoint()
+	if isHTTPEndpoint(endpoint) {
+		cfg.HTTPEndpoint = endpoint
+	} else {
+		cfg.GRPCEndpoint = endpoint
+	}
+	return cfg, nil
 }
 
 // WatchRuntimeConfig returns an empty watcher, as the unit trace worker does

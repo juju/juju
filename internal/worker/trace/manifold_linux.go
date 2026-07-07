@@ -134,18 +134,15 @@ func (p controllerRuntimeConfigProvider) WatchRuntimeConfig(ctx context.Context)
 
 func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingConfig) (RuntimeConfig, error) {
 	runtimeCfg := RuntimeConfig{
+		GRPCEndpoint:          cfg.GRPCEndpoint,
+		HTTPEndpoint:          cfg.HTTPEndpoint,
 		SampleRatio:           defaultOpenTelemetrySampleRatio,
 		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 		CACertificate:         cfg.CACertificate,
 	}
 
-	endpoint := cfg.GRPCEndpoint
-	if endpoint == "" {
-		endpoint = cfg.HTTPEndpoint
-	}
-	if endpoint != "" {
+	if cfg.GRPCEndpoint != "" || cfg.HTTPEndpoint != "" {
 		runtimeCfg.Enabled = true
-		runtimeCfg.Endpoint = endpoint
 	}
 
 	if cfg.OpenTelemetryStackTraces != nil {

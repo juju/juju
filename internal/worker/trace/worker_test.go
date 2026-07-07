@@ -101,7 +101,7 @@ func (s *workerSuite) TestGetTracerPassesCACertificate(c *tc.C) {
 		NewTracerWorker: func(
 			_ context.Context,
 			_ coretrace.TaggedTracerNamespace,
-			_ string,
+			_, _ string,
 			caCertificate string,
 			_ bool,
 			_ bool,
@@ -119,7 +119,7 @@ func (s *workerSuite) TestGetTracerPassesCACertificate(c *tc.C) {
 			getConfig: func(context.Context) (RuntimeConfig, error) {
 				return RuntimeConfig{
 					Enabled:               true,
-					Endpoint:              "https://meshuggah.com",
+					HTTPEndpoint:          "https://meshuggah.com",
 					CACertificate:         caCertificate,
 					SampleRatio:           defaultOpenTelemetrySampleRatio,
 					TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
@@ -245,11 +245,11 @@ func (s *workerSuite) TestGetTracerDisabled(c *tc.C) {
 	s.expectClock()
 
 	w, err := newWorker(WorkerConfig{
-		Clock:    s.clock,
-		Logger:   s.logger,
-		Enabled:  false,
-		Endpoint: "",
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		Clock:        s.clock,
+		Logger:       s.logger,
+		Enabled:      false,
+		HTTPEndpoint: "",
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			return s.trackedTracer, nil
 		},
 		Tag:  names.NewMachineTag("0"),
@@ -286,7 +286,7 @@ func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 
 	currentConfig := RuntimeConfig{
 		Enabled:               true,
-		Endpoint:              "https://meshuggah.com",
+		HTTPEndpoint:          "https://meshuggah.com",
 		SampleRatio:           defaultOpenTelemetrySampleRatio,
 		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 	}
@@ -310,7 +310,7 @@ func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return newTrackedTracerStub(func() {
 				select {
@@ -349,7 +349,7 @@ func (s *workerSuite) TestControllerTracingConfigReload(c *tc.C) {
 	cfgMutex.Lock()
 	currentConfig = RuntimeConfig{
 		Enabled:               true,
-		Endpoint:              "https://gojira.com",
+		HTTPEndpoint:          "https://gojira.com",
 		SampleRatio:           defaultOpenTelemetrySampleRatio,
 		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 	}
@@ -405,11 +405,11 @@ func (s *workerSuite) TestControllerTracingWatcherChannelClosed(c *tc.C) {
 
 func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Clock:    s.clock,
-		Logger:   s.logger,
-		Enabled:  true,
-		Endpoint: "https://meshuggah.com",
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		Clock:        s.clock,
+		Logger:       s.logger,
+		Enabled:      true,
+		HTTPEndpoint: "https://meshuggah.com",
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},
@@ -419,7 +419,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			getConfig: func(context.Context) (RuntimeConfig, error) {
 				return RuntimeConfig{
 					Enabled:               true,
-					Endpoint:              "https://meshuggah.com",
+					HTTPEndpoint:          "https://meshuggah.com",
 					SampleRatio:           defaultOpenTelemetrySampleRatio,
 					TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 				}, nil
@@ -437,7 +437,7 @@ func (s *workerSuite) newControllerWorker(c *tc.C, runtimeConfigProvider Runtime
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, string, string, bool, bool, float64, time.Duration, logger.Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},

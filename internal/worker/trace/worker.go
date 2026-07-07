@@ -51,7 +51,8 @@ type WorkerConfig struct {
 	Kind coretrace.Kind
 
 	Enabled               bool
-	Endpoint              string
+	HTTPEndpoint          string
+	GRPCEndpoint          string
 	CACertificate         string
 	InsecureSkipVerify    bool
 	StackTracesEnabled    bool
@@ -88,8 +89,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.RuntimeConfigProvider == nil {
 		return errors.NotValidf("nil RuntimeConfigProvider")
 	}
-	// If tracing is enabled, then we require an endpoint.
-	if c.Enabled && c.Endpoint == "" {
+	// If tracing is enabled, then we require at least one endpoint.
+	if c.Enabled && c.HTTPEndpoint == "" && c.GRPCEndpoint == "" {
 		return errors.NotValidf("empty Endpoint")
 	}
 	return nil
@@ -98,7 +99,8 @@ func (c *WorkerConfig) Validate() error {
 // RuntimeConfig defines mutable tracing runtime configuration.
 type RuntimeConfig struct {
 	Enabled               bool
-	Endpoint              string
+	GRPCEndpoint          string
+	HTTPEndpoint          string
 	CACertificate         string
 	InsecureSkipVerify    bool
 	StackTracesEnabled    bool
@@ -109,7 +111,7 @@ type RuntimeConfig struct {
 // IsEnabled returns true if the runtime config is enabled and has a non-empty
 // endpoint.
 func (c RuntimeConfig) IsEnabled() bool {
-	return c.Enabled && c.Endpoint != ""
+	return c.Enabled
 }
 
 // traceRequest is used to pass requests for Tracer
@@ -162,7 +164,8 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, err
 		cfg:            cfg,
 		runtimeConfig: RuntimeConfig{
 			Enabled:               cfg.Enabled,
-			Endpoint:              cfg.Endpoint,
+			GRPCEndpoint:          cfg.GRPCEndpoint,
+			HTTPEndpoint:          cfg.HTTPEndpoint,
 			CACertificate:         cfg.CACertificate,
 			InsecureSkipVerify:    cfg.InsecureSkipVerify,
 			StackTracesEnabled:    cfg.StackTracesEnabled,
@@ -362,7 +365,8 @@ func (w *tracerWorker) initTracer(ctx context.Context, namespace coretrace.Tagge
 		return w.cfg.NewTracerWorker(
 			ctx,
 			namespace,
-			runtimeCfg.Endpoint,
+			runtimeCfg.HTTPEndpoint,
+			runtimeCfg.GRPCEndpoint,
 			runtimeCfg.CACertificate,
 			runtimeCfg.InsecureSkipVerify,
 			runtimeCfg.StackTracesEnabled,
@@ -393,7 +397,7 @@ func (w *tracerWorker) applyConfig(config RuntimeConfig) error {
 func normalizeRuntimeConfig(config RuntimeConfig) RuntimeConfig {
 	// Endpoint is required when enabled. If an endpoint is not present, force
 	// the worker into disabled mode.
-	if config.Endpoint == "" {
+	if config.HTTPEndpoint == "" && config.GRPCEndpoint == "" {
 		config.Enabled = false
 	}
 	return config
