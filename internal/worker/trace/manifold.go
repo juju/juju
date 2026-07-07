@@ -87,9 +87,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			currentConfig := a.CurrentConfig()
 
 			enabled := currentConfig.OpenTelemetryEnabled()
-			endpoint := currentConfig.OpenTelemetryEndpoint()
 			if enabled {
-				config.Logger.Infof(ctx, "OpenTelemetry enabled, starting trace worker using endpoint %q", endpoint)
+				config.Logger.Infof(ctx,
+					"OpenTelemetry enabled, starting trace worker using HTTP endpoint %q and gRPC endpoint %q",
+					currentConfig.OpenTelemetryHTTPEndpoint(), currentConfig.OpenTelemetryGRPCEndpoint())
 			} else {
 				config.Logger.Infof(ctx, "OpenTelemetry disabled, starting trace worker in disabled mode")
 			}
@@ -143,20 +144,15 @@ type unitRuntimeConfigProvider struct {
 // CurrentRuntimeConfig returns the current runtime config for the unit trace
 // worker.
 func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (RuntimeConfig, error) {
-	cfg := RuntimeConfig{
+	return RuntimeConfig{
 		Enabled:               p.config.OpenTelemetryEnabled(),
+		HTTPEndpoint:          p.config.OpenTelemetryHTTPEndpoint(),
+		GRPCEndpoint:          p.config.OpenTelemetryGRPCEndpoint(),
 		InsecureSkipVerify:    p.config.OpenTelemetryInsecure(),
 		StackTracesEnabled:    p.config.OpenTelemetryStackTraces(),
 		SampleRatio:           p.config.OpenTelemetrySampleRatio(),
 		TailSamplingThreshold: p.config.OpenTelemetryTailSamplingThreshold(),
-	}
-	endpoint := p.config.OpenTelemetryEndpoint()
-	if isHTTPEndpoint(endpoint) {
-		cfg.HTTPEndpoint = endpoint
-	} else {
-		cfg.GRPCEndpoint = endpoint
-	}
-	return cfg, nil
+	}, nil
 }
 
 // WatchRuntimeConfig returns an empty watcher, as the unit trace worker does

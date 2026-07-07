@@ -19,6 +19,7 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	domainnetwork "github.com/juju/juju/domain/network"
 	domainprovisioner "github.com/juju/juju/domain/provisioner"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 )
 
 // AgentProvisionerService provides access to container config.
@@ -38,6 +39,15 @@ type AgentProvisionerService interface {
 type ControllerConfigService interface {
 	// ControllerConfig returns this controller's config.
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// TracingService provides access to the workload tracing configuration.
+// It is used to seed newly provisioned machine agents with the current
+// tracing endpoint so they start exporting telemetry on first boot.
+type TracingService interface {
+	// GetWorkloadTracingConfig returns the workload tracing config from
+	// the state.
+	GetWorkloadTracingConfig(ctx context.Context) (tracingservice.WorkloadTracingConfig, error)
 }
 
 // MachineService defines the methods that the facade assumes from the Machine

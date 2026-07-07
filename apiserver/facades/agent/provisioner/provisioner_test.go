@@ -29,6 +29,7 @@ import (
 	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/domain/network/errors"
 	domainprovisioner "github.com/juju/juju/domain/provisioner"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -46,6 +47,7 @@ type provisionerMockSuite struct {
 	removalService          *MockRemovalService
 	controllerConfigService *MockControllerConfigService
 	provisioningService     *MockProvisioningService
+	tracingService          *MockTracingService
 
 	authorizer *facademocks.MockAuthorizer
 
@@ -621,6 +623,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 	s.removalService = NewMockRemovalService(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.provisioningService = NewMockProvisioningService(ctrl)
+	s.tracingService = NewMockTracingService(ctrl)
 
 	s.api = &ProvisionerAPI{
 		applicationService:      s.applicationService,
@@ -630,6 +633,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		removalService:          s.removalService,
 		controllerConfigService: s.controllerConfigService,
 		provisioningService:     s.provisioningService,
+		tracingService:          s.tracingService,
 
 		clock:  s.clock,
 		logger: loggertesting.WrapCheckLog(c),
@@ -650,6 +654,7 @@ func (s *provisionerMockSuite) setup(c *tc.C) *gomock.Controller {
 		s.removalService = nil
 		s.controllerConfigService = nil
 		s.provisioningService = nil
+		s.tracingService = nil
 		s.authorizer = nil
 		s.api = nil
 	})
@@ -665,6 +670,8 @@ func (s *provisionerMockSuite) expectSharedProvisioningInfo() {
 		Return(coretesting.FakeControllerConfig(), nil)
 	s.provisioningService.EXPECT().GetPreludeProvisioningInfo(gomock.Any()).
 		Return(domainprovisioner.SharedProvisioningInfo{}, nil)
+	s.tracingService.EXPECT().GetWorkloadTracingConfig(gomock.Any()).
+		Return(tracingservice.WorkloadTracingConfig{}, nil)
 }
 
 // TestProvisioningInfoErrorContinues verifies that when GetProvisioningInfo
@@ -785,6 +792,8 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithLokiConfig(c *tc.C) {
 			LokiCACert:             "ca-cert",
 			LokiInsecureSkipVerify: &insecure,
 		}, nil)
+	s.tracingService.EXPECT().GetWorkloadTracingConfig(gomock.Any()).
+		Return(tracingservice.WorkloadTracingConfig{}, nil)
 
 	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
 		Return(domainprovisioner.ProvisioningInfo{
@@ -808,6 +817,62 @@ func (s *provisionerMockSuite) TestProvisioningInfoWithLokiConfig(c *tc.C) {
 	c.Check(info.LokiCACert, tc.Equals, "ca-cert")
 	c.Assert(info.LokiInsecureSkipVerify, tc.NotNil)
 	c.Check(*info.LokiInsecureSkipVerify, tc.IsTrue)
+}
+
+// TestProvisioningInfoWithTracingConfig verifies that the controller-wide
+// workload tracing config is injected into the provisioning info so newly
+// provisioned agents start exporting telemetry on first boot.
+func (s *provisionerMockSuite) TestProvisioningInfoWithTracingConfig(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	insecure := true
+	stackTraces := true
+	sampleRatio := 0.5
+	tailSamplingThreshold := "5s"
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
+		Return(coretesting.FakeControllerConfig(), nil)
+	s.provisioningService.EXPECT().GetPreludeProvisioningInfo(gomock.Any()).
+		Return(domainprovisioner.SharedProvisioningInfo{}, nil)
+	s.tracingService.EXPECT().GetWorkloadTracingConfig(gomock.Any()).
+		Return(tracingservice.WorkloadTracingConfig{
+			HTTPEndpoint:                       "http://otel.example.com:4318",
+			GRPCEndpoint:                       "grpc://otel.example.com:4317",
+			CACertificate:                      "ca-cert",
+			InsecureSkipVerify:                 &insecure,
+			OpenTelemetryStackTraces:           &stackTraces,
+			OpenTelemetrySampleRatio:           &sampleRatio,
+			OpenTelemetryTailSamplingThreshold: &tailSamplingThreshold,
+		}, nil)
+
+	s.provisioningService.EXPECT().GetProvisioningInfo(gomock.Any(), coremachine.Name("0"), false, gomock.Any()).
+		Return(domainprovisioner.ProvisioningInfo{
+			Base:             corebase.MakeDefaultBase("ubuntu", "22.04"),
+			Jobs:             []coremodel.MachineJob{coremodel.JobHostUnits},
+			EndpointBindings: map[string]string{},
+			ControllerConfig: map[string]any{"controller-uuid": "ctrl-uuid"},
+		}, nil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+	}}
+	result, err := s.api.ProvisioningInfo(c.Context(), args)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Results, tc.HasLen, 1)
+	c.Check(result.Results[0].Error, tc.IsNil)
+	c.Assert(result.Results[0].Result, tc.Not(tc.IsNil))
+
+	info := result.Results[0].Result
+	c.Check(info.TracingHTTPEndpoint, tc.Equals, "http://otel.example.com:4318")
+	c.Check(info.TracingGRPCEndpoint, tc.Equals, "grpc://otel.example.com:4317")
+	c.Check(info.TracingCACertificate, tc.Equals, "ca-cert")
+	c.Assert(info.TracingInsecureSkipVerify, tc.NotNil)
+	c.Check(*info.TracingInsecureSkipVerify, tc.IsTrue)
+	c.Assert(info.TracingStackTraces, tc.NotNil)
+	c.Check(*info.TracingStackTraces, tc.IsTrue)
+	c.Assert(info.TracingSampleRatio, tc.NotNil)
+	c.Check(*info.TracingSampleRatio, tc.Equals, 0.5)
+	c.Assert(info.TracingTailSamplingThreshold, tc.NotNil)
+	c.Check(*info.TracingTailSamplingThreshold, tc.Equals, "5s")
 }
 
 // TestProvisioningInfoWithStorage verifies that volume params are correctly

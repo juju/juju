@@ -117,7 +117,8 @@ type MockConfigMockRecorder struct {
 	nonceExpects                              []*gomock.Call0_1[string]
 	oldPasswordExpects                        []*gomock.Call0_1[string]
 	openTelemetryEnabledExpects               []*gomock.Call0_1[bool]
-	openTelemetryEndpointExpects              []*gomock.Call0_1[string]
+	openTelemetryGRPCEndpointExpects          []*gomock.Call0_1[string]
+	openTelemetryHTTPEndpointExpects          []*gomock.Call0_1[string]
 	openTelemetryInsecureExpects              []*gomock.Call0_1[bool]
 	openTelemetrySampleRatioExpects           []*gomock.Call0_1[float64]
 	openTelemetryStackTracesExpects           []*gomock.Call0_1[bool]
@@ -558,23 +559,41 @@ func (mr *MockConfigMockRecorder) OpenTelemetryEnabled() *MockConfigOpenTelemetr
 // MockConfigOpenTelemetryEnabledCall is the typed call wrapper for OpenTelemetryEnabled.
 type MockConfigOpenTelemetryEnabledCall = gomock.Call0_1[bool]
 
-// OpenTelemetryEndpoint mocks base method.
-func (m *MockConfig) OpenTelemetryEndpoint() string {
+// OpenTelemetryGRPCEndpoint mocks base method.
+func (m *MockConfig) OpenTelemetryGRPCEndpoint() string {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.openTelemetryEndpointExpects, m.ctrl, m, "OpenTelemetryEndpoint")
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryGRPCEndpointExpects, m.ctrl, m, "OpenTelemetryGRPCEndpoint")
 }
 
-// OpenTelemetryEndpoint indicates an expected call of OpenTelemetryEndpoint.
-func (mr *MockConfigMockRecorder) OpenTelemetryEndpoint() *MockConfigOpenTelemetryEndpointCall {
+// OpenTelemetryGRPCEndpoint indicates an expected call of OpenTelemetryGRPCEndpoint.
+func (mr *MockConfigMockRecorder) OpenTelemetryGRPCEndpoint() *MockConfigOpenTelemetryGRPCEndpointCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryEndpoint")
-	mr.openTelemetryEndpointExpects = append(mr.openTelemetryEndpointExpects, call)
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryGRPCEndpoint")
+	mr.openTelemetryGRPCEndpointExpects = append(mr.openTelemetryGRPCEndpointExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockConfigOpenTelemetryEndpointCall is the typed call wrapper for OpenTelemetryEndpoint.
-type MockConfigOpenTelemetryEndpointCall = gomock.Call0_1[string]
+// MockConfigOpenTelemetryGRPCEndpointCall is the typed call wrapper for OpenTelemetryGRPCEndpoint.
+type MockConfigOpenTelemetryGRPCEndpointCall = gomock.Call0_1[string]
+
+// OpenTelemetryHTTPEndpoint mocks base method.
+func (m *MockConfig) OpenTelemetryHTTPEndpoint() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryHTTPEndpointExpects, m.ctrl, m, "OpenTelemetryHTTPEndpoint")
+}
+
+// OpenTelemetryHTTPEndpoint indicates an expected call of OpenTelemetryHTTPEndpoint.
+func (mr *MockConfigMockRecorder) OpenTelemetryHTTPEndpoint() *MockConfigOpenTelemetryHTTPEndpointCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryHTTPEndpoint")
+	mr.openTelemetryHTTPEndpointExpects = append(mr.openTelemetryHTTPEndpointExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigOpenTelemetryHTTPEndpointCall is the typed call wrapper for OpenTelemetryHTTPEndpoint.
+type MockConfigOpenTelemetryHTTPEndpointCall = gomock.Call0_1[string]
 
 // OpenTelemetryInsecure mocks base method.
 func (m *MockConfig) OpenTelemetryInsecure() bool {

@@ -877,6 +877,35 @@ type ProvisioningInfo struct {
 	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
 	// deployments. Empty means no X-Scope-OrgID header is sent.
 	LokiOrgID string `json:"loki-org-id,omitempty"`
+
+	// TracingHTTPEndpoint is the HTTP endpoint for the OpenTelemetry
+	// collector. Empty means no HTTP tracing endpoint is configured.
+	TracingHTTPEndpoint string `json:"tracing-http-endpoint,omitempty"`
+
+	// TracingGRPCEndpoint is the gRPC endpoint for the OpenTelemetry
+	// collector. Empty means no gRPC tracing endpoint is configured.
+	TracingGRPCEndpoint string `json:"tracing-grpc-endpoint,omitempty"`
+
+	// TracingCACertificate is the CA certificate used to validate the
+	// tracing endpoint TLS connection.
+	TracingCACertificate string `json:"tracing-ca-certificate,omitempty"`
+
+	// TracingInsecureSkipVerify controls whether TLS validation is
+	// disabled for the tracing endpoint. A nil value means the default
+	// (verify enabled) is in effect.
+	TracingInsecureSkipVerify *bool `json:"tracing-insecure-skip-verify,omitempty"`
+
+	// TracingStackTraces controls whether debug stack traces are
+	// attached to spans. A nil value means the default is in effect.
+	TracingStackTraces *bool `json:"tracing-stack-traces,omitempty"`
+
+	// TracingSampleRatio is the ratio of spans to sample. A nil value
+	// means the default ratio is in effect.
+	TracingSampleRatio *float64 `json:"tracing-sample-ratio,omitempty"`
+
+	// TracingTailSamplingThreshold is the duration threshold for
+	// tail-based sampling. A nil value means the default is in effect.
+	TracingTailSamplingThreshold *string `json:"tracing-tail-sampling-threshold,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

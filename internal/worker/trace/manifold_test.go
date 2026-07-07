@@ -98,7 +98,8 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 func (s *manifoldSuite) expectOpenTelemetry() {
 	s.config.EXPECT().Tag().Return(names.NewControllerAgentTag("0"))
-	s.config.EXPECT().OpenTelemetryEndpoint().Return("blah").AnyTimes()
+	s.config.EXPECT().OpenTelemetryHTTPEndpoint().Return("http://blah:4318").AnyTimes()
+	s.config.EXPECT().OpenTelemetryGRPCEndpoint().Return("blah:4317").AnyTimes()
 	s.config.EXPECT().OpenTelemetryInsecure().Return(false).AnyTimes()
 	s.config.EXPECT().OpenTelemetryStackTraces().Return(true).AnyTimes()
 	s.config.EXPECT().OpenTelemetrySampleRatio().Return(0.5).AnyTimes()

@@ -155,7 +155,11 @@ func (c *configFromEnv) DqliteBusyTimeout() time.Duration {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) OpenTelemetryEndpoint() string {
+func (c *configFromEnv) OpenTelemetryHTTPEndpoint() string {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) OpenTelemetryGRPCEndpoint() string {
 	panic("not implemented")
 }
 

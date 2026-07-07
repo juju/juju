@@ -146,7 +146,7 @@ func (s *CAASApplicationSuite) TestUnitIntroduction(c *tc.C) {
 			Password:                           "secret",
 			UpgradedToVersion:                  vers,
 			OpenTelemetryEnabled:               true,
-			OpenTelemetryEndpoint:              "localhost:4317",
+			OpenTelemetryGRPCEndpoint:          "localhost:4317",
 			OpenTelemetryInsecure:              true,
 			OpenTelemetryStackTraces:           true,
 			OpenTelemetrySampleRatio:           0.5,

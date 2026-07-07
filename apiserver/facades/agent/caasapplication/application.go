@@ -188,13 +188,6 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 
-	// Expose the tracing endpoint to the unit agent. If the GRPC endpoint is
-	// not set, fall back to the HTTP endpoint.
-	tracingEndpoint := tracingConfig.GRPCEndpoint
-	if tracingEndpoint == "" {
-		tracingEndpoint = tracingConfig.HTTPEndpoint
-	}
-
 	dataDir := paths.DataDir(paths.OSUnixLike)
 	logDir := path.Join(paths.LogDir(paths.OSUnixLike), "juju")
 	conf, err := agent.NewAgentConfig(
@@ -211,8 +204,9 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			Password:          unitPassword,
 			UpgradedToVersion: version,
 
-			OpenTelemetryEnabled:               tracingEndpoint != "",
-			OpenTelemetryEndpoint:              tracingEndpoint,
+			OpenTelemetryEnabled:               tracingConfig.GRPCEndpoint != "" || tracingConfig.HTTPEndpoint != "",
+			OpenTelemetryHTTPEndpoint:          tracingConfig.HTTPEndpoint,
+			OpenTelemetryGRPCEndpoint:          tracingConfig.GRPCEndpoint,
 			OpenTelemetryInsecure:              openTelemetryInsecure(tracingConfig),
 			OpenTelemetryStackTraces:           openTelemetryStackTraces(tracingConfig),
 			OpenTelemetrySampleRatio:           openTelemetrySampleRatio(tracingConfig),

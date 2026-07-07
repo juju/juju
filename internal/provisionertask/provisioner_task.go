@@ -911,6 +911,18 @@ func (task *provisionerTask) constructInstanceConfig(
 	instanceConfig.LokiInsecureSkipVerify = pInfo.LokiInsecureSkipVerify
 	instanceConfig.LokiOrgID = pInfo.LokiOrgID
 
+	// Inject the controller-wide tracing config so the machine agent
+	// starts exporting telemetry on first boot. When tracing is not
+	// configured all fields are empty/nil and the agent falls back to
+	// defaults.
+	instanceConfig.TracingHTTPEndpoint = pInfo.TracingHTTPEndpoint
+	instanceConfig.TracingGRPCEndpoint = pInfo.TracingGRPCEndpoint
+	instanceConfig.TracingCACertificate = pInfo.TracingCACertificate
+	instanceConfig.TracingInsecureSkipVerify = pInfo.TracingInsecureSkipVerify
+	instanceConfig.TracingStackTraces = pInfo.TracingStackTraces
+	instanceConfig.TracingSampleRatio = pInfo.TracingSampleRatio
+	instanceConfig.TracingTailSamplingThreshold = pInfo.TracingTailSamplingThreshold
+
 	return instanceConfig, nil
 }
 
