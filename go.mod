@@ -31,7 +31,7 @@ require (
 	github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11
 	github.com/canonical/pebble v1.26.0
 	github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea
-	github.com/canonical/starform v0.0.0-20260428155809-8da636f0fff9
+	github.com/canonical/starform v0.0.0-20260521120235-5b4249f3efd2
 	github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0

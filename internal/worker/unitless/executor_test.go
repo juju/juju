@@ -77,28 +77,6 @@ def on_config_changed(event):
 	c.Check(intents, tc.IsNil)
 }
 
-func (s *starformSuite) TestHandleUnobservedEventHasNoIntents(c *tc.C) {
-	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
-		Scriptlet: Scriptlet{
-			Sources: []ScriptSource{{
-				LoadPath: "hooks.star",
-				Source: `
-def init():
-    juju.observe("config_changed", on_config_changed)
-
-def on_config_changed(event):
-    juju.status_set("active")
-`,
-			}},
-		},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	intents, err := executor.Handle(c.Context(), Event{Name: "update_status"})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(intents, tc.DeepEquals, []Intent{})
-}
-
 func (s *starformSuite) TestValueToStarlarkConvertsTypedSlices(c *tc.C) {
 	value, err := valueToStarlark([]map[string]any{{
 		"names":   []string{"juju", "unitless"},

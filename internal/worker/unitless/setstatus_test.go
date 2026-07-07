@@ -4,6 +4,7 @@
 package unitless
 
 import (
+	"github.com/canonical/starform/formtest"
 	"github.com/canonical/starform/starform"
 	"github.com/canonical/starlark/starlark"
 	"github.com/canonical/starlark/startest"
@@ -15,6 +16,49 @@ const starformEventObjectLocalKey = "starform-event-object"
 
 type starformEventObjectStorage = struct {
 	Event *starform.EventObject
+}
+
+func (s *starformSuite) TestSetStatusCollectsIntent(c *tc.C) {
+	collector := &IntentCollector{}
+	ft := newSetStatusFormTest(c, collector, &starform.EventObject{
+		Name: "config_changed",
+		Attrs: starlark.StringDict{
+			"message": starlark.String("updated"),
+		},
+	})
+
+	ft.RunString(`
+def init():
+    juju.observe("config_changed", on_config_changed)
+
+def on_config_changed(event):
+    juju.status_set("active", message=event.message)
+`)
+
+	assertStatusIntents(c, collector.Intents(), Intent{
+		Type: IntentSetStatus,
+		Args: map[string]any{
+			"status":  "active",
+			"message": "updated",
+		},
+	})
+}
+
+func (s *starformSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
+	collector := &IntentCollector{}
+	ft := newSetStatusFormTest(c, collector, &starform.EventObject{
+		Name: "update_status",
+	})
+
+	ft.RunString(`
+def init():
+    juju.observe("config_changed", on_config_changed)
+
+def on_config_changed(event):
+    juju.status_set("active")
+`)
+
+	c.Check(collector.Intents(), tc.DeepEquals, []Intent{})
 }
 
 func (s *starformSuite) TestSetStatusCPUSafe(c *tc.C) {
@@ -33,6 +77,26 @@ func (s *starformSuite) TestSetStatusTimeSafe(c *tc.C) {
 
 func (s *starformSuite) TestSetStatusIOSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.IOSafe, nil)
+}
+
+func newSetStatusFormTest(
+	c *tc.C, collector *IntentCollector, event *starform.EventObject,
+) *formtest.FT {
+	event.State = collector
+	ft := formtest.From(c)
+	ft.SetApp(&starform.AppObject{
+		Name:    "juju",
+		Methods: []*starlark.Builtin{setStatusBuiltin},
+	})
+	ft.SetEvent(event)
+	return ft
+}
+
+func assertStatusIntents(c *tc.C, intents []Intent, expected Intent) {
+	c.Assert(len(intents), tc.Not(tc.Equals), 0)
+	for _, intent := range intents {
+		c.Check(intent, tc.DeepEquals, expected)
+	}
 }
 
 func assertSetStatusSafety(c *tc.C, safety starlark.SafetyFlags, configure func(*startest.ST)) {

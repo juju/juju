@@ -132,6 +132,8 @@ github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea h1:m9TQ00PXBFNgp1
 github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea/go.mod h1:odcb8D8AbEICcCVrHjzQg9i2rmWoFMyRTd0bt2dOGUQ=
 github.com/canonical/starform v0.0.0-20260428155809-8da636f0fff9 h1:hXaydgYun9+0HVp+tKNlTW25jh2GZsYJEhogxkr3Thg=
 github.com/canonical/starform v0.0.0-20260428155809-8da636f0fff9/go.mod h1:D0n/xpvuBbdMTygtdnratUr8kzXWo+FIayINJ/cOln8=
+github.com/canonical/starform v0.0.0-20260521120235-5b4249f3efd2 h1:Z+B2YCDOtO9RhfITtJT788h75ZpN8HCkD0n5DvI519g=
+github.com/canonical/starform v0.0.0-20260521120235-5b4249f3efd2/go.mod h1:D0n/xpvuBbdMTygtdnratUr8kzXWo+FIayINJ/cOln8=
 github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b h1:ISGADlD3LiriT0n29QC1yeh3bhVhSeaa0/sxfv28JSo=
 github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b/go.mod h1:fbhY9i7ZAcza52PfUCd9PDIBFJJMYsAj22/3Q3sU6IY=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b h1:Da2fardddn+JDlVEYtrzBLTtyzoyU3nIS0Cf0GvjmwU=
