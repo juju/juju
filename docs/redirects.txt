@@ -87,6 +87,7 @@ user/howto/manage-your-deployment/harden-your-deployment howto/manage-your-juju-
 user/howto/manage-your-deployment howto/manage-your-juju-deployment/set-up-your-juju-deployment-local-testing-and-development/
 user/howto/manage-your-deployment/manage-your-deployment-environment howto/manage-your-juju-deployment/set-up-your-juju-deployment-local-testing-and-development/
 user/howto/manage-your-deployment/take-your-deployment-offline howto/manage-your-juju-deployment/set-up-your-juju-deployment-offline/
+howto/manage-your-deployment/take-your-deployment-offline howto/manage-your-juju-deployment/set-up-your-juju-deployment-offline/
 user/howto/manage-your-deployment/troubleshoot-your-deployment howto/manage-your-juju-deployment/troubleshoot-your-juju-deployment/
 user/howto/manage-your-deployment/upgrade-your-deployment howto/manage-your-juju-deployment/troubleshoot-your-juju-deployment/
 user .
