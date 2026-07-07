@@ -5,6 +5,7 @@ package kubernetes_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -296,6 +297,32 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *tc.C) {
 		}
 		c.Check(spec, tc.DeepEquals, t.spec)
 	}
+}
+
+func (s *bootstrapSuite) TestControllerSpecWaitsForLocalControllerCharm(c *tc.C) {
+	newK8sClientFunc, newK8sRestClientFunc := s.setupK8sRestClient(c, s.pcfg.ControllerName)
+	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
+	s.setupBroker(c, newK8sClientFunc, newK8sRestClientFunc, &bootstrapWatchers)
+
+	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
+	s.pcfg.Bootstrap.ControllerCharmPath = "/tmp/controller.charm"
+
+	spec := s.controllerStackerGetter().BuildContainerSpecForController(c)
+	var apiServer *core.Container
+	for i := range spec.Containers {
+		if spec.Containers[i].Name == "api-server" {
+			apiServer = &spec.Containers[i]
+			break
+		}
+	}
+	c.Assert(apiServer, tc.NotNil)
+	c.Assert(apiServer.Args, tc.HasLen, 2)
+
+	startup := apiServer.Args[1]
+	c.Check(startup, tc.Contains, "mkdir -p $JUJU_DATA_DIR/charms")
+	c.Check(startup, tc.Contains, "until test -e $JUJU_DATA_DIR/charms/controller.charm; do sleep 1; done")
+	c.Check(startup, tc.Contains, "$JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s")
+	c.Check(strings.Contains(startup, "test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf ||"), tc.IsFalse)
 }
 
 func (s *bootstrapSuite) TestBootstrap(c *tc.C) {

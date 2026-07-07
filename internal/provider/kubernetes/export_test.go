@@ -51,6 +51,7 @@ type ControllerStackerForTest interface {
 	GetStorageSize() resource.Quantity
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 	SetControllerAgentLokiConfig(string, *string, *bool, string)
+	BuildContainerSpecForController(*tc.C) *core.PodSpec
 }
 
 func (cs *controllerStack) GetControllerAgentConfigContent(c *tc.C) string {
@@ -79,6 +80,12 @@ func (cs *controllerStack) GetControllerSvcSpec(cloudType string, cfg *podcfg.Bo
 
 func (cs *controllerStack) SetControllerAgentLokiConfig(endpoint string, caCert *string, insecureSkipVerify *bool, orgID string) {
 	cs.agentConfig.SetLokiConfig(endpoint, caCert, insecureSkipVerify, orgID)
+}
+
+func (cs *controllerStack) BuildContainerSpecForController(c *tc.C) *core.PodSpec {
+	spec, err := cs.buildContainerSpecForController()
+	c.Assert(err, tc.ErrorIsNil)
+	return spec
 }
 
 func NewcontrollerStackForTest(

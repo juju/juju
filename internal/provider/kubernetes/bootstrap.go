@@ -4,8 +4,10 @@
 package kubernetes
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -46,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/kubernetes/application"
 	"github.com/juju/juju/internal/provider/kubernetes/constants"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/provider/kubernetes/pebble"
 	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
@@ -323,6 +326,88 @@ func newControllerStack(
 	}
 
 	return cs, nil
+}
+
+func isLocalControllerCharmPath(charmPath string) bool {
+	return strings.HasPrefix(charmPath, "/") || strings.HasPrefix(charmPath, "./") ||
+		strings.HasPrefix(charmPath, "../")
+}
+
+func (c *controllerStack) localControllerCharmArchivePath() string {
+	return c.pathJoin(c.pcfg.DataDir, "charms", environsbootstrap.ControllerCharmArchive)
+}
+
+func (c *controllerStack) uploadLocalControllerCharm(ctx context.Context, podName string) error {
+	charmPath := c.pcfg.Bootstrap.ControllerCharmPath
+	if !isLocalControllerCharmPath(charmPath) {
+		return nil
+	}
+
+	execClient, err := c.controllerExecClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	archivePath := c.localControllerCharmArchivePath()
+	uploadPath := archivePath + ".uploading"
+	archiveDir := path.Dir(archivePath)
+	execCommand := func(commands []string) error {
+		var stdout, stderr bytes.Buffer
+		return execClient.Exec(ctx, k8sexec.ExecParams{
+			PodName:       podName,
+			ContainerName: apiServerContainerName,
+			Commands:      commands,
+			Stdout:        &stdout,
+			Stderr:        &stderr,
+		}, nil)
+	}
+	if err := execCommand([]string{"mkdir", "-p", archiveDir}); err != nil {
+		return errors.Annotate(err, "creating local controller charm directory")
+	}
+
+	if err := execClient.Copy(ctx, k8sexec.CopyParams{
+		Src: k8sexec.FileResource{
+			Path: charmPath,
+		},
+		Dest: k8sexec.FileResource{
+			Path:          uploadPath,
+			PodName:       podName,
+			ContainerName: apiServerContainerName,
+		},
+	}, nil); err != nil {
+		return errors.Annotate(err, "copying local controller charm")
+	}
+
+	if err := execCommand([]string{"chmod", "0644", uploadPath}); err != nil {
+		return errors.Annotate(err, "setting local controller charm permissions")
+	}
+
+	if err := execCommand([]string{"mv", "-f", uploadPath, archivePath}); err != nil {
+		return errors.Annotate(err, "installing local controller charm")
+	}
+	return nil
+}
+
+func (c *controllerStack) uploadLocalControllerCharmWithRetry(ctx context.Context, podName string) error {
+	if !isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
+		return nil
+	}
+	return retry.Call(retry.CallArgs{
+		Attempts: 12,
+		Delay:    time.Second,
+		Clock:    c.broker.clock,
+		Func: func() error {
+			return c.uploadLocalControllerCharm(ctx, podName)
+		},
+	})
+}
+
+func (c *controllerStack) controllerExecClient() (k8sexec.Executor, error) {
+	restConfig := c.broker.restConfig()
+	if restConfig == nil {
+		return nil, errors.NotValidf("empty kubernetes rest config")
+	}
+	return k8sexec.New(c.broker.Namespace(), c.broker.client(), restConfig), nil
 }
 
 func (c *controllerStack) isPrivateRepo() bool {
@@ -943,6 +1028,9 @@ func (c *controllerStack) createControllerStatefulset(ctx context.Context) error
 		if err = c.waitForPod(ctx, w, podName); err != nil {
 			return errors.Trace(err)
 		}
+		if err = c.uploadLocalControllerCharmWithRetry(ctx, podName); err != nil {
+			return errors.Annotate(err, "uploading local controller charm")
+		}
 	}
 	return nil
 }
@@ -1369,11 +1457,19 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		if featureFlags != "" {
 			bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 		}
-		setupCmd = fmt.Sprintf(
-			"test -e %s || %s",
-			c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath),
-			bootstrapStateCmd,
-		)
+		agentConfigPath := c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath)
+		if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
+			charmArchivePath := c.pathJoin("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
+			setupCmd = fmt.Sprintf(
+				"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
+				agentConfigPath,
+				path.Dir(charmArchivePath),
+				charmArchivePath,
+				bootstrapStateCmd,
+			)
+		} else {
+			setupCmd = fmt.Sprintf("test -e %s || %s", agentConfigPath, bootstrapStateCmd)
+		}
 	}
 
 	machineCmd := fmt.Sprintf(
