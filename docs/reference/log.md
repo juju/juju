@@ -11,7 +11,7 @@ myst:
 See also: {ref}`manage-logs`
 ```
 
-A **log** is a computer-generated record about entities, activities, usage patterns, etc., within a system. In Juju, logs are produced by {ref}`jujuagentd` and keep track of machine and unit agents, models, controllers, etc.
+A **log** is a computer-generated record about entities, activities, usage patterns, etc., within a system. In Juju, logs are produced by {ref}`jujud` and keep track of machine and unit agents, models, controllers, etc.
 
 ## Juju agent logs - machines
 

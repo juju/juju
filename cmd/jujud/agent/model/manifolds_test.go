@@ -13,8 +13,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujuagentd/agent/model"
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/cmd/jujud/agent/model"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
 )
@@ -62,7 +61,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"removal",
 		"secrets-pruner",
 		"storage-provisioner",
-		"unitless",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
@@ -103,7 +101,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"removal",
 		"secrets-pruner",
 		"storage-provisioner",
-		"unitless",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
@@ -172,14 +169,6 @@ func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
 }
 
 var expectedCAASModelManifoldsWithDependencies = map[string][]string{
-	"unitless": {
-		"domain-services",
-		"is-responsible-flag",
-		"lease-manager",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-	},
 
 	"secrets-pruner": {
 		"domain-services",
@@ -375,14 +364,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 }
 
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
-	"unitless": {
-		"domain-services",
-		"is-responsible-flag",
-		"lease-manager",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"not-dead-flag",
-	},
 
 	"secrets-pruner": {
 		"domain-services",
@@ -581,9 +562,9 @@ func testManifoldsConfig() model.ManifoldsConfig {
 	return model.ManifoldsConfig{
 		LoggingContext:       internallogger.DefaultContext(),
 		ModelUUID:            "mock-model-uuid",
-		AgentTag:             names.NewMachineTag("123"),
 		ModelTag:             names.NewModelTag("mock-model-uuid"),
 		ControllerTag:        names.NewControllerTag("mock-controller-uuid"),
+		ControllerAgentTag:   names.NewControllerAgentTag("123"),
 		DataDir:              "/tmp/juju-data",
 		LogDir:               "/tmp/juju-log",
 		StartupValueProvider: mockModelStartupValueProvider{},
@@ -593,8 +574,5 @@ func testManifoldsConfig() model.ManifoldsConfig {
 
 type mockModelStartupValueProvider struct{}
 
-func (mockModelStartupValueProvider) CACert() (string, error) { return "", nil }
-func (mockModelStartupValueProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
-	return controller.ControllerAgentInfo{}, nil
-}
+func (mockModelStartupValueProvider) CACert() (string, error)          { return "", nil }
 func (mockModelStartupValueProvider) LoggingOverride() (string, error) { return "", nil }

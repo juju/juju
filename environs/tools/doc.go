@@ -3,7 +3,7 @@
 //
 // Note: In juju 2.x, the concept of juju tools were renamed to juju agent
 // binaries. Seen in the renaming of the juju metadata plugin commands. You'll
-// find references to both in the juju code base. It's the tarball of jujuagentd
+// find references to both in the juju code base. It's the tarball of jujud
 // installed on juju controllers and juju machines. It was NOT changed in the
 // launchpad:simplestreams which still requires a tools directory.
 //
