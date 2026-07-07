@@ -161,27 +161,27 @@ type PasswordInfo struct {
 	HashAlgorithm int
 }
 
-// CloudContainer contains parameters for a unit's cloud container.
-type CloudContainer struct {
+// K8sPod contains parameters for a unit's k8s pod.
+type K8sPod struct {
 	ProviderID string
-	Address    *ContainerAddress
+	Address    *K8sPodAddress
 	Ports      *[]string
 }
 
-// ContainerDevice is the placeholder link layer device
-// used to tie the cloud container IP address to the container.
-type ContainerDevice struct {
+// K8sPodDevice is the placeholder link layer device
+// used to tie the k8s pod IP address to the pod.
+type K8sPodDevice struct {
 	Name              string
 	DeviceTypeID      domainnetwork.DeviceType
 	VirtualPortTypeID domainnetwork.VirtualPortType
 }
 
-// ContainerAddress contains parameters for a cloud container address.
-// Device is an attribute of address rather than cloud container
+// K8sPodAddress contains parameters for a k8s pod address.
+// Device is an attribute of address rather than k8s pod
 // since it's a placeholder used to tie the address to the
-// cloud container and is only needed if the address exists.
-type ContainerAddress struct {
-	Device      ContainerDevice
+// k8s pod and is only needed if the address exists.
+type K8sPodAddress struct {
+	Device      K8sPodDevice
 	Value       string
 	AddressType ipaddress.AddressType
 	Scope       ipaddress.Scope
@@ -192,7 +192,7 @@ type ContainerAddress struct {
 // AddCAASUnitArg contains parameters for adding a CAAS unit to state.
 type AddCAASUnitArg struct {
 	AddUnitArg
-	CloudContainer *CloudContainer
+	K8sPod *K8sPod
 
 	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
 	// persist as the unit's network identity (an fqdn_address row linked to
@@ -298,8 +298,8 @@ type UpdateCAASUnitParams struct {
 	K8sPodStatus   *status.StatusInfo[status.K8sPodStatusType]
 }
 
-// CloudContainerParams contains parameters for a unit cloud container.
-type CloudContainerParams struct {
+// K8sPodParams contains parameters for a unit k8s pod.
+type K8sPodParams struct {
 	ProviderID    string
 	Address       *network.SpaceAddress
 	AddressOrigin *network.Origin
@@ -425,7 +425,7 @@ type ImportIAASUnitArg struct {
 // ImportCAASUnitArg is used to import a CAAS unit.
 type ImportCAASUnitArg struct {
 	ImportUnitArg
-	CloudContainer *CloudContainer
+	K8sPod *K8sPod
 }
 
 // UnitAttributes contains parameters for exporting a unit.

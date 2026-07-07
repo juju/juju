@@ -125,9 +125,9 @@ type ApplicationService interface {
 	// UpdateCAASUnit updates the specified CAAS unit
 	UpdateCAASUnit(context.Context, unit.Name, applicationservice.UpdateCAASUnitParams) error
 
-	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
-	// and their cloud container provider IDs for the given application.
-	GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id coreapplication.UUID) (map[unit.Name]string, error)
+	// GetAllUnitK8sPodIDsForApplication returns a map of the unit names
+	// and their k8s pod provider IDs for the given application.
+	GetAllUnitK8sPodIDsForApplication(ctx context.Context, id coreapplication.UUID) (map[unit.Name]string, error)
 
 	// GetCharmByApplicationUUID returns the charm for the specified application
 	// UUID.

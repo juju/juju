@@ -540,46 +540,46 @@ func makeCAASUnitArgs(units []ImportCAASUnitArg, charmUUID corecharm.ID) ([]appl
 			}
 		}
 
-		var cloudContainer *application.CloudContainer
-		if u.CloudContainer != nil {
-			cloudContainer = makeCloudContainerArg(u.UnitName, *u.CloudContainer)
+		var k8sPod *application.K8sPod
+		if u.K8sPod != nil {
+			k8sPod = makeK8sPodArg(u.UnitName, *u.K8sPod)
 		}
 
 		unitArgs[i] = application.ImportCAASUnitArg{
-			ImportUnitArg:  arg,
-			CloudContainer: cloudContainer,
+			ImportUnitArg: arg,
+			K8sPod:        k8sPod,
 		}
 	}
 	return unitArgs, nil
 }
 
-func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
-	result := &application.CloudContainer{
-		ProviderID: cloudContainer.ProviderID,
-		Ports:      cloudContainer.Ports,
+func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *application.K8sPod {
+	result := &application.K8sPod{
+		ProviderID: k8sPod.ProviderID,
+		Ports:      k8sPod.Ports,
 	}
-	if cloudContainer.Address != nil {
-		// TODO(units) - handle the cloudContainer.Address space ID
+	if k8sPod.Address != nil {
+		// TODO(units) - handle the k8sPod.Address space ID
 		// For k8s we'll initially create a /32 subnet off the container address
 		// and add that to the default space.
-		result.Address = &application.ContainerAddress{
-			// For cloud containers, the device is a placeholder without
+		result.Address = &application.K8sPodAddress{
+			// For k8s pods, the device is a placeholder without
 			// a MAC address and once inserted, not updated. It just exists
 			// to tie the address to the net node corresponding to the
-			// cloud container.
-			Device: application.ContainerDevice{
-				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
+			// k8s pod.
+			Device: application.K8sPodDevice{
+				Name:              fmt.Sprintf("placeholder for %q k8s pod", unitName),
 				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
-			Value:       cloudContainer.Address.Value,
-			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
-			Scope:       ipaddress.MarshallScope(cloudContainer.Address.Scope),
+			Value:       k8sPod.Address.Value,
+			AddressType: ipaddress.MarshallAddressType(k8sPod.Address.AddressType()),
+			Scope:       ipaddress.MarshallScope(k8sPod.Address.Scope),
 			Origin:      ipaddress.MarshallOrigin(network.OriginProvider),
 			ConfigType:  ipaddress.MarshallConfigType(network.ConfigDHCP),
 		}
-		if cloudContainer.AddressOrigin != nil {
-			result.Address.Origin = ipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
+		if k8sPod.AddressOrigin != nil {
+			result.Address.Origin = ipaddress.MarshallOrigin(*k8sPod.AddressOrigin)
 		}
 	}
 	return result

@@ -1449,7 +1449,7 @@ WHERE  c.source_id < 2;
 //
 // It first checks if a cloud service exists for the application, if there is
 // then it returns the net node UUID for the cloud service without checking for
-// the unit's net node since it corresponds to the cloud container address
+// the unit's net node since it corresponds to the k8s pod address
 // instead.
 //
 // If the unit does not exist an error satisfying

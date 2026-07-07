@@ -136,7 +136,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 		},
 		Since: &now,
 	}
-	cloudContainerIDs := map[unit.Name]string{
+	k8sPodIDs := map[unit.Name]string{
 		"test/0": "a",
 		"test/1": "b",
 	}
@@ -149,7 +149,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			Status: status.Idle,
 			Since:  &now,
 		},
-		CloudContainerStatus: &status.StatusInfo{
+		K8sPodStatus: &status.StatusInfo{
 			Status:  status.Running,
 			Message: "different",
 			Since:   &now,
@@ -163,7 +163,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			SpaceName:      "space-name",
 		}}).Return(nil),
 		statusService.EXPECT().SetOperatorStatus(gomock.Any(), "test", appStatus).Return(nil),
-		applicationService.EXPECT().GetAllUnitCloudContainerIDsForApplication(gomock.Any(), appId).Return(cloudContainerIDs, nil),
+		applicationService.EXPECT().GetAllUnitK8sPodIDsForApplication(gomock.Any(), appId).Return(k8sPodIDs, nil),
 		app.EXPECT().Units().Return(units, nil),
 		applicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unit.Name("test/0"), gomock.Any()).DoAndReturn(func(_ context.Context, _ unit.Name, args applicationservice.UpdateCAASUnitParams) error {
 			c.Check(args.ProviderID, tc.DeepEquals, unit0Update.ProviderID)
@@ -172,9 +172,9 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 			c.Assert(args.AgentStatus, tc.NotNil, tc.Commentf("AgentStatus should not be nil"))
 			c.Assert(args.AgentStatus.Since, tc.NotNil, tc.Commentf("AgentStatus.Since should not be nil"))
 			c.Check(*args.AgentStatus.Since, tc.Equals, now, tc.Commentf("AgentStatus.Since should be set to current time"))
-			c.Assert(args.CloudContainerStatus, tc.NotNil, tc.Commentf("CloudContainerStatus should not be nil"))
-			c.Assert(args.CloudContainerStatus.Since, tc.NotNil, tc.Commentf("CloudContainerStatus.Since should not be nil"))
-			c.Check(*args.CloudContainerStatus.Since, tc.Equals, now, tc.Commentf("CloudContainerStatus.Since should be set to current time"))
+			c.Assert(args.K8sPodStatus, tc.NotNil, tc.Commentf("K8sPodStatus should not be nil"))
+			c.Assert(args.K8sPodStatus.Since, tc.NotNil, tc.Commentf("K8sPodStatus.Since should not be nil"))
+			c.Check(*args.K8sPodStatus.Since, tc.Equals, now, tc.Commentf("K8sPodStatus.Since should be set to current time"))
 			return nil
 		}),
 		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "a", names.NewUnitTag("test/0")).Return(nil),
@@ -190,7 +190,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 				Message: "same",
 				Since:   &now,
 			},
-			CloudContainerStatus: &status.StatusInfo{
+			K8sPodStatus: &status.StatusInfo{
 				Status:  status.Waiting,
 				Message: "same",
 				Since:   &now,
@@ -208,7 +208,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 				Status: status.Idle,
 				Since:  &now,
 			},
-			CloudContainerStatus: &status.StatusInfo{
+			K8sPodStatus: &status.StatusInfo{
 				Status:  status.Running,
 				Message: "different",
 				Since:   &now,
@@ -223,7 +223,7 @@ func (s *OpsSuite) TestUpdateState(c *tc.C) {
 				Message: "same",
 				Since:   &now,
 			},
-			CloudContainerStatus: &status.StatusInfo{
+			K8sPodStatus: &status.StatusInfo{
 				Status:  status.Waiting,
 				Message: "same",
 				Since:   &now,

@@ -804,27 +804,27 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName str
 	return &unit, nil
 }
 
-func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.CloudContainerParams) *application.CloudContainer {
-	result := &application.CloudContainer{
-		ProviderID: cloudContainer.ProviderID,
-		Ports:      cloudContainer.Ports,
+func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *application.K8sPod {
+	result := &application.K8sPod{
+		ProviderID: k8sPod.ProviderID,
+		Ports:      k8sPod.Ports,
 	}
-	if cloudContainer.Address != nil {
-		// TODO(units) - handle the cloudContainer.Address space ID
+	if k8sPod.Address != nil {
+		// TODO(units) - handle the k8sPod.Address space ID
 		// For k8s we'll initially create a /32 subnet off the container address
 		// and add that to the default space.
-		result.Address = &application.ContainerAddress{
-			// For cloud containers, the device is a placeholder without
+		result.Address = &application.K8sPodAddress{
+			// For k8s pods, the device is a placeholder without
 			// a MAC address and once inserted, not updated. It just exists
 			// to tie the address to the net node corresponding to the
-			// cloud container.
-			Device: application.ContainerDevice{
-				Name:              fmt.Sprintf("placeholder for %q cloud container", unitName),
+			// k8s pod.
+			Device: application.K8sPodDevice{
+				Name:              fmt.Sprintf("placeholder for %q k8s pod", unitName),
 				DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 				VirtualPortTypeID: domainnetwork.NonVirtualPortType,
 			},
-			Value:       cloudContainer.Address.Value,
-			AddressType: ipaddress.MarshallAddressType(cloudContainer.Address.AddressType()),
+			Value:       k8sPod.Address.Value,
+			AddressType: ipaddress.MarshallAddressType(k8sPod.Address.AddressType()),
 			// The k8s container must have the lowest scope. This is needed to
 			// ensure that these are correctly matched with respect to k8s
 			// service addresses when retrieving unit public/private addresses.
@@ -832,8 +832,8 @@ func makeCloudContainerArg(unitName coreunit.Name, cloudContainer application.Cl
 			Origin:     ipaddress.MarshallOrigin(network.OriginProvider),
 			ConfigType: ipaddress.MarshallConfigType(network.ConfigDHCP),
 		}
-		if cloudContainer.AddressOrigin != nil {
-			result.Address.Origin = ipaddress.MarshallOrigin(*cloudContainer.AddressOrigin)
+		if k8sPod.AddressOrigin != nil {
+			result.Address.Origin = ipaddress.MarshallOrigin(*k8sPod.AddressOrigin)
 		}
 	}
 	return result
@@ -850,17 +850,17 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 		return errors.Capture(err)
 	}
 
-	cloudContainerParams := application.CloudContainerParams{
+	k8sPodParams := application.K8sPodParams{
 		ProviderID: arg.ProviderID,
 		Ports:      arg.Ports,
 	}
 	if arg.Address != nil {
 		addr := network.NewSpaceAddress(*arg.Address, network.WithScope(network.ScopeMachineLocal))
-		cloudContainerParams.Address = &addr
+		k8sPodParams.Address = &addr
 		origin := network.OriginProvider
-		cloudContainerParams.AddressOrigin = &origin
+		k8sPodParams.AddressOrigin = &origin
 	}
-	cloudContainer := makeCloudContainerArg(arg.UnitName, cloudContainerParams)
+	k8sPod := makeK8sPodArg(arg.UnitName, k8sPodParams)
 
 	now := new(st.clock.Now().UTC())
 	addUnitArg := application.AddCAASUnitArg{
@@ -880,8 +880,8 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 				},
 			},
 		},
-		CloudContainer: cloudContainer,
-		FQDN:           arg.FQDN,
+		K8sPod: k8sPod,
+		FQDN:   arg.FQDN,
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -933,15 +933,15 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			return errors.Errorf("dead unit %q already exists", arg.UnitName).Add(applicationerrors.UnitAlreadyExists)
 		}
 
-		// Unit already exists and is not dead. Update the cloud container.
+		// Unit already exists and is not dead. Update the k8s pod.
 		toUpdate, err := st.getUnitDetails(ctx, tx, arg.UnitName.String())
 		if err != nil {
 			return errors.Capture(err)
 		}
 
-		err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+		err = st.upsertUnitK8sPod(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, k8sPod)
 		if err != nil {
-			return errors.Errorf("updating cloud container for unit %q: %w", arg.UnitName, err)
+			return errors.Errorf("updating k8s pod for unit %q: %w", arg.UnitName, err)
 		}
 
 		err = st.setFilesystemProviderIDs(ctx, tx, arg.FilesystemProviderIDs)
@@ -1042,12 +1042,12 @@ func (st *State) insertCAASUnitWithName(
 	unitUUID := args.UnitUUID.String()
 
 	err := st.insertUnit(ctx, tx, appUUID, unitUUID, args.NetNodeUUID.String(), insertUnitArg{
-		CharmUUID:      charmUUID,
-		UnitName:       unitName,
-		CloudContainer: args.CloudContainer,
-		Constraints:    args.Constraints,
-		UnitStatusArg:  args.UnitStatusArg,
-		FQDN:           args.FQDN,
+		CharmUUID:     charmUUID,
+		UnitName:      unitName,
+		K8sPod:        args.K8sPod,
+		Constraints:   args.Constraints,
+		UnitStatusArg: args.UnitStatusArg,
+		FQDN:          args.FQDN,
 	})
 	if err != nil {
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
@@ -1131,7 +1131,7 @@ func (st *State) insertCAASUnitWithName(
 	return unitUUID, nil
 }
 
-// UpdateCAASUnit updates the cloud container for specified unit,
+// UpdateCAASUnit updates the k8s pod for specified unit,
 // returning an error satisfying [applicationerrors.UnitNotFoundError]
 // if the unit doesn't exist.
 func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, params application.UpdateCAASUnitParams) error {
@@ -1140,19 +1140,19 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		return errors.Capture(err)
 	}
 
-	var cloudContainer *application.CloudContainer
+	var k8sPod *application.K8sPod
 	if params.ProviderID != nil {
-		cloudContainerParams := application.CloudContainerParams{
+		k8sPodParams := application.K8sPodParams{
 			ProviderID: *params.ProviderID,
 			Ports:      params.Ports,
 		}
 		if params.Address != nil {
 			addr := network.NewSpaceAddress(*params.Address, network.WithScope(network.ScopeMachineLocal))
-			cloudContainerParams.Address = &addr
+			k8sPodParams.Address = &addr
 			origin := network.OriginProvider
-			cloudContainerParams.AddressOrigin = &origin
+			k8sPodParams.AddressOrigin = &origin
 		}
-		cloudContainer = makeCloudContainerArg(unitName, cloudContainerParams)
+		k8sPod = makeK8sPodArg(unitName, k8sPodParams)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1161,10 +1161,10 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 			return errors.Errorf("getting unit %q: %w", unitName, err)
 		}
 
-		if cloudContainer != nil {
-			err = st.upsertUnitCloudContainer(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, cloudContainer)
+		if k8sPod != nil {
+			err = st.upsertUnitK8sPod(ctx, tx, toUpdate.Name, toUpdate.UnitUUID, toUpdate.NetNodeID, k8sPod)
 			if err != nil {
-				return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
+				return errors.Errorf("updating k8s pod for unit %q: %w", unitName, err)
 			}
 		}
 
@@ -1881,12 +1881,12 @@ WHERE  unit_uuid = $unitWorkloadVersion.unit_uuid
 	return version.Version, nil
 }
 
-// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
-// and their cloud container provider IDs for the given application.
+// GetAllUnitK8sPodIDsForApplication returns a map of the unit names
+// and their k8s pod provider IDs for the given application.
 //   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
-func (st *State) GetAllUnitCloudContainerIDsForApplication(
+func (st *State) GetAllUnitK8sPodIDsForApplication(
 	ctx context.Context,
 	appUUID coreapplication.UUID,
 ) (map[coreunit.Name]string, error) {
@@ -1897,17 +1897,17 @@ func (st *State) GetAllUnitCloudContainerIDsForApplication(
 
 	input := entityUUID{UUID: appUUID.String()}
 	query := `
-SELECT (u.name, kp.provider_id) AS (&unitNameCloudContainer.*)
+SELECT (u.name, kp.provider_id) AS (&unitNameK8sPod.*)
 FROM unit u
 JOIN k8s_pod kp ON u.uuid = kp.unit_uuid
 WHERE u.application_uuid = $entityUUID.uuid
 `
-	stmt, err := st.Prepare(query, unitNameCloudContainer{}, input)
+	stmt, err := st.Prepare(query, unitNameK8sPod{}, input)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	var result []unitNameCloudContainer
+	var result []unitNameK8sPod
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := st.checkApplicationNotDead(ctx, tx, appUUID)
 		if err != nil {

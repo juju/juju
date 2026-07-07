@@ -140,13 +140,13 @@ WHERE u.name=?`,
 	c.Assert(gotPorts, tc.SameContents, ports)
 }
 
-func (s *unitStateSuite) TestUpdateCAASUnitCloudContainer(c *tc.C) {
+func (s *unitStateSuite) TestUpdateCAASUnitK8sPod(c *tc.C) {
 	u := application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "some-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
-				Device: application.ContainerDevice{
+			Address: new(application.K8sPodAddress{
+				Device: application.K8sPodDevice{
 					Name:              "placeholder",
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
@@ -1669,10 +1669,10 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "foo-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
+			Address: new(application.K8sPodAddress{
 				Value: "10.6.6.6/24",
 			}),
 		},
@@ -1686,10 +1686,10 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "bar-id",
 			Ports:      new([]string{"777"}),
-			Address: new(application.ContainerAddress{
+			Address: new(application.K8sPodAddress{
 				Value: "10.6.6.7/24",
 			}),
 		},
@@ -1704,10 +1704,10 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 			UnitUUID:    tc.Must(c, coreunit.NewUUID),
 			NetNodeUUID: tc.Must(c, domainnetwork.NewNetNodeUUID),
 		},
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "zoo-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
+			Address: new(application.K8sPodAddress{
 				Value: "10.6.6.8/24",
 			}),
 		},
@@ -1737,11 +1737,11 @@ func (s *unitStateSuite) TestGetUnitsK8sPodInfo(c *tc.C) {
 func (s *unitStateSuite) TestGetUnitK8sPodInfo(c *tc.C) {
 	// Arrange:
 	appUUID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "some-id",
 			Ports:      new([]string{"666", "668"}),
-			Address: new(application.ContainerAddress{
-				Device: application.ContainerDevice{
+			Address: new(application.K8sPodAddress{
+				Device: application.K8sPodDevice{
 					Name:              "placeholder",
 					DeviceTypeID:      domainnetwork.DeviceTypeUnknown,
 					VirtualPortTypeID: domainnetwork.NonVirtualPortType,
@@ -1904,24 +1904,24 @@ VALUES (?, ?, ?, 1)
 	c.Check(gotNetNodeUUID, tc.Equals, netNodeUUID)
 }
 
-func (s *unitStateSuite) GetAllUnitCloudContainerIDsForApplication(c *tc.C) {
+func (s *unitStateSuite) GetAllUnitK8sPodIDsForApplication(c *tc.C) {
 	appID := s.createCAASApplication(c, "foo", life.Alive, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "a",
 		},
 	}, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "b",
 		},
 	})
 
 	_ = s.createCAASApplication(c, "bar", life.Alive, application.AddCAASUnitArg{
-		CloudContainer: &application.CloudContainer{
+		K8sPod: &application.K8sPod{
 			ProviderID: "c",
 		},
 	})
 
-	result, err := s.state.GetAllUnitCloudContainerIDsForApplication(c.Context(), appID)
+	result, err := s.state.GetAllUnitK8sPodIDsForApplication(c.Context(), appID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(result, tc.DeepEquals, map[coreunit.Name]string{
 		"foo/0": "a",

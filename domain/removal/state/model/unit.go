@@ -732,7 +732,7 @@ WHERE  uuid = $entityUUID.uuid;`, unitUUIDRec)
 	}
 
 	if err := st.deleteK8sPod(ctx, tx, unitUUID, netNodeUUIDRec.UUID); err != nil {
-		return errors.Errorf("deleting cloud container for unit %q: %w", unitUUID, err)
+		return errors.Errorf("deleting k8s pod for unit %q: %w", unitUUID, err)
 	}
 
 	if netNodeUUIDRec.UUID != "" {
@@ -815,11 +815,11 @@ WHERE  unit_uuid = $unitUUID.unit_uuid`, unitUUIDRec, entityAssociationCount{})
 	// Delete the k8s pod ports and addresses.
 
 	if err := st.deleteK8sPodPorts(ctx, tx, uUUID); err != nil {
-		return errors.Errorf("removing cloud container ports: %w", err)
+		return errors.Errorf("removing k8s pod ports: %w", err)
 	}
 
 	if err := st.deletedK8sPodAddresses(ctx, tx, netNodeUUID); err != nil {
-		return errors.Errorf("removing cloud container addresses: %w", err)
+		return errors.Errorf("removing k8s pod addresses: %w", err)
 	}
 
 	deleteK8sPodStmt, err := st.Prepare(`
@@ -856,10 +856,10 @@ WHERE net_node_uuid = $entityUUID.uuid`, netNodeIDRec)
 		return errors.Capture(err)
 	}
 	if err := tx.Query(ctx, deleteAddressStmt, netNodeIDRec).Run(); err != nil {
-		return errors.Errorf("removing cloud container addresses for %q: %w", netNodeID, err)
+		return errors.Errorf("removing k8s pod addresses for %q: %w", netNodeID, err)
 	}
 	if err := tx.Query(ctx, deleteDeviceStmt, netNodeIDRec).Run(); err != nil {
-		return errors.Errorf("removing cloud container link layer devices for %q: %w", netNodeID, err)
+		return errors.Errorf("removing k8s pod link layer devices for %q: %w", netNodeID, err)
 	}
 	return nil
 }
@@ -939,7 +939,7 @@ WHERE unit_uuid = $unitUUID.unit_uuid`, unitUUIDRec)
 		return errors.Capture(err)
 	}
 	if err := tx.Query(ctx, deleteStmt, unitUUIDRec).Run(); err != nil {
-		return errors.Errorf("removing cloud container ports: %w", err)
+		return errors.Errorf("removing k8s pod ports: %w", err)
 	}
 	return nil
 }

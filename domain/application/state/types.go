@@ -177,12 +177,12 @@ type unitStatusInfo struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-type cloudContainer struct {
+type k8sPod struct {
 	UnitUUID   string `db:"unit_uuid"`
 	ProviderID string `db:"provider_id"`
 }
 
-type unitNameCloudContainer struct {
+type unitNameK8sPod struct {
 	Name       string `db:"name"`
 	ProviderID string `db:"provider_id"`
 }
@@ -202,7 +202,7 @@ type k8sServiceDevice struct {
 	VirtualPortTypeID int    `db:"virtual_port_type_id"`
 }
 
-type cloudContainerDevice struct {
+type k8sPodDevice struct {
 	UUID              string `db:"uuid"`
 	Name              string `db:"name"`
 	NetNodeID         string `db:"net_node_uuid"`
