@@ -68,7 +68,8 @@ type format_2_0Serialization struct {
 	DqliteBusyTimeout     time.Duration `yaml:"dqlitebusytimeout,omitempty"`
 
 	OpenTelemetryEnabled               bool          `yaml:"opentelemetryenabled,omitempty"`
-	OpenTelemetryEndpoint              string        `yaml:"opentelemetryendpoint,omitempty"`
+	OpenTelemetryHTTPEndpoint          string        `yaml:"opentelemetryhttpendpoint,omitempty"`
+	OpenTelemetryGRPCEndpoint          string        `yaml:"opentelemetrygrpcendpoint,omitempty"`
 	OpenTelemetryInsecure              bool          `yaml:"opentelemetryinsecure,omitempty"`
 	OpenTelemetryStackTraces           bool          `yaml:"opentelemetrystacktraces,omitempty"`
 	OpenTelemetrySampleRatio           string        `yaml:"opentelemetrysampleratio,omitempty"`
@@ -135,6 +136,8 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		dqliteBusyTimeout:     format.DqliteBusyTimeout,
 
 		openTelemetryEnabled:               format.OpenTelemetryEnabled,
+		openTelemetryHTTPEndpoint:          format.OpenTelemetryHTTPEndpoint,
+		openTelemetryGRPCEndpoint:          format.OpenTelemetryGRPCEndpoint,
 		openTelemetryInsecure:              format.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           format.OpenTelemetryStackTraces,
 		openTelemetryTailSamplingThreshold: format.OpenTelemetryTailSamplingThreshold,
@@ -157,9 +160,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 
-	if format.OpenTelemetryEndpoint != "" {
-		config.openTelemetryEndpoint = format.OpenTelemetryEndpoint
-	}
 	if format.OpenTelemetrySampleRatio != "" {
 		sampleRatio, err := strconv.ParseFloat(format.OpenTelemetrySampleRatio, 64)
 		if err != nil {
@@ -201,6 +201,8 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		DqliteBusyTimeout:     config.dqliteBusyTimeout,
 
 		OpenTelemetryEnabled:               config.openTelemetryEnabled,
+		OpenTelemetryHTTPEndpoint:          config.openTelemetryHTTPEndpoint,
+		OpenTelemetryGRPCEndpoint:          config.openTelemetryGRPCEndpoint,
 		OpenTelemetryInsecure:              config.openTelemetryInsecure,
 		OpenTelemetryStackTraces:           config.openTelemetryStackTraces,
 		OpenTelemetryTailSamplingThreshold: config.openTelemetryTailSamplingThreshold,
@@ -218,9 +220,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	if config.apiDetails != nil {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
-	}
-	if config.openTelemetryEndpoint != "" {
-		format.OpenTelemetryEndpoint = config.openTelemetryEndpoint
 	}
 	if config.openTelemetrySampleRatio != 0 {
 		format.OpenTelemetrySampleRatio = fmt.Sprintf("%.04f", config.openTelemetrySampleRatio)

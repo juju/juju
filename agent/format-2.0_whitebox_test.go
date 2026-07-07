@@ -115,7 +115,8 @@ func (*format_2_0Suite) TestOpenTelemetry(c *tc.C) {
 	config.configFilePath = ""
 
 	config.SetOpenTelemetryEnabled(true)
-	config.SetOpenTelemetryEndpoint("http://foo.bar")
+	config.SetOpenTelemetryHTTPEndpoint("http://foo.bar")
+	config.SetOpenTelemetryGRPCEndpoint("foo.bar:4317")
 	config.SetOpenTelemetryInsecure(true)
 	config.SetOpenTelemetryStackTraces(true)
 	config.SetOpenTelemetrySampleRatio(0.5)
@@ -128,7 +129,8 @@ func (*format_2_0Suite) TestOpenTelemetry(c *tc.C) {
 
 	c.Check(newConfig, tc.DeepEquals, config)
 	c.Check(newConfig.OpenTelemetryEnabled(), tc.IsTrue)
-	c.Check(newConfig.OpenTelemetryEndpoint(), tc.Equals, "http://foo.bar")
+	c.Check(newConfig.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://foo.bar")
+	c.Check(newConfig.OpenTelemetryGRPCEndpoint(), tc.Equals, "foo.bar:4317")
 	c.Check(newConfig.OpenTelemetryInsecure(), tc.IsTrue)
 	c.Check(newConfig.OpenTelemetryStackTraces(), tc.IsTrue)
 	c.Check(newConfig.OpenTelemetrySampleRatio(), tc.Equals, 0.5)
