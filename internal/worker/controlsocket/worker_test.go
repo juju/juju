@@ -958,8 +958,8 @@ func (s *workerSuite) TestWorkloadTracingConfigSuccessWithOpenTelemetryOptions(c
 		endpoint: "/workload-tracing-config",
 		body: `{"http_endpoint":"http://localhost:4318","grpc_endpoint":"localhost:4317","ca_cert":"ca-data",` +
 			`"insecure_skip_verify":true,` +
-			`"open_telemetry_stack_traces":true,"open_telemetry_sample_ratio":0.5,` +
-			`"open_telemetry_tail_sampling_threshold":"250ms"}`,
+			`"stack_traces":true,"sample_ratio":0.5,` +
+			`"tail_sampling_threshold":"250ms"}`,
 		statusCode: http.StatusOK,
 		response:   `.*updated workload tracing config.*`,
 	})
@@ -980,7 +980,7 @@ func (s *workerSuite) TestWorkloadTracingConfigInvalid(c *tc.C) {
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/workload-tracing-config",
-		body:       `{"open_telemetry_sample_ratio":1.42}`,
+		body:       `{"sample_ratio":1.42}`,
 		statusCode: http.StatusBadRequest,
 		response:   `.*invalid workload tracing config.*`,
 	})
