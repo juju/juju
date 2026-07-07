@@ -226,7 +226,7 @@ details; the TLDRs are roughly:
   bounces.
 * You *might* want to run your own `dependency.Engine`, but you're
   rather more likely to need to add a task to the `Manifolds` func in
-  the relevant subpackages of `cmd/jujuagentd/agent` (depending on what
+  the relevant subpackages of `cmd/jujud/agent` (depending on what
   agent the task needs to run in).
 
 ...and:
@@ -273,7 +273,7 @@ running in a `dependency.Engine` at all.)
 
 Next time someone has a moment while doing agent work, they should just
 dump all the manifold implementations in appropriate subpackages of
-`./cmd/jujuagentd/agent` and see where that takes us. Will almost certainly
+`./cmd/jujud/agent` and see where that takes us. Will almost certainly
 be progress...
 
 ### Use Watchers But Know What You're Doing

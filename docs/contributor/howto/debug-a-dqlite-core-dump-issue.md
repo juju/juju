@@ -28,7 +28,7 @@ If the results show `(core dumped)`, you have a core dump issue.
 
 ````{dropdown} Example results that point to a core dump issue
 ```text
-/etc/systemd/system/jujud-machine-0-exec-start.sh: line 11: 5862 Segmentation fault (core dumped) '/var/lib/juju/tools/machine-0/jujuagentd' machine --data-dir '/var/lib/juju' --machine-id 0 --debug
+/etc/systemd/system/jujud-machine-0-exec-start.sh: line 11: 5862 Segmentation fault (core dumped) '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug
 ```
 or
 ```text
@@ -39,7 +39,7 @@ signal: aborted (core dumped)
 
 ## Retrieve the core dump backtrace
 
-1. Open juju/Makefile and, in [the line with `CGO_LINK_FLAGS`](https://github.com/juju/juju/blob/528c205d9995d3fb85ac041ad79495dff8ee4eda/Makefile#L225), remove the `-s` flag. This will ensure that the `jujuagentd` binary contains the debug symbols.
+1. Open juju/Makefile and, in [the line with `CGO_LINK_FLAGS`](https://github.com/juju/juju/blob/528c205d9995d3fb85ac041ad79495dff8ee4eda/Makefile#L225), remove the `-s` flag. This will ensure that the `jujud-controller` binary contains the debug symbols.
 
 2. Bootstrap a controller with the modified binary. Once the controller is running, SSH into the controller machine (usually machine 0) and install the `gdb` package:
 
@@ -57,7 +57,7 @@ $ sudo systemctl stop jujud-machine-0.service
 4. Start the controller with `gdb` and reproduce the crash:
 
 ```bash
-$ LIBDQLITE_TRACE=1 gdb -ex=r --args /var/lib/juju/tools/machine-0/jujuagentd machine --data-dir "/var/lib/juju" --machine-id 0 --debug
+$ LIBDQLITE_TRACE=1 gdb -ex=r --args /var/lib/juju/tools/machine-0/jujud machine --data-dir "/var/lib/juju" --machine-id 0 --debug
 ```
 
 This will run the controller. You should keep it running until you reproduce the crash.
