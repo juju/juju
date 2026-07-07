@@ -338,6 +338,57 @@ func (s *unitStateSuite) TestRegisterCAASUnitDuplicateFQDN(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `.*fqdn address ".*" already exists.*`)
 }
 
+// TestUpdateCAASUnitSetsFQDN verifies that the FQDN supplied to UpdateCAASUnit
+// (the flow used at bootstrap for controller/0) is persisted as a local-cloud
+// fqdn_address row linked to the unit's net_node, in the same flow that upserts
+// the k8s pod. It is also idempotent across repeated updates.
+func (s *unitStateSuite) TestUpdateCAASUnitSetsFQDN(c *tc.C) {
+	u := application.AddCAASUnitArg{
+		K8sPod: &application.K8sPod{
+			ProviderID: "some-id",
+		},
+	}
+	appUUID := s.createCAASApplication(c, "foo", life.Alive, u)
+
+	unitNames, err := s.state.GetUnitNamesForApplication(c.Context(), appUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	fqdn := "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+	params := application.UpdateCAASUnitParams{
+		ProviderID: new("some-id"),
+		FQDN:       &fqdn,
+	}
+	err = s.state.UpdateCAASUnit(c.Context(), unitNames[0], params)
+	c.Assert(err, tc.ErrorIsNil)
+
+	assertFQDN := func() {
+		var (
+			gotAddress string
+			gotScopeID int
+			gotCount   int
+		)
+		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+			return tx.QueryRowContext(ctx, `
+SELECT fa.address, fa.scope_id, count(*)
+FROM   fqdn_address AS fa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
+JOIN   unit AS un ON un.net_node_uuid = nnfa.net_node_uuid
+WHERE  un.name = ?`, unitNames[0].String()).Scan(&gotAddress, &gotScopeID, &gotCount)
+		})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(gotAddress, tc.Equals, fqdn)
+		c.Check(gotScopeID, tc.Equals, 1)
+		c.Check(gotCount, tc.Equals, 1)
+	}
+	assertFQDN()
+
+	// A repeated update with the same FQDN is a no-op (the k8s pod is upserted
+	// again) rather than an error.
+	err = s.state.UpdateCAASUnit(c.Context(), unitNames[0], params)
+	c.Assert(err, tc.ErrorIsNil)
+	assertFQDN()
+}
+
 func (s *unitStateSuite) TestRegisterCAASUnitErrorNotScaling(c *tc.C) {
 	s.createCAASScalingApplication(c, "foo", life.Alive, 1)
 

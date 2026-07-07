@@ -110,11 +110,6 @@ type AddUnitArg struct {
 	// StorageInstancesToAttach contains the list of existing Storage instance
 	// UUIDs to be attached to this unit.
 	StorageInstancesToAttach []domainstorage.StorageInstanceUUID
-
-	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
-	// persist as the unit's network identity. It is currently only supplied
-	// for controller CAAS units; it is a no-op for all other callers.
-	FQDN *string
 }
 
 // AddIAASUnitArg contains parameters for adding a IAAS unit to the model.
@@ -154,6 +149,11 @@ type UpdateCAASUnitParams struct {
 	AgentStatus    *status.StatusInfo
 	WorkloadStatus *status.StatusInfo
 	K8sPodStatus   *status.StatusInfo
+
+	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
+	// persist as the unit's network identity. It is currently only supplied
+	// for controller units.
+	FQDN *string
 }
 
 // ScalingState contains attributes that describes

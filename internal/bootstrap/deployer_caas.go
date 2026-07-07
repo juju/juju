@@ -99,10 +99,6 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 	}
 
 	unitArg := applicationservice.AddUnitArg{}
-	if b.controllerFQDN != "" {
-		fqdn := b.controllerFQDN
-		unitArg.FQDN = &fqdn
-	}
 
 	if _, err := b.applicationService.CreateCAASApplication(ctx,
 		bootstrap.ControllerApplicationName,
@@ -143,9 +139,16 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 	}
 
 	providerID := controllerProviderID(controllerUnit)
-	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnit, applicationservice.UpdateCAASUnitParams{
+	updateParams := applicationservice.UpdateCAASUnitParams{
 		ProviderID: &providerID,
-	}); err != nil {
+	}
+	// Persist the controller pod's stable FQDN as the unit's network identity,
+	// in the same flow that upserts the k8s pod (provider id).
+	if d.controllerFQDN != "" {
+		fqdn := d.controllerFQDN
+		updateParams.FQDN = &fqdn
+	}
+	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnit, updateParams); err != nil {
 		return errors.Errorf("updating controller unit: %w", err)
 	}
 	if err := d.passwordService.SetUnitPassword(ctx, controllerUnit, d.unitPassword); err != nil {

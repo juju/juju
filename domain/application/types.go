@@ -166,6 +166,17 @@ type K8sPod struct {
 	ProviderID string
 	Address    *K8sPodAddress
 	Ports      *[]string
+
+	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
+	// persist as the unit's network identity (an fqdn_address row linked to
+	// the unit's net_node). It is currently only supplied for controller
+	// units.
+	FQDN *string
+
+	// FQDNScope is the network_address_scope id to persist for FQDN. It is
+	// only meaningful when FQDN is set, and is defaulted in makeK8sPodArg
+	// alongside the pod address scope.
+	FQDNScope int
 }
 
 // K8sPodDevice is the placeholder link layer device
@@ -193,12 +204,6 @@ type K8sPodAddress struct {
 type AddCAASUnitArg struct {
 	AddUnitArg
 	K8sPod *K8sPod
-
-	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
-	// persist as the unit's network identity (an fqdn_address row linked to
-	// the unit's net_node). It is currently only supplied for controller
-	// units.
-	FQDN *string
 }
 
 // AddUnitArg contains parameters for adding a unit to state.
@@ -296,6 +301,11 @@ type UpdateCAASUnitParams struct {
 	AgentStatus    *status.StatusInfo[status.UnitAgentStatusType]
 	WorkloadStatus *status.StatusInfo[status.WorkloadStatusType]
 	K8sPodStatus   *status.StatusInfo[status.K8sPodStatusType]
+
+	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
+	// persist as the unit's network identity. It is currently only supplied
+	// for controller units.
+	FQDN *string
 }
 
 // K8sPodParams contains parameters for a unit k8s pod.
@@ -304,6 +314,11 @@ type K8sPodParams struct {
 	Address       *network.SpaceAddress
 	AddressOrigin *network.Origin
 	Ports         *[]string
+
+	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
+	// persist as the unit's network identity. It is currently only supplied
+	// for controller units.
+	FQDN *string
 }
 
 // CharmDownloadInfo contains parameters for downloading a charm.

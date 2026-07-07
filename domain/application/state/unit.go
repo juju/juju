@@ -804,10 +804,25 @@ func (st *State) getUnitDetails(ctx context.Context, tx *sqlair.TX, unitName str
 	return &unit, nil
 }
 
+// networkAddressScopeLocalCloud is the network_address_scope id for the
+// "local-cloud" scope. NOTE: this is the network_address_scope lookup table
+// (used by fqdn_address/hostname_address), which is distinct from the
+// ip_address_scope table used by ip_address. In network_address_scope:
+// local-host=0, local-cloud=1, public=2. The fqdn_address CHECK constraint
+// forbids local-host.
+const networkAddressScopeLocalCloud = 1
+
 func makeK8sPodArg(unitName coreunit.Name, k8sPod application.K8sPodParams) *application.K8sPod {
 	result := &application.K8sPod{
 		ProviderID: k8sPod.ProviderID,
 		Ports:      k8sPod.Ports,
+	}
+	if k8sPod.FQDN != nil {
+		result.FQDN = k8sPod.FQDN
+		// Pod FQDNs are resolvable within the cluster, so default them to the
+		// local-cloud network address scope. Set here alongside the pod
+		// address scope rather than in the state insert helper.
+		result.FQDNScope = networkAddressScopeLocalCloud
 	}
 	if k8sPod.Address != nil {
 		// TODO(units) - handle the k8sPod.Address space ID
@@ -853,6 +868,7 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 	k8sPodParams := application.K8sPodParams{
 		ProviderID: arg.ProviderID,
 		Ports:      arg.Ports,
+		FQDN:       arg.FQDN,
 	}
 	if arg.Address != nil {
 		addr := network.NewSpaceAddress(*arg.Address, network.WithScope(network.ScopeMachineLocal))
@@ -881,7 +897,6 @@ func (st *State) RegisterCAASUnit(ctx context.Context, appName string, arg appli
 			},
 		},
 		K8sPod: k8sPod,
-		FQDN:   arg.FQDN,
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -1047,7 +1062,6 @@ func (st *State) insertCAASUnitWithName(
 		K8sPod:        args.K8sPod,
 		Constraints:   args.Constraints,
 		UnitStatusArg: args.UnitStatusArg,
-		FQDN:          args.FQDN,
 	})
 	if err != nil {
 		return "", errors.Errorf("inserting unit for CAAS application %q: %w", appUUID, err)
@@ -1145,6 +1159,7 @@ func (st *State) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, par
 		k8sPodParams := application.K8sPodParams{
 			ProviderID: *params.ProviderID,
 			Ports:      params.Ports,
+			FQDN:       params.FQDN,
 		}
 		if params.Address != nil {
 			addr := network.NewSpaceAddress(*params.Address, network.WithScope(network.ScopeMachineLocal))

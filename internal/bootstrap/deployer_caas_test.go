@@ -4,7 +4,6 @@
 package bootstrap
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/tc"
 
-	coreapplication "github.com/juju/juju/core/application"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	network "github.com/juju/juju/core/network"
@@ -169,58 +167,27 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-func (s *deployerCAASSuite) TestAddCAASControllerApplicationSetsFQDN(c *tc.C) {
+func (s *deployerCAASSuite) TestCompleteCAASProcessSetsFQDN(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cfg := s.newConfig(c)
 	const fqdn = "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
 	cfg.ControllerFQDN = fqdn
 
-	var gotUnitArgs []applicationservice.AddUnitArg
-	s.caasApplicationService.EXPECT().CreateCAASApplication(
-		gomock.Any(), bootstrap.ControllerApplicationName, s.charm, gomock.Any(), gomock.Any(), gomock.Any(),
-	).DoAndReturn(func(
-		_ context.Context,
-		_ string,
-		_ charm.Charm,
-		_ corecharm.Origin,
-		_ applicationservice.AddApplicationArgs,
-		units ...applicationservice.AddUnitArg,
-	) (coreapplication.UUID, error) {
-		gotUnitArgs = units
-		return "", nil
+	unitName := unit.Name("controller/0")
+
+	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), gomock.Any()).Return(nil)
+	// The controller FQDN is persisted in the same flow that upserts the k8s
+	// pod (provider id), i.e. via UpdateCAASUnit.
+	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
+		ProviderID: new("controller-0"),
+		FQDN:       new(fqdn),
 	})
+	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-
-	origin := corecharm.Origin{
-		Source:   corecharm.CharmHub,
-		Type:     "charm",
-		Channel:  &charm.Channel{},
-		Revision: new(1),
-		Hash:     "sha-256",
-		Platform: corecharm.Platform{
-			Architecture: "arm64",
-			OS:           "ubuntu",
-			Channel:      "22.04",
-		},
-	}
-	err := deployer.AddCAASControllerApplication(c.Context(), DeployCharmInfo{
-		URL:    charm.MustParseURL("ch:juju-controller-0"),
-		Charm:  s.charm,
-		Origin: &origin,
-		DownloadInfo: &corecharm.DownloadInfo{
-			CharmhubIdentifier: "abcd",
-			DownloadURL:        "https://inferi.com",
-			DownloadSize:       42,
-		},
-		ArchivePath:     "path",
-		ObjectStoreUUID: "1234",
-	})
+	err := deployer.CompleteCAASProcess(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotUnitArgs, tc.HasLen, 1)
-	c.Assert(gotUnitArgs[0].FQDN, tc.NotNil)
-	c.Check(*gotUnitArgs[0].FQDN, tc.Equals, fqdn)
 }
 
 func (s *deployerCAASSuite) newDeployer(c *tc.C) *CAASDeployer {

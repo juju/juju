@@ -965,7 +965,6 @@ func (s *ProviderService) makeCAASUnitArgs(
 				Placement:            placement,
 				UnitStatusArg:        s.makeCAASUnitStatusArgs(),
 			},
-			FQDN: u.FQDN,
 		}
 		args[i] = arg
 	}
@@ -1037,6 +1036,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 		AgentStatus:    agentStatus,
 		WorkloadStatus: workloadStatus,
 		K8sPodStatus:   k8sPodStatus,
+		FQDN:           params.FQDN,
 	}
 
 	if err := s.st.UpdateCAASUnit(ctx, unitName, cassUnitUpdate); err != nil {
