@@ -79,6 +79,14 @@ Juju will check the default location for the kubeconfig file and  use the inform
 
 The command also allows you to specify a non-default kubeconfig file path (via the `KUBECONFIG` environment variable); in the case where you have multiple cluster definitions and credentials in your kubeconfig file, which cluster and credential to use; what name you want to assign to your new cloud; whether you want to make this cloud known just to the client or also to an existing controller (the latter gives rise to what is known as a multi-cloud controller); etc.
 
+Juju also needs a storage class for workload storage. If it cannot detect one automatically, use `--storage <storage-class-name>` to specify (or create) one. For example:
+
+```text
+juju add-k8s <cloud name> --storage ceph-rbd
+```
+
+If the cluster has no storage provisioning capability at all, use `--skip-storage` to add it without workload storage.
+
 ```{ibnote}
 See more: {ref}`command-juju-add-k8s`
 ```
