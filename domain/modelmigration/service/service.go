@@ -745,8 +745,8 @@ func (s *Service) MarkModelAsGone(ctx context.Context) error {
 	// namespace is no longer listed after the purge, so the database cannot
 	// be opened again; failing to delete it only leaks unreferenced data.
 	if err := s.modelDBDeleter.DeleteModelDB(ctx, s.modelUUID); err != nil {
-		s.logger.Warningf(ctx,
-			"model %q was reaped but deleting its database failed; "+
+		s.logger.Errorf(ctx,
+			"model %q was REAPed but deleting its database failed; "+
 				"the database is unreachable and only leaks storage: %v",
 			s.modelUUID, err)
 	}

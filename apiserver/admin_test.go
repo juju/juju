@@ -5,6 +5,8 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"net/http"
@@ -407,8 +409,108 @@ func (s *loginSuite) testLoginDuringMaintenance(c *tc.C, check func(api.Connecti
 	check(st)
 }
 
+// seedMigratedModelRedirect seeds a completed migration redirect snapshot for
+// a model that no longer exists on this controller, plus the captured model
+// access for the given user names. This is the state source REAP leaves
+// behind after a successful migration.
+func (s *loginSuite) seedMigratedModelRedirect(c *tc.C, modelUUID string, userNames ...string) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_redirect (model_uuid, source_migration_uuid,
+    target_controller_uuid, target_controller_alias, target_addresses,
+    target_ca_cert, created_at, completed_at)
+VALUES (?, ?, ?, 'target-alias', '10.10.10.10:17070', 'target-ca-cert',
+    DATETIME('now', 'utc'), DATETIME('now', 'utc'))`,
+			modelUUID, uuid.MustNewUUID().String(), uuid.MustNewUUID().String()); err != nil {
+			return err
+		}
+		for _, name := range userNames {
+			if _, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_redirect_user (model_uuid, user_uuid, user_name, access)
+VALUES (?, ?, ?, 'admin')`,
+				modelUUID, uuid.MustNewUUID().String(), name); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMigratedModelLoginRedirect asserts a user with captured model access at
+// migration time is redirected to the target controller.
 func (s *loginSuite) TestMigratedModelLoginRedirect(c *tc.C) {
-	c.Skip("check login to a migrated model results in a redirect")
+	modelUUID := uuid.MustNewUUID().String()
+	s.seedMigratedModelRedirect(c, modelUUID, jujutesting.AdminUser.Id())
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID)
+	request := &params.LoginRequest{
+		AuthTag:       jujutesting.AdminUser.String(),
+		Credentials:   jujutesting.AdminSecret,
+		ClientVersion: jujuversion.Current.String(),
+	}
+	var result params.LoginResult
+	err := st.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected redirect error, got %v", err))
+	c.Check(rErr.Code, tc.Equals, params.CodeRedirect)
+}
+
+// TestMigratedModelLoginRedirectAnonymous asserts anonymous logins are always
+// redirected so cross-model relations keep working after migration.
+func (s *loginSuite) TestMigratedModelLoginRedirectAnonymous(c *tc.C) {
+	modelUUID := uuid.MustNewUUID().String()
+	// No captured users: anonymous must be redirected regardless.
+	s.seedMigratedModelRedirect(c, modelUUID)
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID)
+	request := &params.LoginRequest{
+		AuthTag: names.NewUserTag(api.AnonymousUsername).String(),
+	}
+	var result params.LoginResult
+	err := st.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected redirect error, got %v", err))
+	c.Check(rErr.Code, tc.Equals, params.CodeRedirect)
+}
+
+// TestMigratedModelLoginNoAccessNotRedirected asserts a user with no captured
+// model access is not redirected: the migrated model's new location must not
+// leak to users who had no access to it.
+func (s *loginSuite) TestMigratedModelLoginNoAccessNotRedirected(c *tc.C) {
+	accessService := s.ControllerDomainServices(c).Access()
+	password := "dummy-password"
+	tag := names.NewUserTag("bobbrown")
+	_, _, err := accessService.AddUser(c.Context(), accessservice.AddUserArg{
+		Name:        user.NameFromTag(tag),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    new(auth.NewPassword(password)),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelUUID := uuid.MustNewUUID().String()
+	s.seedMigratedModelRedirect(c, modelUUID, jujutesting.AdminUser.Id())
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID)
+	request := &params.LoginRequest{
+		AuthTag:       tag.String(),
+		Credentials:   password,
+		ClientVersion: jujuversion.Current.String(),
+	}
+	var result params.LoginResult
+	err = st.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected login error, got %v", err))
+	c.Check(rErr.Code, tc.Equals, params.CodeUnauthorized)
+	c.Check(rErr.Message, tc.Equals, "invalid entity name or password")
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *tc.C) {
