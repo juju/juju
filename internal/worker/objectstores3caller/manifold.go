@@ -21,7 +21,7 @@ import (
 )
 
 // NewClientFunc is a function that returns a new S3 client.
-type NewClientFunc = func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger logger.Logger) (objectstore.Session, error)
+type NewClientFunc = func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger logger.Logger, region string) (objectstore.Session, error)
 
 // GetControllerConfigServiceFunc is a helper function that gets a service from
 // the manifold.
@@ -153,11 +153,12 @@ func outputWorker(in worker.Worker) (objectstore.Client, error) {
 }
 
 // NewS3Client returns a new S3 client based on the supplied dependencies.
-func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger logger.Logger) (objectstore.Session, error) {
+func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger logger.Logger, region string) (objectstore.Session, error) {
 	return s3client.NewS3Client(endpoint, client, creds,
 		s3client.WithLogger(logger),
 		s3client.WithMaxAttempts(10),
 		s3client.WithRateLimiting(false),
+		s3client.WithRegion(region),
 	)
 }
 

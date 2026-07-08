@@ -283,6 +283,40 @@ func (s *workerSuite) TestSessionIsNotChanged(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
+func (s *workerSuite) TestRegionPassedToNewClient(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	config := testing.FakeControllerConfig()
+	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+	config[controller.ObjectStoreS3Region] = "eu-west-1"
+
+	s.expectClock()
+	s.expectControllerConfig(c, config)
+	s.expectControllerConfigWatch(c)
+
+	var capturedRegion string
+	cfg := s.getConfig()
+	cfg.NewClient = func(_ string, _ s3client.HTTPClient, _ s3client.Credentials, _ logger.Logger, region string) (objectstore.Session, error) {
+		atomic.AddInt64(&s.sessionRefCount, 1)
+		capturedRegion = region
+		return s.session, nil
+	}
+
+	worker, err := newWorker(cfg, s.states)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+
+	s.ensureStartup(c)
+
+	c.Check(capturedRegion, tc.Equals, "eu-west-1")
+
+	workertest.CleanKill(c, worker)
+}
+
+func (s *workerSuite) TestContainsObjectStoreKeyRegion(c *tc.C) {
+	c.Check(containsObjectStoreKey([]string{controller.ObjectStoreS3Region}), tc.IsTrue)
+}
+
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	atomic.StoreInt64(&s.sessionRefCount, 0)
 	return s.baseSuite.setupMocks(c)
@@ -298,7 +332,7 @@ func (s *workerSuite) getConfig() workerConfig {
 	return workerConfig{
 		ControllerConfigService: s.controllerConfigService,
 		HTTPClient:              s.httpClient,
-		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger) (objectstore.Session, error) {
+		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger, string) (objectstore.Session, error) {
 			atomic.AddInt64(&s.sessionRefCount, 1)
 			return s.session, nil
 		},
