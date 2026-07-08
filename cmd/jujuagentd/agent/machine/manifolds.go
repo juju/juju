@@ -121,6 +121,7 @@ import (
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/traceconfigupdater"
 	"github.com/juju/juju/internal/worker/traceservices"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
@@ -604,6 +605,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentConfigChanged: config.AgentConfigChanged,
 			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
+
+		traceConfigUpdaterName: ifNotController(ifNotMigrating(traceconfigupdater.Manifold(traceconfigupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             internallogger.GetLogger("juju.worker.traceconfigupdater"),
+		}))),
 
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
@@ -1641,6 +1649,7 @@ const (
 	leaseManagerName                   = "lease-manager"
 	loggingConfigUpdaterName           = "logging-config-updater"
 	lokiEndpointUpdaterName            = "loki-endpoint-updater"
+	traceConfigUpdaterName             = "trace-config-updater"
 	logSinkName                        = "log-sink"
 	controllerLogSinkName              = "controller-log-sink"
 	nonControllerLogSinkName           = "non-controller-log-sink"

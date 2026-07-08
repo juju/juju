@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/simplesignalhandler"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/traceconfigupdater"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/units3caller"
 	"github.com/juju/juju/internal/worker/upgradestepsagent"
@@ -354,6 +355,13 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
+		traceConfigUpdaterName: ifNotMigrating(traceconfigupdater.Manifold(traceconfigupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             internallogger.GetLogger("juju.worker.traceconfigupdater"),
+		})),
+
 		pebbleLokiConfigName: ifNotMigrating(pebblelokiconfig.Manifold(pebblelokiconfig.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
@@ -522,6 +530,7 @@ const (
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
 	lokiEndpointUpdaterName  = "loki-endpoint-updater"
+	traceConfigUpdaterName   = "trace-config-updater"
 	pebbleLokiConfigName     = "pebble-loki-config"
 	apiAddressUpdaterName    = "api-address-updater"
 

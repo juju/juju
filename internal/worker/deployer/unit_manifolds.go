@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/worker/retrystrategy"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/trace"
+	"github.com/juju/juju/internal/worker/traceconfigupdater"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/units3caller"
 	"github.com/juju/juju/internal/worker/upgrader"
@@ -220,6 +221,13 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Logger:             config.LoggerContext.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
+		traceConfigUpdaterName: ifNotMigrating(traceconfigupdater.Manifold(traceconfigupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             config.LoggerContext.GetLogger("juju.worker.traceconfigupdater"),
+		})),
+
 		// The api address updater is a leaf worker that rewrites agent config
 		// as the controller addresses change. We should only need one of
 		// these in a consolidated agent.
@@ -325,6 +333,7 @@ const (
 
 	loggingConfigUpdaterName = "logging-config-updater"
 	lokiEndpointUpdaterName  = "loki-endpoint-updater"
+	traceConfigUpdaterName   = "trace-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 
 	charmDirName          = "charm-dir"
