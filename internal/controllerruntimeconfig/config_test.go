@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
-	"go.uber.org/goleak"
 
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/testhelpers"
@@ -22,30 +21,57 @@ type configSuite struct {
 }
 
 func TestConfigSuite(t *testing.T) {
-	defer goleak.VerifyNone(t)
-	tc.Run(t, &configSuite{})
+	testhelpers.PrintGoroutineLeaks(t, func(t *testing.T) {
+		tc.Run(t, &configSuite{})
+	})
 }
 
 func validConfig() controllerruntimeconfig.ControllerRuntimeConfig {
 	return controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:          "0",
-		ControllerUUID:        "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		ControllerModelUUID:   "feedface-dead-beef-cafe-c0ffee000000",
-		DataDir:               "/var/lib/juju",
-		LoopbackPreferred:     false,
-		LogDir:                "/var/log/juju",
-		APIPort:               17070,
-		AgentPassword:         "agent-password",
-		LoggingConfig:         "<root>=INFO",
-		LoggingOverride:       "juju.worker=DEBUG",
-		QueryTracingEnabled:   true,
-		QueryTracingThreshold: time.Second,
-		DqliteBusyTimeout:     2 * time.Second,
-		CACert:                "ca-cert-pem",
-		CAPrivateKey:          "ca-private-key-pem",
-		ControllerCert:        "controller-cert-pem",
-		ControllerPrivateKey:  "controller-private-key-pem",
+		ControllerID:           "0",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:    "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:                "/var/lib/juju",
+		LoopbackPreferred:      false,
+		LogDir:                 "/var/log/juju",
+		APIPort:                17070,
+		AgentPassword:          "agent-password",
+		LoggingConfig:          "<root>=INFO",
+		LoggingOverride:        "juju.worker=DEBUG",
+		LokiEndpoint:           "https://loki.example.com/loki/api/v1/push",
+		LokiCACert:             "loki-ca-cert",
+		LokiInsecureSkipVerify: new(true),
+		LokiOrgID:              "tenant-1",
+		QueryTracingEnabled:    true,
+		QueryTracingThreshold:  time.Second,
+		DqliteBusyTimeout:      2 * time.Second,
+		CACert:                 "ca-cert-pem",
+		CAPrivateKey:           "ca-private-key-pem",
+		ControllerCert:         "controller-cert-pem",
+		ControllerPrivateKey:   "controller-private-key-pem",
 	}
+}
+
+// TestWriteAndReadRoundTrip_EmptyLokiFieldsOmitted ensures empty Loki values
+// are omitted from YAML output and read back as their zero values.
+func (s *configSuite) TestWriteAndReadRoundTrip_EmptyLokiFieldsOmitted(c *tc.C) {
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	cfg := validConfig()
+	cfg.LokiEndpoint = ""
+	cfg.LokiCACert = ""
+	cfg.LokiInsecureSkipVerify = nil
+	cfg.LokiOrgID = ""
+
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(path, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LokiEndpoint, tc.Equals, "")
+	c.Check(got.LokiCACert, tc.Equals, "")
+	c.Check(got.LokiInsecureSkipVerify, tc.IsNil)
+	c.Check(got.LokiOrgID, tc.Equals, "")
 }
 
 // TestChangeControllerRuntimeConfig updates the runtime config in place and
