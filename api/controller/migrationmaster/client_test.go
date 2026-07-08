@@ -284,29 +284,6 @@ func (s *ClientSuite) TestOpenResource(c *tc.C) {
 	c.Check(doer.url, tc.Equals, "/applications/app/resources/blob")
 }
 
-func (s *ClientSuite) TestReap(c *tc.C) {
-	var stub testhelpers.Stub
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
-		stub.AddCall(objType+"."+request, id, arg)
-		return nil
-	})
-	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Reap(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-	stub.CheckCalls(c, []testhelpers.StubCall{
-		{FuncName: "MigrationMaster.Reap", Args: []any{"", nil}},
-	})
-}
-
-func (s *ClientSuite) TestReapError(c *tc.C) {
-	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, any, any) error {
-		return errors.New("blam")
-	})
-	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Reap(c.Context())
-	c.Assert(err, tc.ErrorMatches, "blam")
-}
-
 func (s *ClientSuite) TestWatchMinionReports(c *tc.C) {
 	var stub testhelpers.Stub
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {

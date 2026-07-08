@@ -253,22 +253,6 @@ func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationSt
 	return nil
 }
 
-// Reap removes all documents for the model associated with the API
-// connection.
-func (api *API) Reap(ctx context.Context) error {
-	// TODO(modelmigration): handle setting model redirection/marking the model
-	// as gone.
-
-	// We need to mark the migration as complete here, since removing
-	// the model might kill the worker before it has a chance to set
-	// the phase itself.
-	err := api.modelMigrationService.SetMigrationPhase(ctx, coremigration.DONE)
-	if err != nil {
-		return errors.Annotate(err, "failed to set phase")
-	}
-	return nil
-}
-
 // WatchMinionReports sets up a watcher which reports when a report
 // for a migration minion has arrived.
 func (api *API) WatchMinionReports(ctx context.Context) params.NotifyWatchResult {
