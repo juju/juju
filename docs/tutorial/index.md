@@ -439,13 +439,11 @@ Deployed "self-signed-certificates" from charm-hub charm "self-signed-certificat
 
 ```
 
-Since `postgresql-k8s` and `self-signed-certificates` could be integrated over either the `tls-certificates` interface or the `certificate_transfer` interface, we'll need to specify the endpoints explicitly when integrating:
-
 ```{terminal}
 :copy:
 :user: ubuntu
 :host: my-juju-vm
-juju integrate postgresql-k8s:certificates self-signed-certificates:certificates
+juju integrate self-signed-certificates:certificates postgresql-k8s:certificates
 
 ```
 
