@@ -24,7 +24,6 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/cmd"
-	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/safemode"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
@@ -278,7 +277,7 @@ func (a *SafeModeControllerApplication) Tag() names.Tag {
 func (a *SafeModeControllerApplication) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 
-	agentconf.SetupAgentLoggingFromStrings(
+	setupLoggingFromStrings(
 		internallogger.DefaultContext(),
 		a.runtimeConfig.LoggingOverride,
 		a.runtimeConfig.LoggingConfig,
