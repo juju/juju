@@ -13,10 +13,6 @@ See also: {ref}`space`
 
 Juju users are able to create, view, rename, or delete spaces.
 
-```{caution}
-Juju can deploy to an IPv6 stack or an IPv4 stack, but not both at once (i.e., dual stacks are not supported).
-```
-
 (add-a-space)=
 ## Add a space
 

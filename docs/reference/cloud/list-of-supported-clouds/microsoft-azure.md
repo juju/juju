@@ -215,6 +215,7 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 
 **Networking**
 
+- {ref}`constraint-ip-family`. Valid values: `ipv4` (default), `dual`. `dual` provisions dual-stack (IPv4 + IPv6); requires `load-balancer-sku-name=Standard`. `ipv6` is rejected by Azure (NICs require at least one IPv4 configuration).
 - {ref}`constraint-allocate-public-ip`
 
 ```{note}

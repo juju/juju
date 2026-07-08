@@ -206,6 +206,7 @@ The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclu
 
 **Networking**
 
+- {ref}`constraint-ip-family`. IPv4 only (hardcoded in provider).
 - {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-spaces`
 - {ref}`constraint-zones`

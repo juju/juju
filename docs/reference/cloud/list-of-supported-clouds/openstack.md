@@ -233,6 +233,7 @@ The constraints `instance-type` and `[mem, cores]` are mutually exclusive. Addit
 
 **Networking**
 
+- {ref}`constraint-ip-family`. The IP family depends on the Neutron network configuration.
 - {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-zones`
 
