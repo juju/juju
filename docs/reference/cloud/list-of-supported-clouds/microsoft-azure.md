@@ -206,7 +206,7 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 
 **Compute**
 
-- {ref}`constraint-arch`. Valid values: `amd64`.
+- {ref}`constraint-arch`. Valid values: `amd64`, `arm64`.
 - {ref}`constraint-container`
 - {ref}`constraint-cores`
 - {ref}`constraint-instance-role`. Juju 3.6+. Valid values: `auto` or managed identity name in format `<resource-group>/<identity-name>` or `<subscription>/<resource-group>/<identity-name>`.
@@ -216,7 +216,10 @@ The constraints `instance-type` and `[arch, cores, mem]` are mutually exclusive.
 **Networking**
 
 - {ref}`constraint-allocate-public-ip`
-- {ref}`constraint-zones`
+
+```{note}
+The `zones` constraint is not supported on Azure. Instead, Juju uses [Azure availability sets](https://learn.microsoft.com/en-us/azure/virtual-machines/availability-set-overview): for each application, an availability set is created and all units of that application are placed within it. This protects against hardware and infrastructure failures within a region, but does not map to Juju's zone abstraction — charms cannot query which zone they are in.
+```
 
 **Storage**
 
@@ -288,8 +291,9 @@ In addition to generic storage providers, Microsoft Azure provides the following
 
 **Configuration options:**
 
-- `account-type`: Disk type.
-  - `Standard_LRS`: Standard HDD (associated with pool `azure`)
+- `account-type`: Disk type. Default: `StandardSSD_LRS`.
+  - `Standard_LRS`: Standard HDD
+  - `StandardSSD_LRS`: Standard SSD — default (associated with pool `azure`)
   - `Premium_LRS`: Premium SSD (associated with pool `azure-premium`)
 
 ```{ibnote}

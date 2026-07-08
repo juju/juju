@@ -191,7 +191,7 @@ See also: {ref}`machine`, {ref}`Juju | Manage machines <manage-machines>`, {ref}
 Google GCE supports the following {ref}`constraints <constraint>`:
 
 ```{note}
-The constraints `instance-type` and `[arch, cores, cpu-power, mem]` are mutually exclusive.
+The constraints `instance-type` and `[cores, cpu-power, mem]` are mutually exclusive.
 ```
 
 **Compute**
