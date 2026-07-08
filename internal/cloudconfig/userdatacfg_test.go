@@ -848,8 +848,13 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapWritesRuntimeConfig(c *tc.
 	envConfig := minimalModelConfig(c)
 	envConfig, err := envConfig.Apply(map[string]any{"logging-config": "<root>=WARNING;juju.bootstrap=INFO"})
 	c.Assert(err, tc.ErrorIsNil)
+	insecure := true
 	instConfig := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
 		cfg.AgentEnvironment[agent.LoggingOverride] = "juju.bootstrap=TRACE"
+		cfg.LokiEndpoint = "https://loki.example.com/loki/api/v1/push"
+		cfg.LokiCACert = "loki-ca-cert"
+		cfg.LokiInsecureSkipVerify = &insecure
+		cfg.LokiOrgID = "test-org"
 	}).maybeSetModelConfig(envConfig)
 	rendered := instConfig.render()
 	cloudcfg, err := cloudinit.New(rendered.Base.OS)
@@ -892,6 +897,10 @@ func (*cloudinitSuite) TestCloudInitConfigureBootstrapWritesRuntimeConfig(c *tc.
 	c.Check(installScript, tc.Matches, `install -D -m 600 /dev/null '`+regexp.QuoteMeta(expectedPath)+`'`)
 	c.Check(echoScript, tc.Matches, `(?s).*logging-config: <root>=WARNING;juju\.bootstrap=INFO.*`)
 	c.Check(echoScript, tc.Matches, `(?s).*logging-override: juju\.bootstrap=TRACE.*`)
+	c.Check(echoScript, tc.Matches, `(?s).*lokiendpoint: https://loki\.example\.com/loki/api/v1/push.*`)
+	c.Check(echoScript, tc.Matches, `(?s).*lokicacert: loki-ca-cert.*`)
+	c.Check(echoScript, tc.Matches, `(?s).*lokiinsecureskipverify: true.*`)
+	c.Check(echoScript, tc.Matches, `(?s).*lokiorgid: test-org.*`)
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {
