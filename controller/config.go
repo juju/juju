@@ -542,6 +542,7 @@ var (
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
+		ObjectStoreS3Region,
 		SystemSSHKeys,
 		JujudControllerSnapSource,
 		SSHMaxConcurrentConnections,
@@ -604,6 +605,7 @@ var (
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
+		ObjectStoreS3Region,
 		SSHMaxConcurrentConnections,
 	)
 

@@ -538,7 +538,7 @@ placeholder region is used and a warning is logged.
 
 **Type:** string
 
-**Can be changed after bootstrap:** no
+**Can be changed after bootstrap:** yes
 
 
 (controller-config-object-store-s3-static-key)=
