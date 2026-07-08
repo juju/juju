@@ -608,9 +608,9 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The log router owns the buffered log stream and forwards records to
 		// one active backend at a time.
 		logRouterName: ifNotMigrating(logrouter.Manifold(logrouter.ManifoldConfig{
+			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			HTTPClientName:       httpClientName,
-			LokiConfigProvider:   config.StartupValueProvider,
 			LogSource:            config.LogSource,
 			AgentConfigChanged:   config.AgentConfigChanged,
 			Logger:               internallogger.GetLogger("juju.worker.logrouter"),

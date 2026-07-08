@@ -162,16 +162,7 @@ func (p machineControllerStartupValueProvider) APIInfo() (*api.Info, error) {
 // agent config. It re-reads current values on each call so bounced workers
 // see current logging destination settings.
 func (p machineControllerStartupValueProvider) CurrentLokiConfig() (logrouter.ConfigSnapshot, error) {
-	cfg := p.agent.CurrentConfig()
-	return logrouter.ConfigSnapshot{
-		Endpoint:           cfg.LokiEndpoint(),
-		CACertificate:      cfg.LokiCACert(),
-		InsecureSkipVerify: cfg.LokiInsecureSkipVerify(),
-		ControllerUUID:     cfg.Controller().Id(),
-		ModelUUID:          cfg.Model().Id(),
-		AgentID:            cfg.Tag().String(),
-		OrgID:              cfg.LokiOrgID(),
-	}, nil
+	return logrouter.ConfigSnapshotFromAgentConfig(p.agent.CurrentConfig()), nil
 }
 
 // machineModelStartupValueProvider supplies current model-local startup
