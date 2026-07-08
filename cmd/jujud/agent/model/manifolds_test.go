@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/model"
+	"github.com/juju/juju/controller"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testing"
 )
@@ -576,3 +577,6 @@ type mockModelStartupValueProvider struct{}
 
 func (mockModelStartupValueProvider) CACert() (string, error)          { return "", nil }
 func (mockModelStartupValueProvider) LoggingOverride() (string, error) { return "", nil }
+func (mockModelStartupValueProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
+	return controller.ControllerAgentInfo{}, nil
+}
