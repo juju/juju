@@ -187,7 +187,8 @@ func newHTTPClient(_ context.Context, endpoint, caCertificate string, insecureSk
 
 	if insecureSkipVerify {
 		options = append(options, otlptracehttp.WithInsecure())
-	} else if caCertificate != "" {
+	}
+	if caCertificate != "" {
 		caCertPool := x509.NewCertPool()
 		if !caCertPool.AppendCertsFromPEM([]byte(caCertificate)) {
 			return nil, errors.New("failed to append trace CA cert to pool")

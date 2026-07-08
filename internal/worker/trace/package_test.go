@@ -22,6 +22,7 @@ import (
 //go:generate go run github.com/canonical/gomock/mockgen -package trace -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
 //go:generate go run github.com/canonical/gomock/mockgen -package trace -destination tracer_mock_test.go github.com/juju/juju/internal/worker/trace TrackedTracer,Client,ClientTracer,ClientTracerProvider
 //go:generate go run github.com/canonical/gomock/mockgen -package trace -destination trace_mock_test.go go.opentelemetry.io/otel/trace Span
+//go:generate go run github.com/canonical/gomock/mockgen -package trace -destination span_processor_mock_test.go go.opentelemetry.io/otel/sdk/trace SpanProcessor,ReadOnlySpan,ReadWriteSpan
 
 type baseSuite struct {
 	testhelpers.IsolationSuite
