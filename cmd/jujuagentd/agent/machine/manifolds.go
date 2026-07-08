@@ -686,8 +686,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// local logsink directly in logsink mode, avoiding the cycle:
 		// log-router -> api-caller -> api-server -> log-sink -> log-router.
 		controllerLogRouterName: ifController(logrouter.ControllerManifold(logrouter.ControllerManifoldConfig{
-			AgentName:            agentName,
 			HTTPClientName:       httpClientName,
+			LokiConfigProvider:   config.StartupValueProvider,
 			AgentConfigChanged:   config.AgentConfigChanged,
 			Logger:               internallogger.GetLogger("juju.worker.logrouter.controller"),
 			Clock:                config.Clock,
@@ -1571,6 +1571,7 @@ type ControllerStartupValueProvider interface {
 	apiservercertwatcher.CertReader
 	apiserver.LocalConfigReader
 	apiremotecaller.APIInfoProvider
+	logrouter.LokiConfigProvider
 }
 
 const (

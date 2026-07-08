@@ -17,7 +17,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
@@ -33,6 +33,7 @@ func TestManifoldSuite(t *testing.T) {
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
+	// Intentionally partial config — only Inputs is checked, not Validate.
 	manifold := Manifold(ManifoldConfig{
 		AgentName:      "agent",
 		APICallerName:  "api-caller",
@@ -43,12 +44,12 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestControllerInputs(c *tc.C) {
+	// Intentionally partial config — only Inputs is checked, not Validate.
 	manifold := ControllerManifold(ControllerManifoldConfig{
-		AgentName:      "agent",
 		HTTPClientName: "http-client",
 	})
 
-	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "http-client"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"http-client"})
 }
 
 func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
@@ -79,9 +80,9 @@ func (s *manifoldSuite) TestStartValidatesBeforeGetter(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
-	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	cfg := s.validManifoldConfig(c)
 	manifold := Manifold(cfg)
+	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 
 	w, err := manifold.Start(c.Context(), manifoldGetter{
 		agent:     fixture.agent,
@@ -93,13 +94,11 @@ func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestControllerStartCreatesWorkerWithoutAPICaller(c *tc.C) {
-	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	cfg := s.validControllerManifoldConfig(c)
 	manifold := ControllerManifold(cfg)
 
 	w, err := manifold.Start(c.Context(), manifoldGetter{
-		agent: fixture.agent,
-		http:  stubHTTPClientGetter{},
+		http: stubHTTPClientGetter{},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -257,8 +256,8 @@ func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 func (s *manifoldSuite) validControllerManifoldConfig(c *tc.C) ControllerManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ControllerManifoldConfig{
-		AgentName:            "agent",
 		HTTPClientName:       "http-client",
+		LokiConfigProvider:   fixture.agent,
 		AgentConfigChanged:   fixture.configChanged,
 		Logger:               internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:                clock.WallClock,
@@ -285,14 +284,14 @@ func (s *manifoldSuite) TestValidateRejectsNilAddLegacyLogSinkWriter(c *tc.C) {
 }
 
 type manifoldGetter struct {
-	agent     coreagent.Agent
+	agent     agent.Agent
 	apiCaller base.APICaller
 	http      corehttp.HTTPClientGetter
 	called    *atomic.Bool
 	err       error
 }
 
-func (g manifoldGetter) Get(_ string, out any) error {
+func (g manifoldGetter) Get(name string, out any) error {
 	if g.called != nil {
 		g.called.Store(true)
 	}
@@ -300,7 +299,10 @@ func (g manifoldGetter) Get(_ string, out any) error {
 		return g.err
 	}
 	switch out := out.(type) {
-	case *coreagent.Agent:
+	case *agent.Agent:
+		if g.agent == nil {
+			return stderrors.New("missing agent dependency")
+		}
 		*out = g.agent
 	case *base.APICaller:
 		*out = g.apiCaller
