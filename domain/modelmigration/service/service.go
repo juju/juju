@@ -15,7 +15,9 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -23,6 +25,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/controllernode"
+	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	modelservice "github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
@@ -54,6 +59,14 @@ type ResourceProvider interface {
 	AdoptResources(context.Context, string, semversion.Number) error
 }
 
+// ModelDBDeleter deletes a model's dqlite database namespace. It is the
+// domain-owned port for the infrastructure DBDeleter, used by source REAP to
+// purge the migrated model's database. A "database not found" outcome is
+// success (idempotent replay after a partial crash).
+type ModelDBDeleter interface {
+	DeleteModelDB(ctx context.Context, modelUUID string) error
+}
+
 // Service provides the means for supporting model migration actions between
 // controllers and answering questions about the underlying model(s) that are
 // being migrated.
@@ -66,10 +79,16 @@ type Service struct {
 	// [ResourceProvider]
 	resourceProviderGetter func(context.Context) (ResourceProvider, error)
 
+	// modelDBDeleter is used by source REAP to delete the migrated model's
+	// dqlite namespace. It may be nil if REAP is not needed (e.g. target-only
+	// contexts).
+	modelDBDeleter ModelDBDeleter
+
 	controllerState ControllerState
 	modelState      ModelState
 	watcherFactory  WatcherFactory
 	modelUUID       string
+	logger          logger.Logger
 }
 
 // WatcherFactory describes methods for creating watchers used by the
@@ -157,6 +176,29 @@ type ControllerState interface {
 	// client connection details used by the target controller to dial back
 	// during model activation.
 	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
+
+	// CaptureExportOffers records the hosted offer UUIDs for a migration into
+	// model_migration_export_offer. Idempotent.
+	CaptureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error
+
+	// StageModelRedirect writes the redirect snapshot with completed_at = NULL.
+	// Idempotent.
+	StageModelRedirect(
+		ctx context.Context,
+		migrationUUID, modelUUID string,
+		target modelmigrationinternal.RedirectionTarget,
+		users []modelmigrationinternal.RedirectUserAccess,
+	) error
+
+	// GetModelUsersForRedirect returns the model-scoped permission rows
+	// joined with user identity, used to populate the redirect user snapshot.
+	GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error)
+
+	// CompleteModelRedirectAndPurge runs the final controller-DB transaction
+	// of source REAP: purges model-scoped rows, completes the redirect, marks
+	// the export DONE, and scrubs target auth. It fails unless the export is
+	// still in phase REAP.
+	CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -207,6 +249,8 @@ func NewService(
 	watcherFactory WatcherFactory,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	modelDBDeleter ModelDBDeleter,
+	logger logger.Logger,
 ) *Service {
 	return &Service{
 		controllerState:        controllerState,
@@ -215,6 +259,8 @@ func NewService(
 		instanceProviderGetter: instanceProviderGetter,
 		resourceProviderGetter: resourceProviderGetter,
 		modelUUID:              modelUUID,
+		modelDBDeleter:         modelDBDeleter,
+		logger:                 logger,
 	}
 }
 
@@ -608,19 +654,104 @@ func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) 
 
 // MarkModelAsGone is called by the migration master during REAP, once the
 // target controller owns the model, to remove the migrated model from this
-// controller. It marks the active export migration as DONE.
+// controller. It runs the following steps in order:
 //
-// TODO(modelmigration): purge the migrated model from the source controller
-// and set up the durable login redirect before completing the export.
+//  1. Read the active export; if it is already DONE, return nil.
+//  2. Capture the hosted offer UUIDs from the model DB.
+//  3. Stage the redirect snapshot (completed_at = NULL, not yet active).
+//  4. Run the controller-DB purge transaction: delete model-scoped rows,
+//     complete the redirect, mark the export DONE, and scrub target auth.
+//  5. Delete the source model's dqlite namespace.
+//
+// The purge transaction in step 4 is the single commit point. Everything
+// before it is an idempotent preparation that leaves the model fully intact,
+// so a failure or crash before step 4 commits can simply be retried. Once it
+// commits, the model is gone from the controller database and the redirect is
+// active. The model database deletion in step 5 is best effort: after step 4
+// the namespace is no longer listed, so the database can never be opened
+// again, and a failure to delete it only leaks unreferenced data. Deleting it
+// earlier would risk the reverse: a model database dropped before the purge
+// commits would leave a model that exists in the controller database but has
+// no data behind it.
+//
+// It never calls normal model removal, removal jobs, undertaker provider
+// deletion, or provider Destroy — it only purges rows belonging to a model
+// that already lives on another controller.
 func (s *Service) MarkModelAsGone(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// Fail before any work if the deleter is missing so a wiring problem
+	// surfaces without staging partial REAP state.
+	if s.modelDBDeleter == nil {
+		return errors.Errorf("model DB deleter not configured for source REAP")
+	}
+
 	mig, err := s.controllerState.GetActiveExport(ctx, s.modelUUID)
 	if err != nil {
+		if errors.Is(err, modelmigrationerrors.ErrMigrationNotFound) {
+			// No active export — already DONE from a previous run. Idempotent.
+			return nil
+		}
 		return errors.Capture(err)
 	}
-	return s.controllerState.SetPhase(ctx, mig.UUID, migration.DONE)
+	if mig.Phase == migration.DONE {
+		return nil
+	}
+	if mig.Phase != migration.REAP {
+		return errors.Errorf(
+			"cannot reap migration %q in phase %q: expected %q: %w",
+			mig.UUID, mig.Phase, migration.REAP, modelmigrationerrors.ErrPhaseTransitionInvalid,
+		)
+	}
+
+	// Step 2: Capture hosted offer UUIDs from the model DB, so the purge can
+	// delete their permission rows without the model DB. The model DB is
+	// still present on every retry because it is only deleted after the
+	// purge transaction commits, at which point the export is DONE and this
+	// method returns early above.
+	offerUUIDs, err := s.modelState.GetOfferUUIDs(ctx)
+	if err != nil {
+		return errors.Errorf("reading hosted offer UUIDs for model %q: %w", s.modelUUID, err)
+	}
+	if err := s.controllerState.CaptureExportOffers(ctx, mig.UUID, offerUUIDs); err != nil {
+		return errors.Errorf("capturing export offers for migration %q: %w", mig.UUID, err)
+	}
+
+	// Step 3: Stage the redirect snapshot (users + target info). Staged but
+	// inactive until the purge transaction sets completed_at.
+	users, err := s.controllerState.GetModelUsersForRedirect(ctx, s.modelUUID)
+	if err != nil {
+		return errors.Errorf("reading model users for redirect: %w", err)
+	}
+	target := modelmigrationinternal.RedirectionTarget{
+		ControllerUUID:  mig.Target.ControllerUUID,
+		ControllerAlias: mig.Target.ControllerAlias,
+		Addresses:       mig.Target.Addrs,
+		CACert:          mig.Target.CACert,
+	}
+	if err := s.controllerState.StageModelRedirect(ctx, mig.UUID, s.modelUUID, target, users); err != nil {
+		return errors.Errorf("staging redirect for model %q: %w", s.modelUUID, err)
+	}
+
+	// Step 4: The controller-DB purge transaction — the commit point. On
+	// success the model is gone from the controller database, the redirect
+	// is active and the export is DONE.
+	if err := s.controllerState.CompleteModelRedirectAndPurge(ctx, mig.UUID, s.modelUUID); err != nil {
+		return errors.Errorf("purging source model %q: %w", s.modelUUID, err)
+	}
+
+	// Step 5: Delete the source model dqlite namespace. Best effort: the
+	// namespace is no longer listed after the purge, so the database cannot
+	// be opened again; failing to delete it only leaks unreferenced data.
+	if err := s.modelDBDeleter.DeleteModelDB(ctx, s.modelUUID); err != nil {
+		s.logger.Warningf(ctx,
+			"model %q was reaped but deleting its database failed; "+
+				"the database is unreachable and only leaks storage: %v",
+			s.modelUUID, err)
+	}
+
+	return nil
 }
 
 // SetMigrationStatusMessage is called by the migration master to report on
@@ -885,4 +1016,62 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// RedirectLookupAdapter adapts the modelmigration controller state's
+// GetRedirectForModel to the model service's RedirectLookup interface. It
+// translates from the modelmigration internal RedirectionTarget type to the
+// public model.ModelRedirection type.
+type RedirectLookupAdapter struct {
+	st RedirectLookupState
+}
+
+// RedirectLookupState is the subset of the modelmigration controller state
+// needed for redirect lookups.
+type RedirectLookupState interface {
+	GetRedirectForModel(ctx context.Context, modelUUID string) (modelmigrationinternal.RedirectionTarget, error)
+	GetRedirectUsers(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error)
+}
+
+// NewRedirectLookupAdapter creates a new RedirectLookupAdapter from the given
+// modelmigration controller state.
+func NewRedirectLookupAdapter(st RedirectLookupState) *RedirectLookupAdapter {
+	return &RedirectLookupAdapter{st: st}
+}
+
+// GetRedirectForModel implements [modelservice.RedirectLookup].
+func (a *RedirectLookupAdapter) GetRedirectForModel(
+	ctx context.Context, modelUUID coremodel.UUID,
+) (model.ModelRedirection, error) {
+	target, err := a.st.GetRedirectForModel(ctx, modelUUID.String())
+	if err != nil {
+		if errors.Is(err, modelmigrationerrors.ErrModelNotRedirected) {
+			return model.ModelRedirection{}, modelerrors.ModelNotRedirected
+		}
+		return model.ModelRedirection{}, errors.Capture(err)
+	}
+	return model.ModelRedirection{
+		Addresses:       target.Addresses,
+		CACert:          target.CACert,
+		ControllerUUID:  target.ControllerUUID,
+		ControllerAlias: target.ControllerAlias,
+	}, nil
+}
+
+// GetRedirectUsers implements [modelservice.RedirectLookup].
+func (a *RedirectLookupAdapter) GetRedirectUsers(
+	ctx context.Context, modelUUID coremodel.UUID,
+) ([]modelservice.RedirectUser, error) {
+	users, err := a.st.GetRedirectUsers(ctx, modelUUID.String())
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	result := make([]modelservice.RedirectUser, len(users))
+	for i, u := range users {
+		result[i] = modelservice.RedirectUser{
+			UserName: u.UserName,
+			Access:   u.Access,
+		}
+	}
+	return result, nil
 }

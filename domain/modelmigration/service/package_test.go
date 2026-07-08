@@ -3,4 +3,4 @@
 
 package service
 
-//go:generate go run github.com/canonical/gomock/mockgen -package service -destination service_mock_test.go github.com/juju/juju/domain/modelmigration/service InstanceProvider,ResourceProvider,ControllerState,ModelState,WatcherFactory
+//go:generate go run github.com/canonical/gomock/mockgen -package service -destination service_mock_test.go github.com/juju/juju/domain/modelmigration/service InstanceProvider,ResourceProvider,ControllerState,ModelState,WatcherFactory,ModelDBDeleter
