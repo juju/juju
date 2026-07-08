@@ -37,15 +37,21 @@ To refresh the application config from a file for application `foo`:
 
 	juju refresh foo --config config.yaml
 
-To refresh the resources for application `foo`:
+To refresh the resources for application `foo` using a local file:
 
 	juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+To pin a resource to a specific Charmhub revision:
+
+	juju refresh foo --resource bar=42
+
+Where `bar` and `baz` are resources named in the metadata for the `foo` charm.
 
 
 ## Details
 
-When no options are set, the application's charm will be refreshed to the latest revision 
-in its current channel. An explicit revision can be chosen with the --revision option. 
+When no options are set, the application's charm will be refreshed to the latest revision
+in its current channel. An explicit revision can be chosen with the --revision option.
 
 Refreshing a local packaged charm will require a path to be supplied to allow an
 updated copy of the charm.
@@ -61,19 +67,34 @@ of the packaged charm. Note that the charm must match what was originally used
 to deploy the charm as a superficial check that the updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the `--resource` option.
-Following the resource option should be a name=value pair, where the value is
-either a file path or a revision number from Charmhub. This option may be
-repeated more than once to upload more than one resource.
+The format is
 
-Upload a local file:
+    --resource <resource name>=<resource>
 
-    juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+where the resource name is the name from the `metadata.yaml` file of the charm
+and where, depending on the type of the resource, the resource can be specified
+as follows:
 
-Pin a resource to a specific Charmhub revision:
+- If the resource is type `file`, you can specify it by providing one of the following:
 
-    juju refresh foo --resource bar=42
+    a. the resource revision number.
 
-Where bar and baz are resources named in the metadata for the foo charm.
+    b. a path to a local file. Caveat: If you choose this, you will not be able
+	 to go back to using a resource from Charmhub.
+
+- If the resource is type `oci-image`, you can specify it by providing one of the following:
+
+    a. the resource revision number.
+
+	b. a path to the local file for your private OCI image as well as the
+	username and password required to access the private OCI image.
+	Caveat: If you choose this, you will not be able to go back to using a
+	resource from Charmhub.
+
+    c. a link to a public OCI image. Caveat: If you choose this, you will not be
+	 able to go back to using a resource from Charmhub.
+
+Note: If multiple resources are needed, repeat the option.
 
 Storage directives may be added or updated at upgrade time by specifying
 the `--storage` option, with the same format as specified in `juju deploy`.
