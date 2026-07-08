@@ -61,10 +61,17 @@ of the packaged charm. Note that the charm must match what was originally used
 to deploy the charm as a superficial check that the updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the `--resource` option.
-Following the resource option should be name=filepath pair.  This option may be
+Following the resource option should be a name=value pair, where the value is
+either a file path or a revision number from Charmhub. This option may be
 repeated more than once to upload more than one resource.
 
+Upload a local file:
+
     juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+Pin a resource to a specific Charmhub revision:
+
+    juju refresh foo --resource bar=42
 
 Where bar and baz are resources named in the metadata for the foo charm.
 
