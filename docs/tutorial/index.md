@@ -24,16 +24,29 @@ When you're trying things out it's nice to work in an isolated test environment.
 
 First, [install Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/).
 
-Now, launch an Ubuntu VM and open a shell in the VM:
+Now, launch an Ubuntu VM using the [cloud-init](https://cloudinit.readthedocs.io/en/latest/) file provided with this tutorial. The cloud-init file automates the MicroK8s setup inside the VM, so you can focus on the Juju-specific steps:
 
 ```{terminal}
 :copy:
 :user:
 :host:
-multipass launch --cpus 4 --memory 8G --disk 50G --name my-juju-vm
+multipass launch 24.04 --cpus 4 --memory 8G --disk 50G --name my-juju-vm --cloud-init https://raw.githubusercontent.com/canonical/juju/4.0/docs/tutorial/cloud-init.yaml
 
 Launched: my-juju-vm
 ```
+
+The cloud-init script runs in the background and typically takes **5–10 minutes**. Wait for it to finish before opening a shell:
+
+```{terminal}
+:copy:
+:user:
+:host:
+multipass exec my-juju-vm -- cloud-init status --wait
+
+status: done
+```
+
+Now open a shell in the VM:
 
 ```{terminal}
 :copy:
@@ -41,32 +54,8 @@ Launched: my-juju-vm
 :host:
 multipass shell my-juju-vm
 
-Welcome to Ubuntu 24.04.2 LTS (GNU/Linux 6.8.0-64-generic x86_64)
-
- * Documentation:  https://help.ubuntu.com
- * Management:     https://landscape.canonical.com
- * Support:        https://ubuntu.com/pro
-
- System information as of Fri Aug  1 09:46:41 CEST 2025
-
-  System load:  0.24              Processes:             145
-  Usage of /:   3.3% of 47.39GB   Users logged in:       0
-  Memory usage: 3%                IPv4 address for ens3: 10.238.98.204
-  Swap usage:   0%
-
-
-Expanded Security Maintenance for Applications is not enabled.
-
-18 updates can be applied immediately.
-18 of these updates are standard security updates.
-To see these additional updates run: apt list --upgradable
-
-Enable ESM Apps to receive additional future security updates.
-See https://ubuntu.com/esm or run: sudo pro status
-
-
-To run a command as administrator (user "root"), use "sudo <command>".
-See "man sudo_root" for details.
+Welcome to Ubuntu 24.04 LTS (GNU/Linux ...)
+...
 ```
 
 (If the VM launch fails, run `multipass delete --purge my-juju-vm` to clean up, then try the launch line again.)
@@ -107,135 +96,30 @@ To Juju a cloud is anything that has an API where you can request compute, stora
 
 This includes traditional machine clouds (Amazon AWS, Google GCE, Microsoft Azure, but also MAAS, OpenStack, Oracle OCI, and LXD) as well as Kubernetes clusters (Amazon EKS, Google GKE, Microsoft AKS but also Canonical Kubernetes or MicroK8s).
 
-In this tutorial we will use MicroK8s, a lightweight Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster. Let's set it up on your VM:
+In this tutorial we will use MicroK8s, a lightweight Kubernetes that you can also use to get a small, single-node localhost Kubernetes cluster. The cloud-init file already took care of installing and configuring MicroK8s on your VM. Verify it is running:
 
 ```{terminal}
 :copy:
 :user: ubuntu
 :host: my-juju-vm
-sudo snap install microk8s --channel 1.28-strict
-
-2025-08-01T09:47:10+02:00 INFO Waiting for automatic snapd restart...
-microk8s (1.28-strict/stable) v1.28.15 from Canonical✓ installed
-
-```
-
-```{terminal}
-:copy:
-:user: ubuntu
-:host: my-juju-vm
-sudo adduser $USER snap_microk8s
-
-info: Adding user `ubuntu' to group `snap_microk8s' ...
-
-```
-
-```{terminal}
-:copy:
-:user: ubuntu
-:host: my-juju-vm
-sudo chown -f -R $USER ~/.kube
-
-```
-
-```{terminal}
-:copy:
-:user: ubuntu
-:host: my-juju-vm
-sudo microk8s status --wait-ready
+microk8s status
 
 microk8s is running
 high-availability: no
   datastore master nodes: 127.0.0.1:19001
   datastore standby nodes: none
-addons:
-  enabled:
-    dns                  # (core) CoreDNS
-    ha-cluster           # (core) Configure high availability on the current node
-    helm                 # (core) Helm - the package manager for Kubernetes
-    helm3                # (core) Helm 3 - the package manager for Kubernetes
-  disabled:
-    cert-manager         # (core) Cloud native certificate management
-    cis-hardening        # (core) Apply CIS K8s hardening
-    community            # (core) The community addons repository
-    dashboard            # (core) The Kubernetes dashboard
-    host-access          # (core) Allow Pods connecting to Host services smoothly
-    hostpath-storage     # (core) Storage class; allocates storage from host directory
-    ingress              # (core) Ingress controller for external access
-    mayastor             # (core) OpenEBS MayaStor
-    metallb              # (core) Loadbalancer for your Kubernetes cluster
-    metrics-server       # (core) K8s Metrics Server for API access to service metrics
-    minio                # (core) MinIO object storage
-    observability        # (core) A lightweight observability stack for logs, traces and metrics
-    prometheus           # (core) Prometheus operator for monitoring and logging
-    rbac                 # (core) Role-Based Access Control for authorisation
-    registry             # (core) Private image registry exposed on localhost:32000
-    rook-ceph            # (core) Distributed Ceph storage using Rook
-    storage              # (core) Alias to hostpath-storage add-on, deprecated
-
-```
-
-```{terminal}
-:copy:
-:user: ubuntu
-:host: my-juju-vm
-sudo microk8s enable hostpath-storage dns
-
-Infer repository core for addon hostpath-storage
-Infer repository core for addon dns
-WARNING: Do not enable or disable multiple addons in one command.
-         This form of chained operations on addons will be DEPRECATED in the future.
-         Please, enable one addon at a time: 'microk8s enable <addon>'
-Enabling default storage class.
-WARNING: Hostpath storage is not suitable for production environments.
-         A hostpath volume can grow beyond the size limit set in the volume claim manifest.
-
-deployment.apps/hostpath-provisioner created
-storageclass.storage.k8s.io/microk8s-hostpath created
-serviceaccount/microk8s-hostpath created
-clusterrole.rbac.authorization.k8s.io/microk8s-hostpath created
-clusterrolebinding.rbac.authorization.k8s.io/microk8s-hostpath created
-Storage will be available soon.
-Addon core/dns is already enabled
-
-```
-
-```{terminal}
-:copy:
-:user: ubuntu
-:host: my-juju-vm
-sudo snap alias microk8s.kubectl kubectl
-
-Added:
-  - microk8s.kubectl as kubectl
-
-```
-
-```{terminal}
-:copy:
-:user: ubuntu
-:host: my-juju-vm
-newgrp snap_microk8s
-
-```
-
-```{terminal}
-:copy:
-:user: ubuntu
-:host: my-juju-vm
-mkdir -p ~/.local/share
-
+...
 ```
 
 Congratulations, your cloud is ready!
 
 ### Prepare Charmhub
 
-Your Juju can automatically reach Charmhub -- nothing to be done.
+So long as you're connected to the internet, your Juju can automatically reach Charmhub -- nothing to be done.
 
 ### Set up the `juju` CLI client
 
-In Juju a (user-facing) client is anything that can talk to a Juju controller. That currently includes the `juju` CLI, the `terraform` CLI when used with the `juju` provider plugin, two Python clients, and a JavaScript client. However, to get a Juju controller you need the `juju` CLI client and it must have access to a cloud and Charmhub. Let's set it up!
+In Juju a (user-facing) client is anything that can talk to a Juju controller, and there are multiple clients available. However, to get a Juju controller you need the `juju` CLI client and it must have access to a cloud and Charmhub. Let's set it up!
 
 In your VM, install the `juju` CLI client:
 
@@ -245,7 +129,6 @@ In your VM, install the `juju` CLI client:
 :host: my-juju-vm
 sudo snap install juju
 
-juju (3/stable) 3.6.8 from Canonical✓ installed
 ```
 
 Now, ensure the client has access to your cloud (i.e., knows where to find your cloud and has the credentials to access your cloud). For a localhost MicroK8s cloud installed from a strictly confined snap like ours, your `juju` client can read the local kubeconfig file and retrieve the cloud definition (and credentials) from there automatically, as you can verify:
@@ -424,7 +307,7 @@ First, [Mattermost](https://charmhub.io/mattermost-k8s):
 :host: my-juju-vm
 juju deploy mattermost-k8s --constraints "mem=2G"
 
-Deployed "mattermost-k8s" from charm-hub charm "mattermost-k8s", revision 27 in channel latest/stable on ubuntu@20.04/stable
+Deployed "mattermost-k8s" from charm-hub charm "mattermost-k8s", revision ... in channel latest/stable on ubuntu@.../stable
 ```
 
 Now, its dependencies. Mattermost needs a PostgreSQL database, and [its charmed version supports an easy way to integrate with such a database](https://charmhub.io/mattermost-k8s/integrations#db). Let's deploy [the PostgreSQL charm for Kubernetes](https://charmhub.io/postgresql-k8s) in the recommended way, from track `14` with risk `stable`; with `--trust` -- i.e., permission to use our cloud credentials (this charm needs to create and manage some Kubernetes resources); because we're just playing around, setting [the `profile` config](https://charmhub.io/postgresql-k8s/configurations#profile) to `testing`, so we don't use too many resources; and, just for fun, with `-n 2`, that is, two replicas (in a real life setting you'll want to distribute them over multiple nodes -- something Juju would do automatically here too, except we're doing everything on a single node).
@@ -435,7 +318,7 @@ Now, its dependencies. Mattermost needs a PostgreSQL database, and [its charmed 
 :host: my-juju-vm
 juju deploy postgresql-k8s --channel 14/stable --trust --config profile=testing -n 2
 
-Deployed "postgresql-k8s" from charm-hub charm "postgresql-k8s", revision 495 in channel 14/stable on ubuntu@22.04/stable
+Deployed "postgresql-k8s" from charm-hub charm "postgresql-k8s", revision ... in channel 14/stable on ubuntu@.../stable
 ```
 
 Mattermost wants PostgreSQL status to be TLS-encrypted. There are a few ways to do that. Because we're just trying things out, we can use [Self Signed X.509 Certificates](https://charmhub.io/self-signed-certificates) (don't do this in production!). Let's deploy it and integrate it with our PostgreSQL to enable TLS encryption on our PostgreSQL cluster:
@@ -446,7 +329,7 @@ Mattermost wants PostgreSQL status to be TLS-encrypted. There are a few ways to 
 :host: my-juju-vm
 juju deploy self-signed-certificates
 
-Deployed "self-signed-certificates" from charm-hub charm "self-signed-certificates", revision 317 in channel 1/stable on ubuntu@24.04/stable
+Deployed "self-signed-certificates" from charm-hub charm "self-signed-certificates", revision ... in channel 1/stable on ubuntu@.../stable
 
 ```
 
@@ -477,12 +360,12 @@ While executing any of these commands returns automatically so you can execute t
 watch -n 1 --color juju status --relations --color
 
 Model          Controller                Cloud/Region        Version  SLA          Timestamp
-my-chat-model  my-first-juju-controller  microk8s/localhost  3.6.8    unsupported  13:26:28+02:00
+my-chat-model  my-first-juju-controller  microk8s/localhost  ...      unsupported  ...
 
-App                       Version                         Status  Scale  Charm                     Channel        Rev  Address         Exposed  Message
-mattermost-k8s            .../mattermost:v8.1.3-20.04...  active      1  mattermost-k8s            latest/stable   27  10.152.183.144  no
-postgresql-k8s            14.15                           active      2  postgresql-k8s            14/stable      495  10.152.183.184  no
-self-signed-certificates                                  active      1  self-signed-certificates  1/stable       317  10.152.183.160  no
+App                       Version  Status  Scale  Charm                     Channel        Rev  Address         Exposed  Message
+mattermost-k8s            ...      active      1  mattermost-k8s            latest/stable  ...  10.152.183.144  no
+postgresql-k8s            ...      active      2  postgresql-k8s            14/stable      ...  10.152.183.184  no
+self-signed-certificates  ...      active      1  self-signed-certificates  1/stable       ...  10.152.183.160  no
 
 Unit                         Workload  Agent  Address      Ports     Message
 mattermost-k8s/0*            active    idle   10.1.32.142  8065/TCP
@@ -516,7 +399,7 @@ At this point you can keep your current Juju setup to experiment further or proc
 ## Tear everything down
 
 ```{tip}
-To tear everything down at once, skip to the step where you delete your Multipass VM and uninstall Multipass.
+To tear everything down in one step, skip to the step where you delete your Multipass VM and uninstall Multipass.
 ```
 
 Tear down your Juju deployment:
@@ -615,7 +498,7 @@ Setting up the CNI
 :copy:
 :user: ubuntu
 :host: my-juju-vm
-$ sudo snap remove microk8s
+sudo snap remove microk8s
 
 microk8s removed
 
@@ -651,3 +534,5 @@ No instances found.
 ```
 
 Finally, [uninstall Multipass](https://documentation.ubuntu.com/multipass/en/latest/how-to-guides/install-multipass/#uninstall).
+
+
