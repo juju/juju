@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
@@ -1769,4 +1770,586 @@ func derefString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// CaptureExportOffers records the hosted offer UUIDs for a migration into
+// model_migration_export_offer. It is idempotent: replay after crash re-inserts
+// the same rows without error. This must be called before the source model DB
+// is purged, because the offer UUIDs are read from the model DB.
+func (s *State) CaptureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error {
+	if len(offerUUIDs) == 0 {
+		return nil
+	}
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	stmt, err := s.Prepare(`
+INSERT OR IGNORE INTO model_migration_export_offer (migration_uuid, offer_uuid)
+VALUES ($migrationExportOffer.*)
+`, migrationExportOffer{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, offerUUID := range offerUUIDs {
+			row := migrationExportOffer{
+				MigrationUUID: migrationUUID,
+				OfferUUID:     offerUUID,
+			}
+			if err := tx.Query(ctx, stmt, row).Run(); err != nil {
+				return errors.Errorf(
+					"capturing export offer %q for migration %q: %w",
+					offerUUID, migrationUUID, err,
+				)
+			}
+		}
+		return nil
+	})
+}
+
+// StageModelRedirect writes the redirect snapshot with completed_at = NULL.
+// The redirect is not active until CompleteModelRedirectAndPurge sets
+// completed_at. Idempotent: replay overwrites a previously staged incomplete
+// row.
+func (s *State) StageModelRedirect(
+	ctx context.Context,
+	migrationUUID, modelUUID string,
+	target modelmigrationinternal.RedirectionTarget,
+	users []modelmigrationinternal.RedirectUserAccess,
+) error {
+	// A redirect without addresses can never be followed; fail loudly here,
+	// while REAP can still be retried, rather than at login time.
+	if len(target.Addresses) == 0 {
+		return errors.Errorf("redirect target for model %q has no addresses", modelUUID)
+	}
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	now := s.clock.Now().UTC()
+	addresses := strings.Join(target.Addresses, ",")
+	var alias *string
+	if target.ControllerAlias != "" {
+		alias = &target.ControllerAlias
+	}
+	redirect := migrationRedirect{
+		ModelUUID:             modelUUID,
+		SourceMigrationUUID:   migrationUUID,
+		TargetControllerUUID:  target.ControllerUUID,
+		TargetControllerAlias: alias,
+		TargetAddresses:       addresses,
+		TargetCACert:          target.CACert,
+		CreatedAt:             now,
+		// CompletedAt is nil (NULL) — not active yet.
+	}
+
+	insertRedirectStmt, err := s.Prepare(`
+INSERT OR REPLACE INTO model_migration_redirect (*)
+VALUES ($migrationRedirect.*)
+`, redirect)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteUsersStmt, err := s.Prepare(`
+DELETE FROM model_migration_redirect_user
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertUserStmt, err := s.Prepare(`
+INSERT INTO model_migration_redirect_user (*)
+VALUES ($migrationRedirectUser.*)
+`, migrationRedirectUser{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, insertRedirectStmt, redirect).Run(); err != nil {
+			return errors.Errorf("staging redirect for model %q: %w", modelUUID, err)
+		}
+		// Clear any previously staged users (idempotent replay).
+		if err := tx.Query(ctx, deleteUsersStmt, modelUUIDArg{ModelUUID: modelUUID}).Run(); err != nil {
+			return errors.Errorf("clearing redirect users for model %q: %w", modelUUID, err)
+		}
+		for _, u := range users {
+			row := migrationRedirectUser{
+				ModelUUID: modelUUID,
+				UserUUID:  u.UserUUID,
+				UserName:  u.UserName,
+				Access:    u.Access,
+			}
+			if err := tx.Query(ctx, insertUserStmt, row).Run(); err != nil {
+				return errors.Errorf("inserting redirect user %q: %w", u.UserName, err)
+			}
+		}
+		return nil
+	})
+}
+
+// GetRedirectForModel returns the completed redirect target for a model.
+// Returns an error satisfying [modelmigrationerrors.ErrModelNotRedirected] if
+// no completed redirect row exists. A staged-but-incomplete redirect
+// (completed_at IS NULL) is not active and returns the same not-redirected
+// error.
+func (s *State) GetRedirectForModel(ctx context.Context, modelUUID string) (modelmigrationinternal.RedirectionTarget, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return modelmigrationinternal.RedirectionTarget{}, errors.Capture(err)
+	}
+	arg := modelUUIDArg{ModelUUID: modelUUID}
+	stmt, err := s.Prepare(`
+SELECT &migrationRedirect.*
+FROM   model_migration_redirect
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+AND    completed_at IS NOT NULL
+`, arg, migrationRedirect{})
+	if err != nil {
+		return modelmigrationinternal.RedirectionTarget{}, errors.Capture(err)
+	}
+	var row migrationRedirect
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		row = migrationRedirect{}
+
+		err := tx.Query(ctx, stmt, arg).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("no completed redirect for model %q: %w", modelUUID, modelmigrationerrors.ErrModelNotRedirected)
+		}
+		return err
+	})
+	if err != nil {
+		return modelmigrationinternal.RedirectionTarget{}, errors.Capture(err)
+	}
+	var addresses []string
+	if row.TargetAddresses != "" {
+		addresses = strings.Split(row.TargetAddresses, ",")
+	}
+	return modelmigrationinternal.RedirectionTarget{
+		ControllerUUID:  row.TargetControllerUUID,
+		ControllerAlias: derefString(row.TargetControllerAlias),
+		Addresses:       addresses,
+		CACert:          row.TargetCACert,
+	}, nil
+}
+
+// GetRedirectUsers returns the captured user access rows for a model's
+// redirect snapshot. Used by login-time redirect to enforce the 3.6
+// user-access behavior.
+func (s *State) GetRedirectUsers(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	arg := modelUUIDArg{ModelUUID: modelUUID}
+	stmt, err := s.Prepare(`
+SELECT &redirectUserRow.*
+FROM   model_migration_redirect_user
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+`, arg, redirectUserRow{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var rows []redirectUserRow
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+
+		err := tx.Query(ctx, stmt, arg).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	users := make([]modelmigrationinternal.RedirectUserAccess, len(rows))
+	for i, r := range rows {
+		users[i] = modelmigrationinternal.RedirectUserAccess{
+			UserName: r.UserName,
+			Access:   r.Access,
+		}
+	}
+	return users, nil
+}
+
+// GetModelUsersForRedirect returns the model-scoped permission rows joined
+// with user identity, used to populate model_migration_redirect_user during
+// REAP. This is a different projection from GetModelUsers: it selects
+// (user_uuid, user_name, access_type) because model_migration_redirect_user
+// requires user_uuid as part of its primary key.
+func (s *State) GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	arg := modelUUIDArg{ModelUUID: modelUUID}
+	stmt, err := s.Prepare(`
+SELECT (u.uuid, u.name, p.access_type) AS (&modelUserRedirectRow.*)
+FROM   v_user_auth AS u
+JOIN   v_permission AS p ON u.uuid = p.grant_to
+WHERE  p.grant_on = $modelUUIDArg.model_uuid
+AND    p.object_type = 'model'
+`, arg, modelUserRedirectRow{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var rows []modelUserRedirectRow
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+
+		err := tx.Query(ctx, stmt, arg).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	users := make([]modelmigrationinternal.RedirectUserAccess, len(rows))
+	for i, r := range rows {
+		users[i] = modelmigrationinternal.RedirectUserAccess{
+			UserUUID: r.UserUUID,
+			UserName: r.UserName,
+			Access:   r.Access,
+		}
+	}
+	return users, nil
+}
+
+// CompleteModelRedirectAndPurge runs the final controller-DB transaction of
+// source REAP. It purges model-scoped source rows in dependency order,
+// completes the redirect snapshot, marks the export DONE, and scrubs
+// target-auth secrets. This must be called AFTER CaptureExportOffers and
+// StageModelRedirect have succeeded, and BEFORE the source model dqlite
+// namespace is deleted: this transaction is the migration's commit point, so
+// a failure here leaves the source model fully intact and retryable.
+//
+// Rows are deleted in this order, each depending on the previous one being
+// clear:
+//  1. permission offer rows (from model_migration_export_offer)
+//  2. permission model rows
+//  3. lease_pin, then lease
+//  4. secret_backend_reference, then model_secret_backend
+//  5. model_authorized_keys
+//  6. model_last_login
+//  7. stale model_migration_import rows (phase_type_id != 'aborting')
+//  8. model_namespace
+//  9. namespace_list
+//
+// 10. model
+// Then: complete redirect (completed_at = now), mark export DONE, scrub auth.
+//
+// The export must be in phase REAP; anything else returns an error satisfying
+// [modelmigrationerrors.ErrPhaseTransitionInvalid]. The check runs inside the
+// purge transaction so that even a buggy or racing caller cannot purge a model
+// whose migration is not reaping.
+func (s *State) CompleteModelRedirectAndPurge(
+	ctx context.Context,
+	migrationUUID, modelUUID string,
+) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	completedAt := s.clock.Now().UTC()
+
+	doneID, err := migration.PhasePersistedID(migration.DONE)
+	if err != nil {
+		return errors.Errorf("converting DONE phase: %w", err)
+	}
+	reapID, err := migration.PhasePersistedID(migration.REAP)
+	if err != nil {
+		return errors.Errorf("converting REAP phase: %w", err)
+	}
+
+	// Delete offer permission rows via a CTE that resolves object_type names.
+	deleteOfferPermsStmt, err := s.Prepare(`
+WITH offer_uuids AS (
+    SELECT offer_uuid FROM model_migration_export_offer
+    WHERE migration_uuid = $migrationUUIDArg.migration_uuid
+)
+DELETE FROM permission
+WHERE object_type_id = (SELECT id FROM permission_object_type WHERE type = 'offer')
+AND   grant_on IN (SELECT offer_uuid FROM offer_uuids)
+`, migrationUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete model permission rows.
+	deleteModelPermsStmt, err := s.Prepare(`
+DELETE FROM permission
+WHERE object_type_id = (SELECT id FROM permission_object_type WHERE type = 'model')
+AND   grant_on = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete lease_pin then lease.
+	deleteLeasePinsStmt, err := s.Prepare(`
+DELETE FROM lease_pin
+WHERE lease_uuid IN (
+    SELECT uuid FROM lease WHERE model_uuid = $modelUUIDArg.model_uuid
+)
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteLeasesStmt, err := s.Prepare(`
+DELETE FROM lease
+WHERE model_uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete secret_backend_reference then model_secret_backend.
+	deleteSecretBackendRefsStmt, err := s.Prepare(`
+DELETE FROM secret_backend_reference
+WHERE model_uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteModelSecretBackendStmt, err := s.Prepare(`
+DELETE FROM model_secret_backend
+WHERE model_uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete model_authorized_keys.
+	deleteAuthorizedKeysStmt, err := s.Prepare(`
+DELETE FROM model_authorized_keys
+WHERE model_uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete model_last_login.
+	deleteModelLastLoginStmt, err := s.Prepare(`
+DELETE FROM model_last_login
+WHERE model_uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete stale model_migration_import rows unless target-side abort
+	// cleanup owns them.
+	deleteImportClaimsStmt, err := s.Prepare(`
+DELETE FROM model_migration_import
+WHERE model_uuid = $modelUUIDArg.model_uuid
+AND   phase_type_id != (
+    SELECT id FROM model_migration_import_phase_type WHERE type = 'aborting'
+)
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete model_namespace.
+	deleteModelNamespaceStmt, err := s.Prepare(`
+DELETE FROM model_namespace
+WHERE model_uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete namespace_list entries for the model's namespace.
+	deleteNamespaceListStmt, err := s.Prepare(`
+DELETE FROM namespace_list
+WHERE namespace = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Delete the model row.
+	deleteModelStmt, err := s.Prepare(`
+DELETE FROM model
+WHERE uuid = $modelUUIDArg.model_uuid
+`, modelUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Complete the redirect.
+	completeRedirectStmt, err := s.Prepare(`
+UPDATE model_migration_redirect
+SET    completed_at = $redirectCompletion.completed_at
+WHERE  model_uuid = $redirectCompletion.model_uuid
+AND    completed_at IS NULL
+`, redirectCompletion{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Mark export DONE (phase update + phase history, reusing the same logic
+	// as MarkExportEnded but inline so it runs in the same transaction). The
+	// export row must still be in REAP: this is the transactional guard for
+	// the destructive purge above.
+	selectExportForPurgeStmt, err := s.Prepare(`
+SELECT &currentPhase.*
+FROM   model_migration_export
+WHERE  uuid = $migrationUUIDArg.migration_uuid
+AND    current_phase_id = $phaseIDArg.phase_id
+`, migrationUUIDArg{}, phaseIDArg{}, currentPhase{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	updateExportPhaseStmt, err := s.Prepare(`
+UPDATE model_migration_export
+SET    current_phase_id = $phaseUpdate.new_phase_id,
+       updated_at = $phaseUpdate.updated_at
+WHERE  uuid = $phaseUpdate.uuid
+AND    current_phase_id = $phaseUpdate.expected_phase_id
+`, phaseUpdate{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+	insertPhaseStmt, err := s.Prepare(`
+INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
+`, migrationPhaseEntry{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	// Scrub target auth inline (same transaction).
+	scrubAuthStmt, err := s.Prepare(`
+UPDATE model_migration_export_target_auth
+SET    target_user = '',
+       target_macaroons = '',
+       target_token = ''
+WHERE  migration_uuid = $migrationUUIDArg.migration_uuid
+`, migrationUUIDArg{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	migArg := migrationUUIDArg{MigrationUUID: migrationUUID}
+	modArg := modelUUIDArg{ModelUUID: modelUUID}
+	redirectComplete := redirectCompletion{
+		ModelUUID:   modelUUID,
+		CompletedAt: completedAt,
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Guard: the export must still be in REAP before anything is
+		// deleted. Running inside the transaction means a racing phase
+		// change can never interleave with the purge.
+		var cur currentPhase
+		err := tx.Query(ctx, selectExportForPurgeStmt, migArg, phaseIDArg{PhaseID: reapID}).Get(&cur)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf(
+				"migration %q is not in the %q phase: %w",
+				migrationUUID, migration.REAP, modelmigrationerrors.ErrPhaseTransitionInvalid,
+			)
+		} else if err != nil {
+			return errors.Errorf("reading export migration %q: %w", migrationUUID, err)
+		}
+
+		// 1. Delete offer permission rows.
+		if err := tx.Query(ctx, deleteOfferPermsStmt, migArg).Run(); err != nil {
+			return errors.Errorf("deleting offer permissions for migration %q: %w", migrationUUID, err)
+		}
+		// 2. Delete model permission rows.
+		if err := tx.Query(ctx, deleteModelPermsStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting model permissions for model %q: %w", modelUUID, err)
+		}
+		// 3. Delete lease_pin then lease.
+		if err := tx.Query(ctx, deleteLeasePinsStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting lease pins for model %q: %w", modelUUID, err)
+		}
+		if err := tx.Query(ctx, deleteLeasesStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting leases for model %q: %w", modelUUID, err)
+		}
+		// 4. Delete secret_backend_reference then model_secret_backend.
+		if err := tx.Query(ctx, deleteSecretBackendRefsStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting secret backend refs for model %q: %w", modelUUID, err)
+		}
+		if err := tx.Query(ctx, deleteModelSecretBackendStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting model secret backend for model %q: %w", modelUUID, err)
+		}
+		// 5. Delete model_authorized_keys.
+		if err := tx.Query(ctx, deleteAuthorizedKeysStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting authorized keys for model %q: %w", modelUUID, err)
+		}
+		// 6. Delete model_last_login.
+		if err := tx.Query(ctx, deleteModelLastLoginStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting model last logins for model %q: %w", modelUUID, err)
+		}
+		// 7. Delete stale import claims (not aborting).
+		if err := tx.Query(ctx, deleteImportClaimsStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting import claims for model %q: %w", modelUUID, err)
+		}
+		// 8. Delete model_namespace.
+		if err := tx.Query(ctx, deleteModelNamespaceStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting model namespace for model %q: %w", modelUUID, err)
+		}
+		// 9. Delete namespace_list entry.
+		if err := tx.Query(ctx, deleteNamespaceListStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting namespace list for model %q: %w", modelUUID, err)
+		}
+		// 10. Delete the model row.
+		if err := tx.Query(ctx, deleteModelStmt, modArg).Run(); err != nil {
+			return errors.Errorf("deleting model %q: %w", modelUUID, err)
+		}
+
+		// Complete the redirect.
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, completeRedirectStmt, redirectComplete).Get(&outcome); err != nil {
+			return errors.Errorf("completing redirect for model %q: %w", modelUUID, err)
+		}
+		affected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if affected == 0 {
+			return errors.Errorf(
+				"no staged redirect to complete for model %q: %w",
+				modelUUID, modelmigrationerrors.ErrModelNotRedirected,
+			)
+		}
+
+		// Mark export DONE (optimistic lock on the REAP phase read above).
+		phaseUpd := phaseUpdate{
+			UUID:            migrationUUID,
+			NewPhaseID:      doneID,
+			ExpectedPhaseID: reapID,
+			UpdatedAt:       completedAt,
+		}
+		if err := tx.Query(ctx, updateExportPhaseStmt, phaseUpd).Get(&outcome); err != nil {
+			return errors.Errorf("ending migration %q: %w", migrationUUID, err)
+		}
+		affected, err = outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if affected == 0 {
+			return errors.Errorf("no active migration %q: %w", migrationUUID, modelmigrationerrors.ErrMigrationNotFound)
+		}
+		phaseEntry := migrationPhaseEntry{
+			MigrationUUID: migrationUUID,
+			ModelUUID:     cur.ModelUUID,
+			PhaseID:       doneID,
+			ChangedAt:     completedAt,
+		}
+		if err := tx.Query(ctx, insertPhaseStmt, phaseEntry).Run(); err != nil {
+			return errors.Errorf("recording terminal phase for migration %q: %w", migrationUUID, err)
+		}
+
+		// Scrub target auth.
+		if err := tx.Query(ctx, scrubAuthStmt, migArg).Run(); err != nil {
+			return errors.Errorf("scrubbing target auth for migration %q: %w", migrationUUID, err)
+		}
+		return nil
+	})
 }

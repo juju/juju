@@ -93,3 +93,21 @@ type OffererModel struct {
 	ControllerUUID string
 	ModelUUID      string
 }
+
+// RedirectionTarget carries the target controller identity for the redirect
+// snapshot stored in model_migration_redirect. It is the source-side durable
+// post-REAP redirect contract, read at login time by the model service.
+type RedirectionTarget struct {
+	ControllerUUID  string
+	ControllerAlias string
+	Addresses       []string
+	CACert          string
+}
+
+// RedirectUserAccess is a single user's captured model access level, stored in
+// model_migration_redirect_user for post-REAP login authorization.
+type RedirectUserAccess struct {
+	UserUUID string
+	UserName string
+	Access   string
+}
