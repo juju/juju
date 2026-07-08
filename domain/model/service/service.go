@@ -207,6 +207,30 @@ type Service struct {
 	logger              logger.Logger
 	clock               clock.Clock
 	statusHistoryGetter StatusHistoryGetter
+	redirectLookup      RedirectLookup
+}
+
+// RedirectLookup provides access to migration redirect information stored in
+// the controller database by the modelmigration domain. The model service
+// depends on this narrow interface rather than importing the modelmigration
+// state package directly, preserving domain boundary separation.
+type RedirectLookup interface {
+	// GetRedirectForModel returns the completed redirect target for a model,
+	// or an error satisfying [modelerrors.ModelNotRedirected] if no completed
+	// redirect exists.
+	GetRedirectForModel(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
+	// GetRedirectUsers returns the captured user access rows for a model's
+	// redirect snapshot. Used by login-time redirect to enforce the 3.6
+	// user-access behavior: anonymous logins may be redirected for CMR
+	// continuity; named users with no captured model access are not redirected.
+	GetRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]RedirectUser, error)
+}
+
+// RedirectUser is a single user's captured model access from the redirect
+// snapshot, used for login-time authorization.
+type RedirectUser struct {
+	UserName string
+	Access   string
 }
 
 var (
@@ -228,6 +252,24 @@ func NewService(
 	}
 }
 
+// SetRedirectLookup sets the redirect lookup interface used by ModelRedirection.
+// This is called after construction by the domain services composition root,
+// which provides the adapter that reads from the modelmigration controller
+// state. If never called, ModelRedirection always returns ModelNotRedirected.
+func (s *Service) SetRedirectLookup(rl RedirectLookup) {
+	s.redirectLookup = rl
+}
+
+// ModelRedirectUsers returns the captured user access rows for a model's
+// redirect snapshot. Used by login-time redirect to enforce the 3.6
+// user-access behavior. If no redirect lookup is configured, returns nil.
+func (s *Service) ModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]RedirectUser, error) {
+	if s.redirectLookup == nil {
+		return nil, nil
+	}
+	return s.redirectLookup.GetRedirectUsers(ctx, modelUUID)
+}
+
 // CheckModelExists checks if a model exists within the controller. True or
 // false is returned indiciating of the model exists.
 func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
@@ -238,9 +280,11 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 
 // ModelRedirection returns redirection information for the current model. If it
 // is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
-// Placeholder for model migration.
 func (s *Service) ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error) {
-	return model.ModelRedirection{}, modelerrors.ModelNotRedirected
+	if s.redirectLookup == nil {
+		return model.ModelRedirection{}, modelerrors.ModelNotRedirected
+	}
+	return s.redirectLookup.GetRedirectForModel(ctx, modelUUID)
 }
 
 // DefaultModelCloudInfo returns the default cloud name and region name
