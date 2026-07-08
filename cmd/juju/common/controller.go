@@ -80,7 +80,7 @@ func WaitForAgentInitialisation(
 		Delay:    bootstrapReadyPollDelay,
 		Stop:     ctx.Done(),
 		NotifyFunc: func(lastErr error, attempts int) {
-			apiAttempts = attempts + 1
+			apiAttempts = attempts
 		},
 		IsFatalError: func(err error) bool {
 			return errors.Is(err, unknownError) ||
