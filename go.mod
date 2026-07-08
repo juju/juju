@@ -208,7 +208,7 @@ require (
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/loggo v1.0.0 // indirect
-	github.com/juju/loggo/v2 v2.1.0 // indirect
+	github.com/juju/loggo/v2 v2.2.0 // indirect
 	github.com/juju/mgo/v2 v2.0.3 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
