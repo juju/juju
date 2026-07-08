@@ -10,17 +10,20 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4/voyeur"
+	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/internal/worker"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -28,7 +31,9 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/leadership"
 	loggerworker "github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/retrystrategy"
@@ -76,6 +81,12 @@ type UnitManifoldsConfig struct {
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
+
+	// HTTPClientGetter provides scoped HTTP clients to nested unit workers.
+	HTTPClientGetter corehttp.HTTPClientGetter
+
+	// PrometheusRegisterer registers metrics for unit-scoped workers.
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // UnitManifolds returns a set of co-configured manifolds covering the various
@@ -93,7 +104,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			return dependency.ErrBounce
 		} else if cause == apicaller.ErrConnectImpossible {
 			// TODO: almost certainly want a different error here.
-			return worker.ErrTerminateAgent
+			return internalworker.ErrTerminateAgent
 		}
 		return err
 	}
@@ -137,12 +148,27 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggerContext.GetLogger("juju.worker.units3caller"),
 		}),
 
-		// The log sender is a leaf worker that sends log messages to some
-		// API server, when configured so to do. We should only need one of
-		// these in a consolidated agent.
-		logSenderName: logsender.Manifold(logsender.ManifoldConfig{
-			APICallerName: apiCallerName,
-			LogSource:     config.LogSource,
+		httpClientName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.HTTPClientGetter)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// The log router owns the buffered log stream and forwards records to
+		// one active backend at a time.
+		logRouterName: logrouter.Manifold(logrouter.ManifoldConfig{
+			AgentName:                 agentName,
+			APICallerName:             apiCallerName,
+			HTTPClientName:            httpClientName,
+			LogSource:                 config.LogSource,
+			AgentConfigChanged:        config.AgentConfigChanged,
+			Logger:                    config.LoggerContext.GetLogger("juju.worker.logrouter"),
+			Clock:                     config.Clock,
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewBackendFunc:            logrouter.NewBackend,
+			RemoveLegacyLogSinkWriter: func() {},
+			AddLegacyLogSinkWriter:    func() error { return nil },
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -163,15 +189,16 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			// No Logger defined in migrationflag package.
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			FortressName:      migrationFortressName,
-			Clock:             config.Clock,
-			APIOpen:           api.Open,
-			ValidateMigration: config.ValidateMigration,
-			NewFacade:         migrationminion.NewFacade,
-			NewWorker:         migrationminion.NewWorker,
-			Logger:            config.LoggerContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			AgentName:             agentName,
+			APICallerName:         apiCallerName,
+			FortressName:          migrationFortressName,
+			Clock:                 config.Clock,
+			APIOpen:               api.Open,
+			ValidateMigration:     config.ValidateMigration,
+			NewWorker:             migrationminion.NewWorker,
+			Logger:                config.LoggerContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			SendReport:            migrationminion.SendReport,
+			FetchTargetLokiConfig: migrationminion.FetchTargetLokiConfig,
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -184,6 +211,13 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			LoggerContext:   config.LoggerContext,
 			Logger:          config.LoggerContext.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
+		})),
+
+		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             config.LoggerContext.GetLogger("juju.worker.lokiendpointupdater"),
 		})),
 
 		// The api address updater is a leaf worker that rewrites agent config
@@ -282,13 +316,15 @@ const (
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
 	s3CallerName         = "s3-caller"
-	logSenderName        = "log-sender"
+	httpClientName       = "http-client"
+	logRouterName        = "log-router"
 
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
 	loggingConfigUpdaterName = "logging-config-updater"
+	lokiEndpointUpdaterName  = "loki-endpoint-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 
 	charmDirName          = "charm-dir"

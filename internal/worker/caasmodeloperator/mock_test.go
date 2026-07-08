@@ -4,58 +4,35 @@
 package caasmodeloperator_test
 
 import (
+	"context"
 	"time"
 
-	"github.com/juju/names/v6"
-
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
-type mockAgentConfig struct {
-	agent.Config
+type mockConfigProvider struct{}
+
+type mockTracingService struct{}
+
+func (m *mockConfigProvider) CACert() (string, error) {
+	return coretesting.CACert, nil
 }
 
-func (m *mockAgentConfig) Controller() names.ControllerTag {
-	return coretesting.ControllerTag
+func (m *mockConfigProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
+	return controller.ControllerAgentInfo{
+		Cert:         "controller-cert",
+		PrivateKey:   "controller-key",
+		CAPrivateKey: "ca-key",
+	}, nil
 }
 
-func (m *mockAgentConfig) DataDir() string {
-	return "/var/lib/juju"
-}
-
-func (m *mockAgentConfig) LogDir() string {
-	return "/var/log/juju"
-}
-
-func (m *mockAgentConfig) OldPassword() string {
-	return "old password"
-}
-
-func (m *mockAgentConfig) CACert() string {
-	return coretesting.CACert
-}
-
-func (m *mockAgentConfig) OpenTelemetryEnabled() bool {
-	return false
-}
-
-func (m *mockAgentConfig) OpenTelemetryEndpoint() string {
-	return ""
-}
-
-func (m *mockAgentConfig) OpenTelemetryInsecure() bool {
-	return false
-}
-
-func (m *mockAgentConfig) OpenTelemetryStackTraces() bool {
-	return false
-}
-
-func (m *mockAgentConfig) OpenTelemetrySampleRatio() float64 {
-	return 0.1000
-}
-
-func (m *mockAgentConfig) OpenTelemetryTailSamplingThreshold() time.Duration {
-	return time.Millisecond
+func (m *mockTracingService) GetWorkloadTracingConfig(context.Context) (tracingservice.WorkloadTracingConfig, error) {
+	sampleRatio := 0.1000
+	tailSamplingThreshold := time.Millisecond.String()
+	return tracingservice.WorkloadTracingConfig{
+		OpenTelemetrySampleRatio:           &sampleRatio,
+		OpenTelemetryTailSamplingThreshold: &tailSamplingThreshold,
+	}, nil
 }

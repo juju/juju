@@ -10,7 +10,6 @@ import (
 	"os"
 
 	"github.com/juju/clock"
-	"github.com/juju/description/v12"
 	"github.com/juju/errors"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -21,11 +20,12 @@ import (
 	corestorage "github.com/juju/juju/core/storage"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/domain/modeldefaults"
-	migrations "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/domain/modelimport"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/migration/legacy"
 	"github.com/juju/juju/internal/naturalsort"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/tools"
@@ -36,19 +36,6 @@ import (
 type OperationExporter interface {
 	// ExportOperations registers the export operations with the given coordinator.
 	ExportOperations(registry corestorage.ModelStorageRegistryGetter)
-}
-
-// Coordinator describes the interface required for coordinating model
-// migration operations.
-type Coordinator interface {
-	// Add a new operation to the migration. It will be appended at the end of the
-	// list of operations.
-	Add(operations modelmigration.Operation)
-	// Perform executes the migration.
-	// We log in addition to returning errors because the error is ultimately
-	// returned to the caller on the source, and we want them to be reflected
-	// in *this* controller's logs.
-	Perform(ctx context.Context, scope modelmigration.Scope, model description.Model) (err error)
 }
 
 // ConfigSchemaSourceProvider returns a config.ConfigSchemaSourceGetter based
@@ -84,65 +71,71 @@ func NewModelImporter(
 	}
 }
 
-// ImportModel deserializes a model description from the bytes, transforms
-// the model config based on information from the controller model, and then
-// imports that as a new database model.
-func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) error {
-	model, err := description.Deserialize(bytes)
-	if err != nil {
-		return errors.Trace(err)
+// ImportModelLegacy deserializes a legacy description model from the bytes,
+// transforms the model config based on information from the controller model,
+// and imports that as a new database model.
+func (i *ModelImporter) ImportModelLegacy(ctx context.Context, bytes []byte) error {
+	return legacy.ImportModel(
+		ctx, bytes, i.scope, i.domainServices, i.controllerUUID, i.logger, i.clock,
+	)
+}
+
+// ImportModel applies a v8 import's controller-scoped semantic data to the
+// target controller. See [ImportControllerModelInfo] for the orchestration;
+// this method only resolves the migration scope for the model UUID and
+// delegates.
+//
+// If a claim already exists for args.ControllerModelInfo.ModelInfo.UUID, the
+// returned error wraps [coreerrors.AlreadyExists] (phase-specific wording is
+// supplied by the modelmigration domain).
+func (i *ModelImporter) ImportModel(
+	ctx context.Context, args ImportModelArgs, view export.ProjectionView,
+) error {
+	modelUUID := coremodel.UUID(args.ControllerModelInfo.ModelInfo.UUID)
+	scope := i.scope(modelUUID)
+	deps := Deps{
+		ControllerDB: scope.ControllerDB(),
+		ModelDB:      scope.ModelDB(),
+		Clock:        i.clock,
+		Logger:       i.logger,
 	}
 
-	configGetter, err := newEphemeralProviderConfigGetter(i.controllerUUID, model, getterShim{servicesGetter: i.domainServices})
-	if err != nil {
-		return internalerrors.Errorf("creating ephemeral provider config getter: %w", err)
+	// Apply the controller-scoped data (claim, bootstrap, users, credential,
+	// permissions, secret backend references, ...). Writes only; no return
+	// value beyond the error.
+	if err := ImportControllerModelInfo(
+		ctx, deps, args.SourceMigrationUUID, args.ControllerModelInfo, view,
+	); err != nil {
+		return internalerrors.Capture(err)
 	}
 
-	modelUUID := coremodel.UUID(model.UUID())
-
-	// The domain services are not available during the import, until the
-	// model is created and activated. The model defaults provider is used
-	// to provide the model defaults during the migration, so we allow access
-	// but in a lazy way.
-	modelDefaultsProvider := modelDefaultsProvider{
-		modelUUID:      modelUUID,
-		servicesGetter: i.domainServices,
+	if args.ModelDBPayload == nil {
+		return nil
 	}
 
-	coordinator := modelmigration.NewCoordinator(i.logger)
-	migrations.ImportOperations(
-		coordinator,
-		modelDefaultsProvider,
-		configGetter,
-		i.clock,
-		i.logger)
-	if err := coordinator.Perform(ctx, i.scope(modelUUID), model); err != nil {
-		return errors.Trace(err)
+	// Now that the controller data is applied, rewrite the model-DB payload's
+	// live secret value ref backend UUIDs from the source controller's to the
+	// target's (matched by name) before the insert. An unmapped live revision
+	// is a hard error; no model-DB rows are written.
+	if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
+		return internalerrors.Errorf(
+			"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
 	}
 
+	// Model-DB import: insert the transformed, target-version payload into the
+	// model DB. The importer is constructed per import because it binds to the
+	// model DB resolved from the scope for this model UUID (the ModelImporter
+	// itself is not bound to a single model).
+	if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
+		return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
+	}
 	return nil
 }
 
-type modelDefaultsProvider struct {
-	modelUUID      coremodel.UUID
-	servicesGetter services.DomainServicesGetter
-}
-
-func (p modelDefaultsProvider) ModelDefaults(ctx context.Context) (modeldefaults.Defaults, error) {
-	domainServices, err := p.servicesGetter.ServicesForModel(ctx, p.modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelDefaults := domainServices.ModelDefaults()
-	fn := modelDefaults.ModelDefaultsProvider(p.modelUUID)
-	return fn(ctx)
-}
-
 type CharmService interface {
-	// GetCharmArchive returns a ReadCloser stream for the charm archive for a given
-	// charm id, along with the hash of the charm archive. Clients can use the hash
-	// to verify the integrity of the charm archive.
+	// GetCharmArchive returns a ReadCloser stream for the charm archive for a
+	// given charm id, along with the hash of the charm archive. Clients can use
+	// the hash to verify the integrity of the charm archive.
 	GetCharmArchive(context.Context, domaincharm.CharmLocator) (io.ReadCloser, string, error)
 }
 
@@ -275,32 +268,44 @@ func uploadCharms(ctx context.Context, config UploadBinariesConfig, logger corel
 	naturalsort.Sort(config.Charms)
 
 	for _, charmURL := range config.Charms {
-		logger.Debugf(ctx, "sending charm %s to target", charmURL)
-		curl, err := charm.ParseURL(charmURL)
-		if err != nil {
-			return errors.Annotate(err, "bad charm URL")
+		if err := uploadCharm(ctx, config, logger, charmURL); err != nil {
+			return err
 		}
-		charmSource, err := domaincharm.ParseCharmSchema(charm.Schema(curl.Schema))
-		if err != nil {
-			return errors.Annotate(err, "bad charm URL schema")
-		}
-		reader, hash, err := config.CharmService.GetCharmArchive(ctx, domaincharm.CharmLocator{
-			Name:     curl.Name,
-			Revision: curl.Revision,
-			Source:   charmSource,
-		})
-		if err != nil {
-			return errors.Annotate(err, "cannot open charm")
-		}
-		defer func() { _ = reader.Close() }()
+	}
+	return nil
+}
 
-		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:8])
-		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, reader); err != nil {
-			return errors.Annotate(err, "cannot upload charm")
-		} else if usedCurl != charmURL {
-			// The target controller shouldn't assign a different charm URL.
-			return errors.Errorf("charm %s unexpectedly assigned %s", charmURL, usedCurl)
-		}
+func uploadCharm(
+	ctx context.Context,
+	config UploadBinariesConfig,
+	logger corelogger.Logger,
+	charmURL string,
+) error {
+	logger.Debugf(ctx, "sending charm %s to target", charmURL)
+	curl, err := charm.ParseURL(charmURL)
+	if err != nil {
+		return errors.Annotate(err, "bad charm URL")
+	}
+	charmSource, err := domaincharm.ParseCharmSchema(charm.Schema(curl.Schema))
+	if err != nil {
+		return errors.Annotate(err, "bad charm URL schema")
+	}
+	reader, hash, err := config.CharmService.GetCharmArchive(ctx, domaincharm.CharmLocator{
+		Name:     curl.Name,
+		Revision: curl.Revision,
+		Source:   charmSource,
+	})
+	if err != nil {
+		return errors.Annotate(err, "cannot open charm")
+	}
+	defer func() { _ = reader.Close() }()
+
+	charmRef := fmt.Sprintf("%s-%s", curl.Name, hash[0:8])
+	if usedCurl, err := config.CharmUploader.UploadCharm(ctx, charmURL, charmRef, reader); err != nil {
+		return errors.Annotate(err, "cannot upload charm")
+	} else if usedCurl != charmURL {
+		// The target controller shouldn't assign a different charm URL.
+		return errors.Errorf("charm %s unexpectedly assigned %s", charmURL, usedCurl)
 	}
 	return nil
 }
@@ -311,28 +316,41 @@ func uploadTools(
 	logger corelogger.Logger,
 ) error {
 	for sha256Sum, version := range config.Tools {
-		logger.Debugf(
-			ctx,
-			"sending agent binaries for sha256 %q and version %q to target controller",
-			sha256Sum, version,
+		if err := uploadTool(ctx, config, logger, sha256Sum, version); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func uploadTool(
+	ctx context.Context,
+	config UploadBinariesConfig,
+	logger corelogger.Logger,
+	sha256Sum string,
+	version semversion.Binary,
+) error {
+	logger.Debugf(
+		ctx,
+		"sending agent binaries for sha256 %q and version %q to target controller",
+		sha256Sum, version,
+	)
+
+	reader, _, err := config.AgentBinaryStore.GetAgentBinaryUsingSHA256(ctx, sha256Sum)
+	if err != nil {
+		return internalerrors.Errorf(
+			"getting agent binaries for sha %q to upload in migration: %w",
+			sha256Sum, err,
 		)
+	}
+	defer func() { _ = reader.Close() }()
 
-		reader, _, err := config.AgentBinaryStore.GetAgentBinaryUsingSHA256(ctx, sha256Sum)
-		if err != nil {
-			return internalerrors.Errorf(
-				"getting agent binaries for sha %q to upload in migration: %w",
-				sha256Sum, err,
-			)
-		}
-		defer func() { _ = reader.Close() }()
-
-		_, err = config.ToolsUploader.UploadTools(ctx, reader, version)
-		if err != nil {
-			return internalerrors.Errorf(
-				"upladoing agent binaries for sha256 %q and version %q: %w",
-				sha256Sum, version, err,
-			)
-		}
+	_, err = config.ToolsUploader.UploadTools(ctx, reader, version)
+	if err != nil {
+		return internalerrors.Errorf(
+			"uploading agent binaries for sha256 %q and version %q: %w",
+			sha256Sum, version, err,
+		)
 	}
 	return nil
 }

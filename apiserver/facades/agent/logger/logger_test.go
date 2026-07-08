@@ -4,6 +4,7 @@
 package logger_test
 
 import (
+	"context"
 	"testing"
 
 	gomock "github.com/canonical/gomock/gomock"
@@ -13,7 +14,10 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/logger"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/logging"
+	loggingerrors "github.com/juju/juju/domain/logging/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -24,11 +28,13 @@ var (
 
 type loggerSuite struct {
 	logger     *logger.LoggerAPI
+	loggerV2   *logger.LoggerAPIV2
 	authorizer apiservertesting.FakeAuthorizer
 
 	watcherRegistry *facademocks.MockWatcherRegistry
 
-	modelConfigService *MockModelConfigService
+	modelConfigService          *MockModelConfigService
+	controllerLokiConfigService *stubControllerLokiConfigService
 }
 
 func TestLoggerSuite(t *testing.T) {
@@ -41,6 +47,7 @@ func (s *loggerSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.controllerLokiConfigService = &stubControllerLokiConfigService{}
 
 	return ctrl
 }
@@ -51,6 +58,20 @@ func (s *loggerSuite) setupAPI(c *tc.C) {
 		Tag: defaultMachineTag,
 	}
 	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *loggerSuite) setupAPIV2(c *tc.C) {
+	var err error
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: defaultMachineTag,
+	}
+	s.loggerV2, err = logger.NewLoggerAPIV2(
+		s.authorizer,
+		s.watcherRegistry,
+		s.modelConfigService,
+		s.controllerLokiConfigService,
+	)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -185,4 +206,136 @@ func (s *loggerSuite) TestLoggingConfigForAgent(c *tc.C) {
 	result := results.Results[0]
 	c.Assert(result.Error, tc.IsNil)
 	c.Assert(result.Result, tc.Equals, "<root>=WARN;juju.log.test=DEBUG;unit=INFO")
+}
+
+func (s *loggerSuite) TestGetControllerLokiConfigRefusesWrongAgent(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	args := params.Entity{Tag: "machine-12354"}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 0)
+}
+
+func (s *loggerSuite) TestGetControllerLokiConfigForAgent(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	insecureFalse := false
+	s.controllerLokiConfigService.config = logging.LokiConfig{
+		Endpoint:           "https://loki.example.com/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &insecureFalse,
+	}
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.Endpoint, tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Assert(result.CACert, tc.NotNil)
+	c.Check(*result.CACert, tc.Equals, "ca-cert")
+	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 1)
+}
+
+func (s *loggerSuite) TestGetControllerLokiConfigInsecureSkipVerify(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	insecureTrue := true
+	s.controllerLokiConfigService.config = logging.LokiConfig{
+		Endpoint:           "https://loki.example.com/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: &insecureTrue,
+	}
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.InsecureSkipVerify, tc.NotNil)
+	c.Check(*result.InsecureSkipVerify, tc.Equals, true)
+}
+
+func (s *loggerSuite) TestGetControllerLokiConfigNilInsecureSkipVerify(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	s.controllerLokiConfigService.config = logging.LokiConfig{
+		Endpoint:           "https://loki.example.com/loki/api/v1/push",
+		CACertificate:      "ca-cert",
+		InsecureSkipVerify: nil,
+	}
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(result.InsecureSkipVerify, tc.IsNil)
+}
+
+func (s *loggerSuite) TestGetControllerLokiConfigReturnsNotFoundError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	s.controllerLokiConfigService.getErr = loggingerrors.LokiConfigNotFound
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.GetControllerLokiConfig(c.Context(), args)
+	c.Assert(result.Error, tc.ErrorMatches, "loki config not found")
+	c.Check(result.Error.Code, tc.Equals, params.CodeNotFound)
+	c.Check(result.Endpoint, tc.Equals, "")
+	c.Check(result.CACert, tc.IsNil)
+	c.Check(s.controllerLokiConfigService.getCalls, tc.Equals, 1)
+}
+
+func (s *loggerSuite) TestWatchControllerLokiConfig(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	notifyCh := make(chan struct{}, 1)
+	notifyCh <- struct{}{}
+	s.controllerLokiConfigService.watcher = watchertest.NewMockNotifyWatcher(notifyCh)
+	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("1", nil)
+
+	args := params.Entity{Tag: defaultMachineTag.String()}
+	result := s.loggerV2.WatchControllerLokiConfig(c.Context(), args)
+	c.Assert(result.NotifyWatcherId, tc.Not(tc.Equals), "")
+	c.Assert(result.Error, tc.IsNil)
+	c.Check(s.controllerLokiConfigService.watchCalls, tc.Equals, 1)
+}
+
+func (s *loggerSuite) TestWatchControllerLokiConfigRefusesWrongAgent(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPIV2(c)
+
+	args := params.Entity{Tag: "machine-12354"}
+	result := s.loggerV2.WatchControllerLokiConfig(c.Context(), args)
+	c.Assert(result.NotifyWatcherId, tc.Equals, "")
+	c.Assert(result.Error, tc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Check(s.controllerLokiConfigService.watchCalls, tc.Equals, 0)
+}
+
+type stubControllerLokiConfigService struct {
+	config     logging.LokiConfig
+	getErr     error
+	getCalls   int
+	watcher    *watchertest.MockNotifyWatcher
+	watchErr   error
+	watchCalls int
+}
+
+func (s *stubControllerLokiConfigService) GetLokiConfig(ctx context.Context) (logging.LokiConfig, error) {
+	s.getCalls++
+	return s.config, s.getErr
+}
+
+func (s *stubControllerLokiConfigService) WatchLokiConfig(ctx context.Context) (watcher.NotifyWatcher, error) {
+	s.watchCalls++
+	return s.watcher, s.watchErr
 }

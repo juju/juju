@@ -18,13 +18,15 @@ import (
 var exportVersionStrings = []string{
 	"4.0.4",
 	"4.0.6",
-	"4.0.12", // version currently in dev.
+	"4.0.11",
+	"4.0.12",
+	"4.1.0", // mutable, not released
 }
 
 // ExportVersions lists each semantic version for which there is a new export
 // format, in ascending order. It is derived from [exportVersionStrings]; the
 // wire format is unchanged because [semversion.Number] marshals to the
-// canonical "4.0.6"-style string in both JSON and YAML.
+// canonical "4.0.11"-style string in both JSON and YAML.
 var ExportVersions = parseExportVersions(exportVersionStrings)
 
 func parseExportVersions(versions []string) []semversion.Number {

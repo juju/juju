@@ -3,5 +3,5 @@
 
 package secretbackendrotate_test
 
-//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/internal/worker/secretbackendrotate SecretBackendManagerFacade
+//go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/client_mock.go github.com/juju/juju/internal/worker/secretbackendrotate SecretBackendService
 //go:generate go run github.com/canonical/gomock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/watcher SecretBackendRotateWatcher

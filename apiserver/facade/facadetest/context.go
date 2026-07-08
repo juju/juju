@@ -25,6 +25,7 @@ import (
 type ModelContext struct {
 	Auth_                  facade.Authorizer
 	CrossModelAuthContext_ facade.CrossModelAuthContext
+	LocalMacaroonMinter_   facade.LocalMacaroonMinter
 	Dispose_               func()
 	WatcherRegistry_       watcherregistry.WatcherRegistry
 	ID_                    string
@@ -66,6 +67,11 @@ func (c ModelContext) Auth() facade.Authorizer {
 // for cross model operations.
 func (c ModelContext) CrossModelAuthContext() facade.CrossModelAuthContext {
 	return c.CrossModelAuthContext_
+}
+
+// LocalMacaroonMinter is part of the facade.ModelContext interface.
+func (c ModelContext) LocalMacaroonMinter() facade.LocalMacaroonMinter {
+	return c.LocalMacaroonMinter_
 }
 
 // Dispose is part of the facade.ModelContext interface.

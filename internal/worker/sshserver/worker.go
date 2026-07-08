@@ -13,23 +13,8 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/core/watcher"
-)
-
-const (
-	// TODO(ale8k): Use generated hostkey from initialise()
-	// As of right now, the generated host key is in mongo.
-	// The initialisation logic needs migrating over to DQLite and then
-	// a domain service should call the method to retrieve the generated
-	// host key here. For now, we're hardcoding it it to stop the server bouncing.
-	temporaryJumpHostKey = `-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtz
-c2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7VHoJY7LZ7yXzuWlSVYAAA
-AIiZq0wRmatMEQAAAAtzc2gtZWQyNTUxOQAAACBT8UidoqUmpUFFCGEhZhHWGE7V
-HoJY7LZ7yXzuWlSVYAAAAEBYRsJTytYJUidtOuv3s3tdjyDA+4TSdCz9+hFKjyqz
-v1PxSJ2ipSalQUUIYSFmEdYYTtUegljstnvJfO5aVJVgAAAAAAECAwQF
------END OPENSSH PRIVATE KEY-----
-`
 )
 
 // ControllerConfigService is the interface that the worker uses to get the
@@ -42,9 +27,28 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ControllerSSHHostKeyService resolves the controller jump host key.
+type ControllerSSHHostKeyService interface {
+	// SSHServerHostKey returns the controller jump host key.
+	SSHServerHostKey(context.Context) (string, error)
+}
+
+// SSHModelService resolves routed destination host keys.
+type SSHModelService interface {
+	// VirtualHostKey returns the terminating host key for a routed destination.
+	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
+}
+
+// SSHService resolves controller and terminating SSH host keys.
+type SSHService interface {
+	ControllerSSHHostKeyService
+	SSHModelService
+}
+
 // ServerWrapperWorkerConfig holds the configuration required by the server wrapper worker.
 type ServerWrapperWorkerConfig struct {
 	ControllerConfigService ControllerConfigService
+	SSHService              SSHService
 	NewServerWorker         func(ServerWorkerConfig) (worker.Worker, error)
 	Logger                  logger.Logger
 	SessionHandler          SessionHandler
@@ -57,6 +61,9 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	}
 	if c.NewServerWorker == nil {
 		return errors.NotValidf("NewSSHServer is required")
+	}
+	if c.SSHService == nil {
+		return errors.NotValidf("SSHService is required")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("Logger is required")
@@ -154,12 +161,17 @@ func (ssw *serverWrapperWorker) loop() error {
 
 	port := config.SSHServerPort()
 	maxConns := config.SSHMaxConcurrentConnections()
+	jumpHostKey, err := ssw.config.SSHService.SSHServerHostKey(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	srv, err := ssw.config.NewServerWorker(ServerWorkerConfig{
 		Logger:                   ssw.config.Logger,
-		JumpHostKey:              temporaryJumpHostKey,
+		JumpHostKey:              jumpHostKey,
 		Port:                     port,
 		MaxConcurrentConnections: maxConns,
+		SSHService:               ssw.config.SSHService,
 		SessionHandler:           ssw.config.SessionHandler,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)

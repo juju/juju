@@ -547,6 +547,7 @@ func (s *applicationSuite) TestEnsureStateful(c *tc.C) {
 			Labels: map[string]string{
 				"app.kubernetes.io/name":       "gitlab",
 				"app.kubernetes.io/managed-by": "juju",
+				"service.juju.is/type":         "endpoints",
 			},
 			Annotations: map[string]string{
 				"juju.is/version": "3.5-beta1",
@@ -1032,6 +1033,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless35(c *tc.C) {
 					Labels: map[string]string{
 						"app.kubernetes.io/name":       "gitlab",
 						"app.kubernetes.io/managed-by": "juju",
+						"service.juju.is/type":         "endpoints",
 					},
 					Annotations: map[string]string{
 						"juju.is/version": "3.5-beta1",
@@ -1122,6 +1124,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *tc.C) {
 					Labels: map[string]string{
 						"app.kubernetes.io/name":       "gitlab",
 						"app.kubernetes.io/managed-by": "juju",
+						"service.juju.is/type":         "endpoints",
 					},
 					Annotations: map[string]string{
 						"juju.is/version": "3.6-beta3",
@@ -1232,6 +1235,7 @@ func (s *applicationSuite) TestEnsureStatefulRootlessWithTempFSStorage(c *tc.C) 
 					Labels: map[string]string{
 						"app.kubernetes.io/name":       "gitlab",
 						"app.kubernetes.io/managed-by": "juju",
+						"service.juju.is/type":         "endpoints",
 					},
 					Annotations: map[string]string{
 						"juju.is/version": "4.0-beta8",
@@ -1361,6 +1365,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *tc.C) {
 					Labels: map[string]string{
 						"app.kubernetes.io/name":       "gitlab",
 						"app.kubernetes.io/managed-by": "juju",
+						"service.juju.is/type":         "endpoints",
 					},
 					Annotations: map[string]string{
 						"juju.is/version": "3.5-beta1",
@@ -3493,6 +3498,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *tc.C) {
 					Labels: map[string]string{
 						"app.kubernetes.io/name":       "gitlab",
 						"app.kubernetes.io/managed-by": "juju",
+						"service.juju.is/type":         "endpoints",
 					},
 					Annotations: map[string]string{
 						"juju.is/version": "3.5-beta1",
@@ -4381,4 +4387,41 @@ func (s *applicationSuite) TestDeleteAllCreatedResources(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(validatingWebhookConfigurations.Items, tc.NotNil)
 	c.Assert(validatingWebhookConfigurations.Items, tc.HasLen, 1)
+}
+
+type headlessServiceSuite struct{}
+
+func TestHeadlessServiceSuite(t *stdtesting.T) {
+	tc.Run(t, &headlessServiceSuite{})
+}
+
+func (s *headlessServiceSuite) TestIsManagedHeadlessServiceByLabel(c *tc.C) {
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "not-an-endpoints-suffixed-name",
+			Labels: map[string]string{
+				constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
+			},
+		},
+	}
+	c.Check(application.IsManagedHeadlessService(svc), tc.IsTrue)
+}
+
+func (s *headlessServiceSuite) TestIsManagedHeadlessServiceByLegacySuffix(c *tc.C) {
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "gitlab-endpoints"},
+	}
+	c.Check(application.IsManagedHeadlessService(svc), tc.IsTrue)
+}
+
+func (s *headlessServiceSuite) TestIsManagedHeadlessServiceFalse(c *tc.C) {
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gitlab",
+			Labels: map[string]string{
+				constants.LabelJujuServiceType: "something-else",
+			},
+		},
+	}
+	c.Check(application.IsManagedHeadlessService(svc), tc.IsFalse)
 }

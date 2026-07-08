@@ -13,16 +13,15 @@ import (
 	"github.com/juju/juju/domain/schema/model/triggers"
 )
 
-// TODO(merge): re-enable blockdevice trigger generation when 4.0 is merged to
-// main. This must correspond with resolving 0056-blockdevice-partial.PATCH.sql.
-//disabled go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/blockdevice-triggers.gen.go -package=triggers -tables=block_device
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/model-triggers.gen.go -package=triggers -tables=model_config,model_migrating
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision_expire,secret_revision_obsolete,secret_deleted_value_ref
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_reference,secret_deleted_value_ref
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet,ip_address
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine,machine_lxd_profile
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-requires-reboot-triggers.gen.go -package=triggers -tables=machine_requires_reboot
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/ssh-connection-request-triggers.gen.go -package=triggers -tables=ssh_connection_request
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/application-triggers.gen.go -package=triggers -tables=application,application_config_hash,application_setting,charm,application_scale,port_range,application_exposed_endpoint_space,application_exposed_endpoint_cidr
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/unit-triggers.gen.go -package triggers -tables=unit,unit_principal,unit_resolved
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/relation-triggers.gen.go -package=triggers -tables=relation_application_settings_hash,relation_unit_settings_hash,relation_unit,relation,application_endpoint
@@ -34,13 +33,6 @@ import (
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
-
-// ********************************************************************
-// ********************************************************************
-// DO NOT CHANGE THE ORDERING OF THE CONSTANTS IN PATCH RELEASES.
-// They are used to define the namespace IDs for changestream triggers.
-// ********************************************************************
-// ********************************************************************
 
 const (
 	customNamespaceUnitLifecycle tableNamespaceID = iota
@@ -90,6 +82,7 @@ const (
 	tableMachineLxdProfile
 	tableMachineCloudInstance
 	tableMachineRequireReboot
+	tableSSHConnectionRequest
 	tableCharm
 	tableUnit
 	tableUnitPrincipal
@@ -117,6 +110,7 @@ const (
 	tableApplicationStatus
 	tableRelationNetworkIngress
 	tableRelationNetworkEgress
+	tableModelMigrating
 )
 
 // modelPostPatchFilesByVersion is used to categorise the post patch files
@@ -130,58 +124,7 @@ const (
 var modelPostPatchFilesByVersion = []struct {
 	version semversion.Number
 	files   []string
-}{{
-	version: semversion.MustParse("4.0.1"),
-	files: []string{
-		"0035-cleanup.PATCH.sql",
-		"0036-machine-status.PATCH.sql",
-		"0037-model-migrating.PATCH.sql",
-		"0038-relation.PATCH.sql",
-		"0039-secret-metadata.PATCH.sql",
-		"0040-operator-status.PATCH.sql",
-		"0041-offer.PATCH.sql",
-		"0042-model-config.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.2"),
-	files: []string{
-		"0043-k8s-provider-id.PATCH.sql",
-		"0044-secret.PATCH.sql",
-		"0045-veth-nic-type.PATCH.sql",
-		"0046-relation.PATCH.sql",
-		"0047-secret.PATCH.sql",
-		"0048-offer.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.4"),
-	files: []string{
-		"0049-object-store-node-id.PATCH.sql",
-		"0050-secret.PATCH.sql",
-		"0051-secret-removal.PATCH.sql",
-		"0052-resource.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.6"),
-	files: []string{
-		"0053-network.PATCH.sql",
-		"0054-application-k8s-resources.PATCH.sql",
-		"0055-constraint-view.PATCH.sql",
-		"0056-blockdevice-partial.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.7"),
-	files: []string{
-		"0057-model-migrating-triggers.PATCH.sql",
-	},
-}, {
-	version: semversion.MustParse("4.0.12"),
-	files: []string{
-		"0058-charm-secret-removal.PATCH.sql",
-		"0059-machine-status.PATCH.sql",
-		"0060-view-indexes.PATCH.sql",
-		"0061-secret-reservation.PATCH.sql",
-	},
-}}
+}{}
 
 // ModelDDL is used to create model databases.
 func ModelDDL() *schema.Schema {
@@ -209,13 +152,14 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForSecretRotation("secret_id", tableSecretRotation),
 		triggers.ChangeLogTriggersForSecretRevisionObsolete("revision_uuid", tableSecretRevisionObsolete),
 		triggers.ChangeLogTriggersForSecretRevisionExpire("revision_uuid", tableSecretRevisionExpire),
-		changeLogTriggersForSecretRevision("uuid", tableSecretRevision),
-		changeLogTriggersForSecretReference("secret_id", tableSecretReference),
+		triggers.ChangeLogTriggersForSecretRevision("uuid", tableSecretRevision),
+		triggers.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
 		triggers.ChangeLogTriggersForSubnet("uuid", tableSubnet),
 		triggers.ChangeLogTriggersForMachine("uuid", tableMachine),
 		triggers.ChangeLogTriggersForMachineLxdProfile("machine_uuid", tableMachineLxdProfile),
 		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
 		triggers.ChangeLogTriggersForMachineRequiresReboot("machine_uuid", tableMachineRequireReboot),
+		triggers.ChangeLogTriggersForSshConnectionRequest("tunnel_id", tableSSHConnectionRequest),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 		triggers.ChangeLogTriggersForUnit("uuid", tableUnit),
 		// NOTE: we emit the uuid of the principal unit, not the subordinate, when
@@ -251,6 +195,7 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 		triggers.ChangeLogTriggersForApplicationStatus("application_uuid", tableApplicationStatus),
 		triggers.ChangeLogTriggersForRelationNetworkIngress("relation_uuid", tableRelationNetworkIngress),
 		triggers.ChangeLogTriggersForRelationNetworkEgress("relation_uuid", tableRelationNetworkEgress),
+		triggers.ChangeLogTriggersForModelMigrating("model_uuid", tableModelMigrating),
 	)
 
 	// Generic triggers.
@@ -286,6 +231,9 @@ func ModelDDLForVersion(version semversion.Number) *schema.Schema {
 
 		// Relation network egress is unmodifiable.
 		triggersForUnmodifiableTable("relation_network_egress", "relation_network_egress table is unmodifiable, only insertions and deletions are allowed"),
+
+		// Model migrating is unmodifiable.
+		triggersForUnmodifiableTable("model_migrating", "model_migrating table is unmodifiable, only insertions and deletions are allowed"),
 
 		// Secret permissions do not allow subject or scope to be updated.
 		triggerGuardForTable("secret_permission",
@@ -376,7 +324,8 @@ INSERT INTO change_log_namespace VALUES (%[1]d, 'agent_version', 'Agent version 
 CREATE TRIGGER trg_log_agent_version_update
 AFTER UPDATE ON agent_version FOR EACH ROW
 WHEN
-	NEW.target_version != OLD.target_version
+    NEW.stream_id != OLD.stream_id OR
+    NEW.target_version != OLD.target_version
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[1]d, NEW.target_version, DATETIME('now', 'utc'));

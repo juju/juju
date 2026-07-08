@@ -16,6 +16,7 @@ import (
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
@@ -197,6 +198,60 @@ func (s *providerServiceSuite) TestAddMachineContainer(c *tc.C) {
 	c.Check(*res.ChildMachineName, tc.Equals, machine.Name("0/lxd/0"))
 }
 
+func (s *providerServiceSuite) TestAddMachineUnsupportedConstraintWarns(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Use a real validator with ip-family registered as unsupported.
+	// The real validator's Validate will return ip-family in the
+	// unsupported slice, triggering the warn-and-ignore log.
+	realValidator := coreconstraints.NewValidator()
+	realValidator.RegisterUnsupported([]string{"ip-family"})
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(realValidator, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), gomock.Any()).Return("netNodeUUID", []machine.Name{"name"}, nil)
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			IPFamily: new(ipfamily.Dual),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
+}
+
+func (s *providerServiceSuite) TestAddMachineVocabError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	// Use a real validator with ip-family vocabulary restricted to ipv4.
+	// ip-family=dual will cause a vocab error, which should propagate
+	// as a hard error from AddMachine.
+	realValidator := coreconstraints.NewValidator()
+	realValidator.RegisterVocabulary("ip-family", []string{"ipv4"})
+
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(realValidator, nil)
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+
+	_, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			IPFamily: new(ipfamily.Dual),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorMatches, "(?s).*invalid constraint value.*")
+}
+
 // TestAddMachineError asserts that an error coming from the state layer is
 // preserved, passed over to the service layer to be maintained there.
 func (s *providerServiceSuite) TestAddMachineError(c *tc.C) {
@@ -248,13 +303,14 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsConstraint
 	defer ctrl.Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
-
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, modelerrors.ConstraintsNotFound)
 
 	s.validator.EXPECT().Merge(
 		constraints.EncodeConstraints(constraints.Constraints{}),
 		constraints.EncodeConstraints(constraints.Constraints{})).
 		Return(coreconstraints.Value{}, nil)
+	s.validator.EXPECT().Validate(coreconstraints.Value{}).
+		Return(nil, nil)
 
 	_, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{})
 	c.Assert(err, tc.ErrorIsNil)
@@ -265,7 +321,6 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	defer ctrl.Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
-
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, modelerrors.ConstraintsNotFound)
 
 	s.validator.EXPECT().Merge(
@@ -276,6 +331,9 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 		Return(coreconstraints.Value{
 			Arch: new(arch.AMD64),
 		}, nil)
+	s.validator.EXPECT().Validate(coreconstraints.Value{
+		Arch: new(arch.AMD64),
+	}).Return(nil, nil)
 
 	merged, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{
 		Arch: new(arch.AMD64),
@@ -289,7 +347,6 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinat
 	defer ctrl.Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
-
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
 		RootDiskSource: new("source-disk"),
 		Mem:            new(uint64(42)),
@@ -308,6 +365,11 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsSubordinat
 			RootDiskSource: new("source-disk"),
 			Mem:            new(uint64(42)),
 		}, nil)
+	s.validator.EXPECT().Validate(coreconstraints.Value{
+		Arch:           new(arch.AMD64),
+		RootDiskSource: new("source-disk"),
+		Mem:            new(uint64(42)),
+	}).Return(nil, nil)
 
 	merged, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{
 		Arch: new(arch.AMD64),
@@ -322,7 +384,6 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 	defer ctrl.Finish()
 
 	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(s.validator, nil)
-
 	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
 		Mem: new(uint64(42)),
 	}, modelerrors.ConstraintsNotFound)
@@ -338,6 +399,10 @@ func (s *providerServiceSuite) TestMergeApplicationAndModelConstraintsNotSubordi
 			RootDiskSource: new("source-disk"),
 			Mem:            new(uint64(42)),
 		}, nil)
+	s.validator.EXPECT().Validate(coreconstraints.Value{
+		RootDiskSource: new("source-disk"),
+		Mem:            new(uint64(42)),
+	}).Return(nil, nil)
 
 	merged, err := s.service.mergeMachineAndModelConstraints(c.Context(), constraints.Constraints{
 		RootDiskSource: new("source-disk"),

@@ -5,24 +5,26 @@ package caasmodeloperator
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5/catacomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/watcher"
+	tracingservice "github.com/juju/juju/domain/tracing/service"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/password"
 )
 
 type ModelOperatorAPI interface {
 	SetPassword(ctx context.Context, password string) error
-	ModelOperatorProvisioningInfo(context.Context) (caasmodeloperator.ModelOperatorProvisioningInfo, error)
+	ModelOperatorProvisioningInfo(context.Context) (ModelOperatorProvisioningInfo, error)
 	WatchModelOperatorProvisioningInfo(context.Context) (watcher.NotifyWatcher, error)
 }
 
@@ -35,15 +37,30 @@ type ModelOperatorBroker interface {
 	GetModelOperatorDeploymentImage(ctx context.Context) (string, error)
 }
 
+// ModelOperatorProvisioningInfo represents return api information for
+// provisioning a caas model operator
+type ModelOperatorProvisioningInfo struct {
+	APIAddresses         []string
+	ImageDetails         resource.DockerImageDetails
+	Version              semversion.Number
+	ControllerCert       string
+	ControllerPrivateKey string
+	CAPrivateKey         string
+}
+
 // ModelOperatorManager defines the worker used for managing model operators in
 // caas
 type ModelOperatorManager struct {
-	agentConfig agent.Config
-	api         ModelOperatorAPI
-	broker      ModelOperatorBroker
-	catacomb    catacomb.Catacomb
-	logger      logger.Logger
-	modelUUID   string
+	dataDir        string
+	logDir         string
+	controllerTag  names.ControllerTag
+	configProvider ConfigProvider
+	tracingService TracingService
+	api            ModelOperatorAPI
+	broker         ModelOperatorBroker
+	catacomb       catacomb.Catacomb
+	logger         logger.Logger
+	modelUUID      string
 }
 
 const (
@@ -70,11 +87,11 @@ func (m *ModelOperatorManager) loop() error {
 	if names.IsValidModel(m.modelUUID) {
 		shortModelID = names.NewModelTag(m.modelUUID).ShortId()
 	}
-	watcher, err := m.api.WatchModelOperatorProvisioningInfo(ctx)
+	w, err := m.api.WatchModelOperatorProvisioningInfo(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "cannot watch model operator [%s] provisioning info", shortModelID)
 	}
-	err = m.catacomb.Add(watcher)
+	err = m.catacomb.Add(w)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -83,7 +100,7 @@ func (m *ModelOperatorManager) loop() error {
 		select {
 		case <-m.catacomb.Dying():
 			return m.catacomb.ErrDying()
-		case <-watcher.Changes():
+		case <-w.Changes():
 			err := m.update(ctx)
 			if err != nil {
 				return errors.Annotatef(err, "failed to update model operator [%s]", shortModelID)
@@ -110,7 +127,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 	}
 
 	setPassword := true
-	password, err := password.RandomPassword()
+	pwd, err := password.RandomPassword()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -125,10 +142,10 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 		}
 		// reuse old password
 		if prevInfo, ok := prevConf.APIInfo(); ok && prevInfo.Password != "" {
-			password = prevInfo.Password
+			pwd = prevInfo.Password
 			setPassword = false
 		} else if prevConf.OldPassword() != "" {
-			password = prevConf.OldPassword()
+			pwd = prevConf.OldPassword()
 			setPassword = false
 		}
 
@@ -152,17 +169,13 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 
 	}
 	if setPassword {
-		err := m.api.SetPassword(ctx, password)
+		err := m.api.SetPassword(ctx, pwd)
 		if err != nil {
 			return errors.Annotate(err, "failed to set model api passwords")
 		}
 	}
 
-	agentConf, err := m.updateAgentConf(info.APIAddresses, password, info.Version)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	agentConfBuf, err := agentConf.Render()
+	agentConfBuf, err := m.updateAgentConf(info, pwd)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,7 +184,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 	err = m.broker.EnsureModelOperator(
 		ctx,
 		m.modelUUID,
-		m.agentConfig.DataDir(),
+		m.dataDir,
 		&caas.ModelOperatorConfig{
 			AgentConf:    agentConfBuf,
 			ImageDetails: info.ImageDetails,
@@ -191,14 +204,22 @@ func NewModelOperatorManager(
 	api ModelOperatorAPI,
 	broker ModelOperatorBroker,
 	modelUUID string,
-	agentConfig agent.Config,
+	dataDir string,
+	logDir string,
+	controllerTag names.ControllerTag,
+	configProvider ConfigProvider,
+	tracingService TracingService,
 ) (*ModelOperatorManager, error) {
 	m := &ModelOperatorManager{
-		agentConfig: agentConfig,
-		api:         api,
-		broker:      broker,
-		logger:      logger,
-		modelUUID:   modelUUID,
+		dataDir:        dataDir,
+		logDir:         logDir,
+		controllerTag:  controllerTag,
+		configProvider: configProvider,
+		tracingService: tracingService,
+		api:            api,
+		broker:         broker,
+		logger:         logger,
+		modelUUID:      modelUUID,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -213,39 +234,113 @@ func NewModelOperatorManager(
 }
 
 func (m *ModelOperatorManager) updateAgentConf(
-	apiAddresses []string,
+	info ModelOperatorProvisioningInfo,
 	password string,
-	ver semversion.Number,
-) (agent.ConfigSetterWriter, error) {
+) ([]byte, error) {
 	modelTag := names.NewModelTag(m.modelUUID)
+	caCert, err := m.configProvider.CACert()
+	if err != nil {
+		return nil, errors.Annotate(err, "reading CA cert")
+	}
+	controllerAgentInfo, err := m.configProvider.ControllerAgentInfo()
+	if err != nil {
+		return nil, errors.Annotate(err, "reading controller agent info")
+	}
+	tracingConfig, err := m.tracingService.GetWorkloadTracingConfig(context.Background())
+	if err != nil {
+		return nil, errors.Annotate(err, "reading workload tracing config")
+	}
+	runtimeTracingCfg, err := runtimeConfigFromWorkloadTracingConfig(tracingConfig)
+	if err != nil {
+		return nil, errors.Annotate(err, "building workload tracing config")
+	}
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{
-				DataDir: m.agentConfig.DataDir(),
-				LogDir:  m.agentConfig.LogDir(),
+				DataDir: m.dataDir,
+				LogDir:  m.logDir,
 			},
 			Tag:          modelTag,
-			Controller:   m.agentConfig.Controller(),
+			Controller:   m.controllerTag,
 			Model:        modelTag,
-			APIAddresses: apiAddresses,
-			CACert:       m.agentConfig.CACert(),
+			APIAddresses: info.APIAddresses,
+			CACert:       caCert,
 			Password:     password,
 
-			// UpgradedToVersion is mandatory but not used by
-			// caas operator agents as they are not upgraded insitu.
-			UpgradedToVersion: ver,
+			UpgradedToVersion: info.Version,
 
-			OpenTelemetryEnabled:               m.agentConfig.OpenTelemetryEnabled(),
-			OpenTelemetryEndpoint:              m.agentConfig.OpenTelemetryEndpoint(),
-			OpenTelemetryInsecure:              m.agentConfig.OpenTelemetryInsecure(),
-			OpenTelemetryStackTraces:           m.agentConfig.OpenTelemetryStackTraces(),
-			OpenTelemetrySampleRatio:           m.agentConfig.OpenTelemetrySampleRatio(),
-			OpenTelemetryTailSamplingThreshold: m.agentConfig.OpenTelemetryTailSamplingThreshold(),
+			OpenTelemetryEnabled:               runtimeTracingCfg.Enabled,
+			OpenTelemetryEndpoint:              runtimeTracingCfg.Endpoint,
+			OpenTelemetryInsecure:              runtimeTracingCfg.InsecureSkipVerify,
+			OpenTelemetryStackTraces:           runtimeTracingCfg.StackTracesEnabled,
+			OpenTelemetrySampleRatio:           runtimeTracingCfg.SampleRatio,
+			OpenTelemetryTailSamplingThreshold: runtimeTracingCfg.TailSamplingThreshold,
 		},
 	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating new agent config for model")
 	}
+	conf.SetControllerAgentInfo(controllerAgentInfo)
 
-	return conf, nil
+	return conf.Render()
+}
+
+const (
+	defaultOpenTelemetrySampleRatio           = 0.1
+	defaultOpenTelemetryTailSamplingThreshold = time.Millisecond
+)
+
+type runtimeTracingConfig struct {
+	Enabled               bool
+	Endpoint              string
+	CACertificate         string
+	InsecureSkipVerify    bool
+	StackTracesEnabled    bool
+	SampleRatio           float64
+	TailSamplingThreshold time.Duration
+}
+
+func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingConfig) (runtimeTracingConfig, error) {
+	runtimeCfg := runtimeTracingConfig{
+		SampleRatio:           defaultOpenTelemetrySampleRatio,
+		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
+		CACertificate:         cfg.CACertificate,
+	}
+
+	endpoint := cfg.GRPCEndpoint
+	if endpoint == "" {
+		endpoint = cfg.HTTPEndpoint
+	}
+	if endpoint != "" {
+		runtimeCfg.Enabled = true
+		runtimeCfg.Endpoint = endpoint
+	}
+
+	if cfg.OpenTelemetryStackTraces != nil {
+		runtimeCfg.StackTracesEnabled = *cfg.OpenTelemetryStackTraces
+	}
+
+	if cfg.InsecureSkipVerify != nil {
+		runtimeCfg.InsecureSkipVerify = *cfg.InsecureSkipVerify
+	}
+
+	if cfg.OpenTelemetrySampleRatio != nil {
+		if *cfg.OpenTelemetrySampleRatio < 0 || *cfg.OpenTelemetrySampleRatio > 1 {
+			return runtimeTracingConfig{}, errors.NotValidf("open telemetry sample ratio %.4f", *cfg.OpenTelemetrySampleRatio)
+		}
+		runtimeCfg.SampleRatio = *cfg.OpenTelemetrySampleRatio
+	}
+
+	if cfg.OpenTelemetryTailSamplingThreshold != nil {
+		d, err := time.ParseDuration(*cfg.OpenTelemetryTailSamplingThreshold)
+		if err != nil {
+			return runtimeTracingConfig{}, errors.Annotatef(err, "parsing open telemetry tail sampling threshold %q", *cfg.OpenTelemetryTailSamplingThreshold)
+		}
+		if d < 0 {
+			return runtimeTracingConfig{}, errors.NotValidf("open telemetry tail sampling threshold %q", *cfg.OpenTelemetryTailSamplingThreshold)
+		}
+		runtimeCfg.TailSamplingThreshold = d
+	}
+
+	return runtimeCfg, nil
 }

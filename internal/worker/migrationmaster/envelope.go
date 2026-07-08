@@ -13,13 +13,13 @@ import (
 	coreagentbinary "github.com/juju/juju/core/agentbinary"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/modelmigration"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/unit"
 	"github.com/juju/juju/domain/application/architecture"
 	applicationcharm "github.com/juju/juju/domain/application/charm"
 	deploymentcharm "github.com/juju/juju/domain/deployment/charm"
-	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -64,7 +64,7 @@ func (w *Worker) assembleEnvelope(ctx context.Context, migrationUUID string) (as
 		return empty, errors.Annotate(err, "marshalling model payload")
 	}
 
-	info, err := w.config.ModelMigrationService.GetControllerModelInfo(ctx)
+	info, err := w.config.ExportService.GetControllerModelInfo(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "reading controller-db data for model")
 	}
@@ -132,13 +132,8 @@ func envelopeFromControllerModelInfo(
 			CreatedAt:   user.CreatedAt,
 			Removed:     user.Removed,
 			External:    user.External,
+			LastLogin:   user.LastLogin,
 		})
-		if user.LastLogin != nil {
-			envelope.LastLogins = append(envelope.LastLogins, params.ModelLastLogin{
-				Username: user.Name,
-				Time:     *user.LastLogin,
-			})
-		}
 	}
 	if cred := info.ModelCredential; cred != nil {
 		envelope.ModelCredential = &params.ModelCloudCredential{

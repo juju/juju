@@ -4,7 +4,7 @@
 package relation
 
 // JujuInfo is the name and interface of an implicit relation, with role
-// requires, added to every charm. It facilitates integrations between
+// requires, added to every charm. It facilitates relations between
 // subordinate and other charms which otherwise may not have a common
 // interface.
 const JujuInfo = "juju-info"

@@ -3061,10 +3061,21 @@
     {
         "Name": "Logger",
         "Description": "",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
+                "GetControllerLokiConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/LokiConfigResult"
+                        }
+                    }
+                },
                 "LoggingConfig": {
                     "type": "object",
                     "properties": {
@@ -3073,6 +3084,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/StringResults"
+                        }
+                    }
+                },
+                "WatchControllerLokiConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entity"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
                         }
                     }
                 },
@@ -3139,6 +3161,30 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "LokiConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "endpoint": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "insecure-skip-verify": {
+                            "type": "boolean"
+                        },
+                        "org-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "endpoint"
                     ]
                 },
                 "NotifyWatchResult": {
@@ -6144,6 +6190,18 @@
                                 "type": "string"
                             }
                         },
+                        "loki-cacert": {
+                            "type": "string"
+                        },
+                        "loki-endpoint": {
+                            "type": "string"
+                        },
+                        "loki-insecure-skip-verify": {
+                            "type": "boolean"
+                        },
+                        "loki-org-id": {
+                            "type": "string"
+                        },
                         "placement": {
                             "type": "string"
                         },
@@ -6195,13 +6253,13 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "subnet-zones",
+                        "space-subnets",
+                        "ProvisioningNetworkTopology",
                         "constraints",
                         "base",
                         "placement",
-                        "jobs",
-                        "subnet-zones",
-                        "space-subnets",
-                        "ProvisioningNetworkTopology"
+                        "jobs"
                     ]
                 },
                 "ProvisioningInfoResult": {
@@ -6578,6 +6636,9 @@
                             "type": "string"
                         },
                         "instance-type": {
+                            "type": "string"
+                        },
+                        "ip-family": {
                             "type": "string"
                         },
                         "mem": {

@@ -11,13 +11,13 @@ import (
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent/addons"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -81,7 +81,7 @@ func (s *introspectionSuite) TestStartSuccess(c *tc.C) {
 		WorstError: func(err1, err2 error) error { return err1 },
 		Clock:      clock.WallClock,
 		Metrics:    dependency.DefaultMetrics(),
-		Logger:     loggo.GetLogger("juju.worker.dependency"),
+		Logger:     internaldependency.WrapLogger(loggertesting.WrapCheckLog(c)),
 	}
 	engine, err := dependency.NewEngine(config)
 	c.Assert(err, tc.ErrorIsNil)

@@ -25,3 +25,20 @@ CREATE TABLE agent_version (
 -- A unique constraint over a constant index
 -- ensures only 1 row can exist.
 CREATE UNIQUE INDEX idx_singleton_agent_version ON agent_version ((1));
+
+CREATE VIEW v_model_config AS
+SELECT
+    mc."key",
+    mc.value
+FROM model_config AS mc
+UNION
+SELECT
+    'agent-stream' AS "key",
+    mas.name AS value
+FROM agent_version AS mv
+JOIN agent_stream AS mas ON mv.stream_id = mas.id
+UNION ALL
+SELECT
+    'agent-version' AS "key",
+    mv.target_version AS value
+FROM agent_version AS mv;

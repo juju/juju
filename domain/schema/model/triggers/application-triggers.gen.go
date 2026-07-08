@@ -35,7 +35,7 @@ WHEN
 	NEW.charm_uuid != OLD.charm_uuid OR
 	NEW.charm_modified_version != OLD.charm_modified_version OR
 	(NEW.charm_upgrade_on_error != OLD.charm_upgrade_on_error OR (NEW.charm_upgrade_on_error IS NOT NULL AND OLD.charm_upgrade_on_error IS NULL) OR (NEW.charm_upgrade_on_error IS NULL AND OLD.charm_upgrade_on_error IS NOT NULL)) OR
-	NEW.space_uuid != OLD.space_uuid 
+	NEW.space_uuid != OLD.space_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -71,7 +71,7 @@ CREATE TRIGGER trg_log_application_config_hash_update
 AFTER UPDATE ON application_config_hash FOR EACH ROW
 WHEN 
 	NEW.application_uuid != OLD.application_uuid OR
-	NEW.sha256 != OLD.sha256 
+	NEW.sha256 != OLD.sha256
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -108,7 +108,7 @@ AFTER UPDATE ON application_exposed_endpoint_cidr FOR EACH ROW
 WHEN 
 	NEW.application_uuid != OLD.application_uuid OR
 	(NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR (NEW.application_endpoint_uuid IS NOT NULL AND OLD.application_endpoint_uuid IS NULL) OR (NEW.application_endpoint_uuid IS NULL AND OLD.application_endpoint_uuid IS NOT NULL)) OR
-	NEW.cidr != OLD.cidr 
+	NEW.cidr != OLD.cidr
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -145,7 +145,7 @@ AFTER UPDATE ON application_exposed_endpoint_space FOR EACH ROW
 WHEN 
 	NEW.application_uuid != OLD.application_uuid OR
 	(NEW.application_endpoint_uuid != OLD.application_endpoint_uuid OR (NEW.application_endpoint_uuid IS NOT NULL AND OLD.application_endpoint_uuid IS NULL) OR (NEW.application_endpoint_uuid IS NULL AND OLD.application_endpoint_uuid IS NOT NULL)) OR
-	NEW.space_uuid != OLD.space_uuid 
+	NEW.space_uuid != OLD.space_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -183,7 +183,7 @@ WHEN
 	NEW.application_uuid != OLD.application_uuid OR
 	(NEW.scale != OLD.scale OR (NEW.scale IS NOT NULL AND OLD.scale IS NULL) OR (NEW.scale IS NULL AND OLD.scale IS NOT NULL)) OR
 	(NEW.scale_target != OLD.scale_target OR (NEW.scale_target IS NOT NULL AND OLD.scale_target IS NULL) OR (NEW.scale_target IS NULL AND OLD.scale_target IS NOT NULL)) OR
-	(NEW.scaling != OLD.scaling OR (NEW.scaling IS NOT NULL AND OLD.scaling IS NULL) OR (NEW.scaling IS NULL AND OLD.scaling IS NOT NULL)) 
+	(NEW.scaling != OLD.scaling OR (NEW.scaling IS NOT NULL AND OLD.scaling IS NULL) OR (NEW.scaling IS NULL AND OLD.scaling IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -219,7 +219,7 @@ CREATE TRIGGER trg_log_application_setting_update
 AFTER UPDATE ON application_setting FOR EACH ROW
 WHEN 
 	NEW.application_uuid != OLD.application_uuid OR
-	(NEW.trust != OLD.trust OR (NEW.trust IS NOT NULL AND OLD.trust IS NULL) OR (NEW.trust IS NULL AND OLD.trust IS NOT NULL)) 
+	(NEW.trust != OLD.trust OR (NEW.trust IS NOT NULL AND OLD.trust IS NULL) OR (NEW.trust IS NULL AND OLD.trust IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -264,7 +264,7 @@ WHEN
 	NEW.revision != OLD.revision OR
 	(NEW.architecture_id != OLD.architecture_id OR (NEW.architecture_id IS NOT NULL AND OLD.architecture_id IS NULL) OR (NEW.architecture_id IS NULL AND OLD.architecture_id IS NOT NULL)) OR
 	NEW.reference_name != OLD.reference_name OR
-	NEW.create_time != OLD.create_time 
+	NEW.create_time != OLD.create_time
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -304,7 +304,7 @@ WHEN
 	(NEW.from_port != OLD.from_port OR (NEW.from_port IS NOT NULL AND OLD.from_port IS NULL) OR (NEW.from_port IS NULL AND OLD.from_port IS NOT NULL)) OR
 	(NEW.to_port != OLD.to_port OR (NEW.to_port IS NOT NULL AND OLD.to_port IS NULL) OR (NEW.to_port IS NULL AND OLD.to_port IS NOT NULL)) OR
 	(NEW.relation_uuid != OLD.relation_uuid OR (NEW.relation_uuid IS NOT NULL AND OLD.relation_uuid IS NULL) OR (NEW.relation_uuid IS NULL AND OLD.relation_uuid IS NOT NULL)) OR
-	NEW.unit_uuid != OLD.unit_uuid 
+	NEW.unit_uuid != OLD.unit_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

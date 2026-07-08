@@ -7,12 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5/catacomb"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/internal/pki"
 )
 
-// OperatorWatcher is responsible for creating a new PKI certificate chain to
-// use in operators that need to start their own HTTPS servers.
+// PKIAuthorityWorker is responsible for creating a new PKI certificate chain
+// to use in operators that need to start their own HTTPS servers.
 // TODO this watcher should be replaced in the future to use an intermediate CA
 // from the controller
 type PKIAuthorityWorker struct {
@@ -20,7 +19,9 @@ type PKIAuthorityWorker struct {
 	catacomb  catacomb.Catacomb
 }
 
-func NewAuthorityWorker(_ agent.Agent) (AuthorityWorker, error) {
+// NewAuthorityWorker creates a new PKI authority worker that creates its own
+// self-signed CA, independent of the controller certificate material.
+func NewAuthorityWorker(_ ManifoldConfig) (AuthorityWorker, error) {
 	return newPKIAuthorityWorker()
 }
 

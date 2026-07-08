@@ -19,6 +19,7 @@ import (
 	agentlifeflag "github.com/juju/juju/api/agent/lifeflag"
 	"github.com/juju/juju/api/base"
 	proxy "github.com/juju/juju/api/proxy/config"
+	corehttp "github.com/juju/juju/core/http"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
+	internalhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/observability/probe"
 	"github.com/juju/juju/internal/upgrades"
@@ -41,13 +43,17 @@ import (
 	"github.com/juju/juju/internal/worker/caasupgrader"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/httpclient"
 	"github.com/juju/juju/internal/worker/leadership"
 	"github.com/juju/juju/internal/worker/lifeflag"
 	wlogger "github.com/juju/juju/internal/worker/logger"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/lokiendpointupdater"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
+	"github.com/juju/juju/internal/worker/pebblelokiconfig"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	"github.com/juju/juju/internal/worker/retrystrategy"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
@@ -189,6 +195,21 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),
 
+		httpClientName: httpclient.Manifold(httpclient.ManifoldConfig{
+			NewHTTPClient: func(purpose corehttp.Purpose, opts ...internalhttp.Option) *internalhttp.Client {
+				if purpose == corehttp.LokiPurpose {
+					l := internallogger.GetLogger("juju.loki")
+					opts = append(opts, internalhttp.WithLogger(l))
+				}
+				return internalhttp.NewClient(opts...)
+			},
+			NewHTTPClientWorker:  httpclient.NewTrackedWorker,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewMetricsCollector:  httpclient.NewMetricsCollector,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.httpclient"),
+		}),
+
 		// The S3 API caller is a shim API that wraps the /charms REST
 		// API for uploading and downloading charms. It provides a
 		// S3-compatible API.
@@ -221,12 +242,20 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewWorker: lifeflag.NewWorker,
 		}),
 
-		// The log sender is a leaf worker that sends log messages to some
-		// API server, when configured so to do. We should only need one of
-		// these in a consolidated agent.
-		logSenderName: ifNotDead(logsender.Manifold(logsender.ManifoldConfig{
-			APICallerName: apiCallerName,
-			LogSource:     config.LogSource,
+		// The log router owns the buffered log stream and forwards records to
+		// one active backend at a time.
+		logRouterName: ifNotDead(logrouter.Manifold(logrouter.ManifoldConfig{
+			AgentName:                 agentName,
+			APICallerName:             apiCallerName,
+			HTTPClientName:            httpClientName,
+			LogSource:                 config.LogSource,
+			AgentConfigChanged:        config.AgentConfigChanged,
+			Logger:                    internallogger.GetLogger("juju.worker.logrouter"),
+			Clock:                     config.Clock,
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewBackendFunc:            logrouter.NewBackend,
+			RemoveLegacyLogSinkWriter: func() {},
+			AddLegacyLogSinkWriter:    func() error { return nil },
 		})),
 
 		// The upgrade steps gate is used to coordinate workers which
@@ -282,15 +311,16 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewWorker:     migrationflag.NewWorker,
 		}),
 		migrationMinionName: migrationminion.Manifold(migrationminion.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			FortressName:      migrationFortressName,
-			Clock:             config.Clock,
-			APIOpen:           api.Open,
-			ValidateMigration: config.ValidateMigration,
-			NewFacade:         migrationminion.NewFacade,
-			NewWorker:         migrationminion.NewWorker,
-			Logger:            internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			AgentName:             agentName,
+			APICallerName:         apiCallerName,
+			FortressName:          migrationFortressName,
+			Clock:                 config.Clock,
+			APIOpen:               api.Open,
+			ValidateMigration:     config.ValidateMigration,
+			NewWorker:             migrationminion.NewWorker,
+			Logger:                internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			SendReport:            migrationminion.SendReport,
+			FetchTargetLokiConfig: migrationminion.FetchTargetLokiConfig,
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -315,6 +345,21 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			LoggerContext:   internallogger.DefaultContext(),
 			Logger:          internallogger.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
+		})),
+
+		lokiEndpointUpdaterName: ifNotMigrating(lokiendpointupdater.Manifold(lokiendpointupdater.ManifoldConfig{
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Logger:             internallogger.GetLogger("juju.worker.lokiendpointupdater"),
+		})),
+
+		pebbleLokiConfigName: ifNotMigrating(pebblelokiconfig.Manifold(pebblelokiconfig.ManifoldConfig{
+			AgentName:       agentName,
+			APICallerName:   apiCallerName,
+			Clock:           config.Clock,
+			Logger:          internallogger.GetLogger("juju.worker.pebblelokiconfig"),
+			NewPebbleClient: pebblelokiconfig.DefaultPebbleClient,
 		})),
 
 		// Probe HTTP server is a http server for handling probe requests from
@@ -450,9 +495,10 @@ const (
 	agentName            = "agent"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
+	httpClientName       = "http-client"
 	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
-	logSenderName        = "log-sender"
+	logRouterName        = "log-router"
 	traceName            = "trace"
 
 	charmDirName          = "charm-dir"
@@ -475,6 +521,8 @@ const (
 
 	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
+	lokiEndpointUpdaterName  = "loki-endpoint-updater"
+	pebbleLokiConfigName     = "pebble-loki-config"
 	apiAddressUpdaterName    = "api-address-updater"
 
 	caasUnitTerminationWorker = "caas-unit-termination-worker"

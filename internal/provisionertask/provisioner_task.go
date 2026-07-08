@@ -121,7 +121,6 @@ type GetMachineInstanceInfoSetter func(machineProvisioner apiprovisioner.Machine
 // TaskConfig holds the initialisation data for a ProvisionerTask instance.
 type TaskConfig struct {
 	ControllerUUID               string
-	HostTag                      names.Tag
 	Logger                       logger.Logger
 	ControllerAPI                ControllerAPI
 	MachinesAPI                  MachinesAPI
@@ -149,7 +148,6 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 	}
 	task := &provisionerTask{
 		controllerUUID:               cfg.ControllerUUID,
-		hostTag:                      cfg.HostTag,
 		logger:                       cfg.Logger,
 		controllerAPI:                cfg.ControllerAPI,
 		machinesAPI:                  cfg.MachinesAPI,
@@ -196,7 +194,6 @@ type provisionerTask struct {
 	catacomb catacomb.Catacomb
 
 	controllerUUID               string
-	hostTag                      names.Tag
 	logger                       logger.Logger
 	controllerAPI                ControllerAPI
 	machinesAPI                  MachinesAPI
@@ -867,12 +864,11 @@ func (task *provisionerTask) constructInstanceConfig(
 	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
 	// The first part is a badge, specifying the tag of the machine the provisioner
 	// is running on, while the second part is a random UUID.
-	uuid, err := uuid.NewUUID()
+	nonce, err := uuid.NewUUID()
 	if err != nil {
 		return nil, errors.Annotate(err, "generating nonce for machine "+machine.Id())
 	}
 
-	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
 	base, err := corebase.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing machine base %q", pInfo.Base)
@@ -880,7 +876,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	instanceConfig, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
 		machine.Id(),
-		nonce,
+		nonce.String(),
 		task.imageStream,
 		base,
 		apiInfo,
@@ -906,6 +902,14 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	instanceConfig.CloudInitUserData = pInfo.CloudInitUserData
+
+	// Inject the controller-wide Loki config so the machine agent starts in
+	// the correct forwarding mode on first boot. When Loki is not active
+	// both fields are empty and the agent falls back to logsink mode.
+	instanceConfig.LokiEndpoint = pInfo.LokiEndpoint
+	instanceConfig.LokiCACert = pInfo.LokiCACert
+	instanceConfig.LokiInsecureSkipVerify = pInfo.LokiInsecureSkipVerify
+	instanceConfig.LokiOrgID = pInfo.LokiOrgID
 
 	return instanceConfig, nil
 }

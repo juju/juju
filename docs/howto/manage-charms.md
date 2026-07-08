@@ -243,7 +243,7 @@ juju deploy mariadb-k8s --to kubernetes.io/hostname=somehost
 
 ````{dropdown} Troubleshooting - machines
 
-Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud; in some cases perform network configuration via `cloud-init`; download the `jujud` binaries from the controller; and start `jujud`, which will download and install the charm.
+Deploy on machines consists of the following steps: Provision resources/a machine M from the relevant cloud; in some cases perform network configuration via `cloud-init`; download the `jujuagentd` binaries from the controller; and start `jujuagentd`, which will download and install the charm.
 
 For failure at any point, retry the `deploy` command with the `--debug` and `--verbose` flags:
 
@@ -399,7 +399,7 @@ Moreover, if you (temporarily) include `import pdb; pdb.set_trace()` anywhere in
 For example:
 
 1. Run `juju debug-hooks mysql/0 X-relation-joined`.
-1. Create the integration (`juju integrate` ...).
+1. Create the relation (`juju integrate` ...).
 1. Wait for the `debug-hooks` session to start.
 1. Start a `jhack sync` session including whatever file is surfacing the error:
     1. `cd` into the charm root folder on your local filesystem.

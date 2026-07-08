@@ -231,6 +231,53 @@ func (s *K8sBrokerSuite) TestConfig(c *tc.C) {
 	c.Assert(s.broker.Config(), tc.DeepEquals, s.cfg)
 }
 
+func (s *K8sBrokerSuite) TestSubnets(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	// The pod-subnet discovery chain resolves Calico first: the IPPool CRD
+	// being installed and served selects calico-ipam, whose pool CIDRs are
+	// authoritative and short-circuit the remaining discoverers.
+	s.mockCustomResourceDefinitionV1.EXPECT().
+		Get(gomock.Any(), "ippools.crd.projectcalico.org", v1.GetOptions{}).
+		Return(&apiextensionsv1.CustomResourceDefinition{
+			Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+				Group: "crd.projectcalico.org",
+				Names: apiextensionsv1.CustomResourceDefinitionNames{Plural: "ippools"},
+				Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+					{Name: "v1", Served: true},
+				},
+			},
+		}, nil)
+
+	s.mockDynamicClient.EXPECT().Resource(gomock.Any()).
+		Return(s.mockNamespaceableResourceClient)
+	s.mockNamespaceableResourceClient.EXPECT().List(gomock.Any(), gomock.Any()).
+		Return(&unstructured.UnstructuredList{
+			Items: []unstructured.Unstructured{
+				{Object: map[string]any{
+					"spec": map[string]any{"cidr": "10.20.0.0/24"},
+				}},
+				{Object: map[string]any{
+					"spec": map[string]any{"cidr": "fd20::/64"},
+				}},
+			},
+		}, nil)
+
+	result, err := s.broker.Subnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, []network.SubnetInfo{
+		{
+			CIDR:       "10.20.0.0/24",
+			ProviderId: "10.20.0.0/24",
+		},
+		{
+			CIDR:       "fd20::/64",
+			ProviderId: "fd20::/64",
+		},
+	})
+}
+
 func (s *K8sBrokerSuite) TestSetConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
@@ -793,6 +840,71 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *tc.C) {
 	caasSvc, err := s.broker.GetService(c.Context(), "app-name", false)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(caasSvc, tc.DeepEquals, &caas.Service{})
+}
+
+// TestGetServiceSkipsLabelledHeadlessService verifies that GetService excludes
+// a headless service identified by the LabelJujuServiceType label, even when
+// its name does not carry the legacy "-endpoints" suffix, and returns the
+// routable service instead.
+func (s *K8sBrokerSuite) TestGetServiceSkipsLabelledHeadlessService(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
+	labels := k8sutils.LabelsMerge(selectorLabels, k8sutils.LabelsJuju)
+	selector := k8sutils.LabelsToSelector(labels).String()
+
+	// A headless service whose name does NOT end in "-endpoints"; it must be
+	// filtered out via the label, not the legacy suffix.
+	headlessLabels := k8sutils.LabelsMerge(labels, map[string]string{
+		"service.juju.is/type": "endpoints",
+	})
+	svcHeadless := core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name-dqlite",
+			Labels: headlessLabels,
+		},
+		Spec: core.ServiceSpec{
+			Selector:                 selectorLabels,
+			Type:                     core.ServiceTypeClusterIP,
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+	svc := core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: labels,
+		},
+		Spec: core.ServiceSpec{
+			Selector:       selectorLabels,
+			Type:           core.ServiceTypeLoadBalancer,
+			LoadBalancerIP: "10.0.0.1",
+		},
+	}
+	svc.SetUID("uid-xxxxx")
+
+	gomock.InOrder(
+		// Return the headless service first to ensure it is skipped rather
+		// than being picked as the primary service.
+		s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: selector}).
+			Return(&core.ServiceList{Items: []core.Service{svcHeadless, svc}}, nil),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	caasSvc, err := s.broker.GetService(c.Context(), "app-name", false)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(caasSvc.Id, tc.Equals, "uid-xxxxx")
+	c.Assert(caasSvc.Addresses, tc.DeepEquals, network.ProviderAddresses{
+		network.NewMachineAddress("10.0.0.1", network.WithScope(network.ScopePublic)).AsProviderAddress(),
+	})
 }
 
 func (s *K8sBrokerSuite) assertGetService(c *tc.C, expectedSvcResult *caas.Service, assertCalls ...any) {

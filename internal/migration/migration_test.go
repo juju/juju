@@ -61,7 +61,7 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,
 	)
-	err := importer.ImportModel(c.Context(), bytes)
+	err := importer.ImportModelLegacy(c.Context(), bytes)
 	c.Assert(err, tc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 

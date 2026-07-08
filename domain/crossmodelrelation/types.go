@@ -101,6 +101,13 @@ type ConsumeDetails struct {
 	Endpoints []OfferEndpoint
 }
 
+// OfferDetailWithConnections contains details about an offer and its
+// connections.
+type OfferDetailWithConnections struct {
+	OfferDetail
+	OfferConnections []OfferConnectionDetail
+}
+
 // OfferEndpoint contains details of charm endpoints as needed for offer
 // details.
 type OfferEndpoint struct {

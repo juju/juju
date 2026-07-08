@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/description/v12"
 
@@ -15,12 +14,6 @@ import (
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
 	"github.com/juju/juju/internal/errors"
-)
-
-const (
-	// LeadershipGuarantee is the amount of time that the lease service will
-	// guarantee that the application leader will be the holder of the lease.
-	LeadershipGuarantee = time.Minute
 )
 
 // Coordinator is the interface that is used to add operations to a migration.
@@ -79,7 +72,7 @@ func (o *importOperation) Execute(ctx context.Context, model description.Model) 
 		}
 		req := lease.Request{
 			Holder:   app.Leader(),
-			Duration: LeadershipGuarantee,
+			Duration: service.LeadershipGuarantee,
 		}
 		if err := o.service.ClaimLease(ctx, key, req); err != nil {
 			return errors.Errorf("claiming lease for %q: %w", key, err)

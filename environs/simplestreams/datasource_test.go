@@ -207,7 +207,11 @@ func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *tc.C) {
 	})
 	httpClient := simplestreams.HttpClient(ds)
 	c.Assert(httpClient, tc.NotNil)
-	tr, ok := httpClient.HTTPClient.(*http.Client).Transport.(*http.Transport)
+	swappable, ok := httpClient.Client().Transport.(interface {
+		Load() http.RoundTripper
+	})
+	c.Assert(ok, tc.IsTrue)
+	tr, ok := swappable.Load().(*http.Transport)
 	c.Assert(ok, tc.IsTrue)
 	c.Assert(tr.DisableCompression, tc.IsFalse)
 }

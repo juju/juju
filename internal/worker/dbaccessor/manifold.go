@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"path"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database"
@@ -23,22 +23,41 @@ import (
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
+// ControllerStartupValues contains the controller-local startup values needed
+// by dbaccessor.
+type ControllerStartupValues struct {
+	ControllerID          string
+	DataDir               string
+	DqlitePort            int
+	QueryTracingEnabled   bool
+	QueryTracingThreshold time.Duration
+	DqliteBusyTimeout     time.Duration
+	CACert                string
+	ControllerCert        string
+	ControllerPrivateKey  string
+}
+
+// ControllerStartupValuesProvider provides controller-local startup values for
+// dbaccessor without dictating where they are sourced from.
+type ControllerStartupValuesProvider interface {
+	ControllerStartupValues() (ControllerStartupValues, error)
+}
+
 // NewDBWorkerFunc creates a tracked db worker.
 type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
-// NewNodeManagerFunc creates a NodeManager
-type NewNodeManagerFunc func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
+// NewNodeManagerFunc creates a NodeManager from explicit controller startup
+// values.
+type NewNodeManagerFunc func(database.NodeManagerConfig, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
 
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
 type ManifoldConfig struct {
-	AgentName                 string
 	QueryLoggerName           string
 	ControllerAgentConfigName string
-	Clock                     clock.Clock
+	ControllerStartupValues   ControllerStartupValuesProvider
 	Logger                    logger.Logger
-	LogDir                    string
 	PrometheusRegisterer      prometheus.Registerer
 	NewApp                    func(string, ...app.Option) (DBApp, error)
 	NewDBWorker               NewDBWorkerFunc
@@ -47,23 +66,17 @@ type ManifoldConfig struct {
 }
 
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if cfg.QueryLoggerName == "" {
 		return errors.NotValidf("empty QueryLoggerName")
 	}
 	if cfg.ControllerAgentConfigName == "" {
 		return errors.NotValidf("empty ControllerAgentConfigName")
 	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
+	if cfg.ControllerStartupValues == nil {
+		return errors.NotValidf("nil ControllerStartupValues")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
-	}
-	if cfg.LogDir == "" {
-		return errors.NotValidf("empty LogDir")
 	}
 	if cfg.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -88,7 +101,6 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.QueryLoggerName,
 			config.ControllerAgentConfigName,
 		},
@@ -98,13 +110,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var thisAgent agent.Agent
-			if err := getter.Get(config.AgentName, &thisAgent); err != nil {
-				return nil, err
+			startupValues, err := config.ControllerStartupValues.ControllerStartupValues()
+			if err != nil {
+				return nil, errors.Annotate(err, "reading controller startup values")
 			}
-			agentConfig := thisAgent.CurrentConfig()
-			controllerID := agentConfig.Tag().Id()
-			configPath := path.Join(agentConfig.DataDir(), "agents", "controller-"+controllerID, "controller.conf")
+
+			controllerID := startupValues.ControllerID
+			configPath := path.Join(startupValues.DataDir, "agents", "controller-"+controllerID, "controller.conf")
 			controllerConf := controllerConfigReader{configPath: configPath}
 
 			var controllerConfigWatcher controlleragentconfig.ConfigWatcher
@@ -124,9 +136,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
+			nodeManagerCfg := database.NodeManagerConfig{
+				DataDir:               startupValues.DataDir,
+				DqlitePort:            startupValues.DqlitePort,
+				QueryTracingEnabled:   startupValues.QueryTracingEnabled,
+				QueryTracingThreshold: startupValues.QueryTracingThreshold,
+				DqliteBusyTimeout:     startupValues.DqliteBusyTimeout,
+				CACert:                startupValues.CACert,
+				ControllerCert:        startupValues.ControllerCert,
+				ControllerPrivateKey:  startupValues.ControllerPrivateKey,
+			}
+
 			cfg := WorkerConfig{
-				NodeManager:             config.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
-				Clock:                   config.Clock,
+				NodeManager:             config.NewNodeManager(nodeManagerCfg, config.Logger, slowQueryLogger),
+				Clock:                   clock.WallClock,
 				ControllerID:            controllerID,
 				MetricsCollector:        metricsCollector,
 				Logger:                  config.Logger,
@@ -181,13 +204,13 @@ func dbAccessorOutput(in worker.Worker, out any) error {
 
 // IAASNodeManager returns a NodeManager that is configured to use
 // the cloud-local TLS terminated address for Dqlite.
-func IAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func IAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, false, logger, slowQueryLogger)
 }
 
 // CAASNodeManager returns a NodeManager that is configured to use
 // the loopback address for Dqlite.
-func CAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func CAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, true, logger, slowQueryLogger)
 }
 

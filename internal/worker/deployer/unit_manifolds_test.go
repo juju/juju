@@ -32,8 +32,9 @@ func TestManifoldsSuite(t *testing.T) {
 func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = deployer.UnitManifoldsConfig{
-		Agent:         struct{ agent.Agent }{},
-		LoggerContext: internallogger.LoggerContext(logger.DEBUG),
+		Agent:            struct{ agent.Agent }{},
+		LoggerContext:    internallogger.LoggerContext(logger.DEBUG),
+		HTTPClientGetter: stubHTTPClientGetter{},
 	}
 }
 
@@ -52,12 +53,14 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"api-address-updater",
 		"api-caller",
 		"s3-caller",
+		"http-client",
 		"api-config-watcher",
 		"charm-dir",
 		"hook-retry-strategy",
 		"leadership-tracker",
-		"log-sender",
+		"log-router",
 		"logging-config-updater",
+		"loki-endpoint-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -81,7 +84,8 @@ func (s *ManifoldsSuite) TestMigrationGuards(c *tc.C) {
 		"api-config-watcher",
 		"api-caller",
 		"s3-caller",
-		"log-sender",
+		"http-client",
+		"log-router",
 		"upgrader",
 		"migration-fortress",
 		"migration-minion",
@@ -128,6 +132,8 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 
 	"api-config-watcher": {"agent"},
 
+	"http-client": {},
+
 	"charm-dir": {
 		"agent",
 		"api-caller",
@@ -152,9 +158,17 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 	},
 
-	"log-sender": {"agent", "api-caller", "api-config-watcher"},
+	"log-router": {"agent", "api-caller", "api-config-watcher", "http-client"},
 
 	"logging-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+	},
+
+	"loki-endpoint-updater": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

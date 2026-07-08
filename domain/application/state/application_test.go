@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/core/quota"
 	coreresource "github.com/juju/juju/core/resource"
 	"github.com/juju/juju/core/resource/testing"
@@ -1374,6 +1375,45 @@ WHERE application_uuid = ?
 	// Since no addresses were passed as input, the previous addresses should
 	// be returned.
 	checkAddresses(c, "192.168.0.0/24", "192.168.0.1/24")
+}
+
+func (s *applicationStateSuite) TestUpsertCloudServiceWithDiscoveredSubnet(c *tc.C) {
+	subnetUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr) VALUES (?, ?)", subnetUUID, "10.0.0.0/24")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	appUUID := s.createCAASApplication(c, "foo", life.Alive)
+	err = s.state.UpsertK8sService(c.Context(), "foo", "provider-id", network.ProviderAddresses{
+		{
+			MachineAddress: network.MachineAddress{
+				Value:      "10.0.0.1/24",
+				ConfigType: network.ConfigStatic,
+				Type:       network.IPv4Address,
+				Scope:      network.ScopeCloudLocal,
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	var (
+		gotCIDR string
+	)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, `
+SELECT subnet.cidr
+FROM ip_address
+JOIN link_layer_device ON link_layer_device.uuid = ip_address.device_uuid
+JOIN net_node ON net_node.uuid = link_layer_device.net_node_uuid
+JOIN k8s_service ON k8s_service.net_node_uuid = net_node.uuid
+JOIN subnet ON subnet.uuid = ip_address.subnet_uuid
+WHERE k8s_service.application_uuid = ?
+`, appUUID).Scan(&gotCIDR)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(gotCIDR, tc.Equals, "10.0.0.0/24")
 }
 
 func (s *applicationStateSuite) TestUpsertK8sServiceNotFound(c *tc.C) {
@@ -3205,6 +3245,7 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 		InstanceType:   new("instance-type"),
 		Container:      new(instance.LXD),
 		VirtType:       new("virt-type"),
+		IPFamily:       new(ipfamily.Dual),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -3228,6 +3269,7 @@ func (s *applicationStateSuite) TestConstraintFull(c *tc.C) {
 	c.Check(cons.VirtType, tc.DeepEquals, new("virt-type"))
 	c.Check(cons.AllocatePublicIP, tc.DeepEquals, new(true))
 	c.Check(cons.ImageID, tc.DeepEquals, new("image-id"))
+	c.Check(cons.IPFamily, tc.DeepEquals, new(ipfamily.Dual))
 }
 
 func (s *applicationStateSuite) TestConstraintPartial(c *tc.C) {
@@ -3555,6 +3597,42 @@ func (s *applicationStateSuite) TestGetConstraintsPreservesInsertionOrder(c *tc.
 		{SpaceName: "aaa", Exclude: false},
 	})
 	c.Check(*cons.Zones, tc.DeepEquals, []string{"zone-c", "zone-a", "zone-b"})
+}
+
+func (s *applicationStateSuite) TestSetApplicationConstraintsIPFamily(c *tc.C) {
+	id := s.createIAASApplication(c, "foo", life.Alive)
+
+	// nil ip-family is persisted and retrieved as nil.
+	err := s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		IPFamily: nil,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err := s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cons.IPFamily, tc.IsNil)
+
+	// Set ip-family to "dual".
+	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		IPFamily: new(ipfamily.Dual),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err = s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons.IPFamily, tc.Not(tc.IsNil))
+	c.Check(*cons.IPFamily, tc.Equals, ipfamily.Dual)
+
+	// Set ip-family to "ipv4".
+	err = s.state.SetApplicationConstraints(c.Context(), id, constraints.Constraints{
+		IPFamily: new(ipfamily.IPv4),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	cons, err = s.state.GetApplicationConstraints(c.Context(), id)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(cons.IPFamily, tc.Not(tc.IsNil))
+	c.Check(*cons.IPFamily, tc.Equals, ipfamily.IPv4)
 }
 
 func (s *applicationStateSuite) TestSetConstraintsApplicationNotFound(c *tc.C) {

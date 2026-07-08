@@ -30,7 +30,7 @@ type MockStateMockRecorder struct {
 	allKeysQueryExpects                       []*gomock.Call0_1[string]
 	controllerConfigExpects                   []*gomock.Call1_2[context.Context, map[string]string, error]
 	namespacesForWatchControllerConfigExpects []*gomock.Call0_1[[]string]
-	updateControllerConfigExpects             []*gomock.Call4_1[context.Context, map[string]string, []string, ModificationValidatorFunc, error]
+	updateControllerConfigExpects             []*gomock.Call3_1[context.Context, map[string]string, []string, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -100,22 +100,22 @@ func (mr *MockStateMockRecorder) NamespacesForWatchControllerConfig() *MockState
 type MockStateNamespacesForWatchControllerConfigCall = gomock.Call0_1[[]string]
 
 // UpdateControllerConfig mocks base method.
-func (m *MockState) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
+func (m *MockState) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.updateControllerConfigExpects, m.ctrl, m, "UpdateControllerConfig", ctx, updateAttrs, removeAttrs, validateModification)
+	return gomock.Dispatch3_1(&m.recorder.updateControllerConfigExpects, m.ctrl, m, "UpdateControllerConfig", ctx, updateAttrs, removeAttrs)
 }
 
 // UpdateControllerConfig indicates an expected call of UpdateControllerConfig.
-func (mr *MockStateMockRecorder) UpdateControllerConfig(ctx, updateAttrs, removeAttrs, validateModification any) *MockStateUpdateControllerConfigCall {
+func (mr *MockStateMockRecorder) UpdateControllerConfig(ctx, updateAttrs, removeAttrs any) *MockStateUpdateControllerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[context.Context, map[string]string, []string, ModificationValidatorFunc, error](mr.mock.ctrl.T, mr.mock, "UpdateControllerConfig", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(updateAttrs), gomock.EnsureMatcher(removeAttrs), gomock.EnsureMatcher(validateModification))
+	call := gomock.NewCall3_1[context.Context, map[string]string, []string, error](mr.mock.ctrl.T, mr.mock, "UpdateControllerConfig", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(updateAttrs), gomock.EnsureMatcher(removeAttrs))
 	mr.updateControllerConfigExpects = append(mr.updateControllerConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateUpdateControllerConfigCall is the typed call wrapper for UpdateControllerConfig.
-type MockStateUpdateControllerConfigCall = gomock.Call4_1[context.Context, map[string]string, []string, ModificationValidatorFunc, error]
+type MockStateUpdateControllerConfigCall = gomock.Call3_1[context.Context, map[string]string, []string, error]
 
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {

@@ -34,7 +34,6 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/instance"
@@ -60,6 +59,11 @@ import (
 
 var logger = internallogger.GetLogger("juju.provider.openstack")
 
+// Non standard json Format
+const FormatCertFilename jsonschema.Format = "cert-filename"
+
+// EnvironProvider implements environs.CloudEnvironProvider for OpenStack
+// clouds.
 type EnvironProvider struct {
 	environs.ProviderCredentials
 	Configurator      ProviderConfigurator
@@ -98,7 +102,7 @@ var cloudSchema = &jsonschema.Schema{
 		cloud.CertFilenameKey: {
 			Singular:      "a path to the CA certificate for your cloud if one is required to access it. (optional)",
 			Type:          []jsonschema.Type{jsonschema.StringType},
-			Format:        interact.FormatCertFilename,
+			Format:        FormatCertFilename,
 			Default:       "",
 			PromptDefault: "none",
 			EnvVars:       []string{"OS_CACERT"},
@@ -586,6 +590,7 @@ func (e *Environ) neutron() NetworkingNeutron {
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
+	constraints.IPFamily,
 }
 
 // ConstraintsValidator is defined on the Environs interface.
@@ -822,11 +827,16 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		cred.ProjectDomain = credAttrs[CredAttrProjectDomainName]
 		cred.UserDomain = credAttrs[CredAttrUserDomainName]
 		cred.Domain = credAttrs[CredAttrDomainName]
+		cred.TrustID = credAttrs[CredAttrTrustID]
 		if credAttrs[CredAttrVersion] != "" {
 			version, err := strconv.Atoi(credAttrs[CredAttrVersion])
 			if err != nil {
 				return identity.Credentials{}, 0,
 					errors.Errorf("cred.Version is not a valid integer type : %v", err)
+			}
+			if version < 3 && cred.TrustID != "" {
+				return identity.Credentials{}, 0,
+					errors.Errorf("cred.TrustID requires Keystone identity version 3")
 			}
 			if version < 3 {
 				authMode = identity.AuthUserPass
@@ -834,10 +844,13 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 				authMode = identity.AuthUserPassV3
 			}
 			cred.Version = version
-		} else if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" {
+		} else if cred.Domain != "" || cred.UserDomain != "" || cred.ProjectDomain != "" || cred.TrustID != "" {
 			authMode = identity.AuthUserPassV3
 		} else {
 			authMode = identity.AuthUserPass
+		}
+		if err := validateTrustCredentialScope(cred); err != nil {
+			return identity.Credentials{}, 0, errors.Trace(err)
 		}
 	case cloud.AccessKeyAuthType:
 		cred.User = credAttrs[CredAttrAccessKey]
@@ -845,6 +858,30 @@ func newCredentials(spec environscloudspec.CloudSpec) (identity.Credentials, ide
 		authMode = identity.AuthKeyPair
 	}
 	return cred, authMode, nil
+}
+
+func validateTrustCredentialScope(cred identity.Credentials) error {
+	if cred.TrustID == "" {
+		return nil
+	}
+	var scopeAttrs []string
+	if cred.TenantName != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrTenantName)
+	}
+	if cred.TenantID != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrTenantID)
+	}
+	if cred.Domain != "" {
+		scopeAttrs = append(scopeAttrs, CredAttrDomainName)
+	}
+	if len(scopeAttrs) == 0 {
+		return nil
+	}
+	return errors.NewNotValid(nil, fmt.Sprintf(
+		"%s cannot be used with project or domain scope attributes: %s",
+		CredAttrTrustID,
+		strings.Join(scopeAttrs, ", "),
+	))
 }
 
 func tlsConfig(certStrs []string) *tls.Config {

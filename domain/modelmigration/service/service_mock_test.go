@@ -118,22 +118,34 @@ type MockControllerState struct {
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
-	mock                               *MockControllerState
-	aggregateMinionReportsExpects      []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	deleteModelImportingStatusExpects  []*gomock.Call2_1[context.Context, string, error]
-	getActiveExportExpects             []*gomock.Call2_2[context.Context, string, internal.Migration, error]
-	getActiveExportUUIDExpects         []*gomock.Call2_2[context.Context, string, string, error]
-	getControllerModelInfoExpects      []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
-	getControllerTargetVersionExpects  []*gomock.Call1_2[context.Context, string, error]
-	getMigrationModeExpects            []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
-	getSourceControllerInfoExpects     []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
-	insertExportExpects                []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
-	insertMinionReportExpects          []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
-	namespaceForWatchExportExpects     []*gomock.Call0_1[string]
-	namespaceForWatchMinionSyncExpects []*gomock.Call0_1[string]
-	namespaceForWatchPhaseExpects      []*gomock.Call0_1[string]
-	setPhaseExpects                    []*gomock.Call3_1[context.Context, string, migration.Phase, error]
-	setStatusMessageExpects            []*gomock.Call3_1[context.Context, string, string, error]
+	mock                                    *MockControllerState
+	aggregateMinionReportsExpects           []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+	assertImportingExpects                  []*gomock.Call2_1[context.Context, string, error]
+	beginImportExpects                      []*gomock.Call4_2[context.Context, string, string, string, modelmigration.ImportClaim, error]
+	checkCloudRegionExpects                 []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
+	checkImportModelCollisionExpects        []*gomock.Call4_2[context.Context, string, string, string, modelmigration.ImportModelCollision, error]
+	deleteModelImportingStatusExpects       []*gomock.Call2_1[context.Context, string, error]
+	ensureExternalControllerExistsExpects   []*gomock.Call2_1[context.Context, internal.ExternalController, error]
+	getActiveExportExpects                  []*gomock.Call2_2[context.Context, string, internal.Migration, error]
+	getActiveExportUUIDExpects              []*gomock.Call2_2[context.Context, string, string, error]
+	getConflictingCloudImageMetadataExpects []*gomock.Call2_2[context.Context, []modelmigration.ImportPrecheckImageMetadata, []modelmigration.CloudImageMetadataConflict, error]
+	getControllerTargetVersionExpects       []*gomock.Call1_2[context.Context, string, error]
+	getCredentialRevokedExpects             []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
+	getDisabledUsersExpects                 []*gomock.Call2_2[context.Context, []string, []string, error]
+	getImportClaimExpects                   []*gomock.Call2_2[context.Context, string, modelmigration.ImportClaim, error]
+	getImportedOfferUUIDsExpects            []*gomock.Call2_2[context.Context, string, []string, error]
+	getMigrationModeExpects                 []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
+	getSourceControllerInfoExpects          []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
+	importExternalControllersExpects        []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
+	importOfferPermissionsExpects           []*gomock.Call4_1[context.Context, string, string, []string, error]
+	insertExportExpects                     []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
+	insertMinionReportExpects               []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	namespaceForWatchExportExpects          []*gomock.Call0_1[string]
+	namespaceForWatchMinionSyncExpects      []*gomock.Call0_1[string]
+	namespaceForWatchPhaseExpects           []*gomock.Call0_1[string]
+	secretBackendExistsExpects              []*gomock.Call2_2[context.Context, string, bool, error]
+	setPhaseExpects                         []*gomock.Call3_1[context.Context, string, migration.Phase, error]
+	setStatusMessageExpects                 []*gomock.Call3_1[context.Context, string, string, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -166,6 +178,78 @@ func (mr *MockControllerStateMockRecorder) AggregateMinionReports(ctx, migration
 // MockControllerStateAggregateMinionReportsCall is the typed call wrapper for AggregateMinionReports.
 type MockControllerStateAggregateMinionReportsCall = gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
 
+// AssertImporting mocks base method.
+func (m *MockControllerState) AssertImporting(ctx context.Context, modelUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.assertImportingExpects, m.ctrl, m, "AssertImporting", ctx, modelUUID)
+}
+
+// AssertImporting indicates an expected call of AssertImporting.
+func (mr *MockControllerStateMockRecorder) AssertImporting(ctx, modelUUID any) *MockControllerStateAssertImportingCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "AssertImporting", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.assertImportingExpects = append(mr.assertImportingExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateAssertImportingCall is the typed call wrapper for AssertImporting.
+type MockControllerStateAssertImportingCall = gomock.Call2_1[context.Context, string, error]
+
+// BeginImport mocks base method.
+func (m *MockControllerState) BeginImport(ctx context.Context, modelUUID, claimUUID, sourceMigrationUUID string) (modelmigration.ImportClaim, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_2(&m.recorder.beginImportExpects, m.ctrl, m, "BeginImport", ctx, modelUUID, claimUUID, sourceMigrationUUID)
+}
+
+// BeginImport indicates an expected call of BeginImport.
+func (mr *MockControllerStateMockRecorder) BeginImport(ctx, modelUUID, claimUUID, sourceMigrationUUID any) *MockControllerStateBeginImportCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_2[context.Context, string, string, string, modelmigration.ImportClaim, error](mr.mock.ctrl.T, mr.mock, "BeginImport", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(claimUUID), gomock.EnsureMatcher(sourceMigrationUUID))
+	mr.beginImportExpects = append(mr.beginImportExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateBeginImportCall is the typed call wrapper for BeginImport.
+type MockControllerStateBeginImportCall = gomock.Call4_2[context.Context, string, string, string, modelmigration.ImportClaim, error]
+
+// CheckCloudRegion mocks base method.
+func (m *MockControllerState) CheckCloudRegion(ctx context.Context, cloudName, regionName string) (bool, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_3(&m.recorder.checkCloudRegionExpects, m.ctrl, m, "CheckCloudRegion", ctx, cloudName, regionName)
+}
+
+// CheckCloudRegion indicates an expected call of CheckCloudRegion.
+func (mr *MockControllerStateMockRecorder) CheckCloudRegion(ctx, cloudName, regionName any) *MockControllerStateCheckCloudRegionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_3[context.Context, string, string, bool, bool, error](mr.mock.ctrl.T, mr.mock, "CheckCloudRegion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(cloudName), gomock.EnsureMatcher(regionName))
+	mr.checkCloudRegionExpects = append(mr.checkCloudRegionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateCheckCloudRegionCall is the typed call wrapper for CheckCloudRegion.
+type MockControllerStateCheckCloudRegionCall = gomock.Call3_3[context.Context, string, string, bool, bool, error]
+
+// CheckImportModelCollision mocks base method.
+func (m *MockControllerState) CheckImportModelCollision(ctx context.Context, modelUUID, name, qualifier string) (modelmigration.ImportModelCollision, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_2(&m.recorder.checkImportModelCollisionExpects, m.ctrl, m, "CheckImportModelCollision", ctx, modelUUID, name, qualifier)
+}
+
+// CheckImportModelCollision indicates an expected call of CheckImportModelCollision.
+func (mr *MockControllerStateMockRecorder) CheckImportModelCollision(ctx, modelUUID, name, qualifier any) *MockControllerStateCheckImportModelCollisionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_2[context.Context, string, string, string, modelmigration.ImportModelCollision, error](mr.mock.ctrl.T, mr.mock, "CheckImportModelCollision", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(name), gomock.EnsureMatcher(qualifier))
+	mr.checkImportModelCollisionExpects = append(mr.checkImportModelCollisionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateCheckImportModelCollisionCall is the typed call wrapper for CheckImportModelCollision.
+type MockControllerStateCheckImportModelCollisionCall = gomock.Call4_2[context.Context, string, string, string, modelmigration.ImportModelCollision, error]
+
 // DeleteModelImportingStatus mocks base method.
 func (m *MockControllerState) DeleteModelImportingStatus(ctx context.Context, modelUUID string) error {
 	m.ctrl.T.Helper()
@@ -183,6 +267,24 @@ func (mr *MockControllerStateMockRecorder) DeleteModelImportingStatus(ctx, model
 
 // MockControllerStateDeleteModelImportingStatusCall is the typed call wrapper for DeleteModelImportingStatus.
 type MockControllerStateDeleteModelImportingStatusCall = gomock.Call2_1[context.Context, string, error]
+
+// EnsureExternalControllerExists mocks base method.
+func (m *MockControllerState) EnsureExternalControllerExists(ctx context.Context, ref internal.ExternalController) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.ensureExternalControllerExistsExpects, m.ctrl, m, "EnsureExternalControllerExists", ctx, ref)
+}
+
+// EnsureExternalControllerExists indicates an expected call of EnsureExternalControllerExists.
+func (mr *MockControllerStateMockRecorder) EnsureExternalControllerExists(ctx, ref any) *MockControllerStateEnsureExternalControllerExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, internal.ExternalController, error](mr.mock.ctrl.T, mr.mock, "EnsureExternalControllerExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ref))
+	mr.ensureExternalControllerExistsExpects = append(mr.ensureExternalControllerExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateEnsureExternalControllerExistsCall is the typed call wrapper for EnsureExternalControllerExists.
+type MockControllerStateEnsureExternalControllerExistsCall = gomock.Call2_1[context.Context, internal.ExternalController, error]
 
 // GetActiveExport mocks base method.
 func (m *MockControllerState) GetActiveExport(ctx context.Context, modelUUID string) (internal.Migration, error) {
@@ -220,23 +322,23 @@ func (mr *MockControllerStateMockRecorder) GetActiveExportUUID(ctx, modelUUID an
 // MockControllerStateGetActiveExportUUIDCall is the typed call wrapper for GetActiveExportUUID.
 type MockControllerStateGetActiveExportUUIDCall = gomock.Call2_2[context.Context, string, string, error]
 
-// GetControllerModelInfo mocks base method.
-func (m *MockControllerState) GetControllerModelInfo(ctx context.Context, modelUUID string, offerUUIDs []string, offererModels []internal.OffererModel) (modelmigration.ControllerModelInfo, error) {
+// GetConflictingCloudImageMetadata mocks base method.
+func (m *MockControllerState) GetConflictingCloudImageMetadata(ctx context.Context, rows []modelmigration.ImportPrecheckImageMetadata) ([]modelmigration.CloudImageMetadataConflict, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.getControllerModelInfoExpects, m.ctrl, m, "GetControllerModelInfo", ctx, modelUUID, offerUUIDs, offererModels)
+	return gomock.Dispatch2_2(&m.recorder.getConflictingCloudImageMetadataExpects, m.ctrl, m, "GetConflictingCloudImageMetadata", ctx, rows)
 }
 
-// GetControllerModelInfo indicates an expected call of GetControllerModelInfo.
-func (mr *MockControllerStateMockRecorder) GetControllerModelInfo(ctx, modelUUID, offerUUIDs, offererModels any) *MockControllerStateGetControllerModelInfoCall {
+// GetConflictingCloudImageMetadata indicates an expected call of GetConflictingCloudImageMetadata.
+func (mr *MockControllerStateMockRecorder) GetConflictingCloudImageMetadata(ctx, rows any) *MockControllerStateGetConflictingCloudImageMetadataCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error](mr.mock.ctrl.T, mr.mock, "GetControllerModelInfo", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(offerUUIDs), gomock.EnsureMatcher(offererModels))
-	mr.getControllerModelInfoExpects = append(mr.getControllerModelInfoExpects, call)
+	call := gomock.NewCall2_2[context.Context, []modelmigration.ImportPrecheckImageMetadata, []modelmigration.CloudImageMetadataConflict, error](mr.mock.ctrl.T, mr.mock, "GetConflictingCloudImageMetadata", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(rows))
+	mr.getConflictingCloudImageMetadataExpects = append(mr.getConflictingCloudImageMetadataExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerStateGetControllerModelInfoCall is the typed call wrapper for GetControllerModelInfo.
-type MockControllerStateGetControllerModelInfoCall = gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
+// MockControllerStateGetConflictingCloudImageMetadataCall is the typed call wrapper for GetConflictingCloudImageMetadata.
+type MockControllerStateGetConflictingCloudImageMetadataCall = gomock.Call2_2[context.Context, []modelmigration.ImportPrecheckImageMetadata, []modelmigration.CloudImageMetadataConflict, error]
 
 // GetControllerTargetVersion mocks base method.
 func (m *MockControllerState) GetControllerTargetVersion(ctx context.Context) (string, error) {
@@ -255,6 +357,78 @@ func (mr *MockControllerStateMockRecorder) GetControllerTargetVersion(ctx any) *
 
 // MockControllerStateGetControllerTargetVersionCall is the typed call wrapper for GetControllerTargetVersion.
 type MockControllerStateGetControllerTargetVersionCall = gomock.Call1_2[context.Context, string, error]
+
+// GetCredentialRevoked mocks base method.
+func (m *MockControllerState) GetCredentialRevoked(ctx context.Context, cloud, owner, name string) (bool, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_3(&m.recorder.getCredentialRevokedExpects, m.ctrl, m, "GetCredentialRevoked", ctx, cloud, owner, name)
+}
+
+// GetCredentialRevoked indicates an expected call of GetCredentialRevoked.
+func (mr *MockControllerStateMockRecorder) GetCredentialRevoked(ctx, cloud, owner, name any) *MockControllerStateGetCredentialRevokedCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_3[context.Context, string, string, string, bool, bool, error](mr.mock.ctrl.T, mr.mock, "GetCredentialRevoked", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(cloud), gomock.EnsureMatcher(owner), gomock.EnsureMatcher(name))
+	mr.getCredentialRevokedExpects = append(mr.getCredentialRevokedExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetCredentialRevokedCall is the typed call wrapper for GetCredentialRevoked.
+type MockControllerStateGetCredentialRevokedCall = gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
+
+// GetDisabledUsers mocks base method.
+func (m *MockControllerState) GetDisabledUsers(ctx context.Context, names []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getDisabledUsersExpects, m.ctrl, m, "GetDisabledUsers", ctx, names)
+}
+
+// GetDisabledUsers indicates an expected call of GetDisabledUsers.
+func (mr *MockControllerStateMockRecorder) GetDisabledUsers(ctx, names any) *MockControllerStateGetDisabledUsersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []string, []string, error](mr.mock.ctrl.T, mr.mock, "GetDisabledUsers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(names))
+	mr.getDisabledUsersExpects = append(mr.getDisabledUsersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetDisabledUsersCall is the typed call wrapper for GetDisabledUsers.
+type MockControllerStateGetDisabledUsersCall = gomock.Call2_2[context.Context, []string, []string, error]
+
+// GetImportClaim mocks base method.
+func (m *MockControllerState) GetImportClaim(ctx context.Context, modelUUID string) (modelmigration.ImportClaim, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getImportClaimExpects, m.ctrl, m, "GetImportClaim", ctx, modelUUID)
+}
+
+// GetImportClaim indicates an expected call of GetImportClaim.
+func (mr *MockControllerStateMockRecorder) GetImportClaim(ctx, modelUUID any) *MockControllerStateGetImportClaimCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, modelmigration.ImportClaim, error](mr.mock.ctrl.T, mr.mock, "GetImportClaim", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getImportClaimExpects = append(mr.getImportClaimExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetImportClaimCall is the typed call wrapper for GetImportClaim.
+type MockControllerStateGetImportClaimCall = gomock.Call2_2[context.Context, string, modelmigration.ImportClaim, error]
+
+// GetImportedOfferUUIDs mocks base method.
+func (m *MockControllerState) GetImportedOfferUUIDs(ctx context.Context, modelUUID string) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getImportedOfferUUIDsExpects, m.ctrl, m, "GetImportedOfferUUIDs", ctx, modelUUID)
+}
+
+// GetImportedOfferUUIDs indicates an expected call of GetImportedOfferUUIDs.
+func (mr *MockControllerStateMockRecorder) GetImportedOfferUUIDs(ctx, modelUUID any) *MockControllerStateGetImportedOfferUUIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetImportedOfferUUIDs", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getImportedOfferUUIDsExpects = append(mr.getImportedOfferUUIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetImportedOfferUUIDsCall is the typed call wrapper for GetImportedOfferUUIDs.
+type MockControllerStateGetImportedOfferUUIDsCall = gomock.Call2_2[context.Context, string, []string, error]
 
 // GetMigrationMode mocks base method.
 func (m *MockControllerState) GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error) {
@@ -291,6 +465,42 @@ func (mr *MockControllerStateMockRecorder) GetSourceControllerInfo(ctx any) *Moc
 
 // MockControllerStateGetSourceControllerInfoCall is the typed call wrapper for GetSourceControllerInfo.
 type MockControllerStateGetSourceControllerInfoCall = gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
+
+// ImportExternalControllers mocks base method.
+func (m *MockControllerState) ImportExternalControllers(ctx context.Context, modelUUID, claimUUID string, refs []internal.ExternalController) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.importExternalControllersExpects, m.ctrl, m, "ImportExternalControllers", ctx, modelUUID, claimUUID, refs)
+}
+
+// ImportExternalControllers indicates an expected call of ImportExternalControllers.
+func (mr *MockControllerStateMockRecorder) ImportExternalControllers(ctx, modelUUID, claimUUID, refs any) *MockControllerStateImportExternalControllersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[context.Context, string, string, []internal.ExternalController, error](mr.mock.ctrl.T, mr.mock, "ImportExternalControllers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(claimUUID), gomock.EnsureMatcher(refs))
+	mr.importExternalControllersExpects = append(mr.importExternalControllersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateImportExternalControllersCall is the typed call wrapper for ImportExternalControllers.
+type MockControllerStateImportExternalControllersCall = gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
+
+// ImportOfferPermissions mocks base method.
+func (m *MockControllerState) ImportOfferPermissions(ctx context.Context, modelUUID, claimUUID string, offerUUIDs []string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.importOfferPermissionsExpects, m.ctrl, m, "ImportOfferPermissions", ctx, modelUUID, claimUUID, offerUUIDs)
+}
+
+// ImportOfferPermissions indicates an expected call of ImportOfferPermissions.
+func (mr *MockControllerStateMockRecorder) ImportOfferPermissions(ctx, modelUUID, claimUUID, offerUUIDs any) *MockControllerStateImportOfferPermissionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[context.Context, string, string, []string, error](mr.mock.ctrl.T, mr.mock, "ImportOfferPermissions", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(claimUUID), gomock.EnsureMatcher(offerUUIDs))
+	mr.importOfferPermissionsExpects = append(mr.importOfferPermissionsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateImportOfferPermissionsCall is the typed call wrapper for ImportOfferPermissions.
+type MockControllerStateImportOfferPermissionsCall = gomock.Call4_1[context.Context, string, string, []string, error]
 
 // InsertExport mocks base method.
 func (m *MockControllerState) InsertExport(ctx context.Context, spec internal.MigrationSpec) error {
@@ -382,6 +592,24 @@ func (mr *MockControllerStateMockRecorder) NamespaceForWatchPhase() *MockControl
 // MockControllerStateNamespaceForWatchPhaseCall is the typed call wrapper for NamespaceForWatchPhase.
 type MockControllerStateNamespaceForWatchPhaseCall = gomock.Call0_1[string]
 
+// SecretBackendExists mocks base method.
+func (m *MockControllerState) SecretBackendExists(ctx context.Context, name string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.secretBackendExistsExpects, m.ctrl, m, "SecretBackendExists", ctx, name)
+}
+
+// SecretBackendExists indicates an expected call of SecretBackendExists.
+func (mr *MockControllerStateMockRecorder) SecretBackendExists(ctx, name any) *MockControllerStateSecretBackendExistsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "SecretBackendExists", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(name))
+	mr.secretBackendExistsExpects = append(mr.secretBackendExistsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateSecretBackendExistsCall is the typed call wrapper for SecretBackendExists.
+type MockControllerStateSecretBackendExistsCall = gomock.Call2_2[context.Context, string, bool, error]
+
 // SetPhase mocks base method.
 func (m *MockControllerState) SetPhase(ctx context.Context, migrationUUID string, newPhase migration.Phase) error {
 	m.ctrl.T.Helper()
@@ -433,8 +661,6 @@ type MockModelStateMockRecorder struct {
 	getControllerUUIDExpects          []*gomock.Call1_2[context.Context, string, error]
 	getMigrationAgentsExpects         []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
 	getModelTargetAgentVersionExpects []*gomock.Call1_2[context.Context, string, error]
-	getOfferUUIDsExpects              []*gomock.Call1_2[context.Context, []string, error]
-	getThirdPartyOffererModelsExpects []*gomock.Call1_2[context.Context, []internal.OffererModel, error]
 	setModelTargetAgentVersionExpects []*gomock.Call3_1[context.Context, string, string, error]
 }
 
@@ -539,42 +765,6 @@ func (mr *MockModelStateMockRecorder) GetModelTargetAgentVersion(arg0 any) *Mock
 
 // MockModelStateGetModelTargetAgentVersionCall is the typed call wrapper for GetModelTargetAgentVersion.
 type MockModelStateGetModelTargetAgentVersionCall = gomock.Call1_2[context.Context, string, error]
-
-// GetOfferUUIDs mocks base method.
-func (m *MockModelState) GetOfferUUIDs(ctx context.Context) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getOfferUUIDsExpects, m.ctrl, m, "GetOfferUUIDs", ctx)
-}
-
-// GetOfferUUIDs indicates an expected call of GetOfferUUIDs.
-func (mr *MockModelStateMockRecorder) GetOfferUUIDs(ctx any) *MockModelStateGetOfferUUIDsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetOfferUUIDs", gomock.EnsureMatcher(ctx))
-	mr.getOfferUUIDsExpects = append(mr.getOfferUUIDsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelStateGetOfferUUIDsCall is the typed call wrapper for GetOfferUUIDs.
-type MockModelStateGetOfferUUIDsCall = gomock.Call1_2[context.Context, []string, error]
-
-// GetThirdPartyOffererModels mocks base method.
-func (m *MockModelState) GetThirdPartyOffererModels(ctx context.Context) ([]internal.OffererModel, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getThirdPartyOffererModelsExpects, m.ctrl, m, "GetThirdPartyOffererModels", ctx)
-}
-
-// GetThirdPartyOffererModels indicates an expected call of GetThirdPartyOffererModels.
-func (mr *MockModelStateMockRecorder) GetThirdPartyOffererModels(ctx any) *MockModelStateGetThirdPartyOffererModelsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, []internal.OffererModel, error](mr.mock.ctrl.T, mr.mock, "GetThirdPartyOffererModels", gomock.EnsureMatcher(ctx))
-	mr.getThirdPartyOffererModelsExpects = append(mr.getThirdPartyOffererModelsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelStateGetThirdPartyOffererModelsCall is the typed call wrapper for GetThirdPartyOffererModels.
-type MockModelStateGetThirdPartyOffererModelsCall = gomock.Call1_2[context.Context, []internal.OffererModel, error]
 
 // SetModelTargetAgentVersion mocks base method.
 func (m *MockModelState) SetModelTargetAgentVersion(ctx context.Context, preCondition, toVersion string) error {

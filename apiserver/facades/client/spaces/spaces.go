@@ -162,11 +162,9 @@ func (api *API) ListSpaces(ctx context.Context) (results params.ListSpacesResult
 		return results, err
 	}
 
-	err = api.checkSupportsSpaces(ctx)
-	if err != nil {
-		return results, apiservererrors.ServerError(errors.Trace(err))
-	}
-
+	// Do not call checkSupportsSpaces here. Even if the provider does not support
+	// spaces, we still allow retrieval, since we still model subnets under the
+	// alpha space.
 	spaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return results, errors.Trace(err)
@@ -202,11 +200,9 @@ func (api *API) ShowSpace(ctx context.Context, entities params.Entities) (params
 		return params.ShowSpaceResults{}, err
 	}
 
-	err = api.checkSupportsSpaces(ctx)
-	if err != nil {
-		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
-	}
-
+	// Do not call checkSupportsSpaces here. Even if the provider does not support
+	// spaces, we still allow retrieval, since we still model subnets under the
+	// alpha space.
 	results := make([]params.ShowSpaceResult, len(entities.Entities))
 	for i, entity := range entities.Entities {
 		spaceTag, err := names.ParseSpaceTag(entity.Tag)
@@ -287,6 +283,9 @@ func (api *API) ensureSpacesAreMutable(ctx context.Context) error {
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
+	}
+	if err = api.checkSupportsSpaces(ctx); err != nil {
+		return apiservererrors.ServerError(errors.Trace(err))
 	}
 	if err = api.ensureSpacesNotProviderSourced(ctx); err != nil {
 		return apiservererrors.ServerError(errors.Trace(err))

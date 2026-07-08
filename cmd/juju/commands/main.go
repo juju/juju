@@ -81,7 +81,7 @@ Starter commands:
     deploy              Deploys a new application.
     status              Displays the current status of Juju, applications, and units.
     add-unit            Adds extra units of a deployed application.
-    integrate           Adds an integration between two applications.
+    integrate           Adds a relation between two applications.
     expose              Makes an application publicly available over the network.
     models              Lists models a user can access on a controller.
     controllers         Lists all controllers.
@@ -560,15 +560,19 @@ type cloudToCommandAdaptor struct{}
 func (cloudToCommandAdaptor) ReadCloudData(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
+
 func (cloudToCommandAdaptor) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
 	return cloudfile.ParseOneCloud(data)
 }
+
 func (cloudToCommandAdaptor) PublicCloudMetadata(searchPaths ...string) (map[string]cloudfile.Cloud, bool, error) {
 	return cloudfile.PublicCloudMetadata(searchPaths...)
 }
+
 func (cloudToCommandAdaptor) PersonalCloudMetadata() (map[string]cloudfile.Cloud, error) {
 	return cloudfile.PersonalCloudMetadata()
 }
+
 func (cloudToCommandAdaptor) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
 	return cloudfile.WritePersonalCloudMetadata(cloudsMap)
 }

@@ -35,10 +35,9 @@ func (progressBarSuite) TestWriteLogsPercentage(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(n, tc.Equals, 7)
 
-	c.Check(logs.messages, tc.DeepEquals, []string{
-		`TRACE: download "dummy" progress  30% complete`,
-		`TRACE: download "dummy" progress 100% complete`,
-	})
+	c.Assert(len(logs.messages), tc.Equals, 2)
+	c.Check(logs.messages[0], tc.Matches, `.*TRACE: download "dummy" progress  30% complete`)
+	c.Check(logs.messages[1], tc.Matches, `.*TRACE: download "dummy" progress 100% complete`)
 }
 
 func (progressBarSuite) TestWriteLogsUnknownPercentageForZeroTotal(c *tc.C) {
@@ -51,9 +50,8 @@ func (progressBarSuite) TestWriteLogsUnknownPercentageForZeroTotal(c *tc.C) {
 	_, err := pb.Write([]byte("abc"))
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(logs.messages, tc.DeepEquals, []string{
-		`TRACE: download "dummy" progress 100% complete`,
-	})
+	c.Assert(len(logs.messages), tc.Equals, 1)
+	c.Check(logs.messages[0], tc.Matches, `.*TRACE: download "dummy" progress 100% complete`)
 }
 
 type captureLogs struct {

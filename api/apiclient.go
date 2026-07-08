@@ -570,7 +570,7 @@ func parseURLWithOptionalScheme(addr string) (*url.URL, bool) {
 // connection wins.
 //
 // It also returns the TLS configuration that it has derived from the Info.
-func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, error) {
+func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (dialInfo *dialResult, err error) {
 	if len(info.Addrs) == 0 {
 		return nil, errors.New("no API addresses to connect to")
 	}
@@ -593,6 +593,12 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 		if err := info.Proxier.Start(ctx); err != nil {
 			return nil, errors.Annotate(err, "starting proxy for api connection")
 		}
+		defer func() {
+			if err != nil {
+				err = stopStartedProxier(info.Proxier, err)
+			}
+		}()
+
 		logger.Debugf(ctx, "starting proxier for connection")
 
 		switch p := info.Proxier.(type) {
@@ -606,10 +612,9 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 				// in the future, we should not implement a local listening
 				// proxier, instead we should implement a Dialer that can be
 				// passed down that proxies the connection in process.
-				Host: net.JoinHostPort("127.0.0.1", p.Port()),
+				Host: net.JoinHostPort(p.Host(), p.Port()),
 			}}
 		default:
-			info.Proxier.Stop()
 			return nil, errors.New("unknown proxier provided")
 		}
 	}
@@ -664,17 +669,17 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	}
 
 	if opts.VerifyCA != nil {
-		err := verifyCAMulti(ctx, addrs, &opts)
-		if errors.Is(err, context.Canceled) {
+		verifyErr := verifyCAMulti(ctx, addrs, &opts)
+		if errors.Is(verifyErr, context.Canceled) {
 			errorDone()
 			return nil, errors.Trace(context.Cause(ctx))
-		} else if err != nil {
+		} else if verifyErr != nil {
 			errorDone()
-			return nil, errors.Trace(err)
+			return nil, errors.Trace(verifyErr)
 		}
 	}
 
-	dialInfo, err := dialWebsocketMulti(ctx, addrs, path, opts)
+	dialInfo, err = dialWebsocketMulti(ctx, addrs, path, opts)
 	if errors.Is(err, context.Canceled) ||
 		errors.Is(err, parallel.ErrStopped) {
 		errorDone()
@@ -686,6 +691,26 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	logger.Infof(ctx, "connection established to %q", dialInfo.dialAddr.String())
 	dialInfo.proxier = info.Proxier
 	return dialInfo, nil
+}
+
+func stopStartedProxier(proxier Proxier, err error) error {
+	if proxier == nil {
+		return err
+	}
+	reporter, ok := proxier.(ProxierErrorReporter)
+	if !ok {
+		proxier.Stop()
+		return err
+	}
+	proxyErr := reporter.ProxyError()
+	proxier.Stop()
+	if proxyErr == nil {
+		proxyErr = reporter.ProxyError()
+	}
+	if err != nil && proxyErr != nil {
+		return internalerrors.Errorf("%w; proxy error: %v", err, proxyErr)
+	}
+	return err
 }
 
 // gorillaDialWebsocket makes a websocket connection using the

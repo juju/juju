@@ -24,6 +24,9 @@ type State interface {
 	UnpinLease(context.Context, lease.Key, string) error
 	Pinned(context.Context) (map[lease.Key][]string, error)
 	ExpireLeases(context.Context) error
+	// DeleteLeadershipForModel deletes all application-leadership leases for
+	// the given model UUID. Idempotent: returns nil if no leases exist.
+	DeleteLeadershipForModel(ctx context.Context, modelUUID string) error
 }
 
 // Service provides the API for working with external controllers.

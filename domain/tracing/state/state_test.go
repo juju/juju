@@ -65,3 +65,50 @@ func (s *stateSuite) TestSetCharmTracingConfigWithDeletion(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(tracingConfigFromDB, tc.DeepEquals, expectedTracingConfig)
 }
+
+func (s *stateSuite) TestSetWorkloadTracingConfig(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	tracingConfig := map[string]string{
+		"one-key": "one-value",
+	}
+	err := state.SetWorkloadTracingConfig(c.Context(), tracingConfig, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedTracingConfig := map[string]string{
+		"one-key": "one-value",
+	}
+
+	tracingConfigFromDB, err := state.GetWorkloadTracingConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tracingConfigFromDB, tc.DeepEquals, expectedTracingConfig)
+}
+
+func (s *stateSuite) TestSetWorkloadTracingConfigWithDeletion(c *tc.C) {
+	state := NewState(s.TxnRunnerFactory())
+
+	tracingConfig := map[string]string{
+		"one-key":   "one-value",
+		"two-key":   "two-value",
+		"three-key": "three-value",
+	}
+	err := state.SetWorkloadTracingConfig(c.Context(), tracingConfig, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	tracingConfig = map[string]string{
+		"four-key": "four-value",
+	}
+	deletionKeys := []string{"two-key", "three-key"}
+
+	err = state.SetWorkloadTracingConfig(c.Context(), tracingConfig, deletionKeys)
+	c.Assert(err, tc.ErrorIsNil)
+
+	expectedTracingConfig := map[string]string{
+		"one-key":  "one-value",
+		"four-key": "four-value",
+	}
+
+	tracingConfigFromDB, err := state.GetWorkloadTracingConfig(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(tracingConfigFromDB, tc.DeepEquals, expectedTracingConfig)
+}

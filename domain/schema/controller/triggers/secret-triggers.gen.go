@@ -30,7 +30,7 @@ CREATE TRIGGER trg_log_model_secret_backend_update
 AFTER UPDATE ON model_secret_backend FOR EACH ROW
 WHEN 
 	NEW.model_uuid != OLD.model_uuid OR
-	NEW.secret_backend_uuid != OLD.secret_backend_uuid 
+	NEW.secret_backend_uuid != OLD.secret_backend_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -66,7 +66,7 @@ CREATE TRIGGER trg_log_secret_backend_rotation_update
 AFTER UPDATE ON secret_backend_rotation FOR EACH ROW
 WHEN 
 	NEW.backend_uuid != OLD.backend_uuid OR
-	NEW.next_rotation_time != OLD.next_rotation_time 
+	NEW.next_rotation_time != OLD.next_rotation_time
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

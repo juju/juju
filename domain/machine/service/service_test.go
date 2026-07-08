@@ -819,6 +819,34 @@ func (s *serviceSuite) TestGetSSHHostKeys(c *tc.C) {
 	c.Check(keys, tc.DeepEquals, expectedKeys)
 }
 
+// TestGetSSHHostKeysByMachineName verifies that the machine name is resolved
+// to a UUID before the SSH host keys are fetched.
+func (s *serviceSuite) TestGetSSHHostKeysByMachineName(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machineName := machine.Name("0")
+	machineUUID := machinetesting.GenUUID(c)
+	expectedKeys := []string{"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC3", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICD1"}
+
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machineName).Return(machineUUID, nil)
+	s.state.EXPECT().GetSSHHostKeys(gomock.Any(), machineUUID.String()).Return(expectedKeys, nil)
+
+	keys, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetSSHHostKeysByMachineName(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(keys, tc.DeepEquals, expectedKeys)
+}
+
+// TestGetSSHHostKeysByMachineNameInvalid verifies that an invalid machine
+// name is rejected before any state lookup occurs.
+func (s *serviceSuite) TestGetSSHHostKeysByMachineNameInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c)).
+		GetSSHHostKeysByMachineName(c.Context(), machine.Name("invalid name"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 func (s *serviceSuite) TestSetSSHHostKeys(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

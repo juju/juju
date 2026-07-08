@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -82,12 +83,38 @@ type State interface {
 // phase of the object store.
 type DrainingState interface {
 	State
-	// GetActiveDrainingPhase returns the active draining phase of the object
-	// store.
-	GetActiveDrainingPhase(ctx context.Context) (string, objectstore.Phase, error)
 
-	// SetDrainingPhase sets the phase of the object store to draining.
-	SetDrainingPhase(ctx context.Context, uuid string, phase objectstore.Phase) error
+	// GetActiveDrainingInfo returns the active draining info of the object
+	// store.
+	GetActiveDrainingInfo(ctx context.Context) (domainobjectstore.DrainingInfo, error)
+
+	// TransitionDrainingPhase atomically reads the current phase, validates
+	// the transition, and either starts a new drain or updates the phase.
+	// The newDrainUUID is only used when starting a new drain (Unknown →
+	// Draining); for other transitions it is ignored.
+	//
+	// Note: this pushes transition validation logic into the state layer,
+	// which is not ideal from a layering perspective, but is necessary to
+	// prevent a TOCTOU race where two concurrent callers could read the
+	// same phase and both attempt to transition.
+	TransitionDrainingPhase(ctx context.Context, newDrainUUID string, phase objectstore.Phase) error
+
+	// GetObjectStoreBackend returns the object store backend information for
+	// the specified uuid.
+	GetObjectStoreBackend(ctx context.Context, uuid string) (domainobjectstore.BackendInfo, error)
+
+	// GetActiveObjectStoreBackend returns the active object store backend
+	// information.
+	GetActiveObjectStoreBackend(ctx context.Context) (domainobjectstore.BackendInfo, error)
+
+	// TransitionBackendToS3 sets the object store to use S3 with the provided
+	// credentials. This is used to update the object store information when the
+	// object store is set to use S3 as the backend.
+	// Currently only file->S3 transitions are supported.
+	TransitionBackendToS3(ctx context.Context, backendUUID, drainUUID string, credential domainobjectstore.S3Credentials) error
+
+	// InitialWatchBackendTable returns the table for the object store backend.
+	InitialWatchBackendTable() (string, string)
 
 	// InitialWatchDrainingTable returns the table for the draining phase.
 	InitialWatchDrainingTable() string
@@ -134,6 +161,10 @@ func NewService(st State) *Service {
 func (s *Service) GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if path == "" {
+		return objectstore.Metadata{}, objectstoreerrors.ErrEmptyPath
+	}
 
 	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
@@ -224,6 +255,10 @@ func (s *Service) PutMetadata(ctx context.Context, metadata objectstore.Metadata
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if metadata.Path == "" {
+		return "", objectstoreerrors.ErrEmptyPath
+	}
+
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
 		return "", errors.Errorf("missing hash256: %w", objectstoreerrors.ErrMissingHash)
@@ -300,6 +335,10 @@ func (s *Service) PutMetadataWithControllerIDHint(
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	if metadata.Path == "" {
+		return "", objectstoreerrors.ErrEmptyPath
+	}
+
 	// If you have one hash, you must have the other.
 	if h1, h2 := metadata.SHA384, metadata.SHA256; h1 != "" && h2 == "" {
 		return "", errors.Errorf("missing hash256").Add(objectstoreerrors.ErrMissingHash)
@@ -354,6 +393,10 @@ func (s *Service) AddControllerIDHint(ctx context.Context, sha384 string, contro
 func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if path == "" {
+		return objectstoreerrors.ErrEmptyPath
+	}
 
 	if err := s.st.RemoveMetadata(ctx, path); err != nil {
 		return errors.Errorf("removing path %s: %w", path, err)
@@ -415,6 +458,8 @@ func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory
 }
 
 // SetDrainingPhase sets the phase of the object store to draining.
+// This delegates to the state layer's atomic TransitionDrainingPhase method
+// which validates and applies the transition in a single transaction.
 func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase objectstore.Phase) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -423,27 +468,16 @@ func (s *WatchableDrainingService) SetDrainingPhase(ctx context.Context, phase o
 		return errors.Errorf("invalid phase %q", phase)
 	}
 
-	uuid, current, err := s.st.GetActiveDrainingPhase(ctx)
-	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
-		uuid, err := objectstore.NewUUID()
-		if err != nil {
-			return errors.Errorf("creating new uuid: %w", err)
-		}
-
-		return s.st.SetDrainingPhase(ctx, uuid.String(), phase)
-	} else if err != nil {
-		return errors.Errorf("getting active draining phase: %w", err)
+	// Generate a UUID for the new drain record. This is only used when
+	// transitioning from Unknown → Draining; otherwise it's ignored by the
+	// state layer.
+	uuid, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new uuid: %w", err)
 	}
 
-	if _, err := current.TransitionTo(phase); errors.Is(err, objectstore.ErrTerminalPhase) {
-		return nil
-	} else if err != nil {
-		return errors.Errorf("transitioning phase: %w", err)
-	}
-
-	// Set the phase in the state.
-	if err := s.st.SetDrainingPhase(ctx, uuid, phase); err != nil {
-		return errors.Errorf("setting draining phase: %w", err)
+	if err := s.st.TransitionDrainingPhase(ctx, uuid.String(), phase); err != nil {
+		return errors.Errorf("transitioning draining phase: %w", err)
 	}
 	return nil
 }
@@ -453,13 +487,160 @@ func (s *WatchableDrainingService) GetDrainingPhase(ctx context.Context) (object
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	_, phase, err := s.st.GetActiveDrainingPhase(ctx)
+	info, err := s.st.GetActiveDrainingInfo(ctx)
 	if errors.Is(err, objectstoreerrors.ErrDrainingPhaseNotFound) {
 		return objectstore.PhaseUnknown, nil
 	} else if err != nil {
 		return "", errors.Errorf("getting draining phase: %w", err)
 	}
-	return phase, nil
+	return objectstore.Phase(info.Phase), nil
+}
+
+// BackendInfo represents the information about an object store backend,
+// including the uuid and the type of the object store.
+type BackendInfo struct {
+	// UUID is the uuid for the backend.
+	UUID objectstore.UUID
+
+	// Type is the type of the object store.
+	Type objectstore.BackendType
+
+	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
+	Endpoint *string
+
+	// AccessKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	AccessKey *string
+	// SecretKey is not returned for security reasons, but it is expected to be
+	// set in the state when the backend is S3, and it will be used to create
+	// the S3 client for the draining process.
+	SecretKey *string
+}
+
+// S3Credentials returns the S3 credentials if the object store type is S3, and
+// returns false otherwise.
+func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
+	if s.Type != objectstore.S3Backend {
+		return domainobjectstore.S3Credentials{}, false
+	}
+
+	return domainobjectstore.S3Credentials{
+		Endpoint:  deref(s.Endpoint),
+		AccessKey: deref(s.AccessKey),
+		SecretKey: deref(s.SecretKey),
+	}, true
+}
+
+// GetDrainingPhaseInfo returns the phase information of the draining object
+// store.
+func (s *WatchableDrainingService) GetDrainingPhaseInfo(ctx context.Context) (objectstore.DrainingPhaseInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	info, err := s.st.GetActiveDrainingInfo(ctx)
+	if err != nil {
+		return objectstore.DrainingPhaseInfo{}, errors.Errorf("getting draining phase info: %w", err)
+	}
+
+	var fromBackend *objectstore.UUID
+	if info.FromBackendUUID != nil {
+		fb := objectstore.UUID(*info.FromBackendUUID)
+		fromBackend = &fb
+	}
+
+	return objectstore.DrainingPhaseInfo{
+		Phase:             objectstore.Phase(info.Phase),
+		FromBackendUUID:   fromBackend,
+		ActiveBackendUUID: objectstore.UUID(info.ActiveBackendUUID),
+	}, nil
+}
+
+// GetActiveObjectStoreBackend returns the active object store backend
+// information.
+func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Context) (BackendInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	backendInfo, err := s.st.GetActiveObjectStoreBackend(ctx)
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting active object store backend info: %w", err)
+	}
+	return BackendInfo{
+		UUID:      objectstore.UUID(backendInfo.UUID),
+		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:  backendInfo.Endpoint,
+		AccessKey: backendInfo.AccessKey,
+		SecretKey: backendInfo.SecretKey,
+	}, nil
+}
+
+// GetObjectStoreBackend returns the object store backend information for the
+// specified uuid.
+func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uuid objectstore.UUID) (BackendInfo, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := uuid.Validate(); err != nil {
+		return BackendInfo{}, errors.Errorf("invalid uuid %s: %w", uuid, err)
+	}
+
+	backendInfo, err := s.st.GetObjectStoreBackend(ctx, uuid.String())
+	if err != nil {
+		return BackendInfo{}, errors.Errorf("getting object store backend info for uuid %s: %w", uuid, err)
+	}
+	return BackendInfo{
+		UUID:      objectstore.UUID(backendInfo.UUID),
+		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Endpoint:  backendInfo.Endpoint,
+		AccessKey: backendInfo.AccessKey,
+		SecretKey: backendInfo.SecretKey,
+	}, nil
+}
+
+// TransitionBackendToS3 sets the object store to use S3 with the provided
+// credentials. This atomically marks the current backend as dying, activates
+// the new S3 backend, and initiates the draining phase so the drainer worker
+// can begin migrating blobs. Currently only file->S3 transitions are
+// supported.
+func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, credential domainobjectstore.S3Credentials) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := credential.Validate(); err != nil {
+		return errors.Errorf("validating S3 credentials: %w", err)
+	}
+
+	backendUUID, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new backend uuid: %w", err)
+	}
+
+	drainUUID, err := objectstore.NewUUID()
+	if err != nil {
+		return errors.Errorf("creating new drain uuid: %w", err)
+	}
+
+	if err := s.st.TransitionBackendToS3(ctx, backendUUID.String(), drainUUID.String(), credential); err != nil {
+		return errors.Errorf("transitioning backend to S3: %w", err)
+	}
+	return nil
+}
+
+// WatchObjectStoreBackend returns a watcher that watches the object store
+// backend. The watcher emits the backend changes that either have been added or
+// removed.
+func (s *WatchableDrainingService) WatchObjectStoreBackend(ctx context.Context) (watcher.StringsWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	table, stmt := s.st.InitialWatchBackendTable()
+	return s.watcherFactory.NewNamespaceWatcher(
+		ctx,
+		eventsource.InitialNamespaceChanges(stmt),
+		"objectstore backend watcher",
+		eventsource.NamespaceFilter(table, changestream.All),
+	)
 }
 
 // WatchDraining returns a watcher that watches the draining phase of the
@@ -475,4 +656,12 @@ func (s *WatchableDrainingService) WatchDraining(ctx context.Context) (watcher.N
 		"objectstore draining watcher",
 		eventsource.NamespaceFilter(table, changestream.All),
 	)
+}
+
+func deref[T any](ptr *T) T {
+	if ptr == nil {
+		var t T
+		return t
+	}
+	return *ptr
 }

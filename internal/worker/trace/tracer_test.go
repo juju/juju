@@ -29,6 +29,23 @@ func TestTracerSuite(t *testing.T) {
 
 var _ coretrace.Tracer = (*tracer)(nil)
 
+func (s *tracerSuite) TestNewClientRejectsInvalidCACertificate(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
+	_, _, _, err := NewClient(
+		c.Context(),
+		ns,
+		"localhost:4317",
+		"not a pem certificate",
+		false,
+		0.42,
+		time.Second,
+		s.logger,
+	)
+	c.Assert(err, tc.ErrorMatches, "failed to append trace CA cert to pool")
+}
+
 func (s *tracerSuite) TestTracer(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -216,10 +233,10 @@ func (s *tracerSuite) TestBuildRequestContext(c *tc.C) {
 
 func (s *tracerSuite) newTracer(c *tc.C) TrackedTracer {
 	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.KindController)
-	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error) {
+	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, string, bool, float64, time.Duration, logger.Logger) (Client, ClientTracerProvider, ClientTracer, error) {
 		return s.client, s.clientTracerProvider, s.clientTracer, nil
 	}
-	tracer, err := NewTracerWorker(c.Context(), ns, "http://meshuggah.com", false, false, 0.42, time.Second, s.logger, newClient)
+	tracer, err := NewTracerWorker(c.Context(), ns, "http://meshuggah.com", "", false, false, 0.42, time.Second, s.logger, newClient)
 	c.Assert(err, tc.ErrorIsNil)
 	return tracer
 }

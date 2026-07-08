@@ -350,7 +350,7 @@ wait_for_systemd_service_files_to_appear() {
 
 	unit=${1}
 	# shellcheck disable=SC2086
-	svc_file_path="/etc/systemd/system/jujud-unit-$(echo -n ${1} | tr '/' '-').service"
+	svc_file_path="/etc/systemd/system/jujuagentd-unit-$(echo -n ${1} | tr '/' '-').service"
 
 	attempt=0
 	# shellcheck disable=SC2046,SC2143

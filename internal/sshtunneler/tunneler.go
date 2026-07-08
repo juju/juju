@@ -11,13 +11,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/ssh"
+	"github.com/juju/juju/internal/uuid"
 )
 
 var (
@@ -32,28 +34,31 @@ const (
 	defaultUser       = "ubuntu"
 )
 
-type sshRequestArgs struct {
-	TunnelID            string
-	ModelUUID           string
-	MachineId           string
-	Expires             time.Time
-	Username            string
-	Password            string
-	ControllerAddresses network.SpaceAddresses
-	UnitPort            int
-	EphemeralPublicKey  []byte
+// ConnRequestState defines an interface to write SSH connection requests to
+// model-scoped state.
+type ConnRequestState interface {
+	// InsertSSHConnRequest inserts a one-shot reverse tunnel request into the
+	// model-scoped SSH connection request state identified by the model UUID.
+	InsertSSHConnRequest(ctx context.Context, modelUUID model.UUID, args domainssh.SSHConnRequest) error
 }
 
-// State defines an interface to write requests for tunnels to state.
-type State interface {
-	// TODO(JUJU-7916) - Create adapter to convert sshRequestArgs to state type.
-	InsertSSHConnRequest(args sshRequestArgs) error
-	MachineHostKeys(modelUUID, machineID string) ([]string, error)
+// MachineState defines an interface to read machine SSH host keys from
+// model-scoped state.
+type MachineState interface {
+	// MachineHostKeys returns the SSH host keys registered for the given
+	// machine in the specified model.
+	MachineHostKeys(ctx context.Context, modelUUID, machineID string) ([]string, error)
 }
 
-// ControllerInfo defines an interface to fetch the controller's address.
+// ControllerInfo defines an interface to fetch the local controller node's
+// addresses.
 type ControllerInfo interface {
-	Addresses() (network.SpaceAddresses, error)
+	// LocalAddresses returns the API addresses of the controller node
+	// identified by controllerNodeID, for use as reverse-tunnel callback
+	// candidates. Only the local node's addresses are returned so that the
+	// machine's reverse tunnel connects back to the same node that is
+	// holding the waiting client SSH session.
+	LocalAddresses(ctx context.Context, controllerNodeID string) (network.SpaceAddresses, error)
 }
 
 // SSHDialer defines an interface to establish an SSH connection over a provided connection.
@@ -65,11 +70,12 @@ type SSHDial interface {
 // The objects keep track of consumers who have requested tunnels
 // and allows an SSH server to push tunnels to these consumers.
 type Tracker struct {
-	authn      tunnelAuthentication
-	state      State
-	controller ControllerInfo
-	dialer     SSHDial
-	clock      clock.Clock
+	authn        tunnelAuthentication
+	connReqState ConnRequestState
+	machines     MachineState
+	controller   ControllerInfo
+	dialer       SSHDial
+	clock        clock.Clock
 
 	mu      sync.Mutex
 	tracker map[string]chan (net.Conn)
@@ -77,15 +83,19 @@ type Tracker struct {
 
 // TrackerArgs holds the arguments for creating a new tunnel tracker.
 type TrackerArgs struct {
-	State          State
-	ControllerInfo ControllerInfo
-	Dialer         SSHDial
-	Clock          clock.Clock
+	ConnRequestState ConnRequestState
+	MachineState     MachineState
+	ControllerInfo   ControllerInfo
+	Dialer           SSHDial
+	Clock            clock.Clock
 }
 
 func (args *TrackerArgs) validate() error {
-	if args.State == nil {
-		return errors.New("state is required")
+	if args.ConnRequestState == nil {
+		return errors.New("conn request state is required")
+	}
+	if args.MachineState == nil {
+		return errors.New("machine state is required")
 	}
 	if args.ControllerInfo == nil {
 		return errors.New("controller info is required")
@@ -111,12 +121,13 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 	}
 
 	return &Tracker{
-		tracker:    make(map[string]chan (net.Conn)),
-		authn:      authn,
-		controller: args.ControllerInfo,
-		clock:      args.Clock,
-		state:      args.State,
-		dialer:     args.Dialer,
+		tracker:      make(map[string]chan (net.Conn)),
+		authn:        authn,
+		controller:   args.ControllerInfo,
+		clock:        args.Clock,
+		connReqState: args.ConnRequestState,
+		machines:     args.MachineState,
+		dialer:       args.Dialer,
 	}, nil
 }
 
@@ -124,6 +135,11 @@ func NewTracker(args TrackerArgs) (*Tracker, error) {
 type RequestArgs struct {
 	MachineID string
 	ModelUUID string
+	// ControllerNodeID is the ID of the local controller node that received
+	// the SSH connection request. The reverse-tunnel callback address list
+	// is restricted to this node's API addresses so the machine connects
+	// back to the node that is already holding the waiting client session.
+	ControllerNodeID string
 }
 
 func (tt *Tracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, error) {
@@ -140,8 +156,8 @@ func (tt *Tracker) generateEphemeralSSHKey() (gossh.Signer, gossh.PublicKey, err
 	return sshPrivateKey, sshPrivateKey.PublicKey(), nil
 }
 
-func (tt *Tracker) machineHostKeys(req RequestArgs) ([]gossh.PublicKey, error) {
-	stringHostKeys, err := tt.state.MachineHostKeys(req.ModelUUID, req.MachineID)
+func (tt *Tracker) machineHostKeys(ctx context.Context, req RequestArgs) ([]gossh.PublicKey, error) {
+	stringHostKeys, err := tt.machines.MachineHostKeys(ctx, req.ModelUUID, req.MachineID)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to get machine host key")
 	}
@@ -163,7 +179,18 @@ func (tt *Tracker) machineHostKeys(req RequestArgs) ([]gossh.PublicKey, error) {
 // The returned tunnelRequest should be used to wait for the tunnel to be established.
 // See Wait() for more information.
 func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.Client, error) {
-	tunnelID, err := uuid.NewRandom()
+	if req.MachineID == "" {
+		return nil, errors.NotValidf("empty MachineID")
+	}
+	if req.ControllerNodeID == "" {
+		return nil, errors.NotValidf("empty ControllerNodeID")
+	}
+	modelUUID := model.UUID(req.ModelUUID)
+	if err := modelUUID.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "invalid model UUID %q", req.ModelUUID)
+	}
+
+	tunnelID, err := uuid.NewUUID()
 	if err != nil {
 		return nil, err
 	}
@@ -186,12 +213,12 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		return nil, err
 	}
 
-	controllerAddresses, err := tt.controller.Addresses()
+	controllerAddresses, err := tt.controller.LocalAddresses(ctx, req.ControllerNodeID)
 	if err != nil {
 		return nil, err
 	}
 
-	machineHostKeys, err := tt.machineHostKeys(req)
+	machineHostKeys, err := tt.machineHostKeys(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -203,19 +230,18 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 	tt.add(tunnelID.String(), connRecv)
 	defer tt.delete(tunnelID.String())
 
-	args := sshRequestArgs{
+	domainReq := domainssh.SSHConnRequest{
 		TunnelID:            tunnelID.String(),
-		ModelUUID:           req.ModelUUID,
-		MachineId:           req.MachineID,
+		MachineName:         req.MachineID,
 		Expires:             deadline,
-		Username:            reverseTunnelUser,
-		Password:            password,
+		SSHUsername:         reverseTunnelUser,
+		SSHPassword:         password,
 		ControllerAddresses: controllerAddresses,
 		UnitPort:            0, // Allow the unit worker to determine the port.
 		EphemeralPublicKey:  publicKey.Marshal(),
 	}
 
-	err = tt.state.InsertSSHConnRequest(args)
+	err = tt.connReqState.InsertSSHConnRequest(ctx, modelUUID, domainReq)
 	if err != nil {
 		return nil, err
 	}

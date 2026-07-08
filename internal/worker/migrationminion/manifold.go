@@ -13,10 +13,15 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
+	migrationminionapi "github.com/juju/juju/api/agent/migrationminion"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/fortress"
 )
+
+// NewWorkerFunc is a function that returns a Worker backed by config, or an
+// error.
+type NewWorkerFunc func(config Config) (worker.Worker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Worker manifold will depend.
@@ -28,9 +33,11 @@ type ManifoldConfig struct {
 	APIOpen           func(context.Context, *api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(context.Context, base.APICaller) error
 
-	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
-	Logger    logger.Logger
+	NewWorker             NewWorkerFunc
+	SendReport            SendReportFunc
+	FetchTargetLokiConfig LokiConfigFetcherFunc
+
+	Logger logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.
@@ -53,14 +60,17 @@ func (config ManifoldConfig) Validate() error {
 	if config.ValidateMigration == nil {
 		return errors.NotValidf("nil ValidateMigration")
 	}
-	if config.NewFacade == nil {
-		return errors.NotValidf("nil NewFacade")
-	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.SendReport == nil {
+		return errors.NotValidf("nil SendReport")
+	}
+	if config.FetchTargetLokiConfig == nil {
+		return errors.NotValidf("nil FetchTargetLokiConfig")
 	}
 	return nil
 }
@@ -83,20 +93,17 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	facade, err := config.NewFacade(apiCaller)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	worker, err := config.NewWorker(Config{
-		Agent:             agent,
-		Facade:            facade,
-		Guard:             guard,
-		Clock:             config.Clock,
-		APIOpen:           config.APIOpen,
-		ValidateMigration: config.ValidateMigration,
-		NewFacade:         config.NewFacade,
-		Logger:            config.Logger,
-		ApplyJitter:       true,
+		Agent:                 agent,
+		Facade:                migrationminionapi.NewClient(apiCaller),
+		Guard:                 guard,
+		Clock:                 config.Clock,
+		APIOpen:               config.APIOpen,
+		ValidateMigration:     config.ValidateMigration,
+		Logger:                config.Logger,
+		SendReport:            config.SendReport,
+		FetchTargetLokiConfig: config.FetchTargetLokiConfig,
+		ApplyJitter:           true,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

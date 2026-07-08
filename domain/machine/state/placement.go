@@ -837,6 +837,7 @@ func encodeConstraints(constraintUUID string, cons constraints.Constraints, cont
 		InstanceType:     cons.InstanceType,
 		VirtType:         cons.VirtType,
 		ImageID:          cons.ImageID,
+		IPFamily:         cons.IPFamily,
 		AllocatePublicIP: cons.AllocatePublicIP,
 	}
 	if cons.Container != nil {

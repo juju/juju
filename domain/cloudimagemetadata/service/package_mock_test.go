@@ -28,6 +28,7 @@ type MockState struct {
 type MockStateMockRecorder struct {
 	mock                             *MockState
 	allCloudImageMetadataExpects     []*gomock.Call1_2[context.Context, []cloudimagemetadata.Metadata, error]
+	compareOrInsertMetadataExpects   []*gomock.Call2_2[context.Context, []cloudimagemetadata.Metadata, []cloudimagemetadata.MetadataConflict, error]
 	deleteMetadataWithImageIDExpects []*gomock.Call2_1[context.Context, string, error]
 	findMetadataExpects              []*gomock.Call2_2[context.Context, cloudimagemetadata.MetadataFilter, []cloudimagemetadata.Metadata, error]
 	saveMetadataExpects              []*gomock.Call2_1[context.Context, []cloudimagemetadata.Metadata, error]
@@ -63,6 +64,24 @@ func (mr *MockStateMockRecorder) AllCloudImageMetadata(ctx any) *MockStateAllClo
 
 // MockStateAllCloudImageMetadataCall is the typed call wrapper for AllCloudImageMetadata.
 type MockStateAllCloudImageMetadataCall = gomock.Call1_2[context.Context, []cloudimagemetadata.Metadata, error]
+
+// CompareOrInsertMetadata mocks base method.
+func (m *MockState) CompareOrInsertMetadata(ctx context.Context, metadata []cloudimagemetadata.Metadata) ([]cloudimagemetadata.MetadataConflict, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.compareOrInsertMetadataExpects, m.ctrl, m, "CompareOrInsertMetadata", ctx, metadata)
+}
+
+// CompareOrInsertMetadata indicates an expected call of CompareOrInsertMetadata.
+func (mr *MockStateMockRecorder) CompareOrInsertMetadata(ctx, metadata any) *MockStateCompareOrInsertMetadataCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []cloudimagemetadata.Metadata, []cloudimagemetadata.MetadataConflict, error](mr.mock.ctrl.T, mr.mock, "CompareOrInsertMetadata", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(metadata))
+	mr.compareOrInsertMetadataExpects = append(mr.compareOrInsertMetadataExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateCompareOrInsertMetadataCall is the typed call wrapper for CompareOrInsertMetadata.
+type MockStateCompareOrInsertMetadataCall = gomock.Call2_2[context.Context, []cloudimagemetadata.Metadata, []cloudimagemetadata.MetadataConflict, error]
 
 // DeleteMetadataWithImageID mocks base method.
 func (m *MockState) DeleteMetadataWithImageID(ctx context.Context, imageID string) error {

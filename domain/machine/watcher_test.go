@@ -163,7 +163,7 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventMachine(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := s.svc.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -193,7 +193,7 @@ func (s *watcherSuite) TestWatchModelMachinesInitialEventContainer(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := s.svc.WatchModelMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -221,7 +221,7 @@ func (s *watcherSuite) TestWatchModelMachineLifeStartTimesInitialEvent(c *tc.C) 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := s.svc.WatchModelMachineLifeAndStartTimes(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -457,7 +457,7 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependants(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := s.svc.WatchMachineLifeAndDependants(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -508,7 +508,7 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependantsWithUnits(c *tc.C) {
 	unitUUIDs, _ := s.getAppUnitAndMachineUUIDs(c, appUUID)
 	unitUUID := unitUUIDs[0]
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := s.svc.WatchMachineLifeAndDependants(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -576,7 +576,7 @@ func (s *watcherSuite) TestWatchMachineLifeAndDependantsWithStorage(c *tc.C) {
 	vUUID := s.createAttachedVolume(c, mUUID.String())
 	pvUUID := s.createPlanAttachedVolume(c, mUUID.String())
 
-	s.AssertChangeStreamIdle(c)
+	s.AssertChangeStreamIdle(c, "before watcher start")
 
 	watcher, err := s.svc.WatchMachineLifeAndDependants(c.Context(), "0")
 	c.Assert(err, tc.ErrorIsNil)
@@ -860,7 +860,7 @@ func (s *watcherSuite) setCharmObjectStoreMetadata(c *tc.C, appID string) {
 	}
 
 	uuid := tc.Must(c, uuid.NewUUID).String()
-	objectStoreUUID, err := objectstorestate.NewState(modelDB).PutMetadata(c.Context(), uuid, coreobjectstore.Metadata{
+	objectStoreUUID, err := objectstorestate.NewState(modelDB, clock.WallClock).PutMetadata(c.Context(), uuid, coreobjectstore.Metadata{
 		SHA256: fmt.Sprintf("%v-sha256", appID),
 		SHA384: fmt.Sprintf("%v-sha384", appID),
 		Path:   fmt.Sprintf("/path/to/%v", appID),

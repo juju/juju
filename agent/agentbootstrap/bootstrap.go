@@ -38,6 +38,7 @@ import (
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	secretbackendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
+	sshbootstrap "github.com/juju/juju/domain/ssh/bootstrap"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -233,6 +234,7 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		// because the admin users permissions require the controller UUID.
 		controllerconifgbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig, controllerModelUUID),
 		controllerbootstrap.InsertInitialController(controllerAgentInfo.Cert, controllerAgentInfo.PrivateKey, controllerAgentInfo.CAPrivateKey, controllerAgentInfo.SystemIdentity),
+		sshbootstrap.InsertInitialSSHServerHostKey(stateParams.SSHServerHostKey),
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
 		addAdminUser,
@@ -260,9 +262,16 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	// dqlite for k8s.
 	isLoopbackPreferred := isCAAS
 
+	agentInfo, _ := b.agentConfig.ControllerAgentInfo()
+	nodeManagerCfg := database.NodeManagerConfig{
+		DataDir:              b.agentConfig.DataDir(),
+		CACert:               b.agentConfig.CACert(),
+		ControllerCert:       agentInfo.Cert,
+		ControllerPrivateKey: agentInfo.PrivateKey,
+	}
 	if err := b.bootstrapDqlite(
 		ctx,
-		database.NewNodeManager(b.agentConfig, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(nodeManagerCfg, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
 		controllerModelUUID,
 		b.logger,
 		databaseBootstrapOptions...,

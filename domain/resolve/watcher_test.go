@@ -170,7 +170,7 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 						},
 					},
 				},
-				Manifest:      s.minimalManifest(c),
+				Manifest:      s.minimalManifest(),
 				ReferenceName: name,
 				Source:        charm.CharmHubSource,
 				Revision:      42,
@@ -217,7 +217,7 @@ func (s *watcherSuite) createApplication(c *tc.C, name string, units ...applicat
 	return unitUUIDs
 }
 
-func (s *watcherSuite) minimalManifest(c *tc.C) charm.Manifest {
+func (s *watcherSuite) minimalManifest() charm.Manifest {
 	return charm.Manifest{
 		Bases: []charm.Base{
 			{

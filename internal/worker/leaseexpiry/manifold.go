@@ -23,10 +23,10 @@ import (
 // ManifoldConfig holds the resources required
 // to start the lease expiry worker.
 type ManifoldConfig struct {
-	ClockName      string
 	DBAccessorName string
 	TraceName      string
 
+	Clock  clock.Clock
 	Logger logger.Logger
 
 	NewWorker func(Config) (worker.Worker, error)
@@ -35,14 +35,14 @@ type ManifoldConfig struct {
 
 // Validate checks that the config has all the required values.
 func (c ManifoldConfig) Validate() error {
-	if c.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
-	}
 	if c.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
 	}
 	if c.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -58,11 +58,6 @@ func (c ManifoldConfig) Validate() error {
 
 func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var clk clock.Clock
-	if err := getter.Get(c.ClockName, &clk); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -83,8 +78,8 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 
 	store := c.NewStore(dbGetter, c.Logger)
 
-	w, err := NewWorker(Config{
-		Clock:  clk,
+	w, err := c.NewWorker(Config{
+		Clock:  c.Clock,
 		Logger: c.Logger,
 		Store:  store,
 		Tracer: tracer,
@@ -100,7 +95,6 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			cfg.ClockName,
 			cfg.DBAccessorName,
 			cfg.TraceName,
 		},

@@ -4,6 +4,8 @@
 package deployer_test
 
 import (
+	"context"
+	"net/http"
 	"os"
 	"path"
 	stdtesting "testing"
@@ -11,9 +13,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/juju/worker/v5/workertest"
 
@@ -22,8 +24,10 @@ import (
 	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/flightrecorder"
+	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
 	jv "github.com/juju/juju/core/version"
+	internaldependency "github.com/juju/juju/internal/dependency"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -80,14 +84,16 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 		logger:  logger,
 	}
 	s.config = deployer.ContextConfig{
-		Agent:          s.agent,
-		FlightRecorder: flightrecorder.NoopRecorder{},
-		Clock:          clock.WallClock,
-		Logger:         logger,
+		Agent:              s.agent,
+		AgentConfigChanged: voyeur.NewValue(false),
+		FlightRecorder:     flightrecorder.NoopRecorder{},
+		Clock:              clock.WallClock,
+		Logger:             logger,
+		HTTPClientGetter:   stubHTTPClientGetter{},
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),
-				loggo.GetLogger("juju.worker.dependency"),
+				internaldependency.WrapLogger(loggertesting.WrapCheckLog(c)),
 			)
 		},
 		SetupLogging:  func(corelogger.LoggerContext, agent.Config) {},
@@ -95,11 +101,30 @@ func (s *NestedContextSuite) SetUpTest(c *tc.C) {
 	}
 }
 
+type stubHTTPClientGetter struct{}
+
+func (stubHTTPClientGetter) GetHTTPClient(context.Context, corehttp.Purpose) (corehttp.HTTPClient, error) {
+	return stubHTTPClient{}, nil
+}
+
+type stubHTTPClient struct{}
+
+func (stubHTTPClient) Do(*http.Request) (*http.Response, error) {
+	return nil, nil
+}
+
 func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *tc.C) {
 	s.config.Agent = nil
 	err := s.config.Validate()
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), tc.Equals, "missing Agent not valid")
+}
+
+func (s *NestedContextSuite) TestConfigMissingAgentConfigChanged(c *tc.C) {
+	s.config.AgentConfigChanged = nil
+	err := s.config.Validate()
+	c.Assert(err, tc.ErrorIs, errors.NotValid)
+	c.Assert(err.Error(), tc.Equals, "missing AgentConfigChanged not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingClock(c *tc.C) {
@@ -148,11 +173,20 @@ func (s *NestedContextSuite) newContext(c *tc.C) deployer.Context {
 func (s *NestedContextSuite) TestContextStops(c *tc.C) {
 	// Create a context and make sure the clean kill is good.
 	ctx := s.newContext(c)
+	check := tc.NewMultiChecker()
+	check.AddExpr(`_["units"][_]["unit-loki-sync"]["started"]`, tc.Ignore)
+	check.AddExpr(`_["units"][_]["unit-loki-sync"]["state"]`, tc.Ignore)
+
 	report := ctx.Report(c.Context())
-	c.Assert(report, tc.DeepEquals, map[string]any{
+	c.Assert(report, check, map[string]any{
 		"deployed": []string{},
 		"units": map[string]any{
-			"workers": map[string]any{},
+			"workers": map[string]any{
+				"unit-loki-sync": map[string]any{
+					"started": "2020-07-24 03:01:20",
+					"state":   "started",
+				},
+			},
 		},
 	})
 }
@@ -174,6 +208,64 @@ func (s *NestedContextSuite) TestDeployUnit(c *tc.C) {
 	c.Assert(s.agent.CurrentConfig().Value("deployed-units"), tc.Equals, unitName)
 	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxBackups(), tc.Equals, 7)
 	c.Assert(s.agent.CurrentConfig().AgentLogfileMaxSizeMB(), tc.Equals, 123)
+}
+
+func (s *NestedContextSuite) TestDeployUnitCopiesMachineLokiConfig(c *tc.C) {
+	caCert := "loki-ca"
+	insecureSkipVerify := true
+	err := s.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
+		setter.SetLokiConfig("https://loki.example.com/loki/api/v1/push", &caCert, &insecureSkipVerify, "tenant-a")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.config.AgentConfigChanged.Set(true)
+
+	ctx := s.newContext(c)
+	unitName := "something/0"
+	err = ctx.DeployUnit(c.Context(), unitName, "password")
+	c.Assert(err, tc.ErrorIsNil)
+	s.workers.waitForStart(c, unitName)
+
+	unitConfig, err := agent.ReadConfig(agent.ConfigPath(s.agent.DataDir(), names.NewUnitTag(unitName)))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitConfig.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(unitConfig.LokiCACert(), tc.Equals, "loki-ca")
+	c.Assert(unitConfig.LokiInsecureSkipVerify(), tc.NotNil)
+	c.Check(*unitConfig.LokiInsecureSkipVerify(), tc.IsTrue)
+	c.Check(unitConfig.LokiOrgID(), tc.Equals, "tenant-a")
+}
+
+func (s *NestedContextSuite) TestSyncExistingUnitLokiConfig(c *tc.C) {
+	ctx := s.newContext(c)
+	unitName := "something/0"
+	err := ctx.DeployUnit(c.Context(), unitName, "password")
+	c.Assert(err, tc.ErrorIsNil)
+	s.workers.waitForStart(c, unitName)
+
+	caCert := "updated-loki-ca"
+	insecureSkipVerify := true
+	err = s.agent.ChangeConfig(func(setter agent.ConfigSetter) error {
+		setter.SetLokiConfig("https://loki.example.com/loki/api/v1/push", &caCert, &insecureSkipVerify, "tenant-b")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	s.config.AgentConfigChanged.Set(true)
+
+	var unitConfig agent.Config
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		unitConfig, err = agent.ReadConfig(agent.ConfigPath(s.agent.DataDir(), names.NewUnitTag(unitName)))
+		c.Assert(err, tc.ErrorIsNil)
+		if unitConfig.LokiEndpoint() == "https://loki.example.com/loki/api/v1/push" &&
+			unitConfig.LokiCACert() == "updated-loki-ca" &&
+			unitConfig.LokiOrgID() == "tenant-b" {
+			break
+		}
+	}
+	c.Check(unitConfig.LokiEndpoint(), tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(unitConfig.LokiCACert(), tc.Equals, "updated-loki-ca")
+	c.Assert(unitConfig.LokiInsecureSkipVerify(), tc.NotNil)
+	c.Check(*unitConfig.LokiInsecureSkipVerify(), tc.IsTrue)
+	c.Check(unitConfig.LokiOrgID(), tc.Equals, "tenant-b")
 }
 
 func (s *NestedContextSuite) TestRecallUnit(c *tc.C) {
@@ -272,6 +364,8 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 	check := tc.NewMultiChecker()
 	check.AddExpr(`_["units"][_][_][_][_][_]["started"]`, tc.Ignore)
 	check.AddExpr(`_["units"][_][_]["started"]`, tc.Ignore)
+	check.AddExpr(`_["units"][_]["unit-loki-sync"]["started"]`, tc.Ignore)
+	check.AddExpr(`_["units"][_]["unit-loki-sync"]["state"]`, tc.Ignore)
 	// Dates are shown here as an example, but are ignored by the checker.
 	c.Assert(ctx.Report(c.Context()), check, map[string]any{
 		"deployed": []string{"first/0", "second/0", "third/0"},
@@ -319,6 +413,10 @@ func (s *NestedContextSuite) TestReport(c *tc.C) {
 						},
 						"state": "started",
 					},
+					"started": "2020-07-24 03:01:20",
+					"state":   "started",
+				},
+				"unit-loki-sync": map[string]any{
 					"started": "2020-07-24 03:01:20",
 					"state":   "started",
 				},

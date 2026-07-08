@@ -6,9 +6,12 @@ package changestream
 import (
 	"testing"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	dependencytesting "github.com/juju/worker/v5/dependency/testing"
+	"github.com/juju/worker/v5/workertest"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
@@ -40,7 +43,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.AgentName = ""
+	cfg.ControllerID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -60,9 +63,45 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
+func (s *manifoldSuite) TestManifoldInputs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.getConfig(c)
+	inputs := Manifold(cfg).Inputs
+	c.Check(inputs, tc.SameContents, []string{
+		cfg.DBAccessor,
+		cfg.FileNotifyWatcher,
+	})
+	// The agent manifold is no longer a direct input.
+	for _, input := range inputs {
+		c.Check(input, tc.Not(tc.Equals), "agent")
+	}
+}
+
+func (s *manifoldSuite) TestManifoldStart(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+	s.prometheusRegisterer.EXPECT().Register(gomock.Any()).Return(nil)
+	s.prometheusRegisterer.EXPECT().Unregister(gomock.Any()).Return(true)
+
+	cfg := s.getConfig(c)
+	// The getter only exposes the two direct inputs; any request for
+	// the "agent" manifold would result in a missing-resource error,
+	// which would bubble up and fail the assertion below.
+	getter := dependencytesting.StubGetter(map[string]any{
+		cfg.DBAccessor:        s.dbGetter,
+		cfg.FileNotifyWatcher: s.fileNotifyWatcher,
+	})
+
+	w, err := Manifold(cfg).Start(c.Context(), getter)
+	c.Assert(err, tc.ErrorIsNil)
+	workertest.CleanKill(c, w)
+}
+
 func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:            "agent",
+		ControllerID:         "0",
 		DBAccessor:           "dbaccessor",
 		FileNotifyWatcher:    "filenotifywatcher",
 		Clock:                s.clock,

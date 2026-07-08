@@ -6,9 +6,10 @@ package testing
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -51,10 +52,11 @@ func WrapCheckLogWithLevel(log CheckLogger, level logger.Level) logger.Logger {
 }
 
 func formatMsg(level, name, msg string) string {
+	now := time.Now().Format(time.StampMilli)
 	if name == "" {
-		return fmt.Sprintf("%s: ", level) + msg
+		return fmt.Sprintf("%s %s: ", now, level) + msg
 	}
-	return fmt.Sprintf("%s: %s ", level, name) + msg
+	return fmt.Sprintf("%s %s: %s ", now, level, name) + msg
 }
 
 func (c checkLogger) Criticalf(ctx context.Context, msg string, args ...any) {

@@ -15,7 +15,7 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4/exec"
 
@@ -155,10 +155,12 @@ type RestrictedWriter struct {
 	Buffer bytes.Buffer
 }
 
-func (r *RestrictedWriter) Write(entry loggo.Entry) {
+func (r *RestrictedWriter) Write(ctx stdcontext.Context, entry loggo.Entry) error {
+	var err error
 	if strings.HasPrefix(entry.Module, r.Module) {
-		fmt.Fprintf(&r.Buffer, "%s %s %s\n", entry.Level.String(), entry.Module, entry.Message)
+		_, err = fmt.Fprintf(&r.Buffer, "%s %s %s\n", entry.Level.String(), entry.Module, entry.Message)
 	}
+	return err
 }
 
 func (s *RunHookSuite) TestRunHook(c *tc.C) {

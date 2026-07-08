@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/provider/kubernetes/proxy"
 	"github.com/juju/juju/internal/provider/kubernetes/resources"
 	"github.com/juju/juju/internal/provider/kubernetes/utils"
+	jujunames "github.com/juju/juju/juju/names"
 )
 
 // ModelOperatorBroker defines a broker for Executing Kubernetes ensure
@@ -418,7 +419,8 @@ func modelOperatorDeployment(
 	volumes []core.Volume,
 	volumeMounts []core.VolumeMount,
 ) (o *apps.Deployment, err error) {
-	jujudCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/jujud model --model-uuid=%s", modelUUID)
+	jujudCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/%s model --model-uuid=%s", jujunames.JujuAgentd, modelUUID)
+	jujuLegacyCmd := fmt.Sprintf("exec $JUJU_TOOLS_DIR/%s model --model-uuid=%s", jujunames.JujuController, modelUUID)
 	jujuDataDir := paths.DataDir(paths.OSUnixLike)
 
 	o = &apps.Deployment{
@@ -454,10 +456,11 @@ func modelOperatorDeployment(
 						Args: []string{
 							"-c",
 							fmt.Sprintf(
-								caas.JujudStartUpSh,
+								caas.ModelOperatorStartUpSh,
 								jujuDataDir,
 								"tools",
 								jujudCmd,
+								jujuLegacyCmd,
 							),
 						},
 						Env: []core.EnvVar{

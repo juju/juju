@@ -182,7 +182,7 @@ jobs:
   upgrade:
     needs: [changed-files]
     name: Upgrade
-    if: github.event.pull_request.draft == false && github.base_ref != 'main' && needs.changed-files.outputs.check-upgrade == 'true' && github.event_name != 'merge_group'
+    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-upgrade == 'true' && github.event_name != 'merge_group'
     uses: ./.github/workflows/upgrade.yml
 
   ddl:

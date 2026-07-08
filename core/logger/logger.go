@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/errors"
@@ -223,6 +223,19 @@ type LoggerKey struct {
 // LogSink provides a log sink that writes log messages to a file.
 type LogSink interface {
 	LogWriter
+
+	// WatchRefresh returns a channel that receives a value whenever the
+	// underlying sink implementation changes, signalling that clients
+	// should re-bind to the sink. Sinks whose implementation never
+	// changes return a channel that never fires.
+	WatchRefresh() <-chan struct{}
+}
+
+// NoRefresh returns a channel that never fires. It is intended for use by
+// LogSink implementations whose underlying target never changes, such as a
+// file-backed sink or a drain.
+func NoRefresh() <-chan struct{} {
+	return make(chan struct{})
 }
 
 // TaggedRedirectWriter is a log writer that conforms to a loggo.Writer, but
@@ -246,13 +259,13 @@ func NewTaggedRedirectWriter(logSink LogSink, tag string, modelUUID string) *Tag
 
 // Write writes the log entry to the log sink. It uses the loggo.Entry
 // struct to extract the relevant information and create a LogRecord.
-func (w TaggedRedirectWriter) Write(entry loggo.Entry) {
+func (w TaggedRedirectWriter) Write(ctx context.Context, entry loggo.Entry) error {
 	var location string
 	if entry.Filename != "" {
 		location = entry.Filename + ":" + strconv.Itoa(entry.Line)
 	}
 
-	_ = w.LogSink.Log([]LogRecord{{
+	return w.LogSink.Log([]LogRecord{{
 		Time:      entry.Timestamp,
 		Module:    entry.Module,
 		Entity:    w.Tag,

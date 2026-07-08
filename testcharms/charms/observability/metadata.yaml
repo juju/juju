@@ -1,0 +1,14 @@
+name: observability
+maintainer: Juju QA <juju-qa@canonical.com>
+summary: Test observability charm
+description: |
+  Test charm that publishes trace and Loki endpoint relation data.
+provides:
+  charm-tracing:
+    interface: tracing
+  workload-tracing:
+    interface: tracing
+  loki-push-api:
+    interface: loki_push_api
+series:
+  - noble

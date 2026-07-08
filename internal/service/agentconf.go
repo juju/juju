@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/systemd"
+	jujunames "github.com/juju/juju/juju/names"
 )
 
 type SystemdServiceManager interface {
@@ -41,7 +42,7 @@ type SystemdServiceManager interface {
 		machineAgent string, dataDir, symLinkSystemdMultiUserDir string,
 	) error
 
-	//CreateAgentConf creates the configfile for specified agent running on a
+	// CreateAgentConf creates the configfile for specified agent running on a
 	// host with specified series.
 	CreateAgentConf(agentName string, dataDir string) (common.Conf, error)
 
@@ -195,5 +196,5 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 }
 
 func serviceName(agent string) string {
-	return "jujud-" + agent
+	return jujunames.JujuAgentd + "-" + agent
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
@@ -137,6 +138,7 @@ type dbConstraint struct {
 	VirtType         sql.NullString `db:"virt_type"`
 	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
 	ImageID          sql.NullString `db:"image_id"`
+	IPFamily         sql.NullString `db:"ip_family"`
 }
 
 // dbConstraintInsert is used to supply insert values into the constraint table.
@@ -154,6 +156,7 @@ type dbConstraintInsert struct {
 	VirtType         sql.NullString `db:"virt_type"`
 	AllocatePublicIP sql.NullBool   `db:"allocate_public_ip"`
 	ImageID          sql.NullString `db:"image_id"`
+	IPFamily         sql.NullString `db:"ip_family"`
 }
 
 // constraintsToDBInsert is responsible for taking a constraints value and
@@ -207,6 +210,10 @@ func constraintsToDBInsert(
 		ImageID: sql.NullString{
 			String: deref(constraints.ImageID),
 			Valid:  constraints.ImageID != nil,
+		},
+		IPFamily: sql.NullString{
+			String: deref(constraints.IPFamily).String(),
+			Valid:  constraints.IPFamily != nil,
 		},
 	}
 }
@@ -262,6 +269,10 @@ func (c dbConstraint) toValue(
 	}
 	if c.ImageID.Valid {
 		rval.ImageID = &c.ImageID.String
+	}
+	if c.IPFamily.Valid {
+		f := ipfamily.IPFamily(c.IPFamily.String)
+		rval.IPFamily = &f
 	}
 	if c.ContainerType.Valid {
 		containerType := instance.ContainerType(c.ContainerType.String)

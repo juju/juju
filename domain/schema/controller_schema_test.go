@@ -163,10 +163,13 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"upgrade_state_type",
 
 		// Object store metadata
-		"object_store_metadata",
-		"object_store_metadata_path",
+		"object_store_backend_s3_credential",
+		"object_store_backend_type",
+		"object_store_backend",
 		"object_store_drain_info",
 		"object_store_drain_phase_type",
+		"object_store_metadata_path",
+		"object_store_metadata",
 		"object_store_placement",
 
 		// SSH Keys
@@ -211,6 +214,14 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 
 		// Tracing config
 		"charm_tracing_config",
+		"workload_tracing_config",
+
+		// Logging config
+		"logging_loki_config",
+
+		// SSH host keys
+		"ssh_key_algorithm_type",
+		"controller_ssh_host_key",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
@@ -353,6 +364,18 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_object_store_drain_info_insert",
 		"trg_log_object_store_drain_info_update",
 		"trg_log_object_store_drain_info_delete",
+
+		"trg_log_object_store_backend_delete",
+		"trg_log_object_store_backend_insert",
+		"trg_log_object_store_backend_update",
+
+		"trg_log_logging_loki_config_insert",
+		"trg_log_logging_loki_config_update",
+		"trg_log_logging_loki_config_delete",
+
+		"trg_log_workload_tracing_config_insert",
+		"trg_log_workload_tracing_config_update",
+		"trg_log_workload_tracing_config_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but
@@ -383,17 +406,17 @@ func (s *controllerSchemaSuite) TestControllerTriggersForImmutableTables(c *tc.C
 		backendUUID2)
 	s.assertExecSQLError(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"built-in secret backends are immutable", backendUUID1)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID1)
 	s.assertExecSQLError(c,
 		"UPDATE secret_backend SET name = 'new-name' WHERE uuid = ?",
-		"built-in secret backends are immutable", backendUUID2)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID2)
 
 	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"built-in secret backends are immutable", backendUUID1)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID1)
 	s.assertExecSQLError(c,
 		"DELETE FROM secret_backend WHERE uuid = ?;",
-		"built-in secret backends are immutable", backendUUID2)
+		"built-in secret backends or secret backends with type controller or kubernetes are immutable", backendUUID2)
 }
 
 // TestVModelStateMigratingForImportPhases asserts that v_model_state.migrating

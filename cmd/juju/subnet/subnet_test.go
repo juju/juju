@@ -10,6 +10,7 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/cmd/juju/subnet"
+	"github.com/juju/juju/cmd/modelcmd"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -19,6 +20,13 @@ type SubnetCommandSuite struct {
 
 func TestSubnetCommandSuite(t *testing.T) {
 	tc.Run(t, &SubnetCommandSuite{})
+}
+
+func (s *SubnetCommandSuite) TestListAllowedOnCAAS(c *tc.C) {
+	// juju subnets must run on CAAS models to surface discovered pod
+	// subnets, so it MUST NOT carry the IAAS-only marker.
+	_, iaasOnly := modelcmd.InnerCommand(subnet.NewListCommand()).(modelcmd.IAASOnlyCommand)
+	c.Check(iaasOnly, tc.IsFalse)
 }
 
 type SubnetCommandBaseSuite struct {

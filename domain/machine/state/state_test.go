@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	domainagentbinary "github.com/juju/juju/domain/agentbinary"
@@ -730,10 +731,12 @@ func (s *stateSuite) TestConstraintPartial(c *tc.C) {
 			CpuCores:         new(uint64(2)),
 			AllocatePublicIP: new(true),
 			ImageID:          new("image-id"),
+			IPFamily:         new(ipfamily.IPv4),
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	machineName := machineNames[0]
+	c.Assert(machineName.String(), tc.Equals, "0")
 
 	_, _, cons, err := s.state.GetMachineProvisioningInfo(c.Context(), machineName.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -742,6 +745,7 @@ func (s *stateSuite) TestConstraintPartial(c *tc.C) {
 		CpuCores:         new(uint64(2)),
 		AllocatePublicIP: new(true),
 		ImageID:          new("image-id"),
+		IPFamily:         new(ipfamily.IPv4),
 	})
 }
 

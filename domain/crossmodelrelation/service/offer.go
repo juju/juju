@@ -257,6 +257,51 @@ func (s *Service) GetOffers(
 	return details, nil
 }
 
+// GetOffersWithConnections returns offer details for all offers satisfying
+// any of the provided filters, including offer connections.
+func (s *Service) GetOffersWithConnections(
+	ctx context.Context,
+	filters []OfferFilter,
+) ([]*crossmodelrelation.OfferDetailWithConnections, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	details, err := s.GetOffers(ctx, filters)
+	if err != nil {
+		return nil, errors.Errorf("getting offer details: %w", err)
+	}
+
+	if len(details) == 0 {
+		return nil, nil
+	}
+
+	offerUUIDs := transform.Slice(
+		details,
+		func(d *crossmodelrelation.OfferDetail) string { return d.OfferUUID },
+	)
+
+	connections, err := s.modelState.GetOfferConnections(ctx, offerUUIDs)
+	if err != nil {
+		return nil, errors.Errorf("getting offer connections: %w", err)
+	}
+
+	// Index connections by offer UUID for efficient lookup.
+	connsByOffer := make(map[string][]crossmodelrelation.OfferConnectionDetail)
+	for _, conn := range connections {
+		connsByOffer[conn.OfferUUID] = append(connsByOffer[conn.OfferUUID], conn)
+	}
+
+	output := make([]*crossmodelrelation.OfferDetailWithConnections, len(details))
+	for i, detail := range details {
+		output[i] = &crossmodelrelation.OfferDetailWithConnections{
+			OfferDetail:      *detail,
+			OfferConnections: connsByOffer[detail.OfferUUID],
+		}
+	}
+
+	return output, nil
+}
+
 func (s *Service) addOfferUsers(
 	ctx context.Context,
 	input []*crossmodelrelation.OfferDetail,

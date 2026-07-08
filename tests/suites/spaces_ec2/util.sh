@@ -47,7 +47,7 @@ add_multi_nic_machine() {
 	done
 
 	echo "[+] restarting machine agent on ${juju_machine_id}..."
-	juju ssh "${juju_machine_id}" 'sudo systemctl restart jujud-machine-*'
+	juju ssh "${juju_machine_id}" 'sudo systemctl restart jujuagentd-machine-*'
 
 	# Wait for the interface to be detected by juju
 	echo "[+] waiting for juju to detect added NIC"

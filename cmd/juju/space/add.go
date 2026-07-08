@@ -26,6 +26,7 @@ func NewAddCommand() modelcmd.ModelCommand {
 // AddCommand calls the API to add a new network space.
 type AddCommand struct {
 	SpaceCommandBase
+	modelcmd.IAASOnlyCommand
 	Name  string
 	CIDRs set.Strings
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/life"
@@ -1188,6 +1189,7 @@ WHERE m.name = $machineName.name
 			VirtType:         row.VirtType,
 			AllocatePublicIP: row.AllocatePublicIP,
 			ImageID:          row.ImageID,
+			IPFamily:         row.IPFamily,
 			SpaceName:        row.SpaceName,
 			SpaceExclude:     row.SpaceExclude,
 			Tag:              row.Tag,
@@ -1464,6 +1466,10 @@ func decodeConstraints(cons machineConstraints) constraints.Constraints {
 		}
 		if row.ImageID.Valid {
 			res.ImageID = &row.ImageID.String
+		}
+		if row.IPFamily.Valid {
+			f := ipfamily.IPFamily(row.IPFamily.String)
+			res.IPFamily = &f
 		}
 		if row.SpaceName.Valid {
 			var exclude bool

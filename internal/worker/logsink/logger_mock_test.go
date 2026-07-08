@@ -396,8 +396,9 @@ type MockLogSink struct {
 
 // MockLogSinkMockRecorder is the mock recorder for MockLogSink.
 type MockLogSinkMockRecorder struct {
-	mock       *MockLogSink
-	logExpects []*gomock.Call1_1[[]logger.LogRecord, error]
+	mock                *MockLogSink
+	logExpects          []*gomock.Call1_1[[]logger.LogRecord, error]
+	watchRefreshExpects []*gomock.Call0_1[<-chan struct{}]
 }
 
 // NewMockLogSink creates a new mock instance.
@@ -429,3 +430,21 @@ func (mr *MockLogSinkMockRecorder) Log(arg0 any) *MockLogSinkLogCall {
 
 // MockLogSinkLogCall is the typed call wrapper for Log.
 type MockLogSinkLogCall = gomock.Call1_1[[]logger.LogRecord, error]
+
+// WatchRefresh mocks base method.
+func (m *MockLogSink) WatchRefresh() <-chan struct{} {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.watchRefreshExpects, m.ctrl, m, "WatchRefresh")
+}
+
+// WatchRefresh indicates an expected call of WatchRefresh.
+func (mr *MockLogSinkMockRecorder) WatchRefresh() *MockLogSinkWatchRefreshCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[<-chan struct{}](mr.mock.ctrl.T, mr.mock, "WatchRefresh")
+	mr.watchRefreshExpects = append(mr.watchRefreshExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockLogSinkWatchRefreshCall is the typed call wrapper for WatchRefresh.
+type MockLogSinkWatchRefreshCall = gomock.Call0_1[<-chan struct{}]

@@ -7,22 +7,18 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/dependency"
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
 type manifoldSuite struct {
 	baseSuite
 
-	agent     *mockAgent
 	socketDir string
 }
 
@@ -34,9 +30,6 @@ func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.baseSuite.SetUpTest(c)
 
 	s.socketDir = c.MkDir()
-
-	s.agent = new(mockAgent)
-	s.agent.conf.tag = names.NewMachineTag("99")
 }
 
 func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
@@ -46,15 +39,11 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.AgentName = ""
+	cfg.ControllerID = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
-	cfg.Clock = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -72,9 +61,8 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:         "agent",
+		ControllerID:      "99",
 		Logger:            s.logger,
-		Clock:             clock.WallClock,
 		NewSocketListener: NewSocketListener,
 		SocketName:        filepath.Join(s.socketDir, "test.socket"),
 		ReadyUnlocker:     gate.NewLock(),
@@ -82,14 +70,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 }
 
 func (s *manifoldSuite) newContext() dependency.Getter {
-	resources := map[string]any{
-		"agent": s.agent,
-	}
-	return dependencytesting.StubGetter(resources)
+	return dependencytesting.StubGetter(map[string]any{})
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
-	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, []string{"agent"})
+	c.Assert(Manifold(s.getConfig()).Inputs, tc.HasLen, 0)
 }
 
 func (s *manifoldSuite) TestStart(c *tc.C) {
@@ -98,6 +83,18 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newContext())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
+}
+
+func (s *manifoldSuite) TestStartConfig(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newContext())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	cw, ok := w.(*configWorker)
+	c.Assert(ok, tc.IsTrue)
+	c.Check(cw.cfg.ControllerID, tc.Equals, "99")
 }
 
 // TestStartUnlocksReadyGate verifies that a successful Start call unlocks
@@ -129,25 +126,4 @@ func (s *manifoldSuite) TestOutput(c *tc.C) {
 	var watcher ConfigWatcher
 	c.Assert(man.Output(w, &watcher), tc.ErrorIsNil)
 	c.Assert(watcher, tc.NotNil)
-}
-
-type mockAgent struct {
-	agent.Agent
-	conf mockConfig
-}
-
-func (ma *mockAgent) CurrentConfig() agent.Config {
-	return &ma.conf
-}
-
-type mockConfig struct {
-	agent.ConfigSetter
-	tag names.Tag
-}
-
-func (mc *mockConfig) Tag() names.Tag {
-	if mc.tag == nil {
-		return names.NewMachineTag("99")
-	}
-	return mc.tag
 }

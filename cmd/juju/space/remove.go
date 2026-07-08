@@ -25,6 +25,7 @@ func NewRemoveCommand() modelcmd.ModelCommand {
 // RemoveCommand calls the API to remove an existing network space.
 type RemoveCommand struct {
 	SpaceCommandBase
+	modelcmd.IAASOnlyCommand
 	name string
 
 	assumeYes bool

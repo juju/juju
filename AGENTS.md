@@ -17,10 +17,7 @@ If guidance conflicts, architectural rules take precedence.
 - `make install` — Full build including schema regeneration.
 - `make go-build` — Build without schema rebuild.
 - `make juju` — Build the CLI client only.
-- `make jujud-controller` — Build the controller binary (includes domain services, dqlite).
-  - WARNING: `go build ./cmd/jujud` builds the *agent* binary, NOT the controller.
-    This is a common mistake. The agent binary lacks domain services and will
-    not function as a controller.
+- `make jujuagentd` — Build the machine agent binary.
 
 ## Unit Test Conventions
 
@@ -49,6 +46,9 @@ robustness.
 - `go test ./path/to/package` — Run package tests.
 - `go test -run 'TestName' ./path/to/package` — Run specific test.
 - `make pre-check` — Static analysis (golangci-lint). Run before submitting.
+- For `internal/provider/kubernetes` unit tests, prefer `kubernetes.Interface`
+  with `k8s.io/client-go/kubernetes/fake.NewClientset` and reactors over ad hoc
+  function injection when exercising Kubernetes API interactions.
 
 ## Code Formatting
 

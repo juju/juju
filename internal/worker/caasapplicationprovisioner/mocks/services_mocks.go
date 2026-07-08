@@ -42,6 +42,7 @@ import (
 	service27 "github.com/juju/juju/domain/resource/service"
 	service28 "github.com/juju/juju/domain/secret/service"
 	service29 "github.com/juju/juju/domain/secretbackend/service"
+	model "github.com/juju/juju/domain/ssh/service/model"
 	service30 "github.com/juju/juju/domain/status/service"
 	service31 "github.com/juju/juju/domain/storage/service"
 	service32 "github.com/juju/juju/domain/storageprovisioning/service"
@@ -90,6 +91,7 @@ type MockModelDomainServicesMockRecorder struct {
 	removalExpects                []*gomock.Call0_1[*service25.WatchableService]
 	resolveExpects                []*gomock.Call0_1[*service26.WatchableService]
 	resourceExpects               []*gomock.Call0_1[*service27.Service]
+	sSHExpects                    []*gomock.Call0_1[*model.WatchableService]
 	secretExpects                 []*gomock.Call0_1[*service28.WatchableService]
 	statusExpects                 []*gomock.Call0_1[*service30.LeadershipService]
 	storageExpects                []*gomock.Call0_1[*service31.Service]
@@ -684,6 +686,24 @@ func (mr *MockModelDomainServicesMockRecorder) Resource() *MockModelDomainServic
 
 // MockModelDomainServicesResourceCall is the typed call wrapper for Resource.
 type MockModelDomainServicesResourceCall = gomock.Call0_1[*service27.Service]
+
+// SSH mocks base method.
+func (m *MockModelDomainServices) SSH() *model.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.sSHExpects, m.ctrl, m, "SSH")
+}
+
+// SSH indicates an expected call of SSH.
+func (mr *MockModelDomainServicesMockRecorder) SSH() *MockModelDomainServicesSSHCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*model.WatchableService](mr.mock.ctrl.T, mr.mock, "SSH")
+	mr.sSHExpects = append(mr.sSHExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDomainServicesSSHCall is the typed call wrapper for SSH.
+type MockModelDomainServicesSSHCall = gomock.Call0_1[*model.WatchableService]
 
 // Secret mocks base method.
 func (m *MockModelDomainServices) Secret() *service28.WatchableService {

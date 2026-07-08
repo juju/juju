@@ -61,9 +61,9 @@ func RegisterModelActivationImport(coordinator Coordinator, logger logger.Logger
 // ModelImportService defines the model service used to import models from
 // another controller to this one.
 type ModelImportService interface {
-	// ImportModel is responsible for creating a new model that is being
-	// imported.
-	ImportModel(context.Context, domainmodel.ModelImportArgs) error
+	// ImportModelLegacy is responsible for creating a new model through the
+	// legacy import path.
+	ImportModelLegacy(context.Context, domainmodel.ModelImportArgs) error
 
 	// ActivateModel marks the model as active after a successful import or
 	// migration.
@@ -177,7 +177,7 @@ func (i *importModelOperation) Setup(scope modelmigration.Scope) error {
 func (i *importModelOperation) Execute(ctx context.Context, model description.Model) error {
 	modelName, modelUUID, err := getModelNameAndUUID(model)
 	if err != nil {
-		return errors.Errorf("%w", err).Add(coreerrors.NotValid)
+		return errors.Errorf("invalid model config: %w", err).Add(coreerrors.NotValid)
 	}
 
 	owner, err := coreuser.NewName(model.Owner())
@@ -246,7 +246,7 @@ func (i *importModelOperation) Execute(ctx context.Context, model description.Mo
 		UUID: modelUUID,
 	}
 
-	if err := i.modelImportService.ImportModel(ctx, args); err != nil {
+	if err := i.modelImportService.ImportModelLegacy(ctx, args); err != nil {
 		return errors.Errorf(
 			"importing model %q with id %q during migration: %w",
 			modelName, modelUUID, err,

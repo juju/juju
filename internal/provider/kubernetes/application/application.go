@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/annotations"
@@ -320,7 +319,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		var numPods *int32
 		if !exists {
-			numPods = pointer.Int32(int32(config.InitialScale))
+			numPods = new(int32(config.InitialScale))
 		}
 
 		var volumeClaimTemplates []corev1.PersistentVolumeClaim
@@ -387,7 +386,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 
 		var numPods *int32
 		if !exists {
-			numPods = pointer.Int32(int32(config.InitialScale))
+			numPods = new(int32(config.InitialScale))
 		}
 		// Config storage to update the podspec with storage info.
 		if err = a.configureStorage(
@@ -490,7 +489,7 @@ func (a *app) applyServiceAccountAndSecrets(applier resources.Applier, config ca
 			Labels:      a.labels(),
 			Annotations: a.annotations(config),
 		},
-		AutomountServiceAccountToken: pointer.Bool(false),
+		AutomountServiceAccountToken: new(false),
 	}
 	serviceAccount := resources.NewServiceAccount(a.client.CoreV1().ServiceAccounts(a.namespace), a.namespace, a.serviceAccountName(), sa)
 	applier.Apply(serviceAccount)
@@ -704,10 +703,26 @@ func HeadlessServiceName(appName string) string {
 	return fmt.Sprintf("%s-endpoints", appName)
 }
 
+// IsManagedHeadlessService reports whether the given service is a Juju-managed
+// headless service that exists solely to provide stable per-pod DNS
+// (endpoints) for a StatefulSet's pods. Such services carry no routable
+// address of their own and must be excluded when resolving an application's
+// primary service. Detection prefers the LabelJujuServiceType label and falls
+// back to the legacy "-endpoints" name suffix for services created before the
+// label existed.
+func IsManagedHeadlessService(svc corev1.Service) bool {
+	if svc.Labels[constants.LabelJujuServiceType] == constants.ServiceTypeEndpoints {
+		return true
+	}
+	return strings.HasSuffix(svc.Name, "-endpoints")
+}
+
 func (a *app) configureHeadlessService(name string, annotation annotations.Annotation) error {
 	svc := resources.NewService(a.client.CoreV1().Services(a.namespace), a.namespace, HeadlessServiceName(name), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: a.labels(),
+			Labels: utils.LabelsMerge(a.labels(), labels.Set{
+				constants.LabelJujuServiceType: constants.ServiceTypeEndpoints,
+			}),
 			Annotations: annotation.
 				Add("service.alpha.kubernetes.io/tolerate-unready-endpoints", "true"),
 		},
@@ -1826,19 +1841,19 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		switch config.CharmUser {
 		case caas.RunAsRoot:
 			charmContainer.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(0),
-				RunAsGroup: pointer.Int64(0),
+				RunAsUser:  new(int64(0)),
+				RunAsGroup: new(int64(0)),
 			}
 		case caas.RunAsSudoer:
 			charmContainer.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
-				RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+				RunAsUser:  new(constants.JujuSudoUserID),
+				RunAsGroup: new(constants.JujuSudoGroupID),
 			}
 			pebbleIdentitiesEnabled = true
 		case caas.RunAsNonRoot:
 			charmContainer.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(constants.JujuUserID),
-				RunAsGroup: pointer.Int64(constants.JujuGroupID),
+				RunAsUser:  new(constants.JujuUserID),
+				RunAsGroup: new(constants.JujuGroupID),
 			}
 			pebbleIdentitiesEnabled = true
 		}
@@ -1847,8 +1862,8 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	} else {
 		// Pre-3.5 logic.
 		charmContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(0),
-			RunAsGroup: pointer.Int64(0),
+			RunAsUser:  new(int64(0)),
+			RunAsGroup: new(int64(0)),
 		}
 	}
 
@@ -1933,16 +1948,16 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		if requireSecurityContext {
 			container.SecurityContext = &corev1.SecurityContext{}
 			if v.Uid != nil {
-				container.SecurityContext.RunAsUser = pointer.Int64(int64(*v.Uid))
+				container.SecurityContext.RunAsUser = new(int64(*v.Uid))
 			}
 			if v.Gid != nil {
-				container.SecurityContext.RunAsGroup = pointer.Int64(int64(*v.Gid))
+				container.SecurityContext.RunAsGroup = new(int64(*v.Gid))
 			}
 		} else {
 			// Pre-3.5 logic.
 			container.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(0),
-				RunAsGroup: pointer.Int64(0),
+				RunAsUser:  new(int64(0)),
+				RunAsGroup: new(int64(0)),
 			}
 		}
 		if pebbleIdentitiesEnabled {
@@ -2003,9 +2018,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		uid := 0
 		switch config.CharmUser {
 		case caas.RunAsSudoer:
-			uid = constants.JujuSudoUserID
+			uid = int(constants.JujuSudoUserID)
 		case caas.RunAsNonRoot:
-			uid = constants.JujuUserID
+			uid = int(constants.JujuUserID)
 		}
 		containerAgentArgs = append(containerAgentArgs, "--pebble-charm-identity", strconv.Itoa(uid))
 	}
@@ -2071,18 +2086,18 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		switch config.CharmUser {
 		case caas.RunAsRoot:
 			charmInitContainer.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(0),
-				RunAsGroup: pointer.Int64(0),
+				RunAsUser:  new(int64(0)),
+				RunAsGroup: new(int64(0)),
 			}
 		case caas.RunAsSudoer:
 			charmInitContainer.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
-				RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+				RunAsUser:  new(constants.JujuSudoUserID),
+				RunAsGroup: new(constants.JujuSudoGroupID),
 			}
 		case caas.RunAsNonRoot:
 			charmInitContainer.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(constants.JujuUserID),
-				RunAsGroup: pointer.Int64(constants.JujuGroupID),
+				RunAsUser:  new(constants.JujuUserID),
+				RunAsGroup: new(constants.JujuGroupID),
 			}
 		}
 	} else {
@@ -2095,7 +2110,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		AutomountServiceAccountToken:  &automountToken,
 		ServiceAccountName:            a.serviceAccountName(),
 		ImagePullSecrets:              imagePullSecrets,
-		TerminationGracePeriodSeconds: pointer.Int64(30),
+		TerminationGracePeriodSeconds: new(int64(30)),
 		InitContainers:                []corev1.Container{charmInitContainer},
 		Containers:                    containerSpecs,
 		Volumes: []corev1.Volume{
@@ -2133,7 +2148,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		// Rootless charms are any charm after juju 3.5 that declare
 		// either the charm as rootless or any workload.
 		spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup:            pointer.Int64(constants.JujuFSGroupID),
+			FSGroup:            new(constants.JujuFSGroupID),
 			SupplementalGroups: []int64{constants.JujuFSGroupID},
 		}
 	}

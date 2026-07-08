@@ -21,7 +21,6 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/life"
@@ -36,14 +35,31 @@ import (
 	internalcharm "github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/storageprovisioning"
 	internalworker "github.com/juju/juju/internal/worker"
+	provisionertypes "github.com/juju/juju/internal/worker/caasapplicationprovisioner/types"
 )
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
-	ProvisioningInfo(context.Context, string) (api.ProvisioningInfo, error)
-	FilesystemProvisioningInfo(context.Context, string) (api.FilesystemProvisioningInfo, error)
+	// ProvisioningInfo returns the provisioning information for an application,
+	// including version, API addresses, image details, constraints, and other
+	// settings needed to deploy the application in a CAAS cluster.
+	ProvisioningInfo(context.Context, string) (provisionertypes.ProvisioningInfo, error)
+
+	// FilesystemProvisioningInfo returns filesystem provisioning information for
+	// an application, used to ensure PersistentVolumeClaims exist before scaling
+	// the application.
+	FilesystemProvisioningInfo(context.Context, string) (provisionertypes.FilesystemProvisioningInfo, error)
+
+	// RemoveUnit removes a dead unit from the application. It is called during
+	// scale-down to clean up units that are no longer needed.
 	RemoveUnit(ctx context.Context, unitName string) error
+
+	// WatchProvisioningInfo returns a watcher that notifies when provisioning
+	// information changes for an application, triggering a re-provision.
 	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
+
+	// DestroyUnits marks a batch of units for destruction when scaling down an
+	// application. It is called when the desired scale is reduced.
 	DestroyUnits(ctx context.Context, unitNames []string) error
 }
 

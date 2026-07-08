@@ -6,7 +6,7 @@ package testing
 import (
 	"time"
 
-	"github.com/juju/loggo/v2"
+	"github.com/juju/loggo/v3"
 
 	"github.com/juju/juju/core/logger"
 )
@@ -26,6 +26,12 @@ func (s *CheckLogSink) Log(records []logger.LogRecord) error {
 		s.c.Logf("%s %s: %s", record.Time.Format(time.RFC3339), record.Level.String(), record.Message)
 	}
 	return nil
+}
+
+// WatchRefresh implements logger.LogSink. The check sink never changes
+// its underlying target, so the returned channel never fires.
+func (s *CheckLogSink) WatchRefresh() <-chan struct{} {
+	return logger.NoRefresh()
 }
 
 // Write writes a message to the Writer with the given level and module

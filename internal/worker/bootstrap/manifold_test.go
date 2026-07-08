@@ -13,7 +13,6 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 
-	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
@@ -39,7 +38,7 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.AgentName = ""
+	cfg.DataDir = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -56,6 +55,14 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig()
 	cfg.HTTPClientName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.APIPort = 0
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.AgentPassword = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -96,12 +103,14 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:           "agent",
 		ObjectStoreName:     "object-store",
 		BootstrapGateName:   "bootstrap-gate",
 		DomainServicesName:  "domain-services",
 		ProviderFactoryName: "provider-factory",
 		HTTPClientName:      "http-client",
+		DataDir:             s.dataDir,
+		APIPort:             42,
+		AgentPassword:       "password",
 		Logger:              s.logger,
 		Clock:               clock.WallClock,
 		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
@@ -122,7 +131,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
 		},
-		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, c agent.Config) error {
+		AgentFinalizer: func(ctx context.Context, aps AgentPasswordService, ms MachineService, sip instancecfg.StateInitializationParams, password string) error {
 			return nil
 		},
 		StatusHistory: s.statusHistory,
@@ -131,7 +140,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":           s.agent,
 		"object-store":    s.objectStoreGetter,
 		"bootstrap-gate":  s.bootstrapUnlocker,
 		"http-client":     s.httpClientGetter,
@@ -141,7 +149,6 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 }
 
 var expectedInputs = []string{
-	"agent",
 	"object-store",
 	"bootstrap-gate",
 	"domain-services",
@@ -157,7 +164,6 @@ func (s *manifoldSuite) TestStartAlreadyBootstrapped(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGateUnlock()
-	s.expectAgentConfig()
 
 	_, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIs, dependency.ErrUninstall)

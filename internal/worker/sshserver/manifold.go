@@ -12,6 +12,8 @@ import (
 
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/virtualhostname"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/services"
 )
@@ -20,12 +22,51 @@ import (
 // a controller config service from the manifold.
 type GetControllerConfigServiceFunc = func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
+// GetControllerSSHHostKeyServiceFunc is a helper function that gets the
+// controller SSH host key service from the manifold.
+type GetControllerSSHHostKeyServiceFunc = func(getter dependency.Getter, name string) (ControllerSSHHostKeyService, error)
+
+// GetDomainServicesGetterFunc is a helper function that gets the model domain
+// services getter from the manifold.
+type GetDomainServicesGetterFunc = func(getter dependency.Getter, name string) (services.DomainServicesGetter, error)
+
+// GetSSHServiceFunc is a helper function that gets the model SSH service from
+// the manifold.
+type GetSSHServiceFunc = func(context.Context, services.DomainServicesGetter, model.UUID) (SSHModelService, error)
+
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
 	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
+}
+
+// GetControllerSSHHostKeyService gets the controller SSH host key service from
+// the controller domain services dependency.
+func GetControllerSSHHostKeyService(getter dependency.Getter, name string) (ControllerSSHHostKeyService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerDomainServices) ControllerSSHHostKeyService {
+		return factory.SSHServerHostKey()
+	})
+}
+
+// GetDomainServicesGetter gets the model domain services getter from the
+// domain services worker dependency.
+func GetDomainServicesGetter(getter dependency.Getter, name string) (services.DomainServicesGetter, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.DomainServicesGetter) services.DomainServicesGetter {
+		return factory
+	})
+
+}
+
+// GetSSHService gets the model SSH service from the current model domain
+// services dependency.
+func GetSSHService(ctx context.Context, domainServicesGetter services.DomainServicesGetter, modelUUID model.UUID) (SSHModelService, error) {
+	domainServices, err := domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return domainServices.SSH(), nil
 }
 
 // ManifoldConfig holds the information necessary to run an embedded SSH server
@@ -40,6 +81,14 @@ type ManifoldConfig struct {
 	NewServerWorker func(ServerWorkerConfig) (worker.Worker, error)
 	// GetControllerConfigService is used to get a service from the manifold.
 	GetControllerConfigService GetControllerConfigServiceFunc
+	// GetControllerSSHHostKeyService is used to get the controller SSH host key
+	// service from the manifold.
+	GetControllerSSHHostKeyService GetControllerSSHHostKeyServiceFunc
+	// GetDomainServicesGetter is used to get the model domain services getter
+	// from the manifold.
+	GetDomainServicesGetter GetDomainServicesGetterFunc
+	// GetSSHService is used to get the SSH service from the manifold.
+	GetSSHService GetSSHServiceFunc
 	// Logger is the logger to use for the worker.
 	Logger logger.Logger
 }
@@ -57,6 +106,15 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
+	}
+	if config.GetControllerSSHHostKeyService == nil {
+		return errors.NotValidf("nil GetControllerSSHHostKeyService")
+	}
+	if config.GetDomainServicesGetter == nil {
+		return errors.NotValidf("nil GetDomainServicesGetter")
+	}
+	if config.GetSSHService == nil {
+		return errors.NotValidf("nil GetSSHService")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -76,7 +134,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // startWrapperWorker starts the SSH server worker wrapper passing the necessary dependencies.
-func (config ManifoldConfig) startWrapperWorker(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	// ssh jump server is not enabled by default, but it must be enabled
 	// via a feature flag.
 	if !featureflag.Enabled(featureflag.SSHJump) {
@@ -91,11 +149,52 @@ func (config ManifoldConfig) startWrapperWorker(_ context.Context, getter depend
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	controllerSSHHostKeyService, err := config.GetControllerSSHHostKeyService(getter, config.DomainServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	domainServicesGetter, err := config.GetDomainServicesGetter(getter, config.DomainServicesName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sshService := sshService{
+		controllerSSHHostKeyService: controllerSSHHostKeyService,
+		domainServicesGetter:        domainServicesGetter,
+		getSSHService:               config.GetSSHService,
+	}
 
 	return config.NewServerWrapperWorker(ServerWrapperWorkerConfig{
 		ControllerConfigService: controllerConfigService,
+		SSHService:              sshService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
 		SessionHandler:          &stubSessionHandler{},
 	})
+}
+
+// sshService wraps our ssh domain services to enable two things:
+//  1. Direct controller model access via the ControllerSSHHostKeyService interface.
+//  2. Model-scoped access to the SSHModelService interface with underlying calls to "ServicesForModel".
+//     The SSH server doesn't take the apiserver approach where the model uuid is populated
+//     by the time we reach the service, and instead, we must call the methods WITH the UUID received
+//     from the virtual host name.
+type sshService struct {
+	controllerSSHHostKeyService ControllerSSHHostKeyService
+	domainServicesGetter        services.DomainServicesGetter
+	getSSHService               GetSSHServiceFunc
+}
+
+// SSHServerHostKey returns the controller SSH server host key.
+func (s sshService) SSHServerHostKey(ctx context.Context) (string, error) {
+	return s.controllerSSHHostKeyService.SSHServerHostKey(ctx)
+}
+
+// VirtualHostKey returns the terminating SSH host key for a virtual hostname.
+// The virtual hostname contains the model UUID for the destination model database.
+func (s sshService) VirtualHostKey(ctx context.Context, info virtualhostname.Info) (string, error) {
+	sshService, err := s.getSSHService(ctx, s.domainServicesGetter, info.ModelUUID())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return sshService.VirtualHostKey(ctx, info)
 }

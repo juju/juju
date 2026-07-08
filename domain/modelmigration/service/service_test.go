@@ -29,6 +29,7 @@ import (
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -68,6 +69,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -94,6 +96,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		resourceGetter,
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -121,6 +124,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -150,6 +154,7 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
 }
@@ -177,6 +182,7 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
 }
@@ -208,6 +214,7 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -238,6 +245,7 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -256,6 +264,7 @@ func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -278,6 +287,7 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -321,6 +331,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	)
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -350,6 +361,7 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -376,7 +388,7 @@ func (s *serviceSuite) TestWatchMigrationPhase(c *tc.C) {
 		},
 	)
 
-	w, err := s.service().WatchMigrationPhase(c.Context())
+	w, err := s.service(c).WatchMigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -411,7 +423,7 @@ func (s *serviceSuite) TestWatchMinionReports(c *tc.C) {
 		),
 	)
 
-	w, err := s.service().WatchMinionReports(c.Context())
+	w, err := s.service(c).WatchMinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -421,7 +433,7 @@ func (s *serviceSuite) TestWatchMinionReports(c *tc.C) {
 }
 
 // service constructs a Service backed by the suite mocks.
-func (s *serviceSuite) service() *Service {
+func (s *serviceSuite) service(c *tc.C) *Service {
 	return NewService(
 		s.controllerState,
 		s.modelState,
@@ -429,6 +441,7 @@ func (s *serviceSuite) service() *Service {
 		s.watcherFactory,
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		loggertesting.WrapCheckLog(c),
 	)
 }
 
@@ -456,7 +469,7 @@ func (s *serviceSuite) TestInitiateMigration(c *tc.C) {
 		},
 	)
 
-	migUUID, err := s.service().InitiateMigration(c.Context(), s.validTargetInfo())
+	migUUID, err := s.service(c).InitiateMigration(c.Context(), s.validTargetInfo())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(migUUID, tc.Not(tc.Equals), "")
 	c.Check(captured.MigrationUUID, tc.Equals, migUUID)
@@ -475,7 +488,7 @@ func (s *serviceSuite) TestInitiateMigrationInvalidTarget(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No InsertExport call expected.
-	_, err := s.service().InitiateMigration(c.Context(), migration.TargetInfo{})
+	_, err := s.service(c).InitiateMigration(c.Context(), migration.TargetInfo{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -487,7 +500,7 @@ func (s *serviceSuite) TestMigration(c *tc.C) {
 	stateMig := modelmigrationinternal.Migration{UUID: migUUID, Phase: migration.IMPORT}
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(stateMig, nil)
 
-	mig, err := s.service().Migration(c.Context())
+	mig, err := s.service(c).Migration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mig.UUID, tc.Equals, migUUID)
 	c.Check(mig.Phase, tc.Equals, migration.IMPORT)
@@ -500,34 +513,9 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
 		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
 
-	mig, err := s.service().Migration(c.Context())
+	mig, err := s.service(c).Migration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
-}
-
-// TestGetControllerModelInfo asserts the service reads the model's offer UUIDs
-// and third-party remote-offerer pairs from the model DB and passes them to
-// the controller-state read, returning the aggregated controller model info.
-func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	offerUUIDs := []string{"offer-1", "offer-2"}
-	offererModels := []modelmigrationinternal.OffererModel{
-		{ControllerUUID: "ctrl-1", ModelUUID: "consumed-1"},
-	}
-	expected := modelmigration.ControllerModelInfo{
-		ModelInfo: modelmigration.ModelIdentityInfo{UUID: s.modelUUID, Name: "prod"},
-	}
-
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(offerUUIDs, nil)
-	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(offererModels, nil)
-	s.controllerState.EXPECT().
-		GetControllerModelInfo(gomock.Any(), s.modelUUID, offerUUIDs, offererModels).
-		Return(expected, nil)
-
-	info, err := s.service().GetControllerModelInfo(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(info, tc.DeepEquals, expected)
 }
 
 // TestSourceControllerInfoArrangesRawStateAddresses asserts the service
@@ -558,7 +546,7 @@ func (s *serviceSuite) TestSourceControllerInfoArrangesRawStateAddresses(c *tc.C
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	info, err := s.service().SourceControllerInfo(c.Context())
+	info, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ControllerTag, tc.DeepEquals, names.NewControllerTag(s.controllerUUID))
 	c.Check(info.ControllerAlias, tc.Equals, "source")
@@ -588,7 +576,7 @@ func (s *serviceSuite) TestSourceControllerInfoSingleAddress(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	info, err := s.service().SourceControllerInfo(c.Context())
+	info, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Addrs, tc.DeepEquals, []string{"10.0.0.1:17070"})
 }
@@ -606,7 +594,7 @@ func (s *serviceSuite) TestSourceControllerInfoNoAddresses(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	_, err := s.service().SourceControllerInfo(c.Context())
+	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
 }
 
@@ -630,7 +618,7 @@ func (s *serviceSuite) TestSourceControllerInfoOnlyUnusableAddresses(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	_, err := s.service().SourceControllerInfo(c.Context())
+	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
 }
 
@@ -642,31 +630,8 @@ func (s *serviceSuite) TestSourceControllerInfoError(c *tc.C) {
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).
 		Return(modelmigrationinternal.SourceControllerInfo{}, errors.New("boom"))
 
-	_, err := s.service().SourceControllerInfo(c.Context())
+	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
-}
-
-// TestGetControllerModelInfoOffererModelsError asserts offerer-pair read
-// failures are surfaced and the controller-state read is not attempted.
-func (s *serviceSuite) TestGetControllerModelInfoOffererModelsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil)
-	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(nil, errors.New("boom"))
-
-	_, err := s.service().GetControllerModelInfo(c.Context())
-	c.Assert(err, tc.ErrorMatches, ".*reading model offerer models.*boom")
-}
-
-// TestGetControllerModelInfoOfferUUIDsError asserts a model-DB read failure is
-// surfaced and the controller-state read is not attempted.
-func (s *serviceSuite) TestGetControllerModelInfoOfferUUIDsError(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, errors.New("boom"))
-
-	_, err := s.service().GetControllerModelInfo(c.Context())
-	c.Assert(err, tc.ErrorMatches, ".*reading model offer UUIDs.*boom")
 }
 
 // TestModelMigrationMode asserts the mode is passed through from state.
@@ -676,7 +641,7 @@ func (s *serviceSuite) TestModelMigrationMode(c *tc.C) {
 	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
 		modelmigration.MigrationModeExporting, nil)
 
-	mode, err := s.service().ModelMigrationMode(c.Context())
+	mode, err := s.service(c).ModelMigrationMode(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeExporting)
 }
@@ -693,7 +658,7 @@ func (s *serviceSuite) TestSetMigrationPhase(c *tc.C) {
 		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.IMPORT).Return(nil),
 	)
 
-	err := s.service().SetMigrationPhase(c.Context(), migration.IMPORT)
+	err := s.service(c).SetMigrationPhase(c.Context(), migration.IMPORT)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -709,7 +674,7 @@ func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
 		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.DONE).Return(nil),
 	)
 
-	err := s.service().MarkModelAsGone(c.Context())
+	err := s.service(c).MarkModelAsGone(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -721,7 +686,7 @@ func (s *serviceSuite) TestMarkModelAsGoneNoActiveMigration(c *tc.C) {
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
 		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
 
-	err := s.service().MarkModelAsGone(c.Context())
+	err := s.service(c).MarkModelAsGone(c.Context())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
 }
 
@@ -737,7 +702,7 @@ func (s *serviceSuite) TestSetMigrationStatusMessage(c *tc.C) {
 		s.controllerState.EXPECT().SetStatusMessage(gomock.Any(), migUUID, "hello").Return(nil),
 	)
 
-	err := s.service().SetMigrationStatusMessage(c.Context(), "hello")
+	err := s.service(c).SetMigrationStatusMessage(c.Context(), "hello")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -754,7 +719,7 @@ func (s *serviceSuite) TestReportMinion(c *tc.C) {
 			gomock.Any(), migUUID, migration.IMPORT, "machine-0", true).Return(nil),
 	)
 
-	err := s.service().ReportMinion(c.Context(), "machine-0", migration.IMPORT, true)
+	err := s.service(c).ReportMinion(c.Context(), "machine-0", migration.IMPORT, true)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -781,7 +746,7 @@ func (s *serviceSuite) TestMinionReports(c *tc.C) {
 			}, nil),
 	)
 
-	reports, err := s.service().MinionReports(c.Context())
+	reports, err := s.service(c).MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reports.MigrationId, tc.Equals, migUUID)
 	c.Check(reports.Phase, tc.Equals, migration.QUIESCE)
@@ -811,7 +776,7 @@ func (s *serviceSuite) TestMinionReportsDoesNotValidateReportedAgentInventory(c 
 			}, nil),
 	)
 
-	reports, err := s.service().MinionReports(c.Context())
+	reports, err := s.service(c).MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reports.TotalCount, tc.Equals, 1)
 	c.Check(reports.SuccessCount, tc.Equals, 2)

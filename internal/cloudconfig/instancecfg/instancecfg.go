@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	jujunames "github.com/juju/juju/juju/names"
 )
 
 var logger = internallogger.GetLogger("juju.cloudconfig.instancecfg")
@@ -198,6 +199,23 @@ type InstanceConfig struct {
 
 	// Profiles is a slice of (lxd) profile names to be used by a container
 	Profiles []string
+
+	// LokiEndpoint is the Loki push API endpoint the machine agent should
+	// forward logs to on first boot. Empty means logs are sent through the
+	// controller logsink.
+	LokiEndpoint string
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool
+
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -514,14 +532,16 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
 		configParams.DqliteBusyTimeout = cfg.ControllerConfig.DqliteBusyTimeout()
-		configParams.OpenTelemetryEnabled = cfg.ControllerConfig.OpenTelemetryEnabled()
-		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
-		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
-		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
-		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
-		configParams.OpenTelemetryTailSamplingThreshold = cfg.ControllerConfig.OpenTelemetryTailSamplingThreshold()
-		configParams.ObjectStoreType = cfg.ControllerConfig.ObjectStoreType()
 	}
+	configParams.OpenTelemetryEnabled = agent.DefaultOpenTelemetryEnabled
+	configParams.OpenTelemetryInsecure = agent.DefaultOpenTelemetryInsecure
+	configParams.OpenTelemetryStackTraces = agent.DefaultOpenTelemetryStackTraces
+	configParams.OpenTelemetrySampleRatio = agent.DefaultOpenTelemetrySampleRatio
+	configParams.OpenTelemetryTailSamplingThreshold = agent.DefaultOpenTelemetryTailSamplingThreshold
+	configParams.LokiEndpoint = cfg.LokiEndpoint
+	configParams.LokiCACert = cfg.LokiCACert
+	configParams.LokiInsecureSkipVerify = cfg.LokiInsecureSkipVerify
+	configParams.LokiOrgID = cfg.LokiOrgID
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)
 	}
@@ -546,8 +566,10 @@ func (cfg *InstanceConfig) CharmDir() string {
 func (cfg *InstanceConfig) APIHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap != nil {
-		hosts = append(hosts, net.JoinHostPort(
-			"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort)),
+		hosts = append(
+			hosts, net.JoinHostPort(
+				"localhost", strconv.Itoa(cfg.Bootstrap.ControllerAgentInfo.APIPort),
+			),
 		)
 	}
 	if cfg.APIInfo != nil {
@@ -769,7 +791,7 @@ func NewInstanceConfig(
 		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		CloudInitOutputLog:      path.Join(logDir, "cloud-init-output.log"),
 		TransientDataDir:        paths.TransientDataDir(osType),
-		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
+		MachineAgentServiceName: jujunames.JujuAgentd + "-" + names.NewMachineTag(machineID).String(),
 		Base:                    base,
 		Tags:                    map[string]string{},
 

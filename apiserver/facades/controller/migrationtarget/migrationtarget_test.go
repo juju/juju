@@ -508,7 +508,7 @@ func (s *Suite) controllerVersion(*tc.C) semversion.Number {
 
 func (s *Suite) expectImportModel(c *tc.C) {
 	s.domainServicesGetter.EXPECT().ServicesForModel(gomock.Any(), gomock.Any()).Return(s.domainServices, nil)
-	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) error {
+	s.modelImporter.EXPECT().ImportModelLegacy(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) error {
 		scope := func(model.UUID) modelmigration.Scope {
 			return modelmigration.NewScope(nil, nil, nil, nil, tc.Must0(c, model.NewUUID))
 		}
@@ -518,6 +518,6 @@ func (s *Suite) expectImportModel(c *tc.C) {
 			"",
 			loggertesting.WrapCheckLog(c),
 			clock.WallClock,
-		).ImportModel(ctx, bytes)
+		).ImportModelLegacy(ctx, bytes)
 	})
 }

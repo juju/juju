@@ -67,7 +67,7 @@ type requirementParams struct {
 
 const regionLabelName = "failure-domain.beta.kubernetes.io/region"
 
-func getCloudRegionFromNodeMeta(node corev1.Node) (string, string) {
+func GetCloudRegionFromNodeMeta(node corev1.Node) (string, string) {
 	for cloudType, checkers := range k8sCloudCheckers {
 		for _, checker := range checkers {
 			if checker.Matches(k8slabels.Set(node.GetLabels())) {
@@ -183,7 +183,7 @@ func listHostCloudRegions(
 	var cloudResult string
 	for _, n := range nodes.Items {
 		var nodeCloud, region string
-		if nodeCloud, region = getCloudRegionFromNodeMeta(n); nodeCloud == "" {
+		if nodeCloud, region = GetCloudRegionFromNodeMeta(n); nodeCloud == "" {
 			continue
 		}
 		cloudResult = nodeCloud

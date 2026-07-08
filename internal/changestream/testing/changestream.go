@@ -150,7 +150,7 @@ func (h *TestWatchableDB) loop() error {
 
 // assertChangeStreamIdle waits for either the change stream to quickly dispatch
 // some changes or become idle before the deadline.
-func assertChangeStreamIdle(c *tc.C, states <-chan []string) {
+func assertChangeStreamIdle(c *tc.C, label string, states <-chan []string) {
 	timer := time.NewTimer(coretesting.LongWait)
 	for {
 		select {
@@ -173,7 +173,7 @@ func assertChangeStreamIdle(c *tc.C, states <-chan []string) {
 				}
 			}
 		case <-timer.C:
-			c.Fatalf("timed out waiting for idle state")
+			c.Fatalf("timed out waiting for idle state: %s", label)
 		}
 	}
 }

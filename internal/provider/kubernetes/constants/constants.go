@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	agentconstants "github.com/juju/juju/agent/constants"
+	corepebble "github.com/juju/juju/core/pebble"
 )
 
 const (
@@ -32,8 +33,9 @@ const (
 	AgentHTTPPathStartup = "/startup"
 
 	// DefaultPebbleDir is the default directory Pebble considers when starting
-	// up.
-	DefaultPebbleDir = "/var/lib/pebble/default"
+	// up. It re-exports the canonical value from core/pebble so existing
+	// callers within the k8s provider can continue to use this package.
+	DefaultPebbleDir = corepebble.DefaultPebbleDir
 
 	// JujuExecServerSocketPort is the port used by juju run callbacks.
 	JujuExecServerSocketPort = 30666
@@ -69,16 +71,16 @@ const (
 
 	// JujuUserID is the juju user id for rootless juju agents.
 	// NOTE: 170 uid/gid must be updated here and in caas/Dockerfile and caas/scripts.go
-	JujuUserID = 170
+	JujuUserID int64 = 170
 	// JujuGroupID is the juju group id for rootless juju agents.
-	JujuGroupID = 170
+	JujuGroupID int64 = 170
 	// JujuSudoUserID is the juju user id for rootless juju agents with sudo.
 	// NOTE: 171 uid/gid must be updated here and in caas/Dockerfile
-	JujuSudoUserID = 171
+	JujuSudoUserID int64 = 171
 	// JujuSudoGroupID is the juju group id for rootless juju agents with sudo.
-	JujuSudoGroupID = 171
+	JujuSudoGroupID int64 = 171
 	// JujuFSGroupID is the group id for all fs entries written to k8s volumes.
-	JujuFSGroupID = 170
+	JujuFSGroupID int64 = 170
 )
 
 const (

@@ -18,9 +18,8 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-//go:generate go run github.com/canonical/gomock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,CredentialService,RelationService,StatusService,OperationExporter,Coordinator,ModelAgentService,CharmService,ModelService,ModelMigrationService,MachineService,CloudService
+//go:generate go run github.com/canonical/gomock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration AgentBinaryStore,ControllerConfigService,UpgradeService,ApplicationService,CredentialService,RelationService,StatusService,OperationExporter,ModelAgentService,CharmService,ModelService,ModelMigrationService,MachineService,CloudService
 //go:generate go run github.com/canonical/gomock/mockgen -package migration_test -destination domainservices_mock_test.go github.com/juju/juju/internal/services DomainServicesGetter,DomainServices
-//go:generate go run github.com/canonical/gomock/mockgen -package migration -destination services_mock_test.go github.com/juju/juju/internal/migration ProviderConfigServicesGetter,ProviderConfigServices,CloudService
 //go:generate go run github.com/canonical/gomock/mockgen -package migration_test -destination description_mock_test.go github.com/juju/description/v12 Model
 //go:generate go run github.com/canonical/gomock/mockgen -package migration_test -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ModelObjectStoreGetter
 

@@ -1,3 +1,12 @@
+CREATE TABLE block_device_provenance (
+    id INT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+INSERT INTO block_device_provenance VALUES
+(0, 'provider'),
+(1, 'machine');
+
 CREATE TABLE block_device (
     uuid TEXT NOT NULL PRIMARY KEY,
     machine_uuid TEXT NOT NULL,
@@ -12,9 +21,13 @@ CREATE TABLE block_device (
     filesystem_label TEXT,
     host_filesystem_uuid TEXT,
     filesystem_type TEXT,
+    provenance_id INT NOT NULL DEFAULT 0,
     CONSTRAINT fk_block_device_machine
     FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_block_device_provenance
+    FOREIGN KEY (provenance_id)
+    REFERENCES block_device_provenance (id)
 );
 
 -- name can be NULL. In Sqlite all NULLs are distinct.

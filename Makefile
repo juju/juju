@@ -116,7 +116,6 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 #   compile for at the moment.
 define BUILD_AGENT_TARGETS
 	$(call tool_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
-	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
@@ -125,7 +124,7 @@ endef
 # under the category of Juju agents, that are CGO. These targets are also the
 # ones we are more then likely wanting to cross compile.
 define BUILD_CGO_AGENT_TARGETS
-	$(call tool_platform_paths,jujud-controller,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,jujuagentd,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
 define BUILD_CGO_BENCH_TARGETS
@@ -153,7 +152,6 @@ endef
 define INSTALL_TARGETS
 	juju \
 	jujuc \
-	jujud \
 	containeragent \
 	juju-metadata
 endef
@@ -166,7 +164,7 @@ endif
 
 # We only add pebble to the list of install targets if we are building for linux
 ifeq ($(GOOS), linux)
-    INSTALL_TARGETS += jujud-controller
+    INSTALL_TARGETS += jujuagentd
     INSTALL_TARGETS += pebble
 endif
 
@@ -311,28 +309,20 @@ jujuc:
 ## jujuc: Install jujuc without updating dependencies
 	${run_go_install}
 
-.PHONY: jujud
-jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-jujud:
-## jujud: Install jujud without updating dependencies
-	${run_go_install}
-	mv $(GO_INSTALL_PATH)/jujud $(GO_INSTALL_PATH)/jujud-junk
-
-.PHONY: jujud-controller
-jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
-jujud-controller: EXTRA_BUILD_TAGS += dqlite libsqlite3
-jujud-controller: musl-install-if-missing dqlite-install-if-missing
-## jujud: Install jujud without updating dependencies
+.PHONY: jujuagentd
+jujuagentd: PACKAGE = github.com/juju/juju/cmd/jujuagentd
+jujuagentd: EXTRA_BUILD_TAGS += dqlite libsqlite3
+jujuagentd: musl-install-if-missing dqlite-install-if-missing
+## jujuagentd: Install jujuagentd without updating dependencies
 	${run_cgo_install}
-	mv $(GO_INSTALL_PATH)/jujud-controller $(GO_INSTALL_PATH)/jujud
 
 .PHONY: dqlite-repl
 dqlite-repl: PACKAGE = github.com/juju/juju/scripts/dqlite/cmd
 dqlite-repl: EXTRA_BUILD_TAGS += dqlite libsqlite3
 dqlite-repl: musl-install-if-missing dqlite-install-if-missing
-## jujud: Install jujud without updating dependencies
+## jujuagentd: Install jujuagentd without updating dependencies
 	${run_cgo_install}
-	mv $(GO_INSTALL_PATH)/cmd $(GO_INSTALL_PATH)/dqlite-repl
+		mv $(GO_INSTALL_PATH)/cmd $(GO_INSTALL_PATH)/dqlite-repl
 
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
@@ -372,24 +362,14 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 # build for jujuc
 	$(run_go_build)
 
-${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-${BUILD_DIR}/%/bin/jujud: phony_explicit
-# build for jujud
-	$(run_go_build)
-	$(eval OS = $(word 1,$(subst _, ,$*)))
-	$(eval ARCH = $(word 2,$(subst _, ,$*)))
-	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
-	mv ${BBIN_DIR}/jujud ${BBIN_DIR}/jujud-junk
-
-${BUILD_DIR}/%/bin/jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
-${BUILD_DIR}/%/bin/jujud-controller: EXTRA_BUILD_TAGS += dqlite libsqlite3
-${BUILD_DIR}/%/bin/jujud-controller: phony_explicit musl-install-if-missing dqlite-install-if-missing
-# build for jujud-controller
+${BUILD_DIR}/%/bin/jujuagentd: PACKAGE = github.com/juju/juju/cmd/jujuagentd
+${BUILD_DIR}/%/bin/jujuagentd: EXTRA_BUILD_TAGS += dqlite libsqlite3
+${BUILD_DIR}/%/bin/jujuagentd: phony_explicit musl-install-if-missing dqlite-install-if-missing
+# build for jujuagentd
 	$(run_cgo_build)
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
-	mv ${BBIN_DIR}/jujud-controller ${BBIN_DIR}/jujud
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit
@@ -409,7 +389,7 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 ${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
 	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}
-	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) jujud jujuc
+	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) jujuagentd jujuc
 
 .PHONY: simplestreams
 simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
@@ -576,6 +556,10 @@ else
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/schemagen -admin-facades -facade-group=agent \
 		./apiserver/facades/agent-schema.json
 endif
+	@echo "Generating exported model schema..."
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
+	@echo "Generating model import schema..."
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
 
 .PHONY: rebuild-triggers
 rebuild-triggers:
@@ -594,6 +578,7 @@ rebuild-export:
 ## rebuild-export: Rebuild the exported schema
 	@echo "Generating exported schema..."
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
+	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
@@ -667,8 +652,8 @@ export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo pod
 PULL_OCI_REGISTRY          ?= ghcr.io/juju
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
-JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
-JUJUD_BIN_DIR              ?= ${BIN_DIR}
+JUJUAGENTD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
+JUJUAGENTD_BIN_DIR              ?= ${BIN_DIR}
 OPERATOR_IMAGE_BUILD_SRC   ?= true
 
 # Import shell functions from make_functions.sh
@@ -693,7 +678,7 @@ image-check-build:
 
 .PHONY: image-check-build-skip
 image-check-build-skip:
-	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/."
+	@echo "skipping to build jujuagentd bin, use existing one at ${JUJUAGENTD_BIN_DIR}/."
 
 .PHONY: docker-builder
 docker-builder:

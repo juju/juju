@@ -6,21 +6,17 @@ package apiserver
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/cmd/cmd"
-	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	coredependency "github.com/juju/juju/core/dependency"
@@ -62,12 +58,23 @@ func GetModelService(getter dependency.Getter, name string) (ModelService, error
 	})
 }
 
+// LocalValues are the controller-local values needed to start the API server.
+type LocalValues struct {
+	DataDir       string
+	LogDir        string
+	LogSinkConfig apiserver.LogSinkConfig
+}
+
+// LocalConfigReader returns the current controller-local values when the
+// manifold starts.
+type LocalConfigReader interface {
+	LocalValues() (LocalValues, error)
+}
+
 // ManifoldConfig holds the information necessary to run an apiserver
 // worker in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName              string
 	AuthenticatorName      string
-	ClockName              string
 	MuxName                string
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
@@ -84,6 +91,13 @@ type ManifoldConfig struct {
 	ObjectStoreName    string
 	JWTParserName      string
 
+	// Clock is the clock used for timekeeping within the manifold.
+	Clock clock.Clock
+	// ControllerTag is the tag of the controller running the API server.
+	ControllerTag names.Tag
+	// LocalConfigReader returns current controller-local startup values.
+	LocalConfigReader LocalConfigReader
+
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	GetControllerConfigService        GetControllerConfigServiceFunc
@@ -95,14 +109,17 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if config.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
+	if config.ControllerTag == nil {
+		return errors.NotValidf("nil ControllerTag")
+	}
+	if config.LocalConfigReader == nil {
+		return errors.NotValidf("nil LocalConfigReader")
 	}
 	if config.AuthenticatorName == "" {
 		return errors.NotValidf("empty AuthenticatorName")
-	}
-	if config.ClockName == "" {
-		return errors.NotValidf("empty ClockName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -174,9 +191,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.AuthenticatorName,
-			config.ClockName,
 			config.MuxName,
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
@@ -202,14 +217,15 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var agent agent.Agent
-	if err := getter.Get(config.AgentName, &agent); err != nil {
+	localValues, err := config.LocalConfigReader.LocalValues()
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	var clock clock.Clock
-	if err := getter.Get(config.ClockName, &clock); err != nil {
-		return nil, errors.Trace(err)
+	if localValues.DataDir == "" {
+		return nil, errors.NotValidf("empty DataDir")
+	}
+	if localValues.LogDir == "" {
+		return nil, errors.NotValidf("empty LogDir")
 	}
 
 	var mux *apiserverhttp.Mux
@@ -312,14 +328,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	execEmbeddedCommand := func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusARgs string) int {
-		jujuCmd := commands.NewJujuCommandWithStore(ctx, store, nil, "", `Type "help" to see a list of commands`, whitelist, true)
-		return cmd.Main(jujuCmd, ctx, strings.Split(cmdPlusARgs, " "))
-	}
-
 	w, err := config.NewWorker(ctx, Config{
-		AgentConfig:                       agent.CurrentConfig(),
-		Clock:                             clock,
+		ControllerTag:                     config.ControllerTag,
+		DataDir:                           localValues.DataDir,
+		LogDir:                            localValues.LogDir,
+		LogSinkConfig:                     localValues.LogSinkConfig,
+		Clock:                             config.Clock,
 		Mux:                               mux,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -329,7 +343,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		GetAuditConfig:                    getAuditConfig,
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
-		EmbeddedCommand:                   execEmbeddedCommand,
 		LogSink:                           logSink,
 		CharmhubHTTPClient:                charmhubHTTPClient,
 		MacaroonHTTPClient:                macaroonHTTPClient,

@@ -36,7 +36,7 @@ WHEN
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.charm_uuid != OLD.charm_uuid OR
 	(NEW.password_hash_algorithm_id != OLD.password_hash_algorithm_id OR (NEW.password_hash_algorithm_id IS NOT NULL AND OLD.password_hash_algorithm_id IS NULL) OR (NEW.password_hash_algorithm_id IS NULL AND OLD.password_hash_algorithm_id IS NOT NULL)) OR
-	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) 
+	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL))
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -72,7 +72,7 @@ CREATE TRIGGER trg_log_unit_principal_update
 AFTER UPDATE ON unit_principal FOR EACH ROW
 WHEN 
 	NEW.unit_uuid != OLD.unit_uuid OR
-	NEW.principal_uuid != OLD.principal_uuid 
+	NEW.principal_uuid != OLD.principal_uuid
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));
@@ -108,7 +108,7 @@ CREATE TRIGGER trg_log_unit_resolved_update
 AFTER UPDATE ON unit_resolved FOR EACH ROW
 WHEN 
 	NEW.unit_uuid != OLD.unit_uuid OR
-	NEW.mode_id != OLD.mode_id 
+	NEW.mode_id != OLD.mode_id
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now', 'utc'));

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+for endpoint in charm-tracing workload-tracing loki-push-api; do
+    for relation_id in $(relation-ids "${endpoint}"); do
+        "$(dirname "$0")/publish-endpoints" "${relation_id}"
+    done
+done
+
+status-set active "published endpoints"

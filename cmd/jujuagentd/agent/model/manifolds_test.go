@@ -1,0 +1,582 @@
+// Copyright 2016 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package model_test
+
+import (
+	stdtesting "testing"
+
+	"github.com/juju/clock"
+	"github.com/juju/collections/set"
+	"github.com/juju/names/v6"
+	"github.com/juju/tc"
+	"github.com/juju/worker/v5/workertest"
+
+	"github.com/juju/juju/agent/agenttest"
+	"github.com/juju/juju/cmd/jujuagentd/agent/model"
+	"github.com/juju/juju/controller"
+	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testing"
+)
+
+type ManifoldsSuite struct {
+	testing.BaseSuite
+}
+
+func TestManifoldsSuite(t *stdtesting.T) {
+	tc.Run(t, &ManifoldsSuite{})
+}
+
+func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
+	actual := set.NewStrings()
+	manifolds := model.IAASManifolds(testManifoldsConfig())
+	for name := range manifolds {
+		actual.Add(name)
+	}
+	// NOTE: if this test failed, the cmd/jujuagentd/agent tests will
+	// also fail. Search for 'ModelWorkers' to find affected vars.
+	c.Check(actual.SortedValues(), tc.SameContents, []string{
+		"agent-binary-fetcher",
+		"api-remote-relation-caller",
+		"async-charm-downloader",
+		"change-stream-pruner",
+		"charm-revisioner",
+		"clock",
+		"compute-provisioner",
+		"domain-services",
+		"firewaller",
+		"http-client",
+		"instance-poller",
+		"is-responsible-flag",
+		"lease-manager",
+		"logging-config-updater",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-master",
+		"not-dead-flag",
+		"operation-pruner",
+		"provider-service-factories",
+		"provider-tracker",
+		"remote-relation-consumer",
+		"removal",
+		"secrets-pruner",
+		"storage-provisioner",
+		"user-secrets-drain-worker",
+		"valid-credential-flag",
+	})
+}
+
+func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
+	actual := set.NewStrings()
+	manifolds := model.CAASManifolds(testManifoldsConfig())
+	for name := range manifolds {
+		actual.Add(name)
+	}
+	// NOTE: if this test failed, the cmd/jujuagentd/agent tests will
+	// also fail. Search for 'ModelWorkers' to find affected vars.
+	c.Check(actual.SortedValues(), tc.SameContents, []string{
+		"api-remote-relation-caller",
+		"async-charm-downloader",
+		"caas-application-provisioner",
+		"caas-firewaller",
+		"caas-model-config-manager",
+		"caas-model-operator",
+		"change-stream-pruner",
+		"charm-revisioner",
+		"clock",
+		"domain-services",
+		"http-client",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"logging-config-updater",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-master",
+		"not-dead-flag",
+		"operation-pruner",
+		"provider-service-factories",
+		"provider-tracker",
+		"remote-relation-consumer",
+		"removal",
+		"secrets-pruner",
+		"storage-provisioner",
+		"user-secrets-drain-worker",
+		"valid-credential-flag",
+	})
+}
+
+func (s *ManifoldsSuite) TestFlagDependencies(c *tc.C) {
+	exclusions := set.NewStrings(
+		"api-remote-relation-caller",
+		"clock",
+		"is-responsible-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		// model upgrade manifolds are run on all
+		// controller agents, "responsible" or not.
+		"domain-services",
+		"lease-manager",
+		"log-sink",
+		"http-client",
+		"valid-credential-flag",
+	)
+	manifolds := model.IAASManifolds(testManifoldsConfig())
+	for name, manifold := range manifolds {
+		c.Logf("checking %s", name)
+		if exclusions.Contains(name) {
+			continue
+		}
+		inputs := set.NewStrings(manifold.Inputs...)
+		if !inputs.Contains("is-responsible-flag") {
+			c.Check(inputs.Contains("migration-fortress"), tc.IsTrue)
+			c.Check(inputs.Contains("migration-inactive-flag"), tc.IsTrue)
+		}
+	}
+}
+
+func (s *ManifoldsSuite) TestClockWrapper(c *tc.C) {
+	expectClock := &fakeClock{}
+	cfg := testManifoldsConfig()
+	cfg.Clock = expectClock
+	manifolds := model.IAASManifolds(cfg)
+	manifold, ok := manifolds["clock"]
+	c.Assert(ok, tc.IsTrue)
+	worker, err := manifold.Start(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, worker)
+
+	var aClock clock.Clock
+	err = manifold.Output(worker, &aClock)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(aClock, tc.Equals, expectClock)
+}
+
+type fakeClock struct{ clock.Clock }
+
+func (s *ManifoldsSuite) TestIAASManifold(c *tc.C) {
+	agenttest.AssertManifoldsDependencies(c,
+		model.IAASManifolds(testManifoldsConfig()),
+		expectedIAASModelManifoldsWithDependencies,
+	)
+}
+
+func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
+	agenttest.AssertManifoldsDependencies(c,
+		model.CAASManifolds(testManifoldsConfig()),
+		expectedCAASModelManifoldsWithDependencies,
+	)
+}
+
+var expectedCAASModelManifoldsWithDependencies = map[string][]string{
+
+	"secrets-pruner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"user-secrets-drain-worker": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"api-remote-relation-caller": {},
+
+	"provider-tracker": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"provider-service-factories",
+		"valid-credential-flag",
+	},
+
+	"caas-model-config-manager": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"caas-firewaller": {
+		"clock",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"caas-model-operator": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"caas-application-provisioner": {
+		"clock",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"async-charm-downloader": {
+		"domain-services",
+		"http-client",
+		"is-responsible-flag",
+		"lease-manager",
+	},
+
+	"charm-revisioner": {
+		"domain-services",
+		"http-client",
+		"is-responsible-flag",
+		"lease-manager",
+	},
+
+	"change-stream-pruner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"clock": {},
+
+	"is-responsible-flag": {"lease-manager"},
+
+	"lease-manager": {},
+
+	"logging-config-updater": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"log-sink": {},
+
+	"migration-fortress": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"not-dead-flag",
+	},
+
+	"migration-inactive-flag": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"not-dead-flag",
+	},
+
+	"migration-master": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"not-dead-flag",
+	},
+
+	"not-dead-flag": {
+		"domain-services",
+	},
+
+	"operation-pruner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"provider-service-factories": {},
+
+	"remote-relation-consumer": {
+		"api-remote-relation-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"removal": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"storage-provisioner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"domain-services": {},
+
+	"http-client": {},
+
+	"valid-credential-flag": {"domain-services"},
+}
+
+var expectedIAASModelManifoldsWithDependencies = map[string][]string{
+
+	"secrets-pruner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"user-secrets-drain-worker": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"agent-binary-fetcher": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"api-remote-relation-caller": {},
+
+	"async-charm-downloader": {
+		"lease-manager",
+		"domain-services",
+		"http-client",
+		"is-responsible-flag",
+	},
+
+	"charm-revisioner": {
+		"lease-manager",
+		"domain-services",
+		"http-client",
+		"is-responsible-flag",
+	},
+
+	"change-stream-pruner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"clock": {},
+
+	"compute-provisioner": {
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		"provider-tracker",
+		"domain-services",
+		"valid-credential-flag",
+	},
+
+	"provider-tracker": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"provider-service-factories",
+		"valid-credential-flag",
+	},
+
+	"firewaller": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"instance-poller": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"is-responsible-flag": {"lease-manager"},
+
+	"lease-manager": {},
+
+	"logging-config-updater": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"log-sink": {},
+
+	"domain-services": {},
+
+	"http-client": {},
+
+	"migration-fortress": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"not-dead-flag",
+	},
+
+	"migration-inactive-flag": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"not-dead-flag",
+	},
+
+	"migration-master": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"not-dead-flag",
+	},
+
+	"not-dead-flag": {
+		"domain-services",
+	},
+
+	"operation-pruner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"provider-service-factories": {},
+
+	"remote-relation-consumer": {
+		"api-remote-relation-caller",
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"removal": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"storage-provisioner": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"log-sink",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-service-factories",
+		"provider-tracker",
+		"valid-credential-flag",
+	},
+
+	"valid-credential-flag": {"domain-services"},
+}
+
+func testManifoldsConfig() model.ManifoldsConfig {
+	return model.ManifoldsConfig{
+		LoggingContext:       internallogger.DefaultContext(),
+		ModelUUID:            "mock-model-uuid",
+		AgentTag:             names.NewMachineTag("123"),
+		ModelTag:             names.NewModelTag("mock-model-uuid"),
+		ControllerTag:        names.NewControllerTag("mock-controller-uuid"),
+		DataDir:              "/tmp/juju-data",
+		LogDir:               "/tmp/juju-log",
+		StartupValueProvider: mockModelStartupValueProvider{},
+		UpdateLoggerConfig:   func(string) error { return nil },
+	}
+}
+
+type mockModelStartupValueProvider struct{}
+
+func (mockModelStartupValueProvider) CACert() (string, error) { return "", nil }
+func (mockModelStartupValueProvider) ControllerAgentInfo() (controller.ControllerAgentInfo, error) {
+	return controller.ControllerAgentInfo{}, nil
+}
+func (mockModelStartupValueProvider) LoggingOverride() (string, error) { return "", nil }

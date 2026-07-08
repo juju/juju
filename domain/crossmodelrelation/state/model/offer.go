@@ -344,7 +344,6 @@ FROM   v_offer_detail
 }
 
 func (st *State) getOfferDetailsForUUIDs(ctx context.Context, tx *sqlair.TX, offerUUIDs []string) (offerDetails, error) {
-	type uuids []string
 	stmt, err := st.Prepare(`
 SELECT &offerDetail.*
 FROM   v_offer_detail
@@ -579,8 +578,6 @@ func (st *State) GetOfferConnections(
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-
-	type uuids []string
 
 	// Query connection details: relation id, username, consumer model UUID,
 	// endpoint name, and relation status.

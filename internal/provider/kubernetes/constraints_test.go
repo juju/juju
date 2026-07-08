@@ -65,6 +65,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 		"root-disk=10M",
 		"spaces=foo",
 		"container=lxd",
+		"ip-family=dual",
 	}, " "))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, tc.ErrorIsNil)
@@ -75,6 +76,7 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *tc.C) {
 		"instance-type",
 		"spaces",
 		"container",
+		"ip-family",
 	}
 	c.Check(unsupported, tc.SameContents, expected)
 }

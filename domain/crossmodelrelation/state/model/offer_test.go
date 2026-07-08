@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/offer"
-	relationtesting "github.com/juju/juju/core/relation/testing"
+	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/domain/application/architecture"
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -627,6 +627,19 @@ func (s *modelOfferSuite) TestGetConsumeDetailsNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
 }
 
+func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {
+	relationUUID, offerUUID := s.setupOfferConnection(c)
+	obtainedOfferUUID, err := s.state.GetOfferUUIDByRelationUUID(c.Context(), relationUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
+}
+
+func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUIDNotFound(c *tc.C) {
+	_, err := s.state.GetOfferUUIDByRelationUUID(c.Context(), tc.Must(c, corerelation.NewUUID).String())
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+}
+
+// setupForGetOfferDetails
 func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation.OfferDetail {
 	// Create an offer with one endpoint.
 	// Use a distinct reference_name vs charm_metadata.name to ensure
@@ -880,19 +893,6 @@ func (s *modelOfferSuite) TestGetOfferConnectionsEmptyUUIDs(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(connections, tc.IsNil)
 }
-
-func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUID(c *tc.C) {
-	relationUUID, offerUUID := s.setupOfferConnection(c)
-	obtainedOfferUUID, err := s.state.GetOfferUUIDByRelationUUID(c.Context(), relationUUID)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(obtainedOfferUUID, tc.Equals, offerUUID)
-}
-
-func (s *modelOfferSuite) TestGetOfferUUIDByRelationUUIDNotFound(c *tc.C) {
-	_, err := s.state.GetOfferUUIDByRelationUUID(c.Context(), relationtesting.GenRelationUUID(c).String())
-	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
-}
-
 func (s *modelOfferSuite) TestValidateApplicationAndEndpointsForOffer(c *tc.C) {
 	// Arrange
 	charmUUID := s.addCharm(c)

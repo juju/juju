@@ -25,6 +25,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/export"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/watcherregistry"
 )
@@ -103,6 +105,12 @@ type ModelContext interface {
 	// CrossModelAuthContext provides methods to create and authorize macaroons
 	// for cross model operations.
 	CrossModelAuthContext() CrossModelAuthContext
+
+	// LocalMacaroonMinter mints directly-presentable login macaroons for
+	// local users. Used by migrationtarget v8 to exchange an admin password
+	// for a reusable macaroon so the migrationmaster worker never has to
+	// store a cleartext password.
+	LocalMacaroonMinter() LocalMacaroonMinter
 
 	// Dispose disposes the context and any resources related to
 	// the API server facade object. Normally the context will not
@@ -185,9 +193,15 @@ type LegacyStateExporter interface {
 
 // ModelImporter defines an interface for importing models.
 type ModelImporter interface {
-	// ImportModel takes a serialized description model (yaml bytes) and returns
-	// a state model and state state.
-	ImportModel(ctx context.Context, bytes []byte) error
+	// ImportModelLegacy imports a serialized legacy description model.
+	ImportModelLegacy(ctx context.Context, bytes []byte) error
+
+	// ImportModel applies a v8 migration envelope's controller-scoped semantic
+	// data to the target controller: the durable model_migration_import claim,
+	// the target-local model bootstrap, and the users, credential, permissions,
+	// authorized keys, secret backend, leadership and cloud image metadata
+	// carried by the import args.
+	ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.
@@ -290,6 +304,16 @@ type MacaroonAuthenticator interface {
 		mac macaroon.Slice,
 		version bakery.Version,
 	) error
+}
+
+// LocalMacaroonMinter mints directly-presentable login macaroons for local
+// users of this controller. The resulting macaroon is backed by the storage
+// bakery (root key in the DB) so the target's LocalUserAuthenticator can verify
+// it at login without a discharge ceremony.
+type LocalMacaroonMinter interface {
+	// CreateMigrationMacaroon mints a 24h login macaroon for the given local
+	// user that the worker can present directly at login.
+	CreateMigrationMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error)
 }
 
 // CrossModelAuthContext provides methods to create macaroons for cross model

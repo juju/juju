@@ -71,7 +71,13 @@ func (k *kubernetesClient) ensureServiceAccount(ctx context.Context, sa *core.Se
 	out, err = k.createServiceAccount(ctx, sa)
 	if err == nil {
 		logger.Debugf(ctx, "service account %q created", out.GetName())
-		cleanups = append(cleanups, func() { _ = k.deleteServiceAccount(ctx, out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {
+			if err := k.deleteServiceAccount(ctx, out.GetName(), out.GetUID()); err != nil {
+				logger.Warningf(ctx,
+					"could not clean up service account %q, it may be left dangling: %v",
+					out.GetName(), err)
+			}
+		})
 		return out, cleanups, nil
 	}
 	if !errors.IsAlreadyExists(err) {
@@ -151,7 +157,13 @@ func (k *kubernetesClient) ensureRole(ctx context.Context, role *rbacv1.Role) (o
 	out, err = k.createRole(ctx, role)
 	if err == nil {
 		logger.Debugf(ctx, "role %q created", out.GetName())
-		cleanups = append(cleanups, func() { _ = k.deleteRole(ctx, out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {
+			if err := k.deleteRole(ctx, out.GetName(), out.GetUID()); err != nil {
+				logger.Warningf(ctx,
+					"could not clean up role %q, it may be left dangling: %v",
+					out.GetName(), err)
+			}
+		})
 		return out, cleanups, nil
 	}
 	if !errors.Is(err, errors.AlreadyExists) {
@@ -320,7 +332,13 @@ func (k *kubernetesClient) ensureRoleBinding(ctx context.Context, rb *rbacv1.Rol
 	}
 	if isFirstDeploy {
 		// only do cleanup for the first time, don't do this for existing deployments.
-		cleanups = append(cleanups, func() { _ = k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()) })
+		cleanups = append(cleanups, func() {
+			if err := k.deleteRoleBinding(ctx, out.GetName(), out.GetUID()); err != nil {
+				logger.Warningf(ctx,
+					"could not clean up role binding %q, it may be left dangling: %v",
+					out.GetName(), err)
+			}
+		})
 	}
 	logger.Debugf(ctx, "role binding %q created", rb.GetName())
 	return out, cleanups, nil

@@ -13,13 +13,13 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
@@ -68,6 +68,18 @@ type ControllerConfigService interface {
 // the manifold.
 type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
+// ObjectStoreService is the interface that the worker uses to get the active
+// object store backend.
+type ObjectStoreService interface {
+	// GetActiveObjectStoreBackend returns the active object store backend
+	// information.
+	GetActiveObjectStoreBackend(ctx context.Context) (objectstoreservice.BackendInfo, error)
+}
+
+// GetObjectStoreServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetObjectStoreServiceFunc func(getter dependency.Getter, name string) (ObjectStoreService, error)
+
 // GetMetadataServiceFunc is a helper function that gets a service from
 // the manifold.
 type GetMetadataServiceFunc func(getter dependency.Getter, name string) (MetadataService, error)
@@ -76,36 +88,57 @@ type GetMetadataServiceFunc func(getter dependency.Getter, name string) (Metadat
 // is the initial bootstrap controller.
 type IsBootstrapControllerFunc func(dataDir string) bool
 
+// RootDirReader returns the current local object-store root dir when the
+// manifold starts.
+type RootDirReader interface {
+	ObjectStoreRootDir() (string, error)
+}
+
 // ManifoldConfig defines the configuration for the objectstore manifold.
 type ManifoldConfig struct {
-	AgentName               string
 	TraceName               string
 	ObjectStoreServicesName string
 	LeaseManagerName        string
 	S3ClientName            string
 	APIRemoteCallerName     string
 
+	// RootDirReader returns the current local filesystem root used by the
+	// file-backed object-store.
+	RootDirReader RootDirReader
+
+	// ControllerNodeID is the numeric controller node identifier
+	// (e.g. "0") passed explicitly instead of being derived from
+	// agent config tag.
+	ControllerNodeID string
+
 	Clock                      clock.Clock
 	Logger                     logger.Logger
 	NewObjectStoreWorker       objectstore.ObjectStoreWorkerFunc
 	GetControllerConfigService GetControllerConfigServiceFunc
+	GetObjectStoreService      GetObjectStoreServiceFunc
 	GetMetadataService         GetMetadataServiceFunc
 	IsBootstrapController      IsBootstrapControllerFunc
 }
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if cfg.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
 	}
 	if cfg.ObjectStoreServicesName == "" {
 		return errors.NotValidf("empty ObjectStoreServicesName")
 	}
+	if cfg.RootDirReader == nil {
+		return errors.NotValidf("nil RootDirReader")
+	}
+	if cfg.ControllerNodeID == "" {
+		return errors.NotValidf("empty ControllerNodeID")
+	}
 	if cfg.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
+	}
+	if cfg.GetObjectStoreService == nil {
+		return errors.NotValidf("nil GetObjectStoreService")
 	}
 	if cfg.GetMetadataService == nil {
 		return errors.NotValidf("nil GetMetadataService")
@@ -122,11 +155,11 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.APIRemoteCallerName == "" {
 		return errors.NotValidf("empty APIRemoteCallerName")
 	}
-	if cfg.Clock == nil {
-		return errors.NotValidf("nil Clock")
-	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if cfg.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
@@ -138,7 +171,6 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.TraceName,
 			config.ObjectStoreServicesName,
 			config.LeaseManagerName,
@@ -151,9 +183,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var a agent.Agent
-			if err := getter.Get(config.AgentName, &a); err != nil {
-				return nil, err
+			rootDir, err := config.RootDirReader.ObjectStoreRootDir()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if rootDir == "" {
+				return nil, errors.NotValidf("empty ObjectStoreRootDir")
 			}
 
 			var tracerGetter trace.TracerGetter
@@ -162,6 +197,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			controllerConfigService, err := config.GetControllerConfigService(getter, config.ObjectStoreServicesName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			objectStoreService, err := config.GetObjectStoreService(getter, config.ObjectStoreServicesName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -199,24 +238,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			currentConfig := a.CurrentConfig()
-			dataDir := currentConfig.DataDir()
-
-			// The controller node ID is the machine ID of the current
-			// controller.
-			controllerNodeID := currentConfig.Tag().Id()
+			backendInfo, err := objectStoreService.GetActiveObjectStoreBackend(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:              tracerGetter,
-				RootDir:                   dataDir,
+				RootDir:                   rootDir,
 				RootBucket:                rootBucketName,
 				Clock:                     config.Clock,
 				Logger:                    config.Logger,
 				NewObjectStoreWorker:      config.NewObjectStoreWorker,
+				NewTrackerWorker:          NewTrackerWorker,
+				NewControllerWorker:       NewControllerWorker,
 				S3Client:                  s3Client,
 				APIRemoteCaller:           apiRemoteCaller,
 				ControllerMetadataService: metadataService,
-				ControllerConfigService:   controllerConfigService,
+				ObjectStoreService:        objectStoreService,
 				ModelServiceGetter: modelServiceGetter{
 					servicesGetter: objectStoreServicesGetter,
 				},
@@ -226,8 +265,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ModelClaimGetter: modelClaimGetter{
 					manager: leaseManager,
 				},
-				AllowDraining:    AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
-				ControllerNodeID: controllerNodeID,
+				AllowDraining:    AllowDraining(backendInfo, config.IsBootstrapController(rootDir)),
+				ControllerNodeID: config.ControllerNodeID,
 			})
 			return w, errors.Trace(err)
 		},
@@ -385,6 +424,14 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 	})
 }
 
+// GetObjectStoreService is a helper function that gets a service from the
+// manifold.
+func GetObjectStoreService(getter dependency.Getter, name string) (ObjectStoreService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory services.ControllerObjectStoreServices) ObjectStoreService {
+		return factory.AgentObjectStore()
+	})
+}
+
 // GetMetadataService is a helper function that gets a service from the
 // manifold.
 func GetMetadataService(getter dependency.Getter, name string) (MetadataService, error) {
@@ -397,6 +444,6 @@ func GetMetadataService(getter dependency.Getter, name string) (MetadataService,
 
 // AllowDraining returns true if the worker should allow draining. This
 // currently is only true for the bootstrap controller.
-func AllowDraining(config controller.Config, isBootstrapController bool) bool {
-	return config.ObjectStoreType() == coreobjectstore.S3Backend && isBootstrapController
+func AllowDraining(info objectstoreservice.BackendInfo, isBootstrapController bool) bool {
+	return info.Type == coreobjectstore.S3Backend && isBootstrapController
 }

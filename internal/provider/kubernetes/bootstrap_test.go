@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/pointer"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
@@ -68,7 +69,8 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	s.namespace = controllerName
 
 	cfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.NameKey: "controller-1",
+		config.NameKey:   "controller-1",
+		"logging-config": "<root>=WARNING;juju.bootstrap=INFO",
 	}))
 	c.Assert(err, tc.ErrorIsNil)
 	s.cfg = cfg
@@ -103,6 +105,10 @@ func (s *bootstrapSuite) SetUpTest(c *tc.C) {
 	}
 	pcfg.Bootstrap.ControllerConfig = s.controllerCfg
 	s.pcfg = pcfg
+	if s.pcfg.AgentEnvironment == nil {
+		s.pcfg.AgentEnvironment = make(map[string]string)
+	}
+	s.pcfg.AgentEnvironment[agent.LoggingOverride] = "juju.bootstrap=TRACE"
 	s.controllerStackerGetter = func() kubernetes.ControllerStackerForTest {
 		controllerStacker, err := kubernetes.NewcontrollerStackForTest(
 			envtesting.BootstrapContext(c.Context(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
@@ -408,6 +414,25 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 		},
 	}
 
+	headlessSvc := &core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "juju-controller-test-service-endpoints",
+			Namespace: s.namespace,
+			Labels: map[string]string{
+				"app.kubernetes.io/managed-by": "juju",
+				"app.kubernetes.io/name":       "juju-controller-test",
+				"service.juju.is/type":         "endpoints",
+			},
+			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
+		},
+		Spec: core.ServiceSpec{
+			Selector:                 map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
+			Type:                     core.ServiceType("ClusterIP"),
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+
 	secretControllerAppConfig := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "juju-controller-test-application-config",
@@ -469,7 +494,7 @@ func (s *bootstrapSuite) TestBootstrap(c *tc.C) {
 			Annotations: map[string]string{"controller.juju.is/id": coretesting.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
-			ServiceName: "juju-controller-test-service",
+			ServiceName: "juju-controller-test-service-endpoints",
 			Replicas:    &numberOfPods,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"app.kubernetes.io/name": "juju-controller-test"},
@@ -666,19 +691,19 @@ export JUJU_DATA_DIR=/var/lib/juju
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
-cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+cp /opt/jujuagentd $JUJU_TOOLS_DIR/jujuagentd
 
-test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujud bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
+test -e $JUJU_DATA_DIR/agents/controller-0/agent.conf || JUJU_DEV_FEATURE_FLAGS=developer-mode $JUJU_TOOLS_DIR/jujuagentd bootstrap-state --data-dir $JUJU_DATA_DIR --debug --timeout 10m0s
 
 mkdir -p /var/lib/pebble/default/layers
-cat > /var/lib/pebble/default/layers/001-jujud.yaml <<EOF
-summary: jujud service
+cat > /var/lib/pebble/default/layers/001-jujuagentd.yaml <<EOF
+summary: jujuagentd service
 services:
-    jujud:
+    jujuagentd:
         summary: Juju controller agent
         startup: enabled
         override: replace
-        command: $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
+        command: $JUJU_TOOLS_DIR/jujuagentd machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-to-stderr --debug
         environment:
             JUJU_DEV_FEATURE_FLAGS: developer-mode
 
@@ -1036,6 +1061,10 @@ exec /opt/pebble run --http :38811 --verbose
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(svc, tc.DeepEquals, svcProvisioned)
 
+		headless, err := s.mockServices.Get(c.Context(), `juju-controller-test-service-endpoints`, v1.GetOptions{})
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(headless, tc.DeepEquals, headlessSvc)
+
 		secret, err := s.mockSecrets.Get(c.Context(), "juju-controller-test-application-config", v1.GetOptions{})
 		c.Assert(err, tc.ErrorIsNil)
 		c.Assert(secret, tc.DeepEquals, secretControllerAppConfig)
@@ -1099,6 +1128,10 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *tc.C) {
 	s.ensureJujuNamespaceAnnotations(true, ns)
 
 	ctxDoneChan := make(chan struct{}, 1)
+
+	// Logging during bootstrap/cleanup extracts the trace ID from the
+	// context, so allow Value lookups from the mock context.
+	mockStdCtx.EXPECT().Value(gomock.Any()).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		mockStdCtx.EXPECT().Err().Return(nil),

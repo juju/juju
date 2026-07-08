@@ -1,0 +1,31 @@
+// Copyright 2017 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package firewaller
+
+import (
+	"github.com/juju/names/v6"
+
+	"github.com/juju/juju/core/life"
+)
+
+// Relation represents a juju relation as seen by the firewaller worker.
+type Relation struct {
+	tag  names.RelationTag
+	life life.Value
+}
+
+// NewRelation creates a new Relation with the given tag and life value.
+func NewRelation(tag names.RelationTag, life life.Value) *Relation {
+	return &Relation{tag: tag, life: life}
+}
+
+// Tag returns the relation tag.
+func (r *Relation) Tag() names.RelationTag {
+	return r.tag
+}
+
+// Life returns the relation's life cycle value.
+func (r *Relation) Life() life.Value {
+	return r.life
+}
