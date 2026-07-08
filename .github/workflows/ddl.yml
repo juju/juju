@@ -10,7 +10,7 @@ jobs:
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout PR
-        uses: actions/checkout@v3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Check for DDL changes
         run: |
@@ -27,4 +27,3 @@ jobs:
             echo "*****"
             exit 1
           fi
-
