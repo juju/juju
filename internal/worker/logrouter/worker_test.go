@@ -39,7 +39,7 @@ func (s *workerSuite) TestStartsLogSinkWhenLokiEndpointEmpty(c *tc.C) {
 	events := make(chan backendEvent, 10)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -67,7 +67,7 @@ func (s *workerSuite) TestSwitchStopsOldBackendAndStartsNew(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -113,7 +113,7 @@ func (s *workerSuite) TestSwitchReplaysPendingRecordsToNewBackend(c *tc.C) {
 	var oldBackend *pendingBackend
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:              fixture.agent,
+		LokiConfigProvider: fixture.agent,
 		LogSource:          fixture.logs,
 		AgentConfigChanged: fixture.configChanged,
 		Logger:             internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -173,7 +173,7 @@ func (s *workerSuite) TestConcurrentLogDuringBackendSwitch(c *tc.C) {
 	events := make(chan backendEvent, 50)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -255,7 +255,7 @@ func (s *workerSuite) TestDrainOnlyOverridesEndpoint(c *tc.C) {
 	events := make(chan backendEvent, 10)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -281,7 +281,7 @@ func (s *workerSuite) TestBackendFailureFallsBackToDrain(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -328,7 +328,7 @@ func (s *workerSuite) TestBackendStartErrorFallsBackToDrain(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -375,7 +375,7 @@ func (s *workerSuite) TestBackendRestartRefreshesActiveChannel(c *tc.C) {
 	events := make(chan backendEvent, 20)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -450,7 +450,7 @@ func (s *workerSuite) TestReportIncludesActiveBackendAndBackendReports(c *tc.C) 
 	events := make(chan backendEvent, 10)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -542,6 +542,20 @@ func (a *testAgent) ChangeConfig(change agent.ConfigMutator) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return change(a.cfg)
+}
+
+func (a *testAgent) CurrentLokiConfig() (ConfigSnapshot, error) {
+	cfg := a.CurrentConfig()
+	snapshot := ConfigSnapshot{
+		Endpoint:           cfg.LokiEndpoint(),
+		CACertificate:      cfg.LokiCACert(),
+		InsecureSkipVerify: cfg.LokiInsecureSkipVerify(),
+		ControllerUUID:     cfg.Controller().Id(),
+		ModelUUID:          cfg.Model().Id(),
+		AgentID:            cfg.Tag().String(),
+		OrgID:              cfg.LokiOrgID(),
+	}
+	return snapshot, nil
 }
 
 func (a *testAgent) setLokiConfig(endpoint, caCert string) {
@@ -836,7 +850,7 @@ func (s *workerSuite) TestManageLegacyLogSinkWriterOnLokiSwitch(c *tc.C) {
 	removeCh := make(chan struct{}, 1)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -904,7 +918,7 @@ func (s *workerSuite) TestManageLegacyLogSinkWriterOnLogSinkSwitch(c *tc.C) {
 	removeCh := make(chan struct{}, 1)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -1007,7 +1021,7 @@ func (s *workerSuite) TestManageLegacyLogSinkWriterDrainOnly(c *tc.C) {
 	removeCh := make(chan struct{}, 1)
 
 	w, err := NewWorker(WorkerConfig{
-		Agent:                     fixture.agent,
+		LokiConfigProvider:        fixture.agent,
 		LogSource:                 fixture.logs,
 		AgentConfigChanged:        fixture.configChanged,
 		Logger:                    internallogger.GetLogger("juju.worker.logrouter.test"),

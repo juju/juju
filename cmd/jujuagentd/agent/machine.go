@@ -75,6 +75,7 @@ import (
 	workerflightrecorder "github.com/juju/juju/internal/worker/flightrecorder"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/introspection"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
@@ -155,6 +156,22 @@ func (p machineControllerStartupValueProvider) APIInfo() (*api.Info, error) {
 		return nil, errors.NotFoundf("API info")
 	}
 	return info, nil
+}
+
+// CurrentLokiConfig returns the current logrouter backend configuration from
+// agent config. It re-reads current values on each call so bounced workers
+// see current logging destination settings.
+func (p machineControllerStartupValueProvider) CurrentLokiConfig() (logrouter.ConfigSnapshot, error) {
+	cfg := p.agent.CurrentConfig()
+	return logrouter.ConfigSnapshot{
+		Endpoint:           cfg.LokiEndpoint(),
+		CACertificate:      cfg.LokiCACert(),
+		InsecureSkipVerify: cfg.LokiInsecureSkipVerify(),
+		ControllerUUID:     cfg.Controller().Id(),
+		ModelUUID:          cfg.Model().Id(),
+		AgentID:            cfg.Tag().String(),
+		OrgID:              cfg.LokiOrgID(),
+	}, nil
 }
 
 // machineModelStartupValueProvider supplies current model-local startup

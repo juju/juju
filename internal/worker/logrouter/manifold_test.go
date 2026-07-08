@@ -17,7 +17,6 @@ import (
 	"github.com/juju/worker/v5/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 
-	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	corehttp "github.com/juju/juju/core/http"
 	corelogger "github.com/juju/juju/core/logger"
@@ -34,6 +33,15 @@ func TestManifoldSuite(t *testing.T) {
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	manifold := Manifold(ManifoldConfig{
+		APICallerName:  "api-caller",
+		HTTPClientName: "http-client",
+	})
+
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"api-caller", "http-client"})
+}
+
+func (s *manifoldSuite) TestInputsIncludesAgentName(c *tc.C) {
+	manifold := Manifold(ManifoldConfig{
 		AgentName:      "agent",
 		APICallerName:  "api-caller",
 		HTTPClientName: "http-client",
@@ -44,11 +52,10 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 
 func (s *manifoldSuite) TestControllerInputs(c *tc.C) {
 	manifold := ControllerManifold(ControllerManifoldConfig{
-		AgentName:      "agent",
 		HTTPClientName: "http-client",
 	})
 
-	c.Check(manifold.Inputs, tc.DeepEquals, []string{"agent", "http-client"})
+	c.Check(manifold.Inputs, tc.DeepEquals, []string{"http-client"})
 }
 
 func (s *manifoldSuite) TestValidateAcceptsValidConfig(c *tc.C) {
@@ -74,17 +81,15 @@ func (s *manifoldSuite) TestStartValidatesBeforeGetter(c *tc.C) {
 	})
 	c.Check(w, tc.IsNil)
 	c.Assert(err, tc.NotNil)
-	c.Check(err.Error(), tc.Equals, `empty AgentName not valid`)
+	c.Check(err.Error(), tc.Equals, `empty AgentName and nil LokiConfigProvider not valid`)
 	c.Check(getterCalled.Load(), tc.IsFalse)
 }
 
 func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
-	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	cfg := s.validManifoldConfig(c)
 	manifold := Manifold(cfg)
 
 	w, err := manifold.Start(c.Context(), manifoldGetter{
-		agent:     fixture.agent,
 		apiCaller: stubAPICaller{},
 		http:      stubHTTPClientGetter{},
 	})
@@ -93,13 +98,11 @@ func (s *manifoldSuite) TestStartCreatesWorkerWithoutUsingAPICaller(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestControllerStartCreatesWorkerWithoutAPICaller(c *tc.C) {
-	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	cfg := s.validControllerManifoldConfig(c)
 	manifold := ControllerManifold(cfg)
 
 	w, err := manifold.Start(c.Context(), manifoldGetter{
-		agent: fixture.agent,
-		http:  stubHTTPClientGetter{},
+		http: stubHTTPClientGetter{},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -238,9 +241,9 @@ func (s *manifoldSuite) TestNewControllerBackendUsesLokiBackendForLokiMode(c *tc
 func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ManifoldConfig{
-		AgentName:            "agent",
 		APICallerName:        "api-caller",
 		HTTPClientName:       "http-client",
+		LokiConfigProvider:   fixture.agent,
 		LogSource:            fixture.logs,
 		AgentConfigChanged:   fixture.configChanged,
 		Logger:               internallogger.GetLogger("juju.worker.logrouter.test"),
@@ -257,8 +260,8 @@ func (s *manifoldSuite) validManifoldConfig(c *tc.C) ManifoldConfig {
 func (s *manifoldSuite) validControllerManifoldConfig(c *tc.C) ControllerManifoldConfig {
 	fixture := newFixture(c, "http://loki/loki/api/v1/push")
 	return ControllerManifoldConfig{
-		AgentName:            "agent",
 		HTTPClientName:       "http-client",
+		LokiConfigProvider:   fixture.agent,
 		AgentConfigChanged:   fixture.configChanged,
 		Logger:               internallogger.GetLogger("juju.worker.logrouter.test"),
 		Clock:                clock.WallClock,
@@ -285,7 +288,6 @@ func (s *manifoldSuite) TestValidateRejectsNilAddLegacyLogSinkWriter(c *tc.C) {
 }
 
 type manifoldGetter struct {
-	agent     coreagent.Agent
 	apiCaller base.APICaller
 	http      corehttp.HTTPClientGetter
 	called    *atomic.Bool
@@ -300,8 +302,6 @@ func (g manifoldGetter) Get(_ string, out any) error {
 		return g.err
 	}
 	switch out := out.(type) {
-	case *coreagent.Agent:
-		*out = g.agent
 	case *base.APICaller:
 		*out = g.apiCaller
 	case *corehttp.HTTPClientGetter:

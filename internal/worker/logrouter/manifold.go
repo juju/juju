@@ -44,9 +44,20 @@ type ControllerBackendFuncFactory func(
 
 // ManifoldConfig defines the names of the manifolds used by logrouter.
 type ManifoldConfig struct {
-	AgentName            string
-	APICallerName        string
-	HTTPClientName       string
+	// AgentName is the dependency name for the agent manifold. When set,
+	// the manifold reads the current agent config to create a
+	// LokiConfigProvider. Use AgentName for non-controller paths
+	// where the agent is available through the dependency graph.
+	AgentName string
+
+	APICallerName  string
+	HTTPClientName string
+
+	// LokiConfigProvider is a direct LokiConfigProvider. When set, it
+	// takes precedence over AgentName. Use this for controller paths
+	// where the provider is injected directly.
+	LokiConfigProvider LokiConfigProvider
+
 	LogSource            logsender.LogRecordCh
 	AgentConfigChanged   *voyeur.Value
 	Logger               corelogger.Logger
@@ -56,19 +67,14 @@ type ManifoldConfig struct {
 
 	NewBackendFunc BackendFuncFactory
 
-	// RemoveLegacyLogSinkWriter is called when switching to Loki
-	// backend mode. It must be idempotent.
 	RemoveLegacyLogSinkWriter func()
-
-	// AddLegacyLogSinkWriter is called when switching to LogSink
-	// backend mode. It must be idempotent.
-	AddLegacyLogSinkWriter func() error
+	AddLegacyLogSinkWriter    func() error
 }
 
 // Validate validates the manifold configuration.
 func (c ManifoldConfig) Validate() error {
-	if c.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
+	if c.AgentName == "" && c.LokiConfigProvider == nil {
+		return errors.NotValidf("empty AgentName and nil LokiConfigProvider")
 	}
 	if c.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
@@ -105,22 +111,28 @@ func (c ManifoldConfig) Validate() error {
 
 // Manifold returns a dependency manifold that runs the logrouter worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{config.APICallerName, config.HTTPClientName}
+	if config.AgentName != "" {
+		inputs = append([]string{config.AgentName}, inputs...)
+	}
+
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-			config.APICallerName,
-			config.HTTPClientName,
-		},
+		Inputs: inputs,
 		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, internalerrors.Capture(err)
 			}
 
-			var a agent.Agent
-			if err := getter.Get(config.AgentName, &a); err != nil {
-				return nil, err
+			lokiConfigProvider := config.LokiConfigProvider
+			if lokiConfigProvider == nil {
+				var a agent.Agent
+				if err := getter.Get(config.AgentName, &a); err != nil {
+					return nil, err
+				}
+				lokiConfigProvider = agentLokiConfigProvider{agent: a}
 			}
+
 			var apiCaller base.APICaller
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
@@ -135,7 +147,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:                     a,
+				LokiConfigProvider:        lokiConfigProvider,
 				LogSource:                 config.LogSource,
 				AgentConfigChanged:        config.AgentConfigChanged,
 				Logger:                    config.Logger,
@@ -151,11 +163,30 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
+// agentLokiConfigProvider wraps an agent.Agent and implements
+// LokiConfigProvider by reading from the current agent config.
+type agentLokiConfigProvider struct {
+	agent agent.Agent
+}
+
+func (p agentLokiConfigProvider) CurrentLokiConfig() (ConfigSnapshot, error) {
+	cfg := p.agent.CurrentConfig()
+	return ConfigSnapshot{
+		Endpoint:           cfg.LokiEndpoint(),
+		CACertificate:      cfg.LokiCACert(),
+		InsecureSkipVerify: cfg.LokiInsecureSkipVerify(),
+		ControllerUUID:     cfg.Controller().Id(),
+		ModelUUID:          cfg.Model().Id(),
+		AgentID:            cfg.Tag().String(),
+		OrgID:              cfg.LokiOrgID(),
+	}, nil
+}
+
 // ControllerManifoldConfig defines the names of the manifolds used by the
 // controller-local logrouter path.
 type ControllerManifoldConfig struct {
-	AgentName            string
 	HTTPClientName       string
+	LokiConfigProvider   LokiConfigProvider
 	AgentConfigChanged   *voyeur.Value
 	Logger               corelogger.Logger
 	Clock                clock.Clock
@@ -167,11 +198,11 @@ type ControllerManifoldConfig struct {
 
 // Validate validates the controller-local manifold configuration.
 func (c ControllerManifoldConfig) Validate() error {
-	if c.AgentName == "" {
-		return errors.NotValidf("empty AgentName")
-	}
 	if c.HTTPClientName == "" {
 		return errors.NotValidf("empty HTTPClientName")
+	}
+	if c.LokiConfigProvider == nil {
+		return errors.NotValidf("nil LokiConfigProvider")
 	}
 	if c.AgentConfigChanged == nil {
 		return errors.NotValidf("nil AgentConfigChanged")
@@ -200,7 +231,6 @@ func (c ControllerManifoldConfig) Validate() error {
 func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.AgentName,
 			config.HTTPClientName,
 		},
 		Output: outputFunc,
@@ -209,10 +239,6 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 				return nil, internalerrors.Capture(err)
 			}
 
-			var a agent.Agent
-			if err := getter.Get(config.AgentName, &a); err != nil {
-				return nil, err
-			}
 			var httpClientGetter corehttp.HTTPClientGetter
 			if err := getter.Get(config.HTTPClientName, &httpClientGetter); err != nil {
 				return nil, err
@@ -223,7 +249,7 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:                     a,
+				LokiConfigProvider:        config.LokiConfigProvider,
 				LogSource:                 make(logsender.LogRecordCh),
 				AgentConfigChanged:        config.AgentConfigChanged,
 				Logger:                    config.Logger,

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/worker/v5/catacomb"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/agent"
 	corelogger "github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -43,10 +42,11 @@ const (
 	BackendTypeDrain BackendType = "drain-only"
 )
 
-// Agent describes the agent configuration methods used by the router.
-type Agent interface {
-	// CurrentConfig returns the latest agent configuration snapshot.
-	CurrentConfig() agent.Config
+// LokiConfigProvider supplies the current logrouter configuration values.
+// Implementations must re-read current values on each call so bounced workers
+// see current logging destination settings.
+type LokiConfigProvider interface {
+	CurrentLokiConfig() (ConfigSnapshot, error)
 }
 
 // Backend is a worker that accepts log records.
@@ -82,28 +82,18 @@ type Metrics interface {
 
 // WorkerConfig contains logrouter worker configuration.
 type WorkerConfig struct {
-	Agent              Agent
-	LogSource          logsender.LogRecordCh
-	AgentConfigChanged *voyeur.Value
-	Logger             corelogger.Logger
-	Clock              clock.Clock
-	Metrics            Metrics
-
-	DrainOnly       bool
-	ConvergeTimeout time.Duration
-	RestartDelay    time.Duration
-
-	NewBackend BackendFunc
-
-	// RemoveLegacyLogSinkWriter is called when switching to Loki
-	// backend mode. It should remove the legacy "logsink" writer
-	// from the default loggo context. It must be idempotent.
+	LokiConfigProvider        LokiConfigProvider
+	LogSource                 logsender.LogRecordCh
+	AgentConfigChanged        *voyeur.Value
+	Logger                    corelogger.Logger
+	Clock                     clock.Clock
+	Metrics                   Metrics
+	DrainOnly                 bool
+	ConvergeTimeout           time.Duration
+	RestartDelay              time.Duration
+	NewBackend                BackendFunc
 	RemoveLegacyLogSinkWriter func()
-
-	// AddLegacyLogSinkWriter is called when switching to LogSink
-	// backend mode. It should add the legacy "logsink" writer to
-	// the default loggo context. It must be idempotent.
-	AddLegacyLogSinkWriter func() error
+	AddLegacyLogSinkWriter    func() error
 }
 
 // ConfigSnapshot is the local logging destination configuration.
@@ -139,8 +129,8 @@ func (s ConfigSnapshot) sameBackend(other ConfigSnapshot) bool {
 
 // Validate checks that the worker configuration is usable.
 func (c *WorkerConfig) Validate() error {
-	if c.Agent == nil {
-		return errors.NotValidf("nil Agent")
+	if c.LokiConfigProvider == nil {
+		return errors.NotValidf("nil LokiConfigProvider")
 	}
 	if c.LogSource == nil {
 		return errors.NotValidf("nil LogSource")
@@ -416,15 +406,10 @@ func (w *logRouter) nextBackendID() string {
 }
 
 func (w *logRouter) currentSnapshot() ConfigSnapshot {
-	cfg := w.config.Agent.CurrentConfig()
-	snapshot := ConfigSnapshot{
-		Endpoint:           cfg.LokiEndpoint(),
-		CACertificate:      cfg.LokiCACert(),
-		InsecureSkipVerify: cfg.LokiInsecureSkipVerify(),
-		ControllerUUID:     cfg.Controller().Id(),
-		ModelUUID:          cfg.Model().Id(),
-		AgentID:            cfg.Tag().String(),
-		OrgID:              cfg.LokiOrgID(),
+	snapshot, err := w.config.LokiConfigProvider.CurrentLokiConfig()
+	if err != nil {
+		w.config.Logger.Warningf(context.TODO(), "failed to read logrouter snapshot: %v", err)
+		return ConfigSnapshot{Mode: BackendTypeDrain}
 	}
 	switch {
 	case w.config.DrainOnly:
