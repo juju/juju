@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/internal/worker/changestreampruner"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/controllerlogger"
+	"github.com/juju/juju/internal/worker/controllerlokiupdater"
 	"github.com/juju/juju/internal/worker/controllerpresence"
 	"github.com/juju/juju/internal/worker/controlsocket"
 	"github.com/juju/juju/internal/worker/dbaccessor"
@@ -67,6 +69,7 @@ import (
 	"github.com/juju/juju/internal/worker/jwtparser"
 	leasemanager "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
@@ -136,6 +139,11 @@ type ManifoldsConfig struct {
 	// LogDir is the controller process log directory for workers in this change
 	// area that still take a fixed local path.
 	LogDir string
+
+	// ControllerRuntimePath is the path to the controller runtime
+	// configuration file (runtime.conf). It is used by the controller
+	// loki config updater to persist Loki endpoint changes.
+	ControllerRuntimePath string
 
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
@@ -275,6 +283,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}
 		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
 	}
+	logRouterConfigChanged := voyeur.NewValue(false)
 
 	return dependency.Manifolds{
 		// Bootstrap gate/flag manifolds coordinate workers that should
@@ -306,6 +315,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        config.ConfigChangeSocketPath,
 		}),
+
+		// logRouterReloadBridgeName bridges controller agent config
+		// reload notifications onto the dedicated Value watched by the
+		// controller-local logrouter.
+		logRouterReloadBridgeName: controlleragentconfig.ConfigChangedValueBridgeManifold(
+			controlleragentconfig.ConfigChangedValueBridgeManifoldConfig{
+				ControllerAgentConfigName: controllerAgentConfigName,
+				ConfigChangedValue:        logRouterConfigChanged,
+			},
+		),
 
 		// The certificate-watcher manifold monitors the API server
 		// certificate in the agent config for changes, and parses and
@@ -473,11 +492,38 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:           httpserver.NewWorkerShim,
 		}),
 
+		// lokiConfigUpdaterName watches the logging domain for
+		// Loki config changes and persists them to runtime.conf so the
+		// controller logrouter picks up updates on bounce.
+		lokiConfigUpdaterName: controllerlokiupdater.Manifold(controllerlokiupdater.ManifoldConfig{
+			DomainServicesName:     domainServicesName,
+			RuntimeConfigPath:      config.ControllerRuntimePath,
+			ConfigChangeSocketPath: config.ConfigChangeSocketPath,
+			Logger:                 internallogger.GetLogger("juju.worker.controllerlokiupdater"),
+		}),
+
+		// logRouterName is a controller-only logrouter that
+		// writes to the local logsink directly in logsink mode, avoiding
+		// the cycle: log-router -> api-caller -> api-server -> log-sink ->
+		// log-router.
+		logRouterName: logrouter.ControllerManifold(logrouter.ControllerManifoldConfig{
+			HTTPClientName:       httpClientName,
+			LokiConfigProvider:   config.StartupValueProvider,
+			AgentConfigChanged:   logRouterConfigChanged,
+			Logger:               internallogger.GetLogger("juju.worker.logrouter.controller"),
+			Clock:                config.Clock,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			LocalLogSink:         config.LogSink,
+			NewBackendFunc:       logrouter.NewControllerBackend,
+		}),
+
+		// logSinkName is the controller-local log sink that
+		// uses the controller-local logrouter.
 		logSinkName: logsink.Manifold(logsink.ManifoldConfig{
 			AgentTag:       config.ControllerAgentTag,
+			LogRouterName:  logRouterName,
 			NewWorker:      logsink.NewWorker,
 			NewModelLogger: logsink.NewModelLogger,
-			LogSink:        config.LogSink,
 		}),
 
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
@@ -1108,6 +1154,7 @@ type ControllerStartupValueProvider interface {
 	apiremotecaller.APIInfoProvider
 	controllerlogger.LoggingOverrideReader
 	identityfilewriter.SystemIdentityReader
+	logrouter.LokiConfigProvider
 }
 
 const (
@@ -1162,7 +1209,10 @@ const (
 	leaseExpiryName                    = "lease-expiry"
 	leaseManagerName                   = "lease-manager"
 	loggingControllerConfigUpdaterName = "logging-controller-config-updater"
+	logRouterName                      = "log-router"
+	logRouterReloadBridgeName          = "log-router-reload-bridge"
 	logSinkName                        = "log-sink"
+	lokiConfigUpdaterName              = "loki-config-updater"
 	modelWorkerManagerName             = "model-worker-manager"
 	objectStoreName                    = "object-store"
 	objectStoreS3CallerName            = "object-store-s3-caller"
