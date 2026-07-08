@@ -1,6 +1,87 @@
 # SHORT_TIMEOUT is the time between polling attempts.
 SHORT_TIMEOUT=5
 
+# TODO: temporary function added to diagnose why machines sometimes stay in
+# "pending" state in CI. Remove this function and its call site once root
+# cause is found and fixed.
+dump_timeout_diagnostics() {
+	echo "    machines:"
+	juju show-machine 2>&1 | sed 's/^/    | /g'
+
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"lxd")
+		dump_lxd_diagnostics
+		;;
+	"ec2")
+		dump_aws_diagnostics
+		;;
+	"microk8s" | "k8s")
+		dump_k8s_diagnostics
+		;;
+	esac
+}
+
+# TODO: remove along with dump_timeout_diagnostics.
+dump_lxd_diagnostics() {
+	echo "    LXD container logs:"
+	juju show-machine --format json 2>/dev/null | yq -r '.machines | to_entries | .[] | "\(.key) \(.value["instance-id"])"' 2>/dev/null | while read -r m_id inst_id; do
+		if [[ "${inst_id}" != "pending" && -n "${inst_id}" ]]; then
+			echo "    === machine ${m_id} (${inst_id}) ==="
+			echo "    --- cloud-init-output.log (tail 40) ---"
+			lxc exec "${inst_id}" -- tail -40 /var/log/cloud-init-output.log 2>&1 | sed 's/^/    |     /g' || true
+			echo "    --- agent dir & config ---"
+			lxc exec "${inst_id}" -- ls -laR /var/lib/juju/agents/ 2>&1 | sed 's/^/    |     /g' || true
+			echo "    --- jujud/jujuagentd processes ---"
+			lxc exec "${inst_id}" -- ps aux 2>&1 | grep -iE 'jujud|jujuagentd' | sed 's/^/    |     /g' || true
+			echo "    --- machine agent log (tail 40) ---"
+			lxc exec "${inst_id}" -- bash -c 'for f in /var/log/juju/machine-*.log; do [ -f "$f" ] && echo "=== $f ===" && tail -40 "$f"; done' 2>&1 | sed 's/^/    |     /g' || true
+			echo "    --- journalctl (jujud/jujuagentd, tail 20) ---"
+			lxc exec "${inst_id}" -- journalctl -u 'juju*' --no-pager -n 20 2>&1 | sed 's/^/    |     /g' || true
+		fi
+	done
+}
+
+# TODO: remove along with dump_timeout_diagnostics.
+dump_aws_diagnostics() {
+	if ! command -v aws >/dev/null 2>&1; then
+		return
+	fi
+	echo "    AWS instance diagnostics:"
+	juju show-machine --format json 2>/dev/null | yq -r '.machines | to_entries | .[] | "\(.key) \(.value["instance-id"])"' 2>/dev/null | while read -r m_id inst_id; do
+		if [[ "${inst_id}" != "pending" && -n "${inst_id}" ]]; then
+			echo "    === machine ${m_id} (${inst_id}) ==="
+			echo "    --- console output (tail 80) ---"
+			aws ec2 get-console-output --instance-id "${inst_id}" 2>/dev/null | yq -r '.Output // ""' 2>/dev/null | tail -80 | sed 's/^/    |     /g' || true
+			echo "    --- instance state ---"
+			aws ec2 describe-instances --instance-ids "${inst_id}" --query 'Reservations[0].Instances[0].State.Name' --output text 2>&1 | sed 's/^/    |     /g' || true
+		fi
+	done
+}
+
+# TODO: remove along with dump_timeout_diagnostics.
+dump_k8s_diagnostics() {
+	local model_name
+	model_name=$(juju show-model --format json 2>/dev/null | yq -r 'keys[0]' 2>/dev/null || echo "")
+	if [[ -z "${model_name}" ]]; then
+		return
+	fi
+	echo "    k8s diagnostics (namespace: ${model_name}):"
+	echo "    --- pods ---"
+	microk8s kubectl -n "${model_name}" get pods -o wide 2>&1 | sed 's/^/    |     /g' || true
+	echo "    --- non-running pods ---"
+	microk8s kubectl -n "${model_name}" get pods --no-headers 2>/dev/null | awk '$3 != "Running" {print $1}' | while read -r pod; do
+		if [[ -n "${pod}" ]]; then
+			echo "    === pod ${pod} ==="
+			echo "    --- describe ---"
+			microk8s kubectl -n "${model_name}" describe pod "${pod}" 2>&1 | tail -40 | sed 's/^/    |     /g' || true
+			echo "    --- logs (tail 40) ---"
+			microk8s kubectl -n "${model_name}" logs "${pod}" --tail=40 --all-containers=true 2>&1 | sed 's/^/    |     /g' || true
+		fi
+	done
+	echo "    --- events (tail 20) ---"
+	microk8s kubectl -n "${model_name}" get events --sort-by=.lastTimestamp 2>&1 | tail -20 | sed 's/^/    |     /g' || true
+}
+
 # wait_for defines the ability to wait for a given condition to happen in a
 # juju status output. The output is JSON, so everything that the API server
 # knows about should be valid.
@@ -29,6 +110,8 @@ wait_for() {
 		elapsed=$(date -u +%s)-$start_time
 		if [[ ${elapsed} -ge ${timeout} ]]; then
 			echo "[-] $(red 'timed out waiting for')" "$(red "${name}")"
+			# TODO: remove when dump_timeout_diagnostics is removed.
+			dump_timeout_diagnostics
 			echo "    (controller) juju debug-log output"
 			juju debug-log -m controller --replay --no-tail 2>&1 | sed 's/^/    | /g'
 			echo "    (model) juju debug-log output"
