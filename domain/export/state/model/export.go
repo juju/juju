@@ -801,6 +801,10 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRemoteUnitConsumer statement: %w", err)
 	}
+	stmtSecretReservation, err := sqlair.Prepare(`SELECT &SecretReservation.* FROM "secret_reservation"`, v4_1_0.SecretReservation{})
+	if err != nil {
+		return nil, fmt.Errorf("preparing SecretReservation statement: %w", err)
+	}
 	stmtSecretRevision, err := sqlair.Prepare(`SELECT &SecretRevision.* FROM "secret_revision"`, v4_1_0.SecretRevision{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing SecretRevision statement: %w", err)
@@ -1604,6 +1608,9 @@ func (st *State) Export(ctx context.Context) (*v4_1_0.ModelExport, error) {
 		}
 		if err := tx.Query(ctx, stmtSecretRemoteUnitConsumer).GetAll(&modelExport.SecretRemoteUnitConsumer); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying SecretRemoteUnitConsumer (table secret_remote_unit_consumer): %w", err)
+		}
+		if err := tx.Query(ctx, stmtSecretReservation).GetAll(&modelExport.SecretReservation); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("querying SecretReservation (table secret_reservation): %w", err)
 		}
 		if err := tx.Query(ctx, stmtSecretRevision).GetAll(&modelExport.SecretRevision); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("querying SecretRevision (table secret_revision): %w", err)

@@ -9,7 +9,13 @@ import (
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export/types/latest"
 	"github.com/juju/juju/domain/export/types/v4_0_11"
+	"github.com/juju/juju/domain/export/types/v4_0_12"
+	"github.com/juju/juju/domain/export/types/v4_0_4"
+	"github.com/juju/juju/domain/export/types/v4_0_6"
 	"github.com/juju/juju/domain/modelimport/transformer"
+	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_0_11"
+	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_0_12"
+	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_0_6"
 	"github.com/juju/juju/domain/modelimport/transformer/transforms/to_v4_1_0"
 )
 
@@ -17,8 +23,20 @@ import (
 // the controller knows about. It is consumed by NewTransformer (in
 // modelimport.go) alongside export.ExportVersions.
 var registered = []transformer.Transformation{
-	transformer.NewTransformation[v4_0_11.ModelExport, latest.ModelExport](
-		semversion.MustParse("4.0.11"), semversion.MustParse("4.1.0"),
+	transformer.NewTransformation[v4_0_4.ModelExport, v4_0_6.ModelExport](
+		semversion.MustParse("4.0.4"), semversion.MustParse("4.0.6"),
+		to_v4_0_6.NewTransform(to_v4_0_6.NewDeltas()),
+	),
+	transformer.NewTransformation[v4_0_6.ModelExport, v4_0_11.ModelExport](
+		semversion.MustParse("4.0.6"), semversion.MustParse("4.0.11"),
+		to_v4_0_11.NewTransform(to_v4_0_11.NewDeltas()),
+	),
+	transformer.NewTransformation[v4_0_11.ModelExport, v4_0_12.ModelExport](
+		semversion.MustParse("4.0.11"), semversion.MustParse("4.0.12"),
+		to_v4_0_12.NewTransform(to_v4_0_12.NewDeltas()),
+	),
+	transformer.NewTransformation[v4_0_12.ModelExport, latest.ModelExport](
+		semversion.MustParse("4.0.12"), semversion.MustParse("4.1.0"),
 		to_v4_1_0.NewTransform(to_v4_1_0.NewDeltas()),
 	),
 }
