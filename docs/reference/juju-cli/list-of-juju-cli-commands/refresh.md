@@ -37,9 +37,15 @@ To refresh the application config from a file for application `foo`:
 
 	juju refresh foo --config config.yaml
 
-To refresh the resources for application `foo`:
+To refresh the resources for application `foo` using a local file:
 
 	juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+To pin a resource to a specific Charmhub revision:
+
+	juju refresh foo --resource bar=42
+
+Where `bar` and `baz` are resources named in the metadata for the `foo` charm.
 
 
 ## Details
@@ -99,8 +105,6 @@ Upload a local file:
 Pin a resource to a specific Charmhub revision:
 
     juju refresh foo --resource bar=42
-
-Where bar and baz are resources named in the metadata for the foo charm.
 
 Storage constraints may be added or updated at upgrade time by specifying
 the `--storage` option, with the same format as specified in `juju deploy`.
