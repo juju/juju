@@ -162,6 +162,7 @@ The `--lines` and `--limit` options control the number of log lines displayed:
 * the `--lines` option prints the specified number of the most recent lines and then waits for new lines. This implies --tail.
 * the `--limit` option prints up to the specified number of the most recent lines and exits. This implies --no-tail.
 * setting `--lines` or `--limit` to 0 will print the maximum number of the most recent lines available.
+* the maximum value for `--lines` and `--limit` is 10,000. Requests above this limit return an error.
 
 The `--replay` option displays log lines starting from the beginning.
 
