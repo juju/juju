@@ -42,6 +42,7 @@ type MockStateMockRecorder struct {
 	getAllSpacesExpects                         []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
 	getAllSubnetsExpects                        []*gomock.Call1_2[context.Context, network.SubnetInfos, error]
 	getContainerNetworkingMethodExpects         []*gomock.Call1_2[context.Context, string, error]
+	getControllerAPIAddressesExpects            []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	getMachineAppBindingsExpects                []*gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
 	getMachineNetNodeUUIDExpects                []*gomock.Call2_2[context.Context, string, string, error]
@@ -268,6 +269,24 @@ func (mr *MockStateMockRecorder) GetContainerNetworkingMethod(ctx any) *MockStat
 
 // MockStateGetContainerNetworkingMethodCall is the typed call wrapper for GetContainerNetworkingMethod.
 type MockStateGetContainerNetworkingMethodCall = gomock.Call1_2[context.Context, string, error]
+
+// GetControllerAPIAddresses mocks base method.
+func (m *MockState) GetControllerAPIAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getControllerAPIAddressesExpects, m.ctrl, m, "GetControllerAPIAddresses", ctx, uuid)
+}
+
+// GetControllerAPIAddresses indicates an expected call of GetControllerAPIAddresses.
+func (mr *MockStateMockRecorder) GetControllerAPIAddresses(ctx, uuid any) *MockStateGetControllerAPIAddressesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, unit.UUID, network.SpaceAddresses, error](mr.mock.ctrl.T, mr.mock, "GetControllerAPIAddresses", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
+	mr.getControllerAPIAddressesExpects = append(mr.getControllerAPIAddressesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetControllerAPIAddressesCall is the typed call wrapper for GetControllerAPIAddresses.
+type MockStateGetControllerAPIAddressesCall = gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 
 // GetControllerUnitUUIDByName mocks base method.
 func (m *MockState) GetControllerUnitUUIDByName(arg0 context.Context, arg1 unit.Name) (unit.UUID, error) {
