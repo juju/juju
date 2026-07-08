@@ -57,6 +57,7 @@ type DomainServicesGetterFn func(
 	domainservices.PublicKeyImporter,
 	lease.Manager,
 	coredatabase.ClusterDescriber,
+	coredatabase.DBDeleter,
 	corehttp.HTTPClient,
 	string,
 	clock.Clock,
@@ -175,6 +176,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var dbDeleter coredatabase.DBDeleter
+	if err := getter.Get(config.DBAccessorName, &dbDeleter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var providerFactory providertracker.ProviderFactory
 	if err := getter.Get(config.ProviderFactoryName, &providerFactory); err != nil {
 		return nil, errors.Trace(err)
@@ -218,6 +224,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	return config.NewWorker(Config{
 		DBGetter:                    dbGetter,
 		ClusterDescriber:            clusterDescriber,
+		DBDeleter:                   dbDeleter,
 		ProviderFactory:             providerFactory,
 		ObjectStoreGetter:           objectStoreGetter,
 		StorageRegistryGetter:       storageRegistryGetter,
@@ -319,6 +326,7 @@ func NewDomainServicesGetter(
 	publicKeyImporter domainservices.PublicKeyImporter,
 	leaseManager lease.Manager,
 	clusterDescriber coredatabase.ClusterDescriber,
+	dbDeleter coredatabase.DBDeleter,
 	simpleStreamsHTTPClient corehttp.HTTPClient,
 	logDir string,
 	clock clock.Clock,
@@ -334,6 +342,7 @@ func NewDomainServicesGetter(
 		publicKeyImporter:       publicKeyImporter,
 		leaseManager:            leaseManager,
 		clusterDescriber:        clusterDescriber,
+		dbDeleter:               dbDeleter,
 		simpleStreamsHTTPClient: simpleStreamsHTTPClient,
 		logDir:                  logDir,
 		clock:                   clock,

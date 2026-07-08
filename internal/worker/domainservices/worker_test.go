@@ -124,6 +124,7 @@ func (s *workerSuite) getConfig(c *tc.C) Config {
 			domainservices.PublicKeyImporter,
 			lease.Manager,
 			database.ClusterDescriber,
+			database.DBDeleter,
 			corehttp.HTTPClient,
 			string,
 			clock.Clock,

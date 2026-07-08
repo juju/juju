@@ -31,6 +31,13 @@ type manifoldSuite struct {
 	baseSuite
 }
 
+// dbAccessorStub stands in for the dbaccessor worker, which satisfies both
+// the ClusterDescriber and DBDeleter manifold outputs.
+type dbAccessorStub struct {
+	*MockClusterDescriber
+	*MockDBDeleter
+}
+
 func TestManifoldSuite(t *testing.T) {
 	tc.Run(t, &manifoldSuite{})
 }
@@ -109,7 +116,10 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	s.httpClientGetter.EXPECT().GetHTTPClient(gomock.Any(), corehttp.SimpleStreamPurpose).Return(s.simpleStreamClient, nil)
 
 	getter := map[string]any{
-		"dbaccessor":      s.clusterDescriber,
+		"dbaccessor": dbAccessorStub{
+			MockClusterDescriber: s.clusterDescriber,
+			MockDBDeleter:        s.dbDeleter,
+		},
 		"changestream":    s.dbGetter,
 		"providerfactory": s.providerFactory,
 		"objectstore":     s.objectStoreGetter,
@@ -273,6 +283,7 @@ func (s *manifoldSuite) TestNewDomainServicesGetter(c *tc.C) {
 		s.publicKeyImporter,
 		s.leaseManager,
 		s.clusterDescriber,
+		nil,
 		s.httpClient,
 		c.MkDir(),
 		s.clock,
@@ -317,6 +328,7 @@ func noopDomainServicesGetter(
 	domainservices.PublicKeyImporter,
 	lease.Manager,
 	database.ClusterDescriber,
+	database.DBDeleter,
 	corehttp.HTTPClient,
 	string,
 	clock.Clock,

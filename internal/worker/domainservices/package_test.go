@@ -27,7 +27,7 @@ import (
 
 //go:generate go run github.com/canonical/gomock/mockgen -package domainservices -destination domainservices_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices,ModelDomainServices,DomainServices,DomainServicesGetter
 //go:generate go run github.com/canonical/gomock/mockgen -package domainservices -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
-//go:generate go run github.com/canonical/gomock/mockgen -package domainservices -destination database_mock_test.go github.com/juju/juju/core/database ClusterDescriber
+//go:generate go run github.com/canonical/gomock/mockgen -package domainservices -destination database_mock_test.go github.com/juju/juju/core/database ClusterDescriber,DBDeleter
 //go:generate go run github.com/canonical/gomock/mockgen -package domainservices -destination providertracker_mock_test.go github.com/juju/juju/core/providertracker Provider,ProviderFactory
 //go:generate go run github.com/canonical/gomock/mockgen -package domainservices -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore,ObjectStoreGetter,ModelObjectStoreGetter
 //go:generate go run github.com/canonical/gomock/mockgen -package domainservices -destination storage_mock_test.go github.com/juju/juju/core/storage StorageRegistryGetter,ModelStorageRegistryGetter
@@ -65,6 +65,7 @@ type baseSuite struct {
 	simpleStreamClient *MockHTTPClient
 
 	clusterDescriber *MockClusterDescriber
+	dbDeleter        *MockDBDeleter
 
 	leaseManager            *MockManager
 	leaseManagerGetter      *MockLeaseManagerGetter
@@ -103,6 +104,7 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.simpleStreamClient = NewMockHTTPClient(ctrl)
 
 	s.clusterDescriber = NewMockClusterDescriber(ctrl)
+	s.dbDeleter = NewMockDBDeleter(ctrl)
 
 	s.leaseManager = NewMockManager(ctrl)
 	s.leaseManagerGetter = NewMockLeaseManagerGetter(ctrl)

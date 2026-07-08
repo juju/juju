@@ -41,6 +41,8 @@ import (
 	statecontroller "github.com/juju/juju/domain/model/state/controller"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
+	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
+	modelmigrationstatecontroller "github.com/juju/juju/domain/modelmigration/state/controller"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
 	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
@@ -106,7 +108,7 @@ func (s *ControllerServices) ControllerNode() *controllernodeservice.WatchableSe
 // Model returns the model service.
 func (s *ControllerServices) Model() *modelservice.WatchableService {
 	logger := s.logger.Child("model")
-	return modelservice.NewWatchableService(
+	svc := modelservice.NewWatchableService(
 		statecontroller.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		s.controllerWatcherFactory("model"),
 		statusHistoryGetter{
@@ -116,6 +118,14 @@ func (s *ControllerServices) Model() *modelservice.WatchableService {
 		s.clock,
 		logger,
 	)
+	// Wire the redirect lookup so ModelRedirection reads completed redirect
+	// rows from model_migration_redirect (written by source REAP).
+	svc.SetRedirectLookup(modelmigrationservice.NewRedirectLookupAdapter(
+		modelmigrationstatecontroller.New(
+			changestream.NewTxnRunnerFactory(s.controllerDB), s.clock,
+		),
+	))
+	return svc
 }
 
 // ModelDefaults returns the model defaults service.
