@@ -106,6 +106,12 @@ See also: {ref}`controller`, {ref}`Juju | Manage controllers <manage-controllers
 
 When adding the cloud, enter the SSH connection information for the machine where a Juju controller will be bootstrapped, e.g., `username@<hostname or IP>` (where we assume `username` is `ubuntu`) or `<hostname or IP>`.
 
+Alternatively, you can pass the SSH target inline to `juju bootstrap`, skipping the `add-cloud` step entirely:
+
+```text
+juju bootstrap manual/ubuntu@<IP> <controller-name>
+```
+
 (manual-controller-bootstrap-behavior)=
 ### Bootstrap behavior
 
