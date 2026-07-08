@@ -194,6 +194,7 @@ func (a defaultAttrs) CoerceFormat(region string) (defaultAttrs, error) {
 			"value": schema.Any(),
 		}, nil)),
 	}, schema.Defaults{
+		"default":    schema.Omit,
 		"controller": schema.Omit,
 		"regions":    schema.Omit,
 	})

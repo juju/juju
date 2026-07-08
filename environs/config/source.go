@@ -5,7 +5,6 @@ package config
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/juju/schema"
 	"gopkg.in/yaml.v2"
@@ -86,12 +85,10 @@ type AttributeDefaultValues struct {
 	Regions []RegionDefaultValue `json:"regions,omitempty" yaml:"regions,omitempty"`
 }
 
-// MarshalJSON preserves explicitly empty default values.
-func (a AttributeDefaultValues) MarshalJSON() ([]byte, error) {
-	return json.Marshal(a.marshalMap())
-}
-
 // MarshalYAML preserves explicitly empty default values.
+// yaml.v2's omitempty treats empty strings as empty for any-typed fields,
+// causing explicitly empty controller values (e.g. mode="") to be lost on
+// export. This method only omits nil values, keeping empty strings.
 func (a AttributeDefaultValues) MarshalYAML() (any, error) {
 	items := yaml.MapSlice{}
 	if a.Default != nil {
@@ -104,20 +101,6 @@ func (a AttributeDefaultValues) MarshalYAML() (any, error) {
 		items = append(items, yaml.MapItem{Key: "regions", Value: a.Regions})
 	}
 	return items, nil
-}
-
-func (a AttributeDefaultValues) marshalMap() map[string]any {
-	values := map[string]any{}
-	if a.Default != nil {
-		values["default"] = a.Default
-	}
-	if a.Controller != nil {
-		values["controller"] = a.Controller
-	}
-	if len(a.Regions) > 0 {
-		values["regions"] = a.Regions
-	}
-	return values
 }
 
 // RegionDefaultValue holds the region information for each region in DefaultSetting.

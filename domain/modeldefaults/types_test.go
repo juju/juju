@@ -114,6 +114,22 @@ func (s *typesSuite) TestValueSourceSupportsMapValues(c *tc.C) {
 	c.Check(source, tc.Equals, "")
 }
 
+// TestValueSourceSupportsSliceValues ensures that non-comparable slice values
+// are compared using reflect.DeepEqual rather than panicking on == comparison.
+func (s *typesSuite) TestValueSourceSupportsSliceValues(c *tc.C) {
+	val := DefaultAttributeValue{
+		Controller: []any{"a", "b"},
+	}
+
+	has, source := val.ValueSource([]any{"a", "b"})
+	c.Check(has, tc.IsTrue)
+	c.Check(source, tc.Equals, "controller")
+
+	has, source = val.ValueSource([]any{"a", "c"})
+	c.Check(has, tc.IsFalse)
+	c.Check(source, tc.Equals, "")
+}
+
 // testApplyStrategy is a test implementation of ApplyStrategy that is here to
 // just indicate that the Apply method of the strategy has been called.
 type testApplyStrategy struct {

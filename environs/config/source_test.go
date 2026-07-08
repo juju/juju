@@ -32,7 +32,7 @@ func (*SourceSuite) TestAttributeDefaultValuesMarshalPreservesEmptyValues(c *tc.
 	jsonBytes, err := json.Marshal(values)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(string(jsonBytes), tc.Equals,
-		`{"controller":"","default":"requires-prompts","regions":[{"name":"dummy-region","value":"dummy-value"}]}`)
+		`{"default":"requires-prompts","controller":"","regions":[{"name":"dummy-region","value":"dummy-value"}]}`)
 
 	yamlBytes, err := yaml.Marshal(values)
 	c.Assert(err, tc.ErrorIsNil)
