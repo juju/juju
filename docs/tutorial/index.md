@@ -463,7 +463,7 @@ While executing any of these commands returns automatically so you can execute t
 :copy:
 :user: ubuntu
 :host: my-juju-vm
-juju status --relations --color
+juju status --relations --color --watch 1s
 
 Model          Controller                Cloud/Region        Version  SLA          Timestamp
 my-chat-model  my-first-juju-controller  microk8s/localhost  3.6.8    unsupported  13:26:28+02:00
@@ -604,7 +604,7 @@ Setting up the CNI
 :copy:
 :user: ubuntu
 :host: my-juju-vm
-$ sudo snap remove microk8s
+sudo snap remove microk8s
 
 microk8s removed
 
