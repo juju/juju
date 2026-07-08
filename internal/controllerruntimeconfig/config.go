@@ -74,6 +74,22 @@ type ControllerRuntimeConfig struct {
 	// at startup instead of the agent config environment value.
 	LoggingOverride string `yaml:"logging-override,omitempty"`
 
+	// LokiEndpoint is the Loki push API endpoint the controller logrouter
+	// should forward logs to. Empty means logs are sent through logsink.
+	LokiEndpoint string `yaml:"lokiendpoint,omitempty"`
+
+	// LokiCACert is the CA certificate used to validate the Loki endpoint.
+	LokiCACert string `yaml:"lokicacert,omitempty"`
+
+	// LokiInsecureSkipVerify controls whether TLS validation is disabled
+	// for the Loki endpoint. A nil value means the default (verify
+	// enabled) is in effect.
+	LokiInsecureSkipVerify *bool `yaml:"lokiinsecureskipverify,omitempty"`
+
+	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
+	// deployments. Empty means no X-Scope-OrgID header is sent.
+	LokiOrgID string `yaml:"lokiorgid,omitempty"`
+
 	// DqlitePort is the Dqlite application bind/listen port. A value of
 	// zero means the controller uses the compiled-in default port.
 	DqlitePort int `yaml:"dqlite-port,omitempty"`

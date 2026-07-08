@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/agent"
@@ -305,5 +306,81 @@ func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigErro
 	}
 
 	_, err := provider.CACert()
+	c.Assert(err, tc.ErrorMatches, `reading controller runtime config ".*missing-runtime.conf": open .*missing-runtime.conf: no such file or directory`)
+}
+
+func (s *controllerStartupValueProviderSuite) TestCurrentSnapshotReadsCurrentRuntimeConfig(c *tc.C) {
+	runtimeDir := c.MkDir()
+	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	insecure := true
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:           "0",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:    "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:                filepath.Join(runtimeDir, "data-one"),
+		LogDir:                 filepath.Join(runtimeDir, "log-one"),
+		APIPort:                17070,
+		AgentPassword:          "agent-password",
+		LokiEndpoint:           "https://loki.one.example/loki/api/v1/push",
+		LokiCACert:             "ca-one",
+		LokiInsecureSkipVerify: &insecure,
+		LokiOrgID:              "org-one",
+		CACert:                 "ca-cert",
+		CAPrivateKey:           "ca-key",
+		ControllerCert:         "server-cert",
+		ControllerPrivateKey:   "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	provider := controllerStartupValueProvider{
+		app:                   &ControllerApplication{},
+		controllerRuntimePath: runtimePath,
+	}
+
+	snapshot, err := provider.CurrentLokiConfig()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(snapshot.Endpoint, tc.Equals, "https://loki.one.example/loki/api/v1/push")
+	c.Check(snapshot.CACertificate, tc.Equals, "ca-one")
+	c.Assert(snapshot.InsecureSkipVerify, tc.NotNil)
+	c.Check(*snapshot.InsecureSkipVerify, tc.IsTrue)
+	c.Check(snapshot.ControllerUUID, tc.Equals, "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	c.Check(snapshot.ModelUUID, tc.Equals, "feedface-dead-beef-cafe-c0ffee000000")
+	c.Check(snapshot.AgentID, tc.Equals, names.NewControllerAgentTag("0").String())
+	c.Check(snapshot.OrgID, tc.Equals, "org-one")
+
+	err = controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:           "0",
+		ControllerUUID:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:    "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:                filepath.Join(runtimeDir, "data-two"),
+		LogDir:                 filepath.Join(runtimeDir, "log-two"),
+		APIPort:                17070,
+		AgentPassword:          "agent-password",
+		LokiEndpoint:           "",
+		LokiCACert:             "",
+		LokiInsecureSkipVerify: nil,
+		LokiOrgID:              "",
+		CACert:                 "ca-cert",
+		CAPrivateKey:           "ca-key",
+		ControllerCert:         "server-cert",
+		ControllerPrivateKey:   "server-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	snapshot, err = provider.CurrentLokiConfig()
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(snapshot.Endpoint, tc.Equals, "")
+	c.Check(snapshot.CACertificate, tc.Equals, "")
+	c.Check(snapshot.InsecureSkipVerify, tc.IsNil)
+	c.Check(snapshot.OrgID, tc.Equals, "")
+}
+
+func (s *controllerStartupValueProviderSuite) TestCurrentSnapshotReturnsRuntimeConfigError(c *tc.C) {
+	provider := controllerStartupValueProvider{
+		app:                   &ControllerApplication{},
+		controllerRuntimePath: filepath.Join(c.MkDir(), "missing-runtime.conf"),
+	}
+
+	_, err := provider.CurrentLokiConfig()
 	c.Assert(err, tc.ErrorMatches, `reading controller runtime config ".*missing-runtime.conf": open .*missing-runtime.conf: no such file or directory`)
 }
