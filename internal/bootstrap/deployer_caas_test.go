@@ -65,6 +65,7 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
 
 	cfg := s.newConfig(c)
 	cfg.Clock = s.clock
+	cfg.Constraints = constraints.Value{Arch: new("arm64"), Mem: new(uint64(4096))}
 
 	curl := "ch:juju-controller-0"
 	origin := corecharm.Origin{
@@ -107,7 +108,7 @@ func (s *deployerCAASSuite) TestAddCAASControllerApplication(c *tc.C) {
 				Status: status.Unset,
 				Since:  new(now),
 			},
-			Constraints:  constraints.Value{},
+			Constraints:  constraints.Value{Arch: new("arm64"), Mem: new(uint64(4096))},
 			IsController: true,
 		},
 		applicationservice.AddUnitArg{},

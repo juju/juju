@@ -14,11 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -36,6 +38,7 @@ var (
 
 	UpdateStrategyForStatefulSet = updateStrategyForStatefulSet
 	DecideKubeConfigDir          = decideKubeConfigDir
+	IsLocalControllerCharmPath   = isLocalControllerCharmPath
 )
 
 type (
@@ -52,6 +55,10 @@ type ControllerStackerForTest interface {
 	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 	SetControllerAgentLokiConfig(string, *string, *bool, string)
 	BuildContainerSpecForController(*tc.C) *core.PodSpec
+	UploadLocalControllerCharm(context.Context, string) error
+	UploadLocalControllerCharmWithRetry(context.Context, string) error
+	ControllerExecClient() (k8sexec.Executor, error)
+	SetControllerExecClientFactory(func() (k8sexec.Executor, error))
 }
 
 func (cs *controllerStack) GetControllerAgentConfigContent(c *tc.C) string {
@@ -86,6 +93,22 @@ func (cs *controllerStack) BuildContainerSpecForController(c *tc.C) *core.PodSpe
 	spec, err := cs.buildContainerSpecForController()
 	c.Assert(err, tc.ErrorIsNil)
 	return spec
+}
+
+func (cs *controllerStack) UploadLocalControllerCharm(ctx context.Context, podName string) error {
+	return cs.uploadLocalControllerCharm(ctx, podName)
+}
+
+func (cs *controllerStack) UploadLocalControllerCharmWithRetry(ctx context.Context, podName string) error {
+	return cs.uploadLocalControllerCharmWithRetry(ctx, podName)
+}
+
+func (cs *controllerStack) ControllerExecClient() (k8sexec.Executor, error) {
+	return cs.controllerExecClient()
+}
+
+func (cs *controllerStack) SetControllerExecClientFactory(factory func() (k8sexec.Executor, error)) {
+	cs.controllerExecClientFactory = factory
 }
 
 func NewcontrollerStackForTest(
@@ -156,4 +179,10 @@ func (k *kubernetesClient) GetPod(ctx context.Context, podName string) (*core.Po
 
 func (k *kubernetesClient) GetStatefulSet(ctx context.Context, name string) (*apps.StatefulSet, error) {
 	return k.getStatefulSet(ctx, name)
+}
+
+func (k *kubernetesClient) SetRestConfigForTest(cfg *rest.Config) {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	k.k8sCfgUnlocked = cfg
 }

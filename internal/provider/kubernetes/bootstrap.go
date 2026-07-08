@@ -64,7 +64,9 @@ const (
 )
 
 const (
-	apiServerContainerName = "api-server"
+	apiServerContainerName                  = "api-server"
+	localControllerCharmUploadRetryAttempts = 12
+	localControllerCharmUploadRetryDelay    = time.Second
 
 	// startupGraceTime is the number of seconds afforded to startup probes to
 	// become successful before considering them a failure.
@@ -162,7 +164,8 @@ type controllerStack struct {
 	resourceNameSecret, resourceNamedockerSecret,
 	resourceNameVolBootstrapParams, resourceNameVolAgentConf string
 
-	dockerAuthSecretData []byte
+	dockerAuthSecretData        []byte
+	controllerExecClientFactory func() (k8sexec.Executor, error)
 
 	cleanUps []func()
 }
@@ -292,6 +295,7 @@ func newControllerStack(
 		portAPIServer: pcfg.Bootstrap.ControllerConfig.APIPort(),
 		portSSHServer: pcfg.Bootstrap.ControllerConfig.SSHServerPort(),
 	}
+	cs.controllerExecClientFactory = cs.controllerExecClient
 	cs.resourceNameService = cs.getResourceName("service")
 	cs.resourceNameHeadlessService = cs.getResourceName("service-endpoints")
 	cs.resourceNameConfigMap = cs.getResourceName("configmap")
@@ -329,12 +333,13 @@ func newControllerStack(
 }
 
 func isLocalControllerCharmPath(charmPath string) bool {
+	// Mirrors refresher.IsLocalURL (cmd/juju/application/refresher/refresher.go).
 	return strings.HasPrefix(charmPath, "/") || strings.HasPrefix(charmPath, "./") ||
 		strings.HasPrefix(charmPath, "../")
 }
 
 func (c *controllerStack) localControllerCharmArchivePath() string {
-	return c.pathJoin(c.pcfg.DataDir, "charms", environsbootstrap.ControllerCharmArchive)
+	return path.Join(c.pcfg.DataDir, "charms", environsbootstrap.ControllerCharmArchive)
 }
 
 func (c *controllerStack) uploadLocalControllerCharm(ctx context.Context, podName string) error {
@@ -343,7 +348,7 @@ func (c *controllerStack) uploadLocalControllerCharm(ctx context.Context, podNam
 		return nil
 	}
 
-	execClient, err := c.controllerExecClient()
+	execClient, err := c.controllerExecClientFactory()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -353,13 +358,17 @@ func (c *controllerStack) uploadLocalControllerCharm(ctx context.Context, podNam
 	archiveDir := path.Dir(archivePath)
 	execCommand := func(commands []string) error {
 		var stdout, stderr bytes.Buffer
-		return execClient.Exec(ctx, k8sexec.ExecParams{
+		err := execClient.Exec(ctx, k8sexec.ExecParams{
 			PodName:       podName,
 			ContainerName: apiServerContainerName,
 			Commands:      commands,
 			Stdout:        &stdout,
 			Stderr:        &stderr,
 		}, nil)
+		if err != nil && stderr.Len() > 0 {
+			return errors.Annotate(err, strings.TrimSpace(stderr.String()))
+		}
+		return err
 	}
 	if err := execCommand([]string{"mkdir", "-p", archiveDir}); err != nil {
 		return errors.Annotate(err, "creating local controller charm directory")
@@ -393,11 +402,18 @@ func (c *controllerStack) uploadLocalControllerCharmWithRetry(ctx context.Contex
 		return nil
 	}
 	return retry.Call(retry.CallArgs{
-		Attempts: 12,
-		Delay:    time.Second,
+		Attempts: localControllerCharmUploadRetryAttempts,
+		Delay:    localControllerCharmUploadRetryDelay,
+		Stop:     ctx.Done(),
 		Clock:    c.broker.clock,
 		Func: func() error {
 			return c.uploadLocalControllerCharm(ctx, podName)
+		},
+		IsFatalError: func(err error) bool {
+			return errors.Is(err, errors.NotValid)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf(ctx, "uploading local controller charm, attempt %d/%d failed: %v", attempt, localControllerCharmUploadRetryAttempts, err)
 		},
 	})
 }
@@ -420,13 +436,6 @@ func getBootstrapResourceName(stackName string, name string) string {
 
 func (c *controllerStack) getResourceName(name string) string {
 	return getBootstrapResourceName(c.stackName, name)
-}
-
-func (c *controllerStack) pathJoin(elem ...string) string {
-	// Setting series for bootstrapping to kubernetes is currently not supported.
-	// We always use forward-slash because Linux is the only OS we support now.
-	pathSeparator := "/"
-	return strings.Join(elem, pathSeparator)
 }
 
 func (c *controllerStack) getControllerConfigMap(ctx context.Context) (cm *core.ConfigMap, err error) {
@@ -1336,18 +1345,18 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			},
 			{
 				Name: storageName,
-				MountPath: c.pathJoin(
+				MountPath: path.Join(
 					c.pcfg.DataDir,
 					"agents",
 					"controller-"+c.pcfg.ControllerId,
 				),
-				SubPath: c.pathJoin("agents",
+				SubPath: path.Join("agents",
 					"controller-"+c.pcfg.ControllerId,
 				),
 			},
 			{
 				Name: c.resourceNameVolAgentConf,
-				MountPath: c.pathJoin(
+				MountPath: path.Join(
 					c.pcfg.DataDir,
 					"agents",
 					"controller-"+c.pcfg.ControllerId,
@@ -1358,7 +1367,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			},
 			{
 				Name:      c.resourceNameVolBootstrapParams,
-				MountPath: c.pathJoin(c.pcfg.DataDir, cloudconfig.FileNameBootstrapParams),
+				MountPath: path.Join(c.pcfg.DataDir, cloudconfig.FileNameBootstrapParams),
 				SubPath:   cloudconfig.FileNameBootstrapParams,
 				ReadOnly:  true,
 			},
@@ -1433,7 +1442,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		loggingOption = "--debug"
 	}
 
-	agentConfigRelativePath := c.pathJoin(
+	agentConfigRelativePath := path.Join(
 		"agents",
 		fmt.Sprintf("controller-%s", c.pcfg.ControllerId),
 		agentconstants.AgentConfigFilename,
@@ -1450,16 +1459,16 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
 			"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			c.pathJoin("$JUJU_TOOLS_DIR", "jujuagentd"),
+			path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 			loggingOption,
 			c.timeout.String(),
 		)
 		if featureFlags != "" {
 			bootstrapStateCmd = fmt.Sprintf("%s=%s %s", osenv.JujuFeatureFlagEnvKey, featureFlags, bootstrapStateCmd)
 		}
-		agentConfigPath := c.pathJoin("$JUJU_DATA_DIR", agentConfigRelativePath)
+		agentConfigPath := path.Join("$JUJU_DATA_DIR", agentConfigRelativePath)
 		if isLocalControllerCharmPath(c.pcfg.Bootstrap.ControllerCharmPath) {
-			charmArchivePath := c.pathJoin("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
+			charmArchivePath := path.Join("$JUJU_DATA_DIR", "charms", environsbootstrap.ControllerCharmArchive)
 			setupCmd = fmt.Sprintf(
 				"if ! test -e %s; then mkdir -p %s; until test -e %s; do sleep 1; done; %s; fi",
 				agentConfigPath,
@@ -1474,7 +1483,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 
 	machineCmd := fmt.Sprintf(
 		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
-		c.pathJoin("$JUJU_TOOLS_DIR", "jujuagentd"),
+		path.Join("$JUJU_TOOLS_DIR", "jujuagentd"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)
@@ -1545,7 +1554,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 
 	agentConfigMount := core.VolumeMount{
 		Name: c.resourceNameVolAgentConf,
-		MountPath: c.pathJoin(
+		MountPath: path.Join(
 			c.pcfg.DataDir,
 			constants.TemplateFileNameAgentConf,
 		),
