@@ -298,6 +298,15 @@ func (k *kubernetesClient) client() kubernetes.Interface {
 	return client
 }
 
+func (k *kubernetesClient) restConfig() *rest.Config {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	if k.k8sCfgUnlocked == nil {
+		return nil
+	}
+	return rest.CopyConfig(k.k8sCfgUnlocked)
+}
+
 func (k *kubernetesClient) extendedClient() apiextensionsclientset.Interface {
 	k.lock.Lock()
 	defer k.lock.Unlock()
