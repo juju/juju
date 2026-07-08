@@ -507,7 +507,7 @@ func (s *bootstrapSuite) TestUploadLocalControllerCharmWithRetryExhaustsAttempts
 		errChan <- stack.UploadLocalControllerCharmWithRetry(c.Context(), s.pcfg.GetPodName())
 	}()
 
-	for i := 0; i < 11; i++ {
+	for range 11 {
 		err := s.clock.WaitAdvance(time.Second, coretesting.ShortWait, 1)
 		c.Assert(err, tc.ErrorIsNil)
 	}
