@@ -5,6 +5,8 @@ SHORT_TIMEOUT=5
 # "pending" state in CI. Remove this function and its call site once root
 # cause is found and fixed.
 dump_timeout_diagnostics() {
+	set +e
+
 	echo "    machines:"
 	juju show-machine 2>&1 | sed 's/^/    | /g'
 
@@ -19,6 +21,8 @@ dump_timeout_diagnostics() {
 		dump_k8s_diagnostics
 		;;
 	esac
+
+	set -e
 }
 
 # TODO: remove along with dump_timeout_diagnostics.
@@ -37,6 +41,8 @@ dump_lxd_diagnostics() {
 			lxc exec "${inst_id}" -- bash -c 'for f in /var/log/juju/machine-*.log; do [ -f "$f" ] && echo "=== $f ===" && tail -40 "$f"; done' 2>&1 | sed 's/^/    |     /g' || true
 			echo "    --- journalctl (jujud/jujuagentd, tail 20) ---"
 			lxc exec "${inst_id}" -- journalctl -u 'juju*' --no-pager -n 20 2>&1 | sed 's/^/    |     /g' || true
+			echo "    --- dmesg (apparmor/denials, tail 20) ---"
+			lxc exec "${inst_id}" -- dmesg 2>&1 | grep -iE 'apparmor|denied|audit' | tail -20 | sed 's/^/    |     /g' || true
 		fi
 	done
 }
@@ -46,14 +52,16 @@ dump_aws_diagnostics() {
 	if ! command -v aws >/dev/null 2>&1; then
 		return
 	fi
+	local region
+	region="${BOOTSTRAP_REGION:-${AWS_DEFAULT_REGION:-}}"
 	echo "    AWS instance diagnostics:"
 	juju show-machine --format json 2>/dev/null | yq -r '.machines | to_entries | .[] | "\(.key) \(.value["instance-id"])"' 2>/dev/null | while read -r m_id inst_id; do
 		if [[ "${inst_id}" != "pending" && -n "${inst_id}" ]]; then
 			echo "    === machine ${m_id} (${inst_id}) ==="
 			echo "    --- console output (tail 80) ---"
-			aws ec2 get-console-output --instance-id "${inst_id}" 2>/dev/null | yq -r '.Output // ""' 2>/dev/null | tail -80 | sed 's/^/    |     /g' || true
+			aws ec2 get-console-output --instance-id "${inst_id}" --region "${region}" 2>&1 | yq -r '.Output // ""' 2>/dev/null | tail -80 | sed 's/^/    |     /g' || true
 			echo "    --- instance state ---"
-			aws ec2 describe-instances --instance-ids "${inst_id}" --query 'Reservations[0].Instances[0].State.Name' --output text 2>&1 | sed 's/^/    |     /g' || true
+			aws ec2 describe-instances --instance-ids "${inst_id}" --region "${region}" --query 'Reservations[0].Instances[0].State.Name' --output text 2>&1 | sed 's/^/    |     /g' || true
 		fi
 	done
 }
@@ -79,7 +87,7 @@ dump_k8s_diagnostics() {
 		fi
 	done
 	echo "    --- events (tail 20) ---"
-	microk8s kubectl -n "${model_name}" get events --sort-by=.lastTimestamp 2>&1 | tail -20 | sed 's/^/    |     /g' || true
+	microk8s kubectl -n "${model_name}" get events 2>&1 | tail -20 | sed 's/^/    |     /g' || true
 }
 
 # wait_for defines the ability to wait for a given condition to happen in a
