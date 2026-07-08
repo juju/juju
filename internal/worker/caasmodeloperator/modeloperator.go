@@ -304,20 +304,13 @@ type runtimeTracingConfig struct {
 
 func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingConfig) (runtimeTracingConfig, error) {
 	runtimeCfg := runtimeTracingConfig{
+		Enabled:               cfg.GRPCEndpoint != "" || cfg.HTTPEndpoint != "",
+		HTTPEndpoint:          cfg.HTTPEndpoint,
+		GRPCEndpoint:          cfg.GRPCEndpoint,
 		SampleRatio:           defaultOpenTelemetrySampleRatio,
 		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 		CACertificate:         cfg.CACertificate,
 	}
-
-	endpoint := cfg.GRPCEndpoint
-	if endpoint == "" {
-		endpoint = cfg.HTTPEndpoint
-	}
-	if endpoint != "" {
-		runtimeCfg.Enabled = true
-	}
-	runtimeCfg.HTTPEndpoint = cfg.HTTPEndpoint
-	runtimeCfg.GRPCEndpoint = cfg.GRPCEndpoint
 
 	if cfg.OpenTelemetryStackTraces != nil {
 		runtimeCfg.StackTracesEnabled = *cfg.OpenTelemetryStackTraces
