@@ -63,10 +63,42 @@ match what was originally used to deploy the charm as a superficial check that t
 updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the `--resource` option.
-Following the resource option should be name=filepath pair.  This option may be
-repeated more than once to upload more than one resource.
+The format is
+
+    --resource <resource name>=<resource>
+
+where the resource name is the name from the `metadata.yaml` file of the charm
+and where, depending on the type of the resource, the resource can be specified
+as follows:
+
+- If the resource is type `file`, you can specify it by providing one of the following:
+
+    a. the resource revision number.
+
+    b. a path to a local file. Caveat: If you choose this, you will not be able
+	 to go back to using a resource from Charmhub.
+
+- If the resource is type `oci-image`, you can specify it by providing one of the following:
+
+    a. the resource revision number.
+
+	b. a path to the local file for your private OCI image as well as the
+	username and password required to access the private OCI image.
+	Caveat: If you choose this, you will not be able to go back to using a
+	resource from Charmhub.
+
+    c. a link to a public OCI image. Caveat: If you choose this, you will not be
+	 able to go back to using a resource from Charmhub.
+
+Note: If multiple resources are needed, repeat the option.
+
+Upload a local file:
 
     juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+
+Pin a resource to a specific Charmhub revision:
+
+    juju refresh foo --resource bar=42
 
 Where bar and baz are resources named in the metadata for the foo charm.
 
