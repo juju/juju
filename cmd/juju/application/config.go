@@ -51,6 +51,8 @@ key's value to the contents of a file:
 
     juju config <app> key=@/tmp/configvalue
 
+The maximum size of a config value read from a file this way is 5 MiB.
+
 You can also reset config keys to their default values:
 
     juju config <app> --reset key1
