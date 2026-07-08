@@ -223,6 +223,8 @@ testing is
 
 `caas-image-repo` sets the docker repo to use
 for the jujud operator and mongo images.
+Note: the repository itself is read-only after bootstrap; only
+authentication credentials (for a private registry) can be updated.
 
 **Type:** string
 
