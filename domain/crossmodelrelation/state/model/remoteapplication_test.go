@@ -2493,6 +2493,19 @@ func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelNoM
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// TestSetOffererControllerForOffererModelEmptyController verifies a blank
+// controller UUID is rejected before it can be written.
+func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelEmptyController(c *tc.C) {
+	offererModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.addOffererForModel(c, "remote-app", offererModelUUID)
+
+	err := s.state.SetOffererControllerForOffererModel(c.Context(), offererModelUUID, "")
+	c.Assert(err, tc.ErrorMatches, "offerer controller UUID cannot be empty")
+
+	got := s.offererControllerUUID(c, offererModelUUID)
+	c.Check(got.Valid, tc.IsFalse)
+}
+
 // TestSetOffererControllerForOffererModels verifies a batch update sets the
 // same controller across several offerer models in one statement.
 func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModels(c *tc.C) {
@@ -2515,4 +2528,18 @@ func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModels(c
 	// Empty list is a no-op.
 	err = s.state.SetOffererControllerForOffererModels(c.Context(), nil, controllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestSetOffererControllerForOffererModelsEmptyController verifies a blank
+// controller UUID is rejected for real batch updates without scanning or
+// trimming the model UUID entries.
+func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelsEmptyController(c *tc.C) {
+	modelA := tc.Must(c, internaluuid.NewUUID).String()
+	s.addOffererForModel(c, "remote-a", modelA)
+
+	err := s.state.SetOffererControllerForOffererModels(c.Context(), []string{modelA}, "")
+	c.Assert(err, tc.ErrorMatches, "offerer controller UUID cannot be empty")
+
+	got := s.offererControllerUUID(c, modelA)
+	c.Check(got.Valid, tc.IsFalse)
 }

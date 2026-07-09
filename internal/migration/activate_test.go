@@ -11,9 +11,14 @@ import (
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/crossmodelrelation"
+	cmrmodelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	"github.com/juju/juju/domain/export"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
@@ -95,6 +100,57 @@ func (s *controllerImportSuite) modelAgentVersion(c *tc.C, modelUUID coremodel.U
 	return v
 }
 
+func (s *controllerImportSuite) importClaimUUID(c *tc.C, modelUUID coremodel.UUID) string {
+	var claimUUID string
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT uuid FROM model_migration_import WHERE model_uuid = ?",
+			modelUUID.String()).Scan(&claimUUID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return claimUUID
+}
+
+func (s *controllerImportSuite) addActivationOffererForModel(
+	c *tc.C, deps migration.Deps, modelUUID coremodel.UUID, appName, offererModelUUID string,
+) {
+	st := cmrmodelstate.NewState(deps.ModelDB, modelUUID, deps.Clock, deps.Logger)
+	err := st.AddRemoteApplicationOfferer(c.Context(), appName, crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       uuid.MustNewUUID().String(),
+		CharmUUID:             uuid.MustNewUUID().String(),
+		RemoteApplicationUUID: uuid.MustNewUUID().String(),
+		OfferUUID:             uuid.MustNewUUID().String(),
+		OffererModelUUID:      offererModelUUID,
+		Charm: charm.Charm{
+			ReferenceName: appName,
+			Source:        charm.CMRSource,
+			Metadata: charm.Metadata{
+				Name:        appName,
+				Description: "remote offerer application",
+				Provides:    map[string]charm.Relation{},
+				Requires:    map[string]charm.Relation{},
+				Peers:       map[string]charm.Relation{},
+			},
+		},
+		EncodedMacaroon: []byte("m"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *controllerImportSuite) activationOffererControllerUUID(
+	c *tc.C, modelUUID coremodel.UUID, offererModelUUID string,
+) sql.NullString {
+	var got sql.NullString
+	runner := s.ModelTxnRunner(c, modelUUID.String())
+	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT offerer_controller_uuid FROM application_remote_offerer WHERE offerer_model_uuid = ?",
+			offererModelUUID).Scan(&got)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return got
+}
+
 // TestActivateModelHappyPath verifies the v8 activation state machine: the
 // claim is deleted, the import gate is cleared, the model row is activated and
 // the model agent version is bumped to the controller target.
@@ -151,6 +207,81 @@ func (s *controllerImportSuite) TestActivateModelRetryFromActivating(c *tc.C) {
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
 	_, err = claimSt.GetImportClaim(c.Context(), modelUUID.String())
 	c.Check(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
+}
+
+// TestActivateModelUnexpectedImportPhase verifies the defensive switch guard:
+// if a future phase reaches activation before ActivateModel knows how to handle
+// it, activation stops instead of falling through.
+func (s *controllerImportSuite) TestActivateModelUnexpectedImportPhase(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO model_migration_import_phase_type (id, type) VALUES (?, ?)",
+			99, "paused")
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx,
+			"UPDATE model_migration_import SET phase_type_id = ? WHERE model_uuid = ?",
+			99, modelUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	c.Assert(err, tc.ErrorMatches, `model ".+": unexpected import claim phase "paused"`)
+	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
+	c.Check(s.modelGateExists(c, modelUUID), tc.IsTrue)
+}
+
+// TestActivateModelReconcilesOffererControllers verifies activation's CMR
+// reconciliation branch end to end for both source-hosted and third-party
+// offerer models.
+func (s *controllerImportSuite) TestActivateModelReconcilesOffererControllers(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	sourceControllerUUID := uuid.MustNewUUID().String()
+	sourceOffererModelUUID := uuid.MustNewUUID().String()
+	thirdPartyControllerUUID := uuid.MustNewUUID().String()
+	thirdPartyOffererModelUUID := uuid.MustNewUUID().String()
+
+	s.addActivationOffererForModel(
+		c, deps, modelUUID, "source-offerer", sourceOffererModelUUID)
+	s.addActivationOffererForModel(
+		c, deps, modelUUID, "third-party-offerer", thirdPartyOffererModelUUID)
+
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	claimUUID := s.importClaimUUID(c, modelUUID)
+	err := modelmigrationservice.NewImportService(claimSt, deps.Logger).ImportExternalControllers(
+		c.Context(), modelUUID, claimUUID,
+		[]coremodelmigration.ExternalController{{
+			UUID:           thirdPartyControllerUUID,
+			Alias:          "third-party",
+			CACert:         "third-party-ca-cert",
+			Addresses:      []string{"10.0.0.5:17070"},
+			ConsumedModels: []string{thirdPartyOffererModelUUID},
+		}},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{
+		ModelUUID:             modelUUID,
+		SourceControllerUUID:  sourceControllerUUID,
+		SourceControllerAlias: "source",
+		SourceCACert:          "source-ca-cert",
+		SourceAPIAddrs:        []string{"10.0.0.1:17070"},
+		CrossModelUUIDs:       []string{sourceOffererModelUUID},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	got := s.activationOffererControllerUUID(c, modelUUID, sourceOffererModelUUID)
+	c.Assert(got.Valid, tc.IsTrue)
+	c.Check(got.String, tc.Equals, sourceControllerUUID)
+
+	got = s.activationOffererControllerUUID(c, modelUUID, thirdPartyOffererModelUUID)
+	c.Assert(got.Valid, tc.IsTrue)
+	c.Check(got.String, tc.Equals, thirdPartyControllerUUID)
 }
 
 // TestActivateModelAborting verifies activation refuses to proceed when the

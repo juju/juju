@@ -1721,10 +1721,15 @@ WHERE a.name = $name.name`, modelUUID{}, name{})
 // in application_remote_offerer for all rows whose offerer_model_uuid matches
 // the given model UUID. This is called during model activation to reconcile
 // the controller reference for both source-hosted and third-party CMR offerers.
-// It is idempotent: re-setting the same value is a no-op.
+// It is idempotent: re-setting the same value is a no-op. controllerUUID must
+// be non-empty.
 func (st *State) SetOffererControllerForOffererModel(
 	ctx context.Context, offererModelUUID, controllerUUID string,
 ) error {
+	if controllerUUID == "" {
+		return errors.Errorf("offerer controller UUID cannot be empty")
+	}
+
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1756,13 +1761,16 @@ WHERE  offerer_model_uuid = $offererControllerArg.offerer_model_uuid`,
 // application_remote_offerer row whose offerer_model_uuid is one of the given
 // model UUIDs, in a single UPDATE. It is used during activation to point all
 // source-hosted offerers at the source controller in one statement. It is
-// idempotent: re-setting the same value is a no-op. Passing no model UUIDs is a
-// no-op.
+// idempotent: re-setting the same value is a no-op. controllerUUID must be
+// non-empty when model UUIDs are supplied; passing no model UUIDs is a no-op.
 func (st *State) SetOffererControllerForOffererModels(
 	ctx context.Context, offererModelUUIDs []string, controllerUUID string,
 ) error {
 	if len(offererModelUUIDs) == 0 {
 		return nil
+	}
+	if controllerUUID == "" {
+		return errors.Errorf("offerer controller UUID cannot be empty")
 	}
 
 	db, err := st.DB(ctx)
