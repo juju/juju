@@ -573,7 +573,8 @@ func hasIPv6Slash64Prefix(prefixes []string) bool {
 // when a resolved primary subnet was provided, verifies that subnet has an
 // IPv6 /64 prefix. When no primary subnet is available (Juju-managed VNet
 // at bootstrap or ID resolution miss), the SKU check alone is sufficient;
-// Azure itself rejects IPv4-only subnets at NIC creation time.
+// Azure itself rejects IPv4-only subnets at NIC creation time. Resolution
+// misses are logged upstream by networkInfoForInstance.
 func (env *azureEnviron) validateIPFamilyForResolvedSubnet(
 	ctx context.Context, cons constraints.Value,
 	primarySubnet *armnetwork.Subnet,

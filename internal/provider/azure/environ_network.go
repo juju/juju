@@ -472,10 +472,17 @@ func (env *azureEnviron) networkInfoForInstance(
 
 	// Resolve the primary subnet for validation when ip-family=dual.
 	if isDualStack && len(subnetIDs) > 0 && primarySubnet == nil {
-		var err error
-		primarySubnet, err = env.findSubnetByID(ctx, subnetIDs[0].ID)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		resolved, err := env.findSubnetByID(ctx, subnetIDs[0].ID)
+		switch {
+		case errors.Is(err, errors.NotFound):
+			logger.Warningf(ctx, "primary subnet %q not found while resolving "+
+				"ip-family=dual validation; the IPv6 /64 prefix pre-check will "+
+				"be skipped and Azure will reject the NIC if the subnet lacks IPv6",
+				subnetIDs[0].ID)
+		case err != nil:
 			return "", nil, nil, errors.Trace(err)
+		default:
+			primarySubnet = resolved
 		}
 	}
 
@@ -537,7 +544,7 @@ func (env *azureEnviron) findSubnetByID(ctx context.Context, id network.Id) (*az
 			return subnet, nil
 		}
 	}
-	return nil, nil
+	return nil, errors.NotFoundf("subnet %q", bare)
 }
 
 func (env *azureEnviron) findPlacementSubnet(ctx context.Context, placement string) (*azurenetwork.Subnet, error) {

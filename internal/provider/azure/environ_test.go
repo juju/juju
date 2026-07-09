@@ -2641,6 +2641,36 @@ func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintDualStackSubn
 	})
 }
 
+func (s *environSuite) TestStartInstanceIPFamilyDualSpaceConstraintSubnetResolutionMiss(c *tc.C) {
+	// When ip-family=dual is set with a space constraint and the
+	// selected subnet ID cannot be resolved against Azure's subnets,
+	// the provider should log a warning, skip the IPv6 /64 pre-check,
+	// and proceed — relying on Azure to reject the NIC if the subnet
+	// lacks IPv6.
+	env := s.openEnviron(c)
+	s.sender = azuretesting.Senders{
+		makeSender(".*/skus", armcompute.ResourceSKUsResult{Value: s.skus}),
+		makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs),
+		makeSender("/deployments/common", s.commonDeployment),
+		makeSender("/virtualNetworks/juju-internal-network/subnets", armnetwork.SubnetListResult{
+			Value: []*armnetwork.Subnet{},
+		}),
+		makeSender("/deployments/juju-06f00d-0", s.deployment),
+	}
+	s.requests = nil
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
+	params.Constraints.IPFamily = to.Ptr(ipfamily.Dual)
+	params.Constraints.Spaces = &[]string{"foo"}
+	params.SubnetsToZones = []map[corenetwork.Id][]string{
+		{"/path/to/subnet1": nil},
+	}
+	params.InstanceConfig.AuthorizedKeys = s.authorizedKeyString(c)
+
+	result, err := env.StartInstance(c.Context(), params)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.NotNil)
+}
+
 func (s *environSuite) TestStartInstanceIPv6SpaceConstraintIPv4Family(c *tc.C) {
 	// When a space contains only the :ipv6 variant of a dual-stack subnet
 	// and ip-family=ipv4 is set, the provider must reject the constraint

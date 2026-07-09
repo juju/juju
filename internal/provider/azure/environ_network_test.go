@@ -6,6 +6,7 @@ package azure_test
 import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/instance"
@@ -799,6 +800,6 @@ func (s *environSuite) TestFindSubnetByIDNotFound(c *tc.C) {
 	}
 
 	res, err := azure.FindSubnetByID(c.Context(), env, "/path/to/subnet1")
-	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(err, tc.ErrorIs, errors.NotFound)
 	c.Assert(res, tc.IsNil)
 }
