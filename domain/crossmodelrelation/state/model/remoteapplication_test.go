@@ -2425,3 +2425,116 @@ VALUES (?, ?, ?)
 	_, err = s.state.GetRelationRemoteModelUUID(c.Context(), relationUUID)
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.RelationNotCrossModel)
 }
+
+// addOffererForModel creates a minimal remote application offerer whose
+// offering model is offererModelUUID, and returns nothing; the row is looked
+// up later by its offerer_model_uuid.
+func (s *modelRemoteApplicationSuite) addOffererForModel(c *tc.C, appName, offererModelUUID string) {
+	err := s.state.AddRemoteApplicationOfferer(c.Context(), appName, crossmodelrelation.AddRemoteApplicationOffererArgs{
+		ApplicationUUID:       tc.Must(c, internaluuid.NewUUID).String(),
+		CharmUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+		RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+		OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+		OffererModelUUID:      offererModelUUID,
+		Charm: charm.Charm{
+			ReferenceName: appName,
+			Source:        charm.CMRSource,
+			Metadata: charm.Metadata{
+				Name:        appName,
+				Description: "remote offerer application",
+				Provides:    map[string]charm.Relation{},
+				Requires:    map[string]charm.Relation{},
+				Peers:       map[string]charm.Relation{},
+			},
+		},
+		EncodedMacaroon: []byte("m"),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// offererControllerUUID reads back the offerer_controller_uuid recorded for the
+// remote offerer of the given offering model UUID.
+func (s *modelRemoteApplicationSuite) offererControllerUUID(c *tc.C, offererModelUUID string) sql.NullString {
+	var got sql.NullString
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT offerer_controller_uuid FROM application_remote_offerer WHERE offerer_model_uuid = ?",
+			offererModelUUID).Scan(&got)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return got
+}
+
+// TestSetOffererControllerForOffererModel verifies the controller reference is
+// set on the matching offerer row, is idempotent, and rejects empty inputs.
+func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModel(c *tc.C) {
+	offererModelUUID := tc.Must(c, internaluuid.NewUUID).String()
+	controllerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.addOffererForModel(c, "remote-app", offererModelUUID)
+
+	err := s.state.SetOffererControllerForOffererModel(c.Context(), offererModelUUID, controllerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	got := s.offererControllerUUID(c, offererModelUUID)
+	c.Check(got.Valid, tc.IsTrue)
+	c.Check(got.String, tc.Equals, controllerUUID)
+
+	// Idempotent: re-setting the same value is a no-op.
+	err = s.state.SetOffererControllerForOffererModel(c.Context(), offererModelUUID, controllerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	got = s.offererControllerUUID(c, offererModelUUID)
+	c.Check(got.String, tc.Equals, controllerUUID)
+}
+
+// TestSetOffererControllerForOffererModelNoMatch verifies that updating a model
+// UUID with no matching offerer rows is a no-op, not an error.
+func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelNoMatch(c *tc.C) {
+	err := s.state.SetOffererControllerForOffererModel(
+		c.Context(), tc.Must(c, internaluuid.NewUUID).String(), tc.Must(c, internaluuid.NewUUID).String())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestSetOffererControllerForOffererModelValidation verifies empty inputs are
+// rejected before any write.
+func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelValidation(c *tc.C) {
+	err := s.state.SetOffererControllerForOffererModel(c.Context(), "", tc.Must(c, internaluuid.NewUUID).String())
+	c.Assert(err, tc.ErrorMatches, ".*offerer model UUID cannot be empty.*")
+
+	err = s.state.SetOffererControllerForOffererModel(c.Context(), tc.Must(c, internaluuid.NewUUID).String(), "")
+	c.Assert(err, tc.ErrorMatches, ".*offerer controller UUID cannot be empty.*")
+}
+
+// TestSetOffererControllerForOffererModels verifies a batch update sets the
+// same controller across several offerer models in one statement.
+func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModels(c *tc.C) {
+	modelA := tc.Must(c, internaluuid.NewUUID).String()
+	modelB := tc.Must(c, internaluuid.NewUUID).String()
+	controllerUUID := tc.Must(c, internaluuid.NewUUID).String()
+	s.addOffererForModel(c, "remote-a", modelA)
+	s.addOffererForModel(c, "remote-b", modelB)
+
+	err := s.state.SetOffererControllerForOffererModels(
+		c.Context(), []string{modelA, modelB}, controllerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	for _, m := range []string{modelA, modelB} {
+		got := s.offererControllerUUID(c, m)
+		c.Check(got.Valid, tc.IsTrue)
+		c.Check(got.String, tc.Equals, controllerUUID)
+	}
+
+	// Empty list is a no-op.
+	err = s.state.SetOffererControllerForOffererModels(c.Context(), nil, controllerUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestSetOffererControllerForOffererModelsValidation verifies empty inputs are
+// rejected before any write.
+func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelsValidation(c *tc.C) {
+	err := s.state.SetOffererControllerForOffererModels(
+		c.Context(), []string{tc.Must(c, internaluuid.NewUUID).String()}, "")
+	c.Assert(err, tc.ErrorMatches, ".*offerer controller UUID cannot be empty.*")
+
+	err = s.state.SetOffererControllerForOffererModels(
+		c.Context(), []string{""}, tc.Must(c, internaluuid.NewUUID).String())
+	c.Assert(err, tc.ErrorMatches, ".*offerer model UUID cannot be empty.*")
+}

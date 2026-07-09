@@ -12,17 +12,7 @@ import (
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
-	internaluuid "github.com/juju/juju/internal/uuid"
 )
-
-// newUUID is a package-level variable to allow test-time injection.
-var newUUID = func() (string, error) {
-	u, err := internaluuid.NewUUID()
-	if err != nil {
-		return "", err
-	}
-	return u.String(), nil
-}
 
 // These methods implement the target-side v8 import claim, the
 // importing-phase assertion used to gate controller-data write groups, and
@@ -243,13 +233,17 @@ func (s *State) SetImportPhaseActivating(ctx context.Context, modelUUID string) 
 	}
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	phases := importPhaseNames{
+		Target: string(modelmigration.ImportPhaseActivating),
+		Source: string(modelmigration.ImportPhaseImporting),
+	}
 	updateStmt, err := s.Prepare(`
 UPDATE model_migration_import
-SET    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'activating'),
+SET    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.target),
        updated_at    = DATETIME('now', 'utc')
 WHERE  model_uuid = $modelUUIDArg.model_uuid
-AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing')
-`, mUUID)
+AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.source)
+`, mUUID, phases)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -261,15 +255,15 @@ AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE t
 		}
 		switch claim.Phase {
 		case modelmigration.ImportPhaseAborting:
-			return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrActivationAborting)
+			return errors.Capture(modelmigrationerrors.ErrActivationAborting)
 		case modelmigration.ImportPhaseActivating:
 			return nil // idempotent: already in activating
 		}
 
 		// Phase is importing; CAS to activating.
 		var outcome sqlair.Outcome
-		if err := tx.Query(ctx, updateStmt, mUUID).Get(&outcome); err != nil {
-			return errors.Errorf("transitioning import to activating for model %q: %w", modelUUID, err)
+		if err := tx.Query(ctx, updateStmt, mUUID, phases).Get(&outcome); err != nil {
+			return errors.Errorf("transitioning import to activating: %w", err)
 		}
 		affected, err := outcome.Result().RowsAffected()
 		if err != nil {
@@ -278,30 +272,12 @@ AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE t
 		if affected == 0 {
 			// Concurrent phase change won the race.
 			return errors.Errorf(
-				"model %q import phase changed concurrently: %w",
-				modelUUID, modelmigrationerrors.ErrPhaseTransitionInvalid,
+				"import phase changed concurrently: %w",
+				modelmigrationerrors.ErrPhaseTransitionInvalid,
 			)
 		}
 		return nil
 	})
-}
-
-// AssertActivating returns nil if a model_migration_import claim exists for
-// modelUUID and its phase is activating. It returns
-// [modelmigrationerrors.ErrImportNotFound] if no claim exists, or
-// [modelmigrationerrors.ErrPhaseTransitionInvalid] if the phase differs.
-func (s *State) AssertActivating(ctx context.Context, modelUUID string) error {
-	claim, err := s.GetImportClaim(ctx, modelUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	if claim.Phase != modelmigration.ImportPhaseActivating {
-		return errors.Errorf(
-			"model %q import claim is %q: %w",
-			modelUUID, claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
-		)
-	}
-	return nil
 }
 
 // DeleteActivatedImport removes the import claim and its FK-dependent companion
@@ -351,51 +327,74 @@ WHERE model_uuid = $modelUUIDArg.model_uuid
 		}
 		if claim.Phase != modelmigration.ImportPhaseActivating {
 			return errors.Errorf(
-				"model %q import claim is %q, expected activating: %w",
-				modelUUID, claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
+				"import claim is %q, expected activating: %w",
+				claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
 			)
 		}
 
 		if err := tx.Query(ctx, deleteOffersStmt, mUUID).Run(); err != nil {
-			return errors.Errorf("deleting import offer companions for model %q: %w", modelUUID, err)
+			return errors.Errorf("deleting import offer companions: %w", err)
 		}
 		if err := tx.Query(ctx, deleteECMStmt, mUUID).Run(); err != nil {
-			return errors.Errorf("deleting import external controller companions for model %q: %w", modelUUID, err)
+			return errors.Errorf("deleting import external controller companions: %w", err)
 		}
 		if err := tx.Query(ctx, deleteClaimStmt, mUUID).Run(); err != nil {
-			return errors.Errorf("deleting activated import claim for model %q: %w", modelUUID, err)
+			return errors.Errorf("deleting activated import claim: %w", err)
 		}
 		return nil
 	})
 }
 
-// EnsureSourceControllerExists is a primitive-typed wrapper around
-// [EnsureExternalControllerExists] for callers outside the
-// domain/modelmigration tree (e.g. internal/migration). It builds the
-// internal representation and generates address row UUIDs before delegating.
-// The semantics are identical: compare-or-insert, never overwrite.
+// EnsureSourceControllerExists registers the migration source controller as an
+// external controller and maps the given consumed (source-hosted) models to it
+// in external_model, mirroring how ImportExternalControllers records third-party
+// controllers. It is a primitive-typed wrapper for callers outside the
+// domain/modelmigration tree (e.g. internal/migration) that cannot build the
+// internal representation. Both the controller registration and the model
+// mapping use compare-or-insert semantics and never overwrite live CMR data:
+// [modelmigrationerrors.ErrExternalControllerMismatch] is returned when the
+// controller, or any consumed model, is already registered with different
+// details. addrUUIDs supplies the caller-generated UUID for each address in
+// addrs and must have the same length.
 func (s *State) EnsureSourceControllerExists(
 	ctx context.Context,
 	controllerUUID, alias, caCert string,
-	addrs, consumedModels []string,
+	addrs, addrUUIDs, consumedModels []string,
 ) error {
-	internalAddrs := make([]modelmigrationinternal.ExternalControllerAddress, 0, len(addrs))
-	for _, addr := range addrs {
-		addrUUID, err := newUUID()
-		if err != nil {
-			return errors.Errorf("generating source controller address UUID: %w", err)
-		}
-		internalAddrs = append(internalAddrs, modelmigrationinternal.ExternalControllerAddress{
-			UUID:    addrUUID,
-			Address: addr,
-		})
+	if len(addrs) != len(addrUUIDs) {
+		return errors.Errorf("addresses and address UUIDs length mismatch")
 	}
-	return s.EnsureExternalControllerExists(ctx, modelmigrationinternal.ExternalController{
+	internalAddrs := make([]modelmigrationinternal.ExternalControllerAddress, len(addrs))
+	for i, addr := range addrs {
+		internalAddrs[i] = modelmigrationinternal.ExternalControllerAddress{
+			UUID:    addrUUIDs[i],
+			Address: addr,
+		}
+	}
+	ref := modelmigrationinternal.ExternalController{
 		UUID:           controllerUUID,
 		Alias:          alias,
 		CACert:         caCert,
 		Addresses:      internalAddrs,
 		ConsumedModels: consumedModels,
+	}
+
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := s.ensureExternalControllerExists(ctx, tx, ref); err != nil {
+			return errors.Capture(err)
+		}
+		for _, consumedModelUUID := range ref.ConsumedModels {
+			if err := s.ensureExternalModelMatchesOrInsert(
+				ctx, tx, consumedModelUUID, ref.UUID,
+			); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
 	})
 }
 
@@ -615,13 +614,13 @@ WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid`,
 
 	var rows []importExternalControllerModelArg
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Capture(tx.Query(ctx, stmt, modelUUIDArg{ModelUUID: modelUUID}).GetAll(&rows))
-	}); err != nil {
+		err := tx.Query(ctx, stmt, modelUUIDArg{ModelUUID: modelUUID}).GetAll(&rows)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, nil
+			return nil
 		}
-		return nil, errors.Errorf(
-			"fetching external controller models for import of model %q: %w", modelUUID, err)
+		return errors.Capture(err)
+	}); err != nil {
+		return nil, errors.Errorf("fetching external controller models for import: %w", err)
 	}
 
 	result := make([]ExternalControllerModels, len(rows))

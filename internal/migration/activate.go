@@ -16,6 +16,7 @@ import (
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	migrationmodelstate "github.com/juju/juju/domain/modelmigration/state/model"
 	"github.com/juju/juju/internal/errors"
+	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
 // ActivateModelArgs carries the data needed to activate an imported model.
@@ -84,13 +85,18 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 			}
 		case modelmigration.ImportPhaseActivating:
 			// Idempotent retry: already past the point of no return.
+		default:
+			return errors.Errorf(
+				"model %q: unexpected import claim phase %q",
+				modelUUIDStr, claim.Phase,
+			)
 		}
 	}
 
 	// 2. CMR offerer-controller reconciliation: populate
 	// application_remote_offerer.offerer_controller_uuid while the model is
 	// gated. All updates are idempotent so a retry after a crash is safe.
-	if err := reconcileOffererControllers(ctx, mmCtrl, deps, modelUUIDStr, args); err != nil {
+	if err := reconcileOffererControllers(ctx, mmCtrl, deps, modelUUID, hasClaim, args); err != nil {
 		return errors.Errorf(
 			"reconciling offerer controller UUIDs for model %q: %w", modelUUIDStr, err,
 		)
@@ -111,20 +117,20 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 		)
 	}
 
-	// 4.5. Activate the model row itself in the controller DB. This is a
+	// 5. Activate the model row itself in the controller DB. This is a
 	// distinct flag from the migration claim: model_migration_import tracks
 	// the migration's own phase machine, while model.activated is the
 	// generic "model creation is fully complete" flag every model carries
 	// (migrated or not) and is what v_model/CheckModelExists/GetModel gate
 	// on. Without this, the model stays permanently invisible even after the
-	// claim above is deleted. Idempotent: a retry that finds the row already
+	// claim is later deleted. Idempotent: a retry that finds the row already
 	// activated is a success, not an error.
 	modelCtrl := modelstate.NewState(deps.ControllerDB)
 	if err := modelCtrl.Activate(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.AlreadyActivated) {
 		return errors.Errorf("activating model %q: %w", modelUUIDStr, err)
 	}
 
-	// 5. Delete the import claim last (v8 only): after the gate is gone, a
+	// 6. Delete the import claim last (v8 only): after the gate is gone, a
 	// second call with no claim is an idempotent success.
 	if hasClaim {
 		if err := mmCtrl.DeleteActivatedImport(ctx, modelUUIDStr); err != nil {
@@ -152,20 +158,35 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 //     model_migration_import_external_controller_model during import. Only
 //     present on the v8 path (hasClaim).
 //
-// The source controller is registered via EnsureExternalControllerExists
+// The source controller is registered via EnsureSourceControllerExists
 // (compare-or-insert) rather than the legacy blind upsert. All CMR updates are
 // idempotent.
 func reconcileOffererControllers(
 	ctx context.Context,
 	mmCtrl *migrationclaimstate.State,
 	deps Deps,
-	modelUUIDStr string,
+	modelUUID coremodel.UUID,
+	hasClaim bool,
 	args ActivateModelArgs,
 ) error {
 	if args.SourceControllerUUID == "" {
 		return nil
 	}
+
+	cmrState := cmrmodelstate.NewState(deps.ModelDB, modelUUID, deps.Clock, deps.Logger)
+
 	if len(args.CrossModelUUIDs) > 0 {
+		// Generate the external-controller address row UUIDs here (the
+		// orchestration/service layer) and pass them into state.
+		addrUUIDs := make([]string, len(args.SourceAPIAddrs))
+		for i := range args.SourceAPIAddrs {
+			u, err := internaluuid.NewUUID()
+			if err != nil {
+				return errors.Errorf("generating source controller address UUID: %w", err)
+			}
+			addrUUIDs[i] = u.String()
+		}
+
 		// Register the source controller using compare-or-insert semantics.
 		if err := mmCtrl.EnsureSourceControllerExists(
 			ctx,
@@ -173,6 +194,7 @@ func reconcileOffererControllers(
 			args.SourceControllerAlias,
 			args.SourceCACert,
 			args.SourceAPIAddrs,
+			addrUUIDs,
 			args.CrossModelUUIDs,
 		); err != nil {
 			return errors.Errorf(
@@ -180,39 +202,37 @@ func reconcileOffererControllers(
 			)
 		}
 
-		// Populate offerer_controller_uuid for source-hosted offers.
-		cmrState := cmrmodelstate.NewState(deps.ModelDB, coremodel.UUID(modelUUIDStr), deps.Clock, deps.Logger)
-		for _, offererModelUUID := range args.CrossModelUUIDs {
-			if err := cmrState.SetOffererControllerForOffererModel(
-				ctx, offererModelUUID, args.SourceControllerUUID,
-			); err != nil {
-				return errors.Errorf(
-					"setting offerer controller for source-hosted model %q: %w",
-					offererModelUUID, err,
-				)
-			}
+		// Point all source-hosted offers at the source controller in a single
+		// UPDATE.
+		if err := cmrState.SetOffererControllerForOffererModels(
+			ctx, args.CrossModelUUIDs, args.SourceControllerUUID,
+		); err != nil {
+			return errors.Errorf(
+				"setting offerer controller for source-hosted models: %w", err,
+			)
 		}
 	}
 
 	// Third-party offerers (v8 only): mappings recorded during
-	// ImportExternalControllers, read from the companion table.
-	thirdParty, err := mmCtrl.ExternalControllerModelsForImport(ctx, modelUUIDStr)
+	// ImportExternalControllers, read from the companion table. Legacy imports
+	// have no claim and therefore no mappings, so skip the query entirely.
+	if !hasClaim {
+		return nil
+	}
+	thirdParty, err := mmCtrl.ExternalControllerModelsForImport(ctx, modelUUID.String())
 	if err != nil {
 		return errors.Errorf(
-			"reading third-party offerer mappings for model %q: %w", modelUUIDStr, err,
+			"reading third-party offerer mappings for model %q: %w", modelUUID, err,
 		)
 	}
-	if len(thirdParty) > 0 {
-		cmrState := cmrmodelstate.NewState(deps.ModelDB, coremodel.UUID(modelUUIDStr), deps.Clock, deps.Logger)
-		for _, m := range thirdParty {
-			if err := cmrState.SetOffererControllerForOffererModel(
-				ctx, m.OffererModelUUID, m.ControllerUUID,
-			); err != nil {
-				return errors.Errorf(
-					"setting offerer controller for third-party model %q: %w",
-					m.OffererModelUUID, err,
-				)
-			}
+	for _, m := range thirdParty {
+		if err := cmrState.SetOffererControllerForOffererModel(
+			ctx, m.OffererModelUUID, m.ControllerUUID,
+		); err != nil {
+			return errors.Errorf(
+				"setting offerer controller for third-party model %q: %w",
+				m.OffererModelUUID, err,
+			)
 		}
 	}
 	return nil

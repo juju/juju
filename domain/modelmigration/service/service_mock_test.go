@@ -124,12 +124,10 @@ type MockControllerStateMockRecorder struct {
 	beginImportExpects                      []*gomock.Call4_2[context.Context, string, string, string, modelmigration.ImportClaim, error]
 	checkCloudRegionExpects                 []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
 	checkImportModelCollisionExpects        []*gomock.Call4_2[context.Context, string, string, string, modelmigration.ImportModelCollision, error]
-	deleteModelImportingStatusExpects       []*gomock.Call2_1[context.Context, string, error]
 	ensureExternalControllerExistsExpects   []*gomock.Call2_1[context.Context, internal.ExternalController, error]
 	getActiveExportExpects                  []*gomock.Call2_2[context.Context, string, internal.Migration, error]
 	getActiveExportUUIDExpects              []*gomock.Call2_2[context.Context, string, string, error]
 	getConflictingCloudImageMetadataExpects []*gomock.Call2_2[context.Context, []modelmigration.ImportPrecheckImageMetadata, []modelmigration.CloudImageMetadataConflict, error]
-	getControllerTargetVersionExpects       []*gomock.Call1_2[context.Context, string, error]
 	getCredentialRevokedExpects             []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
 	getDisabledUsersExpects                 []*gomock.Call2_2[context.Context, []string, []string, error]
 	getImportClaimExpects                   []*gomock.Call2_2[context.Context, string, modelmigration.ImportClaim, error]
@@ -250,24 +248,6 @@ func (mr *MockControllerStateMockRecorder) CheckImportModelCollision(ctx, modelU
 // MockControllerStateCheckImportModelCollisionCall is the typed call wrapper for CheckImportModelCollision.
 type MockControllerStateCheckImportModelCollisionCall = gomock.Call4_2[context.Context, string, string, string, modelmigration.ImportModelCollision, error]
 
-// DeleteModelImportingStatus mocks base method.
-func (m *MockControllerState) DeleteModelImportingStatus(ctx context.Context, modelUUID string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteModelImportingStatusExpects, m.ctrl, m, "DeleteModelImportingStatus", ctx, modelUUID)
-}
-
-// DeleteModelImportingStatus indicates an expected call of DeleteModelImportingStatus.
-func (mr *MockControllerStateMockRecorder) DeleteModelImportingStatus(ctx, modelUUID any) *MockControllerStateDeleteModelImportingStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "DeleteModelImportingStatus", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
-	mr.deleteModelImportingStatusExpects = append(mr.deleteModelImportingStatusExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerStateDeleteModelImportingStatusCall is the typed call wrapper for DeleteModelImportingStatus.
-type MockControllerStateDeleteModelImportingStatusCall = gomock.Call2_1[context.Context, string, error]
-
 // EnsureExternalControllerExists mocks base method.
 func (m *MockControllerState) EnsureExternalControllerExists(ctx context.Context, ref internal.ExternalController) error {
 	m.ctrl.T.Helper()
@@ -339,24 +319,6 @@ func (mr *MockControllerStateMockRecorder) GetConflictingCloudImageMetadata(ctx,
 
 // MockControllerStateGetConflictingCloudImageMetadataCall is the typed call wrapper for GetConflictingCloudImageMetadata.
 type MockControllerStateGetConflictingCloudImageMetadataCall = gomock.Call2_2[context.Context, []modelmigration.ImportPrecheckImageMetadata, []modelmigration.CloudImageMetadataConflict, error]
-
-// GetControllerTargetVersion mocks base method.
-func (m *MockControllerState) GetControllerTargetVersion(ctx context.Context) (string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getControllerTargetVersionExpects, m.ctrl, m, "GetControllerTargetVersion", ctx)
-}
-
-// GetControllerTargetVersion indicates an expected call of GetControllerTargetVersion.
-func (mr *MockControllerStateMockRecorder) GetControllerTargetVersion(ctx any) *MockControllerStateGetControllerTargetVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "GetControllerTargetVersion", gomock.EnsureMatcher(ctx))
-	mr.getControllerTargetVersionExpects = append(mr.getControllerTargetVersionExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerStateGetControllerTargetVersionCall is the typed call wrapper for GetControllerTargetVersion.
-type MockControllerStateGetControllerTargetVersionCall = gomock.Call1_2[context.Context, string, error]
 
 // GetCredentialRevoked mocks base method.
 func (m *MockControllerState) GetCredentialRevoked(ctx context.Context, cloud, owner, name string) (bool, bool, error) {
@@ -655,13 +617,10 @@ type MockModelState struct {
 
 // MockModelStateMockRecorder is the mock recorder for MockModelState.
 type MockModelStateMockRecorder struct {
-	mock                              *MockModelState
-	deleteModelImportingStatusExpects []*gomock.Call1_1[context.Context, error]
-	getAllInstanceIDsExpects          []*gomock.Call1_2[context.Context, set.Strings, error]
-	getControllerUUIDExpects          []*gomock.Call1_2[context.Context, string, error]
-	getMigrationAgentsExpects         []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
-	getModelTargetAgentVersionExpects []*gomock.Call1_2[context.Context, string, error]
-	setModelTargetAgentVersionExpects []*gomock.Call3_1[context.Context, string, string, error]
+	mock                      *MockModelState
+	getAllInstanceIDsExpects  []*gomock.Call1_2[context.Context, set.Strings, error]
+	getControllerUUIDExpects  []*gomock.Call1_2[context.Context, string, error]
+	getMigrationAgentsExpects []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
 }
 
 // NewMockModelState creates a new mock instance.
@@ -675,24 +634,6 @@ func NewMockModelState(ctrl *gomock.Controller) *MockModelState {
 func (m *MockModelState) EXPECT() *MockModelStateMockRecorder {
 	return m.recorder
 }
-
-// DeleteModelImportingStatus mocks base method.
-func (m *MockModelState) DeleteModelImportingStatus(ctx context.Context) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.deleteModelImportingStatusExpects, m.ctrl, m, "DeleteModelImportingStatus", ctx)
-}
-
-// DeleteModelImportingStatus indicates an expected call of DeleteModelImportingStatus.
-func (mr *MockModelStateMockRecorder) DeleteModelImportingStatus(ctx any) *MockModelStateDeleteModelImportingStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "DeleteModelImportingStatus", gomock.EnsureMatcher(ctx))
-	mr.deleteModelImportingStatusExpects = append(mr.deleteModelImportingStatusExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelStateDeleteModelImportingStatusCall is the typed call wrapper for DeleteModelImportingStatus.
-type MockModelStateDeleteModelImportingStatusCall = gomock.Call1_1[context.Context, error]
 
 // GetAllInstanceIDs mocks base method.
 func (m *MockModelState) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
@@ -747,42 +688,6 @@ func (mr *MockModelStateMockRecorder) GetMigrationAgents(ctx any) *MockModelStat
 
 // MockModelStateGetMigrationAgentsCall is the typed call wrapper for GetMigrationAgents.
 type MockModelStateGetMigrationAgentsCall = gomock.Call1_2[context.Context, internal.MigrationAgents, error]
-
-// GetModelTargetAgentVersion mocks base method.
-func (m *MockModelState) GetModelTargetAgentVersion(arg0 context.Context) (string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getModelTargetAgentVersionExpects, m.ctrl, m, "GetModelTargetAgentVersion", arg0)
-}
-
-// GetModelTargetAgentVersion indicates an expected call of GetModelTargetAgentVersion.
-func (mr *MockModelStateMockRecorder) GetModelTargetAgentVersion(arg0 any) *MockModelStateGetModelTargetAgentVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "GetModelTargetAgentVersion", gomock.EnsureMatcher(arg0))
-	mr.getModelTargetAgentVersionExpects = append(mr.getModelTargetAgentVersionExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelStateGetModelTargetAgentVersionCall is the typed call wrapper for GetModelTargetAgentVersion.
-type MockModelStateGetModelTargetAgentVersionCall = gomock.Call1_2[context.Context, string, error]
-
-// SetModelTargetAgentVersion mocks base method.
-func (m *MockModelState) SetModelTargetAgentVersion(ctx context.Context, preCondition, toVersion string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setModelTargetAgentVersionExpects, m.ctrl, m, "SetModelTargetAgentVersion", ctx, preCondition, toVersion)
-}
-
-// SetModelTargetAgentVersion indicates an expected call of SetModelTargetAgentVersion.
-func (mr *MockModelStateMockRecorder) SetModelTargetAgentVersion(ctx, preCondition, toVersion any) *MockModelStateSetModelTargetAgentVersionCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "SetModelTargetAgentVersion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(preCondition), gomock.EnsureMatcher(toVersion))
-	mr.setModelTargetAgentVersionExpects = append(mr.setModelTargetAgentVersionExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelStateSetModelTargetAgentVersionCall is the typed call wrapper for SetModelTargetAgentVersion.
-type MockModelStateSetModelTargetAgentVersionCall = gomock.Call3_1[context.Context, string, string, error]
 
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {

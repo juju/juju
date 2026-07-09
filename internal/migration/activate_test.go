@@ -1,0 +1,193 @@
+// Copyright 2026 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package migration_test
+
+import (
+	"context"
+	"database/sql"
+
+	"github.com/juju/clock"
+	"github.com/juju/tc"
+
+	coremodel "github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/export"
+	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
+	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/uuid"
+)
+
+// importForActivation runs a v8 controller-data import for a fresh model and
+// seeds the model DB with the target agent version and the import gate that
+// activation clears, returning the model UUID and its deps.
+func (s *controllerImportSuite) importForActivation(
+	c *tc.C, modelAgentVersion string,
+) (coremodel.UUID, migration.Deps) {
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	deps, _, _ := s.deps(c, modelUUID)
+
+	info := s.baseControllerModelInfo(modelUUID)
+	view := export.ProjectionView{AgentTargetVersion: jujuversion.Current}
+	err := migration.ImportControllerModelInfo(
+		c.Context(), deps, uuid.MustNewUUID().String(), info, view)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The model-DB content import (agent version, import gate) is a separate
+	// task, so seed the minimum activation needs directly.
+	runner := s.ModelTxnRunner(c, modelUUID.String())
+	err = runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// The model schema seeds a singleton agent_version row, so update it
+		// rather than insert; fall back to insert if it is somehow absent.
+		res, err := tx.ExecContext(ctx,
+			"UPDATE agent_version SET target_version = ?, latest_version = ?",
+			modelAgentVersion, modelAgentVersion)
+		if err != nil {
+			return err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			if _, err := tx.ExecContext(ctx,
+				"INSERT INTO agent_version (stream_id, target_version, latest_version) VALUES (0, ?, ?)",
+				modelAgentVersion, modelAgentVersion); err != nil {
+				return err
+			}
+		}
+		_, err = tx.ExecContext(ctx,
+			"INSERT OR IGNORE INTO model_migrating (uuid, model_uuid) VALUES (?, ?)",
+			uuid.MustNewUUID().String(), modelUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return modelUUID, deps
+}
+
+func (s *controllerImportSuite) modelActivated(c *tc.C, modelUUID coremodel.UUID) bool {
+	var activated bool
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT activated FROM model WHERE uuid = ?", modelUUID.String()).Scan(&activated)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return activated
+}
+
+func (s *controllerImportSuite) modelGateExists(c *tc.C, modelUUID coremodel.UUID) bool {
+	var count int
+	runner := s.ModelTxnRunner(c, modelUUID.String())
+	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM model_migrating WHERE model_uuid = ?", modelUUID.String()).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return count > 0
+}
+
+func (s *controllerImportSuite) modelAgentVersion(c *tc.C, modelUUID coremodel.UUID) string {
+	var v string
+	runner := s.ModelTxnRunner(c, modelUUID.String())
+	err := runner.StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT target_version FROM agent_version").Scan(&v)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return v
+}
+
+// TestActivateModelHappyPath verifies the v8 activation state machine: the
+// claim is deleted, the import gate is cleared, the model row is activated and
+// the model agent version is bumped to the controller target.
+func (s *controllerImportSuite) TestActivateModelHappyPath(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	err := migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{
+		ModelUUID: modelUUID,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The claim is gone.
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	_, err = claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Check(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
+
+	// The model row is activated and the gate cleared.
+	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
+	c.Check(s.modelGateExists(c, modelUUID), tc.IsFalse)
+
+	// The agent version was bumped to the controller target.
+	c.Check(s.modelAgentVersion(c, modelUUID), tc.Equals, jujuversion.Current.String())
+}
+
+// TestActivateModelIdempotent verifies a second activation after a completed
+// one is a no-op success: the model stays activated and no claim reappears.
+func (s *controllerImportSuite) TestActivateModelIdempotent(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	err := migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	_, err = claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Check(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
+}
+
+// TestActivateModelRetryFromActivating verifies that a crash after the claim
+// reached the activating phase resumes to completion on a re-run.
+func (s *controllerImportSuite) TestActivateModelRetryFromActivating(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	err := claimSt.SetImportPhaseActivating(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
+	_, err = claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Check(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
+}
+
+// TestActivateModelAborting verifies activation refuses to proceed when the
+// claim has already moved to the aborting phase, leaving the model unactivated.
+func (s *controllerImportSuite) TestActivateModelAborting(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"UPDATE model_migration_import SET phase_type_id = 2 WHERE model_uuid = ?", modelUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrActivationAborting)
+
+	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
+}
+
+// TestActivateModelLegacyNoClaim verifies a legacy import (import gate set, no
+// v8 claim) still activates: the gate is cleared and the model row activated.
+func (s *controllerImportSuite) TestActivateModelLegacyNoClaim(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	// Simulate a legacy import by dropping the v8 claim entirely.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"DELETE FROM model_migration_import WHERE model_uuid = ?", modelUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
+	c.Check(s.modelGateExists(c, modelUUID), tc.IsFalse)
+	c.Check(s.modelAgentVersion(c, modelUUID), tc.Equals, jujuversion.Current.String())
+}

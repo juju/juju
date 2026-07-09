@@ -1721,10 +1721,18 @@ WHERE a.name = $name.name`, modelUUID{}, name{})
 // in application_remote_offerer for all rows whose offerer_model_uuid matches
 // the given model UUID. This is called during model activation to reconcile
 // the controller reference for both source-hosted and third-party CMR offerers.
-// It is idempotent: re-setting the same value is a no-op.
+// It is idempotent: re-setting the same value is a no-op. Both offererModelUUID
+// and controllerUUID must be non-empty.
 func (st *State) SetOffererControllerForOffererModel(
 	ctx context.Context, offererModelUUID, controllerUUID string,
 ) error {
+	if offererModelUUID == "" {
+		return errors.Errorf("offerer model UUID cannot be empty")
+	}
+	if controllerUUID == "" {
+		return errors.Errorf("offerer controller UUID cannot be empty")
+	}
+
 	db, err := st.DB(ctx)
 	if err != nil {
 		return errors.Capture(err)
@@ -1749,6 +1757,55 @@ WHERE  offerer_model_uuid = $offererControllerArg.offerer_model_uuid`,
 			OffererModelUUID: offererModelUUID,
 			ControllerUUID:   controllerUUID,
 		}).Run())
+	})
+}
+
+// SetOffererControllerForOffererModels sets offerer_controller_uuid on every
+// application_remote_offerer row whose offerer_model_uuid is one of the given
+// model UUIDs, in a single UPDATE. It is used during activation to point all
+// source-hosted offerers at the source controller in one statement. It is
+// idempotent: re-setting the same value is a no-op. controllerUUID and every
+// entry in offererModelUUIDs must be non-empty; passing no model UUIDs is a
+// no-op.
+func (st *State) SetOffererControllerForOffererModels(
+	ctx context.Context, offererModelUUIDs []string, controllerUUID string,
+) error {
+	if controllerUUID == "" {
+		return errors.Errorf("offerer controller UUID cannot be empty")
+	}
+	if len(offererModelUUIDs) == 0 {
+		return nil
+	}
+	for _, u := range offererModelUUIDs {
+		if u == "" {
+			return errors.Errorf("offerer model UUID cannot be empty")
+		}
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	type controllerArg struct {
+		ControllerUUID string `db:"offerer_controller_uuid"`
+	}
+	type modelUUIDs []string
+
+	stmt, err := st.Prepare(`
+UPDATE application_remote_offerer
+SET    offerer_controller_uuid = $controllerArg.offerer_controller_uuid
+WHERE  offerer_model_uuid IN ($modelUUIDs[:])`,
+		controllerArg{}, modelUUIDs{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, stmt,
+			controllerArg{ControllerUUID: controllerUUID},
+			modelUUIDs(offererModelUUIDs),
+		).Run())
 	})
 }
 

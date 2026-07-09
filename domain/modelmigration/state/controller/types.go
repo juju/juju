@@ -361,6 +361,14 @@ type importPhaseRow struct {
 	PhaseType string `db:"phase_type"`
 }
 
+// importPhaseNames binds the source and target phase names of a claim phase
+// transition, so the phase-type IDs are resolved by name from
+// model_migration_import_phase_type rather than inlined as SQL literals.
+type importPhaseNames struct {
+	Target string `db:"target"`
+	Source string `db:"source"`
+}
+
 // importOfferArg is the insert argument for a model_migration_import_offer
 // row.
 type importOfferArg struct {
