@@ -6,6 +6,7 @@ package migration
 import (
 	"context"
 
+	corecontroller "github.com/juju/juju/core/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
@@ -214,7 +215,7 @@ func reconcileOffererControllers(
 			crossModelUUIDs[i] = coremodel.UUID(u)
 		}
 		if err := cmrService.SetOffererControllerForOffererModels(
-			ctx, crossModelUUIDs, args.SourceControllerUUID,
+			ctx, crossModelUUIDs, corecontroller.UUID(args.SourceControllerUUID),
 		); err != nil {
 			return errors.Errorf(
 				"setting offerer controller for source-hosted models: %w", err,
@@ -236,7 +237,7 @@ func reconcileOffererControllers(
 	}
 	for _, m := range thirdParty {
 		if err := cmrService.SetOffererControllerForOffererModel(
-			ctx, coremodel.UUID(m.OffererModelUUID), m.ControllerUUID,
+			ctx, coremodel.UUID(m.OffererModelUUID), corecontroller.UUID(m.ControllerUUID),
 		); err != nil {
 			return errors.Errorf(
 				"setting offerer controller for third-party model %q: %w",

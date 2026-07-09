@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -104,7 +105,7 @@ func (s *MigrationService) ImportOffers(ctx context.Context, imports []crossmode
 // model UUID, recording which controller hosts the offer. Called during model
 // activation to populate the CMR controller reference. Idempotent.
 func (s *MigrationService) SetOffererControllerForOffererModel(
-	ctx context.Context, offererModelUUID model.UUID, controllerUUID string,
+	ctx context.Context, offererModelUUID model.UUID, controllerUUID controller.UUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -112,12 +113,12 @@ func (s *MigrationService) SetOffererControllerForOffererModel(
 	if err := offererModelUUID.Validate(); err != nil {
 		return internalerrors.Errorf("validating offerer model UUID: %w", err)
 	}
-	if !uuid.IsValidUUIDString(controllerUUID) {
-		return internalerrors.Errorf("offerer controller UUID %q: %w", controllerUUID, errors.NotValid)
+	if err := controllerUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating offerer controller UUID: %w", err)
 	}
 
 	return internalerrors.Capture(
-		s.modelState.SetOffererControllerForOffererModel(ctx, offererModelUUID.String(), controllerUUID),
+		s.modelState.SetOffererControllerForOffererModel(ctx, offererModelUUID.String(), controllerUUID.String()),
 	)
 }
 
@@ -127,13 +128,13 @@ func (s *MigrationService) SetOffererControllerForOffererModel(
 // all source-hosted offerers at the source controller. Idempotent; passing no
 // model UUIDs is a no-op.
 func (s *MigrationService) SetOffererControllerForOffererModels(
-	ctx context.Context, offererModelUUIDs []model.UUID, controllerUUID string,
+	ctx context.Context, offererModelUUIDs []model.UUID, controllerUUID controller.UUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	if !uuid.IsValidUUIDString(controllerUUID) {
-		return internalerrors.Errorf("offerer controller UUID %q: %w", controllerUUID, errors.NotValid)
+	if err := controllerUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating offerer controller UUID: %w", err)
 	}
 	modelUUIDs := make([]string, len(offererModelUUIDs))
 	for i, u := range offererModelUUIDs {
@@ -144,7 +145,7 @@ func (s *MigrationService) SetOffererControllerForOffererModels(
 	}
 
 	return internalerrors.Capture(
-		s.modelState.SetOffererControllerForOffererModels(ctx, modelUUIDs, controllerUUID),
+		s.modelState.SetOffererControllerForOffererModels(ctx, modelUUIDs, controllerUUID.String()),
 	)
 }
 

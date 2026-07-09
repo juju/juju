@@ -12,6 +12,7 @@ import (
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
+	corecontroller "github.com/juju/juju/core/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
@@ -870,9 +871,9 @@ func (s *migrationSuite) TestSetOffererControllerForOffererModel(c *tc.C) {
 
 	// Arrange
 	offererModelUUID := coremodel.UUID(uuid.MustNewUUID().String())
-	controllerUUID := uuid.MustNewUUID().String()
+	controllerUUID := corecontroller.UUID(uuid.MustNewUUID().String())
 	s.modelMigrationState.EXPECT().SetOffererControllerForOffererModel(
-		gomock.Any(), offererModelUUID.String(), controllerUUID).Return(nil)
+		gomock.Any(), offererModelUUID.String(), controllerUUID.String()).Return(nil)
 
 	// Act
 	err := s.service(c).SetOffererControllerForOffererModel(c.Context(), offererModelUUID, controllerUUID)
@@ -887,7 +888,7 @@ func (s *migrationSuite) TestSetOffererControllerForOffererModelInvalidModelUUID
 	// Act: an invalid offerer model UUID is rejected by the service before
 	// reaching state.
 	err := s.service(c).SetOffererControllerForOffererModel(
-		c.Context(), coremodel.UUID("not-a-uuid"), uuid.MustNewUUID().String())
+		c.Context(), coremodel.UUID("not-a-uuid"), corecontroller.UUID(uuid.MustNewUUID().String()))
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -899,7 +900,7 @@ func (s *migrationSuite) TestSetOffererControllerForOffererModelInvalidControlle
 	// Act: an invalid controller UUID is rejected by the service before
 	// reaching state.
 	err := s.service(c).SetOffererControllerForOffererModel(
-		c.Context(), coremodel.UUID(uuid.MustNewUUID().String()), "not-a-uuid")
+		c.Context(), coremodel.UUID(uuid.MustNewUUID().String()), corecontroller.UUID("not-a-uuid"))
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
@@ -911,9 +912,9 @@ func (s *migrationSuite) TestSetOffererControllerForOffererModels(c *tc.C) {
 	// Arrange
 	modelA := coremodel.UUID(uuid.MustNewUUID().String())
 	modelB := coremodel.UUID(uuid.MustNewUUID().String())
-	controllerUUID := uuid.MustNewUUID().String()
+	controllerUUID := corecontroller.UUID(uuid.MustNewUUID().String())
 	s.modelMigrationState.EXPECT().SetOffererControllerForOffererModels(
-		gomock.Any(), []string{modelA.String(), modelB.String()}, controllerUUID).Return(nil)
+		gomock.Any(), []string{modelA.String(), modelB.String()}, controllerUUID.String()).Return(nil)
 
 	// Act
 	err := s.service(c).SetOffererControllerForOffererModels(
@@ -931,7 +932,7 @@ func (s *migrationSuite) TestSetOffererControllerForOffererModelsInvalidModelUUI
 	err := s.service(c).SetOffererControllerForOffererModels(
 		c.Context(),
 		[]coremodel.UUID{coremodel.UUID(uuid.MustNewUUID().String()), "not-a-uuid"},
-		uuid.MustNewUUID().String(),
+		corecontroller.UUID(uuid.MustNewUUID().String()),
 	)
 
 	// Assert
@@ -944,7 +945,7 @@ func (s *migrationSuite) TestSetOffererControllerForOffererModelsInvalidControll
 	// Act: an invalid controller UUID is rejected by the service before
 	// reaching state.
 	err := s.service(c).SetOffererControllerForOffererModels(
-		c.Context(), []coremodel.UUID{coremodel.UUID(uuid.MustNewUUID().String())}, "not-a-uuid")
+		c.Context(), []coremodel.UUID{coremodel.UUID(uuid.MustNewUUID().String())}, corecontroller.UUID("not-a-uuid"))
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
