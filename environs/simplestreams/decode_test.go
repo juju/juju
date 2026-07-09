@@ -22,7 +22,7 @@ func (s *decodeSuite) TestDecodeCheckValidSignature(c *tc.C) {
 	r := bytes.NewReader([]byte(signedData))
 	txt, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(txt, tc.DeepEquals, []byte(unsignedData[1:]))
+	c.Assert(txt, tc.DeepEquals, []byte(decodedData))
 }
 
 func (s *decodeSuite) TestDecodeCheckInvalidSignature(c *tc.C) {
@@ -111,3 +111,5 @@ Hash: SHA1
 Invalid
 `
 )
+
+var decodedData = unsignedData[1 : len(unsignedData)-1]
