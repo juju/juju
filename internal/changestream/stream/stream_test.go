@@ -260,7 +260,9 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectTermAfterAnyTimes()
+	// Handles both term-timeout and backoff After calls to prevent
+	// deadlock in the backoff path after term.Done completes.
+	s.expectAfterWithoutTermTimeout()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
