@@ -10,11 +10,11 @@ import (
 )
 
 // IntentSetStatus indicates an application status update.
-const IntentSetStatus IntentType = "status-set"
+const IntentSetStatus IntentType = "set-status"
 
 const setStatusSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
-var setStatusBuiltin = starlark.NewBuiltinWithSafety("status_set", setStatusSafety, setStatus)
+var setStatusBuiltin = starlark.NewBuiltinWithSafety("set-status", setStatusSafety, setStatus)
 
 func setStatus(
 	thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple,
@@ -28,15 +28,19 @@ func setStatus(
 	if err != nil {
 		return nil, errors.Errorf("getting IntentCollector from thread: %w", err)
 	}
+	intentArgs := map[string]any{
+		"status":  status,
+		"message": message,
+	}
+	if err := thread.AddAllocs(starlark.EstimateSize(intentArgs)); err != nil {
+		return nil, errors.Errorf("adding allocations for set-status arguments: %w", err)
+	}
 	err = collector.append(thread, Intent{
 		Type: IntentSetStatus,
-		Args: map[string]any{
-			"status":  status,
-			"message": message,
-		},
+		Args: intentArgs,
 	})
 	if err != nil {
-		return nil, errors.Errorf("appending status-set intent: %w", err)
+		return nil, errors.Errorf("appending set-status intent: %w", err)
 	}
 	return starlark.None, nil
 }

@@ -34,10 +34,6 @@ func (c *IntentCollector) Intents() []Intent {
 }
 
 func (c *IntentCollector) append(thread *starlark.Thread, intent Intent) error {
-	if err := thread.AddAllocs(starlark.EstimateSize(intent)); err != nil {
-		return errors.Errorf("adding allocations for %q: %w", intent.Type, err)
-	}
-
 	appender := starlark.NewSafeAppender(thread, &c.intents)
 	if err := appender.Append(intent); err != nil {
 		return errors.Errorf("appending intent %q: %w", intent.Type, err)
