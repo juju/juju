@@ -94,7 +94,7 @@ func (a *safeModeApplicationCommand) Init(args []string) error {
 	}
 	a.runtimeConfig = runtimeConfig
 
-	if err := os.MkdirAll(runtimeConfig.LogDir, 0o644); err != nil {
+	if err := os.MkdirAll(runtimeConfig.LogDir, 0o755); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 
