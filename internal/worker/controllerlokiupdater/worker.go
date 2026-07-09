@@ -85,7 +85,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 type lokiConfigUpdater struct {
-	config Config
+	config         Config
+	hasLastWritten bool
+	lastWritten    logging.LokiConfig
 }
 
 // SetUp implements watcher.NotifyHandler. It performs an initial sync of the
@@ -125,6 +127,10 @@ func (w *lokiConfigUpdater) syncConfig(ctx context.Context) error {
 		return errors.Annotate(err, "getting controller loki config")
 	}
 
+	if w.hasLastWritten && sameLokiConfig(w.lastWritten, lokiConfig) {
+		return nil
+	}
+
 	if err := w.config.WriteLokiConfig(lokiConfig); err != nil {
 		return errors.Annotate(err, "writing loki config to runtime config")
 	}
@@ -137,5 +143,24 @@ func (w *lokiConfigUpdater) syncConfig(ctx context.Context) error {
 	if err := w.config.NotifyConfigReload(); err != nil {
 		return errors.Annotate(err, "notifying config reload")
 	}
+	w.lastWritten = lokiConfig
+	w.hasLastWritten = true
 	return nil
+}
+
+func sameLokiConfig(a, b logging.LokiConfig) bool {
+	return a.Endpoint == b.Endpoint &&
+		a.CACertificate == b.CACertificate &&
+		a.OrgID == b.OrgID &&
+		sameOptionalBool(a.InsecureSkipVerify, b.InsecureSkipVerify)
+}
+
+func sameOptionalBool(a, b *bool) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
 }
