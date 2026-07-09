@@ -574,6 +574,7 @@ func (a *ControllerApplication) makeEngineCreator(
 			flightrecorder.NewRecorder(c), "",
 			internallogger.GetLogger("juju.flightrecorder"),
 		)
+		runtimeConfigChanged := controllerruntimeconfig.NewRuntimeConfigChanged()
 
 		manifoldsCfg := agentcontroller.ManifoldsConfig{
 			PreviousAgentVersion:  previousAgentVersion,
@@ -589,6 +590,7 @@ func (a *ControllerApplication) makeEngineCreator(
 			ConfigChangeSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "configchange.socket",
 			),
+			RuntimeConfigChanged: runtimeConfigChanged,
 			ControlSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "control.socket",
 			),
