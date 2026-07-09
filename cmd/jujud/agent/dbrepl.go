@@ -90,7 +90,7 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 		return errors.Annotate(err, "cannot read controller runtime configuration")
 	}
 	a.runtimeConfig = runtimeConfig
-	if err := os.MkdirAll(runtimeConfig.LogDir, 0644); err != nil {
+	if err := os.MkdirAll(runtimeConfig.LogDir, 0o755); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 
