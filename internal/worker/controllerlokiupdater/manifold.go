@@ -5,9 +5,6 @@ package controllerlokiupdater
 
 import (
 	"context"
-	"net"
-	"net/http"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
@@ -94,7 +91,7 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 			)
 		},
 		NotifyConfigReload: func() error {
-			return notifyConfigReload(c.ConfigChangeSocketPath)
+			return controllerruntimeconfig.RequestReload(c.ConfigChangeSocketPath)
 		},
 		Logger: c.Logger,
 	})
@@ -108,35 +105,4 @@ func getControllerDomainServices(getter dependency.Getter, name string) (service
 		return nil, errors.Trace(err)
 	}
 	return domainServices, nil
-}
-
-// notifyConfigReload sends a POST /reload request to the controller config
-// change socket. This is the same mechanism used by the UpdateLoggerConfig
-// path in cmd/jujud/agent/controller.go.
-func notifyConfigReload(socketPath string) error {
-	transport := &http.Transport{
-		DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(context.Background(), "unix", socketPath)
-		},
-	}
-	defer transport.CloseIdleConnections()
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   5 * time.Second,
-	}
-	req, err := http.NewRequest(http.MethodPost, "http://unix.socket/reload", http.NoBody)
-	if err != nil {
-		return errors.Annotate(err, "creating controller config reload request")
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return errors.Annotatef(err, "requesting controller config reload via %q", socketPath)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		return errors.Errorf("controller config reload via %q failed: %s", socketPath, resp.Status)
-	}
-	return nil
 }
