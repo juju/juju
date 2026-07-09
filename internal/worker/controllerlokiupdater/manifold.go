@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
@@ -25,10 +26,11 @@ type ManifoldConfig struct {
 	// RuntimeConfigPath is the path to the controller runtime config file.
 	RuntimeConfigPath string
 
-	// ConfigChangeSocketPath is the path to the controller config change
-	// unix socket. The worker signals this socket after persisting a Loki
-	// config change so downstream workers re-read their config.
-	ConfigChangeSocketPath string
+	// RuntimeConfigChanged is a voyeur.Value that the worker sets after
+	// each successful write to runtime.conf. Workers that watch this value
+	// (such as the controller-log-router) re-read the current config when
+	// it is set.
+	RuntimeConfigChanged *voyeur.Value
 
 	// Logger is the logger used by the worker.
 	Logger corelogger.Logger
@@ -42,8 +44,8 @@ func (c ManifoldConfig) Validate() error {
 	if c.RuntimeConfigPath == "" {
 		return errors.NotValidf("empty RuntimeConfigPath")
 	}
-	if c.ConfigChangeSocketPath == "" {
-		return errors.NotValidf("empty ConfigChangeSocketPath")
+	if c.RuntimeConfigChanged == nil {
+		return errors.NotValidf("nil RuntimeConfigChanged")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -53,8 +55,9 @@ func (c ManifoldConfig) Validate() error {
 
 // Manifold returns a dependency manifold that watches for controller Loki
 // configuration changes in the logging domain and persists them to the
-// controller runtime config file. After each write it signals the
-// config-change socket so the logrouter worker picks up the update.
+// controller runtime config file. After each write it sets the
+// RuntimeConfigChanged voyeur.Value so workers that watch it re-read
+// their config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -90,10 +93,8 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 				},
 			)
 		},
-		NotifyConfigReload: func() error {
-			return controllerruntimeconfig.RequestReload(c.ConfigChangeSocketPath)
-		},
-		Logger: c.Logger,
+		RuntimeConfigChanged: c.RuntimeConfigChanged,
+		Logger:               c.Logger,
 	})
 }
 

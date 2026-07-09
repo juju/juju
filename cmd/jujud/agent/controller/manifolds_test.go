@@ -79,7 +79,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"change-stream-pruner",
 		"control-socket",
 		"controller-agent-config",
-		"log-router-reload-bridge",
 		"log-router",
 		"log-sink",
 		"loki-config-updater",
@@ -167,7 +166,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"controller-upgrade-gate",
 		"control-socket",
 		"controller-agent-config",
-		"log-router-reload-bridge",
 		"log-router",
 		"log-sink",
 		"loki-config-updater",
@@ -426,7 +424,7 @@ func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
 	}
 }
 
-func (*ManifoldsSuite) TestControllerLogRouterBridgeDirectInputs(c *tc.C) {
+func (*ManifoldsSuite) TestControllerLogRouterDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
 			PreUpgradeSteps: preUpgradeSteps,
@@ -436,9 +434,12 @@ func (*ManifoldsSuite) TestControllerLogRouterBridgeDirectInputs(c *tc.C) {
 			PreUpgradeSteps: preUpgradeSteps,
 		}),
 	} {
-		manifold, ok := manifolds["log-router-reload-bridge"]
+		manifold, ok := manifolds["log-router"]
 		c.Assert(ok, tc.IsTrue)
-		c.Check(manifold.Inputs, tc.SameContents, []string{"controller-agent-config"})
+		c.Check(manifold.Inputs, tc.SameContents, []string{"http-client"})
+		checkNotContains(c, manifold.Inputs, "agent")
+		checkNotContains(c, manifold.Inputs, "controller-agent-config")
+		checkNotContains(c, manifold.Inputs, "log-router-reload-bridge")
 	}
 }
 
@@ -1114,10 +1115,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 
 	"log-router": {
 		"http-client",
-	},
-
-	"log-router-reload-bridge": {
-		"controller-agent-config",
 	},
 
 	"log-sink": {
