@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net"
 	"net/url"
 	"slices"
 	"sort"
@@ -526,15 +527,98 @@ func (env *azureEnviron) validateIPFamilyConstraint(cons constraints.Value) erro
 	return nil
 }
 
+// subnetAddressPrefixes returns all CIDR prefixes for a subnet, preferring
+// AddressPrefixes (plural, dual-stack) and falling back to AddressPrefix
+// (singular, legacy single-family subnets).
+func subnetAddressPrefixes(props *armnetwork.SubnetPropertiesFormat) []string {
+	if props == nil {
+		return nil
+	}
+	if len(props.AddressPrefixes) > 0 {
+		var prefixes []string
+		for _, p := range props.AddressPrefixes {
+			if p != nil && *p != "" {
+				prefixes = append(prefixes, *p)
+			}
+		}
+		return prefixes
+	}
+	if props.AddressPrefix != nil && *props.AddressPrefix != "" {
+		return []string{*props.AddressPrefix}
+	}
+	return nil
+}
+
+// hasIPv6Slash64Prefix returns true if at least one CIDR in prefixes is an
+// IPv6 address with a /64 prefix length, which is the only IPv6 prefix size
+// Azure accepts for VNet subnets.
+func hasIPv6Slash64Prefix(prefixes []string) bool {
+	for _, prefix := range prefixes {
+		_, ipNet, err := net.ParseCIDR(prefix)
+		if err != nil {
+			continue // Skip malformed prefixes
+		}
+		if ipNet.IP.To4() == nil {
+			ones, _ := ipNet.Mask.Size()
+			if ones == 64 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// validateIPFamilyForResolvedSubnet validates ip-family constraints for VM
+// creation after the subnet has been resolved. It performs the SKU check and,
+// when a resolved primary subnet was provided, verifies that subnet has an
+// IPv6 /64 prefix. When no primary subnet is available (Juju-managed VNet
+// at bootstrap or ID resolution miss), the SKU check alone is sufficient;
+// Azure itself rejects IPv4-only subnets at NIC creation time. Resolution
+// misses are logged upstream by networkInfoForInstance.
+func (env *azureEnviron) validateIPFamilyForResolvedSubnet(
+	ctx context.Context, cons constraints.Value,
+	primarySubnet *armnetwork.Subnet,
+) error {
+	if cons.IPFamily == nil || *cons.IPFamily != ipfamily.Dual {
+		return nil
+	}
+	if env.config.loadBalancerSkuName == string(armnetwork.LoadBalancerSKUNameBasic) {
+		return errors.Errorf(
+			"ip-family=dual requires load-balancer-sku-name=Standard on Azure; " +
+				"Basic SKU is not supported for this configuration")
+	}
+
+	// When a primary subnet was resolved, verify it has an IPv6 /64 prefix.
+	if primarySubnet == nil {
+		return nil
+	}
+	if primarySubnet.Properties == nil {
+		return errors.Errorf(
+			"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found; "+
+				"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(primarySubnet.Name))
+	}
+	prefixes := subnetAddressPrefixes(primarySubnet.Properties)
+	if hasIPv6Slash64Prefix(prefixes) {
+		return nil
+	}
+	return errors.Errorf(
+		"subnet %q does not support ip-family=dual: no IPv6 /64 prefix found; "+
+			"add a /64 IPv6 prefix to the subnet or use ip-family=ipv4", toValue(primarySubnet.Name))
+}
+
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
 func (env *azureEnviron) PrecheckInstance(ctx context.Context, args environs.PrecheckInstanceParams) error {
 	if err := env.validateIPFamilyConstraint(args.Constraints); err != nil {
 		return errors.Trace(err)
 	}
 
-	if _, err := env.findPlacementSubnet(ctx, args.Placement); err != nil {
+	// Resolve placement subnet early so a missing-subnet error surfaces
+	// before VM creation. IPv6 validation happens later in createVirtualMachine.
+	_, err := env.findPlacementSubnet(ctx, args.Placement)
+	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if !args.Constraints.HasInstanceType() {
 		return nil
 	}
@@ -865,12 +949,19 @@ func (env *azureEnviron) createVirtualMachine(
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
 
-	placementSubnetID, err := env.findPlacementSubnet(ctx, args.Placement)
+	// Resolve placement subnet ID for use in networkInfoForInstance.
+	// findPlacementSubnet returns nil if no placement is specified.
+	placementSubnet, err := env.findPlacementSubnet(ctx, args.Placement)
 	if err != nil {
 		return environs.ZoneIndependentError(err)
 	}
-	vnetId, subnetIds, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnetID)
+	vnetId, subnetIds, primarySubnet, err := env.networkInfoForInstance(ctx, args, bootstrapping, instanceConfig.IsController(), placementSubnet)
 	if err != nil {
+		return environs.ZoneIndependentError(err)
+	}
+
+	// Validate ip-family constraints against the resolved primary subnet.
+	if err := env.validateIPFamilyForResolvedSubnet(ctx, args.Constraints, primarySubnet); err != nil {
 		return environs.ZoneIndependentError(err)
 	}
 	logger.Debugf(ctx, "creating instance using vnet %v, subnets %q", vnetId, subnetIds)
@@ -879,7 +970,23 @@ func (env *azureEnviron) createVirtualMachine(
 		nicDependsOn = append(nicDependsOn, vnetId)
 	}
 
+	isDualStack := args.Constraints.IPFamily != nil && *args.Constraints.IPFamily == ipfamily.Dual
+
+	// Reject when a space constraint selected the IPv6 variant of a
+	// dual-stack subnet but ip-family is not dual. Provisioning would
+	// silently violate the constraint.
+	if !isDualStack {
+		for _, sel := range subnetIds {
+			if sel.WantIPv6 {
+				return environs.ZoneIndependentError(errors.Errorf(
+					"subnet %q was selected via an IPv6-only space; "+
+						"set ip-family=dual to provision an IPv6 address", sel.ID))
+			}
+		}
+	}
+
 	var publicIPAddressId string
+	var ipv6PublicIPAddressId string
 	if usePublicIP {
 		publicIPAddressName := vmName + "-public-ip"
 		publicIPAddressId = fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, publicIPAddressName)
@@ -900,17 +1007,34 @@ func (env *azureEnviron) createVirtualMachine(
 				PublicIPAllocationMethod: new(publicIPAddressAllocationMethod),
 			},
 		})
+		if isDualStack {
+			ipv6PIPName := vmName + "-public-ip-ipv6"
+			ipv6PublicIPAddressId = fmt.Sprintf(`[resourceId('Microsoft.Network/publicIPAddresses', '%s')]`, ipv6PIPName)
+			res = append(res, armtemplates.Resource{
+				APIVersion: networkAPIVersion,
+				Type:       "Microsoft.Network/publicIPAddresses",
+				Name:       ipv6PIPName,
+				Location:   env.location,
+				Tags:       vmTags,
+				Sku:        &armtemplates.Sku{Name: string(armnetwork.LoadBalancerSKUNameStandard)},
+				Properties: &armnetwork.PublicIPAddressPropertiesFormat{
+					PublicIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv6),
+					PublicIPAllocationMethod: new(publicIPAddressAllocationMethod),
+				},
+			})
+		}
 	}
 
 	// Create one NIC per subnet. The first one is the primary and has
 	// the public IP address if so configured.
 	var nics []*armcompute.NetworkInterfaceReference
-	for i, subnetID := range subnetIds {
+	for i, sel := range subnetIds {
 		primary := i == 0
+		subnetID := string(sel.ID)
 		ipConfig := &armnetwork.InterfaceIPConfigurationPropertiesFormat{
 			Primary:                   new(primary),
 			PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
-			Subnet:                    &armnetwork.Subnet{ID: new(string(subnetID))},
+			Subnet:                    &armnetwork.Subnet{ID: new(subnetID)},
 		}
 		if primary && usePublicIP {
 			ipConfig.PublicIPAddress = &armnetwork.PublicIPAddress{
@@ -928,6 +1052,27 @@ func (env *azureEnviron) createVirtualMachine(
 			Name:       new(ipConfigName),
 			Properties: ipConfig,
 		}}
+
+		// For dual-stack, add an IPv6 IP configuration to the primary NIC.
+		if primary && isDualStack {
+			ipv6Props := &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+				Primary:                   new(false),
+				PrivateIPAddressVersion:   to.Ptr(armnetwork.IPVersionIPv6),
+				PrivateIPAllocationMethod: to.Ptr(armnetwork.IPAllocationMethodDynamic),
+				Subnet:                    &armnetwork.Subnet{ID: new(subnetID)},
+			}
+			if usePublicIP && ipv6PublicIPAddressId != "" {
+				ipv6Props.PublicIPAddress = &armnetwork.PublicIPAddress{
+					ID: new(ipv6PublicIPAddressId),
+				}
+				nicDependsOn = append(nicDependsOn, ipv6PublicIPAddressId)
+			}
+			ipConfigurations = append(ipConfigurations, &armnetwork.InterfaceIPConfiguration{
+				Name:       new("primary-ipv6"),
+				Properties: ipv6Props,
+			})
+		}
+
 		res = append(res, armtemplates.Resource{
 			APIVersion: networkAPIVersion,
 			Type:       "Microsoft.Network/networkInterfaces",

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/environs"
 )
 
@@ -91,32 +92,34 @@ func (env *azureEnviron) allSubnets(ctx context.Context) ([]network.SubnetInfo, 
 		if sub.Properties == nil {
 			continue
 		}
-		addressPrefix := sub.Properties.AddressPrefix
-		if addressPrefix == nil || *addressPrefix == "" {
-			for _, prefix := range sub.Properties.AddressPrefixes {
-				if prefix == nil {
-					continue
-				}
-				addrType, err := network.CIDRAddressType(*prefix)
-				// We only care about IPv4 addresses.
-				if err == nil && addrType == network.IPv4Address {
-					addressPrefix = prefix
-					break
-				}
 
-			}
-		}
-		// An empty CIDR is no use to us, so guard against it.
-		cidr := toValue(addressPrefix)
-		if cidr == "" {
+		// Prefer AddressPrefixes (plural) over AddressPrefix (singular).
+		// Both may be set after PR #22736 (dual-stack VNet templates).
+		// Single-prefix subnets have AddressPrefix set; multi-prefix (dual-stack)
+		// have AddressPrefixes set, and AddressPrefix is nil.
+		prefixes := subnetAddressPrefixes(sub.Properties)
+
+		if len(prefixes) == 0 {
 			logger.Debugf(ctx, "ignoring subnet %q with empty address prefix", id)
 			continue
 		}
 
-		results = append(results, network.SubnetInfo{
-			CIDR:       cidr,
-			ProviderId: network.Id(id),
-		})
+		// Emit one SubnetInfo per prefix. Use the :ipv6 suffix to distinguish
+		// IPv6 prefixes from IPv4, so that dual-stack subnets appear as two
+		// distinct Juju subnets (one per family).
+		for _, prefix := range prefixes {
+			addrType, err := network.CIDRAddressType(prefix)
+			if err != nil {
+				logger.Debugf(ctx, "invalid CIDR %q in subnet %q: %v; skipping", prefix, id, err)
+				continue
+			}
+
+			isIPv6 := addrType == network.IPv6Address
+			results = append(results, network.SubnetInfo{
+				CIDR:       prefix,
+				ProviderId: subnetProviderIDForFamily(id, isIPv6),
+			})
+		}
 	}
 	return results, nil
 }
@@ -279,11 +282,25 @@ func mapAzureInterfaceList(in []*azurenetwork.Interface, subnetIDToCIDR map[stri
 			)
 			if ipConf.Properties.Subnet != nil && ipConf.Properties.Subnet.ID != nil {
 				subnetID = toValue(ipConf.Properties.Subnet.ID)
-				providerAddrOpts = append(providerAddrOpts, network.WithProviderSubnetID(network.Id(subnetID)))
 
-				if subnetCIDR := subnetIDToCIDR[subnetID]; subnetCIDR != "" {
+				// Determine if this is an IPv6 IP configuration to add the
+				// correct family-suffixed ProviderId and lookup the matching CIDR.
+				isIPv6 := ipConf.Properties.PrivateIPAddressVersion != nil &&
+					toValue(ipConf.Properties.PrivateIPAddressVersion) == azurenetwork.IPVersionIPv6
+
+				// Build the Juju ProviderId suffix convention: bare for IPv4, :ipv6 for IPv6.
+				jujuSubnetID := subnetProviderIDForFamily(subnetID, isIPv6)
+				providerAddrOpts = append(providerAddrOpts, network.WithProviderSubnetID(jujuSubnetID))
+
+				// Look up the CIDR for this family-specific subnet. If we have a dual-stack
+				// subnet, allSubnets() will have created two entries (one bare IPv4, one :ipv6).
+				// If the lookup misses (e.g. legacy IPv4-only model with only bare IDs),
+				// the address is stored without a CIDR tag. This is acceptable for legacy
+				// models; new dual-stack machines will always have matching entries.
+				if subnetCIDR := subnetIDToCIDR[jujuSubnetID.String()]; subnetCIDR != "" {
 					machineAddrOpts = append(machineAddrOpts, network.WithCIDR(subnetCIDR))
 				}
+
 			}
 
 			providerAddr := network.NewMachineAddress(
@@ -327,17 +344,17 @@ func (env *azureEnviron) defaultControllerSubnet() network.Id {
 	return network.Id(subnetID)
 }
 
-func (env *azureEnviron) findSubnetID(ctx context.Context, subnetName string) (network.Id, error) {
+func (env *azureEnviron) findSubnet(ctx context.Context, subnetName string) (*azurenetwork.Subnet, error) {
 	subnets, err := env.allProviderSubnets(ctx)
 	if err != nil {
-		return "", env.HandleCredentialError(ctx, err)
+		return nil, env.HandleCredentialError(ctx, err)
 	}
 	for _, subnet := range subnets {
 		if toValue(subnet.Name) == subnetName {
-			return network.Id(toValue(subnet.ID)), nil
+			return subnet, nil
 		}
 	}
-	return "", errors.NotFoundf("subnet %q", subnetName)
+	return nil, errors.NotFoundf("subnet %q", subnetName)
 }
 
 // networkInfoForInstance returns the virtual network and subnet to use
@@ -346,14 +363,21 @@ func (env *azureEnviron) networkInfoForInstance(
 	ctx context.Context,
 	args environs.StartInstanceParams,
 	bootstrapping, controller bool,
-	placementSubnetID network.Id,
-) (vnetID string, subnetIDs []network.Id, _ error) {
+	placementSubnet *azurenetwork.Subnet,
+) (vnetID string, subnetIDs []subnetSelection, primarySubnet *azurenetwork.Subnet, _ error) {
 
 	vnetRG, vnetName := env.networkInfo(ctx)
 	vnetID = fmt.Sprintf(`[resourceId('Microsoft.Network/virtualNetworks', '%s')]`, vnetName)
 	if vnetRG != "" {
 		vnetID = fmt.Sprintf(`[resourceId('%s', 'Microsoft.Network/virtualNetworks', '%s')]`, vnetRG, vnetName)
 	}
+
+	placementSubnetID := providerSubnetID(placementSubnet)
+	isDualStack := args.Constraints.IPFamily != nil && *args.Constraints.IPFamily == ipfamily.Dual
+	// When a placement subnet was provided, it is the primary by default.
+	// Early returns below may override this, and the space-constraints
+	// fallthrough at the bottom uses it to avoid a redundant lookup.
+	primarySubnet = placementSubnet
 
 	constraints := args.Constraints
 
@@ -364,14 +388,14 @@ func (env *azureEnviron) networkInfoForInstance(
 	if !constraints.HasSpaces() {
 		// Use placement if specified.
 		if placementSubnetID != "" {
-			return vnetID, []network.Id{placementSubnetID}, nil
+			return vnetID, deduplicateSubnets([]network.Id{placementSubnetID}), placementSubnet, nil
 		}
 
 		// When bootstrapping the network doesn't exist yet so just
 		// return the relevant subnet ID and it is created as part of
 		// the bootstrap process.
 		if bootstrapping && env.config.virtualNetworkName == "" {
-			return vnetID, []network.Id{env.defaultControllerSubnet()}, nil
+			return vnetID, deduplicateSubnets([]network.Id{env.defaultControllerSubnet()}), nil, nil
 		}
 
 		// Prefer the legacy default subnet if found.
@@ -379,19 +403,19 @@ func (env *azureEnviron) networkInfoForInstance(
 		if controller {
 			defaultSubnetName = controllerSubnetName
 		}
-		defaultSubnetID, err := env.findSubnetID(ctx, defaultSubnetName)
+		defaultSubnet, err := env.findSubnet(ctx, defaultSubnetName)
 		if err != nil && !errors.Is(err, errors.NotFound) {
-			return "", nil, errors.Trace(err)
+			return "", nil, nil, errors.Trace(err)
 		}
 		if err == nil {
-			return vnetID, []network.Id{defaultSubnetID}, nil
+			return vnetID, deduplicateSubnets([]network.Id{providerSubnetID(defaultSubnet)}), defaultSubnet, nil
 		}
 
 		// For deployments without a spaces constraint, there's no subnets to zones mapping.
 		// So get all accessible subnets.
 		allSubnets, err := env.allSubnets(ctx)
 		if err != nil {
-			return "", nil, env.HandleCredentialError(ctx, err)
+			return "", nil, nil, env.HandleCredentialError(ctx, err)
 		}
 		subnetIds := make([]network.Id, len(allSubnets))
 		for i, subnet := range allSubnets {
@@ -404,7 +428,7 @@ func (env *azureEnviron) networkInfoForInstance(
 		// If there is no configured zone, consider all subnet IDs.
 		possibleSubnets, err = env.subnetsForZone(args.SubnetsToZones, args.AvailabilityZone)
 		if err != nil {
-			return "", nil, errors.Trace(err)
+			return "", nil, nil, errors.Trace(err)
 		}
 	}
 
@@ -413,9 +437,13 @@ func (env *azureEnviron) networkInfoForInstance(
 	var subnetIDForZone []network.Id
 	for _, zoneSubnetIDs := range possibleSubnets {
 		// Use placement to select a single subnet if needed.
+		// Strip the :ipv6 suffix before comparing so that a bare
+		// placement ID (e.g. /subnets/foo) matches the suffixed
+		// variant (/subnets/foo:ipv6) emitted by allSubnets().
 		var subnetIDs []network.Id
 		for _, id := range zoneSubnetIDs {
-			if placementSubnetID == "" || placementSubnetID == id {
+			bareID := network.Id(stripIPFamilySuffix(id.String()))
+			if placementSubnetID == "" || placementSubnetID == bareID {
 				subnetIDs = append(subnetIDs, id)
 			}
 		}
@@ -427,20 +455,38 @@ func (env *azureEnviron) networkInfoForInstance(
 		}
 	}
 	if len(subnetIDForZone) == 0 {
-		return "", nil, errors.NotFoundf("subnet for constraint %q", constraints.String())
+		return "", nil, nil, errors.NotFoundf("subnet for constraint %q", constraints.String())
 	}
 
 	// Put any placement subnet first in the list
 	// so it ia allocated to the primary NIC.
+	var rawSubnetIDs []network.Id
 	if placementSubnetID != "" {
-		subnetIDs = append(subnetIDs, placementSubnetID)
+		rawSubnetIDs = append(rawSubnetIDs, placementSubnetID)
 	}
 	for _, id := range subnetIDForZone {
-		if id != placementSubnetID {
-			subnetIDs = append(subnetIDs, id)
+		rawSubnetIDs = append(rawSubnetIDs, id)
+	}
+
+	subnetIDs = deduplicateSubnets(rawSubnetIDs)
+
+	// Resolve the primary subnet for validation when ip-family=dual.
+	if isDualStack && len(subnetIDs) > 0 && primarySubnet == nil {
+		resolved, err := env.findSubnetByID(ctx, subnetIDs[0].ID)
+		switch {
+		case errors.Is(err, errors.NotFound):
+			logger.Warningf(ctx, "primary subnet %q not found while resolving "+
+				"ip-family=dual validation; the IPv6 /64 prefix pre-check will "+
+				"be skipped and Azure will reject the NIC if the subnet lacks IPv6",
+				subnetIDs[0].ID)
+		case err != nil:
+			return "", nil, nil, errors.Trace(err)
+		default:
+			primarySubnet = resolved
 		}
 	}
-	return vnetID, subnetIDs, nil
+
+	return vnetID, subnetIDs, primarySubnet, nil
 }
 
 func (env *azureEnviron) subnetsForZone(subnetsToZones []map[network.Id][]string, az string) ([][]network.Id, error) {
@@ -479,15 +525,94 @@ func (env *azureEnviron) parsePlacement(placement string) (string, error) {
 	return "", fmt.Errorf("unknown placement directive: %v", placement)
 }
 
-func (env *azureEnviron) findPlacementSubnet(ctx context.Context, placement string) (network.Id, error) {
+// providerSubnetID extracts the network.Id from an Azure subnet resource.
+func providerSubnetID(subnet *azurenetwork.Subnet) network.Id {
+	return network.Id(toValue(toValue(subnet).ID))
+}
+
+// findSubnetByID resolves an Azure subnet ID to its full resource.
+// It strips the :ipv6 suffix before comparison, so it can look up
+// IDs originating from the Juju allSubnets() path.
+func (env *azureEnviron) findSubnetByID(ctx context.Context, id network.Id) (*azurenetwork.Subnet, error) {
+	subnets, err := env.allProviderSubnets(ctx)
+	if err != nil {
+		return nil, env.HandleCredentialError(ctx, err)
+	}
+	bare := network.Id(stripIPFamilySuffix(id.String()))
+	for _, subnet := range subnets {
+		if network.Id(toValue(subnet.ID)) == bare {
+			return subnet, nil
+		}
+	}
+	return nil, errors.NotFoundf("subnet %q", bare)
+}
+
+func (env *azureEnviron) findPlacementSubnet(ctx context.Context, placement string) (*azurenetwork.Subnet, error) {
 	if placement == "" {
-		return "", nil
+		return nil, nil
 	}
 	subnetName, err := env.parsePlacement(placement)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	logger.Debugf(ctx, "searching for subnet matching placement directive %q", subnetName)
-	return env.findSubnetID(ctx, subnetName)
+	return env.findSubnet(ctx, subnetName)
+}
+
+// subnetProviderIDForFamily builds the Juju provider subnet ID for an Azure subnet,
+// optionally suffixed with the IP family. Bare (no suffix) means IPv4; `:ipv6` suffix
+// means IPv6. The suffix is used only on the read path (allSubnets, NetworkInterfaces);
+// it is stripped before subnet IDs reach ARM templates for provisioning.
+func subnetProviderIDForFamily(azureSubnetID string, isIPv6 bool) network.Id {
+	if isIPv6 {
+		return network.Id(azureSubnetID + ":ipv6")
+	}
+	return network.Id(azureSubnetID)
+}
+
+// stripIPFamilySuffix removes the :ipv4/:ipv6 suffix from a Juju provider subnet ID.
+// Non-suffixed (or otherwise-formatted) input is returned unchanged. The colon is safe
+// within Juju (only appears in suffixes); Azure ARM resource IDs never contain colons.
+func stripIPFamilySuffix(id string) string {
+	if idx := strings.LastIndex(id, ":"); idx != -1 {
+		switch id[idx+1:] {
+		case "ipv4", "ipv6":
+			return id[:idx]
+		}
+	}
+	return id
+}
+
+// subnetSelection carries a resolved Azure subnet ID (bare, suitable for ARM
+// templates) and whether the originating Juju provider ID carried the :ipv6
+// suffix — meaning the space constraint selected the IPv6 variant of a
+// dual-stack subnet.
+type subnetSelection struct {
+	ID       network.Id
+	WantIPv6 bool
+}
+
+// deduplicateSubnets removes :ipv6/:ipv4 suffixes from subnet IDs, deduplicates
+// by bare ID, and preserves whether any input variant carried the :ipv6 suffix
+// (wantIPv6). The order of the first occurrence is preserved.
+func deduplicateSubnets(ids []network.Id) []subnetSelection {
+	seen := make(map[string]int)
+	var result []subnetSelection
+	for _, id := range ids {
+		bare := stripIPFamilySuffix(id.String())
+		wantIPv6 := bare != id.String()
+		if idx, ok := seen[bare]; ok {
+			if wantIPv6 {
+				result[idx].WantIPv6 = true
+			}
+			continue
+		}
+		seen[bare] = len(result)
+		result = append(result, subnetSelection{
+			ID:       network.Id(bare),
+			WantIPv6: wantIPv6,
+		})
+	}
+	return result
 }
