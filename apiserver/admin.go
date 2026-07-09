@@ -420,17 +420,24 @@ func (a *admin) getModelMigrationDetails(ctx context.Context, req params.LoginRe
 func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequest) error {
 	// Only user logins are redirected. That includes the anonymous user
 	// (a user tag named api.AnonymousUsername) used by cross-model relation
-	// connections. Agents are not redirected at login; they follow the
-	// migration via the migrationminion protocol.
-	if req.AuthTag == "" {
+	// connections, and token logins (e.g. a JWT issued by JAAS), which carry
+	// no auth tag at all. Agents are not redirected at login; they follow
+	// the migration via the migrationminion protocol.
+	tokenLogin := req.AuthTag == "" && req.Token != ""
+	if req.AuthTag == "" && !tokenLogin {
 		return nil
 	}
-	authTag, err := names.ParseTag(req.AuthTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if authTag.Kind() != names.UserTagKind {
-		return nil
+
+	var userTag names.UserTag
+	if !tokenLogin {
+		authTag, err := names.ParseTag(req.AuthTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		var ok bool
+		if userTag, ok = authTag.(names.UserTag); !ok {
+			return nil
+		}
 	}
 
 	// Check if the model was not found due to being migrated to another
@@ -442,17 +449,33 @@ func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequ
 		return errors.Trace(err)
 	}
 
+	// Token logins authenticate with an external authority (e.g. JAAS),
+	// which is also the authority for the user's permissions: there is no
+	// user record on this controller to consult. Always redirect them and
+	// let the target controller enforce access.
+	if tokenLogin {
+		return a.makeRedirectError(redirectionTarget)
+	}
+
 	// Anonymous logins are always redirected so that cross-model relations
 	// keep working after the model has migrated.
-	userName := authTag.Id()
+	userName := userTag.Id()
 	if userName == api.AnonymousUsername {
 		return a.makeRedirectError(redirectionTarget)
 	}
 
-	// Named users are only redirected if they had captured model access at
-	// migration time. This enforces the 3.6 authorization behavior: a user
-	// with no access to the migrated model on the source controller should
-	// not be silently redirected to the target.
+	// External users are authenticated by an external identity provider and
+	// may hold access to the migrated model without a permission record on
+	// this controller, so they cannot be authorized locally. Redirect them
+	// and let the target controller decide.
+	if !userTag.IsLocal() {
+		return a.makeRedirectError(redirectionTarget)
+	}
+
+	// Local named users are only redirected if they had captured model
+	// access at migration time. This enforces the 3.6 authorization
+	// behavior: a user with no access to the migrated model on the source
+	// controller should not learn its new location.
 	redirectUsers, err := a.root.domainServices.Model().ModelRedirectUsers(ctx, a.root.modelUUID)
 	if err != nil {
 		return errors.Trace(err)

@@ -521,6 +521,47 @@ func (s *loginSuite) TestMigratedModelLoginNoAccessNotRedirected(c *tc.C) {
 	c.Check(rErr.Message, tc.Equals, "invalid entity name or password")
 }
 
+// TestMigratedModelLoginRedirectTokenLogin asserts a token (JWT) login, which
+// carries no auth tag, is always redirected: the token's issuer (e.g. JAAS)
+// is the authority for the user's model access, so there is no local record
+// to consult.
+func (s *loginSuite) TestMigratedModelLoginRedirectTokenLogin(c *tc.C) {
+	modelUUID := uuid.MustNewUUID().String()
+	// No captured users: token logins must be redirected regardless.
+	s.seedMigratedModelRedirect(c, modelUUID)
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID)
+	request := &params.LoginRequest{
+		Token:         "a-jwt-from-an-external-authority",
+		ClientVersion: jujuversion.Current.String(),
+	}
+	var result params.LoginResult
+	err := st.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected redirect error, got %v", err))
+	c.Check(rErr.Code, tc.Equals, params.CodeRedirect)
+}
+
+// TestMigratedModelLoginRedirectExternalUser asserts an external user is
+// redirected even without captured model access: external users may hold
+// access via their identity provider without any record on this controller.
+func (s *loginSuite) TestMigratedModelLoginRedirectExternalUser(c *tc.C) {
+	modelUUID := uuid.MustNewUUID().String()
+	// No captured users: external users must be redirected regardless.
+	s.seedMigratedModelRedirect(c, modelUUID)
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID)
+	request := &params.LoginRequest{
+		AuthTag:       names.NewUserTag("fred@external").String(),
+		ClientVersion: jujuversion.Current.String(),
+	}
+	var result params.LoginResult
+	err := st.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected redirect error, got %v", err))
+	c.Check(rErr.Code, tc.Equals, params.CodeRedirect)
+}
+
 // TestMigratedModelLoginDisabledUserNotRedirected asserts a local user
 // disabled since the redirect snapshot was captured is not redirected,
 // mirroring normal login restrictions.
