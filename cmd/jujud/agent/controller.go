@@ -286,7 +286,7 @@ func (a *controllerApplicationCommand) Init(args []string) error {
 		return errors.Errorf("cannot read controller runtime config: %v", err)
 	}
 
-	if err := os.MkdirAll(runtimeConfig.LogDir, 0o644); err != nil {
+	if err := os.MkdirAll(runtimeConfig.LogDir, 0o755); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
 
