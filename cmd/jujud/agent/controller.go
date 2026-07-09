@@ -547,18 +547,14 @@ func (a *ControllerApplication) makeEngineCreator(
 		if err != nil {
 			return nil, err
 		}
-		configChangeSocketPath := path.Join(controllerRuntimeConfig.DataDir, "configchange.socket")
 		updateConfig := func(loggingConfig string) error {
-			if err := controllerruntimeconfig.ChangeControllerRuntimeConfig(
+			return controllerruntimeconfig.ChangeControllerRuntimeConfig(
 				a.controllerRuntimePath,
 				func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
 					cfg.LoggingConfig = loggingConfig
 					return nil
 				},
-			); err != nil {
-				return err
-			}
-			return controllerruntimeconfig.RequestReload(configChangeSocketPath)
+			)
 		}
 
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
@@ -735,16 +731,13 @@ func (a *ControllerApplication) startModelWorkers(
 			controllerRuntimePath: a.controllerRuntimePath,
 		},
 		UpdateLoggerConfig: func(loggingConfig string) error {
-			if err := controllerruntimeconfig.ChangeControllerRuntimeConfig(
+			return controllerruntimeconfig.ChangeControllerRuntimeConfig(
 				a.controllerRuntimePath,
 				func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
 					cfg.LoggingConfig = loggingConfig
 					return nil
 				},
-			); err != nil {
-				return err
-			}
-			return controllerruntimeconfig.RequestReload(path.Join(controllerRuntimeConfig.DataDir, "configchange.socket"))
+			)
 		},
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
