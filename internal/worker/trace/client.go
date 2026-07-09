@@ -185,16 +185,14 @@ func newHTTPClient(_ context.Context, endpoint, caCertificate string, insecureSk
 		options = append(options, otlptracehttp.WithEndpoint(endpoint))
 	}
 
-	if insecureSkipVerify {
-		options = append(options, otlptracehttp.WithInsecure())
-	}
 	if caCertificate != "" {
 		caCertPool := x509.NewCertPool()
 		if !caCertPool.AppendCertsFromPEM([]byte(caCertificate)) {
 			return nil, errors.New("failed to append trace CA cert to pool")
 		}
 		options = append(options, otlptracehttp.WithTLSClientConfig(&tls.Config{
-			RootCAs: caCertPool,
+			RootCAs:            caCertPool,
+			InsecureSkipVerify: insecureSkipVerify,
 		}))
 	}
 	return otlptracehttp.NewClient(options...), nil
@@ -206,15 +204,16 @@ func newGRPCClient(_ context.Context, endpoint, caCertificate string, insecureSk
 		otlptracegrpc.WithEndpoint(endpoint),
 		otlptracegrpc.WithCompressor("gzip"),
 	}
-	if insecureSkipVerify {
-		options = append(options, otlptracegrpc.WithInsecure())
-	} else if caCertificate != "" {
+	if caCertificate != "" {
 		caCertPool := x509.NewCertPool()
 		if !caCertPool.AppendCertsFromPEM([]byte(caCertificate)) {
 			return nil, errors.New("failed to append trace CA cert to pool")
 		}
 		options = append(options, otlptracegrpc.WithTLSCredentials(
-			credentials.NewClientTLSFromCert(caCertPool, ""),
+			credentials.NewTLS(&tls.Config{
+				RootCAs:            caCertPool,
+				InsecureSkipVerify: insecureSkipVerify,
+			}),
 		))
 	}
 	return otlptracegrpc.NewClient(options...), nil
