@@ -148,6 +148,12 @@ type ManifoldsConfig struct {
 	// ConfigChangeSocketPath is the path to the config-change reload socket.
 	ConfigChangeSocketPath string
 
+	// RuntimeConfigChanged is a voyeur.Value that is set by the controller
+	// loki config updater after each successful write to runtime.conf.
+	// Workers that watch this value (such as the controller-log-router)
+	// re-read the current config when it is set.
+	RuntimeConfigChanged *voyeur.Value
+
 	// ControlSocketPath is the path to the local controller control socket.
 	ControlSocketPath string
 
@@ -283,7 +289,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}
 		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
 	}
-	logRouterConfigChanged := voyeur.NewValue(false)
 
 	return dependency.Manifolds{
 		// Bootstrap gate/flag manifolds coordinate workers that should
@@ -315,16 +320,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        config.ConfigChangeSocketPath,
 		}),
-
-		// logRouterReloadBridgeName bridges controller agent config
-		// reload notifications onto the dedicated Value watched by the
-		// controller-local logrouter.
-		logRouterReloadBridgeName: controlleragentconfig.ConfigChangedValueBridgeManifold(
-			controlleragentconfig.ConfigChangedValueBridgeManifoldConfig{
-				ControllerAgentConfigName: controllerAgentConfigName,
-				ConfigChangedValue:        logRouterConfigChanged,
-			},
-		),
 
 		// The certificate-watcher manifold monitors the API server
 		// certificate in the agent config for changes, and parses and
@@ -496,10 +491,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Loki config changes and persists them to runtime.conf so the
 		// controller logrouter picks up updates on bounce.
 		lokiConfigUpdaterName: controllerlokiupdater.Manifold(controllerlokiupdater.ManifoldConfig{
-			DomainServicesName:     domainServicesName,
-			RuntimeConfigPath:      config.ControllerRuntimePath,
-			ConfigChangeSocketPath: config.ConfigChangeSocketPath,
-			Logger:                 internallogger.GetLogger("juju.worker.controllerlokiupdater"),
+			DomainServicesName:   domainServicesName,
+			RuntimeConfigPath:    config.ControllerRuntimePath,
+			RuntimeConfigChanged: config.RuntimeConfigChanged,
+			Logger:               internallogger.GetLogger("juju.worker.controllerlokiupdater"),
 		}),
 
 		// logRouterName is a controller-only logrouter that
@@ -509,7 +504,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		logRouterName: logrouter.ControllerManifold(logrouter.ControllerManifoldConfig{
 			HTTPClientName:       httpClientName,
 			LokiConfigProvider:   config.StartupValueProvider,
-			AgentConfigChanged:   logRouterConfigChanged,
+			AgentConfigChanged:   config.RuntimeConfigChanged,
 			Logger:               internallogger.GetLogger("juju.worker.logrouter.controller"),
 			Clock:                config.Clock,
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -1210,7 +1205,6 @@ const (
 	leaseManagerName                   = "lease-manager"
 	loggingControllerConfigUpdaterName = "logging-controller-config-updater"
 	logRouterName                      = "log-router"
-	logRouterReloadBridgeName          = "log-router-reload-bridge"
 	logSinkName                        = "log-sink"
 	lokiConfigUpdaterName              = "loki-config-updater"
 	modelWorkerManagerName             = "model-worker-manager"
