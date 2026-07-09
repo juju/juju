@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -218,37 +217,6 @@ func (p controllerStartupValueProvider) CurrentLokiConfig() (logrouter.ConfigSna
 		AgentID:            names.NewControllerAgentTag(cfg.ControllerID).String(),
 		OrgID:              cfg.LokiOrgID,
 	}, nil
-}
-
-// requestControllerConfigReload notifies controller-local workers that a
-// persisted runtime config change is ready to be re-read via the existing
-// configchange.socket reload fanout.
-func requestControllerConfigReload(socketPath string) error {
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, "unix", socketPath)
-		},
-	}
-	defer transport.CloseIdleConnections()
-
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   5 * time.Second,
-	}
-	req, err := http.NewRequest(http.MethodPost, "http://unix.socket/reload", http.NoBody)
-	if err != nil {
-		return errors.Annotate(err, "creating controller config reload request")
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return errors.Annotatef(err, "requesting controller config reload via %q", socketPath)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		return errors.Errorf("controller config reload via %q failed: %s", socketPath, resp.Status)
-	}
-	return nil
 }
 
 // ControllerApplicationFactoryFnType is a function that creates a
@@ -590,7 +558,7 @@ func (a *ControllerApplication) makeEngineCreator(
 			); err != nil {
 				return err
 			}
-			return requestControllerConfigReload(configChangeSocketPath)
+			return controllerruntimeconfig.RequestReload(configChangeSocketPath)
 		}
 
 		registerIntrospectionHandlers := func(handle func(path string, h http.Handler)) {
@@ -774,7 +742,7 @@ func (a *ControllerApplication) startModelWorkers(
 			); err != nil {
 				return err
 			}
-			return requestControllerConfigReload(path.Join(controllerRuntimeConfig.DataDir, "configchange.socket"))
+			return controllerruntimeconfig.RequestReload(path.Join(controllerRuntimeConfig.DataDir, "configchange.socket"))
 		},
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {
