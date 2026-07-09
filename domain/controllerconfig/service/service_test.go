@@ -121,6 +121,51 @@ func (s *serviceSuite) TestControllerConfigNewConfigError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `unable to create controller config: .*`)
 }
 
+// TestGetSSHServerPort asserts the port is read from the single config key
+// rather than the whole controller config.
+func (s *serviceSuite) TestGetSSHServerPort(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("2223", true, nil)
+
+	port, err := NewService(s.state).GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(port, tc.Equals, 2223)
+}
+
+// TestGetSSHServerPortDefault asserts the default port is returned when the
+// config key is not set.
+func (s *serviceSuite) TestGetSSHServerPortDefault(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("", false, nil)
+
+	port, err := NewService(s.state).GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(port, tc.Equals, controller.DefaultSSHServerPort)
+}
+
+// TestGetSSHServerPortInvalid asserts a non-numeric stored value is reported as
+// an error rather than silently ignored.
+func (s *serviceSuite) TestGetSSHServerPortInvalid(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("not-a-port", true, nil)
+
+	_, err := NewService(s.state).GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorMatches, `parsing SSH server port "not-a-port": .*`)
+}
+
+// TestGetSSHServerPortStateError asserts a state-layer error is propagated.
+func (s *serviceSuite) TestGetSSHServerPortStateError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetControllerConfigValue(gomock.Any(), controller.SSHServerPort).Return("", false, errors.New("boom"))
+
+	_, err := NewService(s.state).GetSSHServerPort(c.Context())
+	c.Assert(err, tc.ErrorMatches, "getting SSH server port: boom")
+}
+
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

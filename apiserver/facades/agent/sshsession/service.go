@@ -6,7 +6,6 @@ package sshsession
 import (
 	"context"
 
-	"github.com/juju/juju/controller"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	domainssh "github.com/juju/juju/domain/ssh"
@@ -29,8 +28,10 @@ type SSHConnRequestService interface {
 // ControllerConfigService is the interface for reading controller
 // configuration, used to determine the controller SSH jump server port.
 type ControllerConfigService interface {
-	// ControllerConfig returns the current controller configuration.
-	ControllerConfig(ctx context.Context) (controller.Config, error)
+	// GetSSHServerPort returns the port the controller SSH jump server listens
+	// on. It reads only the single config value rather than the whole
+	// controller config.
+	GetSSHServerPort(ctx context.Context) (int, error)
 }
 
 // ControllerSSHHostKeyService is the interface for reading the controller SSH

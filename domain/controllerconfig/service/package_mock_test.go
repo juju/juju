@@ -29,6 +29,7 @@ type MockStateMockRecorder struct {
 	mock                                      *MockState
 	allKeysQueryExpects                       []*gomock.Call0_1[string]
 	controllerConfigExpects                   []*gomock.Call1_2[context.Context, map[string]string, error]
+	getControllerConfigValueExpects           []*gomock.Call2_3[context.Context, string, string, bool, error]
 	namespacesForWatchControllerConfigExpects []*gomock.Call0_1[[]string]
 	updateControllerConfigExpects             []*gomock.Call3_1[context.Context, map[string]string, []string, error]
 }
@@ -80,6 +81,24 @@ func (mr *MockStateMockRecorder) ControllerConfig(arg0 any) *MockStateController
 
 // MockStateControllerConfigCall is the typed call wrapper for ControllerConfig.
 type MockStateControllerConfigCall = gomock.Call1_2[context.Context, map[string]string, error]
+
+// GetControllerConfigValue mocks base method.
+func (m *MockState) GetControllerConfigValue(ctx context.Context, key string) (string, bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.getControllerConfigValueExpects, m.ctrl, m, "GetControllerConfigValue", ctx, key)
+}
+
+// GetControllerConfigValue indicates an expected call of GetControllerConfigValue.
+func (mr *MockStateMockRecorder) GetControllerConfigValue(ctx, key any) *MockStateGetControllerConfigValueCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[context.Context, string, string, bool, error](mr.mock.ctrl.T, mr.mock, "GetControllerConfigValue", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(key))
+	mr.getControllerConfigValueExpects = append(mr.getControllerConfigValueExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetControllerConfigValueCall is the typed call wrapper for GetControllerConfigValue.
+type MockStateGetControllerConfigValueCall = gomock.Call2_3[context.Context, string, string, bool, error]
 
 // NamespacesForWatchControllerConfig mocks base method.
 func (m *MockState) NamespacesForWatchControllerConfig() []string {

@@ -117,11 +117,11 @@ func (f *Facade) GetSSHConnRequest(ctx context.Context, arg params.SSHConnReques
 
 // ControllerSSHPort returns the port the controller SSH jump server listens on.
 func (f *Facade) ControllerSSHPort(ctx context.Context) (params.SSHControllerSSHPortResult, error) {
-	cfg, err := f.controllerConfigService.ControllerConfig(ctx)
+	port, err := f.controllerConfigService.GetSSHServerPort(ctx)
 	if err != nil {
-		return params.SSHControllerSSHPortResult{}, errors.Errorf("getting controller config: %w", err)
+		return params.SSHControllerSSHPortResult{}, errors.Errorf("getting controller SSH server port: %w", err)
 	}
-	return params.SSHControllerSSHPortResult{Port: cfg.SSHServerPort()}, nil
+	return params.SSHControllerSSHPortResult{Port: port}, nil
 }
 
 // ControllerPublicKey returns the marshalled public host key of the controller

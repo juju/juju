@@ -13,7 +13,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
@@ -134,9 +133,7 @@ func (s *facadeSuite) TestControllerSSHPort(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.controllerCfg.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
-		controller.SSHServerPort: 2223,
-	}, nil)
+	s.controllerCfg.EXPECT().GetSSHServerPort(gomock.Any()).Return(2223, nil)
 
 	result, err := s.newFacade().ControllerSSHPort(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

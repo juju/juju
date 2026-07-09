@@ -13,7 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	controller "github.com/juju/juju/controller"
 	machine "github.com/juju/juju/core/machine"
 	watcher "github.com/juju/juju/core/watcher"
 	ssh "github.com/juju/juju/domain/ssh"
@@ -91,7 +90,7 @@ type MockControllerConfigService struct {
 // MockControllerConfigServiceMockRecorder is the mock recorder for MockControllerConfigService.
 type MockControllerConfigServiceMockRecorder struct {
 	mock                    *MockControllerConfigService
-	controllerConfigExpects []*gomock.Call1_2[context.Context, controller.Config, error]
+	getSSHServerPortExpects []*gomock.Call1_2[context.Context, int, error]
 }
 
 // NewMockControllerConfigService creates a new mock instance.
@@ -106,23 +105,23 @@ func (m *MockControllerConfigService) EXPECT() *MockControllerConfigServiceMockR
 	return m.recorder
 }
 
-// ControllerConfig mocks base method.
-func (m *MockControllerConfigService) ControllerConfig(ctx context.Context) (controller.Config, error) {
+// GetSSHServerPort mocks base method.
+func (m *MockControllerConfigService) GetSSHServerPort(ctx context.Context) (int, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.controllerConfigExpects, m.ctrl, m, "ControllerConfig", ctx)
+	return gomock.Dispatch1_2(&m.recorder.getSSHServerPortExpects, m.ctrl, m, "GetSSHServerPort", ctx)
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockControllerConfigServiceMockRecorder) ControllerConfig(ctx any) *MockControllerConfigServiceControllerConfigCall {
+// GetSSHServerPort indicates an expected call of GetSSHServerPort.
+func (mr *MockControllerConfigServiceMockRecorder) GetSSHServerPort(ctx any) *MockControllerConfigServiceGetSSHServerPortCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, controller.Config, error](mr.mock.ctrl.T, mr.mock, "ControllerConfig", gomock.EnsureMatcher(ctx))
-	mr.controllerConfigExpects = append(mr.controllerConfigExpects, call)
+	call := gomock.NewCall1_2[context.Context, int, error](mr.mock.ctrl.T, mr.mock, "GetSSHServerPort", gomock.EnsureMatcher(ctx))
+	mr.getSSHServerPortExpects = append(mr.getSSHServerPortExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerConfigServiceControllerConfigCall is the typed call wrapper for ControllerConfig.
-type MockControllerConfigServiceControllerConfigCall = gomock.Call1_2[context.Context, controller.Config, error]
+// MockControllerConfigServiceGetSSHServerPortCall is the typed call wrapper for GetSSHServerPort.
+type MockControllerConfigServiceGetSSHServerPortCall = gomock.Call1_2[context.Context, int, error]
 
 // MockControllerSSHHostKeyService is a mock of ControllerSSHHostKeyService interface.
 type MockControllerSSHHostKeyService struct {

@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/juju/collections/transform"
 
@@ -25,6 +26,10 @@ type ModificationValidatorFunc = func(map[string]string) error
 type State interface {
 	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(context.Context) (map[string]string, error)
+
+	// GetControllerConfigValue returns the value for a single controller config
+	// key. The boolean is false when the key is not set.
+	GetControllerConfigValue(ctx context.Context, key string) (string, bool, error)
 
 	// UpdateControllerConfig updates the controller config.
 	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error
@@ -99,6 +104,27 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 		return nil, errors.Errorf("unable to create controller config: %w", err)
 	}
 	return ctrlConfig, nil
+}
+
+// GetSSHServerPort returns the port the controller SSH jump server listens on.
+// It reads only the single config key rather than building the whole
+// controller config, falling back to the default port when unset.
+func (s *Service) GetSSHServerPort(ctx context.Context) (int, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	value, ok, err := s.st.GetControllerConfigValue(ctx, controller.SSHServerPort)
+	if err != nil {
+		return 0, errors.Errorf("getting SSH server port: %w", err)
+	}
+	if !ok {
+		return controller.DefaultSSHServerPort, nil
+	}
+	port, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, errors.Errorf("parsing SSH server port %q: %w", value, err)
+	}
+	return port, nil
 }
 
 // UpdateControllerConfig updates the controller config.
