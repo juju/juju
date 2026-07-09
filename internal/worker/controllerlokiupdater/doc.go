@@ -28,9 +28,8 @@
 //	    -> controller database (logging_loki_config table)
 //	      -> controllerlokiupdater (WatchLokiConfig notification)
 //	        -> runtime.conf (LokiEndpoint, LokiCACert, etc.)
-//	          -> configchange.socket (POST /reload)
-//	            -> ConfigChangedValueBridge (sets voyeur.Value)
-//	              -> controller-log-router (re-reads CurrentLokiConfig)
+//	          -> RuntimeConfigChanged voyeur.Value set
+//	            -> controller-log-router (re-reads CurrentLokiConfig)
 //
 // When no Loki config exists in the database (Loki removed), the worker
 // writes empty values to runtime.conf so the logrouter defaults to
