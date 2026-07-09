@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	coreapplication "github.com/juju/juju/core/application"
@@ -25,7 +26,7 @@ type baseSuite struct {
 
 func (s *baseSuite) SetUpTest(c *tc.C) {
 	s.ModelSuite.SetUpTest(c)
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	c.Cleanup(func() {
 		s.state = nil

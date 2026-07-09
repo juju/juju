@@ -98,7 +98,12 @@ func (w *NotifyWatcher) loop() error {
 
 	subscription, err := w.watchableDB.Subscribe(w.summary, w.filterOpts...)
 	if err != nil {
-		return errors.Errorf("subscribing to namespaces: %w", err)
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			return errors.Errorf("subscribing to namespaces: %w", err)
+		}
 	}
 	defer subscription.Kill()
 

@@ -14,6 +14,7 @@ test_secrets_k8s() {
 	case "${BOOTSTRAP_CLOUD:-}" in
 	"microk8s")
 		microk8s enable ingress >/dev/null 2>&1 || true
+		microk8s enable rbac >/dev/null 2>&1 || true
 		;;
 	esac
 

@@ -9,7 +9,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export/types/latest"
-	v4_0_11 "github.com/juju/juju/domain/export/types/v4_0_11"
+	v4_0_12 "github.com/juju/juju/domain/export/types/v4_0_12"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/internal/errors"
 )
@@ -24,7 +24,7 @@ type PayloadDecodeFunc func(data []byte) (any, error)
 // new export version forces this registry to be updated. [ProjectionViewForPayload]
 // does not need a per-version entry: it runs on the transformed latest payload.
 var payloadDecoders = map[semversion.Number]PayloadDecodeFunc{
-	semversion.MustParse("4.0.11"): decodePayload[v4_0_11.ModelExport],
+	semversion.MustParse("4.0.12"): decodePayload[v4_0_12.ModelExport],
 	semversion.MustParse("4.1.0"):  decodePayload[v4_1_0.ModelExport],
 }
 

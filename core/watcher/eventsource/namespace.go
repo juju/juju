@@ -118,13 +118,29 @@ func (w *NamespaceWatcher) loop() error {
 
 	subscription, err := w.watchableDB.Subscribe(w.summary, w.filterOpts...)
 	if err != nil {
-		return errors.Errorf("subscribing to namespaces: %w", err)
+		// If the tomb is dying, we don't want to return a raw error that
+		// could propagate through the catacomb. The dying signal takes
+		// precedence.
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			return errors.Errorf("subscribing to namespaces: %w", err)
+		}
 	}
 	defer subscription.Kill()
 
 	changes, err := w.initialQuery(ctx, w.watchableDB)
 	if err != nil {
-		return errors.Errorf("retrieving initial watcher state: %w", err)
+		// If the tomb is dying, we don't want to return a raw error that
+		// could propagate through the catacomb. The dying signal takes
+		// precedence.
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			return errors.Errorf("retrieving initial watcher state: %w", err)
+		}
 	}
 
 	// By reassigning the in and out channels, we effectively ticktock between

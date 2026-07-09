@@ -1060,7 +1060,7 @@ func (s *watcherSuite) setupUnits(c *tc.C, appName string) string {
 
 func (s *watcherSuite) setupServiceAndState(c *tc.C) (*service.WatchableService, *state.State) {
 	logger := loggertesting.WrapCheckLog(c)
-	st := state.NewState(s.TxnRunnerFactory(), logger)
+	st := state.NewState(s.TxnRunnerFactory(), logger, clock.WallClock)
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),
 		logger,

@@ -1273,6 +1273,12 @@ type SecretRemoteUnitConsumer struct {
 	CurrentRevision int64  `db:"current_revision" json:"current_revision" yaml:"current_revision"`
 }
 
+type SecretReservation struct {
+	SecretID  string    `db:"secret_id" json:"secret_id" yaml:"secret_id"`
+	UnitUUID  string    `db:"unit_uuid" json:"unit_uuid" yaml:"unit_uuid"`
+	CreatedAt time.Time `db:"created_at" json:"created_at" yaml:"created_at"`
+}
+
 type SecretRevision struct {
 	UUID       string     `db:"uuid" json:"uuid" yaml:"uuid"`
 	SecretID   string     `db:"secret_id" json:"secret_id" yaml:"secret_id"`
@@ -1821,6 +1827,7 @@ type ModelExport struct {
 	SecretPermission                         []SecretPermission                         `json:"secret_permission" yaml:"secret_permission"`
 	SecretReference                          []SecretReference                          `json:"secret_reference" yaml:"secret_reference"`
 	SecretRemoteUnitConsumer                 []SecretRemoteUnitConsumer                 `json:"secret_remote_unit_consumer" yaml:"secret_remote_unit_consumer"`
+	SecretReservation                        []SecretReservation                        `json:"secret_reservation" yaml:"secret_reservation"`
 	SecretRevision                           []SecretRevision                           `json:"secret_revision" yaml:"secret_revision"`
 	SecretRevisionExpire                     []SecretRevisionExpire                     `json:"secret_revision_expire" yaml:"secret_revision_expire"`
 	SecretRevisionObsolete                   []SecretRevisionObsolete                   `json:"secret_revision_obsolete" yaml:"secret_revision_obsolete"`

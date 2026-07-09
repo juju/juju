@@ -1,5 +1,7 @@
 cat_query_tracing_enabled_agent_conf() {
 	# shellcheck disable=SC2046
+	# Not using juju_exec_output: sudo cat produces no stderr, so the
+	# stdout/stderr mixing bug does not apply.
 	echo $(juju exec -m controller --machine 0 'sudo cat /var/lib/juju/agents/machine-0/agent.conf' | grep "querytracingenabled")
 }
 
@@ -40,6 +42,8 @@ run_query_tracing_enabled() {
 
 cat_query_tracing_threshold_agent_conf() {
 	# shellcheck disable=SC2046
+	# Not using juju_exec_output: sudo cat produces no stderr, so the
+	# stdout/stderr mixing bug does not apply.
 	echo $(juju exec -m controller --machine 0 'sudo cat /var/lib/juju/agents/machine-0/agent.conf' | grep "querytracingthreshold")
 }
 

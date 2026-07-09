@@ -137,6 +137,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
+	s.secretService.EXPECT().GetReservedSecretIDs(gomock.Any(), gomock.Any()).Return([]string{"secret-x"}, nil)
 	s.secretBackendService.EXPECT().BackendConfigInfo(gomock.Any(), backendConfigParamsMatcher{c: c,
 		expected: secretbackendservice.BackendConfigParams{
 			LeaderToken: s.token,
@@ -144,9 +145,10 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *tc.C) {
 				Kind: secret.UnitAccessor,
 				ID:   "mariadb/0",
 			},
-			ModelUUID:      model.UUID(coretesting.ModelTag.Id()),
-			BackendIDs:     []string{"backend-id"},
-			SameController: true,
+			ModelUUID:         model.UUID(coretesting.ModelTag.Id()),
+			BackendIDs:        []string{"backend-id"},
+			SameController:    true,
+			ReservedSecretIDs: []string{"secret-x"},
 		}}).Return(&provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
 		Configs: map[string]provider.ModelBackendConfig{
@@ -238,7 +240,7 @@ func (s *SecretsManagerSuite) TestCreateSecretURIs(c *tc.C) {
 
 	uri1 := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.secretService.EXPECT().CreateSecretURIs(gomock.Any(), 2).Return([]*coresecrets.URI{uri1, uri2}, nil)
+	s.secretService.EXPECT().CreateSecretURIs(gomock.Any(), gomock.Any(), 2).Return([]*coresecrets.URI{uri1, uri2}, nil)
 
 	results, err := s.facade.CreateSecretURIs(c.Context(), params.CreateSecretURIsArg{
 		Count: 2,

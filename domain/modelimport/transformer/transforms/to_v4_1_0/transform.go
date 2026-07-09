@@ -8,40 +8,40 @@ package to_v4_1_0
 import (
 	"context"
 
-	"github.com/juju/juju/domain/export/types/v4_0_11"
+	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 	"github.com/juju/juju/domain/modelimport/transformer"
 	"github.com/juju/juju/internal/errors"
 )
 
-// Deltas lists the tables whose schema changed between 4.0.11 and 4.1.0,
+// Deltas lists the tables whose schema changed between 4.0.12 and 4.1.0,
 // plus any new tables in the target that have no source counterpart.
 // Engineers implement this interface in deltas.go; the package will not
 // compile until every method has a receiver.
 type Deltas interface {
 	// Constraint: struct shape changed in 4.1.0.
-	Constraint(ctx context.Context, src []v4_0_11.Constraint) ([]v4_1_0.Constraint, error)
+	Constraint(ctx context.Context, src []v4_0_12.Constraint) ([]v4_1_0.Constraint, error)
 	// RelationApplicationSetting: struct shape changed in 4.1.0.
-	RelationApplicationSetting(ctx context.Context, src []v4_0_11.RelationApplicationSetting) ([]v4_1_0.RelationApplicationSetting, error)
+	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting) ([]v4_1_0.RelationApplicationSetting, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
-	RelationUnitSetting(ctx context.Context, src []v4_0_11.RelationUnitSetting) ([]v4_1_0.RelationUnitSetting, error)
-	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_11.ModelExport.
-	MachineVirtualSshHostKey(ctx context.Context, src *v4_0_11.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error)
-	// SshConnectionRequest: new table in 4.1.0; derive from *v4_0_11.ModelExport.
-	SshConnectionRequest(ctx context.Context, src *v4_0_11.ModelExport) ([]v4_1_0.SshConnectionRequest, error)
-	// SshConnectionRequestAddress: new table in 4.1.0; derive from *v4_0_11.ModelExport.
-	SshConnectionRequestAddress(ctx context.Context, src *v4_0_11.ModelExport) ([]v4_1_0.SshConnectionRequestAddress, error)
-	// SshKeyAlgorithmType: new table in 4.1.0; derive from *v4_0_11.ModelExport.
-	SshKeyAlgorithmType(ctx context.Context, src *v4_0_11.ModelExport) ([]v4_1_0.SshKeyAlgorithmType, error)
-	// UnitVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_11.ModelExport.
-	UnitVirtualSshHostKey(ctx context.Context, src *v4_0_11.ModelExport) ([]v4_1_0.UnitVirtualSshHostKey, error)
+	RelationUnitSetting(ctx context.Context, src []v4_0_12.RelationUnitSetting) ([]v4_1_0.RelationUnitSetting, error)
+	// MachineVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	MachineVirtualSshHostKey(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.MachineVirtualSshHostKey, error)
+	// SshConnectionRequest: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	SshConnectionRequest(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequest, error)
+	// SshConnectionRequestAddress: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	SshConnectionRequestAddress(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshConnectionRequestAddress, error)
+	// SshKeyAlgorithmType: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	SshKeyAlgorithmType(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.SshKeyAlgorithmType, error)
+	// UnitVirtualSshHostKey: new table in 4.1.0; derive from *v4_0_12.ModelExport.
+	UnitVirtualSshHostKey(ctx context.Context, src *v4_0_12.ModelExport) ([]v4_1_0.UnitVirtualSshHostKey, error)
 }
 
-// NewTransform returns a transformer.TransformationFunc that walks a 4.0.11 payload
+// NewTransform returns a transformer.TransformationFunc that walks a 4.0.12 payload
 // into a 4.1.0 payload. It applies identity copies for unchanged tables
 // and delegates changed/new tables to the supplied Deltas implementation.
-func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_11.ModelExport, v4_1_0.ModelExport] {
-	return func(ctx context.Context, src v4_0_11.ModelExport) (v4_1_0.ModelExport, error) {
+func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, v4_1_0.ModelExport] {
+	return func(ctx context.Context, src v4_0_12.ModelExport) (v4_1_0.ModelExport, error) {
 		dst := v4_1_0.ModelExport{}
 
 		var err error
@@ -999,6 +999,11 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_11.ModelExport, 
 		dst.SecretRemoteUnitConsumer = make([]v4_1_0.SecretRemoteUnitConsumer, len(src.SecretRemoteUnitConsumer))
 		for i := range src.SecretRemoteUnitConsumer {
 			dst.SecretRemoteUnitConsumer[i] = v4_1_0.SecretRemoteUnitConsumer(src.SecretRemoteUnitConsumer[i])
+		}
+
+		dst.SecretReservation = make([]v4_1_0.SecretReservation, len(src.SecretReservation))
+		for i := range src.SecretReservation {
+			dst.SecretReservation[i] = v4_1_0.SecretReservation(src.SecretReservation[i])
 		}
 
 		dst.SecretRevision = make([]v4_1_0.SecretRevision, len(src.SecretRevision))

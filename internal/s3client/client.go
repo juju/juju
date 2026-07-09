@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -77,6 +79,7 @@ type options struct {
 	maxAttempts       int
 	allowRateLimiting bool
 	logger            logger.Logger
+	region            string
 }
 
 // WithMaxAttempts is the option to set the maximum number of attempts for the
@@ -98,6 +101,17 @@ func WithRateLimiting(allowRateLimiting bool) Option {
 func WithLogger(logger logger.Logger) Option {
 	return func(o *options) {
 		o.logger = logger
+	}
+}
+
+// WithRegion is the option to set the signing region for the S3 client.
+// When empty (the default), the region is derived from the endpoint URL for
+// common AWS forms. If derivation fails and static credentials are used, a
+// placeholder region is used and a warning is logged; for anonymous
+// credentials the region is left empty since signing is skipped.
+func WithRegion(region string) Option {
+	return func(o *options) {
+		o.region = region
 	}
 }
 
@@ -132,11 +146,25 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 		logger: o.logger.Child("aws.s3"),
 	}
 
+	region, err := resolveRegion(o.region, endpoint)
+	if err != nil {
+		if credentials.Kind() == StaticCredentialsKind {
+			o.logger.Warningf(context.Background(),
+				"could not determine S3 signing region from endpoint %q; "+
+					"using placeholder %q. Set the object-store-s3-region "+
+					"controller config key to specify the correct region.",
+				endpoint, fallbackRegion)
+			region = fallbackRegion
+		}
+		// Anonymous credentials skip SigV4 signing, so an empty region is fine.
+	}
+
 	cfg, err := config.LoadDefaultConfig(
 		context.Background(),
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(httpClient),
-		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: endpoint}),
+		config.WithRegion(region),
+		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: endpoint, region: region}),
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard(
 				func(s3Options *retry.StandardOptions) {
@@ -373,14 +401,75 @@ func handleError(err error) error {
 	return errors.Trace(err)
 }
 
+// awsGlobalEndpointRegion is the region the AWS global S3 endpoint
+// (s3.amazonaws.com) maps to.
+const awsGlobalEndpointRegion = "us-east-1"
+
+// fallbackRegion is the placeholder SigV4 signing region used for static
+// credentials when no region is set explicitly and none can be derived from
+// the endpoint. It is deliberately not a real AWS region: S3-compatible
+// stores that ignore the region (MinIO, Ceph) accept it, while real AWS
+// requests fail loudly with this value visible in the error. Set
+// object-store-s3-region to override.
+const fallbackRegion = "juju-unknown-region"
+
+// regionFromEndpoint attempts to extract an AWS region from a common S3
+// endpoint URL. It recognises the following host forms:
+//
+//   - s3.amazonaws.com (global endpoint, returns us-east-1)
+//   - s3.<region>.amazonaws.com
+//   - s3-<region>.amazonaws.com
+//   - <bucket>.s3.<region>.amazonaws.com (virtual-hosted style)
+//   - <bucket>.s3-<region>.amazonaws.com (virtual-hosted style)
+//
+// Non-AWS hosts or unparseable endpoints return an empty string.
+func regionFromEndpoint(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return ""
+	}
+	host := u.Hostname()
+	if !strings.HasSuffix(host, "amazonaws.com") {
+		return ""
+	}
+	labels := strings.Split(host, ".")
+	for i, label := range labels {
+		if label == "s3" {
+			if i+1 < len(labels) && labels[i+1] != "amazonaws" {
+				return labels[i+1]
+			}
+			return awsGlobalEndpointRegion
+		}
+		if region, ok := strings.CutPrefix(label, "s3-"); ok {
+			return region
+		}
+	}
+	return ""
+}
+
+// resolveRegion determines the effective signing region following the
+// precedence: explicit override, then derived from the endpoint. If neither
+// yields a region, an error is returned.
+func resolveRegion(override, endpoint string) (string, error) {
+	if override != "" {
+		return override, nil
+	}
+	if region := regionFromEndpoint(endpoint); region != "" {
+		return region, nil
+	}
+	return "", errors.Errorf("region could not be derived from endpoint %q", endpoint)
+}
+
 type awsEndpointResolver struct {
 	endpoint string
+	region   string
 }
 
 // ResolveEndpoint returns the endpoint for the given service and region.
 func (a *awsEndpointResolver) ResolveEndpoint(_, _ string, options ...any) (aws.Endpoint, error) {
 	return aws.Endpoint{
-		URL: a.endpoint,
+		URL:           a.endpoint,
+		SigningRegion: a.region,
 	}, nil
 }
 

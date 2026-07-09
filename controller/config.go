@@ -209,6 +209,8 @@ const (
 
 	// CAASImageRepo sets the docker repo to use
 	// for the jujud operator and mongo images.
+	// Note: the repository itself is read-only after bootstrap; only
+	// authentication credentials (for a private registry) can be updated.
 	CAASImageRepo = "caas-image-repo"
 
 	// Features allows a list of runtime changeable features to be updated.
@@ -462,6 +464,7 @@ var (
 		QueryTracingEnabled,
 		QueryTracingThreshold,
 		DqliteBusyTimeout,
+
 		SystemSSHKeys,
 		JujudControllerSnapSource,
 		SSHMaxConcurrentConnections,
@@ -513,6 +516,7 @@ var (
 		QueryTracingEnabled,
 		QueryTracingThreshold,
 		DqliteBusyTimeout,
+
 		SSHMaxConcurrentConnections,
 	)
 
@@ -972,7 +976,6 @@ func (c Config) DqliteBusyTimeout() time.Duration {
 	return c.durationOrDefault(DqliteBusyTimeout, DefaultDqliteBusyTimeout)
 }
 
-// SSHServerPort returns the port the SSH server listens on.
 func (c Config) SSHServerPort() int {
 	return c.intOrDefault(SSHServerPort, DefaultSSHServerPort)
 }

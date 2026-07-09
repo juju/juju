@@ -67,8 +67,8 @@ func (o *importOperation) Execute(ctx context.Context, model description.Model) 
 
 		key := lease.Key{
 			ModelUUID: model.UUID(),
-			Namespace: app.Name(),
-			Lease:     lease.ApplicationLeadershipNamespace,
+			Namespace: lease.ApplicationLeadershipNamespace,
+			Lease:     app.Name(),
 		}
 		req := lease.Request{
 			Holder:   app.Leader(),

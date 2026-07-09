@@ -21,13 +21,13 @@ run_relation_data_exchange() {
 
 	echo "Get the leader unit name"
 	non_leader_dummy_sink_unit=$(juju status --format json | yq -r '.applications."dummy-sink".units | to_entries[] | select(.value.leader!=true) | .key')
-	dummy_sink_relation_id=$(juju exec --unit "dummy-sink/leader" 'relation-ids source')
-	dummy_source_relation_id=$(juju exec --unit "dummy-source/leader" 'relation-ids sink')
+	dummy_sink_relation_id=$(juju_exec_output --unit "dummy-sink/leader" 'relation-ids source')
+	dummy_source_relation_id=$(juju_exec_output --unit "dummy-source/leader" 'relation-ids sink')
 	# stop there
 	echo "Block until the relation is joined; otherwise, the relation-set commands below will fail"
 	attempt=0
 	while true; do
-		got=$(juju exec --unit "dummy-sink/leader" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" || echo 'NOT FOUND')
+		got=$(juju_exec_output --unit "dummy-sink/leader" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" || echo 'NOT FOUND')
 		if [ "${got}" != "NOT FOUND" ]; then
 			break
 		fi
@@ -41,7 +41,7 @@ run_relation_data_exchange() {
 	done
 	attempt=0
 	while true; do
-		got=$(juju exec --unit 'dummy-source/0' "relation-get --app -r ${dummy_sink_relation_id} origin dummy-source" || echo 'NOT FOUND')
+		got=$(juju_exec_output --unit 'dummy-source/0' "relation-get --app -r ${dummy_sink_relation_id} origin dummy-source" || echo 'NOT FOUND')
 		if [ "${got}" != "NOT FOUND" ]; then
 			break
 		fi
@@ -61,11 +61,11 @@ run_relation_data_exchange() {
 	juju exec --unit 'dummy-source/0' "relation-set --app -r ${dummy_source_relation_id} origin=dummy-source"
 
 	echo "Check 1: ensure that leaders can read the application databag for their own application"
-	juju exec --unit "dummy-sink/leader" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" | check "dummy-sink"
-	juju exec --unit 'dummy-source/0' "relation-get --app -r ${dummy_source_relation_id} origin dummy-source" | check "dummy-source"
+	juju_exec_output --unit "dummy-sink/leader" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" | check "dummy-sink"
+	juju_exec_output --unit 'dummy-source/0' "relation-get --app -r ${dummy_source_relation_id} origin dummy-source" | check "dummy-source"
 
 	echo "Check 2: ensure that non-leader units are not allowed to read their own application databag for non-peer relations"
-	juju exec --unit "${non_leader_dummy_sink_unit}" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" 2>&1 || echo "PERMISSION DENIED" | check "PERMISSION DENIED"
+	juju_exec_output --unit "${non_leader_dummy_sink_unit}" "relation-get --app -r ${dummy_sink_relation_id} origin dummy-sink" || echo "PERMISSION DENIED" | check "PERMISSION DENIED"
 
 	destroy_model "${model_name}"
 }

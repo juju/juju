@@ -740,8 +740,12 @@ func gorillaDialWebsocket(ctx context.Context, urlStr string, tlsConfig *tls.Con
 		HandshakeTimeout: 45 * time.Second,
 		TLSClientConfig:  tlsConfig,
 	}
-	// Note: no extra headers.
-	c, resp, err := dialer.Dial(urlStr, nil)
+	// Report the client version via the same header the stream and HTTP
+	// connections send. Controllers currently ignore it; intermediaries
+	// such as JIMM use it to apply client compatibility rules.
+	requestHeader := make(http.Header)
+	requestHeader.Set(params.JujuClientVersion, jujuversion.Current.String())
+	c, resp, err := dialer.Dial(urlStr, requestHeader)
 	if err != nil {
 		if err == websocket.ErrBadHandshake {
 			// If ErrBadHandshake is returned, a non-nil response

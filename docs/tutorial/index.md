@@ -454,7 +454,7 @@ Deployed "self-signed-certificates" from charm-hub charm "self-signed-certificat
 :copy:
 :user: ubuntu
 :host: my-juju-vm
-juju integrate self-signed-certificates postgresql-k8s
+juju integrate self-signed-certificates:certificates postgresql-k8s:certificates
 
 ```
 

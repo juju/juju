@@ -409,7 +409,7 @@ func (s *ModelServices) StorageProvisioning() *storageprovisioningservice.Servic
 func (s *ModelServices) Secret() *secretservice.WatchableService {
 	log := s.logger.Child("secret")
 	return secretservice.NewWatchableService(
-		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log),
+		secretstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), log, s.clock),
 		secretbackendstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), log),
 		domain.NewLeaseService(s.leaseManager),
 		s.modelWatcherFactory("secret"),
