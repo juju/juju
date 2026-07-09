@@ -33,14 +33,13 @@ type MockState struct {
 type MockStateMockRecorder struct {
 	mock                                        *MockState
 	addSpaceExpects                             []*gomock.Call5_1[context.Context, network.SpaceUUID, network.SpaceName, network.Id, []string, error]
-	addSubnetExpects                            []*gomock.Call2_1[context.Context, network.SubnetInfo, error]
 	allMachinesAndNetNodesExpects               []*gomock.Call1_2[context.Context, map[string]string, error]
 	allSubnetsQueryExpects                      []*gomock.Call2_2[context.Context, database.TxnRunner, []string, error]
 	createK8sServicesExpects                    []*gomock.Call2_1[context.Context, []internal.ImportK8sService, error]
 	deleteSubnetExpects                         []*gomock.Call2_1[context.Context, string, error]
 	getAllLinkLayerDevicesByNetNodeUUIDsExpects []*gomock.Call1_2[context.Context, map[string][]network0.NetInterface, error]
 	getAllSpacesExpects                         []*gomock.Call1_2[context.Context, network.SpaceInfos, error]
-	getAllSubnetsExpects                        []*gomock.Call1_2[context.Context, network.SubnetInfos, error]
+	getAllSubnetsExpects                        []*gomock.Call1_2[context.Context, network0.SubnetInfos, error]
 	getContainerNetworkingMethodExpects         []*gomock.Call1_2[context.Context, string, error]
 	getControllerUnitUUIDByNameExpects          []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	getMachineAppBindingsExpects                []*gomock.Call2_2[context.Context, string, []internal.SpaceName, error]
@@ -52,9 +51,8 @@ type MockStateMockRecorder struct {
 	getRelationEgressSubnetsExpects             []*gomock.Call2_2[context.Context, string, []string, error]
 	getSpaceExpects                             []*gomock.Call2_2[context.Context, network.SpaceUUID, *network.SpaceInfo, error]
 	getSpaceByNameExpects                       []*gomock.Call2_2[context.Context, network.SpaceName, *network.SpaceInfo, error]
-	getSubnetExpects                            []*gomock.Call2_2[context.Context, string, *network.SubnetInfo, error]
 	getSubnetCIDRForDeviceExpects               []*gomock.Call4_2[context.Context, string, string, string, string, error]
-	getSubnetsByCIDRExpects                     []*gomock.Call1V_2[context.Context, string, network.SubnetInfos, error]
+	getSubnetsByCIDRExpects                     []*gomock.Call1V_2[context.Context, string, network0.SubnetInfos, error]
 	getUnitAddressesExpects                     []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 	getUnitAndK8sServiceAddressesExpects        []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 	getUnitEgressSubnetsExpects                 []*gomock.Call2_2[context.Context, string, []string, error]
@@ -64,6 +62,7 @@ type MockStateMockRecorder struct {
 	getUnitRelationEndpointNameExpects          []*gomock.Call3_2[context.Context, string, string, string, error]
 	getUnitUUIDByNameExpects                    []*gomock.Call2_2[context.Context, unit.Name, unit.UUID, error]
 	importLinkLayerDevicesExpects               []*gomock.Call2_1[context.Context, []internal.ImportLinkLayerDevice, error]
+	importSubnetsExpects                        []*gomock.Call2_1[context.Context, []network0.ImportSubnetArgs, error]
 	isCaasUnitExpects                           []*gomock.Call2_2[context.Context, string, bool, error]
 	isMachineUnmanagedExpects                   []*gomock.Call2_2[context.Context, string, bool, error]
 	mergeLinkLayerDeviceExpects                 []*gomock.Call3_1[context.Context, string, []network0.NetInterface, error]
@@ -74,7 +73,7 @@ type MockStateMockRecorder struct {
 	setMachineNetConfigExpects                  []*gomock.Call4_1[context.Context, string, []network0.NetInterface, bool, error]
 	updateSpaceExpects                          []*gomock.Call3_1[context.Context, network.SpaceUUID, network.SpaceName, error]
 	updateSubnetExpects                         []*gomock.Call3_1[context.Context, string, network.SpaceUUID, error]
-	upsertSubnetsExpects                        []*gomock.Call2_1[context.Context, []network.SubnetInfo, error]
+	upsertSubnetsExpects                        []*gomock.Call2_1[context.Context, []network0.SubnetInfo, error]
 }
 
 // NewMockState creates a new mock instance.
@@ -106,24 +105,6 @@ func (mr *MockStateMockRecorder) AddSpace(ctx, uuid, name, providerID, cidrs any
 
 // MockStateAddSpaceCall is the typed call wrapper for AddSpace.
 type MockStateAddSpaceCall = gomock.Call5_1[context.Context, network.SpaceUUID, network.SpaceName, network.Id, []string, error]
-
-// AddSubnet mocks base method.
-func (m *MockState) AddSubnet(ctx context.Context, subnet network.SubnetInfo) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.addSubnetExpects, m.ctrl, m, "AddSubnet", ctx, subnet)
-}
-
-// AddSubnet indicates an expected call of AddSubnet.
-func (mr *MockStateMockRecorder) AddSubnet(ctx, subnet any) *MockStateAddSubnetCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, network.SubnetInfo, error](mr.mock.ctrl.T, mr.mock, "AddSubnet", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(subnet))
-	mr.addSubnetExpects = append(mr.addSubnetExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateAddSubnetCall is the typed call wrapper for AddSubnet.
-type MockStateAddSubnetCall = gomock.Call2_1[context.Context, network.SubnetInfo, error]
 
 // AllMachinesAndNetNodes mocks base method.
 func (m *MockState) AllMachinesAndNetNodes(ctx context.Context) (map[string]string, error) {
@@ -234,7 +215,7 @@ func (mr *MockStateMockRecorder) GetAllSpaces(ctx any) *MockStateGetAllSpacesCal
 type MockStateGetAllSpacesCall = gomock.Call1_2[context.Context, network.SpaceInfos, error]
 
 // GetAllSubnets mocks base method.
-func (m *MockState) GetAllSubnets(ctx context.Context) (network.SubnetInfos, error) {
+func (m *MockState) GetAllSubnets(ctx context.Context) (network0.SubnetInfos, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch1_2(&m.recorder.getAllSubnetsExpects, m.ctrl, m, "GetAllSubnets", ctx)
 }
@@ -242,14 +223,14 @@ func (m *MockState) GetAllSubnets(ctx context.Context) (network.SubnetInfos, err
 // GetAllSubnets indicates an expected call of GetAllSubnets.
 func (mr *MockStateMockRecorder) GetAllSubnets(ctx any) *MockStateGetAllSubnetsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, network.SubnetInfos, error](mr.mock.ctrl.T, mr.mock, "GetAllSubnets", gomock.EnsureMatcher(ctx))
+	call := gomock.NewCall1_2[context.Context, network0.SubnetInfos, error](mr.mock.ctrl.T, mr.mock, "GetAllSubnets", gomock.EnsureMatcher(ctx))
 	mr.getAllSubnetsExpects = append(mr.getAllSubnetsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetAllSubnetsCall is the typed call wrapper for GetAllSubnets.
-type MockStateGetAllSubnetsCall = gomock.Call1_2[context.Context, network.SubnetInfos, error]
+type MockStateGetAllSubnetsCall = gomock.Call1_2[context.Context, network0.SubnetInfos, error]
 
 // GetContainerNetworkingMethod mocks base method.
 func (m *MockState) GetContainerNetworkingMethod(ctx context.Context) (string, error) {
@@ -449,24 +430,6 @@ func (mr *MockStateMockRecorder) GetSpaceByName(ctx, name any) *MockStateGetSpac
 // MockStateGetSpaceByNameCall is the typed call wrapper for GetSpaceByName.
 type MockStateGetSpaceByNameCall = gomock.Call2_2[context.Context, network.SpaceName, *network.SpaceInfo, error]
 
-// GetSubnet mocks base method.
-func (m *MockState) GetSubnet(ctx context.Context, uuid string) (*network.SubnetInfo, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getSubnetExpects, m.ctrl, m, "GetSubnet", ctx, uuid)
-}
-
-// GetSubnet indicates an expected call of GetSubnet.
-func (mr *MockStateMockRecorder) GetSubnet(ctx, uuid any) *MockStateGetSubnetCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, *network.SubnetInfo, error](mr.mock.ctrl.T, mr.mock, "GetSubnet", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
-	mr.getSubnetExpects = append(mr.getSubnetExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockStateGetSubnetCall is the typed call wrapper for GetSubnet.
-type MockStateGetSubnetCall = gomock.Call2_2[context.Context, string, *network.SubnetInfo, error]
-
 // GetSubnetCIDRForDevice mocks base method.
 func (m *MockState) GetSubnetCIDRForDevice(ctx context.Context, nodeUUID, deviceName, spaceUUID string) (string, error) {
 	m.ctrl.T.Helper()
@@ -486,7 +449,7 @@ func (mr *MockStateMockRecorder) GetSubnetCIDRForDevice(ctx, nodeUUID, deviceNam
 type MockStateGetSubnetCIDRForDeviceCall = gomock.Call4_2[context.Context, string, string, string, string, error]
 
 // GetSubnetsByCIDR mocks base method.
-func (m *MockState) GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (network.SubnetInfos, error) {
+func (m *MockState) GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (network0.SubnetInfos, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch1V_2(&m.recorder.getSubnetsByCIDRExpects, m.ctrl, m, "GetSubnetsByCIDR", ctx, cidrs...)
 }
@@ -495,14 +458,14 @@ func (m *MockState) GetSubnetsByCIDR(ctx context.Context, cidrs ...string) (netw
 func (mr *MockStateMockRecorder) GetSubnetsByCIDR(ctx any, cidrs ...any) *MockStateGetSubnetsByCIDRCall {
 	mr.mock.ctrl.T.Helper()
 	varArgs := gomock.EnsureVariadicMatcher(cidrs)
-	call := gomock.NewCall1V_2[context.Context, string, network.SubnetInfos, error](mr.mock.ctrl.T, mr.mock, "GetSubnetsByCIDR", gomock.EnsureMatcher(ctx), varArgs)
+	call := gomock.NewCall1V_2[context.Context, string, network0.SubnetInfos, error](mr.mock.ctrl.T, mr.mock, "GetSubnetsByCIDR", gomock.EnsureMatcher(ctx), varArgs)
 	mr.getSubnetsByCIDRExpects = append(mr.getSubnetsByCIDRExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetSubnetsByCIDRCall is the typed call wrapper for GetSubnetsByCIDR.
-type MockStateGetSubnetsByCIDRCall = gomock.Call1V_2[context.Context, string, network.SubnetInfos, error]
+type MockStateGetSubnetsByCIDRCall = gomock.Call1V_2[context.Context, string, network0.SubnetInfos, error]
 
 // GetUnitAddresses mocks base method.
 func (m *MockState) GetUnitAddresses(ctx context.Context, uuid unit.UUID) (network.SpaceAddresses, error) {
@@ -665,6 +628,24 @@ func (mr *MockStateMockRecorder) ImportLinkLayerDevices(ctx, input any) *MockSta
 
 // MockStateImportLinkLayerDevicesCall is the typed call wrapper for ImportLinkLayerDevices.
 type MockStateImportLinkLayerDevicesCall = gomock.Call2_1[context.Context, []internal.ImportLinkLayerDevice, error]
+
+// ImportSubnets mocks base method.
+func (m *MockState) ImportSubnets(ctx context.Context, subnets []network0.ImportSubnetArgs) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.importSubnetsExpects, m.ctrl, m, "ImportSubnets", ctx, subnets)
+}
+
+// ImportSubnets indicates an expected call of ImportSubnets.
+func (mr *MockStateMockRecorder) ImportSubnets(ctx, subnets any) *MockStateImportSubnetsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, []network0.ImportSubnetArgs, error](mr.mock.ctrl.T, mr.mock, "ImportSubnets", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(subnets))
+	mr.importSubnetsExpects = append(mr.importSubnetsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateImportSubnetsCall is the typed call wrapper for ImportSubnets.
+type MockStateImportSubnetsCall = gomock.Call2_1[context.Context, []network0.ImportSubnetArgs, error]
 
 // IsCaasUnit mocks base method.
 func (m *MockState) IsCaasUnit(ctx context.Context, unitUUID string) (bool, error) {
@@ -847,7 +828,7 @@ func (mr *MockStateMockRecorder) UpdateSubnet(ctx, uuid, spaceID any) *MockState
 type MockStateUpdateSubnetCall = gomock.Call3_1[context.Context, string, network.SpaceUUID, error]
 
 // UpsertSubnets mocks base method.
-func (m *MockState) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error {
+func (m *MockState) UpsertSubnets(ctx context.Context, subnets []network0.SubnetInfo) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_1(&m.recorder.upsertSubnetsExpects, m.ctrl, m, "UpsertSubnets", ctx, subnets)
 }
@@ -855,14 +836,14 @@ func (m *MockState) UpsertSubnets(ctx context.Context, subnets []network.SubnetI
 // UpsertSubnets indicates an expected call of UpsertSubnets.
 func (mr *MockStateMockRecorder) UpsertSubnets(ctx, subnets any) *MockStateUpsertSubnetsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, []network.SubnetInfo, error](mr.mock.ctrl.T, mr.mock, "UpsertSubnets", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(subnets))
+	call := gomock.NewCall2_1[context.Context, []network0.SubnetInfo, error](mr.mock.ctrl.T, mr.mock, "UpsertSubnets", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(subnets))
 	mr.upsertSubnetsExpects = append(mr.upsertSubnetsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateUpsertSubnetsCall is the typed call wrapper for UpsertSubnets.
-type MockStateUpsertSubnetsCall = gomock.Call2_1[context.Context, []network.SubnetInfo, error]
+type MockStateUpsertSubnetsCall = gomock.Call2_1[context.Context, []network0.SubnetInfo, error]
 
 // MockProviderWithNetworking is a mock of ProviderWithNetworking interface.
 type MockProviderWithNetworking struct {

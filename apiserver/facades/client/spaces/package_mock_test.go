@@ -121,7 +121,6 @@ type MockNetworkServiceMockRecorder struct {
 	reloadSpacesExpects           []*gomock.Call1_1[context.Context, error]
 	removeSpaceExpects            []*gomock.Call4_2[context.Context, network.SpaceName, bool, bool, network0.RemoveSpaceViolations, error]
 	spaceByNameExpects            []*gomock.Call2_2[context.Context, network.SpaceName, *network.SpaceInfo, error]
-	subnetExpects                 []*gomock.Call2_2[context.Context, string, *network.SubnetInfo, error]
 	supportsSpaceDiscoveryExpects []*gomock.Call1_2[context.Context, bool, error]
 	supportsSpacesExpects         []*gomock.Call1_2[context.Context, bool, error]
 	updateSpaceExpects            []*gomock.Call3_1[context.Context, network.SpaceUUID, network.SpaceName, error]
@@ -264,24 +263,6 @@ func (mr *MockNetworkServiceMockRecorder) SpaceByName(arg0, arg1 any) *MockNetwo
 
 // MockNetworkServiceSpaceByNameCall is the typed call wrapper for SpaceByName.
 type MockNetworkServiceSpaceByNameCall = gomock.Call2_2[context.Context, network.SpaceName, *network.SpaceInfo, error]
-
-// Subnet mocks base method.
-func (m *MockNetworkService) Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.subnetExpects, m.ctrl, m, "Subnet", ctx, uuid)
-}
-
-// Subnet indicates an expected call of Subnet.
-func (mr *MockNetworkServiceMockRecorder) Subnet(ctx, uuid any) *MockNetworkServiceSubnetCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, *network.SubnetInfo, error](mr.mock.ctrl.T, mr.mock, "Subnet", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuid))
-	mr.subnetExpects = append(mr.subnetExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockNetworkServiceSubnetCall is the typed call wrapper for Subnet.
-type MockNetworkServiceSubnetCall = gomock.Call2_2[context.Context, string, *network.SubnetInfo, error]
 
 // SupportsSpaceDiscovery mocks base method.
 func (m *MockNetworkService) SupportsSpaceDiscovery(arg0 context.Context) (bool, error) {
