@@ -81,16 +81,16 @@ func (i *ModelImporter) ImportModelLegacy(ctx context.Context, bytes []byte) err
 }
 
 // ActivateModel finalises the activation of a model imported via the v8 path.
-// It resolves the migration scope for args.ModelUUID and delegates to the
-// package-level [ActivateModel].
+// It resolves the domain services for args.ModelUUID and delegates to the
+// activation driver.
 func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArgs) error {
-	scope := i.scope(args.ModelUUID)
-	return ActivateModel(ctx, Deps{
-		ControllerDB: scope.ControllerDB(),
-		ModelDB:      scope.ModelDB(),
-		Clock:        i.clock,
-		Logger:       i.logger,
-	}, args)
+	domainServices, err := i.domainServices.ServicesForModel(ctx, args.ModelUUID)
+	if err != nil {
+		return internalerrors.Errorf(
+			"retrieving domain services for model %q: %w", args.ModelUUID, err,
+		)
+	}
+	return activateModel(ctx, domainServices, args)
 }
 
 // ImportModel applies a v8 import's controller-scoped semantic data to the

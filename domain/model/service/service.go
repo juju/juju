@@ -236,6 +236,18 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
+// ActivateModel marks the model as active after model creation or import has
+// completed.
+func (s *Service) ActivateModel(ctx context.Context, modelUUID coremodel.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("invalid model UUID %q: %w", modelUUID, err)
+	}
+	return s.st.Activate(ctx, modelUUID)
+}
+
 // ModelRedirection returns redirection information for the current model. If it
 // is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
 // Placeholder for model migration.

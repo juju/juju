@@ -10,15 +10,13 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
-	cmrmodelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelstate "github.com/juju/juju/domain/model/state/controller"
+	modelservice "github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
-	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
-	migrationmodelstate "github.com/juju/juju/domain/modelmigration/state/model"
+	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	"github.com/juju/juju/internal/errors"
-	internaluuid "github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/internal/services"
 )
 
 // ActivateModelArgs carries the data needed to activate an imported model.
@@ -51,35 +49,32 @@ type ActivateModelArgs struct {
 	CrossModelUUIDs []string
 }
 
-// ActivateModel finalises the activation of a model imported via the v8 path.
-// It runs a durable phase machine — importing → activating → claim deleted —
+// activateModel finalises the activation of a model imported via the v8 path.
+// It runs a durable phase machine: importing, activating, then claim deleted,
 // so retrying after a crash at any step resumes safely; every step is
 // idempotent.
 //
 // Legacy (3.6/4.0) imports set the model_migrating gate but create no
-// model_migration_import claim. When no claim exists ActivateModel clears the
+// model_migration_import claim. When no claim exists, activateModel clears the
 // gate and succeeds, preserving backward compatibility.
-func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error {
+func activateModel(ctx context.Context, domainServices services.DomainServices, args ActivateModelArgs) error {
 	modelUUID := args.ModelUUID
 	modelUUIDStr := modelUUID.String()
 
-	mmCtrl := migrationclaimstate.New(deps.ControllerDB, deps.Clock)
-	mmModel := migrationmodelstate.New(deps.ModelDB, modelUUID)
-
 	// Check for a v8 import claim. A missing claim means legacy import.
-	claim, err := mmCtrl.GetImportClaim(ctx, modelUUIDStr)
+	claim, err := domainServices.ModelMigration().GetImportClaim(ctx, modelUUID)
 	hasClaim := err == nil
 	if err != nil && !errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
 		return errors.Errorf("checking import claim for model %q: %w", modelUUIDStr, err)
 	}
 
-	// 1. Transition to activating (v8 only) — point of no return.
+	// 1. Transition to activating (v8 only): point of no return.
 	if hasClaim {
 		switch claim.Phase {
 		case modelmigration.ImportPhaseAborting:
 			return errors.Errorf("model %q: %w", modelUUIDStr, modelmigrationerrors.ErrActivationAborting)
 		case modelmigration.ImportPhaseImporting:
-			if err := mmCtrl.SetImportPhaseActivating(ctx, modelUUIDStr); err != nil {
+			if err := domainServices.ModelMigration().SetImportPhaseActivating(ctx, modelUUID); err != nil {
 				return errors.Errorf(
 					"transitioning import claim to activating for model %q: %w",
 					modelUUIDStr, err,
@@ -98,7 +93,7 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 	// 2. CMR offerer-controller reconciliation: populate
 	// application_remote_offerer.offerer_controller_uuid while the model is
 	// gated. All updates are idempotent so a retry after a crash is safe.
-	if err := reconcileOffererControllers(ctx, mmCtrl, deps, modelUUID, hasClaim, args); err != nil {
+	if err := reconcileOffererControllers(ctx, domainServices, modelUUID, hasClaim, args); err != nil {
 		return errors.Errorf(
 			"reconciling offerer controller UUIDs for model %q: %w", modelUUIDStr, err,
 		)
@@ -106,7 +101,7 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 
 	// 3. Reconcile the model agent version to match the controller target, if
 	// needed.
-	if err := reconcileModelAgentVersion(ctx, mmCtrl, mmModel, modelUUIDStr); err != nil {
+	if err := reconcileModelAgentVersion(ctx, domainServices, modelUUIDStr); err != nil {
 		return errors.Errorf(
 			"reconciling model agent version during activation of model %q: %w",
 			modelUUIDStr, err,
@@ -114,7 +109,7 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 	}
 
 	// 4. Clear the model-DB import gate.
-	if err := mmModel.DeleteModelImportingStatus(ctx); err != nil {
+	if err := domainServices.ModelMigration().DeleteModelImportingStatus(ctx); err != nil {
 		return errors.Errorf(
 			"clearing import gate for model %q: %w", modelUUIDStr, err,
 		)
@@ -128,15 +123,14 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 	// on. Without this, the model stays permanently invisible even after the
 	// claim is later deleted. Idempotent: a retry that finds the row already
 	// activated is a success, not an error.
-	modelCtrl := modelstate.NewState(deps.ControllerDB)
-	if err := modelCtrl.Activate(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.AlreadyActivated) {
+	if err := domainServices.Model().ActivateModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.AlreadyActivated) {
 		return errors.Errorf("activating model %q: %w", modelUUIDStr, err)
 	}
 
 	// 6. Delete the import claim last (v8 only): after the gate is gone, a
 	// second call with no claim is an idempotent success.
 	if hasClaim {
-		if err := mmCtrl.DeleteActivatedImport(ctx, modelUUIDStr); err != nil {
+		if err := domainServices.ModelMigration().DeleteActivatedImport(ctx, modelUUID); err != nil {
 			return errors.Errorf(
 				"deleting activated import claim for model %q: %w", modelUUIDStr, err,
 			)
@@ -144,6 +138,22 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 	}
 
 	return nil
+}
+
+// activateServices bundles the domain services the activation driver
+// orchestrates. The caller supplies services from the model's DomainServices;
+// the driver only coordinates service calls and never constructs state.
+type activateServices struct {
+	// migration exposes the controller- and model-scoped claim/gate methods
+	// used to drive the import phase machine and clear the model import gate.
+	migration *modelmigrationservice.Service
+
+	// model flips the model row's generic activated flag.
+	model *modelservice.WatchableService
+
+	// cmr reconciles application_remote_offerer.offerer_controller_uuid for
+	// relations that cross a controller boundary.
+	cmr *crossmodelrelationservice.WatchableService
 }
 
 // reconcileOffererControllers populates
@@ -166,8 +176,7 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 // idempotent.
 func reconcileOffererControllers(
 	ctx context.Context,
-	mmCtrl *migrationclaimstate.State,
-	deps Deps,
+	domainServices services.DomainServices,
 	modelUUID coremodel.UUID,
 	hasClaim bool,
 	args ActivateModelArgs,
@@ -176,31 +185,15 @@ func reconcileOffererControllers(
 		return nil
 	}
 
-	cmrService := crossmodelrelationservice.NewMigrationService(
-		cmrmodelstate.NewState(deps.ModelDB, modelUUID, deps.Clock, deps.Logger),
-		deps.Logger,
-	)
-
 	if len(args.CrossModelUUIDs) > 0 {
-		// Generate the external-controller address row UUIDs here (the
-		// orchestration/service layer) and pass them into state.
-		addrUUIDs := make([]string, len(args.SourceAPIAddrs))
-		for i := range args.SourceAPIAddrs {
-			u, err := internaluuid.NewUUID()
-			if err != nil {
-				return errors.Errorf("generating source controller address UUID: %w", err)
-			}
-			addrUUIDs[i] = u.String()
-		}
-
-		// Register the source controller using compare-or-insert semantics.
-		if err := mmCtrl.EnsureSourceControllerExists(
+		// Register the source controller using compare-or-insert semantics. The
+		// service generates the external-controller address row UUIDs.
+		if err := domainServices.ModelMigration().EnsureSourceControllerExists(
 			ctx,
-			args.SourceControllerUUID,
+			corecontroller.UUID(args.SourceControllerUUID),
 			args.SourceControllerAlias,
 			args.SourceCACert,
 			args.SourceAPIAddrs,
-			addrUUIDs,
 			args.CrossModelUUIDs,
 		); err != nil {
 			return errors.Errorf(
@@ -214,7 +207,7 @@ func reconcileOffererControllers(
 		for i, u := range args.CrossModelUUIDs {
 			crossModelUUIDs[i] = coremodel.UUID(u)
 		}
-		if err := cmrService.SetOffererControllerForOffererModels(
+		if err := domainServices.CrossModelRelation().SetOffererControllerForOffererModels(
 			ctx, crossModelUUIDs, corecontroller.UUID(args.SourceControllerUUID),
 		); err != nil {
 			return errors.Errorf(
@@ -229,19 +222,19 @@ func reconcileOffererControllers(
 	if !hasClaim {
 		return nil
 	}
-	thirdParty, err := mmCtrl.ExternalControllerModelsForImport(ctx, modelUUID.String())
+	thirdParty, err := domainServices.ModelMigration().ExternalControllerModelsForImport(ctx, modelUUID)
 	if err != nil {
 		return errors.Errorf(
 			"reading third-party offerer mappings for model %q: %w", modelUUID, err,
 		)
 	}
 	for _, m := range thirdParty {
-		if err := cmrService.SetOffererControllerForOffererModel(
-			ctx, coremodel.UUID(m.OffererModelUUID), corecontroller.UUID(m.ControllerUUID),
+		if err := domainServices.CrossModelRelation().SetOffererControllerForOffererModel(
+			ctx, coremodel.UUID(m.ModelUUID), corecontroller.UUID(m.ControllerUUID),
 		); err != nil {
 			return errors.Errorf(
 				"setting offerer controller for third-party model %q: %w",
-				m.OffererModelUUID, err,
+				m.ModelUUID, err,
 			)
 		}
 	}
@@ -253,11 +246,10 @@ func reconcileOffererControllers(
 // versions already match it is a no-op.
 func reconcileModelAgentVersion(
 	ctx context.Context,
-	ctrl *migrationclaimstate.State,
-	model *migrationmodelstate.State,
+	domainServices services.DomainServices,
 	modelUUIDStr string,
 ) error {
-	desiredStr, err := ctrl.GetControllerTargetVersion(ctx)
+	desiredStr, err := domainServices.ModelMigration().GetControllerTargetVersion(ctx)
 	if err != nil {
 		return errors.Errorf("getting controller target version: %w", err)
 	}
@@ -269,7 +261,7 @@ func reconcileModelAgentVersion(
 		return errors.Errorf("parsing controller target version %q: %w", desiredStr, err)
 	}
 
-	currentStr, err := model.GetModelTargetAgentVersion(ctx)
+	currentStr, err := domainServices.ModelMigration().GetModelTargetAgentVersion(ctx)
 	if err != nil {
 		return errors.Errorf(
 			"getting model target agent version for model %q: %w", modelUUIDStr, err,
@@ -285,5 +277,5 @@ func reconcileModelAgentVersion(
 	if current == desired {
 		return nil
 	}
-	return model.SetModelTargetAgentVersion(ctx, currentStr, desiredStr)
+	return domainServices.ModelMigration().SetModelTargetAgentVersion(ctx, currentStr, desiredStr)
 }

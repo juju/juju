@@ -418,8 +418,9 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 	}
 
 	// Activate the import via the v8 orchestration seam: transitions the claim
-	// to activating, reconciles CMR offerer-controller references, bumps the
-	// model agent version, clears the import gate, and deletes the claim last.
+	// to activating, reconciles CMR offerer-controller references, aligns the
+	// model agent version with the controller target, clears the import gate, and
+	// deletes the claim last.
 	// Also handles legacy (no-claim) imports.
 	return errors.Capture(api.modelImporter.ActivateModel(ctx, migration.ActivateModelArgs{
 		ModelUUID:             modelUUID,

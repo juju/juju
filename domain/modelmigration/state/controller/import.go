@@ -579,13 +579,6 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 	})
 }
 
-// ExternalControllerModels holds a third-party offerer-model to controller
-// mapping recorded by ImportExternalControllers during import.
-type ExternalControllerModels struct {
-	OffererModelUUID string
-	ControllerUUID   string
-}
-
 // ExternalControllerModelsForImport returns the third-party offerer-model to
 // controller mappings stored in model_migration_import_external_controller_model
 // for the given model's import claim. These are consumed by ActivateModel to
@@ -595,7 +588,7 @@ type ExternalControllerModels struct {
 // Returns an empty slice when no mappings exist or when the model has no claim.
 func (s *State) ExternalControllerModelsForImport(
 	ctx context.Context, modelUUID string,
-) ([]ExternalControllerModels, error) {
+) ([]modelmigrationinternal.OffererModel, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -623,11 +616,11 @@ WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid`,
 		return nil, errors.Errorf("fetching external controller models for import: %w", err)
 	}
 
-	result := make([]ExternalControllerModels, len(rows))
+	result := make([]modelmigrationinternal.OffererModel, len(rows))
 	for i, r := range rows {
-		result[i] = ExternalControllerModels{
-			OffererModelUUID: r.OffererModelUUID,
-			ControllerUUID:   r.ControllerUUID,
+		result[i] = modelmigrationinternal.OffererModel{
+			ModelUUID:      r.OffererModelUUID,
+			ControllerUUID: r.ControllerUUID,
 		}
 	}
 	return result, nil

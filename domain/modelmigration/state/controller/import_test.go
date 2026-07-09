@@ -400,6 +400,6 @@ func (s *stateSuite) TestExternalControllerModelsForImport(c *tc.C) {
 	got, err = st.ExternalControllerModelsForImport(c.Context(), s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(got, tc.HasLen, 1)
-	c.Check(got[0].OffererModelUUID, tc.Equals, offererModelUUID)
+	c.Check(got[0].ModelUUID, tc.Equals, offererModelUUID)
 	c.Check(got[0].ControllerUUID, tc.Equals, ctrlUUID)
 }

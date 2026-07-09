@@ -17,6 +17,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
+	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -209,6 +210,33 @@ type ControllerState interface {
 	// model_migration_import_offer for the import claim of the given model.
 	// Returns nil (not an error) when no offer rows exist.
 	GetImportedOfferUUIDs(ctx context.Context, modelUUID string) ([]string, error)
+
+	// SetImportPhaseActivating transitions the model's import claim from the
+	// importing phase to the activating phase. It is idempotent when the
+	// claim is already activating and returns
+	// [modelmigrationerrors.ErrActivationAborting] when the claim is aborting.
+	SetImportPhaseActivating(ctx context.Context, modelUUID string) error
+
+	// DeleteActivatedImport removes the model's import claim and its
+	// FK-dependent companion rows, asserting the claim is in the activating
+	// phase. It is idempotent when no claim exists.
+	DeleteActivatedImport(ctx context.Context, modelUUID string) error
+
+	// EnsureSourceControllerExists compares-or-inserts the migration source
+	// controller's connection details and records the models it offers,
+	// failing with [modelmigrationerrors.ErrExternalControllerMismatch] on a
+	// mismatch rather than overwriting live CMR connection data.
+	EnsureSourceControllerExists(
+		ctx context.Context, controllerUUID, alias, caCert string, addrs, addrUUIDs, consumedModels []string,
+	) error
+
+	// ExternalControllerModelsForImport returns the third-party offerer-model
+	// to controller mappings recorded for the model's import claim. Returns an
+	// empty slice when no mappings exist or the model has no claim.
+	ExternalControllerModelsForImport(ctx context.Context, modelUUID string) ([]coremodelmigration.OffererModel, error)
+
+	// GetControllerTargetVersion returns the controller's target agent version.
+	GetControllerTargetVersion(ctx context.Context) (string, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -224,6 +252,18 @@ type ModelState interface {
 	// GetMigrationAgents returns all agents that must report migration
 	// minion progress for this model.
 	GetMigrationAgents(ctx context.Context) (modelmigrationinternal.MigrationAgents, error)
+
+	// DeleteModelImportingStatus clears the model-database import gate, making
+	// the model visible once activation completes.
+	DeleteModelImportingStatus(ctx context.Context) error
+
+	// GetModelTargetAgentVersion returns the target agent version currently set
+	// for the model.
+	GetModelTargetAgentVersion(ctx context.Context) (string, error)
+
+	// SetModelTargetAgentVersion sets the model's target agent version,
+	// asserting that the current version matches preCondition.
+	SetModelTargetAgentVersion(ctx context.Context, preCondition, toVersion string) error
 }
 
 // NewImportService constructs a new [Service] for the v8 import driver, which

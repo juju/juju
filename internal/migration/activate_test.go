@@ -15,12 +15,17 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	cmrmodelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	"github.com/juju/juju/domain/export"
+	modelservice "github.com/juju/juju/domain/model/service"
+	modelstatecontroller "github.com/juju/juju/domain/model/state/controller"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
+	migrationmodelstate "github.com/juju/juju/domain/modelmigration/state/model"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -67,6 +72,78 @@ func (s *controllerImportSuite) importForActivation(
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID, deps
+}
+
+type activationDomainServicesGetter struct {
+	deps migration.Deps
+}
+
+func (g activationDomainServicesGetter) ServicesForModel(
+	_ context.Context, modelUUID coremodel.UUID,
+) (services.DomainServices, error) {
+	return activationDomainServices{
+		modelMigration: modelmigrationservice.NewService(
+			migrationclaimstate.New(g.deps.ControllerDB, g.deps.Clock),
+			migrationmodelstate.New(g.deps.ModelDB, modelUUID),
+			modelUUID.String(),
+			nil,
+			nil,
+			nil,
+			g.deps.Logger,
+		),
+		model: modelservice.NewWatchableService(
+			modelstatecontroller.NewState(g.deps.ControllerDB),
+			nil,
+			nil,
+			g.deps.Clock,
+			g.deps.Logger,
+		),
+		cmr: crossmodelrelationservice.NewWatchableService(
+			nil,
+			cmrmodelstate.NewState(g.deps.ModelDB, modelUUID, g.deps.Clock, g.deps.Logger),
+			nil,
+			nil,
+			g.deps.Clock,
+			g.deps.Logger,
+		),
+	}, nil
+}
+
+type activationDomainServices struct {
+	services.DomainServices
+
+	modelMigration *modelmigrationservice.Service
+	model          *modelservice.WatchableService
+	cmr            *crossmodelrelationservice.WatchableService
+}
+
+func (s activationDomainServices) ModelMigration() *modelmigrationservice.Service {
+	return s.modelMigration
+}
+
+func (s activationDomainServices) Model() *modelservice.WatchableService {
+	return s.model
+}
+
+func (s activationDomainServices) CrossModelRelation() *crossmodelrelationservice.WatchableService {
+	return s.cmr
+}
+
+func (*controllerImportSuite) activateModel(
+	c *tc.C, deps migration.Deps, args migration.ActivateModelArgs,
+) error {
+	importer := migration.NewModelImporter(
+		func(coremodel.UUID) coremodelmigration.Scope {
+			return coremodelmigration.NewScope(
+				deps.ControllerDB, deps.ModelDB, nil, nil, args.ModelUUID,
+			)
+		},
+		activationDomainServicesGetter{deps: deps},
+		"",
+		deps.Logger,
+		deps.Clock,
+	)
+	return importer.ActivateModel(c.Context(), args)
 }
 
 func (s *controllerImportSuite) modelActivated(c *tc.C, modelUUID coremodel.UUID) bool {
@@ -153,11 +230,11 @@ func (s *controllerImportSuite) activationOffererControllerUUID(
 
 // TestActivateModelHappyPath verifies the v8 activation state machine: the
 // claim is deleted, the import gate is cleared, the model row is activated and
-// the model agent version is bumped to the controller target.
+// the model agent version is aligned with the controller target.
 func (s *controllerImportSuite) TestActivateModelHappyPath(c *tc.C) {
 	modelUUID, deps := s.importForActivation(c, "1.0.0")
 
-	err := migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{
+	err := s.activateModel(c, deps, migration.ActivateModelArgs{
 		ModelUUID: modelUUID,
 	})
 	c.Assert(err, tc.ErrorIsNil)
@@ -171,7 +248,7 @@ func (s *controllerImportSuite) TestActivateModelHappyPath(c *tc.C) {
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsFalse)
 
-	// The agent version was bumped to the controller target.
+	// The agent version was aligned with the controller target.
 	c.Check(s.modelAgentVersion(c, modelUUID), tc.Equals, jujuversion.Current.String())
 }
 
@@ -180,10 +257,10 @@ func (s *controllerImportSuite) TestActivateModelHappyPath(c *tc.C) {
 func (s *controllerImportSuite) TestActivateModelIdempotent(c *tc.C) {
 	modelUUID, deps := s.importForActivation(c, "1.0.0")
 
-	err := migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err := s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
@@ -201,7 +278,7 @@ func (s *controllerImportSuite) TestActivateModelRetryFromActivating(c *tc.C) {
 	err := claimSt.SetImportPhaseActivating(c.Context(), modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
@@ -210,7 +287,7 @@ func (s *controllerImportSuite) TestActivateModelRetryFromActivating(c *tc.C) {
 }
 
 // TestActivateModelUnexpectedImportPhase verifies the defensive switch guard:
-// if a future phase reaches activation before ActivateModel knows how to handle
+// if a future phase reaches activation before the driver knows how to handle
 // it, activation stops instead of falling through.
 func (s *controllerImportSuite) TestActivateModelUnexpectedImportPhase(c *tc.C) {
 	modelUUID, deps := s.importForActivation(c, "1.0.0")
@@ -229,7 +306,7 @@ func (s *controllerImportSuite) TestActivateModelUnexpectedImportPhase(c *tc.C) 
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorMatches, `model ".+": unexpected import claim phase "paused"`)
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsTrue)
@@ -265,7 +342,7 @@ func (s *controllerImportSuite) TestActivateModelReconcilesOffererControllers(c 
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{
 		ModelUUID:             modelUUID,
 		SourceControllerUUID:  sourceControllerUUID,
 		SourceControllerAlias: "source",
@@ -296,7 +373,7 @@ func (s *controllerImportSuite) TestActivateModelAborting(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrActivationAborting)
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
@@ -315,7 +392,7 @@ func (s *controllerImportSuite) TestActivateModelLegacyNoClaim(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.ActivateModel(c.Context(), deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID})
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
