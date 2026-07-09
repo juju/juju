@@ -299,7 +299,8 @@ type mockConfig struct {
 	queryTracingThreshold              time.Duration
 	dqliteBusyTimeout                  time.Duration
 	openTelemetryEnabled               bool
-	openTelemetryEndpoint              string
+	openTelemetryHTTPEndpoint          string
+	openTelemetryGRPCEndpoint          string
 	openTelemetryInsecure              bool
 	openTelemetryStackTraces           bool
 	openTelemetrySampleRatio           float64
@@ -368,12 +369,20 @@ func (mc *mockConfig) SetOpenTelemetryEnabled(enabled bool) {
 	mc.openTelemetryEnabled = enabled
 }
 
-func (mc *mockConfig) OpenTelemetryEndpoint() string {
-	return mc.openTelemetryEndpoint
+func (mc *mockConfig) OpenTelemetryHTTPEndpoint() string {
+	return mc.openTelemetryHTTPEndpoint
 }
 
-func (mc *mockConfig) SetOpenTelemetryEndpoint(endpoint string) {
-	mc.openTelemetryEndpoint = endpoint
+func (mc *mockConfig) SetOpenTelemetryHTTPEndpoint(endpoint string) {
+	mc.openTelemetryHTTPEndpoint = endpoint
+}
+
+func (mc *mockConfig) OpenTelemetryGRPCEndpoint() string {
+	return mc.openTelemetryGRPCEndpoint
+}
+
+func (mc *mockConfig) SetOpenTelemetryGRPCEndpoint(endpoint string) {
+	mc.openTelemetryGRPCEndpoint = endpoint
 }
 
 func (mc *mockConfig) OpenTelemetryInsecure() bool {

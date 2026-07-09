@@ -326,6 +326,138 @@ func (s *ProvisionerTaskSuite) TestSetUpToStartMachine(c *tc.C) {
 	c.Assert(startInstanceParams, tc.DeepEquals, *want)
 }
 
+// TestSetUpToStartMachineTracingConfig verifies that the tracing config
+// fields from params.ProvisioningInfo are copied onto the
+// instancecfg.InstanceConfig so the machine agent starts exporting
+// telemetry on first boot.
+func (s *ProvisionerTaskSuite) TestSetUpToStartMachineTracingConfig(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	task := s.newProvisionerTask(c,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	m0 := &testMachine{c: c, id: "0"}
+	vers := semversion.MustParse("2.99.0")
+
+	insecure := true
+	stackTraces := true
+	sampleRatio := 0.5
+	tailSamplingThreshold := "5s"
+	res := params.ProvisioningInfoResult{
+		Result: &params.ProvisioningInfo{
+			Constraints:                 constraints.MustParse("mem=666G"),
+			Base:                        params.Base{Name: "ubuntu", Channel: "22.04"},
+			ControllerConfig:            internaltesting.FakeControllerConfig(),
+			ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{},
+
+			TracingHTTPEndpoint:          "http://otel.example.com:4318",
+			TracingGRPCEndpoint:          "grpc://otel.example.com:4317",
+			TracingCACertificate:         "ca-cert",
+			TracingInsecureSkipVerify:    &insecure,
+			TracingStackTraces:           &stackTraces,
+			TracingSampleRatio:           &sampleRatio,
+			TracingTailSamplingThreshold: &tailSamplingThreshold,
+		},
+	}
+	startInstanceParams, err := provisionertask.SetupToStartMachine(c, task, m0, &vers, res)
+	c.Assert(err, tc.ErrorIsNil)
+
+	icfg := startInstanceParams.InstanceConfig
+	c.Assert(icfg, tc.NotNil)
+	c.Check(icfg.TracingHTTPEndpoint, tc.Equals, "http://otel.example.com:4318")
+	c.Check(icfg.TracingGRPCEndpoint, tc.Equals, "grpc://otel.example.com:4317")
+	c.Check(icfg.TracingCACertificate, tc.Equals, "ca-cert")
+	c.Assert(icfg.TracingInsecureSkipVerify, tc.NotNil)
+	c.Check(*icfg.TracingInsecureSkipVerify, tc.IsTrue)
+	c.Assert(icfg.TracingStackTraces, tc.NotNil)
+	c.Check(*icfg.TracingStackTraces, tc.IsTrue)
+	c.Assert(icfg.TracingSampleRatio, tc.NotNil)
+	c.Check(*icfg.TracingSampleRatio, tc.Equals, 0.5)
+	c.Assert(icfg.TracingTailSamplingThreshold, tc.NotNil)
+	c.Check(*icfg.TracingTailSamplingThreshold, tc.Equals, "5s")
+}
+
+// TestSetUpToStartMachineLokiConfig verifies that the Loki config fields
+// from params.ProvisioningInfo are copied onto the instancecfg.InstanceConfig.
+func (s *ProvisionerTaskSuite) TestSetUpToStartMachineLokiConfig(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	task := s.newProvisionerTask(c,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	m0 := &testMachine{c: c, id: "0"}
+	vers := semversion.MustParse("2.99.0")
+	insecure := true
+	res := params.ProvisioningInfoResult{
+		Result: &params.ProvisioningInfo{
+			Constraints:                 constraints.MustParse("mem=666G"),
+			Base:                        params.Base{Name: "ubuntu", Channel: "22.04"},
+			ControllerConfig:            internaltesting.FakeControllerConfig(),
+			ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{},
+
+			LokiEndpoint:           "https://loki.example.com/loki/api/v1/push",
+			LokiCACert:             "loki-ca-cert",
+			LokiInsecureSkipVerify: &insecure,
+			LokiOrgID:              "org-123",
+		},
+	}
+	startInstanceParams, err := provisionertask.SetupToStartMachine(c, task, m0, &vers, res)
+	c.Assert(err, tc.ErrorIsNil)
+
+	icfg := startInstanceParams.InstanceConfig
+	c.Assert(icfg, tc.NotNil)
+	c.Check(icfg.LokiEndpoint, tc.Equals, "https://loki.example.com/loki/api/v1/push")
+	c.Check(icfg.LokiCACert, tc.Equals, "loki-ca-cert")
+	c.Assert(icfg.LokiInsecureSkipVerify, tc.NotNil)
+	c.Check(*icfg.LokiInsecureSkipVerify, tc.IsTrue)
+	c.Check(icfg.LokiOrgID, tc.Equals, "org-123")
+}
+
+// TestSetUpToStartMachineTracingConfigEmpty verifies that when no tracing
+// config is supplied, the InstanceConfig tracing fields remain at their
+// zero values so the agent falls back to defaults.
+func (s *ProvisionerTaskSuite) TestSetUpToStartMachineTracingConfigEmpty(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	task := s.newProvisionerTask(c,
+		&mockDistributionGroupFinder{},
+		mockToolsFinder{},
+		numProvisionWorkersForTesting,
+	)
+	defer workertest.CleanKill(c, task)
+
+	m0 := &testMachine{c: c, id: "0"}
+	vers := semversion.MustParse("2.99.0")
+	res := params.ProvisioningInfoResult{
+		Result: &params.ProvisioningInfo{
+			Constraints:                 constraints.MustParse("mem=666G"),
+			Base:                        params.Base{Name: "ubuntu", Channel: "22.04"},
+			ControllerConfig:            internaltesting.FakeControllerConfig(),
+			ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{},
+		},
+	}
+	startInstanceParams, err := provisionertask.SetupToStartMachine(c, task, m0, &vers, res)
+	c.Assert(err, tc.ErrorIsNil)
+
+	icfg := startInstanceParams.InstanceConfig
+	c.Assert(icfg, tc.NotNil)
+	c.Check(icfg.TracingHTTPEndpoint, tc.Equals, "")
+	c.Check(icfg.TracingGRPCEndpoint, tc.Equals, "")
+	c.Check(icfg.TracingCACertificate, tc.Equals, "")
+	c.Check(icfg.TracingInsecureSkipVerify, tc.IsNil)
+	c.Check(icfg.TracingStackTraces, tc.IsNil)
+	c.Check(icfg.TracingSampleRatio, tc.IsNil)
+	c.Check(icfg.TracingTailSamplingThreshold, tc.IsNil)
+}
+
 func (s *ProvisionerTaskSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 

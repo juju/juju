@@ -29,7 +29,7 @@ type TracerGetter interface {
 type TracerWorkerFunc func(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
-	endpoint, caCertificate string,
+	httpEndpoint, grpcEndpoint, caCertificate string,
 	insecureSkipVerify bool,
 	showStackTraces bool,
 	sampleRatio float64,
@@ -87,9 +87,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			currentConfig := a.CurrentConfig()
 
 			enabled := currentConfig.OpenTelemetryEnabled()
-			endpoint := currentConfig.OpenTelemetryEndpoint()
 			if enabled {
-				config.Logger.Infof(ctx, "OpenTelemetry enabled, starting trace worker using endpoint %q", endpoint)
+				config.Logger.Infof(ctx,
+					"OpenTelemetry enabled, starting trace worker using HTTP endpoint %q and gRPC endpoint %q",
+					currentConfig.OpenTelemetryHTTPEndpoint(), currentConfig.OpenTelemetryGRPCEndpoint())
 			} else {
 				config.Logger.Infof(ctx, "OpenTelemetry disabled, starting trace worker in disabled mode")
 			}
@@ -145,7 +146,8 @@ type unitRuntimeConfigProvider struct {
 func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (RuntimeConfig, error) {
 	return RuntimeConfig{
 		Enabled:               p.config.OpenTelemetryEnabled(),
-		Endpoint:              p.config.OpenTelemetryEndpoint(),
+		HTTPEndpoint:          p.config.OpenTelemetryHTTPEndpoint(),
+		GRPCEndpoint:          p.config.OpenTelemetryGRPCEndpoint(),
 		InsecureSkipVerify:    p.config.OpenTelemetryInsecure(),
 		StackTracesEnabled:    p.config.OpenTelemetryStackTraces(),
 		SampleRatio:           p.config.OpenTelemetrySampleRatio(),

@@ -388,7 +388,8 @@ func (c *nestedContext) createUnitAgentConfig(ctx context.Context, tag names.Uni
 			AgentLogfileMaxSizeMB:  agentConfig.AgentLogfileMaxSizeMB(),
 
 			OpenTelemetryEnabled:               agentConfig.OpenTelemetryEnabled(),
-			OpenTelemetryEndpoint:              agentConfig.OpenTelemetryEndpoint(),
+			OpenTelemetryHTTPEndpoint:          agentConfig.OpenTelemetryHTTPEndpoint(),
+			OpenTelemetryGRPCEndpoint:          agentConfig.OpenTelemetryGRPCEndpoint(),
 			OpenTelemetryInsecure:              agentConfig.OpenTelemetryInsecure(),
 			OpenTelemetryStackTraces:           agentConfig.OpenTelemetryStackTraces(),
 			OpenTelemetrySampleRatio:           agentConfig.OpenTelemetrySampleRatio(),

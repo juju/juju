@@ -3,5 +3,5 @@
 
 package provisioner
 
-//go:generate go run github.com/canonical/gomock/mockgen -package provisioner -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner AgentProvisionerService,KeyUpdaterService,ApplicationService,ControllerConfigService,MachineService,StatusService,NetworkService,RemovalService,ProvisioningService
+//go:generate go run github.com/canonical/gomock/mockgen -package provisioner -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/provisioner AgentProvisionerService,KeyUpdaterService,ApplicationService,ControllerConfigService,MachineService,StatusService,NetworkService,RemovalService,ProvisioningService,TracingService
 //go:generate go run github.com/canonical/gomock/mockgen -package provisioner -destination common_mock_test.go github.com/juju/juju/apiserver/common APIAddressAccessor

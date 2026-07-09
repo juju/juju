@@ -115,7 +115,8 @@ func (*format_2_0Suite) TestOpenTelemetry(c *tc.C) {
 	config.configFilePath = ""
 
 	config.SetOpenTelemetryEnabled(true)
-	config.SetOpenTelemetryEndpoint("http://foo.bar")
+	config.SetOpenTelemetryHTTPEndpoint("http://foo.bar")
+	config.SetOpenTelemetryGRPCEndpoint("foo.bar:4317")
 	config.SetOpenTelemetryInsecure(true)
 	config.SetOpenTelemetryStackTraces(true)
 	config.SetOpenTelemetrySampleRatio(0.5)
@@ -128,11 +129,87 @@ func (*format_2_0Suite) TestOpenTelemetry(c *tc.C) {
 
 	c.Check(newConfig, tc.DeepEquals, config)
 	c.Check(newConfig.OpenTelemetryEnabled(), tc.IsTrue)
-	c.Check(newConfig.OpenTelemetryEndpoint(), tc.Equals, "http://foo.bar")
+	c.Check(newConfig.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://foo.bar")
+	c.Check(newConfig.OpenTelemetryGRPCEndpoint(), tc.Equals, "foo.bar:4317")
 	c.Check(newConfig.OpenTelemetryInsecure(), tc.IsTrue)
 	c.Check(newConfig.OpenTelemetryStackTraces(), tc.IsTrue)
 	c.Check(newConfig.OpenTelemetrySampleRatio(), tc.Equals, 0.5)
 	c.Check(newConfig.OpenTelemetryTailSamplingThreshold(), tc.Equals, time.Second)
+}
+
+func (*format_2_0Suite) TestOpenTelemetryLegacyEndpointMigrationGRPCEndpoint(c *tc.C) {
+	// An old agent config with the legacy opentelemetryendpoint key
+	// (host:port, no scheme) should be migrated to the gRPC endpoint.
+	data := []byte(`
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+tag: machine-0
+datadir: /home/user/.local/share/juju/local
+logdir: /var/log/juju-user-local
+nonce: user-admin:bootstrap
+jobs:
+- JobManageModel
+upgradedToVersion: 4.0.0
+cacert: ca-cert
+opentelemetryendpoint: otel.example.com:4317
+`)
+	config, err := format_2_0.unmarshal(data)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(config.OpenTelemetryEnabled(), tc.IsTrue)
+	c.Check(config.OpenTelemetryGRPCEndpoint(), tc.Equals, "otel.example.com:4317")
+	c.Check(config.OpenTelemetryHTTPEndpoint(), tc.Equals, "")
+}
+
+func (*format_2_0Suite) TestOpenTelemetryLegacyEndpointMigrationHTTPEndpoint(c *tc.C) {
+	// An old agent config with the legacy opentelemetryendpoint key
+	// using an http:// scheme should be migrated to the HTTP endpoint.
+	data := []byte(`
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+tag: machine-0
+datadir: /home/user/.local/share/juju/local
+logdir: /var/log/juju-user-local
+nonce: user-admin:bootstrap
+jobs:
+- JobManageModel
+upgradedToVersion: 4.0.0
+cacert: ca-cert
+opentelemetryendpoint: http://otel.example.com:4318/v1/traces
+`)
+	config, err := format_2_0.unmarshal(data)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(config.OpenTelemetryEnabled(), tc.IsTrue)
+	c.Check(config.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://otel.example.com:4318/v1/traces")
+	c.Check(config.OpenTelemetryGRPCEndpoint(), tc.Equals, "")
+}
+
+func (*format_2_0Suite) TestOpenTelemetryLegacyEndpointDoesNotOverrideSplitFields(c *tc.C) {
+	// If the new split fields are already set, the legacy endpoint
+	// key is ignored.
+	data := []byte(`
+controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d
+model: model-deadbeef-0bad-400d-8000-4b1d0d06f00d
+tag: machine-0
+datadir: /home/user/.local/share/juju/local
+logdir: /var/log/juju-user-local
+nonce: user-admin:bootstrap
+jobs:
+- JobManageModel
+upgradedToVersion: 4.0.0
+cacert: ca-cert
+opentelemetryenabled: true
+opentelemetryhttpendpoint: http://new.example.com:4318
+opentelemetrygrpcendpoint: new.example.com:4317
+opentelemetryendpoint: old.example.com:4317
+`)
+	config, err := format_2_0.unmarshal(data)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(config.OpenTelemetryEnabled(), tc.IsTrue)
+	c.Check(config.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://new.example.com:4318")
+	c.Check(config.OpenTelemetryGRPCEndpoint(), tc.Equals, "new.example.com:4317")
 }
 
 var agentConfig2_0Contents = `

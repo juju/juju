@@ -649,16 +649,19 @@ func (*suite) TestSetOpenTelemetryEnabled(c *tc.C) {
 	c.Assert(queryTracingEnabled, tc.Equals, true, tc.Commentf("open telemetry enabled setting not updated"))
 }
 
-func (*suite) TestSetOpenTelemetryEndpoint(c *tc.C) {
+func (*suite) TestSetOpenTelemetryEndpoints(c *tc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, tc.ErrorIsNil)
 
-	queryTracingEndpoint := conf.OpenTelemetryEndpoint()
-	c.Assert(queryTracingEndpoint, tc.Equals, attributeParams.OpenTelemetryEndpoint)
+	c.Check(conf.OpenTelemetryHTTPEndpoint(), tc.Equals, attributeParams.OpenTelemetryHTTPEndpoint)
+	c.Check(conf.OpenTelemetryGRPCEndpoint(), tc.Equals, attributeParams.OpenTelemetryGRPCEndpoint)
 
-	conf.SetOpenTelemetryEndpoint("http://foo.bar")
-	queryTracingEndpoint = conf.OpenTelemetryEndpoint()
-	c.Assert(queryTracingEndpoint, tc.Equals, "http://foo.bar", tc.Commentf("open telemetry endpoint setting not updated"))
+	conf.SetOpenTelemetryHTTPEndpoint("http://foo.bar")
+	conf.SetOpenTelemetryGRPCEndpoint("foo.bar:4317")
+	c.Check(conf.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://foo.bar",
+		tc.Commentf("open telemetry HTTP endpoint setting not updated"))
+	c.Check(conf.OpenTelemetryGRPCEndpoint(), tc.Equals, "foo.bar:4317",
+		tc.Commentf("open telemetry gRPC endpoint setting not updated"))
 }
 
 func (*suite) TestSetOpenTelemetryInsecure(c *tc.C) {

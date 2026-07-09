@@ -270,7 +270,8 @@ func (m *ModelOperatorManager) updateAgentConf(
 			UpgradedToVersion: info.Version,
 
 			OpenTelemetryEnabled:               runtimeTracingCfg.Enabled,
-			OpenTelemetryEndpoint:              runtimeTracingCfg.Endpoint,
+			OpenTelemetryHTTPEndpoint:          runtimeTracingCfg.HTTPEndpoint,
+			OpenTelemetryGRPCEndpoint:          runtimeTracingCfg.GRPCEndpoint,
 			OpenTelemetryInsecure:              runtimeTracingCfg.InsecureSkipVerify,
 			OpenTelemetryStackTraces:           runtimeTracingCfg.StackTracesEnabled,
 			OpenTelemetrySampleRatio:           runtimeTracingCfg.SampleRatio,
@@ -292,7 +293,8 @@ const (
 
 type runtimeTracingConfig struct {
 	Enabled               bool
-	Endpoint              string
+	HTTPEndpoint          string
+	GRPCEndpoint          string
 	CACertificate         string
 	InsecureSkipVerify    bool
 	StackTracesEnabled    bool
@@ -302,18 +304,12 @@ type runtimeTracingConfig struct {
 
 func runtimeConfigFromWorkloadTracingConfig(cfg tracingservice.WorkloadTracingConfig) (runtimeTracingConfig, error) {
 	runtimeCfg := runtimeTracingConfig{
+		Enabled:               cfg.GRPCEndpoint != "" || cfg.HTTPEndpoint != "",
+		HTTPEndpoint:          cfg.HTTPEndpoint,
+		GRPCEndpoint:          cfg.GRPCEndpoint,
 		SampleRatio:           defaultOpenTelemetrySampleRatio,
 		TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 		CACertificate:         cfg.CACertificate,
-	}
-
-	endpoint := cfg.GRPCEndpoint
-	if endpoint == "" {
-		endpoint = cfg.HTTPEndpoint
-	}
-	if endpoint != "" {
-		runtimeCfg.Enabled = true
-		runtimeCfg.Endpoint = endpoint
 	}
 
 	if cfg.OpenTelemetryStackTraces != nil {

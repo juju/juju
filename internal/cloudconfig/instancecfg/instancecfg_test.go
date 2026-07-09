@@ -5,10 +5,12 @@ package instancecfg_test
 
 import (
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -168,4 +170,85 @@ func (*instancecfgSuite) TestAgentConfigLokiConfig(c *tc.C) {
 	c.Check(config.LokiCACert(), tc.Equals, "ca-cert")
 	c.Assert(config.LokiInsecureSkipVerify(), tc.NotNil)
 	c.Check(*config.LokiInsecureSkipVerify(), tc.IsTrue)
+}
+
+// TestAgentConfigTracingConfig verifies that the tracing config set on
+// the InstanceConfig reaches the generated agent config so a newly
+// provisioned machine starts exporting telemetry on first boot.
+func (*instancecfgSuite) TestAgentConfigTracingConfig(c *tc.C) {
+	insecure := true
+	stackTraces := true
+	sampleRatio := 0.5
+	tailSamplingThreshold := "5s"
+	icfg := instancecfg.InstanceConfig{
+		APIInfo: &api.Info{
+			Addrs:    []string{"1.2.3.4:4321"},
+			CACert:   "cert",
+			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
+			Password: "secret123",
+		},
+		ControllerTag:                names.NewControllerTag(testing.ControllerTag.Id()),
+		DataDir:                      "/path/to/datadir/",
+		TracingGRPCEndpoint:          "grpc://otel.example.com:4317",
+		TracingHTTPEndpoint:          "http://otel.example.com:4318",
+		TracingCACertificate:         "ca-cert",
+		TracingInsecureSkipVerify:    &insecure,
+		TracingStackTraces:           &stackTraces,
+		TracingSampleRatio:           &sampleRatio,
+		TracingTailSamplingThreshold: &tailSamplingThreshold,
+	}
+	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.OpenTelemetryEnabled(), tc.IsTrue)
+	c.Check(config.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://otel.example.com:4318")
+	c.Check(config.OpenTelemetryGRPCEndpoint(), tc.Equals, "grpc://otel.example.com:4317")
+	c.Check(config.OpenTelemetryInsecure(), tc.IsTrue)
+	c.Check(config.OpenTelemetryStackTraces(), tc.IsTrue)
+	c.Check(config.OpenTelemetrySampleRatio(), tc.Equals, 0.5)
+	c.Check(config.OpenTelemetryTailSamplingThreshold(), tc.Equals, 5*time.Second)
+}
+
+// TestAgentConfigTracingConfigDefaults verifies that when no tracing config
+// is set, the agent config uses the agent defaults and tracing is disabled.
+func (*instancecfgSuite) TestAgentConfigTracingConfigDefaults(c *tc.C) {
+	icfg := instancecfg.InstanceConfig{
+		APIInfo: &api.Info{
+			Addrs:    []string{"1.2.3.4:4321"},
+			CACert:   "cert",
+			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
+			Password: "secret123",
+		},
+		ControllerTag: names.NewControllerTag(testing.ControllerTag.Id()),
+		DataDir:       "/path/to/datadir/",
+	}
+	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.OpenTelemetryEnabled(), tc.Equals, agent.DefaultOpenTelemetryEnabled)
+	c.Check(config.OpenTelemetryHTTPEndpoint(), tc.Equals, "")
+	c.Check(config.OpenTelemetryGRPCEndpoint(), tc.Equals, "")
+	c.Check(config.OpenTelemetryInsecure(), tc.Equals, agent.DefaultOpenTelemetryInsecure)
+	c.Check(config.OpenTelemetryStackTraces(), tc.Equals, agent.DefaultOpenTelemetryStackTraces)
+	c.Check(config.OpenTelemetrySampleRatio(), tc.Equals, agent.DefaultOpenTelemetrySampleRatio)
+	c.Check(config.OpenTelemetryTailSamplingThreshold(), tc.Equals, agent.DefaultOpenTelemetryTailSamplingThreshold)
+}
+
+// TestAgentConfigTracingConfigHTTPFallback verifies that when only an HTTP
+// endpoint is set, it is used as the tracing endpoint.
+func (*instancecfgSuite) TestAgentConfigTracingConfigHTTPFallback(c *tc.C) {
+	icfg := instancecfg.InstanceConfig{
+		APIInfo: &api.Info{
+			Addrs:    []string{"1.2.3.4:4321"},
+			CACert:   "cert",
+			ModelTag: names.NewModelTag(testing.ModelTag.Id()),
+			Password: "secret123",
+		},
+		ControllerTag:       names.NewControllerTag(testing.ControllerTag.Id()),
+		DataDir:             "/path/to/datadir/",
+		TracingHTTPEndpoint: "http://otel.example.com:4318",
+	}
+	config, err := icfg.AgentConfig(names.NewMachineTag("foo"), semversion.MustParse("1.2.3"))
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(config.OpenTelemetryEnabled(), tc.IsTrue)
+	c.Check(config.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://otel.example.com:4318")
+	c.Check(config.OpenTelemetryGRPCEndpoint(), tc.Equals, "")
 }

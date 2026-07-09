@@ -327,9 +327,13 @@ type Config interface {
 	// OpenTelemetryEnabled returns whether the open telemetry is enabled.
 	OpenTelemetryEnabled() bool
 
-	// OpenTelemetryEndpoint returns the endpoint to use for open telemetry
-	// collection.
-	OpenTelemetryEndpoint() string
+	// OpenTelemetryHTTPEndpoint returns the HTTP endpoint to use for open
+	// telemetry collection.
+	OpenTelemetryHTTPEndpoint() string
+
+	// OpenTelemetryGRPCEndpoint returns the gRPC endpoint to use for open
+	// telemetry collection.
+	OpenTelemetryGRPCEndpoint() string
 
 	// OpenTelemetryInsecure returns if the endpoint is insecure. This is useful
 	// for local/development testing
@@ -404,9 +408,13 @@ type configSetterOnly interface {
 	// SetOpenTelemetryEnabled sets whether open telemetry is enabled.
 	SetOpenTelemetryEnabled(bool)
 
-	// SetOpenTelemetryEndpoint sets the endpoint to use for open telemetry
-	// collection.
-	SetOpenTelemetryEndpoint(string)
+	// SetOpenTelemetryHTTPEndpoint sets the HTTP endpoint to use for open
+	// telemetry collection.
+	SetOpenTelemetryHTTPEndpoint(string)
+
+	// SetOpenTelemetryGRPCEndpoint sets the gRPC endpoint to use for open
+	// telemetry collection.
+	SetOpenTelemetryGRPCEndpoint(string)
 
 	// SetOpenTelemetryInsecure sets if the endpoint is insecure. This is
 	// useful for local/development testing
@@ -504,7 +512,8 @@ type configInternal struct {
 	queryTracingThreshold              time.Duration
 	dqliteBusyTimeout                  time.Duration
 	openTelemetryEnabled               bool
-	openTelemetryEndpoint              string
+	openTelemetryHTTPEndpoint          string
+	openTelemetryGRPCEndpoint          string
 	openTelemetryInsecure              bool
 	openTelemetryStackTraces           bool
 	openTelemetrySampleRatio           float64
@@ -532,7 +541,8 @@ type AgentConfigParams struct {
 	QueryTracingThreshold              time.Duration
 	DqliteBusyTimeout                  time.Duration
 	OpenTelemetryEnabled               bool
-	OpenTelemetryEndpoint              string
+	OpenTelemetryHTTPEndpoint          string
+	OpenTelemetryGRPCEndpoint          string
 	OpenTelemetryInsecure              bool
 	OpenTelemetryStackTraces           bool
 	OpenTelemetrySampleRatio           float64
@@ -616,7 +626,8 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		queryTracingThreshold:              configParams.QueryTracingThreshold,
 		dqliteBusyTimeout:                  configParams.DqliteBusyTimeout,
 		openTelemetryEnabled:               configParams.OpenTelemetryEnabled,
-		openTelemetryEndpoint:              configParams.OpenTelemetryEndpoint,
+		openTelemetryHTTPEndpoint:          configParams.OpenTelemetryHTTPEndpoint,
+		openTelemetryGRPCEndpoint:          configParams.OpenTelemetryGRPCEndpoint,
 		openTelemetryInsecure:              configParams.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           configParams.OpenTelemetryStackTraces,
 		openTelemetrySampleRatio:           configParams.OpenTelemetrySampleRatio,
@@ -1003,14 +1014,24 @@ func (c *configInternal) SetOpenTelemetryEnabled(v bool) {
 	c.openTelemetryEnabled = v
 }
 
-// OpenTelemetryEndpoint implements Config.
-func (c *configInternal) OpenTelemetryEndpoint() string {
-	return c.openTelemetryEndpoint
+// OpenTelemetryHTTPEndpoint implements Config.
+func (c *configInternal) OpenTelemetryHTTPEndpoint() string {
+	return c.openTelemetryHTTPEndpoint
 }
 
-// SetOpenTelemetryEndpoint implements configSetterOnly.
-func (c *configInternal) SetOpenTelemetryEndpoint(v string) {
-	c.openTelemetryEndpoint = v
+// SetOpenTelemetryHTTPEndpoint implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryHTTPEndpoint(v string) {
+	c.openTelemetryHTTPEndpoint = v
+}
+
+// OpenTelemetryGRPCEndpoint implements Config.
+func (c *configInternal) OpenTelemetryGRPCEndpoint() string {
+	return c.openTelemetryGRPCEndpoint
+}
+
+// SetOpenTelemetryGRPCEndpoint implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryGRPCEndpoint(v string) {
+	c.openTelemetryGRPCEndpoint = v
 }
 
 // OpenTelemetryInsecure implements Config.

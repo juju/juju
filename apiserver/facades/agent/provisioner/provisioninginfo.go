@@ -42,6 +42,15 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 	// Add controller config to shared info so it's available to all machines.
 	shared.ControllerConfig = controllerConfig
 
+	// Fetch the controller-wide workload tracing config so newly
+	// provisioned machine agents start exporting telemetry on first
+	// boot. When tracing is not configured all fields are empty/nil
+	// and the agent falls back to defaults.
+	tracingConfig, err := api.tracingService.GetWorkloadTracingConfig(ctx)
+	if err != nil {
+		return result, errors.Errorf("getting workload tracing config: %w", err)
+	}
+
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil || !canAccess(tag) {
@@ -65,6 +74,13 @@ func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Ent
 		pInfo.LokiCACert = shared.LokiCACert
 		pInfo.LokiInsecureSkipVerify = shared.LokiInsecureSkipVerify
 		pInfo.LokiOrgID = shared.LokiOrgID
+		pInfo.TracingHTTPEndpoint = tracingConfig.HTTPEndpoint
+		pInfo.TracingGRPCEndpoint = tracingConfig.GRPCEndpoint
+		pInfo.TracingCACertificate = tracingConfig.CACertificate
+		pInfo.TracingInsecureSkipVerify = tracingConfig.InsecureSkipVerify
+		pInfo.TracingStackTraces = tracingConfig.OpenTelemetryStackTraces
+		pInfo.TracingSampleRatio = tracingConfig.OpenTelemetrySampleRatio
+		pInfo.TracingTailSamplingThreshold = tracingConfig.OpenTelemetryTailSamplingThreshold
 		result.Results[i].Result = &pInfo
 	}
 	return result, nil

@@ -216,6 +216,36 @@ type InstanceConfig struct {
 	// LokiOrgID is the organization/tenant ID for multi-tenant Loki
 	// deployments. Empty means no X-Scope-OrgID header is sent.
 	LokiOrgID string
+
+	// TracingHTTPEndpoint is the HTTP endpoint for the OpenTelemetry
+	// collector. Empty means no HTTP tracing endpoint is configured.
+	TracingHTTPEndpoint string
+
+	// TracingGRPCEndpoint is the gRPC endpoint for the OpenTelemetry
+	// collector. Empty means no gRPC tracing endpoint is configured.
+	TracingGRPCEndpoint string
+
+	// TracingCACertificate is the CA certificate used to validate the
+	// tracing endpoint TLS connection.
+	TracingCACertificate string
+
+	// TracingInsecureSkipVerify controls whether TLS validation is
+	// disabled for the tracing endpoint. A nil value means the default
+	// (verify enabled) is in effect.
+	TracingInsecureSkipVerify *bool
+
+	// TracingStackTraces controls whether debug stack traces are
+	// attached to spans. A nil value means the default is in effect.
+	TracingStackTraces *bool
+
+	// TracingSampleRatio is the ratio of spans to sample. A nil value
+	// means the default ratio is in effect.
+	TracingSampleRatio *float64
+
+	// TracingTailSamplingThreshold is the duration threshold for
+	// tail-based sampling, as a string parseable by time.ParseDuration.
+	// A nil value means the default is in effect.
+	TracingTailSamplingThreshold *string
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -533,11 +563,36 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
 		configParams.DqliteBusyTimeout = cfg.ControllerConfig.DqliteBusyTimeout()
 	}
-	configParams.OpenTelemetryEnabled = agent.DefaultOpenTelemetryEnabled
+	// Resolve the workload tracing config from the raw fields injected
+	// during provisioning. When no endpoint is configured the agent
+	// falls back to tracing disabled. Optional fields that are nil use
+	// the agent defaults.
+	configParams.OpenTelemetryEnabled = cfg.TracingGRPCEndpoint != "" || cfg.TracingHTTPEndpoint != ""
+	configParams.OpenTelemetryHTTPEndpoint = cfg.TracingHTTPEndpoint
+	configParams.OpenTelemetryGRPCEndpoint = cfg.TracingGRPCEndpoint
 	configParams.OpenTelemetryInsecure = agent.DefaultOpenTelemetryInsecure
+	if cfg.TracingInsecureSkipVerify != nil {
+		configParams.OpenTelemetryInsecure = *cfg.TracingInsecureSkipVerify
+	}
 	configParams.OpenTelemetryStackTraces = agent.DefaultOpenTelemetryStackTraces
+	if cfg.TracingStackTraces != nil {
+		configParams.OpenTelemetryStackTraces = *cfg.TracingStackTraces
+	}
 	configParams.OpenTelemetrySampleRatio = agent.DefaultOpenTelemetrySampleRatio
+	if cfg.TracingSampleRatio != nil {
+		configParams.OpenTelemetrySampleRatio = *cfg.TracingSampleRatio
+	}
 	configParams.OpenTelemetryTailSamplingThreshold = agent.DefaultOpenTelemetryTailSamplingThreshold
+	if cfg.TracingTailSamplingThreshold != nil && *cfg.TracingTailSamplingThreshold != "" {
+		d, err := time.ParseDuration(*cfg.TracingTailSamplingThreshold)
+		if err != nil {
+			return nil, errors.Annotatef(err, "parsing open telemetry tail sampling threshold %q", *cfg.TracingTailSamplingThreshold)
+		}
+		if d < 0 {
+			return nil, errors.NotValidf("open telemetry tail sampling threshold %q", *cfg.TracingTailSamplingThreshold)
+		}
+		configParams.OpenTelemetryTailSamplingThreshold = d
+	}
 	configParams.LokiEndpoint = cfg.LokiEndpoint
 	configParams.LokiCACert = cfg.LokiCACert
 	configParams.LokiInsecureSkipVerify = cfg.LokiInsecureSkipVerify

@@ -5,6 +5,7 @@ package agent
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -68,11 +69,19 @@ type format_2_0Serialization struct {
 	DqliteBusyTimeout     time.Duration `yaml:"dqlitebusytimeout,omitempty"`
 
 	OpenTelemetryEnabled               bool          `yaml:"opentelemetryenabled,omitempty"`
-	OpenTelemetryEndpoint              string        `yaml:"opentelemetryendpoint,omitempty"`
+	OpenTelemetryHTTPEndpoint          string        `yaml:"opentelemetryhttpendpoint,omitempty"`
+	OpenTelemetryGRPCEndpoint          string        `yaml:"opentelemetrygrpcendpoint,omitempty"`
 	OpenTelemetryInsecure              bool          `yaml:"opentelemetryinsecure,omitempty"`
 	OpenTelemetryStackTraces           bool          `yaml:"opentelemetrystacktraces,omitempty"`
 	OpenTelemetrySampleRatio           string        `yaml:"opentelemetrysampleratio,omitempty"`
 	OpenTelemetryTailSamplingThreshold time.Duration `yaml:"opentelemetrytailsamplingthreshold,omitempty"`
+
+	// OpenTelemetryEndpoint is the legacy single-endpoint field from
+	// pre-4.1 agent configs. It is retained for backwards-compatible
+	// unmarshalling only and is never written by the marshaler. On read,
+	// if the split HTTP/gRPC fields are empty, the value is migrated to
+	// the gRPC endpoint (matching the old gRPC-preferred behaviour).
+	OpenTelemetryEndpoint string `yaml:"opentelemetryendpoint,omitempty"`
 
 	DqlitePort int `yaml:"dqlite-port,omitempty"`
 }
@@ -135,11 +144,30 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		dqliteBusyTimeout:     format.DqliteBusyTimeout,
 
 		openTelemetryEnabled:               format.OpenTelemetryEnabled,
+		openTelemetryHTTPEndpoint:          format.OpenTelemetryHTTPEndpoint,
+		openTelemetryGRPCEndpoint:          format.OpenTelemetryGRPCEndpoint,
 		openTelemetryInsecure:              format.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           format.OpenTelemetryStackTraces,
 		openTelemetryTailSamplingThreshold: format.OpenTelemetryTailSamplingThreshold,
 
 		dqlitePort: format.DqlitePort,
+	}
+
+	// Migrate the legacy single-endpoint field. If the old
+	// opentelemetryendpoint key is set and the split HTTP/gRPC fields
+	// are both empty, assign the value to the gRPC endpoint. This
+	// matches the pre-4.1 behaviour where the gRPC exporter was
+	// preferred. If the endpoint has an http:// or https:// scheme, it
+	// is assigned to the HTTP endpoint instead.
+	if format.OpenTelemetryEndpoint != "" &&
+		config.openTelemetryHTTPEndpoint == "" &&
+		config.openTelemetryGRPCEndpoint == "" {
+		if isHTTPEndpoint(format.OpenTelemetryEndpoint) {
+			config.openTelemetryHTTPEndpoint = format.OpenTelemetryEndpoint
+		} else {
+			config.openTelemetryGRPCEndpoint = format.OpenTelemetryEndpoint
+		}
+		config.openTelemetryEnabled = true
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -157,9 +185,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		}
 	}
 
-	if format.OpenTelemetryEndpoint != "" {
-		config.openTelemetryEndpoint = format.OpenTelemetryEndpoint
-	}
 	if format.OpenTelemetrySampleRatio != "" {
 		sampleRatio, err := strconv.ParseFloat(format.OpenTelemetrySampleRatio, 64)
 		if err != nil {
@@ -201,6 +226,8 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		DqliteBusyTimeout:     config.dqliteBusyTimeout,
 
 		OpenTelemetryEnabled:               config.openTelemetryEnabled,
+		OpenTelemetryHTTPEndpoint:          config.openTelemetryHTTPEndpoint,
+		OpenTelemetryGRPCEndpoint:          config.openTelemetryGRPCEndpoint,
 		OpenTelemetryInsecure:              config.openTelemetryInsecure,
 		OpenTelemetryStackTraces:           config.openTelemetryStackTraces,
 		OpenTelemetryTailSamplingThreshold: config.openTelemetryTailSamplingThreshold,
@@ -219,11 +246,17 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		format.APIAddresses = config.apiDetails.addresses
 		format.APIPassword = config.apiDetails.password
 	}
-	if config.openTelemetryEndpoint != "" {
-		format.OpenTelemetryEndpoint = config.openTelemetryEndpoint
-	}
 	if config.openTelemetrySampleRatio != 0 {
 		format.OpenTelemetrySampleRatio = fmt.Sprintf("%.04f", config.openTelemetrySampleRatio)
 	}
 	return goyaml.Marshal(format)
+}
+
+// isHTTPEndpoint reports whether the endpoint uses an http or https scheme.
+func isHTTPEndpoint(endpoint string) bool {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return false
+	}
+	return u.Scheme == "http" || u.Scheme == "https"
 }

@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	httpEndpointKey                       = "http-endpoint"
-	grpcEndpointKey                       = "grpc-endpoint"
-	caCertificateKey                      = "ca-certificate"
-	insecureSkipVerifyKey                 = "insecure-skip-verify"
-	openTelemetryStackTracesKey           = "open-telemetry-stack-traces"
-	openTelemetrySampleRatioKey           = "open-telemetry-sample-ratio"
-	openTelemetryTailSamplingThresholdKey = "open-telemetry-tail-sampling-threshold"
+	httpEndpointKey          = "http-endpoint"
+	grpcEndpointKey          = "grpc-endpoint"
+	caCertificateKey         = "ca-certificate"
+	insecureSkipVerifyKey    = "insecure-skip-verify"
+	stackTracesKey           = "stack-traces"
+	sampleRatioKey           = "sample-ratio"
+	tailSamplingThresholdKey = "tail-sampling-threshold"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -155,20 +155,20 @@ func (s *Service) SetWorkloadTracingConfig(ctx context.Context, config WorkloadT
 		deletions = append(deletions, insecureSkipVerifyKey)
 	}
 	if config.OpenTelemetryStackTraces != nil {
-		insertions[openTelemetryStackTracesKey] = strconv.FormatBool(*config.OpenTelemetryStackTraces)
+		insertions[stackTracesKey] = strconv.FormatBool(*config.OpenTelemetryStackTraces)
 	} else {
-		deletions = append(deletions, openTelemetryStackTracesKey)
+		deletions = append(deletions, stackTracesKey)
 	}
 	if config.OpenTelemetrySampleRatio != nil {
-		insertions[openTelemetrySampleRatioKey] = strconv.FormatFloat(*config.OpenTelemetrySampleRatio, 'g', -1, 64)
+		insertions[sampleRatioKey] = strconv.FormatFloat(*config.OpenTelemetrySampleRatio, 'g', -1, 64)
 	} else {
-		deletions = append(deletions, openTelemetrySampleRatioKey)
+		deletions = append(deletions, sampleRatioKey)
 	}
 	if config.OpenTelemetryTailSamplingThreshold != nil &&
 		*config.OpenTelemetryTailSamplingThreshold != "" {
-		insertions[openTelemetryTailSamplingThresholdKey] = *config.OpenTelemetryTailSamplingThreshold
+		insertions[tailSamplingThresholdKey] = *config.OpenTelemetryTailSamplingThreshold
 	} else {
-		deletions = append(deletions, openTelemetryTailSamplingThresholdKey)
+		deletions = append(deletions, tailSamplingThresholdKey)
 	}
 
 	return s.st.SetWorkloadTracingConfig(ctx, insertions, deletions)
@@ -198,21 +198,21 @@ func (s *Service) GetWorkloadTracingConfig(ctx context.Context) (WorkloadTracing
 		}
 		insecureSkipVerify = &parsed
 	}
-	if value, ok := configMap[openTelemetryStackTracesKey]; ok {
+	if value, ok := configMap[stackTracesKey]; ok {
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
-			return WorkloadTracingConfig{}, errors.Errorf("parsing %q: %w", openTelemetryStackTracesKey, err)
+			return WorkloadTracingConfig{}, errors.Errorf("parsing %q: %w", stackTracesKey, err)
 		}
 		openTelemetryStackTraces = &parsed
 	}
-	if value, ok := configMap[openTelemetrySampleRatioKey]; ok {
+	if value, ok := configMap[sampleRatioKey]; ok {
 		parsed, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return WorkloadTracingConfig{}, errors.Errorf("parsing %q: %w", openTelemetrySampleRatioKey, err)
+			return WorkloadTracingConfig{}, errors.Errorf("parsing %q: %w", sampleRatioKey, err)
 		}
 		openTelemetrySampleRatio = &parsed
 	}
-	if value, ok := configMap[openTelemetryTailSamplingThresholdKey]; ok {
+	if value, ok := configMap[tailSamplingThresholdKey]; ok {
 		openTelemetryTailSamplingThreshold = &value
 	}
 
@@ -281,7 +281,7 @@ func validateOpenTelemetrySampleRatio(sampleRatio *float64) error {
 	}
 	if *sampleRatio < 0 || *sampleRatio > 1 {
 		return errors.Errorf("%s value %f must be a ratio between 0 and 1",
-			openTelemetrySampleRatioKey, *sampleRatio).Add(coreerrors.NotValid)
+			sampleRatioKey, *sampleRatio).Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -294,11 +294,11 @@ func validateOpenTelemetryTailSamplingThreshold(tailSamplingThreshold *string) e
 	v, err := time.ParseDuration(*tailSamplingThreshold)
 	if err != nil {
 		return errors.Errorf("%s value %q must be a valid duration",
-			openTelemetryTailSamplingThresholdKey, *tailSamplingThreshold).Add(coreerrors.NotValid)
+			tailSamplingThresholdKey, *tailSamplingThreshold).Add(coreerrors.NotValid)
 	}
 	if v < 0 {
 		return errors.Errorf("%s value %q must be a positive duration",
-			openTelemetryTailSamplingThresholdKey, v).Add(coreerrors.NotValid)
+			tailSamplingThresholdKey, v).Add(coreerrors.NotValid)
 	}
 	return nil
 }

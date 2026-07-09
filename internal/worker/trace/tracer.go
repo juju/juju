@@ -21,8 +21,7 @@ import (
 type NewClientFunc func(
 	context.Context,
 	coretrace.TaggedTracerNamespace,
-	string,
-	string,
+	string, string, string,
 	bool,
 	float64,
 	time.Duration,
@@ -44,8 +43,7 @@ type tracer struct {
 func NewTracerWorker(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
-	endpoint string,
-	caCertificate string,
+	httpEndpoint, grpcEndpoint, caCertificate string,
 	insecureSkipVerify bool,
 	stackTracesEnabled bool,
 	sampleRatio float64,
@@ -55,7 +53,8 @@ func NewTracerWorker(
 ) (TrackedTracer, error) {
 	client, clientProvider, clientTracer, err := newClient(ctx,
 		namespace,
-		endpoint,
+		httpEndpoint,
+		grpcEndpoint,
 		caCertificate,
 		insecureSkipVerify,
 		sampleRatio,
