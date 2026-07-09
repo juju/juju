@@ -24,9 +24,16 @@ grade: devel
 
 apps:
   jujud:
-    command: bin/jujud
+    command: >-
+      bin/jujud controller
+      --data-dir $SNAP_COMMON/var/lib/juju
+      --controller-id 0
+      --log-to-stderr
     daemon: simple
     restart-condition: on-failure
+    environment:
+      PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
+      JUJU_DATA: "$SNAP_COMMON/var/lib/juju"
 
 parts:
   dqlite:
