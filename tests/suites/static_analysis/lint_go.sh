@@ -151,6 +151,10 @@ run_govulncheck() {
 		# LXD daemon vulnerability not client
 		# https://pkg.go.dev/vuln/GO-2026-4595
 		"GO-2026-4595"
+		# GO-2026-5932: golang.org/x/crypto/openpgp is deprecated/unsafe.
+		# Migrating to ProtonMail/go-crypto is tracked as a separate task.
+		# May be removed once https://github.com/juju/juju/pull/22828 lands
+		"GO-2026-5932"
 	)
 	ignoreMatcher=$(join "|" "${ignore[@]}")
 
