@@ -108,7 +108,7 @@ func (s *ClientSuite) TestPrechecksV2(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
 	envelope := params.SerializedModelV2{
-		PayloadVersion: semversion.MustParse("4.0.11"),
+		PayloadVersion: semversion.MustParse("4.0.12"),
 		Payload:        []byte("payload"),
 		ModelInfo:      params.SerializedModelInfo{UUID: "uuid"},
 	}
@@ -124,7 +124,7 @@ func (s *ClientSuite) TestImportV2(c *tc.C) {
 	client, stub := s.getClientAndStub()
 
 	envelope := params.SerializedModelV2{
-		PayloadVersion: semversion.MustParse("4.0.11"),
+		PayloadVersion: semversion.MustParse("4.0.12"),
 		Payload:        []byte("payload"),
 		ModelInfo:      params.SerializedModelInfo{UUID: "uuid"},
 	}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/tc"
 
-	"github.com/juju/juju/domain/export/types/v4_0_11"
+	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
 )
 
@@ -22,7 +22,7 @@ func TestDeltasSuite(t *testing.T) {
 // carried through while NULL and empty values are dropped, since the 4.1.0
 // value column is NOT NULL and disallows the empty string.
 func (s *deltasSuite) TestRelationApplicationSettingDropsEmptyValues(c *tc.C) {
-	src := []v4_0_11.RelationApplicationSetting{
+	src := []v4_0_12.RelationApplicationSetting{
 		{RelationEndpointUUID: "re-uuid", Key: "set", Value: new("v")},
 		{RelationEndpointUUID: "re-uuid", Key: "null", Value: nil},
 		{RelationEndpointUUID: "re-uuid", Key: "empty", Value: new("")},
@@ -39,7 +39,7 @@ func (s *deltasSuite) TestRelationApplicationSettingDropsEmptyValues(c *tc.C) {
 // through while NULL and empty values are dropped, since the 4.1.0 value column
 // is NOT NULL and disallows the empty string.
 func (s *deltasSuite) TestRelationUnitSettingDropsEmptyValues(c *tc.C) {
-	src := []v4_0_11.RelationUnitSetting{
+	src := []v4_0_12.RelationUnitSetting{
 		{RelationUnitUUID: "ru-uuid", Key: "set", Value: new("v")},
 		{RelationUnitUUID: "ru-uuid", Key: "null", Value: nil},
 		{RelationUnitUUID: "ru-uuid", Key: "empty", Value: new("")},

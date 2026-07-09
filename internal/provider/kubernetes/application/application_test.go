@@ -3667,7 +3667,7 @@ func (s *applicationSuite) TestLimits(c *tc.C) {
 }
 
 func (s *applicationSuite) TestEnsureUpdatedConstraints(c *tc.C) {
-	for _, agentVersion := range []string{"3.6.8", "4.0.11"} {
+	for _, agentVersion := range []string{"3.6.8", "4.0.12"} {
 		c.Run(agentVersion, func(t *stdtesting.T) {
 			c := &tc.C{T: t}
 

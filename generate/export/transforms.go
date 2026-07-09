@@ -446,7 +446,7 @@ func writeRegisteredFile(versions []string) error {
 	return os.WriteFile(path, formatted, 0644)
 }
 
-// versionToken converts "4.0.11" to "v4_0_11" (matches directory and
+// versionToken converts "4.0.12" to "v4_0_12" (matches directory and
 // package naming of generated types packages).
 func versionToken(v string) string {
 	return "v" + strings.ReplaceAll(v, ".", "_")

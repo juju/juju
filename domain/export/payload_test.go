@@ -11,7 +11,7 @@ import (
 
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/semversion"
-	v4_0_11 "github.com/juju/juju/domain/export/types/v4_0_11"
+	v4_0_12 "github.com/juju/juju/domain/export/types/v4_0_12"
 	v4_1_0 "github.com/juju/juju/domain/export/types/v4_1_0"
 )
 
@@ -21,11 +21,11 @@ func TestPayloadSuite(t *testing.T) {
 	tc.Run(t, &payloadSuite{})
 }
 
-// TestDecodePayloadRoundTripV406 verifies that a marshalled v4_0_11 payload
+// TestDecodePayloadRoundTripV406 verifies that a marshalled v4_0_12 payload
 // decodes back into the concrete generated type.
 func (s *payloadSuite) TestDecodePayloadRoundTripV406(c *tc.C) {
-	in := v4_0_11.ModelExport{
-		Application: []v4_0_11.Application{{
+	in := v4_0_12.ModelExport{
+		Application: []v4_0_12.Application{{
 			UUID:      "app-uuid",
 			Name:      "ubuntu",
 			CharmUUID: "charm-uuid",
@@ -34,9 +34,9 @@ func (s *payloadSuite) TestDecodePayloadRoundTripV406(c *tc.C) {
 	data, err := yaml.Marshal(in)
 	c.Assert(err, tc.ErrorIsNil)
 
-	decoded, err := DecodePayload(semversion.MustParse("4.0.11"), data)
+	decoded, err := DecodePayload(semversion.MustParse("4.0.12"), data)
 	c.Assert(err, tc.ErrorIsNil)
-	out, ok := decoded.(v4_0_11.ModelExport)
+	out, ok := decoded.(v4_0_12.ModelExport)
 	c.Assert(ok, tc.IsTrue)
 	c.Check(out, tc.DeepEquals, in)
 }
@@ -72,7 +72,7 @@ func (s *payloadSuite) TestDecodePayloadUnknownVersion(c *tc.C) {
 // TestDecodePayloadMalformedYAML verifies that undecodable bytes yield a
 // NotValid error.
 func (s *payloadSuite) TestDecodePayloadMalformedYAML(c *tc.C) {
-	_, err := DecodePayload(semversion.MustParse("4.0.11"), []byte("\t: not yaml"))
+	_, err := DecodePayload(semversion.MustParse("4.0.12"), []byte("\t: not yaml"))
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 

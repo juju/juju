@@ -738,6 +738,10 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 	if err != nil {
 		return errors.Errorf("preparing SecretRemoteUnitConsumer insert statement: %w", err)
 	}
+	stmtSecretReservation, err := sqlair.Prepare(`INSERT INTO "secret_reservation" (*) VALUES ($SecretReservation.*)`, v4_1_0.SecretReservation{})
+	if err != nil {
+		return errors.Errorf("preparing SecretReservation insert statement: %w", err)
+	}
 	stmtSecretRevision, err := sqlair.Prepare(`INSERT INTO "secret_revision" (*) VALUES ($SecretRevision.*)`, v4_1_0.SecretRevision{})
 	if err != nil {
 		return errors.Errorf("preparing SecretRevision insert statement: %w", err)
@@ -1851,6 +1855,11 @@ func (st *State) Import(ctx context.Context, p *v4_1_0.ModelExport) error {
 		if len(p.SecretRemoteUnitConsumer) > 0 {
 			if err := tx.Query(ctx, stmtSecretRemoteUnitConsumer, p.SecretRemoteUnitConsumer).Run(); err != nil {
 				return errors.Errorf("inserting SecretRemoteUnitConsumer (table secret_remote_unit_consumer): %w", err)
+			}
+		}
+		if len(p.SecretReservation) > 0 {
+			if err := tx.Query(ctx, stmtSecretReservation, p.SecretReservation).Run(); err != nil {
+				return errors.Errorf("inserting SecretReservation (table secret_reservation): %w", err)
 			}
 		}
 		if len(p.SecretRevision) > 0 {
