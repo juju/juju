@@ -83,7 +83,7 @@ jobs:
             check-migrate:
               - '**.go'
               - 'go.mod'
-              - 'snap/**'
+              - 'snaps/**'
               - '.github/workflows/migrate.yml'
               - 'scripts/dqlite/**'
               - 'Makefile'
@@ -91,7 +91,7 @@ jobs:
             check-upgrade:
               - '**.go'
               - 'go.mod'
-              - 'snap/**'
+              - 'snaps/**'
               - '.github/workflows/upgrade.yml'
               - '.github/setup-lxd/**'
               - 'scripts/dqlite/**'
@@ -100,7 +100,7 @@ jobs:
             check-snap:
               - '**.go'
               - 'go.mod'
-              - 'snap/**'
+              - 'snaps/**'
               - '.github/workflows/snap.yml'
               - 'scripts/dqlite/**'
               - 'Makefile'
