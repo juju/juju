@@ -8,6 +8,7 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
+	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	cmrmodelstate "github.com/juju/juju/domain/crossmodelrelation/state/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstate "github.com/juju/juju/domain/model/state/controller"
@@ -102,10 +103,11 @@ func ActivateModel(ctx context.Context, deps Deps, args ActivateModelArgs) error
 		)
 	}
 
-	// 3. Bump model agent version to match controller target, if needed.
-	if err := bumpModelAgentVersion(ctx, mmCtrl, mmModel, modelUUIDStr); err != nil {
+	// 3. Reconcile the model agent version to match the controller target, if
+	// needed.
+	if err := reconcileModelAgentVersion(ctx, mmCtrl, mmModel, modelUUIDStr); err != nil {
 		return errors.Errorf(
-			"bumping model agent version during activation of model %q: %w",
+			"reconciling model agent version during activation of model %q: %w",
 			modelUUIDStr, err,
 		)
 	}
@@ -173,7 +175,10 @@ func reconcileOffererControllers(
 		return nil
 	}
 
-	cmrState := cmrmodelstate.NewState(deps.ModelDB, modelUUID, deps.Clock, deps.Logger)
+	cmrService := crossmodelrelationservice.NewMigrationService(
+		cmrmodelstate.NewState(deps.ModelDB, modelUUID, deps.Clock, deps.Logger),
+		deps.Logger,
+	)
 
 	if len(args.CrossModelUUIDs) > 0 {
 		// Generate the external-controller address row UUIDs here (the
@@ -204,8 +209,12 @@ func reconcileOffererControllers(
 
 		// Point all source-hosted offers at the source controller in a single
 		// UPDATE.
-		if err := cmrState.SetOffererControllerForOffererModels(
-			ctx, args.CrossModelUUIDs, args.SourceControllerUUID,
+		crossModelUUIDs := make([]coremodel.UUID, len(args.CrossModelUUIDs))
+		for i, u := range args.CrossModelUUIDs {
+			crossModelUUIDs[i] = coremodel.UUID(u)
+		}
+		if err := cmrService.SetOffererControllerForOffererModels(
+			ctx, crossModelUUIDs, args.SourceControllerUUID,
 		); err != nil {
 			return errors.Errorf(
 				"setting offerer controller for source-hosted models: %w", err,
@@ -226,8 +235,8 @@ func reconcileOffererControllers(
 		)
 	}
 	for _, m := range thirdParty {
-		if err := cmrState.SetOffererControllerForOffererModel(
-			ctx, m.OffererModelUUID, m.ControllerUUID,
+		if err := cmrService.SetOffererControllerForOffererModel(
+			ctx, coremodel.UUID(m.OffererModelUUID), m.ControllerUUID,
 		); err != nil {
 			return errors.Errorf(
 				"setting offerer controller for third-party model %q: %w",
@@ -238,10 +247,10 @@ func reconcileOffererControllers(
 	return nil
 }
 
-// bumpModelAgentVersion updates the model's target agent version to match the
-// controller's target version when they differ.  It is idempotent: if the
+// reconcileModelAgentVersion updates the model's target agent version to match
+// the controller's target version when they differ.  It is idempotent: if the
 // versions already match it is a no-op.
-func bumpModelAgentVersion(
+func reconcileModelAgentVersion(
 	ctx context.Context,
 	ctrl *migrationclaimstate.State,
 	model *migrationmodelstate.State,

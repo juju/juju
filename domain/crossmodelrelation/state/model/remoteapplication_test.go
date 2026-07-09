@@ -2466,7 +2466,7 @@ func (s *modelRemoteApplicationSuite) offererControllerUUID(c *tc.C, offererMode
 }
 
 // TestSetOffererControllerForOffererModel verifies the controller reference is
-// set on the matching offerer row, is idempotent, and rejects empty inputs.
+// set on the matching offerer row and is idempotent.
 func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModel(c *tc.C) {
 	offererModelUUID := tc.Must(c, internaluuid.NewUUID).String()
 	controllerUUID := tc.Must(c, internaluuid.NewUUID).String()
@@ -2493,16 +2493,6 @@ func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelNoM
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestSetOffererControllerForOffererModelValidation verifies empty inputs are
-// rejected before any write.
-func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelValidation(c *tc.C) {
-	err := s.state.SetOffererControllerForOffererModel(c.Context(), "", tc.Must(c, internaluuid.NewUUID).String())
-	c.Assert(err, tc.ErrorMatches, ".*offerer model UUID cannot be empty.*")
-
-	err = s.state.SetOffererControllerForOffererModel(c.Context(), tc.Must(c, internaluuid.NewUUID).String(), "")
-	c.Assert(err, tc.ErrorMatches, ".*offerer controller UUID cannot be empty.*")
-}
-
 // TestSetOffererControllerForOffererModels verifies a batch update sets the
 // same controller across several offerer models in one statement.
 func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModels(c *tc.C) {
@@ -2525,16 +2515,4 @@ func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModels(c
 	// Empty list is a no-op.
 	err = s.state.SetOffererControllerForOffererModels(c.Context(), nil, controllerUUID)
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestSetOffererControllerForOffererModelsValidation verifies empty inputs are
-// rejected before any write.
-func (s *modelRemoteApplicationSuite) TestSetOffererControllerForOffererModelsValidation(c *tc.C) {
-	err := s.state.SetOffererControllerForOffererModels(
-		c.Context(), []string{tc.Must(c, internaluuid.NewUUID).String()}, "")
-	c.Assert(err, tc.ErrorMatches, ".*offerer controller UUID cannot be empty.*")
-
-	err = s.state.SetOffererControllerForOffererModels(
-		c.Context(), []string{""}, tc.Must(c, internaluuid.NewUUID).String())
-	c.Assert(err, tc.ErrorMatches, ".*offerer model UUID cannot be empty.*")
 }
