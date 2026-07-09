@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/rpc/params"
@@ -49,10 +50,10 @@ func (c *Client) GetSSHConnRequest(ctx context.Context, tunnelID string) (params
 	var result params.SSHConnRequestResult
 	arg := params.SSHConnRequestArg{TunnelID: tunnelID}
 	if err := c.facade.FacadeCall(ctx, "GetSSHConnRequest", arg, &result); err != nil {
-		return params.SSHConnRequestResult{}, errors.Capture(err)
+		return params.SSHConnRequestResult{}, apiservererrors.RestoreError(result.Error)
 	}
 	if result.Error != nil {
-		return params.SSHConnRequestResult{}, result.Error
+		return params.SSHConnRequestResult{}, apiservererrors.RestoreError(result.Error)
 	}
 	return result, nil
 }
@@ -64,7 +65,7 @@ func (c *Client) ControllerSSHPort(ctx context.Context) (int, error) {
 		return 0, errors.Capture(err)
 	}
 	if result.Error != nil {
-		return 0, result.Error
+		return 0, apiservererrors.RestoreError(result.Error)
 	}
 	return result.Port, nil
 }
@@ -77,7 +78,7 @@ func (c *Client) ControllerPublicKey(ctx context.Context) ([]byte, error) {
 		return nil, errors.Capture(err)
 	}
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, apiservererrors.RestoreError(result.Error)
 	}
 	return result.PublicKey, nil
 }
