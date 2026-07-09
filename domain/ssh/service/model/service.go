@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -83,10 +84,9 @@ func (s *WatchableService) WatchSSHConnRequest(ctx context.Context, machineName 
 		if len(changes) == 0 {
 			return nil, nil
 		}
-		tunnelIDs := make([]string, len(changes))
-		for i, change := range changes {
-			tunnelIDs[i] = change.Changed()
-		}
+		tunnelIDs := transform.Slice(changes, func(c changestream.ChangeEvent) string {
+			return c.Changed()
+		})
 		return s.state.FilterSSHConnRequestsForMachine(ctx, tunnelIDs, machineUUID)
 	}
 
