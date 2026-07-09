@@ -46,13 +46,12 @@ parts:
   dqlite:
     source: https://github.com/canonical/dqlite
     source-type: git
-    source-commit: f6058ba74838f89b3720c74b7bb4a944bfc36a09
+    source-commit: 91e3e2f90874e4ec3b45cde965f266342846531b # v1.18.7
     plugin: autotools
     autotools-configure-parameters:
       - --prefix=
       - --enable-build-raft
     stage-packages:
-      - liblz4-1
       - libuv1t64
       - sqlite3
     build-packages:
@@ -65,7 +64,7 @@ parts:
       usr/lib/: lib/
     prime:
       - lib/libdqlite*so*
-      - lib/*/liblz4.so*
+      #- lib/*/liblz4.so*  # use liblz4.so from the base snap
       - lib/*/libsqlite3*so*
       - lib/*/libuv*
 
