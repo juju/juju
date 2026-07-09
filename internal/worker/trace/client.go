@@ -121,10 +121,11 @@ type ClientTracerProvider interface {
 	Shutdown(ctx context.Context) error
 }
 
-// NewClient returns a new tracing client. The exporter protocol (gRPC or
-// HTTP) is selected automatically based on the endpoint scheme: endpoints
-// with an http:// or https:// scheme use the OTLP HTTP exporter; all other
-// endpoints use the OTLP gRPC exporter.
+// NewClient returns a new tracing client. When both a gRPC and HTTP
+// endpoint are provided, the gRPC exporter is preferred as it is more
+// efficient and has better support for streaming. When only an HTTP
+// endpoint is provided, the OTLP HTTP exporter is used. At least one
+// endpoint must be non-empty.
 func NewClient(
 	ctx context.Context,
 	namespace coretrace.TaggedTracerNamespace,
@@ -132,7 +133,7 @@ func NewClient(
 	sampleRatio float64, tailSamplingThreshold time.Duration,
 	logger logger.Logger,
 ) (Client, ClientTracerProvider, ClientTracer, error) {
-	client, err := newOTLPClient(ctx, httpEndpoint, grpcEndpoint, caCertificate, insecureSkipVerify)
+	client, err := newOTLPClient(httpEndpoint, grpcEndpoint, caCertificate, insecureSkipVerify)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -163,21 +164,21 @@ func NewClient(
 // the endpoint. Endpoints with an http:// or https:// scheme use the HTTP
 // exporter; everything else (host:port, grpc://, etc.) uses the gRPC
 // exporter.
-func newOTLPClient(ctx context.Context, httpEndpoint, grpcEndpoint, caCertificate string, insecureSkipVerify bool) (otlptrace.Client, error) {
+func newOTLPClient(httpEndpoint, grpcEndpoint, caCertificate string, insecureSkipVerify bool) (otlptrace.Client, error) {
 	// We always prefer grpc endpoint if both are provided, as it is more
 	// efficient and has better support for streaming.
 	switch {
 	case grpcEndpoint != "":
-		return newGRPCClient(ctx, grpcEndpoint, caCertificate, insecureSkipVerify)
+		return newGRPCClient(grpcEndpoint, caCertificate, insecureSkipVerify)
 	case httpEndpoint != "":
-		return newHTTPClient(ctx, httpEndpoint, caCertificate, insecureSkipVerify)
+		return newHTTPClient(httpEndpoint, caCertificate, insecureSkipVerify)
 	default:
 		return nil, errors.NotValidf("no valid endpoint provided")
 	}
 }
 
 // newHTTPClient creates an OTLP HTTP trace client.
-func newHTTPClient(_ context.Context, endpoint, caCertificate string, insecureSkipVerify bool) (otlptrace.Client, error) {
+func newHTTPClient(endpoint, caCertificate string, insecureSkipVerify bool) (otlptrace.Client, error) {
 	var options []otlptracehttp.Option
 	if isHTTPEndpoint(endpoint) {
 		options = append(options, otlptracehttp.WithEndpointURL(endpoint))
@@ -199,7 +200,7 @@ func newHTTPClient(_ context.Context, endpoint, caCertificate string, insecureSk
 }
 
 // newGRPCClient creates an OTLP gRPC trace client.
-func newGRPCClient(_ context.Context, endpoint, caCertificate string, insecureSkipVerify bool) (otlptrace.Client, error) {
+func newGRPCClient(endpoint, caCertificate string, insecureSkipVerify bool) (otlptrace.Client, error) {
 	options := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(endpoint),
 		otlptracegrpc.WithCompressor("gzip"),

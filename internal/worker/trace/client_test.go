@@ -205,3 +205,39 @@ func (s *clientSuite) TestNewResource(c *tc.C) {
 	c.Check(attrs["service.instance.id"], tc.Equals, "agent/controller/machine-0")
 	c.Check(attrs["service.version"], tc.Not(tc.Equals), "")
 }
+
+// --- newOTLPClient protocol selection ---
+
+func (s *clientSuite) TestNewOTLPClientPrefersGRPC(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// When both endpoints are provided, the gRPC client is used. We
+	// can't assert the concrete type, but we verify no error and a
+	// non-nil client.
+	client, err := newOTLPClient("http://otel.example.com", "otel.example.com:4317", "", true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *clientSuite) TestNewOTLPClientHTTPOnly(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client, err := newOTLPClient("http://otel.example.com", "", "", true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *clientSuite) TestNewOTLPClientGRPCOnly(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	client, err := newOTLPClient("", "otel.example.com:4317", "", true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(client, tc.NotNil)
+}
+
+func (s *clientSuite) TestNewOTLPClientNoEndpoint(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := newOTLPClient("", "", "", true)
+	c.Assert(err, tc.ErrorMatches, "no valid endpoint provided .*")
+}
