@@ -133,8 +133,8 @@ type MockControllerSSHHostKeyService struct {
 
 // MockControllerSSHHostKeyServiceMockRecorder is the mock recorder for MockControllerSSHHostKeyService.
 type MockControllerSSHHostKeyServiceMockRecorder struct {
-	mock                    *MockControllerSSHHostKeyService
-	sSHServerHostKeyExpects []*gomock.Call1_2[context.Context, string, error]
+	mock                          *MockControllerSSHHostKeyService
+	sSHServerHostPublicKeyExpects []*gomock.Call1_2[context.Context, []byte, error]
 }
 
 // NewMockControllerSSHHostKeyService creates a new mock instance.
@@ -149,20 +149,20 @@ func (m *MockControllerSSHHostKeyService) EXPECT() *MockControllerSSHHostKeyServ
 	return m.recorder
 }
 
-// SSHServerHostKey mocks base method.
-func (m *MockControllerSSHHostKeyService) SSHServerHostKey(ctx context.Context) (string, error) {
+// SSHServerHostPublicKey mocks base method.
+func (m *MockControllerSSHHostKeyService) SSHServerHostPublicKey(ctx context.Context) ([]byte, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.sSHServerHostKeyExpects, m.ctrl, m, "SSHServerHostKey", ctx)
+	return gomock.Dispatch1_2(&m.recorder.sSHServerHostPublicKeyExpects, m.ctrl, m, "SSHServerHostPublicKey", ctx)
 }
 
-// SSHServerHostKey indicates an expected call of SSHServerHostKey.
-func (mr *MockControllerSSHHostKeyServiceMockRecorder) SSHServerHostKey(ctx any) *MockControllerSSHHostKeyServiceSSHServerHostKeyCall {
+// SSHServerHostPublicKey indicates an expected call of SSHServerHostPublicKey.
+func (mr *MockControllerSSHHostKeyServiceMockRecorder) SSHServerHostPublicKey(ctx any) *MockControllerSSHHostKeyServiceSSHServerHostPublicKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "SSHServerHostKey", gomock.EnsureMatcher(ctx))
-	mr.sSHServerHostKeyExpects = append(mr.sSHServerHostKeyExpects, call)
+	call := gomock.NewCall1_2[context.Context, []byte, error](mr.mock.ctrl.T, mr.mock, "SSHServerHostPublicKey", gomock.EnsureMatcher(ctx))
+	mr.sSHServerHostPublicKeyExpects = append(mr.sSHServerHostPublicKeyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerSSHHostKeyServiceSSHServerHostKeyCall is the typed call wrapper for SSHServerHostKey.
-type MockControllerSSHHostKeyServiceSSHServerHostKeyCall = gomock.Call1_2[context.Context, string, error]
+// MockControllerSSHHostKeyServiceSSHServerHostPublicKeyCall is the typed call wrapper for SSHServerHostPublicKey.
+type MockControllerSSHHostKeyServiceSSHServerHostPublicKeyCall = gomock.Call1_2[context.Context, []byte, error]

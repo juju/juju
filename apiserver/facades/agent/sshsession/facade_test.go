@@ -147,15 +147,17 @@ func (s *facadeSuite) TestControllerPublicKey(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.hostKeyService.EXPECT().SSHServerHostKey(gomock.Any()).Return(jujutesting.SSHServerHostKey, nil)
+	// The service derives and caches the public key; the facade simply returns
+	// what it is given. Derive the expected bytes from the known private key.
+	signer, err := gossh.ParsePrivateKey([]byte(jujutesting.SSHServerHostKey))
+	c.Assert(err, tc.ErrorIsNil)
+	publicKey := signer.PublicKey().Marshal()
+
+	s.hostKeyService.EXPECT().SSHServerHostPublicKey(gomock.Any()).Return(publicKey, nil)
 
 	result, err := s.newFacade().ControllerPublicKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-
-	// The returned key must be the public part of the controller host key.
-	signer, err := gossh.ParsePrivateKey([]byte(jujutesting.SSHServerHostKey))
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result.PublicKey, tc.DeepEquals, signer.PublicKey().Marshal())
+	c.Check(result.PublicKey, tc.DeepEquals, publicKey)
 
 	_, err = gossh.ParsePublicKey(result.PublicKey)
 	c.Assert(err, tc.ErrorIsNil)

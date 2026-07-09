@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/names/v6"
-	gossh "golang.org/x/crypto/ssh"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -127,18 +126,14 @@ func (f *Facade) ControllerSSHPort(ctx context.Context) (params.SSHControllerSSH
 
 // ControllerPublicKey returns the marshalled public host key of the controller
 // SSH jump server. The machine agent uses it to pin the host key when
-// reverse-dialling the controller.
+// reverse-dialling the controller. The public key derivation and caching live
+// in the service, so the facade never handles private key material.
 func (f *Facade) ControllerPublicKey(ctx context.Context) (params.SSHControllerPublicKeyResult, error) {
-	privateHostKey, err := f.controllerSSHHostKeyService.SSHServerHostKey(ctx)
+	publicKey, err := f.controllerSSHHostKeyService.SSHServerHostPublicKey(ctx)
 	if err != nil {
-		return params.SSHControllerPublicKeyResult{}, errors.Errorf("getting controller SSH host key: %w", err)
-	}
-
-	signer, err := gossh.ParsePrivateKey([]byte(privateHostKey))
-	if err != nil {
-		return params.SSHControllerPublicKeyResult{}, errors.Errorf("parsing controller SSH host key: %w", err)
+		return params.SSHControllerPublicKeyResult{}, errors.Errorf("getting controller SSH host public key: %w", err)
 	}
 	return params.SSHControllerPublicKeyResult{
-		PublicKey: signer.PublicKey().Marshal(),
+		PublicKey: publicKey,
 	}, nil
 }

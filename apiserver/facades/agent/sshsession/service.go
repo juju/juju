@@ -36,8 +36,9 @@ type ControllerConfigService interface {
 // ControllerSSHHostKeyService is the interface for reading the controller SSH
 // jump server host key.
 type ControllerSSHHostKeyService interface {
-	// SSHServerHostKey returns the controller SSH jump server host key. Note
-	// this is the private key material; the facade derives the public key from
-	// it before returning it to agents.
-	SSHServerHostKey(ctx context.Context) (string, error)
+	// SSHServerHostPublicKey returns the marshalled public host key of the
+	// controller SSH jump server. The service derives it from the private host
+	// key and caches the result, so the facade never handles private key
+	// material and the key is only parsed once.
+	SSHServerHostPublicKey(ctx context.Context) ([]byte, error)
 }
