@@ -78,7 +78,9 @@ AND    completed_at IS NOT NULL
 }
 
 // GetModelRedirectUsers returns the users captured with access to a migrated
-// model in the redirect snapshot.
+// model in the redirect snapshot, restricted to users who can still log in:
+// users removed or disabled since the snapshot was taken are excluded,
+// mirroring the restrictions applied to a normal login.
 func (s *State) GetModelRedirectUsers(
 	ctx context.Context,
 	modelUUID coremodel.UUID,
@@ -90,9 +92,12 @@ func (s *State) GetModelRedirectUsers(
 
 	arg := dbRedirectModelUUID{ModelUUID: modelUUID.String()}
 	stmt, err := s.Prepare(`
-SELECT &dbRedirectUser.*
-FROM   model_migration_redirect_user
-WHERE  model_uuid = $dbRedirectModelUUID.model_uuid
+SELECT (mmru.user_name, mmru.access) AS (&dbRedirectUser.*)
+FROM   model_migration_redirect_user AS mmru
+       JOIN v_user_auth AS u ON u.uuid = mmru.user_uuid
+WHERE  mmru.model_uuid = $dbRedirectModelUUID.model_uuid
+AND    u.removed = false
+AND    u.disabled = false
 `, arg, dbRedirectUser{})
 	if err != nil {
 		return nil, errors.Capture(err)

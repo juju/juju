@@ -199,7 +199,9 @@ type State interface {
 	GetModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
 
 	// GetModelRedirectUsers returns the users captured with access to a
-	// migrated model in the redirect snapshot.
+	// migrated model in the redirect snapshot, restricted to users who can
+	// still log in: users removed or disabled since the snapshot was taken
+	// are excluded, mirroring the restrictions applied to a normal login.
 	GetModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]model.RedirectUser, error)
 
 	// InitialWatchActivatedModelsStatement returns a SQL statement that will
@@ -240,10 +242,10 @@ func NewService(
 }
 
 // ModelRedirectUsers returns the users captured with access to the model in
-// the migration redirect snapshot. Used by login-time redirect to enforce
-// the 3.6 user-access behavior: anonymous logins may be redirected for CMR
-// continuity; named local users with no captured model access are not
-// redirected.
+// the migration redirect snapshot, restricted to users who can still log in.
+// Used by login-time redirect to enforce the 3.6 user-access behavior:
+// anonymous logins may be redirected for CMR continuity; named local users
+// with no captured model access are not redirected.
 func (s *Service) ModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]model.RedirectUser, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()

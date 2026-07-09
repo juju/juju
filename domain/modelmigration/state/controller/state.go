@@ -1894,6 +1894,9 @@ VALUES ($migrationRedirectUser.*)
 // REAP. This is a different projection from GetModelUsers: it selects
 // (user_uuid, user_name, access_type) because model_migration_redirect_user
 // requires user_uuid as part of its primary key.
+//
+// Users that could not log in normally — removed or disabled — are excluded
+// from the snapshot, mirroring the restrictions applied to a normal login.
 func (s *State) GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -1906,6 +1909,8 @@ FROM   v_user_auth AS u
 JOIN   v_permission AS p ON u.uuid = p.grant_to
 WHERE  p.grant_on = $modelUUIDArg.model_uuid
 AND    p.object_type = 'model'
+AND    u.removed = false
+AND    u.disabled = false
 `, arg, modelUserRedirectRow{})
 	if err != nil {
 		return nil, errors.Capture(err)

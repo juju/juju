@@ -7,10 +7,15 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
+	accessstate "github.com/juju/juju/domain/access/state"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -49,6 +54,17 @@ VALUES (?, ?, ?, 'admin')`,
 	return targetControllerUUID
 }
 
+// addRedirectUser inserts an enabled user and returns its UUID.
+func (m *stateSuite) addRedirectUser(c *tc.C, name string) user.UUID {
+	accessState := accessstate.NewState(m.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	userUUID := usertesting.GenUserUUID(c)
+	err := accessState.AddUser(
+		c.Context(), userUUID, usertesting.GenNewName(c, name), name, false, m.userUUID,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	return userUUID
+}
+
 // TestGetModelRedirectionNotRedirected asserts a model without any redirect
 // snapshot is reported as not redirected.
 func (m *stateSuite) TestGetModelRedirectionNotRedirected(c *tc.C) {
@@ -81,11 +97,30 @@ func (m *stateSuite) TestGetModelRedirection(c *tc.C) {
 }
 
 // TestGetModelRedirectUsers asserts captured users are returned with their
-// access.
+// access, restricted to users who can still log in: users removed or disabled
+// since the snapshot was taken are excluded, as are captured rows whose user
+// no longer exists.
 func (m *stateSuite) TestGetModelRedirectUsers(c *tc.C) {
+	disabledUUID := m.addRedirectUser(c, "disabled-user")
+	removedUUID := m.addRedirectUser(c, "removed-user")
+	err := m.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx,
+			"UPDATE user_authentication SET disabled = true WHERE user_uuid = ?",
+			disabledUUID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx,
+			"UPDATE user SET removed = true WHERE uuid = ?", removedUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	m.seedRedirect(c, modelUUID, true, map[string]string{
-		m.userUUID.String(): m.userName.Name(),
+		m.userUUID.String():         m.userName.Name(),
+		disabledUUID.String():       "disabled-user",
+		removedUUID.String():        "removed-user",
+		uuid.MustNewUUID().String(): "vanished-user",
 	})
 
 	users, err := m.modelState.GetModelRedirectUsers(c.Context(), modelUUID)

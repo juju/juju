@@ -11,8 +11,12 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
+	accessstate "github.com/juju/juju/domain/access/state"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -59,6 +63,55 @@ func (s *stateSuite) TestGetModelUsersForRedirect(c *tc.C) {
 	c.Check(users[0].UserUUID, tc.Equals, s.userUUID.String())
 	c.Check(users[0].UserName, tc.Equals, s.userName.Name())
 	c.Check(users[0].Access, tc.Equals, "admin")
+}
+
+// addModelUser inserts an enabled user holding admin access on the suite
+// model and returns its UUID.
+func (s *stateSuite) addModelUser(c *tc.C, name string) user.UUID {
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+	userUUID := usertesting.GenUserUUID(c)
+	userName := usertesting.GenNewName(c, name)
+	err := accessState.AddUser(c.Context(), userUUID, userName, name, false, s.userUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO permission (uuid, access_type_id, object_type_id, grant_on, grant_to)
+VALUES (?,
+        (SELECT id FROM permission_access_type WHERE type = 'admin'),
+        (SELECT id FROM permission_object_type WHERE type = 'model'),
+        ?, ?)`,
+			uuid.MustNewUUID().String(), s.modelUUID, userUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return userUUID
+}
+
+// TestGetModelUsersForRedirectExcludesRemovedAndDisabled asserts the snapshot
+// projection mirrors normal login restrictions: users that have been removed
+// or disabled are not captured.
+func (s *stateSuite) TestGetModelUsersForRedirectExcludesRemovedAndDisabled(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	disabledUUID := s.addModelUser(c, "disabled-user")
+	removedUUID := s.addModelUser(c, "removed-user")
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx,
+			"UPDATE user_authentication SET disabled = true WHERE user_uuid = ?",
+			disabledUUID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx,
+			"UPDATE user SET removed = true WHERE uuid = ?", removedUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	users, err := st.GetModelUsersForRedirect(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(users, tc.HasLen, 1)
+	c.Check(users[0].UserName, tc.Equals, s.userName.Name())
 }
 
 // TestReapFullPath drives the whole source REAP state sequence: capture

@@ -411,8 +411,10 @@ func (s *loginSuite) testLoginDuringMaintenance(c *tc.C, check func(api.Connecti
 
 // seedMigratedModelRedirect seeds a completed migration redirect snapshot for
 // a model that no longer exists on this controller, plus the captured model
-// access for the given user names. This is the state source REAP leaves
-// behind after a successful migration.
+// access for the given user names. The named users must exist: the redirect
+// lookup joins the captured rows with the live user table to mirror normal
+// login restrictions. This is the state source REAP leaves behind after a
+// successful migration.
 func (s *loginSuite) seedMigratedModelRedirect(c *tc.C, modelUUID string, userNames ...string) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, `
@@ -425,11 +427,17 @@ VALUES (?, ?, ?, 'target-alias', '10.10.10.10:17070', 'target-ca-cert',
 			return err
 		}
 		for _, name := range userNames {
-			if _, err := tx.ExecContext(ctx, `
+			res, err := tx.ExecContext(ctx, `
 INSERT INTO model_migration_redirect_user (model_uuid, user_uuid, user_name, access)
-VALUES (?, ?, ?, 'admin')`,
-				modelUUID, uuid.MustNewUUID().String(), name); err != nil {
+SELECT ?, uuid, name, 'admin' FROM user WHERE name = ? AND removed = false`,
+				modelUUID, name)
+			if err != nil {
 				return err
+			}
+			if affected, err := res.RowsAffected(); err != nil {
+				return err
+			} else if affected != 1 {
+				return fmt.Errorf("user %q not found", name)
 			}
 		}
 		return nil
@@ -498,6 +506,48 @@ func (s *loginSuite) TestMigratedModelLoginNoAccessNotRedirected(c *tc.C) {
 
 	modelUUID := uuid.MustNewUUID().String()
 	s.seedMigratedModelRedirect(c, modelUUID, jujutesting.AdminUser.Id())
+
+	st := s.openModelAPIWithoutLogin(c, modelUUID)
+	request := &params.LoginRequest{
+		AuthTag:       tag.String(),
+		Credentials:   password,
+		ClientVersion: jujuversion.Current.String(),
+	}
+	var result params.LoginResult
+	err = st.APICall(c.Context(), "Admin", 3, "", "Login", request, &result)
+	rErr, ok := errors.AsType[*rpc.RequestError](err)
+	c.Assert(ok, tc.IsTrue, tc.Commentf("expected login error, got %v", err))
+	c.Check(rErr.Code, tc.Equals, params.CodeUnauthorized)
+	c.Check(rErr.Message, tc.Equals, "invalid entity name or password")
+}
+
+// TestMigratedModelLoginDisabledUserNotRedirected asserts a local user
+// disabled since the redirect snapshot was captured is not redirected,
+// mirroring normal login restrictions.
+func (s *loginSuite) TestMigratedModelLoginDisabledUserNotRedirected(c *tc.C) {
+	accessService := s.ControllerDomainServices(c).Access()
+	password := "dummy-password"
+	tag := names.NewUserTag("carol")
+	_, _, err := accessService.AddUser(c.Context(), accessservice.AddUserArg{
+		Name:        user.NameFromTag(tag),
+		DisplayName: "Carol",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    new(auth.NewPassword(password)),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	modelUUID := uuid.MustNewUUID().String()
+	s.seedMigratedModelRedirect(c, modelUUID, tag.Id())
+
+	err = accessService.DisableUserAuthentication(c.Context(), user.NameFromTag(tag))
+	c.Assert(err, tc.ErrorIsNil)
 
 	st := s.openModelAPIWithoutLogin(c, modelUUID)
 	request := &params.LoginRequest{
