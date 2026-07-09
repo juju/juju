@@ -195,10 +195,11 @@ func (s *serviceSuite) TestGetSSHConnRequest(c *tc.C) {
 	state.getReq = domainssh.SSHConnRequest{TunnelID: testTunnelUUID, MachineName: "1"}
 	svc := modelsshservice.NewService(state, modelUUID, clk)
 
-	req, err := svc.GetSSHConnRequest(c.Context(), testTunnelUUID)
+	req, err := svc.GetSSHConnRequest(c.Context(), coremachine.Name("1"), testTunnelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(req, tc.DeepEquals, state.getReq)
 	c.Check(state.getTunnelID, tc.Equals, testTunnelUUID)
+	c.Check(state.getMachineName, tc.Equals, coremachine.Name("1"))
 	c.Check(state.getNow, tc.Equals, clk.Now())
 }
 
@@ -248,6 +249,7 @@ type stubModelState struct {
 	insertNow          time.Time
 	getReq             domainssh.SSHConnRequest
 	getTunnelID        string
+	getMachineName     coremachine.Name
 	getNow             time.Time
 	pruneNow           time.Time
 	removedTunnelID    string
@@ -333,7 +335,8 @@ func (s *stubModelState) InsertSSHConnRequest(_ context.Context, req domainssh.S
 	return nil
 }
 
-func (s *stubModelState) GetSSHConnRequest(_ context.Context, tunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+func (s *stubModelState) GetSSHConnRequest(_ context.Context, machineName coremachine.Name, tunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+	s.getMachineName = machineName
 	s.getTunnelID = tunnelID
 	s.getNow = now
 	return s.getReq, nil

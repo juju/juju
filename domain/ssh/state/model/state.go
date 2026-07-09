@@ -397,8 +397,11 @@ VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 	}))
 }
 
-// GetSSHConnRequest returns a one-shot SSH connection request by tunnel ID.
-func (st *State) GetSSHConnRequest(ctx context.Context, requestTunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+// GetSSHConnRequest returns a one-shot SSH connection request by tunnel ID,
+// scoped to the named machine. The machine filter is applied in the query so a
+// request targeting another machine is reported as not found, rather than being
+// fetched and rejected afterwards.
+func (st *State) GetSSHConnRequest(ctx context.Context, machineName coremachine.Name, requestTunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Capture(err)
@@ -414,7 +417,8 @@ SELECT scr.tunnel_id AS &sshConnRequestRecord.tunnel_id,
        scr.ephemeral_public_key AS &sshConnRequestRecord.ephemeral_public_key
 FROM ssh_connection_request AS scr
 JOIN machine AS m ON m.uuid = scr.machine_uuid
-WHERE scr.tunnel_id = $tunnelID.tunnel_id`, sshConnRequestRecord{}, tunnelID{})
+WHERE scr.tunnel_id = $tunnelID.tunnel_id
+AND m.name = $entityName.name`, sshConnRequestRecord{}, tunnelID{}, entityName{})
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Capture(err)
 	}
@@ -436,7 +440,7 @@ ORDER BY index_id ASC`, sshConnRequestAddress{}, tunnelID{})
 		}
 
 		row := sshConnRequestRecord{}
-		err := tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}).Get(&row)
+		err := tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}, entityName{Name: machineName.String()}).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("SSH connection request %q not found", requestTunnelID).Add(coreerrors.NotFound)
 		}

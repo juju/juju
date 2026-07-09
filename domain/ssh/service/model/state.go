@@ -38,8 +38,9 @@ type State interface {
 	InsertSSHConnRequest(context.Context, domainssh.SSHConnRequest, time.Time) error
 
 	// GetSSHConnRequest returns the one-shot SSH connection request for a tunnel
-	// ID, pruning expired requests first.
-	GetSSHConnRequest(context.Context, string, time.Time) (domainssh.SSHConnRequest, error)
+	// ID, scoped to the named machine, pruning expired requests first. A request
+	// targeting another machine is reported as not found.
+	GetSSHConnRequest(context.Context, coremachine.Name, string, time.Time) (domainssh.SSHConnRequest, error)
 
 	// RemoveSSHConnRequest deletes the request for the supplied tunnel ID.
 	RemoveSSHConnRequest(context.Context, string) error

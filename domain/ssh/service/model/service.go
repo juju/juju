@@ -139,10 +139,12 @@ func (s *Service) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHCon
 }
 
 // GetSSHConnRequest returns the SSH connection request for the supplied tunnel
-// ID.
+// ID, scoped to the named machine.
 //
-// This is used by the sshsession worker to retrieve a connection request.
-func (s *Service) GetSSHConnRequest(ctx context.Context, tunnelID string) (domainssh.SSHConnRequest, error) {
+// This is used by the sshsession worker to retrieve a connection request. The
+// request is scoped to the machine in state so a machine agent can only read
+// requests targeting itself; a request for another machine yields NotFound.
+func (s *Service) GetSSHConnRequest(ctx context.Context, machineName coremachine.Name, tunnelID string) (domainssh.SSHConnRequest, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -150,7 +152,7 @@ func (s *Service) GetSSHConnRequest(ctx context.Context, tunnelID string) (domai
 		return domainssh.SSHConnRequest{}, errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
 	}
 
-	req, err := s.state.GetSSHConnRequest(ctx, tunnelID, s.clock.Now())
+	req, err := s.state.GetSSHConnRequest(ctx, machineName, tunnelID, s.clock.Now())
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
 	}

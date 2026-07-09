@@ -29,7 +29,7 @@ type MockSSHConnRequestService struct {
 // MockSSHConnRequestServiceMockRecorder is the mock recorder for MockSSHConnRequestService.
 type MockSSHConnRequestServiceMockRecorder struct {
 	mock                       *MockSSHConnRequestService
-	getSSHConnRequestExpects   []*gomock.Call2_2[context.Context, string, ssh.SSHConnRequest, error]
+	getSSHConnRequestExpects   []*gomock.Call3_2[context.Context, machine.Name, string, ssh.SSHConnRequest, error]
 	watchSSHConnRequestExpects []*gomock.Call2_2[context.Context, machine.Name, watcher.StringsWatcher, error]
 }
 
@@ -46,22 +46,22 @@ func (m *MockSSHConnRequestService) EXPECT() *MockSSHConnRequestServiceMockRecor
 }
 
 // GetSSHConnRequest mocks base method.
-func (m *MockSSHConnRequestService) GetSSHConnRequest(ctx context.Context, tunnelID string) (ssh.SSHConnRequest, error) {
+func (m *MockSSHConnRequestService) GetSSHConnRequest(ctx context.Context, machineName machine.Name, tunnelID string) (ssh.SSHConnRequest, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getSSHConnRequestExpects, m.ctrl, m, "GetSSHConnRequest", ctx, tunnelID)
+	return gomock.Dispatch3_2(&m.recorder.getSSHConnRequestExpects, m.ctrl, m, "GetSSHConnRequest", ctx, machineName, tunnelID)
 }
 
 // GetSSHConnRequest indicates an expected call of GetSSHConnRequest.
-func (mr *MockSSHConnRequestServiceMockRecorder) GetSSHConnRequest(ctx, tunnelID any) *MockSSHConnRequestServiceGetSSHConnRequestCall {
+func (mr *MockSSHConnRequestServiceMockRecorder) GetSSHConnRequest(ctx, machineName, tunnelID any) *MockSSHConnRequestServiceGetSSHConnRequestCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, ssh.SSHConnRequest, error](mr.mock.ctrl.T, mr.mock, "GetSSHConnRequest", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(tunnelID))
+	call := gomock.NewCall3_2[context.Context, machine.Name, string, ssh.SSHConnRequest, error](mr.mock.ctrl.T, mr.mock, "GetSSHConnRequest", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(machineName), gomock.EnsureMatcher(tunnelID))
 	mr.getSSHConnRequestExpects = append(mr.getSSHConnRequestExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockSSHConnRequestServiceGetSSHConnRequestCall is the typed call wrapper for GetSSHConnRequest.
-type MockSSHConnRequestServiceGetSSHConnRequestCall = gomock.Call2_2[context.Context, string, ssh.SSHConnRequest, error]
+type MockSSHConnRequestServiceGetSSHConnRequestCall = gomock.Call3_2[context.Context, machine.Name, string, ssh.SSHConnRequest, error]
 
 // WatchSSHConnRequest mocks base method.
 func (m *MockSSHConnRequestService) WatchSSHConnRequest(ctx context.Context, machineName machine.Name) (watcher.StringsWatcher, error) {

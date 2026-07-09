@@ -14,10 +14,12 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	coreerrors "github.com/juju/juju/core/errors"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainssh "github.com/juju/juju/domain/ssh"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -83,7 +85,9 @@ func (s *facadeSuite) TestGetSSHConnRequest(c *tc.C) {
 		UnitPort:            22,
 		EphemeralPublicKey:  []byte("eph-pub"),
 	}
-	s.service.EXPECT().GetSSHConnRequest(gomock.Any(), "tunnel-0").Return(req, nil)
+	// The machine name is derived from authentication ("0") and passed to the
+	// service, so scoping happens in state rather than after fetching.
+	s.service.EXPECT().GetSSHConnRequest(gomock.Any(), coremachine.Name("0"), "tunnel-0").Return(req, nil)
 
 	result, err := s.newFacade().GetSSHConnRequest(c.Context(), params.SSHConnRequestArg{TunnelID: "tunnel-0"})
 	c.Assert(err, tc.ErrorIsNil)
@@ -95,25 +99,21 @@ func (s *facadeSuite) TestGetSSHConnRequest(c *tc.C) {
 	c.Check(result.EphemeralPublicKey, tc.DeepEquals, []byte("eph-pub"))
 }
 
-// TestGetSSHConnRequestOtherMachineDenied verifies a machine agent cannot read
-// a connection request targeting a different machine, which would leak that
-// request's credentials.
-func (s *facadeSuite) TestGetSSHConnRequestOtherMachineDenied(c *tc.C) {
+// TestGetSSHConnRequestScopedToMachine verifies the facade passes the
+// authenticated machine name ("0") down to the service, so scoping is enforced
+// in state up front. A request targeting another machine is reported by state
+// as not found rather than being fetched and rejected afterwards, so its
+// credentials are never returned.
+func (s *facadeSuite) TestGetSSHConnRequestScopedToMachine(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	req := domainssh.SSHConnRequest{
-		TunnelID:    "tunnel-1",
-		MachineName: "1",
-		SSHUsername: "juju-reverse-tunnel",
-		SSHPassword: "jwt",
-	}
-	s.service.EXPECT().GetSSHConnRequest(gomock.Any(), "tunnel-1").Return(req, nil)
+	s.service.EXPECT().
+		GetSSHConnRequest(gomock.Any(), coremachine.Name("0"), "tunnel-1").
+		Return(domainssh.SSHConnRequest{}, errors.Errorf("not found").Add(coreerrors.NotFound))
 
-	// The facade is scoped to machine "0", so a request for machine "1" is
-	// rejected.
 	_, err := s.newFacade().GetSSHConnRequest(c.Context(), params.SSHConnRequestArg{TunnelID: "tunnel-1"})
-	c.Assert(err, tc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 // TestWatchSSHConnRequestNonMachineDenied verifies the watcher rejects a caller

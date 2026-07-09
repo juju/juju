@@ -20,8 +20,10 @@ type SSHConnRequestService interface {
 	WatchSSHConnRequest(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error)
 
 	// GetSSHConnRequest returns the SSH connection request for the supplied
-	// tunnel ID.
-	GetSSHConnRequest(ctx context.Context, tunnelID string) (domainssh.SSHConnRequest, error)
+	// tunnel ID, scoped to the named machine. A request targeting another
+	// machine is reported as not found, so a machine agent can only read its
+	// own requests.
+	GetSSHConnRequest(ctx context.Context, machineName coremachine.Name, tunnelID string) (domainssh.SSHConnRequest, error)
 }
 
 // ControllerConfigService is the interface for reading controller

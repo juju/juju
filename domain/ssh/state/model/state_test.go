@@ -179,7 +179,7 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 	err := st.InsertSSHConnRequest(c.Context(), req, now)
 	c.Assert(err, tc.ErrorIsNil)
 
-	got, err := st.GetSSHConnRequest(c.Context(), req.TunnelID, now)
+	got, err := st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), req.TunnelID, now)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.TunnelID, tc.Equals, req.TunnelID)
 	c.Check(got.MachineName, tc.Equals, req.MachineName)
@@ -189,6 +189,36 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 	c.Check(got.ControllerAddresses.EqualTo(req.ControllerAddresses), tc.IsTrue)
 	c.Check(got.UnitPort, tc.Equals, req.UnitPort)
 	c.Check(got.EphemeralPublicKey, tc.DeepEquals, req.EphemeralPublicKey)
+}
+
+// TestGetSSHConnRequestOtherMachineNotFound checks that a request targeting one
+// machine cannot be read when scoped to another machine, so a machine agent
+// cannot fetch another machine's request (and its credentials).
+func (s *stateSuite) TestGetSSHConnRequestOtherMachineNotFound(c *tc.C) {
+	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
+	s.addMachine(c, "1")
+	s.addMachine(c, "2")
+	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
+	req := domainssh.SSHConnRequest{
+		TunnelID:           "tunnel-machine-1",
+		MachineName:        "1",
+		Expires:            now.Add(time.Minute),
+		SSHUsername:        "juju-reverse-tunnel",
+		SSHPassword:        "secret",
+		EphemeralPublicKey: []byte("pub"),
+	}
+
+	err := st.InsertSSHConnRequest(c.Context(), req, now)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Machine "1" can read its own request.
+	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), req.TunnelID, now)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Machine "2" cannot read machine "1"'s request; it is reported as not
+	// found rather than being returned.
+	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("2"), req.TunnelID, now)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
 func (s *stateSuite) TestInsertSSHConnRequestMachineNotFound(c *tc.C) {
@@ -224,7 +254,7 @@ func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
 	err = st.RemoveSSHConnRequest(c.Context(), req.TunnelID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.GetSSHConnRequest(c.Context(), req.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), req.TunnelID, now)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -243,9 +273,9 @@ func (s *stateSuite) TestPruneExpiredSSHConnRequests(c *tc.C) {
 	err = st.PruneExpiredSSHConnRequests(c.Context(), now)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.GetSSHConnRequest(c.Context(), activeReq.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), activeReq.TunnelID, now)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = st.GetSSHConnRequest(c.Context(), expiredReq.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), expiredReq.TunnelID, now)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 

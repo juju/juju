@@ -92,16 +92,13 @@ func (f *Facade) GetSSHConnRequest(ctx context.Context, arg params.SSHConnReques
 		return params.SSHConnRequestResult{}, err
 	}
 
-	req, err := f.service.GetSSHConnRequest(ctx, arg.TunnelID)
+	// The machine is scoped in the service/state query, so a machine can only
+	// ever read its own request. This blocks the request up front rather than
+	// fetching another machine's request and rejecting it afterwards, avoiding
+	// leaking that request's credentials and reducing the attack surface.
+	req, err := f.service.GetSSHConnRequest(ctx, machineName, arg.TunnelID)
 	if err != nil {
 		return params.SSHConnRequestResult{}, errors.Errorf("getting SSH connection request %q: %w", arg.TunnelID, err)
-	}
-
-	// Guard against a machine reading another machine's request, which would
-	// leak that request's credentials. This complements the machine-scoped
-	// watcher, which only surfaces this machine's own tunnel IDs.
-	if req.MachineName != machineName.String() {
-		return params.SSHConnRequestResult{}, apiservererrors.ErrPerm
 	}
 
 	addresses := make([]string, len(req.ControllerAddresses))
