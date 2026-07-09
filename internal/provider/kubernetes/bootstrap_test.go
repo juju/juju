@@ -127,6 +127,18 @@ func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLoggingSettings(c *t
 	c.Check(strings.Contains(content, "logging-override: juju.bootstrap=TRACE"), tc.IsTrue)
 }
 
+func (s *bootstrapSuite) TestControllerRuntimeConfigContainsLokiSettings(c *tc.C) {
+	insecure := true
+	controllerStacker := s.controllerStackerGetter()
+	controllerStacker.SetControllerAgentLokiConfig("https://loki.example.com/loki/api/v1/push", pointer.String("loki-ca-cert"), &insecure, "test-org")
+
+	content := controllerStacker.GetControllerRuntimeConfigContent(c)
+	c.Check(strings.Contains(content, "lokiendpoint: https://loki.example.com/loki/api/v1/push"), tc.IsTrue)
+	c.Check(strings.Contains(content, "lokicacert: loki-ca-cert"), tc.IsTrue)
+	c.Check(strings.Contains(content, "lokiinsecureskipverify: true"), tc.IsTrue)
+	c.Check(strings.Contains(content, "lokiorgid: test-org"), tc.IsTrue)
+}
+
 func (s *bootstrapSuite) TearDownTest(c *tc.C) {
 	s.pcfg = nil
 	s.controllerCfg = nil

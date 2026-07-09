@@ -79,6 +79,9 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"change-stream-pruner",
 		"control-socket",
 		"controller-agent-config",
+		"log-router",
+		"log-sink",
+		"loki-config-updater",
 		"controller-presence",
 		"controller-trace",
 		"controller-upgrade-flag",
@@ -97,7 +100,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"jwt-parser",
 		"lease-expiry",
 		"lease-manager",
-		"log-sink",
 		"logging-controller-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -164,6 +166,9 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"controller-upgrade-gate",
 		"control-socket",
 		"controller-agent-config",
+		"log-router",
+		"log-sink",
+		"loki-config-updater",
 		"controller-presence",
 		"db-accessor",
 		"domain-services",
@@ -419,6 +424,25 @@ func (*ManifoldsSuite) TestObjectStoreDirectInputs(c *tc.C) {
 	}
 }
 
+func (*ManifoldsSuite) TestControllerLogRouterDirectInputs(c *tc.C) {
+	for _, manifolds := range []dependency.Manifolds{
+		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+		agentcontroller.CAASManifolds(agentcontroller.ManifoldsConfig{
+			ControllerTag:   testing.ControllerTag,
+			PreUpgradeSteps: preUpgradeSteps,
+		}),
+	} {
+		manifold, ok := manifolds["log-router"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(manifold.Inputs, tc.SameContents, []string{"http-client"})
+		checkNotContains(c, manifold.Inputs, "agent")
+		checkNotContains(c, manifold.Inputs, "controller-agent-config")
+		checkNotContains(c, manifold.Inputs, "log-router-reload-bridge")
+	}
+}
+
 func (*ManifoldsSuite) TestObjectStoreServicesDirectInputs(c *tc.C) {
 	for _, manifolds := range []dependency.Manifolds{
 		agentcontroller.IAASManifolds(agentcontroller.ManifoldsConfig{
@@ -617,6 +641,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"http-client",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -653,6 +678,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -686,6 +712,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"is-bootstrap-gate",
 		"jwt-parser",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -713,6 +740,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -739,6 +767,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"http-client",
 		"is-bootstrap-gate",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -767,6 +796,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -806,6 +836,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"http-client",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -831,6 +862,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -858,6 +890,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -900,6 +933,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -926,6 +960,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"http-client",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -969,6 +1004,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"is-bootstrap-gate",
 		"jwt-parser",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -998,6 +1034,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"is-bootstrap-flag",
 		"is-bootstrap-gate",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -1038,6 +1075,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -1075,7 +1113,40 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"trace-services",
 	},
 
-	"log-sink": {},
+	"log-router": {
+		"http-client",
+	},
+
+	"log-sink": {
+		"log-router",
+		"http-client",
+	},
+
+	"loki-config-updater": {
+		"api-remote-caller",
+		"change-stream",
+		"controller-agent-config",
+		"log-router",
+		"log-sink",
+		"controller-trace",
+		"db-accessor",
+		"domain-services",
+		"file-notify-watcher",
+		"http-client",
+		"lease-manager",
+		"object-store",
+		"object-store-facade",
+		"object-store-fortress",
+		"object-store-s3-caller",
+		"object-store-services",
+		"provider-services",
+		"provider-tracker",
+		"query-logger",
+		"storage-registry",
+		"trace-services",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+	},
 
 	"logging-controller-config-updater": {
 		"api-remote-caller",
@@ -1087,6 +1158,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -1127,6 +1199,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -1236,6 +1309,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
+		"http-client",
+		"log-router",
 		"log-sink",
 		"provider-services",
 		"query-logger",
@@ -1254,6 +1329,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"http-client",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -1286,6 +1362,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",
@@ -1306,6 +1383,8 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"controller-agent-config",
 		"db-accessor",
 		"file-notify-watcher",
+		"http-client",
+		"log-router",
 		"log-sink",
 		"provider-services",
 		"provider-tracker",
@@ -1332,6 +1411,7 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"file-notify-watcher",
 		"http-client",
 		"lease-manager",
+		"log-router",
 		"log-sink",
 		"object-store",
 		"object-store-facade",

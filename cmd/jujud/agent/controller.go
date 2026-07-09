@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/loggo/v3"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/names/v6"
@@ -43,6 +42,7 @@ import (
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internaldependency "github.com/juju/juju/internal/dependency"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/service"
@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/identityfilewriter"
 	"github.com/juju/juju/internal/worker/introspection"
+	"github.com/juju/juju/internal/worker/logrouter"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/wrench"
@@ -195,6 +196,27 @@ func (p controllerStartupValueProvider) CACert() (string, error) {
 		return "", errors.Trace(err)
 	}
 	return cfg.CACert, nil
+}
+
+// CurrentLokiConfig returns the current logrouter backend configuration from
+// runtime.conf. It re-reads current values on each call so bounced workers
+// see current logging destination settings. Loki fields are sourced from
+// runtime.conf when available; an empty endpoint causes the logrouter to
+// default to logsink mode.
+func (p controllerStartupValueProvider) CurrentLokiConfig() (logrouter.ConfigSnapshot, error) {
+	cfg, err := p.readRuntimeConfig()
+	if err != nil {
+		return logrouter.ConfigSnapshot{}, errors.Trace(err)
+	}
+	return logrouter.ConfigSnapshot{
+		Endpoint:           cfg.LokiEndpoint,
+		CACertificate:      cfg.LokiCACert,
+		InsecureSkipVerify: cfg.LokiInsecureSkipVerify,
+		ControllerUUID:     cfg.ControllerUUID,
+		ModelUUID:          cfg.ControllerModelUUID,
+		AgentID:            names.NewControllerAgentTag(cfg.ControllerID).String(),
+		OrgID:              cfg.LokiOrgID,
+	}, nil
 }
 
 // ControllerApplicationFactoryFnType is a function that creates a
@@ -548,20 +570,23 @@ func (a *ControllerApplication) makeEngineCreator(
 			flightrecorder.NewRecorder(c), "",
 			internallogger.GetLogger("juju.flightrecorder"),
 		)
+		runtimeConfigChanged := controllerruntimeconfig.NewRuntimeConfigChanged()
 
 		manifoldsCfg := agentcontroller.ManifoldsConfig{
-			PreviousAgentVersion: previousAgentVersion,
-			AgentName:            agentName,
-			ControllerID:         a.agentTag.Id(),
-			StartupValueProvider: startupValueProvider,
-			ControllerUUID:       controllerRuntimeConfig.ControllerUUID,
-			ControllerModelUUID:  controllerRuntimeConfig.ControllerModelUUID,
-			ControllerAgentTag:   a.agentTag,
-			ControllerTag:        names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
-			LogDir:               controllerRuntimeConfig.LogDir,
+			PreviousAgentVersion:  previousAgentVersion,
+			AgentName:             agentName,
+			ControllerID:          a.agentTag.Id(),
+			StartupValueProvider:  startupValueProvider,
+			ControllerUUID:        controllerRuntimeConfig.ControllerUUID,
+			ControllerModelUUID:   controllerRuntimeConfig.ControllerModelUUID,
+			ControllerAgentTag:    a.agentTag,
+			ControllerTag:         names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
+			LogDir:                controllerRuntimeConfig.LogDir,
+			ControllerRuntimePath: a.controllerRuntimePath,
 			ConfigChangeSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "configchange.socket",
 			),
+			RuntimeConfigChanged: runtimeConfigChanged,
 			ControlSocketPath: path.Join(
 				controllerRuntimeConfig.DataDir, "control.socket",
 			),
