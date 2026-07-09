@@ -20,11 +20,14 @@ type starformEventObjectStorage = struct {
 
 func (s *starformSuite) TestSetStatusCollectsIntent(c *tc.C) {
 	collector := &IntentCollector{}
-	ft := newSetStatusFormTest(c, collector, &starform.EventObject{
+	ft := formtest.From(c)
+	ft.SetApp(newAppObject())
+	ft.SetEvent(&starform.EventObject{
 		Name: "config_changed",
 		Attrs: starlark.StringDict{
 			"message": starlark.String("updated"),
 		},
+		State: collector,
 	})
 
 	ft.RunString(`
@@ -46,8 +49,11 @@ def on_config_changed(event):
 
 func (s *starformSuite) TestSetStatusUnobservedEventHasNoIntent(c *tc.C) {
 	collector := &IntentCollector{}
-	ft := newSetStatusFormTest(c, collector, &starform.EventObject{
-		Name: "update_status",
+	ft := formtest.From(c)
+	ft.SetApp(newAppObject())
+	ft.SetEvent(&starform.EventObject{
+		Name:  "update_status",
+		State: collector,
 	})
 
 	ft.RunString(`
@@ -77,19 +83,6 @@ func (s *starformSuite) TestSetStatusTimeSafe(c *tc.C) {
 
 func (s *starformSuite) TestSetStatusIOSafe(c *tc.C) {
 	assertSetStatusSafety(c, starlark.IOSafe, nil)
-}
-
-func newSetStatusFormTest(
-	c *tc.C, collector *IntentCollector, event *starform.EventObject,
-) *formtest.FT {
-	event.State = collector
-	ft := formtest.From(c)
-	ft.SetApp(&starform.AppObject{
-		Name:    "juju",
-		Methods: []*starlark.Builtin{setStatusBuiltin},
-	})
-	ft.SetEvent(event)
-	return ft
 }
 
 func assertStatusIntents(c *tc.C, intents []Intent, expected Intent) {

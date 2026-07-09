@@ -50,20 +50,7 @@ func NewStarformExecutor(ctx context.Context, config ExecutorConfig) (Executor, 
 	}
 
 	scriptSet, err := starform.NewScriptSet(&starform.ScriptSetOptions{
-		App: &starform.AppObject{
-			Name: "juju",
-			Methods: []*starlark.Builtin{
-				// TODO (manadart 2026-07-06): There will be two builtin types.
-				// 1) Those that append intents (like this one), which will be
-				//    reusable in agents and probably live in a scriptlet domain.
-				// 2) Those that query external state, and will *not* be common.
-				//    This is because agents will need to go via an API, and
-				//    server-side workers directly via domain services.
-				// I forsee a visitor defined in the domain, which will add all
-				// the intent builtins to a script set.
-				setStatusBuiltin,
-			},
-		},
+		App:            newAppObject(),
 		Logger:         config.Logger,
 		RequiredSafety: requiredSafety,
 		MaxAllocs:      maxAllocs,
@@ -80,6 +67,23 @@ func NewStarformExecutor(ctx context.Context, config ExecutorConfig) (Executor, 
 	}
 
 	return &starformExecutor{scriptSet: scriptSet}, nil
+}
+
+func newAppObject() *starform.AppObject {
+	return &starform.AppObject{
+		Name: "juju",
+		Methods: []*starlark.Builtin{
+			// TODO (manadart 2026-07-06): There will be two builtin types.
+			// 1) Those that append intents (like this one), which will be
+			//    reusable in agents and probably live in a scriptlet domain.
+			// 2) Those that query external state, and will *not* be common.
+			//    This is because agents will need to go via an API, and
+			//    server-side workers directly via domain services.
+			// I forsee a visitor defined in the domain, which will add all
+			// the intent builtins to a script set.
+			setStatusBuiltin,
+		},
+	}
 }
 
 type starformExecutor struct {

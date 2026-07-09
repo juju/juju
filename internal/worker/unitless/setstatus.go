@@ -14,7 +14,7 @@ const IntentSetStatus IntentType = "set-status"
 
 const setStatusSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe | starlark.IOSafe
 
-var setStatusBuiltin = starlark.NewBuiltinWithSafety("set-status", setStatusSafety, setStatus)
+var setStatusBuiltin = starlark.NewBuiltinWithSafety("status_set", setStatusSafety, setStatus)
 
 func setStatus(
 	thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple,

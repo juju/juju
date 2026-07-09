@@ -122,7 +122,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	eventChanges <- []string{"config_changed"}
 	handledEvent := waitFor(c, executor.handled)
 	c.Check(handledEvent, tc.DeepEquals, event)
-	log.waitFor(c, `scriptlet application "app-uuid-1" event "config_changed" intent: status-set`)
+	log.waitFor(c, `scriptlet application "app-uuid-1" event "config_changed" intent: set-status`)
 
 	workertest.CleanKill(c, w)
 }
