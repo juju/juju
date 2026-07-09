@@ -364,3 +364,25 @@ type dbTargetModelMigration struct {
 	// 0031-model-migration.PATCH.sql).
 	SourceMigrationUUID string `db:"source_migration_uuid"`
 }
+
+// dbRedirectModelUUID is a query argument holding a model uuid matched
+// against a model_uuid column.
+type dbRedirectModelUUID struct {
+	ModelUUID string `db:"model_uuid"`
+}
+
+// dbModelRedirect is the target-controller projection of a completed
+// model_migration_redirect row.
+type dbModelRedirect struct {
+	TargetControllerUUID  string  `db:"target_controller_uuid"`
+	TargetControllerAlias *string `db:"target_controller_alias"`
+	TargetAddresses       string  `db:"target_addresses"`
+	TargetCACert          string  `db:"target_ca_cert"`
+}
+
+// dbRedirectUser is a user's captured model access from the migration
+// redirect snapshot.
+type dbRedirectUser struct {
+	UserName string `db:"user_name"`
+	Access   string `db:"access"`
+}

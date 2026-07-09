@@ -191,6 +191,17 @@ type State interface {
 	// - [modelerrors.NotActivated]: When the model has not been activated.
 	GetModelLife(ctx context.Context, uuid coremodel.UUID) (domainlife.Life, error)
 
+	// GetModelRedirection returns redirection information for a model that
+	// has been migrated away from this controller, read from the redirect
+	// snapshot written by source-side migration REAP. Returns an error
+	// satisfying [modelerrors.ModelNotRedirected] when no completed redirect
+	// exists.
+	GetModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
+
+	// GetModelRedirectUsers returns the users captured with access to a
+	// migrated model in the redirect snapshot.
+	GetModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]model.RedirectUser, error)
+
 	// InitialWatchActivatedModelsStatement returns a SQL statement that will
 	// get all the activated models UUIDS in the controller.
 	InitialWatchActivatedModelsStatement() (string, string)
@@ -207,30 +218,6 @@ type Service struct {
 	logger              logger.Logger
 	clock               clock.Clock
 	statusHistoryGetter StatusHistoryGetter
-	redirectLookup      RedirectLookup
-}
-
-// RedirectLookup provides access to migration redirect information stored in
-// the controller database by the modelmigration domain. The model service
-// depends on this narrow interface rather than importing the modelmigration
-// state package directly, preserving domain boundary separation.
-type RedirectLookup interface {
-	// GetRedirectForModel returns the completed redirect target for a model,
-	// or an error satisfying [modelerrors.ModelNotRedirected] if no completed
-	// redirect exists.
-	GetRedirectForModel(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
-	// GetRedirectUsers returns the captured user access rows for a model's
-	// redirect snapshot. Used by login-time redirect to enforce the 3.6
-	// user-access behavior: anonymous logins may be redirected for CMR
-	// continuity; named users with no captured model access are not redirected.
-	GetRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]RedirectUser, error)
-}
-
-// RedirectUser is a single user's captured model access from the redirect
-// snapshot, used for login-time authorization.
-type RedirectUser struct {
-	UserName string
-	Access   string
 }
 
 var (
@@ -252,22 +239,15 @@ func NewService(
 	}
 }
 
-// SetRedirectLookup sets the redirect lookup interface used by ModelRedirection.
-// This is called after construction by the domain services composition root,
-// which provides the adapter that reads from the modelmigration controller
-// state. If never called, ModelRedirection always returns ModelNotRedirected.
-func (s *Service) SetRedirectLookup(rl RedirectLookup) {
-	s.redirectLookup = rl
-}
-
-// ModelRedirectUsers returns the captured user access rows for a model's
-// redirect snapshot. Used by login-time redirect to enforce the 3.6
-// user-access behavior. If no redirect lookup is configured, returns nil.
-func (s *Service) ModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]RedirectUser, error) {
-	if s.redirectLookup == nil {
-		return nil, nil
-	}
-	return s.redirectLookup.GetRedirectUsers(ctx, modelUUID)
+// ModelRedirectUsers returns the users captured with access to the model in
+// the migration redirect snapshot. Used by login-time redirect to enforce
+// the 3.6 user-access behavior: anonymous logins may be redirected for CMR
+// continuity; named local users with no captured model access are not
+// redirected.
+func (s *Service) ModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]model.RedirectUser, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.st.GetModelRedirectUsers(ctx, modelUUID)
 }
 
 // CheckModelExists checks if a model exists within the controller. True or
@@ -278,13 +258,12 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
-// ModelRedirection returns redirection information for the current model. If it
-// is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
+// ModelRedirection returns redirection information for the current model. If
+// it is not redirected, [modelerrors.ModelNotRedirected] is returned.
 func (s *Service) ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error) {
-	if s.redirectLookup == nil {
-		return model.ModelRedirection{}, modelerrors.ModelNotRedirected
-	}
-	return s.redirectLookup.GetRedirectForModel(ctx, modelUUID)
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.st.GetModelRedirection(ctx, modelUUID)
 }
 
 // DefaultModelCloudInfo returns the default cloud name and region name

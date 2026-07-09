@@ -677,6 +677,8 @@ type MockStateMockRecorder struct {
 	getModelCloudAndCredentialExpects           []*gomock.Call2_3[context.Context, model.UUID, cloud0.UUID, credential.UUID, error]
 	getModelCloudInfoExpects                    []*gomock.Call2_3[context.Context, model.UUID, string, string, error]
 	getModelLifeExpects                         []*gomock.Call2_2[context.Context, model.UUID, life.Life, error]
+	getModelRedirectUsersExpects                []*gomock.Call2_2[context.Context, model.UUID, []model0.RedirectUser, error]
+	getModelRedirectionExpects                  []*gomock.Call2_2[context.Context, model.UUID, model0.ModelRedirection, error]
 	getModelUUIDsExpects                        []*gomock.Call1_2[context.Context, []model.UUID, error]
 	getModelUsersExpects                        []*gomock.Call2_2[context.Context, model.UUID, []model.ModelUserInfo, error]
 	importModelExpects                          []*gomock.Call4_1[context.Context, model.UUID, model.ModelType, model0.GlobalModelCreationArgs, error]
@@ -1004,6 +1006,42 @@ func (mr *MockStateMockRecorder) GetModelLife(ctx, arg1 any) *MockStateGetModelL
 
 // MockStateGetModelLifeCall is the typed call wrapper for GetModelLife.
 type MockStateGetModelLifeCall = gomock.Call2_2[context.Context, model.UUID, life.Life, error]
+
+// GetModelRedirectUsers mocks base method.
+func (m *MockState) GetModelRedirectUsers(ctx context.Context, modelUUID model.UUID) ([]model0.RedirectUser, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getModelRedirectUsersExpects, m.ctrl, m, "GetModelRedirectUsers", ctx, modelUUID)
+}
+
+// GetModelRedirectUsers indicates an expected call of GetModelRedirectUsers.
+func (mr *MockStateMockRecorder) GetModelRedirectUsers(ctx, modelUUID any) *MockStateGetModelRedirectUsersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, model.UUID, []model0.RedirectUser, error](mr.mock.ctrl.T, mr.mock, "GetModelRedirectUsers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getModelRedirectUsersExpects = append(mr.getModelRedirectUsersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetModelRedirectUsersCall is the typed call wrapper for GetModelRedirectUsers.
+type MockStateGetModelRedirectUsersCall = gomock.Call2_2[context.Context, model.UUID, []model0.RedirectUser, error]
+
+// GetModelRedirection mocks base method.
+func (m *MockState) GetModelRedirection(ctx context.Context, modelUUID model.UUID) (model0.ModelRedirection, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getModelRedirectionExpects, m.ctrl, m, "GetModelRedirection", ctx, modelUUID)
+}
+
+// GetModelRedirection indicates an expected call of GetModelRedirection.
+func (mr *MockStateMockRecorder) GetModelRedirection(ctx, modelUUID any) *MockStateGetModelRedirectionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, model.UUID, model0.ModelRedirection, error](mr.mock.ctrl.T, mr.mock, "GetModelRedirection", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getModelRedirectionExpects = append(mr.getModelRedirectionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetModelRedirectionCall is the typed call wrapper for GetModelRedirection.
+type MockStateGetModelRedirectionCall = gomock.Call2_2[context.Context, model.UUID, model0.ModelRedirection, error]
 
 // GetModelUUIDs mocks base method.
 func (m *MockState) GetModelUUIDs(arg0 context.Context) ([]model.UUID, error) {

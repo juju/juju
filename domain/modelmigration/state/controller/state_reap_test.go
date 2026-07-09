@@ -93,14 +93,16 @@ func (s *stateSuite) TestReapFullPath(c *tc.C) {
 	c.Assert(st.StageModelRedirect(ctx, spec.MigrationUUID, s.modelUUID.String(), target, users), tc.ErrorIsNil)
 
 	// Staged-but-incomplete redirect is not active.
-	_, err = st.GetRedirectForModel(ctx, s.modelUUID.String())
-	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrModelNotRedirected)
+	var count int
+	c.Assert(db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM model_migration_redirect WHERE model_uuid = ? AND completed_at IS NOT NULL",
+		s.modelUUID).Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 
 	// Final purge transaction.
 	c.Assert(st.CompleteModelRedirectAndPurge(ctx, spec.MigrationUUID, s.modelUUID.String()), tc.ErrorIsNil)
 
 	// Model row is gone.
-	var count int
 	c.Assert(db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM model WHERE uuid = ?", s.modelUUID).Scan(&count), tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 0)
@@ -132,20 +134,29 @@ func (s *stateSuite) TestReapFullPath(c *tc.C) {
 	c.Check(user, tc.Equals, "")
 	c.Check(token, tc.Equals, "")
 
-	// The redirect is now active and round-trips.
-	got, err := st.GetRedirectForModel(ctx, s.modelUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got.ControllerUUID, tc.Equals, spec.TargetControllerUUID)
-	c.Check(got.ControllerAlias, tc.Equals, "target-controller")
-	c.Check(got.Addresses, tc.DeepEquals, []string{"10.0.0.1:17070", "10.0.0.2:17070"})
-	c.Check(got.CACert, tc.Equals, "ca-cert-data")
+	// The redirect is now active with the staged target.
+	var (
+		gotTargetUUID, gotAlias, gotAddresses, gotCACert string
+		completedAt                                      sql.NullString
+	)
+	c.Assert(db.QueryRowContext(ctx, `
+SELECT target_controller_uuid, IFNULL(target_controller_alias, ''),
+       target_addresses, target_ca_cert, completed_at
+FROM   model_migration_redirect WHERE model_uuid = ?`, s.modelUUID).
+		Scan(&gotTargetUUID, &gotAlias, &gotAddresses, &gotCACert, &completedAt), tc.ErrorIsNil)
+	c.Check(gotTargetUUID, tc.Equals, spec.TargetControllerUUID)
+	c.Check(gotAlias, tc.Equals, "target-controller")
+	c.Check(gotAddresses, tc.Equals, "10.0.0.1:17070,10.0.0.2:17070")
+	c.Check(gotCACert, tc.Equals, "ca-cert-data")
+	c.Check(completedAt.Valid, tc.IsTrue)
 
 	// The captured redirect users survive the purge.
-	gotUsers, err := st.GetRedirectUsers(ctx, s.modelUUID.String())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(gotUsers, tc.HasLen, 1)
-	c.Check(gotUsers[0].UserName, tc.Equals, s.userName.Name())
-	c.Check(gotUsers[0].Access, tc.Equals, "admin")
+	var gotUserName, gotAccess string
+	c.Assert(db.QueryRowContext(ctx,
+		"SELECT user_name, access FROM model_migration_redirect_user WHERE model_uuid = ?",
+		s.modelUUID).Scan(&gotUserName, &gotAccess), tc.ErrorIsNil)
+	c.Check(gotUserName, tc.Equals, s.userName.Name())
+	c.Check(gotAccess, tc.Equals, "admin")
 
 	// No active export remains.
 	_, err = st.GetActiveExport(ctx, s.modelUUID.String())

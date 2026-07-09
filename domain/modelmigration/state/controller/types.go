@@ -300,14 +300,14 @@ type migrationExportOffer struct {
 // migrationRedirect maps a model_migration_redirect row — the standalone
 // post-REAP redirect snapshot. completed_at is nullable.
 type migrationRedirect struct {
-	ModelUUID              string     `db:"model_uuid"`
-	SourceMigrationUUID    string     `db:"source_migration_uuid"`
-	TargetControllerUUID   string     `db:"target_controller_uuid"`
-	TargetControllerAlias  *string    `db:"target_controller_alias"`
-	TargetAddresses        string     `db:"target_addresses"`
-	TargetCACert           string     `db:"target_ca_cert"`
-	CreatedAt              time.Time  `db:"created_at"`
-	CompletedAt            *time.Time `db:"completed_at"`
+	ModelUUID             string     `db:"model_uuid"`
+	SourceMigrationUUID   string     `db:"source_migration_uuid"`
+	TargetControllerUUID  string     `db:"target_controller_uuid"`
+	TargetControllerAlias *string    `db:"target_controller_alias"`
+	TargetAddresses       string     `db:"target_addresses"`
+	TargetCACert          string     `db:"target_ca_cert"`
+	CreatedAt             time.Time  `db:"created_at"`
+	CompletedAt           *time.Time `db:"completed_at"`
 }
 
 // migrationRedirectUser maps a model_migration_redirect_user row — captured
@@ -319,20 +319,13 @@ type migrationRedirectUser struct {
 	Access    string `db:"access"`
 }
 
-// redirectUserRow is the projection read back for login-time redirect
-// authorization checks.
-type redirectUserRow struct {
-	UserName string `db:"user_name"`
-	Access   string `db:"access"`
-}
-
 // modelUserRedirectRow is the projection of a model-scoped permission row
 // joined with user identity, used to populate model_migration_redirect_user
 // during REAP.
 type modelUserRedirectRow struct {
-	UserUUID  string `db:"uuid"`
-	UserName  string `db:"name"`
-	Access    string `db:"access_type"`
+	UserUUID string `db:"uuid"`
+	UserName string `db:"name"`
+	Access   string `db:"access_type"`
 }
 
 // redirectCompletion carries the model UUID and completion timestamp for

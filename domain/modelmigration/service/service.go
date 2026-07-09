@@ -17,7 +17,6 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
@@ -25,9 +24,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/controllernode"
-	"github.com/juju/juju/domain/model"
-	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelservice "github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
@@ -1016,62 +1012,4 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// RedirectLookupAdapter adapts the modelmigration controller state's
-// GetRedirectForModel to the model service's RedirectLookup interface. It
-// translates from the modelmigration internal RedirectionTarget type to the
-// public model.ModelRedirection type.
-type RedirectLookupAdapter struct {
-	st RedirectLookupState
-}
-
-// RedirectLookupState is the subset of the modelmigration controller state
-// needed for redirect lookups.
-type RedirectLookupState interface {
-	GetRedirectForModel(ctx context.Context, modelUUID string) (modelmigrationinternal.RedirectionTarget, error)
-	GetRedirectUsers(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error)
-}
-
-// NewRedirectLookupAdapter creates a new RedirectLookupAdapter from the given
-// modelmigration controller state.
-func NewRedirectLookupAdapter(st RedirectLookupState) *RedirectLookupAdapter {
-	return &RedirectLookupAdapter{st: st}
-}
-
-// GetRedirectForModel implements [modelservice.RedirectLookup].
-func (a *RedirectLookupAdapter) GetRedirectForModel(
-	ctx context.Context, modelUUID coremodel.UUID,
-) (model.ModelRedirection, error) {
-	target, err := a.st.GetRedirectForModel(ctx, modelUUID.String())
-	if err != nil {
-		if errors.Is(err, modelmigrationerrors.ErrModelNotRedirected) {
-			return model.ModelRedirection{}, modelerrors.ModelNotRedirected
-		}
-		return model.ModelRedirection{}, errors.Capture(err)
-	}
-	return model.ModelRedirection{
-		Addresses:       target.Addresses,
-		CACert:          target.CACert,
-		ControllerUUID:  target.ControllerUUID,
-		ControllerAlias: target.ControllerAlias,
-	}, nil
-}
-
-// GetRedirectUsers implements [modelservice.RedirectLookup].
-func (a *RedirectLookupAdapter) GetRedirectUsers(
-	ctx context.Context, modelUUID coremodel.UUID,
-) ([]modelservice.RedirectUser, error) {
-	users, err := a.st.GetRedirectUsers(ctx, modelUUID.String())
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	result := make([]modelservice.RedirectUser, len(users))
-	for i, u := range users {
-		result[i] = modelservice.RedirectUser{
-			UserName: u.UserName,
-			Access:   u.Access,
-		}
-	}
-	return result, nil
 }
