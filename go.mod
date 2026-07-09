@@ -163,7 +163,7 @@ require (
 	github.com/cilium/ebpf v0.11.0 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
-	github.com/cloudflare/circl v1.6.2 // indirect
+	github.com/cloudflare/circl v1.6.4 // indirect
 	github.com/cosiner/argv v0.1.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/derekparker/trie/v3 v3.2.0 // indirect
