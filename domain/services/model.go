@@ -147,8 +147,10 @@ type ModelServices struct {
 
 // SetModelDBDeleter sets the model DB deleter used by source REAP. This is
 // called after construction by the domain services manifold, which provides
-// the adapter from the dbaccessor worker's coredatabase.DBDeleter. If never
-// called, MarkModelAsGone returns an error when REAP is attempted.
+// the adapter from the dbaccessor worker's coredatabase.DBDeleter. It is not
+// synchronised, so it must be called before the services are handed out for
+// concurrent use. If never called, MarkModelAsGone returns an error when REAP
+// is attempted.
 func (s *ModelServices) SetModelDBDeleter(deleter modelmigrationservice.ModelDBDeleter) {
 	s.modelDBDeleter = deleter
 }

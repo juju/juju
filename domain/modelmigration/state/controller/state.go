@@ -1828,6 +1828,9 @@ func (s *State) StageModelRedirect(
 		return errors.Capture(err)
 	}
 	now := s.clock.Now().UTC()
+	// Addresses are host:port strings, so the comma-separated encoding is
+	// unambiguous: neither hosts (including bracketed IPv6 literals) nor
+	// ports can contain a comma.
 	addresses := strings.Join(target.Addresses, ",")
 	var alias *string
 	if target.ControllerAlias != "" {
