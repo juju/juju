@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -38,10 +39,11 @@ type Config struct {
 	// so the logrouter can re-read current values from runtime.conf.
 	WriteLokiConfig func(logging.LokiConfig) error
 
-	// NotifyConfigReload signals the controller config change socket so
-	// that downstream workers (including the logrouter) re-read their
-	// persisted config.
-	NotifyConfigReload func() error
+	// RuntimeConfigChanged is a voyeur.Value that is set after each
+	// successful write to runtime.conf. Workers that watch this value
+	// (such as the controller-log-router) re-read the current config
+	// when it is set, without requiring a full worker reload.
+	RuntimeConfigChanged *voyeur.Value
 
 	// Logger is the logger used by the worker for its own messages.
 	Logger corelogger.Logger
@@ -55,8 +57,8 @@ func (c Config) Validate() error {
 	if c.WriteLokiConfig == nil {
 		return errors.NotValidf("nil WriteLokiConfig")
 	}
-	if c.NotifyConfigReload == nil {
-		return errors.NotValidf("nil NotifyConfigReload")
+	if c.RuntimeConfigChanged == nil {
+		return errors.NotValidf("nil RuntimeConfigChanged")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -140,9 +142,7 @@ func (w *lokiConfigUpdater) syncConfig(ctx context.Context) error {
 		lokiConfig.Endpoint,
 	)
 
-	if err := w.config.NotifyConfigReload(); err != nil {
-		return errors.Annotate(err, "notifying config reload")
-	}
+	w.config.RuntimeConfigChanged.Set(true)
 	w.lastWritten = lokiConfig
 	w.hasLastWritten = true
 	return nil
