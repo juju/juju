@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	"github.com/juju/utils/v4/voyeur"
 
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/logging"
@@ -23,7 +24,7 @@ func TestWorkerSuite(t *stdtesting.T) {
 func (s *workerSuite) TestSyncConfigSkipsDuplicateConfig(c *tc.C) {
 	service := &stubLokiConfigService{}
 	var writes []logging.LokiConfig
-	var reloads int
+	runtimeConfigChanged := voyeur.NewValue(false)
 
 	service.getLokiConfig = func(context.Context) (logging.LokiConfig, error) {
 		insecure := true
@@ -41,23 +42,25 @@ func (s *workerSuite) TestSyncConfigSkipsDuplicateConfig(c *tc.C) {
 			writes = append(writes, cfg)
 			return nil
 		},
-		NotifyConfigReload: func() error {
-			reloads++
-			return nil
-		},
-		Logger: internallogger.GetLogger("juju.worker.controllerlokiupdater.test"),
+		RuntimeConfigChanged: runtimeConfigChanged,
+		Logger:               internallogger.GetLogger("juju.worker.controllerlokiupdater.test"),
 	}}
+
+	// First sync: config should be written and voyeur set.
+	watcher := runtimeConfigChanged.Watch()
+	defer watcher.Close()
 
 	err := w.syncConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(writes, tc.HasLen, 1)
-	c.Check(reloads, tc.Equals, 1)
+	c.Check(watcher.Next(), tc.IsTrue)
 
+	// Second sync with same config: no write, no voyeur update.
 	err = w.syncConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(writes, tc.HasLen, 1)
-	c.Check(reloads, tc.Equals, 1)
 
+	// Third sync with different OrgID: new write and voyeur update.
 	service.getLokiConfig = func(context.Context) (logging.LokiConfig, error) {
 		insecure := true
 		return logging.LokiConfig{
@@ -71,7 +74,7 @@ func (s *workerSuite) TestSyncConfigSkipsDuplicateConfig(c *tc.C) {
 	err = w.syncConfig(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(writes, tc.HasLen, 2)
-	c.Check(reloads, tc.Equals, 2)
+	c.Check(watcher.Next(), tc.IsTrue)
 	c.Check(writes[1].OrgID, tc.Equals, "org-two")
 }
 
