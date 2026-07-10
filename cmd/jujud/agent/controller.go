@@ -7,8 +7,10 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/juju/clock"
@@ -89,6 +91,7 @@ func (p controllerStartupValueProvider) ControllerStartupValues() (dbaccessor.Co
 		CACert:                cfg.CACert,
 		ControllerCert:        cfg.ControllerCert,
 		ControllerPrivateKey:  cfg.ControllerPrivateKey,
+		SharedAgentDir:        cfg.SharedAgentDir,
 	}, nil
 }
 
@@ -498,11 +501,17 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	if err := introspection.WriteProfileFunctions(
-		introspection.ProfileDir,
-	); err != nil {
-		// This isn't fatal, just annoying.
-		logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
+	// TODO(juju-10104) Skip /etc/profile.d writes when running as a snap
+	// service (detected via SNAP_NAME env var). This guard is temporary:
+	// once bootstrap runs the controller exclusively as a snap (Stage 4),
+	// the /etc/profile.d write code path will be removed entirely.
+	if os.Getenv("SNAP_NAME") == "" {
+		if err := introspection.WriteProfileFunctions(
+			introspection.ProfileDir,
+		); err != nil {
+			// This isn't fatal, just annoying.
+			logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
+		}
 	}
 
 	if err := a.registerPrometheusCollectors(); err != nil {
@@ -572,24 +581,27 @@ func (a *ControllerApplication) makeEngineCreator(
 		)
 		runtimeConfigChanged := controllerruntimeconfig.NewRuntimeConfigChanged()
 
+		if err := ensureGroupDir(controllerRuntimeConfig.SocketDir); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := ensureGroupDir(controllerRuntimeConfig.SharedAgentDir); err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		manifoldsCfg := agentcontroller.ManifoldsConfig{
-			PreviousAgentVersion:  previousAgentVersion,
-			AgentName:             agentName,
-			ControllerID:          a.agentTag.Id(),
-			StartupValueProvider:  startupValueProvider,
-			ControllerUUID:        controllerRuntimeConfig.ControllerUUID,
-			ControllerModelUUID:   controllerRuntimeConfig.ControllerModelUUID,
-			ControllerAgentTag:    a.agentTag,
-			ControllerTag:         names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
-			LogDir:                controllerRuntimeConfig.LogDir,
-			ControllerRuntimePath: a.controllerRuntimePath,
-			ConfigChangeSocketPath: path.Join(
-				controllerRuntimeConfig.DataDir, "configchange.socket",
-			),
-			RuntimeConfigChanged: runtimeConfigChanged,
-			ControlSocketPath: path.Join(
-				controllerRuntimeConfig.DataDir, "control.socket",
-			),
+			PreviousAgentVersion:              previousAgentVersion,
+			AgentName:                         agentName,
+			ControllerID:                      a.agentTag.Id(),
+			StartupValueProvider:              startupValueProvider,
+			ControllerUUID:                    controllerRuntimeConfig.ControllerUUID,
+			ControllerModelUUID:               controllerRuntimeConfig.ControllerModelUUID,
+			ControllerAgentTag:                a.agentTag,
+			ControllerTag:                     names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
+			LogDir:                            controllerRuntimeConfig.LogDir,
+			ControllerRuntimePath:             a.controllerRuntimePath,
+			ConfigChangeSocketPath:            path.Join(controllerRuntimeConfig.SocketDir, "configchange.socket"),
+			RuntimeConfigChanged:              runtimeConfigChanged,
+			ControlSocketPath:                 path.Join(controllerRuntimeConfig.SocketDir, "control.socket"),
 			DataDir:                           controllerRuntimeConfig.DataDir,
 			APIPort:                           controllerRuntimeConfig.APIPort,
 			AgentPassword:                     controllerRuntimeConfig.AgentPassword,
@@ -808,4 +820,33 @@ func setupLoggingFromStrings(loggerContext corelogger.LoggerContext, loggingOver
 	if flags := featureflag.String(); flags != "" {
 		l.Warningf(context.TODO(), "developer feature flags enabled: %s", flags)
 	}
+}
+
+// ensureGroupDir creates a directory with mode 0750 and attempts to chown
+// it to root:juju. If the juju group does not exist (e.g. non-snap context
+// without manual group creation), it logs a warning and continues.
+func ensureGroupDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		return errors.Annotatef(err, "creating directory %q", dir)
+	}
+	if err := chownRootGroup(dir, "juju"); err != nil {
+		logger.Warningf(context.TODO(), "cannot chown %q to root:juju: %v", dir, err)
+	}
+	return nil
+}
+
+// chownRootGroup changes the ownership of path to root:group.
+func chownRootGroup(path, group string) error {
+	grp, err := user.LookupGroup(group)
+	if err != nil {
+		return errors.Annotatef(err, "looking up group %q", group)
+	}
+	gid, err := strconv.Atoi(grp.Gid)
+	if err != nil {
+		return errors.Annotatef(err, "parsing group id %q", grp.Gid)
+	}
+	if err := os.Chown(path, 0, gid); err != nil {
+		return errors.Annotatef(err, "chown %q", path)
+	}
+	return nil
 }

@@ -35,6 +35,7 @@ type ControllerStartupValues struct {
 	CACert                string
 	ControllerCert        string
 	ControllerPrivateKey  string
+	SharedAgentDir        string
 }
 
 // ControllerStartupValuesProvider provides controller-local startup values for
@@ -116,7 +117,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			controllerID := startupValues.ControllerID
+			// TODO(juju-10104) When SharedAgentDir is empty, fall back to
+			// DataDir/agents/controller-<id>/controller.conf to preserve
+			// non-snap bootstrap compatibility. Remove the fallback in
+			// Stage 4 when bootstrap is modified to run with the snap.
 			configPath := path.Join(startupValues.DataDir, "agents", "controller-"+controllerID, "controller.conf")
+			if startupValues.SharedAgentDir != "" {
+				configPath = path.Join(startupValues.SharedAgentDir, "controller.conf")
+			}
 			controllerConf := controllerConfigReader{configPath: configPath}
 
 			var controllerConfigWatcher controlleragentconfig.ConfigWatcher
