@@ -75,6 +75,10 @@ AGENT_PACKAGE_PLATFORMS ?= $(GOOS)/$(GOARCH)
 # OS_ARCH.
 OCI_IMAGE_PLATFORMS ?= linux/$(GOARCH)
 
+# Multi-snap layout: source-of-truth under snaps/<name>/, staging at snap/
+SNAPS_DIR := snaps
+SNAP_STAGE_DIR := snap
+
 # Build tags passed to go install/build.
 # Passing no-dqlite will disable building with dqlite.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
@@ -594,6 +598,27 @@ rebuild-export:
 	@echo "Generating exported schema..."
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/export
 	@env GOOS= GOARCH= CGO_ENABLED=1 go run -tags="libsqlite3" $(PROJECT)/generate/modelimport
+
+# snap_stage copies a named snap definition from snaps/<name>/ into the
+# generated staging directory snap/ that snapcraft expects at the repo root.
+# Usage: $(call snap_stage,<snap-name>)
+define snap_stage
+	@rm -rf ${SNAP_STAGE_DIR}
+	@mkdir -p ${SNAP_STAGE_DIR}
+	@cp -a ${SNAPS_DIR}/${1}/. ${SNAP_STAGE_DIR}/
+endef
+
+.PHONY: juju-snap
+juju-snap:
+## juju-snap: Build the juju snap from snaps/juju/
+	$(call snap_stage,juju)
+	snapcraft pack --use-lxd
+
+.PHONY: jujud-snap
+jujud-snap:
+## jujud-snap: Build the jujud controller snap from snaps/jujud/
+	$(call snap_stage,jujud)
+	snapcraft pack --use-lxd
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable

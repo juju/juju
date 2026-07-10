@@ -1,0 +1,92 @@
+name: jujud
+version: 4.1-beta2
+title: Juju Controller
+summary: Juju controller daemon
+description: |
+  The Juju controller daemon manages the API server, database, and workers
+  that form the Juju control plane. It hosts models, coordinates application
+  deployments, and handles lifecycle operations across clouds.
+
+  This snap packages the jujud controller binary with dynamically linked
+  dqlite and its native dependencies bundled inside the snap.
+
+  https://juju.is/
+license: AGPL-3.0
+contact: juju@lists.canonical.com
+issues: https://github.com/juju/juju/issues
+source-code: https://github.com/juju/juju
+website: https://juju.is
+base: core26
+assumes:
+  - snapd2.75
+confinement: strict
+grade: devel
+
+apps:
+  jujud:
+    # Snap-owned runtime path contract (binding for runtime.conf):
+    #   service --data-dir:        $SNAP_COMMON/var/lib/juju
+    #   runtime.conf data-dir:     $SNAP_COMMON/var/lib/juju
+    #   runtime.conf log-dir:      $SNAP_COMMON/var/log/juju
+    # runtime.conf location:
+    #   $SNAP_COMMON/var/lib/juju/agents/controller-0/runtime.conf
+    # Cross-process path sharing, layouts, and plugs are JUJU-10104.
+    command: >-
+      bin/jujud controller
+      --data-dir $SNAP_COMMON/var/lib/juju
+      --controller-id 0
+      --log-to-stderr
+    daemon: simple
+    restart-condition: on-failure
+    environment:
+      PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
+      JUJU_DATA: "$SNAP_COMMON/var/lib/juju"
+
+parts:
+  dqlite:
+    source: https://github.com/canonical/dqlite
+    source-type: git
+    source-commit: 91e3e2f90874e4ec3b45cde965f266342846531b # v1.18.7
+    plugin: autotools
+    autotools-configure-parameters:
+      - --prefix=
+      - --enable-build-raft
+    stage-packages:
+      - libuv1t64
+      - sqlite3
+    build-packages:
+      - liblz4-dev
+      - libsqlite3-dev
+      - libuv1-dev
+      - xfslibs-dev
+    organize:
+      usr/bin/: bin/
+      usr/lib/: lib/
+    prime:
+      - lib/libdqlite*so*
+      #- lib/*/liblz4.so*  # use liblz4.so from the base snap
+      - lib/*/libsqlite3*so*
+      - lib/*/libuv*
+
+  jujud:
+    after:
+      - dqlite
+    plugin: nil
+    source: .
+    build-snaps:
+      - go/1.26/stable
+    build-packages:
+      - gcc
+      - pkg-config
+    override-build: |
+      set -ex
+
+      cd "${CRAFT_PROJECT_DIR}"
+      export GOTOOLCHAIN=go1.26.0+auto
+      export GOBIN="${CRAFT_PART_INSTALL}/bin"
+      export CGO_ENABLED=1
+      export CGO_CFLAGS="-I${CRAFT_STAGE}/include/ -I${CRAFT_STAGE}/usr/local/include/"
+      export CGO_LDFLAGS="-L${CRAFT_STAGE}/lib/ -L${CRAFT_STAGE}/usr/local/lib/"
+      export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+      export GO_LDFLAGS="-s -w -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace="
+      go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud
