@@ -57,7 +57,7 @@ while true; do
     n=$((n+1))
 done`
 
-	// removeServicesScript is written to /sbin and can be used to remove
+	// removeServicesScript is written to /usr/sbin and can be used to remove
 	// all Juju services from a machine.
 	// Once this script is run, logic to check whether such a machine is already
 	// provisioned should return false and the machine can be reused as a target
@@ -389,7 +389,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 		}
 	}
 
-	w.conf.AddRunTextFile("/sbin/remove-juju-services", removeServicesScript, 0755)
+	w.conf.AddRunTextFile("/usr/sbin/remove-juju-services", removeServicesScript, 0755)
 
 	return w.addMachineAgentToBoot()
 }
