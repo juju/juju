@@ -284,11 +284,12 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		})),
 
 		traceName: trace.Manifold(trace.ManifoldConfig{
-			AgentName:       agentName,
-			Clock:           config.Clock,
-			Logger:          config.LoggerContext.GetLogger("juju.worker.trace"),
-			NewTracerWorker: trace.NewTracerWorker,
-			Kind:            coretrace.KindUnit,
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Clock:              config.Clock,
+			Logger:             config.LoggerContext.GetLogger("juju.worker.trace"),
+			NewTracerWorker:    trace.NewTracerWorker,
+			Kind:               coretrace.KindUnit,
 		}),
 
 		// For the nested deployer, the upgrade worker is only used to record

@@ -447,11 +447,12 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		}))),
 
 		traceName: trace.Manifold(trace.ManifoldConfig{
-			AgentName:       agentName,
-			Clock:           config.Clock,
-			Logger:          internallogger.GetLogger("juju.worker.trace"),
-			NewTracerWorker: trace.NewTracerWorker,
-			Kind:            coretrace.KindUnit,
+			AgentName:          agentName,
+			AgentConfigChanged: config.AgentConfigChanged,
+			Clock:              config.Clock,
+			Logger:             internallogger.GetLogger("juju.worker.trace"),
+			NewTracerWorker:    trace.NewTracerWorker,
+			Kind:               coretrace.KindUnit,
 		}),
 
 		// The CAAS unit termination worker handles SIGTERM from the container runtime.
