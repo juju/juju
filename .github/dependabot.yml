@@ -19,7 +19,6 @@ updates:
       prefix: "build"
       include: "scope"
     assignees:
-      - "hpidcock"
       - "anvial"
   - package-ecosystem: "gomod"
     directory: "/"
@@ -33,7 +32,7 @@ updates:
     allow:
       - dependency-name: "golang.org/x/*"
     assignees:
-      - "hpidcock"
+      - "SimonRichardson"
       - "anvial"
     target-branch: "2.9" # these should always go to 2.9 as it may contain security fixes
   - package-ecosystem: "pip"
@@ -46,7 +45,7 @@ updates:
       prefix: "chore"
       include: "scope"
     assignees:
-      - "hpidcock"
+      - "tmihoc"
       - "anvial"
     target-branch: "3.6"
   - package-ecosystem: "uv"
@@ -59,6 +58,6 @@ updates:
       prefix: "chore"
       include: "scope"
     assignees:
-      - "hpidcock"
+      - "tmihoc"
       - "anvial"
     target-branch: "3.6"
