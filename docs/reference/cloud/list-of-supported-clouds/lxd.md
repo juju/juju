@@ -7,7 +7,7 @@ myst:
 (cloud-lxd)=
 # LXD
 
-In Juju, [LXD](https://ubuntu.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines, and works as described below.
+In Juju, [LXD](https://canonical.com/lxd) is a {ref}`machine cloud <machine-cloud>` that can run both system containers and virtual machines, and works as described below.
 
 ```{note}
 This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to. For a cloud-specific starting point, see {ref}`lxd-appendix-example-workflows`.
