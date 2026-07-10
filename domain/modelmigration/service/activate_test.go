@@ -86,10 +86,11 @@ func (s *serviceSuite) TestEnsureSourceControllerExists(c *tc.C) {
 
 	controllerUUID := tc.Must(c, controller.NewUUID)
 	addrs := []string{"10.0.0.1:17070", "10.0.0.2:17070"}
-	consumedModels := []string{tc.Must(c, coremodel.NewUUID).String()}
+	consumedModels := []coremodel.UUID{tc.Must(c, coremodel.NewUUID)}
 
 	s.controllerState.EXPECT().EnsureSourceControllerExists(
-		gomock.Any(), controllerUUID.String(), "alias", "ca-cert", addrs, gomock.Any(), consumedModels,
+		gomock.Any(), controllerUUID.String(), "alias", "ca-cert", addrs, gomock.Any(),
+		[]string{consumedModels[0].String()},
 	).DoAndReturn(func(
 		_ context.Context, _, _, _ string, gotAddrs, gotAddrUUIDs, _ []string,
 	) error {

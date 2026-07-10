@@ -70,13 +70,22 @@ func (s *Service) EnsureSourceControllerExists(
 	ctx context.Context,
 	controllerUUID controller.UUID,
 	alias, caCert string,
-	addrs, consumedModels []string,
+	addrs []string,
+	consumedModels []coremodel.UUID,
 ) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	if err := controllerUUID.Validate(); err != nil {
 		return errors.Errorf("validating source controller uuid: %w", err)
+	}
+
+	consumedModelUUIDs := make([]string, len(consumedModels))
+	for i, u := range consumedModels {
+		if err := u.Validate(); err != nil {
+			return errors.Errorf("validating consumed model uuid: %w", err)
+		}
+		consumedModelUUIDs[i] = u.String()
 	}
 
 	addrUUIDs := make([]string, len(addrs))
@@ -89,7 +98,7 @@ func (s *Service) EnsureSourceControllerExists(
 	}
 
 	return s.controllerState.EnsureSourceControllerExists(
-		ctx, controllerUUID.String(), alias, caCert, addrs, addrUUIDs, consumedModels,
+		ctx, controllerUUID.String(), alias, caCert, addrs, addrUUIDs, consumedModelUUIDs,
 	)
 }
 

@@ -186,6 +186,11 @@ func reconcileOffererControllers(
 	}
 
 	if len(args.CrossModelUUIDs) > 0 {
+		crossModelUUIDs := make([]coremodel.UUID, len(args.CrossModelUUIDs))
+		for i, u := range args.CrossModelUUIDs {
+			crossModelUUIDs[i] = coremodel.UUID(u)
+		}
+
 		// Register the source controller using compare-or-insert semantics. The
 		// service generates the external-controller address row UUIDs.
 		if err := domainServices.ModelMigration().EnsureSourceControllerExists(
@@ -194,7 +199,7 @@ func reconcileOffererControllers(
 			args.SourceControllerAlias,
 			args.SourceCACert,
 			args.SourceAPIAddrs,
-			args.CrossModelUUIDs,
+			crossModelUUIDs,
 		); err != nil {
 			return errors.Errorf(
 				"registering source controller %q: %w", args.SourceControllerUUID, err,
@@ -203,10 +208,6 @@ func reconcileOffererControllers(
 
 		// Point all source-hosted offers at the source controller in a single
 		// UPDATE.
-		crossModelUUIDs := make([]coremodel.UUID, len(args.CrossModelUUIDs))
-		for i, u := range args.CrossModelUUIDs {
-			crossModelUUIDs[i] = coremodel.UUID(u)
-		}
 		if err := domainServices.CrossModelRelation().SetOffererControllerForOffererModels(
 			ctx, crossModelUUIDs, corecontroller.UUID(args.SourceControllerUUID),
 		); err != nil {
@@ -222,6 +223,8 @@ func reconcileOffererControllers(
 	if !hasClaim {
 		return nil
 	}
+	// We first retrieve them (from the controller DB) to later be inserted into
+	// the model DB.
 	thirdParty, err := domainServices.ModelMigration().ExternalControllerModelsForImport(ctx, modelUUID)
 	if err != nil {
 		return errors.Errorf(
