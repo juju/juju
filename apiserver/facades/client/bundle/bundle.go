@@ -523,6 +523,8 @@ func (b *BundleAPI) bundleDataApplications(
 			charmURL = fmt.Sprintf("local:%s", curl.Name)
 			if curl.Revision >= 0 {
 				charmURL = fmt.Sprintf("%s-%d", charmURL, curl.Revision)
+				cRev := curl.Revision
+				revision = &cRev
 			}
 		default:
 			return nil, nil, nil, errors.NotValidf("charm schema %q", curl.Schema)

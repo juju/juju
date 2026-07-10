@@ -2239,6 +2239,42 @@ relations:
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
+func (s *bundleSuite) TestExportLocalBundleWithRevision(c *gc.C) {
+	model := s.newModel("iaas", "local:wordpress-0", "local:mysql-3")
+	model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	output := `
+default-base: ubuntu@20.04/stable
+applications:
+  mysql:
+    charm: local:mysql-3
+    revision: 3
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: local:wordpress-0
+    revision: 0
+    num_units: 2
+    to:
+    - "0"
+    - "1"
+machines:
+  "0": {}
+  "1": {}
+relations:
+- - wordpress:db
+  - mysql:mysql
+`[1:]
+	expectedResult := params.StringResult{Result: output}
+
+	c.Check(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
 func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
 	specs := []struct {
 		descr            string
