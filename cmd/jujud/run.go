@@ -250,6 +250,8 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 
 	jujud.Register(agentcmd.NewBootstrapCommand())
 
+	jujud.Register(agentcmd.NewInitCommand())
+
 	agentConf := agentconf.NewAgentConf("")
 	controllerAgentFactory := agentcmd.ControllerAgentFactoryFn(
 		dbaccessor.NewTrackedDBWorker,
