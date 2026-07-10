@@ -34,9 +34,13 @@ apps:
     environment:
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
       JUJU_DATA: "$SNAP_DATA"
+      JUJU_BOOTSTRAP_PARAMS_PATH: "$SNAP_COMMON/bootstrap-params"
     plugs:
       - network
       - network-bind
+
+  init:
+    command: bin/jujud init
 
 parts:
   dqlite:
