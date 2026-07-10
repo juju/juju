@@ -3444,5 +3444,5 @@ func (s *environSuite) TestSupportsRulesWithIPV6CIDRs(c *tc.C) {
 
 	supported, err := fwQuerier.SupportsRulesWithIPV6CIDRs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(supported, tc.Equals, true)
+	c.Assert(supported, tc.IsTrue)
 }

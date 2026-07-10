@@ -716,9 +716,9 @@ func securityRuleName(prefix string, rule firewall.IngressRule) string {
 	} else {
 		cidr = rule.SourceCIDRs.SortedValues()[0]
 	}
-	if cidr != firewall.AllNetworksIPV4CIDR && cidr != "*" {
+	if cidr != firewall.AllNetworksIPV4CIDR && cidr != firewall.AllNetworksIPV6CIDR && cidr != "*" {
 		cidr = strings.Replace(cidr, ".", "-", -1)
-		cidr = strings.Replace(cidr, "::", "-", -1)
+		cidr = strings.Replace(cidr, ":", "-", -1)
 		cidr = strings.Replace(cidr, "/", "-", -1)
 		ruleName = fmt.Sprintf("%s-cidr-%s", ruleName, cidr)
 	}
