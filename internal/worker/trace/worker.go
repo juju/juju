@@ -382,7 +382,7 @@ func (w *tracerWorker) initTracer(ctx context.Context, namespace coretrace.Tagge
 	return errors.Trace(err)
 }
 
-func (w *tracerWorker) applyConfig(config RuntimeConfig) error {
+func (w *tracerWorker) applyConfig(ctx context.Context, config RuntimeConfig) error {
 	config = normalizeRuntimeConfig(config)
 	current := w.getRuntimeConfig()
 	w.setRuntimeConfig(config)
@@ -390,6 +390,8 @@ func (w *tracerWorker) applyConfig(config RuntimeConfig) error {
 	if !runtimeConfigChanged(current, config) {
 		return nil
 	}
+
+	w.cfg.Logger.Infof(ctx, "updating trace config: reloading all trace workers")
 
 	return w.stopTrackedTracers()
 }
@@ -428,7 +430,7 @@ func (w *tracerWorker) reloadRuntimeConfig(ctx context.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return w.applyConfig(runtimeConfig)
+	return w.applyConfig(ctx, runtimeConfig)
 }
 
 func (w *tracerWorker) getRuntimeConfig() RuntimeConfig {

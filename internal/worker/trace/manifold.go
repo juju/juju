@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 	"gopkg.in/tomb.v2"
@@ -40,17 +41,21 @@ type TracerWorkerFunc func(
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName       string
-	Clock           clock.Clock
-	Logger          logger.Logger
-	NewTracerWorker TracerWorkerFunc
-	Kind            coretrace.Kind
+	AgentName          string
+	AgentConfigChanged *voyeur.Value
+	Clock              clock.Clock
+	Logger             logger.Logger
+	NewTracerWorker    TracerWorkerFunc
+	Kind               coretrace.Kind
 }
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if cfg.AgentConfigChanged == nil {
+		return errors.NotValidf("nil AgentConfigChanged")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -104,7 +109,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				SampleRatio:           defaultOpenTelemetrySampleRatio,
 				TailSamplingThreshold: defaultOpenTelemetryTailSamplingThreshold,
 				RuntimeConfigProvider: unitRuntimeConfigProvider{
-					config: currentConfig,
+					agent:              a,
+					agentConfigChanged: config.AgentConfigChanged,
 				},
 			})
 			if err != nil {
@@ -138,67 +144,87 @@ func tracerSetOutput(in TracerGetter, out any) error {
 }
 
 type unitRuntimeConfigProvider struct {
-	config agent.Config
+	agent              agent.Agent
+	agentConfigChanged *voyeur.Value
 }
 
 // CurrentRuntimeConfig returns the current runtime config for the unit trace
 // worker.
 func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (RuntimeConfig, error) {
+	config := p.agent.CurrentConfig()
 	return RuntimeConfig{
-		Enabled:               p.config.OpenTelemetryEnabled(),
-		HTTPEndpoint:          p.config.OpenTelemetryHTTPEndpoint(),
-		GRPCEndpoint:          p.config.OpenTelemetryGRPCEndpoint(),
-		InsecureSkipVerify:    p.config.OpenTelemetryInsecure(),
-		StackTracesEnabled:    p.config.OpenTelemetryStackTraces(),
-		SampleRatio:           p.config.OpenTelemetrySampleRatio(),
-		TailSamplingThreshold: p.config.OpenTelemetryTailSamplingThreshold(),
+		Enabled:               config.OpenTelemetryEnabled(),
+		HTTPEndpoint:          config.OpenTelemetryHTTPEndpoint(),
+		GRPCEndpoint:          config.OpenTelemetryGRPCEndpoint(),
+		InsecureSkipVerify:    config.OpenTelemetryInsecure(),
+		StackTracesEnabled:    config.OpenTelemetryStackTraces(),
+		SampleRatio:           config.OpenTelemetrySampleRatio(),
+		TailSamplingThreshold: config.OpenTelemetryTailSamplingThreshold(),
 	}, nil
 }
 
-// WatchRuntimeConfig returns an empty watcher, as the unit trace worker does
-// not support hot-reloading of the tracing configuration.
+// WatchRuntimeConfig returns a watcher for local agent config changes.
 func (p unitRuntimeConfigProvider) WatchRuntimeConfig(context.Context) (watcher.NotifyWatcher, error) {
-	return emptyNotifyWatcher(), nil
+	return newAgentConfigChangedWatcher(p.agentConfigChanged), nil
 }
 
-// emptyNotifyWatcher is a watcher that will just prime the watcher as a notify
-// watcher. This will broadcast an initial empty struct{} value to ensure that
-// any watchers that are waiting for changes will receive an initial
-// notification.
-func emptyNotifyWatcher() watcher.NotifyWatcher {
-	var empty struct{}
-	ch := make(chan struct{}, 1)
-	ch <- empty
-	w := &emptyWatcher{
-		ch: ch,
+func newAgentConfigChangedWatcher(value *voyeur.Value) watcher.NotifyWatcher {
+	w := &agentConfigChangedWatcher{
+		watch: value.Watch(),
+		ch:    make(chan struct{}, 1),
 	}
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		close(w.ch)
-		return tomb.ErrDying
-	})
+	w.tomb.Go(w.loop)
 	return w
 }
 
-type emptyWatcher struct {
-	tomb tomb.Tomb
-	ch   chan struct{}
+type agentConfigChangedWatcher struct {
+	tomb  tomb.Tomb
+	watch *voyeur.Watcher
+	ch    chan struct{}
 }
 
-func (w *emptyWatcher) Kill() {
+func (w *agentConfigChangedWatcher) Kill() {
+	w.watch.Close()
 	w.tomb.Kill(nil)
 }
 
-func (w *emptyWatcher) Wait() error {
+func (w *agentConfigChangedWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
-func (w *emptyWatcher) Changes() <-chan struct{} {
+func (w *agentConfigChangedWatcher) Changes() <-chan struct{} {
 	return w.ch
 }
 
-func (w *emptyWatcher) Report(_ context.Context) map[string]any {
+func (w *agentConfigChangedWatcher) Report(_ context.Context) map[string]any {
 	return map[string]any{
-		"type": "emptyNotifyWatcher",
+		"type": "agentConfigChangedWatcher",
+	}
+}
+
+func (w *agentConfigChangedWatcher) loop() error {
+	defer close(w.ch)
+	defer w.watch.Close()
+
+	if err := w.notify(); err != nil {
+		return err
+	}
+
+	for {
+		if !w.watch.Next() {
+			return nil
+		}
+		if err := w.notify(); err != nil {
+			return err
+		}
+	}
+}
+
+func (w *agentConfigChangedWatcher) notify() error {
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case w.ch <- struct{}{}:
+		return nil
 	}
 }
