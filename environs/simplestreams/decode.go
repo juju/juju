@@ -9,14 +9,14 @@ import (
 	"io"
 	"io/ioutil"
 
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 )
 
-// PGPPGPSignatureCheckFn can be overridden by tests to allow signatures from
+// PGPSignatureCheckFn can be overridden by tests to allow signatures from
 // non-trusted sources to be verified.
 var PGPSignatureCheckFn = func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
-	return openpgp.CheckDetachedSignature(keyring, signed, signature)
+	return openpgp.CheckDetachedSignature(keyring, signed, signature, nil)
 }
 
 // DecodeCheckSignature parses the inline signed PGP text, checks the signature,
@@ -39,7 +39,10 @@ func DecodeCheckSignature(r io.Reader, armoredPublicKey string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	return b.Plaintext, nil
+	// The x/crypto implementation retained the final newline in decoded
+	// clear-signed text. ProtonMail's fork removes it, so restore it to keep
+	// the existing simplestreams API behavior.
+	return append(b.Plaintext, '\n'), nil
 }
 
 // NotPGPSignedError is used when PGP text does not contain an inline signature.

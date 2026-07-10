@@ -8,8 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 )
 
 // Encode signs the data returned by the reader and returns an inline signed copy.
@@ -39,6 +39,12 @@ func Encode(r io.Reader, armoredPrivateKey, passphrase string) ([]byte, error) {
 	dataToSign := metadata
 	if dataToSign[0] == '\n' {
 		dataToSign = dataToSign[1:]
+	}
+	// The ProtonMail implementation always writes a final newline when the
+	// clear-signing writer is closed. Remove one from the input so callers see
+	// the same output as the previous x/crypto implementation.
+	if len(dataToSign) > 0 && dataToSign[len(dataToSign)-1] == '\n' {
+		dataToSign = dataToSign[:len(dataToSign)-1]
 	}
 	_, err = plaintext.Write(dataToSign)
 	if err != nil {

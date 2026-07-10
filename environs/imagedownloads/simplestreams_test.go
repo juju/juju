@@ -10,10 +10,10 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	openpgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"golang.org/x/crypto/openpgp"
-	openpgperrors "golang.org/x/crypto/openpgp/errors"
 	gc "gopkg.in/check.v1"
 
 	. "github.com/juju/juju/environs/imagedownloads"
@@ -47,7 +47,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// signature is not trusted, we need to override the signature check
 	// implementation and suppress the ErrUnkownIssuer error.
 	s.PatchValue(&simplestreams.PGPSignatureCheckFn, func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
-		ent, err := openpgp.CheckDetachedSignature(keyring, signed, signature)
+		ent, err := openpgp.CheckDetachedSignature(keyring, signed, signature, nil)
 		c.Assert(err, gc.Equals, openpgperrors.ErrUnknownIssuer, gc.Commentf("expected the signature verification to return ErrUnknownIssuer when the index file is signed with the test pgp key"))
 		return ent, nil
 	})

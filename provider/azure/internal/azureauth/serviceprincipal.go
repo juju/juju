@@ -134,7 +134,7 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 	if c.RequestAdaptor != nil {
 		client = msgraphsdkgo.NewGraphServiceClient(c.RequestAdaptor)
 	} else {
-		client, err = msgraphsdkgo.NewGraphServiceClientWithCredentials(params.Credential, nil)
+		client, err = newGraphServiceClientWithCredentials(params.Credential)
 	}
 	if err != nil {
 		return "", "", "", errors.Trace(err)
