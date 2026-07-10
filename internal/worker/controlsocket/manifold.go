@@ -5,6 +5,7 @@ package controlsocket
 
 import (
 	"context"
+	"os"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
@@ -44,6 +45,9 @@ type ManifoldConfig struct {
 	NewWorker         func(Config) (worker.Worker, error)
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 	SocketName        string
+	// SocketFileMode is the file mode to apply to the created Unix socket.
+	// A zero value means the default 0700 (owner-only) is used.
+	SocketFileMode os.FileMode
 
 	GetControllerDomainServices     GetControllerDomainServicesFunc
 	GetControllerObjectStoreService GetControllerObjectStoreServiceFunc
@@ -132,6 +136,7 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		ObjectStoreService:  controllerObjectStoreService,
 		Logger:              cfg.Logger,
 		SocketName:          cfg.SocketName,
+		SocketFileMode:      cfg.SocketFileMode,
 		NewSocketListener:   cfg.NewSocketListener,
 		ControllerModelUUID: controllerModelUUID,
 		MetricsCollector:    metricsCollector,
