@@ -221,6 +221,183 @@ WHERE  mi.model_uuid = $modelUUIDArg.model_uuid
 	return result, nil
 }
 
+// SetImportPhaseActivating transitions a model_migration_import claim from
+// importing to activating, marking the point of no return for activation.
+// It is idempotent when the claim is already activating and returns
+// [modelmigrationerrors.ErrActivationAborting] when the claim is aborting,
+// [modelmigrationerrors.ErrImportNotFound] when no claim exists.
+func (s *State) SetImportPhaseActivating(ctx context.Context, modelUUID string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	phases := importPhaseNames{
+		Target: string(modelmigration.ImportPhaseActivating),
+		Source: string(modelmigration.ImportPhaseImporting),
+	}
+	updateStmt, err := s.Prepare(`
+UPDATE model_migration_import
+SET    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.target),
+       updated_at    = DATETIME('now', 'utc')
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.source)
+`, mUUID, phases)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		claim, err := s.getImportClaim(ctx, tx, modelUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		switch claim.Phase {
+		case modelmigration.ImportPhaseAborting:
+			return errors.Capture(modelmigrationerrors.ErrActivationAborting)
+		case modelmigration.ImportPhaseActivating:
+			return nil // idempotent: already in activating
+		}
+
+		// Phase is importing; CAS to activating.
+		var outcome sqlair.Outcome
+		if err := tx.Query(ctx, updateStmt, mUUID, phases).Get(&outcome); err != nil {
+			return errors.Errorf("transitioning import to activating: %w", err)
+		}
+		affected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if affected == 0 {
+			// Concurrent phase change won the race.
+			return errors.Errorf(
+				"import phase changed concurrently: %w",
+				modelmigrationerrors.ErrPhaseTransitionInvalid,
+			)
+		}
+		return nil
+	})
+}
+
+// DeleteActivatedImport removes the import claim and its FK-dependent companion
+// rows (model_migration_import_offer, model_migration_import_external_controller_model)
+// in a single transaction, asserting that the claim is in the activating phase.
+// It is idempotent when no claim exists (already deleted). Returns
+// [modelmigrationerrors.ErrPhaseTransitionInvalid] when the claim exists but is
+// not in the activating phase.
+func (s *State) DeleteActivatedImport(ctx context.Context, modelUUID string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	deleteOffersStmt, err := s.Prepare(`
+DELETE FROM model_migration_import_offer
+WHERE  migration_uuid IN (
+       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteECMStmt, err := s.Prepare(`
+DELETE FROM model_migration_import_external_controller_model
+WHERE  migration_uuid IN (
+       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	deleteClaimStmt, err := s.Prepare(`
+DELETE FROM model_migration_import
+WHERE model_uuid = $modelUUIDArg.model_uuid
+	`, mUUID)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		claim, err := s.getImportClaim(ctx, tx, modelUUID)
+		if errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
+			return nil // idempotent: already deleted
+		}
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if claim.Phase != modelmigration.ImportPhaseActivating {
+			return errors.Errorf(
+				"import claim is %q, expected activating: %w",
+				claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
+			)
+		}
+
+		if err := tx.Query(ctx, deleteOffersStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting import offer companions: %w", err)
+		}
+		if err := tx.Query(ctx, deleteECMStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting import external controller companions: %w", err)
+		}
+		if err := tx.Query(ctx, deleteClaimStmt, mUUID).Run(); err != nil {
+			return errors.Errorf("deleting activated import claim: %w", err)
+		}
+		return nil
+	})
+}
+
+// EnsureSourceControllerExists registers the migration source controller as an
+// external controller and maps the given consumed (source-hosted) models to it
+// in external_model, mirroring how ImportExternalControllers records third-party
+// controllers. It is a primitive-typed wrapper for callers outside the
+// domain/modelmigration tree (e.g. internal/migration) that cannot build the
+// internal representation. Both the controller registration and the model
+// mapping use compare-or-insert semantics and never overwrite live CMR data:
+// [modelmigrationerrors.ErrExternalControllerMismatch] is returned when the
+// controller, or any consumed model, is already registered with different
+// details. addrUUIDs supplies the caller-generated UUID for each address in
+// addrs and must have the same length.
+func (s *State) EnsureSourceControllerExists(
+	ctx context.Context,
+	controllerUUID, alias, caCert string,
+	addrs, addrUUIDs, consumedModels []string,
+) error {
+	if len(addrs) != len(addrUUIDs) {
+		return errors.Errorf("addresses and address UUIDs length mismatch")
+	}
+	internalAddrs := make([]modelmigrationinternal.ExternalControllerAddress, len(addrs))
+	for i, addr := range addrs {
+		internalAddrs[i] = modelmigrationinternal.ExternalControllerAddress{
+			UUID:    addrUUIDs[i],
+			Address: addr,
+		}
+	}
+	ref := modelmigrationinternal.ExternalController{
+		UUID:           controllerUUID,
+		Alias:          alias,
+		CACert:         caCert,
+		Addresses:      internalAddrs,
+		ConsumedModels: consumedModels,
+	}
+
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := s.ensureExternalControllerExists(ctx, tx, ref); err != nil {
+			return errors.Capture(err)
+		}
+		for _, consumedModelUUID := range ref.ConsumedModels {
+			if err := s.ensureExternalModelMatchesOrInsert(
+				ctx, tx, consumedModelUUID, ref.UUID,
+			); err != nil {
+				return errors.Capture(err)
+			}
+		}
+		return nil
+	})
+}
+
 // EnsureExternalControllerExists compares the given third-party controller's
 // connection details (alias, CA cert, addresses) against any existing
 // external_controller row with the same UUID. It inserts the controller and
@@ -400,4 +577,51 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 		}
 		return nil
 	})
+}
+
+// ExternalControllerModelsForImport returns the third-party offerer-model to
+// controller mappings stored in model_migration_import_external_controller_model
+// for the given model's import claim. These are consumed by ActivateModel to
+// populate application_remote_offerer.offerer_controller_uuid for relations
+// that cross a third-party controller boundary.
+//
+// Returns an empty slice when no mappings exist or when the model has no claim.
+func (s *State) ExternalControllerModelsForImport(
+	ctx context.Context, modelUUID string,
+) ([]modelmigrationinternal.OffererModel, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT mmiecm.offerer_model_uuid AS &importExternalControllerModelArg.offerer_model_uuid,
+       mmiecm.controller_uuid    AS &importExternalControllerModelArg.controller_uuid
+FROM   model_migration_import_external_controller_model AS mmiecm
+JOIN   model_migration_import AS mmi ON mmi.uuid = mmiecm.migration_uuid
+WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid`,
+		importExternalControllerModelArg{}, modelUUIDArg{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var rows []importExternalControllerModelArg
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, modelUUIDArg{ModelUUID: modelUUID}).GetAll(&rows)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	}); err != nil {
+		return nil, errors.Errorf("fetching external controller models for import: %w", err)
+	}
+
+	result := make([]modelmigrationinternal.OffererModel, len(rows))
+	for i, r := range rows {
+		result[i] = modelmigrationinternal.OffererModel{
+			ModelUUID:      r.OffererModelUUID,
+			ControllerUUID: r.ControllerUUID,
+		}
+	}
+	return result, nil
 }

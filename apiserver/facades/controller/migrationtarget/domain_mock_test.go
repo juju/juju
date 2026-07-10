@@ -141,9 +141,8 @@ type MockExternalControllerService struct {
 
 // MockExternalControllerServiceMockRecorder is the mock recorder for MockExternalControllerService.
 type MockExternalControllerServiceMockRecorder struct {
-	mock                            *MockExternalControllerService
-	controllerForModelExpects       []*gomock.Call2_2[context.Context, string, *crossmodel.ControllerInfo, error]
-	updateExternalControllerExpects []*gomock.Call2_1[context.Context, crossmodel.ControllerInfo, error]
+	mock                      *MockExternalControllerService
+	controllerForModelExpects []*gomock.Call2_2[context.Context, string, *crossmodel.ControllerInfo, error]
 }
 
 // NewMockExternalControllerService creates a new mock instance.
@@ -175,24 +174,6 @@ func (mr *MockExternalControllerServiceMockRecorder) ControllerForModel(ctx, mod
 
 // MockExternalControllerServiceControllerForModelCall is the typed call wrapper for ControllerForModel.
 type MockExternalControllerServiceControllerForModelCall = gomock.Call2_2[context.Context, string, *crossmodel.ControllerInfo, error]
-
-// UpdateExternalController mocks base method.
-func (m *MockExternalControllerService) UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.updateExternalControllerExpects, m.ctrl, m, "UpdateExternalController", ctx, ec)
-}
-
-// UpdateExternalController indicates an expected call of UpdateExternalController.
-func (mr *MockExternalControllerServiceMockRecorder) UpdateExternalController(ctx, ec any) *MockExternalControllerServiceUpdateExternalControllerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, crossmodel.ControllerInfo, error](mr.mock.ctrl.T, mr.mock, "UpdateExternalController", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(ec))
-	mr.updateExternalControllerExpects = append(mr.updateExternalControllerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockExternalControllerServiceUpdateExternalControllerCall is the typed call wrapper for UpdateExternalController.
-type MockExternalControllerServiceUpdateExternalControllerCall = gomock.Call2_1[context.Context, crossmodel.ControllerInfo, error]
 
 // MockUpgradeService is a mock of UpgradeService interface.
 type MockUpgradeService struct {
@@ -247,6 +228,7 @@ type MockModelImporter struct {
 // MockModelImporterMockRecorder is the mock recorder for MockModelImporter.
 type MockModelImporterMockRecorder struct {
 	mock                     *MockModelImporter
+	activateModelExpects     []*gomock.Call2_1[context.Context, migration.ActivateModelArgs, error]
 	importModelExpects       []*gomock.Call3_1[context.Context, migration.ImportModelArgs, export.ProjectionView, error]
 	importModelLegacyExpects []*gomock.Call2_1[context.Context, []byte, error]
 }
@@ -262,6 +244,24 @@ func NewMockModelImporter(ctrl *gomock.Controller) *MockModelImporter {
 func (m *MockModelImporter) EXPECT() *MockModelImporterMockRecorder {
 	return m.recorder
 }
+
+// ActivateModel mocks base method.
+func (m *MockModelImporter) ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.activateModelExpects, m.ctrl, m, "ActivateModel", ctx, args)
+}
+
+// ActivateModel indicates an expected call of ActivateModel.
+func (mr *MockModelImporterMockRecorder) ActivateModel(ctx, args any) *MockModelImporterActivateModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, migration.ActivateModelArgs, error](mr.mock.ctrl.T, mr.mock, "ActivateModel", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(args))
+	mr.activateModelExpects = append(mr.activateModelExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelImporterActivateModelCall is the typed call wrapper for ActivateModel.
+type MockModelImporterActivateModelCall = gomock.Call2_1[context.Context, migration.ActivateModelArgs, error]
 
 // ImportModel mocks base method.
 func (m *MockModelImporter) ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error {
@@ -309,7 +309,6 @@ type MockModelMigrationService struct {
 // MockModelMigrationServiceMockRecorder is the mock recorder for MockModelMigrationService.
 type MockModelMigrationServiceMockRecorder struct {
 	mock                      *MockModelMigrationService
-	activateImportExpects     []*gomock.Call1_1[context.Context, error]
 	adoptResourcesExpects     []*gomock.Call2_1[context.Context, semversion.Number, error]
 	checkMachinesExpects      []*gomock.Call1_2[context.Context, []modelmigration.MigrationMachineDiscrepancy, error]
 	modelMigrationModeExpects []*gomock.Call1_2[context.Context, modelmigration.MigrationMode, error]
@@ -326,24 +325,6 @@ func NewMockModelMigrationService(ctrl *gomock.Controller) *MockModelMigrationSe
 func (m *MockModelMigrationService) EXPECT() *MockModelMigrationServiceMockRecorder {
 	return m.recorder
 }
-
-// ActivateImport mocks base method.
-func (m *MockModelMigrationService) ActivateImport(ctx context.Context) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.activateImportExpects, m.ctrl, m, "ActivateImport", ctx)
-}
-
-// ActivateImport indicates an expected call of ActivateImport.
-func (mr *MockModelMigrationServiceMockRecorder) ActivateImport(ctx any) *MockModelMigrationServiceActivateImportCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[context.Context, error](mr.mock.ctrl.T, mr.mock, "ActivateImport", gomock.EnsureMatcher(ctx))
-	mr.activateImportExpects = append(mr.activateImportExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockModelMigrationServiceActivateImportCall is the typed call wrapper for ActivateImport.
-type MockModelMigrationServiceActivateImportCall = gomock.Call1_1[context.Context, error]
 
 // AdoptResources mocks base method.
 func (m *MockModelMigrationService) AdoptResources(arg0 context.Context, arg1 semversion.Number) error {

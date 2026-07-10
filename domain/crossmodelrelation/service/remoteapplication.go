@@ -156,6 +156,16 @@ type ModelRemoteApplicationState interface {
 	// relation UUID. This method works for both offerer and consumer side
 	// relations.
 	GetRelationRemoteModelUUID(ctx context.Context, relationUUID corerelation.UUID) (coremodel.UUID, error)
+
+	// SetOffererControllerForOffererModel sets the offerer_controller_uuid for
+	// all application_remote_offerer rows whose offerer_model_uuid matches the
+	// given model UUID. Idempotent.
+	SetOffererControllerForOffererModel(ctx context.Context, offererModelUUID, controllerUUID string) error
+
+	// SetOffererControllerForOffererModels sets the offerer_controller_uuid for
+	// all application_remote_offerer rows whose offerer_model_uuid is one of the
+	// given model UUIDs, in a single statement. Idempotent.
+	SetOffererControllerForOffererModels(ctx context.Context, offererModelUUIDs []string, controllerUUID string) error
 }
 
 // AddRemoteApplicationOfferer adds a new synthetic application representing

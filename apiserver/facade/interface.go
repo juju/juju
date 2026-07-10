@@ -191,7 +191,7 @@ type LegacyStateExporter interface {
 	Export(objectstore.ObjectStore) (description.Model, error)
 }
 
-// ModelImporter defines an interface for importing models.
+// ModelImporter defines an interface for importing and activating models.
 type ModelImporter interface {
 	// ImportModelLegacy imports a serialized legacy description model.
 	ImportModelLegacy(ctx context.Context, bytes []byte) error
@@ -202,6 +202,11 @@ type ModelImporter interface {
 	// authorized keys, secret backend, leadership and cloud image metadata
 	// carried by the import args.
 	ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
+
+	// ActivateModel finalises the activation of a model imported via the v8
+	// path, running a durable, idempotent phase machine. It is also safe to
+	// call for legacy (3.6/4.0) imports that have no import claim.
+	ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.

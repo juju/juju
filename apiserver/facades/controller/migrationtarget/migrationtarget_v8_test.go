@@ -587,6 +587,20 @@ func (s *v8Suite) TestImportPropagatesImportModelError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
+// TestActivatePropagatesActivateModelError verifies an error from ActivateModel
+// is returned by Activate rather than swallowed.
+func (s *v8Suite) TestActivatePropagatesActivateModelError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.modelImporter.EXPECT().ActivateModel(gomock.Any(), gomock.Any()).
+		Return(errors.Errorf("boom"))
+
+	err := s.mustNewAPIV8(c).Activate(c.Context(), params.ActivateModelArgs{
+		ModelTag: names.NewModelTag(uuid.MustNewUUID().String()).String(),
+	})
+	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
 // TestV8Registered asserts MigrationTarget v8 is advertised alongside the
 // legacy versions so the new-path source worker can negotiate it.
 func (s *v8Suite) TestV8Registered(c *tc.C) {

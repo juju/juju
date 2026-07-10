@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
@@ -60,6 +61,21 @@ type ModelMigrationState interface {
 
 	// GetUnitUUID returns the unit UUID for the specified unit.
 	GetUnitUUID(ctx context.Context, unitName string) (string, error)
+
+	// SetOffererControllerForOffererModel sets the offerer_controller_uuid for
+	// all application_remote_offerer rows whose offerer_model_uuid matches the
+	// given model UUID. Idempotent.
+	SetOffererControllerForOffererModel(ctx context.Context, offererModelUUID, controllerUUID string) error
+
+	// SetOffererControllerForOffererModels sets the offerer_controller_uuid for
+	// all application_remote_offerer rows whose offerer_model_uuid is one of the
+	// given model UUIDs, in a single statement. Idempotent.
+	SetOffererControllerForOffererModels(ctx context.Context, offererModelUUIDs []string, controllerUUID string) error
+}
+
+type offererControllerState interface {
+	SetOffererControllerForOffererModel(ctx context.Context, offererModelUUID, controllerUUID string) error
+	SetOffererControllerForOffererModels(ctx context.Context, offererModelUUIDs []string, controllerUUID string) error
 }
 
 // MigrationService provides the API for model migration actions within
@@ -87,6 +103,108 @@ func (s *MigrationService) ImportOffers(ctx context.Context, imports []crossmode
 	defer span.End()
 
 	return internalerrors.Capture(s.modelState.ImportOffers(ctx, imports))
+}
+
+// SetOffererControllerForOffererModel sets the offerer_controller_uuid for all
+// application_remote_offerer rows whose offerer_model_uuid matches the given
+// model UUID, recording which controller hosts the offer. Called during model
+// activation to populate the CMR controller reference. Idempotent.
+func (s *MigrationService) SetOffererControllerForOffererModel(
+	ctx context.Context, offererModelUUID model.UUID, controllerUUID controller.UUID,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return setOffererControllerForOffererModel(
+		ctx, s.modelState, offererModelUUID, controllerUUID,
+	)
+}
+
+// SetOffererControllerForOffererModel sets the offerer_controller_uuid for all
+// application_remote_offerer rows whose offerer_model_uuid matches the given
+// model UUID, recording which controller hosts the offer. Called during model
+// activation to populate the CMR controller reference. Idempotent.
+func (s *Service) SetOffererControllerForOffererModel(
+	ctx context.Context, offererModelUUID model.UUID, controllerUUID controller.UUID,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return setOffererControllerForOffererModel(
+		ctx, s.modelState, offererModelUUID, controllerUUID,
+	)
+}
+
+// SetOffererControllerForOffererModels sets the offerer_controller_uuid for all
+// application_remote_offerer rows whose offerer_model_uuid is one of the given
+// model UUIDs, in a single statement. Called during model activation to point
+// all source-hosted offerers at the source controller. Idempotent; passing no
+// model UUIDs is a no-op.
+func (s *MigrationService) SetOffererControllerForOffererModels(
+	ctx context.Context, offererModelUUIDs []model.UUID, controllerUUID controller.UUID,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return setOffererControllerForOffererModels(
+		ctx, s.modelState, offererModelUUIDs, controllerUUID,
+	)
+}
+
+// SetOffererControllerForOffererModels sets the offerer_controller_uuid for all
+// application_remote_offerer rows whose offerer_model_uuid is one of the given
+// model UUIDs, in a single statement. Called during model activation to point
+// all source-hosted offerers at the source controller. Idempotent; passing no
+// model UUIDs is a no-op.
+func (s *Service) SetOffererControllerForOffererModels(
+	ctx context.Context, offererModelUUIDs []model.UUID, controllerUUID controller.UUID,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return setOffererControllerForOffererModels(
+		ctx, s.modelState, offererModelUUIDs, controllerUUID,
+	)
+}
+
+func setOffererControllerForOffererModel(
+	ctx context.Context,
+	st offererControllerState,
+	offererModelUUID model.UUID,
+	controllerUUID controller.UUID,
+) error {
+	if err := offererModelUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating offerer model UUID: %w", err)
+	}
+	if err := controllerUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating offerer controller UUID: %w", err)
+	}
+
+	return internalerrors.Capture(
+		st.SetOffererControllerForOffererModel(ctx, offererModelUUID.String(), controllerUUID.String()),
+	)
+}
+
+func setOffererControllerForOffererModels(
+	ctx context.Context,
+	st offererControllerState,
+	offererModelUUIDs []model.UUID,
+	controllerUUID controller.UUID,
+) error {
+	if err := controllerUUID.Validate(); err != nil {
+		return internalerrors.Errorf("validating offerer controller UUID: %w", err)
+	}
+	modelUUIDs := make([]string, len(offererModelUUIDs))
+	for i, u := range offererModelUUIDs {
+		if err := u.Validate(); err != nil {
+			return internalerrors.Errorf("validating offerer model UUID: %w", err)
+		}
+		modelUUIDs[i] = u.String()
+	}
+
+	return internalerrors.Capture(
+		st.SetOffererControllerForOffererModels(ctx, modelUUIDs, controllerUUID.String()),
+	)
 }
 
 // RemoteApplicationImport contains details to import a remote application
