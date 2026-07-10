@@ -1,0 +1,2 @@
+#!/bin/sh
+exec "$SNAP/bin/juju-introspect" --data-dir "$SNAP_DATA" flightrecorder/stop
