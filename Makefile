@@ -612,13 +612,13 @@ endef
 juju-snap:
 ## juju-snap: Build the juju snap from snaps/juju/
 	$(call snap_stage,juju)
-	snapcraft pack
+	snapcraft pack --use-lxd
 
 .PHONY: jujud-snap
 jujud-snap:
 ## jujud-snap: Build the jujud controller snap from snaps/jujud/
 	$(call snap_stage,jujud)
-	snapcraft pack
+	snapcraft pack --use-lxd
 
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
