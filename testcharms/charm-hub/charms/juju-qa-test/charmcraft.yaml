@@ -11,17 +11,9 @@ parts:
       - actions.yaml
       - metadata.yaml
       - config.yaml
+      - venv
 
-bases:
-    - build-on:
-        - name: "ubuntu"
-          channel: "22.04"
-        - name: "ubuntu"
-          channel: "24.04"
-      run-on:
-        - name: "ubuntu"
-          channel: "22.04"
-          architectures: ["amd64", "arm64"]
-        - name: "ubuntu"
-          channel: "24.04"
-          architectures: ["amd64", "arm64"]
+base: ubuntu@22.04
+platforms:
+  amd64:
+  arm64:
