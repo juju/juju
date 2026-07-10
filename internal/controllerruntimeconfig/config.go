@@ -157,6 +157,19 @@ type ControllerRuntimeConfig struct {
 	// update interval for testing. An empty value means use the default
 	// (24h).
 	CharmRevisionUpdateInterval string `yaml:"charm-revision-update-interval,omitempty"`
+
+	// SocketDir is the directory for group-accessible Unix sockets
+	// (control.socket and configchange.socket). When set, socket paths
+	// are derived from this directory instead of DataDir. The directory
+	// must be owned by root:juju with mode 0750.
+	SocketDir string `yaml:"socket-dir,omitempty"`
+
+	// SharedAgentDir is the directory for charm-written configuration
+	// files (controller.conf). When set, the controller.conf path is
+	// derived from this directory instead of
+	// DataDir/agents/controller-<id>/. The directory must be owned by
+	// root:juju with mode 0750.
+	SharedAgentDir string `yaml:"shared-agent-dir,omitempty"`
 }
 
 // UpgradedToVersion returns the Juju version that the controller has most
