@@ -35,6 +35,10 @@ type Socket struct {
 
 	// TLSConfig is set when the socket should also establish a TLS connection.
 	TLSConfig *tls.Config
+
+	// FileMode is the file mode to apply to the created Unix socket.
+	// A zero value means the default 0700 (owner-only) is used.
+	FileMode os.FileMode
 }
 
 // Dialer creates a connection based on the provided socket parameters.
@@ -93,8 +97,17 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 	// Hold the OS thread while we manipulate Umask.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	// Mask out permissions to keep the socket private.
-	oldmask := syscall.Umask(077)
+
+	socketMode := soc.FileMode
+	if socketMode == 0 {
+		socketMode = 0700
+	}
+
+	umask := 077
+	if socketMode&0070 != 0 {
+		umask = 007
+	}
+	oldmask := syscall.Umask(umask)
 	defer syscall.Umask(oldmask)
 
 	// If we are testing, listen with long path support.
@@ -110,7 +123,7 @@ func innerListen(soc Socket) (listener net.Listener, err error) {
 		logger.Errorf(context.TODO(), "failed to listen on unix:%s: %v", soc.Address, err)
 		return nil, errors.Trace(err)
 	}
-	if err := os.Chmod(soc.Address, 0700); err != nil {
+	if err := os.Chmod(soc.Address, socketMode); err != nil {
 		_ = listener.Close()
 		return nil, errors.Annotatef(err, "could not chmod socket %v", soc.Address)
 	}

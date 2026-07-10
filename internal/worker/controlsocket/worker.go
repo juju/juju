@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -131,6 +132,9 @@ type Config struct {
 	ObjectStoreService ControllerObjectStoreService
 	// SocketName is the socket file descriptor.
 	SocketName string
+	// SocketFileMode is the file mode to apply to the created Unix socket.
+	// A zero value means the default 0700 (owner-only) is used.
+	SocketFileMode os.FileMode
 	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 	// Logger is the logger used by the worker.
@@ -212,6 +216,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		SocketName:       config.SocketName,
 		RegisterHandlers: w.registerHandlers,
 		ShutdownTimeout:  500 * time.Millisecond,
+		SocketFileMode:   config.SocketFileMode,
 	})
 	if err != nil {
 		return nil, internalerrors.Errorf("control socket listener: %w", err)
