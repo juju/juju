@@ -52,13 +52,14 @@ See more: {ref}`add-a-kubernetes-cloud`
 
 ## Pods
 
-```Distribution-specific notes
-
-(aks-cloud-adding)=
-### Adding the cloud
-
-When adding this cloud to Juju using the {ref}`juju CLI client <juju-client>`, starting with Juju 3.0 you must run the `add-k8s` command with the 'raw' client because the `juju` client snap is strictly confined but the AKS cloud CLI snap is not.
-
-```{ibnote}
-See more: {ref}`add-a-kubernetes-cloud`
+```{include} ./reuse/k8s/constraints.md
 ```
+
+```{include} ./reuse/k8s/pod-deployment-patterns.md
+```
+
+## Storage
+
+```{include} ./reuse/k8s/storage-provider.md
+```
+

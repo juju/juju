@@ -41,3 +41,7 @@ A **Kubernetes cloud** is a cloud backed by an existing Kubernetes cluster. Juju
 See more: {ref}`List of supported Kubernetes clouds <list-of-supported-kubernetes-clouds>`
 ```
 
+## Cloud definition
+
+The structure of a cloud definition and its supported authentication types and configuration keys depend on the specific cloud. See the relevant {ref}`cloud reference page <list-of-supported-clouds>` for details.
+
