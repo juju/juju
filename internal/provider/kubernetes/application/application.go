@@ -37,6 +37,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/annotations"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
@@ -1554,6 +1555,13 @@ func (a *app) Units() ([]caas.Unit, error) {
 				Message: statusMessage,
 				Since:   &since,
 			},
+		}
+		// Controller pods are governed by a headless service that gives each
+		// pod a stable per-ordinal FQDN. Surface it so it can be persisted as
+		// the controller unit's stable network identity. Non-controller pods
+		// have no persisted FQDN (see caas.Unit.FQDN).
+		if a.name == coreapplication.ControllerApplicationName && a.deploymentType == caas.DeploymentStateful {
+			unitInfo.FQDN = utils.ControllerPodFQDN(p.Name, a.namespace)
 		}
 
 		volumesByName := make(map[string]corev1.Volume)

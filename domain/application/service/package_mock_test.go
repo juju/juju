@@ -379,7 +379,7 @@ type MockStateMockRecorder struct {
 	getAddressesHashExpects                                   []*gomock.Call3_2[context.Context, application.UUID, string, string, error]
 	getAllEndpointBindingsExpects                             []*gomock.Call1_2[context.Context, map[string]map[string]string, error]
 	getAllExposedEndpointsExpects                             []*gomock.Call1_2[context.Context, map[string]map[string]application0.ExposedEndpoint, error]
-	getAllUnitCloudContainerIDsForApplicationExpects          []*gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
+	getAllUnitK8sPodIDsForApplicationExpects                  []*gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
 	getAllUnitLifeForApplicationExpects                       []*gomock.Call2_2[context.Context, application.UUID, map[string]int, error]
 	getAllUnitNamesExpects                                    []*gomock.Call1_2[context.Context, []unit.Name, error]
 	getApplicationCharmOriginExpects                          []*gomock.Call2_2[context.Context, application.UUID, application0.CharmOrigin, error]
@@ -775,23 +775,23 @@ func (mr *MockStateMockRecorder) GetAllExposedEndpoints(ctx any) *MockStateGetAl
 // MockStateGetAllExposedEndpointsCall is the typed call wrapper for GetAllExposedEndpoints.
 type MockStateGetAllExposedEndpointsCall = gomock.Call1_2[context.Context, map[string]map[string]application0.ExposedEndpoint, error]
 
-// GetAllUnitCloudContainerIDsForApplication mocks base method.
-func (m *MockState) GetAllUnitCloudContainerIDsForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]string, error) {
+// GetAllUnitK8sPodIDsForApplication mocks base method.
+func (m *MockState) GetAllUnitK8sPodIDsForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getAllUnitCloudContainerIDsForApplicationExpects, m.ctrl, m, "GetAllUnitCloudContainerIDsForApplication", arg0, arg1)
+	return gomock.Dispatch2_2(&m.recorder.getAllUnitK8sPodIDsForApplicationExpects, m.ctrl, m, "GetAllUnitK8sPodIDsForApplication", arg0, arg1)
 }
 
-// GetAllUnitCloudContainerIDsForApplication indicates an expected call of GetAllUnitCloudContainerIDsForApplication.
-func (mr *MockStateMockRecorder) GetAllUnitCloudContainerIDsForApplication(arg0, arg1 any) *MockStateGetAllUnitCloudContainerIDsForApplicationCall {
+// GetAllUnitK8sPodIDsForApplication indicates an expected call of GetAllUnitK8sPodIDsForApplication.
+func (mr *MockStateMockRecorder) GetAllUnitK8sPodIDsForApplication(arg0, arg1 any) *MockStateGetAllUnitK8sPodIDsForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, application.UUID, map[unit.Name]string, error](mr.mock.ctrl.T, mr.mock, "GetAllUnitCloudContainerIDsForApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
-	mr.getAllUnitCloudContainerIDsForApplicationExpects = append(mr.getAllUnitCloudContainerIDsForApplicationExpects, call)
+	call := gomock.NewCall2_2[context.Context, application.UUID, map[unit.Name]string, error](mr.mock.ctrl.T, mr.mock, "GetAllUnitK8sPodIDsForApplication", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.getAllUnitK8sPodIDsForApplicationExpects = append(mr.getAllUnitK8sPodIDsForApplicationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockStateGetAllUnitCloudContainerIDsForApplicationCall is the typed call wrapper for GetAllUnitCloudContainerIDsForApplication.
-type MockStateGetAllUnitCloudContainerIDsForApplicationCall = gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
+// MockStateGetAllUnitK8sPodIDsForApplicationCall is the typed call wrapper for GetAllUnitK8sPodIDsForApplication.
+type MockStateGetAllUnitK8sPodIDsForApplicationCall = gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
 
 // GetAllUnitLifeForApplication mocks base method.
 func (m *MockState) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.UUID) (map[string]int, error) {

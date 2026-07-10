@@ -167,6 +167,29 @@ func (s *deployerCAASSuite) TestCompleteCAASProcess(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *deployerCAASSuite) TestCompleteCAASProcessSetsFQDN(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig(c)
+	const fqdn = "controller-0.controller-service-endpoints.controller-foo.svc.cluster.local"
+	cfg.ControllerFQDN = fqdn
+
+	unitName := unit.Name("controller/0")
+
+	s.caasApplicationService.EXPECT().UpdateK8sService(gomock.Any(), bootstrap.ControllerApplicationName, controllerProviderID(unitName), gomock.Any()).Return(nil)
+	// The controller FQDN is persisted in the same flow that upserts the k8s
+	// pod (provider id), i.e. via UpdateCAASUnit.
+	s.caasApplicationService.EXPECT().UpdateCAASUnit(gomock.Any(), unitName, applicationservice.UpdateCAASUnitParams{
+		ProviderID: new("controller-0"),
+		FQDN:       new(fqdn),
+	})
+	s.agentPasswordService.EXPECT().SetUnitPassword(gomock.Any(), unitName, cfg.UnitPassword)
+
+	deployer := s.newDeployerWithConfig(c, cfg)
+	err := deployer.CompleteCAASProcess(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *deployerCAASSuite) newDeployer(c *tc.C) *CAASDeployer {
 	return s.newDeployerWithConfig(c, s.newConfig(c))
 }

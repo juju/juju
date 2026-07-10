@@ -75,7 +75,7 @@ type UnitState interface {
 	// [applicationerrors.UnitNotAssigned] when the unit was not assigned
 	RegisterCAASUnit(context.Context, string, application.RegisterCAASUnitArg) error
 
-	// UpdateCAASUnit updates the cloud container for specified unit,
+	// UpdateCAASUnit updates the k8s pod for specified unit,
 	// returning an error satisfying [applicationerrors.UnitNotFoundError]
 	// if the unit doesn't exist.
 	UpdateCAASUnit(context.Context, coreunit.Name, application.UpdateCAASUnitParams) error
@@ -225,12 +225,12 @@ type UnitState interface {
 	// - [uniterrors.UnitNotFound] if the unit does not exist
 	GetUnitNetNodesByName(ctx context.Context, name coreunit.Name) ([]string, error)
 
-	// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
-	// and their cloud container provider IDs for the given application.
+	// GetAllUnitK8sPodIDsForApplication returns a map of the unit names
+	// and their k8s pod provider IDs for the given application.
 	//   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 	//   - If the application is not found, [applicationerrors.ApplicationNotFound]
 	//     is returned.
-	GetAllUnitCloudContainerIDsForApplication(context.Context, coreapplication.UUID) (map[coreunit.Name]string, error)
+	GetAllUnitK8sPodIDsForApplication(context.Context, coreapplication.UUID) (map[coreunit.Name]string, error)
 
 	// GetStorageAddInfoByUnitUUID returns the deploy metadata and how many
 	// storage instances exist for the named storage on the specified unit.
@@ -1024,7 +1024,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 	if err != nil {
 		return errors.Errorf("encoding workload status: %w", err)
 	}
-	k8sPodStatus, err := encodeK8sPodStatus(params.CloudContainerStatus)
+	k8sPodStatus, err := encodeK8sPodStatus(params.K8sPodStatus)
 	if err != nil {
 		return errors.Errorf("encoding k8s pod status: %w", err)
 	}
@@ -1036,6 +1036,7 @@ func (s *Service) UpdateCAASUnit(ctx context.Context, unitName coreunit.Name, pa
 		AgentStatus:    agentStatus,
 		WorkloadStatus: workloadStatus,
 		K8sPodStatus:   k8sPodStatus,
+		FQDN:           params.FQDN,
 	}
 
 	if err := s.st.UpdateCAASUnit(ctx, unitName, cassUnitUpdate); err != nil {
@@ -1460,13 +1461,13 @@ func (s *Service) GetAllUnitLifeForApplication(ctx context.Context, appID coreap
 	return namesAndCoreLives, nil
 }
 
-// GetAllUnitCloudContainerIDsForApplication returns a map of the unit names
-// and their cloud container provider IDs for the given application.
+// GetAllUnitK8sPodIDsForApplication returns a map of the unit names
+// and their k8s pod provider IDs for the given application.
 //   - If the application is dead, [applicationerrors.ApplicationIsDead] is returned.
 //   - If the application is not found, [applicationerrors.ApplicationNotFound]
 //     is returned.
 //   - If the application UUID is not valid, [coreerrors.NotValid] is returned.
-func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, appUUID coreapplication.UUID) (map[coreunit.Name]string, error) {
+func (s *Service) GetAllUnitK8sPodIDsForApplication(ctx context.Context, appUUID coreapplication.UUID) (map[coreunit.Name]string, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -1474,7 +1475,7 @@ func (s *Service) GetAllUnitCloudContainerIDsForApplication(ctx context.Context,
 		return nil, errors.Capture(err)
 	}
 
-	idMap, err := s.st.GetAllUnitCloudContainerIDsForApplication(ctx, appUUID)
+	idMap, err := s.st.GetAllUnitK8sPodIDsForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

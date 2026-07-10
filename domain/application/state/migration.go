@@ -348,7 +348,7 @@ func (st *State) importCAASUnit(
 		insertUnitArg{
 			CharmUUID:       charmUUID,
 			UnitName:        args.UnitName.String(),
-			CloudContainer:  args.CloudContainer,
+			K8sPod:          args.K8sPod,
 			Password:        args.Password,
 			Constraints:     args.Constraints,
 			WorkloadVersion: args.WorkloadVersion,

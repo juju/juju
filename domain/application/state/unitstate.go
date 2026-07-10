@@ -183,17 +183,18 @@ func (st *State) InsertIAASUnit(
 }
 
 type insertUnitArg struct {
+	application.UnitStatusArg
+
 	CharmUUID       string
 	UnitName        string
-	CloudContainer  *application.CloudContainer
+	K8sPod          *application.K8sPod
 	Password        *application.PasswordInfo
 	Constraints     constraints.Constraints
 	WorkloadVersion string
-	application.UnitStatusArg
 }
 
 // insertUnit inserts a unit into state. IAAS or CAAS specific details
-// are handled by the callers, modulo CloudContainer functionality.
+// are handled by the callers, modulo K8sPod functionality.
 func (st *State) insertUnit(
 	ctx context.Context, tx *sqlair.TX,
 	appUUID, unitUUID, netNodeUUID string,
@@ -243,12 +244,12 @@ func (st *State) insertUnit(
 		return errors.Errorf("creating unit for unit %q: %w", args.UnitName, err)
 	}
 	// TODO (hml) 8-Dec-2025
-	// CloudContainer is specific to CAAS units. The callers should handle
+	// K8sPod is specific to CAAS units. The callers should handle
 	// this after insertUnit when a CAAS unit is created, not inside the
 	// generic add unit method.
-	if args.CloudContainer != nil {
-		if err := st.upsertUnitCloudContainer(ctx, tx, args.UnitName, unitUUID, netNodeUUID, args.CloudContainer); err != nil {
-			return errors.Errorf("creating cloud container for unit %q: %w", args.UnitName, err)
+	if args.K8sPod != nil {
+		if err := st.upsertUnitK8sPod(ctx, tx, args.UnitName, unitUUID, netNodeUUID, args.K8sPod); err != nil {
+			return errors.Errorf("creating k8s pod for unit %q: %w", args.UnitName, err)
 		}
 	}
 	if err := st.setUnitAgentStatus(ctx, tx, unitUUID, args.AgentStatus); err != nil {
@@ -352,28 +353,28 @@ func (st *State) newUnitName(
 	return unitName.String(), errors.Capture(err)
 }
 
-func (st *State) upsertUnitCloudContainer(
+func (st *State) upsertUnitK8sPod(
 	ctx context.Context,
 	tx *sqlair.TX,
 	unitName, unitUUID, netNodeUUID string,
-	cc *application.CloudContainer,
+	cc *application.K8sPod,
 ) error {
-	containerInfo := cloudContainer{
+	containerInfo := k8sPod{
 		UnitUUID:   unitUUID,
 		ProviderID: cc.ProviderID,
 	}
 
 	queryStmt, err := st.Prepare(`
-SELECT &cloudContainer.*
+SELECT &k8sPod.*
 FROM k8s_pod
-WHERE unit_uuid = $cloudContainer.unit_uuid
+WHERE unit_uuid = $k8sPod.unit_uuid
 `, containerInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	insertStmt, err := st.Prepare(`
-INSERT INTO k8s_pod (*) VALUES ($cloudContainer.*)
+INSERT INTO k8s_pod (*) VALUES ($k8sPod.*)
 `, containerInfo)
 	if err != nil {
 		return errors.Capture(err)
@@ -381,8 +382,8 @@ INSERT INTO k8s_pod (*) VALUES ($cloudContainer.*)
 
 	updateStmt, err := st.Prepare(`
 UPDATE k8s_pod SET
-    provider_id = $cloudContainer.provider_id
-WHERE unit_uuid = $cloudContainer.unit_uuid
+    provider_id = $k8sPod.provider_id
+WHERE unit_uuid = $k8sPod.unit_uuid
 `, containerInfo)
 	if err != nil {
 		return errors.Capture(err)
@@ -390,7 +391,7 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 
 	err = tx.Query(ctx, queryStmt, containerInfo).Get(&containerInfo)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("looking up cloud container %q: %w", unitName, err)
+		return errors.Errorf("looking up k8s pod %q: %w", unitName, err)
 	}
 	if err == nil {
 		newProviderID := cc.ProviderID
@@ -401,73 +402,78 @@ WHERE unit_uuid = $cloudContainer.unit_uuid
 		}
 		containerInfo.ProviderID = newProviderID
 		if err := tx.Query(ctx, updateStmt, containerInfo).Run(); err != nil {
-			return errors.Errorf("updating cloud container for unit %q: %w", unitName, err)
+			return errors.Errorf("updating k8s pod for unit %q: %w", unitName, err)
 		}
 	} else {
 		if err := tx.Query(ctx, insertStmt, containerInfo).Run(); err != nil {
-			return errors.Errorf("inserting cloud container for unit %q: %w", unitName, err)
+			return errors.Errorf("inserting k8s pod for unit %q: %w", unitName, err)
 		}
 	}
 
 	if cc.Address != nil {
-		if err := st.upsertCloudContainerAddress(ctx, tx, unitName, netNodeUUID, *cc.Address); err != nil {
-			return errors.Errorf("updating cloud container address for unit %q: %w", unitName, err)
+		if err := st.upsertK8sPodAddress(ctx, tx, unitName, netNodeUUID, *cc.Address); err != nil {
+			return errors.Errorf("updating k8s pod address for unit %q: %w", unitName, err)
 		}
 	}
 	if cc.Ports != nil {
-		if err := st.upsertCloudContainerPorts(ctx, tx, unitUUID, *cc.Ports); err != nil {
-			return errors.Errorf("updating cloud container ports for unit %q: %w", unitName, err)
+		if err := st.upsertK8sPodPorts(ctx, tx, unitUUID, *cc.Ports); err != nil {
+			return errors.Errorf("updating k8s pod ports for unit %q: %w", unitName, err)
+		}
+	}
+	if cc.FQDN != nil && *cc.FQDN != "" {
+		if err := st.ensureNetNodeFQDNAddress(ctx, tx, netNodeUUID, *cc.FQDN, cc.FQDNScope); err != nil {
+			return errors.Errorf("creating fqdn address for unit %q: %w", unitName, err)
 		}
 	}
 	return nil
 }
 
-func (st *State) upsertCloudContainerAddress(
-	ctx context.Context, tx *sqlair.TX, unitName, netNodeUUID string, address application.ContainerAddress,
+func (st *State) upsertK8sPodAddress(
+	ctx context.Context, tx *sqlair.TX, unitName, netNodeUUID string, address application.K8sPodAddress,
 ) error {
 	// First ensure the address link layer device is upserted.
-	// For cloud containers, the device is a placeholder without
+	// For k8s pods, the device is a placeholder without
 	// a MAC address. It just exits to tie the address to the
-	// net node corresponding to the cloud container.
-	cloudContainerDeviceInfo := cloudContainerDevice{
+	// net node corresponding to the k8s pod.
+	k8sPodDeviceInfo := k8sPodDevice{
 		Name:              address.Device.Name,
 		NetNodeID:         netNodeUUID,
 		DeviceTypeID:      int(address.Device.DeviceTypeID),
 		VirtualPortTypeID: int(address.Device.VirtualPortTypeID),
 	}
 
-	selectCloudContainerDeviceStmt, err := st.Prepare(`
-SELECT &cloudContainerDevice.uuid
+	selectK8sPodDeviceStmt, err := st.Prepare(`
+SELECT &k8sPodDevice.uuid
 FROM link_layer_device
-WHERE net_node_uuid = $cloudContainerDevice.net_node_uuid
-`, cloudContainerDeviceInfo)
+WHERE net_node_uuid = $k8sPodDevice.net_node_uuid
+`, k8sPodDeviceInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
-	insertCloudContainerDeviceStmt, err := st.Prepare(`
-INSERT INTO link_layer_device (*) VALUES ($cloudContainerDevice.*)
-`, cloudContainerDeviceInfo)
+	insertK8sPodDeviceStmt, err := st.Prepare(`
+INSERT INTO link_layer_device (*) VALUES ($k8sPodDevice.*)
+`, k8sPodDeviceInfo)
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	// See if the link layer device exists, if not insert it.
-	err = tx.Query(ctx, selectCloudContainerDeviceStmt, cloudContainerDeviceInfo).Get(&cloudContainerDeviceInfo)
+	err = tx.Query(ctx, selectK8sPodDeviceStmt, k8sPodDeviceInfo).Get(&k8sPodDeviceInfo)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("querying cloud container link layer device for unit %q: %w", unitName, err)
+		return errors.Errorf("querying k8s pod link layer device for unit %q: %w", unitName, err)
 	}
 	if errors.Is(err, sqlair.ErrNoRows) {
 		deviceUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Capture(err)
 		}
-		cloudContainerDeviceInfo.UUID = deviceUUID.String()
-		if err := tx.Query(ctx, insertCloudContainerDeviceStmt, cloudContainerDeviceInfo).Run(); err != nil {
-			return errors.Errorf("inserting cloud container device for unit %q: %w", unitName, err)
+		k8sPodDeviceInfo.UUID = deviceUUID.String()
+		if err := tx.Query(ctx, insertK8sPodDeviceStmt, k8sPodDeviceInfo).Run(); err != nil {
+			return errors.Errorf("inserting k8s pod device for unit %q: %w", unitName, err)
 		}
 	}
-	deviceUUID := cloudContainerDeviceInfo.UUID
+	deviceUUID := k8sPodDeviceInfo.UUID
 
 	subnetUUIDs, err := st.k8sSubnetUUIDsByAddressType(ctx, tx)
 	if err != nil {
@@ -521,7 +527,7 @@ ON CONFLICT(uuid) DO UPDATE SET
 	// First see if there's an existing address recorded.
 	err = tx.Query(ctx, selectAddressUUIDStmt, ipAddr).Get(&ipAddr)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Errorf("querying existing cloud container address for device %q: %w", deviceUUID, err)
+		return errors.Errorf("querying existing k8s pod address for device %q: %w", deviceUUID, err)
 	}
 
 	// Create a UUID for new addresses.
@@ -535,12 +541,71 @@ ON CONFLICT(uuid) DO UPDATE SET
 
 	// Update the address values.
 	if err = tx.Query(ctx, upsertAddressStmt, ipAddr).Run(); err != nil {
-		return errors.Errorf("updating cloud container address attributes for device %q: %w", deviceUUID, err)
+		return errors.Errorf("updating k8s pod address attributes for device %q: %w", deviceUUID, err)
 	}
 	return nil
 }
 
-func (st *State) upsertCloudContainerPorts(ctx context.Context, tx *sqlair.TX, unitUUID string, portValues []string) error {
+// ensureNetNodeFQDNAddress idempotently persists the given FQDN as an
+// fqdn_address row with the supplied network_address_scope id and links it to
+// the given net_node via the net_node_fqdn_address junction.
+func (st *State) ensureNetNodeFQDNAddress(ctx context.Context, tx *sqlair.TX, netNodeUUID, address string, scopeID int) error {
+	// If this net_node already has this FQDN, there is nothing to do.
+	lookup := netNodeFQDNAddress{NetNodeUUID: netNodeUUID}
+	addrIn := fqdnAddress{Address: address}
+	existsStmt, err := st.Prepare(`
+SELECT fa.uuid AS &netNodeFQDNAddress.address_uuid
+FROM   fqdn_address AS fa
+JOIN   net_node_fqdn_address AS nnfa ON nnfa.address_uuid = fa.uuid
+WHERE  fa.address = $fqdnAddress.address
+AND    nnfa.net_node_uuid = $netNodeFQDNAddress.net_node_uuid`, addrIn, lookup)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	err = tx.Query(ctx, existsStmt, addrIn, lookup).Get(&lookup)
+	if err == nil {
+		return nil
+	} else if !errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("looking up fqdn address %q: %w", address, err)
+	}
+
+	addrUUID, err := uuid.NewUUID()
+	if err != nil {
+		return errors.Capture(err)
+	}
+	fqdnAddr := fqdnAddress{
+		UUID:    addrUUID.String(),
+		Address: address,
+		ScopeID: scopeID,
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO fqdn_address (*) VALUES ($fqdnAddress.*)`, fqdnAddr)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, insertStmt, fqdnAddr).Run(); internaldatabase.IsErrConstraintUnique(err) {
+		return errors.Errorf("fqdn address %q already exists", address)
+	} else if err != nil {
+		return errors.Errorf("inserting fqdn address %q: %w", address, err)
+	}
+
+	junction := netNodeFQDNAddress{
+		NetNodeUUID: netNodeUUID,
+		AddressUUID: fqdnAddr.UUID,
+	}
+	linkStmt, err := st.Prepare(`
+INSERT INTO net_node_fqdn_address (*) VALUES ($netNodeFQDNAddress.*)`, junction)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	if err := tx.Query(ctx, linkStmt, junction).Run(); err != nil {
+		return errors.Errorf("linking fqdn address %q to net node %q: %w", address, netNodeUUID, err)
+	}
+	return nil
+}
+
+func (st *State) upsertK8sPodPorts(ctx context.Context, tx *sqlair.TX, unitUUID string, portValues []string) error {
 	type ports []string
 
 	ccPort := unitK8sPodPort{
@@ -566,13 +631,13 @@ DO NOTHING
 	}
 
 	if err := tx.Query(ctx, deleteStmt, ports(portValues), ccPort).Run(); err != nil {
-		return errors.Errorf("removing cloud container ports for %q: %w", unitUUID, err)
+		return errors.Errorf("removing k8s pod ports for %q: %w", unitUUID, err)
 	}
 
 	for _, port := range portValues {
 		ccPort.Port = port
 		if err := tx.Query(ctx, upsertStmt, ccPort).Run(); err != nil {
-			return errors.Errorf("updating cloud container ports for %q: %w", unitUUID, err)
+			return errors.Errorf("updating k8s pod ports for %q: %w", unitUUID, err)
 		}
 	}
 

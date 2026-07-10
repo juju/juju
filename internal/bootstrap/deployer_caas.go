@@ -32,6 +32,7 @@ type CAASDeployerConfig struct {
 	ApplicationService CAASApplicationService
 	ServiceManager     ServiceManager
 	UnitPassword       string
+	ControllerFQDN     string
 }
 
 // Validate validates the configuration.
@@ -55,6 +56,7 @@ type CAASDeployer struct {
 	applicationService CAASApplicationService
 	serviceManager     ServiceManager
 	unitPassword       string
+	controllerFQDN     string
 }
 
 // NewCAASDeployer returns a new ControllerCharmDeployer for CAAS workloads.
@@ -68,6 +70,7 @@ func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
 		applicationService: config.ApplicationService,
 		serviceManager:     config.ServiceManager,
 		unitPassword:       config.UnitPassword,
+		controllerFQDN:     config.ControllerFQDN,
 	}, nil
 }
 
@@ -95,6 +98,8 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 		return errors.Errorf("creating download info: %w", err)
 	}
 
+	unitArg := applicationservice.AddUnitArg{}
+
 	if _, err := b.applicationService.CreateCAASApplication(ctx,
 		bootstrap.ControllerApplicationName,
 		info.Charm,
@@ -115,7 +120,7 @@ func (b *CAASDeployer) AddCAASControllerApplication(ctx context.Context, info De
 			Constraints:  b.constraints,
 			IsController: true,
 		},
-		applicationservice.AddUnitArg{},
+		unitArg,
 	); err != nil {
 		return errors.Errorf("creating CAAS controller application: %w", err)
 	}
@@ -134,9 +139,16 @@ func (d *CAASDeployer) CompleteCAASProcess(ctx context.Context) error {
 	}
 
 	providerID := controllerProviderID(controllerUnit)
-	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnit, applicationservice.UpdateCAASUnitParams{
+	updateParams := applicationservice.UpdateCAASUnitParams{
 		ProviderID: &providerID,
-	}); err != nil {
+	}
+	// Persist the controller pod's stable FQDN as the unit's network identity,
+	// in the same flow that upserts the k8s pod (provider id).
+	if d.controllerFQDN != "" {
+		fqdn := d.controllerFQDN
+		updateParams.FQDN = &fqdn
+	}
+	if err := d.applicationService.UpdateCAASUnit(ctx, controllerUnit, updateParams); err != nil {
 		return errors.Errorf("updating controller unit: %w", err)
 	}
 	if err := d.passwordService.SetUnitPassword(ctx, controllerUnit, d.unitPassword); err != nil {

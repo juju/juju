@@ -177,12 +177,12 @@ type unitStatusInfo struct {
 	UpdatedAt *time.Time `db:"updated_at"`
 }
 
-type cloudContainer struct {
+type k8sPod struct {
 	UnitUUID   string `db:"unit_uuid"`
 	ProviderID string `db:"provider_id"`
 }
 
-type unitNameCloudContainer struct {
+type unitNameK8sPod struct {
 	Name       string `db:"name"`
 	ProviderID string `db:"provider_id"`
 }
@@ -202,7 +202,7 @@ type k8sServiceDevice struct {
 	VirtualPortTypeID int    `db:"virtual_port_type_id"`
 }
 
-type cloudContainerDevice struct {
+type k8sPodDevice struct {
 	UUID              string `db:"uuid"`
 	Name              string `db:"name"`
 	NetNodeID         string `db:"net_node_uuid"`
@@ -234,6 +234,20 @@ type ipAddress struct {
 	OriginID     int    `db:"origin_id"`
 	ScopeID      int    `db:"scope_id"`
 	DeviceID     string `db:"device_uuid"`
+}
+
+// fqdnAddress is the DB representation of a row in the fqdn_address table.
+type fqdnAddress struct {
+	UUID    string `db:"uuid"`
+	Address string `db:"address"`
+	ScopeID int    `db:"scope_id"`
+}
+
+// netNodeFQDNAddress is the DB representation of a row in the
+// net_node_fqdn_address junction table linking a net_node to an fqdn_address.
+type netNodeFQDNAddress struct {
+	NetNodeUUID string `db:"net_node_uuid"`
+	AddressUUID string `db:"address_uuid"`
 }
 
 type spaceAddress struct {

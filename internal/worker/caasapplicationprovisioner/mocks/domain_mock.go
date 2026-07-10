@@ -34,26 +34,26 @@ type MockApplicationService struct {
 
 // MockApplicationServiceMockRecorder is the mock recorder for MockApplicationService.
 type MockApplicationServiceMockRecorder struct {
-	mock                                             *MockApplicationService
-	clearApplicationHasK8sResourcesExpects           []*gomock.Call2_1[context.Context, application.UUID, error]
-	getAllUnitCloudContainerIDsForApplicationExpects []*gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
-	getAllUnitLifeForApplicationExpects              []*gomock.Call2_2[context.Context, application.UUID, map[unit.Name]life.Value, error]
-	getApplicationLifeExpects                        []*gomock.Call2_2[context.Context, application.UUID, life.Value, error]
-	getApplicationNameExpects                        []*gomock.Call2_2[context.Context, application.UUID, string, error]
-	getApplicationScaleExpects                       []*gomock.Call2_2[context.Context, string, int, error]
-	getApplicationScalingStateExpects                []*gomock.Call2_2[context.Context, string, service.ScalingState, error]
-	getApplicationTrustSettingExpects                []*gomock.Call2_2[context.Context, string, bool, error]
-	getCharmByApplicationUUIDExpects                 []*gomock.Call2_3[context.Context, application.UUID, charm0.Charm, charm.CharmLocator, error]
-	getUnitLifeExpects                               []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
-	isControllerApplicationExpects                   []*gomock.Call2_2[context.Context, application.UUID, bool, error]
-	setApplicationHasK8sResourcesExpects             []*gomock.Call2_1[context.Context, application.UUID, error]
-	setApplicationScalingStateExpects                []*gomock.Call4_1[context.Context, string, int, bool, error]
-	updateCAASUnitExpects                            []*gomock.Call3_1[context.Context, unit.Name, service.UpdateCAASUnitParams, error]
-	updateK8sServiceExpects                          []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
-	watchApplicationScaleExpects                     []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
-	watchApplicationSettingsExpects                  []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
-	watchApplicationUnitLifeExpects                  []*gomock.Call2_2[context.Context, string, watcher.StringsWatcher, error]
-	watchApplicationsExpects                         []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
+	mock                                     *MockApplicationService
+	clearApplicationHasK8sResourcesExpects   []*gomock.Call2_1[context.Context, application.UUID, error]
+	getAllUnitK8sPodIDsForApplicationExpects []*gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
+	getAllUnitLifeForApplicationExpects      []*gomock.Call2_2[context.Context, application.UUID, map[unit.Name]life.Value, error]
+	getApplicationLifeExpects                []*gomock.Call2_2[context.Context, application.UUID, life.Value, error]
+	getApplicationNameExpects                []*gomock.Call2_2[context.Context, application.UUID, string, error]
+	getApplicationScaleExpects               []*gomock.Call2_2[context.Context, string, int, error]
+	getApplicationScalingStateExpects        []*gomock.Call2_2[context.Context, string, service.ScalingState, error]
+	getApplicationTrustSettingExpects        []*gomock.Call2_2[context.Context, string, bool, error]
+	getCharmByApplicationUUIDExpects         []*gomock.Call2_3[context.Context, application.UUID, charm0.Charm, charm.CharmLocator, error]
+	getUnitLifeExpects                       []*gomock.Call2_2[context.Context, unit.Name, life.Value, error]
+	isControllerApplicationExpects           []*gomock.Call2_2[context.Context, application.UUID, bool, error]
+	setApplicationHasK8sResourcesExpects     []*gomock.Call2_1[context.Context, application.UUID, error]
+	setApplicationScalingStateExpects        []*gomock.Call4_1[context.Context, string, int, bool, error]
+	updateCAASUnitExpects                    []*gomock.Call3_1[context.Context, unit.Name, service.UpdateCAASUnitParams, error]
+	updateK8sServiceExpects                  []*gomock.Call4_1[context.Context, string, string, network.ProviderAddresses, error]
+	watchApplicationScaleExpects             []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
+	watchApplicationSettingsExpects          []*gomock.Call2_2[context.Context, string, watcher.NotifyWatcher, error]
+	watchApplicationUnitLifeExpects          []*gomock.Call2_2[context.Context, string, watcher.StringsWatcher, error]
+	watchApplicationsExpects                 []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockApplicationService creates a new mock instance.
@@ -86,23 +86,23 @@ func (mr *MockApplicationServiceMockRecorder) ClearApplicationHasK8sResources(ct
 // MockApplicationServiceClearApplicationHasK8sResourcesCall is the typed call wrapper for ClearApplicationHasK8sResources.
 type MockApplicationServiceClearApplicationHasK8sResourcesCall = gomock.Call2_1[context.Context, application.UUID, error]
 
-// GetAllUnitCloudContainerIDsForApplication mocks base method.
-func (m *MockApplicationService) GetAllUnitCloudContainerIDsForApplication(ctx context.Context, id application.UUID) (map[unit.Name]string, error) {
+// GetAllUnitK8sPodIDsForApplication mocks base method.
+func (m *MockApplicationService) GetAllUnitK8sPodIDsForApplication(ctx context.Context, id application.UUID) (map[unit.Name]string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getAllUnitCloudContainerIDsForApplicationExpects, m.ctrl, m, "GetAllUnitCloudContainerIDsForApplication", ctx, id)
+	return gomock.Dispatch2_2(&m.recorder.getAllUnitK8sPodIDsForApplicationExpects, m.ctrl, m, "GetAllUnitK8sPodIDsForApplication", ctx, id)
 }
 
-// GetAllUnitCloudContainerIDsForApplication indicates an expected call of GetAllUnitCloudContainerIDsForApplication.
-func (mr *MockApplicationServiceMockRecorder) GetAllUnitCloudContainerIDsForApplication(ctx, id any) *MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall {
+// GetAllUnitK8sPodIDsForApplication indicates an expected call of GetAllUnitK8sPodIDsForApplication.
+func (mr *MockApplicationServiceMockRecorder) GetAllUnitK8sPodIDsForApplication(ctx, id any) *MockApplicationServiceGetAllUnitK8sPodIDsForApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, application.UUID, map[unit.Name]string, error](mr.mock.ctrl.T, mr.mock, "GetAllUnitCloudContainerIDsForApplication", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(id))
-	mr.getAllUnitCloudContainerIDsForApplicationExpects = append(mr.getAllUnitCloudContainerIDsForApplicationExpects, call)
+	call := gomock.NewCall2_2[context.Context, application.UUID, map[unit.Name]string, error](mr.mock.ctrl.T, mr.mock, "GetAllUnitK8sPodIDsForApplication", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(id))
+	mr.getAllUnitK8sPodIDsForApplicationExpects = append(mr.getAllUnitK8sPodIDsForApplicationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall is the typed call wrapper for GetAllUnitCloudContainerIDsForApplication.
-type MockApplicationServiceGetAllUnitCloudContainerIDsForApplicationCall = gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
+// MockApplicationServiceGetAllUnitK8sPodIDsForApplicationCall is the typed call wrapper for GetAllUnitK8sPodIDsForApplication.
+type MockApplicationServiceGetAllUnitK8sPodIDsForApplicationCall = gomock.Call2_2[context.Context, application.UUID, map[unit.Name]string, error]
 
 // GetAllUnitLifeForApplication mocks base method.
 func (m *MockApplicationService) GetAllUnitLifeForApplication(arg0 context.Context, arg1 application.UUID) (map[unit.Name]life.Value, error) {

@@ -48,25 +48,25 @@ func (i *importOperation) importCAASUnit(ctx context.Context, unit description.U
 		return service.ImportCAASUnitArg{}, errors.Capture(err)
 	}
 
-	var cloudContainer *application.CloudContainerParams
+	var k8sPod *application.K8sPodParams
 	if cc := unit.CloudContainer(); cc != nil {
 		address, origin := i.makeAddress(cc.Address())
 
-		cloudContainer = &application.CloudContainerParams{
+		k8sPod = &application.K8sPodParams{
 			Address:       address,
 			AddressOrigin: origin,
 		}
 		if cc.ProviderId() != "" {
-			cloudContainer.ProviderID = cc.ProviderId()
+			k8sPod.ProviderID = cc.ProviderId()
 		}
 		if len(cc.Ports()) > 0 {
-			cloudContainer.Ports = new(cc.Ports())
+			k8sPod.Ports = new(cc.Ports())
 		}
 	}
 
 	return service.ImportCAASUnitArg{
-		ImportUnitArg:  unitArgs,
-		CloudContainer: cloudContainer,
+		ImportUnitArg: unitArgs,
+		K8sPod:        k8sPod,
 	}, nil
 }
 

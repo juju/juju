@@ -93,7 +93,7 @@ type AddApplicationArgs struct {
 	IsController bool
 }
 
-// AddressParams contains parameters for a unit/cloud container address.
+// AddressParams contains parameters for a unit/k8s pod address.
 type AddressParams struct {
 	Value       string
 	AddressType string
@@ -138,17 +138,22 @@ type ImportIAASUnitArg struct {
 // ImportCAASUnitArg contains parameters for importing a CAAS unit.
 type ImportCAASUnitArg struct {
 	ImportUnitArg
-	CloudContainer *application.CloudContainerParams
+	K8sPod *application.K8sPodParams
 }
 
 // UpdateCAASUnitParams contains parameters for updating a CAAS unit.
 type UpdateCAASUnitParams struct {
-	ProviderID           *string
-	Address              *string
-	Ports                *[]string
-	AgentStatus          *status.StatusInfo
-	WorkloadStatus       *status.StatusInfo
-	CloudContainerStatus *status.StatusInfo
+	ProviderID     *string
+	Address        *string
+	Ports          *[]string
+	AgentStatus    *status.StatusInfo
+	WorkloadStatus *status.StatusInfo
+	K8sPodStatus   *status.StatusInfo
+
+	// FQDN, when set, is the stable, cluster-resolvable per-pod DNS name to
+	// persist as the unit's network identity. It is currently only supplied
+	// for controller units.
+	FQDN *string
 }
 
 // ScalingState contains attributes that describes

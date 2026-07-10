@@ -66,6 +66,18 @@ const (
 	// ControllerServiceFQDNTemplate is the FQDN of the controller service using the cluster DNS.
 	ControllerServiceFQDNTemplate = "controller-service.controller-%s.svc.cluster.local"
 
+	// ControllerServiceEndpointsName is the name of the headless service that
+	// governs the controller StatefulSet. It gives each controller pod a
+	// stable per-ordinal DNS name for Dqlite peering. It must match the name
+	// derived for the headless service during bootstrap
+	// (getBootstrapResourceName(JujuControllerStackName, "service-endpoints")).
+	ControllerServiceEndpointsName = JujuControllerStackName + "-service-endpoints"
+
+	// ClusterLocalDomain is the default cluster-internal DNS domain suffix used
+	// by Kubernetes for service and pod FQDNs. Non-default cluster DNS domains
+	// are not currently supported.
+	ClusterLocalDomain = "svc.cluster.local"
+
 	// CharmVolumeName is the name of the k8s volume where shared charm data is stored.
 	CharmVolumeName = "charm-data"
 

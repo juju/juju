@@ -471,7 +471,7 @@ func updateState(
 		}
 	}
 
-	unitToPod, err := applicationService.GetAllUnitCloudContainerIDsForApplication(ctx, appUUID)
+	unitToPod, err := applicationService.GetAllUnitK8sPodIDsForApplication(ctx, appUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -498,7 +498,7 @@ func updateState(
 			Address:    &u.Address,
 			Ports:      &u.Ports,
 		}
-		args.AgentStatus, args.CloudContainerStatus = updateStatus(u.Status, clk)
+		args.AgentStatus, args.K8sPodStatus = updateStatus(u.Status, clk)
 
 		lastStatus, ok := lastReportedStatus[unitName]
 		reportedStatus[unitName] = args
@@ -943,10 +943,10 @@ func provisioningInfo(
 	return pi, nil
 }
 
-// updateStatus constructs the agent and cloud container status values.
+// updateStatus constructs the agent and k8s pod status values.
 func updateStatus(podStatus status.StatusInfo, clk clock.Clock) (
 	agentStatus *status.StatusInfo,
-	cloudContainerStatus *status.StatusInfo,
+	k8sPodStatus *status.StatusInfo,
 ) {
 	now := clk.Now()
 	switch podStatus.Status {
@@ -961,7 +961,7 @@ func updateStatus(podStatus status.StatusInfo, clk clock.Clock) (
 			Message: podStatus.Message,
 			Since:   &now,
 		}
-		cloudContainerStatus = &status.StatusInfo{
+		k8sPodStatus = &status.StatusInfo{
 			Status:  status.Waiting,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
@@ -973,7 +973,7 @@ func updateStatus(podStatus status.StatusInfo, clk clock.Clock) (
 			Status: status.Idle,
 			Since:  &now,
 		}
-		cloudContainerStatus = &status.StatusInfo{
+		k8sPodStatus = &status.StatusInfo{
 			Status:  status.Running,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
@@ -986,7 +986,7 @@ func updateStatus(podStatus status.StatusInfo, clk clock.Clock) (
 			Data:    podStatus.Data,
 			Since:   &now,
 		}
-		cloudContainerStatus = &status.StatusInfo{
+		k8sPodStatus = &status.StatusInfo{
 			Status:  status.Error,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
@@ -997,14 +997,14 @@ func updateStatus(podStatus status.StatusInfo, clk clock.Clock) (
 			Status: status.Idle,
 			Since:  &now,
 		}
-		cloudContainerStatus = &status.StatusInfo{
+		k8sPodStatus = &status.StatusInfo{
 			Status:  status.Blocked,
 			Message: podStatus.Message,
 			Data:    podStatus.Data,
 			Since:   &now,
 		}
 	}
-	return agentStatus, cloudContainerStatus
+	return agentStatus, k8sPodStatus
 }
 
 func readDockerImageResource(reader io.Reader) (coreresource.DockerImageDetails, error) {

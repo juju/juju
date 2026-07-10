@@ -22,7 +22,7 @@ type StatusHistory interface {
 	RecordStatus(context.Context, statushistory.Namespace, corestatus.StatusInfo) error
 }
 
-// encodeK8sPodStatusType converts a core status to a db cloud container
+// encodeK8sPodStatusType converts a core status to a db k8s pod
 // status id.
 func encodeK8sPodStatusType(s corestatus.Status) (status.K8sPodStatusType, error) {
 	switch s {
@@ -37,7 +37,7 @@ func encodeK8sPodStatusType(s corestatus.Status) (status.K8sPodStatusType, error
 	case corestatus.Error:
 		return status.K8sPodStatusError, nil
 	default:
-		return -1, errors.Errorf("unknown cloud container status %q", s)
+		return -1, errors.Errorf("unknown k8s pod status %q", s)
 	}
 }
 

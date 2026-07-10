@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/semversion"
@@ -937,6 +938,13 @@ func (k *kubernetesClient) Units(ctx context.Context, appName string) ([]caas.Un
 				Since:   &since,
 			},
 		}
+		// Controller pods are governed by a headless service that gives each
+		// pod a stable per-ordinal FQDN. Surface it so it can be persisted as
+		// the controller unit's stable network identity. Non-controller pods
+		// have no persisted FQDN (see caas.Unit.FQDN).
+		if appName == coreapplication.ControllerApplicationName && isStateful(&p) {
+			unitInfo.FQDN = utils.ControllerPodFQDN(p.Name, k.namespace)
+		}
 
 		volumesByName := make(map[string]core.Volume)
 		for _, pv := range p.Spec.Volumes {
@@ -980,6 +988,16 @@ func (k *kubernetesClient) Units(ctx context.Context, appName string) ([]caas.Un
 		units = append(units, unitInfo)
 	}
 	return units, nil
+}
+
+// ControllerUnitFQDN returns the stable, cluster-resolvable per-pod DNS name
+// for the controller unit with the given ordinal, as assigned by the
+// controller headless service in this broker's namespace. The provider is the
+// sole owner of this naming; callers persist the returned string as the
+// controller unit's stable network identity.
+func (k *kubernetesClient) ControllerUnitFQDN(ordinal int) string {
+	podName := fmt.Sprintf("controller-%d", ordinal)
+	return utils.ControllerPodFQDN(podName, k.namespace)
 }
 
 // ListPods filters a list of pods for the provided namespace and labels.

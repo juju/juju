@@ -224,6 +224,18 @@ func (s *K8sBrokerSuite) TestAPIVersion(c *tc.C) {
 	c.Assert(ver, tc.DeepEquals, "1.16.0")
 }
 
+func (s *K8sBrokerSuite) TestControllerUnitFQDN(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	// The broker's namespace in tests is "test".
+	c.Check(
+		s.broker.ControllerUnitFQDN(0),
+		tc.Equals,
+		"controller-0.controller-service-endpoints.test.svc.cluster.local",
+	)
+}
+
 func (s *K8sBrokerSuite) TestConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
