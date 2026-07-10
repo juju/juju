@@ -77,6 +77,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewSocketListener: controlleragentconfig.NewSocketListener,
 				SocketName:        config.ConfigChangeSocketPath,
 				ReadyUnlocker:     config.ControllerUnlocker,
+				SocketFileMode:    0o660,
 			},
 		),
 

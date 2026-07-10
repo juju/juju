@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -39,6 +40,9 @@ type WorkerConfig struct {
 	Clock clock.Clock
 	// SocketName is the socket file descriptor.
 	SocketName string
+	// SocketFileMode is the file mode to apply to the created Unix socket.
+	// A zero value means the default 0700 (owner-only) is used.
+	SocketFileMode os.FileMode
 	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 }
@@ -123,6 +127,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 		SocketName:       cfg.SocketName,
 		RegisterHandlers: w.registerHandlers,
 		ShutdownTimeout:  500 * time.Millisecond,
+		SocketFileMode:   cfg.SocketFileMode,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "controller agent config reload socket listener setup:")
