@@ -12,7 +12,7 @@ myst:
 
 Amazon EC2 <amazon-ec2>
 Amazon EKS <amazon-eks>
-Canonical K8s <canonical-kubernetes>
+Canonical Kubernetes <canonical-kubernetes>
 Google GCE <google-gce>
 Google GKE <google-gke>
 LXD <lxd>
