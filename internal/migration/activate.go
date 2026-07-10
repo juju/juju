@@ -9,12 +9,9 @@ import (
 	corecontroller "github.com/juju/juju/core/controller"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modelservice "github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
-	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
 )
@@ -109,6 +106,11 @@ func activateModel(ctx context.Context, domainServices services.DomainServices, 
 	}
 
 	// 4. Clear the model-DB import gate.
+	// Steps 4 and 5 write to different databases and so cannot share a
+	// transaction, but a crash between them leaves no half-visible model:
+	// visibility gates on model.activated (set in step 5), so until step 5
+	// lands the model stays invisible regardless of the gate. Both steps are
+	// idempotent, so a retry resumes safely.
 	if err := domainServices.ModelMigration().DeleteModelImportingStatus(ctx); err != nil {
 		return errors.Errorf(
 			"clearing import gate for model %q: %w", modelUUIDStr, err,
@@ -138,22 +140,6 @@ func activateModel(ctx context.Context, domainServices services.DomainServices, 
 	}
 
 	return nil
-}
-
-// activateServices bundles the domain services the activation driver
-// orchestrates. The caller supplies services from the model's DomainServices;
-// the driver only coordinates service calls and never constructs state.
-type activateServices struct {
-	// migration exposes the controller- and model-scoped claim/gate methods
-	// used to drive the import phase machine and clear the model import gate.
-	migration *modelmigrationservice.Service
-
-	// model flips the model row's generic activated flag.
-	model *modelservice.WatchableService
-
-	// cmr reconciles application_remote_offerer.offerer_controller_uuid for
-	// relations that cross a controller boundary.
-	cmr *crossmodelrelationservice.WatchableService
 }
 
 // reconcileOffererControllers populates
@@ -231,13 +217,24 @@ func reconcileOffererControllers(
 			"reading third-party offerer mappings for model %q: %w", modelUUID, err,
 		)
 	}
+
+	// Group the offerer models by their controller so each distinct controller
+	// is updated in a single batched call, shrinking the partial-failure window
+	// on a crash. Each call is idempotent, so a retry is safe.
+	modelsByController := make(map[corecontroller.UUID][]coremodel.UUID)
 	for _, m := range thirdParty {
-		if err := domainServices.CrossModelRelation().SetOffererControllerForOffererModel(
-			ctx, coremodel.UUID(m.ModelUUID), corecontroller.UUID(m.ControllerUUID),
+		controllerUUID := corecontroller.UUID(m.ControllerUUID)
+		modelsByController[controllerUUID] = append(
+			modelsByController[controllerUUID], coremodel.UUID(m.ModelUUID),
+		)
+	}
+	for controllerUUID, modelUUIDs := range modelsByController {
+		if err := domainServices.CrossModelRelation().SetOffererControllerForOffererModels(
+			ctx, modelUUIDs, controllerUUID,
 		); err != nil {
 			return errors.Errorf(
-				"setting offerer controller for third-party model %q: %w",
-				m.ModelUUID, err,
+				"setting offerer controller %q for third-party models: %w",
+				controllerUUID, err,
 			)
 		}
 	}
