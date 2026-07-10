@@ -21,7 +21,78 @@ This reference assumes basic familiarity with Juju. If you are new to Juju, star
 (ec2-cloud-requirements-iam)=
 ## Requirements
 
-Juju needs Service Account Key Admin, Compute Instance Admin, and Compute Security Admin to create and manage the EC2 resources used during cloud registration and bootstrap.
+Juju requires the following AWS IAM permissions to create and manage EC2 resources during cloud registration and bootstrap:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "JujuEC2Actions",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AssociateIamInstanceProfile",
+        "ec2:AttachVolume",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:CreateSecurityGroup",
+        "ec2:CreateTags",
+        "ec2:CreateVolume",
+        "ec2:DeleteSecurityGroup",
+        "ec2:DeleteVolume",
+        "ec2:DescribeAccountAttributes",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeIamInstanceProfileAssociations",
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeInternetGateways",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSpotPriceHistory",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeVpcs",
+        "ec2:DetachVolume",
+        "ec2:ModifyNetworkInterfaceAttribute",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:RunInstances",
+        "ec2:TerminateInstances"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "JujuIAMActions",
+      "Effect": "Allow",
+      "Action": [
+        "iam:AddRoleToInstanceProfile",
+        "iam:CreateInstanceProfile",
+        "iam:CreateRole",
+        "iam:DeleteInstanceProfile",
+        "iam:DeleteRole",
+        "iam:DeleteRolePolicy",
+        "iam:GetInstanceProfile",
+        "iam:GetRole",
+        "iam:ListInstanceProfiles",
+        "iam:ListRolePolicies",
+        "iam:ListRoles",
+        "iam:PassRole",
+        "iam:PutRolePolicy",
+        "iam:RemoveRoleFromInstanceProfile"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "JujuSSMActions",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:ListInstanceAssociations",
+        "ssm:UpdateInstanceInformation"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
 
 (ec2-cloud-concepts)=
 ## Concepts
