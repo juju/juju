@@ -78,18 +78,28 @@ WHERE key = $KeyValue.key`, KeyValue{})
 		return "", false, errors.Capture(err)
 	}
 
-	var kv KeyValue
+	var (
+		kv    KeyValue
+		found bool
+	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		kv = KeyValue{}
+		found = false
+
 		err := tx.Query(ctx, stmt, KeyValue{Key: key}).Get(&kv)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
-		return errors.Capture(err)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		found = true
+		return nil
 	})
 	if err != nil {
 		return "", false, errors.Capture(err)
 	}
-	return kv.Value, kv.Key != "", nil
+	return kv.Value, found, nil
 }
 
 // UpdateControllerConfig allows changing some of the configuration
