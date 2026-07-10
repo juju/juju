@@ -30,7 +30,7 @@ Now, launch an Ubuntu VM using the [cloud-init](https://cloudinit.readthedocs.io
 :copy:
 :user:
 :host:
-multipass launch 24.04 --cpus 4 --memory 8G --disk 50G --name my-juju-vm --cloud-init https://raw.githubusercontent.com/canonical/juju/4.0/docs/tutorial/cloud-init.yaml
+multipass launch 24.04 --cpus 4 --memory 8G --disk 50G --name my-juju-vm --cloud-init https://raw.githubusercontent.com/juju/juju/4.0/docs/tutorial/cloud-init.yaml
 
 Launched: my-juju-vm
 ```
