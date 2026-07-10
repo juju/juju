@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+controller_dir=$(find "$SNAP_DATA/agents" -maxdepth 1 -type d -name 'controller-*' 2>/dev/null | head -1)
+if [ -z "$controller_dir" ]; then
+  echo "cannot find controller instance in $SNAP_DATA/agents" >&2
+  exit 1
+fi
+controller_id=$(basename "$controller_dir" | cut -d- -f2)
+exec "$SNAP/bin/jujud" db-repl --data-dir "$SNAP_DATA" --controller-id "$controller_id" "$@"
