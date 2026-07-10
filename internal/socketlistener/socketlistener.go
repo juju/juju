@@ -7,6 +7,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -22,6 +23,9 @@ type Config struct {
 	Logger logger.Logger
 	// SocketName is the socket file descriptor.
 	SocketName string
+	// SocketFileMode is the file mode to apply to the created Unix socket.
+	// A zero value means the default 0700 (owner-only) is used.
+	SocketFileMode os.FileMode
 	// RegisterHandlers should register handlers on the router with
 	// router.HandlerFunc or similar.
 	RegisterHandlers func(router *mux.Router)
@@ -61,8 +65,9 @@ func NewSocketListener(config Config) (*SocketListener, error) {
 	}
 
 	l, err := sockets.Listen(sockets.Socket{
-		Address: config.SocketName,
-		Network: "unix",
+		Address:  config.SocketName,
+		Network:  "unix",
+		FileMode: config.SocketFileMode,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to listen on unix socket")

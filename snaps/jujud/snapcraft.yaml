@@ -24,23 +24,19 @@ grade: devel
 
 apps:
   jujud:
-    # Snap-owned runtime path contract (binding for runtime.conf):
-    #   service --data-dir:        $SNAP_COMMON/var/lib/juju
-    #   runtime.conf data-dir:     $SNAP_COMMON/var/lib/juju
-    #   runtime.conf log-dir:      $SNAP_COMMON/var/log/juju
-    # runtime.conf location:
-    #   $SNAP_COMMON/var/lib/juju/agents/controller-0/runtime.conf
-    # Cross-process path sharing, layouts, and plugs are JUJU-10104.
     command: >-
       bin/jujud controller
-      --data-dir $SNAP_COMMON/var/lib/juju
+      --data-dir $SNAP_DATA
       --controller-id 0
       --log-to-stderr
     daemon: simple
     restart-condition: on-failure
     environment:
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
-      JUJU_DATA: "$SNAP_COMMON/var/lib/juju"
+      JUJU_DATA: "$SNAP_DATA"
+    plugs:
+      - network
+      - network-bind
 
 parts:
   dqlite:
