@@ -50,7 +50,7 @@ func (c *Client) GetSSHConnRequest(ctx context.Context, tunnelID string) (params
 	var result params.SSHConnRequestResult
 	arg := params.SSHConnRequestArg{TunnelID: tunnelID}
 	if err := c.facade.FacadeCall(ctx, "GetSSHConnRequest", arg, &result); err != nil {
-		return params.SSHConnRequestResult{}, apiservererrors.RestoreError(result.Error)
+		return params.SSHConnRequestResult{}, errors.Capture(err)
 	}
 	if result.Error != nil {
 		return params.SSHConnRequestResult{}, apiservererrors.RestoreError(result.Error)

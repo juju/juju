@@ -53,14 +53,16 @@ func (s *serviceSuite) TestSSHServerHostPublicKeyDerivesAndCaches(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, want)
 
-	// A second call returns the same cached key and does not re-derive it.
+	// A second call returns the same cached key and does not re-fetch or
+	// re-derive it: the private key is fetched from state exactly once.
 	got2, err := svc.SSHServerHostPublicKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got2, tc.DeepEquals, want)
+	c.Check(controllerState.gets, tc.Equals, 1)
 }
 
 // TestSSHServerHostPublicKeyErrorsWhenMissing checks that a state error fetching
-// the host key is propagated rather than cached.
+// the host key is propagated to the caller.
 func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
 	svc := controllersshservice.NewService(&stubControllerState{getErr: context.Canceled})
 
@@ -72,9 +74,11 @@ func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
 type stubControllerState struct {
 	key    string
 	getErr error
+	gets   int
 }
 
 func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, error) {
+	s.gets++
 	return s.key, s.getErr
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/agent/sshsession"
 	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/errors"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -88,4 +89,14 @@ func (s *clientSuite) TestGetSSHConnRequestError(c *tc.C) {
 	client := sshsession.NewClient(apiCaller)
 	_, err := client.GetSSHConnRequest(c.Context(), "tunnel-0")
 	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *clientSuite) TestGetSSHConnRequestFacadeError(c *tc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result any) error {
+		return errors.New("transport boom")
+	})
+
+	client := sshsession.NewClient(apiCaller)
+	_, err := client.GetSSHConnRequest(c.Context(), "tunnel-0")
+	c.Assert(err, tc.ErrorMatches, "transport boom")
 }
