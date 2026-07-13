@@ -90,6 +90,10 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	fmt.Fprintf(ctx.Stdout, "Wrote %s\n", runtimeDst)
 
 	// Copy bootstrap-params from staged dir to $SNAP_COMMON.
+	// bootstrap-params is always present during the initial bootstrap
+	// cycle that triggers this init command. It is not re-staged after
+	// bootstrap completes, so the init command is not designed for
+	// re-execution outside the cloud-init delivery flow.
 	bootstrapSrc := filepath.Join(c.stagedDir, "bootstrap-params")
 	bootstrapDst := filepath.Join(snapCommon, "bootstrap-params")
 	if err := copyStagedFile(bootstrapSrc, bootstrapDst, 0o600, 0o755); err != nil {
