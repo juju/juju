@@ -24,9 +24,10 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 	const modelUUID = "32c5aaae-6713-4cd7-83a4-d1256e9c97d0"
 
 	tests := []struct {
-		input  *instance.Placement
-		output Placement
-		err    *string
+		input     *instance.Placement
+		modelUUID string
+		output    Placement
+		err       *string
 	}{
 		{
 			input: nil,
@@ -103,6 +104,30 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 			},
 		},
 		{
+			// A container type scope must still fall through to
+			// container parsing even when modelUUID is non-empty.
+			input: &instance.Placement{
+				Scope:     "lxd",
+				Directive: "0",
+			},
+			modelUUID: modelUUID,
+			output: Placement{
+				Type:      PlacementTypeContainer,
+				Container: ContainerTypeLXD,
+				Directive: "0",
+			},
+		},
+		{
+			// A non-container, non-model scope with an empty
+			// modelUUID must fall through to container parsing and
+			// error, not be misclassified as a provider placement.
+			input: &instance.Placement{
+				Scope: "not-a-real-scope",
+			},
+			modelUUID: "",
+			err:       new(`invalid container type "not-a-real-scope"`),
+		},
+		{
 			input: &instance.Placement{
 				Scope:     instance.ModelScope,
 				Directive: "zone=us-east-1a",
@@ -117,16 +142,27 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Scope:     modelUUID,
 				Directive: "zone=us-east-1a",
 			},
+			modelUUID: modelUUID,
 			output: Placement{
 				Type:      PlacementTypeProvider,
 				Directive: "zone=us-east-1a",
 			},
 		},
+		{
+			// An empty scope with an empty modelUUID must not be
+			// misclassified as a provider placement. It should
+			// fall through to the container type path and error.
+			input: &instance.Placement{
+				Scope: "",
+			},
+			modelUUID: "",
+			err:       new(`invalid container type ""`),
+		},
 	}
 	for _, test := range tests {
 		c.Logf("input: %v", test.input)
 
-		result, err := ParsePlacement(test.input, modelUUID)
+		result, err := ParsePlacement(test.input, test.modelUUID)
 		if test.err != nil {
 			c.Assert(err, tc.ErrorMatches, *test.err)
 		} else {
