@@ -1754,8 +1754,9 @@ func (s *State) EnsureExportOffers(ctx context.Context, migrationUUID string, of
 		return errors.Capture(err)
 	}
 	stmt, err := s.Prepare(`
-INSERT OR IGNORE INTO model_migration_export_offer (migration_uuid, offer_uuid)
+INSERT INTO model_migration_export_offer (migration_uuid, offer_uuid)
 VALUES ($migrationExportOffer.*)
+ON CONFLICT (migration_uuid, offer_uuid) DO NOTHING
 `, migrationExportOffer{})
 	if err != nil {
 		return errors.Capture(err)
@@ -1816,9 +1817,24 @@ func (s *State) StageModelRedirect(
 		// CompletedAt is nil (NULL) — not active yet.
 	}
 
+	// Upsert on the model_uuid primary key: replaying REAP overwrites a
+	// previously staged row, and a model that migrated away, came back, and
+	// migrated away again overwrites its completed redirect - resetting
+	// completed_at to NULL so the row is staged-inactive again until the
+	// purge transaction completes it. DO UPDATE (rather than OR REPLACE)
+	// avoids delete+reinsert of the parent row under the
+	// model_migration_redirect_user foreign key.
 	insertRedirectStmt, err := s.Prepare(`
-INSERT OR REPLACE INTO model_migration_redirect (*)
+INSERT INTO model_migration_redirect (*)
 VALUES ($migrationRedirect.*)
+ON CONFLICT (model_uuid) DO UPDATE SET
+    source_migration_uuid = excluded.source_migration_uuid,
+    target_controller_uuid = excluded.target_controller_uuid,
+    target_controller_alias = excluded.target_controller_alias,
+    target_addresses = excluded.target_addresses,
+    target_ca_cert = excluded.target_ca_cert,
+    created_at = excluded.created_at,
+    completed_at = excluded.completed_at
 `, redirect)
 	if err != nil {
 		return errors.Capture(err)
