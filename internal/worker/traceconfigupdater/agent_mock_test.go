@@ -13,14 +13,13 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
-	names "github.com/juju/names/v6"
-	shell "github.com/juju/utils/v4/shell"
-
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	semversion "github.com/juju/juju/core/semversion"
+	names "github.com/juju/names/v6"
+	shell "github.com/juju/utils/v4/shell"
 )
 
 // MockAgent is a mock of Agent interface.
@@ -117,8 +116,8 @@ type MockConfigMockRecorder struct {
 	modelExpects                              []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                              []*gomock.Call0_1[string]
 	oldPasswordExpects                        []*gomock.Call0_1[string]
-	openTelemetryEnabledExpects               []*gomock.Call0_1[bool]
 	openTelemetryCACertificateExpects         []*gomock.Call0_1[string]
+	openTelemetryEnabledExpects               []*gomock.Call0_1[bool]
 	openTelemetryGRPCEndpointExpects          []*gomock.Call0_1[string]
 	openTelemetryHTTPEndpointExpects          []*gomock.Call0_1[string]
 	openTelemetryInsecureExpects              []*gomock.Call0_1[bool]
@@ -543,24 +542,6 @@ func (mr *MockConfigMockRecorder) OldPassword() *MockConfigOldPasswordCall {
 // MockConfigOldPasswordCall is the typed call wrapper for OldPassword.
 type MockConfigOldPasswordCall = gomock.Call0_1[string]
 
-// OpenTelemetryEnabled mocks base method.
-func (m *MockConfig) OpenTelemetryEnabled() bool {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_1(&m.recorder.openTelemetryEnabledExpects, m.ctrl, m, "OpenTelemetryEnabled")
-}
-
-// OpenTelemetryEnabled indicates an expected call of OpenTelemetryEnabled.
-func (mr *MockConfigMockRecorder) OpenTelemetryEnabled() *MockConfigOpenTelemetryEnabledCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[bool](mr.mock.ctrl.T, mr.mock, "OpenTelemetryEnabled")
-	mr.openTelemetryEnabledExpects = append(mr.openTelemetryEnabledExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockConfigOpenTelemetryEnabledCall is the typed call wrapper for OpenTelemetryEnabled.
-type MockConfigOpenTelemetryEnabledCall = gomock.Call0_1[bool]
-
 // OpenTelemetryCACertificate mocks base method.
 func (m *MockConfig) OpenTelemetryCACertificate() string {
 	m.ctrl.T.Helper()
@@ -578,6 +559,24 @@ func (mr *MockConfigMockRecorder) OpenTelemetryCACertificate() *MockConfigOpenTe
 
 // MockConfigOpenTelemetryCACertificateCall is the typed call wrapper for OpenTelemetryCACertificate.
 type MockConfigOpenTelemetryCACertificateCall = gomock.Call0_1[string]
+
+// OpenTelemetryEnabled mocks base method.
+func (m *MockConfig) OpenTelemetryEnabled() bool {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryEnabledExpects, m.ctrl, m, "OpenTelemetryEnabled")
+}
+
+// OpenTelemetryEnabled indicates an expected call of OpenTelemetryEnabled.
+func (mr *MockConfigMockRecorder) OpenTelemetryEnabled() *MockConfigOpenTelemetryEnabledCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[bool](mr.mock.ctrl.T, mr.mock, "OpenTelemetryEnabled")
+	mr.openTelemetryEnabledExpects = append(mr.openTelemetryEnabledExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigOpenTelemetryEnabledCall is the typed call wrapper for OpenTelemetryEnabled.
+type MockConfigOpenTelemetryEnabledCall = gomock.Call0_1[bool]
 
 // OpenTelemetryGRPCEndpoint mocks base method.
 func (m *MockConfig) OpenTelemetryGRPCEndpoint() string {
