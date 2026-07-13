@@ -139,20 +139,6 @@ type ModelServices struct {
 	simpleStreamsClient         http.HTTPClient
 	logDir                      string
 	clock                       clock.Clock
-
-	// modelDBDeleter is used by source REAP to delete the migrated model's
-	// dqlite namespace. Set by the domain services manifold after construction.
-	modelDBDeleter modelmigrationservice.ModelDBDeleter
-}
-
-// SetModelDBDeleter sets the model DB deleter used by source REAP. This is
-// called after construction by the domain services manifold, which provides
-// the adapter from the dbaccessor worker's coredatabase.DBDeleter. It is not
-// synchronised, so it must be called before the services are handed out for
-// concurrent use. If never called, MarkModelAsGone returns an error when REAP
-// is attempted.
-func (s *ModelServices) SetModelDBDeleter(deleter modelmigrationservice.ModelDBDeleter) {
-	s.modelDBDeleter = deleter
 }
 
 // NewModelServices returns a new registry which uses the provided modelDB
@@ -439,8 +425,6 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 		s.controllerWatcherFactory("modelmigration"),
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
-		s.modelDBDeleter,
-		s.logger.Child("modelmigration"),
 	)
 }
 

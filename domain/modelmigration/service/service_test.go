@@ -29,7 +29,6 @@ import (
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -39,7 +38,6 @@ type serviceSuite struct {
 	watcherFactory   *MockWatcherFactory
 	instanceProvider *MockInstanceProvider
 	resourceProvider *MockResourceProvider
-	modelDBDeleter   *MockModelDBDeleter
 	modelUUID        string
 	controllerUUID   string
 }
@@ -70,8 +68,6 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -98,8 +94,6 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		resourceGetter,
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -127,8 +121,6 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -158,8 +150,6 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
 }
@@ -187,8 +177,6 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).CheckMachines(c.Context())
 	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
 }
@@ -220,8 +208,6 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -252,8 +238,6 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -272,8 +256,6 @@ func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -296,8 +278,6 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -341,8 +321,6 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	)
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -372,8 +350,6 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
-		nil,
-		loggertesting.WrapCheckLog(c),
 	)
 	_, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -453,8 +429,6 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 		s.watcherFactory,
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
-		s.modelDBDeleter,
-		loggertesting.WrapCheckLog(c),
 	)
 }
 
@@ -724,7 +698,8 @@ func (s *serviceSuite) TestSetMigrationPhase(c *tc.C) {
 }
 
 // TestMarkModelAsGone asserts the full REAP algorithm runs: capture offers,
-// stage redirect, delete model DB, and run the purge transaction.
+// stage redirect, and run the purge transaction (which stages the model
+// database deletion).
 func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -748,7 +723,6 @@ func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
 		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
 		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
 		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
-		s.modelDBDeleter.EXPECT().DeleteModelDB(gomock.Any(), s.modelUUID).Return(nil),
 	)
 
 	err := s.service(c).MarkModelAsGone(c.Context())
@@ -781,7 +755,6 @@ func (s *serviceSuite) TestMarkModelAsGoneNoProviderDestroy(c *tc.C) {
 		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
 		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
 		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
-		s.modelDBDeleter.EXPECT().DeleteModelDB(gomock.Any(), s.modelUUID).Return(nil),
 	)
 
 	err := s.service(c).MarkModelAsGone(c.Context())
@@ -810,10 +783,9 @@ func (s *serviceSuite) TestMarkModelAsGoneRetryAfterPurgeFailure(c *tc.C) {
 	s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil).Times(2)
 	s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil).Times(2)
 	s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil).Times(2)
-	// First purge attempt fails; the model DB must NOT be deleted for it.
+	// First purge attempt fails; nothing destructive is committed for it.
 	s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(errors.New("dqlite hiccup")).Times(1)
 	s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil).Times(1)
-	s.modelDBDeleter.EXPECT().DeleteModelDB(gomock.Any(), s.modelUUID).Return(nil).Times(1)
 
 	// First call fails at the commit point: nothing destructive happened.
 	err := s.service(c).MarkModelAsGone(c.Context())
@@ -822,57 +794,6 @@ func (s *serviceSuite) TestMarkModelAsGoneRetryAfterPurgeFailure(c *tc.C) {
 	// Retry succeeds end to end.
 	err = s.service(c).MarkModelAsGone(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestMarkModelAsGoneDBDeleteFailureNonFatal asserts that once the purge
-// transaction has committed, a failure to delete the model database is not an
-// error: the migration is complete and the unreachable database only leaks
-// storage.
-func (s *serviceSuite) TestMarkModelAsGoneDBDeleteFailureNonFatal(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	migUUID := tc.Must(c, uuid.NewUUID).String()
-	mig := modelmigrationinternal.Migration{
-		UUID:  migUUID,
-		Phase: migration.REAP,
-		Target: modelmigrationinternal.TargetInfo{
-			ControllerUUID: "target-controller-uuid",
-			Addrs:          []string{"10.0.0.1:17070"},
-			CACert:         "ca-cert",
-		},
-	}
-
-	gomock.InOrder(
-		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
-		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, nil),
-		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil),
-		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
-		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
-		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
-		s.modelDBDeleter.EXPECT().DeleteModelDB(gomock.Any(), s.modelUUID).Return(errors.New("dqlite unavailable")),
-	)
-
-	err := s.service(c).MarkModelAsGone(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-// TestMarkModelAsGoneNoDeleter asserts a missing model DB deleter fails
-// before any REAP work is attempted.
-func (s *serviceSuite) TestMarkModelAsGoneNoDeleter(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	svc := NewService(
-		s.controllerState,
-		s.modelState,
-		s.modelUUID,
-		s.watcherFactory,
-		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
-		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
-		nil,
-		loggertesting.WrapCheckLog(c),
-	)
-	err := svc.MarkModelAsGone(c.Context())
-	c.Assert(err, tc.ErrorMatches, "model DB deleter not configured for source REAP")
 }
 
 // TestMarkModelAsGoneNoActiveMigration asserts that when no active export
@@ -992,7 +913,6 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
-	s.modelDBDeleter = NewMockModelDBDeleter(ctrl)
 
 	c.Cleanup(func() {
 		s.controllerState = nil
@@ -1000,7 +920,6 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.watcherFactory = nil
 		s.instanceProvider = nil
 		s.resourceProvider = nil
-		s.modelDBDeleter = nil
 		s.modelUUID = ""
 		s.controllerUUID = ""
 	})

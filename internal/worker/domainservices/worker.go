@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/storage"
-	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	domainservices "github.com/juju/juju/domain/services"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
@@ -34,10 +33,6 @@ type Config struct {
 
 	// ClusterDescriber is used to describe the cluster.
 	ClusterDescriber coredatabase.ClusterDescriber
-
-	// DBDeleter is used by source REAP to delete the migrated model's dqlite
-	// namespace. It may be nil if the dbaccessor worker hasn't started yet.
-	DBDeleter coredatabase.DBDeleter
 
 	// ProviderFactory is used to get provider instances.
 	ProviderFactory providertracker.ProviderFactory
@@ -157,7 +152,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 			config.PublicKeyImporter,
 			config.LeaseManager,
 			config.ClusterDescriber,
-			config.DBDeleter,
 			config.SimpleStreamsClient,
 			config.LogDir,
 			config.Clock,
@@ -225,7 +219,6 @@ type domainServicesGetter struct {
 	publicKeyImporter       domainservices.PublicKeyImporter
 	leaseManager            lease.Manager
 	clusterDescriber        coredatabase.ClusterDescriber
-	dbDeleter               coredatabase.DBDeleter
 	simpleStreamsHTTPClient http.HTTPClient
 	logDir                  string
 	clock                   clock.Clock
@@ -240,50 +233,33 @@ func (s *domainServicesGetter) ServicesForModel(ctx context.Context, modelUUID c
 		return nil, internalerrors.Errorf("getting logger context: %w", err)
 	}
 
-	modelServices := s.newModelDomainServices(
-		modelUUID, s.dbGetter,
-		s.providerFactory,
-		controllerObjectStoreGetter{
-			objectStoreGetter: s.objectStoreGetter,
-		},
-		modelObjectStoreGetter{
-			modelUUID:         modelUUID,
-			objectStoreGetter: s.objectStoreGetter,
-		},
-		modelStorageRegistryGetter{
-			modelUUID:             modelUUID,
-			storageRegistryGetter: s.storageRegistryGetter,
-		},
-		s.publicKeyImporter,
-		modelApplicationLeaseManager{
-			modelUUID: modelUUID,
-			manager:   s.leaseManager,
-		},
-		s.clusterDescriber,
-		s.simpleStreamsHTTPClient,
-		s.logDir,
-		s.clock,
-		loggerContext.GetLogger("juju.services"),
-	)
-	// Wire the model DB deleter adapter for source REAP. The adapter wraps
-	// the dbaccessor worker's coredatabase.DBDeleter, translating NotFound
-	// to nil for idempotent replay. A services implementation that cannot
-	// accept the deleter is a wiring bug: fail here rather than at REAP time
-	// deep into a migration.
-	if s.dbDeleter != nil {
-		ms, ok := modelServices.(interface {
-			SetModelDBDeleter(modelmigrationservice.ModelDBDeleter)
-		})
-		if !ok {
-			return nil, internalerrors.Errorf(
-				"model domain services %T do not support setting a model DB deleter", modelServices)
-		}
-		ms.SetModelDBDeleter(&modelDBDeleterAdapter{deleter: s.dbDeleter})
-	}
-
 	return &domainServices{
 		ControllerDomainServices: s.ctrlFactory,
-		ModelDomainServices:      modelServices,
+		ModelDomainServices: s.newModelDomainServices(
+			modelUUID, s.dbGetter,
+			s.providerFactory,
+			controllerObjectStoreGetter{
+				objectStoreGetter: s.objectStoreGetter,
+			},
+			modelObjectStoreGetter{
+				modelUUID:         modelUUID,
+				objectStoreGetter: s.objectStoreGetter,
+			},
+			modelStorageRegistryGetter{
+				modelUUID:             modelUUID,
+				storageRegistryGetter: s.storageRegistryGetter,
+			},
+			s.publicKeyImporter,
+			modelApplicationLeaseManager{
+				modelUUID: modelUUID,
+				manager:   s.leaseManager,
+			},
+			s.clusterDescriber,
+			s.simpleStreamsHTTPClient,
+			s.logDir,
+			s.clock,
+			loggerContext.GetLogger("juju.services"),
+		),
 	}, nil
 }
 
@@ -382,20 +358,4 @@ func (s leaseManager) Token(leaseName, holderName string) lease.Token {
 // Revoke releases the named lease for the named holder.
 func (s leaseManager) Revoke(leaseName, holderName string) error {
 	return s.revoker.Revoke(leaseName, holderName)
-}
-
-// modelDBDeleterAdapter adapts coredatabase.DBDeleter to the domain-owned
-// modelmigrationservice.ModelDBDeleter interface. It translates
-// errors.NotFound to nil so that REAP replay (where the model DB may
-// already be gone from a previous partial run) is idempotent.
-type modelDBDeleterAdapter struct {
-	deleter coredatabase.DBDeleter
-}
-
-// DeleteModelDB implements [modelmigrationservice.ModelDBDeleter].
-func (a *modelDBDeleterAdapter) DeleteModelDB(ctx context.Context, modelUUID string) error {
-	if err := a.deleter.DeleteDB(modelUUID); err != nil && !errors.Is(err, errors.NotFound) {
-		return internalerrors.Errorf("deleting model DB %q: %w", modelUUID, err)
-	}
-	return nil
 }

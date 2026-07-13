@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
@@ -55,14 +54,6 @@ type ResourceProvider interface {
 	AdoptResources(context.Context, string, semversion.Number) error
 }
 
-// ModelDBDeleter deletes a model's dqlite database namespace. It is the
-// domain-owned port for the infrastructure DBDeleter, used by source REAP to
-// purge the migrated model's database. A "database not found" outcome is
-// success (idempotent replay after a partial crash).
-type ModelDBDeleter interface {
-	DeleteModelDB(ctx context.Context, modelUUID string) error
-}
-
 // Service provides the means for supporting model migration actions between
 // controllers and answering questions about the underlying model(s) that are
 // being migrated.
@@ -75,16 +66,10 @@ type Service struct {
 	// [ResourceProvider]
 	resourceProviderGetter func(context.Context) (ResourceProvider, error)
 
-	// modelDBDeleter is used by source REAP to delete the migrated model's
-	// dqlite namespace. It may be nil if REAP is not needed (e.g. target-only
-	// contexts).
-	modelDBDeleter ModelDBDeleter
-
 	controllerState ControllerState
 	modelState      ModelState
 	watcherFactory  WatcherFactory
 	modelUUID       string
-	logger          logger.Logger
 }
 
 // WatcherFactory describes methods for creating watchers used by the
@@ -191,9 +176,9 @@ type ControllerState interface {
 	GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error)
 
 	// CompleteModelRedirectAndPurge runs the final controller-DB transaction
-	// of source REAP: purges model-scoped rows, completes the redirect, marks
-	// the export DONE, and scrubs target auth. It fails unless the export is
-	// still in phase REAP.
+	// of source REAP: purges model-scoped rows, stages the model database
+	// deletion, completes the redirect, marks the export DONE, and scrubs
+	// target auth. It fails unless the export is still in phase REAP.
 	CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error
 }
 
@@ -245,8 +230,6 @@ func NewService(
 	watcherFactory WatcherFactory,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
-	modelDBDeleter ModelDBDeleter,
-	logger logger.Logger,
 ) *Service {
 	return &Service{
 		controllerState:        controllerState,
@@ -255,8 +238,6 @@ func NewService(
 		instanceProviderGetter: instanceProviderGetter,
 		resourceProviderGetter: resourceProviderGetter,
 		modelUUID:              modelUUID,
-		modelDBDeleter:         modelDBDeleter,
-		logger:                 logger,
 	}
 }
 
@@ -652,23 +633,21 @@ func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) 
 // target controller owns the model, to remove the migrated model from this
 // controller. It runs the following steps in order:
 //
-//  1. Read the active export; if it is already DONE, return nil.
+//  1. Read the active export; if there is no active export it is already DONE
+//     from a previous run and this is a no-op.
 //  2. Capture the hosted offer UUIDs from the model DB.
 //  3. Stage the redirect snapshot (completed_at = NULL, not yet active).
-//  4. Run the controller-DB purge transaction: delete model-scoped rows,
-//     complete the redirect, mark the export DONE, and scrub target auth.
-//  5. Delete the source model's dqlite namespace.
+//  4. Run the controller-DB purge transaction: delete model-scoped rows, stage
+//     the model database deletion, complete the redirect, mark the export DONE,
+//     and scrub target auth.
 //
 // The purge transaction in step 4 is the single commit point. Everything
 // before it is an idempotent preparation that leaves the model fully intact,
 // so a failure or crash before step 4 commits can simply be retried. Once it
 // commits, the model is gone from the controller database and the redirect is
-// active. The model database deletion in step 5 is best effort: after step 4
-// the namespace is no longer listed, so the database can never be opened
-// again, and a failure to delete it only leaks unreferenced data. Deleting it
-// earlier would risk the reverse: a model database dropped before the purge
-// commits would leave a model that exists in the controller database but has
-// no data behind it.
+// active. The model's dqlite database is not deleted here: step 4 stages the
+// deletion, and the model DB deleter worker deletes the database
+// asynchronously, retrying until the staged row is gone.
 //
 // It never calls normal model removal, removal jobs, undertaker provider
 // deletion, or provider Destroy — it only purges rows belonging to a model
@@ -677,12 +656,6 @@ func (s *Service) MarkModelAsGone(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
-	// Fail before any work if the deleter is missing so a wiring problem
-	// surfaces without staging partial REAP state.
-	if s.modelDBDeleter == nil {
-		return errors.Errorf("model DB deleter not configured for source REAP")
-	}
-
 	mig, err := s.controllerState.GetActiveExport(ctx, s.modelUUID)
 	if err != nil {
 		if errors.Is(err, modelmigrationerrors.ErrMigrationNotFound) {
@@ -690,9 +663,6 @@ func (s *Service) MarkModelAsGone(ctx context.Context) error {
 			return nil
 		}
 		return errors.Capture(err)
-	}
-	if mig.Phase == migration.DONE {
-		return nil
 	}
 	if mig.Phase != migration.REAP {
 		return errors.Errorf(
@@ -732,19 +702,9 @@ func (s *Service) MarkModelAsGone(ctx context.Context) error {
 
 	// Step 4: The controller-DB purge transaction — the commit point. On
 	// success the model is gone from the controller database, the redirect
-	// is active and the export is DONE.
+	// is active, the model database deletion is staged, and the export is DONE.
 	if err := s.controllerState.CompleteModelRedirectAndPurge(ctx, mig.UUID, s.modelUUID); err != nil {
 		return errors.Errorf("purging source model %q: %w", s.modelUUID, err)
-	}
-
-	// Step 5: Delete the source model dqlite namespace. Best effort: the
-	// namespace is no longer listed after the purge, so the database cannot
-	// be opened again; failing to delete it only leaks unreferenced data.
-	if err := s.modelDBDeleter.DeleteModelDB(ctx, s.modelUUID); err != nil {
-		s.logger.Errorf(ctx,
-			"model %q was REAPed but deleting its database failed; "+
-				"the database is unreachable and only leaks storage: %v",
-			s.modelUUID, err)
 	}
 
 	return nil
