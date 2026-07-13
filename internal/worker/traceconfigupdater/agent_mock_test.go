@@ -13,13 +13,14 @@ import (
 	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
+	names "github.com/juju/names/v6"
+	shell "github.com/juju/utils/v4/shell"
+
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	semversion "github.com/juju/juju/core/semversion"
-	names "github.com/juju/names/v6"
-	shell "github.com/juju/utils/v4/shell"
 )
 
 // MockAgent is a mock of Agent interface.
@@ -117,6 +118,7 @@ type MockConfigMockRecorder struct {
 	nonceExpects                              []*gomock.Call0_1[string]
 	oldPasswordExpects                        []*gomock.Call0_1[string]
 	openTelemetryEnabledExpects               []*gomock.Call0_1[bool]
+	openTelemetryCACertificateExpects         []*gomock.Call0_1[string]
 	openTelemetryGRPCEndpointExpects          []*gomock.Call0_1[string]
 	openTelemetryHTTPEndpointExpects          []*gomock.Call0_1[string]
 	openTelemetryInsecureExpects              []*gomock.Call0_1[bool]
@@ -558,6 +560,24 @@ func (mr *MockConfigMockRecorder) OpenTelemetryEnabled() *MockConfigOpenTelemetr
 
 // MockConfigOpenTelemetryEnabledCall is the typed call wrapper for OpenTelemetryEnabled.
 type MockConfigOpenTelemetryEnabledCall = gomock.Call0_1[bool]
+
+// OpenTelemetryCACertificate mocks base method.
+func (m *MockConfig) OpenTelemetryCACertificate() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryCACertificateExpects, m.ctrl, m, "OpenTelemetryCACertificate")
+}
+
+// OpenTelemetryCACertificate indicates an expected call of OpenTelemetryCACertificate.
+func (mr *MockConfigMockRecorder) OpenTelemetryCACertificate() *MockConfigOpenTelemetryCACertificateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryCACertificate")
+	mr.openTelemetryCACertificateExpects = append(mr.openTelemetryCACertificateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigOpenTelemetryCACertificateCall is the typed call wrapper for OpenTelemetryCACertificate.
+type MockConfigOpenTelemetryCACertificateCall = gomock.Call0_1[string]
 
 // OpenTelemetryGRPCEndpoint mocks base method.
 func (m *MockConfig) OpenTelemetryGRPCEndpoint() string {

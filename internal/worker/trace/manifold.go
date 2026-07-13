@@ -156,6 +156,7 @@ func (p unitRuntimeConfigProvider) CurrentRuntimeConfig(context.Context) (Runtim
 		Enabled:               config.OpenTelemetryEnabled(),
 		HTTPEndpoint:          config.OpenTelemetryHTTPEndpoint(),
 		GRPCEndpoint:          config.OpenTelemetryGRPCEndpoint(),
+		CACertificate:         config.OpenTelemetryCACertificate(),
 		InsecureSkipVerify:    config.OpenTelemetryInsecure(),
 		StackTracesEnabled:    config.OpenTelemetryStackTraces(),
 		SampleRatio:           config.OpenTelemetrySampleRatio(),

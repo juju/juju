@@ -335,6 +335,10 @@ type Config interface {
 	// telemetry collection.
 	OpenTelemetryGRPCEndpoint() string
 
+	// OpenTelemetryCACertificate returns the CA certificate to use for open
+	// telemetry collection.
+	OpenTelemetryCACertificate() string
+
 	// OpenTelemetryInsecure returns if the endpoint is insecure. This is useful
 	// for local/development testing
 	OpenTelemetryInsecure() bool
@@ -415,6 +419,10 @@ type configSetterOnly interface {
 	// SetOpenTelemetryGRPCEndpoint sets the gRPC endpoint to use for open
 	// telemetry collection.
 	SetOpenTelemetryGRPCEndpoint(string)
+
+	// SetOpenTelemetryCACertificate sets the CA certificate to use for open
+	// telemetry collection.
+	SetOpenTelemetryCACertificate(string)
 
 	// SetOpenTelemetryInsecure sets if the endpoint is insecure. This is
 	// useful for local/development testing
@@ -514,6 +522,7 @@ type configInternal struct {
 	openTelemetryEnabled               bool
 	openTelemetryHTTPEndpoint          string
 	openTelemetryGRPCEndpoint          string
+	openTelemetryCACertificate         string
 	openTelemetryInsecure              bool
 	openTelemetryStackTraces           bool
 	openTelemetrySampleRatio           float64
@@ -543,6 +552,7 @@ type AgentConfigParams struct {
 	OpenTelemetryEnabled               bool
 	OpenTelemetryHTTPEndpoint          string
 	OpenTelemetryGRPCEndpoint          string
+	OpenTelemetryCACertificate         string
 	OpenTelemetryInsecure              bool
 	OpenTelemetryStackTraces           bool
 	OpenTelemetrySampleRatio           float64
@@ -628,6 +638,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		openTelemetryEnabled:               configParams.OpenTelemetryEnabled,
 		openTelemetryHTTPEndpoint:          configParams.OpenTelemetryHTTPEndpoint,
 		openTelemetryGRPCEndpoint:          configParams.OpenTelemetryGRPCEndpoint,
+		openTelemetryCACertificate:         configParams.OpenTelemetryCACertificate,
 		openTelemetryInsecure:              configParams.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           configParams.OpenTelemetryStackTraces,
 		openTelemetrySampleRatio:           configParams.OpenTelemetrySampleRatio,
@@ -1032,6 +1043,16 @@ func (c *configInternal) OpenTelemetryGRPCEndpoint() string {
 // SetOpenTelemetryGRPCEndpoint implements configSetterOnly.
 func (c *configInternal) SetOpenTelemetryGRPCEndpoint(v string) {
 	c.openTelemetryGRPCEndpoint = v
+}
+
+// OpenTelemetryCACertificate implements Config.
+func (c *configInternal) OpenTelemetryCACertificate() string {
+	return c.openTelemetryCACertificate
+}
+
+// SetOpenTelemetryCACertificate implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryCACertificate(v string) {
+	c.openTelemetryCACertificate = v
 }
 
 // OpenTelemetryInsecure implements Config.

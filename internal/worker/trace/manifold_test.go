@@ -121,6 +121,7 @@ func (s *manifoldSuite) TestUnitRuntimeConfigProviderReloadsFromAgentConfigChang
 	s.expectRuntimeConfig(s.config, RuntimeConfig{
 		Enabled:               true,
 		HTTPEndpoint:          "http://one:4318/v1/traces",
+		CACertificate:         "ca-cert-one",
 		InsecureSkipVerify:    true,
 		SampleRatio:           0.5,
 		TailSamplingThreshold: time.Millisecond,
@@ -128,6 +129,7 @@ func (s *manifoldSuite) TestUnitRuntimeConfigProviderReloadsFromAgentConfigChang
 	s.expectRuntimeConfig(updatedConfig, RuntimeConfig{
 		Enabled:               true,
 		HTTPEndpoint:          "http://two:4318/v1/traces",
+		CACertificate:         "ca-cert-two",
 		InsecureSkipVerify:    true,
 		StackTracesEnabled:    true,
 		SampleRatio:           1,
@@ -147,6 +149,7 @@ func (s *manifoldSuite) TestUnitRuntimeConfigProviderReloadsFromAgentConfigChang
 	c.Check(initial, tc.DeepEquals, RuntimeConfig{
 		Enabled:               true,
 		HTTPEndpoint:          "http://one:4318/v1/traces",
+		CACertificate:         "ca-cert-one",
 		InsecureSkipVerify:    true,
 		SampleRatio:           0.5,
 		TailSamplingThreshold: time.Millisecond,
@@ -172,6 +175,7 @@ func (s *manifoldSuite) TestUnitRuntimeConfigProviderReloadsFromAgentConfigChang
 	c.Check(updated, tc.DeepEquals, RuntimeConfig{
 		Enabled:               true,
 		HTTPEndpoint:          "http://two:4318/v1/traces",
+		CACertificate:         "ca-cert-two",
 		InsecureSkipVerify:    true,
 		StackTracesEnabled:    true,
 		SampleRatio:           1,
@@ -183,6 +187,7 @@ func (s *manifoldSuite) expectOpenTelemetry() {
 	s.config.EXPECT().Tag().Return(names.NewControllerAgentTag("0"))
 	s.config.EXPECT().OpenTelemetryHTTPEndpoint().Return("http://blah:4318").AnyTimes()
 	s.config.EXPECT().OpenTelemetryGRPCEndpoint().Return("blah:4317").AnyTimes()
+	s.config.EXPECT().OpenTelemetryCACertificate().Return("ca-cert").AnyTimes()
 	s.config.EXPECT().OpenTelemetryInsecure().Return(false).AnyTimes()
 	s.config.EXPECT().OpenTelemetryStackTraces().Return(true).AnyTimes()
 	s.config.EXPECT().OpenTelemetrySampleRatio().Return(0.5).AnyTimes()
@@ -193,6 +198,7 @@ func (s *manifoldSuite) expectRuntimeConfig(config *MockConfig, runtimeConfig Ru
 	config.EXPECT().OpenTelemetryEnabled().Return(runtimeConfig.Enabled).AnyTimes()
 	config.EXPECT().OpenTelemetryHTTPEndpoint().Return(runtimeConfig.HTTPEndpoint).AnyTimes()
 	config.EXPECT().OpenTelemetryGRPCEndpoint().Return(runtimeConfig.GRPCEndpoint).AnyTimes()
+	config.EXPECT().OpenTelemetryCACertificate().Return(runtimeConfig.CACertificate).AnyTimes()
 	config.EXPECT().OpenTelemetryInsecure().Return(runtimeConfig.InsecureSkipVerify).AnyTimes()
 	config.EXPECT().OpenTelemetryStackTraces().Return(runtimeConfig.StackTracesEnabled).AnyTimes()
 	config.EXPECT().OpenTelemetrySampleRatio().Return(runtimeConfig.SampleRatio).AnyTimes()

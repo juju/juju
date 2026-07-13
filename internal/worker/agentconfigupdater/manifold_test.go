@@ -301,6 +301,7 @@ type mockConfig struct {
 	openTelemetryEnabled               bool
 	openTelemetryHTTPEndpoint          string
 	openTelemetryGRPCEndpoint          string
+	openTelemetryCACertificate         string
 	openTelemetryInsecure              bool
 	openTelemetryStackTraces           bool
 	openTelemetrySampleRatio           float64
@@ -383,6 +384,14 @@ func (mc *mockConfig) OpenTelemetryGRPCEndpoint() string {
 
 func (mc *mockConfig) SetOpenTelemetryGRPCEndpoint(endpoint string) {
 	mc.openTelemetryGRPCEndpoint = endpoint
+}
+
+func (mc *mockConfig) OpenTelemetryCACertificate() string {
+	return mc.openTelemetryCACertificate
+}
+
+func (mc *mockConfig) SetOpenTelemetryCACertificate(caCertificate string) {
+	mc.openTelemetryCACertificate = caCertificate
 }
 
 func (mc *mockConfig) OpenTelemetryInsecure() bool {

@@ -163,6 +163,10 @@ func (c *configFromEnv) OpenTelemetryGRPCEndpoint() string {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) OpenTelemetryCACertificate() string {
+	panic("not implemented")
+}
+
 func (c *configFromEnv) OpenTelemetryInsecure() bool {
 	panic("not implemented")
 }

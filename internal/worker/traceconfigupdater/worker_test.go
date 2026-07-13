@@ -88,6 +88,7 @@ func (s *workerSuite) expectCurrentConfigReads() {
 	s.agentConfig.EXPECT().OpenTelemetryEnabled().Return(false).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryHTTPEndpoint().Return("").AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryGRPCEndpoint().Return("").AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryCACertificate().Return("").AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryInsecure().Return(false).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryStackTraces().Return(false).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetrySampleRatio().Return(0.0).AnyTimes()
@@ -100,6 +101,7 @@ func (s *workerSuite) expectCurrentConfigReadsMatching(r resolvedTracingConfig) 
 	s.agentConfig.EXPECT().OpenTelemetryEnabled().Return(r.enabled).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryHTTPEndpoint().Return(r.httpEndpoint).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryGRPCEndpoint().Return(r.grpcEndpoint).AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryCACertificate().Return(r.caCertificate).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryInsecure().Return(r.insecure).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryStackTraces().Return(r.stackTraces).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetrySampleRatio().Return(r.sampleRatio).AnyTimes()
@@ -168,6 +170,7 @@ func (s *workerSuite) TestSetUpPersistsInitialConfigAndStartsWatcher(c *tc.C) {
 	c.Check(s.realConfig.OpenTelemetryEnabled(), tc.IsTrue)
 	c.Check(s.realConfig.OpenTelemetryHTTPEndpoint(), tc.Equals, "https://otel.example.com")
 	c.Check(s.realConfig.OpenTelemetryGRPCEndpoint(), tc.Equals, "otel.example.com:4317")
+	c.Check(s.realConfig.OpenTelemetryCACertificate(), tc.Equals, "ca-cert")
 	assertConfigChanged(c, changeCh)
 }
 
@@ -205,6 +208,7 @@ func (s *workerSuite) TestHandlePersistsChangedConfig(c *tc.C) {
 	c.Check(s.realConfig.OpenTelemetryEnabled(), tc.IsTrue)
 	c.Check(s.realConfig.OpenTelemetryHTTPEndpoint(), tc.Equals, "https://otel.example.com")
 	c.Check(s.realConfig.OpenTelemetryGRPCEndpoint(), tc.Equals, "otel.example.com:4317")
+	c.Check(s.realConfig.OpenTelemetryCACertificate(), tc.Equals, "ca-cert")
 	assertConfigChanged(c, changeCh)
 }
 
@@ -216,11 +220,13 @@ func (s *workerSuite) TestHandlePersistsEmptyConfig(c *tc.C) {
 	s.realConfig.SetOpenTelemetryEnabled(true)
 	s.realConfig.SetOpenTelemetryHTTPEndpoint("https://old-otel.example.com")
 	s.realConfig.SetOpenTelemetryGRPCEndpoint("old-otel.example.com:4317")
+	s.realConfig.SetOpenTelemetryCACertificate("old-ca-cert")
 
 	s.expectGetTracingConfig(tracer.ControllerTracingConfig{}, nil)
 	s.agentConfig.EXPECT().OpenTelemetryEnabled().Return(true).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryHTTPEndpoint().Return("https://old-otel.example.com").AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryGRPCEndpoint().Return("old-otel.example.com:4317").AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryCACertificate().Return("old-ca-cert").AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryInsecure().Return(false).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetryStackTraces().Return(false).AnyTimes()
 	s.agentConfig.EXPECT().OpenTelemetrySampleRatio().Return(0.0).AnyTimes()
@@ -236,6 +242,38 @@ func (s *workerSuite) TestHandlePersistsEmptyConfig(c *tc.C) {
 	c.Check(s.realConfig.OpenTelemetryEnabled(), tc.IsFalse)
 	c.Check(s.realConfig.OpenTelemetryHTTPEndpoint(), tc.Equals, "")
 	c.Check(s.realConfig.OpenTelemetryGRPCEndpoint(), tc.Equals, "")
+	c.Check(s.realConfig.OpenTelemetryCACertificate(), tc.Equals, "")
+	assertConfigChanged(c, changeCh)
+}
+
+func (s *workerSuite) TestHandlePersistsCACertificateOnlyChange(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.realConfig.SetOpenTelemetryEnabled(true)
+	s.realConfig.SetOpenTelemetryHTTPEndpoint("https://otel.example.com")
+	s.realConfig.SetOpenTelemetryGRPCEndpoint("otel.example.com:4317")
+	s.realConfig.SetOpenTelemetryCACertificate("old-ca-cert")
+
+	cfg := defaultTracingConfig
+	cfg.CACert = "new-ca-cert"
+	s.expectGetTracingConfig(cfg, nil)
+	s.agentConfig.EXPECT().OpenTelemetryEnabled().Return(true).AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryHTTPEndpoint().Return(defaultTracingConfig.HTTPEndpoint).AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryGRPCEndpoint().Return(defaultTracingConfig.GRPCEndpoint).AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryCACertificate().Return("old-ca-cert").AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryInsecure().Return(agent.DefaultOpenTelemetryInsecure).AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryStackTraces().Return(agent.DefaultOpenTelemetryStackTraces).AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetrySampleRatio().Return(agent.DefaultOpenTelemetrySampleRatio).AnyTimes()
+	s.agentConfig.EXPECT().OpenTelemetryTailSamplingThreshold().Return(agent.DefaultOpenTelemetryTailSamplingThreshold).AnyTimes()
+	s.expectChangeConfig()
+
+	changeCh := watchConfigChanged(s.configChanged)
+	worker := s.newUpdater(c)
+
+	err := worker.Handle(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.realConfig.OpenTelemetryCACertificate(), tc.Equals, "new-ca-cert")
 	assertConfigChanged(c, changeCh)
 }
 

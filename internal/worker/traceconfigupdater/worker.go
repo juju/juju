@@ -110,6 +110,7 @@ func (w *traceConfigUpdater) update(ctx context.Context) error {
 	if currentConfig.OpenTelemetryEnabled() == desired.enabled &&
 		currentConfig.OpenTelemetryHTTPEndpoint() == desired.httpEndpoint &&
 		currentConfig.OpenTelemetryGRPCEndpoint() == desired.grpcEndpoint &&
+		currentConfig.OpenTelemetryCACertificate() == desired.caCertificate &&
 		currentConfig.OpenTelemetryInsecure() == desired.insecure &&
 		currentConfig.OpenTelemetryStackTraces() == desired.stackTraces &&
 		currentConfig.OpenTelemetrySampleRatio() == desired.sampleRatio &&
@@ -117,10 +118,6 @@ func (w *traceConfigUpdater) update(ctx context.Context) error {
 		return nil
 	}
 
-	// The CA certificate is not stored as a separate agent config field;
-	// it is only used to establish the TLS connection at tracer start-up
-	// time and is not persisted on the agent config. We log it for
-	// completeness but do not write it.
 	w.config.Logger.Debugf(ctx, "updating agent tracing config: http=%q grpc=%q",
 		desired.httpEndpoint, desired.grpcEndpoint)
 
@@ -128,6 +125,7 @@ func (w *traceConfigUpdater) update(ctx context.Context) error {
 		setter.SetOpenTelemetryEnabled(desired.enabled)
 		setter.SetOpenTelemetryHTTPEndpoint(desired.httpEndpoint)
 		setter.SetOpenTelemetryGRPCEndpoint(desired.grpcEndpoint)
+		setter.SetOpenTelemetryCACertificate(desired.caCertificate)
 		setter.SetOpenTelemetryInsecure(desired.insecure)
 		setter.SetOpenTelemetryStackTraces(desired.stackTraces)
 		setter.SetOpenTelemetrySampleRatio(desired.sampleRatio)
@@ -147,6 +145,7 @@ type resolvedTracingConfig struct {
 	enabled               bool
 	httpEndpoint          string
 	grpcEndpoint          string
+	caCertificate         string
 	insecure              bool
 	stackTraces           bool
 	sampleRatio           float64
@@ -160,6 +159,7 @@ func resolveTracingConfig(cfg tracer.ControllerTracingConfig) resolvedTracingCon
 	r := resolvedTracingConfig{
 		httpEndpoint:          cfg.HTTPEndpoint,
 		grpcEndpoint:          cfg.GRPCEndpoint,
+		caCertificate:         cfg.CACert,
 		insecure:              agent.DefaultOpenTelemetryInsecure,
 		stackTraces:           agent.DefaultOpenTelemetryStackTraces,
 		sampleRatio:           agent.DefaultOpenTelemetrySampleRatio,

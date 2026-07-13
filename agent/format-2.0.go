@@ -71,6 +71,7 @@ type format_2_0Serialization struct {
 	OpenTelemetryEnabled               bool          `yaml:"opentelemetryenabled,omitempty"`
 	OpenTelemetryHTTPEndpoint          string        `yaml:"opentelemetryhttpendpoint,omitempty"`
 	OpenTelemetryGRPCEndpoint          string        `yaml:"opentelemetrygrpcendpoint,omitempty"`
+	OpenTelemetryCACertificate         string        `yaml:"opentelemetrycacertificate,omitempty"`
 	OpenTelemetryInsecure              bool          `yaml:"opentelemetryinsecure,omitempty"`
 	OpenTelemetryStackTraces           bool          `yaml:"opentelemetrystacktraces,omitempty"`
 	OpenTelemetrySampleRatio           string        `yaml:"opentelemetrysampleratio,omitempty"`
@@ -146,6 +147,7 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		openTelemetryEnabled:               format.OpenTelemetryEnabled,
 		openTelemetryHTTPEndpoint:          format.OpenTelemetryHTTPEndpoint,
 		openTelemetryGRPCEndpoint:          format.OpenTelemetryGRPCEndpoint,
+		openTelemetryCACertificate:         format.OpenTelemetryCACertificate,
 		openTelemetryInsecure:              format.OpenTelemetryInsecure,
 		openTelemetryStackTraces:           format.OpenTelemetryStackTraces,
 		openTelemetryTailSamplingThreshold: format.OpenTelemetryTailSamplingThreshold,
@@ -228,6 +230,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		OpenTelemetryEnabled:               config.openTelemetryEnabled,
 		OpenTelemetryHTTPEndpoint:          config.openTelemetryHTTPEndpoint,
 		OpenTelemetryGRPCEndpoint:          config.openTelemetryGRPCEndpoint,
+		OpenTelemetryCACertificate:         config.openTelemetryCACertificate,
 		OpenTelemetryInsecure:              config.openTelemetryInsecure,
 		OpenTelemetryStackTraces:           config.openTelemetryStackTraces,
 		OpenTelemetryTailSamplingThreshold: config.openTelemetryTailSamplingThreshold,

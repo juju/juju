@@ -390,6 +390,7 @@ func (c *nestedContext) createUnitAgentConfig(ctx context.Context, tag names.Uni
 			OpenTelemetryEnabled:               agentConfig.OpenTelemetryEnabled(),
 			OpenTelemetryHTTPEndpoint:          agentConfig.OpenTelemetryHTTPEndpoint(),
 			OpenTelemetryGRPCEndpoint:          agentConfig.OpenTelemetryGRPCEndpoint(),
+			OpenTelemetryCACertificate:         agentConfig.OpenTelemetryCACertificate(),
 			OpenTelemetryInsecure:              agentConfig.OpenTelemetryInsecure(),
 			OpenTelemetryStackTraces:           agentConfig.OpenTelemetryStackTraces(),
 			OpenTelemetrySampleRatio:           agentConfig.OpenTelemetrySampleRatio(),
