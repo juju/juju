@@ -7,10 +7,8 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"os/user"
 	"path"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/juju/clock"
@@ -822,31 +820,7 @@ func setupLoggingFromStrings(loggerContext corelogger.LoggerContext, loggingOver
 	}
 }
 
-// ensureGroupDir creates a directory with mode 0750 and attempts to chown
-// it to root:juju. If the juju group does not exist (e.g. non-snap context
-// without manual group creation), it logs a warning and continues.
+// ensureGroupDir creates a directory with mode 0750.
 func ensureGroupDir(dir string) error {
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return errors.Annotatef(err, "creating directory %q", dir)
-	}
-	if err := chownRootGroup(dir, "juju"); err != nil {
-		logger.Warningf(context.TODO(), "cannot chown %q to root:juju: %v", dir, err)
-	}
-	return nil
-}
-
-// chownRootGroup changes the ownership of path to root:group.
-func chownRootGroup(path, group string) error {
-	grp, err := user.LookupGroup(group)
-	if err != nil {
-		return errors.Annotatef(err, "looking up group %q", group)
-	}
-	gid, err := strconv.Atoi(grp.Gid)
-	if err != nil {
-		return errors.Annotatef(err, "parsing group id %q", grp.Gid)
-	}
-	if err := os.Chown(path, 0, gid); err != nil {
-		return errors.Annotatef(err, "chown %q", path)
-	}
-	return nil
+	return errors.Annotatef(os.MkdirAll(dir, 0o750), "creating directory %q", dir)
 }
