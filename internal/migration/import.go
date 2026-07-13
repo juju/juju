@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
+	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/semversion"
 	accessservice "github.com/juju/juju/domain/access/service"
 	accessstate "github.com/juju/juju/domain/access/state"
@@ -29,6 +30,7 @@ import (
 	leaseservice "github.com/juju/juju/domain/lease/service"
 	leasestate "github.com/juju/juju/domain/lease/state"
 	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelmigrationservice "github.com/juju/juju/domain/model/service/migration"
 	modelstatecontroller "github.com/juju/juju/domain/model/state/controller"
@@ -404,17 +406,45 @@ type opImportPermissions struct {
 func (op *opImportPermissions) Name() string { return "import-permissions" }
 
 func (op *opImportPermissions) Execute(ctx context.Context, st *importState) error {
-	offerUUIDs, err := op.access.ImportModelPermissions(ctx, op.perms, st.inactiveUsers)
-	if err != nil {
-		return errors.Errorf("applying permissions for model %q import: %w", op.modelUUIDStr, err)
-	}
+	// Record the offer-permission ledger before writing any permission rows.
+	// ImportOfferPermissions asserts the claim is still importing in the same
+	// transaction as the ledger insert, so this fences the whole operation: if
+	// a concurrent abort has flipped the claim, the ledger insert fails and no
+	// permission row is written. Recording the ledger first (rather than from
+	// ImportModelPermissions' return value) guarantees every offer grant this
+	// op writes is visible to abort compensation, which reads the offer UUIDs
+	// back from this ledger; otherwise a straggling permission write after the
+	// flip would leave an orphaned offer grant that no compensation pass sees.
+	offerUUIDs := offerGrantOnUUIDs(op.perms)
 	if err := op.claim.ImportOfferPermissions(
 		ctx, op.modelUUID, st.claimUUID, offerUUIDs,
 	); err != nil {
 		return errors.Errorf(
 			"recording offer permissions for model %q import: %w", op.modelUUIDStr, err)
 	}
+	if _, err := op.access.ImportModelPermissions(ctx, op.perms, st.inactiveUsers); err != nil {
+		return errors.Errorf("applying permissions for model %q import: %w", op.modelUUIDStr, err)
+	}
 	return nil
+}
+
+// offerGrantOnUUIDs returns the distinct grant-on UUIDs of the offer-scoped
+// permissions in perms, preserving first-seen order. These are the offer UUIDs
+// recorded in the import's offer ledger.
+func offerGrantOnUUIDs(perms []coremodelmigration.ModelPermission) []string {
+	seen := set.NewStrings()
+	var offerUUIDs []string
+	for _, p := range perms {
+		if corepermission.ObjectType(p.ObjectType) != corepermission.Offer {
+			continue
+		}
+		if seen.Contains(p.GrantOn) {
+			continue
+		}
+		seen.Add(p.GrantOn)
+		offerUUIDs = append(offerUUIDs, p.GrantOn)
+	}
+	return offerUUIDs
 }
 
 // RemoveOnAbort deletes the model-scoped and offer-scoped permission rows. Offer
@@ -451,10 +481,16 @@ func (op *opImportAuthorizedKeys) Execute(ctx context.Context, st *importState) 
 	return nil
 }
 
-// RemoveOnAbort deletes all authorized keys stored for the model. The keymanager
-// service already treats this as idempotent.
+// RemoveOnAbort deletes all authorized keys stored for the model. A missing
+// model is tolerated as success: on an abort re-drive the model row (and its
+// FK-dependent authorized keys) may already have been deleted by a prior pass's
+// opBootstrapModel.RemoveOnAbort, so re-driving key deletion must be a no-op
+// rather than an error.
 func (op *opImportAuthorizedKeys) RemoveOnAbort(ctx context.Context) error {
-	return op.keymanager.DeleteKeysForModel(ctx)
+	if err := op.keymanager.DeleteKeysForModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("deleting authorized keys for model %q: %w", op.modelUUIDStr, err)
+	}
+	return nil
 }
 
 // ----
