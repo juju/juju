@@ -1284,6 +1284,17 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 		result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin for %q", args.ApplicationName))
 		return result, nil
 	}
+	// Local charms do not carry a hash on their origin
+	// Populate with the archive SHA256 that was computed previously
+	// TODO(luci1900): save the hash at the point of origin like for store charms
+	if corecharm.Source(chOrigin.Source) == corecharm.Local && result.Origin.Hash == "" {
+		ch, err := api.backend.Charm(*charmURL)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin hash for %q", args.ApplicationName))
+			return result, nil
+		}
+		result.Origin.Hash = ch.BundleSha256()
+	}
 	result.Origin.InstanceKey = charmhub.CreateInstanceKey(oneApplication.ApplicationTag(), api.model.ModelTag())
 	return result, nil
 }

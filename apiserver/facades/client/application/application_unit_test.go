@@ -3713,13 +3713,24 @@ func (s *ApplicationSuite) TestIllegalSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
+// expectGetCharmURLOriginApplication sets up an application returning the
+// given origin for the GetCharmURLOrigin facade call.
+func (s *ApplicationSuite) expectGetCharmURLOriginApplication(ctrl *gomock.Controller, origin *state.CharmOrigin) *mocks.MockApplication {
+	app := s.expectDefaultApplication(ctrl)
+	app.EXPECT().CharmOrigin().Return(origin)
+	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	return app
+}
+
+// TestApplicationGetCharmURLOrigin verifies that, for a local charm whose
+// origin carries no hash, the facade populates the hash from the charm
+// document's stored archive SHA256.
 func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
 	rev := 42
-	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{
+	app := s.expectGetCharmURLOriginApplication(ctrl, &state.CharmOrigin{
 		Source:   "local",
 		Revision: &rev,
 		Channel: &state.Channel{
@@ -3733,7 +3744,12 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 			Channel:      "22.04/stable",
 		},
 	})
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	// Local charms have no hash on their origin, so the facade sources the
+	// archive SHA256 stored at upload time from the charm document.
+	const sha256 = "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"
+	ch := mocks.NewMockCharm(ctrl)
+	ch.EXPECT().BundleSha256().Return(sha256)
+	s.backend.EXPECT().Charm("ch:postgresql-42").Return(ch, nil)
 
 	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3745,6 +3761,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 
 	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
+		Hash:         sha256,
 		Risk:         "stable",
 		Revision:     &rev,
 		Track:        &latest,
@@ -3753,4 +3770,84 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		Base:         params.Base{Name: "ubuntu", Channel: "22.04/stable"},
 		InstanceKey:  charmhub.CreateInstanceKey(app.ApplicationTag(), coretesting.ModelTag),
 	})
+}
+
+// TestApplicationGetCharmURLOriginCharmhub verifies that for a charmhub
+// charm the hash-population block is skipped entirely: the origin hash comes
+// straight from the stored origin and backend.Charm is never consulted.
+func (s *ApplicationSuite) TestApplicationGetCharmURLOriginCharmhub(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	rev := 42
+	const originHash = "abc123"
+	s.expectGetCharmURLOriginApplication(ctrl, &state.CharmOrigin{
+		Source:   "charm-hub",
+		Hash:     originHash,
+		Revision: &rev,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04/stable",
+		},
+	})
+	// No s.backend.EXPECT().Charm(...): the gomock controller fails the test
+	// if backend.Charm is called for a charmhub charm.
+
+	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Origin.Hash, gc.Equals, originHash)
+}
+
+// TestApplicationGetCharmURLOriginLocalWithHash verifies that a local charm
+// whose origin already carries a hash is left untouched and backend.Charm is
+// not consulted.
+func (s *ApplicationSuite) TestApplicationGetCharmURLOriginLocalWithHash(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	rev := 42
+	const originHash = "preexistinghash"
+	s.expectGetCharmURLOriginApplication(ctrl, &state.CharmOrigin{
+		Source:   "local",
+		Hash:     originHash,
+		Revision: &rev,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04/stable",
+		},
+	})
+	// No s.backend.EXPECT().Charm(...): the hash is already set, so the
+	// backend lookup must be skipped.
+
+	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.Origin.Hash, gc.Equals, originHash)
+}
+
+// TestApplicationGetCharmURLOriginLocalCharmError verifies that if the charm
+// document lookup fails, a not found error is returned in the result.
+func (s *ApplicationSuite) TestApplicationGetCharmURLOriginLocalCharmError(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	rev := 42
+	s.expectGetCharmURLOriginApplication(ctrl, &state.CharmOrigin{
+		Source:   "local",
+		Revision: &rev,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04/stable",
+		},
+	})
+	s.backend.EXPECT().Charm("ch:postgresql-42").Return(nil, errors.New("boom"))
+
+	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, `charm origin hash for "postgresql" not found`)
 }
