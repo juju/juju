@@ -124,10 +124,7 @@ func (s *State) GetActiveExportUUID(ctx context.Context, modelUUID string) (stri
 	}
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
-	terminalIDs, err := terminalPhaseIDs()
-	if err != nil {
-		return "", errors.Capture(err)
-	}
+	terminalIDs := terminalPhaseIDs()
 
 	stmt, err := s.Prepare(`
 SELECT &entityUUID.uuid
@@ -174,16 +171,10 @@ func (s *State) InsertExport(ctx context.Context, spec modelmigrationinternal.Mi
 		return errors.Capture(err)
 	}
 
-	quiesceID, err := migration.PhasePersistedID(migration.QUIESCE)
-	if err != nil {
-		return errors.Capture(err)
-	}
+	quiesceID := int(modelmigration.PhaseQuiesce)
 
 	now := s.clock.Now().UTC()
-	terminalIDs, err := terminalPhaseIDs()
-	if err != nil {
-		return errors.Capture(err)
-	}
+	terminalIDs := terminalPhaseIDs()
 	mUUID := modelUUIDArg{ModelUUID: spec.ModelUUID}
 
 	export := migrationExport{
@@ -426,10 +417,7 @@ func (s *State) GetActiveExport(ctx context.Context, modelUUID string) (modelmig
 	}
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
-	terminalIDs, err := terminalPhaseIDs()
-	if err != nil {
-		return modelmigrationinternal.Migration{}, errors.Capture(err)
-	}
+	terminalIDs := terminalPhaseIDs()
 
 	selectExportStmt, err := s.Prepare(`
 SELECT &migrationExport.*
@@ -509,7 +497,7 @@ WHERE  controller_uuid = $entityUUID.uuid
 		return modelmigrationinternal.Migration{}, errors.Capture(err)
 	}
 
-	phase, err := migration.PhaseFromPersistedID(export.CurrentPhaseID)
+	phase, err := modelmigration.Phase(export.CurrentPhaseID).CoreMigrationPhase()
 	if err != nil {
 		return modelmigrationinternal.Migration{}, errors.Capture(err)
 	}
@@ -549,15 +537,12 @@ func (s *State) SetPhase(ctx context.Context, migrationUUID string, newPhase mig
 		return errors.Capture(err)
 	}
 
-	newPhaseID, err := migration.PhasePersistedID(newPhase)
+	newPhaseID, err := modelmigration.PhaseFromCoreMigrationPhase(newPhase)
 	if err != nil {
 		return errors.Errorf("converting phase %q: %w", newPhase, err)
 	}
 
-	terminalIDs, err := terminalPhaseIDs()
-	if err != nil {
-		return errors.Capture(err)
-	}
+	terminalIDs := terminalPhaseIDs()
 	migUUID := entityUUID{UUID: migrationUUID}
 	selectPhaseStmt, err := s.Prepare(`
 SELECT &currentPhase.*
@@ -600,7 +585,7 @@ INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
 			return errors.Errorf("reading current phase for migration %q: %w", migrationUUID, err)
 		}
 
-		curPhase, err := migration.PhaseFromPersistedID(cur.CurrentPhaseID)
+		curPhase, err := modelmigration.Phase(cur.CurrentPhaseID).CoreMigrationPhase()
 		if err != nil {
 			return errors.Capture(err)
 		}
@@ -619,7 +604,7 @@ INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
 
 		update := phaseUpdate{
 			UUID:            migrationUUID,
-			NewPhaseID:      newPhaseID,
+			NewPhaseID:      int(newPhaseID),
 			ExpectedPhaseID: cur.CurrentPhaseID,
 			UpdatedAt:       now,
 		}
@@ -641,7 +626,7 @@ INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
 		phaseEntry := migrationPhaseEntry{
 			MigrationUUID: migrationUUID,
 			ModelUUID:     cur.ModelUUID,
-			PhaseID:       newPhaseID,
+			PhaseID:       int(newPhaseID),
 			ChangedAt:     now,
 		}
 		if err := tx.Query(ctx, insertPhaseStmt, phaseEntry).Run(); err != nil {
@@ -720,14 +705,14 @@ func (s *State) InsertMinionReport(
 		return errors.Capture(err)
 	}
 
-	phaseID, err := migration.PhasePersistedID(phase)
+	phaseID, err := modelmigration.PhaseFromCoreMigrationPhase(phase)
 	if err != nil {
 		return errors.Errorf("converting phase %q: %w", phase, err)
 	}
 
 	report := migrationMinionSync{
 		MigrationUUID: migrationUUID,
-		PhaseID:       phaseID,
+		PhaseID:       int(phaseID),
 		EntityKey:     entityKey,
 		Success:       success,
 		ReportedAt:    s.clock.Now().UTC(),
@@ -795,13 +780,13 @@ func (s *State) AggregateMinionReports(
 		return modelmigrationinternal.MinionReports{}, errors.Capture(err)
 	}
 
-	phaseID, err := migration.PhasePersistedID(phase)
+	phaseID, err := modelmigration.PhaseFromCoreMigrationPhase(phase)
 	if err != nil {
 		return modelmigrationinternal.MinionReports{}, errors.Errorf("converting phase %q: %w", phase, err)
 	}
 
 	migUUID := migrationUUIDArg{MigrationUUID: migrationUUID}
-	phaseArg := phaseIDArg{PhaseID: phaseID}
+	phaseArg := phaseIDArg{PhaseID: int(phaseID)}
 	stmt, err := s.Prepare(`
 SELECT &minionReportRow.*
 FROM   model_migration_export_minion_sync
@@ -845,7 +830,7 @@ func (s *State) MarkExportEnded(ctx context.Context, migrationUUID string, termi
 		return errors.Capture(err)
 	}
 
-	phaseID, err := migration.PhasePersistedID(terminalPhase)
+	phaseID, err := modelmigration.PhaseFromCoreMigrationPhase(terminalPhase)
 	if err != nil {
 		return errors.Errorf("converting phase %q: %w", terminalPhase, err)
 	}
@@ -855,15 +840,12 @@ func (s *State) MarkExportEnded(ctx context.Context, migrationUUID string, termi
 			migrationUUID, terminalPhase, modelmigrationerrors.ErrPhaseTransitionInvalid,
 		)
 	}
-	terminalIDs, err := terminalPhaseIDs()
-	if err != nil {
-		return errors.Capture(err)
-	}
+	terminalIDs := terminalPhaseIDs()
 
 	now := s.clock.Now().UTC()
 	end := endExport{
 		UUID:      migrationUUID,
-		PhaseID:   phaseID,
+		PhaseID:   int(phaseID),
 		UpdatedAt: now,
 	}
 	selectExportStmt, err := s.Prepare(`
@@ -922,7 +904,7 @@ INSERT INTO model_migration_export_phase (*) VALUES ($migrationPhaseEntry.*)
 		phaseEntry := migrationPhaseEntry{
 			MigrationUUID: migrationUUID,
 			ModelUUID:     cur.ModelUUID,
-			PhaseID:       phaseID,
+			PhaseID:       int(phaseID),
 			ChangedAt:     now,
 		}
 		if err := tx.Query(ctx, insertPhaseStmt, phaseEntry).Run(); err != nil {
@@ -942,10 +924,7 @@ func (s *State) GetMigrationMode(ctx context.Context, modelUUID string) (modelmi
 	}
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
-	terminalIDs, err := terminalPhaseIDs()
-	if err != nil {
-		return modelmigration.MigrationModeNone, errors.Capture(err)
-	}
+	terminalIDs := terminalPhaseIDs()
 	exportStmt, err := s.Prepare(`
 SELECT COUNT(*) AS &countResult.count
 FROM   model_migration_export
@@ -1013,24 +992,14 @@ func addressesMatch(existing []addressValue, supplied []modelmigrationinternal.E
 	return true
 }
 
-func terminalPhaseIDs() (terminalPhaseIDArgs, error) {
-	reapFailedID, err := migration.PhasePersistedID(migration.REAPFAILED)
-	if err != nil {
-		return terminalPhaseIDArgs{}, errors.Capture(err)
-	}
-	doneID, err := migration.PhasePersistedID(migration.DONE)
-	if err != nil {
-		return terminalPhaseIDArgs{}, errors.Capture(err)
-	}
-	abortDoneID, err := migration.PhasePersistedID(migration.ABORTDONE)
-	if err != nil {
-		return terminalPhaseIDArgs{}, errors.Capture(err)
-	}
+// terminalPhaseIDs returns the persisted ids of the terminal export phases for
+// use as query arguments.
+func terminalPhaseIDs() terminalPhaseIDArgs {
 	return terminalPhaseIDArgs{
-		ReapFailedID: reapFailedID,
-		DoneID:       doneID,
-		AbortDoneID:  abortDoneID,
-	}, nil
+		ReapFailedID: int(modelmigration.PhaseReapFailed),
+		DoneID:       int(modelmigration.PhaseDone),
+		AbortDoneID:  int(modelmigration.PhaseAbortDone),
+	}
 }
 
 type grantOnList []string
@@ -1979,14 +1948,8 @@ func (s *State) CompleteModelRedirectAndPurge(
 	}
 	completedAt := s.clock.Now().UTC()
 
-	doneID, err := migration.PhasePersistedID(migration.DONE)
-	if err != nil {
-		return errors.Errorf("converting DONE phase: %w", err)
-	}
-	reapID, err := migration.PhasePersistedID(migration.REAP)
-	if err != nil {
-		return errors.Errorf("converting REAP phase: %w", err)
-	}
+	doneID := int(modelmigration.PhaseDone)
+	reapID := int(modelmigration.PhaseReap)
 
 	// Delete offer permission rows via a CTE that resolves object_type names.
 	deleteOfferPermsStmt, err := s.Prepare(`

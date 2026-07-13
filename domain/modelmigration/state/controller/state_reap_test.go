@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessstate "github.com/juju/juju/domain/access/state"
+	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -171,8 +172,7 @@ func (s *stateSuite) TestReapFullPath(c *tc.C) {
 	c.Assert(db.QueryRowContext(ctx,
 		"SELECT current_phase_id FROM model_migration_export WHERE uuid = ?",
 		spec.MigrationUUID).Scan(&phaseID), tc.ErrorIsNil)
-	doneID, err := migration.PhasePersistedID(migration.DONE)
-	c.Assert(err, tc.ErrorIsNil)
+	doneID := int(modelmigration.PhaseDone)
 	c.Check(phaseID, tc.Equals, doneID)
 	c.Assert(db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM model_migration_export_phase WHERE migration_uuid = ? AND phase_id = ?",
