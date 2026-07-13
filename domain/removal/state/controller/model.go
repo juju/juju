@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/domain/life"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelmigration"
 	removalerrors "github.com/juju/juju/domain/removal/errors"
 	"github.com/juju/juju/internal/errors"
 )
@@ -148,13 +149,27 @@ WHERE  uuid = $entityUUID.uuid`, modelUUID)
 			return nil
 		}
 
-		if migrating, err := st.isModelMigrating(ctx, tx, mUUID); err != nil {
+		hasClaim, phase, err := st.migratingImportPhase(ctx, tx, mUUID)
+		if err != nil {
 			return errors.Errorf("checking if model is migrating: %w", err)
-		} else if !migrating {
+		}
+		if !hasClaim {
 			return errors.Errorf("model is not migrating")
 		}
+		// Only an importing claim may be torn down by the generic removal path
+		// (this covers legacy v4-v7 aborts, whose claims are always importing).
+		// A claim that has moved to activating or aborting is owned by the v8
+		// migration finalizers: marking the model dead here would let the
+		// undertaker deregister the model namespace before the migration abort
+		// has dropped the model database, stranding a dirty database that a
+		// same-UUID re-import would silently reuse.
+		if phase != string(modelmigration.ImportPhaseImporting) {
+			return errors.Errorf(
+				"model %q migration import is %q: %w",
+				mUUID, phase, removalerrors.MigrationImportPastImporting)
+		}
 
-		err := tx.Query(ctx, updateStmt, modelUUID).Run()
+		err = tx.Query(ctx, updateStmt, modelUUID).Run()
 		if err != nil {
 			return errors.Errorf("marking migrating model as dead: %w", err)
 		}
@@ -354,6 +369,29 @@ WHERE  model_uuid = $entityUUID.uuid;`, modelUUID, count{})
 	return result.Count > 0, nil
 }
 
+// migratingImportPhase returns the v8 import claim phase for the model, and
+// whether a claim exists at all. A missing claim reports hasClaim=false.
+func (st *State) migratingImportPhase(ctx context.Context, tx *sqlair.TX, mUUID string) (hasClaim bool, phase string, err error) {
+	modelUUID := entityUUID{UUID: mUUID}
+	stmt, err := st.Prepare(`
+SELECT mmipt.type AS &migrationImportPhase.phase
+FROM   model_migration_import AS mmi
+JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+WHERE  mmi.model_uuid = $entityUUID.uuid;`, modelUUID, migrationImportPhase{})
+	if err != nil {
+		return false, "", errors.Errorf("preparing migrating import phase query: %w", err)
+	}
+
+	var row migrationImportPhase
+	err = tx.Query(ctx, stmt, modelUUID).Get(&row)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, "", nil
+	} else if err != nil {
+		return false, "", errors.Errorf("running migrating import phase query: %w", err)
+	}
+	return true, row.Phase, nil
+}
+
 func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID string) error {
 	modelUUIDRec := entityUUID{UUID: mUUID}
 
@@ -366,15 +404,29 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 		// The two import companion tables are keyed by the import claim UUID
 		// and FK onto model_migration_import. They must be deleted before the
 		// claim row itself, otherwise the parent delete fails an enforced
-		// foreign-key constraint when an aborted v8 import had recorded offer
-		// permissions or external controllers.
+		// foreign-key constraint when an import had recorded offer permissions
+		// or external controllers.
+		//
+		// The claim (and its companions) is only deleted here when it is in the
+		// importing phase. This covers legacy v4-v7 aborts (whose claims are
+		// always importing) and normal destruction of a model that never
+		// migrated (no claim, so these are no-ops). A claim that has moved to
+		// activating or aborting is owned by the v8 migration finalizers, which
+		// delete it explicitly once cleanup is proven complete; the generic
+		// removal path must not release it early.
 		`DELETE FROM model_migration_import_offer
 		 WHERE migration_uuid IN (
-		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
+		     SELECT uuid FROM model_migration_import
+		     WHERE model_uuid = $entityUUID.uuid
+		     AND phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'))`,
 		`DELETE FROM model_migration_import_external_controller_model
 		 WHERE migration_uuid IN (
-		     SELECT uuid FROM model_migration_import WHERE model_uuid = $entityUUID.uuid)`,
-		"DELETE FROM model_migration_import WHERE model_uuid = $entityUUID.uuid",
+		     SELECT uuid FROM model_migration_import
+		     WHERE model_uuid = $entityUUID.uuid
+		     AND phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'))`,
+		`DELETE FROM model_migration_import
+		 WHERE model_uuid = $entityUUID.uuid
+		 AND phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing')`,
 	}
 
 	for _, table := range tables {
