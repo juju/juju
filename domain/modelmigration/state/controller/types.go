@@ -334,3 +334,10 @@ type redirectCompletion struct {
 	ModelUUID   string    `db:"model_uuid"`
 	CompletedAt time.Time `db:"completed_at"`
 }
+
+// modelDatabaseDeletion maps a model_database_deletion row staging the deletion
+// of the purged model's dqlite database for the model DB deleter worker.
+type modelDatabaseDeletion struct {
+	Namespace string    `db:"namespace"`
+	CreatedAt time.Time `db:"created_at"`
+}

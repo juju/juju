@@ -1928,12 +1928,12 @@ AND    u.disabled = false
 }
 
 // CompleteModelRedirectAndPurge runs the final controller-DB transaction of
-// source REAP. It purges model-scoped source rows in dependency order,
-// completes the redirect snapshot, marks the export DONE, and scrubs
-// target-auth secrets. This must be called AFTER EnsureExportOffers and
-// StageModelRedirect have succeeded, and BEFORE the source model dqlite
-// namespace is deleted: this transaction is the migration's commit point, so
-// a failure here leaves the source model fully intact and retryable.
+// source REAP. It purges model-scoped source rows in dependency order, stages
+// the model database deletion, completes the redirect snapshot, marks the
+// export DONE, and scrubs target-auth secrets. This must be called AFTER
+// EnsureExportOffers and StageModelRedirect have succeeded: this transaction is
+// the migration's commit point, so a failure here leaves the source model fully
+// intact and retryable.
 //
 // Rows are deleted in this order, each depending on the previous one being
 // clear:
@@ -1948,7 +1948,12 @@ AND    u.disabled = false
 //  9. namespace_list
 //
 // 10. model
-// Then: complete redirect (completed_at = now), mark export DONE, scrub auth.
+//
+// Then, in the same transaction: stage the model database deletion (the
+// namespace was just removed from namespace_list, so the dqlite database now
+// outlives the model and is deleted asynchronously by the model DB deleter
+// worker), complete the redirect (completed_at = now), mark export DONE, and
+// scrub auth.
 //
 // The export must be in phase REAP; anything else returns an error satisfying
 // [modelmigrationerrors.ErrPhaseTransitionInvalid]. The check runs inside the
@@ -2083,6 +2088,18 @@ WHERE uuid = $modelUUIDArg.model_uuid
 		return errors.Capture(err)
 	}
 
+	// Stage the model database deletion for the model DB deleter worker. The
+	// upsert re-arms a row left inert by a model that migrated back and away
+	// again before the worker processed it.
+	stageDBDeletionStmt, err := s.Prepare(`
+INSERT INTO model_database_deletion (*)
+VALUES ($modelDatabaseDeletion.*)
+ON CONFLICT (namespace) DO UPDATE SET created_at = excluded.created_at
+`, modelDatabaseDeletion{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
 	// Complete the redirect.
 	completeRedirectStmt, err := s.Prepare(`
 UPDATE model_migration_redirect
@@ -2203,6 +2220,17 @@ WHERE  migration_uuid = $migrationUUIDArg.migration_uuid
 		// 10. Delete the model row.
 		if err := tx.Query(ctx, deleteModelStmt, modArg).Run(); err != nil {
 			return errors.Errorf("deleting model %q: %w", modelUUID, err)
+		}
+
+		// 11. Stage the model database deletion. The namespace was just
+		//     removed from namespace_list, so the dqlite database now outlives
+		//     the model and is deleted asynchronously by the model DB deleter
+		//     worker.
+		if err := tx.Query(ctx, stageDBDeletionStmt, modelDatabaseDeletion{
+			Namespace: modelUUID,
+			CreatedAt: completedAt,
+		}).Run(); err != nil {
+			return errors.Errorf("staging database deletion for model %q: %w", modelUUID, err)
 		}
 
 		// Complete the redirect.

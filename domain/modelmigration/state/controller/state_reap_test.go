@@ -211,6 +211,12 @@ FROM   model_migration_redirect WHERE model_uuid = ?`, s.modelUUID).
 	c.Check(gotUserName, tc.Equals, s.userName.Name())
 	c.Check(gotAccess, tc.Equals, "admin")
 
+	// The model database deletion is staged for the model DB deleter worker.
+	c.Assert(db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM model_database_deletion WHERE namespace = ?",
+		s.modelUUID).Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+
 	// No active export remains.
 	_, err = st.GetActiveExport(ctx, s.modelUUID.String())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
@@ -238,6 +244,10 @@ func (s *stateSuite) TestCompleteModelRedirectAndPurgeWrongPhase(c *tc.C) {
 	c.Assert(db.QueryRowContext(ctx,
 		"SELECT COUNT(*) FROM permission WHERE grant_on = ?", s.modelUUID).Scan(&count), tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
+	// No database deletion was staged: the purge refused to run.
+	c.Assert(db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM model_database_deletion WHERE namespace = ?", s.modelUUID).Scan(&count), tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
 }
 
 // TestCompleteModelRedirectAndPurgeImportClaims asserts stale import claims
