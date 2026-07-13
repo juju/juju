@@ -30,8 +30,7 @@ func (s *BootstrapSuite) TestBootstrapParamsPath(c *tc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapParamsPathENVOverride(c *tc.C) {
-	os.Setenv("JUJU_BOOTSTRAP_PARAMS_PATH", "/snap/common/bootstrap-params")
-	defer os.Unsetenv("JUJU_BOOTSTRAP_PARAMS_PATH")
+	s.PatchEnvironment("JUJU_BOOTSTRAP_PARAMS_PATH", "/snap/common/bootstrap-params")
 
 	path := BootstrapParamsPath("/var/lib/juju")
 	c.Assert(path, tc.Equals, "/snap/common/bootstrap-params")
