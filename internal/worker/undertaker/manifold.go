@@ -28,6 +28,20 @@ type ControllerModelService interface {
 	// WatchModels watches for activated models in the controller.
 	// This also watches for changes in the model's state as well.
 	WatchModels(ctx context.Context) (watcher.NotifyWatcher, error)
+
+	// WatchModelDatabaseDeletions returns a watcher that fires when model
+	// database deletions are staged or removed. Deletions are staged when a
+	// model is removed from this controller (currently by source-side
+	// migration REAP) while its dqlite database still exists.
+	WatchModelDatabaseDeletions(ctx context.Context) (watcher.NotifyWatcher, error)
+
+	// GetPendingModelDatabaseDeletions returns the dqlite namespaces staged
+	// for deletion.
+	GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error)
+
+	// RemoveModelDatabaseDeletion removes the staged deletion for the given
+	// namespace once its database has been deleted.
+	RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error
 }
 
 // GetControllerModelServiceFunc is a function type that retrieves the model
