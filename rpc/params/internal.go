@@ -105,6 +105,19 @@ type LokiConfigResult struct {
 	OrgID              string  `json:"org-id,omitempty"`
 }
 
+// TracingConfigResult holds a controller-wide tracing configuration or an
+// error. A nil pointer field means the default value is in effect.
+type TracingConfigResult struct {
+	Error                 *Error   `json:"error,omitempty"`
+	HTTPEndpoint          string   `json:"http-endpoint,omitempty"`
+	GRPCEndpoint          string   `json:"grpc-endpoint,omitempty"`
+	CACert                *string  `json:"ca-cert,omitempty"`
+	InsecureSkipVerify    *bool    `json:"insecure-skip-verify,omitempty"`
+	StackTraces           *bool    `json:"stack-traces,omitempty"`
+	SampleRatio           *float64 `json:"sample-ratio,omitempty"`
+	TailSamplingThreshold *string  `json:"tail-sampling-threshold,omitempty"`
+}
+
 // MapResult holds a generic map or an error.
 type MapResult struct {
 	Result map[string]any `json:"result"`

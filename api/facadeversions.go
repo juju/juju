@@ -108,6 +108,7 @@ var facadeVersions = facades.FacadeVersions{
 	"StorageProvisioner":           {5, 6, 7},
 	"StringsWatcher":               {1},
 	"Subnets":                      {5},
+	"Tracer":                       {1},
 	"Uniter":                       {19, 20, 21, 22},
 	"Upgrader":                     {1},
 	"UserManager":                  {3},

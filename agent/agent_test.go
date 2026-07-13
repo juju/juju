@@ -655,13 +655,17 @@ func (*suite) TestSetOpenTelemetryEndpoints(c *tc.C) {
 
 	c.Check(conf.OpenTelemetryHTTPEndpoint(), tc.Equals, attributeParams.OpenTelemetryHTTPEndpoint)
 	c.Check(conf.OpenTelemetryGRPCEndpoint(), tc.Equals, attributeParams.OpenTelemetryGRPCEndpoint)
+	c.Check(conf.OpenTelemetryCACertificate(), tc.Equals, attributeParams.OpenTelemetryCACertificate)
 
 	conf.SetOpenTelemetryHTTPEndpoint("http://foo.bar")
 	conf.SetOpenTelemetryGRPCEndpoint("foo.bar:4317")
+	conf.SetOpenTelemetryCACertificate("ca-cert")
 	c.Check(conf.OpenTelemetryHTTPEndpoint(), tc.Equals, "http://foo.bar",
 		tc.Commentf("open telemetry HTTP endpoint setting not updated"))
 	c.Check(conf.OpenTelemetryGRPCEndpoint(), tc.Equals, "foo.bar:4317",
 		tc.Commentf("open telemetry gRPC endpoint setting not updated"))
+	c.Check(conf.OpenTelemetryCACertificate(), tc.Equals, "ca-cert",
+		tc.Commentf("open telemetry CA certificate setting not updated"))
 }
 
 func (*suite) TestSetOpenTelemetryInsecure(c *tc.C) {

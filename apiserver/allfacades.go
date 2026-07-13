@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/sshsession"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
+	"github.com/juju/juju/apiserver/facades/agent/tracer"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	"github.com/juju/juju/apiserver/facades/client/action"
@@ -200,6 +201,7 @@ func AllFacades() *facade.Registry {
 	secretbackends.Register(registry)
 	secretsmanager.Register(registry)
 	secretsdrain.Register(registry)
+	tracer.Register(registry)
 	usersecrets.Register(registry)
 	usersecretsdrain.Register(registry)
 	sshclient.Register(registry)

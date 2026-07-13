@@ -67,6 +67,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"signal-handler",
 
 		"trace",
+		"trace-config-updater",
 		"uniter",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
@@ -113,6 +114,7 @@ func (s *ManifoldsSuite) TestManifoldNamesColocatedController(c *tc.C) {
 		"signal-handler",
 
 		"trace",
+		"trace-config-updater",
 		"uniter",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
@@ -386,5 +388,12 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	},
 	"trace": {
 		"agent",
+	},
+	"trace-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
 	},
 }

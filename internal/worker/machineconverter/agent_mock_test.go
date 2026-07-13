@@ -117,6 +117,7 @@ type MockConfigMockRecorder struct {
 	modelExpects                              []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                              []*gomock.Call0_1[string]
 	oldPasswordExpects                        []*gomock.Call0_1[string]
+	openTelemetryCACertificateExpects         []*gomock.Call0_1[string]
 	openTelemetryEnabledExpects               []*gomock.Call0_1[bool]
 	openTelemetryGRPCEndpointExpects          []*gomock.Call0_1[string]
 	openTelemetryHTTPEndpointExpects          []*gomock.Call0_1[string]
@@ -542,6 +543,24 @@ func (mr *MockConfigMockRecorder) OldPassword() *MockConfigOldPasswordCall {
 // MockConfigOldPasswordCall is the typed call wrapper for OldPassword.
 type MockConfigOldPasswordCall = gomock.Call0_1[string]
 
+// OpenTelemetryCACertificate mocks base method.
+func (m *MockConfig) OpenTelemetryCACertificate() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryCACertificateExpects, m.ctrl, m, "OpenTelemetryCACertificate")
+}
+
+// OpenTelemetryCACertificate indicates an expected call of OpenTelemetryCACertificate.
+func (mr *MockConfigMockRecorder) OpenTelemetryCACertificate() *MockConfigOpenTelemetryCACertificateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryCACertificate")
+	mr.openTelemetryCACertificateExpects = append(mr.openTelemetryCACertificateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigOpenTelemetryCACertificateCall is the typed call wrapper for OpenTelemetryCACertificate.
+type MockConfigOpenTelemetryCACertificateCall = gomock.Call0_1[string]
+
 // OpenTelemetryEnabled mocks base method.
 func (m *MockConfig) OpenTelemetryEnabled() bool {
 	m.ctrl.T.Helper()
@@ -845,6 +864,7 @@ type MockConfigSetterMockRecorder struct {
 	modelExpects                                 []*gomock.Call0_1[names.ModelTag]
 	nonceExpects                                 []*gomock.Call0_1[string]
 	oldPasswordExpects                           []*gomock.Call0_1[string]
+	openTelemetryCACertificateExpects            []*gomock.Call0_1[string]
 	openTelemetryEnabledExpects                  []*gomock.Call0_1[bool]
 	openTelemetryGRPCEndpointExpects             []*gomock.Call0_1[string]
 	openTelemetryHTTPEndpointExpects             []*gomock.Call0_1[string]
@@ -861,6 +881,7 @@ type MockConfigSetterMockRecorder struct {
 	setLoggingConfigExpects                      []*gomock.Call1_0[string]
 	setLokiConfigExpects                         []*gomock.Call4_0[string, *string, *bool, string]
 	setOldPasswordExpects                        []*gomock.Call1_0[string]
+	setOpenTelemetryCACertificateExpects         []*gomock.Call1_0[string]
 	setOpenTelemetryEnabledExpects               []*gomock.Call1_0[bool]
 	setOpenTelemetryGRPCEndpointExpects          []*gomock.Call1_0[string]
 	setOpenTelemetryHTTPEndpointExpects          []*gomock.Call1_0[string]
@@ -1307,6 +1328,24 @@ func (mr *MockConfigSetterMockRecorder) OldPassword() *MockConfigSetterOldPasswo
 // MockConfigSetterOldPasswordCall is the typed call wrapper for OldPassword.
 type MockConfigSetterOldPasswordCall = gomock.Call0_1[string]
 
+// OpenTelemetryCACertificate mocks base method.
+func (m *MockConfigSetter) OpenTelemetryCACertificate() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.openTelemetryCACertificateExpects, m.ctrl, m, "OpenTelemetryCACertificate")
+}
+
+// OpenTelemetryCACertificate indicates an expected call of OpenTelemetryCACertificate.
+func (mr *MockConfigSetterMockRecorder) OpenTelemetryCACertificate() *MockConfigSetterOpenTelemetryCACertificateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "OpenTelemetryCACertificate")
+	mr.openTelemetryCACertificateExpects = append(mr.openTelemetryCACertificateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterOpenTelemetryCACertificateCall is the typed call wrapper for OpenTelemetryCACertificate.
+type MockConfigSetterOpenTelemetryCACertificateCall = gomock.Call0_1[string]
+
 // OpenTelemetryEnabled mocks base method.
 func (m *MockConfigSetter) OpenTelemetryEnabled() bool {
 	m.ctrl.T.Helper()
@@ -1594,6 +1633,24 @@ func (mr *MockConfigSetterMockRecorder) SetOldPassword(oldPassword any) *MockCon
 
 // MockConfigSetterSetOldPasswordCall is the typed call wrapper for SetOldPassword.
 type MockConfigSetterSetOldPasswordCall = gomock.Call1_0[string]
+
+// SetOpenTelemetryCACertificate mocks base method.
+func (m *MockConfigSetter) SetOpenTelemetryCACertificate(arg0 string) {
+	m.ctrl.T.Helper()
+	gomock.Dispatch1_0(&m.recorder.setOpenTelemetryCACertificateExpects, m.ctrl, m, "SetOpenTelemetryCACertificate", arg0)
+}
+
+// SetOpenTelemetryCACertificate indicates an expected call of SetOpenTelemetryCACertificate.
+func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryCACertificate(arg0 any) *MockConfigSetterSetOpenTelemetryCACertificateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_0[string](mr.mock.ctrl.T, mr.mock, "SetOpenTelemetryCACertificate", gomock.EnsureMatcher(arg0))
+	mr.setOpenTelemetryCACertificateExpects = append(mr.setOpenTelemetryCACertificateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockConfigSetterSetOpenTelemetryCACertificateCall is the typed call wrapper for SetOpenTelemetryCACertificate.
+type MockConfigSetterSetOpenTelemetryCACertificateCall = gomock.Call1_0[string]
 
 // SetOpenTelemetryEnabled mocks base method.
 func (m *MockConfigSetter) SetOpenTelemetryEnabled(arg0 bool) {

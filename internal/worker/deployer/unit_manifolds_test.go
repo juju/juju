@@ -68,6 +68,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 		"upgrader",
 		"secret-drain-worker",
 		"trace",
+		"trace-config-updater",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -223,5 +224,12 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	},
 	"trace": {
 		"agent",
+	},
+	"trace-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
 	},
 }

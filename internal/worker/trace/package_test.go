@@ -64,7 +64,7 @@ func (s *baseSuite) expectClock() {
 
 func (s *baseSuite) expectCurrentConfig(enabled bool) {
 	s.config.EXPECT().OpenTelemetryEnabled().Return(enabled).AnyTimes()
-	s.agent.EXPECT().CurrentConfig().Return(s.config)
+	s.agent.EXPECT().CurrentConfig().Return(s.config).AnyTimes()
 }
 
 func (s *baseSuite) expectClient() {
