@@ -63,7 +63,13 @@ type Placement struct {
 
 // ParsePlacement parses the placement from the instance placement. If the
 // placement is nil then an unset placement will be returned.
-func ParsePlacement(placement *instance.Placement) (Placement, error) {
+//
+// The modelUUID is the UUID of the model that the placement is being
+// parsed for. This is used to recognise placements where the client has
+// substituted the "model-uuid" placeholder scope with the real model UUID
+// before sending it to the API server. Both the literal "model-uuid"
+// scope and the real model UUID are treated as provider placements.
+func ParsePlacement(placement *instance.Placement, modelUUID string) (Placement, error) {
 	// If no placement is present we default to an unset placement.
 	if placement == nil {
 		return Placement{
@@ -72,7 +78,7 @@ func ParsePlacement(placement *instance.Placement) (Placement, error) {
 	}
 
 	switch placement.Scope {
-	case instance.ModelScope:
+	case instance.ModelScope, modelUUID:
 		return Placement{
 			Type:      PlacementTypeProvider,
 			Directive: placement.Directive,

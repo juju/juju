@@ -21,6 +21,8 @@ func TestPlacementSuite(t *testing.T) {
 }
 
 func (s *PlacementSuite) TestPlacement(c *tc.C) {
+	const modelUUID = "32c5aaae-6713-4cd7-83a4-d1256e9c97d0"
+
 	tests := []struct {
 		input  *instance.Placement
 		output Placement
@@ -110,11 +112,21 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Directive: "zone=us-east-1a",
 			},
 		},
+		{
+			input: &instance.Placement{
+				Scope:     modelUUID,
+				Directive: "zone=us-east-1a",
+			},
+			output: Placement{
+				Type:      PlacementTypeProvider,
+				Directive: "zone=us-east-1a",
+			},
+		},
 	}
 	for _, test := range tests {
 		c.Logf("input: %v", test.input)
 
-		result, err := ParsePlacement(test.input)
+		result, err := ParsePlacement(test.input, modelUUID)
 		if test.err != nil {
 			c.Assert(err, tc.ErrorMatches, *test.err)
 		} else {
