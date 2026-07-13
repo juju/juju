@@ -195,24 +195,30 @@ func (s *serviceSuite) TestGetSSHConnRequest(c *tc.C) {
 	state.getReq = domainssh.SSHConnRequest{TunnelID: testTunnelUUID, MachineName: "1"}
 	svc := modelsshservice.NewService(state, modelUUID, clk)
 
-	req, err := svc.GetSSHConnRequest(c.Context(), testTunnelUUID)
+	req, err := svc.GetSSHConnRequest(c.Context(), coremachine.Name("1"), testTunnelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(req, tc.DeepEquals, state.getReq)
 	c.Check(state.getTunnelID, tc.Equals, testTunnelUUID)
+	c.Check(state.getMachineName, tc.Equals, "1")
 	c.Check(state.getNow, tc.Equals, clk.Now())
 }
 
+// TestWatchSSHConnRequest checks that the watcher is scoped to the requesting
+// machine: the machine UUID is resolved, the prune runs, and the watcher is
+// created against the ssh_connection_request namespace.
 func (s *serviceSuite) TestWatchSSHConnRequest(c *tc.C) {
 	clk := testclock.NewClock(time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC))
 	modelUUID := coremodel.UUID(testModelUUID)
 	state := newStubModelState()
+	state.machineUUIDs["0"] = "machine-uuid-0"
 	watcherFactory := &stubWatcherFactory{watcher: watchertest.NewMockStringsWatcher(make(chan []string))}
 	svc := modelsshservice.NewWatchableService(state, modelUUID, clk, watcherFactory)
 
-	w, err := svc.WatchSSHConnRequest(c.Context())
+	w, err := svc.WatchSSHConnRequest(c.Context(), coremachine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, watcherFactory.watcher)
 	c.Check(state.pruneNow, tc.Equals, clk.Now())
+	c.Check(state.machineUUIDName, tc.Equals, "0")
 	c.Check(watcherFactory.summary, tc.Equals, "ssh connection request watcher")
 	c.Check(watcherFactory.namespace, tc.Equals, "ssh_connection_request")
 }
@@ -243,9 +249,12 @@ type stubModelState struct {
 	insertNow          time.Time
 	getReq             domainssh.SSHConnRequest
 	getTunnelID        string
+	getMachineName     string
 	getNow             time.Time
 	pruneNow           time.Time
 	removedTunnelID    string
+	machineUUIDs       map[string]string
+	machineUUIDName    string
 }
 
 func newStubModelState() *stubModelState {
@@ -259,6 +268,7 @@ func newStubModelState() *stubModelState {
 		unitMachines:      make(map[string]string),
 		machineEnsureKeys: make(map[string]string),
 		unitEnsureKeys:    make(map[string]string),
+		machineUUIDs:      make(map[string]string),
 	}
 }
 
@@ -325,7 +335,8 @@ func (s *stubModelState) InsertSSHConnRequest(_ context.Context, req domainssh.S
 	return nil
 }
 
-func (s *stubModelState) GetSSHConnRequest(_ context.Context, tunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+func (s *stubModelState) GetSSHConnRequest(_ context.Context, machineName string, tunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+	s.getMachineName = machineName
 	s.getTunnelID = tunnelID
 	s.getNow = now
 	return s.getReq, nil
@@ -341,8 +352,21 @@ func (s *stubModelState) PruneExpiredSSHConnRequests(_ context.Context, now time
 	return nil
 }
 
+func (s *stubModelState) GetMachineUUIDByName(_ context.Context, machineName string) (string, error) {
+	s.machineUUIDName = machineName
+	uuid, ok := s.machineUUIDs[machineName]
+	if !ok {
+		return "", errors.Errorf("machine %q not found", machineName)
+	}
+	return uuid, nil
+}
+
+func (*stubModelState) FilterSSHConnRequestsForMachine(_ context.Context, tunnelIDs []string, _ string) ([]string, error) {
+	return tunnelIDs, nil
+}
+
 func (*stubModelState) InitialWatchSSHConnRequestsStatement() (string, string) {
-	return "ssh_connection_request", "SELECT tunnel_id FROM ssh_connection_request"
+	return "ssh_connection_request", "SELECT tunnel_id FROM ssh_connection_request WHERE machine_uuid = ?"
 }
 
 type stubWatcherFactory struct {
@@ -351,10 +375,11 @@ type stubWatcherFactory struct {
 	summary   string
 }
 
-func (s *stubWatcherFactory) NewNamespaceWatcher(
+func (s *stubWatcherFactory) NewNamespaceMapperWatcher(
 	_ context.Context,
 	_ eventsource.NamespaceQuery,
 	summary string,
+	_ eventsource.Mapper,
 	filterOption eventsource.FilterOption,
 	_ ...eventsource.FilterOption,
 ) (watcher.StringsWatcher, error) {

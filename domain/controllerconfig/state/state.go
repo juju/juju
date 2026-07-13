@@ -61,6 +61,47 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 	return result, err
 }
 
+// GetControllerConfigValue returns the value for a single controller config
+// key. The boolean is false when the key is not set, so callers can fall back
+// to the key's default rather than reading the whole controller config.
+func (st *State) GetControllerConfigValue(ctx context.Context, key string) (string, bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT &KeyValue.*
+FROM v_controller_config
+WHERE key = $KeyValue.key`, KeyValue{})
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+
+	var (
+		kv    KeyValue
+		found bool
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		kv = KeyValue{}
+		found = false
+
+		err := tx.Query(ctx, stmt, KeyValue{Key: key}).Get(&kv)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return errors.Capture(err)
+		}
+		found = true
+		return nil
+	})
+	if err != nil {
+		return "", false, errors.Capture(err)
+	}
+	return kv.Value, found, nil
+}
+
 // UpdateControllerConfig allows changing some of the configuration
 // for the controller. Changes passed in updateAttrs will be applied
 // to the current config, and keys in removeAttrs will be unset (and

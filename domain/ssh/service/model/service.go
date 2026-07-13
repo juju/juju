@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/transform"
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -25,10 +26,11 @@ import (
 
 // WatcherFactory describes watcher creation for SSH connection requests.
 type WatcherFactory interface {
-	NewNamespaceWatcher(
+	NewNamespaceMapperWatcher(
 		ctx context.Context,
 		initialQuery eventsource.NamespaceQuery,
 		summary string,
+		mapper eventsource.Mapper,
 		filterOption eventsource.FilterOption,
 		filterOptions ...eventsource.FilterOption,
 	) (watcher.StringsWatcher, error)
@@ -49,11 +51,16 @@ func NewWatchableService(state State, modelUUID coremodel.UUID, clk clock.Clock,
 	}
 }
 
-// WatchSSHConnRequest returns a watcher that emits changed tunnel IDs for SSH
-// connection requests in this model.
+// WatchSSHConnRequest returns a watcher that emits the tunnel IDs of SSH
+// connection requests targeting the named machine as they are added in this
+// model.
 //
-// This is used by the sshsession worker to watch for new connection requests.
-func (s *WatchableService) WatchSSHConnRequest(ctx context.Context) (watcher.StringsWatcher, error) {
+// This is used by the sshsession worker to watch for new connection requests
+// destined for its own machine. The watcher is scoped to the machine so that a
+// machine agent can only observe requests targeting itself. Only additions and
+// updates are reported; deletions (consumed or expired requests) are not, as
+// the worker only acts on newly added requests.
+func (s *WatchableService) WatchSSHConnRequest(ctx context.Context, machineName coremachine.Name) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -61,12 +68,34 @@ func (s *WatchableService) WatchSSHConnRequest(ctx context.Context) (watcher.Str
 		return nil, errors.Errorf("pruning expired SSH connection requests: %w", err)
 	}
 
+	// Resolve the machine UUID up front so the watcher's initial query and
+	// mapper are both scoped to this machine.
+	machineUUID, err := s.state.GetMachineUUIDByName(ctx, machineName.String())
+	if err != nil {
+		return nil, errors.Errorf("getting UUID for machine %q: %w", machineName, err)
+	}
+
 	table, stmt := s.state.InitialWatchSSHConnRequestsStatement()
-	w, err := s.watcherFactory.NewNamespaceWatcher(
+
+	// The changestream only carries the tunnel ID of a changed request, not the
+	// machine it targets, so the mapper re-queries state to keep only the tunnel
+	// IDs belonging to this machine.
+	mapper := func(ctx context.Context, changes []changestream.ChangeEvent) ([]string, error) {
+		if len(changes) == 0 {
+			return nil, nil
+		}
+		tunnelIDs := transform.Slice(changes, func(c changestream.ChangeEvent) string {
+			return c.Changed()
+		})
+		return s.state.FilterSSHConnRequestsForMachine(ctx, tunnelIDs, machineUUID)
+	}
+
+	w, err := s.watcherFactory.NewNamespaceMapperWatcher(
 		ctx,
-		eventsource.InitialNamespaceChanges(stmt),
+		eventsource.InitialNamespaceChanges(stmt, machineUUID),
 		"ssh connection request watcher",
-		eventsource.NamespaceFilter(table, changestream.All),
+		mapper,
+		eventsource.NamespaceFilter(table, changestream.Changed),
 	)
 	if err != nil {
 		return nil, errors.Errorf("creating SSH connection request watcher: %w", err)
@@ -110,10 +139,12 @@ func (s *Service) InsertSSHConnRequest(ctx context.Context, req domainssh.SSHCon
 }
 
 // GetSSHConnRequest returns the SSH connection request for the supplied tunnel
-// ID.
+// ID, scoped to the named machine.
 //
-// This is used by the sshsession worker to retrieve a connection request.
-func (s *Service) GetSSHConnRequest(ctx context.Context, tunnelID string) (domainssh.SSHConnRequest, error) {
+// This is used by the sshsession worker to retrieve a connection request. The
+// request is scoped to the machine in state so a machine agent can only read
+// requests targeting itself; a request for another machine yields NotFound.
+func (s *Service) GetSSHConnRequest(ctx context.Context, machineName coremachine.Name, tunnelID string) (domainssh.SSHConnRequest, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -121,7 +152,7 @@ func (s *Service) GetSSHConnRequest(ctx context.Context, tunnelID string) (domai
 		return domainssh.SSHConnRequest{}, errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
 	}
 
-	req, err := s.state.GetSSHConnRequest(ctx, tunnelID, s.clock.Now())
+	req, err := s.state.GetSSHConnRequest(ctx, machineName.String(), tunnelID, s.clock.Now())
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
 	}

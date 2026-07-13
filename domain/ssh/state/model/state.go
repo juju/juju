@@ -409,8 +409,11 @@ VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 	}))
 }
 
-// GetSSHConnRequest returns a one-shot SSH connection request by tunnel ID.
-func (st *State) GetSSHConnRequest(ctx context.Context, requestTunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+// GetSSHConnRequest returns a one-shot SSH connection request by tunnel ID,
+// scoped to the named machine. The machine filter is applied in the query so a
+// request targeting another machine is reported as not found, rather than being
+// fetched and rejected afterwards.
+func (st *State) GetSSHConnRequest(ctx context.Context, machineName string, requestTunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Capture(err)
@@ -426,7 +429,8 @@ SELECT scr.tunnel_id AS &sshConnRequestRecord.tunnel_id,
        scr.ephemeral_public_key AS &sshConnRequestRecord.ephemeral_public_key
 FROM ssh_connection_request AS scr
 JOIN machine AS m ON m.uuid = scr.machine_uuid
-WHERE scr.tunnel_id = $tunnelID.tunnel_id`, sshConnRequestRecord{}, tunnelID{})
+WHERE scr.tunnel_id = $tunnelID.tunnel_id
+AND m.name = $entityName.name`, sshConnRequestRecord{}, tunnelID{}, entityName{})
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Capture(err)
 	}
@@ -448,7 +452,7 @@ ORDER BY index_id ASC`, sshConnRequestAddress{}, tunnelID{})
 		}
 
 		row := sshConnRequestRecord{}
-		err := tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}).Get(&row)
+		err := tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}, entityName{Name: machineName}).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("SSH connection request %q not found", requestTunnelID).Add(coreerrors.NotFound)
 		}
@@ -526,9 +530,86 @@ func (st *State) PruneExpiredSSHConnRequests(ctx context.Context, now time.Time)
 }
 
 // InitialWatchSSHConnRequestsStatement returns the namespace and initial
-// statement for SSH connection request watchers.
+// statement for a machine's SSH connection request watcher. The statement is
+// parameterised by the machine UUID so that the watcher's initial event only
+// reports requests targeting that machine.
 func (*State) InitialWatchSSHConnRequestsStatement() (string, string) {
-	return "ssh_connection_request", "SELECT tunnel_id FROM ssh_connection_request"
+	return "ssh_connection_request", "SELECT tunnel_id FROM ssh_connection_request WHERE machine_uuid = ?"
+}
+
+// GetMachineUUIDByName returns the UUID of the named machine.
+func (st *State) GetMachineUUIDByName(ctx context.Context, machineName string) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT uuid AS &entityUUID.uuid
+FROM machine
+WHERE name = $entityName.name`, entityUUID{}, entityName{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var machineUUID entityUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, entityName{Name: machineName}).Get(&machineUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("machine %q %w", machineName, machineerrors.MachineNotFound)
+		}
+		return err
+	})
+	if err != nil {
+		return "", errors.Errorf("querying machine %q: %w", machineName, err)
+	}
+	return machineUUID.UUID, nil
+}
+
+// FilterSSHConnRequestsForMachine returns the subset of the supplied tunnel IDs
+// that identify SSH connection requests targeting the machine with the given
+// UUID.
+func (st *State) FilterSSHConnRequestsForMachine(ctx context.Context, tunnelIDs []string, machineUUID string) ([]string, error) {
+	if len(tunnelIDs) == 0 {
+		return nil, nil
+	}
+
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	input := make(sqlair.S, 0, len(tunnelIDs))
+	for _, id := range tunnelIDs {
+		input = append(input, id)
+	}
+
+	stmt, err := st.Prepare(`
+SELECT tunnel_id AS &tunnelID.tunnel_id
+FROM ssh_connection_request
+WHERE machine_uuid = $entityUUID.uuid
+AND tunnel_id IN ($S[:])`, tunnelID{}, entityUUID{}, input)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var matched []tunnelID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, entityUUID{UUID: machineUUID}, input).GetAll(&matched)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return nil, errors.Errorf("filtering SSH connection requests for machine %q: %w", machineUUID, err)
+	}
+
+	result := make([]string, len(matched))
+	for i, m := range matched {
+		result[i] = m.TunnelID
+	}
+	return result, nil
 }
 
 func (st *State) pruneExpiredSSHConnRequests(ctx context.Context, tx *sqlair.TX, now time.Time) error {

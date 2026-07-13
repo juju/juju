@@ -37,8 +37,9 @@ type State interface {
 	InsertSSHConnRequest(context.Context, domainssh.SSHConnRequest, time.Time) error
 
 	// GetSSHConnRequest returns the one-shot SSH connection request for a tunnel
-	// ID, pruning expired requests first.
-	GetSSHConnRequest(context.Context, string, time.Time) (domainssh.SSHConnRequest, error)
+	// ID, scoped to the named machine, pruning expired requests first. A request
+	// targeting another machine is reported as not found.
+	GetSSHConnRequest(context.Context, string, string, time.Time) (domainssh.SSHConnRequest, error)
 
 	// RemoveSSHConnRequest deletes the request for the supplied tunnel ID.
 	RemoveSSHConnRequest(context.Context, string) error
@@ -46,7 +47,16 @@ type State interface {
 	// PruneExpiredSSHConnRequests removes expired SSH connection requests.
 	PruneExpiredSSHConnRequests(context.Context, time.Time) error
 
+	// GetMachineUUIDByName returns the UUID of the named machine.
+	GetMachineUUIDByName(context.Context, string) (string, error)
+
 	// InitialWatchSSHConnRequestsStatement returns the changelog namespace and
-	// initial state statement for SSH connection request watchers.
+	// initial state statement for a machine's SSH connection request watcher.
+	// The initial statement is parameterised by the machine UUID so that the
+	// watcher only reports the machine's own requests.
 	InitialWatchSSHConnRequestsStatement() (string, string)
+
+	// FilterSSHConnRequestsForMachine returns the subset of the supplied tunnel
+	// IDs that identify SSH connection requests targeting the given machine.
+	FilterSSHConnRequestsForMachine(context.Context, []string, string) ([]string, error)
 }

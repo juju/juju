@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	gossh "golang.org/x/crypto/ssh"
 
 	controllersshservice "github.com/juju/juju/domain/ssh/service/controller"
 )
@@ -37,12 +38,47 @@ func (s *serviceSuite) TestSSHServerHostKeyErrorsWhenMissing(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
+// TestSSHServerHostPublicKeyDerivesAndCaches checks the public key is derived
+// from the stored private key and that the derivation is cached: the private
+// key is only parsed once, so repeated calls do not re-parse it.
+func (s *serviceSuite) TestSSHServerHostPublicKeyDerivesAndCaches(c *tc.C) {
+	controllerState := &stubControllerState{key: testPrivateKey}
+	svc := controllersshservice.NewService(controllerState)
+
+	signer, err := gossh.ParsePrivateKey([]byte(testPrivateKey))
+	c.Assert(err, tc.ErrorIsNil)
+	want := signer.PublicKey().Marshal()
+
+	got, err := svc.SSHServerHostPublicKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, want)
+
+	// A second call returns the same cached key and does not re-fetch or
+	// re-derive it: the private key is fetched from state exactly once.
+	got2, err := svc.SSHServerHostPublicKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got2, tc.DeepEquals, want)
+	c.Check(controllerState.gets, tc.Equals, 1)
+}
+
+// TestSSHServerHostPublicKeyErrorsWhenMissing checks that a state error fetching
+// the host key is propagated to the caller.
+func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
+	svc := controllersshservice.NewService(&stubControllerState{getErr: context.Canceled})
+
+	got, err := svc.SSHServerHostPublicKey(c.Context())
+	c.Check(got, tc.IsNil)
+	c.Assert(err, tc.ErrorIs, context.Canceled)
+}
+
 type stubControllerState struct {
 	key    string
 	getErr error
+	gets   int
 }
 
 func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, error) {
+	s.gets++
 	return s.key, s.getErr
 }
 

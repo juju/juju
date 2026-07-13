@@ -70,6 +70,30 @@ func (s *stateSuite) TestControllerConfigReadWithoutData(c *tc.C) {
 	})
 }
 
+// TestGetControllerConfigValue checks that a single config key can be read
+// directly, and that an unset key reports ok=false so callers can fall back to
+// a default.
+func (s *stateSuite) TestGetControllerConfigValue(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	err := st.UpdateControllerConfig(c.Context(), map[string]string{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+		controller.CACertKey:         jujutesting.CACert,
+		controller.SSHServerPort:     "2223",
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	value, ok, err := st.GetControllerConfigValue(c.Context(), controller.SSHServerPort)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ok, tc.IsTrue)
+	c.Check(value, tc.Equals, "2223")
+
+	// An unset key reports ok=false rather than erroring.
+	_, ok, err = st.GetControllerConfigValue(c.Context(), controller.PublicDNSAddress)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(ok, tc.IsFalse)
+}
+
 func (s *stateSuite) TestControllerConfigUpdateTwice(c *tc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
