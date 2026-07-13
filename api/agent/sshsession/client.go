@@ -40,7 +40,7 @@ func (c *Client) WatchSSHConnRequest(ctx context.Context) (watcher.StringsWatche
 		return nil, errors.Capture(err)
 	}
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, apiservererrors.RestoreError(result.Error)
 	}
 	return apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result), nil
 }
