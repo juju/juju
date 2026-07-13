@@ -154,7 +154,10 @@ func (s *storage) DeleteMetadata(imageId string) error {
 }
 
 func (s *storage) metadataForImageId(imageId string) ([]imagesMetadataDoc, error) {
-	coll, closer := s.store.GetCollection(s.collection)
+	coll, closer, err := s.store.GetCollection(s.collection)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []imagesMetadataDoc
@@ -166,7 +169,10 @@ func (s *storage) metadataForImageId(imageId string) ([]imagesMetadataDoc, error
 }
 
 func (s *storage) getMetadata(id string) (Metadata, error) {
-	coll, closer := s.store.GetCollection(s.collection)
+	coll, closer, err := s.store.GetCollection(s.collection)
+	if err != nil {
+		return emptyMetadata, errors.Trace(err)
+	}
 	defer closer()
 
 	var old imagesMetadataDoc
@@ -181,12 +187,15 @@ func (s *storage) getMetadata(id string) (Metadata, error) {
 
 // AllCloudImageMetadata returns all cloud image metadata in the model.
 func (s *storage) AllCloudImageMetadata() ([]Metadata, error) {
-	coll, closer := s.store.GetCollection(s.collection)
+	coll, closer, err := s.store.GetCollection(s.collection)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	results := []Metadata{}
 	docs := []imagesMetadataDoc{}
-	err := coll.Find(nil).All(&docs)
+	err = coll.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all image metadata")
 	}
@@ -328,7 +337,10 @@ func validateMetadata(m *imagesMetadataDoc) error {
 // FindMetadata implements Storage.FindMetadata.
 // Results are sorted by date created and grouped by source.
 func (s *storage) FindMetadata(criteria MetadataFilter) (map[string][]Metadata, error) {
-	coll, closer := s.store.GetCollection(s.collection)
+	coll, closer, err := s.store.GetCollection(s.collection)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	logger.Debugf("searching for image metadata %#v", criteria)
@@ -420,7 +432,10 @@ type MetadataFilter struct {
 
 // SupportedArchitectures implements Storage.SupportedArchitectures.
 func (s *storage) SupportedArchitectures(criteria MetadataFilter) ([]string, error) {
-	coll, closer := s.store.GetCollection(s.collection)
+	coll, closer, err := s.store.GetCollection(s.collection)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var arches []string

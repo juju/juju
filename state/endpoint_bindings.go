@@ -391,11 +391,14 @@ func readEndpointBindings(st *State, key string) (map[string]string, int64, erro
 // readEndpointBindingsDoc returns the endpoint bindings document for the
 // specified key.
 func readEndpointBindingsDoc(st *State, key string) (*endpointBindingsDoc, error) {
-	endpointBindings, closer := st.db().GetCollection(endpointBindingsC)
+	endpointBindings, closer, err := st.db().GetCollection(endpointBindingsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc endpointBindingsDoc
-	err := endpointBindings.FindId(key).One(&doc)
+	err = endpointBindings.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("endpoint bindings for %q", key)
 	}

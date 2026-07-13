@@ -88,7 +88,10 @@ type AgentLiving interface {
 }
 
 func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {
-	coll, closer := mb.db().GetCollection(collName)
+	coll, closer, err := mb.db().GetCollection(collName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 	return isAliveWithSession(coll, id)
 }
@@ -98,7 +101,10 @@ func isAliveWithSession(coll mongo.Collection, id interface{}) (bool, error) {
 }
 
 func isNotDead(mb modelBackend, collName string, id interface{}) (bool, error) {
-	coll, closer := mb.db().GetCollection(collName)
+	coll, closer, err := mb.db().GetCollection(collName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 	return isNotDeadWithSession(coll, id)
 }
@@ -108,7 +114,10 @@ func isNotDeadWithSession(coll mongo.Collection, id interface{}) (bool, error) {
 }
 
 func isDying(mb modelBackend, collName string, id interface{}) (bool, error) {
-	coll, closer := mb.db().GetCollection(collName)
+	coll, closer, err := mb.db().GetCollection(collName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 	return isDyingWithSession(coll, id)
 }

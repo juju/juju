@@ -81,7 +81,10 @@ type State struct {
 }
 
 func (st *State) newStateNoWorkers(modelUUID string) (*State, error) {
-	session := st.session.Copy()
+	session, err := mongo.CopySession(st.session)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	newSt, err := newState(
 		st.controllerTag,
 		names.NewModelTag(modelUUID),
@@ -142,10 +145,13 @@ func (st *State) ControllerModelTag() names.ModelTag {
 
 // ControllerOwner returns the owner of the controller model.
 func (st *State) ControllerOwner() (names.UserTag, error) {
-	models, closer := st.db().GetCollection(modelsC)
+	models, closer, err := st.db().GetCollection(modelsC)
+	if err != nil {
+		return names.UserTag{}, errors.Trace(err)
+	}
 	defer closer()
 	var doc map[string]string
-	err := models.FindId(st.ControllerModelUUID()).Select(bson.M{"owner": 1}).One(&doc)
+	err = models.FindId(st.ControllerModelUUID()).Select(bson.M{"owner": 1}).One(&doc)
 	if err != nil {
 		return names.UserTag{}, errors.Annotate(err, "loading controller model")
 	}
@@ -238,7 +244,10 @@ func (st *State) RemoveExportingModelDocs() error {
 }
 
 func cleanupSecretBackendRefCountAfterModelMigrationDone(st *State) error {
-	col, closer := st.db().GetCollection(secretRevisionsC)
+	col, closer, err := st.db().GetCollection(secretRevisionsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	pipe := col.Pipe([]bson.M{
 		{
@@ -380,7 +389,10 @@ func (st *State) removeAllModelPermissions() error {
 	}
 	permOps = append(permOps, ops...)
 
-	applicationOffersCollection, closer := st.db().GetCollection(applicationOffersC)
+	applicationOffersCollection, closer, err := st.db().GetCollection(applicationOffersC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var offerDocs []applicationOfferDoc
@@ -405,9 +417,12 @@ func (st *State) removeAllModelPermissions() error {
 // removeAllInCollectionRaw removes all the documents from the given
 // named collection.
 func (st *State) removeAllInCollectionRaw(name string) error {
-	coll, closer := st.db().GetCollection(name)
+	coll, closer, err := st.db().GetCollection(name)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
-	_, err := coll.Writeable().RemoveAll(nil)
+	_, err = coll.Writeable().RemoveAll(nil)
 	return errors.Trace(err)
 }
 
@@ -420,11 +435,14 @@ func (st *State) removeAllInCollectionOps(name string) ([]txn.Op, error) {
 // removeInCollectionOps generates operations to remove all documents
 // from the named collection matching a specific selector.
 func (st *State) removeInCollectionOps(name string, sel interface{}) ([]txn.Op, error) {
-	coll, closer := st.db().GetCollection(name)
+	coll, closer, err := st.db().GetCollection(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var ids []bson.M
-	err := coll.Find(sel).Select(bson.D{{"_id", 1}}).All(&ids)
+	err = coll.Find(sel).Select(bson.D{{"_id", 1}}).All(&ids)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -487,7 +505,10 @@ func (st *State) EnsureModelRemoved() error {
 		}
 
 		if err := func(name string, info CollectionInfo) error {
-			coll, closer := st.db().GetCollection(name)
+			coll, closer, err := st.db().GetCollection(name)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			defer closer()
 
 			n, err := coll.Find(nil).Count()
@@ -523,7 +544,7 @@ func (st *State) EnsureModelRemoved() error {
 // a closer function for the session. This is useful where you need to work
 // with various collections in a single session, so don't want to call
 // getCollection multiple times.
-func (st *State) newDB() (Database, func()) {
+func (st *State) newDB() (Database, func(), error) {
 	return st.database.Copy()
 }
 
@@ -587,7 +608,10 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 	}}}
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
-		collection, closer := st.db().GetCollection(name)
+		collection, closer, err := st.db().GetCollection(name)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		defer closer()
 		var doc struct {
 			DocID string `bson:"_id"`
@@ -740,7 +764,10 @@ func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, e
 // AllMachines returns all machines in the model
 // ordered by id.
 func (st *State) AllMachines() ([]*Machine, error) {
-	machinesCollection, closer := st.db().GetCollection(machinesC)
+	machinesCollection, closer, err := st.db().GetCollection(machinesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	return st.allMachines(machinesCollection)
 }
@@ -748,7 +775,10 @@ func (st *State) AllMachines() ([]*Machine, error) {
 // MachineCountForBase counts the machines for the provided bases in the model.
 // The bases must all be for the one os.
 func (st *State) MachineCountForBase(base ...Base) (map[string]int, error) {
-	machinesCollection, closer := st.db().GetCollection(machinesC)
+	machinesCollection, closer, err := st.db().GetCollection(machinesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var (
@@ -764,7 +794,7 @@ func (st *State) MachineCountForBase(base ...Base) (map[string]int, error) {
 	}
 
 	var docs []machineDoc
-	err := machinesCollection.Find(bson.D{
+	err = machinesCollection.Find(bson.D{
 		{"base.channel", bson.D{{"$in", channels}}},
 		{"base.os", os},
 	}).Select(bson.M{"base": 1}).All(&docs)
@@ -839,10 +869,12 @@ func (st *State) Machine(id string) (*Machine, error) {
 }
 
 func (st *State) getMachineDoc(id string) (*machineDoc, error) {
-	machinesCollection, closer := st.db().GetCollection(machinesC)
+	machinesCollection, closer, err := st.db().GetCollection(machinesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
-	var err error
 	mdoc := &machineDoc{}
 	err = machinesCollection.FindId(id).One(mdoc)
 
@@ -1663,7 +1695,10 @@ func (st *State) AllUnitAssignments() ([]UnitAssignment, error) {
 }
 
 func (st *State) unitAssignments(query bson.D) ([]UnitAssignment, error) {
-	col, closer := st.db().GetCollection(assignUnitC)
+	col, closer, err := st.db().GetCollection(assignUnitC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []assignUnitDoc
@@ -1889,7 +1924,10 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 
 // Application returns an application state by name.
 func (st *State) Application(name string) (_ *Application, err error) {
-	applications, closer := st.db().GetCollection(applicationsC)
+	applications, closer, err := st.db().GetCollection(applicationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	if !names.IsValidApplication(name) {
@@ -1908,7 +1946,10 @@ func (st *State) Application(name string) (_ *Application, err error) {
 
 // AllApplications returns all deployed applications in the model.
 func (st *State) AllApplications() (applications []*Application, err error) {
-	applicationsCollection, closer := st.db().GetCollection(applicationsC)
+	applicationsCollection, closer, err := st.db().GetCollection(applicationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	sdocs := []applicationDoc{}
@@ -2357,11 +2398,14 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 // KeyRelation returns the existing relation with the given key (which can
 // be derived unambiguously from the relation's endpoints).
 func (st *State) KeyRelation(key string) (*Relation, error) {
-	relations, closer := st.db().GetCollection(relationsC)
+	relations, closer, err := st.db().GetCollection(relationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := relationDoc{}
-	err := relations.FindId(key).One(&doc)
+	err = relations.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %q", key)
 	}
@@ -2373,11 +2417,14 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 
 // Relation returns the existing relation with the given id.
 func (st *State) Relation(id int) (*Relation, error) {
-	relations, closer := st.db().GetCollection(relationsC)
+	relations, closer, err := st.db().GetCollection(relationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := relationDoc{}
-	err := relations.Find(bson.D{{"id", id}}).One(&doc)
+	err = relations.Find(bson.D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %d", id)
 	}
@@ -2389,7 +2436,10 @@ func (st *State) Relation(id int) (*Relation, error) {
 
 // AllRelations returns all relations in the model ordered by id.
 func (st *State) AllRelations() (relations []*Relation, err error) {
-	relationsCollection, closer := st.db().GetCollection(relationsC)
+	relationsCollection, closer, err := st.db().GetCollection(relationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	docs := relationDocSlice{}
@@ -2407,7 +2457,10 @@ func (st *State) AllRelations() (relations []*Relation, err error) {
 // AliveRelationKeys returns the relation keys of all live relations in
 // the model.  Used in charmhub metrics collection.
 func (st *State) AliveRelationKeys() []string {
-	relationsCollection, closer := st.db().GetCollection(relationsC)
+	relationsCollection, closer, err := st.db().GetCollection(relationsC)
+	if err != nil {
+		return nil
+	}
 	defer closer()
 	var doc struct {
 		Key string `bson:"key"`
@@ -2445,11 +2498,14 @@ func (st *State) Unit(name string) (*Unit, error) {
 	if !names.IsValidUnit(name) {
 		return nil, errors.Errorf("%q is not a valid unit name", name)
 	}
-	units, closer := st.db().GetCollection(unitsC)
+	units, closer, err := st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := unitDoc{}
-	err := units.FindId(name).One(&doc)
+	err = units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("unit %q", name)
 	}
@@ -2495,7 +2551,10 @@ func (st *State) UnitsInError() ([]*Unit, error) {
 	}
 
 	// Query the units with the names of units in error.
-	units, closer := st.db().GetCollection(unitsC)
+	units, closer, err := st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []unitDoc
@@ -2576,12 +2635,15 @@ func (st *State) networkEntityGlobalKeyRemoveOp(globalKey string, providerId cor
 }
 
 func (st *State) networkEntityGlobalKeyExists(globalKey string, providerId corenetwork.Id) (bool, error) {
-	col, closer := st.db().GetCollection(providerIDsC)
+	col, closer, err := st.db().GetCollection(providerIDsC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	key := st.networkEntityGlobalKey(globalKey, providerId)
 	var doc providerIdDoc
-	err := col.FindId(key).One(&doc)
+	err = col.FindId(key).One(&doc)
 
 	switch err {
 	case nil:
@@ -2628,10 +2690,13 @@ func (st *State) SLACredential() ([]byte, error) {
 // It is not exported as it is currently
 // only used during upgrades.
 func (st *State) allUnits() ([]*Unit, error) {
-	unitsCollection, closer := st.db().GetCollection(unitsC)
+	unitsCollection, closer, err := st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var udocs []unitDoc
-	err := unitsCollection.Find(nil).All(&udocs)
+	err = unitsCollection.Find(nil).All(&udocs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all units")
 	}

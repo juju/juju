@@ -357,10 +357,13 @@ type resourcePersistence struct {
 
 // One gets the identified document from the collection.
 func (sp *resourcePersistence) one(collName, id string, doc interface{}) error {
-	coll, closeColl := sp.st.db().GetCollection(collName)
+	coll, closeColl, err := sp.st.db().GetCollection(collName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closeColl()
 
-	err := coll.FindId(id).One(doc)
+	err = coll.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf(id)
 	}
@@ -372,7 +375,10 @@ func (sp *resourcePersistence) one(collName, id string, doc interface{}) error {
 
 // All gets all documents from the collection matching the query.
 func (p *resourcePersistence) all(collName string, query, docs interface{}) error {
-	coll, closeColl := p.st.db().GetCollection(collName)
+	coll, closeColl, err := p.st.db().GetCollection(collName)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closeColl()
 
 	if err := coll.Find(query).All(docs); err != nil {

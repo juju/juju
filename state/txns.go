@@ -16,13 +16,16 @@ import (
 )
 
 func readTxnRevno(db Database, collectionName string, id interface{}) (int64, error) {
-	collection, closer := db.GetCollection(collectionName)
+	collection, closer, err := db.GetCollection(collectionName)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 	query := collection.FindId(id).Select(bson.D{{"txn-revno", 1}})
 	var result struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}
-	err := query.One(&result)
+	err = query.One(&result)
 	return result.TxnRevno, errors.Trace(err)
 }
 

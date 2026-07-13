@@ -4,18 +4,54 @@
 package mongo
 
 import (
+	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 )
 
 // CollectionFromName returns a named collection on the specified database,
 // initialised with a new session. Also returned is a close function which
 // must be called when the collection is no longer required.
-func CollectionFromName(db *mgo.Database, coll string) (Collection, func()) {
-	session := db.Session.Copy()
+func CollectionFromName(db *mgo.Database, coll string) (collection Collection, closer func(), err error) {
+	session, err := CopySession(db.Session)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "copying session for collection %q", coll)
+	}
+
 	newColl := db.C(coll).With(session)
-	return WrapCollection(newColl), session.Close
+	return WrapCollection(newColl), session.Close, nil
+}
+
+const sessionAlreadyClosed = "Session already closed"
+
+// CopySession returns a copied mgo session and converts any closed session
+// panic into an error.
+func CopySession(session *mgo.Session) (_ *mgo.Session, err error) {
+	if session == nil {
+		return nil, errors.New("mongo session is nil")
+	}
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			if !isClosedSessionPanic(recovered) {
+				panic(recovered)
+			}
+			err = errors.Errorf("copying session failed: %v", recovered)
+		}
+	}()
+	return session.Copy(), nil
+}
+
+func isClosedSessionPanic(recovered interface{}) bool {
+	switch r := recovered.(type) {
+	case string:
+		return r == sessionAlreadyClosed
+	case error:
+		return strings.Contains(r.Error(), sessionAlreadyClosed)
+	default:
+		return false
+	}
 }
 
 // Collection imperfectly insulates clients from the capacity to write to

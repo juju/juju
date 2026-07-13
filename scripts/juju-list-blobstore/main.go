@@ -1031,7 +1031,8 @@ func (b *BlobStoreChecker) checkUnreferencedChunks() {
 	if *chunkTimeout == 0 {
 		return
 	}
-	session := b.session.Copy()
+	session, err := mongo.CopySession(b.session)
+	checkErr(err, "copying session")
 	defer session.Close()
 	// Bump the default socket timeout since this usually must be paged from disk.
 	session.SetSocketTimeout(time.Duration(*chunkTimeout) * time.Minute)

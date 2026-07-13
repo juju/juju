@@ -167,7 +167,10 @@ func (info *UpgradeInfo) getProvisionedControllers() ([]string, error) {
 	}
 
 	// Extract current and provisioned controllers.
-	instanceData, closer := info.st.db().GetRawCollection(instanceDataC)
+	instanceData, closer, err := info.st.db().GetRawCollection(instanceDataC)
+	if err != nil {
+		return provisioned, errors.Trace(err)
+	}
 	defer closer()
 
 	query := bson.D{
@@ -370,7 +373,10 @@ func (st *State) EnsureUpgradeInfo(
 }
 
 func (st *State) isMachineProvisioned(machineId string) (bool, error) {
-	instanceData, closer := st.db().GetRawCollection(instanceDataC)
+	instanceData, closer, err := st.db().GetRawCollection(instanceDataC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	for _, id := range []string{st.docID(machineId), machineId} {
@@ -547,7 +553,10 @@ func (st *State) AbortCurrentUpgrade() error {
 
 func currentUpgradeInfoDoc(st *State) (*upgradeInfoDoc, error) {
 	var doc upgradeInfoDoc
-	upgradeInfo, closer := st.db().GetCollection(upgradeInfoC)
+	upgradeInfo, closer, err := st.db().GetCollection(upgradeInfoC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	if err := upgradeInfo.FindId(currentUpgradeId).One(&doc); err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("current upgrade info")

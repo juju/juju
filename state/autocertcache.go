@@ -30,9 +30,12 @@ type autocertCacheDoc struct {
 
 // Put implements autocert.Cache.Put.
 func (cache autocertCache) Put(ctx context.Context, name string, data []byte) error {
-	coll, closeColl := cache.coll()
+	coll, closeColl, err := cache.coll()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closeColl()
-	_, err := coll.UpsertId(name, autocertCacheDoc{
+	_, err = coll.UpsertId(name, autocertCacheDoc{
 		Name: name,
 		Data: data,
 	})
@@ -44,10 +47,13 @@ func (cache autocertCache) Put(ctx context.Context, name string, data []byte) er
 
 // Get implements autocert.Cache.Get.
 func (cache autocertCache) Get(ctx context.Context, name string) ([]byte, error) {
-	coll, closeColl := cache.coll()
+	coll, closeColl, err := cache.coll()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closeColl()
 	var doc autocertCacheDoc
-	err := coll.FindId(name).One(&doc)
+	err = coll.FindId(name).One(&doc)
 	if err == nil {
 		return doc.Data, nil
 	}
@@ -59,16 +65,22 @@ func (cache autocertCache) Get(ctx context.Context, name string) ([]byte, error)
 
 // Delete implements autocert.Cache.Delete.
 func (cache autocertCache) Delete(ctx context.Context, name string) error {
-	coll, closeColl := cache.coll()
+	coll, closeColl, err := cache.coll()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closeColl()
-	err := coll.RemoveId(name)
+	err = coll.RemoveId(name)
 	if err == nil || errors.Cause(err) == mgo.ErrNotFound {
 		return nil
 	}
 	return errors.Annotatef(err, "cannot delete autocert key %q", name)
 }
 
-func (cache autocertCache) coll() (mongo.WriteCollection, func()) {
-	coll, closer := cache.st.db().GetCollection(autocertCacheC)
-	return coll.Writeable(), closer
+func (cache autocertCache) coll() (mongo.WriteCollection, func(), error) {
+	coll, closer, err := cache.st.db().GetCollection(autocertCacheC)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return coll.Writeable(), closer, nil
 }

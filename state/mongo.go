@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/mongo"
@@ -16,8 +17,12 @@ type environMongo struct {
 }
 
 // GetCollection is part of the lease.Mongo interface.
-func (m *environMongo) GetCollection(name string) (mongo.Collection, func()) {
-	return m.state.db().GetCollection(name)
+func (m *environMongo) GetCollection(name string) (mongo.Collection, func(), error) {
+	coll, closer, err := m.state.db().GetCollection(name)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return coll, closer, nil
 }
 
 // RunTransaction is part of the lease.Mongo interface.

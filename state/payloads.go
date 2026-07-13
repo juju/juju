@@ -25,7 +25,10 @@ type ModelPayloads struct {
 
 // ListAll builds the list of payload information that is registered in state.
 func (mp ModelPayloads) ListAll() ([]payloads.FullPayloadInfo, error) {
-	coll, closer := mp.db.GetCollection(payloadsC)
+	coll, closer, err := mp.db.GetCollection(payloadsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []payloadDoc
@@ -74,7 +77,10 @@ func (up UnitPayloads) List(names ...string) ([]payloads.Result, error) {
 		}
 	}
 
-	coll, closer := up.db.GetCollection(payloadsC)
+	coll, closer, err := up.db.GetCollection(payloadsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var docs []payloadDoc
 	if err := coll.Find(sel).All(&docs); err != nil {
@@ -168,7 +174,10 @@ type payloadTrackChange struct {
 // Prepare is part of the Change interface.
 func (change payloadTrackChange) Prepare(db Database) ([]txn.Op, error) {
 	unit := change.Doc.UnitID
-	units, uCloser := db.GetCollection(unitsC)
+	units, uCloser, err := db.GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer uCloser()
 	unitOp, err := nsLife.notDeadOp(units, unit)
 	if errors.Cause(err) == errDeadOrGone {
@@ -177,7 +186,10 @@ func (change payloadTrackChange) Prepare(db Database) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 
-	payloads, pCloser := db.GetCollection(payloadsC)
+	payloads, pCloser, err := db.GetCollection(payloadsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer pCloser()
 	payloadOp, err := nsPayloads.trackOp(payloads, change.Doc)
 	if err != nil {
@@ -197,7 +209,10 @@ type payloadSetStatusChange struct {
 // Prepare is part of the Change interface.
 func (change payloadSetStatusChange) Prepare(db Database) ([]txn.Op, error) {
 	docID := nsPayloads.docID(change.Unit, change.Name)
-	payloadColl, closer := db.GetCollection(payloadsC)
+	payloadColl, closer, err := db.GetCollection(payloadsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	op, err := nsPayloads.setStatusOp(payloadColl, docID, change.Status)
@@ -218,7 +233,10 @@ type payloadUntrackChange struct {
 // Prepare is part of the Change interface.
 func (change payloadUntrackChange) Prepare(db Database) ([]txn.Op, error) {
 	docID := nsPayloads.docID(change.Unit, change.Name)
-	payloads, closer := db.GetCollection(payloadsC)
+	payloads, closer, err := db.GetCollection(payloadsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	op, err := nsPayloads.untrackOp(payloads, docID)
@@ -237,7 +255,10 @@ type payloadCleanupChange struct {
 
 // Prepare is part of the Change interface.
 func (change payloadCleanupChange) Prepare(db Database) ([]txn.Op, error) {
-	payloads, closer := db.GetCollection(payloadsC)
+	payloads, closer, err := db.GetCollection(payloadsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	sel := nsPayloads.forUnit(change.Unit)
@@ -245,7 +266,7 @@ func (change payloadCleanupChange) Prepare(db Database) ([]txn.Op, error) {
 	var docs []struct {
 		DocID string `bson:"_id"`
 	}
-	err := payloads.Find(sel).Select(fields).All(&docs)
+	err = payloads.Find(sel).Select(fields).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if len(docs) == 0 {

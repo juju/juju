@@ -166,11 +166,14 @@ type action struct {
 
 // Refresh the contents of the action.
 func (a *action) Refresh() error {
-	actions, closer := a.st.db().GetCollection(actionsC)
+	actions, closer, err := a.st.db().GetCollection(actionsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	id := a.Id()
 	doc := actionDoc{}
-	err := actions.FindId(id).One(&doc)
+	err = actions.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("action %q", id)
 	}
@@ -622,11 +625,14 @@ var ensureActionMarker = ensureSuffixFn(actionMarker)
 func (m *Model) Action(id string) (Action, error) {
 	actionLogger.Tracef("Action() %q", id)
 	st := m.st
-	actions, closer := st.db().GetCollection(actionsC)
+	actions, closer, err := st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := actionDoc{}
-	err := actions.FindId(id).One(&doc)
+	err = actions.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action %q", id)
 	}
@@ -640,12 +646,15 @@ func (m *Model) Action(id string) (Action, error) {
 // AllActions returns all Actions.
 func (m *Model) AllActions() ([]Action, error) {
 	actionLogger.Tracef("AllActions()")
-	actions, closer := m.st.db().GetCollection(actionsC)
+	actions, closer, err := m.st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	results := []Action{}
 	docs := []actionDoc{}
-	err := actions.Find(nil).All(&docs)
+	err = actions.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all actions")
 	}
@@ -665,7 +674,10 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 	var results []Action
 	var doc actionDoc
 
-	actions, closer := m.st.db().GetCollection(actionsC)
+	actions, closer, err := m.st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	iter := actions.Find(bson.D{{"name", name}}).Iter()
@@ -762,7 +774,10 @@ func (st *State) matchingActionsByReceiverId(id string) ([]Action, error) {
 	var doc actionDoc
 	var actions []Action
 
-	actionsCollection, closer := st.db().GetCollection(actionsC)
+	actionsCollection, closer, err := st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	iter := actionsCollection.Find(bson.D{{"receiver", id}}).Iter()
@@ -807,7 +822,10 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 	var doc actionDoc
 	var actions []Action
 
-	actionsCollection, closer := st.db().GetCollection(actionsC)
+	actionsCollection, closer, err := st.db().GetCollection(actionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	sel := append(bson.D{{"receiver", tag.Id()}}, statusCondition...)
@@ -828,9 +846,12 @@ func PruneOperations(stop <-chan struct{}, st *State, maxHistoryTime time.Durati
 		{{"operation", ""}},
 		{{"operation", bson.D{{"$exists", false}}}},
 	}}}
-	coll, closer := st.db().GetRawCollection(actionsC)
+	coll, closer, err := st.db().GetRawCollection(actionsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
-	err := pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "completed", hasNoOperation, GoTime)
+	err = pruneCollection(stop, st, maxHistoryTime, maxHistoryMB, coll, "completed", hasNoOperation, GoTime)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -839,13 +860,19 @@ func PruneOperations(stop <-chan struct{}, st *State, maxHistoryTime time.Durati
 	// the actions collection is where the disk space goes, we approximate the
 	// number of operations to delete to achieve a given size deduction based on
 	// the average ratio of number of operations to tasks.
-	operationsColl, closer := st.db().GetRawCollection(operationsC)
+	operationsColl, closer, err := st.db().GetRawCollection(operationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	operationsCount, err := operationsColl.Count()
 	if err != nil {
 		return errors.Annotate(err, "retrieving operations collection count")
 	}
-	actionsColl, closer := st.db().GetRawCollection(actionsC)
+	actionsColl, closer, err := st.db().GetRawCollection(actionsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	actionsCount, err := actionsColl.Count()
 	if err != nil {

@@ -115,7 +115,10 @@ func (st *State) CloudsForUser(user names.UserTag, isSuperuser bool) ([]CloudInf
 		return nil, errors.Trace(err)
 	}
 
-	clouds, closer := st.db().GetCollection(cloudsC)
+	clouds, closer, err := st.db().GetCollection(cloudsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var cloudQuery mongo.Query
@@ -153,7 +156,10 @@ func (st *State) CloudsForUser(user names.UserTag, isSuperuser bool) ([]CloudInf
 func (st *State) cloudNamesForUser(user names.UserTag) ([]string, error) {
 	// Start by looking up cloud names that the user has access to, and then load only the records that are
 	// included in that set
-	permissions, permCloser := st.db().GetRawCollection(permissionsC)
+	permissions, permCloser, err := st.db().GetRawCollection(permissionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer permCloser()
 
 	findExpr := fmt.Sprintf("^.*#%s$", userGlobalKey(user.Id()))
@@ -190,7 +196,10 @@ func (st *State) fillInCloudUserAccess(user names.UserTag, cloudInfo []CloudInfo
 		indexByName[info.Name] = i
 	}
 
-	perms, closer := st.db().GetCollection(permissionsC)
+	perms, closer, err := st.db().GetCollection(permissionsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	query := perms.Find(bson.M{"_id": bson.M{"$in": permissionIds}}).Batch(100)
 	iter := query.Iter()

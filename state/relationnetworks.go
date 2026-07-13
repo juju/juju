@@ -95,7 +95,10 @@ func NewRelationNetworks(st *State) *rootRelationNetworksState {
 
 // AllRelationNetworks returns all the relation networks for the model.
 func (rin *rootRelationNetworksState) AllRelationNetworks() ([]RelationNetworks, error) {
-	relationNetworksCollection, closer := rin.st.db().GetCollection(relationNetworksC)
+	relationNetworksCollection, closer, err := rin.st.db().GetCollection(relationNetworksC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []relationNetworksDoc
@@ -213,11 +216,14 @@ func (rin *relationNetworksState) Save(relationKey string, adminOverride bool, c
 
 // Networks returns the networks for the specified relation.
 func (rin *relationNetworksState) Networks(relationKey string) (RelationNetworks, error) {
-	coll, closer := rin.st.db().GetCollection(relationNetworksC)
+	coll, closer, err := rin.st.db().GetCollection(relationNetworksC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc relationNetworksDoc
-	err := coll.FindId(relationNetworkDocID(relationKey, rin.direction, relationNetworkAdmin)).One(&doc)
+	err = coll.FindId(relationNetworkDocID(relationKey, rin.direction, relationNetworkAdmin)).One(&doc)
 	if err == mgo.ErrNotFound {
 		err = coll.FindId(relationNetworkDocID(relationKey, rin.direction, relationNetworkDefault)).One(&doc)
 	}

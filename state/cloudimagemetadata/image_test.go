@@ -106,7 +106,8 @@ func (s *cloudImageMetadataSuite) TestSaveMetadataExpiry(c *gc.C) {
 
 	err := s.storage.SaveMetadata(metadata)
 	c.Assert(err, jc.ErrorIsNil)
-	coll, closer := s.access.GetCollection(collectionName)
+	coll, closer, err := s.access.GetCollection(collectionName)
+	c.Assert(err, jc.ErrorIsNil)
 	defer closer()
 
 	var all []bson.M
@@ -608,8 +609,12 @@ func NewTestMongo(database *mgo.Database) *TestMongo {
 	}
 }
 
-func (m *TestMongo) GetCollection(name string) (mongo.Collection, func()) {
-	return mongo.CollectionFromName(m.database, name)
+func (m *TestMongo) GetCollection(name string) (mongo.Collection, func(), error) {
+	coll, closer, err := mongo.CollectionFromName(m.database, name)
+	if err != nil {
+		return nil, nil, err
+	}
+	return coll, closer, nil
 }
 
 func (m *TestMongo) RunTransaction(getTxn jujutxn.TransactionSource) error {

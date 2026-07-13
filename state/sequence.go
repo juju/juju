@@ -21,7 +21,10 @@ type sequenceDoc struct {
 // sequence safely increments a database backed sequence, returning
 // the next value.
 func sequence(mb modelBackend, name string) (int, error) {
-	sequences, closer := mb.db().GetCollection(sequenceC)
+	sequences, closer, err := mb.db().GetCollection(sequenceC)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
 	defer closer()
 	query := sequences.FindId(name)
 	inc := mgo.Change{
@@ -35,7 +38,7 @@ func sequence(mb modelBackend, name string) (int, error) {
 		Upsert: true,
 	}
 	result := &sequenceDoc{}
-	_, err := query.Apply(inc, result)
+	_, err = query.Apply(inc, result)
 	if err != nil {
 		return -1, fmt.Errorf("cannot increment %q sequence number: %v", name, err)
 	}
@@ -43,9 +46,12 @@ func sequence(mb modelBackend, name string) (int, error) {
 }
 
 func resetSequence(mb modelBackend, name string) error {
-	sequences, closer := mb.db().GetCollection(sequenceC)
+	sequences, closer, err := mb.db().GetCollection(sequenceC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
-	err := sequences.Writeable().RemoveId(name)
+	err = sequences.Writeable().RemoveId(name)
 	if err != nil && errors.Cause(err) != mgo.ErrNotFound {
 		return errors.Annotatef(err, "can not reset sequence for %q", name)
 	}
@@ -65,7 +71,10 @@ func resetSequence(mb modelBackend, name string) error {
 // `sequence` is more efficient than `sequenceWithMin` and should be
 // preferred if there is no minimum value requirement.
 func sequenceWithMin(mb modelBackend, name string, minVal int) (int, error) {
-	sequences, closer := mb.db().GetRawCollection(sequenceC)
+	sequences, closer, err := mb.db().GetRawCollection(sequenceC)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
 	defer closer()
 	updater := newDbSeqUpdater(sequences, mb.ModelUUID(), name)
 	return updateSeqWithMin(updater, minVal)
@@ -96,7 +105,10 @@ type seqUpdater interface {
 
 // Sequences returns the model's sequence names and their next values.
 func (st *State) Sequences() (map[string]int, error) {
-	sequences, closer := st.db().GetCollection(sequenceC)
+	sequences, closer, err := st.db().GetCollection(sequenceC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []sequenceDoc

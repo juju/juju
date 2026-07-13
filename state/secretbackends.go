@@ -160,7 +160,10 @@ func (s *secretBackendsStorage) toSecretBackend(doc *secretBackendDoc) *secrets.
 }
 
 func (st *State) checkBackendExists(ID string) error {
-	secretBackendCollection, closer := st.db().GetCollection(secretBackendsC)
+	secretBackendCollection, closer, err := st.db().GetCollection(secretBackendsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 	n, err := secretBackendCollection.FindId(ID).Count()
 	if err != nil {
@@ -174,11 +177,14 @@ func (st *State) checkBackendExists(ID string) error {
 
 // UpdateSecretBackend updates a new secret backend.
 func (s *secretBackendsStorage) UpdateSecretBackend(p UpdateSecretBackendParams) error {
-	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
+	secretBackendsColl, closer, err := s.st.db().GetCollection(secretBackendsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var doc secretBackendDoc
-	err := secretBackendsColl.FindId(p.ID).One(&doc)
+	err = secretBackendsColl.FindId(p.ID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("secret backend %q", p.ID)
 	}
@@ -254,11 +260,14 @@ func (s *secretBackendsStorage) UpdateSecretBackend(p UpdateSecretBackendParams)
 
 // GetSecretBackend gets the named secret backend.
 func (s *secretBackendsStorage) GetSecretBackend(name string) (*secrets.SecretBackend, error) {
-	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
+	secretBackendsColl, closer, err := s.st.db().GetCollection(secretBackendsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc secretBackendDoc
-	err := secretBackendsColl.Find(bson.D{{"name", name}}).One(&doc)
+	err = secretBackendsColl.Find(bson.D{{"name", name}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret backend %q", name)
 	}
@@ -270,11 +279,14 @@ func (s *secretBackendsStorage) GetSecretBackend(name string) (*secrets.SecretBa
 
 // GetSecretBackendByID gets the secret backend with the given ID.
 func (s *secretBackendsStorage) GetSecretBackendByID(ID string) (*secrets.SecretBackend, error) {
-	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
+	secretBackendsColl, closer, err := s.st.db().GetCollection(secretBackendsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc secretBackendDoc
-	err := secretBackendsColl.FindId(ID).One(&doc)
+	err = secretBackendsColl.FindId(ID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("secret backend %q", ID)
 	}
@@ -286,11 +298,14 @@ func (s *secretBackendsStorage) GetSecretBackendByID(ID string) (*secrets.Secret
 
 // ListSecretBackends lists the secret backends.
 func (s *secretBackendsStorage) ListSecretBackends() ([]*secrets.SecretBackend, error) {
-	secretBackendCollection, closer := s.st.db().GetCollection(secretBackendsC)
+	secretBackendCollection, closer, err := s.st.db().GetCollection(secretBackendsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []secretBackendDoc
-	err := secretBackendCollection.Find(nil).All(&docs)
+	err = secretBackendCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -333,7 +348,10 @@ func secretBackendRefCountKey(backendID string) string {
 }
 
 func (st *State) isSecretBackendInUse(backendID string) (bool, error) {
-	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	refCountCollection, ccloser, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer ccloser()
 	_, count, err := nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
 	if err != nil {
@@ -352,7 +370,10 @@ func (st *State) removeBackendRefCountOp(backendID string, force bool) ([]txn.Op
 		return []txn.Op{op}, nil
 	}
 
-	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	refCountCollection, ccloser, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer ccloser()
 
 	_, count, err := nsRefcounts.CurrentOp(refCountCollection, secretBackendRefCountKey(backendID))
@@ -370,7 +391,10 @@ func (st *State) createSecretBackendRefCountOp(backendID string) ([]txn.Op, erro
 	if secrets.IsInternalSecretBackendID(backendID) {
 		return nil, nil
 	}
-	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	refCountCollection, ccloser, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer ccloser()
 	op, err := nsRefcounts.StrictCreateOp(refCountCollection, secretBackendRefCountKey(backendID), 0)
 	if err != nil {
@@ -383,7 +407,10 @@ func (st *State) decSecretBackendRefCountOp(backendID string) ([]txn.Op, error) 
 	if secrets.IsInternalSecretBackendID(backendID) {
 		return nil, nil
 	}
-	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	refCountCollection, ccloser, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer ccloser()
 
 	op, err := nsRefcounts.AliveDecRefOp(refCountCollection, secretBackendRefCountKey(backendID))
@@ -399,7 +426,10 @@ func (st *State) incBackendRevisionCountOps(backendID string, count int) ([]txn.
 	if secrets.IsInternalSecretBackendID(backendID) {
 		return nil, nil
 	}
-	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
+	refCountCollection, ccloser, err := st.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer ccloser()
 
 	key := secretBackendRefCountKey(backendID)
@@ -432,11 +462,14 @@ func (s *secretBackendsStorage) tokenRotationOps(ID string, name *string, nextRo
 			Remove: true,
 		}}, nil
 	}
-	secretBackendRotateCollection, closer := s.st.db().GetCollection(secretBackendsRotateC)
+	secretBackendRotateCollection, closer, err := s.st.db().GetCollection(secretBackendsRotateC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc secretBackendRotationDoc
-	err := secretBackendRotateCollection.FindId(ID).One(&doc)
+	err = secretBackendRotateCollection.FindId(ID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return []txn.Op{{
 			C:      secretBackendsRotateC,
@@ -471,7 +504,10 @@ func (s *secretBackendsStorage) tokenRotationOps(ID string, name *string, nextRo
 // SecretBackendRotated records that the given secret backend token was rotated and
 // sets the next rotate time.
 func (s *secretBackendsStorage) SecretBackendRotated(ID string, next time.Time) error {
-	secretBadckendRotateCollection, closer := s.st.db().GetCollection(secretBackendsRotateC)
+	secretBadckendRotateCollection, closer, err := s.st.db().GetCollection(secretBackendsRotateC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -553,7 +589,10 @@ func (w *secretBackendRotationWatcher) initial() ([]corewatcher.SecretBackendRot
 	var details []corewatcher.SecretBackendRotateChange
 
 	var doc secretBackendRotationDoc
-	secretBackendRotateCollection, closer := w.db.GetCollection(secretBackendsRotateC)
+	secretBackendRotateCollection, closer, err := w.db.GetCollection(secretBackendsRotateC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	iter := secretBackendRotateCollection.Find(nil).Iter()
@@ -580,9 +619,12 @@ func (w *secretBackendRotationWatcher) merge(details []corewatcher.SecretBackend
 	doc := secretBackendRotationDoc{}
 	if change.Revno >= 0 {
 		// Record added or updated.
-		secretBackendRotateColl, closer := w.db.GetCollection(secretBackendsRotateC)
+		secretBackendRotateColl, closer, err := w.db.GetCollection(secretBackendsRotateC)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		defer closer()
-		err := secretBackendRotateColl.FindId(change.Id).One(&doc)
+		err = secretBackendRotateColl.FindId(change.Id).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}

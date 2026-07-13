@@ -100,10 +100,13 @@ func setMinUnitsOps(app *Application, minUnits int) []txn.Op {
 
 // doesMinUnitsExits checks if the minUnits doc exists in the database.
 func doesMinUnitsExist(st *State, appName string) (bool, error) {
-	minUnits, closer := st.db().GetCollection(minUnitsC)
+	minUnits, closer, err := st.db().GetCollection(minUnitsC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 	var result bson.D
-	err := minUnits.FindId(appName).Select(bson.M{"_id": 1}).One(&result)
+	err = minUnits.FindId(appName).Select(bson.M{"_id": 1}).One(&result)
 	if err == nil {
 		return true, nil
 	} else if err == mgo.ErrNotFound {
@@ -201,7 +204,10 @@ func (a *Application) EnsureMinUnits() (err error) {
 
 // aliveUnitsCount returns the number a alive units for the application.
 func aliveUnitsCount(app *Application) (int, error) {
-	units, closer := app.st.db().GetCollection(unitsC)
+	units, closer, err := app.st.db().GetCollection(unitsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	query := bson.D{{"application", app.doc.Name}, {"life", Alive}}

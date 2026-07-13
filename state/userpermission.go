@@ -42,11 +42,14 @@ func accessToString(a permission.Access) string {
 // userPermission returns a Permission for the given Subject and User.
 func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*userPermission, error) {
 	result := &userPermission{}
-	permissions, closer := st.db().GetCollection(permissionsC)
+	permissions, closer, err := st.db().GetCollection(permissionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	id := permissionID(objectGlobalKey, subjectGlobalKey)
-	err := permissions.FindId(id).One(&result.doc)
+	err = permissions.FindId(id).One(&result.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("user permission for %q on %q", subjectGlobalKey, objectGlobalKey)
 	}
@@ -55,7 +58,10 @@ func (st *State) userPermission(objectGlobalKey, subjectGlobalKey string) (*user
 
 // usersPermissions returns all permissions for a given object.
 func (st *State) usersPermissions(objectGlobalKey string) ([]*userPermission, error) {
-	permissions, closer := st.db().GetCollection(permissionsC)
+	permissions, closer, err := st.db().GetCollection(permissionsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var matchingPermissions []permissionDoc

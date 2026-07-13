@@ -319,7 +319,10 @@ func (e *exporter) sequences() error {
 }
 
 func (e *exporter) readBlocks() (map[string]string, error) {
-	blocks, closer := e.st.db().GetCollection(blocksC)
+	blocks, closer, err := e.st.db().GetCollection(blocksC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []blockDoc
@@ -451,7 +454,10 @@ func (e *exporter) loadOpenedPortRangesForApplication() (map[string]*application
 }
 
 func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
-	instanceDataCollection, closer := e.st.db().GetCollection(instanceDataC)
+	instanceDataCollection, closer, err := e.st.db().GetCollection(instanceDataC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var instData []instanceData
@@ -467,7 +473,10 @@ func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
 }
 
 func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
-	coll, closer := e.st.db().GetCollection(blockDevicesC)
+	coll, closer, err := e.st.db().GetCollection(blockDevicesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var deviceData []blockDevicesDoc
@@ -767,7 +776,10 @@ func (e *exporter) applications(leaders map[string]string) error {
 }
 
 func (e *exporter) readAllStorageConstraints() error {
-	coll, closer := e.st.db().GetCollection(storageConstraintsC)
+	coll, closer, err := e.st.db().GetCollection(storageConstraintsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	storageConstraints := make(map[string]storageConstraintsDoc)
@@ -2024,11 +2036,14 @@ func (e *exporter) virtualHostKeys() error {
 }
 
 func (e *exporter) readAllRelationScopes() (set.Strings, error) {
-	relationScopes, closer := e.st.db().GetCollection(relationScopesC)
+	relationScopes, closer, err := e.st.db().GetCollection(relationScopesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []relationScopeDoc
-	err := relationScopes.Find(nil).All(&docs)
+	err = relationScopes.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all relation scopes")
 	}
@@ -2042,11 +2057,14 @@ func (e *exporter) readAllRelationScopes() (set.Strings, error) {
 }
 
 func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
-	unitsCollection, closer := e.st.db().GetCollection(unitsC)
+	unitsCollection, closer, err := e.st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []unitDoc
-	err := unitsCollection.Find(nil).Sort("name").All(&docs)
+	err = unitsCollection.Find(nil).Sort("name").All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all units")
 	}
@@ -2060,11 +2078,14 @@ func (e *exporter) readAllUnits() (map[string][]*Unit, error) {
 }
 
 func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
-	bindings, closer := e.st.db().GetCollection(endpointBindingsC)
+	bindings, closer, err := e.st.db().GetCollection(endpointBindingsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []endpointBindingsDoc
-	err := bindings.Find(nil).All(&docs)
+	err = bindings.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all application endpoint bindings")
 	}
@@ -2077,11 +2098,14 @@ func (e *exporter) readAllEndpointBindings() (map[string]bindingsMap, error) {
 }
 
 func (e *exporter) readAllPodSpecs() (map[string]string, error) {
-	specs, closer := e.st.db().GetCollection(podSpecsC)
+	specs, closer, err := e.st.db().GetCollection(podSpecsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []containerSpecDoc
-	err := specs.Find(nil).All(&docs)
+	err = specs.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all pod spec docs")
 	}
@@ -2094,11 +2118,14 @@ func (e *exporter) readAllPodSpecs() (map[string]string, error) {
 }
 
 func (e *exporter) readAllCloudServices() (map[string]*cloudServiceDoc, error) {
-	cloudServices, closer := e.st.db().GetCollection(cloudServicesC)
+	cloudServices, closer, err := e.st.db().GetCollection(cloudServicesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []cloudServiceDoc
-	err := cloudServices.Find(nil).All(&docs)
+	err = cloudServices.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all cloud service docs")
 	}
@@ -2119,11 +2146,14 @@ func (e *exporter) cloudService(doc *cloudServiceDoc) *description.CloudServiceA
 }
 
 func (e *exporter) readAllCloudContainers() (map[string]*cloudContainerDoc, error) {
-	cloudContainers, closer := e.st.db().GetCollection(cloudContainersC)
+	cloudContainers, closer, err := e.st.db().GetCollection(cloudContainersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []cloudContainerDoc
-	err := cloudContainers.Find(nil).All(&docs)
+	err = cloudContainers.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all cloud container docs")
 	}
@@ -2148,7 +2178,10 @@ func (e *exporter) cloudContainer(doc *cloudContainerDoc) *description.CloudCont
 }
 
 func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
-	lastConnections, closer := e.st.db().GetCollection(modelUserLastConnectionC)
+	lastConnections, closer, err := e.st.db().GetCollection(modelUserLastConnectionC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []modelUserLastConnectionDoc
@@ -2169,7 +2202,10 @@ func (e *exporter) readAllAnnotations() error {
 		return nil
 	}
 
-	annotations, closer := e.st.db().GetCollection(annotationsC)
+	annotations, closer, err := e.st.db().GetCollection(annotationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []annotatorDoc
@@ -2185,14 +2221,17 @@ func (e *exporter) readAllAnnotations() error {
 }
 
 func (e *exporter) readAllConstraints() error {
-	constraintsCollection, closer := e.st.db().GetCollection(constraintsC)
+	constraintsCollection, closer, err := e.st.db().GetCollection(constraintsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	// Since the constraintsDoc doesn't include any global key or _id
 	// fields, we can't just deserialize the entire collection into a slice
 	// of docs, so we get them all out with bson maps.
 	var docs []bson.M
-	err := constraintsCollection.Find(nil).All(&docs)
+	err = constraintsCollection.Find(nil).All(&docs)
 	if err != nil {
 		return errors.Annotate(err, "failed to read constraints collection")
 	}
@@ -2272,7 +2311,10 @@ func (e *exporter) readAllSettings() error {
 		return nil
 	}
 
-	settings, closer := e.st.db().GetCollection(settingsC)
+	settings, closer, err := e.st.db().GetCollection(settingsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []settingsDoc
@@ -2288,11 +2330,14 @@ func (e *exporter) readAllSettings() error {
 }
 
 func (e *exporter) readAllStatuses() error {
-	statuses, closer := e.st.db().GetCollection(statusesC)
+	statuses, closer, err := e.st.db().GetCollection(statusesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []bson.M
-	err := statuses.Find(nil).All(&docs)
+	err = statuses.Find(nil).All(&docs)
 	if err != nil {
 		return errors.Annotate(err, "failed to read status collection")
 	}
@@ -2312,7 +2357,10 @@ func (e *exporter) readAllStatuses() error {
 }
 
 func (e *exporter) readAllStatusHistory() error {
-	statuses, closer := e.st.db().GetCollection(statusesHistoryC)
+	statuses, closer, err := e.st.db().GetCollection(statusesHistoryC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	count := 0
@@ -2632,7 +2680,10 @@ func (e *exporter) storage() error {
 }
 
 func (e *exporter) volumes() error {
-	coll, closer := e.st.db().GetCollection(volumesC)
+	coll, closer, err := e.st.db().GetCollection(volumesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	attachments, err := e.readVolumeAttachments()
@@ -2764,7 +2815,10 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 }
 
 func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, error) {
-	coll, closer := e.st.db().GetCollection(volumeAttachmentsC)
+	coll, closer, err := e.st.db().GetCollection(volumeAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	result := make(map[string][]volumeAttachmentDoc)
@@ -2784,7 +2838,10 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 }
 
 func (e *exporter) readVolumeAttachmentPlans() (map[string][]volumeAttachmentPlanDoc, error) {
-	coll, closer := e.st.db().GetCollection(volumeAttachmentPlanC)
+	coll, closer, err := e.st.db().GetCollection(volumeAttachmentPlanC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	result := make(map[string][]volumeAttachmentPlanDoc)
@@ -2804,7 +2861,10 @@ func (e *exporter) readVolumeAttachmentPlans() (map[string][]volumeAttachmentPla
 }
 
 func (e *exporter) filesystems() error {
-	coll, closer := e.st.db().GetCollection(filesystemsC)
+	coll, closer, err := e.st.db().GetCollection(filesystemsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	attachments, err := e.readFilesystemAttachments()
@@ -2886,7 +2946,10 @@ func (e *exporter) addFilesystem(fs *filesystem, fsAttachments []filesystemAttac
 }
 
 func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmentDoc, error) {
-	coll, closer := e.st.db().GetCollection(filesystemAttachmentsC)
+	coll, closer, err := e.st.db().GetCollection(filesystemAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	result := make(map[string][]filesystemAttachmentDoc)
@@ -2910,7 +2973,10 @@ func (e *exporter) storageInstances() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	coll, closer := e.st.db().GetCollection(storageInstancesC)
+	coll, closer, err := e.st.db().GetCollection(storageInstancesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	attachments, err := e.readStorageAttachments()
@@ -2951,7 +3017,10 @@ func (e *exporter) addStorage(instance *storageInstance, attachments []names.Uni
 }
 
 func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) {
-	coll, closer := e.st.db().GetCollection(storageAttachmentsC)
+	coll, closer, err := e.st.db().GetCollection(storageAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	result := make(map[string][]names.UnitTag)

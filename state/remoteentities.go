@@ -63,7 +63,10 @@ func (st *State) RemoteEntities() *RemoteEntities {
 
 // AllRemoteEntities returns all the remote entities for the model.
 func (st *State) AllRemoteEntities() ([]RemoteEntity, error) {
-	remoteEntitiesCollection, closer := st.db().GetCollection(remoteEntitiesC)
+	remoteEntitiesCollection, closer, err := st.db().GetCollection(remoteEntitiesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []remoteEntityDoc
@@ -221,11 +224,14 @@ func (r *RemoteEntities) removeRemoteEntityOps(entity names.Tag) []txn.Op {
 // GetToken returns the token associated with the entity with the given tag
 // and model.
 func (r *RemoteEntities) GetToken(entity names.Tag) (string, error) {
-	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
+	remoteEntities, closer, err := r.st.db().GetCollection(remoteEntitiesC)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	defer closer()
 
 	var doc remoteEntityDoc
-	err := remoteEntities.FindId(entity.String()).One(&doc)
+	err = remoteEntities.FindId(entity.String()).One(&doc)
 	if err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("token for %s", names.ReadableString(entity))
 	}
@@ -236,11 +242,14 @@ func (r *RemoteEntities) GetToken(entity names.Tag) (string, error) {
 }
 
 func (r *RemoteEntities) remoteEntityDoc(entity names.Tag) (remoteEntityDoc, error) {
-	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
+	remoteEntities, closer, err := r.st.db().GetCollection(remoteEntitiesC)
+	if err != nil {
+		return remoteEntityDoc{}, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc remoteEntityDoc
-	err := remoteEntities.FindId(entity.String()).One(&doc)
+	err = remoteEntities.FindId(entity.String()).One(&doc)
 	return doc, err
 }
 
@@ -303,11 +312,14 @@ func (r *RemoteEntities) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) 
 
 // GetRemoteEntity returns the tag of the entity associated with the given token.
 func (r *RemoteEntities) GetRemoteEntity(token string) (names.Tag, error) {
-	remoteEntities, closer := r.st.db().GetCollection(remoteEntitiesC)
+	remoteEntities, closer, err := r.st.db().GetCollection(remoteEntitiesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc remoteEntityDoc
-	err := remoteEntities.Find(bson.D{
+	err = remoteEntities.Find(bson.D{
 		{"token", token},
 	}).One(&doc)
 	if err == mgo.ErrNotFound {

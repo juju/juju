@@ -32,11 +32,13 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	// Watch for oplog entries for the "bar" collection in the "foo"
 	// DB.
 	oplog := mongo.GetOplog(session)
+	oplogSession, err := mongo.NewOplogSession(
+		oplog,
+		bson.D{{"ns", "foo.bar"}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	tailer := mongo.NewOplogTailer(
-		mongo.NewOplogSession(
-			oplog,
-			bson.D{{"ns", "foo.bar"}},
-		),
+		oplogSession,
 		time.Now().Add(-time.Minute),
 	)
 	defer tailer.Stop()
@@ -69,7 +71,7 @@ func (s *oplogSuite) TestWithRealOplog(c *gc.C) {
 	assertOplog("i", bson.D{{"_id", "thing"}}, nil)
 
 	// Update foo.bar and see the update reported.
-	err := coll.UpdateId("thing", bson.M{"$set": bson.M{"blah": 42}})
+	err = coll.UpdateId("thing", bson.M{"$set": bson.M{"blah": 42}})
 	c.Assert(err, jc.ErrorIsNil)
 	assertOplog("u", bson.D{{"$set", bson.D{{"blah", 42}}}}, bson.D{{"_id", "thing"}})
 
@@ -91,7 +93,9 @@ func (s *oplogSuite) TestHonoursInitialTs(c *gc.C) {
 		)
 	}
 
-	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), t)
+	oplogSession, err := mongo.NewOplogSession(oplog, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	tailer := mongo.NewOplogTailer(oplogSession, t)
 	defer tailer.Stop()
 
 	for offset := 0; offset <= 1; offset++ {
@@ -116,11 +120,13 @@ func (s *oplogSuite) TestStops(c *gc.C) {
 	oplog := s.makeFakeOplog(c, session)
 	s.insertDoc(c, session, oplog, &mongo.OplogDoc{Timestamp: 1})
 
-	tailer := mongo.NewOplogTailer(mongo.NewOplogSession(oplog, nil), time.Time{})
+	oplogSession, err := mongo.NewOplogSession(oplog, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	tailer := mongo.NewOplogTailer(oplogSession, time.Time{})
 	defer tailer.Stop()
 	s.getNextOplog(c, tailer)
 
-	err := tailer.Stop()
+	err = tailer.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertStopped(c, tailer)
@@ -275,9 +281,10 @@ func (s *oplogSuite) makeFakeOplog(c *gc.C, session *mgo.Session) *mgo.Collectio
 }
 
 func (s *oplogSuite) insertDoc(c *gc.C, srcSession *mgo.Session, coll *mgo.Collection, doc interface{}) {
-	session := srcSession.Copy()
+	session, err := mongo.CopySession(srcSession)
+	c.Assert(err, jc.ErrorIsNil)
 	defer session.Close()
-	err := coll.With(session).Insert(doc)
+	err = coll.With(session).Insert(doc)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

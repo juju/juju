@@ -2176,10 +2176,13 @@ func (a *Application) String() string {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // application has been removed.
 func (a *Application) Refresh() error {
-	applications, closer := a.st.db().GetCollection(applicationsC)
+	applications, closer, err := a.st.db().GetCollection(applicationsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
-	err := applications.FindId(a.doc.DocID).One(&a.doc)
+	err = applications.FindId(a.doc.DocID).One(&a.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("application %q", a)
 	}
@@ -2729,7 +2732,10 @@ func applicationOffersRefCountKey(appName string) string {
 // incApplicationOffersRefOp returns a txn.Op that increments the reference
 // count for an application offer.
 func incApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	offerRefCountKey := applicationOffersRefCountKey(appName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, offerRefCountKey, 1)
@@ -2740,7 +2746,10 @@ func incApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) 
 // count for an application offer, starting at the count supplied. Used in
 // model migration, where offers are created in bulk.
 func newApplicationOffersRefOp(mb modelBackend, appName string, startCount int) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	offerRefCountKey := applicationOffersRefCountKey(appName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, offerRefCountKey, startCount)
@@ -2750,7 +2759,10 @@ func newApplicationOffersRefOp(mb modelBackend, appName string, startCount int) 
 // countApplicationOffersRefOp returns the number of offers for an application,
 // along with a txn.Op that ensures that that does not change.
 func countApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, int, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return txn.Op{}, 0, errors.Trace(err)
+	}
 	defer closer()
 	key := applicationOffersRefCountKey(appName)
 	return nsRefcounts.CurrentOp(refcounts, key)
@@ -2759,7 +2771,10 @@ func countApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, int, 
 // decApplicationOffersRefOp returns a txn.Op that decrements the reference
 // count for an application offer.
 func decApplicationOffersRefOp(mb modelBackend, appName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	offerRefCountKey := applicationOffersRefCountKey(appName)
 	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, offerRefCountKey)
@@ -3152,7 +3167,10 @@ func (a *Application) AllUnits() (units []*Unit, err error) {
 }
 
 func allUnits(st *State, application string) (units []*Unit, err error) {
-	unitsCollection, closer := st.db().GetCollection(unitsC)
+	unitsCollection, closer, err := st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	docs := []unitDoc{}
@@ -3232,11 +3250,14 @@ func (a *Application) GetUnitAttachmentInfos() ([]UnitAttachmentInfo, error) {
 }
 
 func getStorageAttachmentDocs(db Database, fields interface{}, query interface{}) ([]storageAttachmentDoc, error) {
-	coll, cleanup := db.GetCollection(storageAttachmentsC)
+	coll, cleanup, err := db.GetCollection(storageAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var docs []storageAttachmentDoc
-	err := coll.Find(query).Select(fields).All(&docs)
+	err = coll.Find(query).Select(fields).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "querying storageattachments")
 	}
@@ -3252,7 +3273,10 @@ func (a *Application) Relations() (relations []*Relation, err error) {
 // There must be 1 or 2 supplied names, of the form <application>[:<endpoint>]
 func matchingRelations(st *State, names ...string) (relations []*Relation, err error) {
 	defer errors.DeferredAnnotatef(&err, "can't get relations matching %q", strings.Join(names, " "))
-	relationsCollection, closer := st.db().GetCollection(relationsC)
+	relationsCollection, closer, err := st.db().GetCollection(relationsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var conditions []bson.D
@@ -3898,13 +3922,16 @@ func (a *Application) StatusHistory(filter status.StatusHistoryFilter) ([]status
 // UnitStatuses returns a map of unit names to their Status results (workload
 // status).
 func (a *Application) UnitStatuses() (map[string]status.StatusInfo, error) {
-	col, closer := a.st.db().GetRawCollection(statusesC)
+	col, closer, err := a.st.db().GetRawCollection(statusesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	// Agent status is u#unit-name
 	// Workload status is u#unit-name#charm
 	selector := fmt.Sprintf("^%s:u#%s/\\d+(#charm)?$", a.st.ModelUUID(), a.doc.Name)
 	var docs []statusDocWithID
-	err := col.Find(bson.M{"_id": bson.M{"$regex": selector}}).All(&docs)
+	err = col.Find(bson.M{"_id": bson.M{"$regex": selector}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -4291,13 +4318,16 @@ func (a *Application) CharmPendingToBeDownloaded() bool {
 }
 
 func appUnitNames(st *State, appName string) ([]string, error) {
-	unitsCollection, closer := st.db().GetCollection(unitsC)
+	unitsCollection, closer, err := st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []struct {
 		Name string `bson:"name"`
 	}
-	err := unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
+	err = unitsCollection.Find(bson.D{{"application", appName}}).Select(bson.D{{"name", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

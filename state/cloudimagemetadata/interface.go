@@ -86,5 +86,5 @@ type DataStore interface {
 	RunTransaction(jujutxn.TransactionSource) error
 
 	// GetCollection retrieves desired collection from this data source.
-	GetCollection(name string) (collection mongo.Collection, closer func())
+	GetCollection(name string) (collection mongo.Collection, closer func(), err error)
 }

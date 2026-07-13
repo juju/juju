@@ -280,11 +280,14 @@ func (sb *storageBackend) StorageInstance(tag names.StorageTag) (StorageInstance
 }
 
 func (sb *storageBackend) storageInstance(tag names.StorageTag) (*storageInstance, error) {
-	storageInstances, cleanup := sb.mb.db().GetCollection(storageInstancesC)
+	storageInstances, cleanup, err := sb.mb.db().GetCollection(storageInstancesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	s := storageInstance{sb: sb}
-	err := storageInstances.FindId(tag.Id()).One(&s.doc)
+	err = storageInstances.FindId(tag.Id()).One(&s.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("storage instance %q", tag.Id())
 	} else if err != nil {
@@ -309,7 +312,10 @@ func (sb *storageBackend) AllStorageInstances() ([]StorageInstance, error) {
 
 // RemoveStoragePool removes a pool only if its not currently in use
 func (sb *storageBackend) RemoveStoragePool(poolName string) error {
-	storageCollection, closer := sb.mb.db().GetCollection(storageInstancesC)
+	storageCollection, closer, err := sb.mb.db().GetCollection(storageInstancesC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	// TODO: Improve the data model to have a count of in use pools so we can
@@ -347,7 +353,10 @@ func (sb *storageBackend) RemoveStoragePool(poolName string) error {
 }
 
 func (sb *storageBackend) storageInstances(query bson.D) (storageInstances []*storageInstance, err error) {
-	storageCollection, closer := sb.mb.db().GetCollection(storageInstancesC)
+	storageCollection, closer, err := sb.mb.db().GetCollection(storageInstancesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	sdocs := []storageInstanceDoc{}
@@ -696,7 +705,10 @@ func validateStorageCountChange(
 // should be called when creating a shared storage instance, or when
 // attaching a non-shared storage instance to a unit.
 func increfEntityStorageOp(mb modelBackend, owner names.Tag, storageName string, n int) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, storageRefcountKey, n)
@@ -708,7 +720,10 @@ func increfEntityStorageOp(mb modelBackend, owner names.Tag, storageName string,
 // should be called when removing a shared storage instance, or when
 // detaching a non-shared storage instance from a unit.
 func decrefEntityStorageOp(mb modelBackend, owner names.Tag, storageName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	storageRefcountKey := entityStorageRefcountKey(owner, storageName)
 	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, storageRefcountKey)
@@ -977,7 +992,10 @@ func (sb *storageBackend) UnitStorageAttachments(unit names.UnitTag) ([]StorageA
 }
 
 func (sb *storageBackend) storageAttachments(query bson.D) ([]StorageAttachment, error) {
-	coll, closer := sb.mb.db().GetCollection(storageAttachmentsC)
+	coll, closer, err := sb.mb.db().GetCollection(storageAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []storageAttachmentDoc
@@ -1001,10 +1019,13 @@ func (sb *storageBackend) StorageAttachment(storage names.StorageTag, unit names
 }
 
 func (sb *storageBackend) storageAttachment(storage names.StorageTag, unit names.UnitTag) (*storageAttachment, error) {
-	coll, closer := sb.mb.db().GetCollection(storageAttachmentsC)
+	coll, closer, err := sb.mb.db().GetCollection(storageAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var s storageAttachment
-	err := coll.FindId(storageAttachmentId(unit.Id(), storage.Id())).One(&s.doc)
+	err = coll.FindId(storageAttachmentId(unit.Id(), storage.Id())).One(&s.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("storage attachment %s:%s", storage.Id(), unit.Id())
 	} else if err != nil {
@@ -1644,11 +1665,14 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 // removeStorageInstancesOps returns the transaction operations to remove all
 // storage instances owned by the specified entity.
 func removeStorageInstancesOps(im *storageBackend, owner names.Tag, force bool) ([]txn.Op, error) {
-	coll, closer := im.mb.db().GetCollection(storageInstancesC)
+	coll, closer, err := im.mb.db().GetCollection(storageInstancesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []storageInstanceDoc
-	err := coll.Find(bson.D{{"owner", owner.String()}}).Select(bson.D{{"id", true}}).All(&docs)
+	err = coll.Find(bson.D{{"owner", owner.String()}}).Select(bson.D{{"id", true}}).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get storage instances for %s", owner)
 	}
@@ -1733,11 +1757,14 @@ func removeStorageConstraintsOp(key string) txn.Op {
 }
 
 func readStorageConstraints(mb modelBackend, key string) (map[string]StorageConstraints, error) {
-	coll, closer := mb.db().GetCollection(storageConstraintsC)
+	coll, closer, err := mb.db().GetCollection(storageConstraintsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc storageConstraintsDoc
-	err := coll.FindId(key).One(&doc)
+	err = coll.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("storage constraints for %q", key)
 	}
@@ -2296,7 +2323,10 @@ func (sb *storageBackend) addUnitStorageOps(
 }
 
 func (sb *storageBackend) countEntityStorageInstances(owner names.Tag, name string) (txn.Op, int, error) {
-	refcounts, closer := sb.mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := sb.mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return txn.Op{}, 0, errors.Trace(err)
+	}
 	defer closer()
 	key := entityStorageRefcountKey(owner, name)
 	return nsRefcounts.CurrentOp(refcounts, key)

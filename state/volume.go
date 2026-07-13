@@ -430,11 +430,14 @@ func getVolumeDoc(db Database, query bson.D, description string) (volumeDoc, err
 }
 
 func getVolumeDocs(db Database, query interface{}) ([]volumeDoc, error) {
-	coll, cleanup := db.GetCollection(volumesC)
+	coll, cleanup, err := db.GetCollection(volumesC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var docs []volumeDoc
-	err := coll.Find(query).All(&docs)
+	err = coll.Find(query).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "querying volumes")
 	}
@@ -471,11 +474,14 @@ func (sb *storageBackend) StorageInstanceVolume(tag names.StorageTag) (Volume, e
 // VolumeAttachment returns the VolumeAttachment corresponding to
 // the specified volume and machine.
 func (sb *storageBackend) VolumeAttachment(host names.Tag, volume names.VolumeTag) (VolumeAttachment, error) {
-	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentsC)
+	coll, cleanup, err := sb.mb.db().GetCollection(volumeAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var att volumeAttachment
-	err := coll.FindId(volumeAttachmentId(host.Id(), volume.Id())).One(&att.doc)
+	err = coll.FindId(volumeAttachmentId(host.Id(), volume.Id())).One(&att.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("volume %q on %q", volume.Id(), names.ReadableString(host))
 	} else if err != nil {
@@ -485,11 +491,14 @@ func (sb *storageBackend) VolumeAttachment(host names.Tag, volume names.VolumeTa
 }
 
 func (sb *storageBackend) VolumeAttachmentPlan(host names.Tag, volume names.VolumeTag) (VolumeAttachmentPlan, error) {
-	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentPlanC)
+	coll, cleanup, err := sb.mb.db().GetCollection(volumeAttachmentPlanC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var att volumeAttachmentPlan
-	err := coll.FindId(volumeAttachmentId(host.Id(), volume.Id())).One(&att.doc)
+	err = coll.FindId(volumeAttachmentId(host.Id(), volume.Id())).One(&att.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("volume attachment plan %q on host %q", volume.Id(), host.Id())
 	} else if err != nil {
@@ -529,11 +538,14 @@ func (sb *storageBackend) VolumeAttachments(volume names.VolumeTag) ([]VolumeAtt
 }
 
 func (sb *storageBackend) volumeAttachments(query bson.D) ([]VolumeAttachment, error) {
-	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentsC)
+	coll, cleanup, err := sb.mb.db().GetCollection(volumeAttachmentsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var docs []volumeAttachmentDoc
-	err := coll.Find(query).All(&docs)
+	err = coll.Find(query).All(&docs)
 	if err == mgo.ErrNotFound {
 		return nil, nil
 	} else if err != nil {
@@ -566,11 +578,14 @@ func (sb *storageBackend) VolumeAttachmentPlans(volume names.VolumeTag) ([]Volum
 }
 
 func (sb *storageBackend) volumeAttachmentPlans(query bson.D) ([]VolumeAttachmentPlan, error) {
-	coll, cleanup := sb.mb.db().GetCollection(volumeAttachmentPlanC)
+	coll, cleanup, err := sb.mb.db().GetCollection(volumeAttachmentPlanC)
+	if err != nil {
+		return []VolumeAttachmentPlan{}, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var docs []volumeAttachmentPlanDoc
-	err := coll.Find(query).All(&docs)
+	err = coll.Find(query).All(&docs)
 	if err == mgo.ErrNotFound {
 		return []VolumeAttachmentPlan{}, nil
 	} else if err != nil {

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/storage"
@@ -227,11 +228,14 @@ func (st *State) AllModelUUIDsIncludingDead() ([]string, error) {
 
 // filteredModelUUIDs returns all model uuids that match the filter.
 func (st *State) filteredModelUUIDs(filter bson.D) ([]string, error) {
-	models, closer := st.db().GetCollection(modelsC)
+	models, closer, err := st.db().GetCollection(modelsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []bson.M
-	err := models.Find(filter).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
+	err = models.Find(filter).Sort("name", "owner").Select(bson.M{"_id": 1}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +248,10 @@ func (st *State) filteredModelUUIDs(filter bson.D) ([]string, error) {
 
 // ModelExists returns true if a model with the supplied UUID exists.
 func (st *State) ModelExists(uuid string) (bool, error) {
-	models, closer := st.db().GetCollection(modelsC)
+	models, closer, err := st.db().GetCollection(modelsC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	count, err := models.FindId(uuid).Count()
@@ -380,7 +387,10 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	prereqOps = append(prereqOps, assertCloudCredentialOp)
 
 	uuid := args.Config.UUID()
-	session := st.session.Copy()
+	session, err := mongo.CopySession(st.session)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	newSt, err := newState(
 		st.controllerTag,
 		names.NewModelTag(uuid),
@@ -430,7 +440,10 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		// the same "owner" and "name" in the collection. If the txn is
 		// aborted, check if it is due to the unique key restriction.
 		name := args.Config.Name()
-		models, closer := st.db().GetCollection(modelsC)
+		models, closer, countErr := st.db().GetCollection(modelsC)
+		if countErr != nil {
+			return nil, nil, errors.Trace(countErr)
+		}
 		defer closer()
 		modelCount, countErr := models.Find(bson.D{
 			{"owner", owner.Id()},
@@ -910,9 +923,12 @@ func (m *Model) Refresh() error {
 }
 
 func (m *Model) refresh(uuid string) error {
-	models, closer := m.st.db().GetCollection(modelsC)
+	models, closer, err := m.st.db().GetCollection(modelsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
-	err := models.FindId(uuid).One(&m.doc)
+	err = models.FindId(uuid).One(&m.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("model %q", uuid)
 	}
@@ -921,11 +937,14 @@ func (m *Model) refresh(uuid string) error {
 
 // AllUnits returns all units for a model, for all applications.
 func (m *Model) AllUnits() ([]*Unit, error) {
-	coll, closer := m.st.db().GetCollection(unitsC)
+	coll, closer, err := m.st.db().GetCollection(unitsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	docs := []unitDoc{}
-	err := coll.Find(nil).All(&docs)
+	err = coll.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all units for model")
 	}
@@ -983,19 +1002,28 @@ func (m *Model) Metrics() (ModelMetrics, error) {
 }
 
 func (m *Model) applicationCount() (int, error) {
-	coll, closer := m.st.db().GetCollection(applicationsC)
+	coll, closer, err := m.st.db().GetCollection(applicationsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 	return coll.Find(isAliveDoc).Count()
 }
 
 func (m *Model) machineCount() (int, error) {
-	coll, closer := m.st.db().GetCollection(machinesC)
+	coll, closer, err := m.st.db().GetCollection(machinesC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 	return coll.Find(isAliveDoc).Count()
 }
 
 func (m *Model) unitCount() (int, error) {
-	coll, closer := m.st.db().GetCollection(unitsC)
+	coll, closer, err := m.st.db().GetCollection(unitsC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 	return coll.Find(isAliveDoc).Count()
 }
@@ -1003,11 +1031,14 @@ func (m *Model) unitCount() (int, error) {
 // AllEndpointBindings returns all endpoint->space bindings
 // keyed by application name.
 func (m *Model) AllEndpointBindings() (map[string]*Bindings, error) {
-	endpointBindings, closer := m.st.db().GetCollection(endpointBindingsC)
+	endpointBindings, closer, err := m.st.db().GetCollection(endpointBindingsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []endpointBindingsDoc
-	err := endpointBindings.Find(nil).All(&docs)
+	err = endpointBindings.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get endpoint bindings")
 	}
@@ -1065,11 +1096,14 @@ func (st *State) AllEndpointBindingsSpaceNames() (set.Strings, error) {
 
 // Users returns a slice of all users for this model.
 func (m *Model) Users() ([]permission.UserAccess, error) {
-	coll, closer := m.st.db().GetCollection(modelUsersC)
+	coll, closer, err := m.st.db().GetCollection(modelUsersC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var userDocs []userAccessDoc
-	err := coll.Find(nil).All(&userDocs)
+	err = coll.Find(nil).All(&userDocs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1432,7 +1466,10 @@ func (m *Model) destroyOps(
 
 // getEntityRefs reads the current model entity refs document for the model.
 func (m *Model) getEntityRefs() (*modelEntityRefsDoc, error) {
-	modelEntityRefs, closer := m.st.db().GetCollection(modelEntityRefsC)
+	modelEntityRefs, closer, err := m.st.db().GetCollection(modelEntityRefsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var doc modelEntityRefsDoc
@@ -1735,7 +1772,10 @@ func HostedModelCountOp(amount int) txn.Op {
 
 func hostedModelCount(st *State) (int, error) {
 	var doc hostedModelCountDoc
-	controllers, closer := st.db().GetCollection(controllersC)
+	controllers, closer, err := st.db().GetCollection(controllersC)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
 	defer closer()
 
 	if err := controllers.Find(bson.D{{"_id", hostedModelCountKey}}).One(&doc); err != nil {

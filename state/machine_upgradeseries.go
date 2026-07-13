@@ -363,11 +363,14 @@ func removeUpgradeSeriesLockTxnOps(machineDocId string) []txn.Op {
 }
 
 func (m *Machine) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error) {
-	coll, closer := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	coll, closer, err := m.st.db().GetCollection(machineUpgradeSeriesLocksC)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	defer closer()
 
 	var lock upgradeSeriesLockDoc
-	err := coll.FindId(m.Id()).One(&lock)
+	err = coll.FindId(m.Id()).One(&lock)
 	if err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("upgrade series lock for machine %q", m.Id())
 	}
@@ -604,11 +607,14 @@ func (m *Machine) getUpgradeSeriesLock() (*upgradeSeriesLockDoc, error) {
 }
 
 func (st *State) getUpgradeSeriesLock(machineID string) (*upgradeSeriesLockDoc, error) {
-	coll, closer := st.db().GetCollection(machineUpgradeSeriesLocksC)
+	coll, closer, err := st.db().GetCollection(machineUpgradeSeriesLocksC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var lock upgradeSeriesLockDoc
-	err := coll.FindId(machineID).One(&lock)
+	err = coll.FindId(machineID).One(&lock)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("upgrade lock for machine %q", machineID)
 	}
@@ -643,7 +649,10 @@ func setMachineUpgradeSeriesTxnOps(
 // upgradeSeriesMachineIds returns the IDs of all machines
 // currently locked for series-upgrade.
 func (st *State) upgradeSeriesMachineIds() ([]string, error) {
-	coll, closer := st.db().GetCollection(machineUpgradeSeriesLocksC)
+	coll, closer, err := st.db().GetCollection(machineUpgradeSeriesLocksC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var locks []struct {

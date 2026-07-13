@@ -205,10 +205,13 @@ func (s *Subnet) ProviderNetworkId() network.Id {
 // state. It an error that satisfies errors.IsNotFound if the SubnetByCIDR has
 // been removed.
 func (s *Subnet) Refresh() error {
-	subnets, closer := s.st.db().GetCollection(subnetsC)
+	subnets, closer, err := s.st.db().GetCollection(subnetsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
-	err := subnets.FindId(s.doc.DocID).One(&s.doc)
+	err = subnets.FindId(s.doc.DocID).One(&s.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("subnet %q", s)
 	}
@@ -223,19 +226,23 @@ func (s *Subnet) Refresh() error {
 
 func (s *Subnet) setSpace(subnets mongo.Collection) error {
 	s.spaceID = s.doc.SpaceID
+	var err error
 	if s.doc.FanLocalUnderlay == "" {
 		return nil
 	}
 	if subnets == nil {
 		// Some callers have the mongo subnet collection already; some do not.
 		var closer SessionCloser
-		subnets, closer = s.st.db().GetCollection(subnetsC)
+		subnets, closer, err = s.st.db().GetCollection(subnetsC)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		defer closer()
 	}
 	overlayDoc := &subnetDoc{}
 	// TODO: (hml) 2019-08-06
 	// Rethink the bson logic once multiple subnets can have the same cidr.
-	err := subnets.Find(bson.M{"cidr": s.doc.FanLocalUnderlay}).One(overlayDoc)
+	err = subnets.Find(bson.M{"cidr": s.doc.FanLocalUnderlay}).One(overlayDoc)
 	if err == mgo.ErrNotFound {
 		logger.Errorf("unable to update spaceID for subnet %q %q: underlay network %q: %s",
 			s.doc.ID, s.doc.CIDR, s.doc.FanLocalUnderlay, err.Error())
@@ -484,7 +491,10 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 }
 
 func (st *State) uniqueSubnet(cidr, providerID string) (bool, error) {
-	subnets, closer := st.db().GetCollection(subnetsC)
+	subnets, closer, err := st.db().GetCollection(subnetsC)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	defer closer()
 
 	pID := bson.D{{"providerid", providerID}}
@@ -550,11 +560,14 @@ func (st *State) SubnetsByCIDR(cidr string) ([]*Subnet, error) {
 }
 
 func (st *State) subnets(exp bson.M) ([]*Subnet, error) {
-	col, closer := st.db().GetCollection(subnetsC)
+	col, closer, err := st.db().GetCollection(subnetsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []subnetDoc
-	err := col.Find(exp).All(&docs)
+	err = col.Find(exp).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -574,7 +587,10 @@ func (st *State) subnets(exp bson.M) ([]*Subnet, error) {
 
 // AllSubnets returns all known subnets in the model.
 func (st *State) AllSubnets() (subnets []*Subnet, err error) {
-	subnetsCollection, closer := st.db().GetCollection(subnetsC)
+	subnetsCollection, closer, err := st.db().GetCollection(subnetsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []subnetDoc

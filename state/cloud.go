@@ -126,7 +126,10 @@ func cloudModelRefCountKey(cloudName string) string {
 // incApplicationOffersRefOp returns a txn.Op that increments the reference
 // count for a cloud model.
 func incCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := mb.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	cloudModelRefCountKey := cloudModelRefCountKey(cloudName)
 	incRefOp, err := nsRefcounts.CreateOrIncRefOp(refcounts, cloudModelRefCountKey, 1)
@@ -136,7 +139,10 @@ func incCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
 // countCloudModelRefOp returns the number of models for a cloud,
 // along with a txn.Op that ensures that that does not change.
 func countCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, int, error) {
-	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := mb.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return txn.Op{}, 0, errors.Trace(err)
+	}
 	defer closer()
 	key := cloudModelRefCountKey(cloudName)
 	return nsRefcounts.CurrentOp(refcounts, key)
@@ -145,7 +151,10 @@ func countCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, int, error
 // decCloudModelRefOp returns a txn.Op that decrements the reference
 // count for a cloud model.
 func decCloudModelRefOp(mb modelBackend, cloudName string) (txn.Op, error) {
-	refcounts, closer := mb.db().GetCollection(globalRefcountsC)
+	refcounts, closer, err := mb.db().GetCollection(globalRefcountsC)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 	defer closer()
 	cloudModelRefCountKey := cloudModelRefCountKey(cloudName)
 	decRefOp, _, err := nsRefcounts.DyingDecRefOp(refcounts, cloudModelRefCountKey)
@@ -195,7 +204,10 @@ func (st *State) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
 		return nil, errors.Trace(err)
 	}
 
-	coll, cleanup := st.db().GetCollection(cloudsC)
+	coll, cleanup, err := st.db().GetCollection(cloudsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var doc cloudDoc
@@ -217,7 +229,10 @@ func (st *State) Cloud(name string) (cloud.Cloud, error) {
 		return cloud.Cloud{}, errors.Trace(err)
 	}
 
-	coll, cleanup := st.db().GetCollection(cloudsC)
+	coll, cleanup, err := st.db().GetCollection(cloudsC)
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
 	defer cleanup()
 
 	var doc cloudDoc

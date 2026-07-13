@@ -293,7 +293,10 @@ func insertPendingCharmOps(mb modelBackend, curl string) ([]txn.Op, error) {
 // insertAnyCharmOps returns the txn operations necessary to insert the supplied
 // charm document.
 func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
-	charms, cCloser := mb.db().GetCollection(charmsC)
+	charms, cCloser, err := mb.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer cCloser()
 
 	life, err := nsLife.read(charms, cdoc.DocID)
@@ -313,7 +316,10 @@ func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 		Insert: cdoc,
 	}
 
-	refcounts, rCloser := mb.db().GetCollection(refcountsC)
+	refcounts, rCloser, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer rCloser()
 
 	charmKey := charmGlobalKey(cdoc.URL)
@@ -330,7 +336,10 @@ func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 // document with the supplied data, so long as the supplied assert still holds
 // true.
 func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, error) {
-	charms, closer := mb.db().GetCollection(charmsC)
+	charms, closer, err := mb.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	charmKey := info.ID
@@ -407,7 +416,10 @@ func deleteOldPlaceholderCharmsOps(mb modelBackend, charms mongo.Collection, cur
 		return nil, errors.Trace(err)
 	}
 
-	refcounts, closer := mb.db().GetCollection(refcountsC)
+	refcounts, closer, err := mb.db().GetCollection(refcountsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var ops []txn.Op
@@ -725,7 +737,10 @@ func (c *Charm) IsPlaceholder() bool {
 // AddCharmMetadata method once the server-side bundle expansion work is
 // complete.
 func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
-	charms, closer := st.db().GetCollection(charmsC)
+	charms, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	if err := jujuversion.CheckJujuMinVersion(info.Charm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
@@ -769,7 +784,10 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 
 // AllCharms returns all charms in state.
 func (st *State) AllCharms() ([]*Charm, error) {
-	charmsCollection, closer := st.db().GetCollection(charmsC)
+	charmsCollection, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 	var cdoc charmDoc
 	var charms []*Charm
@@ -809,14 +827,17 @@ func (st *State) Charm(curl string) (*Charm, error) {
 func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
 	var cdoc charmDoc
 
-	charms, closer := st.db().GetCollection(charmsC)
+	charms, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	what := bson.D{
 		{"_id", curl.String()},
 	}
 	what = append(what, nsLife.notDead()...)
-	err := charms.Find(what).One(&cdoc)
+	err = charms.Find(what).One(&cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -835,7 +856,10 @@ func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
 func (st *State) CharmFromSha256(bundleSha256 string) (*Charm, error) {
 	var cdoc charmDoc
 
-	charms, closer := st.db().GetCollection(charmsC)
+	charms, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	findExpr := fmt.Sprintf("^%s", bundleSha256)
@@ -844,7 +868,7 @@ func (st *State) CharmFromSha256(bundleSha256 string) (*Charm, error) {
 		{"placeholder", bson.D{{"$ne", true}}},
 	}
 	what = append(what, nsLife.notDead()...)
-	err := charms.Find(what).One(&cdoc)
+	err = charms.Find(what).One(&cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm with sha256 %q", bundleSha256)
 	}
@@ -865,13 +889,16 @@ func (st *State) CharmFromSha256(bundleSha256 string) (*Charm, error) {
 // LatestPlaceholderCharm returns the latest charm described by the
 // given URL but which is not yet deployed.
 func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
-	charms, closer := st.db().GetCollection(charmsC)
+	charms, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 	var docs []charmDoc
-	err := charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
+	err = charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
@@ -980,7 +1007,10 @@ func (st *State) PrepareCharmUpload(curl string) (*Charm, error) {
 		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	charms, closer := st.db().GetCollection(charmsC)
+	charms, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var (
@@ -1034,7 +1064,10 @@ func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 	if curl.Revision < 0 {
 		return errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
-	charms, closer := st.db().GetCollection(charmsC)
+	charms, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -1069,11 +1102,14 @@ func (st *State) AddCharmPlaceholder(curl *charm.URL) (err error) {
 // TODO(achilleas): This call will be removed once the server-side bundle
 // deployment work lands.
 func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
-	charms, closer := st.db().GetCollection(charmsC)
+	charms, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	doc := &charmDoc{}
-	err := charms.FindId(info.ID).One(&doc)
+	err = charms.FindId(info.ID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", info.ID)
 	}
@@ -1162,13 +1198,16 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 // AllCharmURLs returns a slice of strings representing charm.URLs for every
 // charm deployed in this model.
 func (st *State) AllCharmURLs() ([]*string, error) {
-	applications, closer := st.db().GetCollection(charmsC)
+	applications, closer, err := st.db().GetCollection(charmsC)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	defer closer()
 
 	var docs []struct {
 		CharmURL *string `bson:"url"`
 	}
-	err := applications.Find(bson.D{}).All(&docs)
+	err = applications.Find(bson.D{}).All(&docs)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charms")
 	}

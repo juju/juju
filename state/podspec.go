@@ -78,9 +78,12 @@ func (m *CAASModel) podInfo(appTag names.ApplicationTag) (*containerSpecDoc, err
 }
 
 func readPodInfo(db Database, appName string, doc interface{}) error {
-	coll, cleanup := db.GetCollection(podSpecsC)
+	coll, cleanup, err := db.GetCollection(podSpecsC)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	defer cleanup()
-	if err := coll.FindId(applicationGlobalKey(appName)).One(doc); err != nil {
+	if err = coll.FindId(applicationGlobalKey(appName)).One(doc); err != nil {
 		if err == mgo.ErrNotFound {
 			return errors.NotFoundf("k8s spec for application %s", appName)
 		}
