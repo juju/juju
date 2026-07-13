@@ -460,7 +460,7 @@ func (api *APIBase) deployApplication(
 
 	// This check is done early so that errors deeper in the call-stack do not
 	// leave an application deployment in an unrecoverable error state.
-	if err := checkMachinePlacement(api.modelUUID, args.ApplicationName, args.Placement); err != nil {
+	if err := checkMachinePlacement(args.Placement); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -641,7 +641,7 @@ func parseApplicationConfig(
 // placement directives.
 // If the placement scope is for a machine, ensure that the machine exists.
 // If the placement scope is model-uuid, replace it with the actual model uuid.
-func checkMachinePlacement(modelID model.UUID, app string, placement []*instance.Placement) error {
+func checkMachinePlacement(placement []*instance.Placement) error {
 	for _, p := range placement {
 		if p == nil {
 			continue

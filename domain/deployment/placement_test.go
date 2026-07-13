@@ -158,6 +158,43 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 			modelUUID: "",
 			err:       new(`invalid container type ""`),
 		},
+		{
+			// A real model UUID scope with a different modelUUID
+			// must not be misclassified as a provider placement.
+			// It should fall through to container parsing and error.
+			input: &instance.Placement{
+				Scope:     modelUUID,
+				Directive: "zone=us-east-1a",
+			},
+			modelUUID: "00000000-0000-0000-0000-000000000000",
+			err:       new(`invalid container type "32c5aaae-6713-4cd7-83a4-d1256e9c97d0"`),
+		},
+		{
+			// The literal "model-uuid" placeholder scope works
+			// as provider placement even when modelUUID is empty.
+			input: &instance.Placement{
+				Scope:     instance.ModelScope,
+				Directive: "subnet=subnet-123",
+			},
+			modelUUID: "",
+			output: Placement{
+				Type:      PlacementTypeProvider,
+				Directive: "subnet=subnet-123",
+			},
+		},
+		{
+			// A real model UUID scope with an empty directive is
+			// still a valid provider placement.
+			input: &instance.Placement{
+				Scope:     modelUUID,
+				Directive: "",
+			},
+			modelUUID: modelUUID,
+			output: Placement{
+				Type:      PlacementTypeProvider,
+				Directive: "",
+			},
+		},
 	}
 	for _, test := range tests {
 		c.Logf("input: %v", test.input)
