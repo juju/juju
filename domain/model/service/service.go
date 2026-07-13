@@ -882,11 +882,11 @@ func (s *WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatch
 	)
 }
 
-// WatchModelDatabaseDeletions returns a watcher that emits an event when a
+// WatchModelMigrationDeletions returns a watcher that emits an event when a
 // model database deletion is staged or re-staged. Deletion of the row (once
-// the model DB deleter worker has processed it) is not watched: that event is
+// the undertaker worker has processed it) is not watched: that event is
 // self-inflicted by the worker's own completion and never signals new work.
-func (s *WatchableService) WatchModelDatabaseDeletions(ctx context.Context) (watcher.NotifyWatcher, error) {
+func (s *WatchableService) WatchModelMigrationDeletions(ctx context.Context) (watcher.NotifyWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

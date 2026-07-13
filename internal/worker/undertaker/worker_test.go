@@ -122,7 +122,7 @@ func (s *workerSuite) TestDeletesPendingDatabase(c *tc.C) {
 	s.expectIdleModelWatcher()
 
 	ch := make(chan struct{}, 1)
-	s.expectWatchModelDatabaseDeletions(ch)
+	s.expectWatchModelMigrationDeletions(ch)
 
 	s.controllerModelService.EXPECT().GetPendingModelDatabaseDeletions(gomock.Any()).Return([]string{"ns1"}, nil)
 	s.dbDeleter.EXPECT().DeleteDB("ns1").Return(nil)
@@ -150,7 +150,7 @@ func (s *workerSuite) TestDeleteDBNotFoundStillCompletes(c *tc.C) {
 	s.expectIdleModelWatcher()
 
 	ch := make(chan struct{}, 1)
-	s.expectWatchModelDatabaseDeletions(ch)
+	s.expectWatchModelMigrationDeletions(ch)
 
 	s.controllerModelService.EXPECT().GetPendingModelDatabaseDeletions(gomock.Any()).Return([]string{"ns1"}, nil)
 	s.dbDeleter.EXPECT().DeleteDB("ns1").Return(jujuerrors.NotFoundf("database ns1"))
@@ -179,7 +179,7 @@ func (s *workerSuite) TestDeleteFailureDoesNotRemoveRow(c *tc.C) {
 	s.expectIdleModelWatcher()
 
 	ch := make(chan struct{}, 1)
-	s.expectWatchModelDatabaseDeletions(ch)
+	s.expectWatchModelMigrationDeletions(ch)
 
 	s.controllerModelService.EXPECT().GetPendingModelDatabaseDeletions(gomock.Any()).Return([]string{"ns1"}, nil)
 
@@ -215,7 +215,7 @@ func (s *workerSuite) TestNoPendingDeletions(c *tc.C) {
 	s.expectIdleModelWatcher()
 
 	ch := make(chan struct{}, 1)
-	s.expectWatchModelDatabaseDeletions(ch)
+	s.expectWatchModelMigrationDeletions(ch)
 
 	done := make(chan struct{})
 	s.controllerModelService.EXPECT().GetPendingModelDatabaseDeletions(gomock.Any()).DoAndReturn(func(ctx context.Context) ([]string, error) {
@@ -238,8 +238,8 @@ func (s *workerSuite) expectWatchModels(ch chan struct{}) {
 	})
 }
 
-func (s *workerSuite) expectWatchModelDatabaseDeletions(ch chan struct{}) {
-	s.controllerModelService.EXPECT().WatchModelDatabaseDeletions(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
+func (s *workerSuite) expectWatchModelMigrationDeletions(ch chan struct{}) {
+	s.controllerModelService.EXPECT().WatchModelMigrationDeletions(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return watchertest.NewMockNotifyWatcher(ch), nil
 	})
 }
@@ -253,7 +253,7 @@ func (s *workerSuite) expectIdleModelWatcher() {
 // expectIdleDeletionWatcher sets up a database deletion watcher that never
 // fires, for tests that only exercise the dead-model path.
 func (s *workerSuite) expectIdleDeletionWatcher() {
-	s.expectWatchModelDatabaseDeletions(make(chan struct{}))
+	s.expectWatchModelMigrationDeletions(make(chan struct{}))
 }
 
 func (s *workerSuite) sendChange(c *tc.C, ch chan struct{}) {

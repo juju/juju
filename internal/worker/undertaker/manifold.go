@@ -29,11 +29,11 @@ type ControllerModelService interface {
 	// This also watches for changes in the model's state as well.
 	WatchModels(ctx context.Context) (watcher.NotifyWatcher, error)
 
-	// WatchModelDatabaseDeletions returns a watcher that fires when model
+	// WatchModelMigrationDeletions returns a watcher that fires when model
 	// database deletions are staged or removed. Deletions are staged when a
 	// model is removed from this controller (currently by source-side
 	// migration REAP) while its dqlite database still exists.
-	WatchModelDatabaseDeletions(ctx context.Context) (watcher.NotifyWatcher, error)
+	WatchModelMigrationDeletions(ctx context.Context) (watcher.NotifyWatcher, error)
 
 	// GetPendingModelDatabaseDeletions returns the dqlite namespaces staged
 	// for deletion.

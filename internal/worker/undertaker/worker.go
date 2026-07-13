@@ -104,7 +104,7 @@ func (w *Worker) loop() error {
 		return errors.Errorf("adding model watcher to catacomb: %w", err)
 	}
 
-	deletionWatcher, err := w.controllerModelService.WatchModelDatabaseDeletions(ctx)
+	deletionWatcher, err := w.controllerModelService.WatchModelMigrationDeletions(ctx)
 	if err != nil {
 		return errors.Errorf("watching staged model database deletions: %w", err)
 	}
@@ -168,9 +168,11 @@ func (w *Worker) handleDeadModel(ctx context.Context, mUUID model.UUID) error {
 }
 
 func (w *Worker) handlePendingDeletion(ctx context.Context, namespace string) error {
-	// Prefix the runner key so a staged database deletion never collides with
-	// a dead-model worker keyed by the same model UUID.
-	err := w.runner.StartWorker(ctx, "db-deletion:"+namespace, func(ctx context.Context) (worker.Worker, error) {
+	// The namespace is the model UUID, so reuse it as the runner key. A staged
+	// database deletion and a dead-model worker for the same model then share a
+	// key, and the runner guarantees only one of them runs at a time. This is
+	// impossible today, but it means it can never happen in the future either.
+	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
 		return newDBDeletionWorker(namespace, w.controllerModelService, w.dbDeleter, w.logger), nil
 	})
 	if err != nil && !errors.Is(err, jujuerrors.AlreadyExists) {

@@ -30,7 +30,7 @@ type MockControllerModelServiceMockRecorder struct {
 	getDeadModelsExpects                    []*gomock.Call1_2[context.Context, []model.UUID, error]
 	getPendingModelDatabaseDeletionsExpects []*gomock.Call1_2[context.Context, []string, error]
 	removeModelDatabaseDeletionExpects      []*gomock.Call2_1[context.Context, string, error]
-	watchModelDatabaseDeletionsExpects      []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+	watchModelMigrationDeletionsExpects     []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 	watchModelsExpects                      []*gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 }
 
@@ -100,23 +100,23 @@ func (mr *MockControllerModelServiceMockRecorder) RemoveModelDatabaseDeletion(ct
 // MockControllerModelServiceRemoveModelDatabaseDeletionCall is the typed call wrapper for RemoveModelDatabaseDeletion.
 type MockControllerModelServiceRemoveModelDatabaseDeletionCall = gomock.Call2_1[context.Context, string, error]
 
-// WatchModelDatabaseDeletions mocks base method.
-func (m *MockControllerModelService) WatchModelDatabaseDeletions(ctx context.Context) (watcher.NotifyWatcher, error) {
+// WatchModelMigrationDeletions mocks base method.
+func (m *MockControllerModelService) WatchModelMigrationDeletions(ctx context.Context) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.watchModelDatabaseDeletionsExpects, m.ctrl, m, "WatchModelDatabaseDeletions", ctx)
+	return gomock.Dispatch1_2(&m.recorder.watchModelMigrationDeletionsExpects, m.ctrl, m, "WatchModelMigrationDeletions", ctx)
 }
 
-// WatchModelDatabaseDeletions indicates an expected call of WatchModelDatabaseDeletions.
-func (mr *MockControllerModelServiceMockRecorder) WatchModelDatabaseDeletions(ctx any) *MockControllerModelServiceWatchModelDatabaseDeletionsCall {
+// WatchModelMigrationDeletions indicates an expected call of WatchModelMigrationDeletions.
+func (mr *MockControllerModelServiceMockRecorder) WatchModelMigrationDeletions(ctx any) *MockControllerModelServiceWatchModelMigrationDeletionsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchModelDatabaseDeletions", gomock.EnsureMatcher(ctx))
-	mr.watchModelDatabaseDeletionsExpects = append(mr.watchModelDatabaseDeletionsExpects, call)
+	call := gomock.NewCall1_2[context.Context, watcher.NotifyWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchModelMigrationDeletions", gomock.EnsureMatcher(ctx))
+	mr.watchModelMigrationDeletionsExpects = append(mr.watchModelMigrationDeletionsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockControllerModelServiceWatchModelDatabaseDeletionsCall is the typed call wrapper for WatchModelDatabaseDeletions.
-type MockControllerModelServiceWatchModelDatabaseDeletionsCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
+// MockControllerModelServiceWatchModelMigrationDeletionsCall is the typed call wrapper for WatchModelMigrationDeletions.
+type MockControllerModelServiceWatchModelMigrationDeletionsCall = gomock.Call1_2[context.Context, watcher.NotifyWatcher, error]
 
 // WatchModels mocks base method.
 func (m *MockControllerModelService) WatchModels(ctx context.Context) (watcher.NotifyWatcher, error) {
