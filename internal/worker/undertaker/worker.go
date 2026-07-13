@@ -96,13 +96,20 @@ func (w *Worker) Report(ctx context.Context) map[string]any {
 func (w *Worker) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	watcher, err := w.controllerModelService.WatchModels(ctx)
+	modelWatcher, err := w.controllerModelService.WatchModels(ctx)
 	if err != nil {
 		return errors.Errorf("watching activated models: %w", err)
 	}
+	if err := w.catacomb.Add(modelWatcher); err != nil {
+		return errors.Errorf("adding model watcher to catacomb: %w", err)
+	}
 
-	if err := w.catacomb.Add(watcher); err != nil {
-		return errors.Errorf("adding watcher to catacomb: %w", err)
+	deletionWatcher, err := w.controllerModelService.WatchModelMigrationDeletions(ctx)
+	if err != nil {
+		return errors.Errorf("watching staged model database deletions: %w", err)
+	}
+	if err := w.catacomb.Add(deletionWatcher); err != nil {
+		return errors.Errorf("adding deletion watcher to catacomb: %w", err)
 	}
 
 	for {
@@ -110,7 +117,7 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case <-watcher.Changes():
+		case <-modelWatcher.Changes():
 			// Get all of the dead models from the controller model service
 			// and handle them all at once.
 			models, err := w.controllerModelService.GetDeadModels(ctx)
@@ -122,6 +129,22 @@ func (w *Worker) loop() error {
 			for _, mUUID := range models {
 				if err := w.handleDeadModel(ctx, mUUID); err != nil {
 					return errors.Errorf("handling dead model %s: %w", mUUID, err)
+				}
+			}
+
+		case <-deletionWatcher.Changes():
+			// Get all of the staged database deletions and handle them all at
+			// once. These are models that have already been purged from this
+			// controller (currently by source-side migration REAP) but whose
+			// dqlite database still exists.
+			namespaces, err := w.controllerModelService.GetPendingModelDatabaseDeletions(ctx)
+			if err != nil {
+				return errors.Errorf("getting pending model database deletions: %w", err)
+			}
+
+			for _, namespace := range namespaces {
+				if err := w.handlePendingDeletion(ctx, namespace); err != nil {
+					return errors.Errorf("handling model database deletion %s: %w", namespace, err)
 				}
 			}
 		}
@@ -139,6 +162,21 @@ func (w *Worker) handleDeadModel(ctx context.Context, mUUID model.UUID) error {
 	})
 	if err != nil && !errors.Is(err, jujuerrors.AlreadyExists) {
 		return errors.Errorf("starting worker for model %s: %w", mUUID, err)
+	}
+
+	return nil
+}
+
+func (w *Worker) handlePendingDeletion(ctx context.Context, namespace string) error {
+	// The namespace is the model UUID, so reuse it as the runner key. A staged
+	// database deletion and a dead-model worker for the same model then share a
+	// key, and the runner guarantees only one of them runs at a time. This is
+	// impossible today, but it means it can never happen in the future either.
+	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
+		return newDBDeletionWorker(namespace, w.controllerModelService, w.dbDeleter, w.logger), nil
+	})
+	if err != nil && !errors.Is(err, jujuerrors.AlreadyExists) {
+		return errors.Errorf("starting worker for model database deletion %s: %w", namespace, err)
 	}
 
 	return nil
@@ -202,6 +240,87 @@ func (w *modelWorker) deleteModel(ctx context.Context) error {
 
 	if err := w.dbDeleter.DeleteDB(w.modelUUID.String()); err != nil && !errors.Is(err, jujuerrors.NotFound) {
 		return errors.Errorf("deleting database %s: %w", w.modelUUID, err)
+	}
+
+	return nil
+}
+
+// dbDeletionWorker deletes the dqlite database of a single model that has been
+// purged from this controller, then drops the staged deletion row. It is
+// restarted with backoff by the runner until the database is gone and the
+// staged row removed.
+type dbDeletionWorker struct {
+	tomb tomb.Tomb
+
+	namespace string
+	service   ControllerModelService
+	dbDeleter coredatabase.DBDeleter
+	logger    logger.Logger
+}
+
+func newDBDeletionWorker(
+	namespace string,
+	service ControllerModelService,
+	dbDeleter coredatabase.DBDeleter,
+	logger logger.Logger,
+) *dbDeletionWorker {
+	w := &dbDeletionWorker{
+		namespace: namespace,
+		service:   service,
+		dbDeleter: dbDeleter,
+		logger:    logger,
+	}
+
+	w.tomb.Go(w.loop)
+
+	return w
+}
+
+// Kill stops the deletion worker gracefully.
+func (w *dbDeletionWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait waits for the deletion worker to finish.
+func (w *dbDeletionWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *dbDeletionWorker) loop() error {
+	ctx := w.tomb.Context(context.Background())
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+
+		default:
+			if err := w.deleteDatabase(ctx); err != nil {
+				return errors.Capture(err)
+			}
+
+			return nil
+		}
+	}
+}
+
+func (w *dbDeletionWorker) deleteDatabase(ctx context.Context) error {
+	// Delete the model's dqlite database. A not-found database is already
+	// gone, so treat it as success. Any other failure is returned so the
+	// runner restarts this worker with backoff and the staged row survives to
+	// be retried.
+	if err := w.dbDeleter.DeleteDB(w.namespace); err != nil && !errors.Is(err, jujuerrors.NotFound) {
+		w.logger.Errorf(ctx,
+			"deleting database for model %q: the model no longer resides on "+
+				"this controller, but its database is still present: %v",
+			w.namespace, err)
+		return errors.Errorf("deleting database for model %q: %w", w.namespace, err)
+	}
+
+	// The database is gone; drop the staged deletion so the worker stops
+	// retrying it.
+	if err := w.service.RemoveModelDatabaseDeletion(ctx, w.namespace); err != nil {
+		return errors.Errorf("removing staged deletion for model %q: %w", w.namespace, err)
 	}
 
 	return nil

@@ -173,8 +173,10 @@ func (s *integrationSuite) TestWorkerDeletingControllerDB(c *tc.C) {
 }
 
 func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *tc.C) {
+	// Deleting a namespace that was never opened on this node drops the
+	// database directly instead of returning not found.
 	err := s.dbDeleter.DeleteDB("foo")
-	c.Assert(err, tc.ErrorMatches, `.*"foo" not found`)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *tc.C) {
@@ -245,7 +247,7 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = s.dbDeleter.DeleteDB("fred")
-	c.Assert(err, tc.ErrorMatches, `.*"fred" not found`)
+	c.Assert(err, tc.ErrorIsNil)
 
 	_, err = s.dbGetter.GetDB(c.Context(), "fred")
 	c.Assert(err, tc.ErrorMatches, `.*"fred": database not found`)

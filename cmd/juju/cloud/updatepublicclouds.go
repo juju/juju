@@ -12,11 +12,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
 
 	cloudapi "github.com/juju/juju/api/client/cloud"
 	"github.com/juju/juju/api/jujuclient"
@@ -284,7 +284,7 @@ func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
 		return nil, errors.Errorf("failed to parse public key: %v", err)
 	}
 
-	_, err = openpgp.CheckDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body)
+	_, err = openpgp.CheckDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -5,35 +5,7 @@ package migration
 
 import (
 	"slices"
-
-	"github.com/juju/juju/internal/errors"
 )
-
-// ErrPhaseNotPersisted indicates a phase has no representation in the
-// model_migration_phase lookup table and therefore cannot be converted to or
-// from a persisted phase id. This covers the code-only sentinels UNKNOWN and
-// NONE, none of which are ever written to the database.
-const ErrPhaseNotPersisted = errors.ConstError("migration phase is not persisted")
-
-// persistedPhaseIDs maps each migration phase to the primary key it is stored
-// under in the seeded model_migration_phase lookup table
-// (domain/schema/controller/sql/0031-model-migration.PATCH.sql). It is the
-// single source of truth for Go<->SQL phase conversion. The mapping is explicit
-// and deliberately does NOT track the enum ordinal: the lookup omits the
-// code-only sentinels UNKNOWN and NONE, so the Go enum and the persisted ids
-// must be reconciled by name/value here rather than by position.
-var persistedPhaseIDs = map[Phase]int{
-	QUIESCE:     1,
-	IMPORT:      2,
-	VALIDATION:  3,
-	SUCCESS:     4,
-	LOGTRANSFER: 5,
-	REAP:        6,
-	REAPFAILED:  7,
-	DONE:        8,
-	ABORT:       9,
-	ABORTDONE:   10,
-}
 
 // Phase values specify model migration phases.
 type Phase int
@@ -169,29 +141,4 @@ func ParsePhase(target string) (Phase, bool) {
 		}
 	}
 	return UNKNOWN, false
-}
-
-// PhasePersistedID returns the primary key under which the phase is stored in
-// the model_migration_phase lookup table. Phases that are never persisted
-// (UNKNOWN and NONE) return ErrPhaseNotPersisted. Callers that persist or read
-// the current migration phase must use this conversion rather than the enum
-// ordinal or Phase.String().
-func PhasePersistedID(p Phase) (int, error) {
-	id, ok := persistedPhaseIDs[p]
-	if !ok {
-		return 0, errors.Errorf("converting phase %q to persisted id: %w", p, ErrPhaseNotPersisted)
-	}
-	return id, nil
-}
-
-// PhaseFromPersistedID returns the phase stored under the given
-// model_migration_phase primary key. Ids that have no corresponding phase
-// return ErrPhaseNotPersisted.
-func PhaseFromPersistedID(id int) (Phase, error) {
-	for p, pid := range persistedPhaseIDs {
-		if pid == id {
-			return p, nil
-		}
-	}
-	return UNKNOWN, errors.Errorf("converting persisted id %d to phase: %w", id, ErrPhaseNotPersisted)
 }

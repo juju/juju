@@ -8,14 +8,14 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 )
 
 // PGPPGPSignatureCheckFn can be overridden by tests to allow signatures from
 // non-trusted sources to be verified.
 var PGPSignatureCheckFn = func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
-	return openpgp.CheckDetachedSignature(keyring, signed, signature)
+	return openpgp.CheckDetachedSignature(keyring, signed, signature, nil)
 }
 
 // DecodeCheckSignature parses the inline signed PGP text, checks the signature,

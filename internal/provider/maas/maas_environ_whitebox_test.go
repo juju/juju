@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
@@ -383,14 +383,20 @@ func (suite *maasEnvironSuite) TestStopInstancesReturnsUnexpectedError(c *tc.C) 
 func (suite *maasEnvironSuite) TestStopInstancesDeletesComposedNodes(c *tc.C) {
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.machines = []gomaasapi.Machine{
-		&fakeMachine{systemID: "test1", pod: &fakePod{}},
-		&fakeMachine{systemID: "test2", powerType: "virsh"},
-		&fakeMachine{systemID: "test3", powerType: "ipmi"},
+		// Simulate MAAS server-side filtering by OwnerData.
+		&fakeMachine{systemID: "test1", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
+		&fakeMachine{systemID: "test2", powerType: "virsh", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
+		&fakeMachine{systemID: "test3", powerType: "virsh"},
 	}
 
 	err := suite.makeEnviron(c, controller).StopInstances(c.Context(), "test1", "test2", "test3")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(collectDeleteMachineArgs(controller), tc.SameContents, []string{"test1", "test2"})
+	controller.CheckCallNames(c,
+		"DeleteMachine",
+		"DeleteMachine",
+		"ReleaseMachines",
+	)
 }
 
 func (suite *maasEnvironSuite) TestStopInstancesDoesNotDeleteNonComposedNodes(c *tc.C) {
@@ -407,16 +413,23 @@ func (suite *maasEnvironSuite) TestStopInstancesDoesNotDeleteNonComposedNodes(c 
 	c.Assert(args[0].SystemIDs, tc.SameContents, []string{"test3"})
 }
 
-func (suite *maasEnvironSuite) TestStopInstancesReturnsDeleteComposedNodesError(c *tc.C) {
+func (suite *maasEnvironSuite) TestStopInstancesReturnsDeleteComposedNodeAndReleaseErrors(c *tc.C) {
 	controller := newFakeControllerWithFiles(&fakeFile{name: coretesting.ModelTag.Id() + "-provider-state"})
 	controller.machines = []gomaasapi.Machine{
-		&fakeMachine{systemID: "test1", powerType: "lxd"},
+		&fakeMachine{systemID: "test1", powerType: "lxd", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
+		&fakeMachine{systemID: "test2", powerType: "lxd", ownerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal}},
 	}
-	controller.deleteMachineError = errors.New("delete failed")
+	controller.deleteMachineErrors = map[string]error{
+		"test2": errors.New("delete test2 failed"),
+	}
+	controller.SetErrors(errors.New("boom"))
 
-	err := suite.makeEnviron(c, controller).StopInstances(c.Context(), "test1")
-	c.Assert(err, tc.ErrorMatches, "deleting composed machines: delete failed")
-	c.Assert(collectDeleteMachineArgs(controller), tc.SameContents, []string{"test1"})
+	err := suite.makeEnviron(c, controller).StopInstances(c.Context(), "test1", "test2")
+	c.Assert(err, tc.ErrorMatches, "deleting composed machines: delete test2 failed\ncannot release nodes: boom")
+	c.Assert(collectDeleteMachineArgs(controller), tc.SameContents, []string{"test1", "test2"})
+	args := collectReleaseArgs(controller)
+	c.Assert(args, tc.HasLen, 1)
+	c.Assert(args[0].SystemIDs, tc.SameContents, []string{"test1", "test2"})
 }
 
 func (suite *maasEnvironSuite) TestStartInstanceError(c *tc.C) {
@@ -2727,8 +2740,8 @@ func (suite *maasEnvironSuite) TestConstraintsValidatorWithUnsupportedArch(c *tc
 }
 
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *tc.C) {
-	composedMachine := &fakeMachine{systemID: "composed-1", hostname: "vm-1", statusName: "Ready"}
-	pod := &fakePod{
+	composedMachine := &fakeMachine{Stub: &testhelpers.Stub{}, systemID: "composed-1", hostname: "vm-1", statusName: "Ready"}
+	pod := &fakeVmHost{
 		name: "pod-a",
 		zone: fakeZone{name: "mossack"},
 		composeMachineArgsCheck: func(args gomaasapi.ComposeMachineArgs) {
@@ -2751,8 +2764,8 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *tc.C) {
 		composeMachine: composedMachine,
 	}
 	controller := &fakeController{
-		Stub: &testhelpers.Stub{},
-		pods: []gomaasapi.Pod{pod},
+		Stub:    &testhelpers.Stub{},
+		vmHosts: []gomaasapi.VmHost{pod},
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args.SystemId, tc.Equals, "composed-1")
 		},
@@ -2778,15 +2791,20 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposes(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(collectDeleteMachineArgs(controller), tc.HasLen, 0)
+	composedMachine.CheckCallNames(c, "SetOwnerData")
+	ownerDataArg, ok := composedMachine.Calls()[0].Args[0].(map[string]string)
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(ownerDataArg, tc.DeepEquals, map[string]string{
+		composedByJujuDataKey: composedByJujuDataVal})
 }
 
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchTriesNextPod(c *tc.C) {
 	composedMachine := &fakeMachine{systemID: "composed-2", hostname: "vm-2", statusName: "Ready"}
 	controller := &fakeController{
 		Stub: &testhelpers.Stub{},
-		pods: []gomaasapi.Pod{
-			&fakePod{name: "pod-a", composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources")},
-			&fakePod{name: "pod-b", composeMachine: composedMachine},
+		vmHosts: []gomaasapi.VmHost{
+			&fakeVmHost{name: "pod-a", composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources")},
+			&fakeVmHost{name: "pod-b", composeMachine: composedMachine},
 		},
 		allocateMachineArgsCheck: func(args gomaasapi.AllocateMachineArgs) {
 			c.Assert(args.SystemId, tc.Equals, "composed-2")
@@ -2817,9 +2835,9 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchTriesN
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchAllPodsFail(c *tc.C) {
 	controller := &fakeController{
 		Stub: &testhelpers.Stub{},
-		pods: []gomaasapi.Pod{
-			&fakePod{name: "pod-a", composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources")},
-			&fakePod{name: "pod-b", composeMachineErr: gomaasapi.NewCannotCompleteError("cannot compose right now")},
+		vmHosts: []gomaasapi.VmHost{
+			&fakeVmHost{name: "pod-a", composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources")},
+			&fakeVmHost{name: "pod-b", composeMachineErr: gomaasapi.NewCannotCompleteError("cannot compose right now")},
 		},
 	}
 	env := suite.makeEnviron(c, controller)
@@ -2841,13 +2859,13 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchAllPod
 func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineComposeNoMatchPodsSkipped(c *tc.C) {
 	controller := &fakeController{
 		Stub: &testhelpers.Stub{},
-		pods: []gomaasapi.Pod{
-			&fakePod{
+		vmHosts: []gomaasapi.VmHost{
+			&fakeVmHost{
 				name:              "pod-a",
 				zone:              &fakeZone{name: "mossack"},
 				composeMachineErr: gomaasapi.NewNoMatchError("insufficient resources"),
 			},
-			&fakePod{
+			&fakeVmHost{
 				name:              "pod-b",
 				zone:              &fakeZone{name: "fonseca"},
 				composeMachineErr: gomaasapi.NewCannotCompleteError("no available machines"),
@@ -2873,7 +2891,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineAllocateFailureClean
 	composedMachine := &fakeMachine{systemID: "composed-2", hostname: "vm-2", statusName: "Ready"}
 	controller := &fakeController{
 		Stub:                 &testhelpers.Stub{},
-		pods:                 []gomaasapi.Pod{&fakePod{composeMachine: composedMachine}},
+		vmHosts:              []gomaasapi.VmHost{&fakeVmHost{composeMachine: composedMachine}},
 		machines:             []gomaasapi.Machine{composedMachine},
 		allocateMachineError: errors.New("allocate failed"),
 	}
@@ -2902,7 +2920,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeVirtualMachineWaitReadyFailureClea
 	}
 	controller := &fakeController{
 		Stub:     &testhelpers.Stub{},
-		pods:     []gomaasapi.Pod{&fakePod{composeMachine: orphan}},
+		vmHosts:  []gomaasapi.VmHost{&fakeVmHost{composeMachine: orphan}},
 		machines: []gomaasapi.Machine{orphan},
 	}
 	env := suite.makeEnviron(c, controller)

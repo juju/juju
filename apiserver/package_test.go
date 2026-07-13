@@ -17,7 +17,7 @@ import (
 //go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination package_mock_test.go github.com/juju/juju/apiserver AgentBinaryStore,BlockChecker,ControllerConfigService,ModelAuthorizationInfo
 //go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination services_mock_test.go github.com/juju/juju/internal/services ControllerDomainServices
 //go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination facade_mock_test.go github.com/juju/juju/apiserver/facade CrossModelAuthContext
-//go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination service_mock_test.go github.com/juju/juju/apiserver RelationService,StatusService
+//go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination service_mock_test.go github.com/juju/juju/apiserver RelationService,StatusService,ModelRedirectService
 //go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination watcher_mock_test.go github.com/juju/juju/apiserver/facades/controller/crossmodelrelations OfferWatcher,RelationStatusWatcher
 //go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination core_watcher_mock_test.go github.com/juju/juju/core/watcher NotifyWatcher
 //go:generate go run github.com/canonical/gomock/mockgen -package apiserver -destination authorizer_mock_test.go github.com/juju/juju/apiserver/authentication PermissionDelegator

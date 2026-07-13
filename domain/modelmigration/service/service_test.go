@@ -557,24 +557,108 @@ func (s *serviceSuite) TestSetMigrationPhase(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestMarkModelAsGone asserts the active migration is resolved and moved to
-// DONE.
+// TestMarkModelAsGone asserts the full REAP algorithm runs: capture offers,
+// stage redirect, and run the purge transaction (which stages the model
+// database deletion).
 func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	migUUID := tc.Must(c, uuid.NewUUID).String()
+	target := modelmigrationinternal.TargetInfo{
+		ControllerUUID:  "target-controller-uuid",
+		ControllerAlias: "target-alias",
+		Addrs:           []string{"10.0.0.1:17070"},
+		CACert:          "ca-cert",
+	}
+	mig := modelmigrationinternal.Migration{
+		UUID:   migUUID,
+		Phase:  migration.REAP,
+		Target: target,
+	}
+
 	gomock.InOrder(
-		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigrationinternal.Migration{UUID: migUUID}, nil),
-		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.DONE).Return(nil),
+		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
+		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil),
+		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, []string{"offer-1"}).Return(nil),
+		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
+		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
 	)
 
 	err := s.service(c).MarkModelAsGone(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestMarkModelAsGoneNoActiveMigration asserts the active export lookup error
-// is surfaced.
+// TestMarkModelAsGoneNoProviderDestroy asserts that REAP never reaches the
+// provider destruction path. The instance provider and resource provider must
+// never be called during source REAP — it is a migration-specific purge, not
+// normal model removal.
+func (s *serviceSuite) TestMarkModelAsGoneNoProviderDestroy(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	mig := modelmigrationinternal.Migration{
+		UUID:  migUUID,
+		Phase: migration.REAP,
+		Target: modelmigrationinternal.TargetInfo{
+			ControllerUUID:  "target-controller-uuid",
+			ControllerAlias: "target-alias",
+			Addrs:           []string{"10.0.0.1:17070"},
+			CACert:          "ca-cert",
+		},
+	}
+
+	gomock.InOrder(
+		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
+		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, nil),
+		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
+		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
+	)
+
+	err := s.service(c).MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMarkModelAsGoneRetryAfterPurgeFailure asserts that a failure of the
+// purge transaction (the commit point) leaves REAP retryable: every step
+// before it is idempotent, so the whole sequence can simply run again.
+func (s *serviceSuite) TestMarkModelAsGoneRetryAfterPurgeFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	mig := modelmigrationinternal.Migration{
+		UUID:  migUUID,
+		Phase: migration.REAP,
+		Target: modelmigrationinternal.TargetInfo{
+			ControllerUUID: "target-controller-uuid",
+			Addrs:          []string{"10.0.0.1:17070"},
+			CACert:         "ca-cert",
+		},
+	}
+
+	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil).Times(2)
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil).Times(2)
+	s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil).Times(2)
+	s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil).Times(2)
+	s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	// First purge attempt fails; nothing destructive is committed for it.
+	s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(errors.New("dqlite hiccup")).Times(1)
+	s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil).Times(1)
+
+	// First call fails at the commit point: nothing destructive happened.
+	err := s.service(c).MarkModelAsGone(c.Context())
+	c.Check(err, tc.ErrorMatches, "purging source model .*: dqlite hiccup")
+
+	// Retry succeeds end to end.
+	err = s.service(c).MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMarkModelAsGoneNoActiveMigration asserts that when no active export
+// exists (already DONE from a previous run), MarkModelAsGone returns nil
+// idempotently.
 func (s *serviceSuite) TestMarkModelAsGoneNoActiveMigration(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -582,7 +666,7 @@ func (s *serviceSuite) TestMarkModelAsGoneNoActiveMigration(c *tc.C) {
 		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
 
 	err := s.service(c).MarkModelAsGone(c.Context())
-	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetMigrationStatusMessage asserts the message is recorded against the

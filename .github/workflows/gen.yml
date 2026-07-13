@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: "Checkout"
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: "Squid"
         if: github.repository_owner != 'juju'
@@ -32,19 +32,19 @@ jobs:
         run: |
           # Running go generate by itself is slow over a large codebase, where
           # all generate directives are dispersed over many files. Instead, the
-          # following uses tools for locating and extracting the directives,
-          # before piping them to go generate in parallel.
+          # following locates the directives before piping them to go generate
+          # in parallel.
           #
-          #  1. grep for go generate directive in the go files recursively.
-          #  2. Grab the file name of each select file.
-          #  3. Unique every file, so we only go generate the file once.
-          #  4. Using xargs perform go generate in parallel.
+          #  1. Use git grep to list the go files containing a go generate
+          #     directive (-l prints each matching file once).
+          #  2. Using xargs perform go generate in parallel.
           #
-          git ls-files |
-            (xargs grep "//go:generate" --include '*.go' || true) |
-            awk -F : '{ print $1 }' |
-            uniq |
-            xargs -n 1 -P 8 -I% sh -c 'go generate -x "$(realpath %)" || (echo FAIL: % && exit 1)'
+          # Note: git grep is used rather than `git ls-files | xargs grep`
+          # because the latter batches files across multiple grep invocations,
+          # and any batch with no match makes grep exit 1, which under
+          # `set -o pipefail` fails the whole step (exit 123) even though every
+          # go generate succeeded.
+          git grep -l -e '//go:generate' -- '*.go' | xargs -n 1 -P 8 -I% sh -c 'go generate -x "$(realpath %)" || (echo FAIL: % && exit 1)'
 
       - name: "Check diff"
         shell: bash

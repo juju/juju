@@ -6,6 +6,7 @@ package maas
 import (
 	"context"
 	"crypto/tls"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -19,7 +20,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/names/v6"
 	"github.com/juju/retry"
 
@@ -47,6 +48,11 @@ import (
 const (
 	// The version strings indicating the MAAS API version.
 	apiVersion2 = "2.0"
+
+	// composedByJujuDataKey marks machines composed by Juju so cleanup
+	// can distinguish them from pre-existing MAAS pod machines.
+	composedByJujuDataKey = "juju-composed"
+	composedByJujuDataVal = "true"
 )
 
 var defaultShortRetryStrategy = retry.CallArgs{
@@ -688,12 +694,12 @@ func (env *maasEnviron) composeNode(
 	positiveSpaceIDs set.Strings,
 	volumes []volumeInfo,
 ) (string, error) {
-	pods, err := env.maasController.Pods()
+	vmHosts, err := env.maasController.VmHosts()
 	if err != nil {
 		return "", errors.Annotate(err, "listing pods")
 	}
-	if len(pods) == 0 {
-		return "", errors.New("no pods available to compose machine")
+	if len(vmHosts) == 0 {
+		return "", errors.New("no vm hosts available to compose machine")
 	}
 
 	composeArgs := gomaasapi.ComposeMachineArgs{
@@ -731,18 +737,26 @@ func (env *maasEnviron) composeNode(
 
 	// Use the first pod that can commission the machine.
 	var lastComposeErr error
-	for _, pod := range pods {
-		machine, err := pod.ComposeMachine(composeArgs)
+	for _, vmHost := range vmHosts {
+		machine, err := vmHost.ComposeMachine(composeArgs)
 		if err != nil {
 			if gomaasapi.IsNoMatchError(err) || gomaasapi.IsCannotCompleteError(err) {
 				lastComposeErr = err
-				logger.Debugf(ctx, "pod %q could not compose machine, trying next pod: %v", pod.Name(), err)
+				logger.Debugf(ctx, "pod %q could not compose machine, trying next pod: %v", vmHost.Name(), err)
 				continue
 			}
 			return "", errors.Annotate(err, "composing machine")
 		}
 		systemID := machine.SystemID()
-		logger.Infof(ctx, "composed machine %q in pod %q", systemID, pod.Name())
+		err = machine.SetOwnerData(map[string]string{composedByJujuDataKey: composedByJujuDataVal})
+		if err != nil {
+			if deleteErr := env.maasController.DeleteMachine(systemID); deleteErr != nil {
+				logger.Warningf(ctx, "failed to delete unmarked composed machine %q: %v", systemID, deleteErr)
+			}
+			return "", errors.Annotate(err, "marking composed machine")
+		}
+
+		logger.Infof(ctx, "composed machine %q in pod %q", systemID, vmHost.Name())
 
 		// The composed machine goes through MAAS commissioning before it
 		// reaches "Ready" state. AllocateMachine only works on Ready
@@ -761,7 +775,7 @@ func (env *maasEnviron) composeNode(
 		return "", errors.Annotate(lastComposeErr, "composing machine")
 	}
 
-	return "", errors.New("no pods matched the zone requirement")
+	return "", errors.New("no vm host matched the zone requirement")
 }
 
 // waitForComposedMachineReady polls MAAS until the machine with the given
@@ -1165,23 +1179,19 @@ func (env *maasEnviron) releaseNodesIndividually(ctx context.Context, ids []inst
 	return errors.Trace(lastErr)
 }
 
-// deleteAnyComposedNodes determines which instance ids are for VMs provisioned
-// by a pod (rather than pre-existing machines) and deletes them.
-// This is necessary to clean up the composed machines after release,
-// as ReleaseMachine only releases the machine but does not delete it from MAAS,
-// and we don't need composed machines to be reused for future allocations.
+// deleteAnyComposedNodes deletes released machines that Juju explicitly composed.
+// This is necessary to clean up composed machines after release because
+// ReleaseMachine does not delete them from MAAS.
 func (env *maasEnviron) deleteAnyComposedNodes(ctx context.Context, ids []instance.Id) error {
 	machines, err := env.maasController.Machines(gomaasapi.MachinesArgs{
 		SystemIDs: instanceIdsToSystemIDs(ids),
+		OwnerData: map[string]string{composedByJujuDataKey: composedByJujuDataVal},
 	})
 	if err != nil {
 		return errors.Annotate(env.HandleCredentialError(ctx, err), "getting machines for deletion")
 	}
 	var lastErr error
 	for _, m := range machines {
-		if m.Pod() == nil && m.PowerType() != "virsh" && m.PowerType() != "lxd" {
-			continue
-		}
 		err = env.maasController.DeleteMachine(m.SystemID())
 		if err != nil {
 			lastErr = err
@@ -1212,11 +1222,9 @@ func (env *maasEnviron) StopInstances(ctx context.Context, ids ...instance.Id) e
 		return nil
 	}
 
-	err := env.releaseNodes(ctx, ids, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return errors.Trace(env.deleteAnyComposedNodes(ctx, ids))
+	deleteErr := env.deleteAnyComposedNodes(ctx, ids)
+	releaseErr := env.releaseNodes(ctx, ids, true)
+	return stderrors.Join(deleteErr, releaseErr)
 }
 
 // Instances returns the instances.Instance objects corresponding to the given

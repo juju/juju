@@ -15,8 +15,6 @@ See also: {ref}`log`
 For an integrated solution consider [the Loki charm](https://charmhub.io/loki-k8s).
 ```
 
-
-
 ## Manage the logs
 
 ### Stream the logs

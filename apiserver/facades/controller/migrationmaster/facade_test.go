@@ -247,26 +247,6 @@ func (s *Suite) TestPrechecksModelError(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "retrieving model info: boom")
 }
 
-func (s *Suite) TestReap(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.modelMigrationService.EXPECT().SetMigrationPhase(gomock.Any(), coremigration.DONE).Return(nil)
-
-	err := s.mustMakeAPI(c).Reap(c.Context())
-	c.Check(err, tc.ErrorIsNil)
-}
-
-func (s *Suite) TestReapError(c *tc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.modelMigrationService.EXPECT().SetMigrationPhase(gomock.Any(), coremigration.DONE).Return(errors.New("boom"))
-
-	err := s.mustMakeAPI(c).Reap(c.Context())
-	c.Check(err, tc.ErrorMatches, "failed to set phase: boom")
-}
-
 func (s *Suite) TestWatchMinionReports(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()

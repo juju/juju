@@ -12,7 +12,7 @@ jobs:
       channel: ${{ steps.check.outputs.channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Check
         id: check
         run: |
@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: "Squid"
         if: github.repository_owner != 'juju'
@@ -239,7 +239,7 @@ jobs:
           fi
 
           CURRENT_CHARM=${CHARM_${{ matrix.cloud }}}
-          
+
           # Make sure that the deployed application is named with the name of the charm, because wait loop will rely on it
           juju deploy ${CURRENT_CHARM} ${CURRENT_CHARM} $DEPLOY_FLAGS
 
