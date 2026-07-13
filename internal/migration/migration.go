@@ -93,6 +93,24 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 	return activateModel(ctx, domainServices, args)
 }
 
+// AbortModel drives target-side cleanup of a partially imported v8 model. It
+// resolves the controller-database scope for the model UUID and delegates to
+// [AbortModelImport]. The model database is never opened during abort, so no
+// model-DB scope is needed.
+//
+// It returns an error wrapping
+// [github.com/juju/juju/domain/modelmigration/errors.ErrAbortActivating] when
+// activation has already crossed the point of no return.
+func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID) error {
+	scope := i.scope(modelUUID)
+	deps := Deps{
+		ControllerDB: scope.ControllerDB(),
+		Clock:        i.clock,
+		Logger:       i.logger,
+	}
+	return AbortModelImport(ctx, deps, modelUUID)
+}
+
 // ImportModel applies a v8 import's controller-scoped semantic data to the
 // target controller. See [ImportControllerModelInfo] for the orchestration;
 // this method only resolves the migration scope for the model UUID and
