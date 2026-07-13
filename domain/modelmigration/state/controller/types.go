@@ -361,6 +361,23 @@ type importPhaseRow struct {
 	PhaseType string `db:"phase_type"`
 }
 
+// importClaimStatusRow maps a full model_migration_import row (including its
+// model UUID) joined to its phase type, for the abort reconciler's scan of all
+// outstanding claims. UpdatedAt is read as text and canonicalised to RFC3339
+// via strftime, as for importClaimRow.
+type importClaimStatusRow struct {
+	ModelUUID           string `db:"model_uuid"`
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+	PhaseType           string `db:"phase_type"`
+	UpdatedAt           string `db:"updated_at"`
+}
+
+// namespaceArg binds a dqlite namespace name (a model UUID) for existence
+// reads against namespace_list.
+type namespaceArg struct {
+	Namespace string `db:"namespace"`
+}
+
 // importPhaseNames binds the source and target phase names of a claim phase
 // transition, so the phase-type IDs are resolved by name from
 // model_migration_import_phase_type rather than inlined as SQL literals.

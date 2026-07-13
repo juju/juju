@@ -260,6 +260,29 @@ type ControllerState interface {
 	// deletion, completes the redirect, marks the export DONE, and scrubs
 	// target auth. It fails unless the export is still in phase REAP.
 	CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error
+
+	// SetImportPhaseAborting transitions the model's import claim from the
+	// importing phase to the aborting phase. It is idempotent when the claim is
+	// already aborting and returns
+	// [modelmigrationerrors.ErrAbortActivating] when the claim is activating.
+	SetImportPhaseAborting(ctx context.Context, modelUUID string) error
+
+	// FinalizeAbortedImport deletes the model's import claim, its FK-dependent
+	// companion rows, and its namespace registration once abort cleanup is
+	// provably complete, asserting the claim is aborting and the controller
+	// model identity and namespace mapping are both gone. It returns
+	// [modelmigrationerrors.ErrAbortNotFinalizable] when cleanup is not yet
+	// provable, and is idempotent when no claim exists.
+	FinalizeAbortedImport(ctx context.Context, modelUUID string) error
+
+	// GetAllImportClaims returns a snapshot of every outstanding
+	// model_migration_import claim, used by the abort reconciler.
+	GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error)
+
+	// IsImportNamespaceRegistered reports whether the model's dqlite namespace
+	// is still registered, i.e. whether the model database may still need
+	// dropping before abort finalization.
+	IsImportNamespaceRegistered(ctx context.Context, modelUUID string) (bool, error)
 }
 
 // ModelState defines the interface required for accessing the underlying state
