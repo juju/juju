@@ -199,7 +199,7 @@ func (s *serviceSuite) TestGetSSHConnRequest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(req, tc.DeepEquals, state.getReq)
 	c.Check(state.getTunnelID, tc.Equals, testTunnelUUID)
-	c.Check(state.getMachineName, tc.Equals, coremachine.Name("1"))
+	c.Check(state.getMachineName, tc.Equals, "1")
 	c.Check(state.getNow, tc.Equals, clk.Now())
 }
 
@@ -218,7 +218,7 @@ func (s *serviceSuite) TestWatchSSHConnRequest(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(w, tc.Equals, watcherFactory.watcher)
 	c.Check(state.pruneNow, tc.Equals, clk.Now())
-	c.Check(state.machineUUIDName, tc.Equals, coremachine.Name("0"))
+	c.Check(state.machineUUIDName, tc.Equals, "0")
 	c.Check(watcherFactory.summary, tc.Equals, "ssh connection request watcher")
 	c.Check(watcherFactory.namespace, tc.Equals, "ssh_connection_request")
 }
@@ -249,12 +249,12 @@ type stubModelState struct {
 	insertNow          time.Time
 	getReq             domainssh.SSHConnRequest
 	getTunnelID        string
-	getMachineName     coremachine.Name
+	getMachineName     string
 	getNow             time.Time
 	pruneNow           time.Time
 	removedTunnelID    string
 	machineUUIDs       map[string]string
-	machineUUIDName    coremachine.Name
+	machineUUIDName    string
 }
 
 func newStubModelState() *stubModelState {
@@ -335,7 +335,7 @@ func (s *stubModelState) InsertSSHConnRequest(_ context.Context, req domainssh.S
 	return nil
 }
 
-func (s *stubModelState) GetSSHConnRequest(_ context.Context, machineName coremachine.Name, tunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+func (s *stubModelState) GetSSHConnRequest(_ context.Context, machineName string, tunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
 	s.getMachineName = machineName
 	s.getTunnelID = tunnelID
 	s.getNow = now
@@ -352,9 +352,9 @@ func (s *stubModelState) PruneExpiredSSHConnRequests(_ context.Context, now time
 	return nil
 }
 
-func (s *stubModelState) GetMachineUUIDByName(_ context.Context, machineName coremachine.Name) (string, error) {
+func (s *stubModelState) GetMachineUUIDByName(_ context.Context, machineName string) (string, error) {
 	s.machineUUIDName = machineName
-	uuid, ok := s.machineUUIDs[machineName.String()]
+	uuid, ok := s.machineUUIDs[machineName]
 	if !ok {
 		return "", errors.Errorf("machine %q not found", machineName)
 	}

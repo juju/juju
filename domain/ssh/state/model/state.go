@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
@@ -401,7 +400,7 @@ VALUES ($sshConnRequestAddress.*)`, sshConnRequestAddress{})
 // scoped to the named machine. The machine filter is applied in the query so a
 // request targeting another machine is reported as not found, rather than being
 // fetched and rejected afterwards.
-func (st *State) GetSSHConnRequest(ctx context.Context, machineName coremachine.Name, requestTunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
+func (st *State) GetSSHConnRequest(ctx context.Context, machineName string, requestTunnelID string, now time.Time) (domainssh.SSHConnRequest, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Capture(err)
@@ -440,7 +439,7 @@ ORDER BY index_id ASC`, sshConnRequestAddress{}, tunnelID{})
 		}
 
 		row := sshConnRequestRecord{}
-		err := tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}, entityName{Name: machineName.String()}).Get(&row)
+		err := tx.Query(ctx, stmt, tunnelID{TunnelID: requestTunnelID}, entityName{Name: machineName}).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("SSH connection request %q not found", requestTunnelID).Add(coreerrors.NotFound)
 		}
@@ -526,7 +525,7 @@ func (*State) InitialWatchSSHConnRequestsStatement() (string, string) {
 }
 
 // GetMachineUUIDByName returns the UUID of the named machine.
-func (st *State) GetMachineUUIDByName(ctx context.Context, machineName coremachine.Name) (string, error) {
+func (st *State) GetMachineUUIDByName(ctx context.Context, machineName string) (string, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
 		return "", errors.Capture(err)
@@ -542,7 +541,7 @@ WHERE name = $entityName.name`, entityUUID{}, entityName{})
 
 	var machineUUID entityUUID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, entityName{Name: machineName.String()}).Get(&machineUUID)
+		err := tx.Query(ctx, stmt, entityName{Name: machineName}).Get(&machineUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("machine %q %w", machineName, machineerrors.MachineNotFound)
 		}

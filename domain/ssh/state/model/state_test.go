@@ -12,7 +12,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
-	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
@@ -179,7 +178,7 @@ func (s *stateSuite) TestInsertAndGetSSHConnRequest(c *tc.C) {
 	err := st.InsertSSHConnRequest(c.Context(), req, now)
 	c.Assert(err, tc.ErrorIsNil)
 
-	got, err := st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), req.TunnelID, now)
+	got, err := st.GetSSHConnRequest(c.Context(), "1", req.TunnelID, now)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got.TunnelID, tc.Equals, req.TunnelID)
 	c.Check(got.MachineName, tc.Equals, req.MachineName)
@@ -212,12 +211,12 @@ func (s *stateSuite) TestGetSSHConnRequestOtherMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Machine "1" can read its own request.
-	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), req.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), "1", req.TunnelID, now)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Machine "2" cannot read machine "1"'s request; it is reported as not
 	// found rather than being returned.
-	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("2"), req.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), "2", req.TunnelID, now)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -254,7 +253,7 @@ func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
 	err = st.RemoveSSHConnRequest(c.Context(), req.TunnelID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), req.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), "1", req.TunnelID, now)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -273,9 +272,9 @@ func (s *stateSuite) TestPruneExpiredSSHConnRequests(c *tc.C) {
 	err = st.PruneExpiredSSHConnRequests(c.Context(), now)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), activeReq.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), "1", activeReq.TunnelID, now)
 	c.Assert(err, tc.ErrorIsNil)
-	_, err = st.GetSSHConnRequest(c.Context(), coremachine.Name("1"), expiredReq.TunnelID, now)
+	_, err = st.GetSSHConnRequest(c.Context(), "1", expiredReq.TunnelID, now)
 	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
 }
 
@@ -292,11 +291,11 @@ func (s *stateSuite) TestGetMachineUUIDByName(c *tc.C) {
 	st := sshmodelstate.NewState(txRunnerFactory(s.ModelTxnRunner()))
 	machineUUID := s.addMachine(c, "1")
 
-	got, err := st.GetMachineUUIDByName(c.Context(), coremachine.Name("1"))
+	got, err := st.GetMachineUUIDByName(c.Context(), "1")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.Equals, machineUUID)
 
-	_, err = st.GetMachineUUIDByName(c.Context(), coremachine.Name("99"))
+	_, err = st.GetMachineUUIDByName(c.Context(), "99")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 

@@ -70,7 +70,7 @@ func (s *WatchableService) WatchSSHConnRequest(ctx context.Context, machineName 
 
 	// Resolve the machine UUID up front so the watcher's initial query and
 	// mapper are both scoped to this machine.
-	machineUUID, err := s.state.GetMachineUUIDByName(ctx, machineName)
+	machineUUID, err := s.state.GetMachineUUIDByName(ctx, machineName.String())
 	if err != nil {
 		return nil, errors.Errorf("getting UUID for machine %q: %w", machineName, err)
 	}
@@ -152,7 +152,7 @@ func (s *Service) GetSSHConnRequest(ctx context.Context, machineName coremachine
 		return domainssh.SSHConnRequest{}, errors.Errorf("tunnel id is not a uuid").Add(coreerrors.NotValid)
 	}
 
-	req, err := s.state.GetSSHConnRequest(ctx, machineName, tunnelID, s.clock.Now())
+	req, err := s.state.GetSSHConnRequest(ctx, machineName.String(), tunnelID, s.clock.Now())
 	if err != nil {
 		return domainssh.SSHConnRequest{}, errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
 	}
