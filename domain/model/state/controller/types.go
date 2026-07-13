@@ -386,3 +386,10 @@ type dbRedirectUser struct {
 	UserName string `db:"user_name"`
 	Access   string `db:"access"`
 }
+
+// dbModelDatabaseDeletion maps a model_database_deletion row: a dqlite
+// namespace staged for deletion after its model was purged from this
+// controller.
+type dbModelDatabaseDeletion struct {
+	Namespace string `db:"namespace"`
+}

@@ -95,6 +95,7 @@ import (
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
+	"github.com/juju/juju/internal/worker/modeldbdeleter"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstoredrainer"
@@ -948,6 +949,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                     config.Clock,
 		})),
 
+		modelDBDeleterName: ifController(modeldbdeleter.Manifold(modeldbdeleter.ManifoldConfig{
+			DBAccessorName:     dbAccessorName,
+			DomainServicesName: domainServicesName,
+			NewWorker:          modeldbdeleter.NewWorker,
+			GetDeletionService: modeldbdeleter.GetModelDatabaseDeletionService,
+			Logger:             internallogger.GetLogger("juju.worker.modeldbdeleter"),
+			Clock:              config.Clock,
+		})),
+
 		watcherRegistryName: ifController(watcherregistry.Manifold(watcherregistry.ManifoldConfig{
 			NewWorker: watcherregistry.NewWorker,
 			Clock:     config.Clock,
@@ -1472,6 +1482,7 @@ const (
 	traceName                          = "trace"
 	validCredentialFlagName            = "valid-credential-flag"
 	undertakerName                     = "undertaker"
+	modelDBDeleterName                 = "model-db-deleter"
 	machineSetupName                   = "machine-setup"
 	watcherRegistryName                = "watcher-registry"
 )

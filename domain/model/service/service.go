@@ -204,6 +204,14 @@ type State interface {
 	// are excluded, mirroring the restrictions applied to a normal login.
 	GetModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]model.RedirectUser, error)
 
+	// GetPendingModelDatabaseDeletions returns the dqlite namespaces staged
+	// for deletion after their model was purged from this controller.
+	GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error)
+
+	// RemoveModelDatabaseDeletion removes the staged deletion for the given
+	// namespace, marking it complete.
+	RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error
+
 	// InitialWatchActivatedModelsStatement returns a SQL statement that will
 	// get all the activated models UUIDS in the controller.
 	InitialWatchActivatedModelsStatement() (string, string)
@@ -707,6 +715,25 @@ func (s *Service) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
 	return s.st.GetDeadModels(ctx)
 }
 
+// GetPendingModelDatabaseDeletions returns the dqlite namespaces staged for
+// deletion after their model was purged from this controller (currently by
+// source-side migration REAP).
+func (s *Service) GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetPendingModelDatabaseDeletions(ctx)
+}
+
+// RemoveModelDatabaseDeletion removes the staged deletion for the given dqlite
+// namespace, marking it complete once its database has been deleted.
+func (s *Service) RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.RemoveModelDatabaseDeletion(ctx, namespace)
+}
+
 // NotifyMapperWatcherFactory describes methods for creating notify watchers.
 type NotifyMapperWatcherFactory interface {
 	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
@@ -852,6 +879,21 @@ func (s *WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatch
 		ctx,
 		"models watcher",
 		eventsource.NamespaceFilter("model", changestream.All),
+	)
+}
+
+// WatchModelDatabaseDeletions returns a watcher that emits an event when a
+// model database deletion is staged or re-staged. Deletion of the row (once
+// the model DB deleter worker has processed it) is not watched: that event is
+// self-inflicted by the worker's own completion and never signals new work.
+func (s *WatchableService) WatchModelDatabaseDeletions(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"model database deletions watcher",
+		eventsource.NamespaceFilter("model_database_deletion", changestream.Changed),
 	)
 }
 

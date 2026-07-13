@@ -62,6 +62,14 @@ func (d *dummyState) GetModelRedirectUsers(ctx context.Context, uuid coremodel.U
 	return nil, nil
 }
 
+func (d *dummyState) GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error) {
+	return nil, nil
+}
+
+func (d *dummyState) RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error {
+	return nil
+}
+
 type dummyDeleter struct {
 	deleted map[string]struct{}
 }
