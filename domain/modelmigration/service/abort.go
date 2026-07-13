@@ -48,6 +48,21 @@ func (s *Service) FinalizeAbortedImport(ctx context.Context, modelUUID coremodel
 	return s.controllerState.FinalizeAbortedImport(ctx, modelUUID.String())
 }
 
+// StageAbortedModelDatabaseDeletion hands the aborted model's dqlite database
+// off to the undertaker's model-database deleter (removing its namespace
+// registration and staging the deletion), so the database is dropped out of
+// band before the claim is finalized. It is idempotent.
+func (s *Service) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID coremodel.UUID) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.StageAbortedModelDatabaseDeletion(ctx, modelUUID.String())
+}
+
 // GetAllImportClaims returns a snapshot of every outstanding import claim, for
 // the abort reconciler to scan.
 func (s *Service) GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error) {

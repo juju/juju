@@ -283,6 +283,12 @@ type ControllerState interface {
 	// is still registered, i.e. whether the model database may still need
 	// dropping before abort finalization.
 	IsImportNamespaceRegistered(ctx context.Context, modelUUID string) (bool, error)
+
+	// StageAbortedModelDatabaseDeletion removes the aborted model's namespace
+	// registration and stages its dqlite database for deletion by the
+	// undertaker's model-database deleter. It asserts the claim is aborting and
+	// is idempotent.
+	StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID string) error
 }
 
 // ModelState defines the interface required for accessing the underlying state

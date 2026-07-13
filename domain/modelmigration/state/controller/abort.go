@@ -173,23 +173,89 @@ LIMIT  1
 	return registered, nil
 }
 
+// StageAbortedModelDatabaseDeletion hands the aborted model's dqlite database
+// off to the undertaker's model-database deleter, in a single transaction: it
+// removes the model's namespace_list registration (so the deleter no longer
+// treats the model as live and will actually drop the database) and stages a
+// model_database_deletion row keyed by the model UUID. The undertaker drops the
+// database asynchronously and removes the staged row on success;
+// [State.FinalizeAbortedImport] then releases the claim once the staged row is
+// gone.
+//
+// It asserts, in the same transaction, that the claim is in the aborting phase,
+// so a live model's database can never be staged for deletion. It is idempotent:
+// the namespace delete is a no-op once done, and the staged row is upserted, so
+// re-driving it (or racing another controller node) is safe. Returns
+// [modelmigrationerrors.ErrImportNotFound] when no claim exists and
+// [modelmigrationerrors.ErrPhaseTransitionInvalid] when the claim is not
+// aborting.
+func (s *State) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID string) error {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	nsArg := namespaceArg{Namespace: modelUUID}
+	deleteNamespaceListStmt, err := s.Prepare(`
+DELETE FROM namespace_list
+WHERE  namespace = $namespaceArg.namespace
+`, nsArg)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	stageDeletionStmt, err := s.Prepare(`
+INSERT INTO model_database_deletion (*)
+VALUES ($modelDatabaseDeletion.*)
+ON CONFLICT (namespace) DO UPDATE SET created_at = excluded.created_at
+`, modelDatabaseDeletion{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		claim, err := s.getImportClaim(ctx, tx, modelUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if claim.Phase != modelmigration.ImportPhaseAborting {
+			return errors.Errorf(
+				"import claim is %q, expected aborting: %w",
+				claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
+			)
+		}
+
+		if err := tx.Query(ctx, deleteNamespaceListStmt, nsArg).Run(); err != nil {
+			return errors.Errorf("deleting namespace registration: %w", err)
+		}
+		if err := tx.Query(ctx, stageDeletionStmt, modelDatabaseDeletion{
+			Namespace: modelUUID,
+			CreatedAt: s.clock.Now().UTC(),
+		}).Run(); err != nil {
+			return errors.Errorf("staging model database deletion: %w", err)
+		}
+		return nil
+	})
+}
+
 // FinalizeAbortedImport deletes the model_migration_import claim and its
 // FK-dependent companion rows (model_migration_import_offer,
-// model_migration_import_external_controller_model) along with the model's
-// namespace_list registration, in a single transaction, once abort cleanup is
-// provably complete. It asserts, in the same transaction, that the claim is in
-// the aborting phase and that the controller model identity row and its
-// model_namespace row are both gone; if either still exists it returns
-// [modelmigrationerrors.ErrAbortNotFinalizable] and makes no deletions, leaving
-// the claim in aborting for a later retry. It is idempotent when no claim
-// exists (already finalized). Returns
+// model_migration_import_external_controller_model) in a single transaction,
+// once abort cleanup is provably complete. It asserts, in the same transaction,
+// that the claim is in the aborting phase, that the controller model identity
+// row and its model_namespace row are both gone, and that no
+// model_database_deletion row is still staged for the model's namespace (which
+// would mean the undertaker has not yet dropped the model database); if any of
+// these does not hold it returns [modelmigrationerrors.ErrAbortNotFinalizable]
+// and makes no deletions, leaving the claim in aborting for a later retry. It is
+// idempotent when no claim exists (already finalized). Returns
 // [modelmigrationerrors.ErrPhaseTransitionInvalid] when a claim exists but is
 // not aborting.
 //
-// The model dqlite database must already have been dropped by the caller before
-// this runs: deleting the namespace_list registration here removes the last
-// handle through which the database could be reopened, so dropping it
-// afterwards would be impossible. The abort reconciler enforces that ordering.
+// The model dqlite database is dropped out of band by the undertaker's
+// model-database deleter after [State.StageAbortedModelDatabaseDeletion] has
+// removed the namespace_list registration and staged the deletion. This method
+// only releases the durable claim, and only once that drop is proven complete
+// (the staged row is gone). The abort reconciler enforces that ordering.
 func (s *State) FinalizeAbortedImport(ctx context.Context, modelUUID string) error {
 	db, err := s.DB(ctx)
 	if err != nil {
@@ -217,10 +283,12 @@ LIMIT  1
 	if err != nil {
 		return errors.Capture(err)
 	}
-	deleteNamespaceListStmt, err := s.Prepare(`
-DELETE FROM namespace_list
+	stagedDeletionStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
+FROM   model_database_deletion
 WHERE  namespace = $namespaceArg.namespace
-`, nsArg)
+LIMIT  1
+`, countResult{}, nsArg)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -264,7 +332,9 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 		}
 
 		// Finalization predicates: the controller model identity row and its
-		// namespace mapping must both be gone before the claim can be released.
+		// namespace mapping must both be gone, and the model database must have
+		// been dropped by the undertaker (its staged deletion row cleared),
+		// before the claim can be released.
 		if modelExists, err := rowExists(ctx, tx, modelStmt, mUUID); err != nil {
 			return errors.Errorf("checking model row for model %q: %w", modelUUID, err)
 		} else if modelExists {
@@ -279,13 +349,16 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 				"model %q namespace mapping still present: %w",
 				modelUUID, modelmigrationerrors.ErrAbortNotFinalizable)
 		}
-
-		// Cleanup is proven complete. Remove the namespace registration and the
-		// claim (companions first, since their FKs onto the claim do not
-		// cascade).
-		if err := tx.Query(ctx, deleteNamespaceListStmt, nsArg).Run(); err != nil {
-			return errors.Errorf("deleting namespace registration: %w", err)
+		if staged, err := rowExists(ctx, tx, stagedDeletionStmt, nsArg); err != nil {
+			return errors.Errorf("checking staged database deletion for model %q: %w", modelUUID, err)
+		} else if staged {
+			return errors.Errorf(
+				"model %q database deletion still pending: %w",
+				modelUUID, modelmigrationerrors.ErrAbortNotFinalizable)
 		}
+
+		// Cleanup is proven complete. Remove the claim (companions first, since
+		// their FKs onto the claim do not cascade).
 		if err := tx.Query(ctx, deleteOffersStmt, mUUID).Run(); err != nil {
 			return errors.Errorf("deleting import offer companions: %w", err)
 		}

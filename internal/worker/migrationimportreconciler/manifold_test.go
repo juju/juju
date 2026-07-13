@@ -73,8 +73,6 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 
 	c.Check(captured.Service, tc.NotNil)
 	c.Check(captured.Abort, tc.NotNil)
-	c.Check(captured.DBGetter, tc.NotNil)
-	c.Check(captured.DBDeleter, tc.NotNil)
 	c.Check(captured.Clock, tc.NotNil)
 	c.Check(captured.Logger, tc.NotNil)
 }

@@ -52,6 +52,27 @@ func (s *serviceSuite) TestFinalizeAbortedImportInvalidModelUUID(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
+// TestStageAbortedModelDatabaseDeletion asserts the staging is delegated to
+// state.
+func (s *serviceSuite) TestStageAbortedModelDatabaseDeletion(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	s.controllerState.EXPECT().StageAbortedModelDatabaseDeletion(gomock.Any(), modelUUID.String()).Return(nil)
+
+	err := s.service(c).StageAbortedModelDatabaseDeletion(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestStageAbortedModelDatabaseDeletionInvalidModelUUID asserts an invalid model
+// UUID is rejected before any state call.
+func (s *serviceSuite) TestStageAbortedModelDatabaseDeletionInvalidModelUUID(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service(c).StageAbortedModelDatabaseDeletion(c.Context(), coremodel.UUID("not-a-uuid"))
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+}
+
 // TestGetAllImportClaims asserts the scan is delegated to state and returned
 // unchanged.
 func (s *serviceSuite) TestGetAllImportClaims(c *tc.C) {

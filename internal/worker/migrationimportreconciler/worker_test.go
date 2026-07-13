@@ -35,22 +35,18 @@ func (s *configSuite) TestValidate(c *tc.C) {
 	defer ctrl.Finish()
 
 	base := Config{
-		Service:   NewMockService(ctrl),
-		Abort:     func(context.Context, coremodel.UUID) error { return nil },
-		DBGetter:  NewMockDBGetter(ctrl),
-		DBDeleter: NewMockDBDeleter(ctrl),
-		Clock:     testclock.NewClock(time.Now()),
-		Logger:    loggertesting.WrapCheckLog(c),
+		Service: NewMockService(ctrl),
+		Abort:   func(context.Context, coremodel.UUID) error { return nil },
+		Clock:   testclock.NewClock(time.Now()),
+		Logger:  loggertesting.WrapCheckLog(c),
 	}
 	c.Check(base.Validate(), tc.ErrorIsNil)
 
 	for name, mut := range map[string]func(*Config){
-		"Service":   func(cfg *Config) { cfg.Service = nil },
-		"Abort":     func(cfg *Config) { cfg.Abort = nil },
-		"DBGetter":  func(cfg *Config) { cfg.DBGetter = nil },
-		"DBDeleter": func(cfg *Config) { cfg.DBDeleter = nil },
-		"Clock":     func(cfg *Config) { cfg.Clock = nil },
-		"Logger":    func(cfg *Config) { cfg.Logger = nil },
+		"Service": func(cfg *Config) { cfg.Service = nil },
+		"Abort":   func(cfg *Config) { cfg.Abort = nil },
+		"Clock":   func(cfg *Config) { cfg.Clock = nil },
+		"Logger":  func(cfg *Config) { cfg.Logger = nil },
 	} {
 		cfg := base
 		mut(&cfg)
@@ -59,10 +55,8 @@ func (s *configSuite) TestValidate(c *tc.C) {
 }
 
 type workerSuite struct {
-	service   *MockService
-	dbGetter  *MockDBGetter
-	dbDeleter *MockDBDeleter
-	clock     *testclock.Clock
+	service *MockService
+	clock   *testclock.Clock
 
 	aborted  chan coremodel.UUID
 	abortErr error
@@ -71,8 +65,6 @@ type workerSuite struct {
 func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.service = NewMockService(ctrl)
-	s.dbGetter = NewMockDBGetter(ctrl)
-	s.dbDeleter = NewMockDBDeleter(ctrl)
 	s.clock = testclock.NewClock(time.Now())
 	s.aborted = make(chan coremodel.UUID, 16)
 	s.abortErr = nil
@@ -86,10 +78,8 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			s.aborted <- modelUUID
 			return s.abortErr
 		},
-		DBGetter:  s.dbGetter,
-		DBDeleter: s.dbDeleter,
-		Clock:     s.clock,
-		Logger:    loggertesting.WrapCheckLog(c),
+		Clock:  s.clock,
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return w
@@ -111,8 +101,9 @@ func abortingClaim(modelUUID coremodel.UUID, updatedAt time.Time) modelmigration
 	}
 }
 
-// TestFinalizesAbortingClaim verifies the reconciler re-drives the abort,
-// drops the model database while its namespace is registered, then finalizes.
+// TestFinalizesAbortingClaim verifies the reconciler re-drives the abort, stages
+// the model database for deletion while its namespace is registered, then
+// finalizes.
 func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -123,8 +114,7 @@ func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 		Return([]modelmigration.ImportClaimStatus{abortingClaim(modelUUID, s.clock.Now())}, nil)
 	gomock.InOrder(
 		s.service.EXPECT().IsImportNamespaceRegistered(gomock.Any(), modelUUID).Return(true, nil),
-		s.dbGetter.EXPECT().GetDB(gomock.Any(), modelUUID.String()).Return(nil, nil),
-		s.dbDeleter.EXPECT().DeleteDB(modelUUID.String()).Return(nil),
+		s.service.EXPECT().StageAbortedModelDatabaseDeletion(gomock.Any(), modelUUID).Return(nil),
 		s.service.EXPECT().FinalizeAbortedImport(gomock.Any(), modelUUID).DoAndReturn(
 			func(context.Context, coremodel.UUID) error { close(done); return nil }),
 	)
@@ -149,10 +139,10 @@ func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 	}
 }
 
-// TestUnregisteredNamespaceSkipsDatabaseDrop verifies that when the model's
-// namespace is no longer registered, the reconciler finalizes without touching
-// the DB accessor.
-func (s *workerSuite) TestUnregisteredNamespaceSkipsDatabaseDrop(c *tc.C) {
+// TestUnregisteredNamespaceSkipsStaging verifies that when the model's namespace
+// is no longer registered (the database was never created or already staged),
+// the reconciler finalizes without staging a deletion.
+func (s *workerSuite) TestUnregisteredNamespaceSkipsStaging(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	modelUUID := coremodel.UUID(uuid.MustNewUUID().String())
@@ -165,8 +155,8 @@ func (s *workerSuite) TestUnregisteredNamespaceSkipsDatabaseDrop(c *tc.C) {
 		func(context.Context, coremodel.UUID) error { close(done); return nil })
 	s.service.EXPECT().GetAllImportClaims(gomock.Any()).Return(nil, nil).AnyTimes()
 
-	// No GetDB / DeleteDB expectations: the mock controller fails the test if
-	// either is called.
+	// No StageAbortedModelDatabaseDeletion expectation: the mock controller
+	// fails the test if it is called.
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)

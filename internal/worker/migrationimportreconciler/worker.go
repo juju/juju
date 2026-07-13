@@ -8,11 +8,14 @@
 // claim, the model database, and the namespace registration are deliberately
 // left in place until cleanup is provably complete. This worker periodically
 // scans for aborting claims and finishes that cleanup: it re-drives the abort
-// compensation, drops the model database while its namespace is still
-// registered, then finalizes the abort by deleting the namespace registration
-// and the claim. It also warns about claims stuck in the importing or
-// activating phase past a conservative age, which indicate a source controller
-// that never completed or aborted a migration.
+// compensation, then, while the namespace is still registered, stages the model
+// database for deletion (removing the namespace registration and recording a
+// model_database_deletion row). The undertaker's model-database deleter drops
+// the database out of band and clears the staged row; the reconciler finalizes
+// the abort by deleting the claim only once that drop is proven complete. It
+// also warns about claims stuck in the importing or activating phase past a
+// conservative age, which indicate a source controller that never completed or
+// aborted a migration.
 package migrationimportreconciler
 
 import (
@@ -21,12 +24,10 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
-	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
@@ -64,15 +65,19 @@ type Service interface {
 	GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error)
 
 	// IsImportNamespaceRegistered reports whether the model's dqlite namespace
-	// is still registered, i.e. whether the model database may still need
-	// dropping before finalization.
+	// is still registered, i.e. whether the model database still needs staging
+	// for deletion before finalization.
 	IsImportNamespaceRegistered(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
 
-	// FinalizeAbortedImport deletes the model's import claim, its companion
-	// rows, and its namespace registration once abort cleanup is provably
-	// complete. It returns
-	// [modelmigrationerrors.ErrAbortNotFinalizable] when cleanup is not yet
-	// provable.
+	// StageAbortedModelDatabaseDeletion removes the aborted model's namespace
+	// registration and stages its dqlite database for deletion by the
+	// undertaker's model-database deleter. It is idempotent.
+	StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID coremodel.UUID) error
+
+	// FinalizeAbortedImport deletes the model's import claim and its companion
+	// rows once abort cleanup is provably complete (the model database has been
+	// dropped). It returns [modelmigrationerrors.ErrAbortNotFinalizable] when
+	// cleanup is not yet provable.
 	FinalizeAbortedImport(ctx context.Context, modelUUID coremodel.UUID) error
 }
 
@@ -91,13 +96,6 @@ type Config struct {
 	// Abort re-drives the controller-database abort compensation for a model.
 	Abort AbortFunc
 
-	// DBGetter warms the model database's namespace worker on this node so that
-	// DBDeleter can drop the database.
-	DBGetter coredatabase.DBGetter
-
-	// DBDeleter drops a model's dqlite database.
-	DBDeleter coredatabase.DBDeleter
-
 	// Clock provides the current time and timers.
 	Clock clock.Clock
 
@@ -112,12 +110,6 @@ func (c Config) Validate() error {
 	}
 	if c.Abort == nil {
 		return errors.Errorf("nil Abort").Add(coreerrors.NotValid)
-	}
-	if c.DBGetter == nil {
-		return errors.Errorf("nil DBGetter").Add(coreerrors.NotValid)
-	}
-	if c.DBDeleter == nil {
-		return errors.Errorf("nil DBDeleter").Add(coreerrors.NotValid)
 	}
 	if c.Clock == nil {
 		return errors.Errorf("nil Clock").Add(coreerrors.NotValid)
@@ -266,11 +258,18 @@ func (w *Reconciler) reconcileAborting(ctx context.Context, claim modelmigration
 		claim.ModelUUID, claim.SourceMigrationUUID)
 }
 
-// finalizeAbort re-drives the abort compensation, drops the model database while
-// its namespace is still registered, then finalizes the claim. The ordering is
-// load-bearing: the database must be dropped before FinalizeAbortedImport
-// deletes the namespace registration, because that registration is the only
-// handle through which the database can be reopened to drop it.
+// finalizeAbort re-drives the abort compensation, stages the model database for
+// deletion while its namespace is still registered, then finalizes the claim.
+// The database drop itself is performed out of band by the undertaker's
+// model-database deleter; finalization only releases the claim once that drop is
+// proven complete (the staged deletion row is gone), so FinalizeAbortedImport
+// returns ErrAbortNotFinalizable until then and this method retries on the next
+// scan.
+//
+// The ordering is load-bearing: staging removes the namespace registration and
+// records the deletion in one transaction, so the undertaker treats the
+// database as eligible to drop; the claim gates any same-UUID re-import until
+// the drop completes, so the namespace cannot be re-registered mid-drop.
 func (w *Reconciler) finalizeAbort(ctx context.Context, modelUUID coremodel.UUID) error {
 	if err := w.config.Abort(ctx, modelUUID); err != nil {
 		return errors.Errorf("re-driving abort compensation: %w", err)
@@ -281,16 +280,11 @@ func (w *Reconciler) finalizeAbort(ctx context.Context, modelUUID coremodel.UUID
 		return errors.Errorf("checking namespace registration: %w", err)
 	}
 	if registered {
-		// Warm the namespace worker on this node so DeleteDB can find it, then
-		// drop the database. A namespace that is registered but has no live
-		// database yields ErrDBNotFound/NotFound, which is a benign no-op here.
-		if _, err := w.config.DBGetter.GetDB(ctx, modelUUID.String()); err != nil &&
-			!errors.Is(err, coredatabase.ErrDBNotFound) {
-			return errors.Errorf("opening model database: %w", err)
-		}
-		if err := w.config.DBDeleter.DeleteDB(modelUUID.String()); err != nil &&
-			!jujuerrors.Is(err, jujuerrors.NotFound) {
-			return errors.Errorf("deleting model database: %w", err)
+		// Hand the database off to the undertaker's model-database deleter. This
+		// removes the namespace registration, so subsequent scans skip this
+		// branch and do not re-stage. Staging is idempotent regardless.
+		if err := w.config.Service.StageAbortedModelDatabaseDeletion(ctx, modelUUID); err != nil {
+			return errors.Errorf("staging model database deletion: %w", err)
 		}
 	}
 

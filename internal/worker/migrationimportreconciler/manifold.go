@@ -70,14 +70,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err := getter.Get(config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Capture(err)
 	}
-	var dbDeleter coredatabase.DBDeleter
-	if err := getter.Get(config.DBAccessorName, &dbDeleter); err != nil {
-		return nil, errors.Capture(err)
-	}
 
-	// The reconciler works entirely on the controller database (import claims
-	// and namespace registrations) plus the DB accessor (to drop model
-	// databases). Build a controller-DB txn-runner factory from the accessor and
+	// The reconciler works entirely on the controller database (import claims,
+	// namespace registrations and staged model-database deletions). The database
+	// drop itself is performed out of band by the undertaker's model-database
+	// deleter. Build a controller-DB txn-runner factory from the accessor and
 	// construct the controller-scoped modelmigration import service directly,
 	// mirroring how the migration import path constructs its own controller
 	// services; this avoids widening the controller domain services interface
@@ -97,9 +94,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		Abort: func(ctx context.Context, modelUUID coremodel.UUID) error {
 			return migration.AbortModelImport(ctx, deps, modelUUID)
 		},
-		DBGetter:  dbGetter,
-		DBDeleter: dbDeleter,
-		Clock:     config.Clock,
-		Logger:    config.Logger,
+		Clock:  config.Clock,
+		Logger: config.Logger,
 	})
 }

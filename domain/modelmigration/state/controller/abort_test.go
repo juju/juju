@@ -168,26 +168,93 @@ func (s *stateSuite) TestFinalizeAbortedImportIdempotent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestFinalizeAbortedImport verifies that once the model identity and namespace
-// rows are gone, finalization deletes the namespace registration, the companion
-// rows, and the claim.
-func (s *stateSuite) TestFinalizeAbortedImport(c *tc.C) {
+// TestStageAbortedModelDatabaseDeletion verifies staging deletes the namespace
+// registration and records a model_database_deletion row for the undertaker.
+func (s *stateSuite) TestStageAbortedModelDatabaseDeletion(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)
 	db := s.DB()
 
-	// Use a model UUID with no model row (simulating that compensation has
-	// already deleted the identity and namespace mapping), but with a namespace
-	// still registered (the database has not yet been dropped/deregistered).
 	modelUUID := uuid.MustNewUUID().String()
-	claimUUID := s.insertClaim(c, modelUUID)
+	s.insertClaim(c, modelUUID)
 	s.setImportPhase(c, modelUUID, 2) // aborting
 	_, err := db.ExecContext(c.Context(),
 		"INSERT INTO namespace_list (namespace) VALUES (?)", modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
+	err = st.StageAbortedModelDatabaseDeletion(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The namespace registration is gone and a deletion is staged.
+	var nsCount, delCount int
+	err = db.QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM namespace_list WHERE namespace = ?", modelUUID).Scan(&nsCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nsCount, tc.Equals, 0)
+	err = db.QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM model_database_deletion WHERE namespace = ?", modelUUID).Scan(&delCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(delCount, tc.Equals, 1)
+
+	// Staging again is idempotent (the deletion row is upserted).
+	err = st.StageAbortedModelDatabaseDeletion(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	err = db.QueryRowContext(c.Context(),
+		"SELECT COUNT(*) FROM model_database_deletion WHERE namespace = ?", modelUUID).Scan(&delCount)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(delCount, tc.Equals, 1)
+}
+
+// TestStageAbortedModelDatabaseDeletionWrongPhase verifies staging refuses a
+// claim that is not aborting, so a live model's database can never be staged.
+func (s *stateSuite) TestStageAbortedModelDatabaseDeletionWrongPhase(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	s.insertClaim(c, s.modelUUID.String()) // importing
+
+	err := st.StageAbortedModelDatabaseDeletion(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrPhaseTransitionInvalid)
+}
+
+// TestFinalizeAbortedImportDeletionPending verifies finalization refuses to
+// release the claim while the model database deletion is still staged (the
+// undertaker has not yet dropped the database).
+func (s *stateSuite) TestFinalizeAbortedImportDeletionPending(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	// A model UUID with no model row (compensation done) but a still-staged
+	// database deletion.
+	modelUUID := uuid.MustNewUUID().String()
+	s.insertClaim(c, modelUUID)
+	s.setImportPhase(c, modelUUID, 2) // aborting
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO model_database_deletion (namespace, created_at) VALUES (?, DATETIME('now'))", modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.FinalizeAbortedImport(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrAbortNotFinalizable)
+
+	// The claim is preserved for a later retry.
+	c.Check(s.importPhase(c, modelUUID), tc.Equals, modelmigration.ImportPhaseAborting)
+}
+
+// TestFinalizeAbortedImport verifies that once the model identity and namespace
+// rows are gone and the database deletion has been completed by the undertaker
+// (no staged row), finalization deletes the companion rows and the claim.
+func (s *stateSuite) TestFinalizeAbortedImport(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	db := s.DB()
+
+	// Use a model UUID with no model row (simulating that compensation has
+	// already deleted the identity and namespace mapping) and no staged database
+	// deletion (the undertaker has already dropped the database).
+	modelUUID := uuid.MustNewUUID().String()
+	claimUUID := s.insertClaim(c, modelUUID)
+	s.setImportPhase(c, modelUUID, 2) // aborting
+
 	// Companion rows that must be removed with the claim.
 	offerUUID := uuid.MustNewUUID().String()
-	_, err = db.ExecContext(c.Context(),
+	_, err := db.ExecContext(c.Context(),
 		"INSERT INTO model_migration_import_offer (migration_uuid, offer_uuid) VALUES (?, ?)",
 		claimUUID, offerUUID)
 	c.Assert(err, tc.ErrorIsNil)
@@ -205,7 +272,7 @@ func (s *stateSuite) TestFinalizeAbortedImport(c *tc.C) {
 	err = st.FinalizeAbortedImport(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Claim, companions, and namespace registration are all gone.
+	// Claim and companions are all gone.
 	tableKeyColumns := map[string]string{
 		"model_migration_import":                           "model_uuid",
 		"model_migration_import_offer":                     "migration_uuid",
@@ -222,9 +289,4 @@ func (s *stateSuite) TestFinalizeAbortedImport(c *tc.C) {
 		c.Assert(err, tc.ErrorIsNil)
 		c.Check(count, tc.Equals, 0, tc.Commentf("table %q still has rows", table))
 	}
-	var nsCount int
-	err = db.QueryRowContext(c.Context(),
-		"SELECT COUNT(*) FROM namespace_list WHERE namespace = ?", modelUUID).Scan(&nsCount)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(nsCount, tc.Equals, 0)
 }

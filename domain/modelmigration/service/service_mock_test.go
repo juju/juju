@@ -157,6 +157,7 @@ type MockControllerStateMockRecorder struct {
 	setImportPhaseActivatingExpects          []*gomock.Call2_1[context.Context, string, error]
 	setPhaseExpects                          []*gomock.Call3_1[context.Context, string, migration.Phase, error]
 	setStatusMessageExpects                  []*gomock.Call3_1[context.Context, string, string, error]
+	stageAbortedModelDatabaseDeletionExpects []*gomock.Call2_1[context.Context, string, error]
 	stageModelRedirectExpects                []*gomock.Call5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error]
 }
 
@@ -837,6 +838,24 @@ func (mr *MockControllerStateMockRecorder) SetStatusMessage(ctx, migrationUUID, 
 
 // MockControllerStateSetStatusMessageCall is the typed call wrapper for SetStatusMessage.
 type MockControllerStateSetStatusMessageCall = gomock.Call3_1[context.Context, string, string, error]
+
+// StageAbortedModelDatabaseDeletion mocks base method.
+func (m *MockControllerState) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.stageAbortedModelDatabaseDeletionExpects, m.ctrl, m, "StageAbortedModelDatabaseDeletion", ctx, modelUUID)
+}
+
+// StageAbortedModelDatabaseDeletion indicates an expected call of StageAbortedModelDatabaseDeletion.
+func (mr *MockControllerStateMockRecorder) StageAbortedModelDatabaseDeletion(ctx, modelUUID any) *MockControllerStateStageAbortedModelDatabaseDeletionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "StageAbortedModelDatabaseDeletion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.stageAbortedModelDatabaseDeletionExpects = append(mr.stageAbortedModelDatabaseDeletionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateStageAbortedModelDatabaseDeletionCall is the typed call wrapper for StageAbortedModelDatabaseDeletion.
+type MockControllerStateStageAbortedModelDatabaseDeletionCall = gomock.Call2_1[context.Context, string, error]
 
 // StageModelRedirect mocks base method.
 func (m *MockControllerState) StageModelRedirect(ctx context.Context, migrationUUID, modelUUID string, target internal.RedirectionTarget, users []internal.RedirectUserAccess) error {
