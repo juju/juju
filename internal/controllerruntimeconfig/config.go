@@ -179,6 +179,26 @@ func (cfg ControllerRuntimeConfig) UpgradedToVersion() semversion.Number {
 	return cfg.UpgradedToVersionNum
 }
 
+// EffectiveSocketDir returns SocketDir when set, otherwise falls back to DataDir.
+// This is the single point of truth for resolving the directory where
+// control.socket and configchange.socket are created.
+func (cfg ControllerRuntimeConfig) EffectiveSocketDir() string {
+	if cfg.SocketDir != "" {
+		return cfg.SocketDir
+	}
+	return cfg.DataDir
+}
+
+// EffectiveSharedAgentDir returns SharedAgentDir when set, otherwise falls
+// back to DataDir. This is the single point of truth for resolving the
+// directory where controller.conf is read and written.
+func (cfg ControllerRuntimeConfig) EffectiveSharedAgentDir() string {
+	if cfg.SharedAgentDir != "" {
+		return cfg.SharedAgentDir
+	}
+	return cfg.DataDir
+}
+
 // Validate returns an error if any required field is missing or invalid.
 func (cfg ControllerRuntimeConfig) Validate() error {
 	if !names.IsValidControllerAgent(cfg.ControllerID) {
@@ -192,6 +212,12 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	}
 	if cfg.DataDir == "" {
 		return errors.NotValidf("empty data-dir")
+	}
+	if cfg.SocketDir != "" && !filepath.IsAbs(cfg.SocketDir) {
+		return errors.NotValidf("socket-dir %q", cfg.SocketDir)
+	}
+	if cfg.SharedAgentDir != "" && !filepath.IsAbs(cfg.SharedAgentDir) {
+		return errors.NotValidf("shared-agent-dir %q", cfg.SharedAgentDir)
 	}
 	if cfg.LogDir == "" {
 		return errors.NotValidf("empty log-dir")
@@ -276,12 +302,12 @@ func WriteControllerRuntimeConfig(path string, cfg ControllerRuntimeConfig) erro
 
 var changeConfigMu sync.Mutex
 
-// ControllerRuntimeConfigMutator mutates a controller runtime config in place.
-type ControllerRuntimeConfigMutator func(*ControllerRuntimeConfig) error
+// Mutator mutates a controller runtime config in place.
+type Mutator func(*ControllerRuntimeConfig) error
 
 // ChangeControllerRuntimeConfig reads, mutates, validates, and atomically
 // writes the controller runtime config at path.
-func ChangeControllerRuntimeConfig(path string, mutate ControllerRuntimeConfigMutator) error {
+func ChangeControllerRuntimeConfig(path string, mutate Mutator) error {
 	changeConfigMu.Lock()
 	defer changeConfigMu.Unlock()
 

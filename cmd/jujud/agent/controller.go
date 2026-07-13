@@ -579,10 +579,10 @@ func (a *ControllerApplication) makeEngineCreator(
 		)
 		runtimeConfigChanged := controllerruntimeconfig.NewRuntimeConfigChanged()
 
-		if err := ensureGroupDir(controllerRuntimeConfig.SocketDir); err != nil {
+		if err := ensureGroupDir(controllerRuntimeConfig.EffectiveSocketDir()); err != nil {
 			return nil, errors.Trace(err)
 		}
-		if err := ensureGroupDir(controllerRuntimeConfig.SharedAgentDir); err != nil {
+		if err := ensureGroupDir(controllerRuntimeConfig.EffectiveSharedAgentDir()); err != nil {
 			return nil, errors.Trace(err)
 		}
 
@@ -597,9 +597,9 @@ func (a *ControllerApplication) makeEngineCreator(
 			ControllerTag:                     names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
 			LogDir:                            controllerRuntimeConfig.LogDir,
 			ControllerRuntimePath:             a.controllerRuntimePath,
-			ConfigChangeSocketPath:            path.Join(controllerRuntimeConfig.SocketDir, "configchange.socket"),
+			ConfigChangeSocketPath:            path.Join(controllerRuntimeConfig.EffectiveSocketDir(), "configchange.socket"),
 			RuntimeConfigChanged:              runtimeConfigChanged,
-			ControlSocketPath:                 path.Join(controllerRuntimeConfig.SocketDir, "control.socket"),
+			ControlSocketPath:                 path.Join(controllerRuntimeConfig.EffectiveSocketDir(), "control.socket"),
 			DataDir:                           controllerRuntimeConfig.DataDir,
 			APIPort:                           controllerRuntimeConfig.APIPort,
 			AgentPassword:                     controllerRuntimeConfig.AgentPassword,
@@ -820,7 +820,11 @@ func setupLoggingFromStrings(loggerContext corelogger.LoggerContext, loggingOver
 	}
 }
 
-// ensureGroupDir creates a directory with mode 0750.
+// ensureGroupDir creates a directory with mode 0750. If dir is empty, the
+// call is a no-op.
 func ensureGroupDir(dir string) error {
+	if dir == "" {
+		return nil
+	}
 	return errors.Annotatef(os.MkdirAll(dir, 0o750), "creating directory %q", dir)
 }

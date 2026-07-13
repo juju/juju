@@ -254,7 +254,7 @@ func (a *replControllerAgent) makeEngineCreator(
 			NewDBReplWorkerFunc:    a.newDBReplWorkerFunc,
 			ControllerID:           a.Tag().Id(),
 			ControllerUnlocker:     a.controllerUnlocker,
-			ConfigChangeSocketPath: filepath.Join(a.runtimeConfig.SocketDir, "configchange.socket"),
+			ConfigChangeSocketPath: filepath.Join(a.runtimeConfig.EffectiveSocketDir(), "configchange.socket"),
 			DataDir:                a.runtimeConfig.DataDir,
 			CACert:                 a.runtimeConfig.CACert,
 			ControllerCert:         a.runtimeConfig.ControllerCert,
