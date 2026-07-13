@@ -3734,6 +3734,11 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 		},
 	})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	// Local charms have no hash on their origin, so the facade sources the
+	// archive SHA256 stored at upload time from the charm document.
+	ch := mocks.NewMockCharm(ctrl)
+	ch.EXPECT().BundleSha256().Return("deadbeef")
+	s.backend.EXPECT().Charm("ch:postgresql-42").Return(ch, nil)
 
 	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3745,6 +3750,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 
 	c.Assert(result.Origin, jc.DeepEquals, params.CharmOrigin{
 		Source:       "local",
+		Hash:         "deadbeef",
 		Risk:         "stable",
 		Revision:     &rev,
 		Track:        &latest,
