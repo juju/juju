@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/jsonschema"
 
 	"github.com/juju/juju/cloud"

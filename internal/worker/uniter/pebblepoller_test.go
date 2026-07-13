@@ -169,7 +169,11 @@ func (c *fakePebbleClient) WaitNotices(ctx context.Context, serverTimeout time.D
 			if notice.Type == "error" {
 				return nil, errors.New(notice.Key)
 			}
-			if noticeMatches(notice, opts) {
+			match, err := noticeMatches(notice, opts)
+			if err != nil {
+				return nil, err
+			}
+			if match {
 				return []*pebbleclient.Notice{notice}, nil
 			}
 		case <-timeoutCh:
@@ -180,14 +184,17 @@ func (c *fakePebbleClient) WaitNotices(ctx context.Context, serverTimeout time.D
 	}
 }
 
-func noticeMatches(notice *pebbleclient.Notice, opts *pebbleclient.NoticesOptions) bool {
+func noticeMatches(notice *pebbleclient.Notice, opts *pebbleclient.NoticesOptions) (bool, error) {
 	if opts == nil || opts.Types != nil || opts.Keys != nil {
-		panic("not supported")
+		return false, fmt.Errorf("NoticesOptions is nil or has unsupported fields set")
+	}
+	if opts.Users != pebbleclient.NoticesUsersAll {
+		return false, fmt.Errorf("WaitNotices must use NoticesUsersAll to see notices from all users")
 	}
 	if !opts.After.IsZero() && !notice.LastRepeated.After(opts.After) {
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 // AddChange adds a change for Change to return.
