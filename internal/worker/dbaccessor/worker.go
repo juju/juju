@@ -535,13 +535,13 @@ func firstClosed(cs ...<-chan struct{}) (<-chan struct{}, func()) {
 }
 
 // DeleteDB deletes the dqlite-backed database that contains the data for
-// the specified namespace.
-// There are currently a set of limitations on the namespaces that can be
-// deleted:
+// the specified namespace. It kills any tracked worker for the namespace
+// before dropping the database. There are currently a set of limitations on
+// the namespaces that can be deleted:
 //   - It's not possible to delete the controller database.
-//   - It currently doesn't support the actual deletion of the database
-//     just the removal of the worker. Deletion of the database will be
-//     handled once it's supported by dqlite.
+//   - Deleting a namespace whose database is absent is a no-op: the database
+//     is opened (created if missing) and then dropped, so replaying a
+//     deletion is safe.
 func (w *dbWorker) DeleteDB(namespace string) error {
 	// Ensure Dqlite is initialised.
 	select {
@@ -748,28 +748,29 @@ type killableWorker interface {
 }
 
 func (w *dbWorker) deleteDatabase(ctx context.Context, namespace string) error {
-	// There will be no runner for the database, so we can't rely on the worker
-	// to remove and delete the database. We'll have to do that ourselves.
 	if namespace == database.ControllerNS {
 		return errors.Forbiddenf("cannot delete controller database")
 	}
 
+	// Kill any tracked worker for this namespace so nothing hands the database
+	// out while (or after) it is deleted. The absence of a tracked worker does
+	// not mean the database is already gone - the namespace may never have been
+	// opened on this node - so we still proceed to delete it directly.
 	worker, err := w.workerFromCache(ctx, namespace)
 	if err != nil {
 		return errors.Trace(err)
-	} else if worker == nil {
-		return errors.NotFoundf("worker for namespace %q", namespace)
 	}
+	if worker != nil {
+		killable, ok := worker.(killableWorker)
+		if !ok {
+			return errors.Errorf("worker for namespace %q is not killable", namespace)
+		}
 
-	killable, ok := worker.(killableWorker)
-	if !ok {
-		return errors.Errorf("worker for namespace %q is not killable", namespace)
-	}
-
-	// Kill the worker and wait for it to die.
-	killable.KillWithReason(database.ErrDBDead)
-	if err := killable.Wait(); err != nil && !errors.Is(err, database.ErrDBDead) {
-		return errors.Annotatef(err, "waiting for worker to die")
+		// Kill the worker and wait for it to die.
+		killable.KillWithReason(database.ErrDBDead)
+		if err := killable.Wait(); err != nil && !errors.Is(err, database.ErrDBDead) {
+			return errors.Annotatef(err, "waiting for worker to die")
+		}
 	}
 
 	openCtx, cancel := context.WithTimeout(ctx, dbOpenTimeout)

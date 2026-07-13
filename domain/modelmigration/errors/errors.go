@@ -35,4 +35,9 @@ const (
 	// no usable API addresses for a target controller to dial back during model
 	// activation, so the migration cannot complete.
 	ErrSourceControllerNoAPIAddresses = errors.ConstError("source controller has no usable API addresses")
+
+	// ErrModelNotRedirected indicates that no completed migration redirect
+	// exists for the model. A staged-but-incomplete redirect (completed_at IS
+	// NULL) is not yet active and returns the same error.
+	ErrModelNotRedirected = errors.ConstError("model not redirected")
 )

@@ -376,7 +376,7 @@ func (s *serviceSuite) TestWatchMigrationPhase(c *tc.C) {
 		},
 	)
 
-	w, err := s.service().WatchMigrationPhase(c.Context())
+	w, err := s.service(c).WatchMigrationPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -411,7 +411,7 @@ func (s *serviceSuite) TestWatchMinionReports(c *tc.C) {
 		),
 	)
 
-	w, err := s.service().WatchMinionReports(c.Context())
+	w, err := s.service(c).WatchMinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -421,7 +421,7 @@ func (s *serviceSuite) TestWatchMinionReports(c *tc.C) {
 }
 
 // service constructs a Service backed by the suite mocks.
-func (s *serviceSuite) service() *Service {
+func (s *serviceSuite) service(c *tc.C) *Service {
 	return NewService(
 		s.controllerState,
 		s.modelState,
@@ -456,7 +456,7 @@ func (s *serviceSuite) TestInitiateMigration(c *tc.C) {
 		},
 	)
 
-	migUUID, err := s.service().InitiateMigration(c.Context(), s.validTargetInfo())
+	migUUID, err := s.service(c).InitiateMigration(c.Context(), s.validTargetInfo())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(migUUID, tc.Not(tc.Equals), "")
 	c.Check(captured.MigrationUUID, tc.Equals, migUUID)
@@ -475,7 +475,7 @@ func (s *serviceSuite) TestInitiateMigrationInvalidTarget(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// No InsertExport call expected.
-	_, err := s.service().InitiateMigration(c.Context(), migration.TargetInfo{})
+	_, err := s.service(c).InitiateMigration(c.Context(), migration.TargetInfo{})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 }
 
@@ -487,7 +487,7 @@ func (s *serviceSuite) TestMigration(c *tc.C) {
 	stateMig := modelmigrationinternal.Migration{UUID: migUUID, Phase: migration.IMPORT}
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(stateMig, nil)
 
-	mig, err := s.service().Migration(c.Context())
+	mig, err := s.service(c).Migration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mig.UUID, tc.Equals, migUUID)
 	c.Check(mig.Phase, tc.Equals, migration.IMPORT)
@@ -500,7 +500,7 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
 		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
 
-	mig, err := s.service().Migration(c.Context())
+	mig, err := s.service(c).Migration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
 }
@@ -525,7 +525,7 @@ func (s *serviceSuite) TestGetControllerModelInfo(c *tc.C) {
 		GetControllerModelInfo(gomock.Any(), s.modelUUID, offerUUIDs, offererModels).
 		Return(expected, nil)
 
-	info, err := s.service().GetControllerModelInfo(c.Context())
+	info, err := s.service(c).GetControllerModelInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info, tc.DeepEquals, expected)
 }
@@ -558,7 +558,7 @@ func (s *serviceSuite) TestSourceControllerInfoArrangesRawStateAddresses(c *tc.C
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	info, err := s.service().SourceControllerInfo(c.Context())
+	info, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.ControllerTag, tc.DeepEquals, names.NewControllerTag(s.controllerUUID))
 	c.Check(info.ControllerAlias, tc.Equals, "source")
@@ -588,7 +588,7 @@ func (s *serviceSuite) TestSourceControllerInfoSingleAddress(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	info, err := s.service().SourceControllerInfo(c.Context())
+	info, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Addrs, tc.DeepEquals, []string{"10.0.0.1:17070"})
 }
@@ -606,7 +606,7 @@ func (s *serviceSuite) TestSourceControllerInfoNoAddresses(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	_, err := s.service().SourceControllerInfo(c.Context())
+	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
 }
 
@@ -630,7 +630,7 @@ func (s *serviceSuite) TestSourceControllerInfoOnlyUnusableAddresses(c *tc.C) {
 	}
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).Return(stateInfo, nil)
 
-	_, err := s.service().SourceControllerInfo(c.Context())
+	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrSourceControllerNoAPIAddresses)
 }
 
@@ -642,7 +642,7 @@ func (s *serviceSuite) TestSourceControllerInfoError(c *tc.C) {
 	s.controllerState.EXPECT().GetSourceControllerInfo(gomock.Any()).
 		Return(modelmigrationinternal.SourceControllerInfo{}, errors.New("boom"))
 
-	_, err := s.service().SourceControllerInfo(c.Context())
+	_, err := s.service(c).SourceControllerInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
 }
 
@@ -654,7 +654,7 @@ func (s *serviceSuite) TestGetControllerModelInfoOffererModelsError(c *tc.C) {
 	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil)
 	s.modelState.EXPECT().GetThirdPartyOffererModels(gomock.Any()).Return(nil, errors.New("boom"))
 
-	_, err := s.service().GetControllerModelInfo(c.Context())
+	_, err := s.service(c).GetControllerModelInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*reading model offerer models.*boom")
 }
 
@@ -665,7 +665,7 @@ func (s *serviceSuite) TestGetControllerModelInfoOfferUUIDsError(c *tc.C) {
 
 	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, errors.New("boom"))
 
-	_, err := s.service().GetControllerModelInfo(c.Context())
+	_, err := s.service(c).GetControllerModelInfo(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*reading model offer UUIDs.*boom")
 }
 
@@ -676,7 +676,7 @@ func (s *serviceSuite) TestModelMigrationMode(c *tc.C) {
 	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
 		modelmigration.MigrationModeExporting, nil)
 
-	mode, err := s.service().ModelMigrationMode(c.Context())
+	mode, err := s.service(c).ModelMigrationMode(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mode, tc.Equals, modelmigration.MigrationModeExporting)
 }
@@ -693,36 +693,120 @@ func (s *serviceSuite) TestSetMigrationPhase(c *tc.C) {
 		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.IMPORT).Return(nil),
 	)
 
-	err := s.service().SetMigrationPhase(c.Context(), migration.IMPORT)
+	err := s.service(c).SetMigrationPhase(c.Context(), migration.IMPORT)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestMarkModelAsGone asserts the active migration is resolved and moved to
-// DONE.
+// TestMarkModelAsGone asserts the full REAP algorithm runs: capture offers,
+// stage redirect, and run the purge transaction (which stages the model
+// database deletion).
 func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	migUUID := tc.Must(c, uuid.NewUUID).String()
+	target := modelmigrationinternal.TargetInfo{
+		ControllerUUID:  "target-controller-uuid",
+		ControllerAlias: "target-alias",
+		Addrs:           []string{"10.0.0.1:17070"},
+		CACert:          "ca-cert",
+	}
+	mig := modelmigrationinternal.Migration{
+		UUID:   migUUID,
+		Phase:  migration.REAP,
+		Target: target,
+	}
+
 	gomock.InOrder(
-		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
-			modelmigrationinternal.Migration{UUID: migUUID}, nil),
-		s.controllerState.EXPECT().SetPhase(gomock.Any(), migUUID, migration.DONE).Return(nil),
+		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
+		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil),
+		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, []string{"offer-1"}).Return(nil),
+		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
+		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
 	)
 
-	err := s.service().MarkModelAsGone(c.Context())
+	err := s.service(c).MarkModelAsGone(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestMarkModelAsGoneNoActiveMigration asserts the active export lookup error
-// is surfaced.
+// TestMarkModelAsGoneNoProviderDestroy asserts that REAP never reaches the
+// provider destruction path. The instance provider and resource provider must
+// never be called during source REAP — it is a migration-specific purge, not
+// normal model removal.
+func (s *serviceSuite) TestMarkModelAsGoneNoProviderDestroy(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	mig := modelmigrationinternal.Migration{
+		UUID:  migUUID,
+		Phase: migration.REAP,
+		Target: modelmigrationinternal.TargetInfo{
+			ControllerUUID:  "target-controller-uuid",
+			ControllerAlias: "target-alias",
+			Addrs:           []string{"10.0.0.1:17070"},
+			CACert:          "ca-cert",
+		},
+	}
+
+	gomock.InOrder(
+		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
+		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, nil),
+		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
+		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
+	)
+
+	err := s.service(c).MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMarkModelAsGoneRetryAfterPurgeFailure asserts that a failure of the
+// purge transaction (the commit point) leaves REAP retryable: every step
+// before it is idempotent, so the whole sequence can simply run again.
+func (s *serviceSuite) TestMarkModelAsGoneRetryAfterPurgeFailure(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	migUUID := tc.Must(c, uuid.NewUUID).String()
+	mig := modelmigrationinternal.Migration{
+		UUID:  migUUID,
+		Phase: migration.REAP,
+		Target: modelmigrationinternal.TargetInfo{
+			ControllerUUID: "target-controller-uuid",
+			Addrs:          []string{"10.0.0.1:17070"},
+			CACert:         "ca-cert",
+		},
+	}
+
+	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil).Times(2)
+	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil).Times(2)
+	s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil).Times(2)
+	s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil).Times(2)
+	s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	// First purge attempt fails; nothing destructive is committed for it.
+	s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(errors.New("dqlite hiccup")).Times(1)
+	s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil).Times(1)
+
+	// First call fails at the commit point: nothing destructive happened.
+	err := s.service(c).MarkModelAsGone(c.Context())
+	c.Check(err, tc.ErrorMatches, "purging source model .*: dqlite hiccup")
+
+	// Retry succeeds end to end.
+	err = s.service(c).MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestMarkModelAsGoneNoActiveMigration asserts that when no active export
+// exists (already DONE from a previous run), MarkModelAsGone returns nil
+// idempotently.
 func (s *serviceSuite) TestMarkModelAsGoneNoActiveMigration(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
 		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
 
-	err := s.service().MarkModelAsGone(c.Context())
-	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrMigrationNotFound)
+	err := s.service(c).MarkModelAsGone(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 // TestSetMigrationStatusMessage asserts the message is recorded against the
@@ -737,7 +821,7 @@ func (s *serviceSuite) TestSetMigrationStatusMessage(c *tc.C) {
 		s.controllerState.EXPECT().SetStatusMessage(gomock.Any(), migUUID, "hello").Return(nil),
 	)
 
-	err := s.service().SetMigrationStatusMessage(c.Context(), "hello")
+	err := s.service(c).SetMigrationStatusMessage(c.Context(), "hello")
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -754,7 +838,7 @@ func (s *serviceSuite) TestReportMinion(c *tc.C) {
 			gomock.Any(), migUUID, migration.IMPORT, "machine-0", true).Return(nil),
 	)
 
-	err := s.service().ReportMinion(c.Context(), "machine-0", migration.IMPORT, true)
+	err := s.service(c).ReportMinion(c.Context(), "machine-0", migration.IMPORT, true)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -781,7 +865,7 @@ func (s *serviceSuite) TestMinionReports(c *tc.C) {
 			}, nil),
 	)
 
-	reports, err := s.service().MinionReports(c.Context())
+	reports, err := s.service(c).MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reports.MigrationId, tc.Equals, migUUID)
 	c.Check(reports.Phase, tc.Equals, migration.QUIESCE)
@@ -811,7 +895,7 @@ func (s *serviceSuite) TestMinionReportsDoesNotValidateReportedAgentInventory(c 
 			}, nil),
 	)
 
-	reports, err := s.service().MinionReports(c.Context())
+	reports, err := s.service(c).MinionReports(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(reports.TotalCount, tc.Equals, 1)
 	c.Check(reports.SuccessCount, tc.Equals, 2)

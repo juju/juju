@@ -41,3 +41,4 @@ dqlite-deps.tar.bz2
 .workshop.lock
 *.bin
 .cache
+.hermes

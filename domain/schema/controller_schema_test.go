@@ -151,6 +151,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"model_migration_export_offer",
 		"model_migration_redirect",
 		"model_migration_redirect_user",
+		"model_database_deletion",
 		"model_authorized_keys",
 		"model_migration_import",
 		"model_migration_import_phase_type",
@@ -317,6 +318,10 @@ func (s *controllerSchemaSuite) TestControllerTriggers(c *tc.C) {
 		"trg_log_model_migration_export_minion_sync_insert",
 		"trg_log_model_migration_export_minion_sync_update",
 		"trg_log_model_migration_export_minion_sync_delete",
+
+		"trg_log_model_database_deletion_insert",
+		"trg_log_model_database_deletion_update",
+		"trg_log_model_database_deletion_delete",
 
 		"trg_log_object_store_metadata_path_insert",
 		"trg_log_object_store_metadata_path_update",

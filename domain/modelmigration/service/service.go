@@ -157,6 +157,29 @@ type ControllerState interface {
 	// client connection details used by the target controller to dial back
 	// during model activation.
 	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
+
+	// EnsureExportOffers records the hosted offer UUIDs for a migration into
+	// model_migration_export_offer. Idempotent.
+	EnsureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error
+
+	// StageModelRedirect writes the redirect snapshot with completed_at = NULL.
+	// Idempotent.
+	StageModelRedirect(
+		ctx context.Context,
+		migrationUUID, modelUUID string,
+		target modelmigrationinternal.RedirectionTarget,
+		users []modelmigrationinternal.RedirectUserAccess,
+	) error
+
+	// GetModelUsersForRedirect returns the model-scoped permission rows
+	// joined with user identity, used to populate the redirect user snapshot.
+	GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]modelmigrationinternal.RedirectUserAccess, error)
+
+	// CompleteModelRedirectAndPurge runs the final controller-DB transaction
+	// of source REAP: purges model-scoped rows, stages the model database
+	// deletion, completes the redirect, marks the export DONE, and scrubs
+	// target auth. It fails unless the export is still in phase REAP.
+	CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error
 }
 
 // ModelState defines the interface required for accessing the underlying state
@@ -608,19 +631,83 @@ func (s *Service) SetMigrationPhase(ctx context.Context, phase migration.Phase) 
 
 // MarkModelAsGone is called by the migration master during REAP, once the
 // target controller owns the model, to remove the migrated model from this
-// controller. It marks the active export migration as DONE.
+// controller. It runs the following steps in order:
 //
-// TODO(modelmigration): purge the migrated model from the source controller
-// and set up the durable login redirect before completing the export.
+//  1. Read the active export; if there is no active export it is already DONE
+//     from a previous run and this is a no-op.
+//  2. Capture the hosted offer UUIDs from the model DB.
+//  3. Stage the redirect snapshot (completed_at = NULL, not yet active).
+//  4. Run the controller-DB purge transaction: delete model-scoped rows, stage
+//     the model database deletion, complete the redirect, mark the export DONE,
+//     and scrub target auth.
+//
+// The purge transaction in step 4 is the single commit point. Everything
+// before it is an idempotent preparation that leaves the model fully intact,
+// so a failure or crash before step 4 commits can simply be retried. Once it
+// commits, the model is gone from the controller database and the redirect is
+// active. The model's dqlite database is not deleted here: step 4 stages the
+// deletion, and the model DB deleter worker deletes the database
+// asynchronously, retrying until the staged row is gone.
+//
+// It never calls normal model removal, removal jobs, undertaker provider
+// deletion, or provider Destroy — it only purges rows belonging to a model
+// that already lives on another controller.
 func (s *Service) MarkModelAsGone(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
 	mig, err := s.controllerState.GetActiveExport(ctx, s.modelUUID)
 	if err != nil {
+		if errors.Is(err, modelmigrationerrors.ErrMigrationNotFound) {
+			// No active export — already DONE from a previous run. Idempotent.
+			return nil
+		}
 		return errors.Capture(err)
 	}
-	return s.controllerState.SetPhase(ctx, mig.UUID, migration.DONE)
+	if mig.Phase != migration.REAP {
+		return errors.Errorf(
+			"cannot reap migration %q in phase %q: expected %q: %w",
+			mig.UUID, mig.Phase, migration.REAP, modelmigrationerrors.ErrPhaseTransitionInvalid,
+		)
+	}
+
+	// Step 2: Capture hosted offer UUIDs from the model DB, so the purge can
+	// delete their permission rows without the model DB. The model DB is
+	// still present on every retry because it is only deleted after the
+	// purge transaction commits, at which point the export is DONE and this
+	// method returns early above.
+	offerUUIDs, err := s.modelState.GetOfferUUIDs(ctx)
+	if err != nil {
+		return errors.Errorf("reading hosted offer UUIDs for model %q: %w", s.modelUUID, err)
+	}
+	if err := s.controllerState.EnsureExportOffers(ctx, mig.UUID, offerUUIDs); err != nil {
+		return errors.Errorf("capturing export offers for migration %q: %w", mig.UUID, err)
+	}
+
+	// Step 3: Stage the redirect snapshot (users + target info). Staged but
+	// inactive until the purge transaction sets completed_at.
+	users, err := s.controllerState.GetModelUsersForRedirect(ctx, s.modelUUID)
+	if err != nil {
+		return errors.Errorf("reading model users for redirect: %w", err)
+	}
+	target := modelmigrationinternal.RedirectionTarget{
+		ControllerUUID:  mig.Target.ControllerUUID,
+		ControllerAlias: mig.Target.ControllerAlias,
+		Addresses:       mig.Target.Addrs,
+		CACert:          mig.Target.CACert,
+	}
+	if err := s.controllerState.StageModelRedirect(ctx, mig.UUID, s.modelUUID, target, users); err != nil {
+		return errors.Errorf("staging redirect for model %q: %w", s.modelUUID, err)
+	}
+
+	// Step 4: The controller-DB purge transaction — the commit point. On
+	// success the model is gone from the controller database, the redirect
+	// is active, the model database deletion is staged, and the export is DONE.
+	if err := s.controllerState.CompleteModelRedirectAndPurge(ctx, mig.UUID, s.modelUUID); err != nil {
+		return errors.Errorf("purging source model %q: %w", s.modelUUID, err)
+	}
+
+	return nil
 }
 
 // SetMigrationStatusMessage is called by the migration master to report on

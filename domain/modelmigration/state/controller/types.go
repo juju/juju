@@ -289,3 +289,55 @@ type sourceAPIAddress struct {
 	Scope        string `db:"scope"`
 	IsAgent      bool   `db:"is_agent"`
 }
+
+// migrationExportOffer maps a model_migration_export_offer row, capturing the
+// UUIDs of offers hosted by the source model before its DB is purged.
+type migrationExportOffer struct {
+	MigrationUUID string `db:"migration_uuid"`
+	OfferUUID     string `db:"offer_uuid"`
+}
+
+// migrationRedirect maps a model_migration_redirect row — the standalone
+// post-REAP redirect snapshot. completed_at is nullable.
+type migrationRedirect struct {
+	ModelUUID             string     `db:"model_uuid"`
+	SourceMigrationUUID   string     `db:"source_migration_uuid"`
+	TargetControllerUUID  string     `db:"target_controller_uuid"`
+	TargetControllerAlias *string    `db:"target_controller_alias"`
+	TargetAddresses       string     `db:"target_addresses"`
+	TargetCACert          string     `db:"target_ca_cert"`
+	CreatedAt             time.Time  `db:"created_at"`
+	CompletedAt           *time.Time `db:"completed_at"`
+}
+
+// migrationRedirectUser maps a model_migration_redirect_user row — captured
+// model user access at migration time.
+type migrationRedirectUser struct {
+	ModelUUID string `db:"model_uuid"`
+	UserUUID  string `db:"user_uuid"`
+	UserName  string `db:"user_name"`
+	Access    string `db:"access"`
+}
+
+// modelUserRedirectRow is the projection of a model-scoped permission row
+// joined with user identity, used to populate model_migration_redirect_user
+// during REAP.
+type modelUserRedirectRow struct {
+	UserUUID string `db:"uuid"`
+	UserName string `db:"name"`
+	Access   string `db:"access_type"`
+}
+
+// redirectCompletion carries the model UUID and completion timestamp for
+// finalising a staged redirect in CompleteModelRedirectAndPurge.
+type redirectCompletion struct {
+	ModelUUID   string    `db:"model_uuid"`
+	CompletedAt time.Time `db:"completed_at"`
+}
+
+// modelDatabaseDeletion maps a model_database_deletion row staging the deletion
+// of the purged model's dqlite database for the model DB deleter worker.
+type modelDatabaseDeletion struct {
+	Namespace string    `db:"namespace"`
+	CreatedAt time.Time `db:"created_at"`
+}

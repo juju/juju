@@ -191,6 +191,27 @@ type State interface {
 	// - [modelerrors.NotActivated]: When the model has not been activated.
 	GetModelLife(ctx context.Context, uuid coremodel.UUID) (domainlife.Life, error)
 
+	// GetModelRedirection returns redirection information for a model that
+	// has been migrated away from this controller, read from the redirect
+	// snapshot written by source-side migration REAP. Returns an error
+	// satisfying [modelerrors.ModelNotRedirected] when no completed redirect
+	// exists.
+	GetModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error)
+
+	// GetModelRedirectUsers returns the users captured with access to a
+	// migrated model in the redirect snapshot, restricted to users who can
+	// still log in: users removed or disabled since the snapshot was taken
+	// are excluded, mirroring the restrictions applied to a normal login.
+	GetModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]model.RedirectUser, error)
+
+	// GetPendingModelDatabaseDeletions returns the dqlite namespaces staged
+	// for deletion after their model was purged from this controller.
+	GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error)
+
+	// RemoveModelDatabaseDeletion removes the staged deletion for the given
+	// namespace, marking it complete.
+	RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error
+
 	// InitialWatchActivatedModelsStatement returns a SQL statement that will
 	// get all the activated models UUIDS in the controller.
 	InitialWatchActivatedModelsStatement() (string, string)
@@ -228,6 +249,17 @@ func NewService(
 	}
 }
 
+// ModelRedirectUsers returns the users captured with access to the model in
+// the migration redirect snapshot, restricted to users who can still log in.
+// Used by login-time redirect to enforce the 3.6 user-access behavior:
+// anonymous logins may be redirected for CMR continuity; named local users
+// with no captured model access are not redirected.
+func (s *Service) ModelRedirectUsers(ctx context.Context, modelUUID coremodel.UUID) ([]model.RedirectUser, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.st.GetModelRedirectUsers(ctx, modelUUID)
+}
+
 // CheckModelExists checks if a model exists within the controller. True or
 // false is returned indiciating of the model exists.
 func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
@@ -236,11 +268,12 @@ func (s *Service) CheckModelExists(ctx context.Context, modelUUID coremodel.UUID
 	return s.st.CheckModelExists(ctx, modelUUID)
 }
 
-// ModelRedirection returns redirection information for the current model. If it
-// is not redirected, [modelmigrationerrors.ModelNotRedirected] is returned.
-// Placeholder for model migration.
+// ModelRedirection returns redirection information for the current model. If
+// it is not redirected, [modelerrors.ModelNotRedirected] is returned.
 func (s *Service) ModelRedirection(ctx context.Context, modelUUID coremodel.UUID) (model.ModelRedirection, error) {
-	return model.ModelRedirection{}, modelerrors.ModelNotRedirected
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+	return s.st.GetModelRedirection(ctx, modelUUID)
 }
 
 // DefaultModelCloudInfo returns the default cloud name and region name
@@ -682,6 +715,25 @@ func (s *Service) GetDeadModels(ctx context.Context) ([]coremodel.UUID, error) {
 	return s.st.GetDeadModels(ctx)
 }
 
+// GetPendingModelDatabaseDeletions returns the dqlite namespaces staged for
+// deletion after their model was purged from this controller (currently by
+// source-side migration REAP).
+func (s *Service) GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.GetPendingModelDatabaseDeletions(ctx)
+}
+
+// RemoveModelDatabaseDeletion removes the staged deletion for the given dqlite
+// namespace, marking it complete once its database has been deleted.
+func (s *Service) RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.st.RemoveModelDatabaseDeletion(ctx, namespace)
+}
+
 // NotifyMapperWatcherFactory describes methods for creating notify watchers.
 type NotifyMapperWatcherFactory interface {
 	// NewNotifyMapperWatcher returns a new watcher that receives changes from the
@@ -827,6 +879,21 @@ func (s *WatchableService) WatchModels(ctx context.Context) (watcher.NotifyWatch
 		ctx,
 		"models watcher",
 		eventsource.NamespaceFilter("model", changestream.All),
+	)
+}
+
+// WatchModelMigrationDeletions returns a watcher that emits an event when a
+// model database deletion is staged or re-staged. Deletion of the row (once
+// the undertaker worker has processed it) is not watched: that event is
+// self-inflicted by the worker's own completion and never signals new work.
+func (s *WatchableService) WatchModelMigrationDeletions(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"model database deletions watcher",
+		eventsource.NamespaceFilter("model_database_deletion", changestream.Changed),
 	)
 }
 

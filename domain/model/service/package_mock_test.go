@@ -677,13 +677,17 @@ type MockStateMockRecorder struct {
 	getModelCloudAndCredentialExpects           []*gomock.Call2_3[context.Context, model.UUID, cloud0.UUID, credential.UUID, error]
 	getModelCloudInfoExpects                    []*gomock.Call2_3[context.Context, model.UUID, string, string, error]
 	getModelLifeExpects                         []*gomock.Call2_2[context.Context, model.UUID, life.Life, error]
+	getModelRedirectUsersExpects                []*gomock.Call2_2[context.Context, model.UUID, []model0.RedirectUser, error]
+	getModelRedirectionExpects                  []*gomock.Call2_2[context.Context, model.UUID, model0.ModelRedirection, error]
 	getModelUUIDsExpects                        []*gomock.Call1_2[context.Context, []model.UUID, error]
 	getModelUsersExpects                        []*gomock.Call2_2[context.Context, model.UUID, []model.ModelUserInfo, error]
+	getPendingModelDatabaseDeletionsExpects     []*gomock.Call1_2[context.Context, []string, error]
 	importModelExpects                          []*gomock.Call4_1[context.Context, model.UUID, model.ModelType, model0.GlobalModelCreationArgs, error]
 	initialWatchActivatedModelsStatementExpects []*gomock.Call0_2[string, string]
 	initialWatchModelTableNameExpects           []*gomock.Call0_1[string]
 	listModelUUIDsForUserExpects                []*gomock.Call2_2[context.Context, user.UUID, []model.UUID, error]
 	listModelsForUserExpects                    []*gomock.Call2_2[context.Context, user.UUID, []model.Model, error]
+	removeModelDatabaseDeletionExpects          []*gomock.Call2_1[context.Context, string, error]
 	updateCredentialExpects                     []*gomock.Call3_1[context.Context, model.UUID, credential.Key, error]
 }
 
@@ -1005,6 +1009,42 @@ func (mr *MockStateMockRecorder) GetModelLife(ctx, arg1 any) *MockStateGetModelL
 // MockStateGetModelLifeCall is the typed call wrapper for GetModelLife.
 type MockStateGetModelLifeCall = gomock.Call2_2[context.Context, model.UUID, life.Life, error]
 
+// GetModelRedirectUsers mocks base method.
+func (m *MockState) GetModelRedirectUsers(ctx context.Context, modelUUID model.UUID) ([]model0.RedirectUser, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getModelRedirectUsersExpects, m.ctrl, m, "GetModelRedirectUsers", ctx, modelUUID)
+}
+
+// GetModelRedirectUsers indicates an expected call of GetModelRedirectUsers.
+func (mr *MockStateMockRecorder) GetModelRedirectUsers(ctx, modelUUID any) *MockStateGetModelRedirectUsersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, model.UUID, []model0.RedirectUser, error](mr.mock.ctrl.T, mr.mock, "GetModelRedirectUsers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getModelRedirectUsersExpects = append(mr.getModelRedirectUsersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetModelRedirectUsersCall is the typed call wrapper for GetModelRedirectUsers.
+type MockStateGetModelRedirectUsersCall = gomock.Call2_2[context.Context, model.UUID, []model0.RedirectUser, error]
+
+// GetModelRedirection mocks base method.
+func (m *MockState) GetModelRedirection(ctx context.Context, modelUUID model.UUID) (model0.ModelRedirection, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getModelRedirectionExpects, m.ctrl, m, "GetModelRedirection", ctx, modelUUID)
+}
+
+// GetModelRedirection indicates an expected call of GetModelRedirection.
+func (mr *MockStateMockRecorder) GetModelRedirection(ctx, modelUUID any) *MockStateGetModelRedirectionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, model.UUID, model0.ModelRedirection, error](mr.mock.ctrl.T, mr.mock, "GetModelRedirection", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getModelRedirectionExpects = append(mr.getModelRedirectionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetModelRedirectionCall is the typed call wrapper for GetModelRedirection.
+type MockStateGetModelRedirectionCall = gomock.Call2_2[context.Context, model.UUID, model0.ModelRedirection, error]
+
 // GetModelUUIDs mocks base method.
 func (m *MockState) GetModelUUIDs(arg0 context.Context) ([]model.UUID, error) {
 	m.ctrl.T.Helper()
@@ -1040,6 +1080,24 @@ func (mr *MockStateMockRecorder) GetModelUsers(arg0, arg1 any) *MockStateGetMode
 
 // MockStateGetModelUsersCall is the typed call wrapper for GetModelUsers.
 type MockStateGetModelUsersCall = gomock.Call2_2[context.Context, model.UUID, []model.ModelUserInfo, error]
+
+// GetPendingModelDatabaseDeletions mocks base method.
+func (m *MockState) GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getPendingModelDatabaseDeletionsExpects, m.ctrl, m, "GetPendingModelDatabaseDeletions", ctx)
+}
+
+// GetPendingModelDatabaseDeletions indicates an expected call of GetPendingModelDatabaseDeletions.
+func (mr *MockStateMockRecorder) GetPendingModelDatabaseDeletions(ctx any) *MockStateGetPendingModelDatabaseDeletionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetPendingModelDatabaseDeletions", gomock.EnsureMatcher(ctx))
+	mr.getPendingModelDatabaseDeletionsExpects = append(mr.getPendingModelDatabaseDeletionsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetPendingModelDatabaseDeletionsCall is the typed call wrapper for GetPendingModelDatabaseDeletions.
+type MockStateGetPendingModelDatabaseDeletionsCall = gomock.Call1_2[context.Context, []string, error]
 
 // ImportModel mocks base method.
 func (m *MockState) ImportModel(arg0 context.Context, arg1 model.UUID, arg2 model.ModelType, arg3 model0.GlobalModelCreationArgs) error {
@@ -1130,6 +1188,24 @@ func (mr *MockStateMockRecorder) ListModelsForUser(arg0, arg1 any) *MockStateLis
 
 // MockStateListModelsForUserCall is the typed call wrapper for ListModelsForUser.
 type MockStateListModelsForUserCall = gomock.Call2_2[context.Context, user.UUID, []model.Model, error]
+
+// RemoveModelDatabaseDeletion mocks base method.
+func (m *MockState) RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.removeModelDatabaseDeletionExpects, m.ctrl, m, "RemoveModelDatabaseDeletion", ctx, namespace)
+}
+
+// RemoveModelDatabaseDeletion indicates an expected call of RemoveModelDatabaseDeletion.
+func (mr *MockStateMockRecorder) RemoveModelDatabaseDeletion(ctx, namespace any) *MockStateRemoveModelDatabaseDeletionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "RemoveModelDatabaseDeletion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(namespace))
+	mr.removeModelDatabaseDeletionExpects = append(mr.removeModelDatabaseDeletionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateRemoveModelDatabaseDeletionCall is the typed call wrapper for RemoveModelDatabaseDeletion.
+type MockStateRemoveModelDatabaseDeletionCall = gomock.Call2_1[context.Context, string, error]
 
 // UpdateCredential mocks base method.
 func (m *MockState) UpdateCredential(arg0 context.Context, arg1 model.UUID, arg2 credential.Key) error {

@@ -118,22 +118,26 @@ type MockControllerState struct {
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
-	mock                               *MockControllerState
-	aggregateMinionReportsExpects      []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	deleteModelImportingStatusExpects  []*gomock.Call2_1[context.Context, string, error]
-	getActiveExportExpects             []*gomock.Call2_2[context.Context, string, internal.Migration, error]
-	getActiveExportUUIDExpects         []*gomock.Call2_2[context.Context, string, string, error]
-	getControllerModelInfoExpects      []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
-	getControllerTargetVersionExpects  []*gomock.Call1_2[context.Context, string, error]
-	getMigrationModeExpects            []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
-	getSourceControllerInfoExpects     []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
-	insertExportExpects                []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
-	insertMinionReportExpects          []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
-	namespaceForWatchExportExpects     []*gomock.Call0_1[string]
-	namespaceForWatchMinionSyncExpects []*gomock.Call0_1[string]
-	namespaceForWatchPhaseExpects      []*gomock.Call0_1[string]
-	setPhaseExpects                    []*gomock.Call3_1[context.Context, string, migration.Phase, error]
-	setStatusMessageExpects            []*gomock.Call3_1[context.Context, string, string, error]
+	mock                                 *MockControllerState
+	aggregateMinionReportsExpects        []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+	completeModelRedirectAndPurgeExpects []*gomock.Call3_1[context.Context, string, string, error]
+	deleteModelImportingStatusExpects    []*gomock.Call2_1[context.Context, string, error]
+	ensureExportOffersExpects            []*gomock.Call3_1[context.Context, string, []string, error]
+	getActiveExportExpects               []*gomock.Call2_2[context.Context, string, internal.Migration, error]
+	getActiveExportUUIDExpects           []*gomock.Call2_2[context.Context, string, string, error]
+	getControllerModelInfoExpects        []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
+	getControllerTargetVersionExpects    []*gomock.Call1_2[context.Context, string, error]
+	getMigrationModeExpects              []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
+	getModelUsersForRedirectExpects      []*gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
+	getSourceControllerInfoExpects       []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
+	insertExportExpects                  []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
+	insertMinionReportExpects            []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	namespaceForWatchExportExpects       []*gomock.Call0_1[string]
+	namespaceForWatchMinionSyncExpects   []*gomock.Call0_1[string]
+	namespaceForWatchPhaseExpects        []*gomock.Call0_1[string]
+	setPhaseExpects                      []*gomock.Call3_1[context.Context, string, migration.Phase, error]
+	setStatusMessageExpects              []*gomock.Call3_1[context.Context, string, string, error]
+	stageModelRedirectExpects            []*gomock.Call5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -166,6 +170,24 @@ func (mr *MockControllerStateMockRecorder) AggregateMinionReports(ctx, migration
 // MockControllerStateAggregateMinionReportsCall is the typed call wrapper for AggregateMinionReports.
 type MockControllerStateAggregateMinionReportsCall = gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
 
+// CompleteModelRedirectAndPurge mocks base method.
+func (m *MockControllerState) CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.completeModelRedirectAndPurgeExpects, m.ctrl, m, "CompleteModelRedirectAndPurge", ctx, migrationUUID, modelUUID)
+}
+
+// CompleteModelRedirectAndPurge indicates an expected call of CompleteModelRedirectAndPurge.
+func (mr *MockControllerStateMockRecorder) CompleteModelRedirectAndPurge(ctx, migrationUUID, modelUUID any) *MockControllerStateCompleteModelRedirectAndPurgeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "CompleteModelRedirectAndPurge", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(migrationUUID), gomock.EnsureMatcher(modelUUID))
+	mr.completeModelRedirectAndPurgeExpects = append(mr.completeModelRedirectAndPurgeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateCompleteModelRedirectAndPurgeCall is the typed call wrapper for CompleteModelRedirectAndPurge.
+type MockControllerStateCompleteModelRedirectAndPurgeCall = gomock.Call3_1[context.Context, string, string, error]
+
 // DeleteModelImportingStatus mocks base method.
 func (m *MockControllerState) DeleteModelImportingStatus(ctx context.Context, modelUUID string) error {
 	m.ctrl.T.Helper()
@@ -183,6 +205,24 @@ func (mr *MockControllerStateMockRecorder) DeleteModelImportingStatus(ctx, model
 
 // MockControllerStateDeleteModelImportingStatusCall is the typed call wrapper for DeleteModelImportingStatus.
 type MockControllerStateDeleteModelImportingStatusCall = gomock.Call2_1[context.Context, string, error]
+
+// EnsureExportOffers mocks base method.
+func (m *MockControllerState) EnsureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.ensureExportOffersExpects, m.ctrl, m, "EnsureExportOffers", ctx, migrationUUID, offerUUIDs)
+}
+
+// EnsureExportOffers indicates an expected call of EnsureExportOffers.
+func (mr *MockControllerStateMockRecorder) EnsureExportOffers(ctx, migrationUUID, offerUUIDs any) *MockControllerStateEnsureExportOffersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "EnsureExportOffers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(migrationUUID), gomock.EnsureMatcher(offerUUIDs))
+	mr.ensureExportOffersExpects = append(mr.ensureExportOffersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateEnsureExportOffersCall is the typed call wrapper for EnsureExportOffers.
+type MockControllerStateEnsureExportOffersCall = gomock.Call3_1[context.Context, string, []string, error]
 
 // GetActiveExport mocks base method.
 func (m *MockControllerState) GetActiveExport(ctx context.Context, modelUUID string) (internal.Migration, error) {
@@ -273,6 +313,24 @@ func (mr *MockControllerStateMockRecorder) GetMigrationMode(ctx, modelUUID any) 
 
 // MockControllerStateGetMigrationModeCall is the typed call wrapper for GetMigrationMode.
 type MockControllerStateGetMigrationModeCall = gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
+
+// GetModelUsersForRedirect mocks base method.
+func (m *MockControllerState) GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]internal.RedirectUserAccess, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getModelUsersForRedirectExpects, m.ctrl, m, "GetModelUsersForRedirect", ctx, modelUUID)
+}
+
+// GetModelUsersForRedirect indicates an expected call of GetModelUsersForRedirect.
+func (mr *MockControllerStateMockRecorder) GetModelUsersForRedirect(ctx, modelUUID any) *MockControllerStateGetModelUsersForRedirectCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []internal.RedirectUserAccess, error](mr.mock.ctrl.T, mr.mock, "GetModelUsersForRedirect", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getModelUsersForRedirectExpects = append(mr.getModelUsersForRedirectExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetModelUsersForRedirectCall is the typed call wrapper for GetModelUsersForRedirect.
+type MockControllerStateGetModelUsersForRedirectCall = gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
 
 // GetSourceControllerInfo mocks base method.
 func (m *MockControllerState) GetSourceControllerInfo(ctx context.Context) (internal.SourceControllerInfo, error) {
@@ -417,6 +475,24 @@ func (mr *MockControllerStateMockRecorder) SetStatusMessage(ctx, migrationUUID, 
 
 // MockControllerStateSetStatusMessageCall is the typed call wrapper for SetStatusMessage.
 type MockControllerStateSetStatusMessageCall = gomock.Call3_1[context.Context, string, string, error]
+
+// StageModelRedirect mocks base method.
+func (m *MockControllerState) StageModelRedirect(ctx context.Context, migrationUUID, modelUUID string, target internal.RedirectionTarget, users []internal.RedirectUserAccess) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch5_1(&m.recorder.stageModelRedirectExpects, m.ctrl, m, "StageModelRedirect", ctx, migrationUUID, modelUUID, target, users)
+}
+
+// StageModelRedirect indicates an expected call of StageModelRedirect.
+func (mr *MockControllerStateMockRecorder) StageModelRedirect(ctx, migrationUUID, modelUUID, target, users any) *MockControllerStateStageModelRedirectCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error](mr.mock.ctrl.T, mr.mock, "StageModelRedirect", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(migrationUUID), gomock.EnsureMatcher(modelUUID), gomock.EnsureMatcher(target), gomock.EnsureMatcher(users))
+	mr.stageModelRedirectExpects = append(mr.stageModelRedirectExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateStageModelRedirectCall is the typed call wrapper for StageModelRedirect.
+type MockControllerStateStageModelRedirectCall = gomock.Call5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error]
 
 // MockModelState is a mock of ModelState interface.
 type MockModelState struct {

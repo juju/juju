@@ -407,10 +407,6 @@ func (s *loginSuite) testLoginDuringMaintenance(c *tc.C, check func(api.Connecti
 	check(st)
 }
 
-func (s *loginSuite) TestMigratedModelLoginRedirect(c *tc.C) {
-	c.Skip("check login to a migrated model results in a redirect")
-}
-
 func (s *loginSuite) TestAnonymousModelLogin(c *tc.C) {
 	conn := s.openAPIWithoutLogin(c)
 

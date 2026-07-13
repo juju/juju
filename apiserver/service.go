@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	userservice "github.com/juju/juju/domain/access/service"
+	domainmodel "github.com/juju/juju/domain/model"
 	domainrelation "github.com/juju/juju/domain/relation"
 	"github.com/juju/juju/internal/proxy"
 )
@@ -69,6 +70,20 @@ type BakeryConfigService interface {
 type ModelInfoService interface {
 	// GetModelInfo returns the information for the current model.
 	GetModelInfo(ctx context.Context) (model.ModelInfo, error)
+}
+
+// ModelRedirectService provides the redirect information the login flow needs
+// to decide whether a login to a model that has migrated away from this
+// controller should be redirected to the controller now hosting it.
+type ModelRedirectService interface {
+	// ModelRedirection returns the redirection information for a model that has
+	// migrated away from this controller, or [modelerrors.ModelNotRedirected]
+	// if the model is still served here.
+	ModelRedirection(ctx context.Context, modelUUID model.UUID) (domainmodel.ModelRedirection, error)
+
+	// ModelRedirectUsers returns the users whose model access was captured in
+	// the migration redirect snapshot and who can still log in.
+	ModelRedirectUsers(ctx context.Context, modelUUID model.UUID) ([]domainmodel.RedirectUser, error)
 }
 
 // AccessService provides information about users and permissions.

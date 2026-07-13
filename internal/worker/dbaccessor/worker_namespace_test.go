@@ -338,7 +338,11 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *tc.C) {
+// TestDeleteDatabaseForUnknownModel asserts that deleting a namespace whose
+// database was never opened on this node still drops the database directly
+// rather than short-circuiting with a not-found error. The tracked worker is
+// absent, so deletion goes straight to opening and dropping the database.
+func (s *namespaceSuite) TestDeleteDatabaseForUnknownModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -362,18 +366,22 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *tc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
+	// The namespace was never opened on this node, so deletion opens the
+	// database directly to drop it.
+	db, err := s.DBApp().Open(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
+	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
 
-	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
+	ctx, cancel := context.WithTimeout(c.Context(), testhelpers.LongWait)
+	defer cancel()
 
-	dbw := w.(*dbWorker)
-	ensureStartup(c, dbw)
+	dbw := s.startWorker(c, ctx)
+	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.deleteDatabase(c.Context(), "foo")
-	c.Assert(err, tc.ErrorIs, errors.NotFound)
+	err = dbw.deleteDatabase(c.Context(), "foo")
+	c.Assert(err, tc.ErrorIsNil)
 
-	workertest.CleanKill(c, w)
+	workertest.CleanKill(c, dbw)
 }
 
 func (s *namespaceSuite) startWorker(c *tc.C, ctx context.Context) *dbWorker {
