@@ -320,6 +320,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        config.ConfigChangeSocketPath,
 			SocketFileMode:    0o660,
+			ReadyUnlocker:     gate.AlreadyUnlocked{},
 		}),
 
 		// The certificate-watcher manifold monitors the API server
@@ -682,6 +683,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketFileMode:                  0o660,
 			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
 			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
+			PrometheusRegisterer:            config.PrometheusRegisterer,
+			NewMetricsCollector:             controlsocket.NewMetricsCollector,
 		})),
 
 		// The ssh server worker runs on the controller.
