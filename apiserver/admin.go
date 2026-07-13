@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/flightrecorder"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
@@ -418,11 +419,26 @@ func (a *admin) getModelMigrationDetails(ctx context.Context, req params.LoginRe
 }
 
 func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequest) error {
-	// Only user logins are redirected. That includes the anonymous user
-	// (a user tag named api.AnonymousUsername) used by cross-model relation
-	// connections, and token logins (e.g. a JWT issued by JAAS), which carry
-	// no auth tag at all. Agents are not redirected at login; they follow
-	// the migration via the migrationminion protocol.
+	return redirectErrorForMigratedModel(ctx, a.root.domainServices.Model(), a.root.modelUUID, req)
+}
+
+// redirectErrorForMigratedModel returns a [apiservererrors.RedirectError] when a
+// login request for a model that no longer exists on this controller should be
+// redirected to the controller the model migrated to. It returns nil when the
+// login is not eligible for redirection and should instead proceed (or be
+// masked as unauthorized) on this controller.
+//
+// Only user logins are redirected. That includes the anonymous user
+// (a user tag named api.AnonymousUsername) used by cross-model relation
+// connections, and token logins (e.g. a JWT issued by JAAS), which carry
+// no auth tag at all. Agents are not redirected at login; they follow
+// the migration via the migrationminion protocol.
+func redirectErrorForMigratedModel(
+	ctx context.Context,
+	modelService ModelRedirectService,
+	modelUUID coremodel.UUID,
+	req params.LoginRequest,
+) error {
 	tokenLogin := req.AuthTag == "" && req.Token != ""
 	if req.AuthTag == "" && !tokenLogin {
 		return nil
@@ -442,7 +458,7 @@ func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequ
 
 	// Check if the model was not found due to being migrated to another
 	// controller.
-	redirectionTarget, err := a.root.domainServices.Model().ModelRedirection(ctx, a.root.modelUUID)
+	redirectionTarget, err := modelService.ModelRedirection(ctx, modelUUID)
 	if errors.Is(err, modelerrors.ModelNotRedirected) {
 		return nil
 	} else if err != nil {
@@ -454,14 +470,14 @@ func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequ
 	// user record on this controller to consult. Always redirect them and
 	// let the target controller enforce access.
 	if tokenLogin {
-		return a.makeRedirectError(redirectionTarget)
+		return makeRedirectError(redirectionTarget)
 	}
 
 	// Anonymous logins are always redirected so that cross-model relations
 	// keep working after the model has migrated.
 	userName := userTag.Id()
 	if userName == api.AnonymousUsername {
-		return a.makeRedirectError(redirectionTarget)
+		return makeRedirectError(redirectionTarget)
 	}
 
 	// External users are authenticated by an external identity provider and
@@ -469,20 +485,20 @@ func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequ
 	// this controller, so they cannot be authorized locally. Redirect them
 	// and let the target controller decide.
 	if !userTag.IsLocal() {
-		return a.makeRedirectError(redirectionTarget)
+		return makeRedirectError(redirectionTarget)
 	}
 
 	// Local named users are only redirected if they had captured model
 	// access at migration time. This enforces the 3.6 authorization
 	// behavior: a user with no access to the migrated model on the source
 	// controller should not learn its new location.
-	redirectUsers, err := a.root.domainServices.Model().ModelRedirectUsers(ctx, a.root.modelUUID)
+	redirectUsers, err := modelService.ModelRedirectUsers(ctx, modelUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, u := range redirectUsers {
 		if u.UserName == userName {
-			return a.makeRedirectError(redirectionTarget)
+			return makeRedirectError(redirectionTarget)
 		}
 	}
 	// User has no captured model access — do not redirect.
@@ -490,7 +506,7 @@ func (a *admin) maybeEmitRedirectError(ctx context.Context, req params.LoginRequ
 }
 
 // makeRedirectError builds a RedirectError from the redirection target.
-func (a *admin) makeRedirectError(redirectionTarget model.ModelRedirection) error {
+func makeRedirectError(redirectionTarget model.ModelRedirection) error {
 	hps, err := network.ParseProviderHostPorts(redirectionTarget.Addresses...)
 	if err != nil {
 		return errors.Trace(err)
