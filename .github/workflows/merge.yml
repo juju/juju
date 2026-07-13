@@ -24,7 +24,7 @@ jobs:
           echo "target=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           ref: ${{ steps.branch.outputs.source }}
@@ -84,12 +84,9 @@ jobs:
 
       - name: Notify if merge has conflicts
         if: steps.merge.outputs.conflicts == 'true' && steps.message.outputs.message != ''
-        env:
-          MM_TOKEN: ${{ secrets.MM_TOKEN }}
-          MESSAGE: ${{ steps.message.outputs.message }}
-        run: |
-          # install mmctl
-          curl https://releases.mattermost.com/mmctl/v11.8.1/linux_amd64.tar -Lo mmctl.tar
-          tar -xvf mmctl.tar
-          ./mmctl auth login 'https://chat.canonical.com' --name Charmhub --access-token $MM_TOKEN
-          ./mmctl post create Charmhub:juju-dev --message "$MESSAGE"
+        uses: ./.github/actions/notify-mm
+        with:
+          mm_url: ${{ secrets.MM_URL }}
+          mm_token: ${{ secrets.MM_TOKEN }}
+          channel: ${{ secrets.MM_CHANNEL }}
+          message: ${{ steps.message.outputs.message }}

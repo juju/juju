@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/clock"
 
 	coreapplication "github.com/juju/juju/core/application"
 	coredatabase "github.com/juju/juju/core/database"
@@ -36,14 +37,16 @@ import (
 // State represents database interactions dealing with storage pools.
 type State struct {
 	*domain.StateBase
+	clock  clock.Clock
 	logger logger.Logger
 }
 
 // NewState returns a new secretMetadata state
 // based on the input database factory method.
-func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *State {
+func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger, clock clock.Clock) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
+		clock:     clock,
 		logger:    logger,
 	}
 }
@@ -152,6 +155,73 @@ WHERE name=$unit.name`, u)
 		return "", errors.Errorf("looking up unit UUID for %q: %w", unitName, err)
 	}
 	return u.UUID, errors.Capture(err)
+}
+
+// ReserveSecretURIs records that the given secret IDs have been minted for
+// the specified unit but not yet persisted as charm secrets.
+func (st State) ReserveSecretURIs(ctx context.Context, unitUUID coreunit.UUID, secretIDs []string) error {
+	if len(secretIDs) == 0 {
+		return nil
+	}
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	now := st.clock.Now().UTC()
+	reservations := make([]secretReservation, len(secretIDs))
+	for i, id := range secretIDs {
+		reservations[i] = secretReservation{
+			SecretID:  id,
+			UnitUUID:  unitUUID.String(),
+			CreatedAt: now,
+		}
+	}
+
+	insertStmt, err := st.Prepare(`
+INSERT INTO secret_reservation (*)
+VALUES ($secretReservation.*)`, secretReservation{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Capture(tx.Query(ctx, insertStmt, reservations).Run())
+	})
+	return errors.Capture(err)
+}
+
+// GetUnitReservedSecretIDs returns the IDs of all secrets reserved by the
+// given unit that have not yet been persisted.
+func (st State) GetUnitReservedSecretIDs(ctx context.Context, unitUUID coreunit.UUID) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	u := entityRef{UUID: unitUUID.String()}
+	selectStmt, err := st.Prepare(`
+SELECT secret_id AS &secretID.id
+FROM   secret_reservation
+WHERE  unit_uuid = $entityRef.uuid`, secretID{}, u)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	var ids []secretID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, selectStmt, u).GetAll(&ids)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Errorf("getting reserved secret IDs for unit %q: %w", unitUUID, err)
+	}
+	result := make([]string, len(ids))
+	for i, s := range ids {
+		result[i] = s.ID
+	}
+	return result, nil
 }
 
 // ImportSecretWithRevisions creates a secret with its metadata and revisions
@@ -490,9 +560,9 @@ func (st State) setSecretUnitOwner(ctx context.Context, tx *sqlair.TX, uri *core
 	return nil
 }
 
-// CreateCharmApplicationSecret creates a secret onwed by the specified
+// CreateCharmApplicationSecret creates a secret owned by the specified
 // application, returning an error satisfying [secreterrors.SecretAlreadyExists]
-// if a secretowned by the same application with the same label already exists.
+// if a secret owned by the same application with the same label already exists.
 // It also returns an error satisfying [applicationerrors.ApplicationNotFound]
 // if the application does not exist, or [secreterrors.SecretLabelAlreadyExists]
 // if the optional label passed as param already exists.
@@ -527,8 +597,6 @@ func (st State) CreateCharmApplicationSecret(ctx context.Context, version int, u
 func (st State) createCharmApplicationSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, appUUID coreapplication.UUID, secret domainsecret.UpsertSecretParams,
 ) error {
-	// todo(gfouillet): this check looks like a lot a service layer validation, and
-	//   may requires to be moved to the service layer when it will be refactored
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
 	}
@@ -548,7 +616,7 @@ func (st State) createCharmApplicationSecret(
 	return nil
 }
 
-// CreateCharmUnitSecret creates a secret onwed by the specified unit,
+// CreateCharmUnitSecret creates a secret owned by the specified unit,
 // returning an error satisfying [secreterrors.SecretAlreadyExists] if a secret
 // owned by the same unit with the same label already exists.
 // It also returns an error satisfying [applicationerrors.UnitNotFound] if
@@ -590,9 +658,6 @@ func (st State) CreateCharmUnitSecret(
 func (st State) createCharmUnitSecret(
 	ctx context.Context, tx *sqlair.TX, version int, uri *coresecrets.URI, unitUUID coreunit.UUID, secret domainsecret.UpsertSecretParams,
 ) error {
-
-	// todo(gfouillet): this check looks like a lot a service layer validation, and
-	//   may requires to be moved to the service layer when it will be refactored
 	if secret.AutoPrune != nil && *secret.AutoPrune {
 		return secreterrors.AutoPruneNotSupported
 	}
@@ -1672,34 +1737,6 @@ GROUP BY sr.secret_id`, input, result)
 		info.LatestExpireTime = &result.LatestExpireTime
 	}
 	return info, nil
-}
-
-// GetRotatePolicy returns the rotate policy for the specified secret.
-func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
-	db, err := st.DB(ctx)
-	if err != nil {
-		return coresecrets.RotateNever, errors.Capture(err)
-	}
-	stmt, err := st.Prepare(`
-SELECT srp.policy AS &secretInfo.policy
-FROM   secret_metadata sm
-       JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
-WHERE  sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
-	if err != nil {
-		return coresecrets.RotateNever, errors.Capture(err)
-	}
-
-	var info secretInfo
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&info)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("rotate policy for %q not found", uri).Add(secreterrors.SecretNotFound)
-		}
-		return errors.Capture(err)
-	}); err != nil {
-		return coresecrets.RotateNever, errors.Capture(err)
-	}
-	return coresecrets.RotatePolicy(info.RotatePolicy), nil
 }
 
 func (st State) listAllSecrets(ctx context.Context, tx *sqlair.TX) ([]*coresecrets.SecretMetadata, error) {

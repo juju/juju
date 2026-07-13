@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -22,7 +20,6 @@ import (
 	"github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/unitstate"
-	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
 )
@@ -71,116 +68,107 @@ func (s *UniterSecretsSuite) expectAuthUnitAgent() {
 	s.authorizer.EXPECT().GetAuthTag().Return(s.authTag).AnyTimes()
 }
 
-func (s *UniterSecretsSuite) TestCreateCharmSecrets(c *tc.C) {
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesEmptyValue(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag:        "unit-mariadb/0",
+		UpsertSecretArg: params.UpsertSecretArg{},
+	}})
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*empty secret value.*`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesPermissionDenied(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "application-mysql",
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+		},
+	}})
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*permission denied.*`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesUnitOwned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	data := map[string]string{"foo": "bar"}
-	checksum, err := coresecrets.NewSecretValue(data).Checksum()
-	c.Assert(err, tc.ErrorIsNil)
-
-	p := secret.CreateCharmSecretParams{
-		Version:    secrets.Version,
-		CharmOwner: secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: "mariadb"},
-		UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
-			Accessor: secret.SecretAccessor{
-				Kind: secret.UnitAccessor,
-				ID:   "mariadb/0",
-			},
+	result, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "unit-mariadb/0",
+		UpsertSecretArg: params.UpsertSecretArg{
 			RotatePolicy: new(coresecrets.RotateDaily),
-			ExpireTime:   new(s.clock.Now()),
 			Description:  new("my secret"),
 			Label:        new("foobar"),
-			Data:         data,
-			Checksum:     checksum,
+			Content:      params.SecretContentParams{Data: data, Checksum: "checksum"},
 		},
-	}
-	var gotURI *coresecrets.URI
-	s.secretService.EXPECT().CreateCharmSecret(gomock.Any(), gomock.Any(), p).DoAndReturn(
-		func(ctx context.Context, uri *coresecrets.URI, p secret.CreateCharmSecretParams) error {
-			gotURI = uri
-			return nil
-		},
-	)
-
-	results, err := s.facade.createSecrets(c.Context(), params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			OwnerTag: "application-mariadb",
-			UpsertSecretArg: params.UpsertSecretArg{
-				RotatePolicy: new(coresecrets.RotateDaily),
-				ExpireTime:   new(s.clock.Now()),
-				Description:  new("my secret"),
-				Label:        new("foobar"),
-				Params:       map[string]any{"param": 1},
-				Content:      params.SecretContentParams{Data: data, Checksum: checksum},
-			},
-		}, {
-			UpsertSecretArg: params.UpsertSecretArg{},
-		}, {
-			OwnerTag: "application-mysql",
-			UpsertSecretArg: params.UpsertSecretArg{
-				Content: params.SecretContentParams{Data: data},
-			},
-		}},
-	})
+	}})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Result: gotURI.String(),
-		}, {
-			Error: &params.Error{Message: `empty secret value not valid`, Code: params.CodeNotValid},
-		}, {
-			Error: &params.Error{Message: `permission denied`, Code: params.CodeUnauthorized},
-		}},
-	})
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI, tc.Not(tc.IsNil))
+	c.Check(result[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+	c.Check(result[0].Checksum, tc.Equals, "checksum")
+	c.Check(result[0].CharmOwner.Kind, tc.Equals, secret.UnitCharmSecretOwner)
+	c.Check(result[0].CharmOwner.ID, tc.Equals, "mariadb/0")
+	c.Check(result[0].Accessor.Kind, tc.Equals, secret.UnitAccessor)
+	c.Check(result[0].Accessor.ID, tc.Equals, "mariadb/0")
+	c.Check(*result[0].RotatePolicy, tc.Equals, coresecrets.RotateDaily)
 }
 
-func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *tc.C) {
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesAppOwned(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	p := secret.CreateCharmSecretParams{
-		Version:    secrets.Version,
-		CharmOwner: secret.CharmSecretOwner{Kind: secret.ApplicationCharmSecretOwner, ID: "mariadb"},
-		UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
-			Accessor: secret.SecretAccessor{
-				Kind: secret.UnitAccessor,
-				ID:   "mariadb/0",
-			},
-			Label: new("foobar"),
-			Data:  map[string]string{"foo": "bar"},
+	data := map[string]string{"foo": "bar"}
+	result, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "application-mariadb",
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: data},
 		},
-	}
-	s.secretService.EXPECT().CreateCharmSecret(gomock.Any(), gomock.Any(), p).Return(
-		fmt.Errorf("dup label %w", secreterrors.SecretLabelAlreadyExists),
-	)
-
-	results, err := s.facade.createSecrets(c.Context(), params.CreateSecretArgs{
-		Args: []params.CreateSecretArg{{
-			OwnerTag: "application-mariadb",
-			UpsertSecretArg: params.UpsertSecretArg{
-				Label:   new("foobar"),
-				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
-			},
-		}},
-	})
+	}})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{{
-			Error: &params.Error{Message: `secret with label "foobar" already exists`, Code: params.CodeAlreadyExists},
-		}},
-	})
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI, tc.Not(tc.IsNil))
+	c.Check(result[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+	c.Check(result[0].CharmOwner.Kind, tc.Equals, secret.ApplicationCharmSecretOwner)
+	c.Check(result[0].CharmOwner.ID, tc.Equals, "mariadb")
+	c.Check(result[0].Accessor.Kind, tc.Equals, secret.UnitAccessor)
+	c.Check(result[0].Accessor.ID, tc.Equals, "mariadb/0")
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesWithCustomURI(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	data := map[string]string{"foo": "bar"}
+	result, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "unit-mariadb/0",
+		URI:      new(uri.String()),
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: data},
+		},
+	}})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+	c.Check(result[0].URI.String(), tc.Equals, uri.String())
+	c.Check(result[0].Data, tc.DeepEquals, coresecrets.SecretData(data))
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretCreatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.facade.prepareSecretCreates(c.Context(), []params.CreateSecretArg{{
+		OwnerTag: "unit-mariadb/0",
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{
+				Data:     map[string]string{"foo": "bar"},
+				ValueRef: &params.SecretValueRef{BackendID: "backend", RevisionID: "rev"},
+			},
+		},
+	}})
+	c.Assert(err, tc.ErrorMatches, `creating secrets: .*must specify either content or a value reference but not both.*`)
 }
 
 // --- prepareSecretUpdates tests ---
-
-func (s *UniterSecretsSuite) TestPrepareSecretUpdatesInvalidURI(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	unitName := unittesting.GenNewName(c, "mariadb/0")
-	_, err := s.facade.prepareSecretUpdates(c.Context(), unitName, []params.UpdateSecretArg{{
-		URI: "not-a-valid-uri-%%%",
-	}})
-	c.Assert(err, tc.ErrorMatches, `.*invalid URL escape.*`)
-}
 
 func (s *UniterSecretsSuite) TestPrepareSecretUpdatesNotFoundSkipped(c *tc.C) {
 	defer s.setupMocks(c).Finish()
@@ -285,6 +273,26 @@ func (s *UniterSecretsSuite) TestPrepareSecretUpdatesNoAttributesSpecified(c *tc
 		UpsertSecretArg: params.UpsertSecretArg{},
 	}})
 	c.Assert(err, tc.ErrorMatches, `updating secrets: at least one attribute to update must be specified`)
+}
+
+func (s *UniterSecretsSuite) TestPrepareSecretUpdatesBothDataAndValueRef(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	unitName := unittesting.GenNewName(c, "mariadb/0")
+	uri := coresecrets.NewURI()
+
+	s.secretService.EXPECT().CheckSecretManageAccess(gomock.Any(), uri, unitName).Return(nil)
+
+	_, err := s.facade.prepareSecretUpdates(c.Context(), unitName, []params.UpdateSecretArg{{
+		URI: uri.String(),
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{
+				Data:     map[string]string{"foo": "bar"},
+				ValueRef: &params.SecretValueRef{BackendID: "backend", RevisionID: "rev"},
+			},
+		},
+	}})
+	c.Assert(err, tc.ErrorMatches, `updating secrets: .*must specify either content or a value reference but not both.*`)
 }
 
 // --- prepareSecretTrackLatest tests ---

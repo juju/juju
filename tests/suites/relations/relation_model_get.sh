@@ -19,11 +19,11 @@ run_relation_model_get() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source" 0)"
 
 	echo "Figure out the right relation IDs to use for hook command invocations"
-	sink_rel_id=$(juju exec --unit dummy-source/0 "relation-ids sink" | cut -d':' -f2)
+	sink_rel_id=$(juju_exec_output --unit dummy-source/0 "relation-ids sink" | cut -d':' -f2)
 
 	echo "Check relation-model-get hook"
 	model_uuid=$(juju show-model --format json | yq -r '.["test-relation-model-get"]["model-uuid"]')
-	juju exec --unit dummy-source/0 "relation-model-get -r ${sink_rel_id}" | check "${model_uuid}"
+	juju_exec_output --unit dummy-source/0 "relation-model-get -r ${sink_rel_id}" | check "${model_uuid}"
 
 	echo "Setting up cross model relation"
 	juju offer dummy-source:sink
@@ -37,10 +37,10 @@ run_relation_model_get() {
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink" 0)"
 
 	echo "Figure out the right relation IDs to use for hook command invocations"
-	sink_rel_id=$(juju exec --unit dummy-sink/0 "relation-ids source" | cut -d':' -f2)
+	sink_rel_id=$(juju_exec_output --unit dummy-sink/0 "relation-ids source" | cut -d':' -f2)
 
 	echo "Check relation-model-get hook"
-	juju exec --unit dummy-sink/0 "relation-model-get -r ${sink_rel_id}" | check "${model_uuid}"
+	juju_exec_output --unit dummy-sink/0 "relation-model-get -r ${sink_rel_id}" | check "${model_uuid}"
 
 	destroy_model "${model_name}"
 	destroy_model "${another_model_name}"

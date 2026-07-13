@@ -30,7 +30,7 @@ jobs:
       - ${{ (github.repository_owner == 'juju' && 'aws') || (github.repository_owner == 'canonical' && 'noble') }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: "Squid"
         if: github.repository_owner != 'juju'
@@ -41,13 +41,25 @@ jobs:
           set -ex
           sudo apt -y update
           sudo apt -y install \
-            cargo \
+            cmake \
+            libfreetype6-dev \
+            libharfbuzz-dev \
+            libjpeg8-dev \
+            liblcms2-dev \
+            libopenjp2-7-dev \
             libpython3-dev \
+            libtiff5-dev \
+            libwebp-dev \
+            libxcb1-dev \
             libxml2-dev \
             libxslt1-dev \
             make \
+            ninja-build \
             python3-venv \
-            rustc
+            zlib1g-dev
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+            sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
 
       - name: Build Sphinx venv
         run: |
@@ -55,5 +67,20 @@ jobs:
           cd docs
           make -f Makefile \
             install \
-            PIPOPTS="--no-binary :all:" \
-            || ( cat .sphinx/venv/pip_install.log && exit 1 )
+            PIPOPTS="--no-binary :all: --only-binary canonical-sphinx" \
+            || ( cat .venv/pip_install.log && exit 1 )
+
+      - name: Notify on failure
+        if: failure()
+        uses: ./.github/actions/notify-mm
+        with:
+          mm_url: ${{ secrets.MM_URL }}
+          mm_token: ${{ secrets.MM_TOKEN }}
+          channel: ${{ secrets.MM_CHANNEL }}
+          message: |
+            🤖 **Beep boop! Build failure detected!**
+
+            📍 **Branch:** `${{ github.ref_name }}`
+            🔗 **Workflow run:** [Click here to investigate](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ⚠️ The Sphinx venv build has failed. Please review the logs and fix the issue.

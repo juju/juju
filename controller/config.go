@@ -210,6 +210,8 @@ const (
 
 	// CAASImageRepo sets the docker repo to use
 	// for the jujud operator and mongo images.
+	// Note: the repository itself is read-only after bootstrap; only
+	// authentication credentials (for a private registry) can be updated.
 	CAASImageRepo = "caas-image-repo"
 
 	// Features allows a list of runtime changeable features to be updated.
@@ -274,6 +276,12 @@ const (
 	// ObjectStoreS3StaticSession is the static session token to use for S3
 	// object stores.
 	ObjectStoreS3StaticSession = "object-store-s3-static-session"
+
+	// ObjectStoreS3Region is the AWS region to use for signing S3 requests.
+	// When empty, the region is derived from the endpoint URL for common AWS
+	// forms. If it cannot be derived and static credentials are used, a
+	// placeholder region is used and a warning is logged.
+	ObjectStoreS3Region = "object-store-s3-region"
 
 	// SystemSSHKeys returns the set of ssh keys that should be trusted by
 	// agents of this controller regardless of the model.
@@ -536,6 +544,7 @@ var (
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
+		ObjectStoreS3Region,
 		SystemSSHKeys,
 		JujudControllerSnapSource,
 		SSHMaxConcurrentConnections,
@@ -598,6 +607,7 @@ var (
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
+		ObjectStoreS3Region,
 		SSHMaxConcurrentConnections,
 	)
 
@@ -1120,6 +1130,13 @@ func (c Config) ObjectStoreS3StaticSecret() string {
 // object stores.
 func (c Config) ObjectStoreS3StaticSession() string {
 	return c.asString(ObjectStoreS3StaticSession)
+}
+
+// ObjectStoreS3Region returns the region to use for signing S3 requests.
+// Returns an empty string if not set; the s3client package derives it from
+// the endpoint URL, or logs a warning and uses a placeholder when it cannot.
+func (c Config) ObjectStoreS3Region() string {
+	return c.asString(ObjectStoreS3Region)
 }
 
 // SSHServerPort returns the port the SSH server listens on.

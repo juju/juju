@@ -13,26 +13,21 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
-	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
-	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
-	corestorage "github.com/juju/juju/core/storage"
-	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	applicationstorageservice "github.com/juju/juju/domain/application/service/storage"
-	applicationstate "github.com/juju/juju/domain/application/state"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secret"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
-	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	internalstorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/secrets/provider"
+	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/internal/secrets/provider/juju"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -67,35 +62,12 @@ VALUES (?, ?, "test", "prod", "iaas", "test-model", "ec2")
 func (s *serviceSuite) TestDeleteSecretInternal(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), nil, s.modelUUID, gomock.Any(), gomock.Any())
-	uri := s.createSecret(c, map[string]string{"foo": "bar"}, nil)
+	uri := s.createSecret(c, map[string]string{"foo": "bar"})
 
 	err := s.svc.DeleteSecret(c.Context(), uri, secret.DeleteSecretParams{
 		Accessor: secret.SecretAccessor{
-			Kind: secret.UnitAccessor,
-			ID:   "mariadb/0",
-		},
-		Revisions: []int{1},
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	s.verifySecretRemovalJob(c, uri, 1)
-}
-
-func (s *serviceSuite) TestDeleteSecretExternal(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	ref := &coresecrets.ValueRef{
-		BackendID:  "backend-id",
-		RevisionID: "rev-id",
-	}
-	s.secretBackendState.EXPECT().AddSecretBackendReference(gomock.Any(), ref, s.modelUUID, gomock.Any(), gomock.Any())
-	uri := s.createSecret(c, nil, ref)
-
-	err := s.svc.DeleteSecret(c.Context(), uri, secret.DeleteSecretParams{
-		Accessor: secret.SecretAccessor{
-			Kind: secret.UnitAccessor,
-			ID:   "mariadb/0",
+			Kind: secret.ModelAccessor,
+			ID:   s.modelUUID.String(),
 		},
 		Revisions: []int{1},
 	})
@@ -111,7 +83,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.svc = service.NewSecretService(
 		state.NewState(func(ctx context.Context) (database.TxnRunner, error) {
 			return s.ModelTxnRunner(c, s.modelUUID.String()), nil
-		}, loggertesting.WrapCheckLog(c)),
+		}, loggertesting.WrapCheckLog(c), clock.WallClock),
 		s.secretBackendState,
 		nil,
 		loggertesting.WrapCheckLog(c),
@@ -120,68 +92,35 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) createSecret(c *tc.C, data map[string]string, valueRef *coresecrets.ValueRef) *coresecrets.URI {
+func (s *serviceSuite) createSecret(c *tc.C, data map[string]string) *coresecrets.URI {
 	ctx := c.Context()
-	st := applicationstate.NewState(func(ctx context.Context) (database.TxnRunner, error) {
-		return s.ModelTxnRunner(c, s.modelUUID.String()), nil
-	}, s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
-	storageProviderRegistryGetter := corestorage.ConstModelStorageRegistry(
-		func() internalstorage.ProviderRegistry {
-			return internalstorage.NotImplementedProviderRegistry{}
-		},
-	)
-	storageSvc := applicationstorageservice.NewService(
-		st,
-		applicationstorageservice.NewStoragePoolProvider(
-			storageProviderRegistryGetter, st,
-		),
-		loggertesting.WrapCheckLog(c),
-	)
 
-	appService := applicationservice.NewProviderService(
-		st,
-		storageSvc,
-		domaintesting.NoopLeaderEnsurer(),
-		nil,
-		func(ctx context.Context) (applicationservice.Provider, error) {
-			return serviceProvider{}, nil
-		},
-		func(ctx context.Context) (applicationservice.CAASProvider, error) {
-			return serviceProvider{}, nil
-		},
-		func(ctx context.Context) (applicationservice.CloudInfoProvider, error) {
-			return nil, coreerrors.NotSupported
-		},
-		nil,
-		domain.NewStatusHistory(loggertesting.WrapCheckLog(c), clock.WallClock),
-		s.modelUUID,
-		clock.WallClock,
-		loggertesting.WrapCheckLog(c),
+	s.secretBackendState.EXPECT().GetActiveModelSecretBackend(gomock.Any(), s.modelUUID).Return(
+		"internal",
+		&provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      s.modelUUID.String(),
+			ModelName:      "test-model",
+			BackendConfig: provider.BackendConfig{
+				BackendType: juju.BackendType,
+			},
+		}, nil,
 	)
-	u := applicationservice.AddIAASUnitArg{}
-	_, err := appService.CreateIAASApplication(ctx, "mariadb", &stubCharm{}, corecharm.Origin{
-		Source: corecharm.Local,
-		Platform: corecharm.Platform{
-			Channel:      "24.04",
-			OS:           "ubuntu",
-			Architecture: "amd64",
-		},
-	}, applicationservice.AddApplicationArgs{
-		ReferenceName: "mariadb",
-	}, u)
-	c.Assert(err, tc.ErrorIsNil)
+	s.secretBackendState.EXPECT().AddSecretBackendReference(
+		gomock.Any(), nil, s.modelUUID, gomock.Any(), gomock.Any(),
+	).Return(func() error { return nil }, nil)
 
 	uri := coresecrets.NewURI()
-	err = s.svc.CreateCharmSecret(ctx, uri, secret.CreateCharmSecretParams{
-		UpdateCharmSecretParams: secret.UpdateCharmSecretParams{
+	err := s.svc.CreateUserSecret(ctx, uri, service.CreateUserSecretParams{
+		UpdateUserSecretParams: service.UpdateUserSecretParams{
+			Accessor: secret.SecretAccessor{
+				Kind: secret.ModelAccessor,
+				ID:   s.modelUUID.String(),
+			},
 			Data:     data,
-			ValueRef: valueRef,
+			Checksum: "checksum-1",
 		},
 		Version: 1,
-		CharmOwner: secret.CharmSecretOwner{
-			Kind: secret.UnitCharmSecretOwner,
-			ID:   "mariadb/0",
-		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return uri

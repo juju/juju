@@ -77,6 +77,35 @@ func (s *serviceSuite) TestGetModelConfigContainsAgentInformation(c *tc.C) {
 	c.Check(cfg.AgentStream(), tc.Equals, coreagentbinary.AgentStreamReleased.String())
 }
 
+func (s *serviceSuite) TestModelConfigValuesSupportsMapValues(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, coremodel.NewUUID)
+	s.mockState.EXPECT().ModelConfig(gomock.Any()).Return(
+		map[string]string{
+			config.NameKey:         "wallyworld",
+			config.UUIDKey:         modelUUID.String(),
+			config.TypeKey:         "testprovider",
+			config.ResourceTagsKey: "key=value",
+		}, nil,
+	)
+
+	s.mockModelConfigProvider.EXPECT().ConfigSchema().Return(schema.Fields{})
+
+	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
+		return modeldefaults.Defaults{
+			config.ResourceTagsKey: {
+				Default: "",
+			},
+		}, nil
+	}
+
+	svc := NewService(defaults, config.ModelValidator(), s.modelConfigProviderFunc, s.mockState)
+	values, err := svc.ModelConfigValues(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(values[config.ResourceTagsKey].Source, tc.Equals, config.JujuModelConfigSource)
+}
+
 // TestUpdateModelConfigAgentStream checks that the model agent stream value
 // cannot be changed via model config and if it is we get back an errors that
 // satisfies [config.ValidationError].

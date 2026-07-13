@@ -15,6 +15,7 @@ import (
 	"github.com/juju/tc"
 
 	apiresources "github.com/juju/juju/api/client/resources"
+	apidocker "github.com/juju/juju/api/docker"
 	"github.com/juju/juju/cmd/modelcmd"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/internal/docker"
@@ -466,10 +467,10 @@ password: hunter2
 	data := bytes.NewBufferString(content)
 	dets, err := unMarshalDockerDetails(data)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(dets, tc.DeepEquals, docker.DockerImageDetails{
+	c.Assert(dets, tc.DeepEquals, apidocker.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
-		ImageRepoDetails: docker.ImageRepoDetails{
-			BasicAuthConfig: docker.BasicAuthConfig{
+		ImageRepoDetails: apidocker.ImageRepoDetails{
+			BasicAuthConfig: apidocker.BasicAuthConfig{
 				Username: "docker-registry",
 				Password: "hunter2",
 			},
@@ -486,10 +487,10 @@ password: hunter2
 	data = bytes.NewBufferString(content)
 	dets, err = unMarshalDockerDetails(data)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(dets, tc.DeepEquals, docker.DockerImageDetails{
+	c.Assert(dets, tc.DeepEquals, apidocker.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
-		ImageRepoDetails: docker.ImageRepoDetails{
-			BasicAuthConfig: docker.BasicAuthConfig{
+		ImageRepoDetails: apidocker.ImageRepoDetails{
+			BasicAuthConfig: apidocker.BasicAuthConfig{
 				Username: "docker-registry",
 				Password: "hunter2",
 			},
@@ -518,10 +519,10 @@ func (s *DeploySuite) TestGetDockerDetailsData(c *tc.C) {
 	fs := osFilesystem{}
 	result, err := getDockerDetailsData("registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image", fs.Open)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
+	c.Assert(result, tc.DeepEquals, apidocker.DockerImageDetails{
 		RegistryPath: "registry.staging.jujucharms.com/wallyworld/mysql-k8s/mysql_image",
-		ImageRepoDetails: docker.ImageRepoDetails{
-			BasicAuthConfig: docker.BasicAuthConfig{
+		ImageRepoDetails: apidocker.ImageRepoDetails{
+			BasicAuthConfig: apidocker.BasicAuthConfig{
 				Username: "",
 				Password: "",
 			},
@@ -540,10 +541,10 @@ func (s *DeploySuite) TestGetDockerDetailsData(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	result, err = getDockerDetailsData(yamlFile, fs.Open)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
+	c.Assert(result, tc.DeepEquals, apidocker.DockerImageDetails{
 		RegistryPath: "mariadb/mariadb:10.2",
-		ImageRepoDetails: docker.ImageRepoDetails{
-			BasicAuthConfig: docker.BasicAuthConfig{
+		ImageRepoDetails: apidocker.ImageRepoDetails{
+			BasicAuthConfig: apidocker.BasicAuthConfig{
 				Username: "",
 				Password: "",
 			},

@@ -227,6 +227,7 @@ func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, erro
 			Session: controllerConfig.ObjectStoreS3StaticSession(),
 		},
 		w.config.Logger,
+		controllerConfig.ObjectStoreS3Region(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -271,6 +272,7 @@ var objectStoreKeys = map[string]struct{}{
 	controller.ObjectStoreS3StaticKey:     {},
 	controller.ObjectStoreS3StaticSecret:  {},
 	controller.ObjectStoreS3StaticSession: {},
+	controller.ObjectStoreS3Region:        {},
 }
 
 // containsObjectStoreKey returns true if the key is interesting to the worker.

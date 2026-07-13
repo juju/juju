@@ -14,6 +14,8 @@ updates:
       - "anvial"
   - package-ecosystem: "gomod"
     directory: "/"
+    exclude-paths:
+      - "testcharms/**"
     schedule:
       interval: "daily"
     commit-message:
@@ -25,3 +27,27 @@ updates:
       - "hpidcock"
       - "anvial"
     target-branch: "2.9" # these should always go to 2.9 as it may contain security fixes
+  - package-ecosystem: "pip"
+    directory: "/"
+    exclude-paths:
+      - "testcharms/**"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    assignees:
+      - "hpidcock"
+      - "anvial"
+  - package-ecosystem: "uv"
+    directory: "/"
+    exclude-paths:
+      - "testcharms/**"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    assignees:
+      - "hpidcock"
+      - "anvial"

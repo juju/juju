@@ -28,3 +28,34 @@ check_num_secret_revisions() {
 		sleep $delay
 	done
 }
+
+# check_num_secrets checks the total number of user secrets equals the
+# expected count. Since remove-secret is now asynchronous (scheduled via
+# a removal job), we retry to give the removal worker time to process it.
+#
+#   usage: check_num_secrets <expected_count>
+check_num_secrets() {
+	local expected=${1}
+
+	local max_retries=5
+	local delay=5
+
+	local attempt=1
+	while true; do
+		local actual
+		actual=$(juju --show-log secrets --format yaml | yq length)
+		if [ "$actual" -eq "$expected" ] 2>/dev/null; then
+			echo "Success: $expected secret(s) found"
+			return 0
+		fi
+		echo "Checking total secrets: attempt $attempt - expected $expected, got $actual"
+
+		if [[ $attempt -ge $max_retries ]]; then
+			echo "Checking total secrets failed after $max_retries retries"
+			return 1
+		fi
+
+		attempt=$((attempt + 1))
+		sleep $delay
+	done
+}

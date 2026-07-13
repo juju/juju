@@ -123,11 +123,14 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	ni, ok := netInfo[c.bindingName]
-	if !ok || len(ni.Info) == 0 {
+	if !ok {
 		return fmt.Errorf("no network config found for binding %q", c.bindingName)
 	}
 	if ni.Error != nil {
 		return errors.Trace(ni.Error)
+	}
+	if len(ni.Info) == 0 && len(ni.IngressAddresses) == 0 && len(ni.EgressSubnets) == 0 {
+		return fmt.Errorf("no network config found for binding %q", c.bindingName)
 	}
 
 	// If no specific attributes were asked for, write everything we know.
@@ -140,10 +143,11 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 		if c.ingressAddress || c.egressSubnets || c.bindAddress {
 			return fmt.Errorf("--primary-address must be the only flag specified")
 		}
-		if len(ni.Info[0].Addresses) == 0 {
-			return fmt.Errorf("no addresses attached to space for binding %q", c.bindingName)
+		address, ok := firstAvailableNetworkAddress(ni.Info)
+		if !ok {
+			return fmt.Errorf("no primary address attached to space for binding %q", c.bindingName)
 		}
-		return c.out.Write(ctx, ni.Info[0].Addresses[0].Address)
+		return c.out.Write(ctx, address)
 	}
 
 	// Write the specific articles requested.
@@ -154,22 +158,36 @@ func (c *NetworkGetCommand) Run(ctx *cmd.Context) error {
 	if c.ingressAddress {
 		var ingressAddress string
 		if len(ni.IngressAddresses) == 0 {
-			if len(ni.Info[0].Addresses) == 0 {
-				return fmt.Errorf("no addresses attached to space for binding %q", c.bindingName)
+			address, ok := firstAvailableNetworkAddress(ni.Info)
+			if !ok {
+				return fmt.Errorf("no ingress address attached to space for binding %q", c.bindingName)
 			}
-			ingressAddress = ni.Info[0].Addresses[0].Address
+			ingressAddress = address
 		} else {
 			ingressAddress = ni.IngressAddresses[0]
 		}
 		keyValues[ingressAddressKey] = ingressAddress
 	}
 	if c.bindAddress {
-		keyValues[bindAddressKey] = ni.Info[0].Addresses[0].Address
+		address, ok := firstAvailableNetworkAddress(ni.Info)
+		if !ok {
+			return fmt.Errorf("no bind address attached to space for binding %q", c.bindingName)
+		}
+		keyValues[bindAddressKey] = address
 	}
 	if len(c.keys) == 1 {
 		return c.out.Write(ctx, keyValues[c.keys[0]])
 	}
 	return c.out.Write(ctx, keyValues)
+}
+
+func firstAvailableNetworkAddress(infos []params.NetworkInfo) (string, bool) {
+	for _, info := range infos {
+		if len(info.Addresses) > 0 {
+			return info.Addresses[0].Address, true
+		}
+	}
+	return "", false
 }
 
 // These display types are used for serialising to stdout.

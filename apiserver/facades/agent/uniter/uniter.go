@@ -2987,23 +2987,12 @@ func (u *UniterAPI) commitHookChangesForOneUnit(
 	}
 	arg.AddStorage = preparedStorageAdds
 
-	// TODO - do in txn once we have support for that
 	if len(changes.SecretCreates) > 0 {
-		result, err := u.createSecrets(ctx, params.CreateSecretArgs{Args: changes.SecretCreates})
-		if err == nil {
-			var errorStrings []string
-			for _, r := range result.Results {
-				if r.Error != nil {
-					errorStrings = append(errorStrings, r.Error.Error())
-				}
-			}
-			if errorStrings != nil {
-				err = errors.New(strings.Join(errorStrings, "\n"))
-			}
-		}
+		secretCreates, err := u.prepareSecretCreates(ctx, changes.SecretCreates)
 		if err != nil {
-			return errors.Annotate(err, "creating secrets")
+			return apiservererrors.ServerError(err)
 		}
+		arg.SecretCreates = secretCreates
 	}
 	// Convert secret updates to domain types, filtering out any the unit
 	// does not have manage access on.

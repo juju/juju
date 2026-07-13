@@ -207,6 +207,8 @@ testing is
 
 `caas-image-repo` sets the docker repo to use
 for the jujud operator and mongo images.
+Note: the repository itself is read-only after bootstrap; only
+authentication credentials (for a private registry) can be updated.
 
 **Type:** string
 
@@ -522,6 +524,19 @@ controller on behalf of workers running for a model.
 ## `object-store-s3-endpoint`
 
 `object-store-s3-endpoint` is the endpoint to use for S3 object stores.
+
+**Type:** string
+
+**Can be changed after bootstrap:** yes
+
+
+(controller-config-object-store-s3-region)=
+## `object-store-s3-region`
+
+`object-store-s3-region` is the AWS region to use for signing S3 requests.
+When empty, the region is derived from the endpoint URL for common AWS
+forms. If it cannot be derived and static credentials are used, a
+placeholder region is used and a warning is logged.
 
 **Type:** string
 

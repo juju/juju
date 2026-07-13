@@ -476,35 +476,6 @@ func (s *stateSuite) TestGetSecretOwnerKindsEmpty(c *tc.C) {
 	c.Check(got, tc.IsNil)
 }
 
-func (s *stateSuite) TestGetRotatePolicy(c *tc.C) {
-	s.setupUnits(c, "mysql")
-
-	expireTime := time.Now().Add(2 * time.Hour)
-	rotateTime := time.Now().Add(time.Hour)
-	sp := domainsecret.UpsertSecretParams{
-		Description:    new("my secretMetadata"),
-		Label:          new("my label"),
-		Data:           coresecrets.SecretData{"foo": "bar"},
-		RotatePolicy:   new(domainsecret.RotateYearly),
-		ExpireTime:     new(expireTime),
-		NextRotateTime: new(rotateTime),
-		RevisionUUID:   new(uuid.MustNewUUID().String()),
-	}
-	uri := coresecrets.NewURI()
-	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-
-	result, err := s.state.GetRotatePolicy(c.Context(), uri)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(result, tc.Equals, coresecrets.RotateYearly)
-}
-
-func (s *stateSuite) TestGetRotatePolicyNotFound(c *tc.C) {
-
-	_, err := s.state.GetRotatePolicy(c.Context(), coresecrets.NewURI())
-	c.Assert(err, tc.ErrorIs, secreterrors.SecretNotFound)
-}
-
 func (s *stateSuite) TestGetRotationExpiryInfo(c *tc.C) {
 	s.setupUnits(c, "mysql")
 
@@ -1192,98 +1163,6 @@ func (s *stateSuite) TestCreateCharmSecretAutoPrune(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, secreterrors.AutoPruneNotSupported)
 }
 
-func (s *stateSuite) TestCreateCharmApplicationSecretWithContent(c *tc.C) {
-
-	s.setupUnits(c, "mysql")
-
-	expireTime := time.Now().Add(2 * time.Hour)
-	rotateTime := time.Now().Add(time.Hour)
-	sp := domainsecret.UpsertSecretParams{
-		Description:    new("my secretMetadata"),
-		Label:          new("my label"),
-		Data:           coresecrets.SecretData{"foo": "bar"},
-		RotatePolicy:   new(domainsecret.RotateYearly),
-		ExpireTime:     new(expireTime),
-		NextRotateTime: new(rotateTime),
-		RevisionUUID:   new(uuid.MustNewUUID().String()),
-	}
-	uri := coresecrets.NewURI()
-	ctx := c.Context()
-	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	owner := coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"}
-	s.assertSecret(c, s.state, uri, sp, 1, owner)
-	data, ref, err := s.state.GetSecretValue(ctx, uri, 1)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ref, tc.IsNil)
-	c.Check(data, tc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
-
-	ap := domainsecret.AccessParams{
-		SubjectID:     "mysql",
-		SubjectTypeID: domainsecret.SubjectApplication,
-	}
-	access, err := s.state.GetSecretAccess(ctx, uri, ap)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(access, tc.Equals, "manage")
-}
-
-func (s *stateSuite) TestCreateCharmApplicationSecretNotFound(c *tc.C) {
-
-	sp := domainsecret.UpsertSecretParams{
-		Description:  new("my secretMetadata"),
-		Label:        new("my label"),
-		Data:         coresecrets.SecretData{"foo": "bar"},
-		RevisionUUID: new(uuid.MustNewUUID().String()),
-	}
-	uri := coresecrets.NewURI()
-	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
-	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
-}
-
-func (s *stateSuite) TestCreateCharmApplicationSecretFailedRevisionIDMissing(c *tc.C) {
-
-	s.setupUnits(c, "mysql")
-
-	sp := domainsecret.UpsertSecretParams{
-		Description: new("my secretMetadata"),
-		Label:       new("my label"),
-		Data:        coresecrets.SecretData{"foo": "bar"},
-		Checksum:    "checksum-1234",
-	}
-	uri := coresecrets.NewURI()
-	err := s.createCharmApplicationSecret(c, 1, uri, "mysql", sp)
-	c.Assert(err, tc.ErrorMatches, `*.revision ID must be provided`)
-}
-
-func (s *stateSuite) TestCreateCharmUnitSecretWithContent(c *tc.C) {
-	s.setupUnits(c, "mysql")
-
-	sp := domainsecret.UpsertSecretParams{
-		Description:  new("my secretMetadata"),
-		Label:        new("my label"),
-		Data:         coresecrets.SecretData{"foo": "bar"},
-		RevisionUUID: new(uuid.MustNewUUID().String()),
-	}
-	uri := coresecrets.NewURI()
-	ctx := c.Context()
-	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
-	c.Assert(err, tc.ErrorIsNil)
-	owner := coresecrets.Owner{Kind: coresecrets.UnitOwner, ID: "mysql/0"}
-	s.assertSecret(c, s.state, uri, sp, 1, owner)
-	data, ref, err := s.state.GetSecretValue(ctx, uri, 1)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ref, tc.IsNil)
-	c.Check(data, tc.DeepEquals, coresecrets.SecretData{"foo": "bar"})
-
-	ap := domainsecret.AccessParams{
-		SubjectID:     "mysql/0",
-		SubjectTypeID: domainsecret.SubjectUnit,
-	}
-	access, err := s.state.GetSecretAccess(ctx, uri, ap)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(access, tc.Equals, "manage")
-}
-
 func (s *stateSuite) TestOwnerKindModelSecret(c *tc.C) {
 	sp := domainsecret.UpsertSecretParams{
 		Description:  new("my secretMetadata"),
@@ -1346,33 +1225,6 @@ func (s *stateSuite) TestOwnerKindUnitSecret(c *tc.C) {
 	c.Check(ownerInfo[0]["owner_name"], tc.Equals, "mysql/0")
 	c.Assert(unitInfo, tc.HasLen, 1)
 	c.Check(ownerInfo[0]["owner_uuid"], tc.Equals, unitInfo[0]["uuid"])
-}
-
-func (s *stateSuite) TestCreateCharmUnitSecretNotFound(c *tc.C) {
-
-	sp := domainsecret.UpsertSecretParams{
-		Description:  new("my secretMetadata"),
-		Label:        new("my label"),
-		Data:         coresecrets.SecretData{"foo": "bar"},
-		RevisionUUID: new(uuid.MustNewUUID().String()),
-	}
-	uri := coresecrets.NewURI()
-	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
-	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotFound)
-}
-
-func (s *stateSuite) TestCreateCharmUnitSecretFailedRevisionIDMissing(c *tc.C) {
-
-	s.setupUnits(c, "mysql")
-
-	sp := domainsecret.UpsertSecretParams{
-		Description: new("my secretMetadata"),
-		Label:       new("my label"),
-		Data:        coresecrets.SecretData{"foo": "bar"},
-	}
-	uri := coresecrets.NewURI()
-	err := s.createCharmUnitSecret(c, 1, uri, "mysql/0", sp)
-	c.Assert(err, tc.ErrorMatches, `*.revision ID must be provided`)
 }
 
 func (s *stateSuite) TestCreateManyApplicationSecretsNoLabelClash(c *tc.C) {
@@ -4738,4 +4590,69 @@ func (s *stateSuite) TestUpdateSecretContentWithEmptyValues(c *tc.C) {
 	content, _, err = s.state.GetSecretValue(ctx, uri, 2)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(content, tc.DeepEquals, coresecrets.SecretData{"foo": "", "new": "value", "another_empty": ""})
+}
+
+func (s *stateSuite) TestReserveSecretURIs(c *tc.C) {
+	_, unitUUIDs := s.setupUnits(c, "mysql")
+	unitUUID, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitUUID.String(), tc.Equals, unitUUIDs[0])
+
+	secretIDs := []string{"secret-aaa", "secret-bbb"}
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID, secretIDs)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rows := s.queryRows(c, "SELECT secret_id, unit_uuid, created_at FROM secret_reservation ORDER BY secret_id")
+	c.Assert(rows, tc.HasLen, 2)
+	c.Check(rows[0]["secret_id"], tc.Equals, "secret-aaa")
+	c.Check(rows[0]["unit_uuid"], tc.Equals, unitUUIDs[0])
+	c.Check(rows[0]["created_at"], tc.Not(tc.Equals), "")
+	c.Check(rows[1]["secret_id"], tc.Equals, "secret-bbb")
+	c.Check(rows[1]["unit_uuid"], tc.Equals, unitUUIDs[0])
+	c.Check(rows[1]["created_at"], tc.Not(tc.Equals), "")
+}
+
+func (s *stateSuite) TestReserveSecretURIsEmpty(c *tc.C) {
+	_, unitUUIDs := s.setupUnits(c, "mysql")
+	unitUUID, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(unitUUID.String(), tc.Equals, unitUUIDs[0])
+
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	rows := s.queryRows(c, "SELECT secret_id FROM secret_reservation")
+	c.Check(rows, tc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetUnitReservedSecretIDs(c *tc.C) {
+	s.setupUnits(c, "mysql")
+	unitUUID0, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+	unitUUID1, err := s.getUnitUUID(c, "mysql/1")
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID0, []string{"secret-a", "secret-b"})
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.state.ReserveSecretURIs(c.Context(), unitUUID1, []string{"secret-c"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	got0, err := s.state.GetUnitReservedSecretIDs(c.Context(), unitUUID0)
+	c.Assert(err, tc.ErrorIsNil)
+	slices.Sort(got0)
+	c.Check(got0, tc.DeepEquals, []string{"secret-a", "secret-b"})
+
+	got1, err := s.state.GetUnitReservedSecretIDs(c.Context(), unitUUID1)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got1, tc.DeepEquals, []string{"secret-c"})
+}
+
+func (s *stateSuite) TestGetUnitReservedSecretIDsNone(c *tc.C) {
+	_, _ = s.setupUnits(c, "mysql")
+	unitUUID, err := s.getUnitUUID(c, "mysql/0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := s.state.GetUnitReservedSecretIDs(c.Context(), unitUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.HasLen, 0)
 }

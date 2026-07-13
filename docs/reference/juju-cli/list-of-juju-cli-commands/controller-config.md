@@ -161,6 +161,11 @@ Controller configuration keys:
     object-store-s3-endpoint:
       type: string
       description: The s3 endpoint for the object store backend
+    object-store-s3-region:
+      type: string
+      description: The s3 region for signing requests to the object store backend. If
+        empty, the region is derived from the endpoint URL for common AWS forms. If derivation
+        fails, a placeholder is used and a warning is logged for static credentials.
     object-store-s3-static-key:
       type: string
       description: The s3 static key for the object store backend

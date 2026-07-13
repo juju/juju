@@ -36,6 +36,8 @@ check_default_routes() {
 	echo "[+] checking default routes"
 
 	for machine in $(juju machines --format=json | yq -r "select(.machines) | .machines | keys | .[]"); do
+		# Not using juju_exec_output: ip route show is a plain system
+		# command that produces no stderr noise.
 		default=$(juju exec --machine "$machine" -- ip route show | grep default)
 		if [ -z "$default" ]; then
 			echo "No default route detected for machine ${machine}"
@@ -56,6 +58,8 @@ check_accessibility() {
 		# Check that each of the principles can access the subordinate.
 		for principle_unit in "ubuntu-focal/0" "ubuntu-jammy/0"; do
 			echo "checking network health unit ${net_health_unit} reachability from ${principle_unit} using ${ip}:8039"
+			# Not using juju_exec_output: curl -s suppresses stderr,
+			# so the stdout/stderr mixing bug does not apply.
 			check_contains "$(juju exec --unit $principle_unit "$curl_cmd")" "pass"
 		done
 
@@ -93,6 +97,8 @@ run_ip_address_change() {
 	attempt=0
 	echo "getting the new ip address for machine-0"
 	while true; do
+		# Not using juju_exec_output: timeout cannot wrap a shell
+		# function, and hostname -I produces no stderr noise.
 		new_ip_instance_0_from_jujuexec=$(timeout 5s juju exec --unit juju-qa-test/0 -- hostname -I || true)
 		if echo "${new_ip_instance_0_from_jujuexec}" | grep -qF "${new_ip_instance_0}"; then
 			# shellcheck disable=SC2046
@@ -122,6 +128,8 @@ run_ip_address_change() {
 	attempt=0
 	echo "getting the new ip address for machine-1"
 	while true; do
+		# Not using juju_exec_output: timeout cannot wrap a shell
+		# function, and hostname -I produces no stderr noise.
 		new_ip_instance_1_from_jujuexec=$(timeout 5s juju exec --unit juju-qa-test/1 -- hostname -I || true)
 		if echo "${new_ip_instance_1_from_jujuexec}" | grep -qF "${new_ip_instance_1}"; then
 			# shellcheck disable=SC2046

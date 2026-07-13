@@ -4,10 +4,13 @@
 package docker_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/juju/tc"
+	"gopkg.in/yaml.v3"
 
+	apidocker "github.com/juju/juju/api/docker"
 	"github.com/juju/juju/internal/docker"
 )
 
@@ -43,7 +46,7 @@ func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalJson(c *tc.C) {
 	data := []byte(`{"ImageName":"testing@sha256:beef-deed","Username":"docker-registry","Password":"fragglerock"}`)
 	result, err := docker.UnmarshalDockerResource(data)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
+	c.Check(result, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -62,7 +65,7 @@ password: fragglerock
 `[1:])
 	result, err := docker.UnmarshalDockerResource(data)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(result, tc.DeepEquals, docker.DockerImageDetails{
+	c.Check(result, tc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -71,4 +74,90 @@ password: fragglerock
 			},
 		},
 	})
+}
+
+// TestAPIDockerYAMLCompatibility verifies that YAML marshalled by the public
+// api/docker type can be unmarshalled by UnmarshalDockerResource. This is the
+// core guarantee that allows external clients (e.g. the Terraform provider)
+// to use the api/docker types instead of mirroring the internal structs.
+// If the struct tags ever diverge, this test fails at the source of truth.
+func (s *DockerResourceSuite) TestAPIDockerYAMLCompatibility(c *tc.C) {
+	apiDetails := apidocker.DockerImageDetails{
+		RegistryPath: "registry.example.com/myimage@sha256:abcdef",
+		ImageRepoDetails: apidocker.ImageRepoDetails{
+			BasicAuthConfig: apidocker.BasicAuthConfig{
+				Username: "user",
+				Password: "pass",
+			},
+			Repository:    "myrepo",
+			ServerAddress: "registry.example.com",
+		},
+	}
+
+	data, err := yaml.Marshal(apiDetails)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := docker.UnmarshalDockerResource(data)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.RegistryPath, tc.Equals, "registry.example.com/myimage@sha256:abcdef")
+	c.Check(result.Username, tc.Equals, "user")
+	c.Check(result.Password, tc.Equals, "pass")
+	c.Check(result.Repository, tc.Equals, "myrepo")
+	c.Check(result.ServerAddress, tc.Equals, "registry.example.com")
+}
+
+// TestAPIDockerJSONCompatibility verifies that JSON marshalled by the public
+// api/docker type can be unmarshalled by UnmarshalDockerResource.
+func (s *DockerResourceSuite) TestAPIDockerJSONCompatibility(c *tc.C) {
+	apiDetails := apidocker.DockerImageDetails{
+		RegistryPath: "registry.example.com/myimage@sha256:abcdef",
+		ImageRepoDetails: apidocker.ImageRepoDetails{
+			BasicAuthConfig: apidocker.BasicAuthConfig{
+				Username: "user",
+				Password: "pass",
+			},
+			Repository:    "myrepo",
+			ServerAddress: "registry.example.com",
+		},
+	}
+
+	data, err := json.Marshal(apiDetails)
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := docker.UnmarshalDockerResource(data)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(result.RegistryPath, tc.Equals, "registry.example.com/myimage@sha256:abcdef")
+	c.Check(result.Username, tc.Equals, "user")
+	c.Check(result.Password, tc.Equals, "pass")
+	c.Check(result.Repository, tc.Equals, "myrepo")
+	c.Check(result.ServerAddress, tc.Equals, "registry.example.com")
+}
+
+// TestInternalDockerYAMLToAPI verifies that YAML produced by the internal
+// type can be consumed by the api/docker type. This ensures the controller's
+// output is readable by external clients.
+func (s *DockerResourceSuite) TestInternalDockerYAMLToAPI(c *tc.C) {
+	internalDetails := docker.DockerImageDetails{
+		RegistryPath: "registry.example.com/myimage@sha256:abcdef",
+		ImageRepoDetails: docker.ImageRepoDetails{
+			BasicAuthConfig: docker.BasicAuthConfig{
+				Username: "user",
+				Password: "pass",
+			},
+			Repository:    "myrepo",
+			ServerAddress: "registry.example.com",
+		},
+	}
+
+	data, err := yaml.Marshal(internalDetails)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var apiDetails apidocker.DockerImageDetails
+	err = yaml.Unmarshal(data, &apiDetails)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(apiDetails.RegistryPath, tc.Equals, "registry.example.com/myimage@sha256:abcdef")
+	c.Check(apiDetails.Username, tc.Equals, "user")
+	c.Check(apiDetails.Password, tc.Equals, "pass")
+	c.Check(apiDetails.Repository, tc.Equals, "myrepo")
+	c.Check(apiDetails.ServerAddress, tc.Equals, "registry.example.com")
 }

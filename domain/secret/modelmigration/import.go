@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v12"
 	"github.com/juju/names/v6"
@@ -75,7 +76,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// nil watcher factory.
 	backendstate := secretbackendstate.NewState(scope.ControllerDB(), i.logger)
 	i.service = service.NewSecretService(
-		state.NewState(scope.ModelDB(), i.logger),
+		state.NewState(scope.ModelDB(), i.logger, clock.WallClock),
 		backendstate, nil, i.logger,
 	)
 	i.backendService = backendservice.NewService(
