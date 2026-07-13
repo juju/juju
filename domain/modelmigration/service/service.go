@@ -173,9 +173,9 @@ type ControllerState interface {
 	// during model activation.
 	GetSourceControllerInfo(ctx context.Context) (modelmigrationinternal.SourceControllerInfo, error)
 
-	// CaptureExportOffers records the hosted offer UUIDs for a migration into
+	// EnsureExportOffers records the hosted offer UUIDs for a migration into
 	// model_migration_export_offer. Idempotent.
-	CaptureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error
+	EnsureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error
 
 	// StageModelRedirect writes the redirect snapshot with completed_at = NULL.
 	// Idempotent.
@@ -710,7 +710,7 @@ func (s *Service) MarkModelAsGone(ctx context.Context) error {
 	if err != nil {
 		return errors.Errorf("reading hosted offer UUIDs for model %q: %w", s.modelUUID, err)
 	}
-	if err := s.controllerState.CaptureExportOffers(ctx, mig.UUID, offerUUIDs); err != nil {
+	if err := s.controllerState.EnsureExportOffers(ctx, mig.UUID, offerUUIDs); err != nil {
 		return errors.Errorf("capturing export offers for migration %q: %w", mig.UUID, err)
 	}
 

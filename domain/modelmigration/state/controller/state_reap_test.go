@@ -127,8 +127,8 @@ func (s *stateSuite) TestReapFullPath(c *tc.C) {
 	offerUUID := s.seedOfferPermission(c)
 
 	// Capture offers twice: idempotent replay.
-	c.Assert(st.CaptureExportOffers(ctx, spec.MigrationUUID, []string{offerUUID}), tc.ErrorIsNil)
-	c.Assert(st.CaptureExportOffers(ctx, spec.MigrationUUID, []string{offerUUID}), tc.ErrorIsNil)
+	c.Assert(st.EnsureExportOffers(ctx, spec.MigrationUUID, []string{offerUUID}), tc.ErrorIsNil)
+	c.Assert(st.EnsureExportOffers(ctx, spec.MigrationUUID, []string{offerUUID}), tc.ErrorIsNil)
 
 	users, err := st.GetModelUsersForRedirect(ctx, s.modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)

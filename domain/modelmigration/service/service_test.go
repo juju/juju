@@ -744,7 +744,7 @@ func (s *serviceSuite) TestMarkModelAsGone(c *tc.C) {
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
 		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil),
-		s.controllerState.EXPECT().CaptureExportOffers(gomock.Any(), migUUID, []string{"offer-1"}).Return(nil),
+		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, []string{"offer-1"}).Return(nil),
 		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
 		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
 		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
@@ -777,7 +777,7 @@ func (s *serviceSuite) TestMarkModelAsGoneNoProviderDestroy(c *tc.C) {
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
 		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, nil),
-		s.controllerState.EXPECT().CaptureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil),
 		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
 		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
 		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),
@@ -807,7 +807,7 @@ func (s *serviceSuite) TestMarkModelAsGoneRetryAfterPurgeFailure(c *tc.C) {
 
 	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil).Times(2)
 	s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return([]string{"offer-1"}, nil).Times(2)
-	s.controllerState.EXPECT().CaptureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil).Times(2)
+	s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil).Times(2)
 	s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil).Times(2)
 	s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	// First purge attempt fails; the model DB must NOT be deleted for it.
@@ -845,7 +845,7 @@ func (s *serviceSuite) TestMarkModelAsGoneDBDeleteFailureNonFatal(c *tc.C) {
 	gomock.InOrder(
 		s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(mig, nil),
 		s.modelState.EXPECT().GetOfferUUIDs(gomock.Any()).Return(nil, nil),
-		s.controllerState.EXPECT().CaptureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil),
+		s.controllerState.EXPECT().EnsureExportOffers(gomock.Any(), migUUID, gomock.Any()).Return(nil),
 		s.controllerState.EXPECT().GetModelUsersForRedirect(gomock.Any(), s.modelUUID).Return(nil, nil),
 		s.controllerState.EXPECT().StageModelRedirect(gomock.Any(), migUUID, s.modelUUID, gomock.Any(), gomock.Any()).Return(nil),
 		s.controllerState.EXPECT().CompleteModelRedirectAndPurge(gomock.Any(), migUUID, s.modelUUID).Return(nil),

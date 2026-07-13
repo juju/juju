@@ -120,9 +120,9 @@ type MockControllerState struct {
 type MockControllerStateMockRecorder struct {
 	mock                                 *MockControllerState
 	aggregateMinionReportsExpects        []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	captureExportOffersExpects           []*gomock.Call3_1[context.Context, string, []string, error]
 	completeModelRedirectAndPurgeExpects []*gomock.Call3_1[context.Context, string, string, error]
 	deleteModelImportingStatusExpects    []*gomock.Call2_1[context.Context, string, error]
+	ensureExportOffersExpects            []*gomock.Call3_1[context.Context, string, []string, error]
 	getActiveExportExpects               []*gomock.Call2_2[context.Context, string, internal.Migration, error]
 	getActiveExportUUIDExpects           []*gomock.Call2_2[context.Context, string, string, error]
 	getControllerModelInfoExpects        []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
@@ -170,24 +170,6 @@ func (mr *MockControllerStateMockRecorder) AggregateMinionReports(ctx, migration
 // MockControllerStateAggregateMinionReportsCall is the typed call wrapper for AggregateMinionReports.
 type MockControllerStateAggregateMinionReportsCall = gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
 
-// CaptureExportOffers mocks base method.
-func (m *MockControllerState) CaptureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.captureExportOffersExpects, m.ctrl, m, "CaptureExportOffers", ctx, migrationUUID, offerUUIDs)
-}
-
-// CaptureExportOffers indicates an expected call of CaptureExportOffers.
-func (mr *MockControllerStateMockRecorder) CaptureExportOffers(ctx, migrationUUID, offerUUIDs any) *MockControllerStateCaptureExportOffersCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "CaptureExportOffers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(migrationUUID), gomock.EnsureMatcher(offerUUIDs))
-	mr.captureExportOffersExpects = append(mr.captureExportOffersExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockControllerStateCaptureExportOffersCall is the typed call wrapper for CaptureExportOffers.
-type MockControllerStateCaptureExportOffersCall = gomock.Call3_1[context.Context, string, []string, error]
-
 // CompleteModelRedirectAndPurge mocks base method.
 func (m *MockControllerState) CompleteModelRedirectAndPurge(ctx context.Context, migrationUUID, modelUUID string) error {
 	m.ctrl.T.Helper()
@@ -223,6 +205,24 @@ func (mr *MockControllerStateMockRecorder) DeleteModelImportingStatus(ctx, model
 
 // MockControllerStateDeleteModelImportingStatusCall is the typed call wrapper for DeleteModelImportingStatus.
 type MockControllerStateDeleteModelImportingStatusCall = gomock.Call2_1[context.Context, string, error]
+
+// EnsureExportOffers mocks base method.
+func (m *MockControllerState) EnsureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.ensureExportOffersExpects, m.ctrl, m, "EnsureExportOffers", ctx, migrationUUID, offerUUIDs)
+}
+
+// EnsureExportOffers indicates an expected call of EnsureExportOffers.
+func (mr *MockControllerStateMockRecorder) EnsureExportOffers(ctx, migrationUUID, offerUUIDs any) *MockControllerStateEnsureExportOffersCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "EnsureExportOffers", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(migrationUUID), gomock.EnsureMatcher(offerUUIDs))
+	mr.ensureExportOffersExpects = append(mr.ensureExportOffersExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateEnsureExportOffersCall is the typed call wrapper for EnsureExportOffers.
+type MockControllerStateEnsureExportOffersCall = gomock.Call3_1[context.Context, string, []string, error]
 
 // GetActiveExport mocks base method.
 func (m *MockControllerState) GetActiveExport(ctx context.Context, modelUUID string) (internal.Migration, error) {

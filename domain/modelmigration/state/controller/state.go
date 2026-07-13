@@ -1772,11 +1772,11 @@ func derefString(s *string) string {
 	return *s
 }
 
-// CaptureExportOffers records the hosted offer UUIDs for a migration into
+// EnsureExportOffers records the hosted offer UUIDs for a migration into
 // model_migration_export_offer. It is idempotent: replay after crash re-inserts
 // the same rows without error. This must be called before the source model DB
 // is purged, because the offer UUIDs are read from the model DB.
-func (s *State) CaptureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error {
+func (s *State) EnsureExportOffers(ctx context.Context, migrationUUID string, offerUUIDs []string) error {
 	if len(offerUUIDs) == 0 {
 		return nil
 	}
@@ -1945,7 +1945,7 @@ AND    u.disabled = false
 // CompleteModelRedirectAndPurge runs the final controller-DB transaction of
 // source REAP. It purges model-scoped source rows in dependency order,
 // completes the redirect snapshot, marks the export DONE, and scrubs
-// target-auth secrets. This must be called AFTER CaptureExportOffers and
+// target-auth secrets. This must be called AFTER EnsureExportOffers and
 // StageModelRedirect have succeeded, and BEFORE the source model dqlite
 // namespace is deleted: this transaction is the migration's commit point, so
 // a failure here leaves the source model fully intact and retryable.
