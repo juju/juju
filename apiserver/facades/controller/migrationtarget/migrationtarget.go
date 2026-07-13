@@ -59,6 +59,11 @@ type ModelImporter interface {
 	// path, running a durable, idempotent phase machine. It is also safe to
 	// call for legacy (3.6/4.0) imports that have no import claim.
 	ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error
+
+	// AbortModel drives target-side cleanup of a partially imported v8 model,
+	// transitioning its import claim to the aborting phase and undoing the
+	// controller-database import writes. It is idempotent.
+	AbortModel(ctx context.Context, modelUUID coremodel.UUID) error
 }
 
 // CloudService provides a subset of the cloud domain service methods.
@@ -679,6 +684,24 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 		return errors.Capture(err)
 	}
 	return nil
+}
+
+// Abort drives target-side cleanup of a partially imported v8 model. It shadows
+// the v7 API.Abort (which marks the model dead and hands off to the undertaker):
+// on the v8 path, cleanup is owned by the migration abort finalizers, which
+// preserve the durable import claim until cleanup is provably complete and the
+// abort reconciler releases the model UUID. It returns an error wrapping
+// AlreadyExists-class conflict semantics only via the driver; a claim that has
+// crossed the activation point of no return is refused.
+func (api *APIV8) Abort(ctx context.Context, args params.ModelArgs) error {
+	modelTag, err := names.ParseModelTag(args.ModelTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	api.logger.Debugf(ctx, "Abort v8 migrating model %q", args.ModelTag)
+
+	return errors.Capture(api.modelImporter.AbortModel(ctx, coremodel.UUID(modelTag.Id())))
 }
 
 // importGuard runs the mandatory pre-write checks that must pass before any
