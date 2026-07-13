@@ -20,8 +20,12 @@ type Lock interface {
 	Unlocker
 }
 
-// AlreadyUnlocked is a Waiter that always reports its gate to be unlocked.
+// AlreadyUnlocked is a Lock that always reports its gate to be unlocked.
+// Unlock is a no-op.
 type AlreadyUnlocked struct{}
+
+// Unlock is a no-op; the gate is already unlocked.
+func (AlreadyUnlocked) Unlock() {}
 
 // Unlocked is part of the Waiter interface.
 func (AlreadyUnlocked) Unlocked() <-chan struct{} {
