@@ -85,4 +85,3 @@ func (s *PhaseSuite) TestCanTransitionTo(c *tc.C) {
 	c.Check(migration.IMPORT.CanTransitionTo(migration.ABORT), tc.IsTrue)
 	c.Check(migration.IMPORT.CanTransitionTo(migration.SUCCESS), tc.IsFalse)
 }
-
