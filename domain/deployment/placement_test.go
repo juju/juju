@@ -30,7 +30,8 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 		err       *string
 	}{
 		{
-			input: nil,
+			input:     nil,
+			modelUUID: modelUUID,
 			output: Placement{
 				Type: PlacementTypeUnset,
 			},
@@ -40,6 +41,7 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Scope:     instance.MachineScope,
 				Directive: "0",
 			},
+			modelUUID: modelUUID,
 			output: Placement{
 				Type:      PlacementTypeMachine,
 				Directive: "0",
@@ -50,6 +52,7 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Scope:     instance.MachineScope,
 				Directive: "0/lxd/0",
 			},
+			modelUUID: modelUUID,
 			output: Placement{
 				Type:      PlacementTypeMachine,
 				Directive: "0/lxd/0",
@@ -60,26 +63,30 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Scope:     instance.MachineScope,
 				Directive: "0/kvm/0",
 			},
-			err: new(`container type "kvm" not supported`),
+			modelUUID: modelUUID,
+			err:       new(`container type "kvm" not supported`),
 		},
 		{
 			input: &instance.Placement{
 				Scope:     instance.MachineScope,
 				Directive: "0/lxd",
 			},
-			err: new(`placement directive "0/lxd" is not in the form of <parent>/<scope>/<child>`),
+			modelUUID: modelUUID,
+			err:       new(`placement directive "0/lxd" is not in the form of <parent>/<scope>/<child>`),
 		},
 		{
 			input: &instance.Placement{
 				Scope:     instance.MachineScope,
 				Directive: "0/lxd/0/0",
 			},
-			err: new(`placement directive "0/lxd/0/0" is not in the form of <parent>/<scope>/<child>`),
+			modelUUID: modelUUID,
+			err:       new(`placement directive "0/lxd/0/0" is not in the form of <parent>/<scope>/<child>`),
 		},
 		{
 			input: &instance.Placement{
 				Scope: string(instance.LXD),
 			},
+			modelUUID: modelUUID,
 			output: Placement{
 				Type:      PlacementTypeContainer,
 				Container: ContainerTypeLXD,
@@ -89,14 +96,16 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 			input: &instance.Placement{
 				Scope: string(instance.NONE),
 			},
-			output: Placement{},
-			err:    new(`invalid container type "none"`),
+			modelUUID: modelUUID,
+			output:    Placement{},
+			err:       new(`invalid container type "none"`),
 		},
 		{
 			input: &instance.Placement{
 				Scope:     "lxd",
 				Directive: "0",
 			},
+			modelUUID: modelUUID,
 			output: Placement{
 				Type:      PlacementTypeContainer,
 				Container: ContainerTypeLXD,
@@ -118,13 +127,13 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 			},
 		},
 		{
-			// A non-container, non-model scope with an empty
+			// A non-container, non-model scope with a set
 			// modelUUID must fall through to container parsing and
 			// error, not be misclassified as a provider placement.
 			input: &instance.Placement{
 				Scope: "not-a-real-scope",
 			},
-			modelUUID: "",
+			modelUUID: modelUUID,
 			err:       new(`invalid container type "not-a-real-scope"`),
 		},
 		{
@@ -132,6 +141,7 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 				Scope:     instance.ModelScope,
 				Directive: "zone=us-east-1a",
 			},
+			modelUUID: modelUUID,
 			output: Placement{
 				Type:      PlacementTypeProvider,
 				Directive: "zone=us-east-1a",
@@ -149,13 +159,12 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 			},
 		},
 		{
-			// An empty scope with an empty modelUUID must not be
-			// misclassified as a provider placement. It should
+			// An empty scope with a non-empty modelUUID must
 			// fall through to the container type path and error.
 			input: &instance.Placement{
 				Scope: "",
 			},
-			modelUUID: "",
+			modelUUID: modelUUID,
 			err:       new(`invalid container type ""`),
 		},
 		{
@@ -171,12 +180,12 @@ func (s *PlacementSuite) TestPlacement(c *tc.C) {
 		},
 		{
 			// The literal "model-uuid" placeholder scope works
-			// as provider placement even when modelUUID is empty.
+			// as provider placement.
 			input: &instance.Placement{
 				Scope:     instance.ModelScope,
 				Directive: "subnet=subnet-123",
 			},
-			modelUUID: "",
+			modelUUID: modelUUID,
 			output: Placement{
 				Type:      PlacementTypeProvider,
 				Directive: "subnet=subnet-123",

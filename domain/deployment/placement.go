@@ -70,6 +70,10 @@ type Placement struct {
 // before sending it to the API server. Both the literal "model-uuid"
 // scope and the real model UUID are treated as provider placements.
 func ParsePlacement(placement *instance.Placement, modelUUID string) (Placement, error) {
+	if modelUUID == "" {
+		return Placement{}, errors.Errorf("model UUID cannot be empty")
+	}
+
 	// If no placement is present we default to an unset placement.
 	if placement == nil {
 		return Placement{
@@ -88,19 +92,13 @@ func ParsePlacement(placement *instance.Placement, modelUUID string) (Placement,
 			Directive: placement.Directive,
 		}, nil
 
-	default:
-		// Provider placements use either the literal "model-uuid"
-		// placeholder scope or the real model UUID that the client
-		// substitutes before sending to the API server. Guard against
-		// an empty modelUUID to avoid matching empty scopes.
-		if placement.Scope == instance.ModelScope ||
-			(modelUUID != "" && placement.Scope == modelUUID) {
-			return Placement{
-				Type:      PlacementTypeProvider,
-				Directive: placement.Directive,
-			}, nil
-		}
+	case instance.ModelScope, modelUUID:
+		return Placement{
+			Type:      PlacementTypeProvider,
+			Directive: placement.Directive,
+		}, nil
 
+	default:
 		container, err := instance.ParseContainerType(placement.Scope)
 		if err != nil {
 			return Placement{}, errors.Capture(err)
