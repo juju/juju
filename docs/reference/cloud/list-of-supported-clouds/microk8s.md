@@ -7,7 +7,7 @@ myst:
 (cloud-kubernetes-microk8s)=
 # MicroK8s
 
-In Juju, [MicroK8s](https://microk8s.io/) is a {ref}`Kubernetes cloud <kubernetes-cloud>` and works as described below.
+In Juju, [MicroK8s](https://canonical.com/microk8s) is a {ref}`Kubernetes cloud <kubernetes-cloud>` and works as described below.
 
 ```{note}
 This reference assumes basic familiarity with Juju. If you are new to Juju, start with the {ref}`Tutorial <tutorial>`, then use this page together with the generic materials it links to.
