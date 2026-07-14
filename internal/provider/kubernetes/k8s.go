@@ -34,6 +34,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
@@ -998,6 +999,17 @@ func (k *kubernetesClient) Units(ctx context.Context, appName string) ([]caas.Un
 func (k *kubernetesClient) ControllerUnitFQDN(ordinal int) string {
 	podName := fmt.Sprintf("controller-%d", ordinal)
 	return utils.ControllerPodFQDN(podName, k.namespace)
+}
+
+// BootstrapControllerAddresses returns the stable provider addresses for the
+// initial controller.
+func (k *kubernetesClient) BootstrapControllerAddresses(
+	_ context.Context,
+) (network.ProviderAddresses, error) {
+	return network.NewMachineAddresses(
+		[]string{k.ControllerUnitFQDN(0)},
+		network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddresses(), nil
 }
 
 // ListPods filters a list of pods for the provided namespace and labels.

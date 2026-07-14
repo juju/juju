@@ -31,7 +31,6 @@ import (
 	cmdutil "github.com/juju/juju/cmd/jujuagentd/util"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
 	"github.com/juju/juju/internal/worker/gate"
@@ -64,7 +63,6 @@ type dbReplAgentCommand struct {
 	replMachineAgentFactory dbReplMachineAgentFactoryFnType
 	ctx                     *cmd.Context
 
-	isCaas   bool
 	agentTag names.Tag
 
 	// The following are set via command-line flags.
@@ -107,8 +105,6 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 	if err := os.MkdirAll(config.LogDir(), 0644); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
-	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
-
 	return nil
 }
 
@@ -119,7 +115,7 @@ func (a *dbReplAgentCommand) Run(c *cmd.Context) error {
 		fmt.Fprint(os.Stderr, replWarningHeader)
 	}
 
-	machineAgent, err := a.replMachineAgentFactory(a.agentTag, a.isCaas)
+	machineAgent, err := a.replMachineAgentFactory(a.agentTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -155,7 +151,7 @@ Type '.help' for help.
 `
 )
 
-type dbReplMachineAgentFactoryFnType func(names.Tag, bool) (*replMachineAgent, error)
+type dbReplMachineAgentFactoryFnType func(names.Tag) (*replMachineAgent, error)
 
 // DBReplMachineAgentFactoryFn returns a function which instantiates a
 // replMachineAgent given a machineId.
@@ -163,7 +159,7 @@ func DBReplMachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
 ) dbReplMachineAgentFactoryFnType {
-	return func(agentTag names.Tag, isCaasAgent bool) (*replMachineAgent, error) {
+	return func(agentTag names.Tag) (*replMachineAgent, error) {
 		runner, err := worker.NewRunner(worker.RunnerParams{
 			Name:          "repl",
 			IsFatal:       agenterrors.IsFatal,
@@ -179,7 +175,6 @@ func DBReplMachineAgentFactoryFn(
 			agentConfWriter,
 			runner,
 			newDBReplWorkerFunc,
-			isCaasAgent,
 		)
 	}
 }
@@ -190,7 +185,6 @@ func NewREPLMachineAgent(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc,
-	isCaasAgent bool,
 ) (*replMachineAgent, error) {
 	a := &replMachineAgent{
 		agentTag:            agentTag,
@@ -199,7 +193,6 @@ func NewREPLMachineAgent(
 		dead:                make(chan struct{}),
 		runner:              runner,
 		newDBReplWorkerFunc: newDBReplWorkerFunc,
-		isCaasAgent:         isCaasAgent,
 	}
 	return a, nil
 }
@@ -218,8 +211,6 @@ type replMachineAgent struct {
 	newDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
 
 	controllerUnlocker gate.Lock
-
-	isCaasAgent bool
 }
 
 // Wait waits for the repl machine agent to finish.
@@ -316,12 +307,7 @@ func (a *replMachineAgent) makeEngineCreator(
 			Stdin:  stdin,
 		}
 
-		var manifolds dependency.Manifolds
-		if a.isCaasAgent {
-			manifolds = dbrepl.CAASManifolds(manifoldsCfg)
-		} else {
-			manifolds = dbrepl.IAASManifolds(manifoldsCfg)
-		}
+		manifolds := dbrepl.Manifolds(manifoldsCfg)
 
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {
