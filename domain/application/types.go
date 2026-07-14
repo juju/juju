@@ -323,10 +323,6 @@ type ResolveControllerCharmDownload struct {
 
 // ResolvedCharmDownload contains parameters for a resolved charm download.
 type ResolvedCharmDownload struct {
-	// Actions is the actions that the charm supports.
-	//
-	// Deprecated: should be filled in by the charm store.
-	Actions         domaincharm.Actions
 	ObjectStoreUUID objectstore.UUID
 	ArchivePath     string
 }

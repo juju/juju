@@ -2157,9 +2157,7 @@ WHERE v.application_uuid = $entityUUID.uuid
 
 // ResolveCharmDownload resolves the charm download for the specified
 // application, updating the charm with the specified charm information.
-// This will only set mutable charm fields. Currently this will also set
-// actions.yaml, although that will be removed once the charmhub store
-// provides this information.
+// This will only set mutable charm fields.
 // Returns an error satisfying [applicationerrors.CharmNotFound] if the charm
 // is not found, and [applicationerrors.CharmAlreadyResolved] if the charm is
 // already resolved.
@@ -2208,12 +2206,6 @@ WHERE  uuid = $entityUUID.uuid;`
 			// If the charm is already resolved, we don't need to provide
 			// any additional information.
 			return applicationerrors.CharmAlreadyResolved
-		}
-
-		// Write the charm actions.yaml, this will actually disappear once the
-		// charmhub store provides this information.
-		if err := st.addCharmActions(ctx, tx, id, info.Actions); err != nil {
-			return errors.Errorf("setting charm actions for %q: %w", id, err)
 		}
 
 		if err := tx.Query(ctx, charmStmt, charmUUID, chState).Run(); err != nil {

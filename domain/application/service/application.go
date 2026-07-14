@@ -1160,21 +1160,6 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appUUID coreapplicat
 		return applicationerrors.CharmHashMismatch
 	}
 
-	// Make sure it's actually a valid charm.
-	charm, err := internalcharm.ReadCharmArchive(resolve.Path)
-	if err != nil {
-		return errors.Errorf("reading charm archive %q: %w", resolve.Path, err)
-	}
-
-	// Encode the charm before we even attempt to store it. The charm storage
-	// backend could be the other side of the globe.
-	domainCharm, warnings, err := encodeCharm(charm)
-	if err != nil {
-		return errors.Errorf("encoding charm %q: %w", resolve.Path, err)
-	} else if len(warnings) > 0 {
-		s.logger.Debugf(ctx, "encoding charm %q: %v", resolve.Path, warnings)
-	}
-
 	// Use the hash from the reservation, incase the caller has the wrong hash.
 	// The resulting objectStoreUUID will enable RI between the charm and the
 	// object store.
@@ -1195,7 +1180,6 @@ func (s *Service) ResolveCharmDownload(ctx context.Context, appUUID coreapplicat
 
 	// Resolve the charm download, which will set itself to available.
 	return s.st.ResolveCharmDownload(ctx, info.CharmUUID, application.ResolvedCharmDownload{
-		Actions:         domainCharm.Actions,
 		ObjectStoreUUID: result.ObjectStoreUUID,
 
 		// This is correct, we want to use the unique name of the stored charm
