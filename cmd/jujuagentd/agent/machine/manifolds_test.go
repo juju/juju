@@ -142,6 +142,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"ssh-identity-writer",
 			"ssh-server",
 			"ssh-tunneler",
+			"ssh-session",
 			"state-config-watcher",
 			"machine-converter",
 			"storage-provisioner",

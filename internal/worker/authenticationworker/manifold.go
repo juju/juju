@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/api/base"
+	coressh "github.com/juju/juju/core/ssh"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
@@ -46,10 +47,10 @@ func Output(in worker.Worker, out any) error {
 		return errors.Errorf("expected *AuthWorker, got %T", in)
 	}
 	switch outPtr := out.(type) {
-	case *EphemeralKeysUpdater:
+	case *coressh.EphemeralKeysUpdater:
 		*outPtr = w
 	default:
-		return errors.Errorf("expected *EphemeralKeysUpdater, got %T", out)
+		return errors.Errorf("expected *coressh.EphemeralKeysUpdater, got %T", out)
 	}
 	return nil
 }

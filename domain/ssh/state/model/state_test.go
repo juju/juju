@@ -239,13 +239,13 @@ func (s *stateSuite) TestRemoveSSHConnRequest(c *tc.C) {
 	s.addMachine(c, "1")
 	now := time.Date(2026, 6, 22, 12, 0, 0, 0, time.UTC)
 	req := domainssh.SSHConnRequest{
-		TunnelID:           "remove-me",
-		MachineName:        "1",
-		Expires:            now.Add(time.Minute),
-		SSHUsername:        "juju-reverse-tunnel",
-		SSHPassword:        "secret",
-		UnitPort:           0,
-		EphemeralPublicKey: []byte("pub"),
+		TunnelID:            "remove-me",
+		MachineName:         "1",
+		Expires:             now.Add(time.Minute),
+		SSHUsername:         "juju-reverse-tunnel",
+		SSHPassword:         "secret",
+		UnitPort:            0,
+		EphemeralPublicKey:  []byte("pub"),
 	}
 
 	err := st.InsertSSHConnRequest(c.Context(), req, now)
