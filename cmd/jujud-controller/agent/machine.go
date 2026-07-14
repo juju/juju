@@ -576,7 +576,6 @@ func (a *MachineAgent) makeEngineCreator(
 			MuxShutdownWait:                   1 * time.Minute,
 			NewBrokerFunc:                     newBroker,
 			MachineStartup:                    a.machineStartup,
-			IsCaasConfig:                      a.isCaasAgent,
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
