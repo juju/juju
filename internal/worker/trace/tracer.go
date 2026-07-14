@@ -327,8 +327,8 @@ func (s *limitedSpan) End(attrs ...coretrace.Attribute) {
 
 func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {
 	kv := make([]attribute.KeyValue, len(attrs))
-	for _, attr := range attrs {
-		kv = append(kv, attribute.String(attr.Key(), attr.Value()))
+	for i, attr := range attrs {
+		kv[i] = attribute.String(attr.Key(), attr.Value())
 	}
 	return kv
 }
