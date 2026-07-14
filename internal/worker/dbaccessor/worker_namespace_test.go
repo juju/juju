@@ -52,7 +52,6 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -90,7 +89,6 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -114,7 +112,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *tc.C) {
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *tc.C) {
+func (s *namespaceSuite) TestEnsureNamespaceForLoopbackBoundModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -126,8 +124,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(true)
-	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(1)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 	mgrExp.WithBusyTimeoutOption().Return(nil)
@@ -162,7 +159,6 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -228,7 +224,6 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -264,7 +259,6 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -295,7 +289,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *tc.C) {
 	workertest.CleanKill(c, dbw)
 }
 
-func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
+func (s *namespaceSuite) TestCloseDatabaseForLoopbackBoundModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
@@ -307,8 +301,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(true)
-	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(1)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 	mgrExp.WithBusyTimeoutOption().Return(nil)
@@ -354,7 +347,6 @@ func (s *namespaceSuite) TestDeleteDatabaseForUnknownModel(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)

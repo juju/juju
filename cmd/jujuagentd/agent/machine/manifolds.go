@@ -815,6 +815,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		})),
 
+		// DBAccessor is a manifold that provides a DBAccessor worker
+		// that can be used to access the database.
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.StartupValueProvider,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.NewNodeManager,
+		})),
+
 		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{
 			Clock:             config.Clock,
 			Logger:            internallogger.GetLogger("juju.worker.filenotifywatcher"),
@@ -1225,20 +1239,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		})),
 
-		// DBAccessor is a manifold that provides a DBAccessor worker
-		// that can be used to access the database.
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.StartupValueProvider,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:      config.PrometheusRegisterer,
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-			NewNodeManager:            dbaccessor.IAASNodeManager,
-		})),
-
 		// The diskmanager worker periodically lists block devices on the
 		// machine it runs on. This worker will be run on all Juju-managed
 		// machines (one per machine agent).
@@ -1462,20 +1462,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentWorker:       upgradestepsagent.NewAgentWorker,
 			Logger:               internallogger.GetLogger("juju.worker.upgradestepsagent"),
 			Clock:                config.Clock,
-		})),
-
-		// DBAccessor is a manifold that provides a DBAccessor worker
-		// that can be used to access the database.
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.StartupValueProvider,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:      config.PrometheusRegisterer,
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-			NewNodeManager:            dbaccessor.CAASNodeManager,
 		})),
 	})
 }

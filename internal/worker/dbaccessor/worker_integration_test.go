@@ -58,7 +58,7 @@ func (s *integrationSuite) SetUpTest(c *tc.C) {
 	logger := loggertesting.WrapCheckLog(c)
 	nodeManager := database.NewNodeManager(
 		database.NodeManagerConfig{DataDir: s.RootPath()},
-		false, logger, coredatabase.NoopSlowQueryLogger{},
+		logger, coredatabase.NoopSlowQueryLogger{},
 	)
 
 	db, err := s.DBApp().Open(c.Context(), coredatabase.ControllerNS)
@@ -73,7 +73,9 @@ func (s *integrationSuite) SetUpTest(c *tc.C) {
 		runner, logger, schema.ControllerDDL()).Apply(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = database.InsertControllerNodeID(c.Context(), runner, s.DBApp().ID())
+	err = database.InsertControllerNodeID(
+		c.Context(), runner, s.DBApp().ID(), "127.0.0.1",
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	w, err := dbaccessor.NewWorker(dbaccessor.WorkerConfig{

@@ -12,7 +12,8 @@ type dbControllerNode struct {
 	// db issues when the high bit is set).
 	DqliteNodeID string `db:"dqlite_node_id"`
 
-	// DqliteBindAddress is the IP address (no port) that Dqlite is bound to.
+	// DqliteBindAddress is the hostname or IP address (no port) that Dqlite is
+	// bound to.
 	DqliteBindAddress string `db:"dqlite_bind_address"`
 }
 
