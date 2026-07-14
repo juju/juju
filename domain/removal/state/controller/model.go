@@ -414,19 +414,30 @@ func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID 
 		// activating or aborting is owned by the v8 migration finalizers, which
 		// delete it explicitly once cleanup is proven complete; the generic
 		// removal path must not release it early.
-		`DELETE FROM model_migration_import_offer
-		 WHERE migration_uuid IN (
-		     SELECT uuid FROM model_migration_import
-		     WHERE model_uuid = $entityUUID.uuid
-		     AND phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'))`,
-		`DELETE FROM model_migration_import_external_controller_model
-		 WHERE migration_uuid IN (
-		     SELECT uuid FROM model_migration_import
-		     WHERE model_uuid = $entityUUID.uuid
-		     AND phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'))`,
-		`DELETE FROM model_migration_import
+		`WITH importing_claim AS (
+		     SELECT mmi.uuid
+		     FROM   model_migration_import AS mmi
+		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+		     WHERE  mmi.model_uuid = $entityUUID.uuid
+		     AND    mmipt.type = 'importing'
+		 )
+		 DELETE FROM model_migration_import_offer
+		 WHERE migration_uuid IN (SELECT uuid FROM importing_claim)`,
+		`WITH importing_claim AS (
+		     SELECT mmi.uuid
+		     FROM   model_migration_import AS mmi
+		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+		     WHERE  mmi.model_uuid = $entityUUID.uuid
+		     AND    mmipt.type = 'importing'
+		 )
+		 DELETE FROM model_migration_import_external_controller_model
+		 WHERE migration_uuid IN (SELECT uuid FROM importing_claim)`,
+		`WITH importing_phase AS (
+		     SELECT id FROM model_migration_import_phase_type WHERE type = 'importing'
+		 )
+		 DELETE FROM model_migration_import
 		 WHERE model_uuid = $entityUUID.uuid
-		 AND phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = 'importing')`,
+		 AND phase_type_id = (SELECT id FROM importing_phase)`,
 	}
 
 	for _, table := range tables {
