@@ -687,11 +687,13 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 
 // Abort drives target-side cleanup of a partially imported v8 model. It shadows
 // the v7 API.Abort (which marks the model dead and hands off to the undertaker):
-// on the v8 path, cleanup is owned by the migration abort finalizers, which
-// preserve the durable import claim until cleanup is provably complete and the
-// abort reconciler releases the model UUID. It returns an error wrapping
-// AlreadyExists-class conflict semantics only via the driver; a claim that has
-// crossed the activation point of no return is refused.
+// on the v8 path, cleanup is owned by the migration abort finalizers. AbortModel
+// undoes the import, stages the model database for deletion, and waits (bounded)
+// for the import claim to be released, so the model UUID is free when this
+// returns and an immediate re-migration succeeds. If the claim cannot be
+// finalized within that budget the abort is still accepted and the abort
+// reconciler completes it later. A claim that has crossed the activation point
+// of no return is refused.
 func (api *APIV8) Abort(ctx context.Context, args params.ModelArgs) error {
 	modelTag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {

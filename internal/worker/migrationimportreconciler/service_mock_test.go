@@ -26,11 +26,9 @@ type MockService struct {
 
 // MockServiceMockRecorder is the mock recorder for MockService.
 type MockServiceMockRecorder struct {
-	mock                                     *MockService
-	finalizeAbortedImportExpects             []*gomock.Call2_1[context.Context, model.UUID, error]
-	getAllImportClaimsExpects                []*gomock.Call1_2[context.Context, []modelmigration.ImportClaimStatus, error]
-	isImportNamespaceRegisteredExpects       []*gomock.Call2_2[context.Context, model.UUID, bool, error]
-	stageAbortedModelDatabaseDeletionExpects []*gomock.Call2_1[context.Context, model.UUID, error]
+	mock                         *MockService
+	finalizeAbortedImportExpects []*gomock.Call2_1[context.Context, model.UUID, error]
+	getAllImportClaimsExpects    []*gomock.Call1_2[context.Context, []modelmigration.ImportClaimStatus, error]
 }
 
 // NewMockService creates a new mock instance.
@@ -80,39 +78,3 @@ func (mr *MockServiceMockRecorder) GetAllImportClaims(ctx any) *MockServiceGetAl
 
 // MockServiceGetAllImportClaimsCall is the typed call wrapper for GetAllImportClaims.
 type MockServiceGetAllImportClaimsCall = gomock.Call1_2[context.Context, []modelmigration.ImportClaimStatus, error]
-
-// IsImportNamespaceRegistered mocks base method.
-func (m *MockService) IsImportNamespaceRegistered(ctx context.Context, modelUUID model.UUID) (bool, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.isImportNamespaceRegisteredExpects, m.ctrl, m, "IsImportNamespaceRegistered", ctx, modelUUID)
-}
-
-// IsImportNamespaceRegistered indicates an expected call of IsImportNamespaceRegistered.
-func (mr *MockServiceMockRecorder) IsImportNamespaceRegistered(ctx, modelUUID any) *MockServiceIsImportNamespaceRegisteredCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, model.UUID, bool, error](mr.mock.ctrl.T, mr.mock, "IsImportNamespaceRegistered", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
-	mr.isImportNamespaceRegisteredExpects = append(mr.isImportNamespaceRegisteredExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockServiceIsImportNamespaceRegisteredCall is the typed call wrapper for IsImportNamespaceRegistered.
-type MockServiceIsImportNamespaceRegisteredCall = gomock.Call2_2[context.Context, model.UUID, bool, error]
-
-// StageAbortedModelDatabaseDeletion mocks base method.
-func (m *MockService) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID model.UUID) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.stageAbortedModelDatabaseDeletionExpects, m.ctrl, m, "StageAbortedModelDatabaseDeletion", ctx, modelUUID)
-}
-
-// StageAbortedModelDatabaseDeletion indicates an expected call of StageAbortedModelDatabaseDeletion.
-func (mr *MockServiceMockRecorder) StageAbortedModelDatabaseDeletion(ctx, modelUUID any) *MockServiceStageAbortedModelDatabaseDeletionCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, model.UUID, error](mr.mock.ctrl.T, mr.mock, "StageAbortedModelDatabaseDeletion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
-	mr.stageAbortedModelDatabaseDeletionExpects = append(mr.stageAbortedModelDatabaseDeletionExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockServiceStageAbortedModelDatabaseDeletionCall is the typed call wrapper for StageAbortedModelDatabaseDeletion.
-type MockServiceStageAbortedModelDatabaseDeletionCall = gomock.Call2_1[context.Context, model.UUID, error]

@@ -4,16 +4,15 @@
 // Package migrationimportreconciler provides a controller-scoped worker that
 // completes interrupted target-side migration import aborts. When a v8 model
 // import is aborted, the durable model_migration_import claim is moved to the
-// aborting phase and the controller-database import writes are undone, but the
-// claim, the model database, and the namespace registration are deliberately
-// left in place until cleanup is provably complete. This worker periodically
-// scans for aborting claims and finishes that cleanup: it re-drives the abort
-// compensation, then, while the namespace is still registered, stages the model
-// database for deletion (removing the namespace registration and recording a
-// model_database_deletion row). The undertaker's model-database deleter drops
-// the database out of band and clears the staged row; the reconciler finalizes
-// the abort by deleting the claim only once that drop is proven complete. It
-// also warns about claims stuck in the importing or activating phase past a
+// aborting phase, the controller-database import writes are undone, and the
+// model database is staged for deletion, but the claim is deliberately left in
+// place until the drop is proven complete. On the facade Abort path that
+// finalization is synchronous; this worker is the crash-recovery fallback for
+// aborts whose caller did not finish (a source controller that went away, a
+// process restart). It periodically scans for aborting claims, re-drives the
+// abort compensation (idempotent), and finalizes the abort by deleting the
+// claim once the undertaker's model-database deleter has dropped the database.
+// It also warns about claims stuck in the importing or activating phase past a
 // conservative age, which indicate a source controller that never completed or
 // aborted a migration.
 package migrationimportreconciler
@@ -64,16 +63,6 @@ type Service interface {
 	// GetAllImportClaims returns a snapshot of every outstanding import claim.
 	GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error)
 
-	// IsImportNamespaceRegistered reports whether the model's dqlite namespace
-	// is still registered, i.e. whether the model database still needs staging
-	// for deletion before finalization.
-	IsImportNamespaceRegistered(ctx context.Context, modelUUID coremodel.UUID) (bool, error)
-
-	// StageAbortedModelDatabaseDeletion removes the aborted model's namespace
-	// registration and stages its dqlite database for deletion by the
-	// undertaker's model-database deleter. It is idempotent.
-	StageAbortedModelDatabaseDeletion(ctx context.Context, modelUUID coremodel.UUID) error
-
 	// FinalizeAbortedImport deletes the model's import claim and its companion
 	// rows once abort cleanup is provably complete (the model database has been
 	// dropped). It returns [modelmigrationerrors.ErrAbortNotFinalizable] when
@@ -82,8 +71,8 @@ type Service interface {
 }
 
 // AbortFunc re-drives target-side abort compensation for a model, transitioning
-// the claim to aborting (if needed) and undoing the controller-database import
-// writes. It is
+// the claim to aborting (if needed), undoing the controller-database import
+// writes, and staging the model database for deletion. It is
 // [github.com/juju/juju/internal/migration.AbortModelImport] bound to the
 // controller database.
 type AbortFunc func(ctx context.Context, modelUUID coremodel.UUID) error
@@ -258,34 +247,15 @@ func (w *Reconciler) reconcileAborting(ctx context.Context, claim modelmigration
 		claim.ModelUUID, claim.SourceMigrationUUID)
 }
 
-// finalizeAbort re-drives the abort compensation, stages the model database for
-// deletion while its namespace is still registered, then finalizes the claim.
-// The database drop itself is performed out of band by the undertaker's
-// model-database deleter; finalization only releases the claim once that drop is
-// proven complete (the staged deletion row is gone), so FinalizeAbortedImport
-// returns ErrAbortNotFinalizable until then and this method retries on the next
-// scan.
-//
-// The ordering is load-bearing: staging removes the namespace registration and
-// records the deletion in one transaction, so the undertaker treats the
-// database as eligible to drop; the claim gates any same-UUID re-import until
-// the drop completes, so the namespace cannot be re-registered mid-drop.
+// finalizeAbort re-drives the abort compensation (which also stages the model
+// database for deletion by the undertaker's model-database deleter), then
+// finalizes the claim. Finalization only releases the claim once the database
+// drop is proven complete (the staged deletion row is gone), so
+// FinalizeAbortedImport returns ErrAbortNotFinalizable until then and this
+// method retries on the next scan.
 func (w *Reconciler) finalizeAbort(ctx context.Context, modelUUID coremodel.UUID) error {
 	if err := w.config.Abort(ctx, modelUUID); err != nil {
 		return errors.Errorf("re-driving abort compensation: %w", err)
-	}
-
-	registered, err := w.config.Service.IsImportNamespaceRegistered(ctx, modelUUID)
-	if err != nil {
-		return errors.Errorf("checking namespace registration: %w", err)
-	}
-	if registered {
-		// Hand the database off to the undertaker's model-database deleter. This
-		// removes the namespace registration, so subsequent scans skip this
-		// branch and do not re-stage. Staging is idempotent regardless.
-		if err := w.config.Service.StageAbortedModelDatabaseDeletion(ctx, modelUUID); err != nil {
-			return errors.Errorf("staging model database deletion: %w", err)
-		}
 	}
 
 	if err := w.config.Service.FinalizeAbortedImport(ctx, modelUUID); err != nil {

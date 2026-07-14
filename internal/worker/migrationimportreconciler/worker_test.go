@@ -101,9 +101,8 @@ func abortingClaim(modelUUID coremodel.UUID, updatedAt time.Time) modelmigration
 	}
 }
 
-// TestFinalizesAbortingClaim verifies the reconciler re-drives the abort, stages
-// the model database for deletion while its namespace is registered, then
-// finalizes.
+// TestFinalizesAbortingClaim verifies the reconciler re-drives the abort (which
+// stages the model database for deletion) then finalizes the claim.
 func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -112,12 +111,8 @@ func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 
 	s.service.EXPECT().GetAllImportClaims(gomock.Any()).
 		Return([]modelmigration.ImportClaimStatus{abortingClaim(modelUUID, s.clock.Now())}, nil)
-	gomock.InOrder(
-		s.service.EXPECT().IsImportNamespaceRegistered(gomock.Any(), modelUUID).Return(true, nil),
-		s.service.EXPECT().StageAbortedModelDatabaseDeletion(gomock.Any(), modelUUID).Return(nil),
-		s.service.EXPECT().FinalizeAbortedImport(gomock.Any(), modelUUID).DoAndReturn(
-			func(context.Context, coremodel.UUID) error { close(done); return nil }),
-	)
+	s.service.EXPECT().FinalizeAbortedImport(gomock.Any(), modelUUID).DoAndReturn(
+		func(context.Context, coremodel.UUID) error { close(done); return nil })
 	// Any later scan (e.g. a timer re-fire before kill) sees nothing to do.
 	s.service.EXPECT().GetAllImportClaims(gomock.Any()).Return(nil, nil).AnyTimes()
 
@@ -136,37 +131,6 @@ func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 		c.Check(got, tc.Equals, modelUUID)
 	default:
 		c.Fatal("abort compensation was not re-driven")
-	}
-}
-
-// TestUnregisteredNamespaceSkipsStaging verifies that when the model's namespace
-// is no longer registered (the database was never created or already staged),
-// the reconciler finalizes without staging a deletion.
-func (s *workerSuite) TestUnregisteredNamespaceSkipsStaging(c *tc.C) {
-	defer s.setup(c).Finish()
-
-	modelUUID := coremodel.UUID(uuid.MustNewUUID().String())
-	done := make(chan struct{})
-
-	s.service.EXPECT().GetAllImportClaims(gomock.Any()).
-		Return([]modelmigration.ImportClaimStatus{abortingClaim(modelUUID, s.clock.Now())}, nil)
-	s.service.EXPECT().IsImportNamespaceRegistered(gomock.Any(), modelUUID).Return(false, nil)
-	s.service.EXPECT().FinalizeAbortedImport(gomock.Any(), modelUUID).DoAndReturn(
-		func(context.Context, coremodel.UUID) error { close(done); return nil })
-	s.service.EXPECT().GetAllImportClaims(gomock.Any()).Return(nil, nil).AnyTimes()
-
-	// No StageAbortedModelDatabaseDeletion expectation: the mock controller
-	// fails the test if it is called.
-
-	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
-
-	s.tick(c)
-
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("aborting claim was not finalized")
 	}
 }
 
@@ -218,7 +182,6 @@ func (s *workerSuite) TestFinalizeFailureKeepsWorkerAlive(c *tc.C) {
 
 	s.service.EXPECT().GetAllImportClaims(gomock.Any()).
 		Return([]modelmigration.ImportClaimStatus{abortingClaim(modelUUID, s.clock.Now())}, nil).AnyTimes()
-	s.service.EXPECT().IsImportNamespaceRegistered(gomock.Any(), modelUUID).Return(false, nil).AnyTimes()
 	s.service.EXPECT().FinalizeAbortedImport(gomock.Any(), modelUUID).DoAndReturn(
 		func(context.Context, coremodel.UUID) error {
 			select {

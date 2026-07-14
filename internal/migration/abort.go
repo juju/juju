@@ -5,6 +5,9 @@ package migration
 
 import (
 	"context"
+	"time"
+
+	"github.com/juju/retry"
 
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
@@ -15,18 +18,39 @@ import (
 	"github.com/juju/juju/internal/errors"
 )
 
+// AbortFinalizeWait bounds how long [WaitAbortFinalized] blocks waiting for the
+// model database to be dropped and the import claim released.
+type AbortFinalizeWait struct {
+	// Delay is the constant interval between finalization attempts.
+	Delay time.Duration
+
+	// MaxDuration is the total time budget across all attempts.
+	MaxDuration time.Duration
+}
+
+// DefaultAbortFinalizeWait is the wait applied on the facade Abort path: poll
+// finalization twice a second for up to twenty seconds. The model database is
+// dropped by the undertaker within milliseconds in the normal case, so
+// finalization usually succeeds on the first or second attempt; the budget only
+// covers a controller node under load.
+var DefaultAbortFinalizeWait = AbortFinalizeWait{
+	Delay:       500 * time.Millisecond,
+	MaxDuration: 20 * time.Second,
+}
+
 // AbortModelImport drives target-side cleanup of a partially imported v8 model.
 // It is the single entry point for both the facade Abort call and the abort
 // reconciler's retries, and is idempotent and safe to call repeatedly.
 //
 // It transitions the durable model_migration_import claim to the aborting phase
 // (refusing the transition once activation has crossed the point of no return),
-// then undoes the controller-database import writes in reverse order via
-// [RemoveOnAbortImport]. It deliberately leaves the claim in the aborting phase:
-// the abort reconciler drops the model database and finalizes (deletes the
-// claim) only once cleanup is provably complete, so the model UUID stays claimed
-// and every concurrent Import keeps seeing a cleanup-in-progress AlreadyExists
-// until then.
+// undoes the controller-database import writes in reverse order via
+// [RemoveOnAbortImport], then hands the model database off to the undertaker's
+// model-database deleter by staging its deletion. It deliberately leaves the
+// claim in the aborting phase: the claim is deleted only once the database drop
+// is proven complete, by [WaitAbortFinalized] on the facade path or the abort
+// reconciler otherwise. Until then the model UUID stays claimed and every
+// concurrent Import keeps seeing a cleanup-in-progress AlreadyExists.
 //
 // deps.ModelDB is not required: the abort compensation writes only to the
 // controller database, and passing a nil ModelDB makes that structural.
@@ -81,5 +105,72 @@ func AbortModelImport(ctx context.Context, deps Deps, modelUUID coremodel.UUID) 
 	if err := RemoveOnAbortImport(ctx, deps, args); err != nil {
 		return errors.Errorf("removing partial import for model %q: %w", modelUUID, err)
 	}
+
+	// Stage the model database for deletion by the undertaker's model-database
+	// deleter (running on every controller node, so this works from any node).
+	// Staging removes the namespace registration, so a re-drive after the drop
+	// completes sees no registration and skips this; it is idempotent regardless.
+	// A claim that was concurrently finalized reports ErrImportNotFound, which is
+	// success here.
+	if registered, err := claim.IsImportNamespaceRegistered(ctx, modelUUID); err != nil {
+		return errors.Errorf("checking namespace registration for model %q: %w", modelUUID, err)
+	} else if registered {
+		if err := claim.StageAbortedModelDatabaseDeletion(ctx, modelUUID); err != nil &&
+			!errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
+			return errors.Errorf("staging model database deletion for model %q: %w", modelUUID, err)
+		}
+	}
 	return nil
+}
+
+// WaitAbortFinalized blocks until the aborted model's import claim can be
+// finalized (the model database has been dropped by the undertaker and the
+// claim deleted), or the wait budget is exhausted. It is called on the facade
+// Abort path so the model UUID is released before the RPC returns, matching the
+// synchronous abort behaviour of earlier Juju releases.
+//
+// It polls [migrationclaimservice.Service.FinalizeAbortedImport] every
+// wait.Delay for up to wait.MaxDuration, retrying only while finalization is not
+// yet provable ([modelmigrationerrors.ErrAbortNotFinalizable]). On success the
+// claim is gone. When the budget is exhausted it returns nil after logging: the
+// claim stays in the aborting phase and the abort reconciler finalizes it later,
+// so the abort is never lost. Any other error (a genuine finalization failure)
+// is returned.
+func WaitAbortFinalized(ctx context.Context, deps Deps, modelUUID coremodel.UUID, wait AbortFinalizeWait) error {
+	claim := migrationclaimservice.NewImportService(
+		migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
+	)
+
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			return claim.FinalizeAbortedImport(ctx, modelUUID)
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, modelmigrationerrors.ErrAbortNotFinalizable)
+		},
+		Clock:       deps.Clock,
+		Delay:       wait.Delay,
+		MaxDuration: wait.MaxDuration,
+		Stop:        ctx.Done(),
+	})
+	switch {
+	case err == nil:
+		return nil
+	case retry.IsDurationExceeded(err) || retry.IsAttemptsExceeded(err):
+		// The undertaker has not dropped the database within the budget. The
+		// claim is still aborting; the reconciler completes it later.
+		deps.Logger.Warningf(ctx,
+			"model %q abort accepted but claim finalization still pending; the reconciler will complete it",
+			modelUUID)
+		return nil
+	case retry.IsRetryStopped(err):
+		// The context was cancelled (client gone or shutdown). The reconciler
+		// completes the abort later.
+		deps.Logger.Warningf(ctx,
+			"model %q abort finalization interrupted; the reconciler will complete it",
+			modelUUID)
+		return nil
+	default:
+		return errors.Errorf("finalizing aborted import for model %q: %w", modelUUID, retry.LastError(err))
+	}
 }
