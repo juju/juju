@@ -11,6 +11,7 @@ import (
 	"net"
 	"testing"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/database"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/database/client"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type bootstrapSuite struct {
@@ -31,7 +33,10 @@ func TestBootstrapSuite(t *testing.T) {
 }
 
 func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
-	mgr := &testNodeManager{c: c}
+	addresses := network.NewMachineAddresses(
+		[]string{"127.0.0.1"}, network.WithScope(network.ScopeCloudLocal),
+	).AsProviderAddresses()
+	mgr := &testNodeManager{c: c, expectedAddresses: addresses}
 
 	// check tests the variadic operation functionality
 	// and ensures that bootstrap applied the DDL.
@@ -80,15 +85,90 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *tc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(c.Context(), mgr, tc.Must0(c, coremodel.NewUUID), loggertesting.WrapCheckLog(c), check)
+	err := BootstrapDqlite(
+		c.Context(), mgr, addresses, tc.Must0(c, coremodel.NewUUID),
+		loggertesting.WrapCheckLog(c), check,
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(mgr.addressOption, tc.Equals, "127.0.0.1")
+	c.Check(mgr.tlsOptionCalled, tc.IsTrue)
+}
+
+func (s *bootstrapSuite) TestInsertControllerNodeIDPersistsHostname(c *tc.C) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() {
+		c.Assert(db.Close(), tc.ErrorIsNil)
+	}()
+
+	_, err = db.Exec(`CREATE TABLE controller_node (
+		controller_id TEXT PRIMARY KEY,
+		dqlite_node_id INT NOT NULL,
+		dqlite_bind_address TEXT NOT NULL
+	)`)
 	c.Assert(err, tc.ErrorIsNil)
 
+	runner := &txnRunner{db: db}
+	err = InsertControllerNodeID(
+		c.Context(), runner, 42,
+		"controller-0.controller-service-endpoints.test.svc.cluster.local",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var address string
+	err = db.QueryRow(
+		"SELECT dqlite_bind_address FROM controller_node WHERE controller_id = '0'",
+	).Scan(&address)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(
+		address, tc.Equals,
+		"controller-0.controller-service-endpoints.test.svc.cluster.local",
+	)
+}
+
+func (s *bootstrapSuite) TestInsertControllerNodeIDAlreadyExists(c *tc.C) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() {
+		c.Assert(db.Close(), tc.ErrorIsNil)
+	}()
+
+	_, err = db.Exec(`CREATE TABLE controller_node (
+		controller_id TEXT PRIMARY KEY,
+		dqlite_node_id INT NOT NULL,
+		dqlite_bind_address TEXT NOT NULL
+	)`)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.Exec(`
+		INSERT INTO controller_node (
+			controller_id, dqlite_node_id, dqlite_bind_address
+		) VALUES ('0', 42, 'controller-0.test')
+	`)
+	c.Assert(err, tc.ErrorIsNil)
+
+	runner := &txnRunner{db: db}
+	err = InsertControllerNodeID(c.Context(), runner, 43, "replacement.test")
+	c.Assert(err, tc.ErrorIs, jujuerrors.AlreadyExists)
+
+	var nodeID int
+	var address string
+	err = db.QueryRow(`
+		SELECT dqlite_node_id, dqlite_bind_address
+		FROM controller_node
+		WHERE controller_id = '0'
+	`).Scan(&nodeID, &address)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(nodeID, tc.Equals, 42)
+	c.Check(address, tc.Equals, "controller-0.test")
 }
 
 type testNodeManager struct {
-	c       *tc.C
-	dataDir string
-	port    int
+	c                 *tc.C
+	dataDir           string
+	port              int
+	expectedAddresses network.ProviderAddresses
+	addressOption     string
+	tlsOptionCalled   bool
 }
 
 func (f *testNodeManager) EnsureDataDir() (string, error) {
@@ -98,22 +178,23 @@ func (f *testNodeManager) EnsureDataDir() (string, error) {
 	return f.dataDir, nil
 }
 
-func (f *testNodeManager) IsLoopbackPreferred() bool {
-	return true
+func (f *testNodeManager) ResolveBootstrapAddress(
+	addresses network.ProviderAddresses, source network.ConfigSource,
+) (string, error) {
+	f.c.Check(addresses, tc.DeepEquals, f.expectedAddresses)
+	f.c.Check(source, tc.NotNil)
+	return "127.0.0.1", nil
 }
 
-func (f *testNodeManager) WithPreferredCloudLocalAddressOption(network.ConfigSource) (app.Option, error) {
-	return f.WithLoopbackAddressOption(), nil
-}
-
-func (f *testNodeManager) WithLoopbackAddressOption() app.Option {
+func (f *testNodeManager) WithAddressOption(address string) app.Option {
+	f.addressOption = address
 	if f.port == 0 {
 		l, err := net.Listen("tcp", ":0")
 		f.c.Assert(err, tc.ErrorIsNil)
 		f.c.Assert(l.Close(), tc.ErrorIsNil)
 		f.port = l.Addr().(*net.TCPAddr).Port
 	}
-	return app.WithAddress(fmt.Sprintf("127.0.0.1:%d", f.port))
+	return app.WithAddress(fmt.Sprintf("%s:%d", address, f.port))
 }
 
 func (f *testNodeManager) WithLogFuncOption() app.Option {
@@ -127,5 +208,12 @@ func (f *testNodeManager) WithTracingOption() app.Option {
 }
 
 func (f *testNodeManager) WithTLSOption() (app.Option, error) {
-	return nil, nil
+	f.tlsOptionCalled = true
+	listen, dial, err := dqliteTLSConfig(
+		jujutesting.CACert, jujutesting.ServerCert, jujutesting.ServerKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return app.WithTLS(listen, dial), nil
 }

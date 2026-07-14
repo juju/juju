@@ -72,7 +72,6 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *tc.C) {
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(true, nil).Times(1)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
-	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 	mgrExp.WithBusyTimeoutOption().Return(nil)
@@ -109,7 +108,6 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *tc.C) {
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(3)
-	mgrExp.IsLoopbackPreferred().Return(false).Times(2)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -146,7 +144,6 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *tc.C) {
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(4)
 
 	// We expect 1 attempt to start and 2 attempts to reconfigure.
-	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 
 	// We expect 2 attempts to start.
 	mgrExp.WithTLSOption().Return(nil, nil).Times(2)
@@ -201,7 +198,6 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *tc.C) {
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil)
 
 	// Expects 1 attempt to start and 2 attempts to reconfigure.
-	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -295,7 +291,6 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *tc.C) {
 	// and at shutdown when checking for handover.
 	mgrExp.IsExistingNode().Return(true, nil).MinTimes(1)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).MinTimes(1)
-	mgrExp.IsLoopbackPreferred().Return(false).MinTimes(1)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -323,7 +318,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *tc.C) {
 	ensureStartup(c, w.(*dbWorker))
 }
 
-func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *tc.C) {
+func (s *workerSuite) TestWorkerStartupExistingLoopbackBoundNode(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -341,7 +336,6 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *tc.C
 	// We don't expect a handover, because we're not rebinding.
 	mgrExp.IsExistingNode().Return(true, nil).MinTimes(1)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).MinTimes(1)
-	mgrExp.IsLoopbackPreferred().Return(false).MinTimes(1)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 	mgrExp.WithBusyTimeoutOption().Return(nil)
@@ -378,7 +372,6 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *tc
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).MinTimes(1)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(4)
-	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 	mgrExp.WithBusyTimeoutOption().Return(nil)
@@ -444,7 +437,6 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *tc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsLoopbackPreferred().Return(false).Times(2)
 	gomock.InOrder(
 		mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2),
 		// This is the check at shutdown.
@@ -520,7 +512,7 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	return s.newWorkerWithDB(c, s.trackedDB)
 }
 
-func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *tc.C) {
+func (s *workerSuite) TestWorkerStartupExistingDNSBoundSingleMemberRemainsRunning(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dbDone := make(chan struct{})
@@ -531,17 +523,17 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
 	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
 	mgrExp.WithBusyTimeoutOption().Return(nil)
 
-	// If this is a loopback preferred node, we do not invoke the TLS or
-	// cluster options.
+	// A DNS-bound node starts with TLS and without cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsLoopbackPreferred().Return(true).Times(2)
-	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(3)
 
 	// Ensure that we expect a clean startup and shutdown.
 	s.expectNodeStartupAndShutdown()
+	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
 	// First time though, there is no config, then we get a
 	// notification for a change on disk.
@@ -550,7 +542,9 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 
 	gomock.InOrder(
 		s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("not there")),
-		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{"0": "10.6.6.6"}, nil),
+		s.clusterConfig.EXPECT().DBBindAddresses().Return(map[string]string{
+			"0": "controller-0.controller-service-endpoints.test.svc.cluster.local",
+		}, nil),
 	)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
@@ -565,11 +559,8 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 
 	ensureStartup(c, dbw)
 
-	// At this point we have started successfully.
-	// Push a config change notification to simulate a move into HA.
-	// Notice the absence of expected calls to [Set]ClusterServer
-	// and SetNodeInfo methods, because we eschew reconfiguration when
-	// loopback binding is preferred.
+	// At this point we have started successfully. Push a single-member config
+	// change notification and ensure that the worker stays running.
 	select {
 	case ch <- struct{}{}:
 	case <-time.After(testhelpers.LongWait):

@@ -119,7 +119,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer:      noopPrometheusRegisterer{},
 			NewApp:                    dbaccessor.NewApp,
 			NewDBWorker:               config.NewDBWorkerFunc,
-			NewNodeManager:            dbaccessor.IAASNodeManager,
+			NewNodeManager:            dbaccessor.NewNodeManager,
 			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
 		})),
 	})
@@ -137,7 +137,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer:      noopPrometheusRegisterer{},
 			NewApp:                    dbaccessor.NewApp,
 			NewDBWorker:               config.NewDBWorkerFunc,
-			NewNodeManager:            dbaccessor.CAASNodeManager,
+			NewNodeManager:            dbaccessor.NewNodeManager,
 			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
 		})),
 	})

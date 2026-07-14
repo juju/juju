@@ -26,18 +26,13 @@ type BootstrapNodeManager interface {
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
 
-	// IsLoopbackPreferred returns true if the Dqlite application should
-	// be bound to the loopback address.
-	IsLoopbackPreferred() bool
+	// ResolveBootstrapAddress returns the stable address to which the initial
+	// Dqlite node should bind.
+	ResolveBootstrapAddress(network.ProviderAddresses, network.ConfigSource) (string, error)
 
-	// WithLoopbackAddressOption returns a Dqlite application
-	// Option that will bind Dqlite to the loopback IP.
-	WithLoopbackAddressOption() app.Option
-
-	// WithPreferredCloudLocalAddressOption uses the input network config
-	// source to return a local-cloud address to which to bind Dqlite,
-	// provided that a unique one can be determined.
-	WithPreferredCloudLocalAddressOption(network.ConfigSource) (app.Option, error)
+	// WithAddressOption returns a Dqlite application Option for binding to the
+	// supplied address.
+	WithAddressOption(string) app.Option
 
 	// WithTLSOption returns a Dqlite application Option for TLS encryption
 	// of traffic between clients and clustered application nodes.
@@ -68,6 +63,7 @@ type BootstrapOpt func(
 func BootstrapDqlite(
 	ctx context.Context,
 	mgr BootstrapNodeManager,
+	bootstrapAddresses network.ProviderAddresses,
 	uuid model.UUID,
 	logger logger.Logger,
 	opts ...BootstrapOpt,
@@ -77,21 +73,20 @@ func BootstrapDqlite(
 		return errors.Trace(err)
 	}
 
-	options := []app.Option{mgr.WithLogFuncOption()}
-	if mgr.IsLoopbackPreferred() {
-		options = append(options, mgr.WithLoopbackAddressOption())
-	} else {
-		addrOpt, err := mgr.WithPreferredCloudLocalAddressOption(network.DefaultConfigSource())
-		if err != nil {
-			return errors.Annotate(err, "generating bind address option")
-		}
-
-		tlsOpt, err := mgr.WithTLSOption()
-		if err != nil {
-			return errors.Annotate(err, "generating TLS option")
-		}
-
-		options = append(options, addrOpt, tlsOpt)
+	bindAddress, err := mgr.ResolveBootstrapAddress(
+		bootstrapAddresses, network.DefaultConfigSource(),
+	)
+	if err != nil {
+		return errors.Annotate(err, "resolving Dqlite bind address")
+	}
+	tlsOpt, err := mgr.WithTLSOption()
+	if err != nil {
+		return errors.Annotate(err, "generating TLS option")
+	}
+	options := []app.Option{
+		mgr.WithLogFuncOption(),
+		mgr.WithAddressOption(bindAddress),
+		tlsOpt,
 	}
 
 	dqlite, err := app.New(dir, options...)
@@ -108,7 +103,10 @@ func BootstrapDqlite(
 		return errors.Annotatef(err, "waiting for Dqlite readiness")
 	}
 
-	controller, err := runMigration(ctx, dqlite, coredatabase.ControllerNS, schema.ControllerDDL(), controllerBootstrapInit, logger)
+	controller, err := runMigration(
+		ctx, dqlite, coredatabase.ControllerNS, schema.ControllerDDL(),
+		controllerBootstrapInit(bindAddress), logger,
+	)
 	if err != nil {
 		return errors.Annotate(err, "running controller migration")
 	}
@@ -153,17 +151,31 @@ func runMigration(ctx context.Context, dqlite *app.App, namespace string, schema
 
 // InsertControllerNodeID inserts the node ID of the controller node
 // into the controller_node table.
-func InsertControllerNodeID(ctx context.Context, runner coredatabase.TxnRunner, nodeID uint64) error {
+func InsertControllerNodeID(
+	ctx context.Context, runner coredatabase.TxnRunner, nodeID uint64, bindAddress string,
+) error {
+	selectQuery := `
+SELECT controller_id
+FROM controller_node
+WHERE controller_id = '0';`
+
 	q := `
 -- TODO (manadart 2023-06-06): At the time of writing, 
 -- we have not yet modelled machines. 
 -- Accordingly, the controller ID remains the ID of the machine, 
 -- but it should probably become a UUID once machines have one.
--- While HA is not supported in K8s, this doesn't matter.
 INSERT INTO controller_node (controller_id, dqlite_node_id, dqlite_bind_address)
-VALUES ('0', ?, '127.0.0.1');`
+VALUES ('0', ?, ?);`
 	return runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, q, nodeID)
+		var controllerID string
+		err := tx.QueryRowContext(ctx, selectQuery).Scan(&controllerID)
+		if err == nil {
+			return errors.AlreadyExistsf("controller node ID")
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return errors.Trace(err)
+		}
+
+		result, err := tx.ExecContext(ctx, q, nodeID, bindAddress)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -205,17 +217,13 @@ type bootstrapInit = func(ctx context.Context, runner coredatabase.TxnRunner, dq
 // controllerBootstrapInit is used to initialise the controller database with
 // a controller node ID. The controller node ID is required to be present in
 // the controller_node table as this is used for referential integrity.
-func controllerBootstrapInit(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error {
-	if err := InsertControllerNodeID(ctx, runner, dqlite.ID()); err != nil {
-		// If the controller node ID already exists, we assume that
-		// the database has already been bootstrapped. Mask the unique
-		// constraint error with a more user-friendly error.
-		if IsErrConstraintUnique(err) {
-			return errors.AlreadyExistsf("controller node ID")
+func controllerBootstrapInit(bindAddress string) bootstrapInit {
+	return func(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error {
+		if err := InsertControllerNodeID(ctx, runner, dqlite.ID(), bindAddress); err != nil {
+			return errors.Annotatef(err, "inserting controller node ID")
 		}
-		return errors.Annotatef(err, "inserting controller node ID")
+		return nil
 	}
-	return nil
 }
 
 // emptyInit is a BootstrapInit type that does nothing.

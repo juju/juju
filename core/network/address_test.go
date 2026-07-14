@@ -632,6 +632,18 @@ func (s *AddressSuite) TestSelectInternalAddresses(c *tc.C) {
 	}
 }
 
+func (s *AddressSuite) TestProviderAddressesAllMatchingScope(c *tc.C) {
+	addresses := network.NewMachineAddresses([]string{
+		"127.0.0.1",
+		"10.0.0.1",
+		"10.0.0.2",
+		"example.com",
+	}).AsProviderAddresses()
+
+	got := addresses.AllMatchingScope(network.ScopeMatchCloudLocal)
+	c.Check(got, tc.DeepEquals, network.ProviderAddresses{addresses[1], addresses[2]})
+}
+
 // stringer wraps Stringer and GoStringer for convenience.
 type stringer interface {
 	fmt.Stringer
