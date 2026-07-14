@@ -25,6 +25,11 @@ jobs:
 
       - name: Checkout juju
         uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.*"
+          terraform_wrapper: false
 
       - name: Setup LXD
         uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
@@ -54,6 +59,19 @@ jobs:
           juju bootstrap localhost c \
                 --constraints "arch=$(go env GOARCH)"
           juju version
+
+      - name: Setup MicroK8s
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo snap install microk8s --channel=1.32-strict/stable
+          sudo microk8s stop
+          sudo microk8s start
+          sudo usermod -a -G snap_microk8s $USER
+          sudo chown -R $USER ~/.kube
+          sudo microk8s.enable dns hostpath-storage
+          sudo -g snap_microk8s -E microk8s status --wait-ready --timeout=600
+          sudo microk8s.config > ~/microk8s-config.yaml
 
       - name: Find terraform provider for juju latest release
         uses: actions/checkout@v4
