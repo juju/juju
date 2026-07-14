@@ -98,6 +98,7 @@ type RefreshEntity struct {
 	// The minimum set of metadata required for deploying a charm.
 	MetadataYAML string `json:"metadata-yaml,omitempty"`
 	ConfigYAML   string `json:"config-yaml,omitempty"`
+	ActionsYAML  string `json:"actions-yaml,omitempty"`
 }
 
 // RefreshResourceRevision represents a resource name revision pair for

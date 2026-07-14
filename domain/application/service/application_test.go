@@ -253,12 +253,6 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *tc.C) {
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 
-	// This will be removed once we get the information from charmhub store.
-	// For now, just brute force our way through to get the actions.
-	ch := testcharms.Repo.CharmDir("dummy")
-	actions, err := encodeActions(ch.Actions())
-	c.Assert(err, tc.ErrorIsNil)
-
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := charmtesting.GenCharmID(c)
 
@@ -280,12 +274,11 @@ func (s *applicationServiceSuite) TestResolveCharmDownload(c *tc.C) {
 		ObjectStoreUUID: objectStoreUUID,
 	}, nil)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
-		Actions:         actions,
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "somepath",
 	})
 
-	err = s.service.ResolveCharmDownload(c.Context(), appUUID, application.ResolveCharmDownload{
+	err := s.service.ResolveCharmDownload(c.Context(), appUUID, application.ResolveCharmDownload{
 		CharmUUID: charmUUID,
 		SHA256:    "hash-256",
 		SHA384:    "hash-384",
@@ -403,12 +396,6 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C)
 	dst := c.MkDir()
 	path := testcharms.Repo.CharmArchivePath(dst, "dummy")
 
-	// This will be removed once we get the information from charmhub store.
-	// For now, just brute force our way through to get the actions.
-	ch := testcharms.Repo.CharmDir("dummy")
-	actions, err := encodeActions(ch.Actions())
-	c.Assert(err, tc.ErrorIsNil)
-
 	appUUID := tc.Must(c, coreapplication.NewUUID)
 	charmUUID := charmtesting.GenCharmID(c)
 
@@ -430,12 +417,11 @@ func (s *applicationServiceSuite) TestResolveCharmDownloadAlreadyStored(c *tc.C)
 		ObjectStoreUUID: objectStoreUUID,
 	}, nil)
 	s.state.EXPECT().ResolveCharmDownload(gomock.Any(), charmUUID, application.ResolvedCharmDownload{
-		Actions:         actions,
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "somepath",
 	})
 
-	err = s.service.ResolveCharmDownload(c.Context(), appUUID, application.ResolveCharmDownload{
+	err := s.service.ResolveCharmDownload(c.Context(), appUUID, application.ResolveCharmDownload{
 		CharmUUID: charmUUID,
 		SHA256:    "hash-256",
 		SHA384:    "hash-384",

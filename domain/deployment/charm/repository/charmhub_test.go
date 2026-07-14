@@ -35,7 +35,7 @@ var (
 	expRefreshFields = set.NewStrings(
 		"download", "id", "license", "name", "publisher", "resources",
 		"revision", "summary", "type", "version", "bases", "config-yaml",
-		"metadata-yaml",
+		"metadata-yaml", "actions-yaml",
 	).SortedValues()
 )
 
@@ -1899,4 +1899,102 @@ func (s *retryResolveWithRespBasesSuite) newClient(c *tc.C) *CharmHubRepository 
 		client: s.client,
 		logger: loggertesting.WrapCheckLog(c),
 	}
+}
+
+type essentialMetadataSuite struct{}
+
+func TestEssentialMetadataSuite(t *testing.T) {
+	tc.Run(t, &essentialMetadataSuite{})
+}
+
+// minimalRefreshResponse builds a transport.RefreshResponse with the
+// minimum fields required for EssentialMetadataFromResponse to succeed.
+func minimalRefreshResponse() transport.RefreshResponse {
+	return transport.RefreshResponse{
+		Entity: transport.RefreshEntity{
+			Type: transport.CharmType,
+			ID:   "charmID",
+			Name: "wordpress",
+			Bases: []transport.Base{{
+				Name:         "ubuntu",
+				Architecture: "amd64",
+				Channel:      "22.04",
+			}},
+			MetadataYAML: `
+name: wordpress
+summary: Blog engine
+description: Blog engine
+`[1:],
+		},
+	}
+}
+
+// TestEssentialMetadataWithActions ensures that the actions-yaml from the
+// charmhub refresh response is parsed and included in the essential
+// metadata. This is the core of the fix: actions are now available at
+// deploy time without waiting for the full charm archive download.
+func (s *essentialMetadataSuite) TestEssentialMetadataWithActions(c *tc.C) {
+	resp := minimalRefreshResponse()
+	resp.Entity.ActionsYAML = `
+backup:
+  description: Take a backup of the database.
+  parallel: false
+restart:
+  description: Restart the service.
+  parallel: true
+`[1:]
+
+	meta, err := EssentialMetadataFromResponse("wordpress", resp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(meta.Actions, tc.NotNil)
+	c.Check(meta.Actions.ActionSpecs, tc.HasLen, 2)
+
+	backup, ok := meta.Actions.ActionSpecs["backup"]
+	c.Check(ok, tc.IsTrue)
+	c.Check(backup.Description, tc.Equals, "Take a backup of the database.")
+	c.Check(backup.Parallel, tc.IsFalse)
+
+	restart, ok := meta.Actions.ActionSpecs["restart"]
+	c.Check(ok, tc.IsTrue)
+	c.Check(restart.Description, tc.Equals, "Restart the service.")
+	c.Check(restart.Parallel, tc.IsTrue)
+}
+
+// TestEssentialMetadataWithoutActions ensures that when the charmhub
+// response does not include actions-yaml, the essential metadata
+// contains an empty (non-nil) actions set. This mirrors the behaviour
+// of reading a charm archive that has no actions.yaml file.
+func (s *essentialMetadataSuite) TestEssentialMetadataWithoutActions(c *tc.C) {
+	resp := minimalRefreshResponse()
+
+	meta, err := EssentialMetadataFromResponse("wordpress", resp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(meta.Actions, tc.NotNil)
+	c.Check(meta.Actions.ActionSpecs, tc.HasLen, 0)
+}
+
+// TestEssentialMetadataWithEmptyActions ensures that a "{}" actions-yaml
+// (which charmhub may return for charms with no actions) results in an
+// empty actions set, not an error.
+func (s *essentialMetadataSuite) TestEssentialMetadataWithEmptyActions(c *tc.C) {
+	resp := minimalRefreshResponse()
+	resp.Entity.ActionsYAML = "{}"
+
+	meta, err := EssentialMetadataFromResponse("wordpress", resp)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(meta.Actions, tc.NotNil)
+	c.Check(meta.Actions.ActionSpecs, tc.HasLen, 0)
+}
+
+// TestEssentialMetadataWithInvalidActions ensures that invalid actions-yaml
+// results in an error.
+func (s *essentialMetadataSuite) TestEssentialMetadataWithInvalidActions(c *tc.C) {
+	resp := minimalRefreshResponse()
+	resp.Entity.ActionsYAML = "this: is: not: valid: yaml:"
+
+	_, err := EssentialMetadataFromResponse("wordpress", resp)
+	c.Check(err, tc.NotNil)
 }

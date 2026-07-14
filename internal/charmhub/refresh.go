@@ -51,7 +51,7 @@ var (
 	requiredRefreshFields = set.NewStrings(
 		"download", "id", "license", "name", "publisher", "resources",
 		"revision", "summary", "type", "version", "bases", "config-yaml",
-		"metadata-yaml",
+		"metadata-yaml", "actions-yaml",
 	).SortedValues()
 )
 

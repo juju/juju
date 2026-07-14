@@ -820,10 +820,24 @@ func EssentialMetadataFromResponse(charmName string, refreshResult transport.Ref
 		})
 	}
 
+	// Actions are optional, so if the charmhub response does not include
+	// an actions.yaml, we default to an empty set of actions. This mirrors
+	// the behaviour of reading a charm archive that has no actions.yaml.
+	var chActions *charm.Actions
+	if actionsYAML := entity.ActionsYAML; actionsYAML != "" && strings.TrimSpace(actionsYAML) != "{}" {
+		chActions, err = charm.ReadActionsYaml(charmName, strings.NewReader(actionsYAML))
+		if err != nil {
+			return corecharm.EssentialMetadata{}, internalerrors.Errorf("parsing actions.yaml for %q: %w", charmName, err)
+		}
+	} else {
+		chActions = charm.NewActions()
+	}
+
 	return corecharm.EssentialMetadata{
 		Meta:     chMeta,
 		Config:   chConfig,
 		Manifest: chManifest,
+		Actions:  chActions,
 		DownloadInfo: corecharm.DownloadInfo{
 			CharmhubIdentifier: entity.ID,
 			DownloadURL:        entity.Download.URL,

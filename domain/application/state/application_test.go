@@ -2193,19 +2193,7 @@ func (s *applicationStateSuite) TestResolveCharmDownload(c *tc.C) {
 	info, err := s.state.GetAsyncCharmDownloadInfo(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 
-	actions := charm.Actions{
-		Actions: map[string]charm.Action{
-			"action": {
-				Description:    "description",
-				Parallel:       true,
-				ExecutionGroup: "group",
-				Params:         []byte(`{}`),
-			},
-		},
-	}
-
 	err = s.state.ResolveCharmDownload(c.Context(), info.CharmUUID, application.ResolvedCharmDownload{
-		Actions:         actions,
 		ObjectStoreUUID: objectStoreUUID,
 		ArchivePath:     "archive",
 	})
@@ -2219,7 +2207,6 @@ func (s *applicationStateSuite) TestResolveCharmDownload(c *tc.C) {
 	ch, err := s.state.GetCharmByApplicationUUID(c.Context(), id)
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Check(ch.Actions, tc.DeepEquals, actions)
 	c.Check(ch.ArchivePath, tc.DeepEquals, "archive")
 }
 
