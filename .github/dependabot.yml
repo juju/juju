@@ -1,4 +1,13 @@
-# Set update schedule for GitHub Actions
+# Configuration file for Dependabot.
+#
+# The rules are as follows:
+#
+# - For golang dependencies we will only update golang.org/x/* dependencies and
+#   they will always go to the 2.9 branch as it may contain security fixes.
+# - For pip/uv dependencies are generally targeted at docs and thus will go to
+#   the 3.6 branch.
+# - We'll ignore any dependencies in the testcharms directory as they are not
+#   part of the main codebase.
 
 version: 2
 updates:
@@ -10,10 +19,11 @@ updates:
       prefix: "build"
       include: "scope"
     assignees:
-      - "hpidcock"
       - "anvial"
   - package-ecosystem: "gomod"
     directory: "/"
+    exclude-paths:
+      - "testcharms/**"
     schedule:
       interval: "daily"
     commit-message:
@@ -22,6 +32,32 @@ updates:
     allow:
       - dependency-name: "golang.org/x/*"
     assignees:
-      - "hpidcock"
+      - "SimonRichardson"
       - "anvial"
     target-branch: "2.9" # these should always go to 2.9 as it may contain security fixes
+  - package-ecosystem: "pip"
+    directory: "/"
+    exclude-paths:
+      - "testcharms/**"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    assignees:
+      - "tmihoc"
+      - "anvial"
+    target-branch: "3.6"
+  - package-ecosystem: "uv"
+    directory: "/"
+    exclude-paths:
+      - "testcharms/**"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    assignees:
+      - "tmihoc"
+      - "anvial"
+    target-branch: "3.6"
