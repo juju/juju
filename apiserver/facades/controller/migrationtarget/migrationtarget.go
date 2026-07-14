@@ -662,14 +662,13 @@ func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) 
 }
 
 // Import accepts a v8 model migration envelope, claims the model, bootstraps
-// it and applies the envelope's controller-scoped semantic data. Model-DB
-// content import and activation are not yet part of this path (Tasks 7-10).
+// it and applies the envelope's controller-scoped semantic data.
 //
 // Unlike Prechecks, Import deliberately does NOT re-run the environmental
-// prechecks. Per the spec (WS4a / Task 6) the only work that must precede the
-// first target-side write is schema validation, payload version/decode
-// preparation and the non-empty SourceMigrationUUID check — exactly what
-// importGuard covers. The equivalent collision checks become
+// prechecks. The only work that must precede the first target-side write is
+// schema validation, payload version/decode preparation and the non-empty
+// SourceMigrationUUID check — exactly what importGuard covers. The equivalent
+// collision checks become
 // structural guarded writes inside the real import path (UNIQUE(model_uuid)
 // claim insert, compare-or-insert controller data), so Import does not
 // duplicate the Prechecks routine. This mirrors v7, where Import does not
@@ -714,7 +713,7 @@ func (api *APIV8) Abort(ctx context.Context, args params.ModelArgs) error {
 // There is no runtime controller-schema guard: the v8 import objects are
 // guaranteed present by the time the facade serves requests, because the
 // controllerupgrader manifold gates the apiserver behind completion of the
-// controller-DB schema upgrade (see the migrationtarget v8 spec, §4.6).
+// controller-DB schema upgrade.
 func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2) (export.ProjectionView, *latest.ModelExport, error) {
 	// Model sanity first: nothing else is meaningful without a valid
 	// model identity.

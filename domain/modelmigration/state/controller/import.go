@@ -522,7 +522,7 @@ INSERT INTO external_model (*) VALUES ($externalModelArg.*)
 // records each (offerer_model_uuid, controller_uuid) pair into
 // model_migration_import_external_controller_model -- the durable handoff
 // Activate reads to reconcile offerer-controller mappings even after a
-// controller restart (WS9/WS4.1).
+// controller restart.
 func (s *State) ImportExternalControllers(
 	ctx context.Context, modelUUID, claimUUID string, refs []modelmigrationinternal.ExternalController,
 ) error {

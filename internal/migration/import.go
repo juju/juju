@@ -101,10 +101,10 @@ func ImportControllerModelInfo(
 	return newImportCoordinator(deps, sourceMigrationUUID, info, view).Import(ctx)
 }
 
-// RemoveOnAbortImport is the abort seam Task 11 will call from AbortImport. It
-// undoes the controller-DB writes performed by ImportControllerModelInfo in
-// reverse order. Each step is idempotent: it is safe to call RemoveOnAbortImport
-// more than once.
+// RemoveOnAbortImport is the abort seam called from AbortModelImport. It undoes
+// the controller-DB writes performed by ImportControllerModelInfo in reverse
+// order. Each step is idempotent: it is safe to call RemoveOnAbortImport more
+// than once.
 func RemoveOnAbortImport(
 	ctx context.Context,
 	deps Deps,
@@ -281,8 +281,8 @@ func (op *opBeginImport) Execute(ctx context.Context, st *importState) error {
 	return nil
 }
 
-// RemoveOnAbort is a no-op: the import claim is the durable anchor; Task 11
-// removes it as the last step of AbortImport.
+// RemoveOnAbort is a no-op: the import claim is the durable anchor; it is
+// removed by the abort finalizer as the last step of cleanup.
 func (op *opBeginImport) RemoveOnAbort(_ context.Context) error { return nil }
 
 // ----
