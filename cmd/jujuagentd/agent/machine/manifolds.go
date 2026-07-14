@@ -341,6 +341,12 @@ type ManifoldsConfig struct {
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
 	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
+
+	// MachineAgentOnly, when true, suppresses in-process controller
+	// workers even when the agent configuration contains
+	// ControllerAgentInfo. It is false by default and is set via the
+	// --machine-agent-only flag on the machine agent command.
+	MachineAgentOnly bool
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -449,6 +455,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateConfigWatcherName: stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
+			MachineAgentOnly:   config.MachineAgentOnly,
 		}),
 
 		// The api-config-watcher manifold monitors the API server
