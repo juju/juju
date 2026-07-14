@@ -857,6 +857,134 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 	)
 }
 
+func (s *ManifoldsSuite) TestManifoldNamesIAMachineAgentOnly(c *tc.C) {
+	s.assertManifoldNames(
+		c,
+		machine.IAASManifolds(machine.ManifoldsConfig{
+			Agent:            &mockAgent{},
+			PreUpgradeSteps:  preUpgradeSteps,
+			MachineAgentOnly: true,
+		}),
+		[]string{
+			"agent-config-updater",
+			"agent",
+			"api-address-setter",
+			"api-address-updater",
+			"api-caller",
+			"api-config-watcher",
+			"api-remote-caller",
+			"api-remote-relation-caller",
+			"api-server",
+			"audit-config-updater",
+			"bootstrap",
+			"broker-tracker",
+			"certificate-updater",
+			"certificate-watcher",
+			"change-stream-pruner",
+			"change-stream",
+			"clock",
+			"control-socket",
+			"controller-agent-config",
+			"controller-agent-config-ready-flag",
+			"controller-agent-config-ready-gate",
+			"controller-presence",
+			"controller-trace",
+			"trace-services",
+			"db-accessor",
+			"deployer",
+			"disk-manager",
+			"domain-services",
+			"external-controller-updater",
+			"file-notify-watcher",
+			"flight-recorder",
+			"host-key-reporter",
+			"http-client",
+			"http-server-args",
+			"http-server",
+			"is-bootstrap-flag",
+			"is-bootstrap-gate",
+			"is-controller-flag",
+			"is-not-controller-flag",
+			"is-primary-controller-flag",
+			"jwt-parser",
+			"lease-expiry",
+			"lease-manager",
+			"log-sink",
+			"controller-log-sink",
+			"non-controller-log-sink",
+			"controller-log-router",
+			"log-router",
+			"logging-config-updater",
+			"loki-endpoint-updater",
+			"lxd-container-provisioner",
+			"machine-action-runner",
+			"machine-setup",
+			"machiner",
+			"migration-fortress",
+			"migration-inactive-flag",
+			"migration-minion",
+			"model-worker-manager",
+			"object-store-fortress",
+			"object-store-facade",
+			"object-store-drainer",
+			"object-store-s3-caller",
+			"object-store-services",
+			"object-store",
+			"provider-services",
+			"provider-tracker",
+			"proxy-config-updater",
+			"query-logger",
+			"reboot-executor",
+			"secret-backend-rotate",
+			"ssh-authkeys-updater",
+			"ssh-identity-writer",
+			"ssh-server",
+			"ssh-tunneler",
+			"state-config-watcher",
+			"machine-converter",
+			"storage-provisioner",
+			"storage-registry",
+			"termination-signal-handler",
+			"tools-version-checker",
+			"trace",
+			"undertaker",
+			"upgrade-check-flag",
+			"upgrade-check-gate",
+			"upgrade-database-flag",
+			"upgrade-database-gate",
+			"upgrade-database-runner",
+			"upgrade-services",
+			"upgrade-steps-flag",
+			"upgrade-steps-gate",
+			"upgrade-controller-steps-runner",
+			"upgrade-agent-steps-runner",
+			"upgrader",
+			"valid-credential-flag",
+			"watcher-registry",
+		},
+	)
+}
+
+func (s *ManifoldsSuite) TestControllerPathsDependOnIsControllerFlagWithGateEnabled(c *tc.C) {
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:            &mockAgent{},
+		PreUpgradeSteps:  preUpgradeSteps,
+		MachineAgentOnly: true,
+	})
+
+	for _, name := range []string{
+		"db-accessor",
+		"controller-agent-config",
+		"api-server",
+	} {
+		c.Logf("checking %s", name)
+		manifold, ok := manifolds[name]
+		c.Assert(ok, tc.IsTrue)
+		deps := agenttest.ManifoldDependencies(manifolds, manifold)
+		c.Check(deps.Contains("is-controller-flag"), tc.IsTrue)
+	}
+}
+
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"agent": {},
 	"agent-config-updater": {

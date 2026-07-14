@@ -269,6 +269,9 @@ type machineAgentCommand struct {
 	machineId string
 	// TODO(controlleragent) - this will be in a new controller agent command
 	controllerId string
+
+	// machineAgentOnly suppresses controller workers for this process.
+	machineAgentOnly bool
 }
 
 // Init is called by the cmd system to initialize the structure for
@@ -329,6 +332,7 @@ func (a *machineAgentCommand) Run(c *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	machineAgent.machineAgentOnly = a.machineAgentOnly
 	return machineAgent.Run(c)
 }
 
@@ -338,6 +342,7 @@ func (a *machineAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
 	f.BoolVar(&a.logToStdErr, "log-to-stderr", false, "log to stderr instead of logsink.log")
+	f.BoolVar(&a.machineAgentOnly, "machine-agent-only", false, "suppress in-process controller workers")
 }
 
 // Info returns usage information for the command.
@@ -476,6 +481,9 @@ type MachineAgent struct {
 
 	isCaasAgent bool
 	cmdRunner   CommandRunner
+
+	// machineAgentOnly suppresses controller workers for this process.
+	machineAgentOnly bool
 }
 
 // Wait waits for the machine agent to finish.
@@ -615,10 +623,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	a.bootstrapLock = gate.NewLock()
 	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
-	a.controllerAgentConfigReadyLock = gate.NewLock()
-	if _, isController := agentConfig.ControllerAgentInfo(); !isController {
-		a.controllerAgentConfigReadyLock.Unlock()
-	}
+	a.initControllerAgentConfigReadyLock(agentConfig)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion(), bufferedLogger, legacyLogSinkWriter, logSink)
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
@@ -638,6 +643,14 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	return cmdutil.AgentDone(logger, err)
+}
+
+func (a *MachineAgent) initControllerAgentConfigReadyLock(agentConfig agent.Config) {
+	a.controllerAgentConfigReadyLock = gate.NewLock()
+	_, isController := agentConfig.ControllerAgentInfo()
+	if !isController || a.machineAgentOnly {
+		a.controllerAgentConfigReadyLock.Unlock()
+	}
 }
 
 func (a *MachineAgent) makeEngineCreator(
@@ -718,6 +731,7 @@ func (a *MachineAgent) makeEngineCreator(
 			NewBrokerFunc:                     newBroker,
 			MachineStartup:                    a.machineStartup,
 			IsCaasConfig:                      a.isCaasAgent,
+			MachineAgentOnly:                  a.machineAgentOnly,
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
