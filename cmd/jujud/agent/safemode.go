@@ -105,7 +105,7 @@ func (a *safeModeApplicationCommand) Init(args []string) error {
 func (a *safeModeApplicationCommand) Run(c *cmd.Context) error {
 	if err := ensuringControllerNotRunning(a.agentTag); err != nil {
 		if errors.Is(err, errors.AlreadyExists) {
-			fmt.Fprint(os.Stderr, safeModeControllerWarning)
+			_, _ = fmt.Fprint(os.Stderr, safeModeControllerWarning)
 			return nil
 		}
 		return err
@@ -114,7 +114,7 @@ func (a *safeModeApplicationCommand) Run(c *cmd.Context) error {
 	// Force the writing of the safe-mode header to os.Stderr so it
 	// cannot be suppressed (this is not a security measure, but it is
 	// better than nothing).
-	fmt.Fprint(os.Stderr, safeModeWarningHeader)
+	_, _ = fmt.Fprint(os.Stderr, safeModeWarningHeader)
 
 	controllerAgent, err := a.safeModeControllerAgentFactory(a.agentTag, a.runtimeConfig)
 	if err != nil {
@@ -312,7 +312,7 @@ func (a *SafeModeControllerApplication) makeEngineCreator() func(ctx context.Con
 			ControllerStartupValues: safeModeStartupValueProvider,
 			ControllerID:            a.Tag().Id(),
 			LogDir:                  a.runtimeConfig.LogDir,
-			ConfigChangeSocketPath:  path.Join(a.runtimeConfig.DataDir, "configchange.socket"),
+			ConfigChangeSocketPath:  path.Join(a.runtimeConfig.EffectiveSocketDir(), "configchange.socket"),
 			Clock:                   clock.WallClock,
 		}
 

@@ -89,6 +89,7 @@ func (p controllerStartupValueProvider) ControllerStartupValues() (dbaccessor.Co
 		CACert:                cfg.CACert,
 		ControllerCert:        cfg.ControllerCert,
 		ControllerPrivateKey:  cfg.ControllerPrivateKey,
+		SharedAgentDir:        cfg.SharedAgentDir,
 	}, nil
 }
 
@@ -498,11 +499,17 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	if err := introspection.WriteProfileFunctions(
-		introspection.ProfileDir,
-	); err != nil {
-		// This isn't fatal, just annoying.
-		logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
+	// TODO(juju-10104) Skip /etc/profile.d writes when running as a snap
+	// service (detected via SNAP_NAME env var). This guard is temporary:
+	// once bootstrap runs the controller exclusively as a snap (Stage 4),
+	// the /etc/profile.d write code path will be removed entirely.
+	if os.Getenv("SNAP_NAME") == "" {
+		if err := introspection.WriteProfileFunctions(
+			introspection.ProfileDir,
+		); err != nil {
+			// This isn't fatal, just annoying.
+			logger.Errorf(context.Background(), "failed to write profile funcs: %v", err)
+		}
 	}
 
 	if err := a.registerPrometheusCollectors(); err != nil {
@@ -572,24 +579,27 @@ func (a *ControllerApplication) makeEngineCreator(
 		)
 		runtimeConfigChanged := controllerruntimeconfig.NewRuntimeConfigChanged()
 
+		if err := ensureGroupDir(controllerRuntimeConfig.EffectiveSocketDir()); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if err := ensureGroupDir(controllerRuntimeConfig.EffectiveSharedAgentDir()); err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		manifoldsCfg := agentcontroller.ManifoldsConfig{
-			PreviousAgentVersion:  previousAgentVersion,
-			AgentName:             agentName,
-			ControllerID:          a.agentTag.Id(),
-			StartupValueProvider:  startupValueProvider,
-			ControllerUUID:        controllerRuntimeConfig.ControllerUUID,
-			ControllerModelUUID:   controllerRuntimeConfig.ControllerModelUUID,
-			ControllerAgentTag:    a.agentTag,
-			ControllerTag:         names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
-			LogDir:                controllerRuntimeConfig.LogDir,
-			ControllerRuntimePath: a.controllerRuntimePath,
-			ConfigChangeSocketPath: path.Join(
-				controllerRuntimeConfig.DataDir, "configchange.socket",
-			),
-			RuntimeConfigChanged: runtimeConfigChanged,
-			ControlSocketPath: path.Join(
-				controllerRuntimeConfig.DataDir, "control.socket",
-			),
+			PreviousAgentVersion:              previousAgentVersion,
+			AgentName:                         agentName,
+			ControllerID:                      a.agentTag.Id(),
+			StartupValueProvider:              startupValueProvider,
+			ControllerUUID:                    controllerRuntimeConfig.ControllerUUID,
+			ControllerModelUUID:               controllerRuntimeConfig.ControllerModelUUID,
+			ControllerAgentTag:                a.agentTag,
+			ControllerTag:                     names.NewControllerTag(controllerRuntimeConfig.ControllerUUID),
+			LogDir:                            controllerRuntimeConfig.LogDir,
+			ControllerRuntimePath:             a.controllerRuntimePath,
+			ConfigChangeSocketPath:            path.Join(controllerRuntimeConfig.EffectiveSocketDir(), "configchange.socket"),
+			RuntimeConfigChanged:              runtimeConfigChanged,
+			ControlSocketPath:                 path.Join(controllerRuntimeConfig.EffectiveSocketDir(), "control.socket"),
 			DataDir:                           controllerRuntimeConfig.DataDir,
 			APIPort:                           controllerRuntimeConfig.APIPort,
 			AgentPassword:                     controllerRuntimeConfig.AgentPassword,
@@ -808,4 +818,13 @@ func setupLoggingFromStrings(loggerContext corelogger.LoggerContext, loggingOver
 	if flags := featureflag.String(); flags != "" {
 		l.Warningf(context.TODO(), "developer feature flags enabled: %s", flags)
 	}
+}
+
+// ensureGroupDir creates a directory with mode 0750. If dir is empty, the
+// call is a no-op.
+func ensureGroupDir(dir string) error {
+	if dir == "" {
+		return nil
+	}
+	return errors.Annotatef(os.MkdirAll(dir, 0o750), "creating directory %q", dir)
 }

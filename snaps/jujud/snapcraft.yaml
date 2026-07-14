@@ -24,23 +24,49 @@ grade: devel
 
 apps:
   jujud:
-    # Snap-owned runtime path contract (binding for runtime.conf):
-    #   service --data-dir:        $SNAP_COMMON/var/lib/juju
-    #   runtime.conf data-dir:     $SNAP_COMMON/var/lib/juju
-    #   runtime.conf log-dir:      $SNAP_COMMON/var/log/juju
-    # runtime.conf location:
-    #   $SNAP_COMMON/var/lib/juju/agents/controller-0/runtime.conf
-    # Cross-process path sharing, layouts, and plugs are JUJU-10104.
     command: >-
       bin/jujud controller
-      --data-dir $SNAP_COMMON/var/lib/juju
+      --data-dir $SNAP_DATA
       --controller-id 0
       --log-to-stderr
     daemon: simple
     restart-condition: on-failure
     environment:
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
-      JUJU_DATA: "$SNAP_COMMON/var/lib/juju"
+      JUJU_DATA: "$SNAP_DATA"
+      JUJU_BOOTSTRAP_PARAMS_PATH: "$SNAP_COMMON/bootstrap-params"
+    plugs:
+      - network
+      - network-bind
+
+  init:
+    command: bin/jujud init
+
+  introspect:
+    command: wrappers/juju-introspect
+    plugs:
+      - network-bind
+
+  metrics:
+    command: wrappers/juju-metrics
+  goroutines:
+    command: wrappers/juju-goroutines
+  engine-report:
+    command: wrappers/juju-engine-report
+  heap-profile:
+    command: wrappers/juju-heap-profile
+  machine-lock:
+    command: wrappers/juju-machine-lock
+  flightrecorder-start:
+    command: wrappers/juju-flightrecorder-start
+  flightrecorder-stop:
+    command: wrappers/juju-flightrecorder-stop
+  flightrecorder-capture:
+    command: wrappers/juju-flightrecorder-capture
+  db-repl:
+    command: wrappers/juju-db-repl
+  safemode:
+    command: wrappers/juju-safemode
 
 parts:
   dqlite:
@@ -90,3 +116,6 @@ parts:
       export CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
       export GO_LDFLAGS="-s -w -X github.com/juju/juju/core/version.GitCommit= -X github.com/juju/juju/core/version.GitTreeState= -X github.com/juju/juju/core/version.Grade= -X github.com/juju/juju/core/version.build= -X github.com/juju/juju/internal/cloudconfig/podcfg.JujudOCINamespace="
       go install -tags libsqlite3,dqlite -ldflags "${GO_LDFLAGS}" github.com/juju/juju/cmd/jujud
+      ln -s jujud "${CRAFT_PART_INSTALL}/bin/juju-introspect"
+      mkdir -p "${CRAFT_PART_INSTALL}/wrappers"
+      cp -a snap/local/wrappers/* "${CRAFT_PART_INSTALL}/wrappers/"

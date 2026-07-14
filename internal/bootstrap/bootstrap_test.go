@@ -29,6 +29,18 @@ func (s *BootstrapSuite) TestBootstrapParamsPath(c *tc.C) {
 	c.Assert(path, tc.Equals, "/var/lib/juju/bootstrap-params")
 }
 
+func (s *BootstrapSuite) TestBootstrapParamsPathENVOverride(c *tc.C) {
+	s.PatchEnvironment("JUJU_BOOTSTRAP_PARAMS_PATH", "/snap/common/bootstrap-params")
+
+	path := BootstrapParamsPath("/var/lib/juju")
+	c.Assert(path, tc.Equals, "/snap/common/bootstrap-params")
+}
+
+func (s *BootstrapSuite) TestBootstrapParamsPathNoENVOverride(c *tc.C) {
+	path := BootstrapParamsPath("/var/lib/juju")
+	c.Assert(path, tc.Equals, "/var/lib/juju/bootstrap-params")
+}
+
 func (s *BootstrapSuite) TestIsBootstrapController(c *tc.C) {
 	dir := c.MkDir()
 	_, err := os.Create(filepath.Join(dir, "bootstrap-params"))

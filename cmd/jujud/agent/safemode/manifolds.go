@@ -13,6 +13,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
@@ -58,6 +59,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 				NewSocketListener: controlleragentconfig.NewSocketListener,
 				SocketName:        config.ConfigChangeSocketPath,
+				SocketFileMode:    0o660,
+				ReadyUnlocker:     gate.AlreadyUnlocked{},
 			},
 		),
 

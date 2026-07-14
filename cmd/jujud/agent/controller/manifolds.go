@@ -319,6 +319,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        config.ConfigChangeSocketPath,
+			SocketFileMode:    0o660,
+			ReadyUnlocker:     gate.AlreadyUnlocked{},
 		}),
 
 		// The certificate-watcher manifold monitors the API server
@@ -678,8 +680,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                       controlsocket.NewWorker,
 			NewSocketListener:               controlsocket.NewSocketListener,
 			SocketName:                      config.ControlSocketPath,
+			SocketFileMode:                  0o660,
 			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
 			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
+			PrometheusRegisterer:            config.PrometheusRegisterer,
+			NewMetricsCollector:             controlsocket.NewMetricsCollector,
 		})),
 
 		// The ssh server worker runs on the controller.

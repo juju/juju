@@ -101,7 +101,7 @@ func (a *dbReplAgentCommand) Init(args []string) error {
 func (a *dbReplAgentCommand) Run(c *cmd.Context) error {
 	// Force the writing of the repl header to os.Stderr.
 	if !c.Quiet() {
-		fmt.Fprint(os.Stderr, replWarningHeader)
+		_, _ = fmt.Fprint(os.Stderr, replWarningHeader)
 	}
 
 	controllerAgent, err := a.replControllerAgentFactory(a.agentTag, a.runtimeConfig)
@@ -251,20 +251,18 @@ func (a *replControllerAgent) makeEngineCreator(
 		}
 
 		manifoldsCfg := dbrepl.ManifoldsConfig{
-			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
-			ControllerID:        a.Tag().Id(),
-			ControllerUnlocker:  a.controllerUnlocker,
-			ConfigChangeSocketPath: filepath.Join(
-				a.runtimeConfig.DataDir, "configchange.socket",
-			),
-			DataDir:              a.runtimeConfig.DataDir,
-			CACert:               a.runtimeConfig.CACert,
-			ControllerCert:       a.runtimeConfig.ControllerCert,
-			ControllerPrivateKey: a.runtimeConfig.ControllerPrivateKey,
-			Clock:                clock.WallClock,
-			Stdout:               stdout,
-			Stderr:               stderr,
-			Stdin:                stdin,
+			NewDBReplWorkerFunc:    a.newDBReplWorkerFunc,
+			ControllerID:           a.Tag().Id(),
+			ControllerUnlocker:     a.controllerUnlocker,
+			ConfigChangeSocketPath: filepath.Join(a.runtimeConfig.EffectiveSocketDir(), "configchange.socket"),
+			DataDir:                a.runtimeConfig.DataDir,
+			CACert:                 a.runtimeConfig.CACert,
+			ControllerCert:         a.runtimeConfig.ControllerCert,
+			ControllerPrivateKey:   a.runtimeConfig.ControllerPrivateKey,
+			Clock:                  clock.WallClock,
+			Stdout:                 stdout,
+			Stderr:                 stderr,
+			Stdin:                  stdin,
 		}
 
 		var manifolds dependency.Manifolds

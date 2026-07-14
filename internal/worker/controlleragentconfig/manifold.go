@@ -5,6 +5,7 @@ package controlleragentconfig
 
 import (
 	"context"
+	"os"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -34,6 +35,9 @@ type ManifoldConfig struct {
 	Logger       logger.Logger
 	// SocketName is the socket file descriptor.
 	SocketName string
+	// SocketFileMode is the file mode to apply to the created Unix socket.
+	// A zero value means the default 0700 (owner-only) is used.
+	SocketFileMode os.FileMode
 	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 	// ReadyUnlocker is unlocked once the socket listener is successfully
@@ -78,6 +82,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:             clock.WallClock,
 				NewSocketListener: config.NewSocketListener,
 				SocketName:        config.SocketName,
+				SocketFileMode:    config.SocketFileMode,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

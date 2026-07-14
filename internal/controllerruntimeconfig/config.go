@@ -157,6 +157,19 @@ type ControllerRuntimeConfig struct {
 	// update interval for testing. An empty value means use the default
 	// (24h).
 	CharmRevisionUpdateInterval string `yaml:"charm-revision-update-interval,omitempty"`
+
+	// SocketDir is the directory for group-accessible Unix sockets
+	// (control.socket and configchange.socket). When set, socket paths
+	// are derived from this directory instead of DataDir. The directory
+	// must be owned by root:juju with mode 0750.
+	SocketDir string `yaml:"socket-dir,omitempty"`
+
+	// SharedAgentDir is the directory for charm-written configuration
+	// files (controller.conf). When set, the controller.conf path is
+	// derived from this directory instead of
+	// DataDir/agents/controller-<id>/. The directory must be owned by
+	// root:juju with mode 0750.
+	SharedAgentDir string `yaml:"shared-agent-dir,omitempty"`
 }
 
 // UpgradedToVersion returns the Juju version that the controller has most
@@ -164,6 +177,26 @@ type ControllerRuntimeConfig struct {
 // interface so ControllerRuntimeConfig can be passed to internalupgrade.NewLock.
 func (cfg ControllerRuntimeConfig) UpgradedToVersion() semversion.Number {
 	return cfg.UpgradedToVersionNum
+}
+
+// EffectiveSocketDir returns SocketDir when set, otherwise falls back to DataDir.
+// This is the single point of truth for resolving the directory where
+// control.socket and configchange.socket are created.
+func (cfg ControllerRuntimeConfig) EffectiveSocketDir() string {
+	if cfg.SocketDir != "" {
+		return cfg.SocketDir
+	}
+	return cfg.DataDir
+}
+
+// EffectiveSharedAgentDir returns SharedAgentDir when set, otherwise falls
+// back to DataDir. This is the single point of truth for resolving the
+// directory where controller.conf is read and written.
+func (cfg ControllerRuntimeConfig) EffectiveSharedAgentDir() string {
+	if cfg.SharedAgentDir != "" {
+		return cfg.SharedAgentDir
+	}
+	return cfg.DataDir
 }
 
 // Validate returns an error if any required field is missing or invalid.
@@ -179,6 +212,12 @@ func (cfg ControllerRuntimeConfig) Validate() error {
 	}
 	if cfg.DataDir == "" {
 		return errors.NotValidf("empty data-dir")
+	}
+	if cfg.SocketDir != "" && !filepath.IsAbs(cfg.SocketDir) {
+		return errors.NotValidf("socket-dir %q", cfg.SocketDir)
+	}
+	if cfg.SharedAgentDir != "" && !filepath.IsAbs(cfg.SharedAgentDir) {
+		return errors.NotValidf("shared-agent-dir %q", cfg.SharedAgentDir)
 	}
 	if cfg.LogDir == "" {
 		return errors.NotValidf("empty log-dir")
@@ -263,12 +302,12 @@ func WriteControllerRuntimeConfig(path string, cfg ControllerRuntimeConfig) erro
 
 var changeConfigMu sync.Mutex
 
-// ControllerRuntimeConfigMutator mutates a controller runtime config in place.
-type ControllerRuntimeConfigMutator func(*ControllerRuntimeConfig) error
+// Mutator mutates a controller runtime config in place.
+type Mutator func(*ControllerRuntimeConfig) error
 
 // ChangeControllerRuntimeConfig reads, mutates, validates, and atomically
 // writes the controller runtime config at path.
-func ChangeControllerRuntimeConfig(path string, mutate ControllerRuntimeConfigMutator) error {
+func ChangeControllerRuntimeConfig(path string, mutate Mutator) error {
 	changeConfigMu.Lock()
 	defer changeConfigMu.Unlock()
 
