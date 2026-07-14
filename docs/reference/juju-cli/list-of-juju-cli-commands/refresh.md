@@ -96,6 +96,19 @@ as follows:
 
 Note: If multiple resources are needed, repeat the option.
 
+Upload a local file:
+
+	b. a path to the local file for your private OCI image as well as the
+	username and password required to access the private OCI image.
+	Caveat: If you choose this, you will not be able to go back to using a
+	resource from Charmhub.
+
+Pin a resource to a specific Charmhub revision:
+
+    juju refresh foo --resource bar=42
+
+Note: If multiple resources are needed, repeat the option.
+
 Storage directives may be added or updated at upgrade time by specifying
 the `--storage` option, with the same format as specified in `juju deploy`.
 If new required storage is added by the new charm revision, then you must
