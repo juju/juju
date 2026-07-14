@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
 type manifoldSuite struct {
@@ -56,6 +57,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig()
 	cfg.HTTPClientName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ProxyConfigName = ""
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -102,6 +107,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		DomainServicesName:  "domain-services",
 		ProviderFactoryName: "provider-factory",
 		HTTPClientName:      "http-client",
+		ProxyConfigName:     "controller-proxy-config-updater",
 		Logger:              s.logger,
 		Clock:               clock.WallClock,
 		AgentBinaryUploader: func(context.Context, string, AgentBinaryStore, objectstore.ObjectStore, logger.Logger) (func(), error) {
@@ -131,14 +137,23 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 
 func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
-		"agent":           s.agent,
-		"object-store":    s.objectStoreGetter,
-		"bootstrap-gate":  s.bootstrapUnlocker,
-		"http-client":     s.httpClientGetter,
-		"domain-services": s.domainServices,
+		"agent":                           s.agent,
+		"object-store":                    s.objectStoreGetter,
+		"bootstrap-gate":                  s.bootstrapUnlocker,
+		"http-client":                     s.httpClientGetter,
+		"domain-services":                 s.domainServices,
+		"controller-proxy-config-updater": readyProxyConfig{},
 	}
 	return dependencytesting.StubGetter(resources)
 }
+
+type readyProxyConfig struct{}
+
+func (readyProxyConfig) WaitReady() bool {
+	return true
+}
+
+var _ proxyupdater.WaitReady = readyProxyConfig{}
 
 var expectedInputs = []string{
 	"agent",
@@ -146,6 +161,7 @@ var expectedInputs = []string{
 	"bootstrap-gate",
 	"domain-services",
 	"http-client",
+	"controller-proxy-config-updater",
 	"provider-factory",
 }
 

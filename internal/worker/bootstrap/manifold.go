@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/services"
 	"github.com/juju/juju/internal/statushistory"
 	"github.com/juju/juju/internal/worker/gate"
+	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
 // FlagService is the interface that is used to set the value of a
@@ -86,6 +87,7 @@ type ManifoldConfig struct {
 	BootstrapGateName   string
 	DomainServicesName  string
 	HTTPClientName      string
+	ProxyConfigName     string
 	ProviderFactoryName string
 
 	AgentBinaryUploader          AgentBinaryBootstrapFunc
@@ -117,6 +119,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.HTTPClientName == "" {
 		return errors.NotValidf("empty HTTPClientName")
+	}
+	if cfg.ProxyConfigName == "" {
+		return errors.NotValidf("empty ProxyConfigName")
 	}
 	if cfg.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
@@ -164,6 +169,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.BootstrapGateName,
 			config.DomainServicesName,
 			config.HTTPClientName,
+			config.ProxyConfigName,
 			config.ProviderFactoryName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -174,6 +180,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			var bootstrapUnlocker gate.Unlocker
 			if err := getter.Get(config.BootstrapGateName, &bootstrapUnlocker); err != nil {
 				return nil, errors.Trace(err)
+			}
+			var proxyConfigReady proxyupdater.WaitReady
+			if err := getter.Get(config.ProxyConfigName, &proxyConfigReady); err != nil {
+				return nil, errors.Trace(err)
+			}
+			if !proxyConfigReady.WaitReady() {
+				return nil, dependency.ErrMissing
 			}
 
 			var a agent.Agent
