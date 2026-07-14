@@ -67,6 +67,17 @@ type ControllerNodeService any
 // ModelService provides controller model information.
 type ModelService any
 
+// GetControllerDomainServices retrieves controller services from the
+// dependency getter.
+func GetControllerDomainServices(getter dependency.Getter, name string) (ControllerDomainServices, error) {
+	return nil, nil
+}
+
+// GetDomainServices retrieves model services from the dependency getter.
+func GetDomainServices(ctx context.Context, getter dependency.Getter, name string, modelUUID coremodel.UUID) (DomainServices, error) {
+	return nil, nil
+}
+
 type noopWorker struct {
 	tomb tomb.Tomb
 }
