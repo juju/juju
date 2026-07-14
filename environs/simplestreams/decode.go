@@ -39,10 +39,7 @@ func DecodeCheckSignature(r io.Reader, armoredPublicKey string) ([]byte, error) 
 	if err != nil {
 		return nil, err
 	}
-	// The x/crypto implementation retained the final newline in decoded
-	// clear-signed text. ProtonMail's fork removes it, so restore it to keep
-	// the existing simplestreams API behavior.
-	return append(append([]byte(nil), b.Plaintext...), '\n'), nil
+	return b.Plaintext, nil
 }
 
 // NotPGPSignedError is used when PGP text does not contain an inline signature.

@@ -64,7 +64,7 @@ func assertSignedFile(c *gc.C, filename string) {
 	defer r.Close()
 	data, err := simplestreams.DecodeCheckSignature(r, sstesting.SignedMetadataPublicKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(data), gc.Equals, "hello world\n")
+	c.Assert(string(data), gc.Equals, "hello world")
 }
 
 func assertSignedFiles(c *gc.C, topLevel string) {

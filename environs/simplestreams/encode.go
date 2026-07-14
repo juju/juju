@@ -40,12 +40,6 @@ func Encode(r io.Reader, armoredPrivateKey, passphrase string) ([]byte, error) {
 	if dataToSign[0] == '\n' {
 		dataToSign = dataToSign[1:]
 	}
-	// The ProtonMail implementation always writes a final newline when the
-	// clear-signing writer is closed. Remove one from the input so callers see
-	// the same output as the previous x/crypto implementation.
-	if len(dataToSign) > 0 && dataToSign[len(dataToSign)-1] == '\n' {
-		dataToSign = dataToSign[:len(dataToSign)-1]
-	}
 	_, err = plaintext.Write(dataToSign)
 	if err != nil {
 		return nil, err

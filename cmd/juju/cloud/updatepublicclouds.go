@@ -286,9 +286,7 @@ func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Preserve the final newline returned by the previous x/crypto
-	// implementation.
-	return append(append([]byte(nil), b.Plaintext...), '\n'), nil
+	return b.Plaintext, nil
 }
 
 func diffClouds(newClouds, oldClouds map[string]jujucloud.Cloud) string {
