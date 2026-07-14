@@ -4,6 +4,7 @@
 package stateconfigwatcher_test
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -180,6 +181,90 @@ func (s *ManifoldSuite) TestClosedVoyeur(c *tc.C) {
 	c.Check(waitForExit(c, w), tc.ErrorMatches, "config changed value closed")
 }
 
+func (s *ManifoldSuite) TestMachineAgentOnlyGateDisabledControllerInfoPresent(c *tc.C) {
+	s.agent.conf.setControllerAgentInfo(true)
+	s.manifold = stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
+		AgentName:          "agent",
+		AgentConfigChanged: s.agentConfigChanged,
+		MachineAgentOnly:   false,
+	})
+	w, err := s.manifold.Start(c.Context(), s.getter)
+	c.Assert(err, tc.ErrorIsNil)
+	defer checkStop(c, w)
+
+	var out bool
+	err = s.manifold.Output(w, &out)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(out, tc.IsTrue)
+}
+
+func (s *ManifoldSuite) TestMachineAgentOnlyGateDisabledControllerInfoAbsent(c *tc.C) {
+	s.agent.conf.setControllerAgentInfo(false)
+	s.manifold = stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
+		AgentName:          "agent",
+		AgentConfigChanged: s.agentConfigChanged,
+		MachineAgentOnly:   false,
+	})
+	w, err := s.manifold.Start(c.Context(), s.getter)
+	c.Assert(err, tc.ErrorIsNil)
+	defer checkStop(c, w)
+
+	var out bool
+	err = s.manifold.Output(w, &out)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(out, tc.IsFalse)
+}
+
+func (s *ManifoldSuite) TestMachineAgentOnlyGateEnabledControllerInfoPresent(c *tc.C) {
+	s.agent.conf.setControllerAgentInfo(true)
+	s.manifold = stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
+		AgentName:          "agent",
+		AgentConfigChanged: s.agentConfigChanged,
+		MachineAgentOnly:   true,
+	})
+	w, err := s.manifold.Start(c.Context(), s.getter)
+	c.Assert(err, tc.ErrorIsNil)
+	defer checkStop(c, w)
+
+	var out bool
+	err = s.manifold.Output(w, &out)
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(out, tc.IsFalse)
+}
+
+func (s *ManifoldSuite) TestMachineAgentOnlyGateEnabledNoBounceOnControllerInfoChange(c *tc.C) {
+	for _, test := range []struct {
+		name    string
+		initial bool
+		changed bool
+	}{
+		{name: "controller information removed", initial: true},
+		{name: "controller information added", changed: true},
+	} {
+		c.Logf("testing %s", test.name)
+		func() {
+			s.agent.conf.setControllerAgentInfo(test.initial)
+			s.manifold = stateconfigwatcher.Manifold(stateconfigwatcher.ManifoldConfig{
+				AgentName:          "agent",
+				AgentConfigChanged: s.agentConfigChanged,
+				MachineAgentOnly:   true,
+			})
+			w, err := s.manifold.Start(c.Context(), s.getter)
+			c.Assert(err, tc.ErrorIsNil)
+			defer checkStop(c, w)
+
+			s.agent.conf.setControllerAgentInfo(test.changed)
+			s.agentConfigChanged.Set(0)
+			checkNotExiting(c, w)
+
+			var out bool
+			err = s.manifold.Output(w, &out)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(out, tc.IsFalse)
+		}()
+	}
+}
+
 func checkStop(c *tc.C, w worker.Worker) {
 	err := worker.Stop(w)
 	c.Check(err, tc.ErrorIsNil)
@@ -192,10 +277,12 @@ func checkNotExiting(c *tc.C, w worker.Worker) {
 		close(exited)
 	}()
 
+	ctx, cancel := context.WithTimeout(c.Context(), coretesting.ShortWait)
+	defer cancel()
 	select {
 	case <-exited:
 		c.Fatal("worker exited unexpectedly")
-	case <-time.After(coretesting.ShortWait):
+	case <-ctx.Done():
 		// Worker didn't exit (good)
 	}
 }
