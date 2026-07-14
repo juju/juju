@@ -5,6 +5,7 @@ package migrationimportreconciler
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/worker/v5/workertest"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/domain/modelmigration"
@@ -27,6 +29,7 @@ import (
 func TestConfigSuite(t *testing.T)   { tc.Run(t, &configSuite{}) }
 func TestWorkerSuite(t *testing.T)   { tc.Run(t, &workerSuite{}) }
 func TestManifoldSuite(t *testing.T) { tc.Run(t, &manifoldSuite{}) }
+func TestLogicSuite(t *testing.T)    { tc.Run(t, &logicSuite{}) }
 
 type configSuite struct{}
 
@@ -203,4 +206,137 @@ func (s *workerSuite) TestFinalizeFailureKeepsWorkerAlive(c *tc.C) {
 	}
 	// The worker must still be running after a finalize failure.
 	workertest.CheckAlive(c, w)
+}
+
+// logicSuite white-box tests the reconciler's per-model backoff and stale-claim
+// warning logic directly, without the timer loop, for deterministic assertions.
+type logicSuite struct{}
+
+// recordingLogger returns a logger that appends every formatted message to
+// *entries. Used to assert warnings synchronously.
+func recordingLogger() (logger.Logger, *[]string) {
+	var entries []string
+	rec := loggertesting.RecordLog(func(s string, a ...any) {
+		entries = append(entries, s)
+	})
+	return loggertesting.WrapCheckLog(rec), &entries
+}
+
+func countContaining(entries []string, sub string) int {
+	n := 0
+	for _, e := range entries {
+		if strings.Contains(e, sub) {
+			n++
+		}
+	}
+	return n
+}
+
+func bareReconciler(cfg Config) *Reconciler {
+	return &Reconciler{config: cfg, models: make(map[string]*modelState)}
+}
+
+// TestRecordFailureBackoff verifies the per-model backoff doubles on each
+// failure and clamps at maxAbortBackoff.
+func (s *logicSuite) TestRecordFailureBackoff(c *tc.C) {
+	log, _ := recordingLogger()
+	w := bareReconciler(Config{Logger: log})
+	claim := abortingClaim(coremodel.UUID(uuid.MustNewUUID().String()), time.Time{})
+	now := time.Now()
+	err := errors.Errorf("pending: %w", modelmigrationerrors.ErrAbortNotFinalizable)
+
+	// First failure seeds the minimum backoff; subsequent ones double.
+	for _, want := range []time.Duration{
+		minAbortBackoff, 2 * minAbortBackoff, 4 * minAbortBackoff,
+		8 * minAbortBackoff, 16 * minAbortBackoff,
+	} {
+		w.recordFailure(c.Context(), claim, now, err)
+		state := w.models[claim.ModelUUID]
+		c.Check(state.backoff, tc.Equals, want)
+		c.Check(state.nextRetry, tc.Equals, now.Add(want))
+	}
+
+	// The next doubling would exceed the cap, so it clamps and stays clamped.
+	w.recordFailure(c.Context(), claim, now, err)
+	c.Check(w.models[claim.ModelUUID].backoff, tc.Equals, maxAbortBackoff)
+	w.recordFailure(c.Context(), claim, now, err)
+	c.Check(w.models[claim.ModelUUID].backoff, tc.Equals, maxAbortBackoff)
+}
+
+// TestReconcileAbortingSkipsDuringBackoff verifies a model whose next retry is
+// in the future is skipped without touching the abort/finalize path.
+func (s *logicSuite) TestReconcileAbortingSkipsDuringBackoff(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	log, _ := recordingLogger()
+	now := time.Now()
+	claim := abortingClaim(coremodel.UUID(uuid.MustNewUUID().String()), now)
+
+	// Abort and the finalize service must not be called; a call fails the test
+	// (Abort via c.Fatal, Service via the strict mock with no expectations).
+	w := bareReconciler(Config{
+		Service: NewMockService(ctrl),
+		Abort: func(context.Context, coremodel.UUID) error {
+			c.Fatal("abort must not run during backoff")
+			return nil
+		},
+		Logger: log,
+	})
+	w.models[claim.ModelUUID] = &modelState{nextRetry: now.Add(time.Hour)}
+
+	w.reconcileAborting(c.Context(), claim, now)
+
+	// Once the backoff elapses, the model is retried and (on success) cleared.
+	w.config.Service.(*MockService).EXPECT().
+		FinalizeAbortedImport(gomock.Any(), coremodel.UUID(claim.ModelUUID)).Return(nil)
+	aborted := false
+	w.config.Abort = func(context.Context, coremodel.UUID) error { aborted = true; return nil }
+
+	w.reconcileAborting(c.Context(), claim, now.Add(2*time.Hour))
+	c.Check(aborted, tc.IsTrue)
+	_, stillTracked := w.models[claim.ModelUUID]
+	c.Check(stillTracked, tc.IsFalse)
+}
+
+// TestWarnIfStale verifies a claim past the stale threshold warns once, is
+// rate-limited within the warn interval, and warns again afterwards.
+func (s *logicSuite) TestWarnIfStale(c *tc.C) {
+	log, entries := recordingLogger()
+	w := bareReconciler(Config{Logger: log})
+	now := time.Now()
+	claim := modelmigration.ImportClaimStatus{
+		ModelUUID: uuid.MustNewUUID().String(),
+		Phase:     modelmigration.ImportPhaseImporting,
+		UpdatedAt: now.Add(-staleClaimThreshold - time.Hour),
+	}
+
+	w.warnIfStale(c.Context(), claim, now)
+	c.Check(countContaining(*entries, "has been in the"), tc.Equals, 1)
+
+	// Within the warn interval: rate-limited, no new warning.
+	w.warnIfStale(c.Context(), claim, now.Add(time.Minute))
+	c.Check(countContaining(*entries, "has been in the"), tc.Equals, 1)
+
+	// Past the warn interval: warns again.
+	w.warnIfStale(c.Context(), claim, now.Add(staleWarnInterval+time.Minute))
+	c.Check(countContaining(*entries, "has been in the"), tc.Equals, 2)
+}
+
+// TestWarnIfStaleFreshClaimSilent verifies a claim younger than the stale
+// threshold is never warned about.
+func (s *logicSuite) TestWarnIfStaleFreshClaimSilent(c *tc.C) {
+	log, entries := recordingLogger()
+	w := bareReconciler(Config{Logger: log})
+	now := time.Now()
+	claim := modelmigration.ImportClaimStatus{
+		ModelUUID: uuid.MustNewUUID().String(),
+		Phase:     modelmigration.ImportPhaseImporting,
+		UpdatedAt: now.Add(-time.Hour), // well under the 24h threshold
+	}
+
+	w.warnIfStale(c.Context(), claim, now)
+	c.Check(*entries, tc.HasLen, 0)
+	_, tracked := w.models[claim.ModelUUID]
+	c.Check(tracked, tc.IsFalse)
 }

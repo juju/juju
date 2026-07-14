@@ -235,7 +235,7 @@ func (w *Reconciler) reconcileAborting(ctx context.Context, claim modelmigration
 
 	modelUUID := coremodel.UUID(claim.ModelUUID)
 	if err := w.finalizeAbort(ctx, modelUUID); err != nil {
-		w.recordFailure(claim, now, err)
+		w.recordFailure(ctx, claim, now, err)
 		return
 	}
 
@@ -267,7 +267,7 @@ func (w *Reconciler) finalizeAbort(ctx context.Context, modelUUID coremodel.UUID
 // recordFailure applies exponential backoff for a model whose abort
 // finalization failed. A not-yet-finalizable result is expected and logged
 // quietly; any other error is warned.
-func (w *Reconciler) recordFailure(claim modelmigration.ImportClaimStatus, now time.Time, err error) {
+func (w *Reconciler) recordFailure(ctx context.Context, claim modelmigration.ImportClaimStatus, now time.Time, err error) {
 	state := w.models[claim.ModelUUID]
 	if state == nil {
 		state = &modelState{}
@@ -283,7 +283,6 @@ func (w *Reconciler) recordFailure(claim modelmigration.ImportClaimStatus, now t
 	}
 	state.nextRetry = now.Add(state.backoff)
 
-	ctx := w.catacomb.Context(context.Background())
 	if errors.Is(err, modelmigrationerrors.ErrAbortNotFinalizable) {
 		w.config.Logger.Debugf(ctx,
 			"migration import abort for model %q not yet finalizable, retrying in %s: %v",
@@ -319,7 +318,10 @@ func (w *Reconciler) warnIfStale(ctx context.Context, claim modelmigration.Impor
 		claim.ModelUUID, claim.Phase, claim.UpdatedAt.Format(time.RFC3339), claim.SourceMigrationUUID)
 }
 
-// jitter returns a random duration between 0.5 and 1.5 times the given period.
+// jitter returns a randomised duration around the given period. ExpBackoff
+// applies ±20% jitter, so the result lands in roughly 0.8–1.2 times the period
+// (within the [0.5, 1.5] period clamp), enough to keep controllers from scanning
+// in lockstep.
 func jitter(period time.Duration) time.Duration {
 	half := period / 2
 	return retry.ExpBackoff(half, period+half, 2, true)(0, 1)
