@@ -29,6 +29,29 @@ type ManifoldConfig struct {
 	RunFunc             func(string, string, ...string) (string, error)
 }
 
+// Validate ensures that all the required fields have values.
+func (c ManifoldConfig) Validate() error {
+	if c.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if c.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if c.WorkerFunc == nil {
+		return errors.NotValidf("nil WorkerFunc")
+	}
+	if c.ExternalUpdate == nil {
+		return errors.NotValidf("nil ExternalUpdate")
+	}
+	if c.InProcessUpdate == nil {
+		return errors.NotValidf("nil InProcessUpdate")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	return nil
+}
+
 // Manifold returns a dependency manifold that runs a proxy updater worker,
 // using the api connection resource named in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
@@ -38,11 +61,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-			if config.WorkerFunc == nil {
-				return nil, errors.NotValidf("missing WorkerFunc")
-			}
-			if config.InProcessUpdate == nil {
-				return nil, errors.NotValidf("missing InProcessUpdate")
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
 			}
 			var agent agent.Agent
 			if err := getter.Get(config.AgentName, &agent); err != nil {

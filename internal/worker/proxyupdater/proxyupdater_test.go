@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package proxyupdater_test
+package proxyupdater
 
 import (
 	"context"
@@ -29,10 +29,9 @@ import (
 	"github.com/juju/juju/internal/packaging/commands"
 	pacconfig "github.com/juju/juju/internal/packaging/config"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
-type ProxyUpdaterSuite struct {
+type proxyUpdaterSuite struct {
 	coretesting.BaseSuite
 
 	api              *fakeAPI
@@ -40,11 +39,11 @@ type ProxyUpdaterSuite struct {
 	proxySystemdFile string
 	detectedSettings proxy.Settings
 	inProcSettings   chan proxy.Settings
-	config           proxyupdater.Config
+	config           Config
 }
 
 func TestProxyUpdaterSuite(t *testing.T) {
-	tc.Run(t, &ProxyUpdaterSuite{})
+	tc.Run(t, &proxyUpdaterSuite{})
 }
 
 func newNotAWatcher() notAWatcher {
@@ -65,7 +64,7 @@ type fakeAPI struct {
 	Watcher *notAWatcher
 }
 
-func NewFakeAPI() *fakeAPI {
+func newFakeAPI() *fakeAPI {
 	f := &fakeAPI{}
 	return f
 }
@@ -82,9 +81,9 @@ func (api *fakeAPI) WatchForProxyConfigAndAPIHostPortChanges(context.Context) (w
 	return api.Watcher, nil
 }
 
-func (s *ProxyUpdaterSuite) SetUpTest(c *tc.C) {
+func (s *proxyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.api = NewFakeAPI()
+	s.api = newFakeAPI()
 
 	// Make buffer large for tests that never look at the settings.
 	s.inProcSettings = make(chan proxy.Settings, 1000)
@@ -92,11 +91,14 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *tc.C) {
 	directory := c.MkDir()
 	s.proxySystemdFile = filepath.Join(directory, "systemd.file")
 	s.proxyEnvFile = filepath.Join(directory, "env.file")
-	s.config = proxyupdater.Config{
+	s.config = Config{
 		SupportLegacyValues: true,
 		SystemdFiles:        []string{s.proxySystemdFile},
 		EnvFiles:            []string{s.proxyEnvFile},
 		API:                 s.api,
+		ExternalUpdate: func(proxy.Settings) error {
+			return nil
+		},
 		InProcessUpdate: func(newSettings proxy.Settings) error {
 			select {
 			case s.inProcSettings <- newSettings:
@@ -110,14 +112,14 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *tc.C) {
 	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(directory, "juju-apt-proxy"))
 }
 
-func (s *ProxyUpdaterSuite) TearDownTest(c *tc.C) {
+func (s *proxyUpdaterSuite) TearDownTest(c *tc.C) {
 	s.BaseSuite.TearDownTest(c)
 	if s.api.Watcher != nil {
 		s.api.Watcher.Close()
 	}
 }
 
-func (s *ProxyUpdaterSuite) waitProxySettings(c *tc.C, expected proxy.Settings) {
+func (s *proxyUpdaterSuite) waitProxySettings(c *tc.C, expected proxy.Settings) {
 	maxWait := time.After(coretesting.LongWait)
 	var (
 		inProcSettings, envSettings proxy.Settings
@@ -149,7 +151,7 @@ func (s *ProxyUpdaterSuite) waitProxySettings(c *tc.C, expected proxy.Settings) 
 	}
 }
 
-func (s *ProxyUpdaterSuite) waitForFile(c *tc.C, filename, expected string) {
+func (s *proxyUpdaterSuite) waitForFile(c *tc.C, filename, expected string) {
 	maxWait := time.After(coretesting.LongWait)
 	for {
 		select {
@@ -171,13 +173,13 @@ func (s *ProxyUpdaterSuite) waitForFile(c *tc.C, filename, expected string) {
 	}
 }
 
-func (s *ProxyUpdaterSuite) TestRunStop(c *tc.C) {
-	updater, err := proxyupdater.NewWorker(s.config)
+func (s *proxyUpdaterSuite) TestRunStop(c *tc.C) {
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, updater)
 }
 
-func (s *ProxyUpdaterSuite) useLegacyConfig(c *tc.C) (proxy.Settings, proxy.Settings) {
+func (s *proxyUpdaterSuite) useLegacyConfig(c *tc.C) (proxy.Settings, proxy.Settings) {
 	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
 		LegacyProxy: proxy.Settings{
 			Http:    "http legacy proxy",
@@ -195,7 +197,7 @@ func (s *ProxyUpdaterSuite) useLegacyConfig(c *tc.C) (proxy.Settings, proxy.Sett
 	return s.api.proxies.LegacyProxy, s.api.proxies.APTProxy
 }
 
-func (s *ProxyUpdaterSuite) useJujuConfig(c *tc.C) (proxy.Settings, proxy.Settings) {
+func (s *proxyUpdaterSuite) useJujuConfig(c *tc.C) (proxy.Settings, proxy.Settings) {
 	s.api.proxies = proxyupdaterapi.ProxyConfiguration{
 		JujuProxy: proxy.Settings{
 			Http:    "http juju proxy",
@@ -213,14 +215,14 @@ func (s *ProxyUpdaterSuite) useJujuConfig(c *tc.C) (proxy.Settings, proxy.Settin
 	return s.api.proxies.JujuProxy, s.api.proxies.APTProxy
 }
 
-func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *tc.C) {
+func (s *proxyUpdaterSuite) TestInitialStateLegacyProxy(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("apt settings not handled on %s", host.String()))
 	}
 
 	proxySettings, aptProxySettings := s.useLegacyConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 
@@ -232,14 +234,14 @@ func (s *ProxyUpdaterSuite) TestInitialStateLegacyProxy(c *tc.C) {
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 
-func (s *ProxyUpdaterSuite) TestInitialStateJujuProxy(c *tc.C) {
+func (s *proxyUpdaterSuite) TestInitialStateJujuProxy(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("apt settings not handled on %s", host.String()))
 	}
 
 	proxySettings, aptProxySettings := s.useJujuConfig(c)
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 
@@ -254,7 +256,7 @@ func (s *ProxyUpdaterSuite) TestInitialStateJujuProxy(c *tc.C) {
 	s.waitForFile(c, pacconfig.AptProxyConfigFile, paccmder.ProxyConfigContents(aptProxySettings)+"\n")
 }
 
-func (s *ProxyUpdaterSuite) TestEnvironmentVariablesLegacyProxy(c *tc.C) {
+func (s *proxyUpdaterSuite) TestEnvironmentVariablesLegacyProxy(c *tc.C) {
 	setenv := func(proxy, value string) {
 		os.Setenv(proxy, value)
 		os.Setenv(strings.ToUpper(proxy), value)
@@ -265,7 +267,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariablesLegacyProxy(c *tc.C) {
 	setenv("no_proxy", "foo")
 
 	proxySettings, _ := s.useLegacyConfig(c)
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitProxySettings(c, proxySettings)
@@ -280,7 +282,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariablesLegacyProxy(c *tc.C) {
 	assertEnv("no_proxy", proxySettings.NoProxy)
 }
 
-func (s *ProxyUpdaterSuite) TestEnvironmentVariablesJujuProxy(c *tc.C) {
+func (s *proxyUpdaterSuite) TestEnvironmentVariablesJujuProxy(c *tc.C) {
 	setenv := func(proxy, value string) {
 		os.Setenv(proxy, value)
 		os.Setenv(strings.ToUpper(proxy), value)
@@ -291,7 +293,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariablesJujuProxy(c *tc.C) {
 	setenv("no_proxy", "foo")
 
 	proxySettings, _ := s.useJujuConfig(c)
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer worker.Stop(updater)
 	s.waitProxySettings(c, proxySettings)
@@ -306,7 +308,7 @@ func (s *ProxyUpdaterSuite) TestEnvironmentVariablesJujuProxy(c *tc.C) {
 	assertEnv("no_proxy", proxySettings.NoProxy)
 }
 
-func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *tc.C) {
+func (s *proxyUpdaterSuite) TestExternalFuncCalled(c *tc.C) {
 
 	// Called for both legacy and juju proxy values
 	externalProxySet := func() proxy.Settings {
@@ -319,7 +321,7 @@ func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *tc.C) {
 			}
 			return nil
 		}
-		updater, err := proxyupdater.NewWorker(s.config)
+		updater, err := NewWorker(s.config)
 		c.Assert(err, tc.ErrorIsNil)
 		defer worker.Stop(updater)
 		// We need to close done before stopping the worker, so the
@@ -344,7 +346,7 @@ func (s *ProxyUpdaterSuite) TestExternalFuncCalled(c *tc.C) {
 	c.Assert(externalSettings, tc.DeepEquals, proxySettings)
 }
 
-func (s *ProxyUpdaterSuite) TestErrorSettingInProcessLogs(c *tc.C) {
+func (s *proxyUpdaterSuite) TestErrorSettingInProcessLogs(c *tc.C) {
 	proxySettings, _ := s.useJujuConfig(c)
 
 	s.config.InProcessUpdate = func(newSettings proxy.Settings) error {
@@ -363,7 +365,7 @@ func (s *ProxyUpdaterSuite) TestErrorSettingInProcessLogs(c *tc.C) {
 		logWriter.Clear()
 	}()
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	s.waitProxySettings(c, proxySettings)
 	workertest.CleanKill(c, updater)
@@ -389,7 +391,7 @@ func nextCall(c *tc.C, calls <-chan []string) []string {
 	panic("unreachable")
 }
 
-func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *tc.C) {
+func (s *proxyUpdaterSuite) TestSnapProxySetNoneSet(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
@@ -404,7 +406,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *tc.C) {
 
 	s.api.proxies = proxyupdaterapi.ProxyConfiguration{}
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
@@ -418,7 +420,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySetNoneSet(c *tc.C) {
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestSnapProxySet(c *tc.C) {
+func (s *proxyUpdaterSuite) TestSnapProxySet(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
@@ -438,7 +440,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *tc.C) {
 		},
 	}
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
@@ -452,7 +454,7 @@ func (s *ProxyUpdaterSuite) TestSnapProxySet(c *tc.C) {
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *tc.C) {
+func (s *proxyUpdaterSuite) TestSnapStoreProxy(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
@@ -470,7 +472,7 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *tc.C) {
 		SnapStoreProxyAssertions: "please trust us",
 	}
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
@@ -484,7 +486,7 @@ func (s *ProxyUpdaterSuite) TestSnapStoreProxy(c *tc.C) {
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestSnapStoreProxyURL(c *tc.C) {
+func (s *proxyUpdaterSuite) TestSnapStoreProxyURL(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
@@ -524,7 +526,7 @@ DATA...
 		SnapStoreProxyURL: srv.URL,
 	}
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
@@ -538,7 +540,7 @@ DATA...
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestSnapStoreProxyURLOverridesManualAssertion(c *tc.C) {
+func (s *proxyUpdaterSuite) TestSnapStoreProxyURLOverridesManualAssertion(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("snap settings not handled on %s", host.String()))
 	}
@@ -580,7 +582,7 @@ DATA...
 		SnapStoreProxyURL:        srv.URL,
 	}
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 
@@ -594,7 +596,7 @@ DATA...
 	})
 }
 
-func (s *ProxyUpdaterSuite) TestAptMirror(c *tc.C) {
+func (s *proxyUpdaterSuite) TestAptMirror(c *tc.C) {
 	if host := jujuos.HostOS(); host == jujuos.CentOS {
 		c.Skip(fmt.Sprintf("apt mirror not supported on %s", host.String()))
 	}
@@ -611,7 +613,7 @@ func (s *ProxyUpdaterSuite) TestAptMirror(c *tc.C) {
 		AptMirror: "http://mirror",
 	}
 
-	updater, err := proxyupdater.NewWorker(s.config)
+	updater, err := NewWorker(s.config)
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.CleanKill(c, updater)
 

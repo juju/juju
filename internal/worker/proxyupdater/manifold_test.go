@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package proxyupdater_test
+package proxyupdater
 
 import (
 	"testing"
@@ -16,70 +16,82 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
-type ManifoldSuite struct {
+type manifoldSuite struct {
 	testhelpers.IsolationSuite
-	config   proxyupdater.ManifoldConfig
+	config   ManifoldConfig
 	startErr error
 }
 
 func TestManifoldSuite(t *testing.T) {
-	tc.Run(t, &ManifoldSuite{})
+	tc.Run(t, &manifoldSuite{})
 }
 
-func MakeUpdateFunc(name string) func(proxy.Settings) error {
+func makeUpdateFunc(name string) func(proxy.Settings) error {
 	// So we can tell the difference between update funcs.
 	return func(proxy.Settings) error {
 		return errors.New(name)
 	}
 }
 
-func (s *ManifoldSuite) SetUpTest(c *tc.C) {
+func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.startErr = nil
-	s.config = proxyupdater.ManifoldConfig{
+	s.config = ManifoldConfig{
 		AgentName:     "agent-name",
 		APICallerName: "api-caller-name",
-		WorkerFunc: func(cfg proxyupdater.Config) (worker.Worker, error) {
+		WorkerFunc: func(cfg Config) (worker.Worker, error) {
 			if s.startErr != nil {
 				return nil, s.startErr
 			}
 			return &dummyWorker{config: cfg}, nil
 		},
 		SupportLegacyValues: true,
-		ExternalUpdate:      MakeUpdateFunc("external"),
-		InProcessUpdate:     MakeUpdateFunc("in-process"),
+		ExternalUpdate:      makeUpdateFunc("external"),
+		InProcessUpdate:     makeUpdateFunc("in-process"),
+		Logger:              logger.GetLogger("test"),
 	}
 }
 
-func (s *ManifoldSuite) manifold() dependency.Manifold {
-	return proxyupdater.Manifold(s.config)
+func (s *manifoldSuite) manifold() dependency.Manifold {
+	return Manifold(s.config)
 }
 
-func (s *ManifoldSuite) TestInputs(c *tc.C) {
+func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"agent-name", "api-caller-name"})
 }
 
-func (s *ManifoldSuite) TestWorkerFuncMissing(c *tc.C) {
+func (s *manifoldSuite) TestValidate(c *tc.C) {
+	c.Check(s.config.Validate(), tc.ErrorIsNil)
+
+	s.config.AgentName = ""
+	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	s.SetUpTest(c)
+	s.config.APICallerName = ""
+	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	s.SetUpTest(c)
 	s.config.WorkerFunc = nil
-	getter := dt.StubGetter(nil)
-	worker, err := s.manifold().Start(c.Context(), getter)
-	c.Check(worker, tc.IsNil)
-	c.Check(err, tc.ErrorMatches, "missing WorkerFunc not valid")
-}
+	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-func (s *ManifoldSuite) TestInProcessUpdateMissing(c *tc.C) {
+	s.SetUpTest(c)
+	s.config.ExternalUpdate = nil
+	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	s.SetUpTest(c)
 	s.config.InProcessUpdate = nil
-	getter := dt.StubGetter(nil)
-	worker, err := s.manifold().Start(c.Context(), getter)
-	c.Check(worker, tc.IsNil)
-	c.Check(err, tc.ErrorMatches, "missing InProcessUpdate not valid")
+	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	s.SetUpTest(c)
+	s.config.Logger = nil
+	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
-func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
+func (s *manifoldSuite) TestStartAgentMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]any{
 		"agent-name": dependency.ErrMissing,
 	})
@@ -89,7 +101,7 @@ func (s *ManifoldSuite) TestStartAgentMissing(c *tc.C) {
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
+func (s *manifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
@@ -100,7 +112,7 @@ func (s *ManifoldSuite) TestStartAPICallerMissing(c *tc.C) {
 	c.Check(errors.Cause(err), tc.Equals, dependency.ErrMissing)
 }
 
-func (s *ManifoldSuite) TestStartError(c *tc.C) {
+func (s *manifoldSuite) TestStartError(c *tc.C) {
 	s.startErr = errors.New("boom")
 	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
@@ -112,7 +124,7 @@ func (s *ManifoldSuite) TestStartError(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, "boom")
 }
 
-func (s *ManifoldSuite) TestStartSuccess(c *tc.C) {
+func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	getter := dt.StubGetter(map[string]any{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": &dummyAPICaller{},
@@ -159,5 +171,5 @@ func (*dummyAPICaller) BestFacadeVersion(_ string) int {
 type dummyWorker struct {
 	worker.Worker
 
-	config proxyupdater.Config
+	config Config
 }
