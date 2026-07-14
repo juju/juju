@@ -245,6 +245,104 @@ func (s *tracerSuite) TestTracerStartContext(c *tc.C) {
 	}
 }
 
+func (s *tracerSuite) TestTracerStartAfterKilledReturnsNoop(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+	workertest.DirtyKill(c, tracer)
+
+	parentCtx := c.Context()
+	ctx, span := tracer.Start(parentCtx, "foo")
+	c.Check(ctx, tc.Equals, parentCtx)
+	c.Check(ctx.Err(), tc.ErrorIsNil)
+
+	_, ok := span.(coretrace.NoopSpan)
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *tracerSuite) TestTracerStartContextNotCanceledWhenTracerDies(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+
+	ctx, span := tracer.Start(c.Context(), "foo")
+	workertest.DirtyKill(c, tracer)
+	defer span.End()
+
+	select {
+	case <-ctx.Done():
+		c.Fatalf("context should not be done")
+	default:
+	}
+}
+
+func (s *tracerSuite) TestTracerStartContextCarriesCoreSpan(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+	defer workertest.CleanKill(c, tracer)
+
+	ctx, span := tracer.Start(c.Context(), "foo")
+	defer span.End()
+
+	_, ok := coretrace.SpanFromContext(ctx).(*limitedSpan)
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *tracerSuite) TestTracerStartReturnsBuiltRequestContext(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	tracer := s.newTracer(c)
+	defer workertest.CleanKill(c, tracer)
+
+	ctx := coretrace.WithTraceScope(c.Context(), "80f198ee56343ba864fe8b2a57d3eff7", "ff00000000000000", 1)
+	ctx, span := tracer.Start(ctx, "foo")
+	defer span.End()
+
+	traceID, spanID, flags, ok := coretrace.ScopeFromContext(ctx)
+	c.Check(ok, tc.IsFalse)
+	c.Check(traceID, tc.Equals, "")
+	c.Check(spanID, tc.Equals, "")
+	c.Check(flags, tc.Equals, 0)
+
+	traceID, ok = coretrace.TraceIDFromContext(ctx)
+	c.Check(ok, tc.IsTrue)
+	c.Check(traceID, tc.Equals, "80f198ee56343ba864fe8b2a57d3eff7")
+}
+
+func (s *tracerSuite) TestContextWithSpanCarriesTraceValues(c *tc.C) {
+	traceID, err := trace.TraceIDFromHex("80f198ee56343ba864fe8b2a57d3eff7")
+	c.Assert(err, tc.ErrorIsNil)
+	spanID, err := trace.SpanIDFromHex("ff00000000000000")
+	c.Assert(err, tc.ErrorIsNil)
+
+	spanContext := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: traceID,
+		SpanID:  spanID,
+	})
+	otelCtx := trace.ContextWithSpanContext(c.Context(), spanContext)
+	otelSpan := trace.SpanFromContext(otelCtx)
+	coreSpan := coretrace.NoopSpan{}
+
+	ctx := contextWithSpan(c.Context(), otelSpan, coreSpan)
+	c.Check(ctx.Err(), tc.ErrorIsNil)
+	c.Check(coretrace.SpanFromContext(ctx), tc.Equals, coreSpan)
+
+	gotTraceID, ok := coretrace.TraceIDFromContext(ctx)
+	c.Check(ok, tc.IsTrue)
+	c.Check(gotTraceID, tc.Equals, traceID.String())
+	c.Check(trace.SpanFromContext(ctx).SpanContext().TraceID(), tc.Equals, traceID)
+	c.Check(trace.SpanFromContext(ctx).SpanContext().SpanID(), tc.Equals, spanID)
+}
+
 func (s *tracerSuite) TestTracerStartContextShouldBeCanceled(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
