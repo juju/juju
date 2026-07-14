@@ -1998,3 +1998,24 @@ func (s *essentialMetadataSuite) TestEssentialMetadataWithInvalidActions(c *tc.C
 	_, err := EssentialMetadataFromResponse("wordpress", resp)
 	c.Check(err, tc.NotNil)
 }
+
+// TestIsEmptyYAML ensures that the isEmptyYAML helper correctly identifies
+// empty or "{}" YAML strings that charmhub returns for optional metadata
+// files (config.yaml, actions.yaml) that do not exist for a charm.
+func (s *essentialMetadataSuite) TestIsEmptyYAML(c *tc.C) {
+	for _, t := range []struct {
+		input string
+		empty bool
+	}{
+		{"", true},
+		{"{}", true},
+		{"{}\n", true},
+		{"  {}  ", true},
+		{"\t{}\t", true},
+		{"name: foo", false},
+		{"options:\n  foo: bar", false},
+		{"backup:\n  description: test", false},
+	} {
+		c.Check(isEmptyYAML(t.input), tc.Equals, t.empty)
+	}
+}

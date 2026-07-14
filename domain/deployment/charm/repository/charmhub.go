@@ -797,7 +797,7 @@ func EssentialMetadataFromResponse(charmName string, refreshResult transport.Ref
 	// the charm, e.g. postgreql. However, this will fail the charm
 	// config validation which happens in ReadConfig. Valid config
 	// are nil and "Options: {}"
-	if configYAML == "" || strings.TrimSpace(configYAML) == "{}" {
+	if isEmptyYAML(configYAML) {
 		chConfig = charm.NewConfig()
 	} else {
 		chConfig, err = charm.ReadConfig(strings.NewReader(configYAML))
@@ -824,13 +824,13 @@ func EssentialMetadataFromResponse(charmName string, refreshResult transport.Ref
 	// an actions.yaml, we default to an empty set of actions. This mirrors
 	// the behaviour of reading a charm archive that has no actions.yaml.
 	var chActions *charm.Actions
-	if actionsYAML := entity.ActionsYAML; actionsYAML != "" && strings.TrimSpace(actionsYAML) != "{}" {
-		chActions, err = charm.ReadActionsYaml(charmName, strings.NewReader(actionsYAML))
+	if isEmptyYAML(entity.ActionsYAML) {
+		chActions = charm.NewActions()
+	} else {
+		chActions, err = charm.ReadActionsYaml(charmName, strings.NewReader(entity.ActionsYAML))
 		if err != nil {
 			return corecharm.EssentialMetadata{}, internalerrors.Errorf("parsing actions.yaml for %q: %w", charmName, err)
 		}
-	} else {
-		chActions = charm.NewActions()
 	}
 
 	return corecharm.EssentialMetadata{
@@ -844,6 +844,15 @@ func EssentialMetadataFromResponse(charmName string, refreshResult transport.Ref
 			DownloadSize:       int64(entity.Download.Size),
 		},
 	}, nil
+}
+
+// isEmptyYAML reports whether the given YAML string is empty or contains
+// only an empty JSON object ("{}"). Charmhub returns "{}\n" for optional
+// metadata files (e.g. config.yaml, actions.yaml) that do not exist for a
+// charm, so callers can use this to decide whether to parse the YAML or
+// fall back to a default empty value.
+func isEmptyYAML(yaml string) bool {
+	return yaml == "" || strings.TrimSpace(yaml) == "{}"
 }
 
 func configsByID(ctx context.Context, curl *charm.URL, origin corecharm.Origin, name string, revision int) ([]charmhub.RefreshConfig, error) {
