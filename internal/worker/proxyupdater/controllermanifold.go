@@ -17,6 +17,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
 )
@@ -29,25 +30,18 @@ type GetControllerDomainServicesFunc func(dependency.Getter, string) (Controller
 // UUID from a dependency getter.
 type GetDomainServicesFunc func(context.Context, dependency.Getter, string, coremodel.UUID) (DomainServices, error)
 
-// WaitReady reports whether the initial controller proxy configuration has
-// been applied.
-type WaitReady interface {
-	WaitReady() bool
-}
-
-type readyWorker struct {
-	worker.Worker
-}
-
-// WaitReady reports that the initial proxy configuration has been applied.
-func (readyWorker) WaitReady() bool {
-	return true
+// ProxyReadyUnlocker unlocks the proxy ready gate once initial proxy config is
+// applied.
+type ProxyReadyUnlocker interface {
+	// Unlock unlocks the proxy ready gate.
+	Unlock()
 }
 
 // ControllerManifoldConfig defines a proxy updater manifold backed directly by
 // domain services instead of the API facade.
 type ControllerManifoldConfig struct {
 	DomainServicesName          string
+	ProxyReadyGateName          string
 	Logger                      logger.Logger
 	WorkerFunc                  func(Config) (worker.Worker, error)
 	GetControllerDomainServices GetControllerDomainServicesFunc
@@ -62,6 +56,9 @@ type ControllerManifoldConfig struct {
 func (c ControllerManifoldConfig) Validate() error {
 	if c.DomainServicesName == "" {
 		return errors.NotValidf("empty DomainServicesName")
+	}
+	if c.ProxyReadyGateName == "" {
+		return errors.NotValidf("empty ProxyReadyGateName")
 	}
 	if c.WorkerFunc == nil {
 		return errors.NotValidf("nil WorkerFunc")
@@ -92,10 +89,15 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.DomainServicesName,
+			config.ProxyReadyGateName,
 		},
-		Output: outputControllerManifold,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var proxyReadyUnlocker ProxyReadyUnlocker
+			if err := getter.Get(config.ProxyReadyGateName, &proxyReadyUnlocker); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -118,8 +120,8 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 				controllerNodeService: controllerDomainServices.ControllerNode(),
 			}
 			workerConfig := Config{
-				SystemdFiles:        []string{"/etc/juju-proxy-systemd.conf"},
-				EnvFiles:            []string{"/etc/juju-proxy.conf"},
+				SystemdFiles:        defaultSystemdFiles,
+				EnvFiles:            defaultEnvFiles,
 				API:                 source,
 				SupportLegacyValues: config.SupportLegacyValues,
 				ExternalUpdate:      config.ExternalUpdate,
@@ -132,30 +134,21 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
 			initialWorker := &proxyWorker{first: true, config: workerConfig}
-			initialWorker.handleProxyValues(ctx, initialConfig.LegacyProxy, initialConfig.JujuProxy)
+			initialWorker.applyConfig(ctx, initialConfig)
 
 			w, err := config.WorkerFunc(workerConfig)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return readyWorker{Worker: w}, nil
+
+			// Initial config has been applied and the worker is now available
+			// to handle subsequent changes.
+			proxyReadyUnlocker.Unlock()
+			return w, nil
 		},
 	}
-}
-
-func outputControllerManifold(in worker.Worker, out any) error {
-	w, ok := in.(WaitReady)
-	if !ok {
-		return errors.Errorf("expected input implementing WaitReady, got %T", in)
-	}
-
-	target, ok := out.(*WaitReady)
-	if !ok {
-		return errors.Errorf("expected output of WaitReady, got %T", out)
-	}
-	*target = w
-	return nil
 }
 
 // ControllerDomainServices exposes controller services used by this worker.
@@ -255,7 +248,7 @@ func (s domainProxySource) ProxyConfig(ctx context.Context) (proxyupdaterapi.Pro
 	}
 
 	proxyAddressPorts, err := s.controllerNodeService.GetAllNoProxyAPIAddressesForAgents(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, controllernodeerrors.EmptyAPIAddresses) {
 		return proxyupdaterapi.ProxyConfiguration{}, errors.Trace(err)
 	}
 
@@ -282,6 +275,9 @@ func (s domainProxySource) ProxyConfig(ctx context.Context) (proxyupdaterapi.Pro
 // WatchForProxyConfigAndAPIHostPortChanges watches for proxy settings and API
 // address changes.
 func (s domainProxySource) WatchForProxyConfigAndAPIHostPortChanges(ctx context.Context) (watcher.NotifyWatcher, error) {
+	// This is less than ideal, we shouldn't be mixing watcher types (string and
+	// notify), and we shouldn't be using a multi-watcher, but the existing code
+	// is structured this way because it's across two databases.
 	modelConfigWatcher, err := s.modelConfigService.Watch(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -3,4 +3,5 @@
 
 package proxyupdater
 
-//go:generate go run github.com/canonical/gomock/mockgen -package proxyupdater -destination controllermanifold_mock_test.go github.com/juju/juju/internal/worker/proxyupdater ControllerDomainServices,DomainServices,ModelService,ModelConfigService,ControllerNodeService
+//go:generate go run github.com/canonical/gomock/mockgen -package proxyupdater -destination controllermanifold_mock_test.go github.com/juju/juju/internal/worker/proxyupdater ControllerDomainServices,DomainServices,ModelService,ModelConfigService,ControllerNodeService,ProxyReadyUnlocker
+//go:generate go run github.com/canonical/gomock/mockgen -package proxyupdater -destination dependency_mock_test.go github.com/juju/worker/v5/dependency Getter

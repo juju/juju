@@ -40,7 +40,11 @@ func makeUpdateFunc(name string) func(proxy.Settings) error {
 func (s *manifoldSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.startErr = nil
-	s.config = ManifoldConfig{
+	s.config = s.newConfig()
+}
+
+func (s *manifoldSuite) newConfig() ManifoldConfig {
+	return ManifoldConfig{
 		AgentName:     "agent-name",
 		APICallerName: "api-caller-name",
 		WorkerFunc: func(cfg Config) (worker.Worker, error) {
@@ -70,23 +74,23 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 	s.config.AgentName = ""
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig()
 	s.config.APICallerName = ""
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig()
 	s.config.WorkerFunc = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig()
 	s.config.ExternalUpdate = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig()
 	s.config.InProcessUpdate = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig()
 	s.config.Logger = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 }

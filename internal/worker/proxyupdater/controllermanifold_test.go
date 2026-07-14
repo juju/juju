@@ -5,6 +5,8 @@ package proxyupdater
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -17,6 +19,8 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/packaging/commands"
+	pacconfig "github.com/juju/juju/internal/packaging/config"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -29,8 +33,13 @@ func TestControllerManifoldSuite(t *testing.T) {
 }
 
 func (s *controllerManifoldSuite) SetUpTest(c *tc.C) {
-	s.config = ControllerManifoldConfig{
+	s.config = s.newConfig(c)
+}
+
+func (s *controllerManifoldSuite) newConfig(c *tc.C) ControllerManifoldConfig {
+	return ControllerManifoldConfig{
 		DomainServicesName: "domain-services",
+		ProxyReadyGateName: "proxy-ready-gate",
 		Logger:             logger.GetLogger("test"),
 		WorkerFunc: func(cfg Config) (worker.Worker, error) {
 			return &dummyWorker{config: cfg}, nil
@@ -54,7 +63,7 @@ func (s *controllerManifoldSuite) manifold() dependency.Manifold {
 }
 
 func (s *controllerManifoldSuite) TestInputs(c *tc.C) {
-	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"domain-services"})
+	c.Check(s.manifold().Inputs, tc.DeepEquals, []string{"domain-services", "proxy-ready-gate"})
 }
 
 func (s *controllerManifoldSuite) TestValidate(c *tc.C) {
@@ -63,27 +72,31 @@ func (s *controllerManifoldSuite) TestValidate(c *tc.C) {
 	s.config.DomainServicesName = ""
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig(c)
+	s.config.ProxyReadyGateName = ""
+	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
+
+	s.config = s.newConfig(c)
 	s.config.WorkerFunc = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig(c)
 	s.config.GetControllerDomainServices = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig(c)
 	s.config.GetDomainServices = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig(c)
 	s.config.ExternalUpdate = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig(c)
 	s.config.InProcessUpdate = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 
-	s.SetUpTest(c)
+	s.config = s.newConfig(c)
 	s.config.Logger = nil
 	c.Check(s.config.Validate(), tc.ErrorIs, errors.NotValid)
 }
@@ -91,12 +104,25 @@ func (s *controllerManifoldSuite) TestValidate(c *tc.C) {
 func (s *controllerManifoldSuite) TestStartSuccess(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+	oldAptProxyConfigFile := pacconfig.AptProxyConfigFile
+	pacconfig.AptProxyConfigFile = filepath.Join(c.MkDir(), "juju-apt-proxy")
+	defer func() { pacconfig.AptProxyConfigFile = oldAptProxyConfigFile }()
 
 	controllerDomainServices := NewMockControllerDomainServices(ctrl)
 	domainServices := NewMockDomainServices(ctrl)
 	modelService := NewMockModelService(ctrl)
 	modelConfigService := NewMockModelConfigService(ctrl)
 	controllerNodeService := NewMockControllerNodeService(ctrl)
+	proxyReadyUnlocker := NewMockProxyReadyUnlocker(ctrl)
+	depGetter := NewMockGetter(ctrl)
+	depGetter.EXPECT().Get("proxy-ready-gate", gomock.Any()).DoAndReturn(
+		func(_ string, out any) error {
+			ptr, ok := out.(*ProxyReadyUnlocker)
+			c.Assert(ok, tc.IsTrue)
+			*ptr = proxyReadyUnlocker
+			return nil
+		},
+	)
 
 	modelUUID := coremodel.UUID("controller-model-uuid")
 	controllerDomainServices.EXPECT().Model().Return(modelService)
@@ -106,6 +132,7 @@ func (s *controllerManifoldSuite) TestStartSuccess(c *tc.C) {
 	modelConfig := newProxyModelConfig(c)
 	modelConfigService.EXPECT().ModelConfig(c.Context()).Return(modelConfig, nil)
 	controllerNodeService.EXPECT().GetAllNoProxyAPIAddressesForAgents(c.Context()).Return("10.0.0.1,10.0.0.2", nil)
+	proxyReadyUnlocker.EXPECT().Unlock()
 
 	var initialSettings proxy.Settings
 	var workerConfig Config
@@ -119,24 +146,20 @@ func (s *controllerManifoldSuite) TestStartSuccess(c *tc.C) {
 	}
 
 	s.config.GetControllerDomainServices = func(getter dependency.Getter, name string) (ControllerDomainServices, error) {
-		c.Check(getter, tc.IsNil)
+		c.Check(getter, tc.Equals, depGetter)
 		c.Check(name, tc.Equals, "domain-services")
 		return controllerDomainServices, nil
 	}
 	s.config.GetDomainServices = func(ctx context.Context, getter dependency.Getter, name string, gotUUID coremodel.UUID) (DomainServices, error) {
 		c.Check(ctx, tc.Equals, c.Context())
-		c.Check(getter, tc.IsNil)
+		c.Check(getter, tc.Equals, depGetter)
 		c.Check(name, tc.Equals, "domain-services")
 		c.Check(gotUUID, tc.Equals, modelUUID)
 		return domainServices, nil
 	}
 
-	w, err := s.manifold().Start(c.Context(), nil)
+	_, err := s.manifold().Start(c.Context(), depGetter)
 	c.Assert(err, tc.ErrorIsNil)
-	var ready WaitReady
-	err = s.manifold().Output(w, &ready)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(ready.WaitReady(), tc.IsTrue)
 
 	c.Check(workerConfig.SystemdFiles, tc.DeepEquals, []string{"/etc/juju-proxy-systemd.conf"})
 	c.Check(workerConfig.EnvFiles, tc.DeepEquals, []string{"/etc/juju-proxy.conf"})
@@ -149,6 +172,10 @@ func (s *controllerManifoldSuite) TestStartSuccess(c *tc.C) {
 		NoProxy:     "localhost",
 		AutoNoProxy: "10.0.0.1,10.0.0.2",
 	})
+	aptProxyConfig, err := os.ReadFile(pacconfig.AptProxyConfigFile)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(string(aptProxyConfig), tc.Equals,
+		commands.NewAptPackageCommander().ProxyConfigContents(modelConfig.AptProxySettings())+"\n")
 }
 
 func newProxyModelConfig(c *tc.C) *config.Config {

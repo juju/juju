@@ -17,6 +17,11 @@ import (
 	"github.com/juju/juju/core/logger"
 )
 
+var (
+	defaultSystemdFiles = []string{"/etc/juju-proxy-systemd.conf"}
+	defaultEnvFiles     = []string{"/etc/juju-proxy.conf"}
+)
+
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
 	AgentName           string
@@ -79,8 +84,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 			w, err := config.WorkerFunc(Config{
-				SystemdFiles:        []string{"/etc/juju-proxy-systemd.conf"},
-				EnvFiles:            []string{"/etc/juju-proxy.conf"},
+				SystemdFiles:        defaultSystemdFiles,
+				EnvFiles:            defaultEnvFiles,
 				API:                 proxyAPI,
 				SupportLegacyValues: config.SupportLegacyValues,
 				ExternalUpdate:      config.ExternalUpdate,
