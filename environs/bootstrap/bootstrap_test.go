@@ -1025,6 +1025,10 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
 	err := os.WriteFile(snapPath, []byte("snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
 
+	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
+	})
+
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
 	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
@@ -1037,6 +1041,10 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
 			ControllerSnapPath:      snapPath,
 		})
 	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion,
+		tc.Equals, jujuversion.Current.ToPatch().String(),
+		tc.Commentf("ControllerSnapExpectedVersion should be populated for local-dangerous path"),
+	)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, snapPath)
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapAssertPath, tc.Equals, "")
 }
@@ -1047,6 +1055,10 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
 	assertPath := filepath.Join(dir, "juju-controller.assert")
 	c.Assert(os.WriteFile(snapPath, []byte("snap"), 0644), tc.ErrorIsNil)
 	c.Assert(os.WriteFile(assertPath, []byte("assert"), 0644), tc.ErrorIsNil)
+
+	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
+	})
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	ctx := cmdtesting.Context(c)
@@ -1119,6 +1131,103 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapCandidateChannel(c *tc.C) {
 
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapChannel, tc.Equals, "4.0/candidate")
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion, tc.Equals, resolvedVersion.String())
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionCoupling(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	snapVersion := jujuversion.Current.ToPatch()
+	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf("version: %s -\n", snapVersion.String()), nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	var capturedForceVersion semversion.Number
+	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), cmdtesting.Context(c)), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapPath:      snapPath,
+			BuildAgent:              true,
+			BuildAgentTarball: func(build bool, _ string,
+				getForceVersion func(semversion.Number) semversion.Number,
+			) (*sync.BuiltAgent, error) {
+				ver := getForceVersion(semversion.Zero)
+				capturedForceVersion = ver
+				c.Assert(build, tc.IsTrue)
+				return &sync.BuiltAgent{
+					Dir:      c.MkDir(),
+					Official: true,
+					Version: semversion.Binary{
+						Number:  ver.ToPatch(),
+						Release: "ubuntu",
+						Arch:    "arm64",
+					},
+				}, nil
+			},
+		})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(capturedForceVersion, tc.DeepEquals, snapVersion,
+		tc.Commentf("force version should be the snap version without Build++"))
+	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapExpectedVersion,
+		tc.Equals, snapVersion.String())
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapLocalVersionMismatch(c *tc.C) {
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
+	err := os.WriteFile(snapPath, []byte("snap content"), 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf("version: 99.0.0 -\n"), nil
+	})
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), cmdtesting.Context(c)), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapPath:      snapPath,
+			BuildAgent:              true,
+			BuildAgentTarball: func(bool, string, func(semversion.Number) semversion.Number) (*sync.BuiltAgent, error) {
+				c.Fatal("should not call BuildAgentTarball when snap version is incompatible")
+				return nil, nil
+			},
+		})
+	c.Assert(err, tc.NotNil)
+	c.Check(
+		strings.Contains(err.Error(), "not compatible"), tc.IsTrue,
+		tc.Commentf("expected compatibility error, got: %s", err),
+	)
+}
+
+func (s *bootstrapSuite) TestBootstrapControllerSnapLocalUnreadableSnap(c *tc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	err := bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), cmdtesting.Context(c)), env,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			AdminSecret:             "admin-secret",
+			CAPrivateKey:            coretesting.CAKey,
+			SSHServerHostKey:        coretesting.SSHServerHostKey,
+			SupportedBootstrapBases: supportedJujuBases,
+			ControllerSnapPath:      "/nonexistent/snap.snap",
+		})
+	c.Assert(err, tc.NotNil)
+	c.Check(
+		strings.Contains(err.Error(), "/nonexistent/snap.snap"), tc.IsTrue,
+		tc.Commentf("expected error to mention snap path, got: %s", err),
+	)
 }
 
 func createImageMetadata(c *tc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
