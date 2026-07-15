@@ -10,17 +10,18 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
 	gc "gopkg.in/check.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -83,6 +84,12 @@ func (s *updatePublicCloudsSuite) setupTestServer(c *gc.C, serverContent string)
 	}))
 }
 
+func (s *updatePublicCloudsSuite) setupRawTestServer(serverContent string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, serverContent)
+	}))
+}
+
 func (s *updatePublicCloudsSuite) TestBadArgs(c *gc.C) {
 	updateCmd := cloud.NewUpdatePublicCloudsCommandForTest(s.store, nil, "")
 	_, err := cmdtesting.RunCommand(c, updateCmd, "extra")
@@ -121,6 +128,25 @@ func (s *updatePublicCloudsSuite) TestUnsignedData(c *gc.C) {
 	defer ts.Close()
 	_, err := cloud.PublishedPublicClouds(ts.URL, "")
 	c.Assert(err, gc.ErrorMatches, "receiving updated cloud data: no PGP signature embedded in plain text data")
+}
+
+func (s *updatePublicCloudsSuite) TestInvalidSignature(c *gc.C) {
+	signed := encodeCloudYAML(c, sampleUpdateCloudData)
+	tampered := strings.Replace(signed, "endpoint: http://region", "endpoint: http://tampered", 1)
+	ts := s.setupRawTestServer(tampered)
+	defer ts.Close()
+
+	_, err := cloud.PublishedPublicClouds(ts.URL, sstesting.SignedMetadataPublicKey)
+	c.Assert(err, gc.ErrorMatches, "receiving updated cloud data: openpgp: invalid signature:.*")
+}
+
+func (s *updatePublicCloudsSuite) TestUntrustedSignature(c *gc.C) {
+	signed := encodeCloudYAML(c, sampleUpdateCloudData)
+	ts := s.setupRawTestServer(signed)
+	defer ts.Close()
+
+	_, err := cloud.PublishedPublicClouds(ts.URL, keys.JujuPublicKey)
+	c.Assert(err, gc.ErrorMatches, "receiving updated cloud data: openpgp: signature made by unknown entity")
 }
 
 func (s *updatePublicCloudsSuite) TestBadDataOnServer(c *gc.C) {
