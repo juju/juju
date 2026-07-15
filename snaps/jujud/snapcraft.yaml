@@ -39,6 +39,13 @@ apps:
       - network
       - network-bind
 
+  bootstrap-state:
+    command: bin/jujud bootstrap-state --data-dir $SNAP_DATA
+    environment:
+      JUJU_BOOTSTRAP_PARAMS_PATH: "$SNAP_COMMON/bootstrap-params"
+    plugs:
+      - network
+
   init:
     command: bin/jujud init
 
