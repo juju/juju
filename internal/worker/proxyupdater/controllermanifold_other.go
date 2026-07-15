@@ -14,6 +14,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 )
 
 // ControllerManifoldConfig defines a proxy updater manifold backed directly by
@@ -62,4 +63,15 @@ func (w *noopWorker) Kill() {
 
 func (w *noopWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+// GetControllerDomainServices retrieves controller services from the
+// dependency getter.
+func GetControllerDomainServices(getter dependency.Getter, name string) (ControllerDomainServices, error) {
+	return nil, nil
+}
+
+// GetDomainServices retrieves model services from the dependency getter.
+func GetDomainServices(ctx context.Context, getter dependency.Getter, name string, modelUUID coremodel.UUID) (DomainServices, error) {
+	return nil, nil
 }
