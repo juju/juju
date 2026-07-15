@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
-	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -55,15 +54,15 @@ var DefaultAbortFinalizeWait = AbortFinalizeWait{
 // deps.ModelDB is not required: the abort compensation writes only to the
 // controller database, and passing a nil ModelDB makes that structural.
 //
+// The modelmigration import service is injected by the caller (the apiserver
+// domain services on the facade path, or the reconciler's own controller-scoped
+// service): this package never builds it from raw database handles.
+//
 // It returns [modelmigrationerrors.ErrAbortActivating] when the claim is
 // activating (a non-retryable conflict: the model must not be torn down after
 // activation has begun), and nil when no claim exists (nothing was imported, or
 // cleanup already finalized).
-func AbortModelImport(ctx context.Context, deps Deps, modelUUID coremodel.UUID) error {
-	claim := migrationclaimservice.NewImportService(
-		migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
-	)
-
+func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservice.Service, modelUUID coremodel.UUID) error {
 	c, err := claim.GetImportClaim(ctx, modelUUID)
 	switch {
 	case errors.Is(err, modelmigrationerrors.ErrImportNotFound):
@@ -136,11 +135,10 @@ func AbortModelImport(ctx context.Context, deps Deps, modelUUID coremodel.UUID) 
 // claim stays in the aborting phase and the abort reconciler finalizes it later,
 // so the abort is never lost. Any other error (a genuine finalization failure)
 // is returned.
-func WaitAbortFinalized(ctx context.Context, deps Deps, modelUUID coremodel.UUID, wait AbortFinalizeWait) error {
-	claim := migrationclaimservice.NewImportService(
-		migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
-	)
-
+//
+// The modelmigration import service is injected by the caller; deps supplies
+// only the clock and logger for the bounded wait.
+func WaitAbortFinalized(ctx context.Context, deps Deps, claim *migrationclaimservice.Service, modelUUID coremodel.UUID, wait AbortFinalizeWait) error {
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
 			return claim.FinalizeAbortedImport(ctx, modelUUID)

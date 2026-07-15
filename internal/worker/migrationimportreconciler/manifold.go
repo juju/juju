@@ -92,7 +92,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	return config.NewWorker(Config{
 		Service: service,
 		Abort: func(ctx context.Context, modelUUID coremodel.UUID) error {
-			return migration.AbortModelImport(ctx, deps, modelUUID)
+			return migration.AbortModelImport(ctx, deps, service, modelUUID)
 		},
 		Clock:  config.Clock,
 		Logger: config.Logger,

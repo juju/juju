@@ -18,10 +18,21 @@ import (
 	"github.com/juju/juju/domain/export"
 	migrationdomain "github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
+	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
 )
+
+// claimService builds the modelmigration import service the abort tests inject
+// into the abort driver, standing in for the apiserver-injected service.
+func (s *controllerImportSuite) claimService(c *tc.C) *migrationclaimservice.Service {
+	return migrationclaimservice.NewImportService(
+		migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock),
+		loggertesting.WrapCheckLog(c),
+	)
+}
 
 // importWithContent runs a full v8 controller-data import for a fresh model,
 // including an offer permission, and returns the model UUID, the offer UUID it
@@ -72,7 +83,7 @@ func (s *controllerImportSuite) TestAbortModelImportNoClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	deps, _, _ := s.deps(c, modelUUID)
 
-	err := migration.AbortModelImport(c.Context(), deps, modelUUID)
+	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -90,7 +101,7 @@ func (s *controllerImportSuite) TestAbortModelImportRemovesPartialImport(c *tc.C
 	c.Assert(s.rowCount(c,
 		"SELECT COUNT(*) FROM model_migration_import_offer WHERE offer_uuid = ?", offerUUID), tc.Equals, 1)
 
-	err := migration.AbortModelImport(c.Context(), deps, modelUUID)
+	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim survives, now in the aborting phase.
@@ -120,8 +131,8 @@ func (s *controllerImportSuite) TestAbortModelImportRemovesPartialImport(c *tc.C
 func (s *controllerImportSuite) TestAbortModelImportIdempotent(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	c.Assert(migration.AbortModelImport(c.Context(), deps, modelUUID), tc.ErrorIsNil)
-	c.Assert(migration.AbortModelImport(c.Context(), deps, modelUUID), tc.ErrorIsNil)
+	c.Assert(migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID), tc.ErrorIsNil)
+	c.Assert(migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID), tc.ErrorIsNil)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	claim, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
@@ -138,7 +149,7 @@ func (s *controllerImportSuite) TestAbortModelImportActivatingRefused(c *tc.C) {
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	c.Assert(claimSt.SetImportPhaseActivating(c.Context(), modelUUID.String()), tc.ErrorIsNil)
 
-	err := migration.AbortModelImport(c.Context(), deps, modelUUID)
+	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrAbortActivating)
 
 	// The claim stays activating and the model identity row is untouched.
@@ -159,7 +170,7 @@ var shortWait = migration.AbortFinalizeWait{Delay: time.Millisecond, MaxDuration
 func (s *controllerImportSuite) TestWaitAbortFinalized(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	err := migration.AbortModelImport(c.Context(), deps, modelUUID)
+	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Stand in for the undertaker's model-database deleter: clear the staged
@@ -171,7 +182,7 @@ func (s *controllerImportSuite) TestWaitAbortFinalized(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.WaitAbortFinalized(c.Context(), deps, modelUUID, shortWait)
+	err = migration.WaitAbortFinalized(c.Context(), deps, s.claimService(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim is gone, so the model UUID can be claimed by a fresh import.
@@ -186,7 +197,7 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedNoClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	deps, _, _ := s.deps(c, modelUUID)
 
-	err := migration.WaitAbortFinalized(c.Context(), deps, modelUUID, shortWait)
+	err := migration.WaitAbortFinalized(c.Context(), deps, s.claimService(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -197,12 +208,12 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedNoClaim(c *tc.C) {
 func (s *controllerImportSuite) TestWaitAbortFinalizedPendingDropReturnsNil(c *tc.C) {
 	modelUUID, _, deps := s.importWithContent(c)
 
-	err := migration.AbortModelImport(c.Context(), deps, modelUUID)
+	err := migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The staged deletion row is left in place: the undertaker has not dropped
 	// the database yet, so finalization cannot prove cleanup complete.
-	err = migration.WaitAbortFinalized(c.Context(), deps, modelUUID, shortWait)
+	err = migration.WaitAbortFinalized(c.Context(), deps, s.claimService(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim survives in the aborting phase for the reconciler to complete.

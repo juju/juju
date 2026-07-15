@@ -108,16 +108,24 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 // [github.com/juju/juju/domain/modelmigration/errors.ErrAbortActivating] when
 // activation has already crossed the point of no return.
 func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID) error {
+	domainServices, err := i.domainServices.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return internalerrors.Errorf(
+			"retrieving domain services for model %q: %w", modelUUID, err,
+		)
+	}
+	claim := domainServices.ModelMigration()
+
 	scope := i.scope(modelUUID)
 	deps := Deps{
 		ControllerDB: scope.ControllerDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
 	}
-	if err := AbortModelImport(ctx, deps, modelUUID); err != nil {
+	if err := AbortModelImport(ctx, deps, claim, modelUUID); err != nil {
 		return err
 	}
-	return WaitAbortFinalized(ctx, deps, modelUUID, DefaultAbortFinalizeWait)
+	return WaitAbortFinalized(ctx, deps, claim, modelUUID, DefaultAbortFinalizeWait)
 }
 
 // ImportModel applies a v8 import's controller-scoped semantic data to the
