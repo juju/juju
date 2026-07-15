@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/client/application"
@@ -34,17 +35,18 @@ If the model qualifier is omitted, Juju will use the user that is currently
 logged in to the controller providing the offer.
 
 If the controller name is omitted, Juju looks for the offer on the currently
-active controller first, and if it is not found there, searches the other
-controllers registered locally (see ` + "`juju controllers`" + `). The offering
-controller must therefore be registered locally for its name to resolve. To
-avoid the search and target a specific controller, include the controller name
-in the offer path.
+active controller. Pass ` + "`--all-controllers`" + ` to also search the other
+controllers registered locally (see ` + "`juju controllers`" + `) if the offer is
+not found on the current controller; the offering controller must be registered
+locally for its name to resolve. To target a specific controller directly,
+include the controller name in the offer path.
 `[1:]
 
 const usageConsumeExamples = `
     juju consume othermodel.mysql
     juju consume prod/othermodel.mysql
     juju consume anothercontroller:prod/othermodel.mysql
+    juju consume --all-controllers othermodel.mysql
 `
 
 // NewConsumeCommand returns a command to add remote offers to
@@ -61,6 +63,7 @@ type consumeCommand struct {
 	targetAPI         applicationConsumeAPI
 	remoteApplication string
 	applicationAlias  string
+	allControllers    bool
 
 	// newSourceAPIForController, when set (in tests), returns a source offers
 	// client for a named controller, allowing the per-controller resolution
@@ -90,6 +93,13 @@ func (c *consumeCommand) Info() *cmd.Info {
 			"remove-saas",
 		},
 	})
+}
+
+// SetFlags implements cmd.Command.
+func (c *consumeCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.allControllers, "all-controllers", false,
+		"Also search other registered controllers when the offer's controller is not named and the offer is not on the current controller")
 }
 
 // Init implements cmd.Command.
@@ -211,24 +221,22 @@ func (c *consumeCommand) resolveConsumeDetails(ctx *cmd.Context, url crossmodel.
 }
 
 // candidateControllers returns the controllers to search for an unqualified
-// offer, with the current controller first (if any), followed by the remaining
-// registered controllers in a deterministic order.
+// offer. When --all-controllers is not set (or a source API has been injected
+// in tests), only the current controller is returned. When --all-controllers is
+// set, the current controller is first and the remaining registered controllers
+// follow in deterministic order.
 func (c *consumeCommand) candidateControllers() ([]string, error) {
-	// A test may have injected a source API, in which case the controller
-	// name is irrelevant; use the current controller.
-	if c.sourceAPI != nil {
-		current, err := c.ControllerName()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	current, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// A test may have injected a source API — treat it as current-only
+	// regardless of the flag so existing single-controller tests are unaffected.
+	if c.sourceAPI != nil || !c.allControllers {
 		return []string{current}, nil
 	}
 
 	all, err := c.ClientStore().AllControllers()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	current, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

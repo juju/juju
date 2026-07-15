@@ -111,8 +111,10 @@ integrates with it via an offer endpoint:
 To discover offers you can consume, use ` + "`juju find-offers`" + `. It searches a
 single controller by default; pass ` + "`--all-controllers`" + ` to search across
 every controller registered locally and present them as one catalogue.
-Consuming an offer on another controller requires that controller to be
-registered locally, so its name resolves in the offer URL.
+To consume an offer on another controller, either name the controller explicitly
+in the offer path, or pass ` + "`--all-controllers`" + ` to ` + "`juju consume`" + ` so that
+Juju searches all registered controllers automatically. In both cases the
+offering controller must be registered locally.
 
 ### Cross-model relations: network management
 

@@ -174,7 +174,22 @@ func consumedOfferURL(c *tc.C, targetStub *testhelpers.Stub) string {
 	return ""
 }
 
-func (s *ConsumeSuite) TestConsumeResolvesSourceControllerWhenUnqualified(c *tc.C) {
+func (s *ConsumeSuite) TestConsumeWithoutFlagOnlyTriesCurrentController(c *tc.C) {
+	// Register a second controller that hosts the offer but the current does
+	// not. Without --all-controllers the command should fail rather than
+	// silently searching other controllers.
+	s.store.Controllers["other"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["other"] = jujuclient.AccountDetails{User: "bob"}
+
+	command, _ := s.newResolverConsumeCommand(map[string]bool{"other": true})
+
+	// No --all-controllers: only the current controller (test-master) is tried;
+	// it doesn't host the offer, so the command fails.
+	_, err := cmdtesting.RunCommand(c, command, "booster.uke")
+	c.Assert(err, tc.ErrorMatches, `offer "bob/booster.uke" on any registered controller not found`)
+}
+
+func (s *ConsumeSuite) TestConsumeAllControllersResolvesSourceController(c *tc.C) {
 	// Register a second controller that actually hosts the offer. The current
 	// controller (test-master) does not.
 	s.store.Controllers["other"] = jujuclient.ControllerDetails{}
@@ -182,32 +197,32 @@ func (s *ConsumeSuite) TestConsumeResolvesSourceControllerWhenUnqualified(c *tc.
 
 	command, targetStub := s.newResolverConsumeCommand(map[string]bool{"other": true})
 
-	_, err := cmdtesting.RunCommand(c, command, "booster.uke")
+	_, err := cmdtesting.RunCommand(c, command, "--all-controllers", "booster.uke")
 	c.Assert(err, tc.ErrorIsNil)
 	// The offer was resolved to the "other" controller and its URL is
 	// namespaced accordingly on the consumed offer.
 	c.Check(consumedOfferURL(c, targetStub), tc.Equals, "other:bob/booster.uke")
 }
 
-func (s *ConsumeSuite) TestConsumeUnqualifiedNotFoundAnywhere(c *tc.C) {
+func (s *ConsumeSuite) TestConsumeAllControllersNotFoundAnywhere(c *tc.C) {
 	s.store.Controllers["other"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["other"] = jujuclient.AccountDetails{User: "bob"}
 
 	// No controller hosts the offer.
 	command, _ := s.newResolverConsumeCommand(map[string]bool{})
 
-	_, err := cmdtesting.RunCommand(c, command, "booster.uke")
+	_, err := cmdtesting.RunCommand(c, command, "--all-controllers", "booster.uke")
 	c.Assert(err, tc.ErrorMatches, `offer "bob/booster.uke" on any registered controller not found`)
 }
 
-func (s *ConsumeSuite) TestConsumeUnqualifiedPrefersCurrentController(c *tc.C) {
+func (s *ConsumeSuite) TestConsumeAllControllersPrefersCurrentController(c *tc.C) {
 	s.store.Controllers["other"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["other"] = jujuclient.AccountDetails{User: "bob"}
 
 	// Both controllers host it; the current controller (test-master) must win.
 	command, targetStub := s.newResolverConsumeCommand(map[string]bool{"test-master": true, "other": true})
 
-	_, err := cmdtesting.RunCommand(c, command, "booster.uke")
+	_, err := cmdtesting.RunCommand(c, command, "--all-controllers", "booster.uke")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(consumedOfferURL(c, targetStub), tc.Equals, "test-master:bob/booster.uke")
 }
@@ -216,7 +231,8 @@ func (s *ConsumeSuite) TestConsumeExplicitSourceSkipsResolution(c *tc.C) {
 	s.store.Controllers["other"] = jujuclient.ControllerDetails{}
 	s.store.Accounts["other"] = jujuclient.AccountDetails{User: "bob"}
 
-	// Only "other" hosts it; naming it explicitly must target it directly.
+	// Only "other" hosts it; naming it explicitly must target it directly
+	// (flag not needed because source is explicit).
 	command, targetStub := s.newResolverConsumeCommand(map[string]bool{"other": true})
 
 	_, err := cmdtesting.RunCommand(c, command, "other:booster.uke")
