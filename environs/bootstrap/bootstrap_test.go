@@ -43,7 +43,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
-	"github.com/juju/juju/internal/featureflag"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/testhelpers"
@@ -1022,8 +1021,6 @@ func (s *bootstrapSuite) TestBootstrapControllerCharmChannel(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
 	err := os.WriteFile(snapPath, []byte("snap"), 0644)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1045,8 +1042,6 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocal(c *tc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	dir := c.MkDir()
 	snapPath := filepath.Join(dir, "juju-controller.snap")
 	assertPath := filepath.Join(dir, "juju-controller.assert")
@@ -1070,29 +1065,7 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLocalWithAssert(c *tc.C) {
 	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapAssertPath, tc.Equals, assertPath)
 }
 
-func (s *bootstrapSuite) TestBootstrapControllerSnapNotPlumbedWithoutFeatureFlag(c *tc.C) {
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
-	err := os.WriteFile(snapPath, []byte("snap"), 0644)
-	c.Assert(err, tc.ErrorIsNil)
-
-	env := newEnviron("foo", useDefaultKeys, nil)
-	ctx := cmdtesting.Context(c)
-	err = bootstrap.Bootstrap(environscmd.BootstrapContext(c.Context(), ctx), env,
-		bootstrap.BootstrapParams{
-			ControllerConfig:        coretesting.FakeControllerConfig(),
-			AdminSecret:             "admin-secret",
-			CAPrivateKey:            coretesting.CAKey,
-			SSHServerHostKey:        coretesting.SSHServerHostKey,
-			SupportedBootstrapBases: supportedJujuBases,
-			ControllerSnapPath:      snapPath,
-		})
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(env.instanceConfig.Bootstrap.ControllerSnapPath, tc.Equals, "")
-}
-
 func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	resolvedVersion := jujuversion.Current.ToPatch()
 	channel := fmt.Sprintf("%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor)
 	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
@@ -1108,6 +1081,11 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 			CAPrivateKey:            coretesting.CAKey,
 			SSHServerHostKey:        coretesting.SSHServerHostKey,
 			SupportedBootstrapBases: supportedJujuBases,
+			// Pass the edge channel explicitly to trigger store-install resolution.
+			ControllerSnapChannel: charm.Channel{
+				Track: fmt.Sprintf("%d.%d", jujuversion.Current.Major, jujuversion.Current.Minor),
+				Risk:  charm.Edge,
+			},
 		})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -1116,8 +1094,6 @@ func (s *bootstrapSuite) TestBootstrapControllerSnapLatestFromSnapStore(c *tc.C)
 }
 
 func (s *bootstrapSuite) TestBootstrapControllerSnapCandidateChannel(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	resolvedVersion := jujuversion.Current.ToPatch()
 	s.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
 		return fmt.Sprintf(`
