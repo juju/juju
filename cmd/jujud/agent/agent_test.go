@@ -112,7 +112,7 @@ func TestControllerStartupValueProviderSuite(t *testing.T) {
 
 func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -161,7 +161,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentRun
 
 func (s *controllerStartupValueProviderSuite) TestLoggingOverrideFieldTakesPrecedence(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -201,7 +201,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReturnsRuntimeC
 
 func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	dataDirOne := filepath.Join(runtimeDir, "data-one")
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
@@ -254,7 +254,7 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 
 func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -311,7 +311,7 @@ func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigErro
 
 func (s *controllerStartupValueProviderSuite) TestCurrentSnapshotReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	insecure := true
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:           "0",
