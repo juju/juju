@@ -207,11 +207,6 @@ type ModelImporter interface {
 	// path, running a durable, idempotent phase machine. It is also safe to
 	// call for legacy (3.6/4.0) imports that have no import claim.
 	ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error
-
-	// AbortModel drives target-side cleanup of a partially imported v8 model,
-	// transitioning its import claim to the aborting phase and undoing the
-	// controller-database import writes. It is idempotent.
-	AbortModel(ctx context.Context, modelUUID model.UUID) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.

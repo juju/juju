@@ -117,6 +117,7 @@ JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_i
 
 	var rows []importClaimStatusRow
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
 		err := tx.Query(ctx, stmt).GetAll(&rows)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
@@ -169,6 +170,7 @@ LIMIT  1
 
 	var registered bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var err error
 		registered, err = rowExists(ctx, tx, stmt, arg)
 		return err
 	})
