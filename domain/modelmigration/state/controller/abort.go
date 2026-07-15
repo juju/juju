@@ -82,7 +82,11 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 			return errors.Capture(err)
 		}
 		if affected == 0 {
-			// Concurrent phase change won the race.
+			// The read above saw importing, so the CAS should have matched.
+			// This is unreachable under snapshot isolation: a concurrent
+			// phase change on another node would fail the transaction at
+			// commit time and the framework would retry, at which point the
+			// read would see the new phase. Treat it as a defensive guard.
 			return errors.Errorf(
 				"import phase changed concurrently: %w",
 				modelmigrationerrors.ErrPhaseTransitionInvalid,

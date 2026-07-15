@@ -96,12 +96,15 @@ func (c Config) Validate() error {
 }
 
 // modelState holds the reconciler's per-model bookkeeping: the exponential
-// backoff for a failing aborting claim, and the last time a stale claim was
-// warned about. It is owned by the loop goroutine.
+// backoff for a failing aborting claim, the last time a stale claim was
+// warned about, and whether abort compensation has already completed (so the
+// reconciler does not re-drive the full compensation on every scan when only
+// the database drop is pending). It is owned by the loop goroutine.
 type modelState struct {
-	nextRetry  time.Time
-	backoff    time.Duration
-	lastWarned time.Time
+	nextRetry   time.Time
+	backoff     time.Duration
+	lastWarned  time.Time
+	compensated bool
 }
 
 // Reconciler completes interrupted target-side migration import aborts.
@@ -149,8 +152,12 @@ func (w *Reconciler) Wait() error {
 func (w *Reconciler) Report(ctx context.Context) map[string]any {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	lastRun := ""
+	if !w.lastRun.IsZero() {
+		lastRun = w.lastRun.Format(time.RFC3339)
+	}
 	return map[string]any{
-		"last-run":         w.lastRun,
+		"last-run":         lastRun,
 		"pending-aborting": w.lastPending,
 	}
 }
@@ -220,7 +227,7 @@ func (w *Reconciler) reconcileAborting(ctx context.Context, claim modelmigration
 	}
 
 	modelUUID := coremodel.UUID(claim.ModelUUID)
-	if err := w.finalizeAbort(ctx, modelUUID); err != nil {
+	if err := w.finalizeAbort(ctx, modelUUID, state); err != nil {
 		w.recordFailure(ctx, claim, now, err)
 		return
 	}
@@ -239,9 +246,22 @@ func (w *Reconciler) reconcileAborting(ctx context.Context, claim modelmigration
 // drop is proven complete (the staged deletion row is gone), so
 // FinalizeAbortedImport returns ErrAbortNotFinalizable until then and this
 // method retries on the next scan.
-func (w *Reconciler) finalizeAbort(ctx context.Context, modelUUID coremodel.UUID) error {
-	if err := w.config.Abort(ctx, modelUUID); err != nil {
-		return errors.Errorf("re-driving abort compensation: %w", err)
+//
+// AbortModelImport is idempotent, but it still pays a GetImportClaim round-trip
+// and a full RemoveOnAbortImport call per scan. Once a scan has completed
+// compensation successfully (Abort returned nil), subsequent scans only need to
+// retry finalization — the database drop is pending out of band — so the
+// compensated flag is set and the Abort call is skipped.
+func (w *Reconciler) finalizeAbort(ctx context.Context, modelUUID coremodel.UUID, state *modelState) error {
+	if state == nil || !state.compensated {
+		if err := w.config.Abort(ctx, modelUUID); err != nil {
+			return errors.Errorf("re-driving abort compensation: %w", err)
+		}
+		if state == nil {
+			state = &modelState{}
+			w.models[modelUUID.String()] = state
+		}
+		state.compensated = true
 	}
 
 	if err := w.config.Service.FinalizeAbortedImport(ctx, modelUUID); err != nil {

@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/domain/modelimport"
+	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
+	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -100,6 +102,12 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 // free when this returns and an immediate re-migration succeeds. The model
 // database is never opened during abort, so no model-DB scope is needed.
 //
+// The controller-scoped modelmigration import service is constructed directly
+// from the controller DB rather than via ServicesForModel: the abort path only
+// uses controller-DB state (import claims, namespace registrations, staged
+// deletions), and a re-invocation after a prior partial abort may have already
+// removed the model namespace, which would make ServicesForModel fail.
+//
 // If the claim cannot be finalized within the wait budget the abort is still
 // accepted: the claim stays in the aborting phase and the abort reconciler
 // completes it later.
@@ -108,20 +116,15 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 // [github.com/juju/juju/domain/modelmigration/errors.ErrAbortActivating] when
 // activation has already crossed the point of no return.
 func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID) error {
-	domainServices, err := i.domainServices.ServicesForModel(ctx, modelUUID)
-	if err != nil {
-		return internalerrors.Errorf(
-			"retrieving domain services for model %q: %w", modelUUID, err,
-		)
-	}
-	claim := domainServices.ModelMigration()
-
 	scope := i.scope(modelUUID)
 	deps := Deps{
 		ControllerDB: scope.ControllerDB(),
 		Clock:        i.clock,
 		Logger:       i.logger,
 	}
+	claim := migrationclaimservice.NewImportService(
+		migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
+	)
 	if err := AbortModelImport(ctx, deps, claim, modelUUID); err != nil {
 		return err
 	}
