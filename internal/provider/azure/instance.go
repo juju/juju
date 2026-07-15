@@ -421,7 +421,11 @@ func (inst *azureInstance) openPortsOnGroup(
 			destAddr = nsgInfo.ipv6Address.Value
 		} else if from != "*" && from != "" && from != firewall.AllNetworksIPV4CIDR {
 			// Specific CIDR: classify family.
-			if at, err := corenetwork.CIDRAddressType(from); err == nil && at == corenetwork.IPv6Address {
+			at, err := corenetwork.CIDRAddressType(from)
+			if err != nil {
+				logger.Debugf(ctx, "cannot classify CIDR %q, "+
+					"treating as IPv4: %v", from, err)
+			} else if at == corenetwork.IPv6Address {
 				if nsgInfo.ipv6Address == nil {
 					logger.Debugf(ctx, "skipping IPv6 rule %q: machine has no IPv6 address", ruleName)
 					continue
