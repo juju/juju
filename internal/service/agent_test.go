@@ -47,6 +47,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *tc.C) {
 		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
+		"--machine-agent-only",
 	}, " ")
 	serviceBinary := jujuagentd
 	serviceArgs := []string{
@@ -54,6 +55,7 @@ func (*agentSuite) TestAgentConfMachineLocal(c *tc.C) {
 		"--data-dir", dataDir,
 		"--machine-id", "0",
 		"--debug",
+		"--machine-agent-only",
 	}
 	c.Check(conf, tc.DeepEquals, common.Conf{
 		Desc:          "juju agent for machine-0",
@@ -82,6 +84,7 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *tc.C) {
 		"--data-dir", shquote(dataDir),
 		"--machine-id", "0",
 		"--debug",
+		"--machine-agent-only",
 	}, " ")
 	serviceBinary := jujuagentd
 	serviceArgs := []string{
@@ -89,6 +92,7 @@ func (*agentSuite) TestAgentConfMachineUbuntu(c *tc.C) {
 		"--data-dir", dataDir,
 		"--machine-id", "0",
 		"--debug",
+		"--machine-agent-only",
 	}
 	c.Check(conf, tc.DeepEquals, common.Conf{
 		Desc:          "juju agent for machine-0",
