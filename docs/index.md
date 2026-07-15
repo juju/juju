@@ -32,6 +32,8 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 
 **Point of entry:**
 
+Start here if you're new to Juju.
+
 * Tutorial: {ref}`Get started with Juju <tutorial>`
 * Installation: {ref}`Install Juju <install-juju>`
 
@@ -40,50 +42,61 @@ Whether you are a CIO or SysAdmin, DevOps engineer, or SRE, Juju helps you take 
 Juju models business deployment logic through charms; charms describe how an application is deployed.
 
 * **Models**: {ref}`Overview <model>` | {ref}`Manage models <manage-models>`
-* **Charmed applications**: {ref}`Charm reference <charm>` | {ref}`Manage charms <manage-charms>` | {ref}`Application reference <application>` | {ref}`Manage applications <manage-applications>`
-* **Application integration**: {ref}`Offers <offer>` | {ref}`Manage offers <manage-offers>` | {ref}`Secrets <secret>` | {ref}`Manage secrets <manage-secrets>` | {ref}`Manage secret backends <manage-secret-backends>`
-* **Exposing application knobs**: {ref}`Actions <action>` | {ref}`Manage actions <manage-actions>` | {ref}`Relations <relation>` | {ref}`Manage relations <manage-relations>` | {ref}`Resources <charm-resource>` | {ref}`Manage charm resources <manage-charm-resources>` | {ref}`Configurations <application-configuration>` | {ref}`Configure an application <configure-an-application>`
-* **Units**: {ref}`Reference <unit>` | {ref}`Manage units <manage-units>` | {ref}`Scaling <scaling>` | {ref}`Scale an application <scale-an-application>`
+* **Charmed applications**: {ref}`Charm reference <charm>` | {ref}`Manage charms <manage-charms>` | {ref}`Application reference <application>` | {ref}`Manage applications <manage-applications>` | {ref}`Bundle reference <bundle>`
+* **Application operations**: {ref}`Actions <action>` | {ref}`Manage actions <manage-actions>` | {ref}`Relations <relation>` | {ref}`Manage relations <manage-relations>` | {ref}`Offers <offer>` | {ref}`Manage offers <manage-offers>` | {ref}`Charm resources <charm-resource>` | {ref}`Manage charm resources <manage-charm-resources>` | {ref}`Configurations <application-configuration>` | {ref}`Configure an application <configure-an-application>` | {ref}`Secrets <secret>` | {ref}`Manage secrets <manage-secrets>` | {ref}`Manage secret backends <manage-secret-backends>`
+* **Units**: {ref}`Unit reference <unit>` | {ref}`Manage units <manage-units>` | {ref}`Scaling <scaling>` | {ref}`Scale an application <scale-an-application>`
 
 **Juju's core machinery**
 
-* **Overview**: {ref}`juju-architecture` | **Client — Juju CLI**: {ref}`Reference <juju-cli>` | {ref}`Manage Juju <manage-juju>`
+The controller, agents, and CLI form the engine that coordinates between the application and cloud layers.
+
+* **Architecture**: {ref}`Juju architecture <juju-architecture>`
+* **Client — Juju CLI**: {ref}`Reference <juju-cli>` | {ref}`Manage Juju <manage-juju>`
 * **Controller**: {ref}`Reference <controller>` | {ref}`Manage controllers <manage-controllers>` | {ref}`Bootstrap a controller <bootstrap-a-controller>`
 * **Database**: {ref}`Reference <database>` | {ref}`Manage the databases <manage-the-databases>` | {ref}`Juju DB REPL <juju-db-repl>`
 * **Agents**: {ref}`Reference <agent>`
 * **Pebble**: {ref}`Reference <pebble>`
 * **Hooks and hook commands**: {ref}`Hook reference <hook>` | {ref}`Hook command reference <hook-command>`
 * **Scripts**: {ref}`Reference <script>`
-* **Authentication and authorisation**: {ref}`Users <user>` | {ref}`Manage users <manage-users>` | {ref}`Manage user access <manage-user-access>` | {ref}`SSH keys <ssh-key>` | {ref}`Manage SSH keys <manage-ssh-keys>`
-* **Observability and monitoring**: {ref}`Collect metrics about a controller <collect-metrics-about-a-controller>` | {ref}`Manage logs <manage-logs>` | {ref}`Logs reference <log>` | {ref}`Telemetry reference <telemetry>`
 
 **Enterprise features**
 
-* **Juju Dashboard**: {ref}`Reference <juju-dashboard>` | {ref}`Manage the Juju Dashboard <manage-the-juju-dashboard>`
+Additional capabilities for production and enterprise deployments, including access control, observability, a web dashboard, high availability, and integrations with JAAS and Terraform.
+
+* **Authentication and authorisation**: {ref}`Users <user>` | {ref}`Manage users <manage-users>` | {ref}`Manage user access <manage-user-access>` | {ref}`SSH keys <ssh-key>` | {ref}`Manage SSH keys <manage-ssh-keys>`
 * **High availability**: {ref}`Reference <high-availability>` | {ref}`Make a controller highly available <make-a-controller-highly-available>` | {ref}`Make an application highly available <make-an-application-highly-available>`
+* **Observability and monitoring**: {ref}`Collect metrics about a controller <collect-metrics-about-a-controller>` | {ref}`Manage logs <manage-logs>` | {ref}`Logs reference <log>` | {ref}`Telemetry reference <telemetry>`
+* **Juju Dashboard**: {ref}`Reference <juju-dashboard>` | {ref}`Manage the Juju Dashboard <manage-the-juju-dashboard>`
 * IaC client — Terraform Provider for Juju: [Documentation](https://documentation.ubuntu.com/terraform-provider-juju/latest/)
 * Global view, external identity provider, and ReBAC authorisation — JAAS: [Documentation](https://documentation.ubuntu.com/jaas/latest/)
 
 **Clouds**
 
+Juju provisions and manages the cloud resources — machines, networking, storage — that applications run on.
+
 * Basics: {ref}`Cloud reference <cloud>`
 * Working with clouds: {ref}`Manage clouds <manage-clouds>`
-* Credentials: {ref}`Reference <credential>` | {ref}`Manage credentials <manage-credentials>`
-* Metadata: {ref}`Reference <metadata>` | {ref}`Manage metadata <manage-metadata>`
-* Compute: {ref}`Reference <resource-compute>` | {ref}`Machine reference <machine>` | {ref}`Manage machines <manage-machines>` | {ref}`Constraints <constraint>` | {ref}`Placement directives <placement-directive>`
-* Networking — spaces: {ref}`Reference <space>` | {ref}`Manage spaces <manage-spaces>`
-* Networking — subnets: {ref}`Reference <subnet>` | {ref}`Manage subnets <manage-subnets>`
-* Storage: {ref}`Reference <storage>` | {ref}`Manage storage <manage-storage>` | {ref}`Manage storage pools <manage-storage-pools>`
-* Zones: {ref}`Reference <zone>`
+* Credentials: {ref}`Credential reference <credential>` | {ref}`Manage credentials <manage-credentials>`
+* Metadata: {ref}`Simplestreams metadata <metadata>` | {ref}`Manage metadata <manage-metadata>`
+* Compute: {ref}`Resource (compute) <resource-compute>` | {ref}`Machine reference <machine>` | {ref}`Manage machines <manage-machines>` | {ref}`Constraints <constraint>` | {ref}`Placement directives <placement-directive>`
+* Zones: {ref}`Zone reference <zone>`
+* Networking — spaces: {ref}`Space reference <space>` | {ref}`Manage spaces <manage-spaces>`
+* Networking — subnets: {ref}`Subnet reference <subnet>` | {ref}`Manage subnets <manage-subnets>`
+* Storage: {ref}`Storage reference <storage>` | {ref}`Manage storage <manage-storage>` | {ref}`Manage storage pools <manage-storage-pools>`
 
 **Security and performance**
 
-* Security: {ref}`Overview <juju-security>` | {ref}`Harden your deployment <harden-your-deployment>`
+Guidance on securing and optimising your Juju deployment.
+
+* Security: {ref}`Juju security <juju-security>` | {ref}`Harden your deployment <harden-your-deployment>`
 * Performance: {ref}`performance-with-juju`
 
-**Deployment lifecycle:**
+**Deployment lifecycle**
 
-* Set up: {ref}`Set up your deployment <set-up-your-deployment>` | {ref}`Set up for local testing <set-things-up>` | {ref}`Set up offline <take-your-deployment-offline>` | {ref}`add-a-cloud` | {ref}`add-a-credential`
+End-to-end procedures for standing up, maintaining, and tearing down a Juju deployment.
+
+* Set up: {ref}`Set up your deployment <set-up-your-deployment>` | {ref}`Set up for local testing <set-things-up>` | {ref}`Set up offline <take-your-deployment-offline>` | {ref}`Add a cloud <add-a-cloud>` | {ref}`Add a credential <add-a-credential>`
+* Harden: {ref}`Harden your deployment <harden-your-deployment>`
 * Upgrade: {ref}`Upgrade your deployment <upgrade-your-deployment>` | {ref}`Patch version <upgrade-your-juju-components-patch-version>` | {ref}`Minor or major version <upgrade-your-juju-components-minor-or-major-version>` | {ref}`From 3.6 to 4.0 <upgrade-your-juju-deployment-from-36-to-40>`
 * Troubleshoot: {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
 * Tear down: {ref}`Tear things down <tear-things-down>`
