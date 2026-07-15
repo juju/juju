@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	gc "gopkg.in/check.v1"
 )
 
@@ -27,13 +27,14 @@ type mockHTTPClient struct {
 	keys string
 }
 
-func (m mockHTTPClient) Get(url string) (*http.Response, error) {
-	if url != m.url {
+func (m mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	if req.URL.String() != m.url {
 		return nil, errors.New("not found")
 	}
 	return &http.Response{
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(strings.NewReader(m.keys)),
+		Request:    req,
 	}, nil
 }
 
@@ -51,11 +52,15 @@ func EncodedJWT(params JWTParams, jwkSet jwk.Set, signingKey jwk.Key) ([]byte, e
 		return nil, errors.Errorf("no jwk found")
 	}
 
-	err := signingKey.Set(jwk.AlgorithmKey, jwa.RS256)
+	err := signingKey.Set(jwk.AlgorithmKey, jwa.RS256())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = signingKey.Set(jwk.KeyIDKey, pubKey.KeyID())
+	key, ok := pubKey.KeyID()
+	if !ok {
+		return nil, errors.Errorf("no public key id")
+	}
+	err = signingKey.Set(jwk.KeyIDKey, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -66,6 +71,7 @@ func EncodedJWT(params JWTParams, jwkSet jwk.Set, signingKey jwk.Key) ([]byte, e
 		Issuer("test").
 		JwtID(uuid.NewString()).
 		Claim("access", params.claims).
+		IssuedAt(time.Now()).
 		Expiration(time.Now().Add(time.Hour)).
 		Build()
 	if err != nil {
@@ -75,7 +81,7 @@ func EncodedJWT(params JWTParams, jwkSet jwk.Set, signingKey jwk.Key) ([]byte, e
 	freshToken, err := jwt.Sign(
 		token,
 		jwt.WithKey(
-			jwa.RS256,
+			jwa.RS256(),
 			signingKey,
 		),
 	)

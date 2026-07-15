@@ -6,6 +6,7 @@ package jwtparser
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/juju/testing"
@@ -32,15 +33,11 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	defer s.setupMocks(c).Finish()
-}
-
 // TestJWTParserWorkerWithNoConfig tests that NewWorker function
 // creates a non-nil JWTParser when the login-refresh-url config
 // option is *not* set.
 func (s *workerSuite) TestJWTParserWorkerWithNoConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	s.controllerConfig.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
 	w, err := NewWorker(s.controllerConfig, s.client)
@@ -55,12 +52,20 @@ func (s *workerSuite) TestJWTParserWorkerWithNoConfig(c *gc.C) {
 // TestJWTParserWorkerWithLoginRefreshURL tests that NewWorker function
 // creates a non-nil JWTParser when the login-refresh-url config option is set.
 func (s *workerSuite) TestJWTParserWorkerWithLoginRefreshURL(c *gc.C) {
-	s.client.EXPECT().Get(gomock.Any()).Return(&http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`{"keys":[]}`)),
-	}, nil)
+	defer s.setupMocks(c).Finish()
+	refreshURL := "https://example.com/keys"
+	parsedURL, err := url.Parse(refreshURL)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.client.EXPECT().Do(gomock.Any()).DoAndReturn(func(_ *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(`{"keys":[]}`)),
+			Request:    &http.Request{URL: parsedURL},
+		}, nil
+	}).AnyTimes()
 	s.controllerConfig.EXPECT().ControllerConfig().Return(controller.Config{
-		"login-token-refresh-url": "https://example.com",
+		"login-token-refresh-url": refreshURL,
 	}, nil)
 
 	w, err := NewWorker(s.controllerConfig, s.client)
