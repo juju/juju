@@ -331,11 +331,13 @@ func (s *environSuite) TestNetworkTemplateResourcesDualStack(c *tc.C) {
 	c.Assert(apiV4Rule.Properties, tc.NotNil)
 	c.Check(toValue(apiV4Rule.Properties.DestinationAddressPrefix), tc.Equals, azure.ControllerSubnetPrefix)
 	c.Check(apiV4Rule.Properties.DestinationAddressPrefixes, tc.IsNil)
+	c.Check(toValue(apiV4Rule.Properties.Priority), tc.Equals, int32(101))
 
 	c.Assert(apiV6Rule, tc.NotNil)
 	c.Assert(apiV6Rule.Properties, tc.NotNil)
 	c.Check(toValue(apiV6Rule.Properties.DestinationAddressPrefix), tc.Equals, azure.ControllerSubnetIPv6Prefix)
 	c.Check(apiV6Rule.Properties.DestinationAddressPrefixes, tc.IsNil)
+	c.Check(toValue(apiV6Rule.Properties.Priority), tc.Equals, int32(102))
 
 	// Second resource: VNet.
 	vnet := resources[1]

@@ -673,26 +673,46 @@ func (s *instanceSuite) TestInstanceOpenPortsDualStack(c *tc.C) {
 	subnetSender := makeSender(internalSubnetPath, nic0IPv4Config.Properties.Subnet)
 	okSender := &azuretesting.MockSender{}
 	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
-	// Four requests: 1 subnet GET + 3 PUTs (IPv4, IPv6 wildcard, specific IPv6)
-	s.sender = azuretesting.Senders{subnetSender, okSender, okSender, okSender}
+	// Five requests: 1 subnet GET + 4 PUTs (IPv4 wildcard, IPv4
+	// specific, IPv6 wildcard, specific IPv6)
+	s.sender = azuretesting.Senders{subnetSender, okSender, okSender, okSender, okSender}
 
-	// Rules with IPv4 and IPv6 sources
+	// Rules with IPv4 wildcard, IPv4 specific, IPv6 wildcard, and
+	// specific IPv6 sources
 	err := fwInst.OpenPorts(c.Context(), "0", firewall.IngressRules{
-		firewall.NewIngressRule(corenetwork.MustParsePortRange("1234/tcp"), "10.0.0.0/24"),                // IPv4
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("4321/tcp")),                               // IPv4 wildcard (*)
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("1234/tcp"), "10.0.0.0/24"),                // IPv4 specific
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("5678/tcp"), firewall.AllNetworksIPV6CIDR), // IPv6 wildcard
 		firewall.NewIngressRule(corenetwork.MustParsePortRange("9999/tcp"), "2002:db8::1/128"),            // Specific IPv6
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	c.Assert(s.requests, tc.HasLen, 4)
+	c.Assert(s.requests, tc.HasLen, 5)
 	// Request 0: GET subnet (to resolve security group)
 	c.Assert(s.requests[0].Method, tc.Equals, "GET")
 	c.Assert(s.requests[0].URL.Path, tc.Equals, internalSubnetPath)
 
-	// Request 1: PUT IPv4 rule for IPv4 source → IPv4 destination
+	// Request 1: PUT IPv4 rule for wildcard source → IPv4 destination
 	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
-	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1234-cidr-10-0-0-0-24"))
+	c.Assert(s.requests[1].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-4321"))
 	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("4321/tcp from *"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new("*"),
+			DestinationPortRange:     new("4321"),
+			DestinationAddressPrefix: new("10.0.0.4"), // IPv4 destination
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+
+	// Request 2: PUT IPv4 rule for IPv4 source → IPv4 destination
+	c.Assert(s.requests[2].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-1234-cidr-10-0-0-0-24"))
+	assertRequestBody(c, s.requests[2], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              new("1234/tcp from 10.0.0.0/24"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
@@ -701,15 +721,15 @@ func (s *instanceSuite) TestInstanceOpenPortsDualStack(c *tc.C) {
 			DestinationPortRange:     new("1234"),
 			DestinationAddressPrefix: new("10.0.0.4"), // IPv4 destination
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 new(int32(200)),
+			Priority:                 new(int32(201)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
 
-	// Request 2: PUT IPv6 rule for IPv6 wildcard source → IPv6 destination
-	c.Assert(s.requests[2].Method, tc.Equals, "PUT")
-	c.Assert(s.requests[2].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-5678"))
-	assertRequestBody(c, s.requests[2], &armnetwork.SecurityRule{
+	// Request 3: PUT IPv6 rule for IPv6 wildcard source → IPv6 destination
+	c.Assert(s.requests[3].Method, tc.Equals, "PUT")
+	c.Assert(s.requests[3].URL.Path, tc.Equals, securityRulePath("machine-0-tcp-5678"))
+	assertRequestBody(c, s.requests[3], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              new("5678/tcp"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
@@ -718,14 +738,14 @@ func (s *instanceSuite) TestInstanceOpenPortsDualStack(c *tc.C) {
 			DestinationPortRange:     new("5678"),
 			DestinationAddressPrefix: new("fd00::4"), // IPv6 destination
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 new(int32(201)),
+			Priority:                 new(int32(202)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
 
-	// Request 3: PUT IPv6 rule for specific IPv6 source → IPv6 destination
-	c.Assert(s.requests[3].Method, tc.Equals, "PUT")
-	assertRequestBody(c, s.requests[3], &armnetwork.SecurityRule{
+	// Request 4: PUT IPv6 rule for specific IPv6 source → IPv6 destination
+	c.Assert(s.requests[4].Method, tc.Equals, "PUT")
+	assertRequestBody(c, s.requests[4], &armnetwork.SecurityRule{
 		Properties: &armnetwork.SecurityRulePropertiesFormat{
 			Description:              new("9999/tcp from 2002:db8::1/128"),
 			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
@@ -734,7 +754,7 @@ func (s *instanceSuite) TestInstanceOpenPortsDualStack(c *tc.C) {
 			DestinationPortRange:     new("9999"),
 			DestinationAddressPrefix: new("fd00::4"), // IPv6 destination
 			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-			Priority:                 new(int32(202)),
+			Priority:                 new(int32(203)),
 			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 		},
 	})
