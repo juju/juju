@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -694,8 +693,6 @@ echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 }
 
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapOnly(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	snapContent := []byte("fake snap binary content")
 	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
 	err := os.WriteFile(snapPath, snapContent, 0644)
@@ -714,8 +711,6 @@ snap install --dangerous %[1]s`,
 }
 
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndAssert(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	snapContent := []byte("fake snap binary content")
 	assertContent := []byte("fake snap assert content")
 	dir := c.MkDir()
@@ -744,8 +739,6 @@ snap install %[1]s`,
 }
 
 func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnap(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
 		cfg.Bootstrap.ControllerSnapChannel = "4.0/stable"
 		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
@@ -760,14 +753,10 @@ installed_version=$(snap list 'juju' | awk 'NR>1 {print $2; exit}'); test "$inst
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
-func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapFeatureFlagOff(c *tc.C) {
-	snapContent := []byte("fake snap binary content")
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
-	err := os.WriteFile(snapPath, snapContent, 0644)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// With the feature flag disabled, the snap must not appear in cloud-init.
-	cfg := makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, "")
+func (s *cloudinitSuite) TestCloudInitWithNoControllerSnapDoesNotEmitSnapCommands(c *tc.C) {
+	// When no snap path is set, the cloud-init output must not include any
+	// snap install commands for the controller snap.
+	cfg := makeBootstrapConfig(jammy, 0)
 	envConfig := minimalModelConfig(c)
 	testConfig := cfg.maybeSetModelConfig(envConfig).render()
 	ci, err := cloudinit.New(testConfig.Base.OS)
