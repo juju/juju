@@ -392,13 +392,11 @@ func (w *userdataConfig) ConfigureJuju() error {
 		if err = w.addLocalControllerCharmsUpload(); err != nil {
 			return errors.Trace(err)
 		}
-		if featureflag.Enabled(featureflag.ControllerSnap) {
-			if err = w.addControllerSnapUpload(); err != nil {
-				return errors.Trace(err)
-			}
-			if err = w.addControllerSnapInstall(); err != nil {
-				return errors.Trace(err)
-			}
+		if err = w.addControllerSnapUpload(); err != nil {
+			return errors.Trace(err)
+		}
+		if err = w.addControllerSnapInstall(); err != nil {
+			return errors.Trace(err)
 		}
 		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
@@ -637,11 +635,6 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 
 	if w.icfg.Bootstrap.ControllerSnapPath == "" {
 		return w.addControllerSnapStoreInstall()
-	}
-
-	snapPath := w.icfg.Bootstrap.ControllerSnapPath
-	if snapPath == "" {
-		return nil
 	}
 
 	snapFile := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapArchive)
