@@ -760,6 +760,68 @@ func (s *instanceSuite) TestInstanceOpenPortsDualStack(c *tc.C) {
 	})
 }
 
+func (s *instanceSuite) TestInstanceOpenPortsIPv6NilPrivateIPAddress(c *tc.C) {
+	// Dual-stack NIC with an IPv6 config that has nil PrivateIPAddress
+	// (skipped) followed by a valid IPv6 config. The IPv6 rule should
+	// route to the valid IPv6 address.
+	nsg := &armnetwork.SecurityGroup{
+		ID:   &internalSecurityGroupPath,
+		Name: new("juju-internal-nsg"),
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
+			SecurityRules: []*armnetwork.SecurityRule{},
+		},
+	}
+	nic0IPv4Config := makeIPConfiguration("10.0.0.4")
+	nic0IPv4Config.Properties.Primary = new(true)
+	nic0IPv4Config.Properties.Subnet = &armnetwork.Subnet{
+		ID: &internalSubnetPath,
+		Properties: &armnetwork.SubnetPropertiesFormat{
+			NetworkSecurityGroup: nsg,
+		},
+	}
+	nic0IPv6ConfigNil := makeIPv6Configuration("")
+	nic0IPv6Config := makeIPv6Configuration("fd00::4")
+	nic0 := makeNetworkInterface(
+		"nic-0", "machine-0",
+		nic0IPv4Config, nic0IPv6ConfigNil, nic0IPv6Config,
+	)
+
+	s.networkInterfaces = []*armnetwork.Interface{nic0}
+
+	inst := s.getInstance(c, "machine-0")
+	fwInst, ok := inst.(instances.InstanceFirewaller)
+	c.Assert(ok, tc.IsTrue)
+
+	subnetSender := makeSender(internalSubnetPath, nic0IPv4Config.Properties.Subnet)
+	okSender := &azuretesting.MockSender{}
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}")) //nolint:bodyclose
+	// Two requests: 1 subnet GET + 1 PUT (IPv6 wildcard)
+	s.sender = azuretesting.Senders{subnetSender, okSender}
+
+	err := fwInst.OpenPorts(c.Context(), "0", firewall.IngressRules{
+		firewall.NewIngressRule(corenetwork.MustParsePortRange("5678/tcp"), firewall.AllNetworksIPV6CIDR),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Assert(s.requests, tc.HasLen, 2)
+	c.Assert(s.requests[0].Method, tc.Equals, "GET")
+	// IPv6 wildcard rule should route to the valid IPv6 address.
+	c.Assert(s.requests[1].Method, tc.Equals, "PUT")
+	assertRequestBody(c, s.requests[1], &armnetwork.SecurityRule{
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			Description:              new("5678/tcp"),
+			Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+			SourcePortRange:          new("*"),
+			SourceAddressPrefix:      new(firewall.AllNetworksIPV6CIDR),
+			DestinationPortRange:     new("5678"),
+			DestinationAddressPrefix: new("fd00::4"),
+			Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+			Priority:                 new(int32(200)),
+			Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+		},
+	})
+}
+
 func (s *instanceSuite) TestInstanceOpenPortsIPv6OnIPv4OnlyNIC(c *tc.C) {
 	// IPv4-only NIC with no IPv6 configuration.
 	nsg := &armnetwork.SecurityGroup{
