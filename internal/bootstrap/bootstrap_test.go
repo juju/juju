@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/tc"
 
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -43,7 +44,7 @@ func (s *BootstrapSuite) TestBootstrapParamsPathNoENVOverride(c *tc.C) {
 
 func (s *BootstrapSuite) TestIsBootstrapController(c *tc.C) {
 	dir := c.MkDir()
-	_, err := os.Create(filepath.Join(dir, "bootstrap-params"))
+	_, err := os.Create(filepath.Join(dir, controllerruntimeconfig.FileNameBootstrapParams))
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(IsBootstrapController(dir), tc.Equals, true)

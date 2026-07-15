@@ -83,24 +83,32 @@ func (ai AgentInfo) cmd(renderer shell.Renderer) string {
 	// The agent always starts with debug turned on. The logger worker
 	// will update this to the system logging environment as soon as
 	// it starts.
-	return strings.Join([]string{
+	parts := []string{
 		renderer.Quote(ai.jujud(renderer)),
 		string(ai.Kind),
 		"--data-dir", renderer.Quote(renderer.FromSlash(ai.DataDir)),
 		idOptions[ai.Kind], ai.ID,
 		"--debug",
-	}, " ")
+	}
+	if ai.Kind == AgentKindMachine {
+		parts = append(parts, "--machine-agent-only")
+	}
+	return strings.Join(parts, " ")
 }
 
 // execArgs returns an unquoted array of service arguments in case we need
 // them later.
 func (ai AgentInfo) execArgs(renderer shell.Renderer) []string {
-	return []string{
+	args := []string{
 		string(ai.Kind),
 		"--data-dir", renderer.FromSlash(ai.DataDir),
 		idOptions[ai.Kind], ai.ID,
 		"--debug",
 	}
+	if ai.Kind == AgentKindMachine {
+		args = append(args, "--machine-agent-only")
+	}
+	return args
 }
 
 func (ai AgentInfo) logFile(renderer shell.Renderer) string {
