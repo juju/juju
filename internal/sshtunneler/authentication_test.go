@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/canonical/gomock/gomock"
 	"github.com/juju/tc"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
 type authenticationSuite struct {
@@ -55,10 +55,21 @@ func (s *authenticationSuite) TestGeneratePassword(c *tc.C) {
 
 	parsedToken, err := jwt.Parse(rawToken, jwt.WithKey(authn.jwtAlg, authn.sharedSecret), jwt.WithClock(s.clock))
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(parsedToken.Subject(), tc.Equals, tokenSubject)
-	c.Assert(parsedToken.PrivateClaims()[tunnelIDClaimKey], tc.Equals, tunnelID)
-	c.Assert(parsedToken.Issuer(), tc.Equals, tokenIssuer)
-	c.Assert(parsedToken.Expiration().Sub(parsedToken.IssuedAt()), tc.Equals, maxTimeout)
+	subject, ok := parsedToken.Subject()
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(subject, tc.Equals, tokenSubject)
+	issuer, ok := parsedToken.Issuer()
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(issuer, tc.Equals, tokenIssuer)
+	expiration, ok := parsedToken.Expiration()
+	c.Assert(ok, tc.IsTrue)
+	issuedAt, ok := parsedToken.IssuedAt()
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(expiration.Sub(issuedAt), tc.Equals, maxTimeout)
+	var tokTunnelID string
+	err = parsedToken.Get(tunnelIDClaimKey, &tokTunnelID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(tokTunnelID, tc.Equals, tunnelID)
 }
 
 func (s *authenticationSuite) TestValidatePasswordInvalidToken(c *tc.C) {
@@ -86,5 +97,5 @@ func (s *authenticationSuite) TestValidatePasswordExpiredToken(c *tc.C) {
 	s.clock.EXPECT().Now().AnyTimes().Return(expiry)
 
 	_, err = authn.validatePassword(token)
-	c.Assert(err, tc.ErrorMatches, `failed to parse token: "exp" not satisfied`)
+	c.Assert(err, tc.ErrorMatches, `.*"exp" not satisfied: token is expired`)
 }
