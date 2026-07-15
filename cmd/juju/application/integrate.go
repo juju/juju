@@ -108,6 +108,12 @@ integrates with it via an offer endpoint:
 ` + "`<controller>`" + ` is the name of a controller (` + "`juju controllers`" + `).
 ` + "`<qualifier>`" + ` is used to disambiguate the model name.
 
+To discover offers you can consume, use ` + "`juju find-offers`" + `. It searches a
+single controller by default; pass ` + "`--all-controllers`" + ` to search across
+every controller registered locally and present them as one catalogue.
+Consuming an offer on another controller requires that controller to be
+registered locally, so its name resolves in the offer URL.
+
 ### Cross-model relations: network management
 
 When the consuming side (the local application) is behind a firewall and/or

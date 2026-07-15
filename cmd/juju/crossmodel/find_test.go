@@ -201,6 +201,65 @@ different  prod/model.hosted-db2  consume  http:db2, http:log
 	)
 }
 
+func (s *findSuite) TestFindAllControllersFansOut(c *tc.C) {
+	// Register a second controller in the store so the fan-out has more than
+	// one target.
+	s.store.Controllers["other"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["other"] = jujuclient.AccountDetails{User: "bob"}
+
+	apis := map[string]*mockFindAPI{
+		"test-master": {offerName: "hosted-db2", expectedModelName: "model", controllerName: "test-master"},
+		"other":       {offerName: "hosted-pg", expectedModelName: "model", controllerName: "other"},
+	}
+	aCmd := &findCommand{newAPIFunc: func(ctx context.Context, controllerName string) (FindAPI, error) {
+		api, ok := apis[controllerName]
+		c.Assert(ok, tc.IsTrue, tc.Commentf("unexpected controller %q", controllerName))
+		return api, nil
+	}}
+	aCmd.SetClientStore(s.store)
+	command := modelcmd.Wrap(aCmd)
+
+	ctx, err := cmdtesting.RunCommand(c, command, "--all-controllers", "--format", "yaml")
+	c.Assert(err, tc.ErrorIsNil)
+
+	obtained := cmdtesting.Stdout(ctx)
+	// Both controllers' offers appear, each keyed by its source-namespaced
+	// offer URL, forming a single unified catalogue.
+	c.Check(obtained, tc.Contains, "other:prod/model.hosted-pg:")
+	c.Check(obtained, tc.Contains, "test-master:prod/model.hosted-db2:")
+}
+
+func (s *findSuite) TestFindAllControllersContinuesOnError(c *tc.C) {
+	// One controller errors; the other still returns offers and the command
+	// succeeds with a warning.
+	s.store.Controllers["broken"] = jujuclient.ControllerDetails{}
+	s.store.Accounts["broken"] = jujuclient.AccountDetails{User: "bob"}
+
+	apis := map[string]*mockFindAPI{
+		"test-master": {offerName: "hosted-db2", expectedModelName: "model", controllerName: "test-master"},
+		"broken":      {msg: "boom"},
+	}
+	aCmd := &findCommand{newAPIFunc: func(ctx context.Context, controllerName string) (FindAPI, error) {
+		return apis[controllerName], nil
+	}}
+	aCmd.SetClientStore(s.store)
+	command := modelcmd.Wrap(aCmd)
+
+	ctx, err := cmdtesting.RunCommand(c, command, "--all-controllers", "--format", "tabular")
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(cmdtesting.Stdout(ctx), tc.Contains, "prod/model.hosted-db2")
+	c.Check(cmdtesting.Stderr(ctx), tc.Contains, `could not search controller "broken": boom`)
+}
+
+func (s *findSuite) TestFindAllControllersRejectsURLSource(c *tc.C) {
+	s.assertFindError(
+		c,
+		[]string{"--all-controllers", "othercontroller:prod/model.db2"},
+		"cannot specify a controller in the URL with --all-controllers",
+	)
+}
+
 func (s *findSuite) assertFind(c *tc.C, args []string, expected string) {
 	context, err := s.runFind(c, args...)
 	c.Assert(err, tc.ErrorIsNil)

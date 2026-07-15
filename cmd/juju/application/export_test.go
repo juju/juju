@@ -128,6 +128,26 @@ func NewConsumeCommandForTest(
 	return modelcmd.Wrap(c)
 }
 
+// ApplicationConsumeDetailsAPIForTest is an exported alias of the unexported
+// source offers API interface, for use by external test packages.
+type ApplicationConsumeDetailsAPIForTest = applicationConsumeDetailsAPI
+
+// NewConsumeCommandForTestWithSourceResolver returns a ConsumeCommand that
+// resolves the source offers API per controller via the supplied factory,
+// exercising the multi-controller resolution fan-out.
+func NewConsumeCommandForTestWithSourceResolver(
+	store jujuclient.ClientStore,
+	targetAPI applicationConsumeAPI,
+	newSourceAPIForController func(controllerName string) (applicationConsumeDetailsAPI, error),
+) cmd.Command {
+	c := &consumeCommand{
+		targetAPI:                 targetAPI,
+		newSourceAPIForController: newSourceAPIForController,
+	}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c)
+}
+
 // NewSuspendRelationCommandForTest returns a SuspendRelationCommand with the api provided as specified.
 func NewSuspendRelationCommandForTest(api SetRelationSuspendedAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &suspendRelationCommand{newAPIFunc: func(ctx context.Context) (SetRelationSuspendedAPI, error) {

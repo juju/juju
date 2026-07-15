@@ -5,6 +5,9 @@ package crossmodel
 
 import (
 	"context"
+	"fmt"
+	"sort"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -21,15 +24,33 @@ const findCommandDoc = `
 Find which offered application endpoints are available to the current user.
 
 This command is aimed for a user who wants to discover what endpoints are available to them.
+
+By default the search is scoped to a single controller: the one named in the
+offer URL, or the current controller if no URL is given. Use the
+` + "`--all-controllers`" + ` flag to search across every controller registered
+locally (see ` + "`juju controllers`" + `); results are merged into a single list,
+each offer namespaced by the controller that hosts it. A controller that cannot
+be reached is reported as a warning and skipped, so the remaining controllers'
+offers are still returned.
 `
 
 const findCommandExamples = `
+Find offers on the current controller:
+
     juju find-offers
-    juju find-offers mycontroller:
     juju find-offers staging/mymodel
     juju find-offers --interface mysql
     juju find-offers --url staging/mymodel.db2
     juju find-offers --offer db2
+
+Find offers on a named controller:
+
+    juju find-offers mycontroller:
+
+Find offers across every registered controller (a unified catalogue):
+
+    juju find-offers --all-controllers
+    juju find-offers --all-controllers --interface mysql
 
 `
 
@@ -42,6 +63,7 @@ type findCommand struct {
 	modelName      string
 	offerName      string
 	interfaceName  string
+	allControllers bool
 
 	out        cmd.Output
 	newAPIFunc func(context.Context, string) (FindAPI, error)
@@ -75,6 +97,16 @@ func (c *findCommand) Init(args []string) (err error) {
 	return nil
 }
 
+// controllerSource returns the controller name to search for offers on, or the
+// empty string when the search should fan out across all registered
+// controllers.
+func (c *findCommand) controllerSource() string {
+	if c.allControllers {
+		return ""
+	}
+	return c.source
+}
+
 // Info implements Command.Info.
 func (c *findCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -94,6 +126,7 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.url, "url", "", "Return results matching the offer URL")
 	f.StringVar(&c.interfaceName, "interface", "", "Return results matching the interface name")
 	f.StringVar(&c.offerName, "offer", "", "Return results matching the offer name")
+	f.BoolVar(&c.allControllers, "all-controllers", false, "Search for offers across all registered controllers")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -110,13 +143,7 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	loggedInUser := accountDetails.User
-
-	api, err := c.newAPIFunc(ctx, c.source)
-	if err != nil {
-		return err
-	}
-	defer api.Close()
+	loggedInUser := names.NewUserTag(accountDetails.User)
 
 	filter := crossmodel.ApplicationOfferFilter{
 		ModelQualifier: model.Qualifier(c.modelQualifier),
@@ -128,19 +155,95 @@ func (c *findCommand) Run(ctx *cmd.Context) (err error) {
 			Interface: c.interfaceName,
 		}}
 	}
-	found, err := api.FindApplicationOffers(ctx, filter)
+
+	var output map[string]ApplicationOfferResult
+	if c.allControllers {
+		output, err = c.findAcrossControllers(ctx, loggedInUser, filter)
+	} else {
+		output, err = c.findOnController(ctx, c.source, loggedInUser, filter)
+	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	output, err := convertFoundOffers(c.source, names.NewUserTag(loggedInUser), found...)
-	if err != nil {
-		return err
-	}
 	if len(output) == 0 {
 		return errors.New("no matching application offers found")
 	}
 	return c.out.Write(ctx, output)
+}
+
+// findOnController queries a single controller for matching offers.
+func (c *findCommand) findOnController(
+	ctx context.Context, controllerName string, loggedInUser names.UserTag, filter crossmodel.ApplicationOfferFilter,
+) (map[string]ApplicationOfferResult, error) {
+	api, err := c.newAPIFunc(ctx, controllerName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer api.Close()
+
+	found, err := api.FindApplicationOffers(ctx, filter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return convertFoundOffers(controllerName, loggedInUser, found...)
+}
+
+// findAcrossControllers fans out the offer search across every registered
+// controller in the client store, querying each concurrently and merging the
+// results. Each result's offer URL is namespaced by its source controller, so
+// the merged output presents a unified, cross-controller offer catalogue.
+//
+// A single unreachable or erroring controller does not fail the whole search:
+// the error is reported as a warning and the remaining controllers' offers are
+// still returned. The command only fails if no offers are found at all.
+func (c *findCommand) findAcrossControllers(
+	ctx *cmd.Context, loggedInUser names.UserTag, filter crossmodel.ApplicationOfferFilter,
+) (map[string]ApplicationOfferResult, error) {
+	controllers, err := c.ClientStore().AllControllers()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(controllers) == 0 {
+		return nil, errors.New("no controllers registered")
+	}
+
+	// Query controllers in a deterministic order so that merge behaviour and
+	// per-controller warnings are stable.
+	controllerNames := make([]string, 0, len(controllers))
+	for name := range controllers {
+		controllerNames = append(controllerNames, name)
+	}
+	sort.Strings(controllerNames)
+
+	type result struct {
+		controllerName string
+		offers         map[string]ApplicationOfferResult
+		err            error
+	}
+	results := make([]result, len(controllerNames))
+	var wg sync.WaitGroup
+	for i, controllerName := range controllerNames {
+		wg.Add(1)
+		go func(i int, controllerName string) {
+			defer wg.Done()
+			offers, err := c.findOnController(ctx, controllerName, loggedInUser, filter)
+			results[i] = result{controllerName: controllerName, offers: offers, err: err}
+		}(i, controllerName)
+	}
+	wg.Wait()
+
+	merged := make(map[string]ApplicationOfferResult)
+	for _, r := range results {
+		if r.err != nil {
+			fmt.Fprintf(ctx.GetStderr(), "could not search controller %q: %v\n", r.controllerName, r.err)
+			continue
+		}
+		for url, offer := range r.offers {
+			merged[url] = offer
+		}
+	}
+	return merged, nil
 }
 
 func (c *findCommand) validateOrSetURL() error {
@@ -149,8 +252,13 @@ func (c *findCommand) validateOrSetURL() error {
 		return errors.Trace(err)
 	}
 	if c.url == "" {
-		c.url = controllerName + ":"
-		c.source = controllerName
+		// When fanning out across all controllers there is no single source
+		// controller; leave c.source empty and do not pin the URL to one
+		// controller.
+		if !c.allControllers {
+			c.url = controllerName + ":"
+			c.source = controllerName
+		}
 		return nil
 	}
 	urlParts, err := crossmodel.ParseOfferURLParts(c.url)
@@ -158,8 +266,11 @@ func (c *findCommand) validateOrSetURL() error {
 		return errors.Trace(err)
 	}
 	if urlParts.Source != "" {
+		if c.allControllers {
+			return errors.New("cannot specify a controller in the URL with --all-controllers")
+		}
 		c.source = urlParts.Source
-	} else {
+	} else if !c.allControllers {
 		c.source = controllerName
 	}
 	qualifier := urlParts.ModelQualifier

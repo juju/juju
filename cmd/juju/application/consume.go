@@ -5,6 +5,7 @@ package application
 
 import (
 	"context"
+	"sort"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v6"
@@ -29,9 +30,15 @@ The path to the remote offer is formatted as follows:
 
     [<controller name>:][<model qualifier>/]<model name>.<application name>
 
-If the controller name is omitted, Juju will use the currently active
-controller. Similarly, if the model qualifier is omitted, Juju will use the user
-that is currently logged in to the controller providing the offer.
+If the model qualifier is omitted, Juju will use the user that is currently
+logged in to the controller providing the offer.
+
+If the controller name is omitted, Juju looks for the offer on the currently
+active controller first, and if it is not found there, searches the other
+controllers registered locally (see ` + "`juju controllers`" + `). The offering
+controller must therefore be registered locally for its name to resolve. To
+avoid the search and target a specific controller, include the controller name
+in the offer path.
 `[1:]
 
 const usageConsumeExamples = `
@@ -54,6 +61,19 @@ type consumeCommand struct {
 	targetAPI         applicationConsumeAPI
 	remoteApplication string
 	applicationAlias  string
+
+	// newSourceAPIForController, when set (in tests), returns a source offers
+	// client for a named controller, allowing the per-controller resolution
+	// fan-out to be exercised. Production code leaves this nil and dials via
+	// the client store.
+	newSourceAPIForController func(controllerName string) (applicationConsumeDetailsAPI, error)
+}
+
+// notFoundOfferError is returned by GetConsumeDetails when a controller does
+// not host the requested offer. When resolving an unqualified offer URL, this
+// signals that the search should continue with the next controller.
+func isOfferNotFound(err error) bool {
+	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 // Info implements cmd.Command.
@@ -99,24 +119,128 @@ func (c *consumeCommand) getTargetAPI(ctx context.Context) (applicationConsumeAP
 	return application.NewClient(root), nil
 }
 
-func (c *consumeCommand) getSourceAPI(ctx context.Context, url crossmodel.OfferURL) (applicationConsumeDetailsAPI, error) {
+// getSourceAPI returns an offers client for the named controller. If a single
+// source API was injected (in tests) it is returned regardless of the
+// controller name; if a per-controller factory was injected it is used;
+// otherwise a real client is dialled via the client store.
+func (c *consumeCommand) getSourceAPI(ctx context.Context, controllerName string) (applicationConsumeDetailsAPI, error) {
 	if c.sourceAPI != nil {
 		return c.sourceAPI, nil
 	}
-
-	if url.Source == "" {
-		var err error
-		controllerName, err := c.ControllerName()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		url.Source = controllerName
+	if c.newSourceAPIForController != nil {
+		return c.newSourceAPIForController(controllerName)
 	}
-	root, err := c.CommandBase.NewAPIRoot(ctx, c.ClientStore(), url.Source, "")
+	root, err := c.CommandBase.NewAPIRoot(ctx, c.ClientStore(), controllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return applicationoffers.NewClient(root), nil
+}
+
+// resolveConsumeDetails fetches the consume details for the offer at url. When
+// url.Source is set, it queries exactly that controller. When url.Source is
+// empty, it searches the currently active controller first and then the other
+// registered controllers, returning the details from the first controller that
+// hosts the offer and recording that controller as the resolved source.
+//
+// On success it returns the still-open source client; the caller is responsible
+// for closing it. Any clients opened for controllers that did not host the
+// offer are closed before returning.
+func (c *consumeCommand) resolveConsumeDetails(ctx *cmd.Context, url crossmodel.OfferURL) (applicationConsumeDetailsAPI, params.ConsumeOfferDetails, string, error) {
+	localURL := url.AsLocal().String()
+
+	// Explicit source controller: query just that one.
+	if url.Source != "" {
+		client, err := c.getSourceAPI(ctx, url.Source)
+		if err != nil {
+			return nil, params.ConsumeOfferDetails{}, "", errors.Trace(err)
+		}
+		details, err := client.GetConsumeDetails(ctx, localURL)
+		if err != nil {
+			_ = client.Close()
+			return nil, params.ConsumeOfferDetails{}, "", errors.Trace(err)
+		}
+		return client, details, url.Source, nil
+	}
+
+	// No source controller: search the current controller first, then the
+	// rest of the registered controllers.
+	candidates, err := c.candidateControllers()
+	if err != nil {
+		return nil, params.ConsumeOfferDetails{}, "", errors.Trace(err)
+	}
+	// Only emit per-controller warnings when there is an actual fan-out across
+	// multiple controllers; with a single controller the returned error is
+	// enough and a warning would just be noise.
+	fanningOut := len(candidates) > 1
+	// Track the last non-"not found" error so that, if no controller hosts
+	// the offer, we surface a real failure (auth/connection) rather than a
+	// misleading "not found".
+	var lastErr error
+	for _, controllerName := range candidates {
+		client, err := c.getSourceAPI(ctx, controllerName)
+		if err != nil {
+			// A controller we cannot dial is not fatal while searching;
+			// remember it and try the next one.
+			if fanningOut {
+				ctx.Warningf("could not reach controller %q: %v", controllerName, err)
+			}
+			lastErr = err
+			continue
+		}
+		details, err := client.GetConsumeDetails(ctx, localURL)
+		if err == nil {
+			return client, details, controllerName, nil
+		}
+		_ = client.Close()
+		if isOfferNotFound(err) {
+			// Offer not on this controller; keep looking.
+			continue
+		}
+		// A real error (auth, connection) is worth surfacing but should not
+		// stop the search across other controllers.
+		if fanningOut {
+			ctx.Warningf("could not search controller %q: %v", controllerName, err)
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
+		return nil, params.ConsumeOfferDetails{}, "", errors.Trace(lastErr)
+	}
+	return nil, params.ConsumeOfferDetails{}, "", errors.NotFoundf("offer %q on any registered controller", localURL)
+}
+
+// candidateControllers returns the controllers to search for an unqualified
+// offer, with the current controller first (if any), followed by the remaining
+// registered controllers in a deterministic order.
+func (c *consumeCommand) candidateControllers() ([]string, error) {
+	// A test may have injected a source API, in which case the controller
+	// name is irrelevant; use the current controller.
+	if c.sourceAPI != nil {
+		current, err := c.ControllerName()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return []string{current}, nil
+	}
+
+	all, err := c.ClientStore().AllControllers()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	current, err := c.ControllerName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rest := make([]string, 0, len(all))
+	for name := range all {
+		if name != current {
+			rest = append(rest, name)
+		}
+	}
+	sort.Strings(rest)
+	return append([]string{current}, rest...), nil
 }
 
 // Run adds the requested remote offer to the model. Implements
@@ -137,23 +261,22 @@ func (c *consumeCommand) Run(ctx *cmd.Context) error {
 		url.ModelQualifier = accountDetails.User
 		c.remoteApplication = url.Path()
 	}
-	sourceClient, err := c.getSourceAPI(ctx, url)
+	// Fetch the consume details, resolving which controller hosts the offer
+	// when the offer URL does not name one explicitly.
+	sourceClient, consumeDetails, resolvedSource, err := c.resolveConsumeDetails(ctx, url)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer sourceClient.Close()
 
-	consumeDetails, err := sourceClient.GetConsumeDetails(ctx, url.AsLocal().String())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Parse the offer details URL and add the source controller so
-	// things like status can show the original source of the offer.
+	// Parse the offer details URL and add the (possibly resolved) source
+	// controller so things like status can show the original source of the
+	// offer.
 	offerURL, err := crossmodel.ParseOfferURL(consumeDetails.Offer.OfferURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	offerURL.Source = url.Source
+	offerURL.Source = resolvedSource
 	consumeDetails.Offer.OfferURL = offerURL.String()
 
 	targetClient, err := c.getTargetAPI(ctx)
