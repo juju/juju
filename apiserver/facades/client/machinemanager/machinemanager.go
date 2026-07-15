@@ -159,7 +159,7 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	}
 
 	// Check if the model exists in case of model scope placement.
-	parsedPlacement, err := deployment.ParsePlacement(p.Placement)
+	parsedPlacement, err := deployment.ParsePlacement(p.Placement, mm.modelUUID.String())
 	if err != nil {
 		return "", internalerrors.Errorf("invalid placement: %w", err)
 	}

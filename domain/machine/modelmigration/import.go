@@ -42,9 +42,10 @@ func RegisterImport(coordinator Coordinator, clock clock.Clock, logger logger.Lo
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	service ImportService
-	clock   clock.Clock
-	logger  logger.Logger
+	service   ImportService
+	clock     clock.Clock
+	logger    logger.Logger
+	modelUUID string
 }
 
 // ImportService defines the machine service used to import machines from
@@ -97,6 +98,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		i.clock,
 		i.logger,
 	)
+	i.modelUUID = scope.ModelUUID().String()
 	return nil
 }
 
@@ -121,7 +123,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		if err != nil {
 			return errors.Errorf("parsing machine instance placement %q: %w", m.Placement(), err)
 		}
-		domainPlacement, err := deployment.ParsePlacement(placement)
+		domainPlacement, err := deployment.ParsePlacement(placement, i.modelUUID)
 		if err != nil {
 			return errors.Errorf("parsing machine domain placement %q: %w", m.Id(), err)
 		}
@@ -151,7 +153,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			if err != nil {
 				return errors.Errorf("parsing machine instance placement %q: %w", c.Placement(), err)
 			}
-			domainPlacement, err := deployment.ParsePlacement(placement)
+			domainPlacement, err := deployment.ParsePlacement(placement, i.modelUUID)
 			if err != nil {
 				return errors.Errorf("parsing machine domain placement %q: %w", c.Id(), err)
 			}

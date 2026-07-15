@@ -41,9 +41,10 @@ func (s *importSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 func (s *importSuite) newImportOperation(c *tc.C) *importOperation {
 	return &importOperation{
-		service: s.service,
-		clock:   clock.WallClock,
-		logger:  loggertesting.WrapCheckLog(c),
+		service:   s.service,
+		clock:     clock.WallClock,
+		logger:    loggertesting.WrapCheckLog(c),
+		modelUUID: "32c5aaae-6713-4cd7-83a4-d1256e9c97d0",
 	}
 }
 
