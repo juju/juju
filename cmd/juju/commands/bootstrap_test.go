@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -45,7 +44,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
@@ -196,12 +194,23 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 }
 
 // runIAASBootstrap runs the bootstrap command for an IAAS provider,
-// automatically prepending --controller-snap-path so the mandatory
-// snap-path check in Run() is satisfied. Use this for all IAAS bootstrap
-// test calls that do not intentionally test the snap-path validation.
+// automatically prepending --controller-snap-path and --build-agent so the
+// mandatory snap-path and build-agent checks in Run() are satisfied. Use this
+// for all IAAS bootstrap test calls that do not intentionally test the
+// snap-path or build-agent validation.
 func (s *BootstrapSuite) runIAASBootstrap(c tc.LikeC, args ...string) (*cmd.Context, error) {
-	allArgs := append([]string{"--controller-snap-path", s.controllerSnapPath}, args...)
+	s.patchSnapInfo(c)
+	allArgs := append([]string{"--controller-snap-path", s.controllerSnapPath, "--build-agent"}, args...)
 	return cmdtesting.RunCommand(c, s.newBootstrapCommand(), allArgs...)
+}
+
+// patchSnapInfo patches the snap info command to return a version matching
+// jujuversion.Current (ignoring Build) so that version coupling checks pass.
+func (s *BootstrapSuite) patchSnapInfo(c tc.LikeC) {
+	r := testhelpers.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
+	})
+	c.Cleanup(r)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *tc.C) {
@@ -257,7 +266,6 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 		bootstrapVersion = semversion.MustParseBinary(test.version)
 		c.Cleanup(testhelpers.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		c.Cleanup(testhelpers.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := semversion.MustParseBinary(test.upload)
 			bootstrapVersion.Number = uploadVers.Number
@@ -277,7 +285,15 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 		cloudName, controllerName,
 		"--config", "default-base=ubuntu@22.04",
 		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
 	}, test.args...)
+
+	// Patch snap info to return the current jujuversion as the snap
+	// version so that version coupling passes for all table tests.
+	c.Cleanup(testhelpers.PatchValue(bootstrap.RunSnapInfoCommand, func(_ context.Context, _ string) (string, error) {
+		return fmt.Sprintf("version: %s -\n", jujuversion.Current.ToPatch().String()), nil
+	}))
+
 	opc, errc := runCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
 	select {
@@ -412,7 +428,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:     "1.3.3-ubuntu-ppc64el",
 	hostArch:    "ppc64el",
 	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
-	upload:      "1.3.3.1-ubuntu-ppc64el", // from jujuversion.Current
+	upload:      "1.3.3-ubuntu-ppc64el",
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
 	info:      "--build-agent rejects mismatched arch",
@@ -433,11 +449,11 @@ var bootstrapTests = []bootstrapTest{{
 		Level: loggo.ERROR, Message: fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
 	}},
 }, {
-	info:     "--build-agent always bumps build number",
+	info:     "--build-agent uses snap-derived version as force version",
 	version:  "1.2.3.4-ubuntu-amd64",
 	hostArch: "amd64",
 	args:     []string{"--build-agent"},
-	upload:   "1.2.3.5-ubuntu-amd64",
+	upload:   "1.2.3-ubuntu-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
@@ -455,19 +471,22 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--agent-version", "1.1.0", "--build-agent"},
 	err:  `--agent-version and --build-agent can't be used together`,
 }, {
-	info: "invalid --agent-version value",
+	// With mandatory --build-agent for IAAS, --agent-version is rejected in Init.
+	info: "invalid --agent-version value rejected with --build-agent",
 	args: []string{"--agent-version", "foo"},
-	err:  `invalid version "foo"`,
+	err:  `--agent-version and --build-agent can't be used together`,
 }, {
-	info:    "agent-version doesn't match client version major",
+	// With mandatory --build-agent for IAAS, --agent-version is rejected in Init.
+	info:    "agent-version rejected with mandatory --build-agent (major mismatch)",
 	version: "1.3.3-ubuntu-ppc64el",
 	args:    []string{"--agent-version", "2.3.0"},
-	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
+	err:     `--agent-version and --build-agent can't be used together`,
 }, {
-	info:    "agent-version doesn't match client version minor",
+	// With mandatory --build-agent for IAAS, --agent-version is rejected in Init.
+	info:    "agent-version rejected with mandatory --build-agent",
 	version: "1.3.3-ubuntu-ppc64el",
 	args:    []string{"--agent-version", "1.4.0"},
-	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
+	err:     `--agent-version and --build-agent can't be used together`,
 }, {
 	info: "--clouds with --regions",
 	args: []string{"--clouds", "--regions", "aws"},
@@ -1095,9 +1114,9 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *tc.C) {
 
 	stderr := cmdtesting.Stderr(ctx)
 	c.Check(stderr, tc.Matches,
-		"Creating Juju controller \"devcontroller\" on dummy/dummy\n"+
-			"Looking for packaged Juju agent version 1.2.0 for amd64\n"+
-			"No packaged binary found, preparing local Juju agent binary\n",
+		"(?s)Creating Juju controller \"devcontroller\" on dummy/dummy\n"+
+			".*"+
+			"Building local Juju agent binary version 1.2.0 for amd64 \\(anchored to controller snap\\)\n",
 	)
 
 	mc := tc.NewMultiChecker()
@@ -1186,15 +1205,16 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *tc.C, vers, expect string)
 	num.Major = 2
 	num.Minor = 3
 	s.PatchValue(&jujuversion.Current, num)
-	_, err := s.runIAASBootstrap(
-		c,
-		"--agent-version", vers,
+	// With the mandatory --build-agent for all IAAS bootstraps,
+	// --agent-version and --build-agent are mutually exclusive in Init.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
+		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
+		"--agent-version", vers,
 	)
-	c.Assert(err, tc.Equals, cmd.ErrSilent)
-	c.Assert(bootstrapFuncs.args.AgentVersion, tc.NotNil)
-	c.Assert(*bootstrapFuncs.args.AgentVersion, tc.Equals, semversion.MustParse(expect))
+	c.Assert(err, tc.ErrorMatches, `--agent-version and --build-agent can't be used together`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithVersionNumber(c *tc.C) {
@@ -1217,15 +1237,16 @@ func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *tc.C, vers, expect str
 	num.Major = 2
 	num.Minor = 3
 	s.PatchValue(&jujuversion.Current, num)
-	_, err := s.runIAASBootstrap(
-		c,
-		"--agent-version", vers,
+	// With the mandatory --build-agent for all IAAS bootstraps,
+	// --agent-version and --build-agent are mutually exclusive in Init.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
+		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
+		"--agent-version", vers,
 	)
-	c.Assert(err, tc.Equals, cmd.ErrSilent)
-	c.Assert(bootstrapFuncs.args.AgentVersion, tc.NotNil)
-	c.Assert(*bootstrapFuncs.args.AgentVersion, tc.Equals, semversion.MustParse(expect))
+	c.Assert(err, tc.ErrorMatches, `--agent-version and --build-agent can't be used together`)
 }
 
 func (s *BootstrapSuite) TestBootstrapBaseWithVersionNumber(c *tc.C) {
@@ -1255,6 +1276,8 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *tc.C) {
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *tc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&jujuversion.Current, semversion.MustParse("1.2.0"))
+	// Patch BundleTools since --build-agent triggers the local build path.
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(semversion.MustParse("1.2.0")))
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with the valid source.
@@ -1289,9 +1312,10 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *tc.C) {
 
 func (s *BootstrapSuite) TestInteractiveBootstrap(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
+	s.patchSnapInfo(c)
 
 	command := s.newBootstrapCommand()
-	err := cmdtesting.InitCommand(command, []string{"--controller-snap-path", s.controllerSnapPath})
+	err := cmdtesting.InitCommand(command, []string{"--controller-snap-path", s.controllerSnapPath, "--build-agent"})
 	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	out := bytes.Buffer{}
@@ -1316,7 +1340,6 @@ my-dummy-cloud
 
 func (s *BootstrapSuite) setupAutoUploadTest(c tc.LikeC, vers, _ string) {
 	patchedVersion := semversion.MustParse(vers)
-	patchedVersion.Build = 1
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(patchedVersion))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
@@ -1334,11 +1357,13 @@ func (s *BootstrapSuite) setupAutoUploadTest(c tc.LikeC, vers, _ string) {
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "focal")
+	s.patchSnapInfo(c)
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
 	opc, errc := runCommandWithDummyProvider(
 		cmdtesting.Context(c), s.newBootstrapCommand(),
 		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@20.04",
 		"--auto-upgrade",
@@ -1352,69 +1377,47 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *tc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, tc.Equals, bootstrap.ControllerModelName)
 	icfg := (<-opc).(dummy.OpFinalizeBootstrap).InstanceConfig
 	c.Assert(icfg, tc.NotNil)
-	c.Assert(icfg.AgentVersion().String(), tc.Equals, "1.7.3.1-ubuntu-"+arch.HostArch())
+	c.Assert(icfg.AgentVersion().String(), tc.Equals, "1.7.3-ubuntu-"+arch.HostArch())
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := s.runIAASBootstrap(c,
+	// With mandatory --build-agent for IAAS, --agent-version and --build-agent
+	// are mutually exclusive in Init.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
+		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
 		"--config", "default-base=ubuntu@22.04", "--agent-version=1.8.4",
 	)
-	c.Assert(err, tc.Equals, cmd.ErrSilent)
-
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_._`, tc.Ignore)
-	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
-		Level:   loggo.ERROR,
-		Message: "(?m)failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model.*",
-	}})
+	c.Assert(err, tc.ErrorMatches, `--agent-version and --build-agent can't be used together`)
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *tc.C) {
-	buildAgentTarballAlwaysFails := func(
-		bool, string, func(semversion.Number) semversion.Number,
-	) (*sync.BuiltAgent, error) {
-		return nil, errors.New("an error")
-	}
-
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
-	s.PatchValue(&sync.BuildAgentTarball, buildAgentTarballAlwaysFails)
 
-	ctx, err := s.runIAASBootstrap(
-		c,
+	// With mandatory --build-agent for IAAS, --agent-version and --build-agent
+	// are mutually exclusive in Init.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
+		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
 		"--config", "default-base=ubuntu@22.04",
 		"--config", "agent-stream=proposed",
 		"--auto-upgrade", "--agent-version=1.7.3",
 	)
-
-	c.Check(cmdtesting.Stderr(ctx), tc.Equals, `
-Creating Juju controller "devcontroller" on dummy-cloud/region-1
-Looking for packaged Juju agent version 1.7.3 for amd64
-No packaged binary found, preparing local Juju agent binary
-`[1:])
-	c.Assert(err, tc.Equals, cmd.ErrSilent)
-
-	mc := tc.NewMultiChecker()
-	mc.AddExpr(`_.Level`, tc.Equals, tc.ExpectedValue)
-	mc.AddExpr(`_.Message`, tc.Matches, tc.ExpectedValue)
-	mc.AddExpr(`_._`, tc.Ignore)
-	c.Check(s.tw.Log(), tc.OrderedRight[[]loggo.Entry](mc), []loggo.Entry{{
-		Level:   loggo.ERROR,
-		Message: "failed to bootstrap model: cannot package bootstrap agent binary: an error",
-	}})
+	c.Assert(err, tc.ErrorMatches, `--agent-version and --build-agent can't be used together`)
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
+	s.patchSnapInfo(c)
 
 	opc, errc := runCommandWithDummyProvider(
 		cmdtesting.Context(c), s.newBootstrapCommand(),
 		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
@@ -1455,10 +1458,13 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 
 func (s *BootstrapSuite) TestBootstrapKeepBroken(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
+	s.patchSnapInfo(c)
 
 	ctx := cmdtesting.Context(c)
 	opc, errc := runCommandWithDummyProvider(ctx, s.newBootstrapCommand(),
 		"--controller-snap-path", s.controllerSnapPath,
+		"--build-agent",
+		"--build-agent",
 		"--keep-broken",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
@@ -2253,6 +2259,20 @@ func (s *BootstrapSuite) TestBootstrapIAASRequiresSnapPath(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `--controller-snap-path is required for IAAS bootstrap.*`)
 }
 
+// TestBootstrapIAASRequiresBuildAgent verifies that an IAAS bootstrap with
+// --controller-snap-path but without --build-agent fails in Run() after cloud
+// type is resolved, before any provisioning occurs. The check must not fire
+// for CAAS bootstraps because !isCAASController guards both checks.
+func (s *BootstrapSuite) TestBootstrapIAASRequiresBuildAgent(c *tc.C) {
+	s.patchVersion(c)
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-path", s.controllerSnapPath,
+	)
+	c.Assert(err, tc.ErrorMatches, `--build-agent is required when --controller-snap-path.*`)
+}
+
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	// This test ensures that the controller name is correctly set on
 	// on the bootstrap commands embedded ModelCommandBase. Without
@@ -2260,6 +2280,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 	// See https://pad.lv/1604223
 
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
+	s.patchSnapInfo(c)
 
 	const controllerName = "dev"
 
@@ -2289,7 +2310,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 			close(opc)
 		}()
 		com := s.newBootstrapCommand()
-		args := []string{"--controller-snap-path", s.controllerSnapPath, "dummy", controllerName, "--auto-upgrade"}
+		args := []string{"--controller-snap-path", s.controllerSnapPath, "--build-agent", "dummy", controllerName, "--auto-upgrade"}
 		if err := cmdtesting.InitCommand(com, args); err != nil {
 			errc <- err
 			return

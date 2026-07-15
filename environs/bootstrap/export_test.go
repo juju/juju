@@ -10,5 +10,6 @@ var (
 	FindTools                  = &findTools
 	FindBootstrapTools         = findBootstrapTools
 	FindPackagedTools          = findPackagedTools
-	RunSnapInfoCommand         = &runSnapInfoCommand
+	InspectLocalSnapVersion    = inspectLocalSnapVersion
+	DigestLocalSnap            = digestLocalSnap
 )
