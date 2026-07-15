@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -113,7 +113,9 @@ func TestingAPIHandlerWithToken(
 	delegator authentication.PermissionDelegator,
 ) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st)
-	user, err := names.ParseUserTag(jwt.Subject())
+	subject, ok := jwt.Subject()
+	c.Assert(ok, jc.IsTrue)
+	user, err := names.ParseUserTag(subject)
 	c.Assert(err, jc.ErrorIsNil)
 	h.authInfo.Entity = authjwt.TokenEntity{User: user}
 	h.authInfo.Delegator = delegator

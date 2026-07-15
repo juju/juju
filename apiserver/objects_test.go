@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	gc "gopkg.in/check.v1"
 
 	authjwt "github.com/juju/juju/apiserver/authentication/jwt"

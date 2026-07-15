@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -178,7 +178,11 @@ func (p *PermissionDelegator) PermissionError(
 }
 
 func userFromToken(token jwt.Token) (TokenEntity, error) {
-	userTag, err := names.ParseUserTag(token.Subject())
+	subject, ok := token.Subject()
+	if !ok {
+		return TokenEntity{}, errors.New("missing subject in authToken")
+	}
+	userTag, err := names.ParseUserTag(subject)
 	if err != nil {
 		return TokenEntity{}, errors.Annotate(err, "invalid user tag in authToken")
 	}
@@ -202,8 +206,9 @@ func PermissionFromToken(token jwt.Token, subject names.Tag) (permission.Access,
 	default:
 		return "", errors.NotValidf("%q as a target", subject)
 	}
-	accessClaims, ok := token.PrivateClaims()["access"].(map[string]interface{})
-	if !ok || len(accessClaims) == 0 {
+	var accessClaims map[string]any
+	err := token.Get("access", &accessClaims)
+	if err != nil || len(accessClaims) == 0 {
 		return permission.NoAccess, nil
 	}
 	access, ok := accessClaims[subject.String()]

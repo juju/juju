@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
@@ -26,7 +26,7 @@ type ControllerConfigGetter interface {
 }
 
 // HTTPClient defines an interface for an HTTP client
-// with a single GET method.
+// with a single Do method.
 type HTTPClient interface {
 	jwk.HTTPClient
 }
@@ -40,7 +40,11 @@ func NewWorker(configGetter ControllerConfigGetter, httpClient HTTPClient) (work
 	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
 
 	ctx, done := context.WithCancel(context.Background())
-	jwtParser := jwtparser.NewParserWithHTTPClient(ctx, httpClient)
+	jwtParser, err := jwtparser.NewParserWithHTTPClient(ctx, httpClient)
+	if err != nil {
+		done()
+		return nil, errors.Annotate(err, "cannot create the jwt parser")
+	}
 	if jwtRefreshURL != "" {
 		if err := jwtParser.SetJWKSCache(ctx, jwtRefreshURL); err != nil {
 			done()
