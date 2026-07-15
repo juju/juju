@@ -49,7 +49,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/storage"
@@ -96,6 +95,10 @@ type BootstrapSuite struct {
 
 	bootstrapCmd bootstrapCommand
 	clock        *testclock.Clock
+
+	// controllerSnapPath is a path to a fake snap file created in SetUpTest.
+	// It is supplied to IAAS bootstrap commands via --controller-snap-path.
+	controllerSnapPath string
 }
 
 func TestBootstrapSuite(t *testing.T) {
@@ -171,6 +174,11 @@ func (s *BootstrapSuite) SetUpTest(c *tc.C) {
 
 	s.clock = testclock.NewClock(time.Now())
 	s.bootstrapCmd = bootstrapCommand{clock: s.clock}
+
+	// Create a fake controller snap file for IAAS bootstrap tests.
+	// All IAAS bootstraps now require --controller-snap-path.
+	s.controllerSnapPath = filepath.Join(c.MkDir(), "juju-controller.snap")
+	c.Assert(os.WriteFile(s.controllerSnapPath, []byte("fake snap"), 0644), tc.ErrorIsNil)
 }
 
 func (s *BootstrapSuite) TearDownTest(c *tc.C) {
@@ -185,6 +193,15 @@ func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
 		modelcmd.WrapSkipModelFlags,
 		modelcmd.WrapSkipDefaultModel,
 	)
+}
+
+// runIAASBootstrap runs the bootstrap command for an IAAS provider,
+// automatically prepending --controller-snap-path so the mandatory
+// snap-path check in Run() is satisfied. Use this for all IAAS bootstrap
+// test calls that do not intentionally test the snap-path validation.
+func (s *BootstrapSuite) runIAASBootstrap(c tc.LikeC, args ...string) (*cmd.Context, error) {
+	allArgs := append([]string{"--controller-snap-path", s.controllerSnapPath}, args...)
+	return cmdtesting.RunCommand(c, s.newBootstrapCommand(), allArgs...)
 }
 
 func (s *BootstrapSuite) TestRunTests(c *tc.C) {
@@ -259,6 +276,7 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 	args := append([]string{
 		cloudName, controllerName,
 		"--config", "default-base=ubuntu@22.04",
+		"--controller-snap-path", s.controllerSnapPath,
 	}, test.args...)
 	opc, errc := runCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
@@ -514,17 +532,17 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *tc.C) {
 	const controllerName = "dev"
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "dummy", controllerName, "--auto-upgrade")
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
+	_, err = s.runIAASBootstrap(c, "dummy", controllerName, "--auto-upgrade")
 	c.Assert(err, tc.ErrorMatches, `controller "dev" already exists`)
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud/region-1", "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "dummy-cloud/region-1", "--auto-upgrade")
 	c.Assert(err, tc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, tc.Equals, "dummy-cloud-region-1")
@@ -537,7 +555,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *tc.C) {
 func (s *BootstrapSuite) TestBootstrapDefaultControllerNameWithCaps(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud/Region-1", "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "dummy-cloud/Region-1", "--auto-upgrade")
 	c.Assert(err, tc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, tc.Equals, "dummy-cloud-region-1")
@@ -550,7 +568,7 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameWithCaps(c *tc.C) {
 func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "no-cloud-regions", "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "no-cloud-regions", "--auto-upgrade")
 	c.Assert(err, tc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, tc.Equals, "no-cloud-regions")
@@ -560,7 +578,7 @@ func (s *BootstrapSuite) TestBootstrapNoCurrentModel(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
 	// If no workload model specified, current model is not set.
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, tc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, tc.Equals, "devcontroller")
@@ -571,7 +589,7 @@ func (s *BootstrapSuite) TestBootstrapNoCurrentModel(c *tc.C) {
 func (s *BootstrapSuite) TestNoSwitch(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--no-switch")
+	_, err := s.runIAASBootstrap(c, "dummy", "devcontroller", "--no-switch")
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(s.store.CurrentControllerName, tc.Equals, "arthur")
@@ -580,7 +598,7 @@ func (s *BootstrapSuite) TestNoSwitch(c *tc.C) {
 func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, tc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, tc.Equals, "devcontroller")
@@ -598,8 +616,8 @@ func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *tc.C) {
 		return &bootstrapFuncs
 	})
 
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"dummy", "devcontroller",
 		"--auto-upgrade",
 		"--config", "foo=bar",
@@ -615,8 +633,9 @@ func (s *BootstrapSuite) TestBootstrapTimeout(c *tc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
+	_, err := s.runIAASBootstrap(
+		c,
+		"dummy", "devcontroller", "--auto-upgrade",
 		"--config", "bootstrap-timeout=99",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -630,8 +649,9 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *tc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
+	_, err := s.runIAASBootstrap(
+		c,
+		"dummy", "devcontroller", "--auto-upgrade",
 		"--config", "juju-mgmt-space=management-space",
 		"--constraints", "spaces=ha-space,random-space",
 	)
@@ -647,8 +667,9 @@ func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *tc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
+	_, err := s.runIAASBootstrap(
+		c,
+		"dummy", "devcontroller", "--auto-upgrade",
 		"--config", "juju-mgmt-space=management-space",
 		"--constraints", "spaces=ha-space,random-space", "--constraints", "mem=4G",
 	)
@@ -737,7 +758,7 @@ func (s *BootstrapSuite) TestBootstrapRegionConfigNoRegionSpecified(c *tc.C) {
 		return &bootstrapFuncs
 	})
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud-dummy-region-config")
+	_, err := s.runIAASBootstrap(c, "dummy-cloud-dummy-region-config")
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.ControllerInheritedConfig["secret"], tc.Equals, "region-test")
 }
@@ -858,8 +879,8 @@ func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *tc.C) {
 		return &bootstrapFuncs
 	})
 
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"dummy", "devcontroller",
 		"--storage-pool", "name=test",
 		"--storage-pool", "type=modelscoped",
@@ -884,8 +905,8 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidStoragePool(c *tc.C) {
 		return &bootstrapFuncs
 	})
 
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"dummy", "devcontroller",
 		"--storage-pool", "name=test",
 		"--storage-pool", "type=invalid",
@@ -950,7 +971,7 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *tc.C) {
 		return nil, errors.New("mock-prepare")
 	})
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller")
+	_, err := s.runIAASBootstrap(c, "dummy", "devcontroller")
 	c.Check(err, tc.ErrorMatches, ".*mock-prepare$")
 	c.Check(destroyed, tc.IsFalse)
 }
@@ -1015,7 +1036,7 @@ func (s *BootstrapSuite) TestBootstrapErrorRestoresOldMetadata(c *tc.C) {
 		user:           "fred",
 	}
 	s.writeControllerModelAccountInfo(c, &ctx)
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "dummy", "devcontroller", "--auto-upgrade")
 	c.Assert(err, tc.ErrorMatches, "mock-prepare")
 
 	currentController := s.store.CurrentControllerName
@@ -1039,7 +1060,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *tc.C) {
 	}
 	s.writeControllerModelAccountInfo(c, &cmaCtx)
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
+	_, err := s.runIAASBootstrap(c, "dummy", controllerName, "--auto-upgrade")
 	c.Assert(err, tc.ErrorIs, errors.AlreadyExists)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, controllerName))
 	currentController := s.store.CurrentControllerName
@@ -1065,8 +1086,9 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *tc.C) {
 	// Bootstrap the controller with an invalid source.
 	// The command will look for prepackaged agent binaries
 	// in the source, and then fall back to building.
-	ctx, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "--metadata-source", c.MkDir(),
+	ctx, err := s.runIAASBootstrap(
+		c,
+		"--metadata-source", c.MkDir(),
 		"dummy", "devcontroller",
 	)
 	c.Check(err, tc.Equals, cmd.ErrSilent)
@@ -1123,8 +1145,8 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *tc.C) {
 		return &bootstrapFuncs
 	})
 
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
@@ -1142,8 +1164,8 @@ func (s *BootstrapSuite) TestBootstrapCalledWitBase(c *tc.C) {
 		return &bootstrapFuncs
 	})
 
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
@@ -1164,8 +1186,8 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *tc.C, vers, expect string)
 	num.Major = 2
 	num.Minor = 3
 	s.PatchValue(&jujuversion.Current, num)
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"--agent-version", vers,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
@@ -1195,8 +1217,8 @@ func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *tc.C, vers, expect str
 	num.Major = 2
 	num.Minor = 3
 	s.PatchValue(&jujuversion.Current, num)
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"--agent-version", vers,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
@@ -1221,8 +1243,8 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *tc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(
+		c,
 		"--auto-upgrade",
 		"dummy-cloud/region-1", "devcontroller",
 	)
@@ -1238,8 +1260,8 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *tc.C) {
 	// Bootstrap the controller with the valid source.
 	// The bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "--metadata-source", sourceDir,
+	_, err := s.runIAASBootstrap(
+		c, "--metadata-source", sourceDir,
 		"dummy-cloud/region-1", "devcontroller", "--config", "default-base=ubuntu@20.04",
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1269,7 +1291,7 @@ func (s *BootstrapSuite) TestInteractiveBootstrap(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
 	command := s.newBootstrapCommand()
-	err := cmdtesting.InitCommand(command, nil)
+	err := cmdtesting.InitCommand(command, []string{"--controller-snap-path", s.controllerSnapPath})
 	c.Assert(err, tc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	out := bytes.Buffer{}
@@ -1316,6 +1338,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *tc.C) {
 	// the current juju version.
 	opc, errc := runCommandWithDummyProvider(
 		cmdtesting.Context(c), s.newBootstrapCommand(),
+		"--controller-snap-path", s.controllerSnapPath,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@20.04",
 		"--auto-upgrade",
@@ -1335,7 +1358,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *tc.C) {
 func (s *BootstrapSuite) TestMissingToolsError(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(c,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04", "--agent-version=1.8.4",
 	)
@@ -1361,8 +1384,8 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
 	s.PatchValue(&sync.BuildAgentTarball, buildAgentTarballAlwaysFails)
 
-	ctx, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
+	ctx, err := s.runIAASBootstrap(
+		c,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
 		"--config", "agent-stream=proposed",
@@ -1391,6 +1414,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *tc.C) {
 
 	opc, errc := runCommandWithDummyProvider(
 		cmdtesting.Context(c), s.newBootstrapCommand(),
+		"--controller-snap-path", s.controllerSnapPath,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
 		"--auto-upgrade",
@@ -1434,6 +1458,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *tc.C) {
 
 	ctx := cmdtesting.Context(c)
 	opc, errc := runCommandWithDummyProvider(ctx, s.newBootstrapCommand(),
+		"--controller-snap-path", s.controllerSnapPath,
 		"--keep-broken",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
@@ -1480,8 +1505,8 @@ func (s *BootstrapSuite) TestBootstrapProviderNoRegionDetection(c *tc.C) {
 
 func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "focal")
-	ctx, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl",
+	ctx, err := s.runIAASBootstrap(
+		c, "no-cloud-regions", "ctrl",
 		"--config", "default-base=ubuntu@20.04",
 	)
 	c.Check(cmdtesting.Stderr(ctx), tc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
@@ -1490,8 +1515,8 @@ func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *tc.C) {
 
 func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
-	ctx, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy-cloud-without-regions", "ctrl",
+	ctx, err := s.runIAASBootstrap(
+		c, "dummy-cloud-without-regions", "ctrl",
 		"--config", "default-base=ubuntu@20.04",
 	)
 	c.Check(cmdtesting.Stderr(ctx), tc.Matches, "Creating Juju controller \"ctrl\" on dummy-cloud-without-regions(.|\n)*")
@@ -1522,8 +1547,8 @@ func (s *BootstrapSuite) TestBootstrapProviderManyDetectedCredentials(c *tc.C) {
 
 func (s *BootstrapSuite) TestBootstrapWithDeprecatedBase(c *tc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy-cloud-without-regions", "ctrl",
+	_, err := s.runIAASBootstrap(
+		c, "dummy-cloud-without-regions", "ctrl",
 		"--config", "default-base=ubuntu@18.04",
 	)
 	c.Assert(err, tc.ErrorMatches, `base "ubuntu@18.04" not supported`)
@@ -1531,8 +1556,8 @@ func (s *BootstrapSuite) TestBootstrapWithDeprecatedBase(c *tc.C) {
 
 func (s *BootstrapSuite) TestBootstrapBaseWithNoBootstrapSeriesUsesFallbackButStillFails(c *tc.C) {
 	s.patchVersion(c)
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-base=spock",
+	_, err := s.runIAASBootstrap(
+		c, "no-cloud-regions", "ctrl", "--config", "default-base=spock",
 	)
 	c.Assert(err, tc.ErrorMatches, `invalid default base "spock": expected base string to contain os and channel separated by '@'`)
 }
@@ -1573,8 +1598,8 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *tc.C) {
 	environs.RegisterProvider("file-credentials", fp)
 
 	s.setupAutoUploadTest(c, "1.8.3", "focal")
-	_, err = cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "file-credentials", "ctrl",
+	_, err = s.runIAASBootstrap(
+		c, "file-credentials", "ctrl",
 		"--config", "default-base=ubuntu@20.04",
 	)
 	c.Assert(err, tc.ErrorIsNil)
@@ -1608,7 +1633,7 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c 
 			AuthCredentials: map[string]cloud.Credential{"one": cloud.NewCredential("one", nil)},
 		},
 	}
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(c,
 		"many-credentials-no-auth-types", "ctrl",
 		"--credential", "one",
 	)
@@ -1662,7 +1687,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectCloud(c *tc.C) {
 	})
 
 	s.patchVersion(c)
-	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(), "bruce", "ctrl")
+	_, err = s.runIAASBootstrap(c, "bruce", "ctrl")
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.CloudRegion, tc.Equals, "gazza")
 	c.Assert(bootstrapFuncs.args.CloudCredentialName, tc.Equals, "default")
@@ -1686,7 +1711,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *tc.C) {
 	})
 
 	s.patchVersion(c)
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	_, err := s.runIAASBootstrap(c, "dummy", "ctrl")
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.CloudRegion, tc.Equals, "bruce")
 	c.Assert(bootstrapFuncs.args.CloudCredentialName, tc.Equals, "default")
@@ -1711,7 +1736,7 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *tc.C) {
 	})
 
 	s.patchVersion(c)
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	_, err := s.runIAASBootstrap(c, "dummy", "ctrl")
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.CloudRegion, tc.Equals, "")
 	sort.Sort(bootstrapFuncs.args.Cloud.AuthTypes)
@@ -1740,7 +1765,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFinalizeCloud(c *tc.C) {
 	})
 
 	s.patchVersion(c)
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	_, err := s.runIAASBootstrap(c, "dummy", "ctrl")
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.Cloud, tc.DeepEquals, cloud.Cloud{
 		Name:      "override",
@@ -1763,7 +1788,7 @@ func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *tc.C
 		return nil, errors.New("mock-prepare")
 	})
 
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy/DUMMY", "ctrl")
+	_, err := s.runIAASBootstrap(c, "dummy/DUMMY", "ctrl")
 	c.Assert(err, tc.ErrorMatches, "mock-prepare")
 	c.Assert(prepareParams.Cloud.Region, tc.Equals, "dummy")
 }
@@ -1796,8 +1821,8 @@ func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
-	_, err = cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "ctrl",
+	_, err = s.runIAASBootstrap(
+		c, "dummy", "ctrl",
 		"--auto-upgrade",
 		// the second config file should replace attributes
 		// with the same name from the first, but leave the
@@ -1823,8 +1848,8 @@ func (s *BootstrapSuite) TestBootstrapConfigFileAndAdHoc(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
-	_, err = cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "ctrl",
+	_, err = s.runIAASBootstrap(
+		c, "dummy", "ctrl",
 		"--auto-upgrade",
 		// Configuration specified on the command line overrides
 		// anything specified in files, no matter what the order.
@@ -1840,8 +1865,8 @@ func (s *BootstrapSuite) TestBootstrapAutocertDNSNameDefaultPort(c *tc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "ctrl",
+	_, err := s.runIAASBootstrap(
+		c, "dummy", "ctrl",
 		"--config", "autocert-dns-name=foo.example",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -1854,8 +1879,8 @@ func (s *BootstrapSuite) TestBootstrapAutocertDNSNameExplicitAPIPort(c *tc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "dummy", "ctrl",
+	_, err := s.runIAASBootstrap(
+		c, "dummy", "ctrl",
 		"--config", "autocert-dns-name=foo.example",
 		"--config", "api-port=12345",
 	)
@@ -2057,7 +2082,7 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *tc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return bootstrapFuncs
 	})
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+	_, err := s.runIAASBootstrap(c,
 		"dummy", "devcontroller",
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -2082,7 +2107,7 @@ func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *tc.C) {
 		return bootstrapFuncs
 	})
 
-	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+	_, err = s.runIAASBootstrap(c,
 		"dummy", "devcontroller", "--controller-charm-path", controllerCharmPath,
 	)
 	c.Assert(err, tc.Equals, cmd.ErrSilent)
@@ -2135,62 +2160,97 @@ func (s *BootstrapSuite) TestBootstrapInvalidControllerCharmChannel(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `controller charm channel "3.0/foo" not valid`)
 }
 
+// TestBootstrapControllerSnapFlagValidation verifies the validation behaviour
+// of snap-related flags.
+//   - An unreadable --controller-snap-path fails in Run() (after cloud type is
+//     resolved), not in Init().
+//   - An unreadable --controller-snap-assert-path fails in Init() because it
+//     does not require cloud type knowledge.
 func (s *BootstrapSuite) TestBootstrapControllerSnapFlagValidation(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
+	s.patchVersion(c)
 
+	// Unreadable snap path: fails in Run() after cloud type is resolved.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-path", "/invalid/snap.path",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-path "/invalid/snap.path" cannot be read: .*`)
+
+	// Unreadable assert path: fails in Init() before cloud type is resolved.
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"--controller-snap-assert-path", "/invalid/snap.assert",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-assert-path "/invalid/snap.assert" cannot be read: .*`)
+}
+
+// TestBootstrapControllerSnapOptionalFlagsAvailable verifies that the optional
+// snap flags (assert-path, channel, revision) are available on the bootstrap
+// command without a feature flag. The flags are accepted but not required for
+// the current local-snap path.
+func (s *BootstrapSuite) TestBootstrapControllerSnapOptionalFlagsAvailable(c *tc.C) {
+	// Each flag should be accepted by the parser without
+	// "option provided but not defined" errors.
 	tests := []struct {
 		name string
 		args []string
-		err  string
 	}{{
-		name: "unreadable snap path",
-		args: []string{"--controller-snap-path", "/invalid/snap.path"},
-		err:  `--controller-snap-path "/invalid/snap.path" cannot be read: .*`,
+		name: "controller-snap-channel",
+		// A valid channel; the command will fail later (e.g., for no local snap
+		// path set for IAAS), but not with a flag-parse error.
+		args: []string{"--controller-snap-channel", "4.0/stable"},
 	}, {
-		name: "unreadable snap assert path",
-		args: []string{"--controller-snap-assert-path", "/invalid/snap.assert"},
-		err:  `--controller-snap-assert-path "/invalid/snap.assert" cannot be read: .*`,
+		name: "controller-snap-assert-path",
+		args: []string{"--controller-snap-assert-path", "/nonexistent.assert"},
+	}, {
+		name: "controller-snap-revision",
+		args: []string{"--controller-snap-revision", "42"},
 	}}
 
 	for _, test := range tests {
 		c.Run(test.name, func(t *testing.T) {
 			c := &tc.TBC{TB: t}
 			_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), test.args...)
-			c.Assert(err, tc.ErrorMatches, test.err)
+			// Must not fail with "option provided but not defined".
+			if err != nil {
+				c.Check(err.Error(), tc.Not(tc.Contains), "option provided but not defined")
+			}
 		})
 	}
 }
 
-func (s *BootstrapSuite) TestBootstrapControllerSnapFlagDisabled(c *tc.C) {
-	tests := []struct {
-		name string
-		args []string
-		err  string
-	}{{
-		name: "controller-snap-channel",
-		args: []string{"--controller-snap-channel", "4.0/stable"},
-		err:  `option provided but not defined: --controller-snap-channel`,
-	}, {
-		name: "controller-snap-path",
-		args: []string{"--controller-snap-path", "/snap.path"},
-		err:  `option provided but not defined: --controller-snap-path`,
-	}, {
-		name: "controller-snap-assert-path",
-		args: []string{"--controller-snap-assert-path", "/snap.assert"},
-		err:  `option provided but not defined: --controller-snap-assert-path`,
-	}, {
-		name: "controller-snap-revision",
-		args: []string{"--controller-snap-revision", "rev"},
-		err:  `option provided but not defined: --controller-snap-revision`,
-	}}
+// TestBootstrapControllerSnapPathAlwaysAvailable verifies that
+// --controller-snap-path is always available without a feature flag.
+func (s *BootstrapSuite) TestBootstrapControllerSnapPathAlwaysAvailable(c *tc.C) {
+	s.patchVersion(c)
 
-	for _, test := range tests {
-		c.Run(test.name, func(t *testing.T) {
-			c := &tc.TBC{TB: t}
-			_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), test.args...)
-			c.Assert(err, tc.ErrorMatches, test.err)
-		})
+	// Running with a valid snap path should not fail due to flag absence.
+	// It should proceed to bootstrap (and fail with the fakeBootstrapFuncs mock).
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+		"--controller-snap-path", s.controllerSnapPath,
+	)
+	// err may be cmd.ErrSilent from the mock bootstrap, but must not be
+	// "option provided but not defined: --controller-snap-path"
+	if err != nil {
+		c.Check(err.Error(), tc.Not(tc.Contains), "option provided but not defined")
 	}
+}
+
+// TestBootstrapIAASRequiresSnapPath verifies that an IAAS bootstrap without
+// --controller-snap-path fails in Run() after cloud type is resolved, before
+// any provisioning occurs. The check must not fire for CAAS bootstraps.
+func (s *BootstrapSuite) TestBootstrapIAASRequiresSnapPath(c *tc.C) {
+	s.patchVersion(c)
+
+	// IAAS bootstrap without a snap path must fail before provisioning.
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+		"dummy", "devcontroller",
+	)
+	c.Assert(err, tc.ErrorMatches, `--controller-snap-path is required for IAAS bootstrap.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
@@ -2229,7 +2289,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *tc.C) {
 			close(opc)
 		}()
 		com := s.newBootstrapCommand()
-		args := []string{"dummy", controllerName, "--auto-upgrade"}
+		args := []string{"--controller-snap-path", s.controllerSnapPath, "dummy", controllerName, "--auto-upgrade"}
 		if err := cmdtesting.InitCommand(com, args); err != nil {
 			errc <- err
 			return

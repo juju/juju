@@ -567,6 +567,17 @@ func (s *ConfigSuite) TestAuditLogFloatBackupsLoadedDirectly(c *tc.C) {
 	c.Assert(cfg.AuditLogMaxBackups(), tc.Equals, 10)
 }
 
+func (s *ConfigSuite) TestJujudControllerSnapSourceDefault(c *tc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]any{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(cfg.JujudControllerSnapSource(), tc.Equals, controller.DefaultJujudControllerSnapSource)
+	c.Check(controller.DefaultJujudControllerSnapSource, tc.Equals, "local-dangerous")
+}
+
 func (s *ConfigSuite) TestConfigAllSpacesAsMergedConstraints(c *tc.C) {
 	managementSpace := "management-space"
 	constraintSpace := "constraint-space"
