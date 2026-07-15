@@ -18,7 +18,11 @@ func (s *Server) CreatePool(name, driver string, cfg map[string]string) error {
 		Driver:         driver,
 		StoragePoolPut: api.StoragePoolPut{Config: cfg},
 	}
-	return errors.Annotatef(s.CreateStoragePool(req), "creating storage pool %q", name)
+	op, err := s.CreateStoragePool(req)
+	if err == nil {
+		err = op.Wait()
+	}
+	return errors.Annotatef(err, "creating storage pool %q", name)
 }
 
 func (s *Server) CreateVolume(pool, name string, cfg map[string]string) error {
@@ -70,7 +74,10 @@ func (s *Server) EnsureDefaultStorage(profile *api.Profile, eTag string) error {
 			Name:   poolName,
 			Driver: "dir",
 		}
-		err := s.CreateStoragePool(req)
+		op, err := s.CreateStoragePool(req)
+		if err == nil {
+			err = op.Wait()
+		}
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -169,7 +169,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	}
 	gomock.InOrder(
 		exp.UpdateInstanceState(hostName, stopReq, lxdtesting.ETag).Return(s.stopOp, nil),
-		exp.DeleteInstance(hostName).Return(s.deleteOp, nil),
+		exp.DeleteInstance(hostName, true).Return(s.deleteOp, nil),
 	)
 
 	instance, hc, err := s.manager.CreateContainer(
@@ -202,6 +202,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := s.cSvr.EXPECT()
+	op := lxdtesting.NewMockOperation(ctrl)
 
 	req := lxdapi.NetworkPut{
 		Config: map[string]string{
@@ -211,7 +212,8 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	}
 	gomock.InOrder(
 		exp.GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, lxdtesting.ETag, nil),
-		exp.UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
+		exp.UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(op, nil),
+		op.EXPECT().Wait().Return(nil),
 	)
 
 	s.expectCreateContainer(ctrl)
@@ -307,7 +309,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 		exp.UpdateInstanceState(
 			hostName, lxdapi.InstanceStatePut{Action: "start", Timeout: -1}, "").Return(s.updateOp, nil),
 		exp.GetInstanceState(hostName).Return(&lxdapi.InstanceState{StatusCode: lxdapi.Stopped}, lxdtesting.ETag, nil),
-		exp.DeleteInstance(hostName).Return(s.deleteOp, nil),
+		exp.DeleteInstance(hostName, true).Return(s.deleteOp, nil),
 	)
 
 	_, _, err = s.manager.CreateContainer(
@@ -339,7 +341,7 @@ func (s *managerSuite) TestListContainers(c *gc.C) {
 		{Name: "nothing-to-see-here-please", Type: "container"},
 	}
 
-	s.cSvr.EXPECT().GetInstances(lxdapi.InstanceTypeAny).Return(containers, nil)
+	s.cSvr.EXPECT().GetInstances(lxdclient.GetInstancesArgs{InstanceType: lxdapi.InstanceTypeAny}).Return(containers, nil)
 
 	result, err := s.manager.ListContainers()
 	c.Assert(err, jc.ErrorIsNil)

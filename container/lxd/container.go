@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/units"
 	"github.com/juju/clock"
@@ -203,7 +204,9 @@ func (s *Server) AliveContainers(prefix string) ([]Container, error) {
 // FilterContainers retrieves the list of containers from the server and filters
 // them based on the input namespace prefix and any supplied statuses.
 func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Container, error) {
-	instances, err := s.GetInstances(api.InstanceTypeAny)
+	instances, err := s.GetInstances(lxdclient.GetInstancesArgs{
+		InstanceType: api.InstanceTypeAny,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -426,12 +429,6 @@ func (s *Server) RemoveContainer(name string) error {
 		}
 	}
 
-	// NOTE(achilleasa): the (apt) lxd version that ships with bionic
-	// does not automatically remove veth devices if attached to an OVS
-	// bridge. The operator must manually remove these devices from the
-	// bridge by running "ovs-vsctl --if-exists del-port X". This issue
-	// has been fixed in newer lxd versions.
-
 	// LXD has issues deleting containers, even if they've been stopped. The
 	// general advice passed back from the LXD team is to retry it again, to
 	// see if this helps clean up the containers.
@@ -443,7 +440,7 @@ func (s *Server) RemoveContainer(name string) error {
 			return errors.IsBadRequest(err)
 		},
 		Func: func() error {
-			op, err := s.DeleteInstance(name)
+			op, err := s.DeleteInstance(name, true)
 			if err != nil {
 				// sigh, LXD not found container - it's been deleted so, we
 				// just need to return nil.

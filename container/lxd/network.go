@@ -76,7 +76,11 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 		net.Config["ipv4.address"] = "auto"
 		net.Config["ipv4.nat"] = "true"
 
-		if err := s.UpdateNetwork(netName, net.Writable(), eTag); err != nil {
+		op, err := s.UpdateNetwork(netName, net.Writable(), eTag)
+		if err == nil {
+			err = op.Wait()
+		}
+		if err != nil {
 			return false, errors.Trace(err)
 		}
 		modified = true
@@ -145,7 +149,10 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 				"ipv6.nat":     "false",
 			}},
 		}
-		err := s.CreateNetwork(req)
+		op, err := s.CreateNetwork(req)
+		if err == nil {
+			err = op.Wait()
+		}
 		if err != nil {
 			return errors.Trace(err)
 		}
