@@ -177,15 +177,25 @@ func (s *filestorageSuite) TestPutRefusesTmp(c *tc.C) {
 }
 
 func (s *filestorageSuite) TestRefusesPathTraversal(c *tc.C) {
-	// Create a file in the parent of the storage directory that a "../"
-	// name would resolve to, to prove an escaping name cannot reach it.
-	outside := filepath.Join(filepath.Dir(s.dir), "outside")
+	// Each escaping name is paired with a sentinel file planted at the exact
+	// location it resolves to, so a successful escape would read, overwrite or
+	// delete a real file we can detect afterwards. The names cover a single
+	// level, a multi-level traversal, and traversal hidden behind a leading
+	// segment.
+	parent := filepath.Dir(s.dir)
+	grandparent := filepath.Dir(parent)
 	secret := []byte{6, 7, 8, 9}
-	c.Assert(os.WriteFile(outside, secret, 0644), tc.ErrorIsNil)
+	cases := map[string]string{
+		"../outside":        filepath.Join(parent, "outside"),
+		"../../outside":     filepath.Join(grandparent, "outside"),
+		"a/../../outside-b": filepath.Join(parent, "outside-b"),
+	}
+	for name, target := range cases {
+		c.Assert(filepath.Join(s.dir, name), tc.Equals, target)
+		c.Assert(os.WriteFile(target, secret, 0644), tc.ErrorIsNil)
+	}
 
-	// Names that resolve outside the storage directory: a single level, a
-	// multi-level traversal, and traversal hidden behind a leading segment.
-	for _, name := range []string{"../outside", "../../", "a/../../b"} {
+	for name := range cases {
 		c.Logf("name=%q", name)
 
 		_, err := s.reader.Get(name)
@@ -204,13 +214,21 @@ func (s *filestorageSuite) TestRefusesPathTraversal(c *tc.C) {
 		c.Check(err, tc.ErrorIs, errors.NotValid)
 	}
 
-	// The file outside the storage directory is untouched.
-	b, err := os.ReadFile(outside)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(b, tc.DeepEquals, secret)
+	// Every sentinel outside the storage directory is untouched.
+	for _, target := range cases {
+		b, err := os.ReadFile(target)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Assert(b, tc.DeepEquals, secret)
+	}
 }
 
 func (s *filestorageSuite) TestAllowsRootNames(c *tc.C) {
+	// A file at the storage root, plus a decoy planted in the parent directory
+	// that a root List walks over but must not return.
+	s.createFile(c, "root-file")
+	decoy := filepath.Join(filepath.Dir(s.dir), "decoy")
+	c.Assert(os.WriteFile(decoy, []byte{9}, 0644), tc.ErrorIsNil)
+
 	// Names that resolve to the storage directory itself ("", ".", "./") stay
 	// within the root, so they must not be rejected as NotValid. Pin that
 	// behaviour so a stricter containment check can't silently start refusing
@@ -227,6 +245,12 @@ func (s *filestorageSuite) TestAllowsRootNames(c *tc.C) {
 		// NotValid containment error.
 		_, err = s.reader.Get(name)
 		c.Check(err, tc.ErrorIs, errors.NotFound)
+
+		// List of the root walks the storage directory and returns only its
+		// contents, never the parent's, rather than being rejected as NotValid.
+		files, err := s.reader.List(name)
+		c.Check(err, tc.ErrorIsNil)
+		c.Check(files, tc.DeepEquals, []string{"root-file"})
 	}
 }
 

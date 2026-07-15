@@ -106,12 +106,12 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 	if isInternalPath(prefix) {
 		return names, nil
 	}
-	prefix = filepath.Join(f.path, prefix)
-	if err := f.ensureWithinRoot(prefix); err != nil {
+	prefix, err := f.fullPath(prefix)
+	if err != nil {
 		return nil, err
 	}
 	dir := filepath.Dir(prefix)
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
