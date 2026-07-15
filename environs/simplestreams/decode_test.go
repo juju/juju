@@ -20,7 +20,7 @@ func (s *decodeSuite) TestDecodeCheckValidSignature(c *gc.C) {
 	r := bytes.NewReader([]byte(signedData))
 	txt, err := simplestreams.DecodeCheckSignature(r, testSigningKey)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(txt, gc.DeepEquals, []byte(unsignedData[1:]))
+	c.Assert(txt, gc.DeepEquals, []byte(unsignedData[1:len(unsignedData)-1]))
 }
 
 func (s *decodeSuite) TestDecodeCheckInvalidSignature(c *gc.C) {

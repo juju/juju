@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"io"
 
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
+	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 )
 
 // Encode signs the data returned by the reader and returns an inline signed copy.

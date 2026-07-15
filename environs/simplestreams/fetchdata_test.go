@@ -51,7 +51,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithPubli
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey"}
 	s.readerData = signedData
-	s.expectedData = unsignedData[1:]
+	s.expectedData = unsignedData[1 : len(unsignedData)-1]
 	s.setupDataSource(testSigningKey)
 	s.assertFetchData(c)
 }
