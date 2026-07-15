@@ -36,7 +36,7 @@ const (
 	ControllerSnapArchive = "juju-controller.snap"
 
 	// ControllerSnapAssertArchive is the filename used when embedding the
-	// controller snap assertion in cloud-init for local-build bootstrap.
+	// controller snap assertion in cloud-init for asserted-install bootstrap.
 	ControllerSnapAssertArchive = "juju-controller.assert"
 
 	// ControllerSnapPackageName is the snap package currently used for

@@ -620,6 +620,10 @@ jujud-snap:
 	$(call snap_stage,jujud)
 	snapcraft pack --use-lxd
 
+.PHONY: build-snap
+build-snap: jujud-snap
+## build-snap: Alias for jujud-snap; produces the jujud controller snap for local bootstrap.
+
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.

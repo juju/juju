@@ -387,14 +387,12 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The Charmhub channel to download the controller charm from (if not using a local charm)")
 
-	if featureflag.Enabled(featureflag.ControllerSnap) {
-		f.StringVar(&c.ControllerSnapPath, "controller-snap-path", "", "Path to a downloaded snap")
-		f.StringVar(&c.ControllerSnapAssertPath, "controller-snap-assert-path", "", "Path to a downloaded snap assert file")
-		f.StringVar(&c.ControllerSnapChannelStr, "controller-snap-channel",
-			fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
-			"The channel to install the controller snap from")
-		f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision")
-	}
+	f.StringVar(&c.ControllerSnapPath, "controller-snap-path", "", "Path to a locally built controller snap")
+	f.StringVar(&c.ControllerSnapAssertPath, "controller-snap-assert-path", "", "Path to a snap assertion file for the controller snap")
+	f.StringVar(&c.ControllerSnapChannelStr, "controller-snap-channel",
+		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
+		"The channel to install the controller snap from (store installs; not used in local-snap mode)")
+	f.StringVar(&c.ControllerSnapRevision, "controller-snap-revision", "", "Controller snap revision (store installs; not used in local-snap mode)")
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -427,38 +425,29 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		return errors.NotValidf("controller charm channel %q", c.ControllerCharmChannelStr)
 	}
 
-	if featureflag.Enabled(featureflag.ControllerSnap) {
-		if c.ControllerSnapPath != "" {
-			_, err := c.Filesystem().Stat(c.ControllerSnapPath)
-			if err != nil {
-				return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
-			}
+	if c.ControllerSnapAssertPath != "" {
+		_, err := c.Filesystem().Stat(c.ControllerSnapAssertPath)
+		if err != nil {
+			return errors.Annotatef(err, "--controller-snap-assert-path %q cannot be read", c.ControllerSnapAssertPath)
 		}
-		if c.ControllerSnapAssertPath != "" {
-			_, err := c.Filesystem().Stat(c.ControllerSnapAssertPath)
-			if err != nil {
-				return errors.Annotatef(err, "--controller-snap-assert-path %q cannot be read", c.ControllerSnapAssertPath)
-			}
-		}
+	}
 
-		if c.ControllerSnapChannelStr != "" {
-			c.ControllerSnapChannel, err = parseControllerCharmChannel(c.ControllerSnapChannelStr)
-			if err != nil {
-				return errors.NotValidf("controller snap channel %q", c.ControllerSnapChannelStr)
-			}
+	if c.ControllerSnapChannelStr != "" {
+		c.ControllerSnapChannel, err = parseControllerCharmChannel(c.ControllerSnapChannelStr)
+		if err != nil {
+			return errors.NotValidf("controller snap channel %q", c.ControllerSnapChannelStr)
 		}
+	}
 
-		// Verify ControllerSnapRevision is an integer greater than 0
-		if c.ControllerSnapRevision != "" {
-			rev, err := strconv.Atoi(c.ControllerSnapRevision)
-			if err != nil {
-				return errors.NotValidf("controller snap revision %q is not a number", c.ControllerSnapRevision)
-			}
-			if rev < 0 {
-				return errors.NotValidf("controller snap revision %q is negative", c.ControllerSnapRevision)
-			}
+	// Verify ControllerSnapRevision is an integer greater than 0
+	if c.ControllerSnapRevision != "" {
+		rev, err := strconv.Atoi(c.ControllerSnapRevision)
+		if err != nil {
+			return errors.NotValidf("controller snap revision %q is not a number", c.ControllerSnapRevision)
 		}
-
+		if rev < 0 {
+			return errors.NotValidf("controller snap revision %q is negative", c.ControllerSnapRevision)
+		}
 	}
 
 	if c.showClouds && c.showRegionsForCloud != "" {
@@ -723,6 +712,16 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
 			return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
 				bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
+		}
+		// For non-CAAS (IAAS) bootstraps, a local controller snap path is
+		// mandatory. Bootstrap fails here, before provisioning, when the path
+		// is absent or unreadable.
+		if c.ControllerSnapPath == "" {
+			return errors.New("--controller-snap-path is required for IAAS bootstrap; " +
+				"build the snap with 'make build-snap' and supply the path")
+		}
+		if _, err := c.Filesystem().Stat(c.ControllerSnapPath); err != nil {
+			return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
 		}
 	}
 
