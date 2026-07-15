@@ -88,11 +88,14 @@ func findPackagedTools(
 }
 
 // locallyBuildableTools returns the list of tools that
-// can be built locally.
-func locallyBuildableTools() (buildable coretools.List, _ semversion.Number, _ error) {
-	buildNumber := jujuversion.Current
-	// Increment the build number so we know it's a custom build.
-	buildNumber.Build++
+// can be built locally. The forceVersion is used as the version
+// for the built tools; when supplied, no Build++ is applied.
+func locallyBuildableTools(forceVersion semversion.Number) (buildable coretools.List, _ semversion.Number, _ error) {
+	buildNumber := forceVersion
+	if buildNumber.IsZero() {
+		buildNumber = jujuversion.Current
+		buildNumber.Build++
+	}
 	if !coreos.HostOS().EquivalentTo(ostype.Ubuntu) {
 		return buildable, buildNumber, nil
 	}
