@@ -150,6 +150,11 @@ func (h *TestWatchableDB) loop() error {
 
 // assertChangeStreamIdle waits for either the change stream to quickly dispatch
 // some changes or become idle before the deadline.
+//
+// The timer always resets to LongWait after receiving a dispatch state.
+// Deriving a timeout from the test deadline (c.Deadline()) is avoided because
+// under go test's default 10m deadline this would produce ~9m30s timers that
+// prevent timely failure reporting.
 func assertChangeStreamIdle(c *tc.C, label string, states <-chan []string) {
 	timer := time.NewTimer(coretesting.LongWait)
 	for {
@@ -160,16 +165,7 @@ func assertChangeStreamIdle(c *tc.C, label string, states <-chan []string) {
 				case stateIdle:
 					return
 				case stateDispatch:
-					next := coretesting.LongWait
-					if deadline, ok := c.Deadline(); ok {
-						next = time.Until(deadline) - coretesting.LongWait
-					}
-					// Clamp to a positive value so the timer does not
-					// fire immediately when the deadline is near.
-					if next <= 0 {
-						next = time.Second
-					}
-					timer.Reset(next)
+					timer.Reset(coretesting.LongWait)
 				}
 			}
 		case <-timer.C:
