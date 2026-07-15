@@ -15,6 +15,9 @@ import (
 	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 )
 
 var (
@@ -99,4 +102,49 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			return w, nil
 		},
 	}
+}
+
+// GetControllerDomainServicesFunc extracts controller domain services from a
+// dependency getter.
+type GetControllerDomainServicesFunc func(dependency.Getter, string) (ControllerDomainServices, error)
+
+// GetDomainServicesFunc extracts model domain services for the supplied model
+// UUID from a dependency getter.
+type GetDomainServicesFunc func(context.Context, dependency.Getter, string, coremodel.UUID) (DomainServices, error)
+
+// ControllerDomainServices exposes controller services used by this worker.
+type ControllerDomainServices interface {
+	// Model returns the controller model service.
+	Model() ModelService
+	// ControllerNode returns the controller node service.
+	ControllerNode() ControllerNodeService
+}
+
+// DomainServices exposes model services used by this worker.
+type DomainServices interface {
+	// Config returns the model config service.
+	Config() ModelConfigService
+}
+
+// ModelService provides controller model information.
+type ModelService interface {
+	// ControllerModel returns the model used for housing the Juju controller.
+	ControllerModel(context.Context) (coremodel.Model, error)
+}
+
+// ModelConfigService provides access to the model's configuration.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+	// Watch returns a watcher that returns keys for model config changes.
+	Watch(context.Context) (watcher.StringsWatcher, error)
+}
+
+// ControllerNodeService provides API address information for no-proxy values.
+type ControllerNodeService interface {
+	// GetAllNoProxyAPIAddressesForAgents returns agent API addresses suitable for
+	// no-proxy settings.
+	GetAllNoProxyAPIAddressesForAgents(context.Context) (string, error)
+	// WatchControllerAPIAddresses watches controller API address changes.
+	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }

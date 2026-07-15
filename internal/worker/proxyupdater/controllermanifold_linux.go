@@ -20,24 +20,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/services"
+	"github.com/juju/juju/internal/worker/gate"
 )
-
-// GetControllerDomainServicesFunc extracts controller domain services from a
-// dependency getter.
-type GetControllerDomainServicesFunc func(dependency.Getter, string) (ControllerDomainServices, error)
-
-// GetDomainServicesFunc extracts model domain services for the supplied model
-// UUID from a dependency getter.
-type GetDomainServicesFunc func(context.Context, dependency.Getter, string, coremodel.UUID) (DomainServices, error)
-
-// ProxyReadyUnlocker unlocks the proxy ready gate once initial proxy config is
-// applied.
-type ProxyReadyUnlocker interface {
-	// Unlock unlocks the proxy ready gate.
-	Unlock()
-}
 
 // ControllerManifoldConfig defines a proxy updater manifold backed directly by
 // domain services instead of the API facade.
@@ -98,7 +83,7 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var proxyReadyUnlocker ProxyReadyUnlocker
+			var proxyReadyUnlocker gate.Unlocker
 			if err := getter.Get(config.ProxyReadyGateName, &proxyReadyUnlocker); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -137,6 +122,9 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			// Create a proxy worker and apply the initial config. This is only
+			// done in this way, so that we can ensure that the initial config
+			// is applied correctly in a synchronous manner before the worker is started and the proxy ready gate is unlocked.
 			initialWorker := &proxyWorker{first: true, config: workerConfig}
 			initialWorker.applyConfig(ctx, initialConfig)
 
@@ -151,43 +139,6 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 			return w, nil
 		},
 	}
-}
-
-// ControllerDomainServices exposes controller services used by this worker.
-type ControllerDomainServices interface {
-	// Model returns the controller model service.
-	Model() ModelService
-	// ControllerNode returns the controller node service.
-	ControllerNode() ControllerNodeService
-}
-
-// DomainServices exposes model services used by this worker.
-type DomainServices interface {
-	// Config returns the model config service.
-	Config() ModelConfigService
-}
-
-// ModelService provides controller model information.
-type ModelService interface {
-	// ControllerModel returns the model used for housing the Juju controller.
-	ControllerModel(context.Context) (coremodel.Model, error)
-}
-
-// ModelConfigService provides access to the model's configuration.
-type ModelConfigService interface {
-	// ModelConfig returns the current config for the model.
-	ModelConfig(context.Context) (*config.Config, error)
-	// Watch returns a watcher that returns keys for model config changes.
-	Watch(context.Context) (watcher.StringsWatcher, error)
-}
-
-// ControllerNodeService provides API address information for no-proxy values.
-type ControllerNodeService interface {
-	// GetAllNoProxyAPIAddressesForAgents returns agent API addresses suitable for
-	// no-proxy settings.
-	GetAllNoProxyAPIAddressesForAgents(context.Context) (string, error)
-	// WatchControllerAPIAddresses watches controller API address changes.
-	WatchControllerAPIAddresses(context.Context) (watcher.NotifyWatcher, error)
 }
 
 type domainProxySource struct {
@@ -301,5 +252,3 @@ func (s domainProxySource) WatchForProxyConfigAndAPIHostPortChanges(ctx context.
 		controllerAPIAddressesWatcher,
 	)
 }
-
-var _ API = domainProxySource{}
