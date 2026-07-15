@@ -472,6 +472,8 @@ func bootstrapIAAS(
 		bootstrapArch = localToolsArch()
 	}
 
+	var snapVersion semversion.Number
+
 	// For store-based snap bootstrap: when no local path is given but a
 	// channel or revision is specified, resolve the channel and fetch the
 	// expected version from the snap store. This path is not active in the
@@ -489,6 +491,38 @@ func bootstrapIAAS(
 			args.ControllerSnapResolvedChannel,
 			args.ControllerSnapExpectedVersion,
 		)
+	}
+
+	// For local-dangerous snap path: inspect the snap version and enforce
+	// exact compatibility with the bootstrap client.
+	if args.ControllerSnapPath != "" {
+		inspectedVersion, err := inspectLocalSnapVersion(ctx, args.ControllerSnapPath)
+		if err != nil {
+			return errors.Annotate(err, "inspecting local snap version")
+		}
+		args.ControllerSnapExpectedVersion = inspectedVersion.String()
+		snapVersion = inspectedVersion
+		ctx.Infof("Inspected local controller snap version %s", inspectedVersion)
+
+		// Record the snap digest for integrity.
+		digest, err := digestLocalSnap(args.ControllerSnapPath)
+		if err != nil {
+			return errors.Annotate(err, "digesting local snap")
+		}
+		ctx.Infof("Local controller snap SHA-256 digest: %s", digest)
+
+		// Verify snap version is compatible with the bootstrap client.
+		snapCompat := snapVersion
+		snapCompat.Build = 0
+		clientCompat := jujuversion.Current
+		clientCompat.Build = 0
+		if snapCompat.Compare(clientCompat) != 0 {
+			return errors.Errorf(
+				"local snap version %s is not compatible with bootstrap client %s; "+
+					"rebuild the snap with 'make build-snap' to match the current client version",
+				snapVersion, jujuversion.Current,
+			)
+		}
 	}
 
 	agentVersion := jujuversion.Current
@@ -528,12 +562,16 @@ func bootstrapIAAS(
 			return err
 		}
 		if args.BuildAgent {
-			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+			if !snapVersion.IsZero() {
+				ctx.Infof("Building local Juju agent binary version %s for %s (anchored to controller snap)", snapVersion, bootstrapArch)
+			} else {
+				ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+			}
 		} else {
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
 		var forceVersion semversion.Number
-		availableTools, forceVersion, err = locallyBuildableTools()
+		availableTools, forceVersion, err = locallyBuildableTools(snapVersion)
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
