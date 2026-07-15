@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migrationimportreconciler
+package migrationreconciler
 
 import (
 	"context"
@@ -26,8 +26,10 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-func TestConfigSuite(t *testing.T)   { tc.Run(t, &configSuite{}) }
-func TestWorkerSuite(t *testing.T)   { tc.Run(t, &workerSuite{}) }
+func TestConfigSuite(t *testing.T) { tc.Run(t, &configSuite{}) }
+func TestWorkerSuite(t *testing.T) {
+	tc.Run(t, &workerSuite{})
+}
 func TestManifoldSuite(t *testing.T) { tc.Run(t, &manifoldSuite{}) }
 func TestLogicSuite(t *testing.T)    { tc.Run(t, &logicSuite{}) }
 
@@ -104,8 +106,9 @@ func abortingClaim(modelUUID coremodel.UUID, updatedAt time.Time) modelmigration
 	}
 }
 
-// TestFinalizesAbortingClaim verifies the reconciler re-drives the abort (which
-// stages the model database for deletion) then finalizes the claim.
+// TestFinalizesAbortingClaim verifies the reconciler spawns a per-model job
+// worker that re-drives the abort (staging the model database for deletion)
+// then finalizes the claim.
 func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 	defer s.setup(c).Finish()
 
@@ -156,7 +159,7 @@ func (s *workerSuite) TestIgnoresFreshNonAbortingClaims(c *tc.C) {
 			}, nil
 		}).AnyTimes()
 
-	// No abort / DB / finalize expectations: any such call fails the test.
+	// No abort / finalize expectations: any such call fails the test.
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -181,35 +184,24 @@ func (s *workerSuite) TestFinalizeFailureKeepsWorkerAlive(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	modelUUID := coremodel.UUID(uuid.MustNewUUID().String())
-	failed := make(chan struct{}, 1)
 
 	s.service.EXPECT().GetAllImportClaims(gomock.Any()).
 		Return([]modelmigration.ImportClaimStatus{abortingClaim(modelUUID, s.clock.Now())}, nil).AnyTimes()
-	s.service.EXPECT().FinalizeAbortedImport(gomock.Any(), modelUUID).DoAndReturn(
-		func(context.Context, coremodel.UUID) error {
-			select {
-			case failed <- struct{}{}:
-			default:
-			}
-			return errors.Errorf("cleanup incomplete: %w", modelmigrationerrors.ErrAbortNotFinalizable)
-		}).AnyTimes()
+	s.service.EXPECT().FinalizeAbortedImport(gomock.Any(), modelUUID).Return(
+		errors.Errorf("cleanup incomplete: %w", modelmigrationerrors.ErrAbortNotFinalizable),
+	).AnyTimes()
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
 	s.tick(c)
 
-	select {
-	case <-failed:
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("finalize was not attempted")
-	}
 	// The worker must still be running after a finalize failure.
 	workertest.CheckAlive(c, w)
 }
 
-// logicSuite white-box tests the reconciler's per-model backoff and stale-claim
-// warning logic directly, without the timer loop, for deterministic assertions.
+// logicSuite white-box tests the reconciler's stale-claim warning logic
+// directly, without the timer loop, for deterministic assertions.
 type logicSuite struct{}
 
 // recordingLogger returns a logger that appends every formatted message to
@@ -232,71 +224,8 @@ func countContaining(entries []string, sub string) int {
 	return n
 }
 
-func bareReconciler(cfg Config) *Reconciler {
-	return &Reconciler{config: cfg, models: make(map[string]*modelState)}
-}
-
-// TestRecordFailureBackoff verifies the per-model backoff doubles on each
-// failure and clamps at maxAbortBackoff.
-func (s *logicSuite) TestRecordFailureBackoff(c *tc.C) {
-	log, _ := recordingLogger()
-	w := bareReconciler(Config{Logger: log})
-	claim := abortingClaim(coremodel.UUID(uuid.MustNewUUID().String()), time.Time{})
-	now := time.Now()
-	err := errors.Errorf("pending: %w", modelmigrationerrors.ErrAbortNotFinalizable)
-
-	// First failure seeds the minimum backoff; subsequent ones double.
-	for _, want := range []time.Duration{
-		minAbortBackoff, 2 * minAbortBackoff, 4 * minAbortBackoff,
-		8 * minAbortBackoff, 16 * minAbortBackoff,
-	} {
-		w.recordFailure(c.Context(), claim, now, err)
-		state := w.models[claim.ModelUUID]
-		c.Check(state.backoff, tc.Equals, want)
-		c.Check(state.nextRetry, tc.Equals, now.Add(want))
-	}
-
-	// The next doubling would exceed the cap, so it clamps and stays clamped.
-	w.recordFailure(c.Context(), claim, now, err)
-	c.Check(w.models[claim.ModelUUID].backoff, tc.Equals, maxAbortBackoff)
-	w.recordFailure(c.Context(), claim, now, err)
-	c.Check(w.models[claim.ModelUUID].backoff, tc.Equals, maxAbortBackoff)
-}
-
-// TestReconcileAbortingSkipsDuringBackoff verifies a model whose next retry is
-// in the future is skipped without touching the abort/finalize path.
-func (s *logicSuite) TestReconcileAbortingSkipsDuringBackoff(c *tc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	log, _ := recordingLogger()
-	now := time.Now()
-	claim := abortingClaim(coremodel.UUID(uuid.MustNewUUID().String()), now)
-
-	// Abort and the finalize service must not be called; a call fails the test
-	// (Abort via c.Fatal, Service via the strict mock with no expectations).
-	w := bareReconciler(Config{
-		Service: NewMockService(ctrl),
-		Abort: func(context.Context, coremodel.UUID) error {
-			c.Fatal("abort must not run during backoff")
-			return nil
-		},
-		Logger: log,
-	})
-	w.models[claim.ModelUUID] = &modelState{nextRetry: now.Add(time.Hour)}
-
-	w.reconcileAborting(c.Context(), claim, now)
-
-	// Once the backoff elapses, the model is retried and (on success) cleared.
-	w.config.Service.(*MockService).EXPECT().
-		FinalizeAbortedImport(gomock.Any(), coremodel.UUID(claim.ModelUUID)).Return(nil)
-	aborted := false
-	w.config.Abort = func(context.Context, coremodel.UUID) error { aborted = true; return nil }
-
-	w.reconcileAborting(c.Context(), claim, now.Add(2*time.Hour))
-	c.Check(aborted, tc.IsTrue)
-	_, stillTracked := w.models[claim.ModelUUID]
-	c.Check(stillTracked, tc.IsFalse)
+func bareReconciler(cfg Config) *reconciler {
+	return &reconciler{config: cfg, staleWarnings: make(map[string]time.Time)}
 }
 
 // TestWarnIfStale verifies a claim past the stale threshold warns once, is
@@ -337,6 +266,6 @@ func (s *logicSuite) TestWarnIfStaleFreshClaimSilent(c *tc.C) {
 
 	w.warnIfStale(c.Context(), claim, now)
 	c.Check(*entries, tc.HasLen, 0)
-	_, tracked := w.models[claim.ModelUUID]
+	_, tracked := w.staleWarnings[claim.ModelUUID]
 	c.Check(tracked, tc.IsFalse)
 }

@@ -1,7 +1,7 @@
 // Copyright 2026 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package migrationimportreconciler
+package migrationreconciler
 
 import (
 	"context"
@@ -24,8 +24,7 @@ import (
 // depend.
 type ManifoldConfig struct {
 	// DBAccessorName is the name of the DB accessor manifold, from which the
-	// reconciler obtains the controller database and the ability to drop model
-	// databases.
+	// reconciler obtains the controller database.
 	DBAccessorName string
 
 	Clock     clock.Clock
@@ -50,8 +49,7 @@ func (cfg ManifoldConfig) Validate() error {
 	return nil
 }
 
-// Manifold returns a dependency.Manifold that runs the migration import
-// reconciler.
+// Manifold returns a dependency.Manifold that runs the migration reconciler.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{

@@ -99,8 +99,8 @@ import (
 	"github.com/juju/juju/internal/worker/machineconverter"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
-	"github.com/juju/juju/internal/worker/migrationimportreconciler"
 	"github.com/juju/juju/internal/worker/migrationminion"
+	"github.com/juju/juju/internal/worker/migrationreconciler"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstoredrainer"
@@ -860,14 +860,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewStore:       leaseexpiry.NewStore,
 		})),
 
-		// The migration import reconciler completes interrupted target-side
+		// The migration reconciler completes interrupted target-side
 		// model-migration import aborts: it drops the partial model database and
 		// releases the durable import claim once cleanup is provably complete.
-		migrationImportReconcilerName: ifPrimaryController(migrationimportreconciler.Manifold(migrationimportreconciler.ManifoldConfig{
+		migrationReconcilerName: ifPrimaryController(migrationreconciler.Manifold(migrationreconciler.ManifoldConfig{
 			DBAccessorName: dbAccessorName,
 			Clock:          config.Clock,
-			Logger:         internallogger.GetLogger("juju.worker.migrationimportreconciler"),
-			NewWorker:      migrationimportreconciler.NewWorker,
+			Logger:         internallogger.GetLogger("juju.worker.migrationreconciler"),
+			NewWorker:      migrationreconciler.NewWorker,
 		})),
 
 		// The global lease manager tracks lease information in the Dqlite database.
@@ -1621,10 +1621,10 @@ const (
 	upgradeCheckFlagName       = "upgrade-check-flag"
 	upgradeDomainServicesName  = "upgrade-services"
 
-	migrationFortressName         = "migration-fortress"
-	migrationImportReconcilerName = "migration-import-reconciler"
-	migrationInactiveFlagName     = "migration-inactive-flag"
-	migrationMinionName           = "migration-minion"
+	migrationFortressName     = "migration-fortress"
+	migrationReconcilerName   = "migration-reconciler"
+	migrationInactiveFlagName = "migration-inactive-flag"
+	migrationMinionName       = "migration-minion"
 
 	apiAddressSetterName               = "api-address-setter"
 	apiAddressUpdaterName              = "api-address-updater"

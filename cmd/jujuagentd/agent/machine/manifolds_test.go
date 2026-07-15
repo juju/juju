@@ -123,7 +123,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"machine-setup",
 			"machiner",
 			"migration-fortress",
-			"migration-import-reconciler",
+			"migration-reconciler",
 			"migration-inactive-flag",
 			"migration-minion",
 			"model-worker-manager",
@@ -221,7 +221,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 			"logging-config-updater",
 			"loki-endpoint-updater",
 			"migration-fortress",
-			"migration-import-reconciler",
+			"migration-reconciler",
 			"migration-inactive-flag",
 			"migration-minion",
 			"model-worker-manager",
@@ -329,7 +329,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *tc.C) {
 		"controller-log-router",
 		"log-router",
 		"migration-fortress",
-		"migration-import-reconciler",
+		"migration-reconciler",
 		"migration-inactive-flag",
 		"migration-minion",
 		"model-worker-manager",
@@ -410,7 +410,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *tc.C) {
 		"change-stream-pruner",
 		"external-controller-updater",
 		"lease-expiry",
-		"migration-import-reconciler",
+		"migration-reconciler",
 		"object-store-drainer",
 		"secret-backend-rotate",
 	)
@@ -1656,7 +1656,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state-config-watcher",
 		"trace-services",
 	},
-	"migration-import-reconciler": {
+	"migration-reconciler": {
 		"agent",
 		"change-stream",
 		"controller-agent-config",
@@ -3118,7 +3118,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 		"trace-services",
 	},
-	"migration-import-reconciler": {
+	"migration-reconciler": {
 		"agent",
 		"change-stream",
 		"controller-agent-config",
