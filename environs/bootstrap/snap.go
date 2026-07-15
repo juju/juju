@@ -11,6 +11,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
+	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 var runSnapInfoCommand = func(ctx context.Context, packageName string) (string, error) {
@@ -49,4 +52,14 @@ func resolveSnapChannelVersion(ctx context.Context, channel string) (string, err
 	}
 
 	return matches[1], nil
+}
+
+func resolveSnapChannel(channel charm.Channel) string {
+	if !channel.Empty() {
+		return channel.String()
+	}
+
+	return fmt.Sprintf(
+		"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
+	)
 }
