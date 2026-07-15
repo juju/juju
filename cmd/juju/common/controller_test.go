@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/version"
 	environscmd "github.com/juju/juju/environs/cmd"
+	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
+	proxyerrors "github.com/juju/juju/internal/proxy/errors"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -97,6 +99,29 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 		})
 	})
 
+	c.Run("K8sProxyConnectErrorRetries", func(c *stdtesting.T) {
+		count := 0
+		tryAPI := func(ctx context.Context, c *modelcmd.ModelCommandBase) error {
+			count++
+			if count == 1 {
+				return errors.Annotate(
+					proxyerrors.NewProxyConnectError(
+						errors.New("lost connection to pod"),
+						k8sproxy.ProxierTypeKey,
+					),
+					"cannot connect to k8s api server",
+				)
+			}
+			return nil
+		}
+		runInCommand(&tc.TBC{TB: c}, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
+			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
+			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "arthur", tryAPI)
+			tc.Assert(c, err, tc.ErrorIsNil)
+			tc.Check(c, count, tc.Equals, 2)
+		})
+	})
+
 	c.Run("ExhaustedRetries", func(c *stdtesting.T) {
 		count := 0
 		tryAPI := func(ctx context.Context, c *modelcmd.ModelCommandBase) error {
@@ -107,6 +132,17 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
 			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "arthur", tryAPI)
 			tc.Assert(c, err, tc.ErrorMatches, `unable to contact api server after.*`)
+		})
+	})
+
+	c.Run("UnknownErrorAttemptCount", func(c *stdtesting.T) {
+		tryAPI := func(ctx context.Context, c *modelcmd.ModelCommandBase) error {
+			return errors.New("foobar")
+		}
+		runInCommand(&tc.TBC{TB: c}, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
+			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
+			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "arthur", tryAPI)
+			tc.Assert(c, err, tc.ErrorMatches, `unable to contact api server after 1 attempts: .*foobar`)
 		})
 	})
 }

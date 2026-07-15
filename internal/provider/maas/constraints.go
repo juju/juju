@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"

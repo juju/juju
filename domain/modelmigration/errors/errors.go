@@ -59,4 +59,9 @@ const (
 	// once abort has begun; the caller must wait for abort to complete and
 	// retry the full import from the source controller.
 	ErrActivationAborting = errors.ConstError("cannot activate import: cleanup already in progress")
+
+	// ErrModelNotRedirected indicates that no completed migration redirect
+	// exists for the model. A staged-but-incomplete redirect (completed_at IS
+	// NULL) is not yet active and returns the same error.
+	ErrModelNotRedirected = errors.ConstError("model not redirected")
 )

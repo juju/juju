@@ -1,0 +1,49 @@
+package_update: true
+package_upgrade: true
+package_reboot_if_required: true
+
+packages:
+- jq
+
+runcmd:
+- |
+  # Set up MicroK8s
+  snap install microk8s --channel=1.31-strict/stable
+  snap alias microk8s.kubectl kubectl
+
+  usermod -a -G snap_microk8s ubuntu
+  usermod -a -G microk8s ubuntu
+  microk8s status --wait-ready
+
+  microk8s.enable metrics-server
+  microk8s.kubectl rollout status deployments/metrics-server -n kube-system -w --timeout=600s
+
+  # The dns addon will restart the api server so you may see a blip in the availability.
+  # Separate addons to avoid "dial tcp 127.0.0.1:16443: connect: connection refused" errors.
+  microk8s.enable dns
+  microk8s.kubectl rollout status deployments/coredns -n kube-system -w --timeout=600s
+
+  microk8s.enable rbac
+
+  # Wait for storage to become available
+  microk8s.enable hostpath-storage
+  microk8s.kubectl rollout status deployments/hostpath-provisioner -n kube-system -w --timeout=600s
+
+  # MetalLB
+  IPADDR=$(ip -4 -j route get 2.2.2.2 | jq -r '.[] | .prefsrc')
+  microk8s enable metallb:$IPADDR-$IPADDR
+  microk8s.kubectl rollout status daemonset.apps/speaker -n metallb-system -w --timeout=600s
+
+  # MicroK8s built-in registry
+  microk8s enable registry
+  microk8s.kubectl rollout status deployment.apps/registry -n container-registry -w --timeout=600s
+
+  # Make sure the juju directory exists
+  # https://bugs.launchpad.net/juju/+bug/1995697
+  sudo -u ubuntu mkdir -p /home/ubuntu/.local/share/juju
+
+  # Dump kubeconfig (needed for tools such as k9s or kdash)
+  sudo -u ubuntu mkdir -p /home/ubuntu/.kube
+  microk8s config | sudo -u ubuntu tee /home/ubuntu/.kube/config > /dev/null
+
+final_message: "The system is finally up, after $UPTIME seconds"

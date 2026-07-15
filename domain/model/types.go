@@ -186,10 +186,19 @@ type ModelState struct {
 	InvalidCloudCredentialReason string
 }
 
-// ModelRedirection is a placeholder type.
+// ModelRedirection is the redirection information for a model that has been
+// migrated away from this controller, read from the redirect snapshot written
+// by source-side migration REAP.
 type ModelRedirection struct {
 	Addresses       []string
 	CACert          string
 	ControllerUUID  string
 	ControllerAlias string
+}
+
+// RedirectUser is a single user's model access captured in the migration
+// redirect snapshot, used for login-time redirect authorization.
+type RedirectUser struct {
+	UserName string
+	Access   string
 }

@@ -23,6 +23,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
 	caasprovider "github.com/juju/juju/internal/provider/kubernetes"
+	k8sproxy "github.com/juju/juju/internal/provider/kubernetes/proxy"
+	proxyerrors "github.com/juju/juju/internal/proxy/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -71,7 +73,7 @@ func WaitForAgentInitialisation(
 
 	ctx.Infof("Contacting Juju controller%s to verify accessibility...", addressInfo)
 
-	var apiAttempts int
+	apiAttempts := 1
 	err = retry.Call(retry.CallArgs{
 		Clock:    clock.WallClock,
 		Attempts: bootstrapReadyPollCount,
@@ -120,6 +122,10 @@ func WaitForAgentInitialisation(
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
 			case errors.Is(retryErr, rpc.ErrShutdown):
+				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case proxyerrors.IsProxyConnectError(retryErr) &&
+				proxyerrors.ProxyType(retryErr) == k8sproxy.ProxierTypeKey:
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
 				return retryErr
 			case params.ErrCode(retryErr) == params.CodeUpgradeInProgress:

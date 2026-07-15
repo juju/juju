@@ -54,6 +54,22 @@ func (d *dummyState) ClearControllerImportingStatus(ctx context.Context, uuid co
 	return nil
 }
 
+func (d *dummyState) GetModelRedirection(ctx context.Context, uuid coremodel.UUID) (model.ModelRedirection, error) {
+	return model.ModelRedirection{}, modelerrors.ModelNotRedirected
+}
+
+func (d *dummyState) GetModelRedirectUsers(ctx context.Context, uuid coremodel.UUID) ([]model.RedirectUser, error) {
+	return nil, nil
+}
+
+func (d *dummyState) GetPendingModelDatabaseDeletions(ctx context.Context) ([]string, error) {
+	return nil, nil
+}
+
+func (d *dummyState) RemoveModelDatabaseDeletion(ctx context.Context, namespace string) error {
+	return nil
+}
+
 type dummyDeleter struct {
 	deleted map[string]struct{}
 }

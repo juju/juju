@@ -126,14 +126,9 @@ func (d DefaultAttributeValue) ApplyStrategy(setVal any) any {
 // values are equal. If the current value of [DefaultAttributeValue.Value] or
 // val is nil then false and empty string for source is returned.
 //
-// For legacy reasons we have worked with types of "any" for model config values
-// and trying to apply comparison logic over these types is hard to get right.
-// For this reason this function only considers values to be equal if their
-// types are comparable via == and or the type of Value is of []any, in which
-// case we will defer to the reflect package for DeepEqual.
-//
-// This is carry over logic from legacy Juju. Over time we can look at removing
-// the use of any for more concrete types.
+// For legacy reasons we have worked with types of "any" for model config
+// values. This is carry over logic from legacy Juju. Over time we can look at
+// removing the use of any for more concrete types.
 func (d DefaultAttributeValue) ValueSource(val any) (bool, string) {
 	if valuesEqual(val, d.Default) {
 		return true, config.JujuDefaultSource
@@ -154,14 +149,15 @@ func valuesEqual(val1, val2 any) bool {
 		return false
 	}
 
-	equal := false
-	switch val2.(type) {
-	case []any:
-		equal = reflect.DeepEqual(val1, val2)
-	default:
-		equal = val1 == val2
+	val1Type := reflect.TypeOf(val1)
+	val2Type := reflect.TypeOf(val2)
+	if val1Type != val2Type {
+		return false
 	}
-	return equal
+	if val1Type.Comparable() {
+		return val1 == val2
+	}
+	return reflect.DeepEqual(val1, val2)
 }
 
 // Apply implements [ApplyStrategy] interface for [PreferDefaultApplyStrategy]

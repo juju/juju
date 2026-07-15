@@ -10,7 +10,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/gomaasapi/v2"
+	"github.com/juju/gomaasapi/v3"
 	"github.com/juju/tc"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"

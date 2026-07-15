@@ -35,7 +35,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithoutPu
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.readerData = signedData
-	s.expectedData = unsignedData[1:]
+	s.expectedData = decodedData
 	s.setupDataSource("")
 	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: failed to parse public key: openpgp: invalid argument: no armored data found`)
 }
@@ -44,7 +44,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithWrong
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey", "Description"}
 	s.readerData = signedData
-	s.expectedData = unsignedData[1:]
+	s.expectedData = decodedData
 	s.setupDataSource(keys.JujuPublicKey)
 	s.assertFetchDataFail(c, `cannot read data for source "" at URL this.path.doesnt.matter.for.test.either: openpgp: signature made by unknown entity`)
 }
@@ -53,7 +53,7 @@ func (s *fetchDataSuite) TestFetchSignedDataWithRequireSignedDataSourceWithPubli
 	s.requireSigned = true
 	s.expectedCalls = []string{"Fetch", "PublicSigningKey"}
 	s.readerData = signedData
-	s.expectedData = unsignedData[1:]
+	s.expectedData = decodedData
 	s.setupDataSource(testSigningKey)
 	s.assertFetchData(c)
 }

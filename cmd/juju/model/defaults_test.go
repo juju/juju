@@ -504,6 +504,62 @@ special:
 	})
 }
 
+func (s *DefaultsCommandSuite) TestRoundTripYAMLEmptyControllerValue(c *tc.C) {
+	s.fakeDefaultsAPI.defaults["mode"] = config.AttributeDefaultValues{
+		Default:    config.RequiresPromptsMode,
+		Controller: "",
+	}
+
+	outputCtx, err := s.run(c, "--format=yaml")
+	c.Assert(err, tc.ErrorIsNil)
+	output := cmdtesting.Stdout(outputCtx)
+	c.Assert(output, tc.Contains, "mode:\n  default: requires-prompts\n  controller: \"\"\n")
+
+	inputCtx := cmdtesting.Context(c)
+	inputCtx.Stdin = strings.NewReader(output)
+	code := cmd.Main(model.NewDefaultsCommandForTest(
+		s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store), inputCtx,
+		[]string{"--file", "-"})
+
+	c.Assert(code, tc.Equals, 0)
+	c.Check(cmdtesting.Stdout(inputCtx), tc.Equals, "")
+	c.Check(cmdtesting.Stderr(inputCtx), tc.Equals, "")
+	c.Assert(s.fakeDefaultsAPI.defaults["mode"], tc.DeepEquals,
+		config.AttributeDefaultValues{
+			Default:    nil,
+			Controller: "",
+			Regions:    nil,
+		})
+}
+
+func (s *DefaultsCommandSuite) TestRoundTripYAMLControllerOnlyNoDefault(c *tc.C) {
+	// This tests the case where the command emits an entry with a controller
+	// value but no default key. The CoerceFormat schema must accept this
+	// without falling back to stringifying the whole map.
+	s.fakeDefaultsAPI.defaults["attr2"] = config.AttributeDefaultValues{
+		Controller: "bar",
+	}
+
+	outputCtx, err := s.run(c, "--format=yaml")
+	c.Assert(err, tc.ErrorIsNil)
+	output := cmdtesting.Stdout(outputCtx)
+	c.Assert(output, tc.Contains, "attr2:\n  controller: bar\n")
+
+	inputCtx := cmdtesting.Context(c)
+	inputCtx.Stdin = strings.NewReader(output)
+	code := cmd.Main(model.NewDefaultsCommandForTest(
+		s.fakeAPIRoot, s.fakeDefaultsAPI, s.fakeCloudAPI, s.store), inputCtx,
+		[]string{"--file", "-"})
+
+	c.Assert(code, tc.Equals, 0)
+	c.Check(cmdtesting.Stdout(inputCtx), tc.Equals, "")
+	c.Check(cmdtesting.Stderr(inputCtx), tc.Equals, "")
+	c.Assert(s.fakeDefaultsAPI.defaults["attr2"], tc.DeepEquals,
+		config.AttributeDefaultValues{
+			Controller: "bar",
+		})
+}
+
 func (s *DefaultsCommandSuite) TestSetFromFileUsingYAMLTargettingCloudRegion(c *tc.C) {
 	table := []struct {
 		input, cloud, region string

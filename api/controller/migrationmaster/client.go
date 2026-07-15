@@ -195,12 +195,6 @@ func (c *Client) OpenResource(ctx context.Context, application, name string) (io
 	return resp.Body, nil
 }
 
-// Reap removes the documents for the model associated with the API
-// connection.
-func (c *Client) Reap(ctx context.Context) error {
-	return c.caller.FacadeCall(ctx, "Reap", nil, nil)
-}
-
 // WatchMinionReports returns a watcher which reports when a migration
 // minion has made a report for the current migration phase.
 func (c *Client) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher, error) {

@@ -70,9 +70,10 @@ In Juju, a **storage provider** refers to the technology used to make storage av
 
 There are three storage providers you can use with all clouds: `loop`, `rootfs`, and `tmpfs`. In addition, for some clouds there are also cloud-specific providers.
 
-#### `<cloud-specific storage provider>`
+(storage-provider-cloud-specific)=
+#### Cloud-specific storage providers
 
-See {ref}`list-of-supported-clouds` > `<cloud name>` > Storage providers.
+Many clouds provide additional storage providers beyond the generic ones. For the cloud-specific storage providers available on your cloud, see {ref}`list-of-supported-clouds` > `<cloud name>` > Storage.
 
 #### `loop`
 ```{ibnote}
