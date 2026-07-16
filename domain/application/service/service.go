@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -920,6 +921,12 @@ func encodePlatform(platform corecharm.Platform) (deployment.Platform, error) {
 }
 
 func encodeOSType(os string) (deployment.OSType, error) {
+	if strings.EqualFold(os, "ubuntu-core") {
+		// Snap-confined controllers may still surface the snap base name here.
+		// Charm deployment encoding only understands Ubuntu for Juju charms.
+		return deployment.Ubuntu, nil
+	}
+
 	switch ostype.OSTypeForName(os) {
 	case ostype.Ubuntu:
 		return deployment.Ubuntu, nil

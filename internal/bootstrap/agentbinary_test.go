@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/agentbinary"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/errors"
@@ -138,6 +139,53 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *tc.C) {
 
 	_, err := PopulateAgentBinary(c.Context(), dir, s.agentBinaryStore, s.logger)
 	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
+}
+
+func (s *agentBinarySuite) TestPopulateAgentBinaryGenericLinuxAliasCleanup(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
+
+	requested := semversion.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "genericlinux",
+	}
+	actual := semversion.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "ubuntu",
+	}
+
+	dir, toolsPath := s.ensureDirs(c, requested)
+	size := int64(4)
+
+	s.writeDownloadTools(c, toolsPath, downloadTools{
+		Version: actual.String(),
+		URL:     filepath.Join(dir, "tools", fmt.Sprintf("%s.tgz", actual.String())),
+		SHA256:  "sha256",
+		Size:    size,
+	})
+
+	s.writeAgentBinary(c, toolsPath, actual)
+
+	s.agentBinaryStore.EXPECT().AddAgentBinaryWithSHA256(
+		gomock.Any(),
+		gomock.Any(),
+		agentbinary.Version{
+			Arch:   actual.Arch,
+			Number: actual.Number,
+		},
+		size,
+		"sha256",
+	).Return(nil)
+
+	cleanup, err := PopulateAgentBinary(c.Context(), dir, s.agentBinaryStore, s.logger)
+	c.Assert(err, tc.ErrorIsNil)
+	cleanup()
+
+	_, err = os.Stat(filepath.Join(toolsPath, fmt.Sprintf("juju%s.sha256", actual.String())))
+	c.Assert(err, tc.ErrorIs, os.ErrNotExist)
+	s.expectNoTools(c, toolsPath)
 }
 
 func (s *agentBinarySuite) ensureDirs(c *tc.C, current semversion.Binary) (string, string) {
