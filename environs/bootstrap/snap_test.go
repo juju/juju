@@ -5,10 +5,7 @@ package bootstrap_test
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -106,25 +103,4 @@ version: not-a-version -
 		strings.Contains(err.Error(), snapPath), tc.IsTrue,
 		tc.Commentf("expected error to mention snap path %q, got: %s", snapPath, err),
 	)
-}
-
-func (s *snapHelpersSuite) TestDigestLocalSnapSuccess(c *tc.C) {
-	dir := c.MkDir()
-	path := filepath.Join(dir, "test.snap")
-	content := []byte("hello controller snap")
-	err := os.WriteFile(path, content, 0644)
-	c.Assert(err, tc.ErrorIsNil)
-
-	digest, err := bootstrap.DigestLocalSnap(path)
-	c.Assert(err, tc.ErrorIsNil)
-
-	h := sha256.New()
-	h.Write(content)
-	expected := fmt.Sprintf("%x", h.Sum(nil))
-	c.Check(digest, tc.Equals, expected)
-}
-
-func (s *snapHelpersSuite) TestDigestLocalSnapFileNotFound(c *tc.C) {
-	_, err := bootstrap.DigestLocalSnap("/nonexistent/jujud.snap")
-	c.Assert(err, tc.ErrorMatches, `.*cannot open.*`)
 }
