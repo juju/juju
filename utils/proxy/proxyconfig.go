@@ -145,7 +145,14 @@ func tolerantParse(value string) (*url.URL, error) {
 		// proxy was bogus. Try prepending "http://" to it and
 		// see if that parses correctly. If not, we fall
 		// through and complain about the original one.
-		if proxyURL, err := url.Parse("http://" + value); err == nil {
+
+		// Handle raw IPv6 addresses by wrapping them in brackets
+		urlToTry := value
+		if isRawIPv6(value) {
+			urlToTry = "[" + value + "]"
+		}
+
+		if proxyURL, err := url.Parse("http://" + urlToTry); err == nil {
 			return proxyURL, nil
 		}
 	}
@@ -153,6 +160,19 @@ func tolerantParse(value string) (*url.URL, error) {
 		return nil, errors.Errorf("invalid proxy address %q: %v", value, err)
 	}
 	return proxyURL, nil
+}
+
+// isRawIPv6 checks if the string is a raw IPv6 address (without scheme and brackets).
+// A raw IPv6 address contains colons and no slashes, and is not already bracketed.
+func isRawIPv6(s string) bool {
+	if strings.Contains(s, "/") || strings.HasPrefix(s, "[") {
+		return false
+	}
+	if ip := net.ParseIP(s); ip != nil && ip.To4() == nil {
+		// It's an IPv6 address
+		return true
+	}
+	return false
 }
 
 // Internal utilities copied from net/http/transport.go
