@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
@@ -90,7 +91,11 @@ func newWorker(config workerConfig, internalStates chan string) (*s3Worker, erro
 	// Before we start the catacomb we need to create the initial session.
 	client, err := w.makeNewClient(context.Background())
 	if err != nil {
-		return nil, errors.Trace(err)
+		if errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
+			config.Logger.Warningf(context.Background(), "no active object store backend, starting without session")
+		} else {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	w.session = client
@@ -165,6 +170,10 @@ func (w *s3Worker) loop() (err error) {
 		case <-watcher.Changes():
 			client, err := w.makeNewClient(ctx)
 			if err != nil {
+				if errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
+					w.config.Logger.Warningf(ctx, "backend not yet seeded, retrying on next watcher event")
+					continue
+				}
 				return errors.Trace(err)
 			}
 
