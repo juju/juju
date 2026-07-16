@@ -25,13 +25,11 @@ Find which offered application endpoints are available to the current user.
 
 This command is aimed for a user who wants to discover what endpoints are available to them.
 
-By default the search is scoped to a single controller: the one named in the
-offer URL, or the current controller if no URL is given. Use the
-` + "`--all-controllers`" + ` flag to search across every controller registered
-locally (see ` + "`juju controllers`" + `); results are merged into a single list,
-each offer namespaced by the controller that hosts it. A controller that cannot
-be reached is reported as a warning and skipped, so the remaining controllers'
-offers are still returned.
+By default the search is scoped to a single controller: the one named in the 
+offer URL, or the current controller if no URL is given.
+Use the ` + "`--all-controllers`" + ` flag to search across every controller registered 
+locally (see ` + "`juju controllers`" + `).
+Results are merged into a single list, each offer namespaced by the controller that hosts it.
 `
 
 const findCommandExamples = `

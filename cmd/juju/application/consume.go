@@ -35,9 +35,10 @@ If the model qualifier is omitted, Juju will use the user that is currently
 logged in to the controller providing the offer.
 
 If the controller name is omitted, Juju looks for the offer on the currently
-active controller. Pass ` + "`--all-controllers`" + ` or ` + "`-a`" + ` to also
-search the other controllers registered locally. To target a specific controller
-directly, include the controller name in the offer path.
+active controller.
+Pass ` + "`--all-controllers`" + ` or ` + "`-a`" + ` to also search the other
+controllers registered locally.
+To target a specific controller directly, include the controller name in the offer path.
 `[1:]
 
 const usageConsumeExamples = `
