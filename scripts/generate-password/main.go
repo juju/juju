@@ -16,10 +16,11 @@ import (
 
 func main() {
 	gnuflag.Usage = func() {
-		_, _ = fmt.Fprintf(os.Stderr, "Usage: %s <modeluuid> <agent> [<password>] | --user <username> [password]\n", os.Args[0])
+		_, _ = fmt.Fprintf(os.Stderr, "Usage: %s [--model-name <modelname>] <modeluuid> <agent> [<password>] | --user <username> [password]\n", os.Args[0])
 		gnuflag.PrintDefaults()
 	}
 	user := gnuflag.String("user", "", "supply a username to generate a password instead of modeluuid and agent")
+	modelName := gnuflag.String("model-name", "", "Kubernetes model name, used as the namespace for application-agent recovery")
 	gnuflag.Parse(true)
 	args := gnuflag.Args()
 	var modelUUID string
@@ -64,12 +65,16 @@ func main() {
 			*user, salt, hash)
 	} else {
 		agentType, collection := classifyTarget(agent)
+		if agentType == targetK8sApplicationAgent && *modelName == "" {
+			_, _ = fmt.Fprintln(os.Stderr, "--model-name is required for Kubernetes application-agent recovery")
+			os.Exit(1)
+		}
 		hash := utils.AgentPasswordHash(passwd)
 		fmt.Printf("oldpassword: %s\n", passwd)
 		fmt.Printf(`db.%s.update({"_id": "%s:%s"}, {$set: {"passwordhash": "%s"}})`+"\n",
 			collection, modelUUID, agent, hash)
 		if agentType == targetK8sApplicationAgent {
-			printK8sApplicationAgentHelp(agent)
+			printK8sApplicationAgentHelp(*modelName, agent, passwd)
 		}
 	}
 }
@@ -94,13 +99,13 @@ func classifyTarget(target string) (targetType, string) {
 	return targetK8sApplicationAgent, "applications"
 }
 
-func printK8sApplicationAgentHelp(appName string) {
+func printK8sApplicationAgentHelp(modelName, appName, password string) {
 	fmt.Printf("\nKubernetes application-agent recovery:\n")
 	fmt.Printf("1. Update the introduction secret for new pod init.\n")
 	fmt.Printf(
-		`kubectl -n <model-namespace> patch secret %s-application-config --type merge -p '{"stringData":{"JUJU_K8S_APPLICATION_PASSWORD":"<password>"}}'`+"\n",
-		appName,
+		`kubectl -n %s patch secret %s-application-config --type merge -p '{"stringData":{"JUJU_K8S_APPLICATION_PASSWORD":"%s"}}'`+"\n",
+		modelName, appName, password,
 	)
 	fmt.Printf("2. Restart workload pods so init picks up the new secret.\n")
-	fmt.Printf(`kubectl -n <model-namespace> delete pod -l app.kubernetes.io/name=%s`+"\n", appName)
+	fmt.Printf(`kubectl -n %s delete pod -l app.kubernetes.io/name=%s`+"\n", modelName, appName)
 }
