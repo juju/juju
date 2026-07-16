@@ -77,9 +77,7 @@ func (s *Server) EnsureIPv4(netName string) (bool, error) {
 		net.Config["ipv4.nat"] = "true"
 
 		op, err := s.UpdateNetwork(netName, net.Writable(), eTag)
-		if err == nil {
-			err = op.Wait()
-		}
+		err = WaitOp(op, err)
 		if err != nil {
 			return false, errors.Trace(err)
 		}
@@ -150,9 +148,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 			}},
 		}
 		op, err := s.CreateNetwork(req)
-		if err == nil {
-			err = op.Wait()
-		}
+		err = WaitOp(op, err)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -181,9 +177,7 @@ func (s *Server) ensureDefaultNetworking(profile *api.Profile, eTag string) erro
 	}
 
 	op, err := s.UpdateProfile(profile.Name, profile.Writable(), eTag)
-	if err == nil {
-		err = op.Wait()
-	}
+	err = WaitOp(op, err)
 	if err != nil {
 		return errors.Trace(err)
 	}

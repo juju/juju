@@ -277,9 +277,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 		},
 	}
 	op, err := s.CreateInstanceFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
-	if err == nil {
-		err = op.Wait()
-	}
+	err = WaitOp(op, err)
 	if err != nil {
 		return s.handleAlreadyExistsError(err, spec, ephemeral)
 	}
@@ -408,27 +406,6 @@ func (s *Server) RemoveContainers(names []string) error {
 // RemoveContainer first ensures that the container is stopped,
 // then deletes it.
 func (s *Server) RemoveContainer(name string) error {
-	state, eTag, err := s.GetInstanceState(name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if state.StatusCode != api.Stopped {
-		req := api.InstanceStatePut{
-			Action:   "stop",
-			Timeout:  -1,
-			Force:    true,
-			Stateful: false,
-		}
-		op, err := s.UpdateInstanceState(name, req, eTag)
-		if err == nil {
-			err = op.Wait()
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	// LXD has issues deleting containers, even if they've been stopped. The
 	// general advice passed back from the LXD team is to retry it again, to
 	// see if this helps clean up the containers.
@@ -440,6 +417,7 @@ func (s *Server) RemoveContainer(name string) error {
 			return errors.IsBadRequest(err)
 		},
 		Func: func() error {
+			// We force the instance to stop before deleting it.
 			op, err := s.DeleteInstance(name, true)
 			if err != nil {
 				// sigh, LXD not found container - it's been deleted so, we
