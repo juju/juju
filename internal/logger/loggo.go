@@ -143,13 +143,14 @@ func (c loggoLogger) GetChildByName(name string) logger.Logger {
 }
 
 func (c loggoLogger) labelsFromContext(ctx context.Context) (map[string]string, bool) {
-	traceID, ok := trace.TraceIDFromContext(ctx)
+	traceID, spanID, ok := trace.TraceIDAndSpanIDFromContext(ctx)
 	if !ok {
 		return nil, false
 	}
 
 	return map[string]string{
-		"traceid": traceID,
+		"trace_id": traceID,
+		"span_id":  spanID,
 	}, true
 }
 

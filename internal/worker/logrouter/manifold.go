@@ -24,6 +24,14 @@ import (
 	"github.com/juju/juju/internal/worker/logsender"
 )
 
+const (
+	// ControllerServiceName is the service name used for controller-local log
+	// delivery.
+	ControllerServiceName = "juju-controller"
+	// UnitServiceName is the service name used for unit-local log delivery.
+	UnitServiceName = "juju-unit"
+)
+
 // BackendFuncFactory returns a backend constructor for the supplied agent
 // resources.
 type BackendFuncFactory func(
@@ -131,15 +139,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				LokiConfigProvider:        agentLokiConfigProvider{agent: a},
-				LogSource:                 config.LogSource,
-				AgentConfigChanged:        config.AgentConfigChanged,
-				Logger:                    config.Logger,
-				Clock:                     config.Clock,
-				DrainOnly:                 config.DrainOnly,
-				ConvergeTimeout:           defaultConvergeTimeout,
-				RestartDelay:              defaultRestartDelay,
-				NewBackend:                config.NewBackendFunc(apiCaller, httpClient, config.Clock, config.PrometheusRegisterer),
+				LokiConfigProvider: agentLokiConfigProvider{agent: a},
+				LogSource:          config.LogSource,
+				AgentConfigChanged: config.AgentConfigChanged,
+				Logger:             config.Logger,
+				Clock:              config.Clock,
+				DrainOnly:          config.DrainOnly,
+				ConvergeTimeout:    defaultConvergeTimeout,
+				RestartDelay:       defaultRestartDelay,
+				NewBackend: config.NewBackendFunc(
+					apiCaller,
+					httpClient,
+					config.Clock,
+					config.PrometheusRegisterer,
+				),
 				RemoveLegacyLogSinkWriter: config.RemoveLegacyLogSinkWriter,
 				AddLegacyLogSinkWriter:    config.AddLegacyLogSinkWriter,
 			})
@@ -224,14 +237,19 @@ func ControllerManifold(config ControllerManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				LokiConfigProvider:        config.LokiConfigProvider,
-				LogSource:                 make(logsender.LogRecordCh),
-				AgentConfigChanged:        config.AgentConfigChanged,
-				Logger:                    config.Logger,
-				Clock:                     config.Clock,
-				ConvergeTimeout:           defaultConvergeTimeout,
-				RestartDelay:              defaultRestartDelay,
-				NewBackend:                config.NewBackendFunc(config.LocalLogSink, httpClient, config.Clock, config.PrometheusRegisterer),
+				LokiConfigProvider: config.LokiConfigProvider,
+				LogSource:          make(logsender.LogRecordCh),
+				AgentConfigChanged: config.AgentConfigChanged,
+				Logger:             config.Logger,
+				Clock:              config.Clock,
+				ConvergeTimeout:    defaultConvergeTimeout,
+				RestartDelay:       defaultRestartDelay,
+				NewBackend: config.NewBackendFunc(
+					config.LocalLogSink,
+					httpClient,
+					config.Clock,
+					config.PrometheusRegisterer,
+				),
 				RemoveLegacyLogSinkWriter: func() {},
 				AddLegacyLogSinkWriter:    func() error { return nil },
 			})
@@ -293,6 +311,7 @@ func NewBackend(
 				ControllerUUID:       snapshot.ControllerUUID,
 				ModelUUID:            snapshot.ModelUUID,
 				AgentID:              snapshot.AgentID,
+				ServiceName:          UnitServiceName,
 				PrometheusRegisterer: registerer,
 				NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
 					return loki.NewClient(endpoint, cfg)
@@ -348,6 +367,7 @@ func NewControllerBackend(
 				ControllerUUID:       snapshot.ControllerUUID,
 				ModelUUID:            snapshot.ModelUUID,
 				AgentID:              snapshot.AgentID,
+				ServiceName:          ControllerServiceName,
 				PrometheusRegisterer: registerer,
 				NewClient: func(endpoint string, cfg loki.Config) (backends.LokiClient, error) {
 					return loki.NewClient(endpoint, cfg)

@@ -51,6 +51,11 @@ type Record struct {
 	// not in Loki labels.
 	Fields map[string]string
 
+	// ServiceName is the value of the service_name stream label included in
+	// every pushed log record. It defaults to "juju" when empty, making Juju
+	// agent logs identifiable in Grafana/Loki.
+	ServiceName string
+
 	// TraceID is the OpenTelemetry trace ID for this record, if present.
 	TraceID string
 
@@ -630,7 +635,11 @@ func buildPayload(records []Record, serviceName string) pushPayload {
 
 func topologyLabels(r Record, serviceName string) map[string]string {
 	labels := make(map[string]string, 4)
-	labels["service_name"] = serviceName
+	if r.ServiceName != "" {
+		labels["service_name"] = r.ServiceName
+	} else {
+		labels["service_name"] = serviceName
+	}
 	if r.ControllerUUID != "" {
 		labels["juju_controller"] = r.ControllerUUID
 	}
@@ -647,10 +656,10 @@ func structuredFields(r Record) map[string]string {
 	fields := make(map[string]string, len(r.Fields)+2)
 	maps.Copy(fields, r.Fields)
 	if isLowerHex(r.TraceID, 32) {
-		fields["trace_id"] = r.TraceID
+		fields["traceID"] = r.TraceID
 	}
 	if isLowerHex(r.SpanID, 16) {
-		fields["span_id"] = r.SpanID
+		fields["spanID"] = r.SpanID
 	}
 	if len(fields) == 0 {
 		return nil

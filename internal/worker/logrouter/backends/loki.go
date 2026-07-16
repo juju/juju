@@ -25,6 +25,7 @@ type LokiConfig struct {
 	ControllerUUID       string
 	ModelUUID            string
 	AgentID              string
+	ServiceName          string
 	PrometheusRegisterer prometheus.Registerer
 	NewClient            NewLokiClientFunc
 }
@@ -39,6 +40,9 @@ func (c LokiConfig) Validate() error {
 	}
 	if c.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
+	}
+	if c.ServiceName == "" {
+		return errors.NotValidf("empty ServiceName")
 	}
 	if c.NewClient == nil {
 		return errors.NotValidf("nil NewClient")
@@ -140,8 +144,9 @@ func (w *lokiBackend) WatchRefresh() <-chan struct{} {
 // Report returns a report of the backend's current state.
 func (w *lokiBackend) Report(ctx context.Context) map[string]any {
 	return map[string]any{
-		"name":   "loki-backend",
-		"client": w.client.Report(ctx),
+		"name":         "loki-backend",
+		"service_name": w.cfg.ServiceName,
+		"client":       w.client.Report(ctx),
 	}
 }
 
@@ -181,6 +186,9 @@ func (w *lokiBackend) loop() error {
 					"location": rec.Location,
 					"level":    rec.Level.String(),
 				},
+				ServiceName: w.cfg.ServiceName,
+				TraceID:     rec.Labels["trace_id"],
+				SpanID:      rec.Labels["span_id"],
 			}); err != nil {
 				return internalerrors.Capture(err)
 			}

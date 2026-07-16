@@ -131,6 +131,31 @@ func TraceIDFromContext(ctx context.Context) (string, bool) {
 	return traceID, ok && traceID != ""
 }
 
+// TraceIDAndSpanIDFromContext returns the traceID and spanID from the context.
+// The traceID is required, but the spanID is optional. If the traceID is not
+// found, then both will be empty and false will be returned. If the traceID is
+// found, but the spanID is not, then the spanID will be empty and true will be
+// returned.
+func TraceIDAndSpanIDFromContext(ctx context.Context) (string, string, bool) {
+	trace := ctx.Value(traceIDContextKey)
+	if trace == nil {
+		return "", "", false
+	}
+
+	traceID, ok := trace.(string)
+	if !ok {
+		return "", "", false
+	}
+
+	span := ctx.Value(spanIDContextKey)
+	if span == nil {
+		return traceID, "", traceID != ""
+	}
+
+	spanID, ok := span.(string)
+	return traceID, spanID, ok && traceID != ""
+}
+
 // WithTraceID returns a new context with the given trace ID.
 func WithTraceID(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, traceIDContextKey, traceID)
