@@ -228,6 +228,7 @@ func (s *manifoldSuite) TestNewControllerBackendUsesLokiBackendForLokiMode(c *tc
 
 	report := backend.Report(c.Context())
 	c.Check(report["name"], tc.Equals, "loki-backend")
+	c.Check(report["service_name"], tc.Equals, ControllerServiceName)
 
 	sink.mu.Lock()
 	defer sink.mu.Unlock()

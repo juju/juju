@@ -716,14 +716,14 @@ func (s *clientSuite) TestBuildPayload(c *tc.C) {
 	c.Check(payload.Streams[0].Values, tc.HasLen, 2)
 	c.Check(payload.Streams[0].Values[0].Line, tc.Equals, "a1")
 	c.Check(payload.Streams[0].Values[0].Fields, tc.DeepEquals, map[string]string{
-		"module":   "apiserver",
-		"trace_id": "0123456789abcdef0123456789abcdef",
-		"span_id":  "0123456789abcdef",
+		"module":  "apiserver",
+		"traceID": "0123456789abcdef0123456789abcdef",
+		"spanID":  "0123456789abcdef",
 	})
 	c.Check(payload.Streams[0].Values[1].Line, tc.Equals, "a2")
 	c.Check(payload.Streams[0].Values[1].Fields, tc.DeepEquals, map[string]string{
 		"request_id": "req-123",
-		"span_id":    "0123456789abcdef",
+		"spanID":     "0123456789abcdef",
 	})
 
 	c.Check(
@@ -750,6 +750,54 @@ func (s *clientSuite) TestLabelKey(c *tc.C) {
 func (s *clientSuite) TestLabelKeyEmpty(c *tc.C) {
 	c.Check(labelKey(nil), tc.Equals, "")
 	c.Check(labelKey(map[string]string{}), tc.Equals, "")
+}
+
+func (s *clientSuite) TestBuildPayloadRecordServiceNameOverridesDefault(c *tc.C) {
+	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	records := []Record{
+		{
+			Timestamp:      ts,
+			Line:           "a1",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
+			ServiceName:    "custom-service",
+		},
+	}
+
+	payload := buildPayload(records, DefaultServiceName)
+	c.Assert(payload.Streams, tc.HasLen, 1)
+	c.Check(
+		payload.Streams[0].Stream,
+		tc.DeepEquals,
+		map[string]string{
+			"service_name":    "custom-service",
+			"juju_controller": "controller",
+			"juju_model":      "model",
+			"juju_agent":      "machine-0",
+		},
+	)
+}
+
+func (s *clientSuite) TestBuildPayloadRecordServiceNameEmptyFallsBackToDefault(c *tc.C) {
+	ts := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	records := []Record{
+		{
+			Timestamp:      ts,
+			Line:           "a1",
+			ControllerUUID: "controller",
+			ModelUUID:      "model",
+			AgentID:        "machine-0",
+		},
+	}
+
+	payload := buildPayload(records, "fallback-service")
+	c.Assert(payload.Streams, tc.HasLen, 1)
+	c.Check(
+		payload.Streams[0].Stream["service_name"],
+		tc.Equals,
+		"fallback-service",
+	)
 }
 
 // testConfig returns a Config suitable for tests with fast

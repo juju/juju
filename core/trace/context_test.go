@@ -46,6 +46,46 @@ func (s *contextSuite) TestTracerFromContextTracer(c *tc.C) {
 	c.Check(span, tc.Not(tc.Equals), NoopSpan{})
 }
 
+func (s *contextSuite) TestTraceIDAndSpanIDFromContextEmpty(c *tc.C) {
+	traceID, spanID, ok := TraceIDAndSpanIDFromContext(c.Context())
+	c.Check(traceID, tc.Equals, "")
+	c.Check(spanID, tc.Equals, "")
+	c.Check(ok, tc.IsFalse)
+}
+
+func (s *contextSuite) TestTraceIDAndSpanIDFromContextTraceIDOnly(c *tc.C) {
+	ctx := WithTraceID(c.Context(), "abc123")
+	traceID, spanID, ok := TraceIDAndSpanIDFromContext(ctx)
+	c.Check(traceID, tc.Equals, "abc123")
+	c.Check(spanID, tc.Equals, "")
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *contextSuite) TestTraceIDAndSpanIDFromContextTraceIDAndSpanID(c *tc.C) {
+	ctx := WithTraceScope(c.Context(), "trace-id", "span-id", 0)
+	traceID, spanID, ok := TraceIDAndSpanIDFromContext(ctx)
+	c.Check(traceID, tc.Equals, "trace-id")
+	c.Check(spanID, tc.Equals, "span-id")
+	c.Check(ok, tc.IsTrue)
+}
+
+func (s *contextSuite) TestTraceIDAndSpanIDFromContextEmptyTraceID(c *tc.C) {
+	ctx := WithTraceScope(c.Context(), "", "span-id", 0)
+	traceID, spanID, ok := TraceIDAndSpanIDFromContext(ctx)
+	c.Check(traceID, tc.Equals, "")
+	c.Check(spanID, tc.Equals, "span-id")
+	c.Check(ok, tc.IsFalse)
+}
+
+func (s *contextSuite) TestTraceIDAndSpanIDFromContextRemovedScope(c *tc.C) {
+	ctx := WithTraceScope(c.Context(), "trace-id", "span-id", 0)
+	ctx = RemoveTraceScope(ctx)
+	traceID, spanID, ok := TraceIDAndSpanIDFromContext(ctx)
+	c.Check(traceID, tc.Equals, "")
+	c.Check(spanID, tc.Equals, "")
+	c.Check(ok, tc.IsFalse)
+}
+
 type stubTracer struct{}
 
 func (stubTracer) Start(ctx context.Context, name string, options ...Option) (context.Context, Span) {

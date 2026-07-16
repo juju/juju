@@ -146,7 +146,31 @@ func (s *loggoSuite) TestLogWithTrace(c *tc.C) {
 		c.Check(log[0].Module, tc.Equals, "foo")
 		c.Check(log[0].Message, tc.Equals, "message")
 		c.Check(log[0].Labels, tc.DeepEquals, loggo.Labels{
-			"traceid": "traceid",
+			"trace_id": "traceid",
+			"span_id":  "",
 		})
 	}
+}
+
+func (s *loggoSuite) TestLogWithTraceAndSpan(c *tc.C) {
+	writer := &loggo.TestWriter{}
+	logContext := loggo.NewContext(loggo.TRACE)
+	logContext.AddWriter("test", writer)
+
+	ctx := trace.WithTraceScope(
+		c.Context(),
+		"0123456789abcdef0123456789abcdef",
+		"0123456789abcdef",
+		1,
+	)
+
+	logger := WrapLoggoContext(logContext)
+	logger.GetLogger("foo").Infof(ctx, "message")
+
+	log := writer.Log()
+	c.Assert(log, tc.HasLen, 1)
+	c.Check(log[0].Labels, tc.DeepEquals, loggo.Labels{
+		"trace_id": "0123456789abcdef0123456789abcdef",
+		"span_id":  "0123456789abcdef",
+	})
 }
