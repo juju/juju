@@ -51,7 +51,6 @@ Find offers across every locally registered controller:
 
     juju find-offers --all-controllers
     juju find-offers -a --interface mysql
-
 `
 
 type findCommand struct {
