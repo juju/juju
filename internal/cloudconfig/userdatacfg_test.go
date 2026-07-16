@@ -730,7 +730,6 @@ snap install --dangerous %[1]s`,
 	// Connections for pre-daemon apps.
 	c.Check(allScripts, tc.Contains, "snap connect jujud:network")
 	c.Check(allScripts, tc.Contains, "snap connect jujud:network-bind")
-	c.Check(allScripts, tc.Contains, "snap connect jujud.bootstrap-state:network")
 	// Service management.
 	c.Check(allScripts, tc.Contains, "snap stop jujud --disable")
 	c.Check(allScripts, tc.Contains, "snap run jujud.init")
@@ -742,6 +741,44 @@ snap install --dangerous %[1]s`,
 	c.Check(allScripts, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
 	// No controller agent.conf must be written.
 	c.Check(allScripts, tc.Not(tc.Contains), "agents/controller-0/agent.conf")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndCharm(c *tc.C) {
+	snapContent := []byte("fake snap binary content")
+	dir := c.MkDir()
+	snapPath := filepath.Join(dir, "juju-controller.snap")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerCharmPath := filepath.Join(dir, "controller.charm")
+	ch := testcharms.Repo.CharmDir("juju-controller")
+	err = ch.ArchiveToPath(controllerCharmPath)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig(jammy, 0).
+		setControllerCharm(controllerCharmPath).
+		setControllerSnap(snapPath, "")
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	scripts := getScripts(configKeyValues)
+	allScripts := strings.Join(scripts, "\n")
+
+	c.Check(allScripts, tc.Contains, "Staging controller charm into snap data")
+	c.Check(allScripts, tc.Contains, "charm_src='/var/lib/juju/charms/controller.charm'")
+	c.Check(allScripts, tc.Contains, `install -D -m 0644 "$charm_src" "$snap_data/charms/controller.charm"`)
+	c.Check(allScripts, tc.Contains, "snap run jujud.bootstrap-state")
+	c.Check(allScripts, tc.Not(tc.Contains), "selecting releases")
 }
 
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndAssert(c *tc.C) {

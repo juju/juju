@@ -291,8 +291,8 @@ func (*ManifoldsSuite) TestUpgradeGates(c *tc.C) {
 		UpgradeStepsLock: upgradeStepsLock,
 		UpgradeCheckLock: upgradeCheckLock,
 	})
-	checkContains(c, manifolds["upgrade-steps-gate"].Inputs, "controller-upgrade-flag")
-	checkContains(c, manifolds["upgrade-check-gate"].Inputs, "controller-upgrade-flag")
+	checkNotContains(c, manifolds["upgrade-steps-gate"].Inputs, "controller-upgrade-flag")
+	checkNotContains(c, manifolds["upgrade-check-gate"].Inputs, "controller-upgrade-flag")
 }
 
 func (*ManifoldsSuite) TestChangeStreamDirectInputs(c *tc.C) {
@@ -538,10 +538,6 @@ func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 	} {
 		for _, name := range []string{
 			"upgrade-services",
-			"upgrade-steps-gate",
-			"upgrade-steps-flag",
-			"upgrade-check-gate",
-			"upgrade-check-flag",
 			"upgrader",
 			"upgrade-controller-steps-runner",
 			"api-remote-relation-caller",
@@ -552,6 +548,10 @@ func (*ManifoldsSuite) TestOutOfScopeWorkersUseControllerUpgradeGate(c *tc.C) {
 
 		for _, name := range []string{
 			"api-remote-caller",
+			"upgrade-steps-gate",
+			"upgrade-steps-flag",
+			"upgrade-check-gate",
+			"upgrade-check-flag",
 			"upgrade-database-gate",
 			"upgrade-database-flag",
 			"upgrade-database-runner",
@@ -700,8 +700,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"controller-agent-config",
 		"controller-trace",
-		"controller-upgrade-flag",
-		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -789,8 +787,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"controller-agent-config",
 		"controller-trace",
-		"controller-upgrade-flag",
-		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -992,8 +988,6 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"change-stream",
 		"controller-agent-config",
 		"controller-trace",
-		"controller-upgrade-flag",
-		"controller-upgrade-gate",
 		"db-accessor",
 		"domain-services",
 		"file-notify-watcher",
@@ -1427,9 +1421,9 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"upgrade-database-gate",
 	},
 
-	"upgrade-check-flag": {"controller-upgrade-flag", "controller-upgrade-gate", "upgrade-check-gate"},
+	"upgrade-check-flag": {"upgrade-check-gate"},
 
-	"upgrade-check-gate": {"controller-upgrade-flag", "controller-upgrade-gate"},
+	"upgrade-check-gate": {},
 
 	"upgrade-database-flag": {"upgrade-database-gate"},
 
@@ -1447,9 +1441,9 @@ var expectedControllerManifoldsWithDependencies = map[string][]string{
 		"query-logger",
 	},
 
-	"upgrade-steps-flag": {"controller-upgrade-flag", "controller-upgrade-gate", "upgrade-steps-gate"},
+	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
-	"upgrade-steps-gate": {"controller-upgrade-flag", "controller-upgrade-gate"},
+	"upgrade-steps-gate": {},
 
 	"upgrade-controller-steps-runner": {
 		"controller-upgrade-flag",

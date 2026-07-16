@@ -2,6 +2,7 @@
 
 set -e
 
+cd "$SNAP_DATA"
 controller_dir=$(find "$SNAP_DATA/agents" -maxdepth 1 -type d -name 'controller-*' 2>/dev/null | head -1)
 if [ -z "$controller_dir" ]; then
   echo "cannot find controller instance in $SNAP_DATA/agents" >&2

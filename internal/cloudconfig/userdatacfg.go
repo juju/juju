@@ -529,10 +529,15 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 	// Build the runtime config with token placeholders for the snap-private
 	// path fields. The init command resolves these inside the snap context.
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:                agent.BootstrapControllerId,
-		ControllerUUID:              w.icfg.ControllerTag.Id(),
-		ControllerModelUUID:         w.icfg.APIInfo.ModelTag.Id(),
-		DataDir:                     w.icfg.DataDir, // will be replaced by token
+		ControllerID:        agent.BootstrapControllerId,
+		ControllerUUID:      w.icfg.ControllerTag.Id(),
+		ControllerModelUUID: w.icfg.APIInfo.ModelTag.Id(),
+		DataDir:             w.icfg.DataDir, // will be replaced by token
+		// LoopbackPreferred false selects IAAS controller manifolds (see
+		// controller.go). Snap bootstrap-state still binds dqlite to loopback
+		// via agentbootstrap when SNAP is set; the node then continues as
+		// loopback-bound until HA rebind. Do not set true here — that path
+		// incorrectly installs CAAS bootstrap/address-finder workers.
 		LoopbackPreferred:           false,
 		LogDir:                      w.icfg.LogDir, // will be replaced by token
 		APIPort:                     w.icfg.Bootstrap.ControllerAgentInfo.APIPort,
@@ -565,14 +570,15 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 		return errors.Annotate(err, "rendering staged controller runtime config")
 	}
 
-	// Step 3: Connect plugs for all pre-daemon snap apps used in the
-	// cloud-init flow. The connection list is the union of plugs declared by
-	// apps.jujud (daemon) and apps.bootstrap-state. Plug access is
-	// app-specific and is not inherited between snap apps.
+	// Step 3: Connect plugs required by all pre-daemon snap apps used in
+	// the cloud-init flow. Both apps.jujud (daemon) and
+	// apps.bootstrap-state declare "network", and apps.jujud also
+	// declares "network-bind". Snapd shares plugs with the same name
+	// across all apps within a snap, so connecting jujud:network covers
+	// both the daemon and bootstrap-state.
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Connecting snap interfaces for controller snap"))
 	w.conf.AddRunCmd(fmt.Sprintf("snap connect %s:network", bootstrap.ControllerSnapPackageName))
 	w.conf.AddRunCmd(fmt.Sprintf("snap connect %s:network-bind", bootstrap.ControllerSnapPackageName))
-	w.conf.AddRunCmd(fmt.Sprintf("snap connect %s.bootstrap-state:network", bootstrap.ControllerSnapPackageName))
 
 	// Step 4: Stop the auto-started snap service and prevent retry until
 	// snap-private files are in place.
@@ -586,15 +592,80 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 	w.conf.AddRunTextFile(stagedRuntimeConfPath, string(stagedRuntimeCfgContent), 0600)
 	w.conf.AddRunTextFile(stagedBootstrapParamsPath, string(bootstrapParams), 0600)
 
+	// Stage host OS identity for confined snap processes that would otherwise
+	// see the core base (ubuntu-core) as HostOS/HostBase.
+	w.conf.AddRunCmd(fmt.Sprintf(
+		"cp -a /etc/os-release /var/snap/%s/common/host-os-release",
+		bootstrap.ControllerSnapPackageName,
+	))
+
+	// Step 5b: Stage host-written agent tools into snap-private storage so
+	// the confined controller can seed the agent-binary store. Host cloud-init
+	// writes tools under /var/lib/juju/tools (ubuntu series); the snap base is
+	// core26 and cannot read /var/lib/juju.
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Staging agent tools into snap data"))
+	w.conf.AddRunCmd(fmt.Sprintf(
+		`set -e
+tools_src=%s
+snap_data=$(readlink -f /var/snap/%s/current)
+mkdir -p "$snap_data/tools"
+tools_base=$(basename "$tools_src")
+rm -rf "$snap_data/tools/$tools_base"
+cp -a "$tools_src" "$snap_data/tools/"
+# Also alias genericlinux series for HostOSTypeName under core bases before
+# host-os-release is consulted, and as a safety net.
+arch="${tools_base##*-}"
+rest="${tools_base%%%%-$arch}"
+release="${rest##*-}"
+number="${rest%%-*}"
+if [ "$release" != "genericlinux" ]; then
+  alias="${number}-genericlinux-${arch}"
+  rm -rf "$snap_data/tools/$alias"
+  cp -a "$snap_data/tools/$tools_base" "$snap_data/tools/$alias"
+fi
+ls -la "$snap_data/tools"
+`,
+		shquote(w.icfg.JujuTools()),
+		bootstrap.ControllerSnapPackageName,
+	))
+
+	if w.icfg.Bootstrap.ControllerCharm != "" {
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Staging controller charm into snap data"))
+		w.conf.AddRunCmd(fmt.Sprintf(
+			`set -e
+charm_src=%s
+snap_data=$(readlink -f /var/snap/%s/current)
+install -D -m 0644 "$charm_src" "$snap_data/charms/%s"
+ls -la "$snap_data/charms"
+	`,
+			shquote(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive)),
+			bootstrap.ControllerSnapPackageName,
+			bootstrap.ControllerCharmArchive,
+		))
+	}
+
 	// Step 6: Run jujud.init to resolve snap-private paths and atomically
 	// install the final files inside the snap context.
+	//
+	// Bootstrap invokes "snap run" via SSH as ubuntu then sudo. Snapd often
+	// leaves the confined process cwd at /home/ubuntu, which strict AppArmor
+	// cannot getcwd/stat. The jujud-init wrapper and jujud Main both chdir to
+	// SNAP_COMMON before DefaultContext. Do not wrap snap run in a host-side
+	// file redirect: confined stdio to redirected files is dropped.
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Initializing snap controller files"))
-	w.conf.AddRunCmd(fmt.Sprintf("snap run %s.init --staged-dir %s", bootstrap.ControllerSnapPackageName, shquote(snapInitStagingDir)))
+	w.conf.AddRunCmd(fmt.Sprintf(
+		"snap run %s.init %s",
+		bootstrap.ControllerSnapPackageName, shquote(snapInitStagingDir),
+	))
 
 	// Step 7: Run jujud.bootstrap-state (snap app) to initialise controller
 	// state from the snap-private files. This replaces the legacy
-	// jujuagentd bootstrap-state call.
+	// jujuagentd bootstrap-state call. Same cwd hygiene is handled inside
+	// jujud Main (ensureAccessibleWorkingDir).
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Running snap bootstrap-state"))
+	// Do not host-redirect snap stdio to a file (snap-confine drops it). Outer
+	// script tee to cloud-init-output is file-backed as well, so rely on
+	// set -e exit status; timeout covers hangs.
 	w.conf.AddRunCmd(fmt.Sprintf(
 		"snap run %s.bootstrap-state --timeout %s",
 		bootstrap.ControllerSnapPackageName, shquote(w.icfg.Bootstrap.Timeout.String()),
