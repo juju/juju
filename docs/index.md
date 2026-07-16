@@ -48,7 +48,7 @@ Juju models business deployment logic through charms; charms describe how an app
 
 **Juju's core machinery**
 
-The controller, agents, and CLI form the engine that coordinates between the application and cloud layers.
+The CLI, controller, and agents form the engine that coordinates between the application and cloud layers.
 
 * **Architecture**: {ref}`Juju architecture <juju-architecture>`
 * **Client — Juju CLI**: {ref}`Reference <juju-cli>` | {ref}`Manage Juju <manage-juju>`
@@ -74,7 +74,7 @@ Additional capabilities for production and enterprise deployments, including acc
 
 Juju provisions and manages the cloud resources — machines, networking, storage — that applications run on.
 
-* Basics: {ref}`Cloud reference <cloud>`
+* Basics: {ref}`Cloud reference <cloud>` | {ref}`List of supported clouds <list-of-supported-clouds>`
 * Working with clouds: {ref}`Manage clouds <manage-clouds>`
 * Credentials: {ref}`Credential reference <credential>` | {ref}`Manage credentials <manage-credentials>`
 * Metadata: {ref}`Simplestreams metadata <metadata>` | {ref}`Manage metadata <manage-metadata>`
@@ -97,7 +97,7 @@ End-to-end procedures for standing up, maintaining, and tearing down a Juju depl
 
 * Set up: {ref}`Set up your deployment <set-up-your-deployment>` | {ref}`Set up for local testing <set-things-up>` | {ref}`Set up offline <take-your-deployment-offline>` | {ref}`Add a cloud <add-a-cloud>` | {ref}`Add a credential <add-a-credential>`
 * Harden: {ref}`Harden your deployment <harden-your-deployment>`
-* Upgrade: {ref}`Upgrade your deployment <upgrade-your-deployment>` | {ref}`Patch version <upgrade-your-juju-components-patch-version>` | {ref}`Minor or major version <upgrade-your-juju-components-minor-or-major-version>` | {ref}`From 3.6 to 4.0 <upgrade-your-juju-deployment-from-36-to-40>`
+* Upgrade: {ref}`Upgrade your deployment <upgrade-your-deployment>` | {ref}`Patch version <upgrade-your-juju-components-patch-version>` | {ref}`Minor or major version <upgrade-your-juju-components-minor-or-major-version>` | {ref}`From 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`
 * Troubleshoot: {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
 * Tear down: {ref}`Tear things down <tear-things-down>`
 
