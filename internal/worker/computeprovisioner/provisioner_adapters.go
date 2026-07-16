@@ -320,13 +320,27 @@ type toolsFinderAdapter struct {
 }
 
 // FindTools implements ToolsFinder.
+//
+// It mirrors the server-side FindAgents + ToolsURLs logic from
+// apiserver/common/tools.go: matched tools from agent-binary storage (or
+// simplestreams fallback) are expanded into one entry per API address so the
+// cloud-init template can cycle through all addresses on download failure.
 func (a *toolsFinderAdapter) FindTools(
 	ctx context.Context,
 	v semversion.Number,
 	osType string,
 	arch string,
 ) (coretools.List, error) {
-	// Check local agent storage first (same as server-side matchingStorageAgent).
+	filter := coretools.Filter{
+		Number: v,
+		OSType: osType,
+		Arch:   arch,
+	}
+
+	var baseList coretools.List
+
+	// Check local agent storage first (same as server-side
+	// matchingStorageAgent).
 	allMetadata, err := a.agentBinarySvc.ListAgentBinaries(ctx)
 	if err == nil {
 		var storageList coretools.List
@@ -346,33 +360,50 @@ func (a *toolsFinderAdapter) FindTools(
 				SHA256:  m.SHA256,
 			})
 		}
-		filter := coretools.Filter{
-			Number: v,
-			OSType: osType,
-			Arch:   arch,
-		}
 		matched, matchErr := storageList.Match(filter)
 		if matchErr == nil && len(matched) > 0 {
-			// Generate URLs pointing at the API server for local tools.
-			addrs, addrErr := a.ctrlNodeSvc.GetAllAPIAddressesForAgents(ctx)
-			if addrErr == nil && len(addrs) > 0 {
-				for _, t := range matched {
-					serverRoot := fmt.Sprintf("https://%s/model/%s", addrs[0], a.modelUUID)
-					t.URL = fmt.Sprintf("%s/tools/%s", serverRoot, t.Version.String())
-				}
-				return matched, nil
-			}
+			baseList = matched
 		}
 	}
 
-	// Fall back to simplestreams.
-	finder := a.agentBinarySvc.GetEnvironAgentBinariesFinder()
-	filter := coretools.Filter{
-		Number: v,
-		OSType: osType,
-		Arch:   arch,
+	// Fall back to simplestreams when agent-binary storage has no match.
+	if len(baseList) == 0 {
+		finder := a.agentBinarySvc.GetEnvironAgentBinariesFinder()
+		streamList, streamErr := finder(ctx, v.Major, v.Minor, v, "", filter)
+		if streamErr != nil {
+			return nil, errors.Trace(streamErr)
+		}
+		baseList = streamList
 	}
-	return finder(ctx, v.Major, v.Minor, v, "", filter)
+
+	if len(baseList) == 0 {
+		return nil, coretools.ErrNoMatches
+	}
+
+	// Rewrite URLs to point at the API server, producing one entry per
+	// (tool, address) pair — same as FindAgents -> ToolsURLs on the server
+	// side. This ensures the cloud-init download script cycles through all
+	// API addresses and can fall back from unreachable private IPs to public
+	// ones.
+	addrs, addrErr := a.ctrlNodeSvc.GetAllAPIAddressesForAgents(ctx)
+	if addrErr != nil {
+		return nil, errors.Annotate(addrErr, "getting API addresses for tools URLs")
+	}
+	if len(addrs) == 0 {
+		return nil, errors.New("no suitable API server address to pick from")
+	}
+
+	var fullList coretools.List
+	for _, baseTools := range baseList {
+		for _, addr := range addrs {
+			tools := *baseTools // copy — don't mutate the shared pointer
+			// TODO(#22910): use url.URL + url.JoinPath instead of Sprintf.
+			serverRoot := fmt.Sprintf("https://%s/model/%s", addr, a.modelUUID)
+			tools.URL = fmt.Sprintf("%s/tools/%s", serverRoot, tools.Version.String())
+			fullList = append(fullList, &tools)
+		}
+	}
+	return fullList, nil
 }
 
 // distributionGroupFinderAdapter implements DistributionGroupFinder using
