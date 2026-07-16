@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -84,6 +85,14 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	cfg = s.getConfig(c)
 	cfg.GetReadRepairObjectStoreGetter = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.PrometheusRegisterer = nil
+	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.NewMetricsCollector = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, jujuerrors.NotValid)
 }
 
@@ -282,6 +291,8 @@ func (s *manifoldSuite) getConfig(c *tc.C) ManifoldConfig {
 		) (ReadRepairObjectStoreGetter, error) {
 			return &manifoldStubReadRepairGetter{}, nil
 		},
+		PrometheusRegisterer: prometheus.NewRegistry(),
+		NewMetricsCollector:  NewMetricsCollector,
 	}
 }
 
@@ -326,7 +337,7 @@ func (manifoldStubControllerDomainServices) Logging() *loggingservice.WatchableS
 	return nil
 }
 
-func (manifoldStubControllerDomainServices) Tracing() *tracingservice.Service {
+func (manifoldStubControllerDomainServices) Tracing() *tracingservice.WatchableService {
 	return nil
 }
 
