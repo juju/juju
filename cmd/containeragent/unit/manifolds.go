@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	jujuproxy "github.com/juju/proxy"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -300,6 +301,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APICallerName:       apiCallerName,
 			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
 			WorkerFunc:          proxyupdater.NewWorker,
+			ExternalUpdate:      func(jujuproxy.Settings) error { return nil },
 			InProcessUpdate:     proxy.DefaultConfig.Set,
 			SupportLegacyValues: false,
 			RunFunc:             proxyupdater.RunWithStdIn,

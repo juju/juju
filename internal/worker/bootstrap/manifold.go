@@ -121,7 +121,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.ProviderFactoryName == "" {
 		return errors.NotValidf("empty ProviderFactoryName")
 	}
-
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
@@ -198,7 +197,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Locate the controller unit password.
-			unitPassword, err := config.ControllerUnitPassword(context.TODO())
+			unitPassword, err := config.ControllerUnitPassword(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

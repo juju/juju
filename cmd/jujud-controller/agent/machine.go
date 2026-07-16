@@ -359,6 +359,7 @@ type MachineAgent struct {
 	upgradeSteps    UpgradeStepsFunc
 
 	bootstrapLock                  gate.Lock
+	proxyReadyLock                 gate.Lock
 	upgradeDBLock                  gate.Lock
 	upgradeStepsLock               gate.Lock
 	controllerAgentConfigReadyLock gate.Lock
@@ -489,6 +490,8 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	a.machineLock = machineLock
 
 	a.bootstrapLock = gate.NewLock()
+	a.proxyReadyLock = gate.NewLock()
+
 	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.controllerAgentConfigReadyLock = gate.NewLock()
@@ -553,6 +556,7 @@ func (a *MachineAgent) makeEngineCreator(
 			RootDir:                           a.rootDir,
 			AgentConfigChanged:                a.configChangedVal,
 			BootstrapLock:                     a.bootstrapLock,
+			ProxyReadyLock:                    a.proxyReadyLock,
 			UpgradeDBLock:                     a.upgradeDBLock,
 			UpgradeStepsLock:                  a.upgradeStepsLock,
 			UpgradeCheckLock:                  a.initialUpgradeCheckComplete,
@@ -576,7 +580,6 @@ func (a *MachineAgent) makeEngineCreator(
 			MuxShutdownWait:                   1 * time.Minute,
 			NewBrokerFunc:                     newBroker,
 			MachineStartup:                    a.machineStartup,
-			IsCaasConfig:                      a.isCaasAgent,
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
@@ -594,10 +597,10 @@ func (a *MachineAgent) makeEngineCreator(
 		}
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {
-				logger.Errorf(context.TODO(), "while stopping engine with bad manifolds: %v", err)
+				logger.Errorf(ctx, "while stopping engine with bad manifolds: %v", err)
 			}
 			if err := worker.Stop(flightRecorder); err != nil {
-				logger.Errorf(context.TODO(), "while stopping flight recorder with bad manifolds: %v", err)
+				logger.Errorf(ctx, "while stopping flight recorder with bad manifolds: %v", err)
 			}
 			return nil, err
 		}
@@ -616,13 +619,13 @@ func (a *MachineAgent) makeEngineCreator(
 			// but continue. It is very unlikely to happen in the real world
 			// as the only issue is connecting to the abstract domain socket
 			// and the agent is controlled by by the OS to only have one.
-			logger.Errorf(context.TODO(), "failed to start introspection worker: %v", err)
+			logger.Errorf(ctx, "failed to start introspection worker: %v", err)
 		}
 		if err := addons.RegisterEngineMetrics(a.prometheusRegistry, metrics, eng, controllerMetricsSink); err != nil {
 			// If the dependency engine metrics fail, continue on. This is
 			// unlikely to happen in the real world, but shouldn't stop or
 			// bring down an agent.
-			logger.Errorf(context.TODO(), "failed to start the dependency engine metrics %v", err)
+			logger.Errorf(ctx, "failed to start the dependency engine metrics %v", err)
 		}
 		return eng, nil
 	}

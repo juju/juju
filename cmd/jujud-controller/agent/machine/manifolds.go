@@ -8,7 +8,6 @@ import (
 	"maps"
 	"net/http"
 	"path"
-	"runtime"
 	"time"
 
 	"github.com/juju/clock"
@@ -155,6 +154,10 @@ type ManifoldsConfig struct {
 	// is done.
 	BootstrapLock gate.Lock
 
+	// ProxyReadyLock is passed to the proxy ready gate to coordinate workers
+	// that shouldn't do anything until the proxyupdater worker is done.
+	ProxyReadyLock gate.Lock
+
 	// UpgradeDBLock is passed to the upgrade database gate to
 	// coordinate workers that shouldn't do anything until the
 	// upgrade-database worker is done.
@@ -249,9 +252,6 @@ type ManifoldsConfig struct {
 	// NewBrokerFunc is a function opens a instance broker (LXD/KVM)
 	NewBrokerFunc containerbroker.NewBrokerFunc
 
-	// IsCaasConfig is true if this config is for a caas agent.
-	IsCaasConfig bool
-
 	// UnitEngineConfig is used by the deployer to initialize the unit's
 	// dependency engine when running in the nested context.
 	UnitEngineConfig func() dependency.EngineConfig
@@ -307,11 +307,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		return crosscontroller.NewClient(conn), conn.IPAddr(), nil
 	}
 
-	var externalUpdateProxyFunc func(proxy.Settings) error
-	if runtime.GOOS == "linux" && !config.IsCaasConfig {
-		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
-	}
-
 	agentConfig := config.Agent.CurrentConfig()
 	agentTag := agentConfig.Tag()
 	controllerTag := agentConfig.Controller()
@@ -329,6 +324,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GateName:  isBootstrapGateName,
 			NewWorker: gate.NewFlagWorker,
 		}),
+
+		// The proxy ready gate is used to coordinate workers that should
+		// not do anything until the proxyupdater worker has finished
+		// running any required proxy configuration updates.
+		controllerProxyReadyGateName: ifController(gate.ManifoldEx(config.ProxyReadyLock)),
+		controllerProxyReadyFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  controllerProxyReadyGateName,
+			NewWorker: gate.NewFlagWorker,
+		})),
 
 		// controllerAgentConfigReadyGateName/FlagName coordinate the deployer
 		// with the controlleragentconfig worker. The deployer must not start
@@ -710,19 +714,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSecretaryFinder:   internallease.NewSecretaryFinder,
 		}),
 
-		// The proxy config updater is a leaf worker that sets http/https/apt/etc
-		// proxy settings.
-		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:           agentName,
-			APICallerName:       apiCallerName,
-			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
-			WorkerFunc:          proxyupdater.NewWorker,
-			SupportLegacyValues: !config.IsCaasConfig,
-			ExternalUpdate:      externalUpdateProxyFunc,
-			InProcessUpdate:     proxyconfig.DefaultConfig.Set,
-			RunFunc:             proxyupdater.RunWithStdIn,
-		})),
-
 		// TODO (thumper): It doesn't really make sense in a machine manifold as
 		// not every machine will have credentials. It is here for the
 		// ifCredentialValid function that is used solely for the machine
@@ -965,7 +956,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 	manifolds := dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
-		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
@@ -983,7 +974,35 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerUnitPassword:       bootstrap.IAASControllerUnitPassword,
 			BootstrapAddressFinderGetter: bootstrap.IAASAddressFinder,
 			AgentFinalizer:               bootstrap.IAASAgentFinalizer,
-		})),
+		}))),
+
+		// The controller proxy config updater uses local domain services
+		// instead of calling back through the controller API server.
+		controllerProxyConfigUpdater: ifController(ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(proxyupdater.ControllerManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			ProxyReadyGateName:          controllerProxyReadyGateName,
+			Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:                  proxyupdater.NewWorker,
+			GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
+			GetDomainServices:           proxyupdater.GetDomainServices,
+			SupportLegacyValues:         true,
+			ExternalUpdate:              lxd.ConfigureLXDProxies,
+			InProcessUpdate:             proxyconfig.DefaultConfig.Set,
+			RunFunc:                     proxyupdater.RunWithStdIn,
+		}))),
+
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings for non-controller agents using the API server.
+		proxyConfigUpdater: ifNotController(ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:           agentName,
+			APICallerName:       apiCallerName,
+			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:          proxyupdater.NewWorker,
+			SupportLegacyValues: true,
+			ExternalUpdate:      lxd.ConfigureLXDProxies,
+			InProcessUpdate:     proxyconfig.DefaultConfig.Set,
+			RunFunc:             proxyupdater.RunWithStdIn,
+		}))),
 
 		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 			AgentName:                     agentName,
@@ -1203,7 +1222,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
-		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+		bootstrapName: ifControllerProxyReady(ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
 			AgentName:               agentName,
 			ObjectStoreName:         objectStoreFacadeName,
 			DomainServicesName:      domainServicesName,
@@ -1221,7 +1240,35 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
 			BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
 			AgentFinalizer:               bootstrap.CAASAgentFinalizer,
-		})),
+		}))),
+
+		// The controller proxy config updater uses local domain services
+		// instead of calling back through the controller API server.
+		controllerProxyConfigUpdater: ifController(ifDatabaseUpgradeComplete(proxyupdater.ControllerManifold(proxyupdater.ControllerManifoldConfig{
+			DomainServicesName:          domainServicesName,
+			ProxyReadyGateName:          controllerProxyReadyGateName,
+			Logger:                      internallogger.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:                  proxyupdater.NewWorker,
+			GetControllerDomainServices: proxyupdater.GetControllerDomainServices,
+			GetDomainServices:           proxyupdater.GetDomainServices,
+			SupportLegacyValues:         false,
+			ExternalUpdate:              func(proxy.Settings) error { return nil },
+			InProcessUpdate:             proxyconfig.DefaultConfig.Set,
+			RunFunc:                     proxyupdater.RunWithStdIn,
+		}))),
+
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings for non-controller agents using the API server.
+		proxyConfigUpdater: ifNotController(ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:           agentName,
+			APICallerName:       apiCallerName,
+			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:          proxyupdater.NewWorker,
+			SupportLegacyValues: false,
+			ExternalUpdate:      func(proxy.Settings) error { return nil },
+			InProcessUpdate:     proxyconfig.DefaultConfig.Set,
+			RunFunc:             proxyupdater.RunWithStdIn,
+		}))),
 
 		agentConfigUpdaterName: ifNotMigrating(agentconfigupdater.Manifold(agentconfigupdater.ManifoldConfig{
 			AgentName:                     agentName,
@@ -1364,6 +1411,12 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	},
 }.Decorate
 
+var ifControllerProxyReady = engine.Housing{
+	Flags: []string{
+		controllerProxyReadyFlagName,
+	},
+}.Decorate
+
 // ifControllerAgentConfigNeededAndReady gates a manifold on two conditions:
 // "needed"  — the machine is a controller, so configchange.socket must exist
 //
@@ -1411,6 +1464,10 @@ const (
 	migrationFortressName     = "migration-fortress"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
+
+	controllerProxyConfigUpdater = "controller-proxy-config-updater"
+	controllerProxyReadyGateName = "controller-proxy-ready-gate"
+	controllerProxyReadyFlagName = "controller-proxy-ready-flag"
 
 	apiAddressSetterName               = "api-address-setter"
 	apiAddressUpdaterName              = "api-address-updater"
