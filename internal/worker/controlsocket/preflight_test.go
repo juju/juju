@@ -150,7 +150,7 @@ func (s *preflightValidatorSuite) TestMissingObjectsErrorIncludesReadRepair(c *t
 
 func (s *preflightValidatorSuite) TestMissingObjectsErrorCapsOutput(c *tc.C) {
 	missing := make([]MissingObject, 0, maxMissingObjectsInError+1)
-	for i := 0; i < maxMissingObjectsInError+1; i++ {
+	for i := range maxMissingObjectsInError + 1 {
 		missing = append(missing, MissingObject{
 			Namespace: "controller",
 			Path:      fmt.Sprintf("path-%03d", i),
