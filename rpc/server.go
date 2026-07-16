@@ -163,6 +163,68 @@ type serverConfig struct {
 	recorderFactory RecorderFactory
 }
 
+// writeCounter tracks the number of responses that have been queued by
+// handler goroutines but not yet written by the writer goroutine. Close
+// waits on it (with a timeout) to flush responses before closing the
+// codec.
+//
+// The count is an atomic, so the hot path (add on every response, done
+// after every write) is lock-free. Wakeup is push-based: the done() that
+// brings the count to zero does a non-blocking send on a buffered(1)
+// notify channel, which unblocks a waiting Close. The notification is a
+// "re-check" hint rather than a guarantee, so a stale or dropped send
+// can never cause a missed wakeup: wait() always re-verifies n==0 after
+// each wakeup, and it checks n==0 before blocking. The channel is never
+// closed, so there is no send-on-closed risk.
+//
+// Unlike sync.WaitGroup, a handler that outlives Close's srvPending
+// timeout may still call add/done after wait() has returned; that is
+// safe here because every transition is an atomic op with no
+// happens-before coupling to a prior Wait.
+type writeCounter struct {
+	n      atomic.Int64
+	notify chan struct{}
+}
+
+// newWriteCounter returns a writeCounter in the idle (zero) state.
+func newWriteCounter() *writeCounter {
+	return &writeCounter{notify: make(chan struct{}, 1)}
+}
+
+// add increments the pending count. It must be matched by a later done.
+func (w *writeCounter) add() { w.n.Add(1) }
+
+// done decrements the pending count and, when it reaches zero, pushes a
+// non-blocking wakeup to any waiting Close.
+func (w *writeCounter) done() {
+	if w.n.Add(-1) == 0 {
+		select {
+		case w.notify <- struct{}{}:
+		default:
+		}
+	}
+}
+
+// wait blocks until the counter reaches zero or the timeout elapses. It
+// returns true if the counter reached zero.
+func (w *writeCounter) wait(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if w.n.Load() == 0 {
+			return true
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return false
+		}
+		select {
+		case <-w.notify:
+		case <-time.After(remaining):
+			return false
+		}
+	}
+}
+
 // Conn represents an RPC endpoint.  It can both initiate and receive
 // RPC requests.  There may be multiple outstanding Calls associated
 // with a single Client, and a Client may be used by multiple goroutines
@@ -222,15 +284,40 @@ type Conn struct {
 	// messages for the writer goroutine. Handler goroutines push
 	// responses here instead of writing directly to the codec,
 	// eliminating head-of-line blocking between concurrent handlers.
+	//
+	// responses is never closed: handler goroutines may still be
+	// running (and therefore still sending) when Close tears the writer
+	// down, so closing it would risk a send-on-closed-channel panic.
+	// Instead the writer is signaled to stop via writerStop, and late
+	// senders drop their response via the <-dead path in sendResponse.
 	responses chan responseMsg
+
+	// writerStop is closed by Close to ask the writer goroutine to
+	// exit. The writer selects on it alongside responses, so it can
+	// finish draining any buffered messages before returning.
+	writerStop chan struct{}
 
 	// writerDone is closed when the writer goroutine exits.
 	writerDone chan struct{}
 
 	// pendingWrites tracks responses that have been queued but not yet
-	// written by the writer goroutine. Close() waits on this to ensure
-	// all responses are flushed before the codec is closed.
-	pendingWrites sync.WaitGroup
+	// written by the writer goroutine. Close() waits on it (with a
+	// timeout) to flush responses before closing the codec.
+	pendingWrites *writeCounter
+
+	// closeTimeout bounds the wait for outstanding server requests
+	// during Close. It is overridable for tests.
+	closeTimeout time.Duration
+
+	// writeFlushTimeout bounds the wait for queued responses to be
+	// written during Close. It is overridable for tests.
+	writeFlushTimeout time.Duration
+
+	// responseHook, when non-nil, is signalled (non-blocking) once a
+	// response has been queued or dropped in sendResponse. It is nil in
+	// production and used only by tests to observe sendResponse
+	// completion. It must be set before Start.
+	responseHook chan struct{}
 }
 
 // NewConn creates a new connection that uses the given codec for
@@ -239,9 +326,12 @@ type Conn struct {
 // non-nil, it will be called to get a new recorder for every request.
 func NewConn(codec Codec, factory RecorderFactory) *Conn {
 	conn := &Conn{
-		codec:         codec,
-		clientPending: make(map[uint64]*Call),
-		tombstones:    make(map[uint64]struct{}),
+		codec:             codec,
+		clientPending:     make(map[uint64]*Call),
+		tombstones:        make(map[uint64]struct{}),
+		closeTimeout:      time.Minute,
+		writeFlushTimeout: time.Minute,
+		pendingWrites:     newWriteCounter(),
 	}
 	conn.config.Store(&serverConfig{
 		recorderFactory: ensureFactory(factory),
@@ -264,6 +354,7 @@ func (conn *Conn) Start(ctx context.Context) {
 		conn.context, conn.cancelContext = context.WithCancel(ctx)
 		conn.dead = make(chan struct{})
 		conn.responses = make(chan responseMsg, 128)
+		conn.writerStop = make(chan struct{})
 		conn.writerDone = make(chan struct{})
 		go conn.writer()
 		go conn.input()
@@ -392,7 +483,7 @@ func (conn *Conn) Close() error {
 	}()
 	select {
 	case <-done:
-	case <-time.After(time.Minute):
+	case <-time.After(conn.closeTimeout):
 		// A request is refusing to close, so we're blocked. We can't wait
 		// indefinitely, and a minute is a lifetime for any request. Close it,
 		// but warn in the logs that the connection is refusing to go away.
@@ -407,9 +498,17 @@ func (conn *Conn) Close() error {
 	}
 
 	// Wait for any responses queued by handler goroutines to be written
-	// by the writer goroutine. This ensures all responses are flushed to
-	// the client before the codec is closed.
-	conn.pendingWrites.Wait()
+	// by the writer goroutine. This attempts to flush responses to the
+	// client before the codec is closed.
+	//
+	// The wait is bounded: if a write is stalled (e.g. by TCP
+	// backpressure or a slow client), the only thing that can unblock
+	// it is the write deadline set by codec.Close. Gating codec.Close
+	// behind an unbounded wait would therefore deadlock Close, so we
+	// time out and let codec.Close force the stalled write to return.
+	if !conn.pendingWrites.wait(conn.writeFlushTimeout) {
+		logger.Warningf(conn.context, "timed out waiting for outstanding writes, closing anyway")
+	}
 
 	// Closing the codec should cause the input loop to terminate.
 	if err := conn.codec.Close(); err != nil {
@@ -417,10 +516,13 @@ func (conn *Conn) Close() error {
 	}
 	<-conn.dead
 
-	// Now that the input loop has exited and all handler goroutines are
-	// done, close the responses channel to signal the writer to drain
-	// any remaining messages and exit.
-	close(conn.responses)
+	// The input loop has exited and dead is closed. Signal the writer
+	// to stop. responses is intentionally not closed: handler
+	// goroutines that survived the srvPending timeout may still call
+	// sendResponse, and closing responses would risk a
+	// send-on-closed-channel panic. Late senders drop their response
+	// via the <-dead path in sendResponse instead.
+	close(conn.writerStop)
 	<-conn.writerDone
 
 	return conn.inputLoopError
@@ -620,11 +722,17 @@ func (conn *Conn) sendErrorResponse(reqHdr *Header, err error, recorder Recorder
 // It blocks if the response buffer is full, providing natural backpressure.
 // If the connection is dead, the response is dropped.
 func (conn *Conn) sendResponse(hdr *Header, body any) {
-	conn.pendingWrites.Add(1)
+	conn.pendingWrites.add()
 	select {
 	case conn.responses <- responseMsg{hdr: hdr, body: body}:
 	case <-conn.dead:
-		conn.pendingWrites.Done()
+		conn.pendingWrites.done()
+	}
+	if h := conn.responseHook; h != nil {
+		select {
+		case h <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -632,17 +740,45 @@ func (conn *Conn) sendResponse(hdr *Header, body any) {
 // and writes messages to the codec sequentially. This decouples handler
 // goroutines from write latency and provides natural backpressure via
 // the channel buffer.
+//
+// The writer exits when writerStop is closed. It uses a select so that
+// any messages already buffered when the stop signal arrives are still
+// drained (each iteration may pick a buffered message before the stop
+// case). responses is never closed, so late senders cannot panic; they
+// drop their response via the <-dead path in sendResponse.
 func (conn *Conn) writer() {
 	defer close(conn.writerDone)
-	for msg := range conn.responses {
-		err := conn.codec.WriteMessage(msg.hdr, msg.body)
-		conn.pendingWrites.Done()
-		if err != nil {
-			msg := err.Error()
-			if !strings.Contains(msg, "websocket: close sent") &&
-				!strings.Contains(msg, "write: broken pipe") {
-				logger.Errorf(conn.context, "error writing response: %T %+v", err, err)
+	for {
+		select {
+		case msg := <-conn.responses:
+			conn.writeResponse(msg)
+		case <-conn.writerStop:
+			// Best-effort drain of anything still buffered before
+			// exiting. Late writes that arrive after this point are
+			// dropped by sendResponse's <-dead branch.
+			for {
+				select {
+				case msg := <-conn.responses:
+					conn.writeResponse(msg)
+				default:
+					return
+				}
 			}
+		}
+	}
+}
+
+// writeResponse writes a single queued response to the codec and marks
+// the pending write as done. Errors that indicate the peer has gone
+// away are expected during shutdown and are not logged.
+func (conn *Conn) writeResponse(msg responseMsg) {
+	err := conn.codec.WriteMessage(msg.hdr, msg.body)
+	conn.pendingWrites.done()
+	if err != nil {
+		msg := err.Error()
+		if !strings.Contains(msg, "websocket: close sent") &&
+			!strings.Contains(msg, "write: broken pipe") {
+			logger.Errorf(conn.context, "error writing response: %T %+v", err, err)
 		}
 	}
 }
