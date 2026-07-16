@@ -3849,5 +3849,5 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOriginLocalCharmError(c *gc
 	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.NotNil)
-	c.Assert(result.Error.Message, gc.Equals, `charm origin hash for "postgresql" not found`)
+	c.Assert(result.Error.Message, gc.Equals, `getting charm origin hash for "postgresql": boom`)
 }

@@ -1290,7 +1290,7 @@ func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmU
 	if corecharm.Source(chOrigin.Source) == corecharm.Local && result.Origin.Hash == "" {
 		ch, err := api.backend.Charm(*charmURL)
 		if err != nil {
-			result.Error = apiservererrors.ServerError(errors.NotFoundf("charm origin hash for %q", args.ApplicationName))
+			result.Error = apiservererrors.ServerError(errors.Annotatef(err, "getting charm origin hash for %q", args.ApplicationName))
 			return result, nil
 		}
 		result.Origin.Hash = ch.BundleSha256()
