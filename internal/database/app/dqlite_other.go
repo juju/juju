@@ -20,7 +20,12 @@ import (
 )
 
 // Option can be used to tweak app parameters.
-type Option func()
+type Option func(*appOptions)
+
+type appOptions struct {
+	log     client.LogFunc
+	tracing client.LogLevel
+}
 
 // WithAddress sets the network address of the application node.
 //
@@ -36,7 +41,7 @@ type Option func()
 //
 // The address must be stable across application restarts.
 func WithAddress(address string) Option {
-	return func() {}
+	return func(*appOptions) {}
 }
 
 // WithCluster must be used when starting a newly added application node for
@@ -45,7 +50,7 @@ func WithAddress(address string) Option {
 // It should contain the addresses of one or more applications nodes which are
 // already part of the cluster.
 func WithCluster(cluster []string) Option {
-	return func() {}
+	return func(*appOptions) {}
 }
 
 // WithTLS enables TLS encryption of network traffic.
@@ -56,25 +61,29 @@ func WithCluster(cluster []string) Option {
 // The "dial" parameter must hold the TLS configuration to use when
 // establishing outgoing connections to other application nodes.
 func WithTLS(listen *tls.Config, dial *tls.Config) Option {
-	return func() {}
+	return func(*appOptions) {}
 }
 
 // WithLogFunc sets a custom log function.
 func WithLogFunc(log client.LogFunc) Option {
-	return func() {}
+	return func(o *appOptions) {
+		o.log = log
+	}
 }
 
 // WithTracing will emit a log message at the given level every time a
 // statement gets executed.
 func WithTracing(level client.LogLevel) Option {
-	return func() {}
+	return func(o *appOptions) {
+		o.tracing = level
+	}
 }
 
 // WithBusyTimeout sets the timeout for how long a database operation will wait
 // for a lock to be released before returning an error, tailoring the amount of
 // time a writer will wait for others to finish writing on the same database.
 func WithBusyTimeout(timeout time.Duration) Option {
-	return func() {}
+	return func(*appOptions) {}
 }
 
 // App is a high-level helper for initializing a typical dqlite-based Go
@@ -83,12 +92,20 @@ func WithBusyTimeout(timeout time.Duration) Option {
 // It takes care of starting a dqlite node and registering a dqlite Go SQL
 // driver.
 type App struct {
-	dir string
+	dir        string
+	driverName string
 }
 
 // New creates a new application node.
 func New(dir string, options ...Option) (*App, error) {
-	return &App{dir: dir}, nil
+	var cfg appOptions
+	for _, option := range options {
+		option(&cfg)
+	}
+	return &App{
+		dir:        dir,
+		driverName: sqliteDriverName(cfg),
+	}, nil
 }
 
 // Ready can be used to wait for a node to complete tasks that
@@ -109,7 +126,7 @@ func (a *App) Open(_ context.Context, name string) (*sql.DB, error) {
 	if name != ":memory:" {
 		path = filepath.Join(a.dir, name)
 	}
-	db, err := sql.Open("sqlite3", path)
+	db, err := sql.Open(a.driverName, path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
