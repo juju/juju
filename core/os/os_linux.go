@@ -32,20 +32,25 @@ func hostOS() ostype.OSType {
 }
 
 func updateOS(f string) (ostype.OSType, error) {
-	// Prefer host os-release when the snap controller has staged it.
-	// See snapHostOSReleasePath in base_linux.go.
-	if p := snapHostOSReleasePath(); p != "" {
-		if values, err := ReadOSRelease(p); err == nil {
-			if ot, err := osTypeFromReleaseID(values["ID"]); err == nil {
-				return ot, nil
-			}
-		}
-	}
-	values, err := ReadOSRelease(f)
+	values, err := readHostOSRelease(f)
 	if err != nil {
 		return ostype.Unknown, err
 	}
 	return osTypeFromReleaseID(values["ID"])
+}
+
+// readHostOSRelease reads the host OS release values. Under strict snap
+// confinement the process sees the snap base (core26 / Ubuntu Core) as /,
+// which is wrong for charm bases and agent-series selection. When a host
+// os-release file has been staged into SNAP_COMMON by cloud-init, prefer it
+// over the default path.
+func readHostOSRelease(fallback string) (map[string]string, error) {
+	if p := snapHostOSReleasePath(); p != "" {
+		if values, err := ReadOSRelease(p); err == nil {
+			return values, nil
+		}
+	}
+	return ReadOSRelease(fallback)
 }
 
 func osTypeFromReleaseID(id string) (ostype.OSType, error) {

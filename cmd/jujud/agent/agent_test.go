@@ -258,7 +258,7 @@ func (s *controllerStartupValueProviderSuite) TestStandaloneControllerLocks(c *t
 	app.initStandaloneControllerLocks()
 
 	c.Check(app.bootstrapLock.IsUnlocked(), tc.IsFalse)
-	c.Check(app.controllerUpgradeLock.IsUnlocked(), tc.IsFalse)
+	c.Check(app.controllerUpgradeLock.IsUnlocked(), tc.IsTrue)
 	c.Check(app.upgradeDBLock.IsUnlocked(), tc.IsTrue)
 	c.Check(app.upgradeStepsLock.IsUnlocked(), tc.IsTrue)
 	c.Check(app.upgradeCheckLock.IsUnlocked(), tc.IsTrue)

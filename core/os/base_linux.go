@@ -11,17 +11,7 @@ import (
 )
 
 func readBase() (corebase.Base, error) {
-	// Prefer host machine os-release staged for snap controllers. Under
-	// strict confinement the process sees the snap base (core26 / Ubuntu Core)
-	// as /, which is wrong for charm bases and agent-series selection.
-	if p := snapHostOSReleasePath(); p != "" {
-		if values, err := ReadOSRelease(p); err == nil {
-			if b, err := corebase.ParseBase(values["ID"], values["VERSION_ID"]); err == nil {
-				return b, nil
-			}
-		}
-	}
-	values, err := ReadOSRelease(osReleaseFile)
+	values, err := readHostOSRelease(osReleaseFile)
 	if err != nil {
 		return corebase.Base{}, err
 	}
