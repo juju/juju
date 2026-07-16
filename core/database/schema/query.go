@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS schema (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_schema_version ON schema (version);
+CREATE INDEX IF NOT EXISTS idx_schema_version_hash ON schema (version, hash);
 `
 
 // Create the schema table.
