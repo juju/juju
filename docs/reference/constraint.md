@@ -70,8 +70,9 @@ Cloud-specific instance-type name. Values vary by provider, and individual deplo
 ```
 
 The IP address family for the machine's network interfaces. <p> **Valid values:**
-`ipv4`, `ipv6`, `dual`. <p> See the cloud-specific documentation for supported
-values and behavior.
+`ipv4`, `ipv6`, `dual` (`ipv6`-only is not currently supported by any
+provider). <p> See the cloud-specific documentation for supported values
+and behavior.
 
 (constraint-mem)=
 ### `mem`
