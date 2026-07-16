@@ -153,7 +153,10 @@ func TraceIDAndSpanIDFromContext(ctx context.Context) (string, string, bool) {
 	}
 
 	spanID, ok := span.(string)
-	return traceID, spanID, ok && traceID != ""
+	if !ok {
+		return traceID, "", traceID != ""
+	}
+	return traceID, spanID, traceID != ""
 }
 
 // WithTraceID returns a new context with the given trace ID.

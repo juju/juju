@@ -86,6 +86,15 @@ func (s *contextSuite) TestTraceIDAndSpanIDFromContextRemovedScope(c *tc.C) {
 	c.Check(ok, tc.IsFalse)
 }
 
+func (s *contextSuite) TestTraceIDAndSpanIDFromContextNonStringSpan(c *tc.C) {
+	ctx := WithTraceID(c.Context(), "trace-id")
+	ctx = context.WithValue(ctx, spanIDContextKey, 123)
+	traceID, spanID, ok := TraceIDAndSpanIDFromContext(ctx)
+	c.Check(traceID, tc.Equals, "trace-id")
+	c.Check(spanID, tc.Equals, "")
+	c.Check(ok, tc.IsTrue)
+}
+
 type stubTracer struct{}
 
 func (stubTracer) Start(ctx context.Context, name string, options ...Option) (context.Context, Span) {
