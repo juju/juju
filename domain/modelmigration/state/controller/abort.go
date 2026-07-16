@@ -96,6 +96,51 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 	})
 }
 
+// IsModelRemovalInProgress reports whether the model row for modelUUID exists
+// and has left the alive state (it is dying or dead). The v8 abort driver uses
+// this to detect a model that the generic (legacy) removal undertaker is already
+// tearing down after a v7-protocol abort marked it dead and took the claim's
+// abort lock: in that case the v8 abort compensation and model-database staging
+// must stand aside, because the undertaker owns the teardown of the model, its
+// database and the import claim. A missing model row reports false, so a v8
+// abort re-drive after its own compensation has removed the model row still
+// proceeds to finalization.
+func (s *State) IsModelRemovalInProgress(ctx context.Context, modelUUID string) (bool, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	arg := modelUUIDArg{ModelUUID: modelUUID}
+	stmt, err := s.Prepare(`
+SELECT m.life_id AS &modelLifeRow.life_id
+FROM   model AS m
+WHERE  m.uuid = $modelUUIDArg.model_uuid`, arg, modelLifeRow{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var row modelLifeRow
+	found := true
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, arg).Get(&row)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			found = false
+			return nil
+		}
+		return err
+	})
+	if err != nil {
+		return false, errors.Errorf("reading model life for %q: %w", modelUUID, err)
+	}
+	if !found {
+		return false, nil
+	}
+	// life_id 0 is alive; anything else (dying, dead) means the generic removal
+	// undertaker has taken over.
+	return row.LifeID != 0, nil
+}
+
 // GetAllImportClaims returns a snapshot of every outstanding
 // model_migration_import claim. The abort reconciler scans this to find claims
 // in the aborting phase to finalize and stale importing/activating claims to

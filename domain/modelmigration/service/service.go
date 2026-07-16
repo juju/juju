@@ -275,6 +275,12 @@ type ControllerState interface {
 	// provable, and is idempotent when no claim exists.
 	FinalizeAbortedImport(ctx context.Context, modelUUID string) error
 
+	// IsModelRemovalInProgress reports whether the model row exists and has left
+	// the alive state (dying or dead), indicating the generic removal undertaker
+	// has taken over teardown after a v7/legacy abort. A missing model row
+	// reports false.
+	IsModelRemovalInProgress(ctx context.Context, modelUUID string) (bool, error)
+
 	// GetAllImportClaims returns a snapshot of every outstanding
 	// model_migration_import claim, used by the abort reconciler.
 	GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error)

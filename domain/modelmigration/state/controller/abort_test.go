@@ -116,6 +116,43 @@ func (s *stateSuite) TestGetAllImportClaims(c *tc.C) {
 	c.Check(claims[0].Phase, tc.Equals, modelmigration.ImportPhaseAborting)
 }
 
+// TestIsModelRemovalInProgress verifies the predicate the v8 abort driver uses
+// to stand aside from a model the generic removal undertaker already owns: it is
+// false for an alive model, true once the model is dying or dead, and false for
+// a model that no longer has a row.
+func (s *stateSuite) TestIsModelRemovalInProgress(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// Alive (the model created in SetUpTest).
+	removing, err := st.IsModelRemovalInProgress(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removing, tc.IsFalse)
+
+	// Dying.
+	s.setModelLife(c, s.modelUUID.String(), 1)
+	removing, err = st.IsModelRemovalInProgress(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removing, tc.IsTrue)
+
+	// Dead.
+	s.setModelLife(c, s.modelUUID.String(), 2)
+	removing, err = st.IsModelRemovalInProgress(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removing, tc.IsTrue)
+
+	// No model row.
+	removing, err = st.IsModelRemovalInProgress(c.Context(), uuid.MustNewUUID().String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(removing, tc.IsFalse)
+}
+
+// setModelLife forces the model's life_id directly, for arranging test state.
+func (s *stateSuite) setModelLife(c *tc.C, modelUUID string, lifeID int) {
+	_, err := s.DB().ExecContext(c.Context(),
+		"UPDATE model SET life_id = ? WHERE uuid = ?", lifeID, modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 // TestIsImportNamespaceRegistered verifies the namespace_list predicate.
 func (s *stateSuite) TestIsImportNamespaceRegistered(c *tc.C) {
 	st := New(s.TxnRunnerFactory(), clock.WallClock)

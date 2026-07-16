@@ -24,6 +24,11 @@ type modelUUIDArg struct {
 	ModelUUID string `db:"model_uuid"`
 }
 
+// modelLifeRow projects a model row's life id (0 alive, 1 dying, 2 dead).
+type modelLifeRow struct {
+	LifeID int `db:"life_id"`
+}
+
 // migrationUUIDArg is a query argument holding a migration uuid (the export
 // migration's primary key, referenced as migration_uuid by child tables).
 type migrationUUIDArg struct {

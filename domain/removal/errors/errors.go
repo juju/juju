@@ -88,11 +88,12 @@ const (
 	// be removed without force as it still has attachments.
 	StorageInstanceStillAttached = errors.ConstError("storage instance still attached")
 
-	// MigrationImportPastImporting indicates that a model's v8 migration import
-	// claim has moved past the importing phase (to activating or aborting), so
-	// the generic migrating-model removal path must not tear the model down.
-	// Cleanup of such a model is owned by the migration activation/abort
-	// finalizers, which preserve the durable claim and the model database until
-	// cleanup is provably complete.
+	// MigrationImportPastImporting indicates that a model's migration import
+	// claim has reached the activating phase, so the migrating-model abort path
+	// must not tear the model down: activation has crossed the point of no
+	// return and cleanup is owned by the migration activation finalizer, which
+	// preserves the durable claim and the model database until cleanup is
+	// provably complete. (An importing claim is aborted normally; an aborting
+	// claim is a retried abort and is also accepted.)
 	MigrationImportPastImporting = errors.ConstError("model migration import is past the importing phase")
 )

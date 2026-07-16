@@ -168,17 +168,17 @@ func (s *modelSuite) TestMarkMigratingModelAsDeadAlreadyDead(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
-// TestMarkMigratingModelAsDeadRefusesNonImportingClaim verifies that a model
-// whose v8 import claim has moved past the importing phase (activating or
-// aborting) is not marked dead by the generic migrating-model removal path: the
-// v8 migration finalizers own its teardown, and marking it dead here would let
-// the undertaker deregister the namespace before the migration abort dropped
-// the model database.
-func (s *modelSuite) TestMarkMigratingModelAsDeadRefusesNonImportingClaim(c *tc.C) {
+// TestMarkMigratingModelAsDeadTakesAbortLock verifies that marking an importing
+// model dead atomically transitions its import claim to the aborting phase. This
+// is what closes the abort/activate split brain: with the claim in aborting, a
+// concurrent activation's importing->activating compare-and-set can no longer
+// win and resurrect the just-killed model.
+func (s *modelSuite) TestMarkMigratingModelAsDeadTakesAbortLock(c *tc.C) {
 	modelUUID := s.getModelUUID(c)
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		// phase_type_id defaults to 0 (importing).
 		_, err := tx.ExecContext(ctx, `
 INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
 VALUES ('claim', ?, 'source-migration-uuid')`, modelUUID)
@@ -186,32 +186,67 @@ VALUES ('claim', ?, 'source-migration-uuid')`, modelUUID)
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	for _, phaseID := range []int{1, 2} { // activating, aborting
-		err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx,
-				"UPDATE model_migration_import SET phase_type_id = ? WHERE model_uuid = ?", phaseID, modelUUID)
-			return err
-		})
-		c.Assert(err, tc.ErrorIsNil)
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
 
-		err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
-		c.Assert(err, tc.ErrorIs, removalerrors.MigrationImportPastImporting)
-
-		// The model is left alive (life_id 0).
-		var lifeID int
-		err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-			return tx.QueryRowContext(ctx,
-				"SELECT life_id FROM model WHERE uuid = ?", modelUUID).Scan(&lifeID)
-		})
-		c.Assert(err, tc.ErrorIsNil)
-		c.Check(lifeID, tc.Equals, int(life.Alive))
-	}
+	lifeID, phaseID := s.modelLifeAndClaimPhase(c, modelUUID)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
+	c.Check(phaseID, tc.Equals, 2) // aborting
 }
 
-// TestDeleteModelPreservesNonImportingClaim verifies the generic removal path
-// deletes only importing import claims: a claim that has moved to aborting is
-// preserved for the v8 abort finalizer, even when the model row is torn down.
-func (s *modelSuite) TestDeleteModelPreservesNonImportingClaim(c *tc.C) {
+// TestMarkMigratingModelAsDeadAbortingClaimIsIdempotent verifies that a retried
+// abort, whose claim is already aborting, still marks the model dead and leaves
+// the claim aborting for the undertaker to reap.
+func (s *modelSuite) TestMarkMigratingModelAsDeadAbortingClaimIsIdempotent(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
+VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID) // aborting
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	lifeID, phaseID := s.modelLifeAndClaimPhase(c, modelUUID)
+	c.Check(lifeID, tc.Equals, int(life.Dead))
+	c.Check(phaseID, tc.Equals, 2) // still aborting
+}
+
+// TestMarkMigratingModelAsDeadRefusesActivatingClaim verifies that a model whose
+// import claim has reached the activating phase is not marked dead by the abort
+// path: activation has crossed the point of no return and owns the model's
+// teardown, so killing it here would strand an activated model.
+func (s *modelSuite) TestMarkMigratingModelAsDeadRefusesActivatingClaim(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
+VALUES ('claim', ?, 'source-migration-uuid', 1)`, modelUUID) // activating
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = st.MarkMigratingModelAsDead(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIs, removalerrors.MigrationImportPastImporting)
+
+	// The model is left alive and the claim untouched.
+	lifeID, phaseID := s.modelLifeAndClaimPhase(c, modelUUID)
+	c.Check(lifeID, tc.Equals, int(life.Alive))
+	c.Check(phaseID, tc.Equals, 1) // still activating
+}
+
+// TestDeleteModelDeletesAbortingClaim verifies the generic (undertaker) removal
+// path reaps an aborting import claim - the abort lock taken by a v7/legacy
+// abort - once the model is torn down and no model-database drop is still
+// staged.
+func (s *modelSuite) TestDeleteModelDeletesAbortingClaim(c *tc.C) {
 	modelUUID := s.getModelUUID(c)
 
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -229,14 +264,60 @@ VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID) // aborting
 	err = st.DeleteModel(c.Context(), modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// The aborting claim survives for the migration abort finalizer.
-	var count int
-	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx,
-			"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?", modelUUID).Scan(&count)
+	c.Check(s.claimCount(c, modelUUID), tc.Equals, 0)
+}
+
+// TestDeleteModelPreservesStagedAbortingClaim verifies that when a v8 abort
+// finalizer has staged the model-database drop, the generic removal path leaves
+// the aborting claim in place: the v8 finalizer owns releasing it once the drop
+// is proven complete.
+func (s *modelSuite) TestDeleteModelPreservesStagedAbortingClaim(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
+VALUES ('claim', ?, 'source-migration-uuid', 2)`, modelUUID); err != nil { // aborting
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_database_deletion (namespace, created_at)
+VALUES (?, DATETIME('now'))`, modelUUID)
+		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.claimCount(c, modelUUID), tc.Equals, 1)
+}
+
+// TestDeleteModelPreservesActivatingClaim verifies the generic removal path
+// never reaps an activating claim - it is owned by the v8 activation finalizer.
+func (s *modelSuite) TestDeleteModelPreservesActivatingClaim(c *tc.C) {
+	modelUUID := s.getModelUUID(c)
+
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, "UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid, phase_type_id)
+VALUES ('claim', ?, 'source-migration-uuid', 1)`, modelUUID) // activating
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = st.DeleteModel(c.Context(), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(s.claimCount(c, modelUUID), tc.Equals, 1)
 }
 
 func (s *modelSuite) TestMarkModelAsDeadNotFound(c *tc.C) {
@@ -421,4 +502,30 @@ func (s *modelSuite) getModelUUID(c *tc.C) string {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return modelUUID
+}
+
+// modelLifeAndClaimPhase returns the model's life_id and its import claim's
+// phase_type_id.
+func (s *modelSuite) modelLifeAndClaimPhase(c *tc.C, modelUUID string) (lifeID, phaseID int) {
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx,
+			"SELECT life_id FROM model WHERE uuid = ?", modelUUID).Scan(&lifeID); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx,
+			"SELECT phase_type_id FROM model_migration_import WHERE model_uuid = ?", modelUUID).Scan(&phaseID)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return lifeID, phaseID
+}
+
+// claimCount returns the number of import claims for the model.
+func (s *modelSuite) claimCount(c *tc.C, modelUUID string) int {
+	var count int
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM model_migration_import WHERE model_uuid = ?", modelUUID).Scan(&count)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	return count
 }

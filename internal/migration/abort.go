@@ -62,6 +62,11 @@ var DefaultAbortFinalizeWait = AbortFinalizeWait{
 // activating (a non-retryable conflict: the model must not be torn down after
 // activation has begun), and nil when no claim exists (nothing was imported, or
 // cleanup already finalized).
+//
+// It also returns nil, doing nothing, when the model is already being torn down
+// by the generic removal undertaker (a v7/legacy abort marked it dead and took
+// the claim's abort lock): that path owns the teardown, and re-driving v8
+// compensation over it would race the undertaker.
 func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservice.Service, modelUUID coremodel.UUID) error {
 	c, err := claim.GetImportClaim(ctx, modelUUID)
 	switch {
@@ -72,6 +77,22 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 		return nil
 	case err != nil:
 		return errors.Errorf("reading import claim for model %q: %w", modelUUID, err)
+	}
+
+	// Stand aside if the generic removal undertaker is already tearing this
+	// model down. A v7/legacy abort (the migrationtarget API.Abort facade path)
+	// marks the model dead and takes the claim's abort lock in one transaction
+	// (domain/removal ... MarkMigratingModelAsDead); the undertaker then owns
+	// teardown of the model, its database and - via removeBasicModelData - the
+	// import claim. Re-driving v8 compensation here (the abort reconciler picks
+	// up the aborting claim too) would stage a model-database deletion and
+	// deregister the namespace mid-teardown, racing the undertaker's own
+	// DeleteModel/DeleteDB. A v8 abort never marks the model dead, so this only
+	// fires for the legacy path.
+	if removing, err := claim.IsModelRemovalInProgress(ctx, modelUUID); err != nil {
+		return errors.Errorf("checking removal state for model %q: %w", modelUUID, err)
+	} else if removing {
+		return nil
 	}
 
 	switch c.Phase {

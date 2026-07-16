@@ -63,6 +63,22 @@ func (s *Service) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUU
 	return s.controllerState.StageAbortedModelDatabaseDeletion(ctx, modelUUID.String())
 }
 
+// IsModelRemovalInProgress reports whether the model is already being torn down
+// by the generic removal undertaker (its model row exists and is dying or dead),
+// as happens after a v7/legacy abort marked it dead. The v8 abort driver uses
+// this to stand aside from such a model rather than re-driving its own
+// compensation over the undertaker's teardown.
+func (s *Service) IsModelRemovalInProgress(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := modelUUID.Validate(); err != nil {
+		return false, errors.Errorf("validating model uuid: %w", err)
+	}
+
+	return s.controllerState.IsModelRemovalInProgress(ctx, modelUUID.String())
+}
+
 // GetAllImportClaims returns a snapshot of every outstanding import claim, for
 // the abort reconciler to scan.
 func (s *Service) GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error) {

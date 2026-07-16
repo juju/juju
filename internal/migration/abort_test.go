@@ -159,6 +159,43 @@ func (s *controllerImportSuite) TestAbortModelImportActivatingRefused(c *tc.C) {
 	c.Check(s.rowCount(c, "SELECT COUNT(*) FROM model WHERE uuid = ?", modelUUID.String()), tc.Equals, 1)
 }
 
+// TestAbortModelImportStandsAsideForLegacyRemoval verifies that when a
+// v7/legacy abort has already marked the model dead and taken the claim's abort
+// lock, the v8 abort driver does nothing: it must not re-drive compensation or
+// stage a model-database deletion over the generic undertaker's teardown. This
+// covers the abort reconciler picking up such an aborting claim.
+func (s *controllerImportSuite) TestAbortModelImportStandsAsideForLegacyRemoval(c *tc.C) {
+	modelUUID, _, deps := s.importWithContent(c)
+
+	// Simulate domain/removal MarkMigratingModelAsDead: claim -> aborting and
+	// the model marked dead, in the same spirit as the v7 Abort facade path.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx,
+			"UPDATE model_migration_import SET phase_type_id = 2 WHERE model_uuid = ?", modelUUID.String()); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx,
+			"UPDATE model SET life_id = 2 WHERE uuid = ?", modelUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = migration.AbortModelImport(c.Context(), deps, s.claimService(c), modelUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Nothing was touched: the model row, claim and namespace registration all
+	// remain, and no model-database deletion was staged. The undertaker owns it.
+	c.Check(s.rowCount(c, "SELECT COUNT(*) FROM model WHERE uuid = ?", modelUUID.String()), tc.Equals, 1)
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	claim, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(claim.Phase, tc.Equals, migrationdomain.ImportPhaseAborting)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM namespace_list WHERE namespace = ?", modelUUID.String()), tc.Equals, 1)
+	c.Check(s.rowCount(c,
+		"SELECT COUNT(*) FROM model_database_deletion WHERE namespace = ?", modelUUID.String()), tc.Equals, 0)
+}
+
 // shortWait is a tiny finalize-wait budget for the synchronous-finalize tests,
 // polling on the real wall clock so no background clock-advancing goroutine is
 // needed against the live dqlite transactions.

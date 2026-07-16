@@ -149,6 +149,7 @@ type MockControllerStateMockRecorder struct {
 	insertExportExpects                      []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects                []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
 	isImportNamespaceRegisteredExpects       []*gomock.Call2_2[context.Context, string, bool, error]
+	isModelRemovalInProgressExpects          []*gomock.Call2_2[context.Context, string, bool, error]
 	namespaceForWatchExportExpects           []*gomock.Call0_1[string]
 	namespaceForWatchMinionSyncExpects       []*gomock.Call0_1[string]
 	namespaceForWatchPhaseExpects            []*gomock.Call0_1[string]
@@ -694,6 +695,24 @@ func (mr *MockControllerStateMockRecorder) IsImportNamespaceRegistered(ctx, mode
 
 // MockControllerStateIsImportNamespaceRegisteredCall is the typed call wrapper for IsImportNamespaceRegistered.
 type MockControllerStateIsImportNamespaceRegisteredCall = gomock.Call2_2[context.Context, string, bool, error]
+
+// IsModelRemovalInProgress mocks base method.
+func (m *MockControllerState) IsModelRemovalInProgress(ctx context.Context, modelUUID string) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.isModelRemovalInProgressExpects, m.ctrl, m, "IsModelRemovalInProgress", ctx, modelUUID)
+}
+
+// IsModelRemovalInProgress indicates an expected call of IsModelRemovalInProgress.
+func (mr *MockControllerStateMockRecorder) IsModelRemovalInProgress(ctx, modelUUID any) *MockControllerStateIsModelRemovalInProgressCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, bool, error](mr.mock.ctrl.T, mr.mock, "IsModelRemovalInProgress", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.isModelRemovalInProgressExpects = append(mr.isModelRemovalInProgressExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateIsModelRemovalInProgressCall is the typed call wrapper for IsModelRemovalInProgress.
+type MockControllerStateIsModelRemovalInProgressCall = gomock.Call2_2[context.Context, string, bool, error]
 
 // NamespaceForWatchExport mocks base method.
 func (m *MockControllerState) NamespaceForWatchExport() string {
