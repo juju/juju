@@ -39,7 +39,6 @@ type managerSuite struct {
 	createRemoteOp *lxdtesting.MockRemoteOperation
 	deleteOp       *lxdtesting.MockOperation
 	startOp        *lxdtesting.MockOperation
-	stopOp         *lxdtesting.MockOperation
 	updateOp       *lxdtesting.MockOperation
 	manager        container.Manager
 }

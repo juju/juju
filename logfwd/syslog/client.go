@@ -169,7 +169,7 @@ func messageFromRecord(rec logfwd.Record) (rfc5424.Message, error) {
 	case loggo.DEBUG, loggo.TRACE:
 		msg.Priority.Severity = rfc5424.SeverityDebug
 	default:
-		return msg, errors.Errorf("unsupported log level %q", rec.Level)
+		return msg, errors.Errorf("unsupported log level %d", rec.Level)
 	}
 
 	if err := msg.Validate(); err != nil {
