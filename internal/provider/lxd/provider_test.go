@@ -510,7 +510,7 @@ func (s *providerSuite) TestPingFailWithNoEndpoint(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	err = p.Ping(c.Context(), server.URL)
 	c.Assert(err, tc.ErrorMatches, fmt.Sprintf(
-		"no lxd server running at %[1]s: Failed to fetch %[1]s/1.0: 404 Not Found",
+		"no lxd server running at %[1]s: Failed fetching %[1]s/1.0: 404 Not Found",
 		server.URL))
 }
 

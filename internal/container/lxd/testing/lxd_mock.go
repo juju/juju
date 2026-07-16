@@ -13,6 +13,7 @@ import (
 	io "io"
 	net "net"
 	http "net/http"
+	url "net/url"
 
 	gomock "github.com/canonical/gomock/gomock"
 	lxd "github.com/canonical/lxd/client"
@@ -37,6 +38,7 @@ type MockOperationMockRecorder struct {
 	getWebsocketExpects  []*gomock.Call1_2[string, *websocket.Conn, error]
 	refreshExpects       []*gomock.Call0_1[error]
 	removeHandlerExpects []*gomock.Call1_1[*lxd.EventTarget, error]
+	uRLExpects           []*gomock.Call0_1[*url.URL]
 	waitExpects          []*gomock.Call0_1[error]
 	waitContextExpects   []*gomock.Call1_1[context.Context, error]
 }
@@ -160,6 +162,24 @@ func (mr *MockOperationMockRecorder) RemoveHandler(target any) *MockOperationRem
 
 // MockOperationRemoveHandlerCall is the typed call wrapper for RemoveHandler.
 type MockOperationRemoveHandlerCall = gomock.Call1_1[*lxd.EventTarget, error]
+
+// URL mocks base method.
+func (m *MockOperation) URL() *url.URL {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.uRLExpects, m.ctrl, m, "URL")
+}
+
+// URL indicates an expected call of URL.
+func (mr *MockOperationMockRecorder) URL() *MockOperationURLCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*url.URL](mr.mock.ctrl.T, mr.mock, "URL")
+	mr.uRLExpects = append(mr.uRLExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockOperationURLCall is the typed call wrapper for URL.
+type MockOperationURLCall = gomock.Call0_1[*url.URL]
 
 // Wait mocks base method.
 func (m *MockOperation) Wait() error {
@@ -774,11 +794,8 @@ type MockInstanceServer struct {
 type MockInstanceServerMockRecorder struct {
 	mock                                                *MockInstanceServer
 	checkExtensionExpects                               []*gomock.Call1_1[string, error]
-	consoleContainerExpects                             []*gomock.Call3_2[string, api.ContainerConsolePost, *lxd.ContainerConsoleArgs, lxd.Operation, error]
 	consoleInstanceExpects                              []*gomock.Call3_2[string, api.InstanceConsolePost, *lxd.InstanceConsoleArgs, lxd.Operation, error]
 	consoleInstanceDynamicExpects                       []*gomock.Call3_3[string, api.InstanceConsolePost, *lxd.InstanceConsoleArgs, lxd.Operation, func(io.ReadWriteCloser) error, error]
-	copyContainerExpects                                []*gomock.Call3_2[lxd.InstanceServer, api.Container, *lxd.ContainerCopyArgs, lxd.RemoteOperation, error]
-	copyContainerSnapshotExpects                        []*gomock.Call4_2[lxd.InstanceServer, string, api.ContainerSnapshot, *lxd.ContainerSnapshotCopyArgs, lxd.RemoteOperation, error]
 	copyImageExpects                                    []*gomock.Call3_2[lxd.ImageServer, api.Image, *lxd.ImageCopyArgs, lxd.RemoteOperation, error]
 	copyInstanceExpects                                 []*gomock.Call3_2[lxd.InstanceServer, api.Instance, *lxd.InstanceCopyArgs, lxd.RemoteOperation, error]
 	copyInstanceSnapshotExpects                         []*gomock.Call4_2[lxd.InstanceServer, string, api.InstanceSnapshot, *lxd.InstanceSnapshotCopyArgs, lxd.RemoteOperation, error]
@@ -787,15 +804,10 @@ type MockInstanceServerMockRecorder struct {
 	createCertificateExpects                            []*gomock.Call1_1[api.CertificatesPost, error]
 	createCertificateTokenExpects                       []*gomock.Call1_2[api.CertificatesPost, lxd.Operation, error]
 	createClusterGroupExpects                           []*gomock.Call1_1[api.ClusterGroupsPost, error]
+	createClusterLinkExpects                            []*gomock.Call1_1[api.ClusterLinksPost, error]
 	createClusterMemberExpects                          []*gomock.Call1_2[api.ClusterMembersPost, lxd.Operation, error]
-	createContainerExpects                              []*gomock.Call1_2[api.ContainersPost, lxd.Operation, error]
-	createContainerBackupExpects                        []*gomock.Call2_2[string, api.ContainerBackupsPost, lxd.Operation, error]
-	createContainerFileExpects                          []*gomock.Call3_1[string, string, lxd.ContainerFileArgs, error]
-	createContainerFromBackupExpects                    []*gomock.Call1_2[lxd.ContainerBackupArgs, lxd.Operation, error]
-	createContainerFromImageExpects                     []*gomock.Call3_2[lxd.ImageServer, api.Image, api.ContainersPost, lxd.RemoteOperation, error]
-	createContainerSnapshotExpects                      []*gomock.Call2_2[string, api.ContainerSnapshotsPost, lxd.Operation, error]
-	createContainerTemplateFileExpects                  []*gomock.Call3_1[string, string, io.ReadSeeker, error]
 	createIdentityBearerExpects                         []*gomock.Call1_1[api.IdentitiesBearerPost, error]
+	createIdentityClusterLinkTokenExpects               []*gomock.Call1_2[api.ClusterLinksPost, *api.CertificateAddToken, error]
 	createIdentityProviderGroupExpects                  []*gomock.Call1_1[api.IdentityProviderGroupsPost, error]
 	createIdentityTLSExpects                            []*gomock.Call1_1[api.IdentitiesTLSPost, error]
 	createIdentityTLSTokenExpects                       []*gomock.Call1_2[api.IdentitiesTLSPost, *api.CertificateAddToken, error]
@@ -809,19 +821,21 @@ type MockInstanceServerMockRecorder struct {
 	createInstanceFromImageExpects                      []*gomock.Call3_2[lxd.ImageServer, api.Image, api.InstancesPost, lxd.RemoteOperation, error]
 	createInstanceSnapshotExpects                       []*gomock.Call2_2[string, api.InstanceSnapshotsPost, lxd.Operation, error]
 	createInstanceTemplateFileExpects                   []*gomock.Call3_1[string, string, io.ReadSeeker, error]
-	createNetworkExpects                                []*gomock.Call1_1[api.NetworksPost, error]
-	createNetworkACLExpects                             []*gomock.Call1_1[api.NetworkACLsPost, error]
-	createNetworkForwardExpects                         []*gomock.Call2_1[string, api.NetworkForwardsPost, error]
-	createNetworkLoadBalancerExpects                    []*gomock.Call2_1[string, api.NetworkLoadBalancersPost, error]
-	createNetworkPeerExpects                            []*gomock.Call2_1[string, api.NetworkPeersPost, error]
-	createNetworkZoneExpects                            []*gomock.Call1_1[api.NetworkZonesPost, error]
-	createNetworkZoneRecordExpects                      []*gomock.Call2_1[string, api.NetworkZoneRecordsPost, error]
+	createNetworkExpects                                []*gomock.Call1_2[api.NetworksPost, lxd.Operation, error]
+	createNetworkACLExpects                             []*gomock.Call1_2[api.NetworkACLsPost, lxd.Operation, error]
+	createNetworkForwardExpects                         []*gomock.Call2_2[string, api.NetworkForwardsPost, lxd.Operation, error]
+	createNetworkLoadBalancerExpects                    []*gomock.Call2_2[string, api.NetworkLoadBalancersPost, lxd.Operation, error]
+	createNetworkLoadBalancerPoolExpects                []*gomock.Call2_2[string, api.NetworkLoadBalancerPoolsPost, lxd.Operation, error]
+	createNetworkPeerExpects                            []*gomock.Call2_2[string, api.NetworkPeersPost, lxd.Operation, error]
+	createNetworkZoneExpects                            []*gomock.Call1_2[api.NetworkZonesPost, lxd.Operation, error]
+	createNetworkZoneRecordExpects                      []*gomock.Call2_2[string, api.NetworkZoneRecordsPost, lxd.Operation, error]
 	createPlacementGroupExpects                         []*gomock.Call1_1[api.PlacementGroupsPost, error]
 	createProfileExpects                                []*gomock.Call1_1[api.ProfilesPost, error]
 	createProjectExpects                                []*gomock.Call1_1[api.ProjectsPost, error]
-	createStoragePoolExpects                            []*gomock.Call1_1[api.StoragePoolsPost, error]
-	createStoragePoolBucketExpects                      []*gomock.Call2_2[string, api.StorageBucketsPost, *api.StorageBucketKey, error]
-	createStoragePoolBucketKeyExpects                   []*gomock.Call3_2[string, string, api.StorageBucketKeysPost, *api.StorageBucketKey, error]
+	createReplicatorExpects                             []*gomock.Call2_1[string, api.ReplicatorsPost, error]
+	createStoragePoolExpects                            []*gomock.Call1_2[api.StoragePoolsPost, lxd.Operation, error]
+	createStoragePoolBucketExpects                      []*gomock.Call2_2[string, api.StorageBucketsPost, lxd.Operation, error]
+	createStoragePoolBucketKeyExpects                   []*gomock.Call3_2[string, string, api.StorageBucketKeysPost, lxd.Operation, error]
 	createStoragePoolVolumeExpects                      []*gomock.Call2_2[string, api.StorageVolumesPost, lxd.Operation, error]
 	createStoragePoolVolumeBackupExpects                []*gomock.Call3_2[string, string, api.StoragePoolVolumeBackupsPost, lxd.Operation, error]
 	createStoragePoolVolumeFromBackupExpects            []*gomock.Call2_2[string, lxd.StoragePoolVolumeBackupArgs, lxd.Operation, error]
@@ -831,47 +845,42 @@ type MockInstanceServerMockRecorder struct {
 	deleteAuthGroupExpects                              []*gomock.Call1_1[string, error]
 	deleteCertificateExpects                            []*gomock.Call1_1[string, error]
 	deleteClusterGroupExpects                           []*gomock.Call1_1[string, error]
+	deleteClusterLinkExpects                            []*gomock.Call1_1[string, error]
 	deleteClusterMemberExpects                          []*gomock.Call2_1[string, bool, error]
-	deleteContainerExpects                              []*gomock.Call1_2[string, lxd.Operation, error]
-	deleteContainerBackupExpects                        []*gomock.Call2_2[string, string, lxd.Operation, error]
-	deleteContainerConsoleLogExpects                    []*gomock.Call2_1[string, *lxd.ContainerConsoleLogArgs, error]
-	deleteContainerFileExpects                          []*gomock.Call2_1[string, string, error]
-	deleteContainerLogfileExpects                       []*gomock.Call2_1[string, string, error]
-	deleteContainerSnapshotExpects                      []*gomock.Call2_2[string, string, lxd.Operation, error]
-	deleteContainerTemplateFileExpects                  []*gomock.Call2_1[string, string, error]
 	deleteIdentityExpects                               []*gomock.Call2_1[string, string, error]
 	deleteIdentityProviderGroupExpects                  []*gomock.Call1_1[string, error]
 	deleteImageExpects                                  []*gomock.Call1_2[string, lxd.Operation, error]
 	deleteImageAliasExpects                             []*gomock.Call1_1[string, error]
-	deleteInstanceExpects                               []*gomock.Call1_2[string, lxd.Operation, error]
+	deleteInstanceExpects                               []*gomock.Call2_2[string, bool, lxd.Operation, error]
 	deleteInstanceBackupExpects                         []*gomock.Call2_2[string, string, lxd.Operation, error]
 	deleteInstanceConsoleLogExpects                     []*gomock.Call2_1[string, *lxd.InstanceConsoleLogArgs, error]
 	deleteInstanceFileExpects                           []*gomock.Call2_1[string, string, error]
 	deleteInstanceLogfileExpects                        []*gomock.Call2_1[string, string, error]
 	deleteInstanceSnapshotExpects                       []*gomock.Call3_2[string, string, string, lxd.Operation, error]
 	deleteInstanceTemplateFileExpects                   []*gomock.Call2_1[string, string, error]
-	deleteNetworkExpects                                []*gomock.Call1_1[string, error]
-	deleteNetworkACLExpects                             []*gomock.Call1_1[string, error]
-	deleteNetworkForwardExpects                         []*gomock.Call2_1[string, string, error]
-	deleteNetworkLoadBalancerExpects                    []*gomock.Call2_1[string, string, error]
-	deleteNetworkPeerExpects                            []*gomock.Call2_1[string, string, error]
-	deleteNetworkZoneExpects                            []*gomock.Call1_1[string, error]
-	deleteNetworkZoneRecordExpects                      []*gomock.Call2_1[string, string, error]
+	deleteNetworkExpects                                []*gomock.Call1_2[string, lxd.Operation, error]
+	deleteNetworkACLExpects                             []*gomock.Call1_2[string, lxd.Operation, error]
+	deleteNetworkForwardExpects                         []*gomock.Call2_2[string, string, lxd.Operation, error]
+	deleteNetworkLoadBalancerExpects                    []*gomock.Call2_2[string, string, lxd.Operation, error]
+	deleteNetworkLoadBalancerPoolExpects                []*gomock.Call2_2[string, string, lxd.Operation, error]
+	deleteNetworkPeerExpects                            []*gomock.Call2_2[string, string, lxd.Operation, error]
+	deleteNetworkZoneExpects                            []*gomock.Call1_2[string, lxd.Operation, error]
+	deleteNetworkZoneRecordExpects                      []*gomock.Call2_2[string, string, lxd.Operation, error]
 	deleteOIDCSessionExpects                            []*gomock.Call1_1[string, error]
 	deleteOperationExpects                              []*gomock.Call1_1[string, error]
 	deletePlacementGroupExpects                         []*gomock.Call1_1[string, error]
 	deleteProfileExpects                                []*gomock.Call1_1[string, error]
-	deleteProjectExpects                                []*gomock.Call2_1[string, bool, error]
-	deleteStoragePoolExpects                            []*gomock.Call1_1[string, error]
-	deleteStoragePoolBucketExpects                      []*gomock.Call2_1[string, string, error]
-	deleteStoragePoolBucketKeyExpects                   []*gomock.Call3_1[string, string, string, error]
+	deleteProjectExpects                                []*gomock.Call2_2[string, bool, lxd.Operation, error]
+	deleteReplicatorExpects                             []*gomock.Call2_1[string, string, error]
+	deleteStoragePoolExpects                            []*gomock.Call1_2[string, lxd.Operation, error]
+	deleteStoragePoolBucketExpects                      []*gomock.Call2_2[string, string, lxd.Operation, error]
+	deleteStoragePoolBucketKeyExpects                   []*gomock.Call3_2[string, string, string, lxd.Operation, error]
 	deleteStoragePoolVolumeExpects                      []*gomock.Call3_2[string, string, string, lxd.Operation, error]
 	deleteStoragePoolVolumeBackupExpects                []*gomock.Call3_2[string, string, string, lxd.Operation, error]
 	deleteStoragePoolVolumeSnapshotExpects              []*gomock.Call4_2[string, string, string, string, lxd.Operation, error]
 	deleteWarningExpects                                []*gomock.Call1_1[string, error]
 	disconnectExpects                                   []*gomock.Call0_0
 	doHTTPExpects                                       []*gomock.Call1_2[*http.Request, *http.Response, error]
-	execContainerExpects                                []*gomock.Call3_2[string, api.ContainerExecPost, *lxd.ContainerExecArgs, lxd.Operation, error]
 	execInstanceExpects                                 []*gomock.Call3_2[string, api.InstanceExecPost, *lxd.InstanceExecArgs, lxd.Operation, error]
 	exportImageExpects                                  []*gomock.Call2_2[string, api.ImageExportPost, lxd.Operation, error]
 	getAuthGroupExpects                                 []*gomock.Call1_3[string, *api.AuthGroup, string, error]
@@ -884,30 +893,15 @@ type MockInstanceServerMockRecorder struct {
 	getClusterGroupExpects                              []*gomock.Call1_3[string, *api.ClusterGroup, string, error]
 	getClusterGroupNamesExpects                         []*gomock.Call0_2[[]string, error]
 	getClusterGroupsExpects                             []*gomock.Call0_2[[]api.ClusterGroup, error]
+	getClusterLinkExpects                               []*gomock.Call1_3[string, *api.ClusterLink, string, error]
+	getClusterLinkNamesExpects                          []*gomock.Call0_2[[]string, error]
+	getClusterLinkStateExpects                          []*gomock.Call1_3[string, *api.ClusterLinkState, string, error]
+	getClusterLinksExpects                              []*gomock.Call0_2[[]api.ClusterLink, error]
 	getClusterMemberExpects                             []*gomock.Call1_3[string, *api.ClusterMember, string, error]
 	getClusterMemberNamesExpects                        []*gomock.Call0_2[[]string, error]
 	getClusterMemberStateExpects                        []*gomock.Call1_3[string, *api.ClusterMemberState, string, error]
 	getClusterMembersExpects                            []*gomock.Call0_2[[]api.ClusterMember, error]
 	getConnectionInfoExpects                            []*gomock.Call0_2[*lxd.ConnectionInfo, error]
-	getContainerExpects                                 []*gomock.Call1_3[string, *api.Container, string, error]
-	getContainerBackupExpects                           []*gomock.Call2_3[string, string, *api.ContainerBackup, string, error]
-	getContainerBackupFileExpects                       []*gomock.Call3_2[string, string, *lxd.BackupFileRequest, *lxd.BackupFileResponse, error]
-	getContainerBackupNamesExpects                      []*gomock.Call1_2[string, []string, error]
-	getContainerBackupsExpects                          []*gomock.Call1_2[string, []api.ContainerBackup, error]
-	getContainerConsoleLogExpects                       []*gomock.Call2_2[string, *lxd.ContainerConsoleLogArgs, io.ReadCloser, error]
-	getContainerFileExpects                             []*gomock.Call2_3[string, string, io.ReadCloser, *lxd.ContainerFileResponse, error]
-	getContainerLogfileExpects                          []*gomock.Call2_2[string, string, io.ReadCloser, error]
-	getContainerLogfilesExpects                         []*gomock.Call1_2[string, []string, error]
-	getContainerMetadataExpects                         []*gomock.Call1_3[string, *api.ImageMetadata, string, error]
-	getContainerNamesExpects                            []*gomock.Call0_2[[]string, error]
-	getContainerSnapshotExpects                         []*gomock.Call2_3[string, string, *api.ContainerSnapshot, string, error]
-	getContainerSnapshotNamesExpects                    []*gomock.Call1_2[string, []string, error]
-	getContainerSnapshotsExpects                        []*gomock.Call1_2[string, []api.ContainerSnapshot, error]
-	getContainerStateExpects                            []*gomock.Call1_3[string, *api.ContainerState, string, error]
-	getContainerTemplateFileExpects                     []*gomock.Call2_2[string, string, io.ReadCloser, error]
-	getContainerTemplateFilesExpects                    []*gomock.Call1_2[string, []string, error]
-	getContainersExpects                                []*gomock.Call0_2[[]api.Container, error]
-	getContainersFullExpects                            []*gomock.Call0_2[[]api.ContainerFull, error]
 	getCurrentIdentityInfoExpects                       []*gomock.Call0_3[*api.IdentityInfo, string, error]
 	getEventsExpects                                    []*gomock.Call0_2[*lxd.EventListener, error]
 	getEventsAllProjectsExpects                         []*gomock.Call0_2[*lxd.EventListener, error]
@@ -955,14 +949,8 @@ type MockInstanceServerMockRecorder struct {
 	getInstanceTemplateFileExpects                      []*gomock.Call2_2[string, string, io.ReadCloser, error]
 	getInstanceTemplateFilesExpects                     []*gomock.Call1_2[string, []string, error]
 	getInstanceUEFIVarsExpects                          []*gomock.Call1_3[string, *api.InstanceUEFIVars, string, error]
-	getInstancesExpects                                 []*gomock.Call1_2[api.InstanceType, []api.Instance, error]
-	getInstancesAllProjectsExpects                      []*gomock.Call1_2[api.InstanceType, []api.Instance, error]
-	getInstancesAllProjectsWithFilterExpects            []*gomock.Call2_2[api.InstanceType, []string, []api.Instance, error]
-	getInstancesFullExpects                             []*gomock.Call1_2[api.InstanceType, []api.InstanceFull, error]
-	getInstancesFullAllProjectsExpects                  []*gomock.Call1_2[api.InstanceType, []api.InstanceFull, error]
-	getInstancesFullAllProjectsWithFilterExpects        []*gomock.Call2_2[api.InstanceType, []string, []api.InstanceFull, error]
-	getInstancesFullWithFilterExpects                   []*gomock.Call2_2[api.InstanceType, []string, []api.InstanceFull, error]
-	getInstancesWithFilterExpects                       []*gomock.Call2_2[api.InstanceType, []string, []api.Instance, error]
+	getInstancesExpects                                 []*gomock.Call1_2[lxd.GetInstancesArgs, []api.Instance, error]
+	getInstancesFullExpects                             []*gomock.Call1_2[lxd.GetInstancesFullArgs, []api.InstanceFull, error]
 	getMetadataConfigurationExpects                     []*gomock.Call0_2[*api.MetadataConfiguration, error]
 	getMetricsExpects                                   []*gomock.Call0_2[string, error]
 	getNetworkExpects                                   []*gomock.Call1_3[string, *api.Network, string, error]
@@ -978,6 +966,9 @@ type MockInstanceServerMockRecorder struct {
 	getNetworkLeasesExpects                             []*gomock.Call1_2[string, []api.NetworkLease, error]
 	getNetworkLoadBalancerExpects                       []*gomock.Call2_3[string, string, *api.NetworkLoadBalancer, string, error]
 	getNetworkLoadBalancerAddressesExpects              []*gomock.Call1_2[string, []string, error]
+	getNetworkLoadBalancerPoolExpects                   []*gomock.Call2_3[string, string, *api.NetworkLoadBalancerPool, string, error]
+	getNetworkLoadBalancerPoolStateExpects              []*gomock.Call2_2[string, string, *api.NetworkLoadBalancerPoolState, error]
+	getNetworkLoadBalancerPoolsExpects                  []*gomock.Call1_2[string, []api.NetworkLoadBalancerPool, error]
 	getNetworkLoadBalancersExpects                      []*gomock.Call1_2[string, []api.NetworkLoadBalancer, error]
 	getNetworkNamesExpects                              []*gomock.Call0_2[[]string, error]
 	getNetworkPeerExpects                               []*gomock.Call2_3[string, string, *api.NetworkPeer, string, error]
@@ -999,6 +990,7 @@ type MockInstanceServerMockRecorder struct {
 	getOIDCSessionsExpects                              []*gomock.Call0_2[[]api.OIDCSession, error]
 	getOIDCSessionsByEmailExpects                       []*gomock.Call1_2[string, []api.OIDCSession, error]
 	getOperationExpects                                 []*gomock.Call1_3[string, *api.Operation, string, error]
+	getOperationFullExpects                             []*gomock.Call1_3[string, *api.OperationFull, string, error]
 	getOperationUUIDsExpects                            []*gomock.Call0_2[[]string, error]
 	getOperationWaitExpects                             []*gomock.Call2_3[string, int, *api.Operation, string, error]
 	getOperationWaitSecretExpects                       []*gomock.Call3_3[string, string, int, *api.Operation, string, error]
@@ -1022,6 +1014,10 @@ type MockInstanceServerMockRecorder struct {
 	getProjectNamesExpects                              []*gomock.Call0_2[[]string, error]
 	getProjectStateExpects                              []*gomock.Call1_2[string, *api.ProjectState, error]
 	getProjectsExpects                                  []*gomock.Call0_2[[]api.Project, error]
+	getReplicatorExpects                                []*gomock.Call2_3[string, string, *api.Replicator, string, error]
+	getReplicatorNamesExpects                           []*gomock.Call0_2[[]string, error]
+	getReplicatorStateExpects                           []*gomock.Call2_2[string, string, *api.ReplicatorState, error]
+	getReplicatorsExpects                               []*gomock.Call1_2[string, []api.Replicator, error]
 	getServerExpects                                    []*gomock.Call0_3[*api.Server, string, error]
 	getServerResourcesExpects                           []*gomock.Call0_2[*api.Resources, error]
 	getStoragePoolExpects                               []*gomock.Call1_3[string, *api.StoragePool, string, error]
@@ -1058,8 +1054,6 @@ type MockInstanceServerMockRecorder struct {
 	hasExtensionExpects                                 []*gomock.Call1_1[string, bool]
 	isClusteredExpects                                  []*gomock.Call0_1[bool]
 	issueBearerIdentityTokenExpects                     []*gomock.Call2_2[string, api.IdentityBearerTokenPost, *api.IdentityBearerToken, error]
-	migrateContainerExpects                             []*gomock.Call2_2[string, api.ContainerPost, lxd.Operation, error]
-	migrateContainerSnapshotExpects                     []*gomock.Call3_2[string, string, api.ContainerSnapshotPost, lxd.Operation, error]
 	migrateInstanceExpects                              []*gomock.Call2_2[string, api.InstancePost, lxd.Operation, error]
 	migrateInstanceSnapshotExpects                      []*gomock.Call3_2[string, string, api.InstanceSnapshotPost, lxd.Operation, error]
 	migrateStoragePoolVolumeExpects                     []*gomock.Call2_2[string, api.StorageVolumePost, lxd.Operation, error]
@@ -1072,38 +1066,34 @@ type MockInstanceServerMockRecorder struct {
 	refreshImageExpects                                 []*gomock.Call1_2[string, lxd.Operation, error]
 	renameAuthGroupExpects                              []*gomock.Call2_1[string, api.AuthGroupPost, error]
 	renameClusterGroupExpects                           []*gomock.Call2_1[string, api.ClusterGroupPost, error]
+	renameClusterLinkExpects                            []*gomock.Call2_1[string, api.ClusterLinkPost, error]
 	renameClusterMemberExpects                          []*gomock.Call2_1[string, api.ClusterMemberPost, error]
-	renameContainerExpects                              []*gomock.Call2_2[string, api.ContainerPost, lxd.Operation, error]
-	renameContainerBackupExpects                        []*gomock.Call3_2[string, string, api.ContainerBackupPost, lxd.Operation, error]
-	renameContainerSnapshotExpects                      []*gomock.Call3_2[string, string, api.ContainerSnapshotPost, lxd.Operation, error]
 	renameIdentityProviderGroupExpects                  []*gomock.Call2_1[string, api.IdentityProviderGroupPost, error]
 	renameImageAliasExpects                             []*gomock.Call2_1[string, api.ImageAliasesEntryPost, error]
 	renameInstanceExpects                               []*gomock.Call2_2[string, api.InstancePost, lxd.Operation, error]
 	renameInstanceBackupExpects                         []*gomock.Call3_2[string, string, api.InstanceBackupPost, lxd.Operation, error]
 	renameInstanceSnapshotExpects                       []*gomock.Call3_2[string, string, api.InstanceSnapshotPost, lxd.Operation, error]
-	renameNetworkExpects                                []*gomock.Call2_1[string, api.NetworkPost, error]
-	renameNetworkACLExpects                             []*gomock.Call2_1[string, api.NetworkACLPost, error]
+	renameNetworkExpects                                []*gomock.Call2_2[string, api.NetworkPost, lxd.Operation, error]
+	renameNetworkACLExpects                             []*gomock.Call2_2[string, api.NetworkACLPost, lxd.Operation, error]
 	renamePlacementGroupExpects                         []*gomock.Call2_1[string, api.PlacementGroupPost, error]
 	renameProfileExpects                                []*gomock.Call2_1[string, api.ProfilePost, error]
 	renameProjectExpects                                []*gomock.Call2_2[string, api.ProjectPost, lxd.Operation, error]
+	renameReplicatorExpects                             []*gomock.Call3_1[string, string, api.ReplicatorPost, error]
 	renameStoragePoolVolumeExpects                      []*gomock.Call4_2[string, string, string, api.StorageVolumePost, lxd.Operation, error]
 	renameStoragePoolVolumeBackupExpects                []*gomock.Call4_2[string, string, string, api.StoragePoolVolumeBackupPost, lxd.Operation, error]
 	renameStoragePoolVolumeSnapshotExpects              []*gomock.Call5_2[string, string, string, string, api.StorageVolumeSnapshotPost, lxd.Operation, error]
 	requireAuthenticatedExpects                         []*gomock.Call1_0[bool]
 	revokeBearerIdentityTokenExpects                    []*gomock.Call1_1[string, error]
+	runReplicatorExpects                                []*gomock.Call3_2[string, string, api.ReplicatorStatePut, lxd.Operation, error]
 	sendEventExpects                                    []*gomock.Call1_1[api.Event, error]
-	setContainerMetadataExpects                         []*gomock.Call3_1[string, api.ImageMetadata, string, error]
 	updateAuthGroupExpects                              []*gomock.Call3_1[string, api.AuthGroupPut, string, error]
 	updateCertificateExpects                            []*gomock.Call3_1[string, api.CertificatePut, string, error]
 	updateClusterExpects                                []*gomock.Call2_2[api.ClusterPut, string, lxd.Operation, error]
 	updateClusterCertificateExpects                     []*gomock.Call2_1[api.ClusterCertificatePut, string, error]
 	updateClusterGroupExpects                           []*gomock.Call3_1[string, api.ClusterGroupPut, string, error]
+	updateClusterLinkExpects                            []*gomock.Call3_1[string, api.ClusterLinkPut, string, error]
 	updateClusterMemberExpects                          []*gomock.Call3_1[string, api.ClusterMemberPut, string, error]
 	updateClusterMemberStateExpects                     []*gomock.Call2_2[string, api.ClusterMemberStatePost, lxd.Operation, error]
-	updateContainerExpects                              []*gomock.Call3_2[string, api.ContainerPut, string, lxd.Operation, error]
-	updateContainerSnapshotExpects                      []*gomock.Call4_2[string, string, api.ContainerSnapshotPut, string, lxd.Operation, error]
-	updateContainerStateExpects                         []*gomock.Call3_2[string, api.ContainerStatePut, string, lxd.Operation, error]
-	updateContainerTemplateFileExpects                  []*gomock.Call3_1[string, string, io.ReadSeeker, error]
 	updateIdentityExpects                               []*gomock.Call4_1[string, string, api.IdentityPut, string, error]
 	updateIdentityProviderGroupExpects                  []*gomock.Call3_1[string, api.IdentityProviderGroupPut, string, error]
 	updateImageExpects                                  []*gomock.Call3_1[string, api.ImagePut, string, error]
@@ -1114,20 +1104,23 @@ type MockInstanceServerMockRecorder struct {
 	updateInstanceStateExpects                          []*gomock.Call3_2[string, api.InstanceStatePut, string, lxd.Operation, error]
 	updateInstanceUEFIVarsExpects                       []*gomock.Call3_1[string, api.InstanceUEFIVars, string, error]
 	updateInstancesExpects                              []*gomock.Call2_2[api.InstancesPut, string, lxd.Operation, error]
-	updateNetworkExpects                                []*gomock.Call3_1[string, api.NetworkPut, string, error]
-	updateNetworkACLExpects                             []*gomock.Call3_1[string, api.NetworkACLPut, string, error]
-	updateNetworkForwardExpects                         []*gomock.Call4_1[string, string, api.NetworkForwardPut, string, error]
-	updateNetworkLoadBalancerExpects                    []*gomock.Call4_1[string, string, api.NetworkLoadBalancerPut, string, error]
-	updateNetworkPeerExpects                            []*gomock.Call4_1[string, string, api.NetworkPeerPut, string, error]
-	updateNetworkZoneExpects                            []*gomock.Call3_1[string, api.NetworkZonePut, string, error]
-	updateNetworkZoneRecordExpects                      []*gomock.Call4_1[string, string, api.NetworkZoneRecordPut, string, error]
+	updateNetworkExpects                                []*gomock.Call3_2[string, api.NetworkPut, string, lxd.Operation, error]
+	updateNetworkACLExpects                             []*gomock.Call3_2[string, api.NetworkACLPut, string, lxd.Operation, error]
+	updateNetworkForwardExpects                         []*gomock.Call4_2[string, string, api.NetworkForwardPut, string, lxd.Operation, error]
+	updateNetworkLoadBalancerExpects                    []*gomock.Call4_2[string, string, api.NetworkLoadBalancerPut, string, lxd.Operation, error]
+	updateNetworkLoadBalancerPoolExpects                []*gomock.Call4_2[string, string, api.NetworkLoadBalancerPoolPut, string, lxd.Operation, error]
+	updateNetworkPeerExpects                            []*gomock.Call4_2[string, string, api.NetworkPeerPut, string, lxd.Operation, error]
+	updateNetworkZoneExpects                            []*gomock.Call3_2[string, api.NetworkZonePut, string, lxd.Operation, error]
+	updateNetworkZoneRecordExpects                      []*gomock.Call4_2[string, string, api.NetworkZoneRecordPut, string, lxd.Operation, error]
 	updatePlacementGroupExpects                         []*gomock.Call3_1[string, api.PlacementGroupPut, string, error]
 	updateProfileExpects                                []*gomock.Call3_2[string, api.ProfilePut, string, lxd.Operation, error]
 	updateProjectExpects                                []*gomock.Call3_1[string, api.ProjectPut, string, error]
+	updateProjectStateExpects                           []*gomock.Call3_2[string, api.ProjectStatePut, bool, lxd.Operation, error]
+	updateReplicatorExpects                             []*gomock.Call4_1[string, string, api.ReplicatorPut, string, error]
 	updateServerExpects                                 []*gomock.Call2_1[api.ServerPut, string, error]
-	updateStoragePoolExpects                            []*gomock.Call3_1[string, api.StoragePoolPut, string, error]
-	updateStoragePoolBucketExpects                      []*gomock.Call4_1[string, string, api.StorageBucketPut, string, error]
-	updateStoragePoolBucketKeyExpects                   []*gomock.Call5_1[string, string, string, api.StorageBucketKeyPut, string, error]
+	updateStoragePoolExpects                            []*gomock.Call3_2[string, api.StoragePoolPut, string, lxd.Operation, error]
+	updateStoragePoolBucketExpects                      []*gomock.Call4_2[string, string, api.StorageBucketPut, string, lxd.Operation, error]
+	updateStoragePoolBucketKeyExpects                   []*gomock.Call5_2[string, string, string, api.StorageBucketKeyPut, string, lxd.Operation, error]
 	updateStoragePoolVolumeExpects                      []*gomock.Call5_2[string, string, string, api.StorageVolumePut, string, lxd.Operation, error]
 	updateStoragePoolVolumeSnapshotExpects              []*gomock.Call6_2[string, string, string, string, api.StorageVolumeSnapshotPut, string, lxd.Operation, error]
 	updateWarningExpects                                []*gomock.Call3_1[string, api.WarningPut, string, error]
@@ -1165,24 +1158,6 @@ func (mr *MockInstanceServerMockRecorder) CheckExtension(extension any) *MockIns
 // MockInstanceServerCheckExtensionCall is the typed call wrapper for CheckExtension.
 type MockInstanceServerCheckExtensionCall = gomock.Call1_1[string, error]
 
-// ConsoleContainer mocks base method.
-func (m *MockInstanceServer) ConsoleContainer(containerName string, console api.ContainerConsolePost, args *lxd.ContainerConsoleArgs) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.consoleContainerExpects, m.ctrl, m, "ConsoleContainer", containerName, console, args)
-}
-
-// ConsoleContainer indicates an expected call of ConsoleContainer.
-func (mr *MockInstanceServerMockRecorder) ConsoleContainer(containerName, console, args any) *MockInstanceServerConsoleContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, api.ContainerConsolePost, *lxd.ContainerConsoleArgs, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "ConsoleContainer", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(console), gomock.EnsureMatcher(args))
-	mr.consoleContainerExpects = append(mr.consoleContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerConsoleContainerCall is the typed call wrapper for ConsoleContainer.
-type MockInstanceServerConsoleContainerCall = gomock.Call3_2[string, api.ContainerConsolePost, *lxd.ContainerConsoleArgs, lxd.Operation, error]
-
 // ConsoleInstance mocks base method.
 func (m *MockInstanceServer) ConsoleInstance(instanceName string, console api.InstanceConsolePost, args *lxd.InstanceConsoleArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -1218,42 +1193,6 @@ func (mr *MockInstanceServerMockRecorder) ConsoleInstanceDynamic(instanceName, c
 
 // MockInstanceServerConsoleInstanceDynamicCall is the typed call wrapper for ConsoleInstanceDynamic.
 type MockInstanceServerConsoleInstanceDynamicCall = gomock.Call3_3[string, api.InstanceConsolePost, *lxd.InstanceConsoleArgs, lxd.Operation, func(io.ReadWriteCloser) error, error]
-
-// CopyContainer mocks base method.
-func (m *MockInstanceServer) CopyContainer(source lxd.InstanceServer, container api.Container, args *lxd.ContainerCopyArgs) (lxd.RemoteOperation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.copyContainerExpects, m.ctrl, m, "CopyContainer", source, container, args)
-}
-
-// CopyContainer indicates an expected call of CopyContainer.
-func (mr *MockInstanceServerMockRecorder) CopyContainer(source, container, args any) *MockInstanceServerCopyContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[lxd.InstanceServer, api.Container, *lxd.ContainerCopyArgs, lxd.RemoteOperation, error](mr.mock.ctrl.T, mr.mock, "CopyContainer", gomock.EnsureMatcher(source), gomock.EnsureMatcher(container), gomock.EnsureMatcher(args))
-	mr.copyContainerExpects = append(mr.copyContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCopyContainerCall is the typed call wrapper for CopyContainer.
-type MockInstanceServerCopyContainerCall = gomock.Call3_2[lxd.InstanceServer, api.Container, *lxd.ContainerCopyArgs, lxd.RemoteOperation, error]
-
-// CopyContainerSnapshot mocks base method.
-func (m *MockInstanceServer) CopyContainerSnapshot(source lxd.InstanceServer, containerName string, snapshot api.ContainerSnapshot, args *lxd.ContainerSnapshotCopyArgs) (lxd.RemoteOperation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.copyContainerSnapshotExpects, m.ctrl, m, "CopyContainerSnapshot", source, containerName, snapshot, args)
-}
-
-// CopyContainerSnapshot indicates an expected call of CopyContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) CopyContainerSnapshot(source, containerName, snapshot, args any) *MockInstanceServerCopyContainerSnapshotCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[lxd.InstanceServer, string, api.ContainerSnapshot, *lxd.ContainerSnapshotCopyArgs, lxd.RemoteOperation, error](mr.mock.ctrl.T, mr.mock, "CopyContainerSnapshot", gomock.EnsureMatcher(source), gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(snapshot), gomock.EnsureMatcher(args))
-	mr.copyContainerSnapshotExpects = append(mr.copyContainerSnapshotExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCopyContainerSnapshotCall is the typed call wrapper for CopyContainerSnapshot.
-type MockInstanceServerCopyContainerSnapshotCall = gomock.Call4_2[lxd.InstanceServer, string, api.ContainerSnapshot, *lxd.ContainerSnapshotCopyArgs, lxd.RemoteOperation, error]
 
 // CopyImage mocks base method.
 func (m *MockInstanceServer) CopyImage(source lxd.ImageServer, image api.Image, args *lxd.ImageCopyArgs) (lxd.RemoteOperation, error) {
@@ -1399,6 +1338,24 @@ func (mr *MockInstanceServerMockRecorder) CreateClusterGroup(group any) *MockIns
 // MockInstanceServerCreateClusterGroupCall is the typed call wrapper for CreateClusterGroup.
 type MockInstanceServerCreateClusterGroupCall = gomock.Call1_1[api.ClusterGroupsPost, error]
 
+// CreateClusterLink mocks base method.
+func (m *MockInstanceServer) CreateClusterLink(clusterLink api.ClusterLinksPost) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_1(&m.recorder.createClusterLinkExpects, m.ctrl, m, "CreateClusterLink", clusterLink)
+}
+
+// CreateClusterLink indicates an expected call of CreateClusterLink.
+func (mr *MockInstanceServerMockRecorder) CreateClusterLink(clusterLink any) *MockInstanceServerCreateClusterLinkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_1[api.ClusterLinksPost, error](mr.mock.ctrl.T, mr.mock, "CreateClusterLink", gomock.EnsureMatcher(clusterLink))
+	mr.createClusterLinkExpects = append(mr.createClusterLinkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerCreateClusterLinkCall is the typed call wrapper for CreateClusterLink.
+type MockInstanceServerCreateClusterLinkCall = gomock.Call1_1[api.ClusterLinksPost, error]
+
 // CreateClusterMember mocks base method.
 func (m *MockInstanceServer) CreateClusterMember(member api.ClusterMembersPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -1417,132 +1374,6 @@ func (mr *MockInstanceServerMockRecorder) CreateClusterMember(member any) *MockI
 // MockInstanceServerCreateClusterMemberCall is the typed call wrapper for CreateClusterMember.
 type MockInstanceServerCreateClusterMemberCall = gomock.Call1_2[api.ClusterMembersPost, lxd.Operation, error]
 
-// CreateContainer mocks base method.
-func (m *MockInstanceServer) CreateContainer(container api.ContainersPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.createContainerExpects, m.ctrl, m, "CreateContainer", container)
-}
-
-// CreateContainer indicates an expected call of CreateContainer.
-func (mr *MockInstanceServerMockRecorder) CreateContainer(container any) *MockInstanceServerCreateContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[api.ContainersPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateContainer", gomock.EnsureMatcher(container))
-	mr.createContainerExpects = append(mr.createContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCreateContainerCall is the typed call wrapper for CreateContainer.
-type MockInstanceServerCreateContainerCall = gomock.Call1_2[api.ContainersPost, lxd.Operation, error]
-
-// CreateContainerBackup mocks base method.
-func (m *MockInstanceServer) CreateContainerBackup(containerName string, backup api.ContainerBackupsPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.createContainerBackupExpects, m.ctrl, m, "CreateContainerBackup", containerName, backup)
-}
-
-// CreateContainerBackup indicates an expected call of CreateContainerBackup.
-func (mr *MockInstanceServerMockRecorder) CreateContainerBackup(containerName, backup any) *MockInstanceServerCreateContainerBackupCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, api.ContainerBackupsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateContainerBackup", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(backup))
-	mr.createContainerBackupExpects = append(mr.createContainerBackupExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCreateContainerBackupCall is the typed call wrapper for CreateContainerBackup.
-type MockInstanceServerCreateContainerBackupCall = gomock.Call2_2[string, api.ContainerBackupsPost, lxd.Operation, error]
-
-// CreateContainerFile mocks base method.
-func (m *MockInstanceServer) CreateContainerFile(containerName, path string, args lxd.ContainerFileArgs) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.createContainerFileExpects, m.ctrl, m, "CreateContainerFile", containerName, path, args)
-}
-
-// CreateContainerFile indicates an expected call of CreateContainerFile.
-func (mr *MockInstanceServerMockRecorder) CreateContainerFile(containerName, path, args any) *MockInstanceServerCreateContainerFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, string, lxd.ContainerFileArgs, error](mr.mock.ctrl.T, mr.mock, "CreateContainerFile", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(path), gomock.EnsureMatcher(args))
-	mr.createContainerFileExpects = append(mr.createContainerFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCreateContainerFileCall is the typed call wrapper for CreateContainerFile.
-type MockInstanceServerCreateContainerFileCall = gomock.Call3_1[string, string, lxd.ContainerFileArgs, error]
-
-// CreateContainerFromBackup mocks base method.
-func (m *MockInstanceServer) CreateContainerFromBackup(args lxd.ContainerBackupArgs) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.createContainerFromBackupExpects, m.ctrl, m, "CreateContainerFromBackup", args)
-}
-
-// CreateContainerFromBackup indicates an expected call of CreateContainerFromBackup.
-func (mr *MockInstanceServerMockRecorder) CreateContainerFromBackup(args any) *MockInstanceServerCreateContainerFromBackupCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[lxd.ContainerBackupArgs, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateContainerFromBackup", gomock.EnsureMatcher(args))
-	mr.createContainerFromBackupExpects = append(mr.createContainerFromBackupExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCreateContainerFromBackupCall is the typed call wrapper for CreateContainerFromBackup.
-type MockInstanceServerCreateContainerFromBackupCall = gomock.Call1_2[lxd.ContainerBackupArgs, lxd.Operation, error]
-
-// CreateContainerFromImage mocks base method.
-func (m *MockInstanceServer) CreateContainerFromImage(source lxd.ImageServer, image api.Image, imgcontainer api.ContainersPost) (lxd.RemoteOperation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.createContainerFromImageExpects, m.ctrl, m, "CreateContainerFromImage", source, image, imgcontainer)
-}
-
-// CreateContainerFromImage indicates an expected call of CreateContainerFromImage.
-func (mr *MockInstanceServerMockRecorder) CreateContainerFromImage(source, image, imgcontainer any) *MockInstanceServerCreateContainerFromImageCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[lxd.ImageServer, api.Image, api.ContainersPost, lxd.RemoteOperation, error](mr.mock.ctrl.T, mr.mock, "CreateContainerFromImage", gomock.EnsureMatcher(source), gomock.EnsureMatcher(image), gomock.EnsureMatcher(imgcontainer))
-	mr.createContainerFromImageExpects = append(mr.createContainerFromImageExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCreateContainerFromImageCall is the typed call wrapper for CreateContainerFromImage.
-type MockInstanceServerCreateContainerFromImageCall = gomock.Call3_2[lxd.ImageServer, api.Image, api.ContainersPost, lxd.RemoteOperation, error]
-
-// CreateContainerSnapshot mocks base method.
-func (m *MockInstanceServer) CreateContainerSnapshot(containerName string, snapshot api.ContainerSnapshotsPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.createContainerSnapshotExpects, m.ctrl, m, "CreateContainerSnapshot", containerName, snapshot)
-}
-
-// CreateContainerSnapshot indicates an expected call of CreateContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) CreateContainerSnapshot(containerName, snapshot any) *MockInstanceServerCreateContainerSnapshotCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, api.ContainerSnapshotsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateContainerSnapshot", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(snapshot))
-	mr.createContainerSnapshotExpects = append(mr.createContainerSnapshotExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCreateContainerSnapshotCall is the typed call wrapper for CreateContainerSnapshot.
-type MockInstanceServerCreateContainerSnapshotCall = gomock.Call2_2[string, api.ContainerSnapshotsPost, lxd.Operation, error]
-
-// CreateContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) CreateContainerTemplateFile(containerName, templateName string, content io.ReadSeeker) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.createContainerTemplateFileExpects, m.ctrl, m, "CreateContainerTemplateFile", containerName, templateName, content)
-}
-
-// CreateContainerTemplateFile indicates an expected call of CreateContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) CreateContainerTemplateFile(containerName, templateName, content any) *MockInstanceServerCreateContainerTemplateFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, string, io.ReadSeeker, error](mr.mock.ctrl.T, mr.mock, "CreateContainerTemplateFile", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(templateName), gomock.EnsureMatcher(content))
-	mr.createContainerTemplateFileExpects = append(mr.createContainerTemplateFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerCreateContainerTemplateFileCall is the typed call wrapper for CreateContainerTemplateFile.
-type MockInstanceServerCreateContainerTemplateFileCall = gomock.Call3_1[string, string, io.ReadSeeker, error]
-
 // CreateIdentityBearer mocks base method.
 func (m *MockInstanceServer) CreateIdentityBearer(identitiesBearerPost api.IdentitiesBearerPost) error {
 	m.ctrl.T.Helper()
@@ -1560,6 +1391,24 @@ func (mr *MockInstanceServerMockRecorder) CreateIdentityBearer(identitiesBearerP
 
 // MockInstanceServerCreateIdentityBearerCall is the typed call wrapper for CreateIdentityBearer.
 type MockInstanceServerCreateIdentityBearerCall = gomock.Call1_1[api.IdentitiesBearerPost, error]
+
+// CreateIdentityClusterLinkToken mocks base method.
+func (m *MockInstanceServer) CreateIdentityClusterLinkToken(clusterLink api.ClusterLinksPost) (*api.CertificateAddToken, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.createIdentityClusterLinkTokenExpects, m.ctrl, m, "CreateIdentityClusterLinkToken", clusterLink)
+}
+
+// CreateIdentityClusterLinkToken indicates an expected call of CreateIdentityClusterLinkToken.
+func (mr *MockInstanceServerMockRecorder) CreateIdentityClusterLinkToken(clusterLink any) *MockInstanceServerCreateIdentityClusterLinkTokenCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[api.ClusterLinksPost, *api.CertificateAddToken, error](mr.mock.ctrl.T, mr.mock, "CreateIdentityClusterLinkToken", gomock.EnsureMatcher(clusterLink))
+	mr.createIdentityClusterLinkTokenExpects = append(mr.createIdentityClusterLinkTokenExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerCreateIdentityClusterLinkTokenCall is the typed call wrapper for CreateIdentityClusterLinkToken.
+type MockInstanceServerCreateIdentityClusterLinkTokenCall = gomock.Call1_2[api.ClusterLinksPost, *api.CertificateAddToken, error]
 
 // CreateIdentityProviderGroup mocks base method.
 func (m *MockInstanceServer) CreateIdentityProviderGroup(identityProviderGroup api.IdentityProviderGroupsPost) error {
@@ -1796,130 +1645,148 @@ func (mr *MockInstanceServerMockRecorder) CreateInstanceTemplateFile(instanceNam
 type MockInstanceServerCreateInstanceTemplateFileCall = gomock.Call3_1[string, string, io.ReadSeeker, error]
 
 // CreateNetwork mocks base method.
-func (m *MockInstanceServer) CreateNetwork(network api.NetworksPost) error {
+func (m *MockInstanceServer) CreateNetwork(network api.NetworksPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.createNetworkExpects, m.ctrl, m, "CreateNetwork", network)
+	return gomock.Dispatch1_2(&m.recorder.createNetworkExpects, m.ctrl, m, "CreateNetwork", network)
 }
 
 // CreateNetwork indicates an expected call of CreateNetwork.
 func (mr *MockInstanceServerMockRecorder) CreateNetwork(network any) *MockInstanceServerCreateNetworkCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[api.NetworksPost, error](mr.mock.ctrl.T, mr.mock, "CreateNetwork", gomock.EnsureMatcher(network))
+	call := gomock.NewCall1_2[api.NetworksPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetwork", gomock.EnsureMatcher(network))
 	mr.createNetworkExpects = append(mr.createNetworkExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateNetworkCall is the typed call wrapper for CreateNetwork.
-type MockInstanceServerCreateNetworkCall = gomock.Call1_1[api.NetworksPost, error]
+type MockInstanceServerCreateNetworkCall = gomock.Call1_2[api.NetworksPost, lxd.Operation, error]
 
 // CreateNetworkACL mocks base method.
-func (m *MockInstanceServer) CreateNetworkACL(acl api.NetworkACLsPost) error {
+func (m *MockInstanceServer) CreateNetworkACL(acl api.NetworkACLsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.createNetworkACLExpects, m.ctrl, m, "CreateNetworkACL", acl)
+	return gomock.Dispatch1_2(&m.recorder.createNetworkACLExpects, m.ctrl, m, "CreateNetworkACL", acl)
 }
 
 // CreateNetworkACL indicates an expected call of CreateNetworkACL.
 func (mr *MockInstanceServerMockRecorder) CreateNetworkACL(acl any) *MockInstanceServerCreateNetworkACLCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[api.NetworkACLsPost, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkACL", gomock.EnsureMatcher(acl))
+	call := gomock.NewCall1_2[api.NetworkACLsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkACL", gomock.EnsureMatcher(acl))
 	mr.createNetworkACLExpects = append(mr.createNetworkACLExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateNetworkACLCall is the typed call wrapper for CreateNetworkACL.
-type MockInstanceServerCreateNetworkACLCall = gomock.Call1_1[api.NetworkACLsPost, error]
+type MockInstanceServerCreateNetworkACLCall = gomock.Call1_2[api.NetworkACLsPost, lxd.Operation, error]
 
 // CreateNetworkForward mocks base method.
-func (m *MockInstanceServer) CreateNetworkForward(networkName string, forward api.NetworkForwardsPost) error {
+func (m *MockInstanceServer) CreateNetworkForward(networkName string, forward api.NetworkForwardsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.createNetworkForwardExpects, m.ctrl, m, "CreateNetworkForward", networkName, forward)
+	return gomock.Dispatch2_2(&m.recorder.createNetworkForwardExpects, m.ctrl, m, "CreateNetworkForward", networkName, forward)
 }
 
 // CreateNetworkForward indicates an expected call of CreateNetworkForward.
 func (mr *MockInstanceServerMockRecorder) CreateNetworkForward(networkName, forward any) *MockInstanceServerCreateNetworkForwardCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, api.NetworkForwardsPost, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(forward))
+	call := gomock.NewCall2_2[string, api.NetworkForwardsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(forward))
 	mr.createNetworkForwardExpects = append(mr.createNetworkForwardExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateNetworkForwardCall is the typed call wrapper for CreateNetworkForward.
-type MockInstanceServerCreateNetworkForwardCall = gomock.Call2_1[string, api.NetworkForwardsPost, error]
+type MockInstanceServerCreateNetworkForwardCall = gomock.Call2_2[string, api.NetworkForwardsPost, lxd.Operation, error]
 
 // CreateNetworkLoadBalancer mocks base method.
-func (m *MockInstanceServer) CreateNetworkLoadBalancer(networkName string, forward api.NetworkLoadBalancersPost) error {
+func (m *MockInstanceServer) CreateNetworkLoadBalancer(networkName string, forward api.NetworkLoadBalancersPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.createNetworkLoadBalancerExpects, m.ctrl, m, "CreateNetworkLoadBalancer", networkName, forward)
+	return gomock.Dispatch2_2(&m.recorder.createNetworkLoadBalancerExpects, m.ctrl, m, "CreateNetworkLoadBalancer", networkName, forward)
 }
 
 // CreateNetworkLoadBalancer indicates an expected call of CreateNetworkLoadBalancer.
 func (mr *MockInstanceServerMockRecorder) CreateNetworkLoadBalancer(networkName, forward any) *MockInstanceServerCreateNetworkLoadBalancerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, api.NetworkLoadBalancersPost, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkLoadBalancer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(forward))
+	call := gomock.NewCall2_2[string, api.NetworkLoadBalancersPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkLoadBalancer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(forward))
 	mr.createNetworkLoadBalancerExpects = append(mr.createNetworkLoadBalancerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateNetworkLoadBalancerCall is the typed call wrapper for CreateNetworkLoadBalancer.
-type MockInstanceServerCreateNetworkLoadBalancerCall = gomock.Call2_1[string, api.NetworkLoadBalancersPost, error]
+type MockInstanceServerCreateNetworkLoadBalancerCall = gomock.Call2_2[string, api.NetworkLoadBalancersPost, lxd.Operation, error]
+
+// CreateNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) CreateNetworkLoadBalancerPool(networkName string, pool api.NetworkLoadBalancerPoolsPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.createNetworkLoadBalancerPoolExpects, m.ctrl, m, "CreateNetworkLoadBalancerPool", networkName, pool)
+}
+
+// CreateNetworkLoadBalancerPool indicates an expected call of CreateNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) CreateNetworkLoadBalancerPool(networkName, pool any) *MockInstanceServerCreateNetworkLoadBalancerPoolCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[string, api.NetworkLoadBalancerPoolsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkLoadBalancerPool", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(pool))
+	mr.createNetworkLoadBalancerPoolExpects = append(mr.createNetworkLoadBalancerPoolExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerCreateNetworkLoadBalancerPoolCall is the typed call wrapper for CreateNetworkLoadBalancerPool.
+type MockInstanceServerCreateNetworkLoadBalancerPoolCall = gomock.Call2_2[string, api.NetworkLoadBalancerPoolsPost, lxd.Operation, error]
 
 // CreateNetworkPeer mocks base method.
-func (m *MockInstanceServer) CreateNetworkPeer(networkName string, peer api.NetworkPeersPost) error {
+func (m *MockInstanceServer) CreateNetworkPeer(networkName string, peer api.NetworkPeersPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.createNetworkPeerExpects, m.ctrl, m, "CreateNetworkPeer", networkName, peer)
+	return gomock.Dispatch2_2(&m.recorder.createNetworkPeerExpects, m.ctrl, m, "CreateNetworkPeer", networkName, peer)
 }
 
 // CreateNetworkPeer indicates an expected call of CreateNetworkPeer.
 func (mr *MockInstanceServerMockRecorder) CreateNetworkPeer(networkName, peer any) *MockInstanceServerCreateNetworkPeerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, api.NetworkPeersPost, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkPeer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(peer))
+	call := gomock.NewCall2_2[string, api.NetworkPeersPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkPeer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(peer))
 	mr.createNetworkPeerExpects = append(mr.createNetworkPeerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateNetworkPeerCall is the typed call wrapper for CreateNetworkPeer.
-type MockInstanceServerCreateNetworkPeerCall = gomock.Call2_1[string, api.NetworkPeersPost, error]
+type MockInstanceServerCreateNetworkPeerCall = gomock.Call2_2[string, api.NetworkPeersPost, lxd.Operation, error]
 
 // CreateNetworkZone mocks base method.
-func (m *MockInstanceServer) CreateNetworkZone(zone api.NetworkZonesPost) error {
+func (m *MockInstanceServer) CreateNetworkZone(zone api.NetworkZonesPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.createNetworkZoneExpects, m.ctrl, m, "CreateNetworkZone", zone)
+	return gomock.Dispatch1_2(&m.recorder.createNetworkZoneExpects, m.ctrl, m, "CreateNetworkZone", zone)
 }
 
 // CreateNetworkZone indicates an expected call of CreateNetworkZone.
 func (mr *MockInstanceServerMockRecorder) CreateNetworkZone(zone any) *MockInstanceServerCreateNetworkZoneCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[api.NetworkZonesPost, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkZone", gomock.EnsureMatcher(zone))
+	call := gomock.NewCall1_2[api.NetworkZonesPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkZone", gomock.EnsureMatcher(zone))
 	mr.createNetworkZoneExpects = append(mr.createNetworkZoneExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateNetworkZoneCall is the typed call wrapper for CreateNetworkZone.
-type MockInstanceServerCreateNetworkZoneCall = gomock.Call1_1[api.NetworkZonesPost, error]
+type MockInstanceServerCreateNetworkZoneCall = gomock.Call1_2[api.NetworkZonesPost, lxd.Operation, error]
 
 // CreateNetworkZoneRecord mocks base method.
-func (m *MockInstanceServer) CreateNetworkZoneRecord(zone string, record api.NetworkZoneRecordsPost) error {
+func (m *MockInstanceServer) CreateNetworkZoneRecord(zone string, record api.NetworkZoneRecordsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.createNetworkZoneRecordExpects, m.ctrl, m, "CreateNetworkZoneRecord", zone, record)
+	return gomock.Dispatch2_2(&m.recorder.createNetworkZoneRecordExpects, m.ctrl, m, "CreateNetworkZoneRecord", zone, record)
 }
 
 // CreateNetworkZoneRecord indicates an expected call of CreateNetworkZoneRecord.
 func (mr *MockInstanceServerMockRecorder) CreateNetworkZoneRecord(zone, record any) *MockInstanceServerCreateNetworkZoneRecordCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, api.NetworkZoneRecordsPost, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkZoneRecord", gomock.EnsureMatcher(zone), gomock.EnsureMatcher(record))
+	call := gomock.NewCall2_2[string, api.NetworkZoneRecordsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateNetworkZoneRecord", gomock.EnsureMatcher(zone), gomock.EnsureMatcher(record))
 	mr.createNetworkZoneRecordExpects = append(mr.createNetworkZoneRecordExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateNetworkZoneRecordCall is the typed call wrapper for CreateNetworkZoneRecord.
-type MockInstanceServerCreateNetworkZoneRecordCall = gomock.Call2_1[string, api.NetworkZoneRecordsPost, error]
+type MockInstanceServerCreateNetworkZoneRecordCall = gomock.Call2_2[string, api.NetworkZoneRecordsPost, lxd.Operation, error]
 
 // CreatePlacementGroup mocks base method.
 func (m *MockInstanceServer) CreatePlacementGroup(placementGroupsPost api.PlacementGroupsPost) error {
@@ -1975,26 +1842,44 @@ func (mr *MockInstanceServerMockRecorder) CreateProject(project any) *MockInstan
 // MockInstanceServerCreateProjectCall is the typed call wrapper for CreateProject.
 type MockInstanceServerCreateProjectCall = gomock.Call1_1[api.ProjectsPost, error]
 
-// CreateStoragePool mocks base method.
-func (m *MockInstanceServer) CreateStoragePool(pool api.StoragePoolsPost) error {
+// CreateReplicator mocks base method.
+func (m *MockInstanceServer) CreateReplicator(project string, replicator api.ReplicatorsPost) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.createStoragePoolExpects, m.ctrl, m, "CreateStoragePool", pool)
+	return gomock.Dispatch2_1(&m.recorder.createReplicatorExpects, m.ctrl, m, "CreateReplicator", project, replicator)
+}
+
+// CreateReplicator indicates an expected call of CreateReplicator.
+func (mr *MockInstanceServerMockRecorder) CreateReplicator(project, replicator any) *MockInstanceServerCreateReplicatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[string, api.ReplicatorsPost, error](mr.mock.ctrl.T, mr.mock, "CreateReplicator", gomock.EnsureMatcher(project), gomock.EnsureMatcher(replicator))
+	mr.createReplicatorExpects = append(mr.createReplicatorExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerCreateReplicatorCall is the typed call wrapper for CreateReplicator.
+type MockInstanceServerCreateReplicatorCall = gomock.Call2_1[string, api.ReplicatorsPost, error]
+
+// CreateStoragePool mocks base method.
+func (m *MockInstanceServer) CreateStoragePool(pool api.StoragePoolsPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.createStoragePoolExpects, m.ctrl, m, "CreateStoragePool", pool)
 }
 
 // CreateStoragePool indicates an expected call of CreateStoragePool.
 func (mr *MockInstanceServerMockRecorder) CreateStoragePool(pool any) *MockInstanceServerCreateStoragePoolCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[api.StoragePoolsPost, error](mr.mock.ctrl.T, mr.mock, "CreateStoragePool", gomock.EnsureMatcher(pool))
+	call := gomock.NewCall1_2[api.StoragePoolsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateStoragePool", gomock.EnsureMatcher(pool))
 	mr.createStoragePoolExpects = append(mr.createStoragePoolExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateStoragePoolCall is the typed call wrapper for CreateStoragePool.
-type MockInstanceServerCreateStoragePoolCall = gomock.Call1_1[api.StoragePoolsPost, error]
+type MockInstanceServerCreateStoragePoolCall = gomock.Call1_2[api.StoragePoolsPost, lxd.Operation, error]
 
 // CreateStoragePoolBucket mocks base method.
-func (m *MockInstanceServer) CreateStoragePoolBucket(poolName string, bucket api.StorageBucketsPost) (*api.StorageBucketKey, error) {
+func (m *MockInstanceServer) CreateStoragePoolBucket(poolName string, bucket api.StorageBucketsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.createStoragePoolBucketExpects, m.ctrl, m, "CreateStoragePoolBucket", poolName, bucket)
 }
@@ -2002,17 +1887,17 @@ func (m *MockInstanceServer) CreateStoragePoolBucket(poolName string, bucket api
 // CreateStoragePoolBucket indicates an expected call of CreateStoragePoolBucket.
 func (mr *MockInstanceServerMockRecorder) CreateStoragePoolBucket(poolName, bucket any) *MockInstanceServerCreateStoragePoolBucketCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, api.StorageBucketsPost, *api.StorageBucketKey, error](mr.mock.ctrl.T, mr.mock, "CreateStoragePoolBucket", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucket))
+	call := gomock.NewCall2_2[string, api.StorageBucketsPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateStoragePoolBucket", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucket))
 	mr.createStoragePoolBucketExpects = append(mr.createStoragePoolBucketExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateStoragePoolBucketCall is the typed call wrapper for CreateStoragePoolBucket.
-type MockInstanceServerCreateStoragePoolBucketCall = gomock.Call2_2[string, api.StorageBucketsPost, *api.StorageBucketKey, error]
+type MockInstanceServerCreateStoragePoolBucketCall = gomock.Call2_2[string, api.StorageBucketsPost, lxd.Operation, error]
 
 // CreateStoragePoolBucketKey mocks base method.
-func (m *MockInstanceServer) CreateStoragePoolBucketKey(poolName, bucketName string, key api.StorageBucketKeysPost) (*api.StorageBucketKey, error) {
+func (m *MockInstanceServer) CreateStoragePoolBucketKey(poolName, bucketName string, key api.StorageBucketKeysPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch3_2(&m.recorder.createStoragePoolBucketKeyExpects, m.ctrl, m, "CreateStoragePoolBucketKey", poolName, bucketName, key)
 }
@@ -2020,14 +1905,14 @@ func (m *MockInstanceServer) CreateStoragePoolBucketKey(poolName, bucketName str
 // CreateStoragePoolBucketKey indicates an expected call of CreateStoragePoolBucketKey.
 func (mr *MockInstanceServerMockRecorder) CreateStoragePoolBucketKey(poolName, bucketName, key any) *MockInstanceServerCreateStoragePoolBucketKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, string, api.StorageBucketKeysPost, *api.StorageBucketKey, error](mr.mock.ctrl.T, mr.mock, "CreateStoragePoolBucketKey", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(key))
+	call := gomock.NewCall3_2[string, string, api.StorageBucketKeysPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "CreateStoragePoolBucketKey", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(key))
 	mr.createStoragePoolBucketKeyExpects = append(mr.createStoragePoolBucketKeyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerCreateStoragePoolBucketKeyCall is the typed call wrapper for CreateStoragePoolBucketKey.
-type MockInstanceServerCreateStoragePoolBucketKeyCall = gomock.Call3_2[string, string, api.StorageBucketKeysPost, *api.StorageBucketKey, error]
+type MockInstanceServerCreateStoragePoolBucketKeyCall = gomock.Call3_2[string, string, api.StorageBucketKeysPost, lxd.Operation, error]
 
 // CreateStoragePoolVolume mocks base method.
 func (m *MockInstanceServer) CreateStoragePoolVolume(pool string, volume api.StorageVolumesPost) (lxd.Operation, error) {
@@ -2191,6 +2076,24 @@ func (mr *MockInstanceServerMockRecorder) DeleteClusterGroup(name any) *MockInst
 // MockInstanceServerDeleteClusterGroupCall is the typed call wrapper for DeleteClusterGroup.
 type MockInstanceServerDeleteClusterGroupCall = gomock.Call1_1[string, error]
 
+// DeleteClusterLink mocks base method.
+func (m *MockInstanceServer) DeleteClusterLink(name string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_1(&m.recorder.deleteClusterLinkExpects, m.ctrl, m, "DeleteClusterLink", name)
+}
+
+// DeleteClusterLink indicates an expected call of DeleteClusterLink.
+func (mr *MockInstanceServerMockRecorder) DeleteClusterLink(name any) *MockInstanceServerDeleteClusterLinkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_1[string, error](mr.mock.ctrl.T, mr.mock, "DeleteClusterLink", gomock.EnsureMatcher(name))
+	mr.deleteClusterLinkExpects = append(mr.deleteClusterLinkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerDeleteClusterLinkCall is the typed call wrapper for DeleteClusterLink.
+type MockInstanceServerDeleteClusterLinkCall = gomock.Call1_1[string, error]
+
 // DeleteClusterMember mocks base method.
 func (m *MockInstanceServer) DeleteClusterMember(name string, force bool) error {
 	m.ctrl.T.Helper()
@@ -2208,132 +2111,6 @@ func (mr *MockInstanceServerMockRecorder) DeleteClusterMember(name, force any) *
 
 // MockInstanceServerDeleteClusterMemberCall is the typed call wrapper for DeleteClusterMember.
 type MockInstanceServerDeleteClusterMemberCall = gomock.Call2_1[string, bool, error]
-
-// DeleteContainer mocks base method.
-func (m *MockInstanceServer) DeleteContainer(name string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.deleteContainerExpects, m.ctrl, m, "DeleteContainer", name)
-}
-
-// DeleteContainer indicates an expected call of DeleteContainer.
-func (mr *MockInstanceServerMockRecorder) DeleteContainer(name any) *MockInstanceServerDeleteContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteContainer", gomock.EnsureMatcher(name))
-	mr.deleteContainerExpects = append(mr.deleteContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerDeleteContainerCall is the typed call wrapper for DeleteContainer.
-type MockInstanceServerDeleteContainerCall = gomock.Call1_2[string, lxd.Operation, error]
-
-// DeleteContainerBackup mocks base method.
-func (m *MockInstanceServer) DeleteContainerBackup(containerName, name string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.deleteContainerBackupExpects, m.ctrl, m, "DeleteContainerBackup", containerName, name)
-}
-
-// DeleteContainerBackup indicates an expected call of DeleteContainerBackup.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerBackup(containerName, name any) *MockInstanceServerDeleteContainerBackupCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteContainerBackup", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name))
-	mr.deleteContainerBackupExpects = append(mr.deleteContainerBackupExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerDeleteContainerBackupCall is the typed call wrapper for DeleteContainerBackup.
-type MockInstanceServerDeleteContainerBackupCall = gomock.Call2_2[string, string, lxd.Operation, error]
-
-// DeleteContainerConsoleLog mocks base method.
-func (m *MockInstanceServer) DeleteContainerConsoleLog(containerName string, args *lxd.ContainerConsoleLogArgs) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteContainerConsoleLogExpects, m.ctrl, m, "DeleteContainerConsoleLog", containerName, args)
-}
-
-// DeleteContainerConsoleLog indicates an expected call of DeleteContainerConsoleLog.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerConsoleLog(containerName, args any) *MockInstanceServerDeleteContainerConsoleLogCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, *lxd.ContainerConsoleLogArgs, error](mr.mock.ctrl.T, mr.mock, "DeleteContainerConsoleLog", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(args))
-	mr.deleteContainerConsoleLogExpects = append(mr.deleteContainerConsoleLogExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerDeleteContainerConsoleLogCall is the typed call wrapper for DeleteContainerConsoleLog.
-type MockInstanceServerDeleteContainerConsoleLogCall = gomock.Call2_1[string, *lxd.ContainerConsoleLogArgs, error]
-
-// DeleteContainerFile mocks base method.
-func (m *MockInstanceServer) DeleteContainerFile(containerName, path string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteContainerFileExpects, m.ctrl, m, "DeleteContainerFile", containerName, path)
-}
-
-// DeleteContainerFile indicates an expected call of DeleteContainerFile.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerFile(containerName, path any) *MockInstanceServerDeleteContainerFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteContainerFile", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(path))
-	mr.deleteContainerFileExpects = append(mr.deleteContainerFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerDeleteContainerFileCall is the typed call wrapper for DeleteContainerFile.
-type MockInstanceServerDeleteContainerFileCall = gomock.Call2_1[string, string, error]
-
-// DeleteContainerLogfile mocks base method.
-func (m *MockInstanceServer) DeleteContainerLogfile(name, filename string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteContainerLogfileExpects, m.ctrl, m, "DeleteContainerLogfile", name, filename)
-}
-
-// DeleteContainerLogfile indicates an expected call of DeleteContainerLogfile.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerLogfile(name, filename any) *MockInstanceServerDeleteContainerLogfileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteContainerLogfile", gomock.EnsureMatcher(name), gomock.EnsureMatcher(filename))
-	mr.deleteContainerLogfileExpects = append(mr.deleteContainerLogfileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerDeleteContainerLogfileCall is the typed call wrapper for DeleteContainerLogfile.
-type MockInstanceServerDeleteContainerLogfileCall = gomock.Call2_1[string, string, error]
-
-// DeleteContainerSnapshot mocks base method.
-func (m *MockInstanceServer) DeleteContainerSnapshot(containerName, name string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.deleteContainerSnapshotExpects, m.ctrl, m, "DeleteContainerSnapshot", containerName, name)
-}
-
-// DeleteContainerSnapshot indicates an expected call of DeleteContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerSnapshot(containerName, name any) *MockInstanceServerDeleteContainerSnapshotCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteContainerSnapshot", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name))
-	mr.deleteContainerSnapshotExpects = append(mr.deleteContainerSnapshotExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerDeleteContainerSnapshotCall is the typed call wrapper for DeleteContainerSnapshot.
-type MockInstanceServerDeleteContainerSnapshotCall = gomock.Call2_2[string, string, lxd.Operation, error]
-
-// DeleteContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) DeleteContainerTemplateFile(name, templateName string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteContainerTemplateFileExpects, m.ctrl, m, "DeleteContainerTemplateFile", name, templateName)
-}
-
-// DeleteContainerTemplateFile indicates an expected call of DeleteContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerTemplateFile(name, templateName any) *MockInstanceServerDeleteContainerTemplateFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteContainerTemplateFile", gomock.EnsureMatcher(name), gomock.EnsureMatcher(templateName))
-	mr.deleteContainerTemplateFileExpects = append(mr.deleteContainerTemplateFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerDeleteContainerTemplateFileCall is the typed call wrapper for DeleteContainerTemplateFile.
-type MockInstanceServerDeleteContainerTemplateFileCall = gomock.Call2_1[string, string, error]
 
 // DeleteIdentity mocks base method.
 func (m *MockInstanceServer) DeleteIdentity(authenticationMethod, nameOrIdentifier string) error {
@@ -2408,22 +2185,22 @@ func (mr *MockInstanceServerMockRecorder) DeleteImageAlias(name any) *MockInstan
 type MockInstanceServerDeleteImageAliasCall = gomock.Call1_1[string, error]
 
 // DeleteInstance mocks base method.
-func (m *MockInstanceServer) DeleteInstance(name string) (lxd.Operation, error) {
+func (m *MockInstanceServer) DeleteInstance(name string, force bool) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.deleteInstanceExpects, m.ctrl, m, "DeleteInstance", name)
+	return gomock.Dispatch2_2(&m.recorder.deleteInstanceExpects, m.ctrl, m, "DeleteInstance", name, force)
 }
 
 // DeleteInstance indicates an expected call of DeleteInstance.
-func (mr *MockInstanceServerMockRecorder) DeleteInstance(name any) *MockInstanceServerDeleteInstanceCall {
+func (mr *MockInstanceServerMockRecorder) DeleteInstance(name, force any) *MockInstanceServerDeleteInstanceCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteInstance", gomock.EnsureMatcher(name))
+	call := gomock.NewCall2_2[string, bool, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteInstance", gomock.EnsureMatcher(name), gomock.EnsureMatcher(force))
 	mr.deleteInstanceExpects = append(mr.deleteInstanceExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteInstanceCall is the typed call wrapper for DeleteInstance.
-type MockInstanceServerDeleteInstanceCall = gomock.Call1_2[string, lxd.Operation, error]
+type MockInstanceServerDeleteInstanceCall = gomock.Call2_2[string, bool, lxd.Operation, error]
 
 // DeleteInstanceBackup mocks base method.
 func (m *MockInstanceServer) DeleteInstanceBackup(instanceName, name string) (lxd.Operation, error) {
@@ -2534,130 +2311,148 @@ func (mr *MockInstanceServerMockRecorder) DeleteInstanceTemplateFile(name, templ
 type MockInstanceServerDeleteInstanceTemplateFileCall = gomock.Call2_1[string, string, error]
 
 // DeleteNetwork mocks base method.
-func (m *MockInstanceServer) DeleteNetwork(name string) error {
+func (m *MockInstanceServer) DeleteNetwork(name string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.deleteNetworkExpects, m.ctrl, m, "DeleteNetwork", name)
+	return gomock.Dispatch1_2(&m.recorder.deleteNetworkExpects, m.ctrl, m, "DeleteNetwork", name)
 }
 
 // DeleteNetwork indicates an expected call of DeleteNetwork.
 func (mr *MockInstanceServerMockRecorder) DeleteNetwork(name any) *MockInstanceServerDeleteNetworkCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[string, error](mr.mock.ctrl.T, mr.mock, "DeleteNetwork", gomock.EnsureMatcher(name))
+	call := gomock.NewCall1_2[string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetwork", gomock.EnsureMatcher(name))
 	mr.deleteNetworkExpects = append(mr.deleteNetworkExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteNetworkCall is the typed call wrapper for DeleteNetwork.
-type MockInstanceServerDeleteNetworkCall = gomock.Call1_1[string, error]
+type MockInstanceServerDeleteNetworkCall = gomock.Call1_2[string, lxd.Operation, error]
 
 // DeleteNetworkACL mocks base method.
-func (m *MockInstanceServer) DeleteNetworkACL(name string) error {
+func (m *MockInstanceServer) DeleteNetworkACL(name string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.deleteNetworkACLExpects, m.ctrl, m, "DeleteNetworkACL", name)
+	return gomock.Dispatch1_2(&m.recorder.deleteNetworkACLExpects, m.ctrl, m, "DeleteNetworkACL", name)
 }
 
 // DeleteNetworkACL indicates an expected call of DeleteNetworkACL.
 func (mr *MockInstanceServerMockRecorder) DeleteNetworkACL(name any) *MockInstanceServerDeleteNetworkACLCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[string, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkACL", gomock.EnsureMatcher(name))
+	call := gomock.NewCall1_2[string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkACL", gomock.EnsureMatcher(name))
 	mr.deleteNetworkACLExpects = append(mr.deleteNetworkACLExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteNetworkACLCall is the typed call wrapper for DeleteNetworkACL.
-type MockInstanceServerDeleteNetworkACLCall = gomock.Call1_1[string, error]
+type MockInstanceServerDeleteNetworkACLCall = gomock.Call1_2[string, lxd.Operation, error]
 
 // DeleteNetworkForward mocks base method.
-func (m *MockInstanceServer) DeleteNetworkForward(networkName, listenAddress string) error {
+func (m *MockInstanceServer) DeleteNetworkForward(networkName, listenAddress string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteNetworkForwardExpects, m.ctrl, m, "DeleteNetworkForward", networkName, listenAddress)
+	return gomock.Dispatch2_2(&m.recorder.deleteNetworkForwardExpects, m.ctrl, m, "DeleteNetworkForward", networkName, listenAddress)
 }
 
 // DeleteNetworkForward indicates an expected call of DeleteNetworkForward.
 func (mr *MockInstanceServerMockRecorder) DeleteNetworkForward(networkName, listenAddress any) *MockInstanceServerDeleteNetworkForwardCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress))
+	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress))
 	mr.deleteNetworkForwardExpects = append(mr.deleteNetworkForwardExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteNetworkForwardCall is the typed call wrapper for DeleteNetworkForward.
-type MockInstanceServerDeleteNetworkForwardCall = gomock.Call2_1[string, string, error]
+type MockInstanceServerDeleteNetworkForwardCall = gomock.Call2_2[string, string, lxd.Operation, error]
 
 // DeleteNetworkLoadBalancer mocks base method.
-func (m *MockInstanceServer) DeleteNetworkLoadBalancer(networkName, listenAddress string) error {
+func (m *MockInstanceServer) DeleteNetworkLoadBalancer(networkName, listenAddress string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteNetworkLoadBalancerExpects, m.ctrl, m, "DeleteNetworkLoadBalancer", networkName, listenAddress)
+	return gomock.Dispatch2_2(&m.recorder.deleteNetworkLoadBalancerExpects, m.ctrl, m, "DeleteNetworkLoadBalancer", networkName, listenAddress)
 }
 
 // DeleteNetworkLoadBalancer indicates an expected call of DeleteNetworkLoadBalancer.
 func (mr *MockInstanceServerMockRecorder) DeleteNetworkLoadBalancer(networkName, listenAddress any) *MockInstanceServerDeleteNetworkLoadBalancerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkLoadBalancer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress))
+	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkLoadBalancer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress))
 	mr.deleteNetworkLoadBalancerExpects = append(mr.deleteNetworkLoadBalancerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteNetworkLoadBalancerCall is the typed call wrapper for DeleteNetworkLoadBalancer.
-type MockInstanceServerDeleteNetworkLoadBalancerCall = gomock.Call2_1[string, string, error]
+type MockInstanceServerDeleteNetworkLoadBalancerCall = gomock.Call2_2[string, string, lxd.Operation, error]
+
+// DeleteNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) DeleteNetworkLoadBalancerPool(networkName, poolName string) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.deleteNetworkLoadBalancerPoolExpects, m.ctrl, m, "DeleteNetworkLoadBalancerPool", networkName, poolName)
+}
+
+// DeleteNetworkLoadBalancerPool indicates an expected call of DeleteNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) DeleteNetworkLoadBalancerPool(networkName, poolName any) *MockInstanceServerDeleteNetworkLoadBalancerPoolCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkLoadBalancerPool", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(poolName))
+	mr.deleteNetworkLoadBalancerPoolExpects = append(mr.deleteNetworkLoadBalancerPoolExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerDeleteNetworkLoadBalancerPoolCall is the typed call wrapper for DeleteNetworkLoadBalancerPool.
+type MockInstanceServerDeleteNetworkLoadBalancerPoolCall = gomock.Call2_2[string, string, lxd.Operation, error]
 
 // DeleteNetworkPeer mocks base method.
-func (m *MockInstanceServer) DeleteNetworkPeer(networkName, peerName string) error {
+func (m *MockInstanceServer) DeleteNetworkPeer(networkName, peerName string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteNetworkPeerExpects, m.ctrl, m, "DeleteNetworkPeer", networkName, peerName)
+	return gomock.Dispatch2_2(&m.recorder.deleteNetworkPeerExpects, m.ctrl, m, "DeleteNetworkPeer", networkName, peerName)
 }
 
 // DeleteNetworkPeer indicates an expected call of DeleteNetworkPeer.
 func (mr *MockInstanceServerMockRecorder) DeleteNetworkPeer(networkName, peerName any) *MockInstanceServerDeleteNetworkPeerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkPeer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(peerName))
+	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkPeer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(peerName))
 	mr.deleteNetworkPeerExpects = append(mr.deleteNetworkPeerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteNetworkPeerCall is the typed call wrapper for DeleteNetworkPeer.
-type MockInstanceServerDeleteNetworkPeerCall = gomock.Call2_1[string, string, error]
+type MockInstanceServerDeleteNetworkPeerCall = gomock.Call2_2[string, string, lxd.Operation, error]
 
 // DeleteNetworkZone mocks base method.
-func (m *MockInstanceServer) DeleteNetworkZone(name string) error {
+func (m *MockInstanceServer) DeleteNetworkZone(name string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.deleteNetworkZoneExpects, m.ctrl, m, "DeleteNetworkZone", name)
+	return gomock.Dispatch1_2(&m.recorder.deleteNetworkZoneExpects, m.ctrl, m, "DeleteNetworkZone", name)
 }
 
 // DeleteNetworkZone indicates an expected call of DeleteNetworkZone.
 func (mr *MockInstanceServerMockRecorder) DeleteNetworkZone(name any) *MockInstanceServerDeleteNetworkZoneCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[string, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkZone", gomock.EnsureMatcher(name))
+	call := gomock.NewCall1_2[string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkZone", gomock.EnsureMatcher(name))
 	mr.deleteNetworkZoneExpects = append(mr.deleteNetworkZoneExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteNetworkZoneCall is the typed call wrapper for DeleteNetworkZone.
-type MockInstanceServerDeleteNetworkZoneCall = gomock.Call1_1[string, error]
+type MockInstanceServerDeleteNetworkZoneCall = gomock.Call1_2[string, lxd.Operation, error]
 
 // DeleteNetworkZoneRecord mocks base method.
-func (m *MockInstanceServer) DeleteNetworkZoneRecord(zone, name string) error {
+func (m *MockInstanceServer) DeleteNetworkZoneRecord(zone, name string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteNetworkZoneRecordExpects, m.ctrl, m, "DeleteNetworkZoneRecord", zone, name)
+	return gomock.Dispatch2_2(&m.recorder.deleteNetworkZoneRecordExpects, m.ctrl, m, "DeleteNetworkZoneRecord", zone, name)
 }
 
 // DeleteNetworkZoneRecord indicates an expected call of DeleteNetworkZoneRecord.
 func (mr *MockInstanceServerMockRecorder) DeleteNetworkZoneRecord(zone, name any) *MockInstanceServerDeleteNetworkZoneRecordCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkZoneRecord", gomock.EnsureMatcher(zone), gomock.EnsureMatcher(name))
+	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteNetworkZoneRecord", gomock.EnsureMatcher(zone), gomock.EnsureMatcher(name))
 	mr.deleteNetworkZoneRecordExpects = append(mr.deleteNetworkZoneRecordExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteNetworkZoneRecordCall is the typed call wrapper for DeleteNetworkZoneRecord.
-type MockInstanceServerDeleteNetworkZoneRecordCall = gomock.Call2_1[string, string, error]
+type MockInstanceServerDeleteNetworkZoneRecordCall = gomock.Call2_2[string, string, lxd.Operation, error]
 
 // DeleteOIDCSession mocks base method.
 func (m *MockInstanceServer) DeleteOIDCSession(sessionID string) error {
@@ -2732,76 +2527,94 @@ func (mr *MockInstanceServerMockRecorder) DeleteProfile(name any) *MockInstanceS
 type MockInstanceServerDeleteProfileCall = gomock.Call1_1[string, error]
 
 // DeleteProject mocks base method.
-func (m *MockInstanceServer) DeleteProject(name string, force bool) error {
+func (m *MockInstanceServer) DeleteProject(name string, force bool) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteProjectExpects, m.ctrl, m, "DeleteProject", name, force)
+	return gomock.Dispatch2_2(&m.recorder.deleteProjectExpects, m.ctrl, m, "DeleteProject", name, force)
 }
 
 // DeleteProject indicates an expected call of DeleteProject.
 func (mr *MockInstanceServerMockRecorder) DeleteProject(name, force any) *MockInstanceServerDeleteProjectCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, bool, error](mr.mock.ctrl.T, mr.mock, "DeleteProject", gomock.EnsureMatcher(name), gomock.EnsureMatcher(force))
+	call := gomock.NewCall2_2[string, bool, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteProject", gomock.EnsureMatcher(name), gomock.EnsureMatcher(force))
 	mr.deleteProjectExpects = append(mr.deleteProjectExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteProjectCall is the typed call wrapper for DeleteProject.
-type MockInstanceServerDeleteProjectCall = gomock.Call2_1[string, bool, error]
+type MockInstanceServerDeleteProjectCall = gomock.Call2_2[string, bool, lxd.Operation, error]
+
+// DeleteReplicator mocks base method.
+func (m *MockInstanceServer) DeleteReplicator(project, name string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.deleteReplicatorExpects, m.ctrl, m, "DeleteReplicator", project, name)
+}
+
+// DeleteReplicator indicates an expected call of DeleteReplicator.
+func (mr *MockInstanceServerMockRecorder) DeleteReplicator(project, name any) *MockInstanceServerDeleteReplicatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteReplicator", gomock.EnsureMatcher(project), gomock.EnsureMatcher(name))
+	mr.deleteReplicatorExpects = append(mr.deleteReplicatorExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerDeleteReplicatorCall is the typed call wrapper for DeleteReplicator.
+type MockInstanceServerDeleteReplicatorCall = gomock.Call2_1[string, string, error]
 
 // DeleteStoragePool mocks base method.
-func (m *MockInstanceServer) DeleteStoragePool(name string) error {
+func (m *MockInstanceServer) DeleteStoragePool(name string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_1(&m.recorder.deleteStoragePoolExpects, m.ctrl, m, "DeleteStoragePool", name)
+	return gomock.Dispatch1_2(&m.recorder.deleteStoragePoolExpects, m.ctrl, m, "DeleteStoragePool", name)
 }
 
 // DeleteStoragePool indicates an expected call of DeleteStoragePool.
 func (mr *MockInstanceServerMockRecorder) DeleteStoragePool(name any) *MockInstanceServerDeleteStoragePoolCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_1[string, error](mr.mock.ctrl.T, mr.mock, "DeleteStoragePool", gomock.EnsureMatcher(name))
+	call := gomock.NewCall1_2[string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteStoragePool", gomock.EnsureMatcher(name))
 	mr.deleteStoragePoolExpects = append(mr.deleteStoragePoolExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteStoragePoolCall is the typed call wrapper for DeleteStoragePool.
-type MockInstanceServerDeleteStoragePoolCall = gomock.Call1_1[string, error]
+type MockInstanceServerDeleteStoragePoolCall = gomock.Call1_2[string, lxd.Operation, error]
 
 // DeleteStoragePoolBucket mocks base method.
-func (m *MockInstanceServer) DeleteStoragePoolBucket(poolName, bucketName string) error {
+func (m *MockInstanceServer) DeleteStoragePoolBucket(poolName, bucketName string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.deleteStoragePoolBucketExpects, m.ctrl, m, "DeleteStoragePoolBucket", poolName, bucketName)
+	return gomock.Dispatch2_2(&m.recorder.deleteStoragePoolBucketExpects, m.ctrl, m, "DeleteStoragePoolBucket", poolName, bucketName)
 }
 
 // DeleteStoragePoolBucket indicates an expected call of DeleteStoragePoolBucket.
 func (mr *MockInstanceServerMockRecorder) DeleteStoragePoolBucket(poolName, bucketName any) *MockInstanceServerDeleteStoragePoolBucketCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteStoragePoolBucket", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName))
+	call := gomock.NewCall2_2[string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteStoragePoolBucket", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName))
 	mr.deleteStoragePoolBucketExpects = append(mr.deleteStoragePoolBucketExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteStoragePoolBucketCall is the typed call wrapper for DeleteStoragePoolBucket.
-type MockInstanceServerDeleteStoragePoolBucketCall = gomock.Call2_1[string, string, error]
+type MockInstanceServerDeleteStoragePoolBucketCall = gomock.Call2_2[string, string, lxd.Operation, error]
 
 // DeleteStoragePoolBucketKey mocks base method.
-func (m *MockInstanceServer) DeleteStoragePoolBucketKey(poolName, bucketName, keyName string) error {
+func (m *MockInstanceServer) DeleteStoragePoolBucketKey(poolName, bucketName, keyName string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.deleteStoragePoolBucketKeyExpects, m.ctrl, m, "DeleteStoragePoolBucketKey", poolName, bucketName, keyName)
+	return gomock.Dispatch3_2(&m.recorder.deleteStoragePoolBucketKeyExpects, m.ctrl, m, "DeleteStoragePoolBucketKey", poolName, bucketName, keyName)
 }
 
 // DeleteStoragePoolBucketKey indicates an expected call of DeleteStoragePoolBucketKey.
 func (mr *MockInstanceServerMockRecorder) DeleteStoragePoolBucketKey(poolName, bucketName, keyName any) *MockInstanceServerDeleteStoragePoolBucketKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, string, string, error](mr.mock.ctrl.T, mr.mock, "DeleteStoragePoolBucketKey", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(keyName))
+	call := gomock.NewCall3_2[string, string, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "DeleteStoragePoolBucketKey", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(keyName))
 	mr.deleteStoragePoolBucketKeyExpects = append(mr.deleteStoragePoolBucketKeyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerDeleteStoragePoolBucketKeyCall is the typed call wrapper for DeleteStoragePoolBucketKey.
-type MockInstanceServerDeleteStoragePoolBucketKeyCall = gomock.Call3_1[string, string, string, error]
+type MockInstanceServerDeleteStoragePoolBucketKeyCall = gomock.Call3_2[string, string, string, lxd.Operation, error]
 
 // DeleteStoragePoolVolume mocks base method.
 func (m *MockInstanceServer) DeleteStoragePoolVolume(pool, volType, name string) (lxd.Operation, error) {
@@ -2910,24 +2723,6 @@ func (mr *MockInstanceServerMockRecorder) DoHTTP(req any) *MockInstanceServerDoH
 
 // MockInstanceServerDoHTTPCall is the typed call wrapper for DoHTTP.
 type MockInstanceServerDoHTTPCall = gomock.Call1_2[*http.Request, *http.Response, error]
-
-// ExecContainer mocks base method.
-func (m *MockInstanceServer) ExecContainer(containerName string, exec api.ContainerExecPost, args *lxd.ContainerExecArgs) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.execContainerExpects, m.ctrl, m, "ExecContainer", containerName, exec, args)
-}
-
-// ExecContainer indicates an expected call of ExecContainer.
-func (mr *MockInstanceServerMockRecorder) ExecContainer(containerName, exec, args any) *MockInstanceServerExecContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, api.ContainerExecPost, *lxd.ContainerExecArgs, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "ExecContainer", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(exec), gomock.EnsureMatcher(args))
-	mr.execContainerExpects = append(mr.execContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerExecContainerCall is the typed call wrapper for ExecContainer.
-type MockInstanceServerExecContainerCall = gomock.Call3_2[string, api.ContainerExecPost, *lxd.ContainerExecArgs, lxd.Operation, error]
 
 // ExecInstance mocks base method.
 func (m *MockInstanceServer) ExecInstance(instanceName string, exec api.InstanceExecPost, args *lxd.InstanceExecArgs) (lxd.Operation, error) {
@@ -3145,6 +2940,78 @@ func (mr *MockInstanceServerMockRecorder) GetClusterGroups() *MockInstanceServer
 // MockInstanceServerGetClusterGroupsCall is the typed call wrapper for GetClusterGroups.
 type MockInstanceServerGetClusterGroupsCall = gomock.Call0_2[[]api.ClusterGroup, error]
 
+// GetClusterLink mocks base method.
+func (m *MockInstanceServer) GetClusterLink(name string) (*api.ClusterLink, string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_3(&m.recorder.getClusterLinkExpects, m.ctrl, m, "GetClusterLink", name)
+}
+
+// GetClusterLink indicates an expected call of GetClusterLink.
+func (mr *MockInstanceServerMockRecorder) GetClusterLink(name any) *MockInstanceServerGetClusterLinkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_3[string, *api.ClusterLink, string, error](mr.mock.ctrl.T, mr.mock, "GetClusterLink", gomock.EnsureMatcher(name))
+	mr.getClusterLinkExpects = append(mr.getClusterLinkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetClusterLinkCall is the typed call wrapper for GetClusterLink.
+type MockInstanceServerGetClusterLinkCall = gomock.Call1_3[string, *api.ClusterLink, string, error]
+
+// GetClusterLinkNames mocks base method.
+func (m *MockInstanceServer) GetClusterLinkNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.getClusterLinkNamesExpects, m.ctrl, m, "GetClusterLinkNames")
+}
+
+// GetClusterLinkNames indicates an expected call of GetClusterLinkNames.
+func (mr *MockInstanceServerMockRecorder) GetClusterLinkNames() *MockInstanceServerGetClusterLinkNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[[]string, error](mr.mock.ctrl.T, mr.mock, "GetClusterLinkNames")
+	mr.getClusterLinkNamesExpects = append(mr.getClusterLinkNamesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetClusterLinkNamesCall is the typed call wrapper for GetClusterLinkNames.
+type MockInstanceServerGetClusterLinkNamesCall = gomock.Call0_2[[]string, error]
+
+// GetClusterLinkState mocks base method.
+func (m *MockInstanceServer) GetClusterLinkState(name string) (*api.ClusterLinkState, string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_3(&m.recorder.getClusterLinkStateExpects, m.ctrl, m, "GetClusterLinkState", name)
+}
+
+// GetClusterLinkState indicates an expected call of GetClusterLinkState.
+func (mr *MockInstanceServerMockRecorder) GetClusterLinkState(name any) *MockInstanceServerGetClusterLinkStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_3[string, *api.ClusterLinkState, string, error](mr.mock.ctrl.T, mr.mock, "GetClusterLinkState", gomock.EnsureMatcher(name))
+	mr.getClusterLinkStateExpects = append(mr.getClusterLinkStateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetClusterLinkStateCall is the typed call wrapper for GetClusterLinkState.
+type MockInstanceServerGetClusterLinkStateCall = gomock.Call1_3[string, *api.ClusterLinkState, string, error]
+
+// GetClusterLinks mocks base method.
+func (m *MockInstanceServer) GetClusterLinks() ([]api.ClusterLink, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.getClusterLinksExpects, m.ctrl, m, "GetClusterLinks")
+}
+
+// GetClusterLinks indicates an expected call of GetClusterLinks.
+func (mr *MockInstanceServerMockRecorder) GetClusterLinks() *MockInstanceServerGetClusterLinksCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[[]api.ClusterLink, error](mr.mock.ctrl.T, mr.mock, "GetClusterLinks")
+	mr.getClusterLinksExpects = append(mr.getClusterLinksExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetClusterLinksCall is the typed call wrapper for GetClusterLinks.
+type MockInstanceServerGetClusterLinksCall = gomock.Call0_2[[]api.ClusterLink, error]
+
 // GetClusterMember mocks base method.
 func (m *MockInstanceServer) GetClusterMember(name string) (*api.ClusterMember, string, error) {
 	m.ctrl.T.Helper()
@@ -3234,348 +3101,6 @@ func (mr *MockInstanceServerMockRecorder) GetConnectionInfo() *MockInstanceServe
 
 // MockInstanceServerGetConnectionInfoCall is the typed call wrapper for GetConnectionInfo.
 type MockInstanceServerGetConnectionInfoCall = gomock.Call0_2[*lxd.ConnectionInfo, error]
-
-// GetContainer mocks base method.
-func (m *MockInstanceServer) GetContainer(name string) (*api.Container, string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_3(&m.recorder.getContainerExpects, m.ctrl, m, "GetContainer", name)
-}
-
-// GetContainer indicates an expected call of GetContainer.
-func (mr *MockInstanceServerMockRecorder) GetContainer(name any) *MockInstanceServerGetContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_3[string, *api.Container, string, error](mr.mock.ctrl.T, mr.mock, "GetContainer", gomock.EnsureMatcher(name))
-	mr.getContainerExpects = append(mr.getContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerCall is the typed call wrapper for GetContainer.
-type MockInstanceServerGetContainerCall = gomock.Call1_3[string, *api.Container, string, error]
-
-// GetContainerBackup mocks base method.
-func (m *MockInstanceServer) GetContainerBackup(containerName, name string) (*api.ContainerBackup, string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_3(&m.recorder.getContainerBackupExpects, m.ctrl, m, "GetContainerBackup", containerName, name)
-}
-
-// GetContainerBackup indicates an expected call of GetContainerBackup.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackup(containerName, name any) *MockInstanceServerGetContainerBackupCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_3[string, string, *api.ContainerBackup, string, error](mr.mock.ctrl.T, mr.mock, "GetContainerBackup", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name))
-	mr.getContainerBackupExpects = append(mr.getContainerBackupExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerBackupCall is the typed call wrapper for GetContainerBackup.
-type MockInstanceServerGetContainerBackupCall = gomock.Call2_3[string, string, *api.ContainerBackup, string, error]
-
-// GetContainerBackupFile mocks base method.
-func (m *MockInstanceServer) GetContainerBackupFile(containerName, name string, req *lxd.BackupFileRequest) (*lxd.BackupFileResponse, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.getContainerBackupFileExpects, m.ctrl, m, "GetContainerBackupFile", containerName, name, req)
-}
-
-// GetContainerBackupFile indicates an expected call of GetContainerBackupFile.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackupFile(containerName, name, req any) *MockInstanceServerGetContainerBackupFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, string, *lxd.BackupFileRequest, *lxd.BackupFileResponse, error](mr.mock.ctrl.T, mr.mock, "GetContainerBackupFile", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name), gomock.EnsureMatcher(req))
-	mr.getContainerBackupFileExpects = append(mr.getContainerBackupFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerBackupFileCall is the typed call wrapper for GetContainerBackupFile.
-type MockInstanceServerGetContainerBackupFileCall = gomock.Call3_2[string, string, *lxd.BackupFileRequest, *lxd.BackupFileResponse, error]
-
-// GetContainerBackupNames mocks base method.
-func (m *MockInstanceServer) GetContainerBackupNames(containerName string) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getContainerBackupNamesExpects, m.ctrl, m, "GetContainerBackupNames", containerName)
-}
-
-// GetContainerBackupNames indicates an expected call of GetContainerBackupNames.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackupNames(containerName any) *MockInstanceServerGetContainerBackupNamesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []string, error](mr.mock.ctrl.T, mr.mock, "GetContainerBackupNames", gomock.EnsureMatcher(containerName))
-	mr.getContainerBackupNamesExpects = append(mr.getContainerBackupNamesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerBackupNamesCall is the typed call wrapper for GetContainerBackupNames.
-type MockInstanceServerGetContainerBackupNamesCall = gomock.Call1_2[string, []string, error]
-
-// GetContainerBackups mocks base method.
-func (m *MockInstanceServer) GetContainerBackups(containername string) ([]api.ContainerBackup, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getContainerBackupsExpects, m.ctrl, m, "GetContainerBackups", containername)
-}
-
-// GetContainerBackups indicates an expected call of GetContainerBackups.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackups(containername any) *MockInstanceServerGetContainerBackupsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []api.ContainerBackup, error](mr.mock.ctrl.T, mr.mock, "GetContainerBackups", gomock.EnsureMatcher(containername))
-	mr.getContainerBackupsExpects = append(mr.getContainerBackupsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerBackupsCall is the typed call wrapper for GetContainerBackups.
-type MockInstanceServerGetContainerBackupsCall = gomock.Call1_2[string, []api.ContainerBackup, error]
-
-// GetContainerConsoleLog mocks base method.
-func (m *MockInstanceServer) GetContainerConsoleLog(containerName string, args *lxd.ContainerConsoleLogArgs) (io.ReadCloser, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getContainerConsoleLogExpects, m.ctrl, m, "GetContainerConsoleLog", containerName, args)
-}
-
-// GetContainerConsoleLog indicates an expected call of GetContainerConsoleLog.
-func (mr *MockInstanceServerMockRecorder) GetContainerConsoleLog(containerName, args any) *MockInstanceServerGetContainerConsoleLogCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, *lxd.ContainerConsoleLogArgs, io.ReadCloser, error](mr.mock.ctrl.T, mr.mock, "GetContainerConsoleLog", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(args))
-	mr.getContainerConsoleLogExpects = append(mr.getContainerConsoleLogExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerConsoleLogCall is the typed call wrapper for GetContainerConsoleLog.
-type MockInstanceServerGetContainerConsoleLogCall = gomock.Call2_2[string, *lxd.ContainerConsoleLogArgs, io.ReadCloser, error]
-
-// GetContainerFile mocks base method.
-func (m *MockInstanceServer) GetContainerFile(containerName, path string) (io.ReadCloser, *lxd.ContainerFileResponse, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_3(&m.recorder.getContainerFileExpects, m.ctrl, m, "GetContainerFile", containerName, path)
-}
-
-// GetContainerFile indicates an expected call of GetContainerFile.
-func (mr *MockInstanceServerMockRecorder) GetContainerFile(containerName, path any) *MockInstanceServerGetContainerFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_3[string, string, io.ReadCloser, *lxd.ContainerFileResponse, error](mr.mock.ctrl.T, mr.mock, "GetContainerFile", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(path))
-	mr.getContainerFileExpects = append(mr.getContainerFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerFileCall is the typed call wrapper for GetContainerFile.
-type MockInstanceServerGetContainerFileCall = gomock.Call2_3[string, string, io.ReadCloser, *lxd.ContainerFileResponse, error]
-
-// GetContainerLogfile mocks base method.
-func (m *MockInstanceServer) GetContainerLogfile(name, filename string) (io.ReadCloser, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getContainerLogfileExpects, m.ctrl, m, "GetContainerLogfile", name, filename)
-}
-
-// GetContainerLogfile indicates an expected call of GetContainerLogfile.
-func (mr *MockInstanceServerMockRecorder) GetContainerLogfile(name, filename any) *MockInstanceServerGetContainerLogfileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, string, io.ReadCloser, error](mr.mock.ctrl.T, mr.mock, "GetContainerLogfile", gomock.EnsureMatcher(name), gomock.EnsureMatcher(filename))
-	mr.getContainerLogfileExpects = append(mr.getContainerLogfileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerLogfileCall is the typed call wrapper for GetContainerLogfile.
-type MockInstanceServerGetContainerLogfileCall = gomock.Call2_2[string, string, io.ReadCloser, error]
-
-// GetContainerLogfiles mocks base method.
-func (m *MockInstanceServer) GetContainerLogfiles(name string) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getContainerLogfilesExpects, m.ctrl, m, "GetContainerLogfiles", name)
-}
-
-// GetContainerLogfiles indicates an expected call of GetContainerLogfiles.
-func (mr *MockInstanceServerMockRecorder) GetContainerLogfiles(name any) *MockInstanceServerGetContainerLogfilesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []string, error](mr.mock.ctrl.T, mr.mock, "GetContainerLogfiles", gomock.EnsureMatcher(name))
-	mr.getContainerLogfilesExpects = append(mr.getContainerLogfilesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerLogfilesCall is the typed call wrapper for GetContainerLogfiles.
-type MockInstanceServerGetContainerLogfilesCall = gomock.Call1_2[string, []string, error]
-
-// GetContainerMetadata mocks base method.
-func (m *MockInstanceServer) GetContainerMetadata(name string) (*api.ImageMetadata, string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_3(&m.recorder.getContainerMetadataExpects, m.ctrl, m, "GetContainerMetadata", name)
-}
-
-// GetContainerMetadata indicates an expected call of GetContainerMetadata.
-func (mr *MockInstanceServerMockRecorder) GetContainerMetadata(name any) *MockInstanceServerGetContainerMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_3[string, *api.ImageMetadata, string, error](mr.mock.ctrl.T, mr.mock, "GetContainerMetadata", gomock.EnsureMatcher(name))
-	mr.getContainerMetadataExpects = append(mr.getContainerMetadataExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerMetadataCall is the typed call wrapper for GetContainerMetadata.
-type MockInstanceServerGetContainerMetadataCall = gomock.Call1_3[string, *api.ImageMetadata, string, error]
-
-// GetContainerNames mocks base method.
-func (m *MockInstanceServer) GetContainerNames() ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_2(&m.recorder.getContainerNamesExpects, m.ctrl, m, "GetContainerNames")
-}
-
-// GetContainerNames indicates an expected call of GetContainerNames.
-func (mr *MockInstanceServerMockRecorder) GetContainerNames() *MockInstanceServerGetContainerNamesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_2[[]string, error](mr.mock.ctrl.T, mr.mock, "GetContainerNames")
-	mr.getContainerNamesExpects = append(mr.getContainerNamesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerNamesCall is the typed call wrapper for GetContainerNames.
-type MockInstanceServerGetContainerNamesCall = gomock.Call0_2[[]string, error]
-
-// GetContainerSnapshot mocks base method.
-func (m *MockInstanceServer) GetContainerSnapshot(containerName, name string) (*api.ContainerSnapshot, string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_3(&m.recorder.getContainerSnapshotExpects, m.ctrl, m, "GetContainerSnapshot", containerName, name)
-}
-
-// GetContainerSnapshot indicates an expected call of GetContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) GetContainerSnapshot(containerName, name any) *MockInstanceServerGetContainerSnapshotCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_3[string, string, *api.ContainerSnapshot, string, error](mr.mock.ctrl.T, mr.mock, "GetContainerSnapshot", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name))
-	mr.getContainerSnapshotExpects = append(mr.getContainerSnapshotExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerSnapshotCall is the typed call wrapper for GetContainerSnapshot.
-type MockInstanceServerGetContainerSnapshotCall = gomock.Call2_3[string, string, *api.ContainerSnapshot, string, error]
-
-// GetContainerSnapshotNames mocks base method.
-func (m *MockInstanceServer) GetContainerSnapshotNames(containerName string) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getContainerSnapshotNamesExpects, m.ctrl, m, "GetContainerSnapshotNames", containerName)
-}
-
-// GetContainerSnapshotNames indicates an expected call of GetContainerSnapshotNames.
-func (mr *MockInstanceServerMockRecorder) GetContainerSnapshotNames(containerName any) *MockInstanceServerGetContainerSnapshotNamesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []string, error](mr.mock.ctrl.T, mr.mock, "GetContainerSnapshotNames", gomock.EnsureMatcher(containerName))
-	mr.getContainerSnapshotNamesExpects = append(mr.getContainerSnapshotNamesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerSnapshotNamesCall is the typed call wrapper for GetContainerSnapshotNames.
-type MockInstanceServerGetContainerSnapshotNamesCall = gomock.Call1_2[string, []string, error]
-
-// GetContainerSnapshots mocks base method.
-func (m *MockInstanceServer) GetContainerSnapshots(containerName string) ([]api.ContainerSnapshot, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getContainerSnapshotsExpects, m.ctrl, m, "GetContainerSnapshots", containerName)
-}
-
-// GetContainerSnapshots indicates an expected call of GetContainerSnapshots.
-func (mr *MockInstanceServerMockRecorder) GetContainerSnapshots(containerName any) *MockInstanceServerGetContainerSnapshotsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []api.ContainerSnapshot, error](mr.mock.ctrl.T, mr.mock, "GetContainerSnapshots", gomock.EnsureMatcher(containerName))
-	mr.getContainerSnapshotsExpects = append(mr.getContainerSnapshotsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerSnapshotsCall is the typed call wrapper for GetContainerSnapshots.
-type MockInstanceServerGetContainerSnapshotsCall = gomock.Call1_2[string, []api.ContainerSnapshot, error]
-
-// GetContainerState mocks base method.
-func (m *MockInstanceServer) GetContainerState(name string) (*api.ContainerState, string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_3(&m.recorder.getContainerStateExpects, m.ctrl, m, "GetContainerState", name)
-}
-
-// GetContainerState indicates an expected call of GetContainerState.
-func (mr *MockInstanceServerMockRecorder) GetContainerState(name any) *MockInstanceServerGetContainerStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_3[string, *api.ContainerState, string, error](mr.mock.ctrl.T, mr.mock, "GetContainerState", gomock.EnsureMatcher(name))
-	mr.getContainerStateExpects = append(mr.getContainerStateExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerStateCall is the typed call wrapper for GetContainerState.
-type MockInstanceServerGetContainerStateCall = gomock.Call1_3[string, *api.ContainerState, string, error]
-
-// GetContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) GetContainerTemplateFile(containerName, templateName string) (io.ReadCloser, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getContainerTemplateFileExpects, m.ctrl, m, "GetContainerTemplateFile", containerName, templateName)
-}
-
-// GetContainerTemplateFile indicates an expected call of GetContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) GetContainerTemplateFile(containerName, templateName any) *MockInstanceServerGetContainerTemplateFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, string, io.ReadCloser, error](mr.mock.ctrl.T, mr.mock, "GetContainerTemplateFile", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(templateName))
-	mr.getContainerTemplateFileExpects = append(mr.getContainerTemplateFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerTemplateFileCall is the typed call wrapper for GetContainerTemplateFile.
-type MockInstanceServerGetContainerTemplateFileCall = gomock.Call2_2[string, string, io.ReadCloser, error]
-
-// GetContainerTemplateFiles mocks base method.
-func (m *MockInstanceServer) GetContainerTemplateFiles(containerName string) ([]string, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getContainerTemplateFilesExpects, m.ctrl, m, "GetContainerTemplateFiles", containerName)
-}
-
-// GetContainerTemplateFiles indicates an expected call of GetContainerTemplateFiles.
-func (mr *MockInstanceServerMockRecorder) GetContainerTemplateFiles(containerName any) *MockInstanceServerGetContainerTemplateFilesCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, []string, error](mr.mock.ctrl.T, mr.mock, "GetContainerTemplateFiles", gomock.EnsureMatcher(containerName))
-	mr.getContainerTemplateFilesExpects = append(mr.getContainerTemplateFilesExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainerTemplateFilesCall is the typed call wrapper for GetContainerTemplateFiles.
-type MockInstanceServerGetContainerTemplateFilesCall = gomock.Call1_2[string, []string, error]
-
-// GetContainers mocks base method.
-func (m *MockInstanceServer) GetContainers() ([]api.Container, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_2(&m.recorder.getContainersExpects, m.ctrl, m, "GetContainers")
-}
-
-// GetContainers indicates an expected call of GetContainers.
-func (mr *MockInstanceServerMockRecorder) GetContainers() *MockInstanceServerGetContainersCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_2[[]api.Container, error](mr.mock.ctrl.T, mr.mock, "GetContainers")
-	mr.getContainersExpects = append(mr.getContainersExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainersCall is the typed call wrapper for GetContainers.
-type MockInstanceServerGetContainersCall = gomock.Call0_2[[]api.Container, error]
-
-// GetContainersFull mocks base method.
-func (m *MockInstanceServer) GetContainersFull() ([]api.ContainerFull, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch0_2(&m.recorder.getContainersFullExpects, m.ctrl, m, "GetContainersFull")
-}
-
-// GetContainersFull indicates an expected call of GetContainersFull.
-func (mr *MockInstanceServerMockRecorder) GetContainersFull() *MockInstanceServerGetContainersFullCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_2[[]api.ContainerFull, error](mr.mock.ctrl.T, mr.mock, "GetContainersFull")
-	mr.getContainersFullExpects = append(mr.getContainersFullExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetContainersFullCall is the typed call wrapper for GetContainersFull.
-type MockInstanceServerGetContainersFullCall = gomock.Call0_2[[]api.ContainerFull, error]
 
 // GetCurrentIdentityInfo mocks base method.
 func (m *MockInstanceServer) GetCurrentIdentityInfo() (*api.IdentityInfo, string, error) {
@@ -4424,148 +3949,40 @@ func (mr *MockInstanceServerMockRecorder) GetInstanceUEFIVars(name any) *MockIns
 type MockInstanceServerGetInstanceUEFIVarsCall = gomock.Call1_3[string, *api.InstanceUEFIVars, string, error]
 
 // GetInstances mocks base method.
-func (m *MockInstanceServer) GetInstances(instanceType api.InstanceType) ([]api.Instance, error) {
+func (m *MockInstanceServer) GetInstances(args lxd.GetInstancesArgs) ([]api.Instance, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getInstancesExpects, m.ctrl, m, "GetInstances", instanceType)
+	return gomock.Dispatch1_2(&m.recorder.getInstancesExpects, m.ctrl, m, "GetInstances", args)
 }
 
 // GetInstances indicates an expected call of GetInstances.
-func (mr *MockInstanceServerMockRecorder) GetInstances(instanceType any) *MockInstanceServerGetInstancesCall {
+func (mr *MockInstanceServerMockRecorder) GetInstances(args any) *MockInstanceServerGetInstancesCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[api.InstanceType, []api.Instance, error](mr.mock.ctrl.T, mr.mock, "GetInstances", gomock.EnsureMatcher(instanceType))
+	call := gomock.NewCall1_2[lxd.GetInstancesArgs, []api.Instance, error](mr.mock.ctrl.T, mr.mock, "GetInstances", gomock.EnsureMatcher(args))
 	mr.getInstancesExpects = append(mr.getInstancesExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerGetInstancesCall is the typed call wrapper for GetInstances.
-type MockInstanceServerGetInstancesCall = gomock.Call1_2[api.InstanceType, []api.Instance, error]
-
-// GetInstancesAllProjects mocks base method.
-func (m *MockInstanceServer) GetInstancesAllProjects(instanceType api.InstanceType) ([]api.Instance, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getInstancesAllProjectsExpects, m.ctrl, m, "GetInstancesAllProjects", instanceType)
-}
-
-// GetInstancesAllProjects indicates an expected call of GetInstancesAllProjects.
-func (mr *MockInstanceServerMockRecorder) GetInstancesAllProjects(instanceType any) *MockInstanceServerGetInstancesAllProjectsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[api.InstanceType, []api.Instance, error](mr.mock.ctrl.T, mr.mock, "GetInstancesAllProjects", gomock.EnsureMatcher(instanceType))
-	mr.getInstancesAllProjectsExpects = append(mr.getInstancesAllProjectsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetInstancesAllProjectsCall is the typed call wrapper for GetInstancesAllProjects.
-type MockInstanceServerGetInstancesAllProjectsCall = gomock.Call1_2[api.InstanceType, []api.Instance, error]
-
-// GetInstancesAllProjectsWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesAllProjectsWithFilter(instanceType api.InstanceType, filters []string) ([]api.Instance, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getInstancesAllProjectsWithFilterExpects, m.ctrl, m, "GetInstancesAllProjectsWithFilter", instanceType, filters)
-}
-
-// GetInstancesAllProjectsWithFilter indicates an expected call of GetInstancesAllProjectsWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesAllProjectsWithFilter(instanceType, filters any) *MockInstanceServerGetInstancesAllProjectsWithFilterCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[api.InstanceType, []string, []api.Instance, error](mr.mock.ctrl.T, mr.mock, "GetInstancesAllProjectsWithFilter", gomock.EnsureMatcher(instanceType), gomock.EnsureMatcher(filters))
-	mr.getInstancesAllProjectsWithFilterExpects = append(mr.getInstancesAllProjectsWithFilterExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetInstancesAllProjectsWithFilterCall is the typed call wrapper for GetInstancesAllProjectsWithFilter.
-type MockInstanceServerGetInstancesAllProjectsWithFilterCall = gomock.Call2_2[api.InstanceType, []string, []api.Instance, error]
+type MockInstanceServerGetInstancesCall = gomock.Call1_2[lxd.GetInstancesArgs, []api.Instance, error]
 
 // GetInstancesFull mocks base method.
-func (m *MockInstanceServer) GetInstancesFull(instanceType api.InstanceType) ([]api.InstanceFull, error) {
+func (m *MockInstanceServer) GetInstancesFull(args lxd.GetInstancesFullArgs) ([]api.InstanceFull, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getInstancesFullExpects, m.ctrl, m, "GetInstancesFull", instanceType)
+	return gomock.Dispatch1_2(&m.recorder.getInstancesFullExpects, m.ctrl, m, "GetInstancesFull", args)
 }
 
 // GetInstancesFull indicates an expected call of GetInstancesFull.
-func (mr *MockInstanceServerMockRecorder) GetInstancesFull(instanceType any) *MockInstanceServerGetInstancesFullCall {
+func (mr *MockInstanceServerMockRecorder) GetInstancesFull(args any) *MockInstanceServerGetInstancesFullCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[api.InstanceType, []api.InstanceFull, error](mr.mock.ctrl.T, mr.mock, "GetInstancesFull", gomock.EnsureMatcher(instanceType))
+	call := gomock.NewCall1_2[lxd.GetInstancesFullArgs, []api.InstanceFull, error](mr.mock.ctrl.T, mr.mock, "GetInstancesFull", gomock.EnsureMatcher(args))
 	mr.getInstancesFullExpects = append(mr.getInstancesFullExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerGetInstancesFullCall is the typed call wrapper for GetInstancesFull.
-type MockInstanceServerGetInstancesFullCall = gomock.Call1_2[api.InstanceType, []api.InstanceFull, error]
-
-// GetInstancesFullAllProjects mocks base method.
-func (m *MockInstanceServer) GetInstancesFullAllProjects(instanceType api.InstanceType) ([]api.InstanceFull, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getInstancesFullAllProjectsExpects, m.ctrl, m, "GetInstancesFullAllProjects", instanceType)
-}
-
-// GetInstancesFullAllProjects indicates an expected call of GetInstancesFullAllProjects.
-func (mr *MockInstanceServerMockRecorder) GetInstancesFullAllProjects(instanceType any) *MockInstanceServerGetInstancesFullAllProjectsCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[api.InstanceType, []api.InstanceFull, error](mr.mock.ctrl.T, mr.mock, "GetInstancesFullAllProjects", gomock.EnsureMatcher(instanceType))
-	mr.getInstancesFullAllProjectsExpects = append(mr.getInstancesFullAllProjectsExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetInstancesFullAllProjectsCall is the typed call wrapper for GetInstancesFullAllProjects.
-type MockInstanceServerGetInstancesFullAllProjectsCall = gomock.Call1_2[api.InstanceType, []api.InstanceFull, error]
-
-// GetInstancesFullAllProjectsWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesFullAllProjectsWithFilter(instanceType api.InstanceType, filters []string) ([]api.InstanceFull, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getInstancesFullAllProjectsWithFilterExpects, m.ctrl, m, "GetInstancesFullAllProjectsWithFilter", instanceType, filters)
-}
-
-// GetInstancesFullAllProjectsWithFilter indicates an expected call of GetInstancesFullAllProjectsWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesFullAllProjectsWithFilter(instanceType, filters any) *MockInstanceServerGetInstancesFullAllProjectsWithFilterCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[api.InstanceType, []string, []api.InstanceFull, error](mr.mock.ctrl.T, mr.mock, "GetInstancesFullAllProjectsWithFilter", gomock.EnsureMatcher(instanceType), gomock.EnsureMatcher(filters))
-	mr.getInstancesFullAllProjectsWithFilterExpects = append(mr.getInstancesFullAllProjectsWithFilterExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetInstancesFullAllProjectsWithFilterCall is the typed call wrapper for GetInstancesFullAllProjectsWithFilter.
-type MockInstanceServerGetInstancesFullAllProjectsWithFilterCall = gomock.Call2_2[api.InstanceType, []string, []api.InstanceFull, error]
-
-// GetInstancesFullWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesFullWithFilter(instanceType api.InstanceType, filters []string) ([]api.InstanceFull, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getInstancesFullWithFilterExpects, m.ctrl, m, "GetInstancesFullWithFilter", instanceType, filters)
-}
-
-// GetInstancesFullWithFilter indicates an expected call of GetInstancesFullWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesFullWithFilter(instanceType, filters any) *MockInstanceServerGetInstancesFullWithFilterCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[api.InstanceType, []string, []api.InstanceFull, error](mr.mock.ctrl.T, mr.mock, "GetInstancesFullWithFilter", gomock.EnsureMatcher(instanceType), gomock.EnsureMatcher(filters))
-	mr.getInstancesFullWithFilterExpects = append(mr.getInstancesFullWithFilterExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetInstancesFullWithFilterCall is the typed call wrapper for GetInstancesFullWithFilter.
-type MockInstanceServerGetInstancesFullWithFilterCall = gomock.Call2_2[api.InstanceType, []string, []api.InstanceFull, error]
-
-// GetInstancesWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesWithFilter(instanceType api.InstanceType, filters []string) ([]api.Instance, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.getInstancesWithFilterExpects, m.ctrl, m, "GetInstancesWithFilter", instanceType, filters)
-}
-
-// GetInstancesWithFilter indicates an expected call of GetInstancesWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesWithFilter(instanceType, filters any) *MockInstanceServerGetInstancesWithFilterCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[api.InstanceType, []string, []api.Instance, error](mr.mock.ctrl.T, mr.mock, "GetInstancesWithFilter", gomock.EnsureMatcher(instanceType), gomock.EnsureMatcher(filters))
-	mr.getInstancesWithFilterExpects = append(mr.getInstancesWithFilterExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerGetInstancesWithFilterCall is the typed call wrapper for GetInstancesWithFilter.
-type MockInstanceServerGetInstancesWithFilterCall = gomock.Call2_2[api.InstanceType, []string, []api.Instance, error]
+type MockInstanceServerGetInstancesFullCall = gomock.Call1_2[lxd.GetInstancesFullArgs, []api.InstanceFull, error]
 
 // GetMetadataConfiguration mocks base method.
 func (m *MockInstanceServer) GetMetadataConfiguration() (*api.MetadataConfiguration, error) {
@@ -4836,6 +4253,60 @@ func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerAddresses(networ
 
 // MockInstanceServerGetNetworkLoadBalancerAddressesCall is the typed call wrapper for GetNetworkLoadBalancerAddresses.
 type MockInstanceServerGetNetworkLoadBalancerAddressesCall = gomock.Call1_2[string, []string, error]
+
+// GetNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) GetNetworkLoadBalancerPool(networkName, poolName string) (*api.NetworkLoadBalancerPool, string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.getNetworkLoadBalancerPoolExpects, m.ctrl, m, "GetNetworkLoadBalancerPool", networkName, poolName)
+}
+
+// GetNetworkLoadBalancerPool indicates an expected call of GetNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerPool(networkName, poolName any) *MockInstanceServerGetNetworkLoadBalancerPoolCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[string, string, *api.NetworkLoadBalancerPool, string, error](mr.mock.ctrl.T, mr.mock, "GetNetworkLoadBalancerPool", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(poolName))
+	mr.getNetworkLoadBalancerPoolExpects = append(mr.getNetworkLoadBalancerPoolExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetNetworkLoadBalancerPoolCall is the typed call wrapper for GetNetworkLoadBalancerPool.
+type MockInstanceServerGetNetworkLoadBalancerPoolCall = gomock.Call2_3[string, string, *api.NetworkLoadBalancerPool, string, error]
+
+// GetNetworkLoadBalancerPoolState mocks base method.
+func (m *MockInstanceServer) GetNetworkLoadBalancerPoolState(networkName, poolName string) (*api.NetworkLoadBalancerPoolState, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getNetworkLoadBalancerPoolStateExpects, m.ctrl, m, "GetNetworkLoadBalancerPoolState", networkName, poolName)
+}
+
+// GetNetworkLoadBalancerPoolState indicates an expected call of GetNetworkLoadBalancerPoolState.
+func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerPoolState(networkName, poolName any) *MockInstanceServerGetNetworkLoadBalancerPoolStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[string, string, *api.NetworkLoadBalancerPoolState, error](mr.mock.ctrl.T, mr.mock, "GetNetworkLoadBalancerPoolState", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(poolName))
+	mr.getNetworkLoadBalancerPoolStateExpects = append(mr.getNetworkLoadBalancerPoolStateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetNetworkLoadBalancerPoolStateCall is the typed call wrapper for GetNetworkLoadBalancerPoolState.
+type MockInstanceServerGetNetworkLoadBalancerPoolStateCall = gomock.Call2_2[string, string, *api.NetworkLoadBalancerPoolState, error]
+
+// GetNetworkLoadBalancerPools mocks base method.
+func (m *MockInstanceServer) GetNetworkLoadBalancerPools(networkName string) ([]api.NetworkLoadBalancerPool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getNetworkLoadBalancerPoolsExpects, m.ctrl, m, "GetNetworkLoadBalancerPools", networkName)
+}
+
+// GetNetworkLoadBalancerPools indicates an expected call of GetNetworkLoadBalancerPools.
+func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerPools(networkName any) *MockInstanceServerGetNetworkLoadBalancerPoolsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[string, []api.NetworkLoadBalancerPool, error](mr.mock.ctrl.T, mr.mock, "GetNetworkLoadBalancerPools", gomock.EnsureMatcher(networkName))
+	mr.getNetworkLoadBalancerPoolsExpects = append(mr.getNetworkLoadBalancerPoolsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetNetworkLoadBalancerPoolsCall is the typed call wrapper for GetNetworkLoadBalancerPools.
+type MockInstanceServerGetNetworkLoadBalancerPoolsCall = gomock.Call1_2[string, []api.NetworkLoadBalancerPool, error]
 
 // GetNetworkLoadBalancers mocks base method.
 func (m *MockInstanceServer) GetNetworkLoadBalancers(networkName string) ([]api.NetworkLoadBalancer, error) {
@@ -5214,6 +4685,24 @@ func (mr *MockInstanceServerMockRecorder) GetOperation(uuid any) *MockInstanceSe
 
 // MockInstanceServerGetOperationCall is the typed call wrapper for GetOperation.
 type MockInstanceServerGetOperationCall = gomock.Call1_3[string, *api.Operation, string, error]
+
+// GetOperationFull mocks base method.
+func (m *MockInstanceServer) GetOperationFull(uuid string) (*api.OperationFull, string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_3(&m.recorder.getOperationFullExpects, m.ctrl, m, "GetOperationFull", uuid)
+}
+
+// GetOperationFull indicates an expected call of GetOperationFull.
+func (mr *MockInstanceServerMockRecorder) GetOperationFull(uuid any) *MockInstanceServerGetOperationFullCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_3[string, *api.OperationFull, string, error](mr.mock.ctrl.T, mr.mock, "GetOperationFull", gomock.EnsureMatcher(uuid))
+	mr.getOperationFullExpects = append(mr.getOperationFullExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetOperationFullCall is the typed call wrapper for GetOperationFull.
+type MockInstanceServerGetOperationFullCall = gomock.Call1_3[string, *api.OperationFull, string, error]
 
 // GetOperationUUIDs mocks base method.
 func (m *MockInstanceServer) GetOperationUUIDs() ([]string, error) {
@@ -5628,6 +5117,78 @@ func (mr *MockInstanceServerMockRecorder) GetProjects() *MockInstanceServerGetPr
 
 // MockInstanceServerGetProjectsCall is the typed call wrapper for GetProjects.
 type MockInstanceServerGetProjectsCall = gomock.Call0_2[[]api.Project, error]
+
+// GetReplicator mocks base method.
+func (m *MockInstanceServer) GetReplicator(project, name string) (*api.Replicator, string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_3(&m.recorder.getReplicatorExpects, m.ctrl, m, "GetReplicator", project, name)
+}
+
+// GetReplicator indicates an expected call of GetReplicator.
+func (mr *MockInstanceServerMockRecorder) GetReplicator(project, name any) *MockInstanceServerGetReplicatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_3[string, string, *api.Replicator, string, error](mr.mock.ctrl.T, mr.mock, "GetReplicator", gomock.EnsureMatcher(project), gomock.EnsureMatcher(name))
+	mr.getReplicatorExpects = append(mr.getReplicatorExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetReplicatorCall is the typed call wrapper for GetReplicator.
+type MockInstanceServerGetReplicatorCall = gomock.Call2_3[string, string, *api.Replicator, string, error]
+
+// GetReplicatorNames mocks base method.
+func (m *MockInstanceServer) GetReplicatorNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.getReplicatorNamesExpects, m.ctrl, m, "GetReplicatorNames")
+}
+
+// GetReplicatorNames indicates an expected call of GetReplicatorNames.
+func (mr *MockInstanceServerMockRecorder) GetReplicatorNames() *MockInstanceServerGetReplicatorNamesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[[]string, error](mr.mock.ctrl.T, mr.mock, "GetReplicatorNames")
+	mr.getReplicatorNamesExpects = append(mr.getReplicatorNamesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetReplicatorNamesCall is the typed call wrapper for GetReplicatorNames.
+type MockInstanceServerGetReplicatorNamesCall = gomock.Call0_2[[]string, error]
+
+// GetReplicatorState mocks base method.
+func (m *MockInstanceServer) GetReplicatorState(project, name string) (*api.ReplicatorState, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getReplicatorStateExpects, m.ctrl, m, "GetReplicatorState", project, name)
+}
+
+// GetReplicatorState indicates an expected call of GetReplicatorState.
+func (mr *MockInstanceServerMockRecorder) GetReplicatorState(project, name any) *MockInstanceServerGetReplicatorStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[string, string, *api.ReplicatorState, error](mr.mock.ctrl.T, mr.mock, "GetReplicatorState", gomock.EnsureMatcher(project), gomock.EnsureMatcher(name))
+	mr.getReplicatorStateExpects = append(mr.getReplicatorStateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetReplicatorStateCall is the typed call wrapper for GetReplicatorState.
+type MockInstanceServerGetReplicatorStateCall = gomock.Call2_2[string, string, *api.ReplicatorState, error]
+
+// GetReplicators mocks base method.
+func (m *MockInstanceServer) GetReplicators(project string) ([]api.Replicator, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getReplicatorsExpects, m.ctrl, m, "GetReplicators", project)
+}
+
+// GetReplicators indicates an expected call of GetReplicators.
+func (mr *MockInstanceServerMockRecorder) GetReplicators(project any) *MockInstanceServerGetReplicatorsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[string, []api.Replicator, error](mr.mock.ctrl.T, mr.mock, "GetReplicators", gomock.EnsureMatcher(project))
+	mr.getReplicatorsExpects = append(mr.getReplicatorsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerGetReplicatorsCall is the typed call wrapper for GetReplicators.
+type MockInstanceServerGetReplicatorsCall = gomock.Call1_2[string, []api.Replicator, error]
 
 // GetServer mocks base method.
 func (m *MockInstanceServer) GetServer() (*api.Server, string, error) {
@@ -6277,42 +5838,6 @@ func (mr *MockInstanceServerMockRecorder) IssueBearerIdentityToken(nameOrIdentif
 // MockInstanceServerIssueBearerIdentityTokenCall is the typed call wrapper for IssueBearerIdentityToken.
 type MockInstanceServerIssueBearerIdentityTokenCall = gomock.Call2_2[string, api.IdentityBearerTokenPost, *api.IdentityBearerToken, error]
 
-// MigrateContainer mocks base method.
-func (m *MockInstanceServer) MigrateContainer(name string, container api.ContainerPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.migrateContainerExpects, m.ctrl, m, "MigrateContainer", name, container)
-}
-
-// MigrateContainer indicates an expected call of MigrateContainer.
-func (mr *MockInstanceServerMockRecorder) MigrateContainer(name, container any) *MockInstanceServerMigrateContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, api.ContainerPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "MigrateContainer", gomock.EnsureMatcher(name), gomock.EnsureMatcher(container))
-	mr.migrateContainerExpects = append(mr.migrateContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerMigrateContainerCall is the typed call wrapper for MigrateContainer.
-type MockInstanceServerMigrateContainerCall = gomock.Call2_2[string, api.ContainerPost, lxd.Operation, error]
-
-// MigrateContainerSnapshot mocks base method.
-func (m *MockInstanceServer) MigrateContainerSnapshot(containerName, name string, container api.ContainerSnapshotPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.migrateContainerSnapshotExpects, m.ctrl, m, "MigrateContainerSnapshot", containerName, name, container)
-}
-
-// MigrateContainerSnapshot indicates an expected call of MigrateContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) MigrateContainerSnapshot(containerName, name, container any) *MockInstanceServerMigrateContainerSnapshotCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, string, api.ContainerSnapshotPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "MigrateContainerSnapshot", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name), gomock.EnsureMatcher(container))
-	mr.migrateContainerSnapshotExpects = append(mr.migrateContainerSnapshotExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerMigrateContainerSnapshotCall is the typed call wrapper for MigrateContainerSnapshot.
-type MockInstanceServerMigrateContainerSnapshotCall = gomock.Call3_2[string, string, api.ContainerSnapshotPost, lxd.Operation, error]
-
 // MigrateInstance mocks base method.
 func (m *MockInstanceServer) MigrateInstance(name string, instance api.InstancePost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -6529,6 +6054,24 @@ func (mr *MockInstanceServerMockRecorder) RenameClusterGroup(name, group any) *M
 // MockInstanceServerRenameClusterGroupCall is the typed call wrapper for RenameClusterGroup.
 type MockInstanceServerRenameClusterGroupCall = gomock.Call2_1[string, api.ClusterGroupPost, error]
 
+// RenameClusterLink mocks base method.
+func (m *MockInstanceServer) RenameClusterLink(name string, clusterLink api.ClusterLinkPost) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.renameClusterLinkExpects, m.ctrl, m, "RenameClusterLink", name, clusterLink)
+}
+
+// RenameClusterLink indicates an expected call of RenameClusterLink.
+func (mr *MockInstanceServerMockRecorder) RenameClusterLink(name, clusterLink any) *MockInstanceServerRenameClusterLinkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[string, api.ClusterLinkPost, error](mr.mock.ctrl.T, mr.mock, "RenameClusterLink", gomock.EnsureMatcher(name), gomock.EnsureMatcher(clusterLink))
+	mr.renameClusterLinkExpects = append(mr.renameClusterLinkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerRenameClusterLinkCall is the typed call wrapper for RenameClusterLink.
+type MockInstanceServerRenameClusterLinkCall = gomock.Call2_1[string, api.ClusterLinkPost, error]
+
 // RenameClusterMember mocks base method.
 func (m *MockInstanceServer) RenameClusterMember(name string, member api.ClusterMemberPost) error {
 	m.ctrl.T.Helper()
@@ -6546,60 +6089,6 @@ func (mr *MockInstanceServerMockRecorder) RenameClusterMember(name, member any) 
 
 // MockInstanceServerRenameClusterMemberCall is the typed call wrapper for RenameClusterMember.
 type MockInstanceServerRenameClusterMemberCall = gomock.Call2_1[string, api.ClusterMemberPost, error]
-
-// RenameContainer mocks base method.
-func (m *MockInstanceServer) RenameContainer(name string, container api.ContainerPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.renameContainerExpects, m.ctrl, m, "RenameContainer", name, container)
-}
-
-// RenameContainer indicates an expected call of RenameContainer.
-func (mr *MockInstanceServerMockRecorder) RenameContainer(name, container any) *MockInstanceServerRenameContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[string, api.ContainerPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "RenameContainer", gomock.EnsureMatcher(name), gomock.EnsureMatcher(container))
-	mr.renameContainerExpects = append(mr.renameContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerRenameContainerCall is the typed call wrapper for RenameContainer.
-type MockInstanceServerRenameContainerCall = gomock.Call2_2[string, api.ContainerPost, lxd.Operation, error]
-
-// RenameContainerBackup mocks base method.
-func (m *MockInstanceServer) RenameContainerBackup(containerName, name string, backup api.ContainerBackupPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.renameContainerBackupExpects, m.ctrl, m, "RenameContainerBackup", containerName, name, backup)
-}
-
-// RenameContainerBackup indicates an expected call of RenameContainerBackup.
-func (mr *MockInstanceServerMockRecorder) RenameContainerBackup(containerName, name, backup any) *MockInstanceServerRenameContainerBackupCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, string, api.ContainerBackupPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "RenameContainerBackup", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name), gomock.EnsureMatcher(backup))
-	mr.renameContainerBackupExpects = append(mr.renameContainerBackupExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerRenameContainerBackupCall is the typed call wrapper for RenameContainerBackup.
-type MockInstanceServerRenameContainerBackupCall = gomock.Call3_2[string, string, api.ContainerBackupPost, lxd.Operation, error]
-
-// RenameContainerSnapshot mocks base method.
-func (m *MockInstanceServer) RenameContainerSnapshot(containerName, name string, container api.ContainerSnapshotPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.renameContainerSnapshotExpects, m.ctrl, m, "RenameContainerSnapshot", containerName, name, container)
-}
-
-// RenameContainerSnapshot indicates an expected call of RenameContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) RenameContainerSnapshot(containerName, name, container any) *MockInstanceServerRenameContainerSnapshotCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, string, api.ContainerSnapshotPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "RenameContainerSnapshot", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name), gomock.EnsureMatcher(container))
-	mr.renameContainerSnapshotExpects = append(mr.renameContainerSnapshotExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerRenameContainerSnapshotCall is the typed call wrapper for RenameContainerSnapshot.
-type MockInstanceServerRenameContainerSnapshotCall = gomock.Call3_2[string, string, api.ContainerSnapshotPost, lxd.Operation, error]
 
 // RenameIdentityProviderGroup mocks base method.
 func (m *MockInstanceServer) RenameIdentityProviderGroup(identityProviderGroupName string, identityProviderGroupPost api.IdentityProviderGroupPost) error {
@@ -6692,40 +6181,40 @@ func (mr *MockInstanceServerMockRecorder) RenameInstanceSnapshot(instanceName, n
 type MockInstanceServerRenameInstanceSnapshotCall = gomock.Call3_2[string, string, api.InstanceSnapshotPost, lxd.Operation, error]
 
 // RenameNetwork mocks base method.
-func (m *MockInstanceServer) RenameNetwork(name string, network api.NetworkPost) error {
+func (m *MockInstanceServer) RenameNetwork(name string, network api.NetworkPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.renameNetworkExpects, m.ctrl, m, "RenameNetwork", name, network)
+	return gomock.Dispatch2_2(&m.recorder.renameNetworkExpects, m.ctrl, m, "RenameNetwork", name, network)
 }
 
 // RenameNetwork indicates an expected call of RenameNetwork.
 func (mr *MockInstanceServerMockRecorder) RenameNetwork(name, network any) *MockInstanceServerRenameNetworkCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, api.NetworkPost, error](mr.mock.ctrl.T, mr.mock, "RenameNetwork", gomock.EnsureMatcher(name), gomock.EnsureMatcher(network))
+	call := gomock.NewCall2_2[string, api.NetworkPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "RenameNetwork", gomock.EnsureMatcher(name), gomock.EnsureMatcher(network))
 	mr.renameNetworkExpects = append(mr.renameNetworkExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerRenameNetworkCall is the typed call wrapper for RenameNetwork.
-type MockInstanceServerRenameNetworkCall = gomock.Call2_1[string, api.NetworkPost, error]
+type MockInstanceServerRenameNetworkCall = gomock.Call2_2[string, api.NetworkPost, lxd.Operation, error]
 
 // RenameNetworkACL mocks base method.
-func (m *MockInstanceServer) RenameNetworkACL(name string, acl api.NetworkACLPost) error {
+func (m *MockInstanceServer) RenameNetworkACL(name string, acl api.NetworkACLPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_1(&m.recorder.renameNetworkACLExpects, m.ctrl, m, "RenameNetworkACL", name, acl)
+	return gomock.Dispatch2_2(&m.recorder.renameNetworkACLExpects, m.ctrl, m, "RenameNetworkACL", name, acl)
 }
 
 // RenameNetworkACL indicates an expected call of RenameNetworkACL.
 func (mr *MockInstanceServerMockRecorder) RenameNetworkACL(name, acl any) *MockInstanceServerRenameNetworkACLCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[string, api.NetworkACLPost, error](mr.mock.ctrl.T, mr.mock, "RenameNetworkACL", gomock.EnsureMatcher(name), gomock.EnsureMatcher(acl))
+	call := gomock.NewCall2_2[string, api.NetworkACLPost, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "RenameNetworkACL", gomock.EnsureMatcher(name), gomock.EnsureMatcher(acl))
 	mr.renameNetworkACLExpects = append(mr.renameNetworkACLExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerRenameNetworkACLCall is the typed call wrapper for RenameNetworkACL.
-type MockInstanceServerRenameNetworkACLCall = gomock.Call2_1[string, api.NetworkACLPost, error]
+type MockInstanceServerRenameNetworkACLCall = gomock.Call2_2[string, api.NetworkACLPost, lxd.Operation, error]
 
 // RenamePlacementGroup mocks base method.
 func (m *MockInstanceServer) RenamePlacementGroup(placementGroupName string, placementGroupPost api.PlacementGroupPost) error {
@@ -6780,6 +6269,24 @@ func (mr *MockInstanceServerMockRecorder) RenameProject(name, project any) *Mock
 
 // MockInstanceServerRenameProjectCall is the typed call wrapper for RenameProject.
 type MockInstanceServerRenameProjectCall = gomock.Call2_2[string, api.ProjectPost, lxd.Operation, error]
+
+// RenameReplicator mocks base method.
+func (m *MockInstanceServer) RenameReplicator(project, name string, replicator api.ReplicatorPost) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.renameReplicatorExpects, m.ctrl, m, "RenameReplicator", project, name, replicator)
+}
+
+// RenameReplicator indicates an expected call of RenameReplicator.
+func (mr *MockInstanceServerMockRecorder) RenameReplicator(project, name, replicator any) *MockInstanceServerRenameReplicatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[string, string, api.ReplicatorPost, error](mr.mock.ctrl.T, mr.mock, "RenameReplicator", gomock.EnsureMatcher(project), gomock.EnsureMatcher(name), gomock.EnsureMatcher(replicator))
+	mr.renameReplicatorExpects = append(mr.renameReplicatorExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerRenameReplicatorCall is the typed call wrapper for RenameReplicator.
+type MockInstanceServerRenameReplicatorCall = gomock.Call3_1[string, string, api.ReplicatorPost, error]
 
 // RenameStoragePoolVolume mocks base method.
 func (m *MockInstanceServer) RenameStoragePoolVolume(pool, volType, name string, volume api.StorageVolumePost) (lxd.Operation, error) {
@@ -6871,6 +6378,24 @@ func (mr *MockInstanceServerMockRecorder) RevokeBearerIdentityToken(nameOrIdenti
 // MockInstanceServerRevokeBearerIdentityTokenCall is the typed call wrapper for RevokeBearerIdentityToken.
 type MockInstanceServerRevokeBearerIdentityTokenCall = gomock.Call1_1[string, error]
 
+// RunReplicator mocks base method.
+func (m *MockInstanceServer) RunReplicator(project, name string, req api.ReplicatorStatePut) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.runReplicatorExpects, m.ctrl, m, "RunReplicator", project, name, req)
+}
+
+// RunReplicator indicates an expected call of RunReplicator.
+func (mr *MockInstanceServerMockRecorder) RunReplicator(project, name, req any) *MockInstanceServerRunReplicatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[string, string, api.ReplicatorStatePut, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "RunReplicator", gomock.EnsureMatcher(project), gomock.EnsureMatcher(name), gomock.EnsureMatcher(req))
+	mr.runReplicatorExpects = append(mr.runReplicatorExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerRunReplicatorCall is the typed call wrapper for RunReplicator.
+type MockInstanceServerRunReplicatorCall = gomock.Call3_2[string, string, api.ReplicatorStatePut, lxd.Operation, error]
+
 // SendEvent mocks base method.
 func (m *MockInstanceServer) SendEvent(event api.Event) error {
 	m.ctrl.T.Helper()
@@ -6888,24 +6413,6 @@ func (mr *MockInstanceServerMockRecorder) SendEvent(event any) *MockInstanceServ
 
 // MockInstanceServerSendEventCall is the typed call wrapper for SendEvent.
 type MockInstanceServerSendEventCall = gomock.Call1_1[api.Event, error]
-
-// SetContainerMetadata mocks base method.
-func (m *MockInstanceServer) SetContainerMetadata(name string, metadata api.ImageMetadata, ETag string) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.setContainerMetadataExpects, m.ctrl, m, "SetContainerMetadata", name, metadata, ETag)
-}
-
-// SetContainerMetadata indicates an expected call of SetContainerMetadata.
-func (mr *MockInstanceServerMockRecorder) SetContainerMetadata(name, metadata, ETag any) *MockInstanceServerSetContainerMetadataCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, api.ImageMetadata, string, error](mr.mock.ctrl.T, mr.mock, "SetContainerMetadata", gomock.EnsureMatcher(name), gomock.EnsureMatcher(metadata), gomock.EnsureMatcher(ETag))
-	mr.setContainerMetadataExpects = append(mr.setContainerMetadataExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerSetContainerMetadataCall is the typed call wrapper for SetContainerMetadata.
-type MockInstanceServerSetContainerMetadataCall = gomock.Call3_1[string, api.ImageMetadata, string, error]
 
 // UpdateAuthGroup mocks base method.
 func (m *MockInstanceServer) UpdateAuthGroup(groupName string, groupPut api.AuthGroupPut, ETag string) error {
@@ -6997,6 +6504,24 @@ func (mr *MockInstanceServerMockRecorder) UpdateClusterGroup(name, group, ETag a
 // MockInstanceServerUpdateClusterGroupCall is the typed call wrapper for UpdateClusterGroup.
 type MockInstanceServerUpdateClusterGroupCall = gomock.Call3_1[string, api.ClusterGroupPut, string, error]
 
+// UpdateClusterLink mocks base method.
+func (m *MockInstanceServer) UpdateClusterLink(name string, clusterLink api.ClusterLinkPut, ETag string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_1(&m.recorder.updateClusterLinkExpects, m.ctrl, m, "UpdateClusterLink", name, clusterLink, ETag)
+}
+
+// UpdateClusterLink indicates an expected call of UpdateClusterLink.
+func (mr *MockInstanceServerMockRecorder) UpdateClusterLink(name, clusterLink, ETag any) *MockInstanceServerUpdateClusterLinkCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_1[string, api.ClusterLinkPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateClusterLink", gomock.EnsureMatcher(name), gomock.EnsureMatcher(clusterLink), gomock.EnsureMatcher(ETag))
+	mr.updateClusterLinkExpects = append(mr.updateClusterLinkExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerUpdateClusterLinkCall is the typed call wrapper for UpdateClusterLink.
+type MockInstanceServerUpdateClusterLinkCall = gomock.Call3_1[string, api.ClusterLinkPut, string, error]
+
 // UpdateClusterMember mocks base method.
 func (m *MockInstanceServer) UpdateClusterMember(name string, member api.ClusterMemberPut, ETag string) error {
 	m.ctrl.T.Helper()
@@ -7032,78 +6557,6 @@ func (mr *MockInstanceServerMockRecorder) UpdateClusterMemberState(name, state a
 
 // MockInstanceServerUpdateClusterMemberStateCall is the typed call wrapper for UpdateClusterMemberState.
 type MockInstanceServerUpdateClusterMemberStateCall = gomock.Call2_2[string, api.ClusterMemberStatePost, lxd.Operation, error]
-
-// UpdateContainer mocks base method.
-func (m *MockInstanceServer) UpdateContainer(name string, container api.ContainerPut, ETag string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.updateContainerExpects, m.ctrl, m, "UpdateContainer", name, container, ETag)
-}
-
-// UpdateContainer indicates an expected call of UpdateContainer.
-func (mr *MockInstanceServerMockRecorder) UpdateContainer(name, container, ETag any) *MockInstanceServerUpdateContainerCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, api.ContainerPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateContainer", gomock.EnsureMatcher(name), gomock.EnsureMatcher(container), gomock.EnsureMatcher(ETag))
-	mr.updateContainerExpects = append(mr.updateContainerExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerUpdateContainerCall is the typed call wrapper for UpdateContainer.
-type MockInstanceServerUpdateContainerCall = gomock.Call3_2[string, api.ContainerPut, string, lxd.Operation, error]
-
-// UpdateContainerSnapshot mocks base method.
-func (m *MockInstanceServer) UpdateContainerSnapshot(containerName, name string, container api.ContainerSnapshotPut, ETag string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch4_2(&m.recorder.updateContainerSnapshotExpects, m.ctrl, m, "UpdateContainerSnapshot", containerName, name, container, ETag)
-}
-
-// UpdateContainerSnapshot indicates an expected call of UpdateContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) UpdateContainerSnapshot(containerName, name, container, ETag any) *MockInstanceServerUpdateContainerSnapshotCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_2[string, string, api.ContainerSnapshotPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateContainerSnapshot", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(name), gomock.EnsureMatcher(container), gomock.EnsureMatcher(ETag))
-	mr.updateContainerSnapshotExpects = append(mr.updateContainerSnapshotExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerUpdateContainerSnapshotCall is the typed call wrapper for UpdateContainerSnapshot.
-type MockInstanceServerUpdateContainerSnapshotCall = gomock.Call4_2[string, string, api.ContainerSnapshotPut, string, lxd.Operation, error]
-
-// UpdateContainerState mocks base method.
-func (m *MockInstanceServer) UpdateContainerState(name string, state api.ContainerStatePut, ETag string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_2(&m.recorder.updateContainerStateExpects, m.ctrl, m, "UpdateContainerState", name, state, ETag)
-}
-
-// UpdateContainerState indicates an expected call of UpdateContainerState.
-func (mr *MockInstanceServerMockRecorder) UpdateContainerState(name, state, ETag any) *MockInstanceServerUpdateContainerStateCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_2[string, api.ContainerStatePut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateContainerState", gomock.EnsureMatcher(name), gomock.EnsureMatcher(state), gomock.EnsureMatcher(ETag))
-	mr.updateContainerStateExpects = append(mr.updateContainerStateExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerUpdateContainerStateCall is the typed call wrapper for UpdateContainerState.
-type MockInstanceServerUpdateContainerStateCall = gomock.Call3_2[string, api.ContainerStatePut, string, lxd.Operation, error]
-
-// UpdateContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) UpdateContainerTemplateFile(containerName, templateName string, content io.ReadSeeker) error {
-	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.updateContainerTemplateFileExpects, m.ctrl, m, "UpdateContainerTemplateFile", containerName, templateName, content)
-}
-
-// UpdateContainerTemplateFile indicates an expected call of UpdateContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) UpdateContainerTemplateFile(containerName, templateName, content any) *MockInstanceServerUpdateContainerTemplateFileCall {
-	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, string, io.ReadSeeker, error](mr.mock.ctrl.T, mr.mock, "UpdateContainerTemplateFile", gomock.EnsureMatcher(containerName), gomock.EnsureMatcher(templateName), gomock.EnsureMatcher(content))
-	mr.updateContainerTemplateFileExpects = append(mr.updateContainerTemplateFileExpects, call)
-	mr.mock.ctrl.Track(call.Call)
-	return call
-}
-
-// MockInstanceServerUpdateContainerTemplateFileCall is the typed call wrapper for UpdateContainerTemplateFile.
-type MockInstanceServerUpdateContainerTemplateFileCall = gomock.Call3_1[string, string, io.ReadSeeker, error]
 
 // UpdateIdentity mocks base method.
 func (m *MockInstanceServer) UpdateIdentity(authenticationMethod, nameOrIdentifier string, identityPut api.IdentityPut, ETag string) error {
@@ -7286,130 +6739,148 @@ func (mr *MockInstanceServerMockRecorder) UpdateInstances(state, ETag any) *Mock
 type MockInstanceServerUpdateInstancesCall = gomock.Call2_2[api.InstancesPut, string, lxd.Operation, error]
 
 // UpdateNetwork mocks base method.
-func (m *MockInstanceServer) UpdateNetwork(name string, network api.NetworkPut, ETag string) error {
+func (m *MockInstanceServer) UpdateNetwork(name string, network api.NetworkPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.updateNetworkExpects, m.ctrl, m, "UpdateNetwork", name, network, ETag)
+	return gomock.Dispatch3_2(&m.recorder.updateNetworkExpects, m.ctrl, m, "UpdateNetwork", name, network, ETag)
 }
 
 // UpdateNetwork indicates an expected call of UpdateNetwork.
 func (mr *MockInstanceServerMockRecorder) UpdateNetwork(name, network, ETag any) *MockInstanceServerUpdateNetworkCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, api.NetworkPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateNetwork", gomock.EnsureMatcher(name), gomock.EnsureMatcher(network), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall3_2[string, api.NetworkPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetwork", gomock.EnsureMatcher(name), gomock.EnsureMatcher(network), gomock.EnsureMatcher(ETag))
 	mr.updateNetworkExpects = append(mr.updateNetworkExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateNetworkCall is the typed call wrapper for UpdateNetwork.
-type MockInstanceServerUpdateNetworkCall = gomock.Call3_1[string, api.NetworkPut, string, error]
+type MockInstanceServerUpdateNetworkCall = gomock.Call3_2[string, api.NetworkPut, string, lxd.Operation, error]
 
 // UpdateNetworkACL mocks base method.
-func (m *MockInstanceServer) UpdateNetworkACL(name string, acl api.NetworkACLPut, ETag string) error {
+func (m *MockInstanceServer) UpdateNetworkACL(name string, acl api.NetworkACLPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.updateNetworkACLExpects, m.ctrl, m, "UpdateNetworkACL", name, acl, ETag)
+	return gomock.Dispatch3_2(&m.recorder.updateNetworkACLExpects, m.ctrl, m, "UpdateNetworkACL", name, acl, ETag)
 }
 
 // UpdateNetworkACL indicates an expected call of UpdateNetworkACL.
 func (mr *MockInstanceServerMockRecorder) UpdateNetworkACL(name, acl, ETag any) *MockInstanceServerUpdateNetworkACLCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, api.NetworkACLPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkACL", gomock.EnsureMatcher(name), gomock.EnsureMatcher(acl), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall3_2[string, api.NetworkACLPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkACL", gomock.EnsureMatcher(name), gomock.EnsureMatcher(acl), gomock.EnsureMatcher(ETag))
 	mr.updateNetworkACLExpects = append(mr.updateNetworkACLExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateNetworkACLCall is the typed call wrapper for UpdateNetworkACL.
-type MockInstanceServerUpdateNetworkACLCall = gomock.Call3_1[string, api.NetworkACLPut, string, error]
+type MockInstanceServerUpdateNetworkACLCall = gomock.Call3_2[string, api.NetworkACLPut, string, lxd.Operation, error]
 
 // UpdateNetworkForward mocks base method.
-func (m *MockInstanceServer) UpdateNetworkForward(networkName, listenAddress string, forward api.NetworkForwardPut, ETag string) error {
+func (m *MockInstanceServer) UpdateNetworkForward(networkName, listenAddress string, forward api.NetworkForwardPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.updateNetworkForwardExpects, m.ctrl, m, "UpdateNetworkForward", networkName, listenAddress, forward, ETag)
+	return gomock.Dispatch4_2(&m.recorder.updateNetworkForwardExpects, m.ctrl, m, "UpdateNetworkForward", networkName, listenAddress, forward, ETag)
 }
 
 // UpdateNetworkForward indicates an expected call of UpdateNetworkForward.
 func (mr *MockInstanceServerMockRecorder) UpdateNetworkForward(networkName, listenAddress, forward, ETag any) *MockInstanceServerUpdateNetworkForwardCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[string, string, api.NetworkForwardPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress), gomock.EnsureMatcher(forward), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall4_2[string, string, api.NetworkForwardPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkForward", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress), gomock.EnsureMatcher(forward), gomock.EnsureMatcher(ETag))
 	mr.updateNetworkForwardExpects = append(mr.updateNetworkForwardExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateNetworkForwardCall is the typed call wrapper for UpdateNetworkForward.
-type MockInstanceServerUpdateNetworkForwardCall = gomock.Call4_1[string, string, api.NetworkForwardPut, string, error]
+type MockInstanceServerUpdateNetworkForwardCall = gomock.Call4_2[string, string, api.NetworkForwardPut, string, lxd.Operation, error]
 
 // UpdateNetworkLoadBalancer mocks base method.
-func (m *MockInstanceServer) UpdateNetworkLoadBalancer(networkName, listenAddress string, forward api.NetworkLoadBalancerPut, ETag string) error {
+func (m *MockInstanceServer) UpdateNetworkLoadBalancer(networkName, listenAddress string, forward api.NetworkLoadBalancerPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.updateNetworkLoadBalancerExpects, m.ctrl, m, "UpdateNetworkLoadBalancer", networkName, listenAddress, forward, ETag)
+	return gomock.Dispatch4_2(&m.recorder.updateNetworkLoadBalancerExpects, m.ctrl, m, "UpdateNetworkLoadBalancer", networkName, listenAddress, forward, ETag)
 }
 
 // UpdateNetworkLoadBalancer indicates an expected call of UpdateNetworkLoadBalancer.
 func (mr *MockInstanceServerMockRecorder) UpdateNetworkLoadBalancer(networkName, listenAddress, forward, ETag any) *MockInstanceServerUpdateNetworkLoadBalancerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[string, string, api.NetworkLoadBalancerPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkLoadBalancer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress), gomock.EnsureMatcher(forward), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall4_2[string, string, api.NetworkLoadBalancerPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkLoadBalancer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(listenAddress), gomock.EnsureMatcher(forward), gomock.EnsureMatcher(ETag))
 	mr.updateNetworkLoadBalancerExpects = append(mr.updateNetworkLoadBalancerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateNetworkLoadBalancerCall is the typed call wrapper for UpdateNetworkLoadBalancer.
-type MockInstanceServerUpdateNetworkLoadBalancerCall = gomock.Call4_1[string, string, api.NetworkLoadBalancerPut, string, error]
+type MockInstanceServerUpdateNetworkLoadBalancerCall = gomock.Call4_2[string, string, api.NetworkLoadBalancerPut, string, lxd.Operation, error]
+
+// UpdateNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) UpdateNetworkLoadBalancerPool(networkName, poolName string, pool api.NetworkLoadBalancerPoolPut, ETag string) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_2(&m.recorder.updateNetworkLoadBalancerPoolExpects, m.ctrl, m, "UpdateNetworkLoadBalancerPool", networkName, poolName, pool, ETag)
+}
+
+// UpdateNetworkLoadBalancerPool indicates an expected call of UpdateNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) UpdateNetworkLoadBalancerPool(networkName, poolName, pool, ETag any) *MockInstanceServerUpdateNetworkLoadBalancerPoolCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_2[string, string, api.NetworkLoadBalancerPoolPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkLoadBalancerPool", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(pool), gomock.EnsureMatcher(ETag))
+	mr.updateNetworkLoadBalancerPoolExpects = append(mr.updateNetworkLoadBalancerPoolExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerUpdateNetworkLoadBalancerPoolCall is the typed call wrapper for UpdateNetworkLoadBalancerPool.
+type MockInstanceServerUpdateNetworkLoadBalancerPoolCall = gomock.Call4_2[string, string, api.NetworkLoadBalancerPoolPut, string, lxd.Operation, error]
 
 // UpdateNetworkPeer mocks base method.
-func (m *MockInstanceServer) UpdateNetworkPeer(networkName, peerName string, peer api.NetworkPeerPut, ETag string) error {
+func (m *MockInstanceServer) UpdateNetworkPeer(networkName, peerName string, peer api.NetworkPeerPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.updateNetworkPeerExpects, m.ctrl, m, "UpdateNetworkPeer", networkName, peerName, peer, ETag)
+	return gomock.Dispatch4_2(&m.recorder.updateNetworkPeerExpects, m.ctrl, m, "UpdateNetworkPeer", networkName, peerName, peer, ETag)
 }
 
 // UpdateNetworkPeer indicates an expected call of UpdateNetworkPeer.
 func (mr *MockInstanceServerMockRecorder) UpdateNetworkPeer(networkName, peerName, peer, ETag any) *MockInstanceServerUpdateNetworkPeerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[string, string, api.NetworkPeerPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkPeer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(peerName), gomock.EnsureMatcher(peer), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall4_2[string, string, api.NetworkPeerPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkPeer", gomock.EnsureMatcher(networkName), gomock.EnsureMatcher(peerName), gomock.EnsureMatcher(peer), gomock.EnsureMatcher(ETag))
 	mr.updateNetworkPeerExpects = append(mr.updateNetworkPeerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateNetworkPeerCall is the typed call wrapper for UpdateNetworkPeer.
-type MockInstanceServerUpdateNetworkPeerCall = gomock.Call4_1[string, string, api.NetworkPeerPut, string, error]
+type MockInstanceServerUpdateNetworkPeerCall = gomock.Call4_2[string, string, api.NetworkPeerPut, string, lxd.Operation, error]
 
 // UpdateNetworkZone mocks base method.
-func (m *MockInstanceServer) UpdateNetworkZone(name string, zone api.NetworkZonePut, ETag string) error {
+func (m *MockInstanceServer) UpdateNetworkZone(name string, zone api.NetworkZonePut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.updateNetworkZoneExpects, m.ctrl, m, "UpdateNetworkZone", name, zone, ETag)
+	return gomock.Dispatch3_2(&m.recorder.updateNetworkZoneExpects, m.ctrl, m, "UpdateNetworkZone", name, zone, ETag)
 }
 
 // UpdateNetworkZone indicates an expected call of UpdateNetworkZone.
 func (mr *MockInstanceServerMockRecorder) UpdateNetworkZone(name, zone, ETag any) *MockInstanceServerUpdateNetworkZoneCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, api.NetworkZonePut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkZone", gomock.EnsureMatcher(name), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall3_2[string, api.NetworkZonePut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkZone", gomock.EnsureMatcher(name), gomock.EnsureMatcher(zone), gomock.EnsureMatcher(ETag))
 	mr.updateNetworkZoneExpects = append(mr.updateNetworkZoneExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateNetworkZoneCall is the typed call wrapper for UpdateNetworkZone.
-type MockInstanceServerUpdateNetworkZoneCall = gomock.Call3_1[string, api.NetworkZonePut, string, error]
+type MockInstanceServerUpdateNetworkZoneCall = gomock.Call3_2[string, api.NetworkZonePut, string, lxd.Operation, error]
 
 // UpdateNetworkZoneRecord mocks base method.
-func (m *MockInstanceServer) UpdateNetworkZoneRecord(zone, name string, record api.NetworkZoneRecordPut, ETag string) error {
+func (m *MockInstanceServer) UpdateNetworkZoneRecord(zone, name string, record api.NetworkZoneRecordPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.updateNetworkZoneRecordExpects, m.ctrl, m, "UpdateNetworkZoneRecord", zone, name, record, ETag)
+	return gomock.Dispatch4_2(&m.recorder.updateNetworkZoneRecordExpects, m.ctrl, m, "UpdateNetworkZoneRecord", zone, name, record, ETag)
 }
 
 // UpdateNetworkZoneRecord indicates an expected call of UpdateNetworkZoneRecord.
 func (mr *MockInstanceServerMockRecorder) UpdateNetworkZoneRecord(zone, name, record, ETag any) *MockInstanceServerUpdateNetworkZoneRecordCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[string, string, api.NetworkZoneRecordPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkZoneRecord", gomock.EnsureMatcher(zone), gomock.EnsureMatcher(name), gomock.EnsureMatcher(record), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall4_2[string, string, api.NetworkZoneRecordPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateNetworkZoneRecord", gomock.EnsureMatcher(zone), gomock.EnsureMatcher(name), gomock.EnsureMatcher(record), gomock.EnsureMatcher(ETag))
 	mr.updateNetworkZoneRecordExpects = append(mr.updateNetworkZoneRecordExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateNetworkZoneRecordCall is the typed call wrapper for UpdateNetworkZoneRecord.
-type MockInstanceServerUpdateNetworkZoneRecordCall = gomock.Call4_1[string, string, api.NetworkZoneRecordPut, string, error]
+type MockInstanceServerUpdateNetworkZoneRecordCall = gomock.Call4_2[string, string, api.NetworkZoneRecordPut, string, lxd.Operation, error]
 
 // UpdatePlacementGroup mocks base method.
 func (m *MockInstanceServer) UpdatePlacementGroup(placementGroupName string, placementGroupPut api.PlacementGroupPut, ETag string) error {
@@ -7465,6 +6936,42 @@ func (mr *MockInstanceServerMockRecorder) UpdateProject(name, project, ETag any)
 // MockInstanceServerUpdateProjectCall is the typed call wrapper for UpdateProject.
 type MockInstanceServerUpdateProjectCall = gomock.Call3_1[string, api.ProjectPut, string, error]
 
+// UpdateProjectState mocks base method.
+func (m *MockInstanceServer) UpdateProjectState(name string, state api.ProjectStatePut, force bool) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.updateProjectStateExpects, m.ctrl, m, "UpdateProjectState", name, state, force)
+}
+
+// UpdateProjectState indicates an expected call of UpdateProjectState.
+func (mr *MockInstanceServerMockRecorder) UpdateProjectState(name, state, force any) *MockInstanceServerUpdateProjectStateCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[string, api.ProjectStatePut, bool, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateProjectState", gomock.EnsureMatcher(name), gomock.EnsureMatcher(state), gomock.EnsureMatcher(force))
+	mr.updateProjectStateExpects = append(mr.updateProjectStateExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerUpdateProjectStateCall is the typed call wrapper for UpdateProjectState.
+type MockInstanceServerUpdateProjectStateCall = gomock.Call3_2[string, api.ProjectStatePut, bool, lxd.Operation, error]
+
+// UpdateReplicator mocks base method.
+func (m *MockInstanceServer) UpdateReplicator(project, name string, replicator api.ReplicatorPut, ETag string) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4_1(&m.recorder.updateReplicatorExpects, m.ctrl, m, "UpdateReplicator", project, name, replicator, ETag)
+}
+
+// UpdateReplicator indicates an expected call of UpdateReplicator.
+func (mr *MockInstanceServerMockRecorder) UpdateReplicator(project, name, replicator, ETag any) *MockInstanceServerUpdateReplicatorCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall4_1[string, string, api.ReplicatorPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateReplicator", gomock.EnsureMatcher(project), gomock.EnsureMatcher(name), gomock.EnsureMatcher(replicator), gomock.EnsureMatcher(ETag))
+	mr.updateReplicatorExpects = append(mr.updateReplicatorExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockInstanceServerUpdateReplicatorCall is the typed call wrapper for UpdateReplicator.
+type MockInstanceServerUpdateReplicatorCall = gomock.Call4_1[string, string, api.ReplicatorPut, string, error]
+
 // UpdateServer mocks base method.
 func (m *MockInstanceServer) UpdateServer(server api.ServerPut, ETag string) error {
 	m.ctrl.T.Helper()
@@ -7484,58 +6991,58 @@ func (mr *MockInstanceServerMockRecorder) UpdateServer(server, ETag any) *MockIn
 type MockInstanceServerUpdateServerCall = gomock.Call2_1[api.ServerPut, string, error]
 
 // UpdateStoragePool mocks base method.
-func (m *MockInstanceServer) UpdateStoragePool(name string, pool api.StoragePoolPut, ETag string) error {
+func (m *MockInstanceServer) UpdateStoragePool(name string, pool api.StoragePoolPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.updateStoragePoolExpects, m.ctrl, m, "UpdateStoragePool", name, pool, ETag)
+	return gomock.Dispatch3_2(&m.recorder.updateStoragePoolExpects, m.ctrl, m, "UpdateStoragePool", name, pool, ETag)
 }
 
 // UpdateStoragePool indicates an expected call of UpdateStoragePool.
 func (mr *MockInstanceServerMockRecorder) UpdateStoragePool(name, pool, ETag any) *MockInstanceServerUpdateStoragePoolCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[string, api.StoragePoolPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateStoragePool", gomock.EnsureMatcher(name), gomock.EnsureMatcher(pool), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall3_2[string, api.StoragePoolPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateStoragePool", gomock.EnsureMatcher(name), gomock.EnsureMatcher(pool), gomock.EnsureMatcher(ETag))
 	mr.updateStoragePoolExpects = append(mr.updateStoragePoolExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateStoragePoolCall is the typed call wrapper for UpdateStoragePool.
-type MockInstanceServerUpdateStoragePoolCall = gomock.Call3_1[string, api.StoragePoolPut, string, error]
+type MockInstanceServerUpdateStoragePoolCall = gomock.Call3_2[string, api.StoragePoolPut, string, lxd.Operation, error]
 
 // UpdateStoragePoolBucket mocks base method.
-func (m *MockInstanceServer) UpdateStoragePoolBucket(poolName, bucketName string, bucket api.StorageBucketPut, ETag string) error {
+func (m *MockInstanceServer) UpdateStoragePoolBucket(poolName, bucketName string, bucket api.StorageBucketPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch4_1(&m.recorder.updateStoragePoolBucketExpects, m.ctrl, m, "UpdateStoragePoolBucket", poolName, bucketName, bucket, ETag)
+	return gomock.Dispatch4_2(&m.recorder.updateStoragePoolBucketExpects, m.ctrl, m, "UpdateStoragePoolBucket", poolName, bucketName, bucket, ETag)
 }
 
 // UpdateStoragePoolBucket indicates an expected call of UpdateStoragePoolBucket.
 func (mr *MockInstanceServerMockRecorder) UpdateStoragePoolBucket(poolName, bucketName, bucket, ETag any) *MockInstanceServerUpdateStoragePoolBucketCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall4_1[string, string, api.StorageBucketPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateStoragePoolBucket", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(bucket), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall4_2[string, string, api.StorageBucketPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateStoragePoolBucket", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(bucket), gomock.EnsureMatcher(ETag))
 	mr.updateStoragePoolBucketExpects = append(mr.updateStoragePoolBucketExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateStoragePoolBucketCall is the typed call wrapper for UpdateStoragePoolBucket.
-type MockInstanceServerUpdateStoragePoolBucketCall = gomock.Call4_1[string, string, api.StorageBucketPut, string, error]
+type MockInstanceServerUpdateStoragePoolBucketCall = gomock.Call4_2[string, string, api.StorageBucketPut, string, lxd.Operation, error]
 
 // UpdateStoragePoolBucketKey mocks base method.
-func (m *MockInstanceServer) UpdateStoragePoolBucketKey(poolName, bucketName, keyName string, key api.StorageBucketKeyPut, ETag string) error {
+func (m *MockInstanceServer) UpdateStoragePoolBucketKey(poolName, bucketName, keyName string, key api.StorageBucketKeyPut, ETag string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch5_1(&m.recorder.updateStoragePoolBucketKeyExpects, m.ctrl, m, "UpdateStoragePoolBucketKey", poolName, bucketName, keyName, key, ETag)
+	return gomock.Dispatch5_2(&m.recorder.updateStoragePoolBucketKeyExpects, m.ctrl, m, "UpdateStoragePoolBucketKey", poolName, bucketName, keyName, key, ETag)
 }
 
 // UpdateStoragePoolBucketKey indicates an expected call of UpdateStoragePoolBucketKey.
 func (mr *MockInstanceServerMockRecorder) UpdateStoragePoolBucketKey(poolName, bucketName, keyName, key, ETag any) *MockInstanceServerUpdateStoragePoolBucketKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall5_1[string, string, string, api.StorageBucketKeyPut, string, error](mr.mock.ctrl.T, mr.mock, "UpdateStoragePoolBucketKey", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(keyName), gomock.EnsureMatcher(key), gomock.EnsureMatcher(ETag))
+	call := gomock.NewCall5_2[string, string, string, api.StorageBucketKeyPut, string, lxd.Operation, error](mr.mock.ctrl.T, mr.mock, "UpdateStoragePoolBucketKey", gomock.EnsureMatcher(poolName), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(keyName), gomock.EnsureMatcher(key), gomock.EnsureMatcher(ETag))
 	mr.updateStoragePoolBucketKeyExpects = append(mr.updateStoragePoolBucketKeyExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockInstanceServerUpdateStoragePoolBucketKeyCall is the typed call wrapper for UpdateStoragePoolBucketKey.
-type MockInstanceServerUpdateStoragePoolBucketKeyCall = gomock.Call5_1[string, string, string, api.StorageBucketKeyPut, string, error]
+type MockInstanceServerUpdateStoragePoolBucketKeyCall = gomock.Call5_2[string, string, string, api.StorageBucketKeyPut, string, lxd.Operation, error]
 
 // UpdateStoragePoolVolume mocks base method.
 func (m *MockInstanceServer) UpdateStoragePoolVolume(pool, volType, name string, volume api.StorageVolumePut, ETag string) (lxd.Operation, error) {
