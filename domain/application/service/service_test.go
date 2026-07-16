@@ -96,6 +96,23 @@ func (s *serviceSuite) TestEncodeChannelAndPlatformInvalidOSType(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, `unknown os type.*`)
 }
 
+func (s *serviceSuite) TestEncodeChannelAndPlatformUbuntuCore(c *tc.C) {
+	_, pl, err := encodeChannelAndPlatform(corecharm.Origin{
+		Channel: new(internalcharm.MakePermissiveChannel("track", "stable", "branch")),
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu-core",
+			Channel:      "24.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(pl, tc.DeepEquals, deployment.Platform{
+		Architecture: architecture.AMD64,
+		OSType:       deployment.Ubuntu,
+		Channel:      "24.04",
+	})
+}
+
 func (s *serviceSuite) TestRecordUnitStatusHistory(c *tc.C) {
 	var statusHistory *MockStatusHistory
 	defer s.setupMocksWithStatusHistory(c, func(c *gomock.Controller) StatusHistory {

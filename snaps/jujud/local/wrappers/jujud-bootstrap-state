@@ -1,0 +1,5 @@
+#!/bin/sh
+# Run bootstrap-state under an AppArmor-safe cwd. Bootstrap "snap run" via
+# sudo inherits /home/ubuntu which strict confinement cannot getcwd.
+cd "${SNAP_COMMON:-/}" || cd /
+exec "$SNAP/bin/jujud" bootstrap-state --data-dir "$SNAP_DATA" "$@"
