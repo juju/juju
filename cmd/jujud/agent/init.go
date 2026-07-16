@@ -79,13 +79,6 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 		return errors.New("SNAP_COMMON is not set")
 	}
 
-	initLogPath := filepath.Join(snapCommon, "init.log")
-	initLog, err := os.Create(initLogPath)
-	if err != nil {
-		return errors.Annotatef(err, "creating init log at %q", initLogPath)
-	}
-	defer initLog.Close()
-
 	runtimeSrc := filepath.Join(c.stagedDir, controllerruntimeconfig.Filename)
 	runtimeData, err := os.ReadFile(runtimeSrc)
 	if err != nil {

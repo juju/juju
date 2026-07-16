@@ -504,13 +504,6 @@ func bootstrapIAAS(
 		snapVersion = inspectedVersion
 		ctx.Infof("Inspected local controller snap version %s", inspectedVersion)
 
-		// Record the snap digest for integrity.
-		digest, err := digestLocalSnap(args.ControllerSnapPath)
-		if err != nil {
-			return errors.Annotate(err, "digesting local snap")
-		}
-		ctx.Infof("Local controller snap SHA-256 digest: %s", digest)
-
 		// Verify snap version is compatible with the bootstrap client.
 		snapCompat := snapVersion
 		snapCompat.Build = 0

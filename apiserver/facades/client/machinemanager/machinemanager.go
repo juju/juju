@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -24,7 +23,6 @@ import (
 	coremachine "github.com/juju/juju/core/machine"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	coreunit "github.com/juju/juju/core/unit"
@@ -219,16 +217,7 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 }
 
 func encodeOSType(os string) (deployment.OSType, error) {
-	if strings.EqualFold(os, "ubuntu-core") {
-		return deployment.Ubuntu, nil
-	}
-
-	switch ostype.OSTypeForName(os) {
-	case ostype.Ubuntu:
-		return deployment.Ubuntu, nil
-	default:
-		return 0, errors.Errorf("unknown os type %q, expected ubuntu", os)
-	}
+	return deployment.EncodeOSType(os)
 }
 
 // ProvisioningScript returns a shell script that, when run,

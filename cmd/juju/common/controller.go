@@ -15,6 +15,7 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/api"
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/jujuclient"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
@@ -27,20 +28,70 @@ import (
 )
 
 var (
-	bootstrapReadyPollDelay = 3 * time.Second
-	bootstrapReadyPollCount = 60
+	bootstrapReadyPollDelay   = 3 * time.Second
+	bootstrapReadyPollCount   = 60
+	bootstrapReadyPollTimeout = 10 * time.Second
 )
+
+// ErrMachineAgentNotReady is returned when the machine agent has not yet
+// reported ready after the controller API accepts a login. It is a retryable
+// condition during bootstrap readiness.
+var ErrMachineAgentNotReady = errors.ConstError("machine agent not yet present")
 
 // TryAPI attempts to open the API.
 func TryAPI(ctx context.Context, c *modelcmd.ModelCommandBase) error {
 	dialOpts := api.DefaultDialOpts()
-	dialOpts.Timeout = 10 * time.Second
+	dialOpts.Timeout = bootstrapReadyPollTimeout
 	root, err := c.NewAPIRootWithDialOpts(ctx, &dialOpts)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	_ = root.Close()
 	return err
+}
+
+// TryAPIAndCheckAgents attempts to open the API and then verifies that
+// both the controller machine (machine 0) and the controller/0 unit are
+// present and healthy. It returns ErrMachineAgentNotReady if the API is
+// reachable but the machine agent has not yet reported ready.
+func TryAPIAndCheckAgents(ctx context.Context, c *modelcmd.ModelCommandBase) error {
+	dialOpts := api.DefaultDialOpts()
+	dialOpts.Timeout = bootstrapReadyPollTimeout
+	root, err := c.NewAPIRootWithDialOpts(ctx, &dialOpts)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	client := apiclient.NewClient(root, logger)
+	defer func() { _ = client.Close() }()
+	status, err := client.Status(ctx, nil)
+	if err != nil {
+		return errors.Capture(err)
+	}
+	return checkAgentsReady(status)
+}
+
+// checkAgentsReady checks that the controller machine (machine 0) has agent
+// status "started" and that the controller/0 unit is present and not lost.
+func checkAgentsReady(status *params.FullStatus) error {
+	machine0, ok := status.Machines["0"]
+	if !ok || machine0.AgentStatus.Status != "started" {
+		return ErrMachineAgentNotReady
+	}
+
+	controllerApp, ok := status.Applications["controller"]
+	if !ok {
+		return ErrMachineAgentNotReady
+	}
+	unit, ok := controllerApp.Units["controller/0"]
+	if !ok {
+		return ErrMachineAgentNotReady
+	}
+	if unit.AgentStatus.Status == "lost" {
+		return ErrMachineAgentNotReady
+	}
+
+	return nil
 }
 
 const unknownError = errors.ConstError("unknown error in bootstrap api connect")
@@ -124,6 +175,9 @@ func WaitForAgentInitialisation(
 				return retryErr
 			case params.ErrCode(retryErr) == params.CodeUpgradeInProgress:
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)
+				return retryErr
+			case errors.Is(retryErr, ErrMachineAgentNotReady):
+				ctx.Verbosef("Still waiting for machine agent to become available: %v", retryErr)
 				return retryErr
 			case isRetryableErrorMessage(retryErr.Error()):
 				ctx.Verbosef("Still waiting for API to become available: %v", retryErr)

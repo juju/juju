@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -286,6 +287,25 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	}
 
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
+
+	// Rotate the bootstrap agent password. CAAS persists the new password
+	// through agent.conf via ChangeConfig on the caller's side.
+	//
+	// The IAAS snap path intentionally skips rotation: the controller
+	// password lives in snap-private runtime.conf, while the host
+	// jujuagentd machine agent reads agent.conf. Rotating here would
+	// desynchronise the two files and prevent jujuagentd from
+	// authenticating against the controller API. This split will be
+	// resolved when Stage 5 removes controller manifolds from
+	// jujuagentd and the machine agent no longer needs the controller
+	// password.
+	if isCAAS {
+		newPassword, err := password.RandomPassword()
+		if err != nil {
+			return err
+		}
+		b.agentConfig.SetPassword(newPassword)
+	}
 
 	return nil
 }

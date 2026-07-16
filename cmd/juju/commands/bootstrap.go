@@ -1067,12 +1067,16 @@ See %s.`[1:], "`juju kill-controller`")
 	// To avoid race conditions when running scripted bootstraps, wait
 	// for the controller's machine agent to be ready to accept commands
 	// before exiting this bootstrap command.
+	tryAPIFunc := common.TryAPI
+	if !isCAASController {
+		tryAPIFunc = common.TryAPIAndCheckAgents
+	}
 	return waitForAgentInitialisation(
 		bootstrapCtx,
 		&c.ModelCommandBase,
 		isCAASController,
 		c.controllerName,
-		common.TryAPI,
+		tryAPIFunc,
 	)
 }
 

@@ -111,6 +111,136 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 	})
 }
 
+func (s *controllerSuite) TestWaitForAgentInitialisationMachineAgent(c *tc.C) {
+	s.PatchValue(&bootstrapReadyPollDelay, 1*time.Millisecond)
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+
+	c.Run("RetryableMachineAgentNotReady", func(c *stdtesting.T) {
+		var count int
+		tryAPI := func(ctx context.Context, c *modelcmd.ModelCommandBase) error {
+			count++
+			if count < 3 {
+				return ErrMachineAgentNotReady
+			}
+			return nil
+		}
+		runInCommand(&tc.TBC{TB: c}, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
+			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
+			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "arthur", tryAPI)
+			tc.Assert(c, err, tc.ErrorIsNil)
+		})
+	})
+
+	c.Run("ExhaustedRetriesMachineAgentNotReady", func(c *stdtesting.T) {
+		tryAPI := func(ctx context.Context, c *modelcmd.ModelCommandBase) error {
+			return ErrMachineAgentNotReady
+		}
+		runInCommand(&tc.TBC{TB: c}, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
+			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
+			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "arthur", tryAPI)
+			tc.Assert(c, err, tc.ErrorMatches, `unable to contact api server after.*`)
+		})
+	})
+}
+
+func (s *controllerSuite) TestCheckAgentsReady(c *tc.C) {
+	c.Run("AllReady", func(c *stdtesting.T) {
+		status := &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"0": {
+					AgentStatus: params.DetailedStatus{Status: "started"},
+				},
+			},
+			Applications: map[string]params.ApplicationStatus{
+				"controller": {
+					Units: map[string]params.UnitStatus{
+						"controller/0": {
+							AgentStatus: params.DetailedStatus{Status: "idle"},
+						},
+					},
+				},
+			},
+		}
+		err := checkAgentsReady(status)
+		tc.Assert(c, err, tc.ErrorIsNil)
+	})
+
+	c.Run("MachineNotFound", func(c *stdtesting.T) {
+		status := &params.FullStatus{
+			Machines:     map[string]params.MachineStatus{},
+			Applications: map[string]params.ApplicationStatus{},
+		}
+		err := checkAgentsReady(status)
+		tc.Assert(c, err, tc.ErrorIs, ErrMachineAgentNotReady)
+	})
+
+	c.Run("MachineAgentStatusNotStarted", func(c *stdtesting.T) {
+		status := &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"0": {
+					AgentStatus: params.DetailedStatus{Status: "pending"},
+				},
+			},
+			Applications: map[string]params.ApplicationStatus{},
+		}
+		err := checkAgentsReady(status)
+		tc.Assert(c, err, tc.ErrorIs, ErrMachineAgentNotReady)
+	})
+
+	c.Run("ControllerAppNotFound", func(c *stdtesting.T) {
+		status := &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"0": {
+					AgentStatus: params.DetailedStatus{Status: "started"},
+				},
+			},
+			Applications: map[string]params.ApplicationStatus{},
+		}
+		err := checkAgentsReady(status)
+		tc.Assert(c, err, tc.ErrorIs, ErrMachineAgentNotReady)
+	})
+
+	c.Run("ControllerUnitNotFound", func(c *stdtesting.T) {
+		status := &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"0": {
+					AgentStatus: params.DetailedStatus{Status: "started"},
+				},
+			},
+			Applications: map[string]params.ApplicationStatus{
+				"controller": {
+					Units: map[string]params.UnitStatus{},
+				},
+			},
+		}
+		err := checkAgentsReady(status)
+		tc.Assert(c, err, tc.ErrorIs, ErrMachineAgentNotReady)
+	})
+
+	c.Run("ControllerUnitLost", func(c *stdtesting.T) {
+		status := &params.FullStatus{
+			Machines: map[string]params.MachineStatus{
+				"0": {
+					AgentStatus: params.DetailedStatus{Status: "started"},
+				},
+			},
+			Applications: map[string]params.ApplicationStatus{
+				"controller": {
+					Units: map[string]params.UnitStatus{
+						"controller/0": {
+							AgentStatus: params.DetailedStatus{Status: "lost"},
+						},
+					},
+				},
+			},
+		}
+		err := checkAgentsReady(status)
+		tc.Assert(c, err, tc.ErrorIs, ErrMachineAgentNotReady)
+	})
+}
+
 func runInCommand(c tc.LikeC, run func(ctx *cmd.Context, base *modelcmd.ModelCommandBase)) {
 	cmd := &testCommand{
 		run: run,
