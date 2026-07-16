@@ -152,6 +152,7 @@ MAAS supports the following {ref}`constraints <constraint>`:
 
 **Networking**
 
+- {ref}`constraint-ip-family`. The IP family reflects the machine's interfaces as configured in MAAS.
 - {ref}`constraint-spaces`
 - {ref}`constraint-zones`
 

@@ -164,6 +164,7 @@ Oracle OCI supports the following {ref}`constraints <constraint>`:
 
 **Networking**
 
+- {ref}`constraint-ip-family`. IPv4 only (hardcoded in provider).
 - {ref}`constraint-allocate-public-ip`
 - {ref}`constraint-zones`. Specifies availability domain. Example: `zones=us-phoenix-1:AD-1`.
 
