@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -319,12 +321,19 @@ func (c *BootstrapCommand) runSnapIAAS(
 	}
 
 	// Persist the key and address mutations back to runtime.conf.
+	// API agent config requires host:port forms (see agent.checkAddrs),
+	// while ProviderAddresses.Values() returns raw hosts only.
+	apiAddrs := make([]string, 0, len(addrs))
+	apiPort := strconv.Itoa(info.APIPort)
+	for _, host := range addrs.Values() {
+		apiAddrs = append(apiAddrs, net.JoinHostPort(host, apiPort))
+	}
 	if err := controllerruntimeconfig.ChangeControllerRuntimeConfig(runtimeCfgPath, func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
 		cfg.ControllerCert = info.Cert
 		cfg.ControllerPrivateKey = info.PrivateKey
 		cfg.CAPrivateKey = info.CAPrivateKey
 		cfg.SystemIdentity = info.SystemIdentity
-		cfg.APIAddresses = addrs.Values()
+		cfg.APIAddresses = apiAddrs
 		cfg.QueryTracingEnabled = args.ControllerConfig.QueryTracingEnabled()
 		cfg.QueryTracingThreshold = args.ControllerConfig.QueryTracingThreshold()
 		cfg.DqliteBusyTimeout = args.ControllerConfig.DqliteBusyTimeout()

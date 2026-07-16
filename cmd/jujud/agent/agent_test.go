@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/worker/gate"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)
@@ -250,6 +251,20 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(values.SystemIdentity, tc.Equals, "identity-two")
 	c.Check(values.SystemIdentityPath, tc.Equals, filepath.Join(dataDirTwo, agent.SystemIdentity))
+}
+
+func (s *controllerStartupValueProviderSuite) TestStandaloneControllerLocks(c *tc.C) {
+	app := &ControllerApplication{}
+	app.initStandaloneControllerLocks()
+
+	c.Check(app.bootstrapLock.IsUnlocked(), tc.IsFalse)
+	c.Check(app.controllerUpgradeLock.IsUnlocked(), tc.IsFalse)
+	c.Check(app.upgradeDBLock.IsUnlocked(), tc.IsTrue)
+	c.Check(app.upgradeStepsLock.IsUnlocked(), tc.IsTrue)
+	c.Check(app.upgradeCheckLock.IsUnlocked(), tc.IsTrue)
+
+	_, ok := app.upgradeDBLock.(gate.AlreadyUnlocked)
+	c.Check(ok, tc.IsTrue)
 }
 
 func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfig(c *tc.C) {

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"github.com/juju/utils/v4"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -22,7 +21,7 @@ import (
 // strict confinement, cloud-init must not write directly into the snap
 // directory tree. Instead, cloud-init stages runtime.conf and bootstrap-params
 // in a temporary directory, then invokes this command via "snap run jujud.init
-// --staged-dir <path>". The command runs inside the snap's context, so
+// <staged-dir>". The command runs inside the snap's context, so
 // $SNAP_DATA and $SNAP_COMMON are resolved by snapd to the correct
 // revision-specific directories.
 //
@@ -48,17 +47,11 @@ func (c *initCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.stagedDir, "staged-dir", "", "directory containing staged input files")
-}
-
 func (c *initCommand) Init(args []string) error {
-	if err := cmd.CheckEmpty(args); err != nil {
-		return err
+	if len(args) != 1 {
+		return errors.New("expected exactly one argument: <staged-dir>")
 	}
-	if c.stagedDir == "" {
-		return errors.New("--staged-dir is required")
-	}
+	c.stagedDir = args[0]
 	info, err := os.Stat(c.stagedDir)
 	if err != nil {
 		return errors.Annotatef(err, "cannot access staged directory %q", c.stagedDir)
@@ -86,8 +79,13 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 		return errors.New("SNAP_COMMON is not set")
 	}
 
-	// Read the staged runtime.conf, resolve snap-path tokens, validate, and
-	// atomically write the final file to the snap-private location.
+	initLogPath := filepath.Join(snapCommon, "init.log")
+	initLog, err := os.Create(initLogPath)
+	if err != nil {
+		return errors.Annotatef(err, "creating init log at %q", initLogPath)
+	}
+	defer initLog.Close()
+
 	runtimeSrc := filepath.Join(c.stagedDir, controllerruntimeconfig.Filename)
 	runtimeData, err := os.ReadFile(runtimeSrc)
 	if err != nil {
@@ -104,19 +102,20 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	if err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimeDst, resolvedCfg); err != nil {
 		return errors.Annotate(err, "writing resolved runtime.conf")
 	}
-	fmt.Fprintf(ctx.Stdout, "Wrote %s\n", runtimeDst)
+	_, _ = fmt.Fprintf(ctx.Stdout, "Wrote %s\n", runtimeDst)
 
 	// Copy bootstrap-params from staged dir to $SNAP_COMMON byte-for-byte.
 	// bootstrap-params is always present during the initial bootstrap
 	// cycle that triggers this init command. It is not re-staged after
 	// bootstrap completes, so the init command is not designed for
 	// re-execution outside the cloud-init delivery flow.
+
 	bootstrapSrc := filepath.Join(c.stagedDir, controllerruntimeconfig.FileNameBootstrapParams)
 	bootstrapDst := filepath.Join(snapCommon, controllerruntimeconfig.FileNameBootstrapParams)
 	if err := copyStagedFile(bootstrapSrc, bootstrapDst, 0o600, 0o755); err != nil {
 		return errors.Annotate(err, "copying bootstrap-params")
 	}
-	fmt.Fprintf(ctx.Stdout, "Wrote %s\n", bootstrapDst)
+	_, _ = fmt.Fprintf(ctx.Stdout, "Wrote %s\n", bootstrapDst)
 
 	return nil
 }

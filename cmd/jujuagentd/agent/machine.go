@@ -688,6 +688,7 @@ func (a *MachineAgent) makeEngineCreator(
 		c := clock.WallClock
 		flightRecorder := workerflightrecorder.New(flightrecorder.NewRecorder(c), "", internallogger.GetLogger("juju.flightrecorder"))
 		startupValueProvider := machineControllerStartupValueProvider{agent: a}
+		agentConfig = a.CurrentConfig()
 		bootstrapAPIPort, bootstrapAgentPassword := bootstrapStartupValues(agentConfig)
 
 		manifoldsCfg := machine.ManifoldsConfig{

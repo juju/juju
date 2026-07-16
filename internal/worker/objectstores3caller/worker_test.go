@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/testhelpers"
@@ -349,6 +350,213 @@ func (s *workerSuite) TestWatchObjectStoreBackendError(c *tc.C) {
 
 	err := workertest.CheckKill(c, worker)
 	c.Assert(err, tc.ErrorMatches, `watch error`)
+}
+
+func (s *workerSuite) TestNewWorkerStartsWithBackendNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
+		Return(objectstoreservice.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
+	s.expectWatchObjectStoreBackend(c)
+
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	s.ensureStartup(c)
+
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
+		c.Fatalf("unexpected call to Session")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+
+	workertest.CleanKill(c, worker)
+}
+
+func (s *workerSuite) TestNewWorkerBackendNotFoundThenS3Seeded(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	changes := make(chan []string)
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
+		Return(objectstoreservice.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
+	s.expectWatchObjectStoreBackendWithChanges(changes)
+
+	triggerDone := make(chan struct{})
+	s.expectGetActiveBackendS3WithDone(triggerDone)
+
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	s.ensureStartup(c)
+
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
+		c.Fatalf("unexpected call to Session")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+
+	select {
+	case changes <- []string{"backend-seeded"}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending change")
+	}
+
+	select {
+	case <-triggerDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for backend refresh")
+	}
+
+	s.ensureClientUpdated(c)
+
+	err = worker.Session(c.Context(), func(_ context.Context, sess objectstore.Session) error {
+		c.Check(sess, tc.NotNil)
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, worker)
+}
+
+func (s *workerSuite) TestNewWorkerBackendNotFoundThenFileSeeded(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	changes := make(chan []string)
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
+		Return(objectstoreservice.BackendInfo{}, objectstoreerrors.ErrBackendNotFound)
+	s.expectWatchObjectStoreBackendWithChanges(changes)
+
+	triggerDone := make(chan struct{})
+	s.expectGetActiveBackendFileWithDone(triggerDone)
+
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	s.ensureStartup(c)
+
+	err := worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
+		c.Fatalf("unexpected call to Session")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+
+	select {
+	case changes <- []string{"backend-seeded"}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending change")
+	}
+
+	select {
+	case <-triggerDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for backend refresh")
+	}
+
+	s.ensureClientUpdated(c)
+
+	err = worker.Session(c.Context(), func(context.Context, objectstore.Session) error {
+		c.Fatalf("unexpected call to Session")
+		return nil
+	})
+	c.Assert(err, tc.ErrorIs, errors.NotSupported)
+
+	workertest.CleanKill(c, worker)
+}
+
+func (s *workerSuite) TestLoopBackendNotFoundThenSeeded(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	changes := make(chan []string)
+
+	s.expectGetActiveBackendS3(c)
+	s.expectWatchObjectStoreBackendWithChanges(changes)
+
+	nofoundTrigger := make(chan struct{})
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
+		DoAndReturn(func(context.Context) (objectstoreservice.BackendInfo, error) {
+			defer close(nofoundTrigger)
+			return objectstoreservice.BackendInfo{}, objectstoreerrors.ErrBackendNotFound
+		})
+
+	triggerDone := make(chan struct{})
+	s.expectGetActiveBackendS3WithDone(triggerDone)
+
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	s.ensureStartup(c)
+
+	select {
+	case changes <- []string{"backend-changed"}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending change")
+	}
+
+	select {
+	case <-nofoundTrigger:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for first backend read")
+	}
+
+	select {
+	case changes <- []string{"backend-seeded"}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending second change")
+	}
+
+	select {
+	case <-triggerDone:
+	case <-c.Context().Done():
+		c.Fatalf("timed out waiting for backend refresh")
+	}
+
+	s.ensureClientUpdated(c)
+
+	err := worker.Session(c.Context(), func(_ context.Context, sess objectstore.Session) error {
+		c.Check(sess, tc.NotNil)
+		return nil
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	workertest.CleanKill(c, worker)
+}
+
+func (s *workerSuite) TestNewWorkerNonNotFoundErrorStillFails(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
+		Return(objectstoreservice.BackendInfo{}, errors.Errorf("some other error"))
+
+	_, err := newWorker(s.getConfig(), s.states)
+	c.Assert(err, tc.ErrorMatches, `some other error`)
+}
+
+func (s *workerSuite) TestLoopNonNotFoundErrorKills(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	changes := make(chan []string)
+
+	s.expectGetActiveBackendS3(c)
+	s.expectWatchObjectStoreBackendWithChanges(changes)
+
+	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
+		Return(objectstoreservice.BackendInfo{}, errors.Errorf("fatal error"))
+
+	worker := s.newWorker(c)
+	defer workertest.DirtyKill(c, worker)
+
+	s.ensureStartup(c)
+
+	select {
+	case changes <- []string{"backend-changed"}:
+	case <-c.Context().Done():
+		c.Fatalf("timed out sending change")
+	}
+
+	err := workertest.CheckKill(c, worker)
+	c.Assert(err, tc.ErrorMatches, `fatal error`)
 }
 
 func (s *workerSuite) setupMocks(c *tc.C) *gomock.Controller {

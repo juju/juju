@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -120,8 +119,7 @@ func (a *AgentBootstrapArgs) validate() error {
 // initialize the state for a new controller.
 // NewAgentBootstrap should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
-// controller, and initialize it. It also generates a new password for the
-// bootstrap machine and calls Write to save the configuration.
+// controller, and initialize it.
 //
 // The cfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
@@ -265,15 +263,6 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	}
 
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
-
-	// Create a new password. It is used down below to set  the agent's initial
-	// API password in agent config.
-	newPassword, err := password.RandomPassword()
-	if err != nil {
-		return err
-	}
-
-	b.agentConfig.SetPassword(newPassword)
 
 	return nil
 }

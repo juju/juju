@@ -1,0 +1,7 @@
+#!/bin/sh
+# Initialize snap-private controller files from a staged directory.
+# Prefer SNAP_COMMON as cwd: bootstrap invokes "snap run" via sudo with
+# HOME=/home/ubuntu; strict confinement cannot getcwd there, which makes
+# jujud's DefaultContext fail before init runs.
+cd "${SNAP_COMMON:-/}" || cd /
+exec "$SNAP/bin/jujud" init "$@"
