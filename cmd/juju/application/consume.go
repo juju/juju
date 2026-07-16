@@ -35,11 +35,9 @@ If the model qualifier is omitted, Juju will use the user that is currently
 logged in to the controller providing the offer.
 
 If the controller name is omitted, Juju looks for the offer on the currently
-active controller. Pass ` + "`--all-controllers`" + ` to also search the other
-controllers registered locally (see ` + "`juju controllers`" + `) if the offer is
-not found on the current controller; the offering controller must be registered
-locally for its name to resolve. To target a specific controller directly,
-include the controller name in the offer path.
+active controller. Pass ` + "`--all-controllers`" + ` or ` + "`-a`" + ` to also
+search the other controllers registered locally. To target a specific controller
+directly, include the controller name in the offer path.
 `[1:]
 
 const usageConsumeExamples = `
@@ -98,8 +96,8 @@ func (c *consumeCommand) Info() *cmd.Info {
 // SetFlags implements cmd.Command.
 func (c *consumeCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.allControllers, "all-controllers", false,
-		"Also search other registered controllers when the offer's controller is not named and the offer is not on the current controller")
+	f.BoolVar(&c.allControllers, "all-controllers", false, "Also search other registered controllers when the offer's controller is not named and the offer is not on the current controller")
+	f.BoolVar(&c.allControllers, "a", false, "")
 }
 
 // Init implements cmd.Command.

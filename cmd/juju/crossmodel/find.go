@@ -47,10 +47,10 @@ Find offers on a named controller:
 
     juju find-offers mycontroller:
 
-Find offers across every registered controller (a unified catalogue):
+Find offers across every locally registered controller:
 
     juju find-offers --all-controllers
-    juju find-offers --all-controllers --interface mysql
+    juju find-offers -a --interface mysql
 
 `
 
@@ -127,6 +127,7 @@ func (c *findCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.interfaceName, "interface", "", "Return results matching the interface name")
 	f.StringVar(&c.offerName, "offer", "", "Return results matching the offer name")
 	f.BoolVar(&c.allControllers, "all-controllers", false, "Search for offers across all registered controllers")
+	f.BoolVar(&c.allControllers, "a", false, "")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
