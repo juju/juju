@@ -229,6 +229,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 			context.allAppsUnitsCharmBindings.applications,
 			context.units,
 			context.allMachines,
+			context.leaders,
 		)
 		context.applyNameMatches(matches)
 		matchedUnits = matches.Units
