@@ -41,7 +41,7 @@ Start here if you're new to Juju.
 
 Juju models business deployment logic through charms; charms describe how an application is deployed.
 
-* **Models**: {ref}`Overview <model>` | {ref}`Manage models <manage-models>`
+* **Models**: {ref}`Overview <model>` | {ref}`Manage models <manage-models>` | {ref}`Model configuration keys <list-of-model-configuration-keys>`
 * **Charmed applications**: {ref}`Charm reference <charm>` | {ref}`Manage charms <manage-charms>` | {ref}`Application reference <application>` | {ref}`Manage applications <manage-applications>` | {ref}`Bundle reference <bundle>`
 * **Application operations**: {ref}`Actions <action>` | {ref}`Manage actions <manage-actions>` | {ref}`Relations <relation>` | {ref}`Manage relations <manage-relations>` | {ref}`Offers <offer>` | {ref}`Manage offers <manage-offers>` | {ref}`Charm resources <charm-resource>` | {ref}`Manage charm resources <manage-charm-resources>` | {ref}`Configurations <application-configuration>` | {ref}`Configure an application <configure-an-application>` | {ref}`Secrets <secret>` | {ref}`Manage secrets <manage-secrets>` | {ref}`Manage secret backends <manage-secret-backends>`
 * **Units**: {ref}`Unit reference <unit>` | {ref}`Manage units <manage-units>` | {ref}`Scaling <scaling>` | {ref}`Scale an application <scale-an-application>`
@@ -52,7 +52,7 @@ The CLI, controller, and agents form the engine that coordinates between the app
 
 * **Architecture**: {ref}`Juju architecture <juju-architecture>`
 * **Client — Juju CLI**: {ref}`Reference <juju-cli>` | {ref}`Manage Juju <manage-juju>`
-* **Controller**: {ref}`Reference <controller>` | {ref}`Manage controllers <manage-controllers>` | {ref}`Bootstrap a controller <bootstrap-a-controller>`
+* **Controller**: {ref}`Reference <controller>` | {ref}`Manage controllers <manage-controllers>` | {ref}`Bootstrap a controller <bootstrap-a-controller>` | {ref}`Controller configuration keys <list-of-controller-configuration-keys>`
 * **Database**: {ref}`Reference <database>` | {ref}`Manage the databases <manage-the-databases>` | {ref}`Juju DB REPL <juju-db-repl>`
 * **Agents**: {ref}`Reference <agent>`
 * **Pebble**: {ref}`Reference <pebble>`
@@ -95,7 +95,7 @@ Guidance on securing and optimising your Juju deployment.
 
 End-to-end procedures for standing up, maintaining, and tearing down a Juju deployment.
 
-* Set up: {ref}`Set up your deployment <set-up-your-deployment>` | {ref}`Set up for local testing <set-things-up>` | {ref}`Set up offline <take-your-deployment-offline>` | {ref}`Add a cloud <add-a-cloud>` | {ref}`Add a credential <add-a-credential>`
+* Set up: {ref}`Set up your deployment <set-up-your-deployment>` | {ref}`Set up for local testing <set-things-up>` | {ref}`Set up offline <take-your-deployment-offline>`
 * Harden: {ref}`Harden your deployment <harden-your-deployment>`
 * Upgrade: {ref}`Upgrade your deployment <upgrade-your-deployment>` | {ref}`Patch version <upgrade-your-juju-components-patch-version>` | {ref}`Minor or major version <upgrade-your-juju-components-minor-or-major-version>` | {ref}`From 3.6 to 4.0 <upgrade-your-deployment-from-36-to-40>`
 * Troubleshoot: {ref}`Troubleshoot your deployment <troubleshoot-your-deployment>`
