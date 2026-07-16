@@ -120,6 +120,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"loki-endpoint-updater",
 			"lxd-container-provisioner",
 			"machine-action-runner",
+			"machine-converter",
 			"machine-setup",
 			"machiner",
 			"migration-fortress",
@@ -143,7 +144,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 			"ssh-server",
 			"ssh-tunneler",
 			"state-config-watcher",
-			"machine-converter",
 			"storage-provisioner",
 			"storage-registry",
 			"termination-signal-handler",
@@ -941,7 +941,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAMachineAgentOnly(c *tc.C) {
 			"ssh-server",
 			"ssh-tunneler",
 			"state-config-watcher",
-			"machine-converter",
 			"storage-provisioner",
 			"storage-registry",
 			"termination-signal-handler",
@@ -983,6 +982,17 @@ func (s *ManifoldsSuite) TestControllerPathsDependOnIsControllerFlagWithGateEnab
 		deps := agenttest.ManifoldDependencies(manifolds, manifold)
 		c.Check(deps.Contains("is-controller-flag"), tc.IsTrue)
 	}
+}
+
+func (s *ManifoldsSuite) TestMachineAgentOnlyOmitsMachineConverter(c *tc.C) {
+	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
+		Agent:            &mockAgent{},
+		PreUpgradeSteps:  preUpgradeSteps,
+		MachineAgentOnly: true,
+	})
+
+	_, ok := manifolds["machine-converter"]
+	c.Check(ok, tc.IsFalse)
 }
 
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{

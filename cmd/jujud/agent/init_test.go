@@ -65,20 +65,22 @@ func (s *InitCommandSuite) TestInfo(c *tc.C) {
 func (s *InitCommandSuite) TestMissingStagedDir(c *tc.C) {
 	ic := &initCommand{}
 	err := ic.Init(nil)
-	c.Check(err, tc.ErrorMatches, "--staged-dir is required")
+	c.Check(err, tc.ErrorMatches, "expected exactly one argument.*")
 }
 
 func (s *InitCommandSuite) TestStagedDirNotExist(c *tc.C) {
-	ic := &initCommand{stagedDir: "/nonexistent/path"}
-	err := ic.Init(nil)
+	ic := &initCommand{}
+	err := ic.Init([]string{"/nonexistent/path"})
 	c.Check(err, tc.ErrorMatches, ".*no such file or directory.*")
 }
 
 func (s *InitCommandSuite) TestRunWithoutSNAP_DATA(c *tc.C) {
 	s.PatchValue(&osGetenv, func(key string) string { return "" })
-	ic := &initCommand{stagedDir: c.MkDir()}
+	ic := &initCommand{}
+	err := ic.Init([]string{c.MkDir()})
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := newTestContext()
-	err := ic.Run(ctx)
+	err = ic.Run(ctx)
 	c.Check(err, tc.ErrorMatches, "SNAP_DATA is not set")
 }
 
@@ -89,9 +91,11 @@ func (s *InitCommandSuite) TestRunWithoutSNAP_COMMON(c *tc.C) {
 		}
 		return ""
 	})
-	ic := &initCommand{stagedDir: c.MkDir()}
+	ic := &initCommand{}
+	err := ic.Init([]string{c.MkDir()})
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := newTestContext()
-	err := ic.Run(ctx)
+	err = ic.Run(ctx)
 	c.Check(err, tc.ErrorMatches, "SNAP_COMMON is not set")
 }
 
@@ -110,9 +114,11 @@ func (s *InitCommandSuite) TestMissingRuntimeConf(c *tc.C) {
 		return ""
 	})
 
-	ic := &initCommand{stagedDir: stagedDir}
+	ic := &initCommand{}
+	err := ic.Init([]string{stagedDir})
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := newTestContext()
-	err := ic.Run(ctx)
+	err = ic.Run(ctx)
 	c.Check(err, tc.ErrorMatches, `.*runtime.conf.*does not exist.*`)
 }
 
@@ -137,7 +143,9 @@ func (s *InitCommandSuite) TestMissingBootstrapParams(c *tc.C) {
 		return ""
 	})
 
-	ic := &initCommand{stagedDir: stagedDir}
+	ic := &initCommand{}
+	err = ic.Init([]string{stagedDir})
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := newTestContext()
 	err = ic.Run(ctx)
 	c.Check(err, tc.ErrorMatches, `.*bootstrap-params.*does not exist.*`)
@@ -166,7 +174,9 @@ func (s *InitCommandSuite) TestSuccessfulInit(c *tc.C) {
 		return ""
 	})
 
-	ic := &initCommand{stagedDir: stagedDir}
+	ic := &initCommand{}
+	err = ic.Init([]string{stagedDir})
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := newTestContext()
 	err = ic.Run(ctx)
 	c.Assert(err, tc.ErrorIsNil)
@@ -230,7 +240,9 @@ func (s *InitCommandSuite) TestTokenResolutionFourPaths(c *tc.C) {
 		return ""
 	})
 
-	ic := &initCommand{stagedDir: stagedDir}
+	ic := &initCommand{}
+	err = ic.Init([]string{stagedDir})
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := newTestContext()
 	err = ic.Run(ctx)
 	c.Assert(err, tc.ErrorIsNil)
@@ -308,7 +320,9 @@ func (s *InitCommandSuite) TestTokenInCredentialFieldRejected(c *tc.C) {
 		return ""
 	})
 
-	ic := &initCommand{stagedDir: stagedDir}
+	ic := &initCommand{}
+	err = ic.Init([]string{stagedDir})
+	c.Assert(err, tc.ErrorIsNil)
 	ctx := newTestContext()
 	err = ic.Run(ctx)
 	c.Check(err, tc.ErrorMatches, `.*token found in non-path field.*`)
@@ -356,8 +370,8 @@ func (s *InitCommandSuite) TestCredentialLikeStringPreserved(c *tc.C) {
 
 func (s *InitCommandSuite) TestInitWithExtraArgs(c *tc.C) {
 	ic := &initCommand{}
-	err := ic.Init([]string{"extra"})
-	c.Check(err, tc.ErrorMatches, "unrecognized args.*")
+	err := ic.Init([]string{"extra", "more"})
+	c.Check(err, tc.ErrorMatches, "expected exactly one argument.*")
 }
 
 func (s *InitCommandSuite) TestCopyStagedFileSrcNotExist(c *tc.C) {

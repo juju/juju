@@ -32,11 +32,24 @@ func hostOS() ostype.OSType {
 }
 
 func updateOS(f string) (ostype.OSType, error) {
+	// Prefer host os-release when the snap controller has staged it.
+	// See snapHostOSReleasePath in base_linux.go.
+	if p := snapHostOSReleasePath(); p != "" {
+		if values, err := ReadOSRelease(p); err == nil {
+			if ot, err := osTypeFromReleaseID(values["ID"]); err == nil {
+				return ot, nil
+			}
+		}
+	}
 	values, err := ReadOSRelease(f)
 	if err != nil {
 		return ostype.Unknown, err
 	}
-	switch values["ID"] {
+	return osTypeFromReleaseID(values["ID"])
+}
+
+func osTypeFromReleaseID(id string) (ostype.OSType, error) {
+	switch strings.ToLower(id) {
 	case strings.ToLower(ostype.Ubuntu.String()):
 		return ostype.Ubuntu, nil
 	case strings.ToLower(ostype.CentOS.String()):

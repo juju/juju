@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -218,6 +219,10 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 }
 
 func encodeOSType(os string) (deployment.OSType, error) {
+	if strings.EqualFold(os, "ubuntu-core") {
+		return deployment.Ubuntu, nil
+	}
+
 	switch ostype.OSTypeForName(os) {
 	case ostype.Ubuntu:
 		return deployment.Ubuntu, nil

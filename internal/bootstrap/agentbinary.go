@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	agentbinaryerrors "github.com/juju/juju/domain/agentbinary/errors"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 const (
@@ -66,11 +68,20 @@ func PopulateAgentBinary(
 
 	agentTools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read agent binary: %w", err)
+		// Under snap confinement HostOSTypeName is the base (ubuntu-core ->
+		// genericlinux) while cloud-init stages agent binaries with the host
+		// series (ubuntu). Fall back to any on-disk tools matching version+arch.
+		alt, altErr := findAgentToolsByNumberArch(dataDir, current.Number, current.Arch)
+		if altErr != nil {
+			return nil, fmt.Errorf("cannot read agent binary: %w (also: %v)", err, altErr)
+		}
+		agentTools = alt
+		current = agentTools.Version
 	}
 
 	rootPath := agenttools.SharedToolsDir(dataDir, current)
 	binaryPath := filepath.Join(rootPath, AgentCompressedBinaryName)
+	shaFilePath := filepath.Join(rootPath, fmt.Sprintf("juju%s.sha256", agentTools.Version.String()))
 
 	data, err := os.ReadFile(binaryPath)
 	if err != nil {
@@ -99,9 +110,38 @@ func PopulateAgentBinary(
 			logger.Warningf(ctx, "failed to remove agent binary: %v", err)
 		}
 		// Remove the sha that validates the agent binary file.
-		shaFilePath := filepath.Join(rootPath, fmt.Sprintf("juju%s.sha256", current.String()))
 		if err := os.Remove(shaFilePath); err != nil {
 			logger.Warningf(ctx, "failed to remove agent binary sha: %v", err)
 		}
 	}, nil
+}
+
+// findAgentToolsByNumberArch finds tools under dataDir/tools whose binary
+// series version matches number+arch, ignoring the OS release component.
+func findAgentToolsByNumberArch(dataDir string, number semversion.Number, hostArch string) (*coretools.Tools, error) {
+	entries, err := os.ReadDir(filepath.Join(dataDir, "tools"))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	wantPrefix := number.String() + "-"
+	wantSuffix := "-" + hostArch
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasPrefix(name, wantPrefix) || !strings.HasSuffix(name, wantSuffix) {
+			continue
+		}
+		vers, err := semversion.ParseBinary(name)
+		if err != nil {
+			continue
+		}
+		tools, err := agenttools.ReadTools(dataDir, vers)
+		if err != nil {
+			continue
+		}
+		return tools, nil
+	}
+	return nil, errors.NotFoundf("agent tools matching %s-%s under %s/tools", number, hostArch, dataDir)
 }
