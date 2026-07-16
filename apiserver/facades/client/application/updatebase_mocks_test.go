@@ -605,6 +605,20 @@ func (mr *MockCharmMockRecorder) Actions() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Actions", reflect.TypeOf((*MockCharm)(nil).Actions))
 }
 
+// BundleSha256 mocks base method.
+func (m *MockCharm) BundleSha256() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BundleSha256")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// BundleSha256 indicates an expected call of BundleSha256.
+func (mr *MockCharmMockRecorder) BundleSha256() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BundleSha256", reflect.TypeOf((*MockCharm)(nil).BundleSha256))
+}
+
 // Config mocks base method.
 func (m *MockCharm) Config() *charm.Config {
 	m.ctrl.T.Helper()

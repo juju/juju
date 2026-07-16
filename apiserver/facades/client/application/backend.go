@@ -143,6 +143,7 @@ type Charm interface {
 	Actions() *charm.Actions
 	Revision() int
 	IsUploaded() bool
+	BundleSha256() string
 }
 
 // CharmMeta describes methods that inform charm operation.
