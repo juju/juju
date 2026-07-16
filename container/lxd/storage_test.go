@@ -59,6 +59,9 @@ func (s *storageSuite) TestCreatePool(c *gc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
 
+	op := lxdtesting.NewMockOperation(ctrl)
+	op.EXPECT().Wait().Return(nil)
+
 	cfg := map[string]string{"size": "1024MB"}
 
 	req := lxdapi.StoragePoolsPost{
@@ -68,7 +71,7 @@ func (s *storageSuite) TestCreatePool(c *gc.C) {
 			Config: cfg,
 		},
 	}
-	cSvr.EXPECT().CreateStoragePool(req).Return(nil)
+	cSvr.EXPECT().CreateStoragePool(req).Return(op, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,8 +165,13 @@ func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *gc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "storage")
 
-	op := lxdtesting.NewMockOperation(ctrl)
-	op.EXPECT().Wait().Return(nil)
+	opCreatePool := lxdtesting.NewMockOperation(ctrl)
+	opUpdateProfile := lxdtesting.NewMockOperation(ctrl)
+
+	gomock.InOrder(
+		opCreatePool.EXPECT().Wait().Return(nil),
+		opUpdateProfile.EXPECT().Wait().Return(nil),
+	)
 
 	profile := defaultProfileWithDisk()
 	req := lxdapi.StoragePoolsPost{
@@ -172,8 +180,8 @@ func (s *storageSuite) TestEnsureDefaultStoragePoolAndDeviceCreated(c *gc.C) {
 	}
 	gomock.InOrder(
 		cSvr.EXPECT().GetStoragePoolNames().Return(nil, nil),
-		cSvr.EXPECT().CreateStoragePool(req).Return(nil),
-		cSvr.EXPECT().UpdateProfile("default", profile.Writable(), lxdtesting.ETag).Return(op, nil),
+		cSvr.EXPECT().CreateStoragePool(req).Return(opCreatePool, nil),
+		cSvr.EXPECT().UpdateProfile("default", profile.Writable(), lxdtesting.ETag).Return(opUpdateProfile, nil),
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)

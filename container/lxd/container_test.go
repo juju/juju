@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/osarch"
 	"github.com/juju/errors"
@@ -132,7 +133,7 @@ func (s *containerSuite) TestFilterContainers(c *gc.C) {
 			StatusCode: api.Stopped,
 		},
 	}...)
-	cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
+	cSvr.EXPECT().GetInstances(lxdclient.GetInstancesArgs{InstanceType: api.InstanceTypeAny}).Return(ret, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -171,7 +172,7 @@ func (s *containerSuite) TestAliveContainers(c *gc.C) {
 		Name:       "c4",
 		StatusCode: api.Frozen,
 	})
-	cSvr.EXPECT().GetInstances(api.InstanceTypeAny).Return(ret, nil)
+	cSvr.EXPECT().GetInstances(lxdclient.GetInstancesArgs{InstanceType: api.InstanceTypeAny}).Return(ret, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -502,9 +503,7 @@ func (s *containerSuite) TestCreateContainerFromSpecStartFailed(c *gc.C) {
 	gomock.InOrder(
 		exp.CreateInstanceFromImage(cSvr, image, createReq).Return(createOp, nil),
 		exp.UpdateInstanceState(spec.Name, startReq, "").Return(nil, errors.New("start failed")),
-		exp.GetInstanceState(spec.Name).Return(
-			&api.InstanceState{StatusCode: api.Stopped}, lxdtesting.ETag, nil),
-		exp.DeleteInstance(spec.Name).Return(deleteOp, nil),
+		exp.DeleteInstance(spec.Name, true).Return(deleteOp, nil),
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -520,26 +519,12 @@ func (s *containerSuite) TestRemoveContainersSuccess(c *gc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
 
-	stopOp := lxdtesting.NewMockOperation(ctrl)
-	stopOp.EXPECT().Wait().Return(nil)
-
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
 	deleteOp.EXPECT().Wait().Return(nil).Times(2)
 
-	stopReq := api.InstanceStatePut{
-		Action:   "stop",
-		Timeout:  -1,
-		Force:    true,
-		Stateful: false,
-	}
-
-	// Container c1 is already stopped. Container c2 is started and stopped before deletion.
 	exp := cSvr.EXPECT()
-	exp.GetInstanceState("c1").Return(&api.InstanceState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	exp.DeleteInstance("c1").Return(deleteOp, nil)
-	exp.GetInstanceState("c2").Return(&api.InstanceState{StatusCode: api.Started}, lxdtesting.ETag, nil)
-	exp.UpdateInstanceState("c2", stopReq, lxdtesting.ETag).Return(stopOp, nil)
-	exp.DeleteInstance("c2").Return(deleteOp, nil)
+	exp.DeleteInstance("c1", true).Return(deleteOp, nil)
+	exp.DeleteInstance("c2", true).Return(deleteOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -553,26 +538,12 @@ func (s *containerSuite) TestRemoveContainersSuccessWithNotFound(c *gc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
 
-	stopOp := lxdtesting.NewMockOperation(ctrl)
-	stopOp.EXPECT().Wait().Return(nil)
-
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
 	deleteOp.EXPECT().Wait().Return(nil)
 
-	stopReq := api.InstanceStatePut{
-		Action:   "stop",
-		Timeout:  -1,
-		Force:    true,
-		Stateful: false,
-	}
-
-	// Container c1 is already stopped. Container c2 is started and stopped before deletion.
 	exp := cSvr.EXPECT()
-	exp.GetInstanceState("c1").Return(&api.InstanceState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	exp.DeleteInstance("c1").Return(deleteOp, nil)
-	exp.GetInstanceState("c2").Return(&api.InstanceState{StatusCode: api.Started}, lxdtesting.ETag, nil)
-	exp.UpdateInstanceState("c2", stopReq, lxdtesting.ETag).Return(stopOp, nil)
-	exp.DeleteInstance("c2").Return(deleteOp, api.StatusErrorf(http.StatusNotFound, ""))
+	exp.DeleteInstance("c1", true).Return(deleteOp, nil)
+	exp.DeleteInstance("c2", true).Return(deleteOp, api.StatusErrorf(http.StatusNotFound, ""))
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -586,28 +557,14 @@ func (s *containerSuite) TestRemoveContainersPartialFailure(c *gc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServer(ctrl)
 
-	stopOp := lxdtesting.NewMockOperation(ctrl)
-	stopOp.EXPECT().Wait().Return(nil)
-
 	deleteOp := lxdtesting.NewMockOperation(ctrl)
 	deleteOp.EXPECT().Wait().Return(nil)
 
-	stopReq := api.InstanceStatePut{
-		Action:   "stop",
-		Timeout:  -1,
-		Force:    true,
-		Stateful: false,
-	}
-
 	// Container c1, c2 already stopped, but delete fails. Container c2 is started and stopped before deletion.
 	exp := cSvr.EXPECT()
-	exp.GetInstanceState("c1").Return(&api.InstanceState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	exp.DeleteInstance("c1").Return(nil, errors.New("deletion failed"))
-	exp.GetInstanceState("c2").Return(&api.InstanceState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	exp.DeleteInstance("c2").Return(nil, errors.New("deletion failed"))
-	exp.GetInstanceState("c3").Return(&api.InstanceState{StatusCode: api.Started}, lxdtesting.ETag, nil)
-	exp.UpdateInstanceState("c3", stopReq, lxdtesting.ETag).Return(stopOp, nil)
-	exp.DeleteInstance("c3").Return(deleteOp, nil)
+	exp.DeleteInstance("c1", true).Return(nil, errors.New("deletion failed"))
+	exp.DeleteInstance("c2", true).Return(nil, errors.New("deletion failed"))
+	exp.DeleteInstance("c3", true).Return(deleteOp, nil)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -629,14 +586,11 @@ func (s *containerSuite) TestDeleteInstancesPartialFailure(c *gc.C) {
 
 	retries := 3
 
-	// Container c1, c2 already stopped, but delete fails. Container c2 is started and stopped before deletion.
+	// Container c1, c2 delete fails.
 	exp := cSvr.EXPECT()
-	exp.GetInstanceState("c1").Return(&api.InstanceState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	exp.DeleteInstance("c1").Return(deleteOpFail, nil)
-	exp.DeleteInstance("c1").Return(deleteOpSuccess, nil)
-
-	exp.GetInstanceState("c2").Return(&api.InstanceState{StatusCode: api.Stopped}, lxdtesting.ETag, nil)
-	exp.DeleteInstance("c2").Return(deleteOpFail, nil).Times(retries)
+	exp.DeleteInstance("c1", true).Return(deleteOpFail, nil)
+	exp.DeleteInstance("c1", true).Return(deleteOpSuccess, nil)
+	exp.DeleteInstance("c2", true).Return(deleteOpFail, nil).Times(retries)
 
 	clock := mocks.NewMockClock(ctrl)
 	ch := make(chan time.Time)

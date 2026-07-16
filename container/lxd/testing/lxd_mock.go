@@ -11,6 +11,7 @@ import (
 	io "io"
 	net "net"
 	http "net/http"
+	url "net/url"
 	reflect "reflect"
 
 	lxd "github.com/canonical/lxd/client"
@@ -127,6 +128,20 @@ func (m *MockOperation) RemoveHandler(arg0 *lxd.EventTarget) error {
 func (mr *MockOperationMockRecorder) RemoveHandler(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveHandler", reflect.TypeOf((*MockOperation)(nil).RemoveHandler), arg0)
+}
+
+// URL mocks base method.
+func (m *MockOperation) URL() *url.URL {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "URL")
+	ret0, _ := ret[0].(*url.URL)
+	return ret0
+}
+
+// URL indicates an expected call of URL.
+func (mr *MockOperationMockRecorder) URL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockOperation)(nil).URL))
 }
 
 // Wait mocks base method.
@@ -649,21 +664,6 @@ func (mr *MockInstanceServerMockRecorder) CheckExtension(arg0 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckExtension", reflect.TypeOf((*MockInstanceServer)(nil).CheckExtension), arg0)
 }
 
-// ConsoleContainer mocks base method.
-func (m *MockInstanceServer) ConsoleContainer(arg0 string, arg1 api.ContainerConsolePost, arg2 *lxd.ContainerConsoleArgs) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConsoleContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ConsoleContainer indicates an expected call of ConsoleContainer.
-func (mr *MockInstanceServerMockRecorder) ConsoleContainer(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsoleContainer", reflect.TypeOf((*MockInstanceServer)(nil).ConsoleContainer), arg0, arg1, arg2)
-}
-
 // ConsoleInstance mocks base method.
 func (m *MockInstanceServer) ConsoleInstance(arg0 string, arg1 api.InstanceConsolePost, arg2 *lxd.InstanceConsoleArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -693,36 +693,6 @@ func (m *MockInstanceServer) ConsoleInstanceDynamic(arg0 string, arg1 api.Instan
 func (mr *MockInstanceServerMockRecorder) ConsoleInstanceDynamic(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsoleInstanceDynamic", reflect.TypeOf((*MockInstanceServer)(nil).ConsoleInstanceDynamic), arg0, arg1, arg2)
-}
-
-// CopyContainer mocks base method.
-func (m *MockInstanceServer) CopyContainer(arg0 lxd.InstanceServer, arg1 api.Container, arg2 *lxd.ContainerCopyArgs) (lxd.RemoteOperation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CopyContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.RemoteOperation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CopyContainer indicates an expected call of CopyContainer.
-func (mr *MockInstanceServerMockRecorder) CopyContainer(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyContainer", reflect.TypeOf((*MockInstanceServer)(nil).CopyContainer), arg0, arg1, arg2)
-}
-
-// CopyContainerSnapshot mocks base method.
-func (m *MockInstanceServer) CopyContainerSnapshot(arg0 lxd.InstanceServer, arg1 string, arg2 api.ContainerSnapshot, arg3 *lxd.ContainerSnapshotCopyArgs) (lxd.RemoteOperation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CopyContainerSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(lxd.RemoteOperation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CopyContainerSnapshot indicates an expected call of CopyContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) CopyContainerSnapshot(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyContainerSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).CopyContainerSnapshot), arg0, arg1, arg2, arg3)
 }
 
 // CopyImage mocks base method.
@@ -842,6 +812,20 @@ func (mr *MockInstanceServerMockRecorder) CreateClusterGroup(arg0 any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClusterGroup", reflect.TypeOf((*MockInstanceServer)(nil).CreateClusterGroup), arg0)
 }
 
+// CreateClusterLink mocks base method.
+func (m *MockInstanceServer) CreateClusterLink(arg0 api.ClusterLinksPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateClusterLink", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateClusterLink indicates an expected call of CreateClusterLink.
+func (mr *MockInstanceServerMockRecorder) CreateClusterLink(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClusterLink", reflect.TypeOf((*MockInstanceServer)(nil).CreateClusterLink), arg0)
+}
+
 // CreateClusterMember mocks base method.
 func (m *MockInstanceServer) CreateClusterMember(arg0 api.ClusterMembersPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -857,109 +841,6 @@ func (mr *MockInstanceServerMockRecorder) CreateClusterMember(arg0 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateClusterMember", reflect.TypeOf((*MockInstanceServer)(nil).CreateClusterMember), arg0)
 }
 
-// CreateContainer mocks base method.
-func (m *MockInstanceServer) CreateContainer(arg0 api.ContainersPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainer", arg0)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateContainer indicates an expected call of CreateContainer.
-func (mr *MockInstanceServerMockRecorder) CreateContainer(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainer), arg0)
-}
-
-// CreateContainerBackup mocks base method.
-func (m *MockInstanceServer) CreateContainerBackup(arg0 string, arg1 api.ContainerBackupsPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainerBackup", arg0, arg1)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateContainerBackup indicates an expected call of CreateContainerBackup.
-func (mr *MockInstanceServerMockRecorder) CreateContainerBackup(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerBackup", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainerBackup), arg0, arg1)
-}
-
-// CreateContainerFile mocks base method.
-func (m *MockInstanceServer) CreateContainerFile(arg0, arg1 string, arg2 lxd.ContainerFileArgs) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainerFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateContainerFile indicates an expected call of CreateContainerFile.
-func (mr *MockInstanceServerMockRecorder) CreateContainerFile(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerFile", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainerFile), arg0, arg1, arg2)
-}
-
-// CreateContainerFromBackup mocks base method.
-func (m *MockInstanceServer) CreateContainerFromBackup(arg0 lxd.ContainerBackupArgs) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainerFromBackup", arg0)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateContainerFromBackup indicates an expected call of CreateContainerFromBackup.
-func (mr *MockInstanceServerMockRecorder) CreateContainerFromBackup(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerFromBackup", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainerFromBackup), arg0)
-}
-
-// CreateContainerFromImage mocks base method.
-func (m *MockInstanceServer) CreateContainerFromImage(arg0 lxd.ImageServer, arg1 api.Image, arg2 api.ContainersPost) (lxd.RemoteOperation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainerFromImage", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.RemoteOperation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateContainerFromImage indicates an expected call of CreateContainerFromImage.
-func (mr *MockInstanceServerMockRecorder) CreateContainerFromImage(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerFromImage", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainerFromImage), arg0, arg1, arg2)
-}
-
-// CreateContainerSnapshot mocks base method.
-func (m *MockInstanceServer) CreateContainerSnapshot(arg0 string, arg1 api.ContainerSnapshotsPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainerSnapshot", arg0, arg1)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateContainerSnapshot indicates an expected call of CreateContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) CreateContainerSnapshot(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainerSnapshot), arg0, arg1)
-}
-
-// CreateContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) CreateContainerTemplateFile(arg0, arg1 string, arg2 io.ReadSeeker) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainerTemplateFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreateContainerTemplateFile indicates an expected call of CreateContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) CreateContainerTemplateFile(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainerTemplateFile", reflect.TypeOf((*MockInstanceServer)(nil).CreateContainerTemplateFile), arg0, arg1, arg2)
-}
-
 // CreateIdentityBearer mocks base method.
 func (m *MockInstanceServer) CreateIdentityBearer(arg0 api.IdentitiesBearerPost) error {
 	m.ctrl.T.Helper()
@@ -972,6 +853,21 @@ func (m *MockInstanceServer) CreateIdentityBearer(arg0 api.IdentitiesBearerPost)
 func (mr *MockInstanceServerMockRecorder) CreateIdentityBearer(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIdentityBearer", reflect.TypeOf((*MockInstanceServer)(nil).CreateIdentityBearer), arg0)
+}
+
+// CreateIdentityClusterLinkToken mocks base method.
+func (m *MockInstanceServer) CreateIdentityClusterLinkToken(arg0 api.ClusterLinksPost) (*api.CertificateAddToken, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIdentityClusterLinkToken", arg0)
+	ret0, _ := ret[0].(*api.CertificateAddToken)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateIdentityClusterLinkToken indicates an expected call of CreateIdentityClusterLinkToken.
+func (mr *MockInstanceServerMockRecorder) CreateIdentityClusterLinkToken(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIdentityClusterLinkToken", reflect.TypeOf((*MockInstanceServer)(nil).CreateIdentityClusterLinkToken), arg0)
 }
 
 // CreateIdentityProviderGroup mocks base method.
@@ -1165,11 +1061,12 @@ func (mr *MockInstanceServerMockRecorder) CreateInstanceTemplateFile(arg0, arg1,
 }
 
 // CreateNetwork mocks base method.
-func (m *MockInstanceServer) CreateNetwork(arg0 api.NetworksPost) error {
+func (m *MockInstanceServer) CreateNetwork(arg0 api.NetworksPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateNetwork", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateNetwork indicates an expected call of CreateNetwork.
@@ -1179,11 +1076,12 @@ func (mr *MockInstanceServerMockRecorder) CreateNetwork(arg0 any) *gomock.Call {
 }
 
 // CreateNetworkACL mocks base method.
-func (m *MockInstanceServer) CreateNetworkACL(arg0 api.NetworkACLsPost) error {
+func (m *MockInstanceServer) CreateNetworkACL(arg0 api.NetworkACLsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateNetworkACL", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateNetworkACL indicates an expected call of CreateNetworkACL.
@@ -1193,11 +1091,12 @@ func (mr *MockInstanceServerMockRecorder) CreateNetworkACL(arg0 any) *gomock.Cal
 }
 
 // CreateNetworkForward mocks base method.
-func (m *MockInstanceServer) CreateNetworkForward(arg0 string, arg1 api.NetworkForwardsPost) error {
+func (m *MockInstanceServer) CreateNetworkForward(arg0 string, arg1 api.NetworkForwardsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateNetworkForward", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateNetworkForward indicates an expected call of CreateNetworkForward.
@@ -1207,11 +1106,12 @@ func (mr *MockInstanceServerMockRecorder) CreateNetworkForward(arg0, arg1 any) *
 }
 
 // CreateNetworkLoadBalancer mocks base method.
-func (m *MockInstanceServer) CreateNetworkLoadBalancer(arg0 string, arg1 api.NetworkLoadBalancersPost) error {
+func (m *MockInstanceServer) CreateNetworkLoadBalancer(arg0 string, arg1 api.NetworkLoadBalancersPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateNetworkLoadBalancer", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateNetworkLoadBalancer indicates an expected call of CreateNetworkLoadBalancer.
@@ -1220,12 +1120,28 @@ func (mr *MockInstanceServerMockRecorder) CreateNetworkLoadBalancer(arg0, arg1 a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNetworkLoadBalancer", reflect.TypeOf((*MockInstanceServer)(nil).CreateNetworkLoadBalancer), arg0, arg1)
 }
 
+// CreateNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) CreateNetworkLoadBalancerPool(arg0 string, arg1 api.NetworkLoadBalancerPoolsPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateNetworkLoadBalancerPool", arg0, arg1)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateNetworkLoadBalancerPool indicates an expected call of CreateNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) CreateNetworkLoadBalancerPool(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateNetworkLoadBalancerPool", reflect.TypeOf((*MockInstanceServer)(nil).CreateNetworkLoadBalancerPool), arg0, arg1)
+}
+
 // CreateNetworkPeer mocks base method.
-func (m *MockInstanceServer) CreateNetworkPeer(arg0 string, arg1 api.NetworkPeersPost) error {
+func (m *MockInstanceServer) CreateNetworkPeer(arg0 string, arg1 api.NetworkPeersPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateNetworkPeer", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateNetworkPeer indicates an expected call of CreateNetworkPeer.
@@ -1235,11 +1151,12 @@ func (mr *MockInstanceServerMockRecorder) CreateNetworkPeer(arg0, arg1 any) *gom
 }
 
 // CreateNetworkZone mocks base method.
-func (m *MockInstanceServer) CreateNetworkZone(arg0 api.NetworkZonesPost) error {
+func (m *MockInstanceServer) CreateNetworkZone(arg0 api.NetworkZonesPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateNetworkZone", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateNetworkZone indicates an expected call of CreateNetworkZone.
@@ -1249,11 +1166,12 @@ func (mr *MockInstanceServerMockRecorder) CreateNetworkZone(arg0 any) *gomock.Ca
 }
 
 // CreateNetworkZoneRecord mocks base method.
-func (m *MockInstanceServer) CreateNetworkZoneRecord(arg0 string, arg1 api.NetworkZoneRecordsPost) error {
+func (m *MockInstanceServer) CreateNetworkZoneRecord(arg0 string, arg1 api.NetworkZoneRecordsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateNetworkZoneRecord", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateNetworkZoneRecord indicates an expected call of CreateNetworkZoneRecord.
@@ -1304,12 +1222,27 @@ func (mr *MockInstanceServerMockRecorder) CreateProject(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateProject", reflect.TypeOf((*MockInstanceServer)(nil).CreateProject), arg0)
 }
 
-// CreateStoragePool mocks base method.
-func (m *MockInstanceServer) CreateStoragePool(arg0 api.StoragePoolsPost) error {
+// CreateReplicator mocks base method.
+func (m *MockInstanceServer) CreateReplicator(arg0 string, arg1 api.ReplicatorsPost) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateStoragePool", arg0)
+	ret := m.ctrl.Call(m, "CreateReplicator", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
+}
+
+// CreateReplicator indicates an expected call of CreateReplicator.
+func (mr *MockInstanceServerMockRecorder) CreateReplicator(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateReplicator", reflect.TypeOf((*MockInstanceServer)(nil).CreateReplicator), arg0, arg1)
+}
+
+// CreateStoragePool mocks base method.
+func (m *MockInstanceServer) CreateStoragePool(arg0 api.StoragePoolsPost) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateStoragePool", arg0)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateStoragePool indicates an expected call of CreateStoragePool.
@@ -1319,10 +1252,10 @@ func (mr *MockInstanceServerMockRecorder) CreateStoragePool(arg0 any) *gomock.Ca
 }
 
 // CreateStoragePoolBucket mocks base method.
-func (m *MockInstanceServer) CreateStoragePoolBucket(arg0 string, arg1 api.StorageBucketsPost) (*api.StorageBucketKey, error) {
+func (m *MockInstanceServer) CreateStoragePoolBucket(arg0 string, arg1 api.StorageBucketsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePoolBucket", arg0, arg1)
-	ret0, _ := ret[0].(*api.StorageBucketKey)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1334,10 +1267,10 @@ func (mr *MockInstanceServerMockRecorder) CreateStoragePoolBucket(arg0, arg1 any
 }
 
 // CreateStoragePoolBucketKey mocks base method.
-func (m *MockInstanceServer) CreateStoragePoolBucketKey(arg0, arg1 string, arg2 api.StorageBucketKeysPost) (*api.StorageBucketKey, error) {
+func (m *MockInstanceServer) CreateStoragePoolBucketKey(arg0, arg1 string, arg2 api.StorageBucketKeysPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePoolBucketKey", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*api.StorageBucketKey)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1480,6 +1413,20 @@ func (mr *MockInstanceServerMockRecorder) DeleteClusterGroup(arg0 any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClusterGroup", reflect.TypeOf((*MockInstanceServer)(nil).DeleteClusterGroup), arg0)
 }
 
+// DeleteClusterLink mocks base method.
+func (m *MockInstanceServer) DeleteClusterLink(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteClusterLink", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteClusterLink indicates an expected call of DeleteClusterLink.
+func (mr *MockInstanceServerMockRecorder) DeleteClusterLink(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClusterLink", reflect.TypeOf((*MockInstanceServer)(nil).DeleteClusterLink), arg0)
+}
+
 // DeleteClusterMember mocks base method.
 func (m *MockInstanceServer) DeleteClusterMember(arg0 string, arg1 bool) error {
 	m.ctrl.T.Helper()
@@ -1492,107 +1439,6 @@ func (m *MockInstanceServer) DeleteClusterMember(arg0 string, arg1 bool) error {
 func (mr *MockInstanceServerMockRecorder) DeleteClusterMember(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteClusterMember", reflect.TypeOf((*MockInstanceServer)(nil).DeleteClusterMember), arg0, arg1)
-}
-
-// DeleteContainer mocks base method.
-func (m *MockInstanceServer) DeleteContainer(arg0 string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteContainer", arg0)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DeleteContainer indicates an expected call of DeleteContainer.
-func (mr *MockInstanceServerMockRecorder) DeleteContainer(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainer", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainer), arg0)
-}
-
-// DeleteContainerBackup mocks base method.
-func (m *MockInstanceServer) DeleteContainerBackup(arg0, arg1 string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteContainerBackup", arg0, arg1)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DeleteContainerBackup indicates an expected call of DeleteContainerBackup.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerBackup(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerBackup", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainerBackup), arg0, arg1)
-}
-
-// DeleteContainerConsoleLog mocks base method.
-func (m *MockInstanceServer) DeleteContainerConsoleLog(arg0 string, arg1 *lxd.ContainerConsoleLogArgs) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteContainerConsoleLog", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteContainerConsoleLog indicates an expected call of DeleteContainerConsoleLog.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerConsoleLog(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerConsoleLog", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainerConsoleLog), arg0, arg1)
-}
-
-// DeleteContainerFile mocks base method.
-func (m *MockInstanceServer) DeleteContainerFile(arg0, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteContainerFile", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteContainerFile indicates an expected call of DeleteContainerFile.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerFile(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerFile", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainerFile), arg0, arg1)
-}
-
-// DeleteContainerLogfile mocks base method.
-func (m *MockInstanceServer) DeleteContainerLogfile(arg0, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteContainerLogfile", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteContainerLogfile indicates an expected call of DeleteContainerLogfile.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerLogfile(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerLogfile", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainerLogfile), arg0, arg1)
-}
-
-// DeleteContainerSnapshot mocks base method.
-func (m *MockInstanceServer) DeleteContainerSnapshot(arg0, arg1 string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteContainerSnapshot", arg0, arg1)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DeleteContainerSnapshot indicates an expected call of DeleteContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerSnapshot(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainerSnapshot), arg0, arg1)
-}
-
-// DeleteContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) DeleteContainerTemplateFile(arg0, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteContainerTemplateFile", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteContainerTemplateFile indicates an expected call of DeleteContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) DeleteContainerTemplateFile(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteContainerTemplateFile", reflect.TypeOf((*MockInstanceServer)(nil).DeleteContainerTemplateFile), arg0, arg1)
 }
 
 // DeleteIdentity mocks base method.
@@ -1653,18 +1499,18 @@ func (mr *MockInstanceServerMockRecorder) DeleteImageAlias(arg0 any) *gomock.Cal
 }
 
 // DeleteInstance mocks base method.
-func (m *MockInstanceServer) DeleteInstance(arg0 string) (lxd.Operation, error) {
+func (m *MockInstanceServer) DeleteInstance(arg0 string, arg1 bool) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteInstance", arg0)
+	ret := m.ctrl.Call(m, "DeleteInstance", arg0, arg1)
 	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DeleteInstance indicates an expected call of DeleteInstance.
-func (mr *MockInstanceServerMockRecorder) DeleteInstance(arg0 any) *gomock.Call {
+func (mr *MockInstanceServerMockRecorder) DeleteInstance(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstance", reflect.TypeOf((*MockInstanceServer)(nil).DeleteInstance), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteInstance", reflect.TypeOf((*MockInstanceServer)(nil).DeleteInstance), arg0, arg1)
 }
 
 // DeleteInstanceBackup mocks base method.
@@ -1754,11 +1600,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteInstanceTemplateFile(arg0, arg1 
 }
 
 // DeleteNetwork mocks base method.
-func (m *MockInstanceServer) DeleteNetwork(arg0 string) error {
+func (m *MockInstanceServer) DeleteNetwork(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteNetwork", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteNetwork indicates an expected call of DeleteNetwork.
@@ -1768,11 +1615,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteNetwork(arg0 any) *gomock.Call {
 }
 
 // DeleteNetworkACL mocks base method.
-func (m *MockInstanceServer) DeleteNetworkACL(arg0 string) error {
+func (m *MockInstanceServer) DeleteNetworkACL(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteNetworkACL", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteNetworkACL indicates an expected call of DeleteNetworkACL.
@@ -1782,11 +1630,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteNetworkACL(arg0 any) *gomock.Cal
 }
 
 // DeleteNetworkForward mocks base method.
-func (m *MockInstanceServer) DeleteNetworkForward(arg0, arg1 string) error {
+func (m *MockInstanceServer) DeleteNetworkForward(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteNetworkForward", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteNetworkForward indicates an expected call of DeleteNetworkForward.
@@ -1796,11 +1645,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteNetworkForward(arg0, arg1 any) *
 }
 
 // DeleteNetworkLoadBalancer mocks base method.
-func (m *MockInstanceServer) DeleteNetworkLoadBalancer(arg0, arg1 string) error {
+func (m *MockInstanceServer) DeleteNetworkLoadBalancer(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteNetworkLoadBalancer", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteNetworkLoadBalancer indicates an expected call of DeleteNetworkLoadBalancer.
@@ -1809,12 +1659,28 @@ func (mr *MockInstanceServerMockRecorder) DeleteNetworkLoadBalancer(arg0, arg1 a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNetworkLoadBalancer", reflect.TypeOf((*MockInstanceServer)(nil).DeleteNetworkLoadBalancer), arg0, arg1)
 }
 
+// DeleteNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) DeleteNetworkLoadBalancerPool(arg0, arg1 string) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteNetworkLoadBalancerPool", arg0, arg1)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteNetworkLoadBalancerPool indicates an expected call of DeleteNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) DeleteNetworkLoadBalancerPool(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNetworkLoadBalancerPool", reflect.TypeOf((*MockInstanceServer)(nil).DeleteNetworkLoadBalancerPool), arg0, arg1)
+}
+
 // DeleteNetworkPeer mocks base method.
-func (m *MockInstanceServer) DeleteNetworkPeer(arg0, arg1 string) error {
+func (m *MockInstanceServer) DeleteNetworkPeer(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteNetworkPeer", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteNetworkPeer indicates an expected call of DeleteNetworkPeer.
@@ -1824,11 +1690,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteNetworkPeer(arg0, arg1 any) *gom
 }
 
 // DeleteNetworkZone mocks base method.
-func (m *MockInstanceServer) DeleteNetworkZone(arg0 string) error {
+func (m *MockInstanceServer) DeleteNetworkZone(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteNetworkZone", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteNetworkZone indicates an expected call of DeleteNetworkZone.
@@ -1838,11 +1705,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteNetworkZone(arg0 any) *gomock.Ca
 }
 
 // DeleteNetworkZoneRecord mocks base method.
-func (m *MockInstanceServer) DeleteNetworkZoneRecord(arg0, arg1 string) error {
+func (m *MockInstanceServer) DeleteNetworkZoneRecord(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteNetworkZoneRecord", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteNetworkZoneRecord indicates an expected call of DeleteNetworkZoneRecord.
@@ -1908,11 +1776,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteProfile(arg0 any) *gomock.Call {
 }
 
 // DeleteProject mocks base method.
-func (m *MockInstanceServer) DeleteProject(arg0 string, arg1 bool) error {
+func (m *MockInstanceServer) DeleteProject(arg0 string, arg1 bool) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteProject", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteProject indicates an expected call of DeleteProject.
@@ -1921,12 +1790,27 @@ func (mr *MockInstanceServerMockRecorder) DeleteProject(arg0, arg1 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteProject", reflect.TypeOf((*MockInstanceServer)(nil).DeleteProject), arg0, arg1)
 }
 
-// DeleteStoragePool mocks base method.
-func (m *MockInstanceServer) DeleteStoragePool(arg0 string) error {
+// DeleteReplicator mocks base method.
+func (m *MockInstanceServer) DeleteReplicator(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteStoragePool", arg0)
+	ret := m.ctrl.Call(m, "DeleteReplicator", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
+}
+
+// DeleteReplicator indicates an expected call of DeleteReplicator.
+func (mr *MockInstanceServerMockRecorder) DeleteReplicator(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteReplicator", reflect.TypeOf((*MockInstanceServer)(nil).DeleteReplicator), arg0, arg1)
+}
+
+// DeleteStoragePool mocks base method.
+func (m *MockInstanceServer) DeleteStoragePool(arg0 string) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteStoragePool", arg0)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteStoragePool indicates an expected call of DeleteStoragePool.
@@ -1936,11 +1820,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteStoragePool(arg0 any) *gomock.Ca
 }
 
 // DeleteStoragePoolBucket mocks base method.
-func (m *MockInstanceServer) DeleteStoragePoolBucket(arg0, arg1 string) error {
+func (m *MockInstanceServer) DeleteStoragePoolBucket(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteStoragePoolBucket", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteStoragePoolBucket indicates an expected call of DeleteStoragePoolBucket.
@@ -1950,11 +1835,12 @@ func (mr *MockInstanceServerMockRecorder) DeleteStoragePoolBucket(arg0, arg1 any
 }
 
 // DeleteStoragePoolBucketKey mocks base method.
-func (m *MockInstanceServer) DeleteStoragePoolBucketKey(arg0, arg1, arg2 string) error {
+func (m *MockInstanceServer) DeleteStoragePoolBucketKey(arg0, arg1, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteStoragePoolBucketKey", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeleteStoragePoolBucketKey indicates an expected call of DeleteStoragePoolBucketKey.
@@ -2047,21 +1933,6 @@ func (m *MockInstanceServer) DoHTTP(arg0 *http.Request) (*http.Response, error) 
 func (mr *MockInstanceServerMockRecorder) DoHTTP(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DoHTTP", reflect.TypeOf((*MockInstanceServer)(nil).DoHTTP), arg0)
-}
-
-// ExecContainer mocks base method.
-func (m *MockInstanceServer) ExecContainer(arg0 string, arg1 api.ContainerExecPost, arg2 *lxd.ContainerExecArgs) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ExecContainer indicates an expected call of ExecContainer.
-func (mr *MockInstanceServerMockRecorder) ExecContainer(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecContainer", reflect.TypeOf((*MockInstanceServer)(nil).ExecContainer), arg0, arg1, arg2)
 }
 
 // ExecInstance mocks base method.
@@ -2248,6 +2119,68 @@ func (mr *MockInstanceServerMockRecorder) GetClusterGroups() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterGroups", reflect.TypeOf((*MockInstanceServer)(nil).GetClusterGroups))
 }
 
+// GetClusterLink mocks base method.
+func (m *MockInstanceServer) GetClusterLink(arg0 string) (*api.ClusterLink, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClusterLink", arg0)
+	ret0, _ := ret[0].(*api.ClusterLink)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetClusterLink indicates an expected call of GetClusterLink.
+func (mr *MockInstanceServerMockRecorder) GetClusterLink(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterLink", reflect.TypeOf((*MockInstanceServer)(nil).GetClusterLink), arg0)
+}
+
+// GetClusterLinkNames mocks base method.
+func (m *MockInstanceServer) GetClusterLinkNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClusterLinkNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterLinkNames indicates an expected call of GetClusterLinkNames.
+func (mr *MockInstanceServerMockRecorder) GetClusterLinkNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterLinkNames", reflect.TypeOf((*MockInstanceServer)(nil).GetClusterLinkNames))
+}
+
+// GetClusterLinkState mocks base method.
+func (m *MockInstanceServer) GetClusterLinkState(arg0 string) (*api.ClusterLinkState, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClusterLinkState", arg0)
+	ret0, _ := ret[0].(*api.ClusterLinkState)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetClusterLinkState indicates an expected call of GetClusterLinkState.
+func (mr *MockInstanceServerMockRecorder) GetClusterLinkState(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterLinkState", reflect.TypeOf((*MockInstanceServer)(nil).GetClusterLinkState), arg0)
+}
+
+// GetClusterLinks mocks base method.
+func (m *MockInstanceServer) GetClusterLinks() ([]api.ClusterLink, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetClusterLinks")
+	ret0, _ := ret[0].([]api.ClusterLink)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetClusterLinks indicates an expected call of GetClusterLinks.
+func (mr *MockInstanceServerMockRecorder) GetClusterLinks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterLinks", reflect.TypeOf((*MockInstanceServer)(nil).GetClusterLinks))
+}
+
 // GetClusterMember mocks base method.
 func (m *MockInstanceServer) GetClusterMember(arg0 string) (*api.ClusterMember, string, error) {
 	m.ctrl.T.Helper()
@@ -2323,297 +2256,6 @@ func (m *MockInstanceServer) GetConnectionInfo() (*lxd.ConnectionInfo, error) {
 func (mr *MockInstanceServerMockRecorder) GetConnectionInfo() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConnectionInfo", reflect.TypeOf((*MockInstanceServer)(nil).GetConnectionInfo))
-}
-
-// GetContainer mocks base method.
-func (m *MockInstanceServer) GetContainer(arg0 string) (*api.Container, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainer", arg0)
-	ret0, _ := ret[0].(*api.Container)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetContainer indicates an expected call of GetContainer.
-func (mr *MockInstanceServerMockRecorder) GetContainer(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainer", reflect.TypeOf((*MockInstanceServer)(nil).GetContainer), arg0)
-}
-
-// GetContainerBackup mocks base method.
-func (m *MockInstanceServer) GetContainerBackup(arg0, arg1 string) (*api.ContainerBackup, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerBackup", arg0, arg1)
-	ret0, _ := ret[0].(*api.ContainerBackup)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetContainerBackup indicates an expected call of GetContainerBackup.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackup(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackup", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerBackup), arg0, arg1)
-}
-
-// GetContainerBackupFile mocks base method.
-func (m *MockInstanceServer) GetContainerBackupFile(arg0, arg1 string, arg2 *lxd.BackupFileRequest) (*lxd.BackupFileResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerBackupFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*lxd.BackupFileResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerBackupFile indicates an expected call of GetContainerBackupFile.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackupFile(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackupFile", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerBackupFile), arg0, arg1, arg2)
-}
-
-// GetContainerBackupNames mocks base method.
-func (m *MockInstanceServer) GetContainerBackupNames(arg0 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerBackupNames", arg0)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerBackupNames indicates an expected call of GetContainerBackupNames.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackupNames(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackupNames", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerBackupNames), arg0)
-}
-
-// GetContainerBackups mocks base method.
-func (m *MockInstanceServer) GetContainerBackups(arg0 string) ([]api.ContainerBackup, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerBackups", arg0)
-	ret0, _ := ret[0].([]api.ContainerBackup)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerBackups indicates an expected call of GetContainerBackups.
-func (mr *MockInstanceServerMockRecorder) GetContainerBackups(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerBackups", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerBackups), arg0)
-}
-
-// GetContainerConsoleLog mocks base method.
-func (m *MockInstanceServer) GetContainerConsoleLog(arg0 string, arg1 *lxd.ContainerConsoleLogArgs) (io.ReadCloser, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerConsoleLog", arg0, arg1)
-	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerConsoleLog indicates an expected call of GetContainerConsoleLog.
-func (mr *MockInstanceServerMockRecorder) GetContainerConsoleLog(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerConsoleLog", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerConsoleLog), arg0, arg1)
-}
-
-// GetContainerFile mocks base method.
-func (m *MockInstanceServer) GetContainerFile(arg0, arg1 string) (io.ReadCloser, *lxd.ContainerFileResponse, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerFile", arg0, arg1)
-	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(*lxd.ContainerFileResponse)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetContainerFile indicates an expected call of GetContainerFile.
-func (mr *MockInstanceServerMockRecorder) GetContainerFile(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerFile", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerFile), arg0, arg1)
-}
-
-// GetContainerLogfile mocks base method.
-func (m *MockInstanceServer) GetContainerLogfile(arg0, arg1 string) (io.ReadCloser, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerLogfile", arg0, arg1)
-	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerLogfile indicates an expected call of GetContainerLogfile.
-func (mr *MockInstanceServerMockRecorder) GetContainerLogfile(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerLogfile", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerLogfile), arg0, arg1)
-}
-
-// GetContainerLogfiles mocks base method.
-func (m *MockInstanceServer) GetContainerLogfiles(arg0 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerLogfiles", arg0)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerLogfiles indicates an expected call of GetContainerLogfiles.
-func (mr *MockInstanceServerMockRecorder) GetContainerLogfiles(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerLogfiles", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerLogfiles), arg0)
-}
-
-// GetContainerMetadata mocks base method.
-func (m *MockInstanceServer) GetContainerMetadata(arg0 string) (*api.ImageMetadata, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerMetadata", arg0)
-	ret0, _ := ret[0].(*api.ImageMetadata)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetContainerMetadata indicates an expected call of GetContainerMetadata.
-func (mr *MockInstanceServerMockRecorder) GetContainerMetadata(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerMetadata", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerMetadata), arg0)
-}
-
-// GetContainerNames mocks base method.
-func (m *MockInstanceServer) GetContainerNames() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerNames")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerNames indicates an expected call of GetContainerNames.
-func (mr *MockInstanceServerMockRecorder) GetContainerNames() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerNames", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerNames))
-}
-
-// GetContainerSnapshot mocks base method.
-func (m *MockInstanceServer) GetContainerSnapshot(arg0, arg1 string) (*api.ContainerSnapshot, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerSnapshot", arg0, arg1)
-	ret0, _ := ret[0].(*api.ContainerSnapshot)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetContainerSnapshot indicates an expected call of GetContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) GetContainerSnapshot(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerSnapshot), arg0, arg1)
-}
-
-// GetContainerSnapshotNames mocks base method.
-func (m *MockInstanceServer) GetContainerSnapshotNames(arg0 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerSnapshotNames", arg0)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerSnapshotNames indicates an expected call of GetContainerSnapshotNames.
-func (mr *MockInstanceServerMockRecorder) GetContainerSnapshotNames(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerSnapshotNames", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerSnapshotNames), arg0)
-}
-
-// GetContainerSnapshots mocks base method.
-func (m *MockInstanceServer) GetContainerSnapshots(arg0 string) ([]api.ContainerSnapshot, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerSnapshots", arg0)
-	ret0, _ := ret[0].([]api.ContainerSnapshot)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerSnapshots indicates an expected call of GetContainerSnapshots.
-func (mr *MockInstanceServerMockRecorder) GetContainerSnapshots(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerSnapshots", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerSnapshots), arg0)
-}
-
-// GetContainerState mocks base method.
-func (m *MockInstanceServer) GetContainerState(arg0 string) (*api.ContainerState, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerState", arg0)
-	ret0, _ := ret[0].(*api.ContainerState)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// GetContainerState indicates an expected call of GetContainerState.
-func (mr *MockInstanceServerMockRecorder) GetContainerState(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerState", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerState), arg0)
-}
-
-// GetContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) GetContainerTemplateFile(arg0, arg1 string) (io.ReadCloser, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerTemplateFile", arg0, arg1)
-	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerTemplateFile indicates an expected call of GetContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) GetContainerTemplateFile(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerTemplateFile", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerTemplateFile), arg0, arg1)
-}
-
-// GetContainerTemplateFiles mocks base method.
-func (m *MockInstanceServer) GetContainerTemplateFiles(arg0 string) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerTemplateFiles", arg0)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainerTemplateFiles indicates an expected call of GetContainerTemplateFiles.
-func (mr *MockInstanceServerMockRecorder) GetContainerTemplateFiles(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerTemplateFiles", reflect.TypeOf((*MockInstanceServer)(nil).GetContainerTemplateFiles), arg0)
-}
-
-// GetContainers mocks base method.
-func (m *MockInstanceServer) GetContainers() ([]api.Container, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainers")
-	ret0, _ := ret[0].([]api.Container)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainers indicates an expected call of GetContainers.
-func (mr *MockInstanceServerMockRecorder) GetContainers() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainers", reflect.TypeOf((*MockInstanceServer)(nil).GetContainers))
-}
-
-// GetContainersFull mocks base method.
-func (m *MockInstanceServer) GetContainersFull() ([]api.ContainerFull, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainersFull")
-	ret0, _ := ret[0].([]api.ContainerFull)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetContainersFull indicates an expected call of GetContainersFull.
-func (mr *MockInstanceServerMockRecorder) GetContainersFull() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainersFull", reflect.TypeOf((*MockInstanceServer)(nil).GetContainersFull))
 }
 
 // GetCurrentIdentityInfo mocks base method.
@@ -3336,7 +2978,7 @@ func (mr *MockInstanceServerMockRecorder) GetInstanceUEFIVars(arg0 any) *gomock.
 }
 
 // GetInstances mocks base method.
-func (m *MockInstanceServer) GetInstances(arg0 api.InstanceType) ([]api.Instance, error) {
+func (m *MockInstanceServer) GetInstances(arg0 lxd.GetInstancesArgs) ([]api.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstances", arg0)
 	ret0, _ := ret[0].([]api.Instance)
@@ -3350,38 +2992,8 @@ func (mr *MockInstanceServerMockRecorder) GetInstances(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstances", reflect.TypeOf((*MockInstanceServer)(nil).GetInstances), arg0)
 }
 
-// GetInstancesAllProjects mocks base method.
-func (m *MockInstanceServer) GetInstancesAllProjects(arg0 api.InstanceType) ([]api.Instance, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstancesAllProjects", arg0)
-	ret0, _ := ret[0].([]api.Instance)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetInstancesAllProjects indicates an expected call of GetInstancesAllProjects.
-func (mr *MockInstanceServerMockRecorder) GetInstancesAllProjects(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesAllProjects), arg0)
-}
-
-// GetInstancesAllProjectsWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesAllProjectsWithFilter(arg0 api.InstanceType, arg1 []string) ([]api.Instance, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstancesAllProjectsWithFilter", arg0, arg1)
-	ret0, _ := ret[0].([]api.Instance)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetInstancesAllProjectsWithFilter indicates an expected call of GetInstancesAllProjectsWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesAllProjectsWithFilter(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesAllProjectsWithFilter", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesAllProjectsWithFilter), arg0, arg1)
-}
-
 // GetInstancesFull mocks base method.
-func (m *MockInstanceServer) GetInstancesFull(arg0 api.InstanceType) ([]api.InstanceFull, error) {
+func (m *MockInstanceServer) GetInstancesFull(arg0 lxd.GetInstancesFullArgs) ([]api.InstanceFull, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstancesFull", arg0)
 	ret0, _ := ret[0].([]api.InstanceFull)
@@ -3393,66 +3005,6 @@ func (m *MockInstanceServer) GetInstancesFull(arg0 api.InstanceType) ([]api.Inst
 func (mr *MockInstanceServerMockRecorder) GetInstancesFull(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesFull", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesFull), arg0)
-}
-
-// GetInstancesFullAllProjects mocks base method.
-func (m *MockInstanceServer) GetInstancesFullAllProjects(arg0 api.InstanceType) ([]api.InstanceFull, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstancesFullAllProjects", arg0)
-	ret0, _ := ret[0].([]api.InstanceFull)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetInstancesFullAllProjects indicates an expected call of GetInstancesFullAllProjects.
-func (mr *MockInstanceServerMockRecorder) GetInstancesFullAllProjects(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesFullAllProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesFullAllProjects), arg0)
-}
-
-// GetInstancesFullAllProjectsWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesFullAllProjectsWithFilter(arg0 api.InstanceType, arg1 []string) ([]api.InstanceFull, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstancesFullAllProjectsWithFilter", arg0, arg1)
-	ret0, _ := ret[0].([]api.InstanceFull)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetInstancesFullAllProjectsWithFilter indicates an expected call of GetInstancesFullAllProjectsWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesFullAllProjectsWithFilter(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesFullAllProjectsWithFilter", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesFullAllProjectsWithFilter), arg0, arg1)
-}
-
-// GetInstancesFullWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesFullWithFilter(arg0 api.InstanceType, arg1 []string) ([]api.InstanceFull, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstancesFullWithFilter", arg0, arg1)
-	ret0, _ := ret[0].([]api.InstanceFull)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetInstancesFullWithFilter indicates an expected call of GetInstancesFullWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesFullWithFilter(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesFullWithFilter", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesFullWithFilter), arg0, arg1)
-}
-
-// GetInstancesWithFilter mocks base method.
-func (m *MockInstanceServer) GetInstancesWithFilter(arg0 api.InstanceType, arg1 []string) ([]api.Instance, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetInstancesWithFilter", arg0, arg1)
-	ret0, _ := ret[0].([]api.Instance)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetInstancesWithFilter indicates an expected call of GetInstancesWithFilter.
-func (mr *MockInstanceServerMockRecorder) GetInstancesWithFilter(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstancesWithFilter", reflect.TypeOf((*MockInstanceServer)(nil).GetInstancesWithFilter), arg0, arg1)
 }
 
 // GetMetadataConfiguration mocks base method.
@@ -3682,6 +3234,52 @@ func (m *MockInstanceServer) GetNetworkLoadBalancerAddresses(arg0 string) ([]str
 func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerAddresses(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkLoadBalancerAddresses", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkLoadBalancerAddresses), arg0)
+}
+
+// GetNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) GetNetworkLoadBalancerPool(arg0, arg1 string) (*api.NetworkLoadBalancerPool, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkLoadBalancerPool", arg0, arg1)
+	ret0, _ := ret[0].(*api.NetworkLoadBalancerPool)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetNetworkLoadBalancerPool indicates an expected call of GetNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerPool(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkLoadBalancerPool", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkLoadBalancerPool), arg0, arg1)
+}
+
+// GetNetworkLoadBalancerPoolState mocks base method.
+func (m *MockInstanceServer) GetNetworkLoadBalancerPoolState(arg0, arg1 string) (*api.NetworkLoadBalancerPoolState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkLoadBalancerPoolState", arg0, arg1)
+	ret0, _ := ret[0].(*api.NetworkLoadBalancerPoolState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkLoadBalancerPoolState indicates an expected call of GetNetworkLoadBalancerPoolState.
+func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerPoolState(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkLoadBalancerPoolState", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkLoadBalancerPoolState), arg0, arg1)
+}
+
+// GetNetworkLoadBalancerPools mocks base method.
+func (m *MockInstanceServer) GetNetworkLoadBalancerPools(arg0 string) ([]api.NetworkLoadBalancerPool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNetworkLoadBalancerPools", arg0)
+	ret0, _ := ret[0].([]api.NetworkLoadBalancerPool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNetworkLoadBalancerPools indicates an expected call of GetNetworkLoadBalancerPools.
+func (mr *MockInstanceServerMockRecorder) GetNetworkLoadBalancerPools(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNetworkLoadBalancerPools", reflect.TypeOf((*MockInstanceServer)(nil).GetNetworkLoadBalancerPools), arg0)
 }
 
 // GetNetworkLoadBalancers mocks base method.
@@ -4001,6 +3599,22 @@ func (m *MockInstanceServer) GetOperation(arg0 string) (*api.Operation, string, 
 func (mr *MockInstanceServerMockRecorder) GetOperation(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperation", reflect.TypeOf((*MockInstanceServer)(nil).GetOperation), arg0)
+}
+
+// GetOperationFull mocks base method.
+func (m *MockInstanceServer) GetOperationFull(arg0 string) (*api.OperationFull, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetOperationFull", arg0)
+	ret0, _ := ret[0].(*api.OperationFull)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetOperationFull indicates an expected call of GetOperationFull.
+func (mr *MockInstanceServerMockRecorder) GetOperationFull(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetOperationFull", reflect.TypeOf((*MockInstanceServer)(nil).GetOperationFull), arg0)
 }
 
 // GetOperationUUIDs mocks base method.
@@ -4352,6 +3966,67 @@ func (m *MockInstanceServer) GetProjects() ([]api.Project, error) {
 func (mr *MockInstanceServerMockRecorder) GetProjects() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetProjects", reflect.TypeOf((*MockInstanceServer)(nil).GetProjects))
+}
+
+// GetReplicator mocks base method.
+func (m *MockInstanceServer) GetReplicator(arg0, arg1 string) (*api.Replicator, string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetReplicator", arg0, arg1)
+	ret0, _ := ret[0].(*api.Replicator)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetReplicator indicates an expected call of GetReplicator.
+func (mr *MockInstanceServerMockRecorder) GetReplicator(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReplicator", reflect.TypeOf((*MockInstanceServer)(nil).GetReplicator), arg0, arg1)
+}
+
+// GetReplicatorNames mocks base method.
+func (m *MockInstanceServer) GetReplicatorNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetReplicatorNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReplicatorNames indicates an expected call of GetReplicatorNames.
+func (mr *MockInstanceServerMockRecorder) GetReplicatorNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReplicatorNames", reflect.TypeOf((*MockInstanceServer)(nil).GetReplicatorNames))
+}
+
+// GetReplicatorState mocks base method.
+func (m *MockInstanceServer) GetReplicatorState(arg0, arg1 string) (*api.ReplicatorState, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetReplicatorState", arg0, arg1)
+	ret0, _ := ret[0].(*api.ReplicatorState)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReplicatorState indicates an expected call of GetReplicatorState.
+func (mr *MockInstanceServerMockRecorder) GetReplicatorState(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReplicatorState", reflect.TypeOf((*MockInstanceServer)(nil).GetReplicatorState), arg0, arg1)
+}
+
+// GetReplicators mocks base method.
+func (m *MockInstanceServer) GetReplicators(arg0 string) ([]api.Replicator, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetReplicators", arg0)
+	ret0, _ := ret[0].([]api.Replicator)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReplicators indicates an expected call of GetReplicators.
+func (mr *MockInstanceServerMockRecorder) GetReplicators(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReplicators", reflect.TypeOf((*MockInstanceServer)(nil).GetReplicators), arg0)
 }
 
 // GetServer mocks base method.
@@ -4900,36 +4575,6 @@ func (mr *MockInstanceServerMockRecorder) IssueBearerIdentityToken(arg0, arg1 an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueBearerIdentityToken", reflect.TypeOf((*MockInstanceServer)(nil).IssueBearerIdentityToken), arg0, arg1)
 }
 
-// MigrateContainer mocks base method.
-func (m *MockInstanceServer) MigrateContainer(arg0 string, arg1 api.ContainerPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MigrateContainer", arg0, arg1)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MigrateContainer indicates an expected call of MigrateContainer.
-func (mr *MockInstanceServerMockRecorder) MigrateContainer(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateContainer", reflect.TypeOf((*MockInstanceServer)(nil).MigrateContainer), arg0, arg1)
-}
-
-// MigrateContainerSnapshot mocks base method.
-func (m *MockInstanceServer) MigrateContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MigrateContainerSnapshot", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MigrateContainerSnapshot indicates an expected call of MigrateContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) MigrateContainerSnapshot(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateContainerSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).MigrateContainerSnapshot), arg0, arg1, arg2)
-}
-
 // MigrateInstance mocks base method.
 func (m *MockInstanceServer) MigrateInstance(arg0 string, arg1 api.InstancePost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
@@ -5110,6 +4755,20 @@ func (mr *MockInstanceServerMockRecorder) RenameClusterGroup(arg0, arg1 any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameClusterGroup", reflect.TypeOf((*MockInstanceServer)(nil).RenameClusterGroup), arg0, arg1)
 }
 
+// RenameClusterLink mocks base method.
+func (m *MockInstanceServer) RenameClusterLink(arg0 string, arg1 api.ClusterLinkPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RenameClusterLink", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RenameClusterLink indicates an expected call of RenameClusterLink.
+func (mr *MockInstanceServerMockRecorder) RenameClusterLink(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameClusterLink", reflect.TypeOf((*MockInstanceServer)(nil).RenameClusterLink), arg0, arg1)
+}
+
 // RenameClusterMember mocks base method.
 func (m *MockInstanceServer) RenameClusterMember(arg0 string, arg1 api.ClusterMemberPost) error {
 	m.ctrl.T.Helper()
@@ -5122,51 +4781,6 @@ func (m *MockInstanceServer) RenameClusterMember(arg0 string, arg1 api.ClusterMe
 func (mr *MockInstanceServerMockRecorder) RenameClusterMember(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameClusterMember", reflect.TypeOf((*MockInstanceServer)(nil).RenameClusterMember), arg0, arg1)
-}
-
-// RenameContainer mocks base method.
-func (m *MockInstanceServer) RenameContainer(arg0 string, arg1 api.ContainerPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RenameContainer", arg0, arg1)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RenameContainer indicates an expected call of RenameContainer.
-func (mr *MockInstanceServerMockRecorder) RenameContainer(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameContainer", reflect.TypeOf((*MockInstanceServer)(nil).RenameContainer), arg0, arg1)
-}
-
-// RenameContainerBackup mocks base method.
-func (m *MockInstanceServer) RenameContainerBackup(arg0, arg1 string, arg2 api.ContainerBackupPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RenameContainerBackup", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RenameContainerBackup indicates an expected call of RenameContainerBackup.
-func (mr *MockInstanceServerMockRecorder) RenameContainerBackup(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameContainerBackup", reflect.TypeOf((*MockInstanceServer)(nil).RenameContainerBackup), arg0, arg1, arg2)
-}
-
-// RenameContainerSnapshot mocks base method.
-func (m *MockInstanceServer) RenameContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPost) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RenameContainerSnapshot", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RenameContainerSnapshot indicates an expected call of RenameContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) RenameContainerSnapshot(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameContainerSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).RenameContainerSnapshot), arg0, arg1, arg2)
 }
 
 // RenameIdentityProviderGroup mocks base method.
@@ -5243,11 +4857,12 @@ func (mr *MockInstanceServerMockRecorder) RenameInstanceSnapshot(arg0, arg1, arg
 }
 
 // RenameNetwork mocks base method.
-func (m *MockInstanceServer) RenameNetwork(arg0 string, arg1 api.NetworkPost) error {
+func (m *MockInstanceServer) RenameNetwork(arg0 string, arg1 api.NetworkPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameNetwork", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RenameNetwork indicates an expected call of RenameNetwork.
@@ -5257,11 +4872,12 @@ func (mr *MockInstanceServerMockRecorder) RenameNetwork(arg0, arg1 any) *gomock.
 }
 
 // RenameNetworkACL mocks base method.
-func (m *MockInstanceServer) RenameNetworkACL(arg0 string, arg1 api.NetworkACLPost) error {
+func (m *MockInstanceServer) RenameNetworkACL(arg0 string, arg1 api.NetworkACLPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameNetworkACL", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RenameNetworkACL indicates an expected call of RenameNetworkACL.
@@ -5311,6 +4927,20 @@ func (m *MockInstanceServer) RenameProject(arg0 string, arg1 api.ProjectPost) (l
 func (mr *MockInstanceServerMockRecorder) RenameProject(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameProject", reflect.TypeOf((*MockInstanceServer)(nil).RenameProject), arg0, arg1)
+}
+
+// RenameReplicator mocks base method.
+func (m *MockInstanceServer) RenameReplicator(arg0, arg1 string, arg2 api.ReplicatorPost) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RenameReplicator", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RenameReplicator indicates an expected call of RenameReplicator.
+func (mr *MockInstanceServerMockRecorder) RenameReplicator(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameReplicator", reflect.TypeOf((*MockInstanceServer)(nil).RenameReplicator), arg0, arg1, arg2)
 }
 
 // RenameStoragePoolVolume mocks base method.
@@ -5384,6 +5014,21 @@ func (mr *MockInstanceServerMockRecorder) RevokeBearerIdentityToken(arg0 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeBearerIdentityToken", reflect.TypeOf((*MockInstanceServer)(nil).RevokeBearerIdentityToken), arg0)
 }
 
+// RunReplicator mocks base method.
+func (m *MockInstanceServer) RunReplicator(arg0, arg1 string, arg2 api.ReplicatorStatePut) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunReplicator", arg0, arg1, arg2)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunReplicator indicates an expected call of RunReplicator.
+func (mr *MockInstanceServerMockRecorder) RunReplicator(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunReplicator", reflect.TypeOf((*MockInstanceServer)(nil).RunReplicator), arg0, arg1, arg2)
+}
+
 // SendEvent mocks base method.
 func (m *MockInstanceServer) SendEvent(arg0 api.Event) error {
 	m.ctrl.T.Helper()
@@ -5396,20 +5041,6 @@ func (m *MockInstanceServer) SendEvent(arg0 api.Event) error {
 func (mr *MockInstanceServerMockRecorder) SendEvent(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendEvent", reflect.TypeOf((*MockInstanceServer)(nil).SendEvent), arg0)
-}
-
-// SetContainerMetadata mocks base method.
-func (m *MockInstanceServer) SetContainerMetadata(arg0 string, arg1 api.ImageMetadata, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetContainerMetadata", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetContainerMetadata indicates an expected call of SetContainerMetadata.
-func (mr *MockInstanceServerMockRecorder) SetContainerMetadata(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetContainerMetadata", reflect.TypeOf((*MockInstanceServer)(nil).SetContainerMetadata), arg0, arg1, arg2)
 }
 
 // UpdateAuthGroup mocks base method.
@@ -5483,6 +5114,20 @@ func (mr *MockInstanceServerMockRecorder) UpdateClusterGroup(arg0, arg1, arg2 an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterGroup", reflect.TypeOf((*MockInstanceServer)(nil).UpdateClusterGroup), arg0, arg1, arg2)
 }
 
+// UpdateClusterLink mocks base method.
+func (m *MockInstanceServer) UpdateClusterLink(arg0 string, arg1 api.ClusterLinkPut, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateClusterLink", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateClusterLink indicates an expected call of UpdateClusterLink.
+func (mr *MockInstanceServerMockRecorder) UpdateClusterLink(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterLink", reflect.TypeOf((*MockInstanceServer)(nil).UpdateClusterLink), arg0, arg1, arg2)
+}
+
 // UpdateClusterMember mocks base method.
 func (m *MockInstanceServer) UpdateClusterMember(arg0 string, arg1 api.ClusterMemberPut, arg2 string) error {
 	m.ctrl.T.Helper()
@@ -5510,65 +5155,6 @@ func (m *MockInstanceServer) UpdateClusterMemberState(arg0 string, arg1 api.Clus
 func (mr *MockInstanceServerMockRecorder) UpdateClusterMemberState(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateClusterMemberState", reflect.TypeOf((*MockInstanceServer)(nil).UpdateClusterMemberState), arg0, arg1)
-}
-
-// UpdateContainer mocks base method.
-func (m *MockInstanceServer) UpdateContainer(arg0 string, arg1 api.ContainerPut, arg2 string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateContainer indicates an expected call of UpdateContainer.
-func (mr *MockInstanceServerMockRecorder) UpdateContainer(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainer", reflect.TypeOf((*MockInstanceServer)(nil).UpdateContainer), arg0, arg1, arg2)
-}
-
-// UpdateContainerSnapshot mocks base method.
-func (m *MockInstanceServer) UpdateContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPut, arg3 string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateContainerSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateContainerSnapshot indicates an expected call of UpdateContainerSnapshot.
-func (mr *MockInstanceServerMockRecorder) UpdateContainerSnapshot(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerSnapshot", reflect.TypeOf((*MockInstanceServer)(nil).UpdateContainerSnapshot), arg0, arg1, arg2, arg3)
-}
-
-// UpdateContainerState mocks base method.
-func (m *MockInstanceServer) UpdateContainerState(arg0 string, arg1 api.ContainerStatePut, arg2 string) (lxd.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateContainerState", arg0, arg1, arg2)
-	ret0, _ := ret[0].(lxd.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// UpdateContainerState indicates an expected call of UpdateContainerState.
-func (mr *MockInstanceServerMockRecorder) UpdateContainerState(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerState", reflect.TypeOf((*MockInstanceServer)(nil).UpdateContainerState), arg0, arg1, arg2)
-}
-
-// UpdateContainerTemplateFile mocks base method.
-func (m *MockInstanceServer) UpdateContainerTemplateFile(arg0, arg1 string, arg2 io.ReadSeeker) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateContainerTemplateFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateContainerTemplateFile indicates an expected call of UpdateContainerTemplateFile.
-func (mr *MockInstanceServerMockRecorder) UpdateContainerTemplateFile(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateContainerTemplateFile", reflect.TypeOf((*MockInstanceServer)(nil).UpdateContainerTemplateFile), arg0, arg1, arg2)
 }
 
 // UpdateIdentity mocks base method.
@@ -5716,11 +5302,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateInstances(arg0, arg1 any) *gomoc
 }
 
 // UpdateNetwork mocks base method.
-func (m *MockInstanceServer) UpdateNetwork(arg0 string, arg1 api.NetworkPut, arg2 string) error {
+func (m *MockInstanceServer) UpdateNetwork(arg0 string, arg1 api.NetworkPut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetwork", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateNetwork indicates an expected call of UpdateNetwork.
@@ -5730,11 +5317,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateNetwork(arg0, arg1, arg2 any) *g
 }
 
 // UpdateNetworkACL mocks base method.
-func (m *MockInstanceServer) UpdateNetworkACL(arg0 string, arg1 api.NetworkACLPut, arg2 string) error {
+func (m *MockInstanceServer) UpdateNetworkACL(arg0 string, arg1 api.NetworkACLPut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetworkACL", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateNetworkACL indicates an expected call of UpdateNetworkACL.
@@ -5744,11 +5332,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateNetworkACL(arg0, arg1, arg2 any)
 }
 
 // UpdateNetworkForward mocks base method.
-func (m *MockInstanceServer) UpdateNetworkForward(arg0, arg1 string, arg2 api.NetworkForwardPut, arg3 string) error {
+func (m *MockInstanceServer) UpdateNetworkForward(arg0, arg1 string, arg2 api.NetworkForwardPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetworkForward", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateNetworkForward indicates an expected call of UpdateNetworkForward.
@@ -5758,11 +5347,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateNetworkForward(arg0, arg1, arg2,
 }
 
 // UpdateNetworkLoadBalancer mocks base method.
-func (m *MockInstanceServer) UpdateNetworkLoadBalancer(arg0, arg1 string, arg2 api.NetworkLoadBalancerPut, arg3 string) error {
+func (m *MockInstanceServer) UpdateNetworkLoadBalancer(arg0, arg1 string, arg2 api.NetworkLoadBalancerPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetworkLoadBalancer", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateNetworkLoadBalancer indicates an expected call of UpdateNetworkLoadBalancer.
@@ -5771,12 +5361,28 @@ func (mr *MockInstanceServerMockRecorder) UpdateNetworkLoadBalancer(arg0, arg1, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNetworkLoadBalancer", reflect.TypeOf((*MockInstanceServer)(nil).UpdateNetworkLoadBalancer), arg0, arg1, arg2, arg3)
 }
 
+// UpdateNetworkLoadBalancerPool mocks base method.
+func (m *MockInstanceServer) UpdateNetworkLoadBalancerPool(arg0, arg1 string, arg2 api.NetworkLoadBalancerPoolPut, arg3 string) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateNetworkLoadBalancerPool", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateNetworkLoadBalancerPool indicates an expected call of UpdateNetworkLoadBalancerPool.
+func (mr *MockInstanceServerMockRecorder) UpdateNetworkLoadBalancerPool(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateNetworkLoadBalancerPool", reflect.TypeOf((*MockInstanceServer)(nil).UpdateNetworkLoadBalancerPool), arg0, arg1, arg2, arg3)
+}
+
 // UpdateNetworkPeer mocks base method.
-func (m *MockInstanceServer) UpdateNetworkPeer(arg0, arg1 string, arg2 api.NetworkPeerPut, arg3 string) error {
+func (m *MockInstanceServer) UpdateNetworkPeer(arg0, arg1 string, arg2 api.NetworkPeerPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetworkPeer", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateNetworkPeer indicates an expected call of UpdateNetworkPeer.
@@ -5786,11 +5392,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateNetworkPeer(arg0, arg1, arg2, ar
 }
 
 // UpdateNetworkZone mocks base method.
-func (m *MockInstanceServer) UpdateNetworkZone(arg0 string, arg1 api.NetworkZonePut, arg2 string) error {
+func (m *MockInstanceServer) UpdateNetworkZone(arg0 string, arg1 api.NetworkZonePut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetworkZone", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateNetworkZone indicates an expected call of UpdateNetworkZone.
@@ -5800,11 +5407,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateNetworkZone(arg0, arg1, arg2 any
 }
 
 // UpdateNetworkZoneRecord mocks base method.
-func (m *MockInstanceServer) UpdateNetworkZoneRecord(arg0, arg1 string, arg2 api.NetworkZoneRecordPut, arg3 string) error {
+func (m *MockInstanceServer) UpdateNetworkZoneRecord(arg0, arg1 string, arg2 api.NetworkZoneRecordPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateNetworkZoneRecord", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateNetworkZoneRecord indicates an expected call of UpdateNetworkZoneRecord.
@@ -5856,6 +5464,35 @@ func (mr *MockInstanceServerMockRecorder) UpdateProject(arg0, arg1, arg2 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProject", reflect.TypeOf((*MockInstanceServer)(nil).UpdateProject), arg0, arg1, arg2)
 }
 
+// UpdateProjectState mocks base method.
+func (m *MockInstanceServer) UpdateProjectState(arg0 string, arg1 api.ProjectStatePut, arg2 bool) (lxd.Operation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateProjectState", arg0, arg1, arg2)
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateProjectState indicates an expected call of UpdateProjectState.
+func (mr *MockInstanceServerMockRecorder) UpdateProjectState(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateProjectState", reflect.TypeOf((*MockInstanceServer)(nil).UpdateProjectState), arg0, arg1, arg2)
+}
+
+// UpdateReplicator mocks base method.
+func (m *MockInstanceServer) UpdateReplicator(arg0, arg1 string, arg2 api.ReplicatorPut, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateReplicator", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateReplicator indicates an expected call of UpdateReplicator.
+func (mr *MockInstanceServerMockRecorder) UpdateReplicator(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateReplicator", reflect.TypeOf((*MockInstanceServer)(nil).UpdateReplicator), arg0, arg1, arg2, arg3)
+}
+
 // UpdateServer mocks base method.
 func (m *MockInstanceServer) UpdateServer(arg0 api.ServerPut, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -5871,11 +5508,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateServer(arg0, arg1 any) *gomock.C
 }
 
 // UpdateStoragePool mocks base method.
-func (m *MockInstanceServer) UpdateStoragePool(arg0 string, arg1 api.StoragePoolPut, arg2 string) error {
+func (m *MockInstanceServer) UpdateStoragePool(arg0 string, arg1 api.StoragePoolPut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateStoragePool", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateStoragePool indicates an expected call of UpdateStoragePool.
@@ -5885,11 +5523,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateStoragePool(arg0, arg1, arg2 any
 }
 
 // UpdateStoragePoolBucket mocks base method.
-func (m *MockInstanceServer) UpdateStoragePoolBucket(arg0, arg1 string, arg2 api.StorageBucketPut, arg3 string) error {
+func (m *MockInstanceServer) UpdateStoragePoolBucket(arg0, arg1 string, arg2 api.StorageBucketPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateStoragePoolBucket", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateStoragePoolBucket indicates an expected call of UpdateStoragePoolBucket.
@@ -5899,11 +5538,12 @@ func (mr *MockInstanceServerMockRecorder) UpdateStoragePoolBucket(arg0, arg1, ar
 }
 
 // UpdateStoragePoolBucketKey mocks base method.
-func (m *MockInstanceServer) UpdateStoragePoolBucketKey(arg0, arg1, arg2 string, arg3 api.StorageBucketKeyPut, arg4 string) error {
+func (m *MockInstanceServer) UpdateStoragePoolBucketKey(arg0, arg1, arg2 string, arg3 api.StorageBucketKeyPut, arg4 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateStoragePoolBucketKey", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(lxd.Operation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateStoragePoolBucketKey indicates an expected call of UpdateStoragePoolBucketKey.

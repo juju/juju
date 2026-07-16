@@ -846,7 +846,7 @@ func (st *State) getCommittedBranchDoc(id int) (*generationDoc, error) {
 		return nil, errors.NotFoundf("generation_id %d in model %q", id, mod)
 	default:
 		mod, _ := st.modelName()
-		return nil, errors.Annotatef(err, "retrieving generation_id %q in model %q", id, mod)
+		return nil, errors.Annotatef(err, "retrieving generation_id %d in model %q", id, mod)
 	}
 }
 

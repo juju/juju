@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/canonical/lxd/shared/units"
 	"github.com/juju/clock"
@@ -203,7 +204,9 @@ func (s *Server) AliveContainers(prefix string) ([]Container, error) {
 // FilterContainers retrieves the list of containers from the server and filters
 // them based on the input namespace prefix and any supplied statuses.
 func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Container, error) {
-	instances, err := s.GetInstances(api.InstanceTypeAny)
+	instances, err := s.GetInstances(lxdclient.GetInstancesArgs{
+		InstanceType: api.InstanceTypeAny,
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -274,9 +277,7 @@ func (s *Server) CreateContainerFromSpec(spec ContainerSpec) (*Container, error)
 		},
 	}
 	op, err := s.CreateInstanceFromImage(spec.Image.LXDServer, *spec.Image.Image, req)
-	if err == nil {
-		err = op.Wait()
-	}
+	err = WaitOp(op, err)
 	if err != nil {
 		return s.handleAlreadyExistsError(err, spec, ephemeral)
 	}
@@ -405,33 +406,6 @@ func (s *Server) RemoveContainers(names []string) error {
 // RemoveContainer first ensures that the container is stopped,
 // then deletes it.
 func (s *Server) RemoveContainer(name string) error {
-	state, eTag, err := s.GetInstanceState(name)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if state.StatusCode != api.Stopped {
-		req := api.InstanceStatePut{
-			Action:   "stop",
-			Timeout:  -1,
-			Force:    true,
-			Stateful: false,
-		}
-		op, err := s.UpdateInstanceState(name, req, eTag)
-		if err == nil {
-			err = op.Wait()
-		}
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	// NOTE(achilleasa): the (apt) lxd version that ships with bionic
-	// does not automatically remove veth devices if attached to an OVS
-	// bridge. The operator must manually remove these devices from the
-	// bridge by running "ovs-vsctl --if-exists del-port X". This issue
-	// has been fixed in newer lxd versions.
-
 	// LXD has issues deleting containers, even if they've been stopped. The
 	// general advice passed back from the LXD team is to retry it again, to
 	// see if this helps clean up the containers.
@@ -443,7 +417,8 @@ func (s *Server) RemoveContainer(name string) error {
 			return errors.IsBadRequest(err)
 		},
 		Func: func() error {
-			op, err := s.DeleteInstance(name)
+			// We force the instance to stop before deleting it.
+			op, err := s.DeleteInstance(name, true)
 			if err != nil {
 				// sigh, LXD not found container - it's been deleted so, we
 				// just need to return nil.

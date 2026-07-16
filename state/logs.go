@@ -842,7 +842,7 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*corelogger.LogRecord, error
 
 	level := loggo.Level(doc.Level)
 	if level > loggo.CRITICAL {
-		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
+		return nil, errors.Errorf("unrecognized log level %d", doc.Level)
 	}
 
 	rec := &corelogger.LogRecord{

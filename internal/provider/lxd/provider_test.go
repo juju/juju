@@ -516,7 +516,7 @@ func (s *providerSuite) TestPingFailWithNoEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
-		"no lxd server running at %[1]s: Failed to fetch %[1]s/1.0: 404 Not Found",
+		"no lxd server running at %[1]s: Failed fetching %[1]s/1.0: 404 Not Found",
 		server.URL))
 }
 
