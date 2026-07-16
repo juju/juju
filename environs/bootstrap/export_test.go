@@ -11,5 +11,4 @@ var (
 	FindBootstrapTools         = findBootstrapTools
 	FindPackagedTools          = findPackagedTools
 	InspectLocalSnapVersion    = inspectLocalSnapVersion
-	DigestLocalSnap            = digestLocalSnap
 )

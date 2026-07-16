@@ -3,7 +3,13 @@
 
 package deployment
 
-import "github.com/juju/juju/domain/application/architecture"
+import (
+	"strings"
+
+	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/domain/application/architecture"
+	"github.com/juju/juju/internal/errors"
+)
 
 // Channel represents the channel of a application charm.
 // Do not confuse this with a channel that is in the manifest file found
@@ -51,3 +57,19 @@ type Platform struct {
 
 // Architecture represents the architecture of a application charm.
 type Architecture = architecture.Architecture
+
+// EncodeOSType converts an OS type name string into a deployment OSType.
+// The snap base name "ubuntu-core" is normalized to Ubuntu, since
+// snap-confined controllers may surface it in place of the host OS name.
+func EncodeOSType(os string) (OSType, error) {
+	if strings.EqualFold(os, "ubuntu-core") {
+		return Ubuntu, nil
+	}
+
+	switch ostype.OSTypeForName(os) {
+	case ostype.Ubuntu:
+		return Ubuntu, nil
+	default:
+		return Unknown, errors.Errorf("unknown os type %q, expected ubuntu", os)
+	}
+}

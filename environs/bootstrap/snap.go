@@ -5,10 +5,7 @@ package bootstrap
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -91,18 +88,4 @@ func inspectLocalSnapVersion(ctx context.Context, path string) (semversion.Numbe
 			"inspecting local snap %q: cannot parse version %q", path, rawVersion)
 	}
 	return vers, nil
-}
-
-func digestLocalSnap(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", errors.Annotatef(err, "cannot open local snap %q for digest", path)
-	}
-	defer f.Close()
-
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", errors.Annotatef(err, "reading local snap %q for digest", path)
-	}
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
