@@ -22,6 +22,10 @@ assumes:
 confinement: strict
 grade: devel
 
+layout:
+  /var/lib/juju/locks:
+    bind: $SNAP_COMMON/locks
+
 apps:
   jujud:
     command: >-
@@ -40,14 +44,18 @@ apps:
       - network-bind
 
   bootstrap-state:
-    command: bin/jujud bootstrap-state --data-dir $SNAP_DATA
+    # Wrapper cds to $SNAP_COMMON before exec (see wrappers/jujud-bootstrap-state).
+    command: wrappers/jujud-bootstrap-state
     environment:
       JUJU_BOOTSTRAP_PARAMS_PATH: "$SNAP_COMMON/bootstrap-params"
     plugs:
       - network
+      # dqlite may listen (TLS proxy) and the API address picker probes interfaces.
+      - network-bind
 
   init:
-    command: bin/jujud init
+    # Wrapper cds to $SNAP_COMMON before exec (see wrappers/jujud-init).
+    command: wrappers/jujud-init
 
   introspect:
     command: wrappers/juju-introspect

@@ -16,6 +16,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalerrors "github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/s3client"
@@ -194,6 +195,10 @@ func (w *s3Worker) loop() (err error) {
 		case <-osbWatcher.Changes():
 			client, err := w.makeNewClient(ctx)
 			if err != nil {
+				if errors.Is(err, objectstoreerrors.ErrBackendNotFound) {
+					w.config.Logger.Warningf(ctx, "backend not yet seeded, retrying on next watcher event")
+					continue
+				}
 				return errors.Trace(err)
 			}
 

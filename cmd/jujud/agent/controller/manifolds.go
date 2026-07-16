@@ -371,20 +371,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// anything until all upgrade steps have run. The flag of similar
 		// name is used to implement the isFullyUpgraded func that keeps
 		// upgrade concerns out of unrelated manifolds.
-		upgradeStepsGateName: ifControllerUpgradeComplete(gate.ManifoldEx(config.UpgradeStepsLock)),
-		upgradeStepsFlagName: ifControllerUpgradeComplete(gate.FlagManifold(gate.FlagManifoldConfig{
+		// Do not route these through controller-upgrade-flag. The standalone
+		// controller currently disables the actual upgrader workers, but core
+		// controller workers like api-server still depend on the fully-upgraded
+		// flags. Keep the outer controller-upgrade gate only on true
+		// upgrade/migration workers.
+		upgradeStepsGateName: gate.ManifoldEx(config.UpgradeStepsLock),
+		upgradeStepsFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeStepsGateName,
 			NewWorker: gate.NewFlagWorker,
-		})),
+		}),
 
 		// Upgrade check gate/flag coordinate workers that should not do
 		// anything until the upgrader has completed its first check for
 		// a new tools version to upgrade to.
-		upgradeCheckGateName: ifControllerUpgradeComplete(gate.ManifoldEx(config.UpgradeCheckLock)),
-		upgradeCheckFlagName: ifControllerUpgradeComplete(gate.FlagManifold(gate.FlagManifoldConfig{
+		upgradeCheckGateName: gate.ManifoldEx(config.UpgradeCheckLock),
+		upgradeCheckFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeCheckGateName,
 			NewWorker: gate.NewFlagWorker,
-		})),
+		}),
 
 		// The migration workers collaborate to run migrations and create
 		// a mechanism for running other workers so they can't
