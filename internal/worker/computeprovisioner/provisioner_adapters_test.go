@@ -266,6 +266,42 @@ func (s *ProvisionerAdaptersSuite) TestFindToolsSimplestreamsFinderErrorPropagat
 	c.Check(err.Error(), tc.Contains, "streams down")
 }
 
+func (s *ProvisionerAdaptersSuite) TestFindToolsListAgentBinariesErrorFallsBackToSimplestreams(c *tc.C) {
+	addrs := []string{"10.0.0.1:17070", "public.example.com:17070"}
+	v := semversion.MustParse("4.0.0")
+
+	adapter := &toolsFinderAdapter{
+		agentBinarySvc: &fakeAgentBinaryService{
+			metadata: nil,
+			listErr:  errors.New("storage down"),
+			finderFunc: func(
+				ctx context.Context,
+				major, minor int,
+				version semversion.Number,
+				requestedStream string,
+				filter coretools.Filter,
+			) (coretools.List, error) {
+				binVer := semversion.Binary{Number: v, Arch: "amd64", Release: "ubuntu"}
+				return coretools.List{&coretools.Tools{
+					Version: binVer,
+					URL:     "https://streams.internal/juju-tools-4.0.0.tgz",
+				}}, nil
+			},
+		},
+		ctrlNodeSvc: &fakeControllerNodeService{addrs: addrs},
+		modelUUID:   "model-uuid",
+	}
+
+	result, err := adapter.FindTools(c.Context(), v, "ubuntu", "amd64")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 2)
+
+	for i, addr := range addrs {
+		want := fmt.Sprintf("https://%s/model/model-uuid/tools/4.0.0-ubuntu-amd64", addr)
+		c.Check(result[i].URL, tc.Equals, want)
+	}
+}
+
 func (s *ProvisionerAdaptersSuite) TestFindToolsNoAddressesReturnsError(c *tc.C) {
 	adapter := &toolsFinderAdapter{
 		agentBinarySvc: &fakeAgentBinaryService{

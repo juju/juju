@@ -331,6 +331,12 @@ func (a *toolsFinderAdapter) FindTools(
 	osType string,
 	arch string,
 ) (coretools.List, error) {
+	filter := coretools.Filter{
+		Number: v,
+		OSType: osType,
+		Arch:   arch,
+	}
+
 	var baseList coretools.List
 
 	// Check local agent storage first (same as server-side
@@ -354,11 +360,6 @@ func (a *toolsFinderAdapter) FindTools(
 				SHA256:  m.SHA256,
 			})
 		}
-		filter := coretools.Filter{
-			Number: v,
-			OSType: osType,
-			Arch:   arch,
-		}
 		matched, matchErr := storageList.Match(filter)
 		if matchErr == nil && len(matched) > 0 {
 			baseList = matched
@@ -368,11 +369,6 @@ func (a *toolsFinderAdapter) FindTools(
 	// Fall back to simplestreams when agent-binary storage has no match.
 	if len(baseList) == 0 {
 		finder := a.agentBinarySvc.GetEnvironAgentBinariesFinder()
-		filter := coretools.Filter{
-			Number: v,
-			OSType: osType,
-			Arch:   arch,
-		}
 		streamList, streamErr := finder(ctx, v.Major, v.Minor, v, "", filter)
 		if streamErr != nil {
 			return nil, errors.Trace(streamErr)
@@ -401,6 +397,7 @@ func (a *toolsFinderAdapter) FindTools(
 	for _, baseTools := range baseList {
 		for _, addr := range addrs {
 			tools := *baseTools // copy — don't mutate the shared pointer
+			// TODO(#22910): use url.URL + url.JoinPath instead of Sprintf.
 			serverRoot := fmt.Sprintf("https://%s/model/%s", addr, a.modelUUID)
 			tools.URL = fmt.Sprintf("%s/tools/%s", serverRoot, tools.Version.String())
 			fullList = append(fullList, &tools)
