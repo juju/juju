@@ -11,6 +11,7 @@ import (
 
 	"github.com/canonical/gomock/gomock"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
@@ -553,6 +554,39 @@ func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplication
 		},
 	})
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplicationNotInRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	applicationUUID := tc.Must(c, application.NewUUID)
+	relationUUID := tc.Must(c, corerelation.NewUUID)
+	unitSettings := map[unit.Name]map[string]string{
+		"foo/0": {"key": "value"},
+	}
+
+	s.crossModelRelationService.EXPECT().
+		EnsureUnitsExist(gomock.Any(), applicationUUID, []unit.Name{"foo/0"}).
+		Return(nil)
+	s.relationService.EXPECT().
+		SetRelationRemoteApplicationAndUnitSettings(
+			gomock.Any(), applicationUUID, relationUUID, nil, unitSettings,
+		).
+		Return(relationerrors.ApplicationNotFoundForRelation)
+
+	err := s.api(c).handlePublishSettings(
+		c.Context(),
+		relationUUID,
+		applicationUUID,
+		"foo",
+		params.RemoteRelationChangeEvent{
+			ChangedUnits: []params.RemoteRelationUnitChange{{
+				UnitId:   0,
+				Settings: map[string]any{"key": "value"},
+			}},
+		},
+	)
+	c.Assert(err, tc.ErrorIs, jujuerrors.NotFound)
 }
 
 func (s *facadeSuite) TestPublishRelationChangesHandlePublishSettingsApplicationUnitSettingsBadApplicationSettings(c *tc.C) {

@@ -414,6 +414,48 @@ func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsMul
 	c.Check(err, tc.ErrorMatches, `.*missing: \[app1\/4\]`)
 }
 
+func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsApplicationNotInRelation(c *tc.C) {
+	endpoint1 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-1",
+			Role:      charm.RoleProvider,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	endpoint2 := domainrelation.Endpoint{
+		Relation: charm.Relation{
+			Name:      "fake-endpoint-name-2",
+			Role:      charm.RoleRequirer,
+			Interface: "database",
+			Scope:     charm.ScopeGlobal,
+		},
+	}
+	charmRelationUUID1 := s.addCharmRelation(c, s.fakeCharmUUID1, endpoint1.Relation)
+	charmRelationUUID2 := s.addCharmRelation(c, s.fakeCharmUUID2, endpoint2.Relation)
+	applicationEndpointUUID1 := s.addApplicationEndpoint(c, s.fakeApplicationUUID1, charmRelationUUID1)
+	applicationEndpointUUID2 := s.addApplicationEndpoint(c, s.fakeApplicationUUID2, charmRelationUUID2)
+	relationUUID := s.addRelation(c)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID1)
+	s.addRelationEndpoint(c, relationUUID, applicationEndpointUUID2)
+
+	charmUUID := s.addCharm(c)
+	applicationUUID := s.addApplication(c, charmUUID, "unrelated-application")
+	unitName := coreunittesting.GenNewName(c, "unrelated-application/0")
+	s.addUnit(c, unitName, applicationUUID, charmUUID)
+
+	err := s.state.SetRelationRemoteApplicationAndUnitSettings(
+		c.Context(),
+		applicationUUID.String(),
+		relationUUID.String(),
+		nil,
+		map[string]map[string]string{
+			unitName.String(): {"foo": "bar"},
+		},
+	)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
+}
+
 func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsSubordinate(c *tc.C) {
 	// Arrange: Populate charm metadata with subordinate data.
 	s.addCharmMetadata(c, s.fakeCharmUUID1, true)

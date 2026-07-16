@@ -210,6 +210,20 @@ WHERE relation_uuid = $relationStatus.relation_uuid
 // Additionally, it will prevent a unit from entering scope if:
 // - the relation is a peer relation
 // - the unit's application is a subordinate
+// - the unit's application is not part of the relation
+//
+// The following error types can be expected to be returned:
+//   - [relationerrors.ApplicationNotFoundForRelation] is returned if the
+//     application is not part of the relation.
+//   - [relationerrors.CannotEnterScopeNotAlive] is returned if the relation
+//     is not alive.
+//   - [relationerrors.CannotEnterScopePeerRelation] is returned if the
+//     relation is a peer relation.
+//   - [relationerrors.CannotEnterScopeForSubordinate] is returned if the
+//     unit's application is a subordinate.
+//   - [relationerrors.RelationNotFound] is returned if the relation UUID
+//     is not found.
+//   - [applicationerrors.UnitNotFound] is returned if a unit is not found.
 func (st *State) SetRelationRemoteApplicationAndUnitSettings(
 	ctx context.Context,
 	applicationUUID, relationUUID string,
@@ -323,6 +337,11 @@ func (st *State) checkUnitCanEnterScopeForRemoteRelation(ctx context.Context, tx
 	case 1: // Peer relation.
 		return relationerrors.CannotEnterScopePeerRelation
 	case 2: // Regular relation.
+		// Ensure the unit's application is in the relation before entering
+		// scope.
+		if !set.NewStrings(appIDs...).Contains(unitsAppID) {
+			return relationerrors.ApplicationNotFoundForRelation
+		}
 		// If the unit application is a subordinate, it can not enter scope.
 		if subordinate, err := st.isSubordinate(ctx, tx, unitsAppID); err != nil {
 			return errors.Errorf("checking if application is subordinate: %w", err)

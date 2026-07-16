@@ -247,6 +247,10 @@ func (api *CrossModelRelationsAPIv3) handlePublishSettings(
 		applicationSettings,
 		unitSettings,
 	); err != nil {
+		if errors.Is(err, relationerrors.ApplicationNotFoundForRelation) {
+			return errors.NotFoundf(
+				"application %q for relation %q", applicationUUID, relationUUID)
+		}
 		return errors.Annotatef(err, "setting application and unit settings %q", relationUUID)
 	}
 
