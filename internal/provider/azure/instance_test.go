@@ -1194,3 +1194,61 @@ var internalSubnetPath = path.Join(
 func securityRulePath(ruleName string) string {
 	return path.Join(internalSecurityGroupPath, "securityRules", ruleName)
 }
+
+func TestIsIPv6SourceCIDR(t *stdtesting.T) {
+	tests := []struct {
+		name   string
+		from   string
+		expect bool
+	}{
+		{
+			name:   "IPv6 wildcard",
+			from:   "::/0",
+			expect: true,
+		},
+		{
+			name:   "specific IPv6 CIDR",
+			from:   "2002:db8::1/128",
+			expect: true,
+		},
+		{
+			name:   "IPv6 CIDR range",
+			from:   "fd00::/64",
+			expect: true,
+		},
+		{
+			name:   "IPv4 wildcard",
+			from:   "0.0.0.0/0",
+			expect: false,
+		},
+		{
+			name:   "Azure wildcard star",
+			from:   "*",
+			expect: false,
+		},
+		{
+			name:   "empty string",
+			from:   "",
+			expect: false,
+		},
+		{
+			name:   "specific IPv4 CIDR",
+			from:   "10.0.0.0/8",
+			expect: false,
+		},
+		{
+			name:   "invalid CIDR falls back to IPv4",
+			from:   "not-a-cidr",
+			expect: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *stdtesting.T) {
+			got := azure.IsIPv6SourceCIDR(tt.from)
+			if got != tt.expect {
+				t.Errorf("IsIPv6SourceCIDR(%q) = %v, want %v", tt.from, got, tt.expect)
+			}
+		})
+	}
+}

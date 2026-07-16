@@ -414,28 +414,13 @@ func (inst *azureInstance) openPortsOnGroup(
 		from := rule.SourceCIDRs.SortedValues()[0]
 
 		// Determine destination address based on source CIDR family.
-		// Wildcards/empty are IPv4 by Azure convention; only "::/0" is IPv6 wildcard.
 		destAddr := nsgInfo.primaryAddress.Value
-		if from == firewall.AllNetworksIPV6CIDR {
-			// IPv6 wildcard
+		if isIPv6SourceCIDR(from) {
 			if nsgInfo.ipv6Address == nil {
 				logger.Debugf(ctx, "skipping IPv6 rule %q: machine has no IPv6 address", ruleName)
 				continue
 			}
 			destAddr = nsgInfo.ipv6Address.Value
-		} else if from != "*" && from != "" && from != firewall.AllNetworksIPV4CIDR {
-			// Specific CIDR: classify family.
-			at, err := corenetwork.CIDRAddressType(from)
-			if err != nil {
-				logger.Debugf(ctx, "cannot classify CIDR %q, "+
-					"treating as IPv4: %v", from, err)
-			} else if at == corenetwork.IPv6Address {
-				if nsgInfo.ipv6Address == nil {
-					logger.Debugf(ctx, "skipping IPv6 rule %q: machine has no IPv6 address", ruleName)
-					continue
-				}
-				destAddr = nsgInfo.ipv6Address.Value
-			}
 		}
 
 		securityRule := armnetwork.SecurityRule{
@@ -465,6 +450,24 @@ func (inst *azureInstance) openPortsOnGroup(
 		nsg.Properties.SecurityRules = append(nsg.Properties.SecurityRules, new(securityRule))
 	}
 	return nil
+}
+
+// isIPv6SourceCIDR returns true if the source CIDR is an IPv6 CIDR.
+// Wildcards/empty (including AllNetworksIPV4CIDR) are treated as IPv4
+// by Azure convention; only AllNetworksIPV6CIDR is treated as IPv6
+// wildcard.
+func isIPv6SourceCIDR(from string) bool {
+	if from == firewall.AllNetworksIPV6CIDR {
+		return true
+	}
+	if from == "*" || from == "" || from == firewall.AllNetworksIPV4CIDR {
+		return false
+	}
+	at, err := corenetwork.CIDRAddressType(from)
+	if err != nil {
+		return false
+	}
+	return at == corenetwork.IPv6Address
 }
 
 // ClosePorts is specified in the Instance interface.
