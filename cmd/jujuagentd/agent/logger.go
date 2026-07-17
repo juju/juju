@@ -4,9 +4,7 @@
 package agent
 
 import (
-	"io/fs"
 	"os"
-	"os/user"
 	"path/filepath"
 	"time"
 
@@ -29,13 +27,10 @@ func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
 	path := filepath.Join(cfg.LogDir(), "logsink.log")
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, paths.LogfilePermission)
 	if err != nil {
-		return nil, errors.Errorf("unable to open log file %q: %w", path, err)
-	}
-	if err := paths.SetSyslogOwner(path); err != nil && !isChownPermError(err) {
-		return nil, errors.Errorf("unable to set syslog owner on %q: %w", path, err)
+		return nil, errors.Errorf("unable to create log sink file %q: %w", path, err)
 	}
 	if err := f.Close(); err != nil {
-		return nil, errors.Errorf("unable to close log file %q: %w", path, err)
+		return nil, errors.Errorf("unable to close log sink file %q: %w", path, err)
 	}
 
 	logger := &lumberjack.Logger{
@@ -46,10 +41,4 @@ func PrimeLogSink(cfg agent.Config) (*logsink.LogSink, error) {
 	}
 
 	return logsink.NewLogSink(logger, batchSize, flushInterval, clock.WallClock), nil
-}
-
-func isChownPermError(err error) bool {
-	return errors.Is(err, fs.ErrPermission) ||
-		errors.HasType[user.UnknownUserError](err) ||
-		errors.HasType[user.UnknownGroupError](err)
 }
