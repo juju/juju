@@ -213,10 +213,10 @@ func (s *stubHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 type stubEngineLogger struct{}
 
-func (l *stubEngineLogger) Tracef(format string, args ...interface{}) {}
-func (l *stubEngineLogger) Debugf(format string, args ...interface{}) {}
-func (l *stubEngineLogger) Infof(format string, args ...interface{})  {}
-func (l *stubEngineLogger) Errorf(format string, args ...interface{}) {}
+func (l *stubEngineLogger) Tracef(format string, args ...any) {}
+func (l *stubEngineLogger) Debugf(format string, args ...any) {}
+func (l *stubEngineLogger) Infof(format string, args ...any)  {}
+func (l *stubEngineLogger) Errorf(format string, args ...any) {}
 
 func TestEngineStartupSuite(t *stdtesting.T) {
 	tc.Run(t, &EngineStartupSuite{})

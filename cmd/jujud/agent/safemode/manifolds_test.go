@@ -28,12 +28,8 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
-	s.assertStartFuncs(c, safemode.IAASManifolds(safemode.ManifoldsConfig{}))
-}
-
-func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
-	s.assertStartFuncs(c, safemode.CAASManifolds(safemode.ManifoldsConfig{}))
+func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
+	s.assertStartFuncs(c, safemode.Manifolds(safemode.ManifoldsConfig{}))
 }
 
 func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
@@ -43,21 +39,9 @@ func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
+func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	s.assertManifoldNames(c,
-		safemode.IAASManifolds(safemode.ManifoldsConfig{}),
-		[]string{
-			"controller-agent-config",
-			"db-accessor",
-			"query-logger",
-			"termination-signal-handler",
-		},
-	)
-}
-
-func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
-	s.assertManifoldNames(c,
-		safemode.CAASManifolds(safemode.ManifoldsConfig{}),
+		safemode.Manifolds(safemode.ManifoldsConfig{}),
 		[]string{
 			"controller-agent-config",
 			"db-accessor",
@@ -80,7 +64,7 @@ func (*ManifoldsSuite) TestNoControllerFlagGuards(c *tc.C) {
 	// The controller binary is always a controller node; no manifold
 	// should reference the removed is-controller-flag or
 	// state-config-watcher workers.
-	manifolds := safemode.IAASManifolds(safemode.ManifoldsConfig{})
+	manifolds := safemode.Manifolds(safemode.ManifoldsConfig{})
 
 	for name, manifold := range manifolds {
 		c.Logf("%s", name)
@@ -96,36 +80,14 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		safemode.IAASManifolds(safemode.ManifoldsConfig{}),
-		expectedMachineManifoldsWithDependenciesIAAS,
+		safemode.Manifolds(safemode.ManifoldsConfig{}),
+		expectedMachineManifoldsWithDependencies,
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
-	agenttest.AssertManifoldsDependencies(c,
-		safemode.CAASManifolds(safemode.ManifoldsConfig{}),
-		expectedMachineManifoldsWithDependenciesCAAS,
-	)
-}
-
-var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
-
-	"controller-agent-config": {},
-
-	"db-accessor": {
-		"controller-agent-config",
-		"query-logger",
-	},
-
-	"query-logger": {},
-
-	"termination-signal-handler": {},
-}
-
-var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
-
+var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"controller-agent-config": {},
 
 	"db-accessor": {
