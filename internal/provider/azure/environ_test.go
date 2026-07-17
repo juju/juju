@@ -1155,6 +1155,19 @@ func (s *environSuite) assertStartInstanceRequests(
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		}, &armnetwork.SecurityRule{
+			Name: new("JujuAPIInbound443IPv6"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Description:              new("Allow API connections to controller machines (IPv6)"),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("fd00:0:0:10::/64"),
+				DestinationPortRange:     new("443"),
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Priority:                 new(int32(102)),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			},
+		}, &armnetwork.SecurityRule{
 			Name: new("JujuAPIInbound80"),
 			Properties: &armnetwork.SecurityRulePropertiesFormat{
 				Description:              new("Allow API connections to controller machines"),
@@ -1164,7 +1177,20 @@ func (s *environSuite) assertStartInstanceRequests(
 				DestinationAddressPrefix: new("192.168.16.0/20"),
 				DestinationPortRange:     new("80"),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
-				Priority:                 new(int32(102)),
+				Priority:                 new(int32(103)),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			},
+		}, &armnetwork.SecurityRule{
+			Name: new("JujuAPIInbound80IPv6"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Description:              new("Allow API connections to controller machines (IPv6)"),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("fd00:0:0:10::/64"),
+				DestinationPortRange:     new("80"),
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Priority:                 new(int32(104)),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		})
@@ -1181,6 +1207,19 @@ func (s *environSuite) assertStartInstanceRequests(
 				DestinationPortRange:     new(port),
 				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
 				Priority:                 new(int32(101)),
+				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
+			},
+		}, &armnetwork.SecurityRule{
+			Name: new("JujuAPIInbound" + port + "IPv6"),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				Description:              new("Allow API connections to controller machines (IPv6)"),
+				Protocol:                 to.Ptr(armnetwork.SecurityRuleProtocolTCP),
+				SourceAddressPrefix:      new("*"),
+				SourcePortRange:          new("*"),
+				DestinationAddressPrefix: new("fd00:0:0:10::/64"),
+				DestinationPortRange:     new(port),
+				Access:                   to.Ptr(armnetwork.SecurityRuleAccessAllow),
+				Priority:                 new(int32(102)),
 				Direction:                to.Ptr(armnetwork.SecurityRuleDirectionInbound),
 			},
 		})
@@ -3394,4 +3433,16 @@ func (s *environSuite) TestGetArchFromResourceSKUAMD64(c *tc.C) {
 		Family: new("StandardNCADSA100v4Family"),
 	})
 	c.Assert(arch, tc.Equals, corearch.AMD64)
+}
+
+func (s *environSuite) TestSupportsRulesWithIPV6CIDRs(c *tc.C) {
+	env := s.openEnviron(c)
+
+	// Azure should support IPv6 CIDRs in firewall rules.
+	fwQuerier, ok := env.(environs.FirewallFeatureQuerier)
+	c.Assert(ok, tc.IsTrue)
+
+	supported, err := fwQuerier.SupportsRulesWithIPV6CIDRs(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(supported, tc.IsTrue)
 }

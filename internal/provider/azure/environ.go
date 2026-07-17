@@ -133,6 +133,9 @@ type azureEnviron struct {
 	commonResourcesCreated bool
 }
 
+// Ensure that environ implements FirewallFeatureQuerier.
+var _ environs.FirewallFeatureQuerier = (*azureEnviron)(nil)
+
 var _ environs.Environ = (*azureEnviron)(nil)
 
 // SetCloudSpec is specified in the environs.Environ interface.
@@ -2621,4 +2624,11 @@ func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 		Region:   env.cloud.Region,
 		Endpoint: env.cloud.Endpoint,
 	}, nil
+}
+
+// SupportsRulesWithIPV6CIDRs is part of the environs.FirewallFeatureQuerier
+// interface. Azure NSGs accept IPv6 source/destination prefixes natively for
+// Standard-SKU dual-stack VMs.
+func (env *azureEnviron) SupportsRulesWithIPV6CIDRs(context.Context) (bool, error) {
+	return true, nil
 }

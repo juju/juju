@@ -16,6 +16,8 @@ import (
 const ComputeAPIVersion = computeAPIVersion
 const NetworkAPIVersion = networkAPIVersion
 
+var IsIPv6SourceCIDR = isIPv6SourceCIDR
+
 var NetworkTemplateResources = networkTemplateResources
 var SubnetProviderIDForFamily = subnetProviderIDForFamily
 var StripIPFamilySuffix = stripIPFamilySuffix

@@ -199,7 +199,14 @@ func networkSecurityRules(
 			destPrefix:  controllerSubnetPrefix,
 			port:        apiPort,
 			// Two rules cannot have the same priority and direction.
-			priority: securityRuleInternalAPIInbound + i,
+			priority: securityRuleInternalAPIInbound + i*2,
+		}))
+		securityRules = append(securityRules, newSecurityRule(newSecurityRuleParams{
+			name:        fmt.Sprintf("%s%dIPv6", apiSecurityRulePrefix, apiPort),
+			description: "Allow API connections to controller machines (IPv6)",
+			destPrefix:  controllerSubnetIPv6Prefix,
+			port:        apiPort,
+			priority:    securityRuleInternalAPIInbound + i*2 + 1,
 		}))
 	}
 	securityRules = append(securityRules, extraRules...)
