@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Apply snap-config runtime overrides to an existing runtime.conf.
+# When runtime.conf has not been staged yet the value is deferred.
+# Prefer SNAP_COMMON as cwd: hooks may run before cwd is accessible.
+cd "${SNAP_COMMON:-/}" || cd /
+exec "$SNAP/bin/jujud" controller-config --runtime-config-path "$SNAP_DATA/agents/controller-0/runtime.conf" --snap-common "$SNAP_COMMON" --logging-override "$@"
