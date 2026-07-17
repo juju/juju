@@ -1050,6 +1050,9 @@ type DeployInfo struct {
 	Name string
 	// Revision is the revision of the charm deployed.
 	Revision int
+	// Warnings holds advisory, non-blocking messages about the deployment
+	// (e.g. a charm/model-type mismatch) to surface to the user.
+	Warnings []string
 }
 
 type PendingResourceUpload struct {
@@ -1158,6 +1161,7 @@ func deployInfoFromParams(di params.DeployFromRepositoryInfo) (DeployInfo, error
 		EffectiveChannel: di.EffectiveChannel,
 		Name:             di.Name,
 		Revision:         di.Revision,
+		Warnings:         di.Warnings,
 	}, err
 }
 

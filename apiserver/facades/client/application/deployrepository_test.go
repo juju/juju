@@ -4,18 +4,23 @@
 package application
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	corecharm "github.com/juju/juju/core/charm"
+	coreerrors "github.com/juju/juju/core/errors"
+	coremodel "github.com/juju/juju/core/model"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/deployment/charm/repository"
 	"github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -169,4 +174,130 @@ func (s *deployRepositorySuite) expectValidator() deployFromRepositoryValidator 
 		},
 	}
 	return validator
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchK8sCharmOnMachineModel(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.IAAS, Name: "machinemodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	// A sidecar charm on a machine model is unambiguous: error.
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	warning, err := v.modelTypeMismatch(c.Context(), meta)
+
+	c.Check(warning, tc.Equals, "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchMachineCharmOnK8sModel(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	// A charm with no containers on a Kubernetes model: warn only.
+	meta := &charm.Meta{Name: "mysql"}
+	warning, err := v.modelTypeMismatch(c.Context(), meta)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals,
+		`"mysql" declares no containers but "k8smodel" is a Kubernetes model; it has no workload to run there`)
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchNilMeta(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	warning, err := v.modelTypeMismatch(c.Context(), nil)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
+}
+
+func (s *deployRepositorySuite) TestModelTypeMismatchConsistent(c *tc.C) {
+	v := deployFromRepositoryValidator{
+		modelInfo: coremodel.ModelInfo{Type: coremodel.CAAS, Name: "k8smodel"},
+		logger:    loggertesting.WrapCheckLog(c),
+	}
+	// A sidecar charm on a Kubernetes model is consistent: no warning, no error.
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	warning, err := v.modelTypeMismatch(c.Context(), meta)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
+}
+
+// TestDeployFromRepositoryReturnsWarningsOnError checks that advisory warnings
+// (e.g. a charm/model-type mismatch) are returned to the client in the result
+// Info even when the deploy is rejected with errors, so they reach the terminal.
+func (s *deployRepositorySuite) TestDeployFromRepositoryReturnsWarningsOnError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectAuthClient()
+	s.expectHasWritePermission()
+	s.expectAnyChangeOrRemoval()
+	s.newCAASAPI(c)
+
+	info := params.DeployFromRepositoryInfo{Warnings: []string{"a charm/model mismatch warning"}}
+	s.deployFromRepo.EXPECT().DeployFromRepository(gomock.Any(), gomock.Any()).
+		Return(info, nil, []error{errors.New("rejected")})
+
+	res, err := s.api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArgs{
+		Args: []params.DeployFromRepositoryArg{{CharmName: "x"}},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res.Results, tc.HasLen, 1)
+	c.Check(res.Results[0].Errors, tc.HasLen, 1)
+	c.Check(res.Results[0].Info.Warnings, tc.DeepEquals, []string{"a charm/model mismatch warning"})
+}
+
+// stubValidator returns preset results, letting us drive the inner
+// DeployFromRepositoryAPI.DeployFromRepository directly.
+type stubValidator struct {
+	dt   deployTemplate
+	errs []error
+}
+
+func (v stubValidator) ValidateArg(context.Context, params.DeployFromRepositoryArg) (deployTemplate, []error) {
+	return v.dt, v.errs
+}
+
+// TestDeployFromRepositoryWarningsSurviveValidationError checks the inner
+// early-return path: when ValidateArg fails, the warnings accumulated on the
+// deployTemplate are still returned in the result Info.
+func (s *deployRepositorySuite) TestDeployFromRepositoryWarningsSurviveValidationError(c *tc.C) {
+	api := &DeployFromRepositoryAPI{
+		validator: stubValidator{
+			dt:   deployTemplate{warnings: []string{"a charm/model mismatch warning"}},
+			errs: []error{errors.New("validation failed")},
+		},
+		logger: loggertesting.WrapCheckLog(c),
+	}
+
+	info, _, errs := api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArg{})
+
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(info.Warnings, tc.DeepEquals, []string{"a charm/model mismatch warning"})
+}
+
+// TestDeployFromRepositoryWarningsSurvivePostValidationError checks that
+// warnings are returned when the deploy fails after validation has already
+// succeeded, e.g. the Kubernetes attach-storage rejection.
+func (s *deployRepositorySuite) TestDeployFromRepositoryWarningsSurvivePostValidationError(c *tc.C) {
+	api := &DeployFromRepositoryAPI{
+		modelType: coremodel.CAAS,
+		validator: stubValidator{
+			dt: deployTemplate{
+				charmURL:      charm.MustParseURL("ch:ubuntu-0"),
+				origin:        corecharm.Origin{Channel: &charm.Channel{Risk: charm.Stable}},
+				attachStorage: []names.StorageTag{names.NewStorageTag("data/0")},
+				warnings:      []string{"a charm/model mismatch warning"},
+			},
+		},
+		logger: loggertesting.WrapCheckLog(c),
+	}
+
+	info, _, errs := api.DeployFromRepository(c.Context(), params.DeployFromRepositoryArg{})
+
+	c.Assert(errs, tc.HasLen, 1)
+	c.Check(info.Warnings, tc.DeepEquals, []string{"a charm/model mismatch warning"})
 }

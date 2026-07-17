@@ -99,7 +99,9 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 	dt, errs := api.validator.ValidateArg(ctx, arg)
 
 	if len(errs) > 0 {
-		return params.DeployFromRepositoryInfo{}, nil, errs
+		// Surface advisory warnings (e.g. charm/model-type mismatch) even when
+		// the deploy is rejected, so the user sees the context alongside the error.
+		return params.DeployFromRepositoryInfo{Warnings: dt.warnings}, nil, errs
 	}
 
 	info := params.DeployFromRepositoryInfo{
@@ -112,6 +114,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 		EffectiveChannel: nil,
 		Name:             dt.applicationName,
 		Revision:         dt.charmURL.Revision,
+		Warnings:         dt.warnings,
 	}
 	if dt.dryRun {
 		return info, nil, nil
@@ -123,7 +126,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 			params.CodeNotSupported,
 			"attaching storage to CAAS units is not supported",
 		)
-		return params.DeployFromRepositoryInfo{}, nil, []error{err}
+		return info, nil, []error{err}
 	}
 
 	if len(dt.attachStorage) > 0 && dt.numUnits != 1 {
@@ -131,7 +134,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 			params.CodeNotFound,
 			"attaching existing storage can only be done when the number of units is 1",
 		)
-		return params.DeployFromRepositoryInfo{}, nil, []error{err}
+		return info, nil, []error{err}
 	}
 
 	// Dedupe the supplied input to avoid repeated work.
@@ -160,7 +163,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 				"storage instance %q does not exist",
 				storageTag.Id(),
 			)
-			return params.DeployFromRepositoryInfo{}, nil, []error{err}
+			return info, nil, []error{err}
 		} else if err != nil {
 			// Log the error instead of reporting verbatim to client
 			api.logger.Warningf(
@@ -172,7 +175,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 			err = errors.Errorf(
 				"getting information for storage instance %q", storageTag.Id(),
 			)
-			return params.DeployFromRepositoryInfo{}, nil, []error{err}
+			return info, nil, []error{err}
 		}
 
 		storageUUIDsToAttach = append(storageUUIDsToAttach, storageUUID)
@@ -225,7 +228,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(
 		)
 	}
 	if err != nil {
-		return params.DeployFromRepositoryInfo{}, nil, []error{
+		return info, nil, []error{
 			handleApplicationDomainDeployError(errors.Trace(err)),
 		}
 	}
@@ -382,6 +385,7 @@ type deployTemplate struct {
 	resourcesToUpload []*params.PendingResourceUpload
 	resolvedResources applicationservice.ResolvedResources
 	downloadInfo      corecharm.DownloadInfo
+	warnings          []string
 }
 
 type validatorConfig struct {
@@ -549,6 +553,22 @@ func validateAndParseAttachStorage(input []string, numUnits int) ([]names.Storag
 	return attachStorage, errs
 }
 
+// modelTypeMismatch checks the charm's type against the model type: a
+// Kubernetes charm on a machine model is rejected with an error, while a
+// charm declaring no containers on a Kubernetes model only yields an advisory
+// warning, which is also logged for clients that do not render result
+// warnings.
+func (v *deployFromRepositoryValidator) modelTypeMismatch(ctx context.Context, meta *charm.Meta) (string, error) {
+	if meta == nil {
+		return "", nil
+	}
+	warning, err := meta.ModelMismatch(v.modelInfo.Type == coremodel.CAAS, v.modelInfo.Name)
+	if warning != "" {
+		v.logger.Warningf(ctx, "%s", warning)
+	}
+	return warning, err
+}
+
 func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Context, resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
@@ -627,6 +647,22 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 		v.logger.Warningf(ctx, "proceeding with deployment of application even though the charm feature requirements could not be met as --force was specified")
 	}
 
+	// A Kubernetes charm can never run its workload on a machine model, so it
+	// is rejected outright unless --force is given; the inverse direction
+	// cannot be determined with certainty, so it only warns.
+	warning, mismatchErr := v.modelTypeMismatch(ctx, resolvedCharm.Meta())
+	if mismatchErr != nil {
+		if !arg.Force {
+			errs = append(errs, mismatchErr)
+		} else {
+			v.logger.Warningf(ctx, "proceeding with deployment of application even though the charm and model types do not match as --force was specified")
+		}
+	}
+	var warnings []string
+	if warning != "" {
+		warnings = []string{warning}
+	}
+
 	dt := deployTemplate{
 		trust:             arg.Trust || trustFromYAML,
 		applicationName:   appName,
@@ -635,6 +671,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 		constraints:       cons,
 		numUnits:          numUnits,
 		resources:         arg.Resources,
+		warnings:          warnings,
 	}
 
 	return dt, errs
