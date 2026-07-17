@@ -19,6 +19,7 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
+	coremachineauthentication "github.com/juju/juju/core/machineauthentication"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/authenticationworker"
@@ -386,4 +387,31 @@ func (s *workerSuite) TestAddEphemeralKeyDuringModelChange(c *tc.C) {
 	changedModelKeyWithComment := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
 	ephemeralKeyWithComment := sshtesting.ValidKeyFour.Key + " Juju:Ephemeral:key4-comment"
 	s.waitSSHKeysUnordered(c, append(s.existingKeys, changedModelKeyWithComment, ephemeralKeyWithComment))
+}
+
+// TestEphemeralKeyOpsReturnWorkerDying asserts that once the worker is dying,
+// both AddEphemeralKey and RemoveEphemeralKey return
+// ErrAuthenticationWorkerDying rather than the catacomb's internal dying error,
+// so consuming workers can distinguish a lifecycle stop from a real failure.
+func (s *workerSuite) TestEphemeralKeyOpsReturnWorkerDying(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	authWorker := s.startWorker(c, ctrl)
+
+	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	c.Assert(ok, tc.IsTrue)
+
+	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Stop the worker so that enqueue observes the catacomb dying and any
+	// ephemeral key operation short-circuits with the sentinel error.
+	workertest.CleanKill(c, authWorker)
+
+	err = updater.AddEphemeralKey(pub, "tunnel-0")
+	c.Check(err, tc.ErrorIs, coremachineauthentication.ErrAuthenticationWorkerDying)
+
+	err = updater.RemoveEphemeralKey(pub)
+	c.Check(err, tc.ErrorIs, coremachineauthentication.ErrAuthenticationWorkerDying)
 }
