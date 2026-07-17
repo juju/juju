@@ -1039,7 +1039,7 @@ func (s *instanceSuite) TestInstanceClosePortsDualStack(c *tc.C) {
 
 	sender := &azuretesting.MockSender{}
 	notFoundSender := &azuretesting.MockSender{}
-	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
+	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus( //nolint:bodyclose
 		"rule not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{nsgSender, sender, sender, notFoundSender}
@@ -1118,7 +1118,7 @@ func (s *instanceSuite) TestInstanceClosePortsDualStackWildcard(c *tc.C) {
 	nsgSender := networkSecurityGroupSender(nsgRules)
 	okSender := &azuretesting.MockSender{}
 	notFoundSender := &azuretesting.MockSender{}
-	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
+	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus( //nolint:bodyclose
 		"rule not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{subnetSender, nsgSender, okSender, okSender, notFoundSender}
