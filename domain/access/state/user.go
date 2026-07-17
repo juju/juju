@@ -222,6 +222,7 @@ FROM   v_user_auth u
        LEFT JOIN v_user_last_login AS ull
        ON        u.uuid = ull.user_uuid
 WHERE  u.removed = false
+ORDER BY u.created_at
 `, dbUser{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select getAllUsers query: %w", err)

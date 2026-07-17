@@ -402,10 +402,16 @@ func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject
 	query := `
 SELECT (u.uuid, u.name, u.display_name, u.external, u.created_at, u.disabled) AS (&dbPermissionUser.*),
        creator.name AS &dbPermissionUser.created_by_name,
-       (p.*) AS (&dbPermission.*)
+       p.uuid AS &dbPermission.uuid,
+       p.grant_on AS &dbPermission.grant_on,
+       p.grant_to AS &dbPermission.grant_to,
+       pat.type AS &dbPermission.access_type,
+       pot.type AS &dbPermission.object_type
 FROM   v_user_auth u
        JOIN user AS creator ON u.created_by_uuid = creator.uuid
-       LEFT JOIN v_permission p ON u.uuid = p.grant_to
+       LEFT JOIN permission p ON u.uuid = p.grant_to
+       LEFT JOIN permission_access_type pat ON p.access_type_id = pat.id
+       LEFT JOIN permission_object_type pot ON p.object_type_id = pot.id
 WHERE  u.removed = false
        AND u.name = $userName.name
 `
@@ -476,7 +482,7 @@ FROM    v_user_auth u
         LEFT JOIN v_everyone_external ee ON ee.grant_on = $dbPermission.grant_on
 WHERE   u.disabled = false
 AND     u.removed = false
-AND     (p.uuid IS NOT NULL) OR (u.external AND ee.uuid IS NOT NULL)
+AND     (p.uuid IS NOT NULL OR (u.external AND ee.uuid IS NOT NULL))
 `
 	stmt, err := st.Prepare(query, grantOn, dbPermissionUser{}, dbEveryoneExternal{})
 	if err != nil {
