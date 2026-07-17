@@ -39,6 +39,12 @@ CREATE TABLE controller_api_address (
     PRIMARY KEY (controller_id, address)
 );
 
+CREATE INDEX idx_controller_api_address_is_agent
+ON controller_api_address (is_agent);
+
+CREATE INDEX idx_controller_api_address_scope
+ON controller_api_address (scope);
+
 CREATE TABLE controller_node_password (
     controller_id TEXT NOT NULL PRIMARY KEY,
     password_hash_algorithm_id TEXT,

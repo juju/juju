@@ -125,7 +125,7 @@ func (s *stateSuite) assertAuthTypes(c *tc.C, cloudUUID string, expected cloud.A
 
 	var dbAuthTypes = map[int]string{}
 
-	rows, err := db.Query("SELECT id, type FROM auth_type")
+	rows, err := db.Query("SELECT id, type FROM auth_type WHERE id >= 0")
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
 

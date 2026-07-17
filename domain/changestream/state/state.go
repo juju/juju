@@ -80,7 +80,11 @@ func (st *State) Prune(ctx context.Context, currentWindow changestream.Window) (
 }
 
 func (st *State) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, current changestream.Window) (Watermark, changestream.Window, error) {
-	selectWitnessQuery, err := st.Prepare(`SELECT &Watermark.* FROM change_log_witness;`, Watermark{})
+	selectWitnessQuery, err := st.Prepare(`
+SELECT &Watermark.*
+FROM change_log_witness
+ORDER BY lower_bound, updated_at;
+`, Watermark{})
 	if err != nil {
 		return Watermark{}, changestream.Window{}, errors.Capture(err)
 	}

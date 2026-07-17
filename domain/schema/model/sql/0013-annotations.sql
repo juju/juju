@@ -3,6 +3,9 @@ CREATE TABLE annotation_model (
     value TEXT NOT NULL
 );
 
+CREATE INDEX idx_annotation_model_key_value
+ON annotation_model ("key", value);
+
 CREATE TABLE annotation_application (
     uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,

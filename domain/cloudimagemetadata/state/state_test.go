@@ -46,7 +46,7 @@ func (s *stateSuite) TestArchitectureIDsByName(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	var loadArchsStmt *sqlair.Statement
-	loadArchsStmt, err = sqlair.Prepare(`SELECT &architecture.* FROM architecture;`, architecture{})
+	loadArchsStmt, err = sqlair.Prepare(`SELECT &architecture.* FROM architecture WHERE id >= 0;`, architecture{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	var archs []architecture

@@ -38,6 +38,7 @@ SELECT
     image_id
 FROM cloud_image_metadata
 JOIN architecture arch on cloud_image_metadata.architecture_id = arch.id
+WHERE cloud_image_metadata.uuid >= ''
 `)
 		if err != nil {
 			return errors.Capture(err)

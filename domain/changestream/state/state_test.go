@@ -357,7 +357,8 @@ VALUES ($M.id, 4, 10002, 0, $M.created_at);
 
 func (s *stateSuite) expectChangeLogWitnesses(c *tc.C, runner coredatabase.TxnRunner, watermarks []Watermark) {
 	query, err := sqlair.Prepare(`
-SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_log_witness;
+SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_log_witness
+ORDER BY lower_bound, updated_at;
 `, Watermark{})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -376,13 +377,18 @@ SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_lo
 
 func (s *stateSuite) expectChangeLogItems(c *tc.C, runner coredatabase.TxnRunner, amount, lowerBound, upperBound int) {
 	query, err := sqlair.Prepare(`
-SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.*) FROM change_log;
-	`, ChangeLogItem{})
+SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.*)
+FROM change_log
+WHERE id BETWEEN $M.lower_bound AND $M.upper_bound;
+	`, ChangeLogItem{}, sqlair.M{})
 	c.Assert(err, tc.ErrorIsNil)
 
 	var got []ChangeLogItem
 	err = runner.Txn(c.Context(), func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, query).GetAll(&got)
+		err := tx.Query(ctx, query, sqlair.M{
+			"lower_bound": lowerBound,
+			"upper_bound": upperBound,
+		}).GetAll(&got)
 		if err != nil {
 			return err
 		}

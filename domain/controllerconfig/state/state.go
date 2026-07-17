@@ -34,7 +34,7 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare("SELECT &KeyValue.* FROM v_controller_config", KeyValue{})
+	stmt, err := st.Prepare("SELECT &KeyValue.* FROM v_controller_config WHERE key >= ''", KeyValue{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

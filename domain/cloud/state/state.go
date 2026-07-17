@@ -172,6 +172,8 @@ func LoadClouds(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name str
 		args = append(args, sqlair.M{
 			"cloud_name": name,
 		})
+	} else {
+		q += "WHERE uuid >= ''"
 	}
 
 	loadCloudStmt, err := st.Prepare(q, sqlair.M{}, dbCloud{})
@@ -436,7 +438,7 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 func loadAuthTypes(ctx context.Context, tx *sqlair.TX) (map[string]int, error) {
 	var dbAuthTypes = map[string]int{}
 
-	stmt, err := sqlair.Prepare("SELECT &authType.* FROM auth_type", authType{})
+	stmt, err := sqlair.Prepare("SELECT &authType.* FROM auth_type WHERE id >= 0", authType{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

@@ -22,3 +22,6 @@ CREATE TABLE block_command (
 
 CREATE UNIQUE INDEX idx_block_command_type
 ON block_command (block_command_type_id);
+
+CREATE INDEX idx_block_command_get_blocks
+ON block_command (block_command_type_id, message, uuid);

@@ -491,6 +491,7 @@ func (st *State) getAllAPIAddressesForClients(ctx context.Context, tx *sqlair.TX
 	stmt, err := st.Prepare(`
 SELECT &controllerAPIAddress.* 
 FROM controller_api_address
+WHERE controller_id >= ''
 `, controllerAPIAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)

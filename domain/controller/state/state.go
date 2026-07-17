@@ -100,7 +100,7 @@ func (st *State) GetModelNamespaces(ctx context.Context) ([]string, error) {
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`SELECT &namespace.* FROM namespace_list`, namespace{})
+	stmt, err := st.Prepare(`SELECT &namespace.* FROM namespace_list WHERE namespace >= ''`, namespace{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select model namespaces statement: %w", err)
 	}
