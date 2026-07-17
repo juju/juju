@@ -404,7 +404,7 @@ func (s *HubWatcherSuite) TestDetectsDeadReceivers(c *gc.C) {
 	// stack trace).
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.CRITICAL,
-		`0x.......... programming error, e.ch=0x.......... did not accept {test a 22} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+		`(?s)0x[0-9a-f]+ programming error, e.ch=0x[0-9a-f]+ did not accept {test a 22} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
 	}})
 }
 
@@ -435,7 +435,7 @@ func (s *HubWatcherSuite) TestWatchMultiDeadReceivers(c *gc.C) {
 	// stack trace).
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.CRITICAL,
-		`0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+		`(?s)0x[0-9a-f]+ programming error, e.ch=0x[0-9a-f]+ did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
 	}})
 }
 
@@ -464,6 +464,6 @@ func (s *HubWatcherSuite) TestWatchCollectionDeadReceivers(c *gc.C) {
 	// stack trace).
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.CRITICAL,
-		`0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+		`(?s)0x[0-9a-f]+ programming error, e.ch=0x[0-9a-f]+ did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
 	}})
 }
