@@ -4,20 +4,27 @@
 package agent
 
 import (
+	"context"
+	"os"
 	"path/filepath"
+	"sync/atomic"
+	"syscall"
 	"testing"
 
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
+	"github.com/juju/worker/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/cmd/cmd/cmdtesting"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
+	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -398,4 +405,83 @@ func (s *controllerStartupValueProviderSuite) TestCurrentSnapshotReturnsRuntimeC
 
 	_, err := provider.CurrentLokiConfig()
 	c.Assert(err, tc.ErrorMatches, `reading controller runtime config ".*missing-runtime.conf": open .*missing-runtime.conf: no such file or directory`)
+}
+
+type controllerLifecycleSuite struct {
+	testhelpers.IsolationSuite
+}
+
+func TestControllerLifecycleSuite(t *testing.T) {
+	tc.Run(t, &controllerLifecycleSuite{})
+}
+
+func (s *controllerLifecycleSuite) TestSigtermTriggersCleanExit(c *tc.C) {
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:          "test-controller",
+		IsFatal:       func(error) bool { return false },
+		MoreImportant: func(err0, err1 error) bool { return false },
+		RestartDelay:  internalworker.RestartDelay,
+		Logger:        internalworker.WrapLogger(logger),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	app := &ControllerApplication{
+		runner: runner,
+		dead:   make(chan struct{}),
+	}
+
+	blk := internalworker.NewSimpleWorker(func(ctx context.Context) error {
+		<-ctx.Done()
+		return nil
+	})
+	err = runner.StartWorker(c.Context(), "blocker",
+		func(context.Context) (worker.Worker, error) { return blk, nil })
+	c.Assert(err, tc.ErrorIsNil)
+
+	sigCh := make(chan os.Signal, 1)
+	var stoppedBySigterm atomic.Bool
+	go func() {
+		select {
+		case <-sigCh:
+			stoppedBySigterm.Store(true)
+			runner.Kill()
+		case <-app.dead:
+		}
+	}()
+
+	sigCh <- syscall.SIGTERM
+
+	runnerErr := runner.Wait()
+	if stoppedBySigterm.Load() {
+		runnerErr = cmdutil.AgentDone(logger, internalworker.ErrTerminateAgent)
+	} else {
+		runnerErr = cmdutil.AgentDone(logger, runnerErr)
+	}
+	c.Check(runnerErr, tc.ErrorIsNil)
+}
+
+func (s *controllerLifecycleSuite) TestRunReturnsErrorWhenRuntimeConfigIsMissing(c *tc.C) {
+	agentTag := names.NewControllerAgentTag("0")
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:          "test-controller",
+		IsFatal:       func(error) bool { return false },
+		MoreImportant: func(err0, err1 error) bool { return false },
+		Logger:        internalworker.WrapLogger(logger),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	app := &ControllerApplication{
+		agentTag:              agentTag,
+		runner:                runner,
+		controllerRuntimePath: filepath.Join(c.MkDir(), "nonexistent-runtime.conf"),
+		workersStarted:        make(chan struct{}),
+		dead:                  make(chan struct{}),
+	}
+
+	cmdCtx := &cmd.Context{
+		Context: context.Background(),
+	}
+	result := app.Run(cmdCtx)
+
+	c.Check(result, tc.ErrorMatches, `reading controller runtime config ".*nonexistent-runtime.conf": open .*: no such file or directory`)
 }
