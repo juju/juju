@@ -430,6 +430,11 @@ type ControllerApplication struct {
 	controllerUpgradeLock gate.Lock
 	upgradeDBLock         gate.Waiter
 	upgradeStepsLock      gate.Lock
+
+	// testEngineCreator, when non-nil, replaces makeEngineCreator in Run.
+	// It exists only to allow unit tests to inject a lightweight worker
+	// without spinning up the full dependency engine.
+	testEngineCreator func(context.Context) (worker.Worker, error)
 }
 
 // Wait waits for the controller agent to finish.
@@ -522,6 +527,9 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 	a.initStandaloneControllerLocks()
 
 	createEngine := a.makeEngineCreator(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
+	if a.testEngineCreator != nil {
+		createEngine = a.testEngineCreator
+	}
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start.

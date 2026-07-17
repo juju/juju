@@ -415,7 +415,11 @@ func TestControllerLifecycleSuite(t *testing.T) {
 	tc.Run(t, &controllerLifecycleSuite{})
 }
 
-func (s *controllerLifecycleSuite) TestSigtermTriggersCleanExit(c *tc.C) {
+// TestSigtermLogicCleanExit tests the extracted signal-handling logic in
+// isolation: a channel-driven goroutine kills the runner on signal receipt
+// and the result is translated to a clean exit. This is a fast unit check
+// of the runner/AgentDone interaction without going through signal.Notify.
+func (s *controllerLifecycleSuite) TestSigtermLogicCleanExit(c *tc.C) {
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name:          "test-controller",
 		IsFatal:       func(error) bool { return false },
@@ -458,6 +462,81 @@ func (s *controllerLifecycleSuite) TestSigtermTriggersCleanExit(c *tc.C) {
 		runnerErr = cmdutil.AgentDone(logger, runnerErr)
 	}
 	c.Check(runnerErr, tc.ErrorIsNil)
+}
+
+// TestSigtermWiringCleanExit calls app.Run() and delivers a real SIGTERM to
+// the process to exercise the signal.Notify registration inside Run. It
+// asserts that Run returns nil, confirming that the OS-delivered signal
+// reaches the handler, kills the runner, and is translated to a clean exit.
+func (s *controllerLifecycleSuite) TestSigtermWiringCleanExit(c *tc.C) {
+	dir := c.MkDir()
+	logDir := filepath.Join(dir, "log")
+	c.Assert(os.MkdirAll(logDir, 0o755), tc.ErrorIsNil)
+
+	runtimePath := filepath.Join(dir, controllerruntimeconfig.Filename)
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              dir,
+		LogDir:               logDir,
+		APIPort:              17070,
+		AgentPassword:        "agent-password",
+		CACert:               "ca-cert-pem",
+		CAPrivateKey:         "ca-private-key-pem",
+		ControllerCert:       "controller-cert-pem",
+		ControllerPrivateKey: "controller-private-key-pem",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	agentTag := names.NewControllerAgentTag("0")
+	runner, err := worker.NewRunner(worker.RunnerParams{
+		Name:          "test-controller",
+		IsFatal:       func(error) bool { return false },
+		MoreImportant: func(err0, err1 error) bool { return false },
+		RestartDelay:  internalworker.RestartDelay,
+		Logger:        internalworker.WrapLogger(logger),
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	app := &ControllerApplication{
+		agentTag:              agentTag,
+		runner:                runner,
+		controllerRuntimePath: runtimePath,
+		workersStarted:        make(chan struct{}),
+		dead:                  make(chan struct{}),
+		// Inject a minimal blocking worker so the runner stays alive
+		// until killed, without starting the full dependency engine.
+		testEngineCreator: func(ctx context.Context) (worker.Worker, error) {
+			return internalworker.NewSimpleWorker(func(ctx context.Context) error {
+				<-ctx.Done()
+				return nil
+			}), nil
+		},
+	}
+
+	runErr := make(chan error, 1)
+	go func() {
+		runErr <- app.Run(&cmd.Context{Context: c.Context()})
+	}()
+
+	// Wait until signal.Notify is registered (workersStarted is closed
+	// just before the signal handler goroutine is launched).
+	select {
+	case <-app.WorkersStarted():
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for workers to start")
+	}
+
+	// Deliver a real SIGTERM to this process to exercise the wiring.
+	c.Assert(syscall.Kill(os.Getpid(), syscall.SIGTERM), tc.ErrorIsNil)
+
+	select {
+	case result := <-runErr:
+		c.Check(result, tc.ErrorIsNil)
+	case <-c.Context().Done():
+		c.Fatal("timed out waiting for Run to return")
+	}
 }
 
 func (s *controllerLifecycleSuite) TestRunReturnsErrorWhenRuntimeConfigIsMissing(c *tc.C) {
