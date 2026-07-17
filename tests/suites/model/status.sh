@@ -38,7 +38,7 @@ run_status_filters() {
 
 	# Filter by a/leader: only the leader unit should appear.
 	OUT=$(juju status --format yaml a/leader 2>/dev/null)
-	echo "${OUT}" | yq ".applications.a.units | has(\"${a_leader}\")" | check "true"
+	echo "${OUT}" | yq '.applications.a.units | keys | .[]' | check "${a_leader}"
 	check_not_contains "$(echo "${OUT}" | yq '.applications | keys | .[]')" "b"
 
 	# Filter by machine 0: machine 0 and its unit should appear; no other
