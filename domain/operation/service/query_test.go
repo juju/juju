@@ -120,7 +120,7 @@ func (s *querySuite) service(c *tc.C) *Service {
 func (s *querySuite) TestGetOperationByID(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	operationID := "op-123"
+	operationID := "123"
 	unitTask := operation.UnitTaskResult{
 		TaskInfo: operation.TaskInfo{
 			ID:     "task-1",
@@ -139,7 +139,7 @@ func (s *querySuite) TestGetOperationByID(c *tc.C) {
 		Machines:    []operation.MachineTaskResult{machineTask},
 	}
 	// The status should be Running (higher priority than Completed)
-	s.state.EXPECT().GetOperationByID(gomock.Any(), operationID).Return(expected, nil)
+	s.state.EXPECT().GetOperationByID(gomock.Any(), uint64(123)).Return(expected, nil)
 
 	got, err := s.service(c).GetOperationByID(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
@@ -150,7 +150,7 @@ func (s *querySuite) TestGetOperationByID(c *tc.C) {
 func (s *querySuite) TestGetOperationByIDCompleted(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	operationID := "op-123"
+	operationID := "123"
 	unitTask := operation.UnitTaskResult{
 		TaskInfo: operation.TaskInfo{
 			ID:     "task-1",
@@ -169,7 +169,7 @@ func (s *querySuite) TestGetOperationByIDCompleted(c *tc.C) {
 		Machines:    []operation.MachineTaskResult{machineTask},
 	}
 	// The status should be Running (higher priority than Completed)
-	s.state.EXPECT().GetOperationByID(gomock.Any(), operationID).Return(expected, nil)
+	s.state.EXPECT().GetOperationByID(gomock.Any(), uint64(123)).Return(expected, nil)
 
 	got, err := s.service(c).GetOperationByID(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)
@@ -183,14 +183,33 @@ func (s *querySuite) TestGetOperationByIDError(c *tc.C) {
 	expectedErr := errors.New("not found")
 	s.state.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Return(operation.OperationInfo{}, expectedErr)
 
-	_, err := s.service(c).GetOperationByID(c.Context(), "unknown")
+	_, err := s.service(c).GetOperationByID(c.Context(), "999")
 	c.Assert(err, tc.ErrorMatches, "not found")
+}
+
+func (s *querySuite) TestGetOperationByIDInvalidFormat(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// State must never be called when parsing fails.
+	s.state.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := s.service(c).GetOperationByID(c.Context(), "not-a-number")
+	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
+}
+
+func (s *querySuite) TestGetOperationByIDEmptyString(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := s.service(c).GetOperationByID(c.Context(), "")
+	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
 }
 
 func (s *querySuite) TestGetOperationByIDUnknownStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	operationID := "op-123"
+	operationID := "123"
 	unitTask := operation.UnitTaskResult{
 		TaskInfo: operation.TaskInfo{
 			ID:     "task-1",
@@ -203,7 +222,7 @@ func (s *querySuite) TestGetOperationByIDUnknownStatus(c *tc.C) {
 		Units:       []operation.UnitTaskResult{unitTask},
 	}
 	// The status should be Running (higher priority than Completed)
-	s.state.EXPECT().GetOperationByID(gomock.Any(), operationID).Return(expected, nil)
+	s.state.EXPECT().GetOperationByID(gomock.Any(), uint64(123)).Return(expected, nil)
 
 	got, err := s.service(c).GetOperationByID(c.Context(), operationID)
 	c.Assert(err, tc.IsNil)

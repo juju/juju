@@ -181,6 +181,11 @@ var modelPostPatchFilesByVersion = []struct {
 		"0060-view-indexes.PATCH.sql",
 		"0061-secret-reservation.PATCH.sql",
 	},
+}, {
+	version: semversion.MustParse("4.0.13"),
+	files: []string{
+		"0062-operation.PATCH.sql",
+	},
 }}
 
 // ModelDDL is used to create model databases.

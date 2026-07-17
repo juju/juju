@@ -41,7 +41,7 @@ type CompletedTask struct {
 type ImportOperationsArgs []ImportOperationArg
 
 type ImportOperationArg struct {
-	ID        string
+	ID        uint64
 	Summary   string
 	Enqueued  time.Time
 	Started   time.Time

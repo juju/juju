@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +40,8 @@ func (s *querySuite) TestGetOperationByIDUnitAndMachineTasks(c *tc.C) {
 	opUUID := s.addOperationWithExecutionGroup(c, "exec-group")
 	s.addOperationAction(c, opUUID, charmUUID, "test-action")
 	opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
+	opIDUint, err := strconv.ParseUint(opID, 10, 64)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Add unit task
 	unitUUID := s.addUnitWithName(c, charmUUID, "byid-test-app/0")
@@ -55,7 +58,7 @@ func (s *querySuite) TestGetOperationByIDUnitAndMachineTasks(c *tc.C) {
 	s.addOperationParameter(c, opUUID, "param2", "value2")
 
 	// Act
-	info, err := s.state.GetOperationByID(c.Context(), opID)
+	info, err := s.state.GetOperationByID(c.Context(), opIDUint)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -89,11 +92,11 @@ func (s *querySuite) TestGetOperationByIDUnitAndMachineTasks(c *tc.C) {
 
 func (s *querySuite) TestGetOperationByIDNotFound(c *tc.C) {
 	// Act
-	_, err := s.state.GetOperationByID(c.Context(), "non-existent-id")
+	_, err := s.state.GetOperationByID(c.Context(), 999999)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, operationerrors.OperationNotFound)
-	c.Assert(err, tc.ErrorMatches, `operation "non-existent-id" not found`)
+	c.Assert(err, tc.ErrorMatches, `operation 999999 not found`)
 }
 
 func (s *querySuite) TestGetOperationsEmptyResult(c *tc.C) {
@@ -455,9 +458,11 @@ func (s *querySuite) TestGetOperationByIDWithTimestamps(c *tc.C) {
 		startedAt, completedAt, opUUID)
 
 	opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
+	opIDUint, err := strconv.ParseUint(opID, 10, 64)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	info, err := s.state.GetOperationByID(c.Context(), opID)
+	info, err := s.state.GetOperationByID(c.Context(), opIDUint)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -482,9 +487,11 @@ func (s *querySuite) TestGetOperationByIDWithSummary(c *tc.C) {
 	s.query(c, `UPDATE operation SET summary = ? WHERE uuid = ?`, expectedSummary, opUUID)
 
 	opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
+	opIDUint, err := strconv.ParseUint(opID, 10, 64)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	info, err := s.state.GetOperationByID(c.Context(), opID)
+	info, err := s.state.GetOperationByID(c.Context(), opIDUint)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -500,9 +507,11 @@ func (s *querySuite) TestGetOperationByIDNoTasks(c *tc.C) {
 	// Note: intentionally not adding any tasks
 
 	opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
+	opIDUint, err := strconv.ParseUint(opID, 10, 64)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	info, err := s.state.GetOperationByID(c.Context(), opID)
+	info, err := s.state.GetOperationByID(c.Context(), opIDUint)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -511,31 +520,13 @@ func (s *querySuite) TestGetOperationByIDNoTasks(c *tc.C) {
 	c.Assert(info.Machines, tc.HasLen, 0)
 }
 
-func (s *querySuite) TestGetOperationByIDEmptyString(c *tc.C) {
-	// Act
-	_, err := s.state.GetOperationByID(c.Context(), "")
-
-	// Assert
-	c.Assert(err, tc.ErrorIs, operationerrors.OperationNotFound)
-	c.Assert(err, tc.ErrorMatches, `operation "" not found`)
-}
-
 func (s *querySuite) TestGetOperationByIDNonExistentID(c *tc.C) {
 	// Act
-	_, err := s.state.GetOperationByID(c.Context(), "non-existent-operation-id")
+	_, err := s.state.GetOperationByID(c.Context(), 888888)
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, operationerrors.OperationNotFound)
-	c.Assert(err, tc.ErrorMatches, `operation "non-existent-operation-id" not found`)
-}
-
-func (s *querySuite) TestGetOperationByIDUUIDFormatNonExistent(c *tc.C) {
-	// Act
-	_, err := s.state.GetOperationByID(c.Context(), "550e8400-e29b-41d4-a716-446655440000")
-
-	// Assert
-	c.Assert(err, tc.ErrorIs, operationerrors.OperationNotFound)
-	c.Assert(err, tc.ErrorMatches, `operation "550e8400-e29b-41d4-a716-446655440000" not found`)
+	c.Assert(err, tc.ErrorMatches, `operation 888888 not found`)
 }
 
 func (s *querySuite) TestGetOperationsWithManyTasks(c *tc.C) {
@@ -573,9 +564,11 @@ func (s *querySuite) TestGetOperationsWithManyTasks(c *tc.C) {
 	}
 
 	opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
+	opIDUint, err := strconv.ParseUint(opID, 10, 64)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	info, err := s.state.GetOperationByID(c.Context(), opID)
+	info, err := s.state.GetOperationByID(c.Context(), opIDUint)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -770,9 +763,11 @@ func (s *querySuite) TestGetOperationByIDOperationWithoutParameters(c *tc.C) {
 	// Note: intentionally not adding any parameters
 
 	opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
+	opIDUint, err := strconv.ParseUint(opID, 10, 64)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	info, err := s.state.GetOperationByID(c.Context(), opID)
+	info, err := s.state.GetOperationByID(c.Context(), opIDUint)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
@@ -797,9 +792,11 @@ func (s *querySuite) TestGetOperationByIDOperationWithoutLogs(c *tc.C) {
 	// Note: intentionally not adding any logs
 
 	opID := s.selectDistinctValues(c, "operation_id", "operation")[0]
+	opIDUint, err := strconv.ParseUint(opID, 10, 64)
+	c.Assert(err, tc.ErrorIsNil)
 
 	// Act
-	info, err := s.state.GetOperationByID(c.Context(), opID)
+	info, err := s.state.GetOperationByID(c.Context(), opIDUint)
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
