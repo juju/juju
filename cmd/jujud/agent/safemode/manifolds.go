@@ -4,8 +4,6 @@
 package safemode
 
 import (
-	"maps"
-
 	"github.com/juju/clock"
 	"github.com/juju/worker/v5/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,8 +43,8 @@ type ManifoldsConfig struct {
 // controller, so no ifController gating is required.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return dependency.Manifolds{
+func Manifolds(config ManifoldsConfig) dependency.Manifolds {
+	manifolds := dependency.Manifolds{
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running in.
 		terminationName: terminationworker.Manifold(),
@@ -69,49 +67,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogDir: config.LogDir,
 			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		}),
+
+		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewNodeManager:            dbaccessor.NewNodeManager,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+		}),
 	}
-}
 
-// IAASManifolds returns manifolds for an IAAS controller safe-mode engine.
-func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{
-		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.ControllerStartupValues,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:      noopPrometheusRegisterer{},
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewNodeManager:            dbaccessor.IAASNodeManager,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		}),
-	})
-}
-
-// CAASManifolds returns manifolds for a CAAS controller safe-mode engine.
-func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{
-		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.ControllerStartupValues,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:      noopPrometheusRegisterer{},
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewNodeManager:            dbaccessor.CAASNodeManager,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		}),
-	})
-}
-
-func mergeManifolds(
-	config ManifoldsConfig, manifolds dependency.Manifolds,
-) dependency.Manifolds {
-	result := commonManifolds(config)
-	maps.Copy(result, manifolds)
-	return result
+	return manifolds
 }
 
 const (

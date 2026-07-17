@@ -273,39 +273,24 @@ func (s *InitCommandSuite) TestTokenInCredentialFieldRejected(c *tc.C) {
 	snapCommon := c.MkDir()
 
 	// Craft a config that has a token in the CACert field.
-	cfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:         "0",
-		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
-		DataDir:              controllerruntimeconfig.TokenSnapData,
-		LogDir:               controllerruntimeconfig.TokenSnapCommon + "/var/log/juju",
-		SocketDir:            controllerruntimeconfig.TokenSnapCommon + "/sockets",
-		SharedAgentDir:       controllerruntimeconfig.TokenSnapCommon + "/agents/controller-0",
-		APIPort:              17070,
-		AgentPassword:        "agent-password",
-		CACert:               "ca-cert-pem with " + controllerruntimeconfig.TokenSnapData + " embedded",
-		CAPrivateKey:         "ca-private-key-pem",
-		ControllerCert:       "controller-cert-pem",
-		ControllerPrivateKey: "controller-private-key-pem",
-		APIAddresses:         []string{"10.0.0.1:17070"},
-	}
-	import_yaml := "controller-id: \"0\"\n" +
-		"controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n" +
-		"controller-model-uuid: feedface-dead-beef-cafe-c0ffee000000\n" +
-		"data-dir: \"@SNAP_DATA@\"\n" +
-		"log-dir: \"@SNAP_COMMON@/var/log/juju\"\n" +
-		"socket-dir: \"@SNAP_COMMON@/sockets\"\n" +
-		"shared-agent-dir: \"@SNAP_COMMON@/agents/controller-0\"\n" +
-		"api-port: 17070\n" +
-		"agent-password: agent-password\n" +
-		"ca-cert: \"ca-cert-pem with @SNAP_DATA@ embedded\"\n" +
-		"ca-private-key: ca-private-key-pem\n" +
-		"controller-cert: controller-cert-pem\n" +
-		"controller-private-key: controller-private-key-pem\n" +
-		"api-addresses:\n- 10.0.0.1:17070\n"
-	_ = cfg
+	stagedYAML := `
+controller-id: "0"
+controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d
+controller-model-uuid: feedface-dead-beef-cafe-c0ffee000000
+data-dir: "@SNAP_DATA@"
+log-dir: "@SNAP_COMMON@/var/log/juju"
+socket-dir: "@SNAP_COMMON@/sockets"
+shared-agent-dir: "@SNAP_COMMON@/agents/controller-0"
+api-port: 17070
+agent-password: agent-password
+ca-cert: "ca-cert-pem with @SNAP_DATA@ embedded"
+ca-private-key: ca-private-key-pem
+controller-cert: controller-cert-pem
+controller-private-key: controller-private-key-pem
+api-addresses:
+  - 10.0.0.1:17070`
 
-	err := os.WriteFile(filepath.Join(stagedDir, controllerruntimeconfig.Filename), []byte(import_yaml), 0o644)
+	err := os.WriteFile(filepath.Join(stagedDir, controllerruntimeconfig.Filename), []byte(stagedYAML), 0o644)
 	c.Assert(err, tc.ErrorIsNil)
 	err = os.WriteFile(filepath.Join(stagedDir, controllerruntimeconfig.FileNameBootstrapParams), []byte(`{}`), 0o644)
 	c.Assert(err, tc.ErrorIsNil)

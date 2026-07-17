@@ -316,12 +316,7 @@ func (a *SafeModeControllerApplication) makeEngineCreator() func(ctx context.Con
 			Clock:                   clock.WallClock,
 		}
 
-		var manifolds dependency.Manifolds
-		if a.runtimeConfig.LoopbackPreferred {
-			manifolds = safemode.CAASManifolds(manifoldsCfg)
-		} else {
-			manifolds = safemode.IAASManifolds(manifoldsCfg)
-		}
+		manifolds := safemode.Manifolds(manifoldsCfg)
 
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {

@@ -1423,7 +1423,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 				// so the controller process can read Dqlite startup values
 				// before the database is available.
 				Name: c.resourceNameVolAgentConf,
-				MountPath: c.pathJoin(
+				MountPath: path.Join(
 					c.pcfg.DataDir,
 					"agents",
 					"controller-"+c.pcfg.ControllerId,
