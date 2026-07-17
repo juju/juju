@@ -3,6 +3,9 @@
 # jujud configure hook --- applies snap-set runtime overrides to runtime.conf.
 #
 # Only logging-override is supported in this Phase 1 slice.
+# Controller-database-owned keys (agent-logfile-max-size-mb, etc.) are
+# explicitly rejected so snap config cannot create a second ownership
+# surface for them.
 # When runtime.conf has not been staged yet the value is deferred and is
 # applied after jujud.init creates the base file.
 # When the daemon is active and the applied value changes, the service is
@@ -16,6 +19,20 @@ PREV_VAL_FILE="$SNAP_INIT_DIR/.last-logging-override"
 
 (
     echo "configure hook: starting"
+
+    # ---- Reject unsupported controller-database-owned keys ----
+    # These keys are seeded from controller config at bootstrap and
+    # remain controller-database-owned. Snap config must not create a
+    # second competing source of truth for them.
+    UNSUPPORTED_KEYS="agent-logfile-max-size-mb agent-logfile-max-backups query-tracing-enabled query-tracing-threshold dqlite-busy-timeout"
+    for key in $UNSUPPORTED_KEYS; do
+        val="$(snapctl get "$key" 2>/dev/null || true)"
+        if [ -n "$val" ] && [ "$val" != "null" ]; then
+            echo "configure hook: ERROR: unsupported snap-config key '$key' is controller-database-owned and not exposed through snap set in Phase 1"
+            echo "configure hook: rejecting snap config apply to protect last-valid runtime.conf"
+            exit 1
+        fi
+    done
 
     requested="$(snapctl get logging-override)"
 
