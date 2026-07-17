@@ -28,12 +28,8 @@ func (s *ManifoldsSuite) SetUpTest(c *tc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *ManifoldsSuite) TestStartFuncsIAAS(c *tc.C) {
-	s.assertStartFuncs(c, dbrepl.IAASManifolds(newManifoldsConfig()))
-}
-
-func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
-	s.assertStartFuncs(c, dbrepl.CAASManifolds(newManifoldsConfig()))
+func (s *ManifoldsSuite) TestStartFuncs(c *tc.C) {
+	s.assertStartFuncs(c, dbrepl.Manifolds(newManifoldsConfig()))
 }
 
 func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
@@ -43,23 +39,10 @@ func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds)
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
+func (s *ManifoldsSuite) TestManifoldNames(c *tc.C) {
 	s.assertManifoldNames(c,
-		dbrepl.IAASManifolds(newManifoldsConfig()),
+		dbrepl.Manifolds(newManifoldsConfig()),
 		[]string{
-			"controller-agent-config",
-			"db-repl-accessor",
-			"db-repl",
-			"termination-signal-handler",
-		},
-	)
-}
-
-func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
-	s.assertManifoldNames(c,
-		dbrepl.CAASManifolds(newManifoldsConfig()),
-		[]string{
-			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
 			"termination-signal-handler",
@@ -80,13 +63,11 @@ func (*ManifoldsSuite) TestNoControllerFlagGuards(c *tc.C) {
 	// The controller binary is always a controller node; no manifold
 	// should reference the removed is-controller-flag or
 	// state-config-watcher workers.
-	manifolds := dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
-		ControllerID:           "99",
-		ConfigChangeSocketPath: "data-dir/configchange.socket",
-		DataDir:                "data-dir",
-		CACert:                 "ca-cert",
-		ControllerCert:         "controller-cert",
-		ControllerPrivateKey:   "controller-private-key",
+	manifolds := dbrepl.Manifolds(dbrepl.ManifoldsConfig{
+		DataDir:              "data-dir",
+		CACert:               "ca-cert",
+		ControllerCert:       "controller-cert",
+		ControllerPrivateKey: "controller-private-key",
 	})
 
 	for name, manifold := range manifolds {
@@ -103,35 +84,14 @@ func checkNotContains(c *tc.C, names []string, seek string) {
 	}
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *tc.C) {
+func (s *ManifoldsSuite) TestManifoldsDependencies(c *tc.C) {
 	agenttest.AssertManifoldsDependencies(c,
-		dbrepl.IAASManifolds(newManifoldsConfig()),
+		dbrepl.Manifolds(newManifoldsConfig()),
 		expectedMachineManifoldsWithDependenciesIAAS,
 	)
 }
 
-func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
-	agenttest.AssertManifoldsDependencies(c,
-		dbrepl.CAASManifolds(newManifoldsConfig()),
-		expectedMachineManifoldsWithDependenciesCAAS,
-	)
-}
-
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
-	"controller-agent-config": {},
-
-	"db-repl": {
-		"db-repl-accessor",
-	},
-
-	"db-repl-accessor": {},
-
-	"termination-signal-handler": {},
-}
-
-var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
-	"controller-agent-config": {},
-
 	"db-repl": {
 		"db-repl-accessor",
 	},
@@ -143,11 +103,9 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 func newManifoldsConfig() dbrepl.ManifoldsConfig {
 	return dbrepl.ManifoldsConfig{
-		ControllerID:           "99",
-		ConfigChangeSocketPath: "data-dir/configchange.socket",
-		DataDir:                "data-dir",
-		CACert:                 "ca-cert",
-		ControllerCert:         "controller-cert",
-		ControllerPrivateKey:   "controller-private-key",
+		DataDir:              "data-dir",
+		CACert:               "ca-cert",
+		ControllerCert:       "controller-cert",
+		ControllerPrivateKey: "controller-private-key",
 	}
 }
