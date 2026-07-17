@@ -31,6 +31,10 @@ apps:
     command: wrappers/jujud-controller
     daemon: simple
     restart-condition: on-failure
+    restart-delay: 5s
+    install-mode: disable
+    stop-mode: sigterm
+    stop-timeout: 70s
     environment:
       PATH: "$SNAP/usr/sbin:$SNAP/usr/bin:$SNAP/sbin:$SNAP/bin:$PATH"
       JUJU_DATA: "$SNAP_DATA"
@@ -80,6 +84,13 @@ apps:
       - network
   safemode:
     command: wrappers/juju-safemode
+
+  controller-config:
+    command: wrappers/jujud-controller-config
+
+hooks:
+  install: {}
+  configure: {}
 
 parts:
   dqlite:

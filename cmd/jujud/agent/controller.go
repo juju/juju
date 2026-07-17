@@ -7,8 +7,11 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/juju/clock"
@@ -427,6 +430,11 @@ type ControllerApplication struct {
 	controllerUpgradeLock gate.Lock
 	upgradeDBLock         gate.Waiter
 	upgradeStepsLock      gate.Lock
+
+	// testEngineCreator, when non-nil, replaces makeEngineCreator in Run.
+	// It exists only to allow unit tests to inject a lightweight worker
+	// without spinning up the full dependency engine.
+	testEngineCreator func(context.Context) (worker.Worker, error)
 }
 
 // Wait waits for the controller agent to finish.
@@ -519,11 +527,38 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 	a.initStandaloneControllerLocks()
 
 	createEngine := a.makeEngineCreator(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
+	if a.testEngineCreator != nil {
+		createEngine = a.testEngineCreator
+	}
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
 
 	// At this point, all workers will have been configured to start.
 	close(a.workersStarted)
+
+	// Register a SIGTERM handler so snapd's normal service-stop signal
+	// triggers the controller's graceful in-process shutdown. On SIGTERM
+	// the runner is killed, causing workers to drain and the process to
+	// exit cleanly rather than being forcibly terminated.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	var stoppedBySigterm atomic.Bool
+	go func() {
+		select {
+		case sig := <-sigCh:
+			logger.Infof(context.TODO(), "received signal %v, initiating graceful shutdown", sig)
+			stoppedBySigterm.Store(true)
+			a.runner.Kill()
+		case <-a.dead:
+		}
+	}()
+
 	err = a.runner.Wait()
+
+	if stoppedBySigterm.Load() {
+		return cmdutil.AgentDone(logger, internalworker.ErrTerminateAgent)
+	}
 	return cmdutil.AgentDone(logger, err)
 }
 

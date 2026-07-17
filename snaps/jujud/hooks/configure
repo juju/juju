@@ -1,0 +1,94 @@
+#!/bin/sh
+
+# jujud configure hook --- applies snap-set runtime overrides to runtime.conf.
+#
+# Only logging-override is supported in this Phase 1 slice.
+# Controller-database-owned keys (agent-logfile-max-size-mb, etc.) are
+# explicitly rejected so snap config cannot create a second ownership
+# surface for them.
+#
+# State file: $SNAP_COMMON/.snap-init/logging-override
+#   Written by controller-config on every apply (immediate or deferred).
+#   Read by jujud.init to apply any value that was set before runtime.conf
+#   existed, then deleted by jujud.init to signal the deferred value has
+#   been consumed.
+#   Also used here as the idempotency cache: if the requested value equals
+#   the file's content the hook exits early without bouncing the daemon.
+#
+# When the daemon is active and the applied value changes, the service is
+# bounced so workers pick up the new startup value through a clean restart.
+
+set -e
+
+RUNTIME_CONF="$SNAP_DATA/agents/controller-0/runtime.conf"
+SNAP_INIT_DIR="$SNAP_COMMON/.snap-init"
+STATE_FILE="$SNAP_INIT_DIR/logging-override"
+
+log() {
+    echo "$@" >&2
+    echo "$@" >> "$SNAP_COMMON/hook.log" 2>/dev/null || true
+}
+
+log "configure: starting"
+
+# ---- Reject unsupported controller-database-owned keys ----
+# These keys are seeded from controller config at bootstrap and
+# remain controller-database-owned. Snap config must not create a
+# second competing source of truth for them.
+UNSUPPORTED_KEYS="agent-logfile-max-size-mb agent-logfile-max-backups query-tracing-enabled query-tracing-threshold dqlite-busy-timeout"
+for key in $UNSUPPORTED_KEYS; do
+    val="$(snapctl get "$key" 2>/dev/null || true)"
+    if [ -n "$val" ] && [ "$val" != "null" ]; then
+        log "configure: ERROR: unsupported snap-config key '$key' is controller-database-owned and not exposed through snap set in Phase 1"
+        log "configure: rejecting snap config apply to protect last-valid runtime.conf"
+        exit 1
+    fi
+done
+
+requested="$(snapctl get logging-override)"
+
+# Normalise snapctl "null" / empty to empty string.
+if [ -z "$requested" ] || [ "$requested" = "null" ]; then
+    requested=""
+fi
+
+# Read the previously applied value from the shared state file so we
+# can avoid unnecessary bounces.  This file is also read by jujud.init
+# (deferred case) and deleted by jujud.init after consuming it, so an
+# empty-file result correctly causes re-apply after init runs.
+prev_applied=""
+if [ -f "$STATE_FILE" ]; then
+    prev_applied="$(cat "$STATE_FILE")"
+fi
+
+if [ "$requested" = "$prev_applied" ]; then
+    log "configure: logging-override unchanged, skipping apply"
+    exit 0
+fi
+
+# Call the typed helper. When runtime.conf exists it mutates only
+# logging-override and atomically rewrites the file; all other fields
+# are preserved.  When runtime.conf does not exist yet, the helper
+# writes the value to the state file so jujud.init can apply it once
+# the base file has been staged.  Either way the state file ends up
+# containing the requested value, which is what we use as the
+# idempotency cache on the next hook run.
+"$SNAP/bin/jujud" controller-config \
+    --runtime-config-path "$RUNTIME_CONF" \
+    --snap-common "$SNAP_COMMON" \
+    --logging-override "$requested"
+
+if [ -f "$RUNTIME_CONF" ]; then
+    log "configure: applied logging-override"
+
+    # Bounce the daemon when active so workers pick up the new value.
+    if snapctl services jujud.jujud | grep -q 'active'; then
+        log "configure: bouncing jujud daemon"
+        snapctl stop jujud.jujud
+        snapctl start jujud.jujud
+    fi
+else
+    log "configure: deferred logging-override (runtime.conf not yet staged)"
+fi
+
+log "configure: done"
