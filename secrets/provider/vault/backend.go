@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
 	vault "github.com/mittwald/vaultgo"
 
@@ -18,13 +19,18 @@ type vaultBackend struct {
 	client    *vault.Client
 }
 
+// KVv1 returns a KV v1 client for the given mount path.
+func (k vaultBackend) KVv1(mount string) *api.KVv1 {
+	return k.client.Client.KVv1(mount)
+}
+
 // GetContent implements SecretsBackend.
 func (k vaultBackend) GetContent(ctx context.Context, revisionId string) (_ secrets.SecretValue, err error) {
 	defer func() {
 		err = maybePermissionDenied(err)
 	}()
 
-	s, err := k.client.KVv1(k.mountPath).Get(ctx, revisionId)
+	s, err := k.KVv1(k.mountPath).Get(ctx, revisionId)
 	if isNotFound(err) {
 		return nil, errors.NotFoundf("secret revision %q", revisionId)
 	} else if err != nil {
@@ -45,11 +51,12 @@ func (k vaultBackend) DeleteContent(ctx context.Context, revisionId string) (err
 
 	// Read the content first so we can return a not found error
 	// if it doesn't exist.
-	_, err = k.client.KVv1(k.mountPath).Get(ctx, revisionId)
+	client := k.KVv1(k.mountPath)
+	_, err = client.Get(ctx, revisionId)
 	if isNotFound(err) {
 		return errors.NotFoundf("secret revision %q", revisionId)
 	}
-	return k.client.KVv1(k.mountPath).Delete(ctx, revisionId)
+	return client.Delete(ctx, revisionId)
 }
 
 // SaveContent implements SecretsBackend.
@@ -63,7 +70,7 @@ func (k vaultBackend) SaveContent(ctx context.Context, uri *secrets.URI, revisio
 	for k, v := range value.EncodedValues() {
 		val[k] = v
 	}
-	err = k.client.KVv1(k.mountPath).Put(ctx, path, val)
+	err = k.KVv1(k.mountPath).Put(ctx, path, val)
 	if err != nil {
 		return "", errors.Annotatef(err, "saving secret content for %q", path)
 	}

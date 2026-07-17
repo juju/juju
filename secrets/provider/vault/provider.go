@@ -139,7 +139,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 		return nil
 	}
 	for _, id := range keys {
-		err = k.client.KVv1(k.mountPath).Delete(ctx, fmt.Sprintf("%s", id))
+		err = k.KVv1(k.mountPath).Delete(ctx, fmt.Sprintf("%s", id))
 		if err != nil && !isNotFound(err) {
 			return errors.Annotatef(err, "deleting secret %q", id)
 		}
