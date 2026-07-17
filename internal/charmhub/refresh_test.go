@@ -610,6 +610,65 @@ func (s *RefreshConfigSuite) TestInstallOneFromRevisionFail(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, errors.NotValid)
 }
 
+func (s *RefreshConfigSuite) TestInstallOneBuild(c *tc.C) {
+	revision := 1
+	channel := "latest/stable"
+	name := "foo"
+	config, err := InstallOne(c.Context(), name, &revision, &channel, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+
+	req, err := config.Build(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "install",
+			InstanceKey: "foo-bar",
+			Name:        &name,
+			Revision:    &revision,
+			Channel:     &channel,
+			Base: &transport.Base{
+				Name:         "ubuntu",
+				Channel:      "20.04",
+				Architecture: arch.DefaultArchitecture,
+			},
+		}},
+		Fields: expRefreshFields,
+	})
+}
+
+func (s *RefreshConfigSuite) TestInstallOneBuildRevisionWithoutChannel(c *tc.C) {
+	revision := 1
+	name := "foo"
+	config, err := InstallOne(c.Context(), name, &revision, nil, RefreshBase{
+		Name:         "ubuntu",
+		Channel:      "20.04",
+		Architecture: arch.DefaultArchitecture,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	config = DefineInstanceKey(c, config, "foo-bar")
+
+	req, err := config.Build(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(req, tc.DeepEquals, transport.RefreshRequest{
+		Context: []transport.RefreshRequestContext{},
+		Actions: []transport.RefreshRequestAction{{
+			Action:      "install",
+			InstanceKey: "foo-bar",
+			Name:        &name,
+			Revision:    &revision,
+		}},
+		Fields: expRefreshFields,
+	})
+}
+
 func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *tc.C) {
 	// Tests InstallOne by revision with specific resources.
 	revision := 1

@@ -271,11 +271,14 @@ func InstallOneFromRevision(ctx context.Context, name string, revision int) (Ref
 	}, nil
 }
 
-// InstallOneFromChannelRevision creates a request config using both the
-// channel and revision for requesting only one charm.
-func InstallOneFromChannelRevision(ctx context.Context, name, channel string, revision int, base RefreshBase) (RefreshConfig, error) {
+// InstallOne creates a request config for installing one charm with the
+// supplied channel, revision, and base.
+func InstallOne(ctx context.Context, name string, revision *int, channel *string, base RefreshBase) (RefreshConfig, error) {
 	if name == "" {
 		return nil, logAndReturnError(ctx, errors.NotValidf("empty name"))
+	}
+	if revision != nil && channel == nil {
+		return InstallOneFromRevision(ctx, name, *revision)
 	}
 	if err := validateBase(base); err != nil {
 		return nil, logAndReturnError(ctx, err)
@@ -288,12 +291,11 @@ func InstallOneFromChannelRevision(ctx context.Context, name, channel string, re
 		action:      installAction,
 		instanceKey: uuid.String(),
 		Name:        name,
-		Channel:     &channel,
-		Revision:    &revision,
+		Revision:    revision,
+		Channel:     channel,
 		Base:        base,
 		fields:      requiredRefreshFields,
 	}, nil
-
 }
 
 // AddResource adds resource revision data to a executeOne config.

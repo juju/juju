@@ -1055,98 +1055,45 @@ func isErrSelection(err error) bool {
 	return internalerrors.Is(err, errSelection{})
 }
 
-// Method describes the method for requesting the charm using the RefreshAPI.
-type Method string
-
-const (
-	// MethodRevision utilizes an install action by the revision only. A
-	// channel must be in the origin, however it's not used in this request,
-	// but saved in the origin for future use.
-	MethodRevision Method = "revision"
-	// MethodChannel utilizes an install action by the channel only.
-	MethodChannel Method = "channel"
-	// MethodID utilizes an refresh action by the id, revision and
-	// channel (falls back to latest/stable if channel is not found).
-	MethodID Method = "id"
-)
-
 // refreshConfig creates a RefreshConfig for the given input.
 // If the origin.ID is not set, an install refresh config is returned.
 //
 // If the origin.ID is set, a refresh config is returned.
-//
-// NOTE: There is one idiosyncrasy of this method.  The charm URL and and
-// origin have a revision number in them when called by GetDownloadURL
-// to install a charm. Potentially causing an unexpected install by revision.
-// This is okay as all of the data is ready and correct in the origin.
 func refreshConfig(ctx context.Context, charmName string, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
-	// Work out the correct install method.
-	rev := -1
-	var method Method
+	var revision *int
 	if origin.Revision != nil && *origin.Revision >= 0 {
-		rev = *origin.Revision
-	}
-	if origin.ID == "" && rev != -1 {
-		method = MethodRevision
+		revision = origin.Revision
 	}
 
-	var (
-		channel         string
-		nonEmptyChannel = origin.Channel != nil && !origin.Channel.Empty()
-	)
-
-	// Select the appropriate channel based on the supplied origin.
-	// We need to ensure that we always, always normalize the incoming channel
-	// before we hit the refresh API.
-	if nonEmptyChannel {
-		channel = origin.Channel.Normalize().String()
-	} else if method != MethodRevision {
-		channel = corecharm.DefaultChannel.Normalize().String()
+	base := charmhub.RefreshBase{
+		Architecture: origin.Platform.Architecture,
+		Name:         origin.Platform.OS,
+		Channel:      origin.Platform.Channel,
 	}
 
-	if method != MethodRevision && channel != "" {
-		method = MethodChannel
+	var channel *string
+	if origin.Channel != nil && !origin.Channel.Empty() {
+		normalizedChannel := origin.Channel.Normalize().String()
+		channel = &normalizedChannel
+	} else if revision == nil {
+		defaultChannel := corecharm.DefaultChannel.Normalize().String()
+		channel = &defaultChannel
 	}
 
-	// Bundles can not use method IDs, which in turn forces a refresh.
-	if !transport.BundleType.Matches(origin.Type) && origin.ID != "" {
-		method = MethodID
-	}
-
-	var (
-		cfg charmhub.RefreshConfig
-		err error
-
-		base = charmhub.RefreshBase{
-			Architecture: origin.Platform.Architecture,
-			Name:         origin.Platform.OS,
-			Channel:      origin.Platform.Channel,
+	// Bundles cannot use refresh actions by ID.
+	if origin.ID != "" && !transport.BundleType.Matches(origin.Type) {
+		channelName := ""
+		if channel != nil {
+			channelName = *channel
 		}
-	)
-	switch method {
-	case MethodChannel:
-		// Install from just the name and the channel. If there is no origin ID,
-		// we haven't downloaded this charm before.
-		// Try channel first.
-		cfg, err = charmhub.InstallOneFromChannel(ctx, charmName, channel, base)
-	case MethodRevision:
-		// If there is a revision, install it using that. If there is no origin
-		// ID, we haven't downloaded this charm before. When a tracking channel
-		// is available, include it so Charmhub can return the resources released
-		// with that specific charm revision.
-		if nonEmptyChannel {
-			cfg, err = charmhub.InstallOneFromChannelRevision(ctx, charmName, channel, rev, base)
-		} else {
-			cfg, err = charmhub.InstallOneFromRevision(ctx, charmName, rev)
+		revisionNumber := -1
+		if revision != nil {
+			revisionNumber = *revision
 		}
-	case MethodID:
-		// This must be a charm upgrade if we have an ID.  Use the refresh
-		// action for metric keeping on the CharmHub side.
-		cfg, err = charmhub.RefreshOne(ctx, origin.InstanceKey, origin.ID, rev, channel, base)
-	default:
-		return nil, internalerrors.Errorf("origin %v not valid", origin).Add(coreerrors.NotValid)
+		return charmhub.RefreshOne(ctx, origin.InstanceKey, origin.ID, revisionNumber, channelName, base)
 	}
-	return cfg, err
+
+	return charmhub.InstallOne(ctx, charmName, revision, channel, base)
 }
 
 func (c *CharmHubRepository) composeSuggestions(ctx context.Context, releases []transport.Release, origin corecharm.Origin) []string {

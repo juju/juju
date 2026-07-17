@@ -574,7 +574,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 			return nil
 		}
 		if c.Channel.String() != oldCoreCharmOriginChannel.String() {
-			ctx.Infof("Note: all future refreshes will now use channel %q", oldCoreCharmOriginChannel.String())
+			ctx.Infof("Note: all future refreshes will now use channel %q", c.Channel.String())
 		}
 		if len(resourceIDs) > 0 {
 			ctx.Infof("resources to be upgraded")

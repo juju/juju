@@ -995,7 +995,9 @@ func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBas
 }
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneByRevisionResources(c *tc.C, hash string) {
-	cfg, err := charmhub.InstallOneFromChannelRevision(c.Context(), "wordpress", "latest/stable", 16, charmhub.RefreshBase{
+	revision := 16
+	channel := "latest/stable"
+	cfg, err := charmhub.InstallOne(c.Context(), "wordpress", &revision, &channel, charmhub.RefreshBase{
 		Architecture: arch.DefaultArchitecture,
 		Name:         "ubuntu",
 		Channel:      "20.04",
