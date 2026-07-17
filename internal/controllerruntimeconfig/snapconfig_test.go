@@ -13,29 +13,6 @@ import (
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 )
 
-func (s *configSuite) TestIsSupportedSnapConfigKey_Supported(c *tc.C) {
-	c.Check(controllerruntimeconfig.IsSupportedSnapConfigKey("logging-override"), tc.IsTrue)
-}
-
-func (s *configSuite) TestIsSupportedSnapConfigKey_Unsupported(c *tc.C) {
-	c.Check(controllerruntimeconfig.IsSupportedSnapConfigKey("query-tracing-threshold"), tc.IsFalse)
-}
-
-func (s *configSuite) TestIsSupportedSnapConfigKey_Unknown(c *tc.C) {
-	c.Check(controllerruntimeconfig.IsSupportedSnapConfigKey("bogus-key"), tc.IsFalse)
-}
-
-func (s *configSuite) TestIsUnsupportedDBSnapConfigKey_Recognized(c *tc.C) {
-	for _, key := range controllerruntimeconfig.UnsupportedDBSnapConfigKeys {
-		c.Check(controllerruntimeconfig.IsUnsupportedDBSnapConfigKey(key), tc.IsTrue)
-	}
-}
-
-func (s *configSuite) TestIsUnsupportedDBSnapConfigKey_NotRecognized(c *tc.C) {
-	c.Check(controllerruntimeconfig.IsUnsupportedDBSnapConfigKey("logging-override"), tc.IsFalse)
-	c.Check(controllerruntimeconfig.IsUnsupportedDBSnapConfigKey("bogus-key"), tc.IsFalse)
-}
-
 func (s *configSuite) TestValidateSnapConfigOverlay_Valid(c *tc.C) {
 	vals := map[string]string{
 		"logging-override": "juju.bootstrap=TRACE",
@@ -75,11 +52,6 @@ func (s *configSuite) TestValidateSnapConfigOverlay_MixedSupportedAndUnsupported
 	}
 	err := controllerruntimeconfig.ValidateSnapConfigOverlay(vals)
 	c.Assert(err, tc.ErrorMatches, `.*cannot apply snap config: 2 controller-database-owned key.*not supported through snap set in Phase 1.*`)
-}
-
-func (s *configSuite) TestErrUnsupportedSnapConfigKey(c *tc.C) {
-	err := controllerruntimeconfig.ErrUnsupportedSnapConfigKey("query-tracing-threshold")
-	c.Assert(err, tc.ErrorMatches, `.*unsupported snap-config key "query-tracing-threshold".*`)
 }
 
 func (s *configSuite) TestApplySnapConfigOverlay_MutatesLoggingOverride(c *tc.C) {

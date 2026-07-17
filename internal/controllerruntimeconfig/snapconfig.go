@@ -6,7 +6,6 @@ package controllerruntimeconfig
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/juju/errors"
@@ -44,27 +43,16 @@ var UnsupportedDBSnapConfigKeys = []string{
 	"dqlite-busy-timeout",
 }
 
-// IsSupportedSnapConfigKey reports whether the given key is in the
-// Phase 1 allowlist.
-func IsSupportedSnapConfigKey(key string) bool {
-	return slices.Contains(SupportedSnapConfigKeys, key)
-}
-
-// IsUnsupportedDBSnapConfigKey reports whether the given key is a
+// isUnsupportedDBSnapConfigKey reports whether the given key is a
 // known controller-database-owned key that must not be set through
-// snap config. This is used by the configure hook to reject ownership
-// violations before any runtime.conf mutation.
-func IsUnsupportedDBSnapConfigKey(key string) bool {
-	return slices.Contains(UnsupportedDBSnapConfigKeys, key)
-}
-
-// ErrUnsupportedSnapConfigKey is returned when a controller-database-owned
-// key appears in snap config.
-func ErrUnsupportedSnapConfigKey(key string) error {
-	return errors.Errorf(
-		"unsupported snap-config key %q: this key is controller-database-owned and not exposed through snap set in Phase 1",
-		key,
-	)
+// snap config.
+func isUnsupportedDBSnapConfigKey(key string) bool {
+	for _, k := range UnsupportedDBSnapConfigKeys {
+		if k == key {
+			return true
+		}
+	}
+	return false
 }
 
 // ValidateSnapConfigOverlay checks that a set of snap-config key-value pairs
@@ -73,7 +61,7 @@ func ErrUnsupportedSnapConfigKey(key string) error {
 func ValidateSnapConfigOverlay(vals map[string]string) error {
 	var unsupported []string
 	for k := range vals {
-		if IsUnsupportedDBSnapConfigKey(k) {
+		if isUnsupportedDBSnapConfigKey(k) {
 			unsupported = append(unsupported, k)
 		}
 	}
@@ -92,12 +80,6 @@ func ValidateSnapConfigOverlay(vals map[string]string) error {
 // logging-override state file under the given snapCommon directory.
 func DeferredLoggingOverridePath(snapCommon string) string {
 	return filepath.Join(snapCommon, SnapInitDir, deferredLoggingOverrideFile)
-}
-
-// ErrInvalidSnapConfigValue is returned when a snap-config value does not
-// meet the validation rules for its key.
-func ErrInvalidSnapConfigValue(key string, reason error) error {
-	return errors.Errorf("invalid snap-config value for %q: %v", key, reason)
 }
 
 // SnapConfigOverlay holds the snap-set-controlled runtime keys that are

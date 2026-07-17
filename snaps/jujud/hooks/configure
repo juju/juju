@@ -6,8 +6,15 @@
 # Controller-database-owned keys (agent-logfile-max-size-mb, etc.) are
 # explicitly rejected so snap config cannot create a second ownership
 # surface for them.
-# When runtime.conf has not been staged yet the value is deferred and is
-# applied after jujud.init creates the base file.
+#
+# State file: $SNAP_COMMON/.snap-init/logging-override
+#   Written by controller-config on every apply (immediate or deferred).
+#   Read by jujud.init to apply any value that was set before runtime.conf
+#   existed, then deleted by jujud.init to signal the deferred value has
+#   been consumed.
+#   Also used here as the idempotency cache: if the requested value equals
+#   the file's content the hook exits early without bouncing the daemon.
+#
 # When the daemon is active and the applied value changes, the service is
 # bounced so workers pick up the new startup value through a clean restart.
 
@@ -15,7 +22,7 @@ set -e
 
 RUNTIME_CONF="$SNAP_DATA/agents/controller-0/runtime.conf"
 SNAP_INIT_DIR="$SNAP_COMMON/.snap-init"
-PREV_VAL_FILE="$SNAP_INIT_DIR/.last-logging-override"
+STATE_FILE="$SNAP_INIT_DIR/logging-override"
 
 log() {
     echo "$@" >&2
@@ -45,10 +52,13 @@ if [ -z "$requested" ] || [ "$requested" = "null" ]; then
     requested=""
 fi
 
-# Read the previously applied value so we can avoid unnecessary bounces.
+# Read the previously applied value from the shared state file so we
+# can avoid unnecessary bounces.  This file is also read by jujud.init
+# (deferred case) and deleted by jujud.init after consuming it, so an
+# empty-file result correctly causes re-apply after init runs.
 prev_applied=""
-if [ -f "$PREV_VAL_FILE" ]; then
-    prev_applied="$(cat "$PREV_VAL_FILE")"
+if [ -f "$STATE_FILE" ]; then
+    prev_applied="$(cat "$STATE_FILE")"
 fi
 
 if [ "$requested" = "$prev_applied" ]; then
@@ -56,21 +66,20 @@ if [ "$requested" = "$prev_applied" ]; then
     exit 0
 fi
 
+# Call the typed helper. When runtime.conf exists it mutates only
+# logging-override and atomically rewrites the file; all other fields
+# are preserved.  When runtime.conf does not exist yet, the helper
+# writes the value to the state file so jujud.init can apply it once
+# the base file has been staged.  Either way the state file ends up
+# containing the requested value, which is what we use as the
+# idempotency cache on the next hook run.
+"$SNAP/bin/jujud" controller-config \
+    --runtime-config-path "$RUNTIME_CONF" \
+    --snap-common "$SNAP_COMMON" \
+    --logging-override "$requested"
+
 if [ -f "$RUNTIME_CONF" ]; then
-    # Apply via the typed helper. This mutates only logging-override
-    # and atomically rewrites runtime.conf. All other fields are
-    # preserved unchanged.
-    "$SNAP/bin/jujud" controller-config \
-        --runtime-config-path "$RUNTIME_CONF" \
-        --snap-common "$SNAP_COMMON" \
-        --logging-override "$requested"
-
     log "configure: applied logging-override"
-
-    # Persist the applied value for future comparison.
-    umask 022
-    mkdir -p "$SNAP_INIT_DIR"
-    printf '%s\n' "$requested" > "$PREV_VAL_FILE"
 
     # Bounce the daemon when active so workers pick up the new value.
     if snapctl services jujud.jujud | grep -q 'active'; then
@@ -79,13 +88,6 @@ if [ -f "$RUNTIME_CONF" ]; then
         snapctl start jujud.jujud
     fi
 else
-    # runtime.conf does not exist yet. Defer the value via the typed
-    # helper so it is applied after jujud.init stages the base file.
-    "$SNAP/bin/jujud" controller-config \
-        --runtime-config-path "$RUNTIME_CONF" \
-        --snap-common "$SNAP_COMMON" \
-        --logging-override "$requested"
-
     log "configure: deferred logging-override (runtime.conf not yet staged)"
 fi
 
