@@ -208,7 +208,8 @@ func newBootstrapCommand() cmd.Command {
 	command := &bootstrapCommand{}
 	command.clock = jujuclock.WallClock
 	command.CanClearCurrentModel = true
-	return modelcmd.Wrap(command,
+	return modelcmd.Wrap(
+		command,
 		modelcmd.WrapSkipModelFlags,
 		modelcmd.WrapSkipDefaultModel,
 	)
@@ -548,7 +549,8 @@ type BootstrapInterface interface {
 type bootstrapFuncs struct{}
 
 func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron,
-	args bootstrap.BootstrapParams) error {
+	args bootstrap.BootstrapParams,
+) error {
 	return bootstrap.Bootstrap(ctx, env, args)
 }
 
@@ -577,12 +579,14 @@ var (
 	waitForAgentInitialisation = common.WaitForAgentInitialisation
 )
 
-var ambiguousDetectedCredentialError = errors.New(`
+var ambiguousDetectedCredentialError = errors.New(
+	`
 more than one credential detected
 run juju autoload-credentials and specify a credential using the --credential argument`[1:],
 )
 
-var ambiguousCredentialError = errors.New(`
+var ambiguousCredentialError = errors.New(
+	`
 more than one credential is available
 specify a credential using the --credential argument`[1:],
 )
@@ -714,8 +718,8 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 				bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
 		}
 		// For non-CAAS (IAAS) bootstraps, a local controller snap path is
-		// mandatory. Bootstrap fails here, before provisioning, when the path
-		// is absent or unreadable.
+		// mandatory. Bootstrap fails here, before provisioning, when the path is
+		// absent or unreadable.
 		if c.ControllerSnapPath == "" {
 			return errors.New("--controller-snap-path is required for IAAS bootstrap; " +
 				"build the snap with 'make build-snap' and supply the path")
@@ -723,9 +727,9 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if _, err := c.Filesystem().Stat(c.ControllerSnapPath); err != nil {
 			return errors.Annotatef(err, "--controller-snap-path %q cannot be read", c.ControllerSnapPath)
 		}
-		// --build-agent is mandatory when --controller-snap-path is supplied
-		// for IAAS bootstraps. It provides exact development-version coupling
-		// between the snap and the machine agent.
+		// --build-agent is mandatory when --controller-snap-path is supplied for
+		// IAAS bootstraps. It provides exact development-version coupling between
+		// the snap and the machine agent.
 		if !c.BuildAgent {
 			return errors.New("--build-agent is required when --controller-snap-path is supplied; " +
 				"it provides exact development-version coupling between the snap and the machine agent")
@@ -752,14 +756,16 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		if oldCurrentController != "" {
 			if err := store.SetCurrentController(oldCurrentController); err != nil {
-				logger.Errorf(context.TODO(),
+				logger.Errorf(
+					context.TODO(),
 					"cannot reset current controller to %q: %v",
 					oldCurrentController, err,
 				)
 			}
 		}
 		if err := store.RemoveController(c.controllerName); err != nil {
-			logger.Errorf(context.TODO(),
+			logger.Errorf(
+				context.TODO(),
 				"cannot destroy newly created controller %q details: %v",
 				c.controllerName, err,
 			)
@@ -1025,7 +1031,9 @@ See %s.`[1:], "`juju kill-controller`")
 	if len(testingOptionsStr) > 0 {
 		opts, err := keyvalues.Parse(
 			strings.Split(
-				strings.ReplaceAll(testingOptionsStr, " ", ""), ","), false)
+				strings.ReplaceAll(testingOptionsStr, " ", ""), ",",
+			), false,
+		)
 		if err != nil {
 			return errors.Annotatef(err, "invalid JUJU_AGENT_TESTING_OPTIONS env value %q", testingOptionsStr)
 		}
@@ -1044,7 +1052,6 @@ See %s.`[1:], "`juju kill-controller`")
 			ctx.Infof("Bootstrap to Kubernetes cluster identified as %s",
 				cloud.HostCloudRegion)
 		}
-
 	}
 
 	bootstrapFuncs := getBootstrapFuncs()
@@ -1114,7 +1121,8 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	} else {
 		// This should never happen.
 		return errors.New(
-			"supplied BootstrapEnviron implements neither environs.InstanceBroker nor caas.ServiceGetterSetter")
+			"supplied BootstrapEnviron implements neither environs.InstanceBroker nor caas.ServiceGetterSetter",
+		)
 	}
 
 	var proxier proxy.Proxier
@@ -1290,7 +1298,8 @@ func (c *bootstrapCommand) detectCloud(
 			c.Region = ""
 		}
 	} else if err != nil {
-		return fail(errors.Annotatef(err,
+		return fail(errors.Annotatef(
+			err,
 			"detecting regions for %q cloud provider",
 			c.Cloud,
 		))
@@ -1379,7 +1388,8 @@ func (c *bootstrapCommand) credentialsAndRegionName(
 	default:
 		return bootstrapCredentials{}, "", errors.Trace(err)
 	}
-	logger.Debugf(context.TODO(),
+	logger.Debugf(
+		context.TODO(),
 		"authenticating with region %q and credential %q (%v)",
 		regionName, creds.name, creds.credential.Label,
 	)
@@ -1410,7 +1420,6 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	bootstrapConfigs,
 	error,
 ) {
-
 	controllerModelUUID, err := uuid.NewUUID()
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
@@ -1708,7 +1717,8 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 	if !common.IsChooseCloudRegionError(err) {
 		return err
 	}
-	_, _ = fmt.Fprintf(ctx.GetStderr(),
+	_, _ = fmt.Fprintf(
+		ctx.GetStderr(),
 		"%s\n\nSpecify an alternative region, or try %q.\n",
 		err, "juju update-public-clouds",
 	)

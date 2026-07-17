@@ -51,10 +51,10 @@ func TryAPI(ctx context.Context, c *modelcmd.ModelCommandBase) error {
 	return err
 }
 
-// TryAPIAndCheckAgents attempts to open the API and then verifies that
-// both the controller machine (machine 0) and the controller/0 unit are
-// present and healthy. It returns ErrMachineAgentNotReady if the API is
-// reachable but the machine agent has not yet reported ready.
+// TryAPIAndCheckAgents attempts to open the API and then verifies that both
+// the controller machine (machine 0) and the controller/0 unit are present and
+// healthy. It returns ErrMachineAgentNotReady if the API is reachable but the
+// machine agent has not yet reported ready.
 func TryAPIAndCheckAgents(ctx context.Context, c *modelcmd.ModelCommandBase) error {
 	dialOpts := api.DefaultDialOpts()
 	dialOpts.Timeout = bootstrapReadyPollTimeout
@@ -246,7 +246,8 @@ func BootstrapEndpointAddresses(
 func ValidateIaasController(ctx context.Context, c modelcmd.CommandBase, cmdName, controllerName string, store jujuclient.ClientStore) error {
 	// Ensure controller model is cached.
 	controllerModel := jujuclient.QualifyModelName(
-		environs.AdminUser, bootstrap.ControllerModelName)
+		environs.AdminUser, bootstrap.ControllerModelName,
+	)
 	_, err := c.ModelUUIDs(ctx, store, controllerName, []string{controllerModel})
 	if err != nil {
 		return errors.Errorf("cannot get controller model uuid: %w", err)

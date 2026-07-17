@@ -94,8 +94,8 @@ type BootstrapSuite struct {
 	bootstrapCmd bootstrapCommand
 	clock        *testclock.Clock
 
-	// controllerSnapPath is a path to a fake snap file created in SetUpTest.
-	// It is supplied to IAAS bootstrap commands via --controller-snap-path.
+	// controllerSnapPath is a path to a fake snap file created in SetUpTest. It
+	// is supplied to IAAS bootstrap commands via --controller-snap-path.
 	controllerSnapPath string
 }
 
@@ -313,7 +313,7 @@ func (s *BootstrapSuite) run(c tc.LikeC, test bootstrapTest) {
 		return
 	} else if test.err != "" {
 		c.Assert(err, tc.NotNil)
-		stripped := strings.Replace(err.Error(), "\n", "", -1)
+		stripped := strings.ReplaceAll(err.Error(), "\n", "")
 		c.Check(stripped, tc.Matches, test.err)
 		return
 	}
@@ -1193,7 +1193,7 @@ func (s *BootstrapSuite) TestBootstrapCalledWitBase(c *tc.C) {
 	c.Assert(bootstrapFuncs.args.MetadataDir, tc.Equals, sourceDir)
 }
 
-func (s *BootstrapSuite) checkBootstrapWithVersion(c *tc.C, vers, expect string) {
+func (s *BootstrapSuite) checkBootstrapWithVersion(c *tc.C, vers string) {
 	resetJujuXDGDataHome(c)
 
 	var bootstrapFuncs fakeBootstrapFuncs
@@ -1218,14 +1218,14 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *tc.C, vers, expect string)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithVersionNumber(c *tc.C) {
-	s.checkBootstrapWithVersion(c, "2.3.4", "2.3.4")
+	s.checkBootstrapWithVersion(c, "2.3.4")
 }
 
 func (s *BootstrapSuite) TestBootstrapWithBinaryVersionNumber(c *tc.C) {
-	s.checkBootstrapWithVersion(c, "2.3.4-jammy-ppc64", "2.3.4")
+	s.checkBootstrapWithVersion(c, "2.3.4-jammy-ppc64")
 }
 
-func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *tc.C, vers, expect string) {
+func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *tc.C, vers string) {
 	resetJujuXDGDataHome(c)
 
 	var bootstrapFuncs fakeBootstrapFuncs
@@ -1250,11 +1250,11 @@ func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *tc.C, vers, expect str
 }
 
 func (s *BootstrapSuite) TestBootstrapBaseWithVersionNumber(c *tc.C) {
-	s.checkBootstrapBaseWithVersion(c, "2.3.4", "2.3.4")
+	s.checkBootstrapBaseWithVersion(c, "2.3.4")
 }
 
 func (s *BootstrapSuite) TestBootstrapBaseWithBinaryVersionNumber(c *tc.C) {
-	s.checkBootstrapBaseWithVersion(c, "2.3.4-jammy-ppc64", "2.3.4")
+	s.checkBootstrapBaseWithVersion(c, "2.3.4-jammy-ppc64")
 }
 
 func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *tc.C) {

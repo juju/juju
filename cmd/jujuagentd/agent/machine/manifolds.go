@@ -1362,11 +1362,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			ContainerType: instance.LXD,
 		})),
-		// isNotControllerFlagName is only used for the machineconverter.
-		// In machine-agent-only mode we must not run the converter: the split
-		// controller intentionally keeps controller work in jujud, and the
-		// legacy converter would bounce forever once it observes that machine 0
-		// is a controller.
+		// isNotControllerFlagName is only used for the machineconverter. In
+		// machine-agent-only mode we must not run the converter: the split
+		// controller intentionally keeps controller work in jujud, and the legacy
+		// converter would bounce forever once it observes that machine 0 is a
+		// controller.
 		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
 
 		// The machineSetupName manifold runs small tasks required

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/cmd"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
@@ -50,7 +51,7 @@ func validStagedRuntimeConf(c *tc.C) []byte {
 		ControllerPrivateKey: "controller-private-key-pem",
 		APIAddresses:         []string{"10.0.0.1:17070"},
 	}
-	data, err := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg)
+	data, err := yaml.Marshal(controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg))
 	c.Assert(err, tc.ErrorIsNil)
 	return data
 }
@@ -338,12 +339,11 @@ func (s *InitCommandSuite) TestCredentialLikeStringPreserved(c *tc.C) {
 		ControllerPrivateKey: "controller-private-key-pem",
 		APIAddresses:         []string{"10.0.0.1:17070"},
 	}
-	data, err := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg)
-	c.Assert(err, tc.ErrorIsNil)
+	staged := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg)
 
 	snapData := "/fake/snap/data"
 	snapCommon := "/fake/snap/common"
-	resolved, err := controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(data, snapData, snapCommon)
+	resolved, err := controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(staged, snapData, snapCommon)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// Credential field is preserved byte-for-byte.
