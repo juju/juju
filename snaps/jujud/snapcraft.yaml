@@ -89,8 +89,8 @@ apps:
     command: wrappers/jujud-controller-config
 
 hooks:
-  install:
-  configure:
+  install: {}
+  configure: {}
 
 parts:
   dqlite:

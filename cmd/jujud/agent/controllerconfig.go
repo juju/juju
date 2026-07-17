@@ -55,6 +55,16 @@ func (c *controllerConfigCommand) Init(args []string) error {
 }
 
 func (c *controllerConfigCommand) Run(ctx *cmd.Context) error {
+	// Validate the supplied keys against the Phase 1 ownership
+	// allowlist before touching any on-disk state. This enforces the
+	// same ownership boundary at the Go layer regardless of caller.
+	vals := map[string]string{
+		"logging-override": c.loggingOverride,
+	}
+	if err := controllerruntimeconfig.ValidateSnapConfigOverlay(vals); err != nil {
+		return err
+	}
+
 	_, err := os.Stat(c.runtimeConfigPath)
 	if os.IsNotExist(err) {
 		// runtime.conf does not exist yet: defer the value.

@@ -181,3 +181,43 @@ func (s *ControllerConfigSuite) TestClearDeferredOverride_WhenRuntimeConfMissing
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(val, tc.Equals, "")
 }
+
+func (s *ControllerConfigSuite) TestRunPassesValidationForSupportedKey(c *tc.C) {
+	// Run calls ValidateSnapConfigOverlay before touching the filesystem.
+	// Verify that a supported key (logging-override) passes validation and
+	// proceeds to apply when runtime.conf exists.
+	dir := c.MkDir()
+	snapCommon := c.MkDir()
+	runtimePath := filepath.Join(dir, controllerruntimeconfig.Filename)
+
+	cfg := controllerruntimeconfig.ControllerRuntimeConfig{
+		ControllerID:         "0",
+		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		ControllerModelUUID:  "feedface-dead-beef-cafe-c0ffee000000",
+		DataDir:              "/var/lib/juju",
+		LogDir:               "/var/log/juju",
+		APIPort:              17070,
+		AgentPassword:        "agent-password",
+		CACert:               "ca-cert-pem",
+		CAPrivateKey:         "ca-private-key-pem",
+		ControllerCert:       "controller-cert-pem",
+		ControllerPrivateKey: "controller-private-key-pem",
+	}
+	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, cfg)
+	c.Assert(err, tc.ErrorIsNil)
+
+	app := new(controllerConfigCommand)
+	app.loggingOverride = "juju.worker=TRACE"
+	app.runtimeConfigPath = runtimePath
+	app.snapCommon = snapCommon
+	err = app.Init(nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx := newTestContext()
+	err = app.Run(ctx)
+	c.Assert(err, tc.ErrorIsNil)
+
+	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimePath)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got.LoggingOverride, tc.Equals, "juju.worker=TRACE")
+}
