@@ -356,42 +356,47 @@ const (
 	TokenSnapCommon = "@SNAP_COMMON@"
 )
 
-// RenderStagedControllerRuntimeConfig constructs a staged runtime configuration
-// template for cloud-init delivery to a strictly-confined snap controller. The
-// four snap path fields are replaced with bounded token values that jujud init
-// resolves inside the snap context. All other fields are serialized byte-for-
-// byte. Validation of the resulting staged YAML is deliberately skipped because
-// the token path values are not valid final runtime paths.
+// StagedControllerRuntimeConfig is a restricted runtime configuration used
+// during the cloud-init → jujud init handoff. Path fields (DataDir, LogDir,
+// SocketDir, SharedAgentDir) carry token values that are resolved by
+// ResolveStagedControllerRuntimeConfig. Unlike ControllerRuntimeConfig,
+// validation is deferred until resolution. The distinct type prevents
+// accidentally passing a staged config where a validated runtime config is
+// expected.
+type StagedControllerRuntimeConfig ControllerRuntimeConfig
+
+// RenderStagedControllerRuntimeConfig constructs a staged runtime
+// configuration for cloud-init delivery to a strictly-confined snap
+// controller. The four snap path fields are replaced with bounded token values
+// that jujud init resolves inside the snap context. All other fields are
+// copied byte-for-byte. Validation of the resulting staged config is
+// deliberately skipped because the token path values are not valid final
+// runtime paths.
 //
 // Only callers that implement the snap-private cloud-init handoff may use this
 // function. All other callers must use RenderControllerRuntimeConfig, which
 // requires valid final paths.
-func RenderStagedControllerRuntimeConfig(cfg ControllerRuntimeConfig) ([]byte, error) {
+func RenderStagedControllerRuntimeConfig(cfg ControllerRuntimeConfig) StagedControllerRuntimeConfig {
 	// Replace the four snap-private path fields with bounded tokens. All
 	// credential and non-path fields are left byte-for-byte.
-	staged := cfg
+	staged := StagedControllerRuntimeConfig(cfg)
 	staged.DataDir = TokenSnapData
 	staged.LogDir = TokenSnapCommon + "/var/log/juju"
 	staged.SocketDir = TokenSnapCommon + "/sockets"
 	staged.SharedAgentDir = TokenSnapCommon + "/agents/controller-0"
-
-	data, err := yaml.Marshal(staged)
-	if err != nil {
-		return nil, errors.Annotate(err, "marshalling staged controller runtime config")
-	}
-	return data, nil
+	return staged
 }
 
-// ResolveStagedControllerRuntimeConfig parses a staged runtime configuration
-// template and resolves the four documented snap-path token fields using the
-// provided snapData and snapCommon values. It returns a validated final
-// ControllerRuntimeConfig. An error is returned if any of the four path fields
-// contain an unresolved token after substitution, if a token appears in an
-// unsupported field, or if the resulting configuration fails Validate.
+// ResolveStagedControllerRuntimeConfig resolves the four documented snap-path
+// token fields in a StagedControllerRuntimeConfig using the provided snapData
+// and snapCommon values. It returns a validated final ControllerRuntimeConfig.
+// An error is returned if a token appears in an unsupported field, if any path
+// field contains an unresolved token after substitution, or if the resulting
+// configuration fails Validate.
 //
 // This function must only be called by jujud init, running inside the snap
 // context, where SNAP_DATA and SNAP_COMMON are resolved by snapd.
-func ResolveStagedControllerRuntimeConfig(data []byte, snapData, snapCommon string) (ControllerRuntimeConfig, error) {
+func ResolveStagedControllerRuntimeConfig(staged StagedControllerRuntimeConfig, snapData, snapCommon string) (ControllerRuntimeConfig, error) {
 	if snapData == "" {
 		return ControllerRuntimeConfig{}, errors.New("snapData must not be empty")
 	}
@@ -399,18 +404,14 @@ func ResolveStagedControllerRuntimeConfig(data []byte, snapData, snapCommon stri
 		return ControllerRuntimeConfig{}, errors.New("snapCommon must not be empty")
 	}
 
-	var cfg ControllerRuntimeConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return ControllerRuntimeConfig{}, errors.Annotate(err, "parsing staged controller runtime config")
-	}
-
 	// Verify that no credential or non-path fields contain token text. The
 	// bounded contract allows tokens only in the four path fields.
-	if err := rejectTokensInNonPathFields(cfg); err != nil {
+	if err := rejectTokensInNonPathFields(staged); err != nil {
 		return ControllerRuntimeConfig{}, err
 	}
 
 	// Resolve the four documented snap-path fields.
+	cfg := ControllerRuntimeConfig(staged)
 	cfg.DataDir = resolveToken(cfg.DataDir, snapData, snapCommon)
 	cfg.LogDir = resolveToken(cfg.LogDir, snapData, snapCommon)
 	cfg.SocketDir = resolveToken(cfg.SocketDir, snapData, snapCommon)
@@ -437,7 +438,7 @@ func resolveToken(s, snapData, snapCommon string) string {
 // rejectTokensInNonPathFields returns an error if any field other than the
 // four documented snap-path fields contains token text. Credential and
 // non-path fields must never be substituted.
-func rejectTokensInNonPathFields(cfg ControllerRuntimeConfig) error {
+func rejectTokensInNonPathFields(cfg StagedControllerRuntimeConfig) error {
 	nonPathFields := map[string]string{
 		"agent-password":      cfg.AgentPassword,
 		"ca-cert":             cfg.CACert,

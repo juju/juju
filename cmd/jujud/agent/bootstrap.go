@@ -97,7 +97,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 }
 
 func copyFile(dest, source string) error {
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -261,8 +261,8 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// For IAAS snap controllers, read controller startup values from
-	// runtime.conf instead of agent.conf. The CAAS path continues to
-	// use the agent.conf / ensureConfigFilesForCaas approach.
+	// runtime.conf instead of agent.conf. The CAAS path continues to use the
+	// agent.conf / ensureConfigFilesForCaas approach.
 	if !isCAAS {
 		return c.runSnapIAAS(ctx, args, env, controllerModelConfigAttrs)
 	}
@@ -281,10 +281,10 @@ func (c *BootstrapCommand) runSnapIAAS(
 	env environs.BootstrapEnviron,
 	controllerModelConfigAttrs map[string]any,
 ) error {
-	// Resolve the runtime.conf path from the SNAP_DATA environment. When
-	// running as "snap run jujud.bootstrap-state", snapd sets SNAP_DATA to
-	// the revision-specific snap data directory. Fall back to the --data-dir
-	// flag for non-snap test execution.
+	// Resolve the runtime.conf path from the SNAP_DATA environment. When running
+	// as "snap run jujud.bootstrap-state", snapd sets SNAP_DATA to the
+	// revision-specific snap data directory. Fall back to the --data-dir flag
+	// for non-snap test execution.
 	runtimeCfgDir := c.DataDir()
 	if snapData := os.Getenv("SNAP_DATA"); snapData != "" {
 		runtimeCfgDir = snapData
@@ -297,9 +297,9 @@ func (c *BootstrapCommand) runSnapIAAS(
 		return errors.Annotate(err, "reading controller runtime config")
 	}
 
-	// Build the ControllerAgentInfo from runtime.conf values. This is the
-	// narrow in-memory state required by AgentBootstrap. It must never be
-	// written as agent.conf.
+	// Build the ControllerAgentInfo from runtime.conf values. This is the narrow
+	// in-memory state required by AgentBootstrap. It must never be written as
+	// agent.conf.
 	info := controller.ControllerAgentInfo{
 		Cert:           runtimeCfg.ControllerCert,
 		PrivateKey:     runtimeCfg.ControllerPrivateKey,
@@ -320,8 +320,8 @@ func (c *BootstrapCommand) runSnapIAAS(
 	}
 
 	// Persist the key and address mutations back to runtime.conf.
-	// API agent config requires host:port forms (see agent.checkAddrs),
-	// while ProviderAddresses.Values() returns raw hosts only.
+	// API agent config requires host:port forms (see agent.checkAddrs), while
+	// ProviderAddresses.Values() returns raw hosts only.
 	apiAddrs := make([]string, 0, len(addrs))
 	apiPort := strconv.Itoa(info.APIPort)
 	for _, host := range addrs.Values() {
