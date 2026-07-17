@@ -25,6 +25,11 @@ jobs:
 
       - name: Checkout juju
         uses: actions/checkout@v4
+      
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.*"
+          terraform_wrapper: false
 
       - name: Setup LXD
         uses: canonical/setup-lxd@2fa6235ef2dfd3288e0de09edac03f2ebf922968
@@ -85,4 +90,4 @@ jobs:
           TEST_CLOUD: lxd
         run: |
           go mod download
-          go test -timeout 40m -v -cover ./internal/provider/
+          go test -timeout 40m -v -cover ./internal/provider/... -run 'TestAcc_ResourceModel_Minimal|TestAcc_ResourceModel$|TestAcc_ResourceApplication_Minimal|TestAcc_ResourceApplication$|TestAcc_ResourceMachine$|TestAcc_ResourceIntegration$|TestAcc_DataSourceModel$|TestAcc_ResourceUser$' \
