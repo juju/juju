@@ -38,6 +38,7 @@ SELECT a.name AS &applicationEndpointBinding.application_name,
 FROM   application_endpoint ae
 JOIN   charm_relation cr ON cr.uuid = ae.charm_relation_uuid
 JOIN   application a ON a.uuid = ae.application_uuid
+WHERE  ae.application_uuid >= ''
 `, applicationEndpointBinding{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -50,17 +51,18 @@ SELECT a.name AS &applicationEndpointBinding.application_name,
 FROM   application_extra_endpoint aee
 JOIN   charm_extra_binding ceb ON ceb.uuid = aee.charm_extra_binding_uuid
 JOIN   application a ON a.uuid = aee.application_uuid
+WHERE  aee.application_uuid >= ''
 `, applicationEndpointBinding{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	defaultSpacesStmt, err := st.Prepare(`SELECT &applicationSpaceUUID.* FROM application`, applicationSpaceUUID{})
+	defaultSpacesStmt, err := st.Prepare(`SELECT &applicationSpaceUUID.* FROM application WHERE uuid >= ''`, applicationSpaceUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	spacesStmt, err := st.Prepare(`SELECT &space.* FROM space`, space{})
+	spacesStmt, err := st.Prepare(`SELECT &space.* FROM space WHERE uuid >= ''`, space{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -655,7 +657,8 @@ WHERE charm_relation.charm_uuid = $entityUUID.uuid
 func (st *State) checkSpaceNames(ctx context.Context, tx *sqlair.TX, inputs []network.SpaceName) (map[network.SpaceName]string, error) {
 	fetchStmt, err := st.Prepare(`
 SELECT &space.*
-FROM space`, space{})
+FROM space
+WHERE uuid >= ''`, space{})
 	if err != nil {
 		return nil, errors.Errorf("preparing fetch space: %w", err)
 	}

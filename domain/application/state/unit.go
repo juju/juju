@@ -1974,7 +1974,8 @@ LEFT JOIN link_layer_device lld ON lld.net_node_uuid = u.net_node_uuid
 LEFT JOIN ip_address ip ON ip.device_uuid = lld.uuid
 LEFT JOIN k8s_pod_port kpp ON kpp.unit_uuid = u.uuid
 WHERE
-	u.life_id != $entityLife.life_id
+	u.name >= ''
+	AND u.life_id != $entityLife.life_id
 GROUP BY
 	u.name
 `

@@ -800,7 +800,8 @@ WHERE  life_id != 0 AND c.source_id < 2;
 	checkUnitsStmt, err := st.Prepare(`
 SELECT &unitName.*
 FROM   unit
-WHERE  life_id != 0
+WHERE  name >= ''
+AND    life_id != 0
 `, unitName{})
 	if err != nil {
 		return errors.Capture(err)
@@ -831,7 +832,8 @@ func (st *State) checkNoUnitsUpgrading(ctx context.Context, tx *sqlair.TX) error
 SELECT u.name AS &unitName.*
 FROM   unit AS u
 JOIN   application AS a ON a.uuid = u.application_uuid
-WHERE  u.charm_uuid != a.charm_uuid
+WHERE  u.uuid >= ''
+AND    u.charm_uuid != a.charm_uuid
 `, unitName{})
 	if err != nil {
 		return errors.Capture(err)
@@ -2250,8 +2252,12 @@ FROM   v_revision_updater_application
 	}
 
 	numUnitsQuery := `
-SELECT &revisionUpdaterApplicationNumUnits.*
-FROM   v_revision_updater_application_unit
+SELECT a.uuid AS &revisionUpdaterApplicationNumUnits.uuid,
+       COUNT(u.uuid) AS &revisionUpdaterApplicationNumUnits.num_units
+FROM   application AS a
+LEFT JOIN unit AS u ON a.uuid = u.application_uuid
+WHERE  a.uuid >= ''
+GROUP BY a.uuid
 `
 
 	numUnitsStmt, err := st.Prepare(numUnitsQuery, revisionUpdaterApplicationNumUnits{})

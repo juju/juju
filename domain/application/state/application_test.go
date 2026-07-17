@@ -40,7 +40,6 @@ import (
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
 	"github.com/juju/juju/domain/life"
 	domainnetwork "github.com/juju/juju/domain/network"
-	removalstatemodel "github.com/juju/juju/domain/removal/state/model"
 	"github.com/juju/juju/domain/resource"
 	"github.com/juju/juju/domain/status"
 	statusstate "github.com/juju/juju/domain/status/state/model"
@@ -1127,14 +1126,11 @@ func (s *applicationStateSuite) TestCheckApplicationsForMigrationAliveWithDyingU
 	// Arrange: an application with some dying units
 	_, units := s.createIAASApplicationWithNUnits(c, "foo", life.Alive, 3)
 
-	removalState := removalstatemodel.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	_, err := removalState.EnsureUnitNotAliveCascade(c.Context(), units[0].String(), false)
-	c.Assert(err, tc.ErrorIsNil)
-	_, err = removalState.EnsureUnitNotAliveCascade(c.Context(), units[1].String(), false)
-	c.Assert(err, tc.ErrorIsNil)
+	s.setUnitLife(c, units[0], life.Dying)
+	s.setUnitLife(c, units[1], life.Dying)
 
 	// Act:
-	err = s.state.CheckApplicationsForMigration(c.Context())
+	err := s.state.CheckApplicationsForMigration(c.Context())
 
 	// Assert: an error of correct type, mentioning the correct unit, is returned.
 	c.Assert(err, tc.ErrorIs, applicationerrors.UnitNotAlive)

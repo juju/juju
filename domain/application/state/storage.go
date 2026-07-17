@@ -308,16 +308,27 @@ func (st *State) getStorageInstancesInfoForAttachByProviderIDs(
 ) ([]storageInstanceInfoForAttach, error) {
 	q := `
 WITH matched_storage_instances AS (
-    SELECT DISTINCT si.uuid
-    FROM      storage_instance si
-    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
-    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
-    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
-    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-    LEFT JOIN storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
-    WHERE     suo.storage_instance_uuid IS NULL
-    AND       (sf.provider_id IN ($storageProviderIDs[:])
-           OR  sv.provider_id IN ($storageProviderIDs[:]))
+    SELECT sif.storage_instance_uuid AS uuid
+    FROM   storage_filesystem AS sf
+    JOIN   storage_instance_filesystem AS sif
+    ON     sif.storage_filesystem_uuid = sf.uuid
+    WHERE  sf.provider_id IN ($storageProviderIDs[:])
+    AND    NOT EXISTS (
+        SELECT 1
+        FROM   storage_unit_owner AS suo
+        WHERE  suo.storage_instance_uuid = sif.storage_instance_uuid
+    )
+    UNION
+    SELECT siv.storage_instance_uuid
+    FROM   storage_volume AS sv
+    JOIN   storage_instance_volume AS siv
+    ON     siv.storage_volume_uuid = sv.uuid
+    WHERE  sv.provider_id IN ($storageProviderIDs[:])
+    AND    NOT EXISTS (
+        SELECT 1
+        FROM   storage_unit_owner AS suo
+        WHERE  suo.storage_instance_uuid = siv.storage_instance_uuid
+    )
 )
 SELECT * AS &storageInstanceInfoForAttach.* FROM (
     SELECT    si.uuid,
@@ -382,16 +393,27 @@ func (st *State) getStorageInstanceUnitAttachmentsForProviderIDs(
 ) ([]storageInstanceUnitAttachmentByStorageUUID, error) {
 	q := `
 WITH matched_storage_instances AS (
-    SELECT DISTINCT si.uuid
-    FROM      storage_instance si
-    LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
-    LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
-    LEFT JOIN storage_instance_volume siv ON si.uuid = siv.storage_instance_uuid
-    LEFT JOIN storage_volume sv ON siv.storage_volume_uuid = sv.uuid
-    LEFT JOIN storage_unit_owner suo ON si.uuid = suo.storage_instance_uuid
-    WHERE     suo.storage_instance_uuid IS NULL
-    AND       (sf.provider_id IN ($storageProviderIDs[:])
-           OR  sv.provider_id IN ($storageProviderIDs[:]))
+    SELECT sif.storage_instance_uuid AS uuid
+    FROM   storage_filesystem AS sf
+    JOIN   storage_instance_filesystem AS sif
+    ON     sif.storage_filesystem_uuid = sf.uuid
+    WHERE  sf.provider_id IN ($storageProviderIDs[:])
+    AND    NOT EXISTS (
+        SELECT 1
+        FROM   storage_unit_owner AS suo
+        WHERE  suo.storage_instance_uuid = sif.storage_instance_uuid
+    )
+    UNION
+    SELECT siv.storage_instance_uuid
+    FROM   storage_volume AS sv
+    JOIN   storage_instance_volume AS siv
+    ON     siv.storage_volume_uuid = sv.uuid
+    WHERE  sv.provider_id IN ($storageProviderIDs[:])
+    AND    NOT EXISTS (
+        SELECT 1
+        FROM   storage_unit_owner AS suo
+        WHERE  suo.storage_instance_uuid = siv.storage_instance_uuid
+    )
 )
 SELECT &storageInstanceUnitAttachmentByStorageUUID.*
 FROM (
@@ -623,8 +645,8 @@ SELECT * AS &storageInstanceInfoForAttach.* FROM (
               sv.size_mib AS volume_size_mib,
               sv.provision_scope_id AS volume_provision_scope_id,
               mv.machine_uuid AS volume_owned_machine_uuid
-    FROM      storage_unit_owner suo
-    JOIN      storage_instance si ON suo.storage_instance_uuid = si.uuid
+    FROM      storage_unit_owner suo INDEXED BY idx_storage_unit_owner_unit
+    CROSS JOIN storage_instance si ON suo.storage_instance_uuid = si.uuid
     LEFT JOIN storage_instance_filesystem sif ON si.uuid = sif.storage_instance_uuid
     LEFT JOIN storage_filesystem sf ON sif.storage_filesystem_uuid = sf.uuid
     LEFT JOIN machine_filesystem mf ON sif.storage_filesystem_uuid = mf.filesystem_uuid
@@ -2524,52 +2546,38 @@ func (st *State) GetModelStoragePools(
 	}
 
 	modelConfigPools, err := st.Prepare(`
-WITH 	blockdevice_pool_name AS (
-            SELECT sk.id AS storage_kind_id,
-                   value AS name
-            FROM   model_config mc,
-                   storage_kind sk
-            WHERE  key=$storageModelConfigKeys.blockdevice_key
-            AND    sk.kind = 'block'
-		),
-		filesystem_pool_name AS (
-            SELECT sk.id AS storage_kind_id,
-                   value AS name
-            FROM   model_config mc,
-                   storage_kind sk
-            WHERE  key=$storageModelConfigKeys.filesystem_key
-            AND    sk.kind = 'filesystem'
-		),
-		mc_pools AS (
-            SELECT bpn.storage_kind_id,
-                   sp.uuid AS storage_pool_uuid
-            FROM   blockdevice_pool_name bpn
-            JOIN   storage_pool sp ON bpn.name=sp.name
-            UNION
-            SELECT fpn.storage_kind_id,
-                   sp.uuid AS storage_pool_uuid
-            FROM   filesystem_pool_name fpn
-            JOIN   storage_pool sp ON fpn.name=sp.name
-		)
-SELECT &modelStoragePools.* FROM (
-    SELECT storage_kind_id,
-           storage_pool_uuid
-    FROM   mc_pools
-    UNION
-    SELECT storage_kind_id,
-           storage_pool_uuid
-    FROM   model_storage_pool
-    WHERE  storage_kind_id NOT IN (SELECT storage_kind_id
-                                   FROM   mc_pools)
-)
+SELECT sk.id AS &modelStoragePools.storage_kind_id,
+       sp.uuid AS &modelStoragePools.storage_pool_uuid
+FROM   model_config AS mc
+CROSS JOIN storage_kind AS sk
+JOIN   storage_pool AS sp ON sp.name = mc.value
+WHERE  (mc.key = $storageModelConfigKeys.blockdevice_key AND sk.kind = 'block')
+OR     (mc.key = $storageModelConfigKeys.filesystem_key AND sk.kind = 'filesystem')
 `, storageModelConfigKeys, modelStoragePools{})
 	if err != nil {
 		return internal.ModelStoragePools{}, errors.Capture(err)
 	}
 
-	var dbVals []modelStoragePools
+	modelStoragePoolsStmt, err := st.Prepare(`
+SELECT &modelStoragePools.*
+FROM   model_storage_pool
+WHERE  storage_kind_id >= 0
+`, modelStoragePools{})
+	if err != nil {
+		return internal.ModelStoragePools{}, errors.Capture(err)
+	}
+
+	var modelConfigVals, modelVals []modelStoragePools
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, modelConfigPools, storageModelConfigKeys).GetAll(&dbVals)
+		modelConfigVals = nil
+		modelVals = nil
+
+		err := tx.Query(ctx, modelStoragePoolsStmt).GetAll(&modelVals)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, modelConfigPools, storageModelConfigKeys).GetAll(&modelConfigVals)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Capture(err)
 		}
@@ -2580,6 +2588,7 @@ SELECT &modelStoragePools.* FROM (
 	}
 
 	rval := internal.ModelStoragePools{}
+	dbVals := append(modelVals, modelConfigVals...)
 	for _, v := range dbVals {
 		switch v.StorageKindID {
 		case int(domainstorage.StorageKindBlock):

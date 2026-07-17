@@ -313,7 +313,7 @@ func (s *configStateSuite) TestConfigType(c *tc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type ORDER BY id;
+SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type WHERE id >= 0 ORDER BY id;
 `, charmConfigType{})
 
 	var results []charmConfigType

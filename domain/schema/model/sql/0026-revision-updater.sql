@@ -25,4 +25,4 @@ SELECT
     COUNT(u.uuid) AS num_units
 FROM application AS a
 LEFT JOIN unit AS u ON a.uuid = u.application_uuid
-GROUP BY u.uuid;
+GROUP BY a.uuid;

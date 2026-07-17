@@ -58,6 +58,9 @@ CREATE TABLE unit_principal (
     REFERENCES unit (uuid)
 );
 
+CREATE INDEX idx_unit_principal_principal
+ON unit_principal (principal_uuid, unit_uuid);
+
 CREATE TABLE unit_workload_version (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,

@@ -175,6 +175,9 @@ CREATE TABLE machine_volume (
     PRIMARY KEY (machine_uuid, volume_uuid)
 );
 
+CREATE INDEX idx_machine_volume_volume
+ON machine_volume (volume_uuid, machine_uuid);
+
 CREATE TABLE machine_filesystem (
     machine_uuid TEXT NOT NULL,
     filesystem_uuid TEXT NOT NULL,
@@ -186,6 +189,9 @@ CREATE TABLE machine_filesystem (
     REFERENCES storage_filesystem (uuid),
     PRIMARY KEY (machine_uuid, filesystem_uuid)
 );
+
+CREATE INDEX idx_machine_filesystem_filesystem
+ON machine_filesystem (filesystem_uuid, machine_uuid);
 
 CREATE TABLE machine_requires_reboot (
     machine_uuid TEXT NOT NULL PRIMARY KEY,

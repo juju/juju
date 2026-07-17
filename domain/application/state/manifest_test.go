@@ -270,7 +270,7 @@ func (s *manifestStateSuite) TestManifestArchitecture(c *tc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT architecture.* AS &archType.* FROM architecture ORDER BY id;
+SELECT architecture.* AS &archType.* FROM architecture WHERE id >= 0 ORDER BY id;
 `, archType{})
 
 	var results []archType

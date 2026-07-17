@@ -481,7 +481,7 @@ func (s *metadataStateSuite) TestMetadataRunAs(c *tc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
+SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind WHERE id >= 0 ORDER BY id;
 `, charmRunAs{})
 
 	var results []charmRunAs
@@ -518,7 +518,7 @@ func (s *metadataStateSuite) TestMetadataRelationRole(c *tc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role ORDER BY id;
+SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role WHERE id >= 0 ORDER BY id;
 `, charmRelationRole{})
 
 	var results []charmRelationRole
@@ -554,7 +554,7 @@ func (s *metadataStateSuite) TestMetadataRelationScope(c *tc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope ORDER BY id;
+SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope WHERE id >= 0 ORDER BY id;
 `, charmRelationScope{})
 
 	var results []charmRelationScope
@@ -589,7 +589,7 @@ func (s *metadataStateSuite) TestMetadataStorageKind(c *tc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind ORDER BY id;
+SELECT charm_storage_kind.* AS &storageKind.* FROM charm_storage_kind WHERE id >= 0 ORDER BY id;
 `, storageKind{})
 
 	var results []storageKind
@@ -624,7 +624,7 @@ func (s *metadataStateSuite) TestMetadataResourceKind(c *tc.C) {
 	}
 
 	stmt := sqlair.MustPrepare(`
-SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind ORDER BY id;
+SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind WHERE id >= 0 ORDER BY id;
 `, charmResourceKind{})
 
 	var results []charmResourceKind
