@@ -18,7 +18,8 @@ import (
 	service "github.com/juju/juju/domain/access/service"
 	logging "github.com/juju/juju/domain/logging"
 	objectstore "github.com/juju/juju/domain/objectstore"
-	service0 "github.com/juju/juju/domain/tracing/service"
+	service0 "github.com/juju/juju/domain/objectstore/service"
+	service1 "github.com/juju/juju/domain/tracing/service"
 	auth "github.com/juju/juju/internal/auth"
 )
 
@@ -151,8 +152,8 @@ type MockTracingService struct {
 // MockTracingServiceMockRecorder is the mock recorder for MockTracingService.
 type MockTracingServiceMockRecorder struct {
 	mock                            *MockTracingService
-	setCharmTracingConfigExpects    []*gomock.Call2_1[context.Context, service0.CharmTracingConfig, error]
-	setWorkloadTracingConfigExpects []*gomock.Call2_1[context.Context, service0.WorkloadTracingConfig, error]
+	setCharmTracingConfigExpects    []*gomock.Call2_1[context.Context, service1.CharmTracingConfig, error]
+	setWorkloadTracingConfigExpects []*gomock.Call2_1[context.Context, service1.WorkloadTracingConfig, error]
 }
 
 // NewMockTracingService creates a new mock instance.
@@ -168,7 +169,7 @@ func (m *MockTracingService) EXPECT() *MockTracingServiceMockRecorder {
 }
 
 // SetCharmTracingConfig mocks base method.
-func (m *MockTracingService) SetCharmTracingConfig(ctx context.Context, config service0.CharmTracingConfig) error {
+func (m *MockTracingService) SetCharmTracingConfig(ctx context.Context, config service1.CharmTracingConfig) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_1(&m.recorder.setCharmTracingConfigExpects, m.ctrl, m, "SetCharmTracingConfig", ctx, config)
 }
@@ -176,17 +177,17 @@ func (m *MockTracingService) SetCharmTracingConfig(ctx context.Context, config s
 // SetCharmTracingConfig indicates an expected call of SetCharmTracingConfig.
 func (mr *MockTracingServiceMockRecorder) SetCharmTracingConfig(ctx, config any) *MockTracingServiceSetCharmTracingConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, service0.CharmTracingConfig, error](mr.mock.ctrl.T, mr.mock, "SetCharmTracingConfig", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(config))
+	call := gomock.NewCall2_1[context.Context, service1.CharmTracingConfig, error](mr.mock.ctrl.T, mr.mock, "SetCharmTracingConfig", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(config))
 	mr.setCharmTracingConfigExpects = append(mr.setCharmTracingConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockTracingServiceSetCharmTracingConfigCall is the typed call wrapper for SetCharmTracingConfig.
-type MockTracingServiceSetCharmTracingConfigCall = gomock.Call2_1[context.Context, service0.CharmTracingConfig, error]
+type MockTracingServiceSetCharmTracingConfigCall = gomock.Call2_1[context.Context, service1.CharmTracingConfig, error]
 
 // SetWorkloadTracingConfig mocks base method.
-func (m *MockTracingService) SetWorkloadTracingConfig(ctx context.Context, config service0.WorkloadTracingConfig) error {
+func (m *MockTracingService) SetWorkloadTracingConfig(ctx context.Context, config service1.WorkloadTracingConfig) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_1(&m.recorder.setWorkloadTracingConfigExpects, m.ctrl, m, "SetWorkloadTracingConfig", ctx, config)
 }
@@ -194,14 +195,14 @@ func (m *MockTracingService) SetWorkloadTracingConfig(ctx context.Context, confi
 // SetWorkloadTracingConfig indicates an expected call of SetWorkloadTracingConfig.
 func (mr *MockTracingServiceMockRecorder) SetWorkloadTracingConfig(ctx, config any) *MockTracingServiceSetWorkloadTracingConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_1[context.Context, service0.WorkloadTracingConfig, error](mr.mock.ctrl.T, mr.mock, "SetWorkloadTracingConfig", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(config))
+	call := gomock.NewCall2_1[context.Context, service1.WorkloadTracingConfig, error](mr.mock.ctrl.T, mr.mock, "SetWorkloadTracingConfig", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(config))
 	mr.setWorkloadTracingConfigExpects = append(mr.setWorkloadTracingConfigExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockTracingServiceSetWorkloadTracingConfigCall is the typed call wrapper for SetWorkloadTracingConfig.
-type MockTracingServiceSetWorkloadTracingConfigCall = gomock.Call2_1[context.Context, service0.WorkloadTracingConfig, error]
+type MockTracingServiceSetWorkloadTracingConfigCall = gomock.Call2_1[context.Context, service1.WorkloadTracingConfig, error]
 
 // MockLoggingService is a mock of LoggingService interface.
 type MockLoggingService struct {
@@ -274,8 +275,9 @@ type MockControllerObjectStoreService struct {
 
 // MockControllerObjectStoreServiceMockRecorder is the mock recorder for MockControllerObjectStoreService.
 type MockControllerObjectStoreServiceMockRecorder struct {
-	mock                         *MockControllerObjectStoreService
-	transitionBackendToS3Expects []*gomock.Call2_1[context.Context, objectstore.S3Credentials, error]
+	mock                               *MockControllerObjectStoreService
+	getActiveObjectStoreBackendExpects []*gomock.Call1_2[context.Context, service0.BackendInfo, error]
+	transitionBackendToS3Expects       []*gomock.Call2_1[context.Context, objectstore.S3Credentials, error]
 }
 
 // NewMockControllerObjectStoreService creates a new mock instance.
@@ -289,6 +291,24 @@ func NewMockControllerObjectStoreService(ctrl *gomock.Controller) *MockControlle
 func (m *MockControllerObjectStoreService) EXPECT() *MockControllerObjectStoreServiceMockRecorder {
 	return m.recorder
 }
+
+// GetActiveObjectStoreBackend mocks base method.
+func (m *MockControllerObjectStoreService) GetActiveObjectStoreBackend(ctx context.Context) (service0.BackendInfo, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getActiveObjectStoreBackendExpects, m.ctrl, m, "GetActiveObjectStoreBackend", ctx)
+}
+
+// GetActiveObjectStoreBackend indicates an expected call of GetActiveObjectStoreBackend.
+func (mr *MockControllerObjectStoreServiceMockRecorder) GetActiveObjectStoreBackend(ctx any) *MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, service0.BackendInfo, error](mr.mock.ctrl.T, mr.mock, "GetActiveObjectStoreBackend", gomock.EnsureMatcher(ctx))
+	mr.getActiveObjectStoreBackendExpects = append(mr.getActiveObjectStoreBackendExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall is the typed call wrapper for GetActiveObjectStoreBackend.
+type MockControllerObjectStoreServiceGetActiveObjectStoreBackendCall = gomock.Call1_2[context.Context, service0.BackendInfo, error]
 
 // TransitionBackendToS3 mocks base method.
 func (m *MockControllerObjectStoreService) TransitionBackendToS3(ctx context.Context, credential objectstore.S3Credentials) error {

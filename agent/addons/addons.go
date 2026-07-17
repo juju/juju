@@ -35,6 +35,7 @@ const IntrospectionSocketName = "introspection.socket"
 // worker reports on or needs to start up.
 type IntrospectionConfig struct {
 	AgentDir           string
+	ControlSocketPath  string
 	Engine             *dependency.Engine
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
@@ -61,6 +62,7 @@ func StartIntrospection(cfg IntrospectionConfig) error {
 	socketName := path.Join(cfg.AgentDir, IntrospectionSocketName)
 	w, err := cfg.WorkerFunc(introspection.Config{
 		SocketName:         socketName,
+		ControlSocketPath:  cfg.ControlSocketPath,
 		DepEngine:          cfg.Engine,
 		MachineLock:        cfg.MachineLock,
 		PrometheusGatherer: cfg.PrometheusGatherer,

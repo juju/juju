@@ -911,6 +911,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The controlsocket worker runs on the controller machine.
 		controlSocketName: ifDatabaseUpgradeComplete(controlsocket.Manifold(controlsocket.ManifoldConfig{
 			DomainServicesName:              domainServicesName,
+			ObjectStoreName:                 objectStoreName,
 			ObjectStoreServicesName:         objectStoreServicesName,
 			Logger:                          internallogger.GetLogger("juju.worker.controlsocket"),
 			NewWorker:                       controlsocket.NewWorker,
@@ -918,8 +919,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SocketName:                      config.ControlSocketPath,
 			GetControllerDomainServices:     controlsocket.GetControllerDomainServices,
 			GetControllerObjectStoreService: controlsocket.GetControllerObjectStoreService,
+			GetObjectStoreServicesGetter:    controlsocket.GetObjectStoreServicesGetter,
 			PrometheusRegisterer:            config.PrometheusRegisterer,
 			NewMetricsCollector:             controlsocket.NewMetricsCollector,
+			GetReadRepairObjectStoreGetter:  controlsocket.GetReadRepairObjectStoreGetter,
 		})),
 
 		// The ssh server worker runs on the controller machine.
