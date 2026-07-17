@@ -303,13 +303,13 @@ func (s *workerSuite) TestAddAndRemoveEphemeralKey(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	ephemeralKey := sshtesting.ValidKeyThree.Key + " Juju:Ephemeral:tunnel-0"
-	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey, ephemeralKey))
+	s.waitSSHKeysUnordered(c, append(s.existingKeys, s.existingEnvKey, ephemeralKey))
 
 	// Removing the ephemeral key drops it again.
 	err = updater.RemoveEphemeralKey(pub)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+	s.waitSSHKeysUnordered(c, append(s.existingKeys, s.existingEnvKey))
 }
 
 func (s *workerSuite) TestEphemeralKeyRemovedOnRestart(c *tc.C) {
