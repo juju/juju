@@ -94,6 +94,26 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.RetrievePropertiesBody:
 		req := req.(*methods.RetrievePropertiesBody).Req
 		res.Res = r.retrieveProperties(req)
+	case *methods.RetrievePropertiesExBody:
+		req := req.(*methods.RetrievePropertiesExBody).Req
+		res.Res = &types.RetrievePropertiesExResponse{
+			Returnval: &types.RetrieveResult{
+				Objects: r.retrieveProperties(&types.RetrieveProperties{
+					This:    req.This,
+					SpecSet: req.SpecSet,
+				}).Returnval,
+			},
+		}
+	case *methods.ContinueRetrievePropertiesExBody:
+		req := req.(*methods.ContinueRetrievePropertiesExBody).Req
+		r.MethodCall(r, "ContinueRetrievePropertiesEx", req.Token)
+		res.Res = &types.ContinueRetrievePropertiesExResponse{
+			Returnval: types.RetrieveResult{},
+		}
+	case *methods.CancelRetrievePropertiesExBody:
+		req := req.(*methods.CancelRetrievePropertiesExBody).Req
+		r.MethodCall(r, "CancelRetrievePropertiesEx", req.Token)
+		res.Res = &types.CancelRetrievePropertiesExResponse{}
 	case *methods.LogoutBody:
 		r.MethodCall(r, "Logout")
 		res.Res = &types.LogoutResponse{}
@@ -124,7 +144,11 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		res.Res = &types.CreateFolderResponse{}
 	case *methods.CreateImportSpecBody:
 		req := req.(*methods.CreateImportSpecBody).Req
-		r.MethodCall(r, "CreateImportSpec", req.OvfDescriptor, req.Datastore, req.Cisp)
+		var cisp any = req.Cisp
+		if params, ok := req.Cisp.(*types.OvfImportParams); ok {
+			cisp = params.OvfCreateImportSpecParams
+		}
+		r.MethodCall(r, "CreateImportSpec", req.OvfDescriptor, req.Datastore, cisp)
 		res.Res = &types.CreateImportSpecResponse{
 			Returnval: types.OvfCreateImportSpecResult{
 				FileItem: []types.OvfFileItem{
@@ -178,6 +202,10 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	case *methods.DestroyPropertyCollectorBody:
 		req := req.(*methods.DestroyPropertyCollectorBody).Req
 		delete(r.collectors, req.This.Value)
+		res.Res = &types.DestroyPropertyCollectorResponse{}
+	case *methods.DestroyPropertyFilterBody:
+		_ = req.(*methods.DestroyPropertyFilterBody).Req
+		res.Res = &types.DestroyPropertyFilterResponse{}
 	case *methods.CreateFilterBody:
 		r.MethodCall(r, "CreateFilter")
 		req := req.(*methods.CreateFilterBody).Req
@@ -189,7 +217,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		req := req.(*methods.HttpNfcLeaseProgressBody).Req
 		r.MethodCall(r, "HttpNfcLeaseProgressBody", req.This.Value)
 		logger.Infof("%s", req.This.Value)
-		//delete(r.collectors, req.This.Value)
+		// delete(r.collectors, req.This.Value)
 		res.Res = &types.HttpNfcLeaseProgressResponse{}
 	case *methods.HttpNfcLeaseCompleteBody:
 		req := req.(*methods.HttpNfcLeaseCompleteBody).Req

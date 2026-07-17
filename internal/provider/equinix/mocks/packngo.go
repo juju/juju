@@ -241,6 +241,21 @@ func (mr *MockDeviceServiceMockRecorder) Reinstall(arg0, arg1 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reinstall", reflect.TypeOf((*MockDeviceService)(nil).Reinstall), arg0, arg1)
 }
 
+// Rescue mocks base method.
+func (m *MockDeviceService) Rescue(arg0 string) (*packngo.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Rescue", arg0)
+	ret0, _ := ret[0].(*packngo.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Rescue indicates an expected call of Rescue.
+func (mr *MockDeviceServiceMockRecorder) Rescue(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rescue", reflect.TypeOf((*MockDeviceService)(nil).Rescue), arg0)
+}
+
 // Unlock mocks base method.
 func (m *MockDeviceService) Unlock(arg0 string) (*packngo.Response, error) {
 	m.ctrl.T.Helper()

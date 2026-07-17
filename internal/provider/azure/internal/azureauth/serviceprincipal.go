@@ -219,7 +219,7 @@ func (c *ServicePrincipalCreator) ensureRoleDefinition(
 	roleDefinitionClient := clientFactory.NewRoleDefinitionsClient()
 	roleDefinitionId, err := c.getExistingRoleDefinition(ctx, roleDefinitionClient, roleScope, roleName)
 	if err != nil && errors.Is(err, errors.NotFound) {
-		roleDefinitionId, err = c.getExistingRoleDefinition(ctx, roleDefinitionClient, "", roleName)
+		roleDefinitionId, err = c.getExistingRoleDefinition(ctx, roleDefinitionClient, "/", roleName)
 	}
 	if err == nil {
 		logger.Debugf("found existing role definition %q", roleDefinitionId)

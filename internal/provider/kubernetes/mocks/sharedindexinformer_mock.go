@@ -156,6 +156,20 @@ func (mr *MockSharedIndexInformerMockRecorder) HasSynced() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasSynced", reflect.TypeOf((*MockSharedIndexInformer)(nil).HasSynced))
 }
 
+// HasSyncedChecker mocks base method.
+func (m *MockSharedIndexInformer) HasSyncedChecker() cache.DoneChecker {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HasSyncedChecker")
+	ret0, _ := ret[0].(cache.DoneChecker)
+	return ret0
+}
+
+// HasSyncedChecker indicates an expected call of HasSyncedChecker.
+func (mr *MockSharedIndexInformerMockRecorder) HasSyncedChecker() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasSyncedChecker", reflect.TypeOf((*MockSharedIndexInformer)(nil).HasSyncedChecker))
+}
+
 // IsStopped mocks base method.
 func (m *MockSharedIndexInformer) IsStopped() bool {
 	m.ctrl.T.Helper()
