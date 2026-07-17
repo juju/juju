@@ -345,9 +345,11 @@ func Main(args []string) int {
 // it is always readable inside the jujud snap; otherwise fall back to "/".
 func ensureAccessibleWorkingDir() {
 	if snapCommon := os.Getenv("SNAP_COMMON"); snapCommon != "" {
-		if err := os.Chdir(snapCommon); err == nil {
+		err := os.Chdir(snapCommon)
+		if err == nil {
 			return
 		}
+		logger.Warningf(context.TODO(), "cannot chdir to SNAP_COMMON=%q: %v", snapCommon, err)
 	}
 	if _, err := os.Getwd(); err != nil {
 		_ = os.Chdir("/")
