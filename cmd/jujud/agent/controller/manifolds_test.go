@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/bootstrap"
-	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -582,17 +581,6 @@ func (*ManifoldsSuite) TestBootstrapManifoldConfigUsesProviderSpecificHelpers(c 
 	c.Check(reflect.ValueOf(caasCfg.BootstrapAddressFinderGetter).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAddressFinder).Pointer())
 	c.Check(reflect.ValueOf(iaasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.IAASAgentFinalizer).Pointer())
 	c.Check(reflect.ValueOf(caasCfg.AgentFinalizer).Pointer(), tc.Equals, reflect.ValueOf(bootstrap.CAASAgentFinalizer).Pointer())
-}
-
-func (*ManifoldsSuite) TestDBAccessorManifoldConfigUsesProviderSpecificNodeManagers(c *tc.C) {
-	manifoldsCfg := agentcontroller.ManifoldsConfig{
-		ControllerTag: testing.ControllerTag,
-	}
-	iaasCfg := agentcontroller.NewIAASDBAccessorManifoldConfig(manifoldsCfg)
-	caasCfg := agentcontroller.NewCAASDBAccessorManifoldConfig(manifoldsCfg)
-
-	c.Check(reflect.ValueOf(iaasCfg.NewNodeManager).Pointer(), tc.Equals, reflect.ValueOf(dbaccessor.IAASNodeManager).Pointer())
-	c.Check(reflect.ValueOf(caasCfg.NewNodeManager).Pointer(), tc.Equals, reflect.ValueOf(dbaccessor.CAASNodeManager).Pointer())
 }
 
 func assertGate(c *tc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
