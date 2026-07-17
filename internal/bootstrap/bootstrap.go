@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/internal/cloudconfig"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 )
 
 // BootstrapParamsPath returns the path to the bootstrap params file.
@@ -16,17 +16,17 @@ import (
 // returned directly, allowing snap-managed controllers to keep the bootstrap
 // params file in a snap-common location separate from DataDir.
 //
-// TODO(juju-10104) The JUJU_BOOTSTRAP_PARAMS_PATH override exists for the
-// transitional dual-copy setup in Phase 1, where both the controller snap
-// ($SNAP_COMMON/bootstrap-params) and jujuagentd (/var/lib/juju/bootstrap-params)
-// need their own copy. Once Stage 5 removes controller manifolds from
-// jujuagentd, the dual-copy model and this env-var override can be removed.
-// At that point BootstrapParamsPath should derive directly from DataDir.
+// For snap IAAS controllers the bootstrap params are staged to
+// $SNAP_COMMON/bootstrap-params by jujud init and the daemon app reads them
+// through the JUJU_BOOTSTRAP_PARAMS_PATH environment variable set in
+// snapcraft.yaml. The machine agent (jujuagentd) on the same host does not
+// receive a copy of bootstrap-params; its host DataDir path is irrelevant for
+// the snap controller's initialization.
 func BootstrapParamsPath(dataDir string) string {
 	if path := os.Getenv("JUJU_BOOTSTRAP_PARAMS_PATH"); path != "" {
 		return path
 	}
-	return filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams)
+	return filepath.Join(dataDir, controllerruntimeconfig.FileNameBootstrapParams)
 }
 
 // IsBootstrapController returns whether the controller is a bootstrap

@@ -393,10 +393,9 @@ const (
 	// listed in apiserver/observer/auditfilter.go
 	DefaultAuditLogExcludeMethods = ReadOnlyMethodsWildcard
 
-	// DefaultJujudControllerSnapSource is the default value for the jujud controller
-	// snap source, which is the snapstore.
-	// TODO(jujud-controller-snap): change this to "snapstore" once it is implemented.
-	DefaultJujudControllerSnapSource = "legacy"
+	// DefaultJujudControllerSnapSource is the default value for the jujud
+	// controller snap source. All new bootstraps use the local dangerous path.
+	DefaultJujudControllerSnapSource = "local-dangerous"
 
 	// DefaultObjectStoreType is the default type of object store to use for
 	// storing blobs.

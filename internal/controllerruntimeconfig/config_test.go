@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/tc"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/testhelpers"
@@ -508,4 +509,105 @@ func (s *configSuite) TestRenderControllerRuntimeConfig(c *tc.C) {
 	got, err := controllerruntimeconfig.ReadControllerRuntimeConfig(path)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, cfg)
+}
+
+// TestRenderStagedControllerRuntimeConfig_FourPathTokens verifies that
+// RenderStagedControllerRuntimeConfig replaces the four path fields with
+// bounded token values and leaves all other fields byte-for-byte.
+func (s *configSuite) TestRenderStagedControllerRuntimeConfig_FourPathTokens(c *tc.C) {
+	cfg := validConfig()
+	cfg.SocketDir = "/original/socket"
+	cfg.SharedAgentDir = "/original/shared"
+
+	staged := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg)
+	data, err := yaml.Marshal(staged)
+	c.Assert(err, tc.ErrorIsNil)
+	yamlStr := string(data)
+
+	c.Check(yamlStr, tc.Contains, controllerruntimeconfig.TokenSnapData)
+	c.Check(yamlStr, tc.Contains, controllerruntimeconfig.TokenSnapCommon)
+	// Non-path fields must not contain tokens.
+	c.Check(yamlStr, tc.Not(tc.Contains), "ca-cert: "+controllerruntimeconfig.TokenSnapData)
+	c.Check(yamlStr, tc.Not(tc.Contains), "agent-password: "+controllerruntimeconfig.TokenSnapData)
+}
+
+// TestResolveStagedControllerRuntimeConfig_ResolvesPathFields verifies that
+// ResolveStagedControllerRuntimeConfig resolves all four token fields.
+func (s *configSuite) TestResolveStagedControllerRuntimeConfig_ResolvesPathFields(c *tc.C) {
+	cfg := validConfig()
+	staged := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg)
+
+	snapData := "/fake/snap/data"
+	snapCommon := "/fake/snap/common"
+	resolved, err := controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(staged, snapData, snapCommon)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(resolved.DataDir, tc.Equals, snapData)
+	c.Check(resolved.LogDir, tc.Equals, snapCommon+"/var/log/juju")
+	c.Check(resolved.SocketDir, tc.Equals, snapCommon+"/sockets")
+	c.Check(resolved.SharedAgentDir, tc.Equals, snapCommon+"/agents/controller-0")
+
+	// Non-path fields are unchanged.
+	c.Check(resolved.CACert, tc.Equals, cfg.CACert)
+	c.Check(resolved.AgentPassword, tc.Equals, cfg.AgentPassword)
+	c.Check(resolved.ControllerUUID, tc.Equals, cfg.ControllerUUID)
+}
+
+// TestResolveStagedControllerRuntimeConfig_TokenInCredentialFails verifies
+// that a token in a credential (non-path) field is rejected.
+func (s *configSuite) TestResolveStagedControllerRuntimeConfig_TokenInCredentialFails(c *tc.C) {
+	badYAML := "controller-id: \"0\"\n" +
+		"controller-uuid: deadbeef-0bad-400d-8000-4b1d0d06f00d\n" +
+		"controller-model-uuid: feedface-dead-beef-cafe-c0ffee000000\n" +
+		"data-dir: \"@SNAP_DATA@\"\n" +
+		"log-dir: \"@SNAP_COMMON@/var/log/juju\"\n" +
+		"api-port: 17070\n" +
+		"agent-password: \"@SNAP_DATA@-should-not-be-here\"\n" +
+		"ca-cert: ca-cert-pem\n" +
+		"ca-private-key: ca-private-key-pem\n" +
+		"controller-cert: controller-cert-pem\n" +
+		"controller-private-key: controller-private-key-pem\n"
+
+	var staged controllerruntimeconfig.StagedControllerRuntimeConfig
+	err := yaml.Unmarshal([]byte(badYAML), &staged)
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(
+		staged, "/snap/data", "/snap/common")
+	c.Check(err, tc.ErrorMatches, `.*token found in non-path field.*`)
+}
+
+// TestResolveStagedControllerRuntimeConfig_MissingSnapData ensures an empty
+// snapData returns an error.
+func (s *configSuite) TestResolveStagedControllerRuntimeConfig_MissingSnapData(c *tc.C) {
+	_, err := controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(
+		controllerruntimeconfig.StagedControllerRuntimeConfig{}, "", "/snap/common")
+	c.Check(err, tc.ErrorMatches, "snapData must not be empty")
+}
+
+// TestResolveStagedControllerRuntimeConfig_MissingSnapCommon ensures an empty
+// snapCommon returns an error.
+func (s *configSuite) TestResolveStagedControllerRuntimeConfig_MissingSnapCommon(c *tc.C) {
+	_, err := controllerruntimeconfig.ResolveStagedControllerRuntimeConfig(
+		controllerruntimeconfig.StagedControllerRuntimeConfig{}, "/snap/data", "")
+	c.Check(err, tc.ErrorMatches, "snapCommon must not be empty")
+}
+
+// TestReadControllerRuntimeConfig_RejectsUnresolvedTokens verifies that
+// the normal ReadControllerRuntimeConfig rejects staged (tokenized) configs.
+func (s *configSuite) TestReadControllerRuntimeConfig_RejectsUnresolvedTokens(c *tc.C) {
+	cfg := validConfig()
+	staged := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(cfg)
+	stagedData, err := yaml.Marshal(staged)
+	c.Assert(err, tc.ErrorIsNil)
+
+	dir := c.MkDir()
+	path := filepath.Join(dir, controllerruntimeconfig.Filename)
+	err = os.WriteFile(path, stagedData, 0600)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// ReadControllerRuntimeConfig calls Validate which requires absolute paths.
+	// A tokenized path like "@SNAP_DATA@" is not absolute, so it must fail.
+	_, err = controllerruntimeconfig.ReadControllerRuntimeConfig(path)
+	c.Check(err, tc.Not(tc.ErrorIsNil))
 }

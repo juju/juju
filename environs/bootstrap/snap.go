@@ -11,6 +11,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/semversion"
+	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/deployment/charm"
 )
 
 var runSnapInfoCommand = func(ctx context.Context, packageName string) (string, error) {
@@ -21,6 +25,8 @@ var runSnapInfoCommand = func(ctx context.Context, packageName string) (string, 
 	}
 	return string(out), nil
 }
+
+var RunSnapInfoCommand = &runSnapInfoCommand
 
 func resolveSnapChannelVersion(ctx context.Context, channel string) (string, error) {
 	out, err := runSnapInfoCommand(ctx, ControllerSnapPackageName)
@@ -49,4 +55,37 @@ func resolveSnapChannelVersion(ctx context.Context, channel string) (string, err
 	}
 
 	return matches[1], nil
+}
+
+func resolveSnapChannel(channel charm.Channel) string {
+	if !channel.Empty() {
+		return channel.String()
+	}
+
+	return fmt.Sprintf(
+		"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
+	)
+}
+
+func inspectLocalSnapVersion(ctx context.Context, path string) (semversion.Number, error) {
+	out, err := runSnapInfoCommand(ctx, path)
+	if err != nil {
+		return semversion.Zero, errors.Annotatef(err,
+			"inspecting local snap %q: snap info failed", path)
+	}
+
+	re := regexp.MustCompile(`(?m)^version:\s*([^\s]+)`)
+	matches := re.FindStringSubmatch(out)
+	if len(matches) < 2 {
+		return semversion.Zero, errors.Errorf(
+			"inspecting local snap %q: no version found in snap metadata", path)
+	}
+
+	rawVersion := strings.TrimSpace(matches[1])
+	vers, err := semversion.Parse(rawVersion)
+	if err != nil {
+		return semversion.Zero, errors.Annotatef(err,
+			"inspecting local snap %q: cannot parse version %q", path, rawVersion)
+	}
+	return vers, nil
 }

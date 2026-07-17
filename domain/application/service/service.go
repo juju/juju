@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/semversion"
 	corestatus "github.com/juju/juju/core/status"
@@ -920,12 +919,7 @@ func encodePlatform(platform corecharm.Platform) (deployment.Platform, error) {
 }
 
 func encodeOSType(os string) (deployment.OSType, error) {
-	switch ostype.OSTypeForName(os) {
-	case ostype.Ubuntu:
-		return deployment.Ubuntu, nil
-	default:
-		return 0, errors.Errorf("unknown os type %q, expected ubuntu", os)
-	}
+	return deployment.EncodeOSType(os)
 }
 
 func encodeArchitecture(a string) architecture.Architecture {

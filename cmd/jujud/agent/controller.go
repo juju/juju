@@ -39,14 +39,12 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/semversion"
-	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/flightrecorder"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/service"
-	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgradesteps"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiserver"
@@ -518,10 +516,7 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 
 	agentName := a.Tag().String()
 
-	a.bootstrapLock = gate.NewLock()
-	a.controllerUpgradeLock = gate.NewLock()
-	a.upgradeDBLock = gate.AlreadyUnlocked{}
-	a.upgradeStepsLock = internalupgrade.NewLock(controllerRuntimeConfig, jujuversion.Current)
+	a.initStandaloneControllerLocks()
 
 	createEngine := a.makeEngineCreator(agentName, controllerRuntimeConfig.UpgradedToVersion(), logSink)
 	_ = a.runner.StartWorker(ctx, "engine", createEngine)
@@ -530,6 +525,26 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 	close(a.workersStarted)
 	err = a.runner.Wait()
 	return cmdutil.AgentDone(logger, err)
+}
+
+func (a *ControllerApplication) initStandaloneControllerLocks() {
+	a.bootstrapLock = gate.NewLock()
+	// Controller upgrade and migration flows are still out of scope for the
+	// standalone controller, so the corresponding workers are disabled
+	// (disabledManifold). The outer upgrade gate is nevertheless left open: with
+	// the upgrader and upgradestepscontroller disabled, a locked
+	// controllerUpgradeLock would never be unlocked, which blocks
+	// api-remote-relation-caller and model-worker-manager and prevents
+	// compute-provisioner from running (so machines would never be provisioned).
+	// Re-enable gate.NewLock() once the upgrade-steps controller manifold is
+	// reworked for the standalone controller.
+	a.controllerUpgradeLock = gate.AlreadyUnlocked{}
+	a.upgradeDBLock = gate.AlreadyUnlocked{}
+	// The corresponding upgrade workers are currently disabled in the
+	// standalone controller. Leave these gates open so api-server and other
+	// non-upgrade workers depending on the fully-upgraded flags can start.
+	a.upgradeStepsLock = gate.AlreadyUnlocked{}
+	a.upgradeCheckLock = gate.AlreadyUnlocked{}
 }
 
 func (a *ControllerApplication) makeEngineCreator(

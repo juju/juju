@@ -36,13 +36,13 @@ const (
 	ControllerSnapArchive = "juju-controller.snap"
 
 	// ControllerSnapAssertArchive is the filename used when embedding the
-	// controller snap assertion in cloud-init for local-build bootstrap.
+	// controller snap assertion in cloud-init for asserted-install bootstrap.
 	ControllerSnapAssertArchive = "juju-controller.assert"
 
-	// ControllerSnapPackageName is the snap package currently used for
-	// controller bootstrap wiring.
-	// TODO(ice): switch to the dedicated controller snap name.
-	ControllerSnapPackageName = "juju"
+	// ControllerSnapPackageName is the name of the controller snap, used
+	// for both snap store operations and snap commands (connect, stop, run,
+	// start).
+	ControllerSnapPackageName = "jujud"
 )
 
 // PrepareParams contains the parameters for preparing a controller Environ

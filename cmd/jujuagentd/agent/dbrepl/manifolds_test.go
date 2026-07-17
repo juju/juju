@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cmd/jujuagentd/agent/dbrepl"
 	"github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/worker/gate"
 )
 
 type ManifoldsSuite struct {
@@ -46,7 +45,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		dbrepl.IAASManifolds(newManifoldsConfig()),
 		[]string{
-			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
 			"termination-signal-handler",
@@ -58,7 +56,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		dbrepl.CAASManifolds(newManifoldsConfig()),
 		[]string{
-			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
 			"termination-signal-handler",
@@ -94,8 +91,6 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 }
 
 var expectedManifoldsWithDependencies = map[string][]string{
-	"controller-agent-config": {},
-
 	"db-repl": {"db-repl-accessor"},
 
 	"db-repl-accessor": {},
@@ -104,15 +99,10 @@ var expectedManifoldsWithDependencies = map[string][]string{
 }
 
 func newManifoldsConfig() dbrepl.ManifoldsConfig {
-	unlocker := gate.NewLock()
-	unlocker.Unlock()
 	return dbrepl.ManifoldsConfig{
-		ControllerUnlocker:     unlocker,
-		ControllerID:           testing.ControllerTag.Id(),
-		ConfigChangeSocketPath: "data-dir/configchange.socket",
-		DataDir:                "data-dir",
-		CACert:                 "ca-cert",
-		ControllerCert:         "controller-cert",
-		ControllerPrivateKey:   "controller-private-key",
+		DataDir:              "data-dir",
+		CACert:               "ca-cert",
+		ControllerCert:       "controller-cert",
+		ControllerPrivateKey: "controller-private-key",
 	}
 }

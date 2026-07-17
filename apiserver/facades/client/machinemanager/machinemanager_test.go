@@ -132,6 +132,12 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *tc.C) {
 	c.Assert(machines.Machines, tc.HasLen, 2)
 }
 
+func (s *AddMachineManagerSuite) TestEncodeOSTypeUbuntuCore(c *tc.C) {
+	got, err := encodeOSType("ubuntu-core")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.Equals, deployment.Ubuntu)
+}
+
 func (s *AddMachineManagerSuite) TestAddMachinesContainerPlacement(c *tc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()

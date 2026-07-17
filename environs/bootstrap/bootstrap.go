@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
-	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	corestorage "github.com/juju/juju/internal/storage"
@@ -177,32 +176,33 @@ type BootstrapParams struct {
 	// validating against the bootstrap base.
 	SupportedBootstrapBases []corebase.Base
 
-	// ControllerSnapPath is the path of a local snap file either downloaded from
-	// snap store or built locally.
+	// ControllerSnapPath is the path of a local snap file built locally
+	// with 'make build-snap'. In the current phase only the local dangerous
+	// path is active; assertion, channel, and revision paths remain as
+	// optional inputs for future store-install phases.
 	ControllerSnapPath string
 
-	// ControllerSnapPath is the path of a local snap assert file associated with
-	// the downloaded controller snap file. Assert file is a cryptographically
-	// signed document that verifies the authenticity, origin, and policy
-	// constraints of a snap package. Without an assertion, a snap is an
-	// unverified package that requires the --dangerous flag to install and will
-	// never receive automatic updates from the store.
+	// ControllerSnapAssertPath is the path of a local snap assertion file
+	// associated with ControllerSnapPath. When provided the snap is installed
+	// with an assertion rather than in dangerous mode. Not active in the
+	// current local-snap phase but retained for future asserted-install phases.
 	ControllerSnapAssertPath string
 
 	// ControllerSnapChannel is used when fetching the controller snap from the
-	// snap store.
+	// snap store. Not active in the current local-snap phase.
 	ControllerSnapChannel charm.Channel
 
-	// ControllerSnapRevision is used to install an earlier version of the
-	// controller snap.
+	// ControllerSnapRevision is used to install a specific revision of the
+	// controller snap. Not active in the current local-snap phase.
 	ControllerSnapRevision string
 
 	// ControllerSnapResolvedChannel is the effective channel used for
-	// controller snapstore bootstrap.
+	// controller snapstore bootstrap. Populated by channel resolution when
+	// no local path or revision is supplied.
 	ControllerSnapResolvedChannel string
 
 	// ControllerSnapExpectedVersion is the exact Juju version expected from
-	// the controller snap.
+	// the controller snap after a store install.
 	ControllerSnapExpectedVersion string
 }
 
@@ -472,18 +472,48 @@ func bootstrapIAAS(
 		bootstrapArch = localToolsArch()
 	}
 
-	if featureflag.Enabled(featureflag.ControllerSnap) {
-		if args.ControllerSnapPath == "" && args.ControllerSnapRevision == "" {
-			args.ControllerSnapResolvedChannel = resolveSnapChannel(args.ControllerSnapChannel)
-			resolvedVersion, err := resolveSnapChannelVersion(ctx, args.ControllerSnapResolvedChannel)
-			if err != nil {
-				return errors.Annotate(err, "resolving controller snap version")
-			}
-			args.ControllerSnapExpectedVersion = resolvedVersion
-			ctx.Infof(
-				"Resolved controller snap channel %q to version %s",
-				args.ControllerSnapResolvedChannel,
-				args.ControllerSnapExpectedVersion,
+	var snapVersion semversion.Number
+
+	// For store-based snap bootstrap: when no local path is given but a
+	// channel or revision is specified, resolve the channel and fetch the
+	// expected version from the snap store. This path is not active in the
+	// current local-snap demo phase (ControllerSnapPath is always set).
+	if args.ControllerSnapPath == "" && args.ControllerSnapRevision == "" &&
+		!args.ControllerSnapChannel.Empty() {
+		args.ControllerSnapResolvedChannel = resolveSnapChannel(args.ControllerSnapChannel)
+		resolvedVersion, err := resolveSnapChannelVersion(ctx, args.ControllerSnapResolvedChannel)
+		if err != nil {
+			return errors.Annotate(err, "resolving controller snap version")
+		}
+		args.ControllerSnapExpectedVersion = resolvedVersion
+		ctx.Infof(
+			"Resolved controller snap channel %q to version %s",
+			args.ControllerSnapResolvedChannel,
+			args.ControllerSnapExpectedVersion,
+		)
+	}
+
+	// For local-dangerous snap path: inspect the snap version and enforce
+	// exact compatibility with the bootstrap client.
+	if args.ControllerSnapPath != "" {
+		inspectedVersion, err := inspectLocalSnapVersion(ctx, args.ControllerSnapPath)
+		if err != nil {
+			return errors.Annotate(err, "inspecting local snap version")
+		}
+		args.ControllerSnapExpectedVersion = inspectedVersion.String()
+		snapVersion = inspectedVersion
+		ctx.Infof("Inspected local controller snap version %s", inspectedVersion)
+
+		// Verify snap version is compatible with the bootstrap client.
+		snapCompat := snapVersion
+		snapCompat.Build = 0
+		clientCompat := jujuversion.Current
+		clientCompat.Build = 0
+		if snapCompat.Compare(clientCompat) != 0 {
+			return errors.Errorf(
+				"local snap version %s is not compatible with bootstrap client %s; "+
+					"rebuild the snap with 'make build-snap' to match the current client version",
+				snapVersion, jujuversion.Current,
 			)
 		}
 	}
@@ -525,12 +555,16 @@ func bootstrapIAAS(
 			return err
 		}
 		if args.BuildAgent {
-			ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+			if !snapVersion.IsZero() {
+				ctx.Infof("Building local Juju agent binary version %s for %s (anchored to controller snap)", snapVersion, bootstrapArch)
+			} else {
+				ctx.Infof("Building local Juju agent binary version %s for %s", args.AgentVersion, bootstrapArch)
+			}
 		} else {
 			ctx.Infof("No packaged binary found, preparing local Juju agent binary")
 		}
 		var forceVersion semversion.Number
-		availableTools, forceVersion, err = locallyBuildableTools()
+		availableTools, forceVersion, err = locallyBuildableTools(snapVersion)
 		if err != nil {
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
@@ -676,10 +710,8 @@ func bootstrapIAAS(
 	instanceConfig.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
 
 	// Set the controller snap to be installed on the bootstrap instance.
-	if featureflag.Enabled(featureflag.ControllerSnap) {
-		if err := instanceConfig.SetControllerSnap(args.ControllerSnapPath, args.ControllerSnapAssertPath); err != nil {
-			return errors.Trace(err)
-		}
+	if err := instanceConfig.SetControllerSnap(args.ControllerSnapPath, args.ControllerSnapAssertPath); err != nil {
+		return errors.Trace(err)
 	}
 
 	var environVersion int
@@ -711,16 +743,6 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func resolveSnapChannel(channel charm.Channel) string {
-	if !channel.Empty() {
-		return channel.String()
-	}
-
-	return fmt.Sprintf(
-		"%d.%d/edge", jujuversion.Current.Major, jujuversion.Current.Minor,
-	)
 }
 
 func finaliseInstanceRole(

@@ -294,6 +294,13 @@ func Main(args []string) int {
 		}
 	}()
 
+	// Ensure the process cwd is visible under snap confinement before building
+	// the command context. When "snap run" is invoked via sudo during bootstrap
+	// (ubuntu SSH + sudo), snapd often leaves cwd at /home/ubuntu. Strict
+	// AppArmor then denies getcwd/stat on that path, so DefaultContext fails
+	// with exit 2: "stat .: permission denied" — before any subcommand runs.
+	ensureAccessibleWorkingDir()
+
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		cmd.WriteError(os.Stderr, err)
@@ -327,6 +334,26 @@ func Main(args []string) int {
 		cmd.WriteError(ctx.Stderr, err)
 	}
 	return code
+}
+
+// ensureAccessibleWorkingDir makes the process cwd getcwd/stat-able.
+//
+// Under strict snap confinement, "snap run" started via sudo (bootstrap SSH as
+// ubuntu + sudo) often leaves cwd at /home/ubuntu. AppArmor denies getcwd and
+// stat there, so cmd.DefaultContext fails with "stat .: permission denied"
+// before any subcommand runs. When SNAP_COMMON is set we always move there —
+// it is always readable inside the jujud snap; otherwise fall back to "/".
+func ensureAccessibleWorkingDir() {
+	if snapCommon := os.Getenv("SNAP_COMMON"); snapCommon != "" {
+		err := os.Chdir(snapCommon)
+		if err == nil {
+			return
+		}
+		logger.Warningf(context.TODO(), "cannot chdir to SNAP_COMMON=%q: %v", snapCommon, err)
+	}
+	if _, err := os.Getwd(); err != nil {
+		_ = os.Chdir("/")
+	}
 }
 
 type jujudWriter struct {

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/os/ostype"
@@ -48,7 +49,9 @@ const (
 	NonceFile = "nonce.txt"
 
 	// FileNameBootstrapParams is the name of bootstrap params file.
-	FileNameBootstrapParams = "bootstrap-params"
+	//
+	// Deprecated: use controllerruntimeconfig.FileNameBootstrapParams.
+	FileNameBootstrapParams = controllerruntimeconfig.FileNameBootstrapParams
 
 	// curlCommand is the base curl command used to download tools.
 	curlCommand = "curl -sSf"
@@ -127,12 +130,12 @@ fi
 `
 )
 
-var (
-	// UbuntuGroups is the set of unix groups to add the "ubuntu" user to
-	// when initializing an Ubuntu system.
-	UbuntuGroups = []string{"adm", "audio", "cdrom", "dialout", "dip",
-		"floppy", "netdev", "plugdev", "sudo", "video"}
-)
+// UbuntuGroups is the set of unix groups to add the "ubuntu" user to
+// when initializing an Ubuntu system.
+var UbuntuGroups = []string{
+	"adm", "audio", "cdrom", "dialout", "dip",
+	"floppy", "netdev", "plugdev", "sudo", "video",
+}
 
 // UserdataConfig is the bridge between instancecfg and cloudinit
 // It supports different levels of configuration for instances
@@ -248,7 +251,7 @@ func (w *userdataConfig) ConfigureBasic() error {
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
 	noncefile := path.Join(w.icfg.DataDir, NonceFile)
-	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
+	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0o644)
 	return nil
 }
 
@@ -340,7 +343,9 @@ func (w *userdataConfig) ConfigureJuju() error {
 		w.conf.AddScripts(
 			fmt.Sprintf(
 				`(echo %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-				shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment())))
+				shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment()),
+			),
+		)
 
 		// Write out systemd proxy settings
 		w.conf.AddScripts(fmt.Sprintf(`echo %[1]s > /etc/juju-proxy-systemd.conf`,
@@ -349,7 +354,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 
 	if w.icfg.PublicImageSigningKey != "" {
 		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
-		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0o644)
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
@@ -392,13 +397,11 @@ func (w *userdataConfig) ConfigureJuju() error {
 		if err = w.addLocalControllerCharmsUpload(); err != nil {
 			return errors.Trace(err)
 		}
-		if featureflag.Enabled(featureflag.ControllerSnap) {
-			if err = w.addControllerSnapUpload(); err != nil {
-				return errors.Trace(err)
-			}
-			if err = w.addControllerSnapInstall(); err != nil {
-				return errors.Trace(err)
-			}
+		if err = w.addControllerSnapUpload(); err != nil {
+			return errors.Trace(err)
+		}
+		if err = w.addControllerSnapInstall(); err != nil {
+			return errors.Trace(err)
 		}
 		if err := w.configureBootstrap(); err != nil {
 			return errors.Trace(err)
@@ -414,7 +417,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 		}
 	}
 
-	w.conf.AddRunTextFile("/sbin/remove-juju-services", removeServicesScript, 0755)
+	w.conf.AddRunTextFile("/sbin/remove-juju-services", removeServicesScript, 0o755)
 
 	return w.addMachineAgentToBoot()
 }
@@ -486,30 +489,62 @@ func (w *userdataConfig) ConfigureCustomOverrides() error {
 }
 
 func (w *userdataConfig) configureBootstrap() error {
-	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
+	// When a local controller snap is provided, use the snap-private
+	// cloud-init handoff instead of the legacy jujuagentd path.
+	if w.icfg.Bootstrap.ControllerSnapPath != "" {
+		return w.configureSnapBootstrap()
+	}
+	return w.configureLegacyBootstrap()
+}
+
+// snapInitStagingDir is the host-visible staging directory used by cloud-init
+// to stage runtime.conf and bootstrap-params before jujud.init runs. This path
+// is stable under /var/snap/jujud/common because cloud-init runs outside the
+// snap context and cannot use $SNAP_COMMON shell variables.
+const snapInitStagingDir = "/var/snap/jujud/common/.snap-init"
+
+// SnapInitStagingDir is the exported form of snapInitStagingDir for use in
+// tests.
+const SnapInitStagingDir = snapInitStagingDir
+
+// configureSnapBootstrap generates the complete ordered local-dangerous
+// cloud-init handoff for a snap-managed IAAS bootstrap controller:
+//
+//  1. The snap was already uploaded and installed (--dangerous) by
+//     addControllerSnapUpload / addControllerSnapInstall.
+//  2. Connect plugs for all pre-daemon apps.
+//  3. Stop and disable the auto-started service.
+//  4. Stage agent tools and controller charm into snap data.
+//  5. Configure the controller: write staged files, copy host os-release,
+//     run jujud.init and jujud.bootstrap-state within a trap-protected
+//     script that guarantees cleanup of the staging directory regardless
+//     of exit status.
+//  6. Start and enable jujud.
+func (w *userdataConfig) configureSnapBootstrap() error {
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Annotate(err, "marshalling bootstrap params")
 	}
-	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0600)
 
-	// Write the controller runtime config before the bootstrap agent runs.
-	// This provides Dqlite startup values for the controller process without
-	// requiring access to machine-agent config.
-	controllerAgentDir := path.Join(
-		w.icfg.DataDir, "agents", "controller-"+agent.BootstrapControllerId,
-	)
 	logSinkBurst, logSinkRefill, err := controllerruntimeconfig.ParseLogSinkRateLimits(w.icfg.AgentEnvironment)
 	if err != nil {
 		return errors.Annotate(err, "parsing log-sink rate limits")
 	}
+
+	// Build the runtime config with token placeholders for the snap-private
+	// path fields. The init command resolves these inside the snap context.
 	runtimeCfg := controllerruntimeconfig.ControllerRuntimeConfig{
-		ControllerID:                agent.BootstrapControllerId,
-		ControllerUUID:              w.icfg.ControllerTag.Id(),
-		ControllerModelUUID:         w.icfg.APIInfo.ModelTag.Id(),
-		DataDir:                     w.icfg.DataDir,
+		ControllerID:        agent.BootstrapControllerId,
+		ControllerUUID:      w.icfg.ControllerTag.Id(),
+		ControllerModelUUID: w.icfg.APIInfo.ModelTag.Id(),
+		DataDir:             w.icfg.DataDir, // will be replaced by token
+		// LoopbackPreferred false selects IAAS controller manifolds (see
+		// controller.go). Snap bootstrap-state still binds dqlite to loopback
+		// via agentbootstrap when SNAP is set; the node then continues as
+		// loopback-bound until HA rebind. Do not set true here — that path
+		// incorrectly installs CAAS bootstrap/address-finder workers.
 		LoopbackPreferred:           false,
-		LogDir:                      w.icfg.LogDir,
+		LogDir:                      w.icfg.LogDir, // will be replaced by token
 		APIPort:                     w.icfg.Bootstrap.ControllerAgentInfo.APIPort,
 		AgentPassword:               w.icfg.APIInfo.Password,
 		LoggingConfig:               w.icfg.Bootstrap.ControllerModelConfig.LoggingConfig(),
@@ -532,13 +567,122 @@ func (w *userdataConfig) configureBootstrap() error {
 		AgentLogfileMaxSizeMB:       w.icfg.ControllerConfig.AgentLogfileMaxSizeMB(),
 		AgentLogfileMaxBackups:      w.icfg.ControllerConfig.AgentLogfileMaxBackups(),
 		CharmRevisionUpdateInterval: w.icfg.AgentEnvironment[agent.CharmRevisionUpdateInterval],
+		// SocketDir and SharedAgentDir are intentionally left empty here;
+		// RenderStagedControllerRuntimeConfig will set the token values.
 	}
-	runtimeCfgContent, err := controllerruntimeconfig.RenderControllerRuntimeConfig(runtimeCfg)
+	stagedRuntimeCfg := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(runtimeCfg)
+	stagedRuntimeCfgContent, err := yaml.Marshal(stagedRuntimeCfg)
 	if err != nil {
-		return errors.Annotate(err, "rendering controller runtime config")
+		return errors.Annotate(err, "rendering staged controller runtime config")
 	}
-	runtimeCfgPath := controllerruntimeconfig.ConfigPath(controllerAgentDir)
-	w.conf.AddRunTextFile(runtimeCfgPath, string(runtimeCfgContent), 0600)
+
+	// Step 3: Connect plugs required by all pre-daemon snap apps used in the
+	// cloud-init flow. Both apps.jujud (daemon) and apps.bootstrap-state declare
+	// "network", and apps.jujud also declares "network-bind". Snapd shares plugs
+	// with the same name across all apps within a snap, so connecting
+	// jujud:network covers both the daemon and bootstrap-state.
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Connecting snap interfaces for controller snap"))
+	w.conf.AddRunCmd(fmt.Sprintf("snap connect %s:network", bootstrap.ControllerSnapPackageName))
+	w.conf.AddRunCmd(fmt.Sprintf("snap connect %s:network-bind", bootstrap.ControllerSnapPackageName))
+
+	// Step 4: Stop the auto-started snap service and prevent retry until
+	// snap-private files are in place.
+	w.conf.AddRunCmd(fmt.Sprintf("snap stop %s --disable", bootstrap.ControllerSnapPackageName))
+
+	// Stage host-written agent tools into snap-private storage so the confined
+	// controller can seed the agent-binary store. Host cloud-init writes tools
+	// under /var/lib/juju/tools (ubuntu series); the snap base is core26 and
+	// cannot read /var/lib/juju.
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Staging agent tools into snap data"))
+	w.conf.AddRunCmd(fmt.Sprintf(
+		`set -e
+tools_src=%s
+snap_data=$(readlink -f /var/snap/%s/current)
+mkdir -p "$snap_data/tools"
+tools_base=$(basename "$tools_src")
+rm -rf "$snap_data/tools/$tools_base"
+cp -a "$tools_src" "$snap_data/tools/"
+# Also alias genericlinux series for HostOSTypeName under core bases before
+# host-os-release is consulted, and as a safety net.
+arch="${tools_base##*-}"
+rest="${tools_base%%%%-$arch}"
+release="${rest##*-}"
+number="${rest%%-*}"
+if [ "$release" != "genericlinux" ]; then
+  alias="${number}-genericlinux-${arch}"
+  rm -rf "$snap_data/tools/$alias"
+  cp -a "$snap_data/tools/$tools_base" "$snap_data/tools/$alias"
+fi
+ls -la "$snap_data/tools"
+`,
+		shquote(w.icfg.JujuTools()),
+		bootstrap.ControllerSnapPackageName,
+	))
+
+	if w.icfg.Bootstrap.ControllerCharm != "" {
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Staging controller charm into snap data"))
+		w.conf.AddRunCmd(fmt.Sprintf(
+			`set -e
+charm_src=%s
+snap_data=$(readlink -f /var/snap/%s/current)
+install -D -m 0644 "$charm_src" "$snap_data/charms/%s"
+ls -la "$snap_data/charms"
+	`,
+			shquote(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive)),
+			bootstrap.ControllerSnapPackageName,
+			bootstrap.ControllerCharmArchive,
+		))
+	}
+
+	// Step 5: Write the staged files with owner-only permissions, stage host OS
+	// identity, run jujud.init and jujud.bootstrap-state within a single
+	// trap-protected script. The trap guarantees the staging directory is
+	// removed regardless of exit status, preventing credentials from persisting
+	// on disk on failure. Cloud-init must never write directly into the
+	// revision-specific snap data directory, so we use the stable staging path.
+	//
+	// Bootstrap invokes "snap run" via SSH as ubuntu then sudo. Snapd often
+	// leaves the confined process cwd at /home/ubuntu, which strict AppArmor
+	// cannot getcwd/stat. The jujud-init wrapper and jujud Main both chdir to
+	// SNAP_COMMON before DefaultContext. Do not wrap snap run in a host-side
+	// file redirect: confined stdio to redirected files is dropped.
+	stagedRuntimeConfPath := path.Join(snapInitStagingDir, controllerruntimeconfig.Filename)
+	stagedBootstrapParamsPath := path.Join(snapInitStagingDir, controllerruntimeconfig.FileNameBootstrapParams)
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Configuring snap controller"))
+	w.conf.AddRunCmd(fmt.Sprintf(
+		`set -e
+mkdir -p -m 700 %[1]s
+trap 'rm -rf %[1]s' EXIT
+install -D -m 600 /dev/null %[2]s
+echo %[3]s > %[2]s
+install -D -m 600 /dev/null %[4]s
+echo %[5]s > %[4]s
+cp -a /etc/os-release /var/snap/%[6]s/common/host-os-release
+snap run %[6]s.init %[1]s
+snap run %[6]s.bootstrap-state --timeout %[7]s`,
+		shquote(snapInitStagingDir),
+		shquote(stagedRuntimeConfPath),
+		shquote(string(stagedRuntimeCfgContent)),
+		shquote(stagedBootstrapParamsPath),
+		shquote(string(bootstrapParams)),
+		bootstrap.ControllerSnapPackageName,
+		shquote(w.icfg.Bootstrap.Timeout.String()),
+	))
+
+	// Step 6: Start and enable the initialized snap controller daemon.
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting snap controller"))
+	w.conf.AddRunCmd(fmt.Sprintf("snap start %s --enable", bootstrap.ControllerSnapPackageName))
+
+	return nil
+}
+
+func (w *userdataConfig) configureLegacyBootstrap() error {
+	bootstrapParamsFile := path.Join(w.icfg.DataDir, controllerruntimeconfig.FileNameBootstrapParams)
+	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
+	if err != nil {
+		return errors.Annotate(err, "marshalling bootstrap params")
+	}
+	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0o600)
 
 	loggingOption := "--show-log"
 	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
@@ -579,7 +723,7 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
+	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0o644)
 
 	return nil
 }
@@ -606,7 +750,7 @@ func (w *userdataConfig) addControllerSnapUpload() error {
 	}
 
 	f := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapArchive)
-	w.conf.AddRunBinaryFile(f, snapData, 0644)
+	w.conf.AddRunBinaryFile(f, snapData, 0o644)
 	logger.Debugf(context.TODO(), "added controller snap archive to cloud-init with path %q", f)
 
 	assertPath := w.icfg.Bootstrap.ControllerSnapAssertPath
@@ -619,7 +763,7 @@ func (w *userdataConfig) addControllerSnapUpload() error {
 		return errors.Trace(err)
 	}
 	f = path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapAssertArchive)
-	w.conf.AddRunBinaryFile(f, assertData, 0644)
+	w.conf.AddRunBinaryFile(f, assertData, 0o644)
 	logger.Debugf(context.TODO(), "added controller snap assert to cloud-init with path %q", f)
 
 	return nil
@@ -639,11 +783,6 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 		return w.addControllerSnapStoreInstall()
 	}
 
-	snapPath := w.icfg.Bootstrap.ControllerSnapPath
-	if snapPath == "" {
-		return nil
-	}
-
 	snapFile := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapArchive)
 	assertPath := w.icfg.Bootstrap.ControllerSnapAssertPath
 
@@ -656,6 +795,16 @@ func (w *userdataConfig) addControllerSnapInstall() error {
 	} else {
 		w.conf.AddRunCmd(fmt.Sprintf("snap install --dangerous %s", snapFile))
 		logger.Debugf(context.TODO(), "added snap install --dangerous command for %q", snapFile)
+
+		if expected := w.icfg.Bootstrap.ControllerSnapExpectedVersion; expected != "" {
+			w.conf.AddRunCmd(cloudinit.LogProgressCmd(
+				"Validating installed controller snap version matches %q", expected,
+			))
+			w.conf.AddRunCmd(fmt.Sprintf(
+				`installed_version=$(snap list %s | awk 'NR>1 {print $2; exit}'); test "$installed_version" = %s || (echo "controller snap version mismatch: expected %s, got $installed_version"; exit 1)`,
+				shquote(bootstrap.ControllerSnapPackageName), shquote(expected), expected,
+			))
+		}
 	}
 
 	return nil
@@ -704,7 +853,7 @@ func (w *userdataConfig) addDownloadToolsCmds() error {
 		if err != nil {
 			return err
 		}
-		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0644)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0o644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string
@@ -847,7 +996,6 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 		Sudo:              "ALL=(ALL) NOPASSWD:ALL",
 		SSHAuthorizedKeys: authorizedKeys,
 	})
-
 }
 
 // TODO(ericsnow) toolsSymlinkCommand should just be replaced with a

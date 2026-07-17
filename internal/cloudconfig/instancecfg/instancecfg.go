@@ -227,20 +227,21 @@ type BootstrapConfig struct {
 	ControllerCharm string
 
 	// ControllerSnapPath is the local path to a controller snap to embed
-	// in cloud-init during bootstrap provisioning.
+	// in cloud-init during bootstrap provisioning. The snap is installed
+	// in dangerous mode (unsigned local snap).
 	ControllerSnapPath string
 
 	// ControllerSnapAssertPath is the local path to the snap assertion file
-	// accompanying ControllerSnapPath. When empty the snap is installed in
-	// dangerous mode.
+	// accompanying ControllerSnapPath. When provided the snap is installed
+	// with an assertion rather than in dangerous mode.
 	ControllerSnapAssertPath string
 
 	// ControllerSnapChannel is the snapstore channel used to resolve and
-	// install the controller snap.
+	// install the controller snap (store installs only).
 	ControllerSnapChannel string
 
 	// ControllerSnapExpectedVersion is the exact Juju version expected to be
-	// provided by the installed controller snap.
+	// provided by the installed controller snap (store installs only).
 	ControllerSnapExpectedVersion string
 
 	// Timeout is the amount of time to wait for bootstrap to complete.

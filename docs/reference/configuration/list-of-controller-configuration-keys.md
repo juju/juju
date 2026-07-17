@@ -368,7 +368,7 @@ Cannot be changed.
 
 **Type:** string
 
-**Default value:** legacy
+**Default value:** local-dangerous
 
 **Can be changed after bootstrap:** no
 

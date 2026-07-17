@@ -1362,16 +1362,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:   config.MachineLock,
 			ContainerType: instance.LXD,
 		})),
-		// isNotControllerFlagName is only used for the machineconverter,
+		// isNotControllerFlagName is only used for the machineconverter. In
+		// machine-agent-only mode we must not run the converter: the split
+		// controller intentionally keeps controller work in jujud, and the legacy
+		// converter would bounce forever once it observes that machine 0 is a
+		// controller.
 		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
-		machineConverterName: ifNotController(ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
-			AgentName:        agentName,
-			APICallerName:    apiCallerName,
-			Logger:           internallogger.GetLogger("juju.worker.machineconverter"),
-			NewMachineClient: machineconverter.NewMachineClient,
-			NewAgentClient:   machineconverter.NewAgentClient,
-			NewConverter:     machineconverter.NewConverter,
-		}))),
 
 		// The machineSetupName manifold runs small tasks required
 		// to setup a machine, but requires the machine agent's API
@@ -1381,6 +1377,17 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineStartup: config.MachineStartup,
 			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
+	}
+
+	if !config.MachineAgentOnly {
+		manifolds[machineConverterName] = ifNotController(ifNotMigrating(machineconverter.Manifold(machineconverter.ManifoldConfig{
+			AgentName:        agentName,
+			APICallerName:    apiCallerName,
+			Logger:           internallogger.GetLogger("juju.worker.machineconverter"),
+			NewMachineClient: machineconverter.NewMachineClient,
+			NewAgentClient:   machineconverter.NewAgentClient,
+			NewConverter:     machineconverter.NewConverter,
+		})))
 	}
 
 	return mergeManifolds(config, manifolds)

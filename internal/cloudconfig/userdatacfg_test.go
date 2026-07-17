@@ -39,8 +39,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/controllerruntimeconfig"
-	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -694,8 +692,6 @@ echo -n %s | base64 -d > '/var/lib/juju/charms/controller.charm'
 }
 
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapOnly(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	snapContent := []byte("fake snap binary content")
 	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
 	err := os.WriteFile(snapPath, snapContent, 0644)
@@ -704,18 +700,88 @@ func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapOnly(c *tc.C) {
 	cfg := makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, "")
 	base64Content := base64.StdEncoding.EncodeToString(snapContent)
 	snapFile := fmt.Sprintf("/var/lib/juju/snap/%s", bootstrap.ControllerSnapArchive)
-	expectedScripts := regexp.QuoteMeta(fmt.Sprintf(`
-install -D -m 644 /dev/null '%s'
+
+	// The full dangerous-install sequence must appear in order.
+	uploadScript := regexp.QuoteMeta(fmt.Sprintf(`install -D -m 644 /dev/null '%s'
 echo -n %s | base64 -d > '%[1]s'
 snap install --dangerous %[1]s`,
 		snapFile, base64Content,
 	))
-	checkCloudInitWithContent(c, cfg, expectedScripts, "")
+	checkCloudInitWithContent(c, cfg, uploadScript, "")
+
+	// The cloud-init output must also include the connection, disable, init,
+	// bootstrap-state, cleanup, and start commands.
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	scripts := getScripts(configKeyValues)
+	allScripts := strings.Join(scripts, "\n")
+
+	// Connections for pre-daemon apps.
+	c.Check(allScripts, tc.Contains, "snap connect jujud:network")
+	c.Check(allScripts, tc.Contains, "snap connect jujud:network-bind")
+	// Service management.
+	c.Check(allScripts, tc.Contains, "snap stop jujud --disable")
+	c.Check(allScripts, tc.Contains, "snap run jujud.init")
+	c.Check(allScripts, tc.Contains, cloudconfig.SnapInitStagingDir)
+	c.Check(allScripts, tc.Contains, "snap run jujud.bootstrap-state")
+	c.Check(allScripts, tc.Contains, "rm -rf")
+	c.Check(allScripts, tc.Contains, "snap start jujud --enable")
+	// The legacy jujuagentd bootstrap-state must NOT appear.
+	c.Check(allScripts, tc.Not(tc.Contains), "jujuagentd bootstrap-state")
+	// No controller agent.conf must be written.
+	c.Check(allScripts, tc.Not(tc.Contains), "agents/controller-0/agent.conf")
+}
+
+func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndCharm(c *tc.C) {
+	snapContent := []byte("fake snap binary content")
+	dir := c.MkDir()
+	snapPath := filepath.Join(dir, "juju-controller.snap")
+	err := os.WriteFile(snapPath, snapContent, 0644)
+	c.Assert(err, tc.ErrorIsNil)
+
+	controllerCharmPath := filepath.Join(dir, "controller.charm")
+	ch := testcharms.Repo.CharmDir("juju-controller")
+	err = ch.ArchiveToPath(controllerCharmPath)
+	c.Assert(err, tc.ErrorIsNil)
+
+	cfg := makeBootstrapConfig(jammy, 0).
+		setControllerCharm(controllerCharmPath).
+		setControllerSnap(snapPath, "")
+	envConfig := minimalModelConfig(c)
+	testConfig := cfg.maybeSetModelConfig(envConfig).render()
+	ci, err := cloudinit.New(testConfig.Base.OS)
+	c.Assert(err, tc.ErrorIsNil)
+	udata, err := cloudconfig.NewUserdataConfig(&testConfig, ci)
+	c.Assert(err, tc.ErrorIsNil)
+	err = udata.Configure()
+	c.Assert(err, tc.ErrorIsNil)
+	data, err := ci.RenderYAML()
+	c.Assert(err, tc.ErrorIsNil)
+	configKeyValues := make(map[any]any)
+	err = goyaml.Unmarshal(data, &configKeyValues)
+	c.Assert(err, tc.ErrorIsNil)
+	scripts := getScripts(configKeyValues)
+	allScripts := strings.Join(scripts, "\n")
+
+	c.Check(allScripts, tc.Contains, "Staging controller charm into snap data")
+	c.Check(allScripts, tc.Contains, "charm_src='/var/lib/juju/charms/controller.charm'")
+	c.Check(allScripts, tc.Contains, `install -D -m 0644 "$charm_src" "$snap_data/charms/controller.charm"`)
+	c.Check(allScripts, tc.Contains, "snap run jujud.bootstrap-state")
+	c.Check(allScripts, tc.Not(tc.Contains), "selecting releases")
 }
 
 func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapAndAssert(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	snapContent := []byte("fake snap binary content")
 	assertContent := []byte("fake snap assert content")
 	dir := c.MkDir()
@@ -744,8 +810,6 @@ snap install %[1]s`,
 }
 
 func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnap(c *tc.C) {
-	s.SetFeatureFlags(featureflag.ControllerSnap)
-
 	cfg := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
 		cfg.Bootstrap.ControllerSnapChannel = "4.0/stable"
 		cfg.Bootstrap.ControllerSnapExpectedVersion = "4.0.1"
@@ -753,21 +817,17 @@ func (s *cloudinitSuite) TestCloudInitWithSnapStoreControllerSnap(c *tc.C) {
 
 	expectedScripts := regexp.QuoteMeta(`
 mkdir -p '/var/lib/juju/snap'
-(cd '/var/lib/juju/snap' && snap download 'juju' --channel='4.0/stable' --basename='juju')
-snap ack '/var/lib/juju/snap/juju.assert'
-snap install '/var/lib/juju/snap/juju.snap'
-installed_version=$(snap list 'juju' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected 4.0.1, got $installed_version"; exit 1)`)
+(cd '/var/lib/juju/snap' && snap download 'jujud' --channel='4.0/stable' --basename='jujud')
+snap ack '/var/lib/juju/snap/jujud.assert'
+snap install '/var/lib/juju/snap/jujud.snap'
+installed_version=$(snap list 'jujud' | awk 'NR>1 {print $2; exit}'); test "$installed_version" = '4.0.1' || (echo "controller snap version mismatch: expected 4.0.1, got $installed_version"; exit 1)`)
 	checkCloudInitWithContent(c, cfg, expectedScripts, "")
 }
 
-func (s *cloudinitSuite) TestCloudInitWithLocalControllerSnapFeatureFlagOff(c *tc.C) {
-	snapContent := []byte("fake snap binary content")
-	snapPath := filepath.Join(c.MkDir(), "juju-controller.snap")
-	err := os.WriteFile(snapPath, snapContent, 0644)
-	c.Assert(err, tc.ErrorIsNil)
-
-	// With the feature flag disabled, the snap must not appear in cloud-init.
-	cfg := makeBootstrapConfig(jammy, 0).setControllerSnap(snapPath, "")
+func (s *cloudinitSuite) TestCloudInitWithNoControllerSnapDoesNotEmitSnapCommands(c *tc.C) {
+	// When no snap path is set, the cloud-init output must not include any
+	// snap install commands for the controller snap.
+	cfg := makeBootstrapConfig(jammy, 0)
 	envConfig := minimalModelConfig(c)
 	testConfig := cfg.maybeSetModelConfig(envConfig).render()
 	ci, err := cloudinit.New(testConfig.Base.OS)
@@ -935,68 +995,6 @@ func (s *cloudinitSuite) TestCloudInitConfigureBootstrapFeatureFlags(c *tc.C) {
 	scripts := s.bootstrapConfigScripts(c)
 	expected := "JUJU_DEV_FEATURE_FLAGS=foo,special .*/jujuagentd bootstrap-state .*"
 	assertScriptMatch(c, scripts, expected, false)
-}
-
-// TestCloudInitConfigureBootstrapWritesRuntimeConfig verifies that IAAS
-// bootstrap cloud-init adds a write step for the controller runtime config
-// (runtime.conf) at the expected path with restricted permissions.
-func (*cloudinitSuite) TestCloudInitConfigureBootstrapWritesRuntimeConfig(c *tc.C) {
-	envConfig := minimalModelConfig(c)
-	envConfig, err := envConfig.Apply(map[string]any{"logging-config": "<root>=WARNING;juju.bootstrap=INFO"})
-	c.Assert(err, tc.ErrorIsNil)
-	insecure := true
-	instConfig := makeBootstrapConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
-		cfg.AgentEnvironment[agent.LoggingOverride] = "juju.bootstrap=TRACE"
-		cfg.LokiEndpoint = "https://loki.example.com/loki/api/v1/push"
-		cfg.LokiCACert = "loki-ca-cert"
-		cfg.LokiInsecureSkipVerify = &insecure
-		cfg.LokiOrgID = "test-org"
-	}).maybeSetModelConfig(envConfig)
-	rendered := instConfig.render()
-	cloudcfg, err := cloudinit.New(rendered.Base.OS)
-	c.Assert(err, tc.ErrorIsNil)
-	udata, err := cloudconfig.NewUserdataConfig(&rendered, cloudcfg)
-	c.Assert(err, tc.ErrorIsNil)
-	err = udata.Configure()
-	c.Assert(err, tc.ErrorIsNil)
-	data, err := cloudcfg.RenderYAML()
-	c.Assert(err, tc.ErrorIsNil)
-	configKeyValues := make(map[any]any)
-	err = goyaml.Unmarshal(data, &configKeyValues)
-	c.Assert(err, tc.ErrorIsNil)
-	scripts := getScripts(configKeyValues)
-
-	controllerAgentDir := path.Join(
-		jujuDataDir("ubuntu"),
-		"agents",
-		"controller-"+agent.BootstrapControllerId,
-	)
-	expectedPath := controllerruntimeconfig.ConfigPath(controllerAgentDir)
-
-	// AddRunTextFile emits an install step followed by an echo step.
-	// Verify that both reference the expected runtime.conf path and that
-	// the install step uses owner-only permissions (0600).
-	var installScript, echoScript string
-	for _, s := range scripts {
-		if strings.Contains(s, expectedPath) {
-			if strings.HasPrefix(s, "install ") {
-				installScript = s
-			} else if strings.Contains(s, "echo") {
-				echoScript = s
-			}
-		}
-	}
-	c.Assert(installScript, tc.Not(tc.Equals), "",
-		tc.Commentf("expected install step for %s in runcmd scripts", expectedPath))
-	c.Assert(echoScript, tc.Not(tc.Equals), "",
-		tc.Commentf("expected echo step for %s in runcmd scripts", expectedPath))
-	c.Check(installScript, tc.Matches, `install -D -m 600 /dev/null '`+regexp.QuoteMeta(expectedPath)+`'`)
-	c.Check(echoScript, tc.Matches, `(?s).*logging-config: <root>=WARNING;juju\.bootstrap=INFO.*`)
-	c.Check(echoScript, tc.Matches, `(?s).*logging-override: juju\.bootstrap=TRACE.*`)
-	c.Check(echoScript, tc.Matches, `(?s).*lokiendpoint: https://loki\.example\.com/loki/api/v1/push.*`)
-	c.Check(echoScript, tc.Matches, `(?s).*lokicacert: loki-ca-cert.*`)
-	c.Check(echoScript, tc.Matches, `(?s).*lokiinsecureskipverify: true.*`)
-	c.Check(echoScript, tc.Matches, `(?s).*lokiorgid: test-org.*`)
 }
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *tc.C) {

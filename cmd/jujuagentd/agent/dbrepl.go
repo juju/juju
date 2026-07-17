@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -299,12 +298,7 @@ func (a *replMachineAgent) makeEngineCreator(
 		info, _ := agentConfig.ControllerAgentInfo()
 
 		manifoldsCfg := dbrepl.ManifoldsConfig{
-			NewDBReplWorkerFunc: a.newDBReplWorkerFunc,
-			ControllerUnlocker:  a.controllerUnlocker,
-			ControllerID:        a.Tag().Id(),
-			ConfigChangeSocketPath: filepath.Join(
-				agentConfig.DataDir(), "configchange.socket",
-			),
+			NewDBReplWorkerFunc:  a.newDBReplWorkerFunc,
 			DataDir:              agentConfig.DataDir(),
 			CACert:               agentConfig.CACert(),
 			ControllerCert:       info.Cert,

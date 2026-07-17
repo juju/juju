@@ -6,6 +6,7 @@ package agentbootstrap
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/juju/clock"
@@ -118,8 +119,7 @@ func (a *AgentBootstrapArgs) validate() error {
 // initialize the state for a new controller.
 // NewAgentBootstrap should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
-// controller, and initialize it. It also generates a new password for the
-// bootstrap machine and calls Write to save the configuration.
+// controller, and initialize it.
 //
 // The cfg values will be stored in the state's ModelConfig; the
 // machineCfg values will be used to configure the bootstrap Machine,
@@ -246,12 +246,15 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		localModelRecordOp,
 		modelbootstrap.SetModelConstraints(stateParams.ModelConstraints),
 		modelconfigbootstrap.SetModelConfig(
-			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
+			controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults,
+		),
 	}
 	if !isCAAS {
-		databaseBootstrapOptions = append(databaseBootstrapOptions,
+		databaseBootstrapOptions = append(
+			databaseBootstrapOptions,
 			cloudimagemetadatabootstrap.AddCustomImageMetadata(
-				b.clock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata),
+				b.clock, stateParams.ControllerModelConfig.ImageStream(), stateParams.CustomImageMetadata,
+			),
 		)
 	}
 
@@ -260,7 +263,14 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	// This is to prevent dqlite to become all at sea when the controller pod
 	// is rescheduled. This is only a temporary measure until we have HA
 	// dqlite for k8s.
-	isLoopbackPreferred := isCAAS
+	//
+	// Strict snap IAAS bootstrap has the same constraint during bring-up:
+	// go-dqlite's TLS mode binds an abstract unix socket named
+	// @snap.<name>.dqlite-<id>, whose set_bind_address can fail (or Ready can
+	// hang) under strict confinement during first bootstrap. Preferring loopback
+	// uses TCP 127.0.0.1 without TLS for the single bootstrap node. SNAP is set
+	// by snapd for apps under confinement.
+	isLoopbackPreferred := isCAAS || os.Getenv("SNAP") != ""
 
 	agentInfo, _ := b.agentConfig.ControllerAgentInfo()
 	nodeManagerCfg := database.NodeManagerConfig{
@@ -281,14 +291,22 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 
 	b.agentConfig.SetControllerAgentInfo(controllerAgentInfo)
 
-	// Create a new password. It is used down below to set  the agent's initial
-	// API password in agent config.
-	newPassword, err := password.RandomPassword()
-	if err != nil {
-		return err
+	// Rotate the bootstrap agent password. CAAS persists the new password
+	// through agent.conf via ChangeConfig on the caller's side.
+	//
+	// The IAAS snap path intentionally skips rotation: the controller password
+	// lives in snap-private runtime.conf, while the host jujuagentd machine
+	// agent reads agent.conf. Rotating here would desynchronise the two files
+	// and prevent jujuagentd from authenticating against the controller API.
+	// This split will be resolved when Stage 5 removes controller manifolds from
+	// jujuagentd and the machine agent no longer needs the controller password.
+	if isCAAS {
+		newPassword, err := password.RandomPassword()
+		if err != nil {
+			return err
+		}
+		b.agentConfig.SetPassword(newPassword)
 	}
-
-	b.agentConfig.SetPassword(newPassword)
 
 	return nil
 }

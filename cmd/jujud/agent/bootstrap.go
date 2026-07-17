@@ -7,8 +7,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,7 +21,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
-	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
@@ -39,6 +40,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
@@ -95,7 +97,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 }
 
 func copyFile(dest, source string) error {
-	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0600)
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0o600)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -258,21 +260,177 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	if err := agentconfig.ReadAgentConfig(c, agent.BootstrapControllerId); err != nil {
-		return errors.Annotate(err, "cannot read config")
+	// For IAAS snap controllers, read controller startup values from
+	// runtime.conf instead of agent.conf. The CAAS path continues to use the
+	// agent.conf / ensureConfigFilesForCaas approach.
+	if !isCAAS {
+		return c.runSnapIAAS(ctx, args, env, controllerModelConfigAttrs)
+	}
+
+	// CAAS path: read agent.conf written by ensureConfigFilesForCaas.
+	return c.runLegacyAgentConf(ctx, args, env, controllerModelConfigAttrs)
+}
+
+// runSnapIAAS runs bootstrap state initialization for IAAS snap controllers.
+// It reads the controller startup configuration from snap-private runtime.conf
+// and persists mutations back to that file. It never reads, writes, or creates
+// a controller agent.conf.
+func (c *BootstrapCommand) runSnapIAAS(
+	ctx *cmd.Context,
+	args instancecfg.StateInitializationParams,
+	env environs.BootstrapEnviron,
+	controllerModelConfigAttrs map[string]any,
+) error {
+	// Resolve the runtime.conf path from the SNAP_DATA environment. When running
+	// as "snap run jujud.bootstrap-state", snapd sets SNAP_DATA to the
+	// revision-specific snap data directory. Fall back to the --data-dir flag
+	// for non-snap test execution.
+	runtimeCfgDir := c.DataDir()
+	if snapData := os.Getenv("SNAP_DATA"); snapData != "" {
+		runtimeCfgDir = snapData
+	}
+	controllerAgentDir := filepath.Join(runtimeCfgDir, "agents", "controller-"+agent.BootstrapControllerId)
+	runtimeCfgPath := controllerruntimeconfig.ConfigPath(controllerAgentDir)
+
+	runtimeCfg, err := controllerruntimeconfig.ReadControllerRuntimeConfig(runtimeCfgPath)
+	if err != nil {
+		return errors.Annotate(err, "reading controller runtime config")
+	}
+
+	// Build the ControllerAgentInfo from runtime.conf values. This is the narrow
+	// in-memory state required by AgentBootstrap. It must never be written as
+	// agent.conf.
+	info := controller.ControllerAgentInfo{
+		Cert:           runtimeCfg.ControllerCert,
+		PrivateKey:     runtimeCfg.ControllerPrivateKey,
+		CAPrivateKey:   runtimeCfg.CAPrivateKey,
+		APIPort:        runtimeCfg.APIPort,
+		SystemIdentity: runtimeCfg.SystemIdentity,
+	}
+
+	if err := ensureKeys(false /* isCAAS */, &args, &info); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ensureSSHServerHostKey(&args); err != nil {
+		return errors.Trace(err)
+	}
+	addrs, err := getInstanceAddresses(false /* isCAAS */, env, ctx, args)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Persist the key and address mutations back to runtime.conf.
+	// API agent config requires host:port forms (see agent.checkAddrs), while
+	// ProviderAddresses.Values() returns raw hosts only.
+	apiAddrs := make([]string, 0, len(addrs))
+	apiPort := strconv.Itoa(info.APIPort)
+	for _, host := range addrs.Values() {
+		apiAddrs = append(apiAddrs, net.JoinHostPort(host, apiPort))
+	}
+	if err := controllerruntimeconfig.ChangeControllerRuntimeConfig(runtimeCfgPath, func(cfg *controllerruntimeconfig.ControllerRuntimeConfig) error {
+		cfg.ControllerCert = info.Cert
+		cfg.ControllerPrivateKey = info.PrivateKey
+		cfg.CAPrivateKey = info.CAPrivateKey
+		cfg.SystemIdentity = info.SystemIdentity
+		cfg.APIAddresses = apiAddrs
+		cfg.QueryTracingEnabled = args.ControllerConfig.QueryTracingEnabled()
+		cfg.QueryTracingThreshold = args.ControllerConfig.QueryTracingThreshold()
+		cfg.DqliteBusyTimeout = args.ControllerConfig.DqliteBusyTimeout()
+		return nil
+	}); err != nil {
+		return errors.Annotate(err, "persisting key mutations to runtime config")
+	}
+
+	// Build the in-memory agent.ConfigSetterWriter from values already in
+	// hand: the original runtime.conf read, the mutated ControllerAgentInfo,
+	// and the computed API addresses. This avoids a second disk read.
+	controllerTag := names.NewControllerTag(runtimeCfg.ControllerUUID)
+	modelTag := names.NewModelTag(runtimeCfg.ControllerModelUUID)
+	controllerAgentTag := names.NewControllerAgentTag(runtimeCfg.ControllerID)
+
+	agentConfigParams := agent.AgentConfigParams{
+		Paths: agent.Paths{
+			DataDir: runtimeCfg.DataDir,
+			LogDir:  runtimeCfg.LogDir,
+		},
+		Tag:                   controllerAgentTag,
+		UpgradedToVersion:     jujuversion.Current,
+		Password:              runtimeCfg.AgentPassword,
+		Controller:            controllerTag,
+		Model:                 modelTag,
+		APIAddresses:          apiAddrs,
+		CACert:                runtimeCfg.CACert,
+		QueryTracingEnabled:   args.ControllerConfig.QueryTracingEnabled(),
+		QueryTracingThreshold: args.ControllerConfig.QueryTracingThreshold(),
+		DqliteBusyTimeout:     args.ControllerConfig.DqliteBusyTimeout(),
+	}
+	agentCfgWriter, err := agent.NewStateMachineConfig(agentConfigParams, info)
+	if err != nil {
+		return errors.Annotate(err, "building in-memory controller agent config")
+	}
+
+	// Write the system identity file to the snap-private DataDir.
+	if err := agent.WriteSystemIdentityFile(agentCfgWriter); err != nil {
+		return errors.Trace(err)
+	}
+
+	controllerModelCfg, err := env.Config().Apply(controllerModelConfigAttrs)
+	if err != nil {
+		return errors.Annotate(err, "failed to update model config")
+	}
+	args.ControllerModelConfig = controllerModelCfg
+
+	// Initialise state. AgentBootstrap.Initialize mutates agentCfgWriter
+	// (SetControllerAgentInfo); for the IAAS snap path it does not rotate
+	// the password (see AgentBootstrap.Initialize for why). The in-memory
+	// config is never written to disk as agent.conf.
+	adminTag := names.NewLocalUserTag(coreuser.AdminUserName.Name())
+	bootstrapAgent, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
+		AgentConfig:               agentCfgWriter,
+		BootstrapEnviron:          env,
+		AdminUser:                 adminTag,
+		StateInitializationParams: args,
+		BootstrapMachineAddresses: addrs,
+		BootstrapDqlite:           c.DqliteInitializer,
+		Logger:                    internallogger.GetLogger("juju.agent.bootstrap"),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := bootstrapAgent.Initialize(ctx); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// runLegacyAgentConf handles the CAAS bootstrap path which uses agent.conf.
+// The IAAS snap bootstrap path uses runSnapIAAS instead.
+func (c *BootstrapCommand) runLegacyAgentConf(
+	ctx *cmd.Context,
+	args instancecfg.StateInitializationParams,
+	env environs.BootstrapEnviron,
+	controllerModelConfigAttrs map[string]any,
+) error {
+	agentConfigReader := c.AgentConf
+	if err := agentConfigReader.ReadConfig(names.NewControllerAgentTag(agent.BootstrapControllerId).String()); err != nil {
+		// Fall back to machine tag for backwards compatibility.
+		if err2 := agentConfigReader.ReadConfig(names.NewMachineTag(agent.BootstrapControllerId).String()); err2 != nil {
+			return errors.Annotatef(err, "cannot read config")
+		}
 	}
 	agentConfig := c.CurrentConfig()
 	info, ok := agentConfig.ControllerAgentInfo()
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
-	if err := ensureKeys(isCAAS, &args, &info); err != nil {
+	if err := ensureKeys(true /* isCAAS */, &args, &info); err != nil {
 		return errors.Trace(err)
 	}
 	if err := ensureSSHServerHostKey(&args); err != nil {
 		return errors.Trace(err)
 	}
-	addrs, err := getInstanceAddresses(isCAAS, env, ctx, args)
+	addrs, err := getInstanceAddresses(true /* isCAAS */, env, ctx, args)
 	if err != nil {
 		return errors.Trace(err)
 	}

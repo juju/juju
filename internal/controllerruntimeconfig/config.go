@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,11 @@ const (
 	// Filename is the name of the controller runtime configuration file
 	// within the controller agent directory.
 	Filename = "runtime.conf"
+
+	// FileNameBootstrapParams is the name of the bootstrap parameters file.
+	// It is written by cloud-init into the snap staging directory and copied
+	// to $SNAP_COMMON/bootstrap-params by jujud init.
+	FileNameBootstrapParams = "bootstrap-params"
 )
 
 // ConfigPath returns the path to the controller runtime configuration
@@ -336,6 +342,136 @@ func RenderControllerRuntimeConfig(cfg ControllerRuntimeConfig) ([]byte, error) 
 		return nil, errors.Annotate(err, "marshalling controller runtime config")
 	}
 	return data, nil
+}
+
+// Path tokens used in staged runtime configuration. These are replaced by
+// jujud init using SNAP_DATA and SNAP_COMMON environment values. They must
+// never appear in a final runtime.conf; ReadControllerRuntimeConfig rejects
+// any config containing unresolved tokens.
+const (
+	// TokenSnapData is the staged-path token for $SNAP_DATA.
+	TokenSnapData = "@SNAP_DATA@"
+
+	// TokenSnapCommon is the staged-path token for $SNAP_COMMON.
+	TokenSnapCommon = "@SNAP_COMMON@"
+)
+
+// StagedControllerRuntimeConfig is a restricted runtime configuration used
+// during the cloud-init → jujud init handoff. Path fields (DataDir, LogDir,
+// SocketDir, SharedAgentDir) carry token values that are resolved by
+// ResolveStagedControllerRuntimeConfig. Unlike ControllerRuntimeConfig,
+// validation is deferred until resolution. The distinct type prevents
+// accidentally passing a staged config where a validated runtime config is
+// expected.
+type StagedControllerRuntimeConfig ControllerRuntimeConfig
+
+// RenderStagedControllerRuntimeConfig constructs a staged runtime
+// configuration for cloud-init delivery to a strictly-confined snap
+// controller. The four snap path fields are replaced with bounded token values
+// that jujud init resolves inside the snap context. All other fields are
+// copied byte-for-byte. Validation of the resulting staged config is
+// deliberately skipped because the token path values are not valid final
+// runtime paths.
+//
+// Only callers that implement the snap-private cloud-init handoff may use this
+// function. All other callers must use RenderControllerRuntimeConfig, which
+// requires valid final paths.
+func RenderStagedControllerRuntimeConfig(cfg ControllerRuntimeConfig) StagedControllerRuntimeConfig {
+	// Replace the four snap-private path fields with bounded tokens. All
+	// credential and non-path fields are left byte-for-byte.
+	staged := StagedControllerRuntimeConfig(cfg)
+	staged.DataDir = TokenSnapData
+	staged.LogDir = TokenSnapCommon + "/var/log/juju"
+	staged.SocketDir = TokenSnapCommon + "/sockets"
+	staged.SharedAgentDir = TokenSnapCommon + "/agents/controller-0"
+	return staged
+}
+
+// ResolveStagedControllerRuntimeConfig resolves the four documented snap-path
+// token fields in a StagedControllerRuntimeConfig using the provided snapData
+// and snapCommon values. It returns a validated final ControllerRuntimeConfig.
+// An error is returned if a token appears in an unsupported field, if any path
+// field contains an unresolved token after substitution, or if the resulting
+// configuration fails Validate.
+//
+// This function must only be called by jujud init, running inside the snap
+// context, where SNAP_DATA and SNAP_COMMON are resolved by snapd.
+func ResolveStagedControllerRuntimeConfig(staged StagedControllerRuntimeConfig, snapData, snapCommon string) (ControllerRuntimeConfig, error) {
+	if snapData == "" {
+		return ControllerRuntimeConfig{}, errors.New("snapData must not be empty")
+	}
+	if snapCommon == "" {
+		return ControllerRuntimeConfig{}, errors.New("snapCommon must not be empty")
+	}
+
+	// Verify that no credential or non-path fields contain token text. The
+	// bounded contract allows tokens only in the four path fields.
+	if err := rejectTokensInNonPathFields(staged); err != nil {
+		return ControllerRuntimeConfig{}, err
+	}
+
+	// Resolve the four documented snap-path fields.
+	cfg := ControllerRuntimeConfig(staged)
+	cfg.DataDir = resolveToken(cfg.DataDir, snapData, snapCommon)
+	cfg.LogDir = resolveToken(cfg.LogDir, snapData, snapCommon)
+	cfg.SocketDir = resolveToken(cfg.SocketDir, snapData, snapCommon)
+	cfg.SharedAgentDir = resolveToken(cfg.SharedAgentDir, snapData, snapCommon)
+
+	// After resolution the path fields must not still carry any token text.
+	if err := rejectUnresolvedTokens(cfg); err != nil {
+		return ControllerRuntimeConfig{}, err
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return ControllerRuntimeConfig{}, errors.Annotate(err, "validating resolved controller runtime config")
+	}
+	return cfg, nil
+}
+
+// resolveToken replaces token prefixes in s with the corresponding snap path.
+func resolveToken(s, snapData, snapCommon string) string {
+	s = strings.ReplaceAll(s, TokenSnapData, snapData)
+	s = strings.ReplaceAll(s, TokenSnapCommon, snapCommon)
+	return s
+}
+
+// rejectTokensInNonPathFields returns an error if any field other than the
+// four documented snap-path fields contains token text. Credential and
+// non-path fields must never be substituted.
+func rejectTokensInNonPathFields(cfg StagedControllerRuntimeConfig) error {
+	nonPathFields := map[string]string{
+		"agent-password":      cfg.AgentPassword,
+		"ca-cert":             cfg.CACert,
+		"ca-private-key":      cfg.CAPrivateKey,
+		"controller-cert":     cfg.ControllerCert,
+		"controller-cert-key": cfg.ControllerPrivateKey,
+		"system-identity":     cfg.SystemIdentity,
+		"logging-config":      cfg.LoggingConfig,
+		"logging-override":    cfg.LoggingOverride,
+	}
+	for name, val := range nonPathFields {
+		if strings.Contains(val, TokenSnapData) || strings.Contains(val, TokenSnapCommon) {
+			return errors.Errorf("token found in non-path field %q: tokens are only permitted in path fields", name)
+		}
+	}
+	return nil
+}
+
+// rejectUnresolvedTokens returns an error if any path field still contains
+// token text after resolution.
+func rejectUnresolvedTokens(cfg ControllerRuntimeConfig) error {
+	pathFields := map[string]string{
+		"data-dir":         cfg.DataDir,
+		"log-dir":          cfg.LogDir,
+		"socket-dir":       cfg.SocketDir,
+		"shared-agent-dir": cfg.SharedAgentDir,
+	}
+	for name, val := range pathFields {
+		if strings.Contains(val, TokenSnapData) || strings.Contains(val, TokenSnapCommon) {
+			return errors.Errorf("unresolved token in path field %q after resolution", name)
+		}
+	}
+	return nil
 }
 
 // ParseLogSinkRateLimits reads log-sink rate-limit overrides from the agent

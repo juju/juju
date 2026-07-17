@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/controllerruntimeconfig"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/testhelpers"
+	"github.com/juju/juju/internal/worker/gate"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)
@@ -112,7 +113,7 @@ func TestControllerStartupValueProviderSuite(t *testing.T) {
 
 func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -161,7 +162,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReadsCurrentRun
 
 func (s *controllerStartupValueProviderSuite) TestLoggingOverrideFieldTakesPrecedence(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -201,7 +202,7 @@ func (s *controllerStartupValueProviderSuite) TestLoggingOverrideReturnsRuntimeC
 
 func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	dataDirOne := filepath.Join(runtimeDir, "data-one")
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
@@ -252,9 +253,23 @@ func (s *controllerStartupValueProviderSuite) TestSystemIdentityValuesUseCurrent
 	c.Check(values.SystemIdentityPath, tc.Equals, filepath.Join(dataDirTwo, agent.SystemIdentity))
 }
 
+func (s *controllerStartupValueProviderSuite) TestStandaloneControllerLocks(c *tc.C) {
+	app := &ControllerApplication{}
+	app.initStandaloneControllerLocks()
+
+	c.Check(app.bootstrapLock.IsUnlocked(), tc.IsFalse)
+	c.Check(app.controllerUpgradeLock.IsUnlocked(), tc.IsTrue)
+	c.Check(app.upgradeDBLock.IsUnlocked(), tc.IsTrue)
+	c.Check(app.upgradeStepsLock.IsUnlocked(), tc.IsTrue)
+	c.Check(app.upgradeCheckLock.IsUnlocked(), tc.IsTrue)
+
+	_, ok := app.upgradeDBLock.(gate.AlreadyUnlocked)
+	c.Check(ok, tc.IsTrue)
+}
+
 func (s *controllerStartupValueProviderSuite) TestCACertReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:         "0",
 		ControllerUUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -311,7 +326,7 @@ func (s *controllerStartupValueProviderSuite) TestCACertReturnsRuntimeConfigErro
 
 func (s *controllerStartupValueProviderSuite) TestCurrentSnapshotReadsCurrentRuntimeConfig(c *tc.C) {
 	runtimeDir := c.MkDir()
-	runtimePath := filepath.Join(runtimeDir, "runtime.conf")
+	runtimePath := filepath.Join(runtimeDir, controllerruntimeconfig.Filename)
 	insecure := true
 	err := controllerruntimeconfig.WriteControllerRuntimeConfig(runtimePath, controllerruntimeconfig.ControllerRuntimeConfig{
 		ControllerID:           "0",
