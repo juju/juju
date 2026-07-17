@@ -48,6 +48,7 @@ const (
 	NonceFile = "nonce.txt"
 
 	// FileNameBootstrapParams is the name of bootstrap params file.
+	//
 	// Deprecated: use controllerruntimeconfig.FileNameBootstrapParams.
 	FileNameBootstrapParams = controllerruntimeconfig.FileNameBootstrapParams
 
@@ -510,11 +511,12 @@ const SnapInitStagingDir = snapInitStagingDir
 //     addControllerSnapUpload / addControllerSnapInstall.
 //  2. Connect plugs for all pre-daemon apps.
 //  3. Stop and disable the auto-started service.
-//  4. Stage runtime.conf and bootstrap-params at snapInitStagingDir.
-//  5. Run jujud.init to resolve snap-private paths and install final files.
-//  6. Run jujud.bootstrap-state to initialise controller state.
-//  7. Remove the staging directory.
-//  8. Start and enable jujud.
+//  4. Stage agent tools and controller charm into snap data.
+//  5. Configure the controller: write staged files, copy host os-release,
+//     run jujud.init and jujud.bootstrap-state within a trap-protected
+//     script that guarantees cleanup of the staging directory regardless
+//     of exit status.
+//  6. Start and enable jujud.
 func (w *userdataConfig) configureSnapBootstrap() error {
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
@@ -584,22 +586,7 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 	// snap-private files are in place.
 	w.conf.AddRunCmd(fmt.Sprintf("snap stop %s --disable", bootstrap.ControllerSnapPackageName))
 
-	// Step 5: Write the staged files with owner-only permissions. Cloud-init
-	// must never write directly into the revision-specific snap data directory,
-	// so we use the stable staging path.
-	stagedRuntimeConfPath := path.Join(snapInitStagingDir, controllerruntimeconfig.Filename)
-	stagedBootstrapParamsPath := path.Join(snapInitStagingDir, controllerruntimeconfig.FileNameBootstrapParams)
-	w.conf.AddRunTextFile(stagedRuntimeConfPath, string(stagedRuntimeCfgContent), 0600)
-	w.conf.AddRunTextFile(stagedBootstrapParamsPath, string(bootstrapParams), 0600)
-
-	// Stage host OS identity for confined snap processes that would otherwise
-	// see the core base (ubuntu-core) as HostOS/HostBase.
-	w.conf.AddRunCmd(fmt.Sprintf(
-		"cp -a /etc/os-release /var/snap/%s/common/host-os-release",
-		bootstrap.ControllerSnapPackageName,
-	))
-
-	// Step 5b: Stage host-written agent tools into snap-private storage so
+	// Stage host-written agent tools into snap-private storage so
 	// the confined controller can seed the agent-binary store. Host cloud-init
 	// writes tools under /var/lib/juju/tools (ubuntu series); the snap base is
 	// core26 and cannot read /var/lib/juju.
@@ -644,39 +631,43 @@ ls -la "$snap_data/charms"
 		))
 	}
 
-	// Step 6: Run jujud.init to resolve snap-private paths and atomically
-	// install the final files inside the snap context.
+	// Step 5: Write the staged files with owner-only permissions, stage host
+	// OS identity, run jujud.init and jujud.bootstrap-state within a single
+	// trap-protected script. The trap guarantees the staging directory is
+	// removed regardless of exit status, preventing credentials from
+	// persisting on disk on failure. Cloud-init must never write directly
+	// into the revision-specific snap data directory, so we use the stable
+	// staging path.
 	//
 	// Bootstrap invokes "snap run" via SSH as ubuntu then sudo. Snapd often
 	// leaves the confined process cwd at /home/ubuntu, which strict AppArmor
 	// cannot getcwd/stat. The jujud-init wrapper and jujud Main both chdir to
 	// SNAP_COMMON before DefaultContext. Do not wrap snap run in a host-side
 	// file redirect: confined stdio to redirected files is dropped.
-	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Initializing snap controller files"))
+	stagedRuntimeConfPath := path.Join(snapInitStagingDir, controllerruntimeconfig.Filename)
+	stagedBootstrapParamsPath := path.Join(snapInitStagingDir, controllerruntimeconfig.FileNameBootstrapParams)
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Configuring snap controller"))
 	w.conf.AddRunCmd(fmt.Sprintf(
-		"snap run %s.init %s",
-		bootstrap.ControllerSnapPackageName, shquote(snapInitStagingDir),
+		`set -e
+mkdir -p -m 700 %[1]s
+trap 'rm -rf %[1]s' EXIT
+install -D -m 600 /dev/null %[2]s
+echo %[3]s > %[2]s
+install -D -m 600 /dev/null %[4]s
+echo %[5]s > %[4]s
+cp -a /etc/os-release /var/snap/%[6]s/common/host-os-release
+snap run %[6]s.init %[1]s
+snap run %[6]s.bootstrap-state --timeout %[7]s`,
+		shquote(snapInitStagingDir),
+		shquote(stagedRuntimeConfPath),
+		shquote(string(stagedRuntimeCfgContent)),
+		shquote(stagedBootstrapParamsPath),
+		shquote(string(bootstrapParams)),
+		bootstrap.ControllerSnapPackageName,
+		shquote(w.icfg.Bootstrap.Timeout.String()),
 	))
 
-	// Step 7: Run jujud.bootstrap-state (snap app) to initialise controller
-	// state from the snap-private files. This replaces the legacy
-	// jujuagentd bootstrap-state call. Same cwd hygiene is handled inside
-	// jujud Main (ensureAccessibleWorkingDir).
-	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Running snap bootstrap-state"))
-	// Do not host-redirect snap stdio to a file (snap-confine drops it). Outer
-	// script tee to cloud-init-output is file-backed as well, so rely on
-	// set -e exit status; timeout covers hangs.
-	w.conf.AddRunCmd(fmt.Sprintf(
-		"snap run %s.bootstrap-state --timeout %s",
-		bootstrap.ControllerSnapPackageName, shquote(w.icfg.Bootstrap.Timeout.String()),
-	))
-
-	// Step 8: Remove the staging directory after successful initialization.
-	// Staged credentials are only needed until jujud.init has installed them
-	// to their snap-private destinations.
-	w.conf.AddRunCmd(fmt.Sprintf("rm -rf %s", shquote(snapInitStagingDir)))
-
-	// Step 9: Start and enable the initialized snap controller daemon.
+	// Step 6: Start and enable the initialized snap controller daemon.
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Starting snap controller"))
 	w.conf.AddRunCmd(fmt.Sprintf("snap start %s --enable", bootstrap.ControllerSnapPackageName))
 
@@ -684,7 +675,7 @@ ls -la "$snap_data/charms"
 }
 
 func (w *userdataConfig) configureLegacyBootstrap() error {
-	bootstrapParamsFile := path.Join(w.icfg.DataDir, FileNameBootstrapParams)
+	bootstrapParamsFile := path.Join(w.icfg.DataDir, controllerruntimeconfig.FileNameBootstrapParams)
 	bootstrapParams, err := w.icfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Annotate(err, "marshalling bootstrap params")

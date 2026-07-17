@@ -11,10 +11,8 @@ import (
 	"github.com/juju/worker/v5/dependency"
 
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbrepl"
 	"github.com/juju/juju/internal/worker/dbreplaccessor"
-	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
@@ -22,12 +20,6 @@ import (
 type ManifoldsConfig struct {
 	// NewDBReplWorkerFunc returns a tracked db worker.
 	NewDBReplWorkerFunc dbreplaccessor.NewDBReplWorkerFunc
-
-	// ControllerID is the numeric ID of the controller.
-	ControllerID string
-
-	// ConfigChangeSocketPath is the controller config-change socket path.
-	ConfigChangeSocketPath string
 
 	// DataDir is the controller agent data directory.
 	DataDir string
@@ -40,11 +32,6 @@ type ManifoldsConfig struct {
 
 	// ControllerPrivateKey is the controller API private key.
 	ControllerPrivateKey string
-
-	// ControllerUnlocker is passed to allow the controller agent config manifold
-	// to unlock the controller agent config ready lock when the controller agent
-	// config is ready.
-	ControllerUnlocker gate.Unlocker
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
@@ -67,19 +54,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running in.
 		terminationName: terminationworker.Manifold(),
-
-		// Controller agent config manifold watches the controller agent config
-		// socket and bounces if it changes.
-		controllerAgentConfigName: controlleragentconfig.Manifold(
-			controlleragentconfig.ManifoldConfig{
-				ControllerID:      config.ControllerID,
-				Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
-				NewSocketListener: controlleragentconfig.NewSocketListener,
-				SocketName:        config.ConfigChangeSocketPath,
-				ReadyUnlocker:     config.ControllerUnlocker,
-				SocketFileMode:    0o660,
-			},
-		),
 
 		// The db-repl manifold drives the interactive REPL worker.
 		dbReplName: dbrepl.Manifold(dbrepl.ManifoldConfig{
@@ -135,8 +109,7 @@ func mergeManifolds(
 }
 
 const (
-	controllerAgentConfigName = "controller-agent-config"
-	dbReplAccessorName        = "db-repl-accessor"
-	dbReplName                = "db-repl"
-	terminationName           = "termination-signal-handler"
+	dbReplAccessorName = "db-repl-accessor"
+	dbReplName         = "db-repl"
+	terminationName    = "termination-signal-handler"
 )

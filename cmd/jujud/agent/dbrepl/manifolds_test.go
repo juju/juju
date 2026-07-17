@@ -47,7 +47,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		dbrepl.IAASManifolds(newManifoldsConfig()),
 		[]string{
-			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
 			"termination-signal-handler",
@@ -59,7 +58,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *tc.C) {
 	s.assertManifoldNames(c,
 		dbrepl.CAASManifolds(newManifoldsConfig()),
 		[]string{
-			"controller-agent-config",
 			"db-repl-accessor",
 			"db-repl",
 			"termination-signal-handler",
@@ -81,12 +79,10 @@ func (*ManifoldsSuite) TestNoControllerFlagGuards(c *tc.C) {
 	// should reference the removed is-controller-flag or
 	// state-config-watcher workers.
 	manifolds := dbrepl.IAASManifolds(dbrepl.ManifoldsConfig{
-		ControllerID:           "99",
-		ConfigChangeSocketPath: "data-dir/configchange.socket",
-		DataDir:                "data-dir",
-		CACert:                 "ca-cert",
-		ControllerCert:         "controller-cert",
-		ControllerPrivateKey:   "controller-private-key",
+		DataDir:              "data-dir",
+		CACert:               "ca-cert",
+		ControllerCert:       "controller-cert",
+		ControllerPrivateKey: "controller-private-key",
 	})
 
 	for name, manifold := range manifolds {
@@ -118,8 +114,6 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *tc.C) {
 }
 
 var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
-	"controller-agent-config": {},
-
 	"db-repl": {
 		"db-repl-accessor",
 	},
@@ -130,8 +124,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 }
 
 var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
-	"controller-agent-config": {},
-
 	"db-repl": {
 		"db-repl-accessor",
 	},
@@ -143,11 +135,9 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 func newManifoldsConfig() dbrepl.ManifoldsConfig {
 	return dbrepl.ManifoldsConfig{
-		ControllerID:           "99",
-		ConfigChangeSocketPath: "data-dir/configchange.socket",
-		DataDir:                "data-dir",
-		CACert:                 "ca-cert",
-		ControllerCert:         "controller-cert",
-		ControllerPrivateKey:   "controller-private-key",
+		DataDir:              "data-dir",
+		CACert:               "ca-cert",
+		ControllerCert:       "controller-cert",
+		ControllerPrivateKey: "controller-private-key",
 	}
 }

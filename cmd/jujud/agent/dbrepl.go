@@ -251,18 +251,15 @@ func (a *replControllerAgent) makeEngineCreator(
 		}
 
 		manifoldsCfg := dbrepl.ManifoldsConfig{
-			NewDBReplWorkerFunc:    a.newDBReplWorkerFunc,
-			ControllerID:           a.Tag().Id(),
-			ControllerUnlocker:     a.controllerUnlocker,
-			ConfigChangeSocketPath: filepath.Join(a.runtimeConfig.EffectiveSocketDir(), "configchange.socket"),
-			DataDir:                a.runtimeConfig.DataDir,
-			CACert:                 a.runtimeConfig.CACert,
-			ControllerCert:         a.runtimeConfig.ControllerCert,
-			ControllerPrivateKey:   a.runtimeConfig.ControllerPrivateKey,
-			Clock:                  clock.WallClock,
-			Stdout:                 stdout,
-			Stderr:                 stderr,
-			Stdin:                  stdin,
+			NewDBReplWorkerFunc:  a.newDBReplWorkerFunc,
+			DataDir:              a.runtimeConfig.DataDir,
+			CACert:               a.runtimeConfig.CACert,
+			ControllerCert:       a.runtimeConfig.ControllerCert,
+			ControllerPrivateKey: a.runtimeConfig.ControllerPrivateKey,
+			Clock:                clock.WallClock,
+			Stdout:               stdout,
+			Stderr:               stderr,
+			Stdin:                stdin,
 		}
 
 		var manifolds dependency.Manifolds

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/internal/cloudconfig"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 )
 
 // BootstrapParamsPath returns the path to the bootstrap params file.
@@ -26,7 +26,7 @@ func BootstrapParamsPath(dataDir string) string {
 	if path := os.Getenv("JUJU_BOOTSTRAP_PARAMS_PATH"); path != "" {
 		return path
 	}
-	return filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams)
+	return filepath.Join(dataDir, controllerruntimeconfig.FileNameBootstrapParams)
 }
 
 // IsBootstrapController returns whether the controller is a bootstrap

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/errors"
@@ -64,22 +65,24 @@ func TryAPIAndCheckAgents(ctx context.Context, c *modelcmd.ModelCommandBase) err
 
 	client := apiclient.NewClient(root, logger)
 	defer func() { _ = client.Close() }()
-	status, err := client.Status(ctx, nil)
+	s, err := client.Status(ctx, &apiclient.StatusArgs{
+		Patterns: []string{"0", bootstrap.ControllerModelName},
+	})
 	if err != nil {
 		return errors.Capture(err)
 	}
-	return checkAgentsReady(status)
+	return checkAgentsReady(s)
 }
 
 // checkAgentsReady checks that the controller machine (machine 0) has agent
 // status "started" and that the controller/0 unit is present and not lost.
-func checkAgentsReady(status *params.FullStatus) error {
-	machine0, ok := status.Machines["0"]
-	if !ok || machine0.AgentStatus.Status != "started" {
+func checkAgentsReady(s *params.FullStatus) error {
+	machine0, ok := s.Machines["0"]
+	if !ok || machine0.AgentStatus.Status != status.Started.String() {
 		return ErrMachineAgentNotReady
 	}
 
-	controllerApp, ok := status.Applications["controller"]
+	controllerApp, ok := s.Applications["controller"]
 	if !ok {
 		return ErrMachineAgentNotReady
 	}
@@ -87,7 +90,7 @@ func checkAgentsReady(status *params.FullStatus) error {
 	if !ok {
 		return ErrMachineAgentNotReady
 	}
-	if unit.AgentStatus.Status == "lost" {
+	if unit.AgentStatus.Status == status.Lost.String() {
 		return ErrMachineAgentNotReady
 	}
 

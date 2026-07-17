@@ -80,6 +80,8 @@ apps:
     command: wrappers/juju-flightrecorder-capture
   db-repl:
     command: wrappers/juju-db-repl
+    plugs:
+      - network
   safemode:
     command: wrappers/juju-safemode
 
