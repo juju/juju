@@ -531,13 +531,13 @@ func (a *ControllerApplication) initStandaloneControllerLocks() {
 	a.bootstrapLock = gate.NewLock()
 	// Controller upgrade and migration flows are still out of scope for the
 	// standalone controller, so the corresponding workers are disabled
-	// (disabledManifold). The outer upgrade gate is nevertheless left open:
-	// with the upgrader and upgradestepscontroller disabled, a locked
+	// (disabledManifold). The outer upgrade gate is nevertheless left open: with
+	// the upgrader and upgradestepscontroller disabled, a locked
 	// controllerUpgradeLock would never be unlocked, which blocks
 	// api-remote-relation-caller and model-worker-manager and prevents
-	// compute-provisioner from running (so machines would never be
-	// provisioned). Re-enable gate.NewLock() once the upgrade-steps
-	// controller manifold is reworked for the standalone controller.
+	// compute-provisioner from running (so machines would never be provisioned).
+	// Re-enable gate.NewLock() once the upgrade-steps controller manifold is
+	// reworked for the standalone controller.
 	a.controllerUpgradeLock = gate.AlreadyUnlocked{}
 	a.upgradeDBLock = gate.AlreadyUnlocked{}
 	// The corresponding upgrade workers are currently disabled in the
