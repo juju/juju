@@ -621,7 +621,7 @@ func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsUni
 	)
 
 	// Assert:
-	c.Assert(err, tc.ErrorIs, relationerrors.RelationNotFound)
+	c.Assert(err, tc.ErrorIs, relationerrors.ApplicationNotFoundForRelation)
 }
 
 func (s *remoteRelationSuite) TestSetRelationRemoteApplicationAndUnitSettingsRelationNotFound(c *tc.C) {

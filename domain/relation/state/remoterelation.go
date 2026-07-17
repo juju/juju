@@ -284,15 +284,33 @@ AND    u.application_uuid = $entityUUID.uuid
 				return relationerrors.CannotEnterScopeNotAlive
 			}
 
-			// Get the IDs of the applications in the relation.
-			appIDs, err := st.getApplicationsInRelation(ctx, tx, relationUUID)
+			// Remote relations can never be peer relations, but guard
+			// against the impossible state to fail fast rather than
+			// silently proceeding.
+			isPeer, err := st.isPeerRelation(ctx, tx, relationUUID)
 			if err != nil {
-				return errors.Errorf("getting applications in relation: %w", err)
+				return errors.Errorf("checking if relation is peer: %w", err)
+			}
+			if isPeer {
+				return relationerrors.CannotEnterScopePeerRelation
 			}
 
-			// Ensure the unit can enter scope in this relation.
-			if err := st.checkUnitCanEnterScopeForRemoteRelation(ctx, tx, applicationUUID, appIDs); err != nil {
-				return errors.Capture(err)
+			// Ensure the unit's application is in the relation before entering
+			// scope.
+			inRelation, err := st.isApplicationInRelation(ctx, tx, relationUUID, applicationUUID)
+			if err != nil {
+				return errors.Errorf("checking application in relation: %w", err)
+			}
+			if !inRelation {
+				return relationerrors.ApplicationNotFoundForRelation
+			}
+
+			// If the unit application is a subordinate, it can not enter
+			// scope.
+			if subordinate, err := st.isSubordinate(ctx, tx, applicationUUID); err != nil {
+				return errors.Errorf("checking if application is subordinate: %w", err)
+			} else if subordinate {
+				return relationerrors.CannotEnterScopeForSubordinate
 			}
 
 			// Set all the unit settings that are available.
@@ -328,30 +346,59 @@ AND    u.application_uuid = $entityUUID.uuid
 	return nil
 }
 
-// checkUnitCanEnterScopeForRemoteRelation checks that the unit can enter scope
-// in the given relation.
-func (st *State) checkUnitCanEnterScopeForRemoteRelation(ctx context.Context, tx *sqlair.TX, unitsAppID string, appIDs []string) error {
-	// Check that the application of the unit is in the relation. Remote
-	// relations can not be peer relations, or for a subordinate unit.
-	switch len(appIDs) {
-	case 1: // Peer relation.
-		return relationerrors.CannotEnterScopePeerRelation
-	case 2: // Regular relation.
-		// Ensure the unit's application is in the relation before entering
-		// scope.
-		if !set.NewStrings(appIDs...).Contains(unitsAppID) {
-			return relationerrors.ApplicationNotFoundForRelation
-		}
-		// If the unit application is a subordinate, it can not enter scope.
-		if subordinate, err := st.isSubordinate(ctx, tx, unitsAppID); err != nil {
-			return errors.Errorf("checking if application is subordinate: %w", err)
-		} else if subordinate {
-			return relationerrors.CannotEnterScopeForSubordinate
-		}
-		return nil
-	default:
-		return errors.Errorf("unexpected number of applications in relation: %d", len(appIDs))
+// isApplicationInRelation checks if the given application is part of the
+// specified relation by querying the relation endpoints.
+func (st *State) isApplicationInRelation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID, appUUID string,
+) (bool, error) {
+	relUUID := entityUUID{UUID: relationUUID}
+	app := applicationUUID{UUID: appUUID}
+
+	stmt, err := st.Prepare(`
+SELECT &applicationUUID.application_uuid
+FROM   relation_endpoint re
+JOIN   application_endpoint ae ON re.endpoint_uuid = ae.uuid
+WHERE  re.relation_uuid = $entityUUID.uuid
+AND    ae.application_uuid = $applicationUUID.application_uuid
+`, relUUID, app)
+	if err != nil {
+		return false, errors.Capture(err)
 	}
+
+	err = tx.Query(ctx, stmt, relUUID, app).Get(&app)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
+}
+
+// isPeerRelation checks if the given relation is a peer relation
+// (i.e. it has exactly one endpoint) within an existing transaction.
+func (st *State) isPeerRelation(
+	ctx context.Context,
+	tx *sqlair.TX,
+	relationUUID string,
+) (bool, error) {
+	relUUID := entityUUID{UUID: relationUUID}
+
+	stmt, err := st.Prepare(`
+SELECT count(*) AS &rows.count
+FROM   relation_endpoint
+WHERE  relation_uuid = $entityUUID.uuid
+`, rows{}, relUUID)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var found rows
+	if err := tx.Query(ctx, stmt, relUUID).Get(&found); err != nil {
+		return false, errors.Errorf("counting relation endpoints for uuid %q: %w", relationUUID, err)
+	}
+	return found.Count == 1, nil
 }
 
 func (st *State) insertRelationUnitSettings(
