@@ -223,7 +223,8 @@ func (s *migrationSuite) TestImportOperationsWithMultipleUnitTask(c *tc.C) {
 SELECT operation_task.task_id, unit.name 
 FROM operation_unit_task
 JOIN operation_task ON operation_task.uuid = operation_unit_task.task_uuid
-JOIN unit ON unit.uuid = operation_unit_task.unit_uuid`)
+JOIN unit ON unit.uuid = operation_unit_task.unit_uuid
+WHERE operation_unit_task.rowid > 0`)
 	c.Check(linkRows, tc.SameContents, []map[string]any{
 		{
 			"task_id": taskID1,
@@ -337,7 +338,8 @@ func (s *migrationSuite) TestImportOperationsWithMultipleMachineTasks(c *tc.C) {
 SELECT operation_task.task_id, machine.name 
 FROM operation_machine_task
 JOIN operation_task ON operation_task.uuid = operation_machine_task.task_uuid
-JOIN machine ON machine.uuid = operation_machine_task.machine_uuid`)
+JOIN machine ON machine.uuid = operation_machine_task.machine_uuid
+WHERE operation_machine_task.rowid > 0`)
 	c.Check(linkRows, tc.SameContents, []map[string]any{
 		{
 			"task_id": taskID1,

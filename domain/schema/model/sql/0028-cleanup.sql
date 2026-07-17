@@ -42,3 +42,6 @@ CREATE TABLE removal (
     FOREIGN KEY (removal_type_id)
     REFERENCES removal_type (id)
 );
+
+CREATE INDEX idx_removal_type_entity_arg
+ON removal (removal_type_id, entity_uuid, arg);

@@ -313,7 +313,8 @@ func (st *State) GetAllSubnets(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := `
 SELECT &SubnetRow.*
-FROM   v_space_subnet`
+FROM   v_space_subnet
+WHERE  uuid >= ''`
 
 	s, err := st.Prepare(q, SubnetRow{})
 	if err != nil {

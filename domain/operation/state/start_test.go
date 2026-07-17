@@ -374,10 +374,11 @@ func (s *startSuite) TestAddExecOperationMixedSuccessAndErrors(c *tc.C) {
 
 	// Verify the valid task was stored, and the invalid one didn't put any data in the DB.
 	tasks := s.queryRows(c, `
-SELECT DISTINCT uuid, task_id, unit_uuid, machine_uuid 
+SELECT uuid, task_id, unit_uuid, machine_uuid
 FROM operation_task
 LEFT JOIN operation_unit_task ON operation_task.uuid = operation_unit_task.task_uuid
-LEFT JOIN operation_machine_task ON operation_task.uuid = operation_machine_task.task_uuid`)
+LEFT JOIN operation_machine_task ON operation_task.uuid = operation_machine_task.task_uuid
+WHERE operation_task.rowid > 0`)
 	var validIDs, validUnitTaskUUIDs, validMachineTaskUUIDs []string
 	for _, task := range tasks {
 		validIDs = append(validIDs, task["task_id"].(string))
@@ -614,7 +615,7 @@ func (s *startSuite) TestAddActionOperationMixedSuccessAndErrors(c *tc.C) {
 	c.Check(result.Units[2].TaskInfo.ID, tc.Not(tc.Equals), "")
 
 	// Verify the valid task was stored, and the invalid one didn't put any data in the DB.
-	tasks := s.queryRows(c, `SELECT uuid, task_id FROM operation_task`)
+	tasks := s.queryRows(c, `SELECT uuid, task_id FROM operation_task WHERE rowid > 0`)
 	var validIDs, validUUIDs []string
 	for _, task := range tasks {
 		validIDs = append(validIDs, task["task_id"].(string))

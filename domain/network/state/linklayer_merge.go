@@ -280,6 +280,7 @@ LEFT JOIN ip_address AS a ON s.uuid = a.subnet_uuid
 LEFT JOIN provider_subnet AS ps ON s.uuid = ps.subnet_uuid
 WHERE a.uuid IS NULL -- orphan subnet, linked to no addresses
 AND ps.provider_id IS NULL -- subnet without any provider id
+AND s.uuid >= ''
 AND (
     s.cidr LIKE '%.%/32' -- single address ipv4 subnet 
     OR  

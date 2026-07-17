@@ -57,7 +57,9 @@ func (s *stateSuite) TestEnsureUpgradeTypesMatchCore(c *tc.C) {
 	// This locks in the behaviour that the upgrade types in the database
 	// should match the upgrade types in the core upgrade package.
 
-	rows, err := db.Query(`SELECT id, type FROM upgrade_state_type`)
+	rows, err := db.Query(`
+SELECT id, type
+FROM upgrade_state_type INDEXED BY idx_upgrade_state_type_id_type`)
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 

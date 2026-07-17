@@ -73,6 +73,18 @@ CREATE TABLE secret_metadata (
     REFERENCES secret_rotate_policy (id)
 );
 
+CREATE INDEX idx_secret_metadata_list
+ON secret_metadata (
+    secret_id,
+    version,
+    description,
+    auto_prune,
+    latest_revision_checksum,
+    create_time,
+    update_time,
+    rotate_policy_id
+);
+
 CREATE TABLE secret_rotation (
     secret_id TEXT NOT NULL PRIMARY KEY,
     next_rotation_time DATETIME NOT NULL,
@@ -80,6 +92,9 @@ CREATE TABLE secret_rotation (
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
 );
+
+CREATE INDEX idx_secret_rotation_list
+ON secret_rotation (secret_id, next_rotation_time);
 
 -- 1:1
 CREATE TABLE secret_value_ref (
@@ -91,6 +106,12 @@ CREATE TABLE secret_value_ref (
     FOREIGN KEY (revision_uuid)
     REFERENCES secret_revision (uuid)
 );
+
+CREATE INDEX idx_secret_value_ref_list
+ON secret_value_ref (revision_uuid, backend_uuid, revision_id);
+
+CREATE INDEX idx_secret_value_ref_backend_list
+ON secret_value_ref (backend_uuid, revision_uuid, revision_id);
 
 -- Deleted revisions for which content is stored externally.
 -- These rows are deleted after the external content has been deleted.
@@ -135,6 +156,9 @@ CREATE TABLE secret_revision (
 CREATE UNIQUE INDEX idx_secret_revision_secret_id_revision
 ON secret_revision (secret_id, revision);
 
+CREATE INDEX idx_secret_revision_list
+ON secret_revision (secret_id, revision, uuid, create_time, update_time);
+
 CREATE TABLE secret_revision_obsolete (
     revision_uuid TEXT NOT NULL PRIMARY KEY,
     obsolete BOOLEAN NOT NULL DEFAULT (FALSE),
@@ -146,6 +170,9 @@ CREATE TABLE secret_revision_obsolete (
     REFERENCES secret_revision (uuid)
 );
 
+CREATE INDEX idx_secret_revision_obsolete_list
+ON secret_revision_obsolete (obsolete, revision_uuid, pending_delete);
+
 CREATE TABLE secret_revision_expire (
     revision_uuid TEXT NOT NULL PRIMARY KEY,
     expire_time DATETIME NOT NULL,
@@ -153,6 +180,9 @@ CREATE TABLE secret_revision_expire (
     FOREIGN KEY (revision_uuid)
     REFERENCES secret_revision (uuid)
 );
+
+CREATE INDEX idx_secret_revision_expire_list
+ON secret_revision_expire (revision_uuid, expire_time);
 
 CREATE TABLE secret_application_owner (
     secret_id TEXT NOT NULL,
@@ -173,6 +203,9 @@ ON secret_application_owner (secret_id);
 CREATE UNIQUE INDEX idx_secret_application_owner_label
 ON secret_application_owner (label, application_uuid) WHERE label != '';
 
+CREATE INDEX idx_secret_application_owner_application_label_secret
+ON secret_application_owner (application_uuid, label, secret_id);
+
 CREATE TABLE secret_unit_owner (
     secret_id TEXT NOT NULL,
     unit_uuid TEXT NOT NULL,
@@ -192,6 +225,9 @@ ON secret_unit_owner (secret_id);
 CREATE UNIQUE INDEX idx_secret_unit_owner_label
 ON secret_unit_owner (label, unit_uuid) WHERE label != '';
 
+CREATE INDEX idx_secret_unit_owner_unit_label_secret
+ON secret_unit_owner (unit_uuid, label, secret_id);
+
 CREATE TABLE secret_model_owner (
     secret_id TEXT NOT NULL PRIMARY KEY,
     label TEXT,
@@ -199,6 +235,12 @@ CREATE TABLE secret_model_owner (
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
 );
+
+CREATE INDEX idx_secret_model_owner_list
+ON secret_model_owner (secret_id, label);
+
+CREATE INDEX idx_secret_model_owner_label_secret
+ON secret_model_owner (label, secret_id);
 
 CREATE UNIQUE INDEX idx_secret_model_owner_label
 ON secret_model_owner (label) WHERE label != '';
@@ -225,6 +267,17 @@ ON secret_unit_consumer (secret_id, unit_uuid);
 CREATE UNIQUE INDEX idx_secret_unit_consumer_label
 ON secret_unit_consumer (label, unit_uuid) WHERE label != '';
 
+CREATE INDEX idx_secret_unit_consumer_secret_revision
+ON secret_unit_consumer (secret_id, current_revision);
+
+CREATE INDEX idx_secret_unit_consumer_list
+ON secret_unit_consumer
+(secret_id, unit_uuid, source_model_uuid, label, current_revision);
+
+CREATE INDEX idx_secret_unit_consumer_unit_list
+ON secret_unit_consumer
+(unit_uuid, secret_id, current_revision, source_model_uuid, label);
+
 -- This table records the tracked revisions from
 -- units in the consuming model for cross model secrets.
 CREATE TABLE secret_remote_unit_consumer (
@@ -240,6 +293,12 @@ CREATE TABLE secret_remote_unit_consumer (
 
 CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_name
 ON secret_remote_unit_consumer (secret_id, unit_name);
+
+CREATE INDEX idx_secret_remote_unit_consumer_details
+ON secret_remote_unit_consumer (secret_id, current_revision, unit_name);
+
+CREATE INDEX idx_secret_remote_unit_consumer_list
+ON secret_remote_unit_consumer (secret_id, unit_name, current_revision);
 
 CREATE TABLE secret_role (
     id INT PRIMARY KEY,
@@ -313,6 +372,17 @@ ON secret_permission (secret_id);
 CREATE INDEX idx_secret_permission_subject_uuid_subject_type_id
 ON secret_permission (subject_uuid, subject_type_id);
 
+CREATE INDEX idx_secret_permission_list
+ON secret_permission
+(secret_id, subject_uuid, role_id, subject_type_id, scope_uuid, scope_type_id);
+
+CREATE INDEX idx_secret_permission_role_list
+ON secret_permission
+(role_id, subject_type_id, subject_uuid, secret_id, scope_uuid, scope_type_id);
+
+CREATE INDEX idx_secret_model_uuid_name
+ON model (uuid, name);
+
 -- v_secret_permission is used to query secrets which can
 -- be accessed by a subject of application, unit, or model.
 CREATE VIEW v_secret_permission AS
@@ -337,12 +407,12 @@ SELECT
         WHEN sp.scope_type_id = 1 THEN sca.name
         WHEN sp.scope_type_id = 2 THEN m.uuid
     END) AS scope_id
-FROM secret_permission AS sp
+FROM secret_permission AS sp INDEXED BY idx_secret_permission_list
 LEFT JOIN unit AS suu ON sp.subject_uuid = suu.uuid
 LEFT JOIN application AS sua ON sp.subject_uuid = sua.uuid
 LEFT JOIN unit AS scu ON sp.scope_uuid = scu.uuid
 LEFT JOIN application AS sca ON sp.scope_uuid = sca.uuid
-JOIN model AS m;
+JOIN model AS m INDEXED BY idx_secret_model_uuid_name;
 
 CREATE VIEW v_secret_owner AS
 SELECT
@@ -351,8 +421,8 @@ SELECT
     m.name AS owner_name,
     so.label,
     so.secret_id
-FROM secret_model_owner AS so
-JOIN model AS m -- this is a singleton
+FROM secret_model_owner AS so INDEXED BY idx_secret_model_owner_list
+JOIN model AS m INDEXED BY idx_secret_model_uuid_name -- this is a singleton
 UNION ALL
 SELECT
     'application' AS owner_kind,
@@ -361,6 +431,7 @@ SELECT
     so.label,
     so.secret_id
 FROM secret_application_owner AS so
+INDEXED BY idx_secret_application_owner_application_label_secret
 JOIN application AS a ON so.application_uuid = a.uuid
 UNION ALL
 SELECT
@@ -370,6 +441,7 @@ SELECT
     so.label,
     so.secret_id
 FROM secret_unit_owner AS so
+INDEXED BY idx_secret_unit_owner_unit_label_secret
 JOIN unit AS u ON so.unit_uuid = u.uuid;
 
 CREATE VIEW v_secret_metadata AS
@@ -389,7 +461,7 @@ SELECT
     so.owner_uuid,
     so.owner_name,
     so.label
-FROM secret_metadata AS sm
+FROM secret_metadata AS sm INDEXED BY idx_secret_metadata_list
 JOIN secret_rotate_policy AS rp ON sm.rotate_policy_id = rp.id
 JOIN secret_revision AS sr ON sm.secret_id = sr.secret_id
 LEFT JOIN secret_revision_expire AS sre ON sr.uuid = sre.revision_uuid
@@ -413,3 +485,6 @@ CREATE TABLE secret_reservation (
 
 CREATE INDEX idx_secret_reservation_unit_uuid
 ON secret_reservation (unit_uuid);
+
+CREATE INDEX idx_secret_reservation_list
+ON secret_reservation (secret_id, unit_uuid, created_at);

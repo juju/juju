@@ -39,6 +39,12 @@ ON unit (application_uuid);
 CREATE INDEX idx_unit_net_node
 ON unit (net_node_uuid);
 
+CREATE INDEX idx_unit_net_node_uuid
+ON unit (net_node_uuid, uuid);
+
+CREATE UNIQUE INDEX idx_unit_uuid_name
+ON unit (uuid, name);
+
 -- unit_principal table is a table which is used to store the
 -- principal units for subordinate units.
 CREATE TABLE unit_principal (
@@ -187,6 +193,9 @@ CREATE TABLE unit_agent_status (
     FOREIGN KEY (status_id)
     REFERENCES unit_agent_status_value (id)
 );
+
+CREATE INDEX idx_unit_agent_status_status_unit
+ON unit_agent_status (status_id, unit_uuid);
 
 CREATE TABLE unit_workload_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,

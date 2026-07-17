@@ -826,6 +826,7 @@ func (s *spaceMachineSuite) fetchSubnetSpace(c *tc.C) []subnetSpace {
 SELECT subnet.uuid, space.name
 FROM subnet
 JOIN space ON space.uuid = subnet.space_uuid
+WHERE subnet.uuid >= ''
 `)
 		if err != nil {
 			return err

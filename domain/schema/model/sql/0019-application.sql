@@ -24,6 +24,9 @@ ON application (name);
 CREATE INDEX idx_application_charm_uuid
 ON application (charm_uuid);
 
+CREATE INDEX idx_application_space_details
+ON application (space_uuid, uuid, name, charm_uuid);
+
 -- This table is only used to track whether a application is a controller or
 -- not. It should be sparse and only contain a single row for the controller
 -- application.
@@ -68,6 +71,9 @@ ON k8s_service (application_uuid);
 CREATE UNIQUE INDEX idx_k8s_service_net_node
 ON k8s_service (net_node_uuid);
 
+CREATE UNIQUE INDEX idx_k8s_service_details
+ON k8s_service (uuid, net_node_uuid, application_uuid, provider_id);
+
 
 CREATE TABLE operator_status (
     application_uuid TEXT NOT NULL PRIMARY KEY,
@@ -110,6 +116,13 @@ CREATE TABLE application_exposed_endpoint_space (
     FOREIGN KEY (space_uuid)
     REFERENCES space (uuid),
     PRIMARY KEY (application_uuid, application_endpoint_uuid, space_uuid)
+);
+
+CREATE INDEX idx_application_exposed_endpoint_space_space
+ON application_exposed_endpoint_space (
+    space_uuid,
+    application_uuid,
+    application_endpoint_uuid
 );
 
 -- There is no FK against the CIDR, because it's currently free-form.
@@ -190,6 +203,9 @@ CREATE TABLE application_constraint (
     FOREIGN KEY (constraint_uuid)
     REFERENCES "constraint" (uuid)
 );
+
+CREATE INDEX idx_application_constraint_constraint_application
+ON application_constraint (constraint_uuid, application_uuid);
 
 CREATE TABLE application_setting (
     application_uuid TEXT NOT NULL PRIMARY KEY,

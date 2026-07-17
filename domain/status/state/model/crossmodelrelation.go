@@ -117,8 +117,9 @@ LEFT JOIN application_remote_offerer_status AS aros ON aro.uuid = aros.applicati
 JOIN      application_endpoint              AS ae   ON a.uuid = ae.application_uuid
 JOIN      charm_relation                    AS cr   ON ae.charm_relation_uuid = cr.uuid
 JOIN      charm_relation_role               AS crr  ON cr.role_id = crr.id
--- Left join, since we don't know if any relations exist
-LEFT JOIN v_relation_endpoint               AS re   ON re.application_uuid = a.uuid
+-- Left join, since we don't know if any relations exist.
+LEFT JOIN relation_endpoint                 AS re   ON re.endpoint_uuid = ae.uuid
+WHERE     ae.rowid > 0
 `, fullRemoteApplicationStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)

@@ -491,6 +491,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
     LEFT JOIN storage_volume_status svs ON siv.storage_volume_uuid=svs.volume_uuid
     LEFT JOIN storage_instance_filesystem sif ON si.uuid=sif.storage_instance_uuid
     LEFT JOIN storage_filesystem_status sfs ON sif.storage_filesystem_uuid=sfs.filesystem_uuid
+    WHERE     si.uuid >= ''
 )
 `, storageInstanceStatusDetails{})
 	if err != nil {
@@ -655,6 +656,7 @@ SELECT &storageAttachmentStatusDetails.* FROM (
     LEFT JOIN storage_instance_filesystem sif ON sa.storage_instance_uuid=sif.storage_instance_uuid
     LEFT JOIN storage_filesystem_attachment sfa ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid AND
                                                    u.net_node_uuid=sfa.net_node_uuid
+    WHERE     sa.uuid >= ''
 )
 `, storageAttachmentStatusDetails{})
 	if err != nil {
@@ -797,6 +799,7 @@ LEFT JOIN storage_instance si ON si.uuid=sif.storage_instance_uuid
 LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_instance_uuid=si.uuid
 LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
+WHERE     sf.uuid >= ''
 `, filesystemStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -951,6 +954,7 @@ SELECT DISTINCT &filesystemAttachmentStatusDetails.* FROM (
         AND m.net_node_uuid IS NULL
     LEFT JOIN storage_instance_filesystem sif ON sif.storage_filesystem_uuid=sfa.storage_filesystem_uuid
     LEFT JOIN storage_attachment sa ON sa.storage_instance_uuid=sif.storage_instance_uuid
+    WHERE     sfa.uuid >= ''
 )
 `
 
@@ -1084,6 +1088,7 @@ LEFT JOIN storage_volume_status svs ON svs.volume_uuid=sv.uuid
 LEFT JOIN storage_instance_volume siv ON siv.storage_volume_uuid=sv.uuid
 LEFT JOIN storage_instance si ON si.uuid=siv.storage_instance_uuid
 LEFT JOIN storage_pool sp ON sp.uuid=si.storage_pool_uuid
+WHERE     sv.uuid >= ''
 `, volumeStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1336,6 +1341,7 @@ FROM (
     LEFT JOIN unit u
         ON sva.net_node_uuid=u.net_node_uuid
         AND m.net_node_uuid IS NULL
+    WHERE     sva.uuid >= ''
 )
 `
 
@@ -1347,6 +1353,7 @@ FROM  (
    FROM      storage_volume_attachment sva
    JOIN      block_device bd ON bd.uuid=sva.block_device_uuid
    JOIN      block_device_link_device bdld ON bdld.block_device_uuid=bd.uuid
+   WHERE     sva.uuid >= ''
 )
 `
 

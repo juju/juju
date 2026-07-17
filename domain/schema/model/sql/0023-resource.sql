@@ -51,6 +51,12 @@ CREATE TABLE resource (
     REFERENCES resource_state (id)
 );
 
+CREATE INDEX idx_resource_charm_state_origin_revision
+ON resource (charm_uuid, charm_resource_name, state_id, origin_type_id, revision);
+
+CREATE INDEX idx_resource_state_id
+ON resource (state_id);
+
 -- Links applications to the resources that they are *using*.
 -- This resource may in turn be linked through to a *different* charm than the
 -- application is using, because the charm_resource_name field indicates the
@@ -65,6 +71,9 @@ CREATE TABLE application_resource (
     FOREIGN KEY (resource_uuid)
     REFERENCES resource (uuid)
 );
+
+CREATE INDEX idx_application_resource_application_uuid
+ON application_resource (application_uuid);
 
 -- Links a resource to an application which does not exist yet.
 CREATE TABLE pending_application_resource (
@@ -117,6 +126,9 @@ CREATE TABLE unit_resource (
     REFERENCES unit (uuid),
     PRIMARY KEY (resource_uuid, unit_uuid)
 );
+
+CREATE INDEX idx_unit_resource_unit_uuid
+ON unit_resource (unit_uuid);
 
 -- This is the actual store for container image resources. The metadata
 -- necessary to retrieve the OCI Image from a registry.

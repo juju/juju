@@ -300,20 +300,27 @@ func (st *State) getApplicationBoundToSpace(ctx context.Context, tx *sqlair.TX, 
 	current := space{Name: spaceName.String()}
 
 	stmt, err := st.Prepare(`
-WITH
-bindings AS (
-    SELECT uuid AS application_uuid, space_uuid FROM application
-    UNION ALL
-    SELECT application_uuid, space_uuid FROM application_endpoint
-    UNION ALL
-    SELECT application_uuid, space_uuid FROM application_extra_endpoint
-    UNION ALL
-    SELECT application_uuid, space_uuid FROM application_exposed_endpoint_space
-)
-SELECT DISTINCT a.name AS &application.name
-FROM bindings AS b
-JOIN application AS a ON b.application_uuid = a.uuid
-JOIN space AS s ON b.space_uuid = s.uuid
+SELECT a.name AS &application.name
+FROM application AS a
+JOIN space AS s ON a.space_uuid = s.uuid
+WHERE s.name = $space.name
+UNION
+SELECT a.name
+FROM application_endpoint AS ae
+JOIN application AS a ON ae.application_uuid = a.uuid
+JOIN space AS s ON ae.space_uuid = s.uuid
+WHERE s.name = $space.name
+UNION
+SELECT a.name
+FROM application_extra_endpoint AS aee
+JOIN application AS a ON aee.application_uuid = a.uuid
+JOIN space AS s ON aee.space_uuid = s.uuid
+WHERE s.name = $space.name
+UNION
+SELECT a.name
+FROM application_exposed_endpoint_space AS aes
+JOIN application AS a ON aes.application_uuid = a.uuid
+JOIN space AS s ON aes.space_uuid = s.uuid
 WHERE s.name = $space.name`, current, application{})
 	if err != nil {
 		return nil, errors.Capture(err)

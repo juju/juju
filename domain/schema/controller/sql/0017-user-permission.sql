@@ -6,6 +6,9 @@ CREATE TABLE permission_access_type (
 CREATE UNIQUE INDEX idx_permission_access_type
 ON permission_access_type (type);
 
+CREATE UNIQUE INDEX idx_permission_access_type_id_type
+ON permission_access_type (id, type);
+
 -- Maps to the Access type in core/permission package.
 INSERT INTO permission_access_type VALUES
 (0, 'read'),
@@ -23,6 +26,9 @@ CREATE TABLE permission_object_type (
 
 CREATE UNIQUE INDEX idx_permission_object_type
 ON permission_object_type (type);
+
+CREATE UNIQUE INDEX idx_permission_object_type_id_type
+ON permission_object_type (id, type);
 
 -- Maps to the ObjectType type in core/permission package.
 INSERT INTO permission_object_type VALUES
@@ -85,6 +91,15 @@ ON permission (grant_to);
 
 CREATE INDEX idx_permission_object_type_grant_on
 ON permission (object_type_id, grant_on);
+
+CREATE INDEX idx_permission_details
+ON permission (
+    access_type_id,
+    object_type_id,
+    uuid,
+    grant_on,
+    grant_to
+);
 
 -- All permissions
 CREATE VIEW v_permission AS

@@ -276,16 +276,18 @@ func (st *State) GetMachineAgentBinaryMetadata(ctx context.Context, mName string
 	ident := machineName{Name: mName}
 	stmt, err := st.Prepare(`
 SELECT    mav.version AS &agentBinaryMetadata.version,
-          mav.architecture_name AS &agentBinaryMetadata.architecture_name,
+          a.name AS &agentBinaryMetadata.architecture_name,
           osm.size AS &agentBinaryMetadata.size,
           osm.sha_256 AS &agentBinaryMetadata.sha_256,
           osm.sha_384 AS &agentBinaryMetadata.sha_384
-FROM      v_machine_agent_version AS mav
-LEFT JOIN v_agent_binary_store AS abs ON (
+FROM      machine AS m
+JOIN      machine_agent_version AS mav ON mav.machine_uuid = m.uuid
+JOIN      architecture AS a ON a.id = mav.architecture_id
+LEFT JOIN agent_binary_store AS abs ON (
           mav.version = abs.version
 AND       mav.architecture_id = abs.architecture_id)
 LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
-WHERE     mav.name = $machineName.name
+WHERE     m.name = $machineName.name
 `, agentBinaryMetadata{}, ident)
 	if err != nil {
 		return coreagentbinary.Metadata{}, errors.Capture(err)
@@ -375,10 +377,11 @@ SELECT    mav.name AS &machineAgentBinaryMetadata.name,
           osm.sha_256 AS &machineAgentBinaryMetadata.sha_256,
           osm.sha_384 AS &machineAgentBinaryMetadata.sha_384
 FROM      v_machine_agent_version AS mav
-LEFT JOIN v_agent_binary_store AS abs ON (
+LEFT JOIN agent_binary_store AS abs ON (
           mav.version = abs.version
 AND       mav.architecture_id = abs.architecture_id)
 LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
+WHERE     mav.machine_uuid >= ''
 `, machineAgentBinaryMetadata{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -479,12 +482,15 @@ func (st *State) GetMachinesNotAtTargetAgentVersion(
 	query := `
 SELECT &machineName.*
 FROM v_machine_target_agent_version
-WHERE version != target_version
+WHERE machine_uuid >= ''
+AND   version != target_version
 UNION
 SELECT name
 FROM machine
-WHERE uuid NOT IN (SELECT machine_uuid
-                   FROM v_machine_target_agent_version)
+WHERE uuid >= ''
+AND   uuid NOT IN (SELECT machine_uuid
+                   FROM v_machine_target_agent_version
+                   WHERE machine_uuid >= '')
 `
 
 	queryStmt, err := st.Prepare(query, machineName{})
@@ -727,10 +733,11 @@ SELECT    u.name AS &unitAgentBinaryMetadata.name,
 FROM      unit_agent_version AS uav
 JOIN      unit AS u ON uav.unit_uuid = u.uuid
 JOIN      architecture AS a ON uav.architecture_id = a.id
-LEFT JOIN v_agent_binary_store AS abs ON (
+LEFT JOIN agent_binary_store AS abs ON (
           uav.version = abs.version
 AND       uav.architecture_id = abs.architecture_id)
 LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
+WHERE     uav.unit_uuid >= ''
 `, unitAgentBinaryMetadata{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -830,12 +837,15 @@ func (st *State) GetUnitsNotAtTargetAgentVersion(
 	query := `
 SELECT &unitName.*
 FROM v_unit_target_agent_version
-WHERE version != target_version
+WHERE unit_uuid >= ''
+AND   version != target_version
 UNION
 SELECT name
 FROM unit
-WHERE uuid NOT IN (SELECT unit_uuid
-                   FROM v_unit_target_agent_version)
+WHERE uuid >= ''
+AND   uuid NOT IN (SELECT unit_uuid
+                   FROM v_unit_target_agent_version
+                   WHERE unit_uuid >= '')
 `
 
 	queryStmt, err := st.Prepare(query, unitName{})
@@ -1560,6 +1570,7 @@ SELECT mp.machine_uuid AS &machineBase.machine_uuid,
        mp.channel AS &machineBase.channel
 FROM   machine_platform AS mp
 JOIN   os ON mp.os_id = os.id
+WHERE  mp.machine_uuid >= ''
 `, machineBase{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1612,6 +1623,7 @@ func (st *State) GetAllMachinesArchitectures(ctx context.Context) ([]string, err
 SELECT DISTINCT a.name AS &name.name
 FROM   machine_platform AS mp
 JOIN   architecture AS a ON mp.architecture_id = a.id
+WHERE  mp.machine_uuid >= ''
 `, name{})
 	if err != nil {
 		return nil, errors.Capture(err)

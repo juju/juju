@@ -985,7 +985,10 @@ func (st *ModelState) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (stat
 		return nil, errors.Capture(err)
 	}
 
-	query, err := st.Prepare(`SELECT &workloadAgentStatus.* FROM v_unit_workload_agent_status`, workloadAgentStatus{})
+	query, err := st.Prepare(`
+SELECT &workloadAgentStatus.*
+FROM   v_unit_workload_agent_status
+WHERE  unit_uuid >= ''`, workloadAgentStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -1050,6 +1053,7 @@ func (st *ModelState) GetAllApplicationStatuses(ctx context.Context) (map[string
 SELECT &applicationNameStatusInfo.*
 FROM application_status
 JOIN application ON application.uuid = application_status.application_uuid
+WHERE application_status.rowid > 0
 `, applicationNameStatusInfo{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -1630,6 +1634,7 @@ WITH selected_k8s_service_address AS (
       LIMIT 1
     ) AS address_value
   FROM   k8s_service AS svc
+  WHERE  svc.rowid > 0
 )
 SELECT
   a.name AS &applicationStatusDetails.name,
@@ -1656,12 +1661,19 @@ SELECT
   aps.scale AS &applicationStatusDetails.scale,
   k8s.provider_id AS &applicationStatusDetails.k8s_provider_id,
   svc_addr.address_value AS &applicationStatusDetails.k8s_public_address,
-  EXISTS(
-    SELECT 1 FROM v_application_exposed_endpoint AS ae
-    WHERE ae.application_uuid = a.uuid
-  ) AS &applicationStatusDetails.exposed,
+  CASE WHEN
+    EXISTS(
+      SELECT 1
+      FROM application_exposed_endpoint_space AS aes
+      WHERE aes.application_uuid = a.uuid
+    ) OR EXISTS(
+      SELECT 1
+      FROM application_exposed_endpoint_cidr AS aec
+      WHERE aec.application_uuid = a.uuid
+    )
+  THEN 1 ELSE 0 END AS &applicationStatusDetails.exposed,
   awv.version AS &applicationStatusDetails.workload_version
-FROM application AS a
+FROM application AS a INDEXED BY sqlite_autoindex_application_1
 JOIN application_platform AS ap ON ap.application_uuid = a.uuid
 LEFT JOIN application_channel AS ac ON ac.application_uuid = a.uuid
 JOIN charm AS c ON c.uuid = a.charm_uuid
@@ -1671,9 +1683,11 @@ LEFT JOIN application_status AS s ON s.application_uuid = a.uuid
 LEFT JOIN k8s_service AS k8s ON k8s.application_uuid = a.uuid
 LEFT JOIN selected_k8s_service_address AS svc_addr ON svc_addr.application_uuid = a.uuid
 LEFT JOIN application_scale AS aps ON aps.application_uuid = a.uuid
-LEFT JOIN v_relation_endpoint AS re ON re.application_uuid = a.uuid
+LEFT JOIN application_endpoint AS relation_ae ON relation_ae.application_uuid = a.uuid
+LEFT JOIN relation_endpoint AS re ON re.endpoint_uuid = relation_ae.uuid
 LEFT JOIN application_workload_version AS awv ON awv.application_uuid = a.uuid
 WHERE c.source_id < 2
+AND   a.uuid >= ''
 ORDER BY a.name, re.relation_uuid;
 `, applicationStatusDetails{})
 	if err != nil {
@@ -1793,6 +1807,7 @@ WITH unit_subordinate AS (
 	SELECT u.name AS subordinate_name, principal_uuid
 	FROM unit_principal
 	JOIN unit AS u ON u.uuid = unit_principal.unit_uuid
+	WHERE unit_principal.unit_uuid >= ''
 )
 SELECT
 	u.name AS &unitStatusDetails.name,
@@ -1826,7 +1841,7 @@ SELECT
 	) AS &unitStatusDetails.present,
 	uav.version AS &unitStatusDetails.agent_version,
 	awv.version AS &unitStatusDetails.workload_version
-FROM unit AS u
+FROM unit AS u INDEXED BY sqlite_autoindex_unit_1
 JOIN application AS a ON a.uuid = u.application_uuid
 JOIN net_node AS n ON n.uuid = u.net_node_uuid
 JOIN charm AS c ON c.uuid = a.charm_uuid
@@ -1843,6 +1858,7 @@ LEFT JOIN unit_subordinate AS us ON us.principal_uuid = u.uuid
 LEFT JOIN unit_agent_version AS uav ON uav.unit_uuid = u.uuid
 LEFT JOIN unit_workload_version AS awv ON awv.unit_uuid = u.uuid
 WHERE c.source_id < 2
+AND   u.uuid >= ''
 ORDER BY u.name;
 `, unitStatusDetails{})
 	if err != nil {
@@ -1975,8 +1991,9 @@ func (st *ModelState) GetApplicationAndUnitModelStatuses(ctx context.Context) (m
 	query, err := st.Prepare(`
 SELECT application.name AS &applicationNameUnitCount.name,
 	   COUNT(u.uuid) AS &applicationNameUnitCount.unit_count
-FROM application
+FROM application NOT INDEXED
 LEFT JOIN unit AS u ON u.application_uuid = application.uuid
+WHERE application.rowid > 0
 GROUP BY u.application_uuid, application.name;
 `, applicationNameUnitCount{})
 	if err != nil {
@@ -2095,6 +2112,7 @@ func (st *ModelState) GetAllMachineStatuses(ctx context.Context) (map[string]sta
 SELECT &machineNameStatus.*
 FROM v_machine_status AS ms
 JOIN machine AS m ON ms.machine_uuid = m.uuid
+	WHERE ms.machine_uuid >= ''
 	`, machineNameStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2171,7 +2189,18 @@ SELECT
   ms.message AS &machineStatusDetails.machine_message,
   ms.data AS &machineStatusDetails.machine_data,
   ms.updated_at AS &machineStatusDetails.machine_updated_at,
-  vms.present AS &machineStatusDetails.machine_present,
+  CASE WHEN
+    EXISTS (
+      SELECT 1
+      FROM machine_agent_presence AS map
+      WHERE map.machine_uuid = m.uuid
+    ) OR EXISTS (
+      SELECT 1
+      FROM machine_parent AS mp
+      JOIN machine_agent_presence AS map ON mp.machine_uuid = map.machine_uuid
+      WHERE mp.parent_uuid = m.uuid
+    )
+  THEN 1 ELSE 0 END AS &machineStatusDetails.machine_present,
   mcis.status_id AS &machineStatusDetails.instance_status_id,
   mcis.message AS &machineStatusDetails.instance_message,
   mcis.data AS &machineStatusDetails.instance_data,
@@ -2190,20 +2219,23 @@ SELECT
   c.image_id AS &machineStatusDetails.constraint_image_id
 FROM machine AS m
 LEFT JOIN machine_status AS ms ON ms.machine_uuid = m.uuid
-LEFT JOIN v_machine_status AS vms ON vms.machine_uuid = m.uuid
 LEFT JOIN machine_platform AS p ON p.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance AS mci ON mci.machine_uuid = m.uuid
 LEFT JOIN machine_cloud_instance_status mcis ON mcis.machine_uuid = m.uuid
 LEFT JOIN availability_zone AS az ON az.uuid = mci.availability_zone_uuid
 LEFT JOIN machine_constraint AS mc ON mc.machine_uuid = m.uuid
 LEFT JOIN "constraint" AS c ON c.uuid = mc.constraint_uuid
-LEFT JOIN container_type AS ct ON c.container_type_id = ct.id;
+LEFT JOIN container_type AS ct ON c.container_type_id = ct.id
+WHERE m.uuid >= '';
 `, machineStatusDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
-	tagsStmt, err := st.Prepare(` SELECT &instanceTag.* FROM instance_tag`, instanceTag{})
+	tagsStmt, err := st.Prepare(`
+SELECT &instanceTag.*
+FROM   instance_tag
+WHERE  machine_uuid >= ''`, instanceTag{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -2219,9 +2251,10 @@ SELECT
 	sn.space_uuid AS &machineSpaceAddress.space_uuid,
 	sn.cidr AS &machineSpaceAddress.cidr
 FROM machine AS m
-JOIN link_layer_device AS lld ON m.net_node_uuid = lld.net_node_uuid
-JOIN v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
+CROSS JOIN link_layer_device AS lld ON m.net_node_uuid = lld.net_node_uuid
+CROSS JOIN v_ip_address_with_names AS ipa ON lld.uuid = ipa.device_uuid
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
+WHERE m.uuid >= ''
 `, machineSpaceAddress{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2502,6 +2535,7 @@ func (st *ModelState) GetAllInstanceStatuses(ctx context.Context) (map[string]st
 SELECT &instanceNameStatus.*
 FROM v_machine_cloud_instance_status AS ms
 JOIN machine AS m ON ms.machine_uuid = m.uuid
+	WHERE ms.machine_uuid >= ''
 	`, instanceNameStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)

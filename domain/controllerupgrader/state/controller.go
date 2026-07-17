@@ -106,6 +106,7 @@ func (s *ControllerState) GetControllerNodes(ctx context.Context) ([]internal.Co
 	stmt, err := s.Prepare(`
 SELECT &controllerNodeAgentVersion.*
 FROM   controller_node_agent_version
+       INDEXED BY idx_controller_node_agent_version_details
 `,
 		controllerNodeAgentVersion{})
 	if err != nil {

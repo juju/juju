@@ -1001,6 +1001,7 @@ func (st *State) InitialWatchStatementForConsumerRelations() (string, eventsourc
 SELECT DISTINCT re.relation_uuid AS &uuid.uuid
 FROM   v_relation_endpoint AS re
 JOIN   application_remote_offerer AS aro ON aro.application_uuid = re.application_uuid
+WHERE  re.relation_uuid >= ''
 `, uuid{})
 		if err != nil {
 			return nil, errors.Capture(err)
@@ -1046,6 +1047,7 @@ func (st *State) GetConsumerRelationUUIDs(ctx context.Context, relationUUIDs ...
 SELECT DISTINCT re.relation_uuid AS &uuid.uuid
 FROM   v_relation_endpoint AS re
 JOIN   application_remote_offerer AS aro ON aro.application_uuid = re.application_uuid
+WHERE  re.relation_uuid >= ''
 `, uuid{})
 		if err != nil {
 			return nil, errors.Capture(err)

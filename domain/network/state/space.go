@@ -248,6 +248,7 @@ func (st *State) GetAllSpaces(
 	s, err := st.Prepare(`
 SELECT &spaceSubnetRow.*
 FROM   v_space_subnet
+WHERE  uuid >= ''
 `, spaceSubnetRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select all spaces statement: %w", err)

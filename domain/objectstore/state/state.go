@@ -128,13 +128,13 @@ func (s *State) GetMetadataBySHA256Prefix(ctx context.Context, sha256 string) (c
 		return coreobjectstore.Metadata{}, errors.Capture(err)
 	}
 
-	sha256IdentPrefix := sha256IdentPrefix{SHA256Prefix: sha256}
+	sha256IdentPrefix := sha256IdentPrefix{SHA256Prefix: sha256 + "%"}
 	var metadata dbMetadata
 
 	stmt, err := s.Prepare(`
 SELECT &dbMetadata.*
 FROM v_object_store_metadata
-WHERE sha_256 LIKE $sha256IdentPrefix.sha_256_prefix || '%'`, metadata, sha256IdentPrefix)
+WHERE sha_256 LIKE $sha256IdentPrefix.sha_256_prefix`, metadata, sha256IdentPrefix)
 	if err != nil {
 		return coreobjectstore.Metadata{}, errors.Errorf("preparing select metadata statement: %w", err)
 	}

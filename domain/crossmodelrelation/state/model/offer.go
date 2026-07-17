@@ -327,6 +327,7 @@ func (st *State) getOfferDetails(ctx context.Context, tx *sqlair.TX) (offerDetai
 	stmt, err := st.Prepare(`
 SELECT &offerDetail.*
 FROM   v_offer_detail
+WHERE  offer_uuid >= ''
 `, offerDetail{})
 	if err != nil {
 		return nil, errors.Errorf("preparing offer detail query: %w", err)
@@ -374,6 +375,7 @@ AND    (application_description LIKE $offerFilter.application_description OR $of
 AND    (endpoint_name = $offerFilter.endpoint_name OR $offerFilter.endpoint_name = '')
 AND    (endpoint_role = $offerFilter.endpoint_role OR $offerFilter.endpoint_role = '')
 AND    (endpoint_interface = $offerFilter.endpoint_interface OR $offerFilter.endpoint_interface = '')
+AND    offer_uuid >= ''
 `, offerDetail{}, offerFilter{})
 	if err != nil {
 		return nil, errors.Errorf("preparing filtered offer detail query: %w", err)

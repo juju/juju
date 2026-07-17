@@ -173,7 +173,9 @@ func (st *State) getCharmTracingConfig(ctx context.Context) (map[string]string, 
 		return nil, err
 	}
 
-	query := `SELECT &tracingConfigEntry.* FROM charm_tracing_config`
+	query := `
+SELECT &tracingConfigEntry.*
+FROM charm_tracing_config INDEXED BY idx_charm_tracing_config_key_value`
 	stmt, err := st.Prepare(query, tracingConfigEntry{})
 	if err != nil {
 		return nil, err
@@ -202,7 +204,9 @@ func (st *State) getWorkloadTracingConfig(ctx context.Context) (map[string]strin
 		return nil, err
 	}
 
-	query := `SELECT &tracingConfigEntry.* FROM workload_tracing_config`
+	query := `
+SELECT &tracingConfigEntry.*
+FROM workload_tracing_config INDEXED BY idx_workload_tracing_config_key_value`
 	stmt, err := st.Prepare(query, tracingConfigEntry{})
 	if err != nil {
 		return nil, err

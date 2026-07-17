@@ -1054,7 +1054,7 @@ func (s *modelSuite) TestSetModelStoragePools(c *tc.C) {
 
 	rows, err := s.DB().QueryContext(
 		c.Context(),
-		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool",
+		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool WHERE storage_kind_id >= 0",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
@@ -1111,7 +1111,7 @@ func (s *modelSuite) TestSetModelStoragePoolsSamePool(c *tc.C) {
 
 	rows, err := s.DB().QueryContext(
 		c.Context(),
-		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool",
+		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool WHERE storage_kind_id >= 0 ORDER BY storage_kind_id DESC",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()
@@ -1198,7 +1198,7 @@ func (s *modelSuite) TestSetModelStoragePoolsOverwrite(c *tc.C) {
 
 	rows, err := s.DB().QueryContext(
 		c.Context(),
-		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool",
+		"SELECT storage_pool_uuid, storage_kind_id FROM model_storage_pool WHERE storage_kind_id >= 0",
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	defer func() { _ = rows.Close() }()

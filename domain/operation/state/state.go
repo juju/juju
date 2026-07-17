@@ -271,7 +271,8 @@ func (st *State) getTaskUUIDsByOperationUUIDs(ctx context.Context, tx *sqlair.TX
 	stmt, err := st.Prepare(`
 SELECT &task.uuid
 FROM   operation_task
-WHERE  operation_uuid IN ($uuids[:])`, toGet, task{})
+WHERE  operation_uuid IN ($uuids[:])
+ORDER BY rowid`, toGet, task{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

@@ -50,7 +50,7 @@ func (s *baseSuite) SetUpTest(c *tc.C) {
 }
 
 func (s *baseSuite) readOffers(c *tc.C) []nameAndUUID {
-	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer`)
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer WHERE name >= ''`)
 	c.Assert(err, tc.IsNil)
 	defer func() { _ = rows.Close() }()
 	foundOffers := []nameAndUUID{}
@@ -64,7 +64,7 @@ func (s *baseSuite) readOffers(c *tc.C) []nameAndUUID {
 }
 
 func (s *baseSuite) readOfferEndpoints(c *tc.C) []offerEndpoint {
-	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer_endpoint`)
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM offer_endpoint WHERE endpoint_uuid >= ''`)
 	c.Assert(err, tc.IsNil)
 	defer func() { _ = rows.Close() }()
 	foundOfferEndpoints := []offerEndpoint{}

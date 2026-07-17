@@ -36,7 +36,9 @@ func (s *State) GetSequencesForExport(ctx context.Context) (map[string]uint64, e
 		return nil, err
 	}
 
-	query, err := s.Prepare("SELECT &sequence.* FROM sequence", sequence{})
+	query, err := s.Prepare(`
+SELECT &sequence.*
+FROM sequence INDEXED BY idx_sequence_namespace_value`, sequence{})
 	if err != nil {
 		return nil, err
 	}

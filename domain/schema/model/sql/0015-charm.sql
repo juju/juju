@@ -98,6 +98,9 @@ CREATE TABLE charm (
 CREATE UNIQUE INDEX idx_charm_reference_name_revision
 ON charm (source_id, reference_name, revision);
 
+CREATE INDEX idx_charm_reference_revision_uuid
+ON charm (reference_name, revision, uuid);
+
 CREATE TABLE charm_provenance (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
@@ -276,6 +279,9 @@ CREATE TABLE charm_relation (
 
 CREATE UNIQUE INDEX idx_charm_relation_charm_key
 ON charm_relation (charm_uuid, name);
+
+CREATE INDEX idx_charm_relation_name_uuid
+ON charm_relation (name, uuid);
 
 CREATE VIEW v_charm_relation AS
 SELECT

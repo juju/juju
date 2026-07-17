@@ -77,7 +77,7 @@ func getLookupNameToID[T ~string](ctx context.Context, st *State, tx *sqlair.TX,
 		return nil, errors.Errorf("invalid table name: %q", tableName)
 	}
 
-	deviceTypeStmt, err := st.Prepare(fmt.Sprintf("SELECT &lookupRow.* FROM %s", tableName), lookupRow{})
+	deviceTypeStmt, err := st.Prepare(fmt.Sprintf("SELECT &lookupRow.* FROM %s WHERE id >= 0", tableName), lookupRow{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

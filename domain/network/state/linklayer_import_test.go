@@ -215,6 +215,7 @@ SELECT
      vpt.name AS &readLinkLayerDevice.virtual_port_type
 FROM link_layer_device AS lld
 JOIN virtual_port_type AS vpt ON lld.virtual_port_type_id = vpt.id
+WHERE lld.net_node_uuid >= ''
 `, readLinkLayerDevice{})
 		if err != nil {
 			return err
@@ -257,6 +258,7 @@ func (s *linkLayerImportSuite) readProviderLinkLayerDevice(c *tc.C) []providerLi
 		stmt, err := s.state.Prepare(`
 SELECT * AS &providerLinkLayerDevice.*
 FROM provider_link_layer_device
+WHERE device_uuid >= ''
 `, providerLinkLayerDevice{})
 		if err != nil {
 			return err
@@ -294,6 +296,7 @@ JOIN ip_address_type AS ipt ON ip.type_id = ipt.id
 JOIN ip_address_config_type AS ipct ON ip.config_type_id = ipct.id
 JOIN ip_address_origin AS ipo ON ip.origin_id = ipo.id
 JOIN ip_address_scope AS ips ON ip.scope_id = ips.id
+WHERE ip.net_node_uuid >= ''
 `, readIpAddresses{})
 		if err != nil {
 			return err
@@ -315,6 +318,7 @@ func (s *linkLayerImportSuite) readProviderIpAddresses(c *tc.C) []providerIpAddr
 		stmt, err := s.state.Prepare(`
 SELECT * AS &providerIpAddressDML.*
 FROM provider_ip_address
+WHERE address_uuid >= ''
 `, providerIpAddressDML{})
 		if err != nil {
 			return err

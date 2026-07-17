@@ -973,21 +973,27 @@ func (st State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *c
 	query, err := st.Prepare(`
 SELECT sr.uuid AS &secretRevision.uuid
 FROM   secret_revision sr
-       LEFT JOIN (
-           -- revisions that have local consumers.
-           SELECT DISTINCT current_revision AS revision FROM secret_unit_consumer suc
-           WHERE  suc.secret_id = $secretRef.secret_id
-           UNION
-           -- revisions that have remote consumers.
-           SELECT DISTINCT current_revision AS revision FROM secret_remote_unit_consumer suc
-           WHERE  suc.secret_id = $secretRef.secret_id
-           UNION
-           -- the latest revision.
-           SELECT MAX(revision) FROM secret_revision rev
-           WHERE  rev.secret_id = $secretRef.secret_id
-       ) in_use ON sr.revision = in_use.revision
 WHERE sr.secret_id = $secretRef.secret_id
-AND (in_use.revision IS NULL OR in_use.revision = 0);
+AND (sr.revision = 0 OR (
+    NOT EXISTS (
+        SELECT 1
+        FROM   secret_unit_consumer AS suc
+        WHERE  suc.secret_id = sr.secret_id
+        AND    suc.current_revision = sr.revision
+    )
+    AND NOT EXISTS (
+        SELECT 1
+        FROM   secret_remote_unit_consumer AS sruc
+        WHERE  sruc.secret_id = sr.secret_id
+        AND    sruc.current_revision = sr.revision
+    )
+    AND EXISTS (
+        SELECT 1
+        FROM   secret_revision AS newer
+        WHERE  newer.secret_id = sr.secret_id
+        AND    newer.revision > sr.revision
+    )
+));
 `, secretRef{}, secretRevision{})
 	if err != nil {
 		return errors.Capture(err)
@@ -1878,19 +1884,30 @@ func (st State) listCharmSecrets(
 	if len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
+	if len(appOwners) > 0 && len(unitOwners) > 0 {
+		appSecrets, err := st.listCharmSecrets(ctx, tx, appOwners, nil)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		unitSecrets, err := st.listCharmSecrets(ctx, tx, nil, unitOwners)
+		if err != nil {
+			return nil, errors.Capture(err)
+		}
+		return append(appSecrets, unitSecrets...), nil
+	}
 
 	var preQueryParts []string
 	appOwnerSelect := `
 app_owners AS
     (SELECT $ownerKind.application_owner_kind AS owner_kind, application.name AS owner_name, label, secret_id
-     FROM   secret_application_owner so
+     FROM   secret_application_owner so INDEXED BY idx_secret_application_owner_application_label_secret
      JOIN   application ON application.uuid = so.application_uuid
      AND application.name IN ($ApplicationOwners[:]))`[1:]
 
 	unitOwnerSelect := `
 unit_owners AS
     (SELECT $ownerKind.unit_owner_kind AS owner_kind, unit.name AS owner_name, label, secret_id
-     FROM   secret_unit_owner so
+     FROM   secret_unit_owner so INDEXED BY idx_secret_unit_owner_unit_label_secret
      JOIN   unit ON unit.uuid = so.unit_uuid
      AND unit.name IN ($UnitOwners[:]))`[1:]
 
@@ -1920,7 +1937,7 @@ SELECT sm.secret_id AS &secretInfo.secret_id,
        (so.owner_kind,
        so.owner_name,
        so.label) AS (&secretOwner.*)
-FROM   secret_metadata sm
+FROM   secret_metadata sm INDEXED BY idx_secret_metadata_list
        JOIN secret_revision sr ON sr.secret_id = sm.secret_id
        LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
        LEFT JOIN secret_rotate_policy rp ON rp.id = sm.rotate_policy_id
@@ -1950,7 +1967,7 @@ FROM   secret_metadata sm
     JOIN (
       %s
     ) so ON so.secret_id = sm.secret_id
-`[1:], strings.Join(ownerParts, "\nUNION\n"))
+`[1:], strings.Join(ownerParts, "\nUNION ALL\n"))
 
 	queryParts = append(queryParts, ownerJoin, `GROUP BY sm.secret_id`)
 	queryStmt, err := st.Prepare(strings.Join(queryParts, "\n"), queryTypes...)
@@ -1981,10 +1998,11 @@ SELECT sm.secret_id AS &secretID.id,
        svr.backend_uuid AS &secretExternalRevision.backend_uuid,
        svr.revision_id AS &secretExternalRevision.revision_id,
        rev.revision AS &secretExternalRevision.revision
-FROM      secret_metadata sm
+FROM      secret_metadata sm INDEXED BY idx_secret_metadata_list
 JOIN      secret_revision rev ON rev.secret_id = sm.secret_id
 LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
-JOIN      secret_model_owner mso ON mso.secret_id = sm.secret_id`
+JOIN      secret_model_owner mso INDEXED BY idx_secret_model_owner_list
+          ON mso.secret_id = sm.secret_id`
 
 	queryStmt, err := st.Prepare(query, secretID{}, secretExternalRevision{})
 	if err != nil {
@@ -2027,14 +2045,14 @@ func (st State) ListCharmSecretsToDrain(
 	appOwnedSelect := `
 app_owned AS
     (SELECT secret_id
-     FROM   secret_application_owner so
+     FROM   secret_application_owner so INDEXED BY idx_secret_application_owner_application_label_secret
      JOIN   application ON application.uuid = so.application_uuid
      AND application.name IN ($ApplicationOwners[:]))`[1:]
 
 	unitOwnedSelect := `
 unit_owned AS
     (SELECT secret_id
-     FROM   secret_unit_owner so
+     FROM   secret_unit_owner so INDEXED BY idx_secret_unit_owner_unit_label_secret
      JOIN   unit ON unit.uuid = so.unit_uuid
      AND unit.name IN ($UnitOwners[:]))`[1:]
 
@@ -2065,7 +2083,7 @@ SELECT sm.secret_id AS &secretID.id,
        svr.backend_uuid AS &secretExternalRevision.backend_uuid,
        svr.revision_id AS &secretExternalRevision.revision_id,
        rev.revision AS &secretExternalRevision.revision
-FROM      secret_metadata sm
+FROM      secret_metadata sm INDEXED BY idx_secret_metadata_list
 JOIN      secret_revision rev ON rev.secret_id = sm.secret_id
 LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid`[1:]
 
@@ -2075,7 +2093,7 @@ LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid`[1:]
 JOIN (
 %s
 ) so ON so.secret_id = sm.secret_id
-`[1:], strings.Join(ownerParts, "\nUNION\n"))
+`[1:], strings.Join(ownerParts, "\nUNION ALL\n"))
 
 	queryParts = append(queryParts, ownerJoin)
 
@@ -2162,7 +2180,7 @@ func (st State) GetURIByConsumerLabel(ctx context.Context, label string, unitNam
 	query := `
 SELECT secret_id AS &secretUnitConsumer.secret_id,
        source_model_uuid AS &secretUnitConsumer.source_model_uuid
-FROM   secret_unit_consumer suc
+FROM   secret_unit_consumer suc INDEXED BY idx_secret_unit_consumer_list
 WHERE  suc.label = $secretUnitConsumer.label
 AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 `
@@ -2533,9 +2551,10 @@ SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
        suc.label AS &secretUnitConsumerInfo.label,
        suc.current_revision AS &secretUnitConsumerInfo.current_revision,
        u.name AS &secretUnitConsumerInfo.unit_name
-FROM   secret_unit_consumer suc
+FROM   secret_unit_consumer suc INDEXED BY idx_secret_unit_consumer_list
        JOIN secret_metadata sm ON sm.secret_id = suc.secret_id
        JOIN unit u ON u.uuid = suc.unit_uuid
+ORDER BY suc.secret_id, u.name
 `
 
 	queryStmt, err := st.Prepare(query, secretUnitConsumerInfo{})
@@ -2569,7 +2588,7 @@ func (st State) AllSecretRemoteConsumers(ctx context.Context) (map[string][]doma
 SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
        suc.current_revision AS &secretUnitConsumerInfo.current_revision,
        suc.unit_name AS &secretUnitConsumerInfo.unit_name
-FROM   secret_remote_unit_consumer suc
+FROM   secret_remote_unit_consumer suc INDEXED BY idx_secret_remote_unit_consumer_list
 `
 
 	queryStmt, err := st.Prepare(query, secretUnitConsumerInfo{})
@@ -2607,9 +2626,10 @@ SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
        suc.current_revision AS &secretUnitConsumerInfo.current_revision,
        sr.latest_revision AS &secretUnitConsumerInfo.latest_revision,
        u.name AS &secretUnitConsumerInfo.unit_name
-FROM   secret_unit_consumer suc
+FROM   secret_unit_consumer suc INDEXED BY idx_secret_unit_consumer_list
        JOIN unit u ON u.uuid = suc.unit_uuid
        JOIN secret_reference sr ON sr.secret_id = suc.secret_id
+ORDER BY suc.secret_id, u.name
 `
 
 	stmt, err := st.Prepare(q, secretUnitConsumerInfo{})
@@ -3142,6 +3162,7 @@ func (st State) AllSecretGrants(ctx context.Context) (map[string][]domainsecret.
 SELECT (sp.*) AS (&secretAccessor.*),
        (sp.*) AS (&secretAccessScope.*)
 FROM   v_secret_permission sp
+ORDER BY sp.secret_id, sp.scope_type_id, sp.role_id DESC, sp.subject_id
 `
 
 	selectStmt, err := st.Prepare(query, secretAccessor{}, secretAccessScope{})
@@ -3191,10 +3212,12 @@ func (st State) ListGrantedSecretsForBackend(
 	query := `
 SELECT (sm.secret_id) AS (&secretInfo.*),
        (svr.*) AS (&secretValueRef.*)
-FROM   secret_metadata sm
+FROM   secret_metadata sm INDEXED BY idx_secret_metadata_list
 JOIN   secret_revision rev ON rev.secret_id = sm.secret_id
-JOIN   secret_value_ref svr ON svr.revision_uuid = rev.uuid
-JOIN   secret_permission sp ON sp.secret_id = sm.secret_id
+JOIN   secret_value_ref svr INDEXED BY idx_secret_value_ref_backend_list
+       ON svr.revision_uuid = rev.uuid
+JOIN   secret_permission sp INDEXED BY idx_secret_permission_role_list
+       ON sp.secret_id = sm.secret_id
 LEFT JOIN unit suu ON sp.subject_uuid = suu.uuid AND sp.subject_type_id = $secretAccessorType.unit_type_id
 LEFT JOIN application sua ON sp.subject_uuid = sua.uuid AND sp.subject_type_id = $secretAccessorType.app_type_id
 WHERE  sp.role_id IN ($roles[:])
@@ -3305,7 +3328,7 @@ func (st State) InitialWatchStatementForConsumedSecretsChange(unitName coreunit.
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
 SELECT   DISTINCT sr.uuid AS &revisionUUID.uuid
-FROM     secret_unit_consumer suc
+FROM     secret_unit_consumer suc INDEXED BY idx_secret_unit_consumer_unit_list
 JOIN     unit u ON u.uuid = suc.unit_uuid
 JOIN     secret_revision sr ON sr.secret_id = suc.secret_id
 WHERE    u.name = $unit.name
@@ -3355,7 +3378,7 @@ func (st State) GetConsumedSecretURIsWithChanges(
 
 	q := `
 SELECT DISTINCT suc.secret_id AS &secretUnitConsumer.secret_id
-FROM   secret_unit_consumer suc
+FROM   secret_unit_consumer suc INDEXED BY idx_secret_unit_consumer_unit_list
 JOIN   unit u ON u.uuid = suc.unit_uuid
 JOIN   secret_revision sr ON sr.secret_id = suc.secret_id
 WHERE  u.name = $unit.name`
@@ -3407,7 +3430,7 @@ func (st State) InitialWatchStatementForConsumedRemoteSecretsChange(unitName cor
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
 SELECT   sr.secret_id AS &secretID.id
-FROM     secret_unit_consumer suc
+FROM     secret_unit_consumer suc INDEXED BY idx_secret_unit_consumer_unit_list
 JOIN     unit u ON u.uuid = suc.unit_uuid
 JOIN     secret_reference sr ON sr.secret_id = suc.secret_id
 WHERE    u.name = $unit.name AND
@@ -3458,7 +3481,7 @@ func (st State) GetConsumedRemoteSecretURIsWithChanges(
 	q := `
 SELECT suc.secret_id AS &secretUnitConsumer.secret_id,
        suc.source_model_uuid AS &secretUnitConsumer.source_model_uuid
-FROM   secret_unit_consumer suc
+FROM   secret_unit_consumer suc INDEXED BY idx_secret_unit_consumer_unit_list
 JOIN   unit u ON u.uuid = suc.unit_uuid
 JOIN   secret_reference sr ON sr.secret_id = suc.secret_id
 WHERE  u.name = $unit.name AND
@@ -3650,7 +3673,7 @@ SELECT
        sro.secret_id AS &secretRotationChange.secret_id,
        sro.next_rotation_time AS &secretRotationChange.next_rotation_time,
        MAX(sr.revision) AS &secretRotationChange.revision
-FROM   secret_rotation sro
+FROM   secret_rotation sro INDEXED BY idx_secret_rotation_list
 JOIN   secret_revision sr ON sr.secret_id = sro.secret_id`
 
 	var queryParams []any

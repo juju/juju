@@ -18,7 +18,19 @@ CREATE TABLE operation (
 );
 
 CREATE UNIQUE INDEX idx_operation_id
-ON operation (operation_id);
+ON operation (
+    operation_id, uuid, summary, enqueued_at, started_at, completed_at,
+    parallel, execution_group
+);
+
+CREATE INDEX idx_operation_completed_enqueued_uuid
+ON operation (completed_at, enqueued_at, uuid);
+
+CREATE INDEX idx_operation_details
+ON operation (
+    uuid, operation_id, summary, enqueued_at, started_at, completed_at,
+    parallel, execution_group
+);
 
 -- operation_action is a join table to link an operation to its charm_action.
 CREATE TABLE operation_action (
@@ -53,7 +65,19 @@ CREATE TABLE operation_task (
 );
 
 CREATE UNIQUE INDEX idx_task_id
-ON operation_task (task_id);
+ON operation_task (
+    task_id, uuid, operation_uuid, enqueued_at, started_at, completed_at
+);
+
+CREATE INDEX idx_operation_task_operation_uuid_details
+ON operation_task (
+    operation_uuid, uuid, task_id, enqueued_at, started_at, completed_at
+);
+
+CREATE INDEX idx_operation_task_details
+ON operation_task (
+    uuid, operation_uuid, task_id, enqueued_at, started_at, completed_at
+);
 
 -- operation_unit_task is a join table to link a task with its unit receiver.
 CREATE TABLE operation_unit_task (
@@ -68,6 +92,9 @@ CREATE TABLE operation_unit_task (
     REFERENCES unit (uuid)
 );
 
+CREATE INDEX idx_operation_unit_task_unit_uuid_task_uuid
+ON operation_unit_task (unit_uuid, task_uuid);
+
 -- operation_machine_task is a join table to link a task with its machine receiver.
 CREATE TABLE operation_machine_task (
     task_uuid TEXT NOT NULL,
@@ -81,6 +108,9 @@ CREATE TABLE operation_machine_task (
     REFERENCES machine (uuid)
 );
 
+CREATE INDEX idx_operation_machine_task_machine_uuid_task_uuid
+ON operation_machine_task (machine_uuid, task_uuid);
+
 -- operation_task_output is a join table to link a task with where
 -- its output is stored.
 CREATE TABLE operation_task_output (
@@ -93,6 +123,9 @@ CREATE TABLE operation_task_output (
     FOREIGN KEY (store_path)
     REFERENCES object_store_metadata_path (path)
 );
+
+CREATE INDEX idx_operation_task_output_store_path_task_uuid
+ON operation_task_output (store_path, task_uuid);
 
 -- operation_task_status is the status of the task.
 CREATE TABLE operation_task_status (
@@ -113,6 +146,9 @@ CREATE TABLE operation_task_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_operation_task_status_value_status_id
+ON operation_task_status_value (status, id);
 
 INSERT INTO operation_task_status_value VALUES
 (0, 'error'),
@@ -137,6 +173,15 @@ CREATE TABLE operation_task_log (
 CREATE INDEX idx_operation_task_log_id
 ON operation_task_log (task_uuid, created_at);
 
+CREATE INDEX idx_operation_task_log_details
+ON operation_task_log (task_uuid, created_at, content);
+
+CREATE INDEX idx_operation_action_details
+ON operation_action (operation_uuid, charm_uuid, charm_action_key);
+
+CREATE INDEX idx_operation_task_status_details
+ON operation_task_status (task_uuid, status_id, message, updated_at);
+
 -- operation_parameter holds the parameters passed to an operation.
 -- In the case of an action, these are the user-passed parameters, where the 
 -- keys should match the charm_action's parameters.
@@ -151,3 +196,6 @@ CREATE TABLE operation_parameter (
     FOREIGN KEY (operation_uuid)
     REFERENCES operation (uuid)
 );
+
+CREATE INDEX idx_operation_parameter_details
+ON operation_parameter (operation_uuid, "key", value);

@@ -2,6 +2,9 @@ CREATE TABLE net_node (
     uuid TEXT NOT NULL PRIMARY KEY
 );
 
+CREATE INDEX idx_net_node_uuid
+ON net_node (uuid);
+
 CREATE TABLE link_layer_device_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
@@ -66,6 +69,22 @@ CREATE TABLE link_layer_device (
 CREATE UNIQUE INDEX idx_link_layer_device_net_node_uuid_name
 ON link_layer_device (net_node_uuid, name);
 
+CREATE INDEX idx_link_layer_device_details
+ON link_layer_device (
+    net_node_uuid,
+    uuid,
+    name,
+    mtu,
+    device_type_id,
+    virtual_port_type_id,
+    is_auto_start,
+    is_enabled,
+    is_default_gateway,
+    gateway_address,
+    vlan_tag,
+    mac_address
+);
+
 CREATE TABLE link_layer_device_parent (
     device_uuid TEXT NOT NULL PRIMARY KEY,
     parent_uuid TEXT NOT NULL,
@@ -76,6 +95,9 @@ CREATE TABLE link_layer_device_parent (
     FOREIGN KEY (parent_uuid)
     REFERENCES link_layer_device (uuid)
 );
+
+CREATE INDEX idx_link_layer_device_parent_parent_device
+ON link_layer_device_parent (parent_uuid, device_uuid);
 
 CREATE TABLE provider_link_layer_device (
     provider_id TEXT NOT NULL PRIMARY KEY,
@@ -95,6 +117,9 @@ CREATE TABLE link_layer_device_dns_domain (
     PRIMARY KEY (device_uuid, search_domain)
 );
 
+CREATE UNIQUE INDEX idx_link_layer_device_dns_domain_details
+ON link_layer_device_dns_domain (search_domain, device_uuid);
+
 CREATE TABLE link_layer_device_dns_address (
     device_uuid TEXT NOT NULL,
     dns_address TEXT NOT NULL,
@@ -103,6 +128,9 @@ CREATE TABLE link_layer_device_dns_address (
     REFERENCES link_layer_device (uuid),
     PRIMARY KEY (device_uuid, dns_address)
 );
+
+CREATE UNIQUE INDEX idx_link_layer_device_dns_address_details
+ON link_layer_device_dns_address (dns_address, device_uuid);
 
 -- Note that this table is defined for completeness in
 -- reflecting what we capture as network configuration.
@@ -243,6 +271,21 @@ ON ip_address (subnet_uuid);
 
 CREATE INDEX idx_ip_address_net_node_uuid
 ON ip_address (net_node_uuid);
+
+CREATE INDEX idx_ip_address_details
+ON ip_address (
+    net_node_uuid,
+    uuid,
+    device_uuid,
+    address_value,
+    subnet_uuid,
+    type_id,
+    config_type_id,
+    origin_id,
+    scope_id,
+    is_secondary,
+    is_shadow
+);
 
 CREATE TABLE provider_ip_address (
     provider_id TEXT NOT NULL PRIMARY KEY,
@@ -420,28 +463,14 @@ FROM (
         net_node_uuid,
         uuid
     FROM unit
+    WHERE uuid >= ''
 ) AS n
 JOIN v_ip_address_with_names AS ipa ON n.net_node_uuid = ipa.net_node_uuid
 LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid;
 
 CREATE VIEW v_unit_relation_network AS
-WITH unit_net_node AS (
     SELECT
-        s.net_node_uuid,
-        u.uuid
-    FROM unit AS u
-    JOIN application AS a ON u.application_uuid = a.uuid
-    JOIN k8s_service AS s ON a.uuid = s.application_uuid
-    UNION
-    SELECT
-        net_node_uuid,
-        uuid
-    FROM unit
-),
-
-candidate AS (
-    SELECT
-        unn.uuid AS unit_uuid,
+        u.uuid AS unit_uuid,
         ipa.address_value,
         ipa.device_uuid,
         sn.space_uuid,
@@ -467,34 +496,20 @@ candidate AS (
                 AND ipa.type_id = 1 /* ipv6 */
                 THEN 4
         END AS scope_rank
-    FROM unit_net_node AS unn
-    JOIN ip_address AS ipa ON unn.net_node_uuid = ipa.net_node_uuid
+    FROM unit AS u
+    LEFT JOIN k8s_service AS svc ON u.application_uuid = svc.application_uuid
+    JOIN ip_address AS ipa
+         ON ipa.net_node_uuid = u.net_node_uuid
+         OR ipa.net_node_uuid = svc.net_node_uuid
     JOIN link_layer_device AS lld ON ipa.device_uuid = lld.uuid
     JOIN ip_address_config_type AS iact ON ipa.config_type_id = iact.id
     JOIN ip_address_type AS iat ON ipa.type_id = iat.id
     JOIN ip_address_origin AS iao ON ipa.origin_id = iao.id
     JOIN ip_address_scope AS ias ON ipa.scope_id = ias.id
-    LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid
-)
-
-SELECT
-    candidate.unit_uuid,
-    candidate.address_value,
-    candidate.device_uuid,
-    candidate.space_uuid,
-    candidate.cidr,
-    candidate.config_type_name,
-    candidate.type_name,
-    candidate.origin_name,
-    candidate.scope_name,
-    candidate.scope_rank,
-    candidate.origin_id,
-    candidate.is_secondary,
-    candidate.device_type_id
-FROM candidate;
+    LEFT JOIN subnet AS sn ON ipa.subnet_uuid = sn.uuid;
 
 CREATE INDEX idx_provider_link_layer_device_device_uuid
-ON provider_link_layer_device (device_uuid);
+ON provider_link_layer_device (device_uuid, provider_id);
 
 CREATE INDEX idx_provider_ip_address_address_uuid
-ON provider_ip_address (address_uuid);
+ON provider_ip_address (address_uuid, provider_id);

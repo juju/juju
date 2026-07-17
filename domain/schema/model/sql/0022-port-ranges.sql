@@ -8,6 +8,12 @@ INSERT INTO protocol VALUES
 (1, 'tcp'),
 (2, 'udp');
 
+CREATE UNIQUE INDEX idx_protocol_id_protocol
+ON protocol (id, protocol);
+
+CREATE UNIQUE INDEX idx_protocol_protocol_id
+ON protocol (protocol, id);
+
 CREATE TABLE port_range (
     uuid TEXT NOT NULL PRIMARY KEY,
     protocol_id INT NOT NULL,
@@ -31,6 +37,12 @@ CREATE TABLE port_range (
 -- constraint is as far as we go here. Non-overlapping ranges must be
 -- enforced in the service/state layer.
 CREATE UNIQUE INDEX idx_port_range_endpoint ON port_range (protocol_id, from_port, relation_uuid, unit_uuid);
+
+CREATE INDEX idx_port_range_unit_details
+ON port_range (unit_uuid, relation_uuid, protocol_id, from_port, to_port, uuid);
+
+CREATE INDEX idx_port_range_details
+ON port_range (from_port, to_port, protocol_id, unit_uuid, relation_uuid, uuid);
 
 CREATE VIEW v_port_range
 AS

@@ -7,6 +7,12 @@ CREATE TABLE controller_node (
 CREATE UNIQUE INDEX idx_controller_node_dqlite_node
 ON controller_node (dqlite_node_id);
 
+CREATE INDEX idx_controller_node_dqlite_node_controller
+ON controller_node (dqlite_node_id, controller_id);
+
+CREATE INDEX idx_controller_node_controller_dqlite_node
+ON controller_node (controller_id, dqlite_node_id);
+
 CREATE UNIQUE INDEX idx_controller_node_dqlite_bind_address
 ON controller_node (dqlite_bind_address);
 
@@ -23,6 +29,12 @@ CREATE TABLE controller_node_agent_version (
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
 );
+
+CREATE INDEX idx_controller_node_agent_version_version
+ON controller_node_agent_version (version);
+
+CREATE INDEX idx_controller_node_agent_version_details
+ON controller_node_agent_version (architecture_id, controller_id, version);
 
 CREATE TABLE controller_api_address (
     controller_id TEXT NOT NULL,

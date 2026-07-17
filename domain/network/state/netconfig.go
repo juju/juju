@@ -326,7 +326,7 @@ func (st *State) updateDeviceParents(
 // getSubnetGroups retrieves all subnets, parses then into net.IPNet,
 // and groups the UUIDs by CIDR.
 func (st *State) getSubnetGroups(ctx context.Context, tx *sqlair.TX) (subnetGroups, error) {
-	stmt, err := st.Prepare("SELECT &subnet.* FROM subnet", subnet{})
+	stmt, err := st.Prepare("SELECT &subnet.* FROM subnet WHERE uuid >= ''", subnet{})
 	if err != nil {
 		return nil, errors.Errorf("preparing subnets statement: %w", err)
 	}

@@ -6,6 +6,9 @@ CREATE TABLE upgrade_state_type (
 CREATE UNIQUE INDEX idx_upgrade_state_type_type
 ON upgrade_state_type (type);
 
+CREATE INDEX idx_upgrade_state_type_id_type
+ON upgrade_state_type (id, type);
+
 INSERT INTO upgrade_state_type VALUES
 (0, 'created'),
 (1, 'started'),
@@ -43,3 +46,10 @@ CREATE TABLE upgrade_info_controller_node (
 
 CREATE UNIQUE INDEX idx_upgrade_info_controller_node
 ON upgrade_info_controller_node (controller_node_id, upgrade_info_uuid);
+
+CREATE INDEX idx_upgrade_info_controller_node_upgrade_completed_controller
+ON upgrade_info_controller_node (
+    upgrade_info_uuid,
+    node_upgrade_completed_at,
+    controller_node_id
+);

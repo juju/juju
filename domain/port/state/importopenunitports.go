@@ -141,7 +141,7 @@ func (st *State) openPorts(
 
 // getProtocolMap returns a map of protocol names to their IDs in DQLite.
 func (st *State) getProtocolMap(ctx context.Context, tx *sqlair.TX) (map[string]int, error) {
-	getProtocols, err := st.Prepare("SELECT &protocol.* FROM protocol", protocol{})
+	getProtocols, err := st.Prepare("SELECT &protocol.* FROM protocol WHERE id >= 0", protocol{})
 	if err != nil {
 		return nil, errors.Errorf("preparing get protocol ID statement: %w", err)
 	}

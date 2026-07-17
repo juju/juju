@@ -37,6 +37,7 @@ LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
 JOIN      application app ON app.name = substr(sruc.unit_name, 1, instr(sruc.unit_name, '/')-1)
 JOIN      application_remote_consumer arc ON arc.offer_connection_uuid = app.uuid
 WHERE     arc.offerer_application_uuid = $applicationUUID.uuid
+AND       sruc.secret_id >= ''
 GROUP BY  sruc.secret_id
 HAVING    sruc.current_revision < MAX(sr.revision)`
 		app := applicationUUID{UUID: appUUID}
@@ -268,22 +269,31 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 func (st *State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
 	query, err := st.Prepare(`
 SELECT sr.uuid AS &revisionUUID.uuid
-FROM   secret_revision sr
-       LEFT JOIN (
-           -- revisions that have local consumers.
-           SELECT DISTINCT current_revision AS revision FROM secret_unit_consumer suc
-           WHERE  suc.secret_id = $secretRef.secret_id
-           UNION
-           -- revisions that have remote consumers.
-           SELECT DISTINCT current_revision AS revision FROM secret_remote_unit_consumer suc
-           WHERE  suc.secret_id = $secretRef.secret_id
-           UNION
-           -- the latest revision.
-           SELECT MAX(revision) FROM secret_revision rev
-           WHERE  rev.secret_id = $secretRef.secret_id
-       ) in_use ON sr.revision = in_use.revision
+FROM   secret_revision AS sr
 WHERE sr.secret_id = $secretRef.secret_id
-AND (in_use.revision IS NULL OR in_use.revision = 0);
+AND sr.revision >= 0
+AND (
+    sr.revision = 0
+    OR (
+        NOT EXISTS (
+            SELECT 1
+            FROM secret_unit_consumer AS suc
+            WHERE suc.secret_id = $secretRef.secret_id
+            AND suc.current_revision = sr.revision
+        )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM secret_remote_unit_consumer AS sruc
+            WHERE sruc.secret_id = $secretRef.secret_id
+            AND sruc.current_revision = sr.revision
+        )
+        AND sr.revision != (
+            SELECT MAX(rev.revision)
+            FROM secret_revision AS rev
+            WHERE rev.secret_id = $secretRef.secret_id
+        )
+    )
+);
 `, secretRef{}, revisionUUID{})
 	if err != nil {
 		return errors.Capture(err)

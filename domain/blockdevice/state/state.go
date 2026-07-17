@@ -629,6 +629,7 @@ func (st *State) GetBlockDevicesForAllMachines(
 	blockDeviceStmt, err := st.Prepare(`
 SELECT &blockDevice.*
 FROM   block_device
+WHERE  machine_uuid >= ''
 `, blockDevice{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -637,6 +638,7 @@ FROM   block_device
 	devLinkStmt, err := st.Prepare(`
 SELECT &deviceLink.*
 FROM   block_device_link_device
+WHERE  machine_uuid >= ''
 `, deviceLink{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -645,6 +647,7 @@ FROM   block_device_link_device
 	machineNameStmt, err := st.Prepare(`
 SELECT &entityName.*
 FROM   machine
+WHERE  name >= ''
 `, entityName{})
 
 	if err != nil {

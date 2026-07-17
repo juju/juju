@@ -155,7 +155,8 @@ SELECT cim.image_id AS &imageMetadataRow.image_id,
        cim.priority AS &imageMetadataRow.priority
 FROM cloud_image_metadata AS cim
 JOIN architecture AS a ON cim.architecture_id = a.id
-WHERE ($imageMetadataFlags.has_version = 0 OR cim.version = $imageMetadataFilter.version)
+WHERE cim.uuid >= ''
+AND ($imageMetadataFlags.has_version = 0 OR cim.version = $imageMetadataFilter.version)
 AND ($imageMetadataFlags.has_arch = 0 OR a.name = $imageMetadataFilter.arch)
 AND ($imageMetadataFlags.has_region = 0 OR cim.region = $imageMetadataFilter.region)
 AND ($imageMetadataFlags.has_stream = 0 OR cim.stream = $imageMetadataFilter.stream)

@@ -134,7 +134,7 @@ func (s *netConfigSuite) TestSetMachineNetConfigMultipleSubnetMatch(c *tc.C) {
 	checkScalarResult(c, db, "SELECT dns_address FROM link_layer_device_dns_address", "8.8.8.8")
 
 	// Check that we created a new subnet and linked it to the address.
-	row := db.QueryRowContext(ctx, "SELECT uuid, cidr FROM subnet WHERE uuid NOT IN (?, ?)", subnetUUID1, subnetUUID2)
+	row := db.QueryRowContext(ctx, "SELECT uuid, cidr FROM subnet WHERE uuid >= '' AND uuid NOT IN (?, ?)", subnetUUID1, subnetUUID2)
 	c.Assert(row.Err(), tc.ErrorIsNil)
 
 	var newSubUUID, cidr string

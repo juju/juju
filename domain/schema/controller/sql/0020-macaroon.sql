@@ -19,3 +19,9 @@ CREATE TABLE macaroon_root_key (
     expires_at TIMESTAMP NOT NULL,
     root_key TEXT NOT NULL
 );
+
+CREATE INDEX idx_macaroon_root_key_expires_at
+ON macaroon_root_key (expires_at);
+
+CREATE INDEX idx_macaroon_root_key_created_expires
+ON macaroon_root_key (created_at DESC, expires_at, id, root_key);

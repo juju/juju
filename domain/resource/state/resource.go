@@ -2437,6 +2437,7 @@ func (st *State) getOriginIDs(ctx context.Context, tx *sqlair.TX) (map[string]in
 	selectOriginStmt, err := st.Prepare(`
 SELECT &origin.*
 FROM   resource_origin_type
+WHERE  id >= 0
 `, origin{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -2465,6 +2466,7 @@ func (st *State) getStateIDs(ctx context.Context, tx *sqlair.TX) (map[resource.S
 	selectStateStmt, err := st.Prepare(`
 SELECT &state.*
 FROM   resource_state
+WHERE  id >= 0
 `, state{})
 	if err != nil {
 		return nil, errors.Capture(err)

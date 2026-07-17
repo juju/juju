@@ -27,6 +27,12 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
+CREATE INDEX idx_machine_life_name
+ON machine (life_id, name);
+
+CREATE UNIQUE INDEX idx_machine_net_node_uuid_name
+ON machine (net_node_uuid, uuid, name);
+
 CREATE TABLE machine_manual (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     CONSTRAINT fk_machine_manual_machine
@@ -49,6 +55,12 @@ CREATE TABLE machine_platform (
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
 );
+
+CREATE UNIQUE INDEX idx_machine_platform_machine
+ON machine_platform (machine_uuid);
+
+CREATE UNIQUE INDEX idx_machine_platform_machine_uuid
+ON machine_platform (machine_uuid);
 
 -- machine_placement_scope is a table which represents the valid scopes
 -- that can exist for a machine placement. The provider scope is the only
@@ -87,6 +99,9 @@ CREATE TABLE machine_parent (
     FOREIGN KEY (parent_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE INDEX idx_machine_parent_parent_uuid
+ON machine_parent (parent_uuid);
 
 -- machine_agent_version tracks the reported agent version running for each
 -- machine.
@@ -207,25 +222,25 @@ CREATE TABLE machine_status (
 );
 
 CREATE VIEW v_machine_status AS
-WITH machine_presence AS (
-    SELECT machine_uuid
-    FROM machine_agent_presence
-    UNION
-    SELECT mp.parent_uuid AS machine_uuid
-    FROM machine_parent AS mp
-    JOIN machine_agent_presence AS map ON mp.machine_uuid = map.machine_uuid
-)
-
 SELECT
     ms.machine_uuid,
     ms.message,
     ms.data,
     ms.updated_at,
     msv.status,
-    mp.machine_uuid IS NOT NULL AS present
+    EXISTS (
+        SELECT 1
+        FROM machine_agent_presence AS map
+        WHERE map.machine_uuid = ms.machine_uuid
+    ) OR EXISTS (
+        SELECT 1
+        FROM machine_parent AS mp
+        JOIN machine_agent_presence AS map
+          ON mp.machine_uuid = map.machine_uuid
+        WHERE mp.parent_uuid = ms.machine_uuid
+    ) AS present
 FROM machine_status AS ms
-JOIN machine_status_value AS msv ON ms.status_id = msv.id
-LEFT JOIN machine_presence AS mp ON ms.machine_uuid = mp.machine_uuid;
+JOIN machine_status_value AS msv ON ms.status_id = msv.id;
 
 -- machine_lxd_profile table keeps track of the lxd profiles (previously
 -- charm-profiles) for a machine.
@@ -245,6 +260,9 @@ CREATE TABLE container_type (
     id INT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_container_type_value
+ON container_type (value);
 
 INSERT INTO container_type VALUES
 (0, 'none'),
@@ -322,3 +340,6 @@ CREATE TABLE machine_ssh_host_key (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE INDEX idx_machine_ssh_host_key_machine_uuid
+ON machine_ssh_host_key (machine_uuid);

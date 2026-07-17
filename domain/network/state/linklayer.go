@@ -148,6 +148,7 @@ JOIN virtual_port_type AS vpt ON lld.virtual_port_type_id = vpt.id
 LEFT JOIN provider_link_layer_device AS plld ON lld.uuid = plld.device_uuid
 LEFT JOIN link_layer_device_parent AS lldp ON lld.uuid = lldp.device_uuid
 LEFT JOIN link_layer_device AS lldpn ON lldp.parent_uuid = lldpn.uuid
+WHERE lld.net_node_uuid >= ''
 `, getLinkLayerDevice{})
 	if err != nil {
 		return nil, errors.Errorf("preparing link layer device select statement: %w", err)
@@ -167,6 +168,7 @@ func (st *State) getAllDNSDomains(ctx context.Context, tx *sqlair.TX) ([]dnsSear
 	stmt, err := st.Prepare(`
 SELECT &dnsSearchDomainRow.* 
 FROM link_layer_device_dns_domain
+WHERE device_uuid >= ''
 `, dnsSearchDomainRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing DNS search domain select statement: %w", err)
@@ -186,6 +188,7 @@ func (st *State) getAllDNSAddresses(ctx context.Context, tx *sqlair.TX) ([]dnsAd
 	stmt, err := st.Prepare(`
 SELECT &dnsAddressRow.* 
 FROM link_layer_device_dns_address
+WHERE device_uuid >= ''
 `, dnsAddressRow{})
 	if err != nil {
 		return nil, errors.Errorf("preparing DNS address select statement: %w", err)
@@ -227,6 +230,7 @@ LEFT JOIN provider_ip_address AS pia ON ia.uuid = pia.address_uuid
 LEFT JOIN provider_subnet as ps ON ia.subnet_uuid = ps.subnet_uuid
 LEFT JOIN subnet as sub ON ia.subnet_uuid = sub.uuid
 LEFT JOIN space as s ON sub.space_uuid = s.uuid
+WHERE ia.net_node_uuid >= ''
 `, getIpAddress{})
 	if err != nil {
 		return nil, errors.Errorf("preparing IP address select statement: %w", err)

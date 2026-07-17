@@ -105,6 +105,7 @@ WITH endpoint_binding AS (
            ae.space_uuid
     FROM   application_endpoint AS ae
     JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+    WHERE  ae.application_uuid >= ''
     UNION ALL
     SELECT aee.application_uuid,
            ceb.name,
@@ -112,6 +113,7 @@ WITH endpoint_binding AS (
     FROM   application_extra_endpoint AS aee
     JOIN   charm_extra_binding AS ceb
            ON aee.charm_extra_binding_uuid = ceb.uuid
+    WHERE  aee.application_uuid >= ''
 ),
 endpoint_space AS (
     SELECT eb.name AS endpoint_name,
@@ -122,35 +124,6 @@ endpoint_space AS (
     WHERE  u.uuid = $entityUUID.uuid
     AND    eb.name IN ($names[:])
 ),
-ingress_candidate AS (
-    SELECT es.endpoint_name,
-           urn.address_value,
-           urn.device_uuid,
-           urn.scope_rank,
-           urn.origin_id,
-           urn.is_secondary,
-           urn.device_type_id
-    FROM   endpoint_space AS es
-    JOIN   v_unit_relation_network AS urn
-           ON urn.unit_uuid = $entityUUID.uuid
-          AND urn.space_uuid = es.space_uuid
-),
-best_rank AS (
-    SELECT endpoint_name, MIN(scope_rank) AS scope_rank
-    FROM   ingress_candidate
-    WHERE  scope_rank IS NOT NULL
-    GROUP BY endpoint_name
-),
-selected_ingress AS (
-    SELECT ic.endpoint_name,
-           ic.address_value,
-           ic.device_uuid,
-           ic.origin_id,
-           ic.is_secondary,
-           ic.device_type_id
-    FROM   ingress_candidate AS ic
-    JOIN   best_rank USING (endpoint_name, scope_rank)
-),
 lld AS (
     SELECT lld.uuid,
            lld.name,
@@ -158,6 +131,7 @@ lld AS (
            lldt.name AS device_type
     FROM   link_layer_device AS lld
     JOIN   link_layer_device_type AS lldt ON lld.device_type_id = lldt.id
+    WHERE  lld.net_node_uuid >= ''
 ),
 endpoint_address AS (
     SELECT es.endpoint_name,
@@ -181,10 +155,18 @@ endpoint_address AS (
            ON urn.unit_uuid = $entityUUID.uuid
           AND urn.space_uuid = es.space_uuid
     JOIN   lld ON urn.device_uuid = lld.uuid
-    LEFT JOIN selected_ingress AS si
-           ON si.endpoint_name = es.endpoint_name
+    LEFT JOIN v_unit_relation_network AS si
+           ON si.unit_uuid = $entityUUID.uuid
+          AND si.space_uuid = es.space_uuid
           AND si.device_uuid = urn.device_uuid
           AND si.address_value = urn.address_value
+          AND si.scope_rank = (
+              SELECT MIN(best.scope_rank)
+              FROM v_unit_relation_network AS best
+              WHERE best.unit_uuid = $entityUUID.uuid
+              AND best.space_uuid = es.space_uuid
+              AND best.scope_rank IS NOT NULL
+          )
 )
 SELECT &endpointNetworkInfoRow.*
 FROM   endpoint_address

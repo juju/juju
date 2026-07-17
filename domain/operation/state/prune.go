@@ -254,8 +254,11 @@ SELECT COALESCE(SUM(
     octet_length(osm.path) +
     octet_length(osm.metadata_uuid)              
 ),0) AS &result.size
-FROM operation_task_output as oto
-JOIN object_store_metadata_path AS osm ON oto.store_path = osm.path
+FROM operation_task_output AS oto
+     INDEXED BY idx_operation_task_output_store_path_task_uuid
+JOIN object_store_metadata_path AS osm
+     INDEXED BY idx_object_store_metadata_path_path_uuid
+     ON oto.store_path = osm.path
 `, result{})
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -271,7 +274,10 @@ WITH
 uuids AS (
     SELECT osmp.metadata_uuid
     FROM object_store_metadata_path AS osmp
-    JOIN operation_task_output AS oto ON osmp.path = oto.store_path
+         INDEXED BY idx_object_store_metadata_path_path_uuid
+    JOIN operation_task_output AS oto
+         INDEXED BY idx_operation_task_output_store_path_task_uuid
+         ON osmp.path = oto.store_path
 )
 SELECT COALESCE(SUM(
     osm.size +
@@ -279,7 +285,8 @@ SELECT COALESCE(SUM(
     octet_length(osm.sha_256) +
     octet_length(osm.sha_384) +
     octet_length(osm.size)), 0) AS &result.size
-FROM   object_store_metadata AS osm 
+FROM   object_store_metadata AS osm
+       INDEXED BY idx_object_store_metadata_details
 WHERE  uuid IN uuids`, result{})
 	if err != nil {
 		return 0, errors.Capture(err)
@@ -322,8 +329,8 @@ func (st *State) computeTableSize(ctx context.Context, tx *sqlair.TX, sizeFactor
 SELECT COALESCE(SUM(
 	%s
 	), 0) AS &result.size
-FROM %q
-`, sums, table)
+FROM %q INDEXED BY %q
+`, sums, table, "idx_"+table+"_details")
 	stmt, err := st.Prepare(query, result{})
 	if err != nil {
 		return 0, errors.Capture(err)

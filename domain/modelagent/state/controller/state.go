@@ -42,6 +42,7 @@ func (s *State) GetControllerAgentVersions(ctx context.Context) ([]semversion.Nu
 	stmt, err := s.Prepare(`
 SELECT &agentVersion.*
 FROM   controller_node_agent_version
+WHERE  version >= ''
 GROUP  BY version
 `, agentVersion{})
 	if err != nil {

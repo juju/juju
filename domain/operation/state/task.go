@@ -577,6 +577,7 @@ func (st *State) getOperationTasks(ctx context.Context, tx *sqlair.TX, operation
 	type opUUIDs []string
 	taskQuery := operationTaskBaseQuery + `
 WHERE t.operation_uuid IN ($opUUIDs[:])
+ORDER BY t.task_id
 `
 	ident := opUUIDs(operationUUIDs)
 	stmt, err := st.Prepare(taskQuery, taskResult{}, ident)

@@ -409,7 +409,8 @@ func (s *resourceSuite) TestDeleteUnitResources(c *tc.C) {
 		rows, err := tx.Query(`
 SELECT uuid, name, application_uuid, unit_uuid
 FROM v_application_resource AS rv
-LEFT JOIN unit_resource AS ur ON rv.uuid = ur.resource_uuid`)
+LEFT JOIN unit_resource AS ur ON rv.uuid = ur.resource_uuid
+WHERE rv.uuid >= ''`)
 		if err != nil {
 			return err
 		}

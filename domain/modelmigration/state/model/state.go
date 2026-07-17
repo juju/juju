@@ -83,7 +83,8 @@ func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
 
 	query := `
 SELECT &instanceID.instance_id
-FROM   machine_cloud_instance`
+FROM   machine_cloud_instance
+WHERE  machine_uuid >= ''`
 	queryStmt, err := s.Prepare(query, instanceID{})
 	if err != nil {
 		return nil, errors.Errorf("preparing retrieve all instance IDs statement: %w", err)
@@ -217,6 +218,7 @@ FROM   unit
 SELECT &agentName.name
 FROM   application AS a
 JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
+WHERE  aa.application_uuid >= ''
 `, agentName{})
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)

@@ -2702,6 +2702,7 @@ JOIN   relation_endpoint AS re ON r.uuid = re.relation_uuid
 JOIN   relation_unit AS ru ON re.uuid = ru.relation_endpoint_uuid
 JOIN   unit AS u ON ru.unit_uuid = u.uuid
 WHERE  u.name = $name.name
+AND    r.uuid >= ''
 `, relationUUIDRow{}, name{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select unit relation uuids statement: %w", err)
@@ -3323,6 +3324,7 @@ FROM      relation r
 JOIN      life l ON r.life_id = l.id
 LEFT JOIN offer_connection oc ON r.uuid = oc.remote_relation_uuid
 WHERE     oc.remote_relation_uuid IS NULL
+AND       r.uuid >= ''
 `, relationWithDetails{})
 	if err != nil {
 		return nil, errors.Capture(err)

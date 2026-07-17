@@ -454,7 +454,7 @@ SELECT
     COUNT(DISTINCT sbr.secret_id) AS &SecretBackendRow.num_secrets,
     c.name                                   AS &SecretBackendRow.config_name,
     c.content                                AS &SecretBackendRow.config_content
-FROM secret_backend b
+FROM secret_backend b INDEXED BY idx_secret_backend_list
     JOIN secret_backend_type bt ON b.backend_type_id = bt.id
     LEFT JOIN secret_backend_config c ON b.uuid = c.backend_uuid
     LEFT JOIN secret_backend_reference sbr ON b.uuid = sbr.secret_backend_uuid

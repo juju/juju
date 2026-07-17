@@ -29,6 +29,9 @@ ON lease (model_uuid, lease_type_id, name);
 CREATE INDEX idx_lease_expiry
 ON lease (expiry);
 
+CREATE INDEX idx_lease_type_model_name_holder_expiry
+ON lease (lease_type_id, model_uuid, name, holder, expiry);
+
 CREATE TABLE lease_pin (
     -- The presence of entries in this table for a particular lease_uuid
     -- implies that the lease in question is pinned and cannot expire.

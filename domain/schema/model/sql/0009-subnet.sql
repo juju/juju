@@ -28,6 +28,9 @@ CREATE TABLE provider_network (
 CREATE UNIQUE INDEX idx_provider_network_id
 ON provider_network (provider_network_id);
 
+CREATE UNIQUE INDEX idx_provider_network_uuid_id
+ON provider_network (uuid, provider_network_id);
+
 CREATE TABLE provider_network_subnet (
     subnet_uuid TEXT NOT NULL PRIMARY KEY,
     provider_network_uuid TEXT NOT NULL,
@@ -38,6 +41,9 @@ CREATE TABLE provider_network_subnet (
     FOREIGN KEY (subnet_uuid)
     REFERENCES subnet (uuid)
 );
+
+CREATE INDEX idx_provider_network_subnet_network_uuid
+ON provider_network_subnet (provider_network_uuid);
 
 CREATE TABLE availability_zone (
     uuid TEXT NOT NULL PRIMARY KEY,
@@ -61,6 +67,12 @@ CREATE TABLE availability_zone_subnet (
 
 CREATE INDEX idx_subnet_space_uuid
 ON subnet (space_uuid);
+
+CREATE UNIQUE INDEX idx_subnet_cidr_details
+ON subnet (cidr, uuid, space_uuid, vlan_tag);
+
+CREATE INDEX idx_subnet_space_details
+ON subnet (space_uuid, uuid, cidr, vlan_tag);
 
 CREATE INDEX idx_availability_zone_subnet_subnet_uuid
 ON availability_zone_subnet (subnet_uuid);

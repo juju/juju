@@ -210,6 +210,9 @@ ON storage_attachment (storage_instance_uuid, unit_uuid);
 CREATE INDEX idx_storage_attachment_unit
 ON storage_attachment (unit_uuid);
 
+CREATE INDEX idx_storage_attachment_instance_uuid_uuid
+ON storage_attachment (storage_instance_uuid, uuid);
+
 CREATE TABLE storage_volume_status_value (
     id INT PRIMARY KEY,
     status TEXT NOT NULL
@@ -285,6 +288,9 @@ ON storage_volume (volume_id);
 CREATE INDEX idx_storage_volume_provider_id
 ON storage_volume (provider_id);
 
+CREATE INDEX idx_storage_volume_provision_scope_id
+ON storage_volume (provision_scope_id, volume_id);
+
 -- An instance can have at most one volume.
 -- A volume can have at most one instance.
 CREATE TABLE storage_instance_volume (
@@ -337,6 +343,9 @@ ON storage_volume_attachment (net_node_uuid);
 
 CREATE INDEX idx_storage_volume_attachment_block_device_uuid
 ON storage_volume_attachment (block_device_uuid);
+
+CREATE INDEX idx_storage_volume_attachment_provision_scope_uuid
+ON storage_volume_attachment (provision_scope_id, uuid);
 
 CREATE TABLE storage_filesystem_status_value (
     id INT PRIMARY KEY,
@@ -399,6 +408,9 @@ ON storage_filesystem (filesystem_id);
 CREATE INDEX idx_storage_filesystem_provider_id
 ON storage_filesystem (provider_id);
 
+CREATE INDEX idx_storage_filesystem_provision_scope_id
+ON storage_filesystem (provision_scope_id, filesystem_id);
+
 -- An instance can have at most one filesystem.
 -- A filesystem can have at most one instance.
 CREATE TABLE storage_instance_filesystem (
@@ -441,6 +453,12 @@ CREATE TABLE storage_filesystem_attachment (
 CREATE INDEX idx_storage_filesystem_attachment_net_node_uuid
 ON storage_filesystem_attachment (net_node_uuid);
 
+CREATE INDEX idx_storage_filesystem_attachment_filesystem_uuid
+ON storage_filesystem_attachment (storage_filesystem_uuid);
+
+CREATE INDEX idx_storage_filesystem_attachment_provision_scope_uuid
+ON storage_filesystem_attachment (provision_scope_id, uuid);
+
 CREATE TABLE storage_volume_device_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -481,6 +499,9 @@ CREATE TABLE storage_volume_attachment_plan (
 -- There should only one volume attachment plan per net node and volume tuple.
 CREATE UNIQUE INDEX idx_storage_volume_attachment_plan_net_node_uuid_volume_uuid
 ON storage_volume_attachment_plan (storage_volume_uuid, net_node_uuid);
+
+CREATE INDEX idx_storage_volume_attachment_plan_scope_node_volume
+ON storage_volume_attachment_plan (provision_scope_id, net_node_uuid, storage_volume_uuid, life_id);
 
 CREATE TABLE storage_volume_attachment_plan_attr (
     attachment_plan_uuid TEXT NOT NULL,

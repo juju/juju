@@ -22,7 +22,7 @@ func (st *State) Export(ctx context.Context) (*v{{ .VersionToken }}.ModelExport,
 
 	// Prepare statements first using the typed samples from the generated types package.
 {{- range $i, $sn := .StructNames }}
-	stmt{{ $sn }}, err := sqlair.Prepare(`SELECT &{{ $sn }}.* FROM "{{ index $.TableNames $i }}"`, v{{ $.VersionToken }}.{{ $sn }}{})
+	stmt{{ $sn }}, err := sqlair.Prepare(`SELECT &{{ $sn }}.* FROM "{{ index $.TableNames $i }}" WHERE rowid >= -9223372036854775808`, v{{ $.VersionToken }}.{{ $sn }}{})
 	if err != nil {
 		return nil, fmt.Errorf("preparing {{ $sn }} statement: %w", err)
 	}

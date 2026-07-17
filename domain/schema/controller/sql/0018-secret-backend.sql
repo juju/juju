@@ -43,6 +43,9 @@ CREATE TABLE secret_backend (
 CREATE UNIQUE INDEX idx_secret_backend_name
 ON secret_backend (name);
 
+CREATE INDEX idx_secret_backend_list
+ON secret_backend (name, uuid, backend_type_id, token_rotate_interval);
+
 CREATE TABLE secret_backend_config (
     backend_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -57,6 +60,9 @@ CREATE TABLE secret_backend_config (
     FOREIGN KEY (backend_uuid)
     REFERENCES secret_backend (uuid)
 );
+
+CREATE INDEX idx_secret_backend_config_list
+ON secret_backend_config (backend_uuid, name, content);
 
 CREATE TABLE secret_backend_rotation (
     backend_uuid TEXT NOT NULL PRIMARY KEY,
@@ -80,6 +86,9 @@ CREATE TABLE secret_backend_reference (
     FOREIGN KEY (secret_backend_uuid)
     REFERENCES secret_backend (uuid)
 );
+
+CREATE INDEX idx_secret_backend_reference_list
+ON secret_backend_reference (secret_backend_uuid, model_uuid, secret_id);
 
 CREATE TABLE model_secret_backend (
     model_uuid TEXT NOT NULL PRIMARY KEY,

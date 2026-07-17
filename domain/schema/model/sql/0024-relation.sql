@@ -25,6 +25,14 @@ ON application_endpoint (application_uuid);
 CREATE UNIQUE INDEX idx_application_endpoint_app_relation
 ON application_endpoint (application_uuid, charm_relation_uuid);
 
+CREATE INDEX idx_application_endpoint_space_details
+ON application_endpoint (
+    space_uuid,
+    application_uuid,
+    charm_relation_uuid,
+    uuid
+);
+
 -- The application_endpoint ties an application's relation definition to an
 -- endpoint binding via a space. Only endpoint bindings which differ from the
 -- application default binding will be listed.
@@ -49,6 +57,13 @@ ON application_extra_endpoint (application_uuid);
 
 CREATE UNIQUE INDEX idx_application_extra_endpoint_app_relation
 ON application_extra_endpoint (application_uuid, charm_extra_binding_uuid);
+
+CREATE INDEX idx_application_extra_endpoint_space_details
+ON application_extra_endpoint (
+    space_uuid,
+    application_uuid,
+    charm_extra_binding_uuid
+);
 
 -- The relation_endpoint table links a relation to a single
 -- application endpoint. If the relation is of type peer,

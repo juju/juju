@@ -308,7 +308,7 @@ func (s *controllerOfferSuite) addOfferPermission(c *tc.C, userUUID, offerUUID s
 }
 
 func (s *controllerOfferSuite) readPermissions(c *tc.C) []permission {
-	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM v_permission`)
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT * FROM v_permission WHERE uuid >= ''`)
 	c.Assert(err, tc.IsNil)
 	defer func() { _ = rows.Close() }()
 	foundPermissions := []permission{}

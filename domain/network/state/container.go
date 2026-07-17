@@ -85,9 +85,11 @@ func (st *State) GetMachineAppBindings(ctx context.Context, machineUUID string) 
 WITH all_bound AS (
     SELECT application_uuid, space_uuid
     FROM   application_endpoint
+    WHERE  application_uuid >= ''
     UNION  
     SELECT application_uuid, space_uuid
     FROM   application_extra_endpoint
+    WHERE  application_uuid >= ''
 )
 SELECT DISTINCT 
        s.uuid AS &spaceConstraint.uuid,

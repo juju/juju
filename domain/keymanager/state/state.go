@@ -645,13 +645,13 @@ AND model_uuid = $modelUUIDValue.model_uuid
 	// deleteUnusedUserKeys is here to clean up any public keys for a user that
 	// are not being referenced by a model.
 	deleteUnusedUserKeys, err := s.Prepare(`
-DELETE FROM user_public_ssh_key
-WHERE user_uuid = $userUUIDValue.user_uuid
-AND id IN (SELECT id
-           FROM user_public_ssh_key AS upsk
-           LEFT JOIN model_authorized_keys AS mak ON upsk.id = mak.user_public_ssh_key_id
-           GROUP BY (id)
-           HAVING count(user_public_ssh_key_id) == 0)
+DELETE FROM user_public_ssh_key AS upsk
+WHERE upsk.user_uuid = $userUUIDValue.user_uuid
+AND NOT EXISTS (
+    SELECT 1
+    FROM   model_authorized_keys AS mak
+    WHERE  mak.user_public_ssh_key_id = upsk.id
+)
 `, userUUIDVal)
 
 	if err != nil {

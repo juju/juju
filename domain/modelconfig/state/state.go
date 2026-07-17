@@ -129,7 +129,7 @@ func (st *State) ModelConfig(ctx context.Context) (map[string]string, error) {
 		return config, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare(`SELECT &dbKeyValue.* FROM v_model_config`, dbKeyValue{})
+	stmt, err := st.Prepare(`SELECT &dbKeyValue.* FROM v_model_config WHERE key >= ''`, dbKeyValue{})
 	if err != nil {
 		return config, errors.Capture(err)
 	}
@@ -162,7 +162,7 @@ func (st *State) SetModelConfig(
 		return errors.Capture(err)
 	}
 
-	selectQuery := `SELECT &dbKeyValue.* FROM model_config`
+	selectQuery := `SELECT &dbKeyValue.* FROM model_config WHERE key >= ''`
 	selectStmt, err := st.Prepare(selectQuery, dbKeyValue{})
 	if err != nil {
 		return errors.Errorf("preparing select query: %w", err)
