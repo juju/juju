@@ -608,6 +608,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		}),
 
+		// DBAccessor is a manifold that provides a DBAccessor worker
+		// that can be used to access the database.
+		dbAccessorName: dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.StartupValueProvider,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      config.PrometheusRegisterer,
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+			NewNodeManager:            dbaccessor.NewNodeManager,
+		}),
+
 		fileNotifyWatcherName: filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{
 			Clock:             config.Clock,
 			Logger:            internallogger.GetLogger("juju.worker.filenotifywatcher"),
@@ -755,6 +769,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreServicesName: objectstoreservices.Manifold(objectstoreservices.ManifoldConfig{
 			ChangeStreamName:             changeStreamName,
+			ControllerUUID:               config.ControllerUUID,
 			Clock:                        config.Clock,
 			Logger:                       internallogger.GetLogger("juju.worker.objectstoreservices"),
 			NewWorker:                    objectstoreservices.NewWorker,
@@ -887,6 +902,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		undertakerName: undertaker.Manifold(undertaker.ManifoldConfig{
 			DBAccessorName:            dbAccessorName,
 			DomainServicesName:        domainServicesName,
+			TraceName:                 controllerTraceName,
 			NewWorker:                 undertaker.NewWorker,
 			GetControllerModelService: undertaker.GetControllerModelService,
 			GetRemovalServiceGetter:   undertaker.GetRemovalServiceGetter,
@@ -917,10 +933,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                   certupdater.NewCertificateUpdater,
 			Logger:                      internallogger.GetLogger("juju.worker.certupdater"),
 		})),
-
-		// DBAccessor provides access to the Dqlite database. The
-		// controller currently uses the IAAS node manager.
-		dbAccessorName: dbaccessor.Manifold(NewIAASDBAccessorManifoldConfig(config)),
 
 		// The upgrader is a leaf worker that returns a specific error
 		// type recognised by the controller agent, causing other workers
@@ -973,8 +985,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                   certupdater.NewCertificateUpdater,
 			Logger:                      internallogger.GetLogger("juju.worker.certupdater"),
 		})),
-
-		dbAccessorName: dbaccessor.Manifold(NewCAASDBAccessorManifoldConfig(config)),
 
 		// TODO: remove disabledManifold wrapper once upgrader manifold is reworked
 		// for standalone controller.
@@ -1050,36 +1060,6 @@ func NewCAASBootstrapManifoldConfig(config ManifoldsConfig) bootstrap.ManifoldCo
 		ControllerUnitPassword:       bootstrap.CAASControllerUnitPassword,
 		BootstrapAddressFinderGetter: bootstrap.CAASAddressFinder,
 		AgentFinalizer:               bootstrap.CAASAgentFinalizer,
-	}
-}
-
-// NewIAASDBAccessorManifoldConfig returns the IAAS-specific db-accessor config.
-func NewIAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.ManifoldConfig {
-	return dbaccessor.ManifoldConfig{
-		QueryLoggerName:           queryLoggerName,
-		ControllerAgentConfigName: controllerAgentConfigName,
-		ControllerStartupValues:   config.StartupValueProvider,
-		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-		PrometheusRegisterer:      config.PrometheusRegisterer,
-		NewApp:                    dbaccessor.NewApp,
-		NewDBWorker:               config.NewDBWorkerFunc,
-		NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		NewNodeManager:            dbaccessor.IAASNodeManager,
-	}
-}
-
-// NewCAASDBAccessorManifoldConfig returns the CAAS-specific db-accessor config.
-func NewCAASDBAccessorManifoldConfig(config ManifoldsConfig) dbaccessor.ManifoldConfig {
-	return dbaccessor.ManifoldConfig{
-		QueryLoggerName:           queryLoggerName,
-		ControllerAgentConfigName: controllerAgentConfigName,
-		ControllerStartupValues:   config.StartupValueProvider,
-		Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-		PrometheusRegisterer:      config.PrometheusRegisterer,
-		NewApp:                    dbaccessor.NewApp,
-		NewDBWorker:               config.NewDBWorkerFunc,
-		NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		NewNodeManager:            dbaccessor.CAASNodeManager,
 	}
 }
 

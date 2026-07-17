@@ -33,8 +33,8 @@ const (
 // AgentBinaryStore is the service used to persist Juju agent binaries into the
 // controller.
 type AgentBinaryStore interface {
-	// AddAgentBinary adds a new agent binary to the object store and saves its
-	// metadata to the database. The following errors can be returned:
+	// AddAgentBinaryWithSHA256 adds a new agent binary to the object store and
+	// saves its metadata to the database. The following errors can be returned:
 	// - [github.com/juju/juju/core/errors.NotSupported] if the architecture is
 	// not supported.
 	// - [github.com/juju/juju/domain/agentbinary/errors.AlreadyExists] if an

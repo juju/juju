@@ -99,7 +99,8 @@ func (s *AgentSuite) PrimeAgentVersion(c *tc.C, tag names.Tag, password string, 
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
 
 			OpenTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
-			OpenTelemetryEndpoint:              "",
+			OpenTelemetryHTTPEndpoint:          "",
+			OpenTelemetryGRPCEndpoint:          "",
 			OpenTelemetryInsecure:              agent.DefaultOpenTelemetryInsecure,
 			OpenTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
 			OpenTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
@@ -149,7 +150,10 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *tc.C, tag names.Tag, password str
 	}
 	err = database.BootstrapDqlite(
 		c.Context(),
-		database.NewNodeManager(nodeManagerCfg, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(nodeManagerCfg, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{}),
+		network.NewMachineAddresses(
+			[]string{"127.0.0.1"}, network.WithScope(network.ScopeCloudLocal),
+		).AsProviderAddresses(),
 		tc.Must0(c, coremodel.NewUUID),
 		loggertesting.WrapCheckLog(c),
 	)
@@ -187,7 +191,8 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
 
 			OpenTelemetryEnabled:               agent.DefaultOpenTelemetryEnabled,
-			OpenTelemetryEndpoint:              "",
+			OpenTelemetryHTTPEndpoint:          "",
+			OpenTelemetryGRPCEndpoint:          "",
 			OpenTelemetryInsecure:              agent.DefaultOpenTelemetryInsecure,
 			OpenTelemetryStackTraces:           agent.DefaultOpenTelemetryStackTraces,
 			OpenTelemetrySampleRatio:           agent.DefaultOpenTelemetrySampleRatio,
