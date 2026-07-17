@@ -17,73 +17,76 @@ RUNTIME_CONF="$SNAP_DATA/agents/controller-0/runtime.conf"
 SNAP_INIT_DIR="$SNAP_COMMON/.snap-init"
 PREV_VAL_FILE="$SNAP_INIT_DIR/.last-logging-override"
 
-(
-    echo "configure hook: starting"
+log() {
+    echo "$@" >&2
+    echo "$@" >> "$SNAP_COMMON/hook.log" 2>/dev/null || true
+}
 
-    # ---- Reject unsupported controller-database-owned keys ----
-    # These keys are seeded from controller config at bootstrap and
-    # remain controller-database-owned. Snap config must not create a
-    # second competing source of truth for them.
-    UNSUPPORTED_KEYS="agent-logfile-max-size-mb agent-logfile-max-backups query-tracing-enabled query-tracing-threshold dqlite-busy-timeout"
-    for key in $UNSUPPORTED_KEYS; do
-        val="$(snapctl get "$key" 2>/dev/null || true)"
-        if [ -n "$val" ] && [ "$val" != "null" ]; then
-            echo "configure hook: ERROR: unsupported snap-config key '$key' is controller-database-owned and not exposed through snap set in Phase 1"
-            echo "configure hook: rejecting snap config apply to protect last-valid runtime.conf"
-            exit 1
-        fi
-    done
+log "configure: starting"
 
-    requested="$(snapctl get logging-override)"
-
-    # Normalise snapctl "null" / empty to empty string.
-    if [ -z "$requested" ] || [ "$requested" = "null" ]; then
-        requested=""
+# ---- Reject unsupported controller-database-owned keys ----
+# These keys are seeded from controller config at bootstrap and
+# remain controller-database-owned. Snap config must not create a
+# second competing source of truth for them.
+UNSUPPORTED_KEYS="agent-logfile-max-size-mb agent-logfile-max-backups query-tracing-enabled query-tracing-threshold dqlite-busy-timeout"
+for key in $UNSUPPORTED_KEYS; do
+    val="$(snapctl get "$key" 2>/dev/null || true)"
+    if [ -n "$val" ] && [ "$val" != "null" ]; then
+        log "configure: ERROR: unsupported snap-config key '$key' is controller-database-owned and not exposed through snap set in Phase 1"
+        log "configure: rejecting snap config apply to protect last-valid runtime.conf"
+        exit 1
     fi
+done
 
-    # Read the previously applied value so we can avoid unnecessary bounces.
-    prev_applied=""
-    if [ -f "$PREV_VAL_FILE" ]; then
-        prev_applied="$(cat "$PREV_VAL_FILE")"
+requested="$(snapctl get logging-override)"
+
+# Normalise snapctl "null" / empty to empty string.
+if [ -z "$requested" ] || [ "$requested" = "null" ]; then
+    requested=""
+fi
+
+# Read the previously applied value so we can avoid unnecessary bounces.
+prev_applied=""
+if [ -f "$PREV_VAL_FILE" ]; then
+    prev_applied="$(cat "$PREV_VAL_FILE")"
+fi
+
+if [ "$requested" = "$prev_applied" ]; then
+    log "configure: logging-override unchanged, skipping apply"
+    exit 0
+fi
+
+if [ -f "$RUNTIME_CONF" ]; then
+    # Apply via the typed helper. This mutates only logging-override
+    # and atomically rewrites runtime.conf. All other fields are
+    # preserved unchanged.
+    "$SNAP/bin/jujud" controller-config \
+        --runtime-config-path "$RUNTIME_CONF" \
+        --snap-common "$SNAP_COMMON" \
+        --logging-override "$requested"
+
+    log "configure: applied logging-override"
+
+    # Persist the applied value for future comparison.
+    umask 022
+    mkdir -p "$SNAP_INIT_DIR"
+    printf '%s\n' "$requested" > "$PREV_VAL_FILE"
+
+    # Bounce the daemon when active so workers pick up the new value.
+    if snapctl services jujud.jujud | grep -q 'active'; then
+        log "configure: bouncing jujud daemon"
+        snapctl stop jujud.jujud
+        snapctl start jujud.jujud
     fi
+else
+    # runtime.conf does not exist yet. Defer the value via the typed
+    # helper so it is applied after jujud.init stages the base file.
+    "$SNAP/bin/jujud" controller-config \
+        --runtime-config-path "$RUNTIME_CONF" \
+        --snap-common "$SNAP_COMMON" \
+        --logging-override "$requested"
 
-    if [ "$requested" = "$prev_applied" ]; then
-        echo "configure hook: logging-override unchanged, skipping apply"
-        exit 0
-    fi
+    log "configure: deferred logging-override (runtime.conf not yet staged)"
+fi
 
-    if [ -f "$RUNTIME_CONF" ]; then
-        # Apply via the typed helper. This mutates only logging-override
-        # and atomically rewrites runtime.conf. All other fields are
-        # preserved unchanged.
-        "$SNAP/bin/jujud" controller-config \
-            --runtime-config-path "$RUNTIME_CONF" \
-            --snap-common "$SNAP_COMMON" \
-            --logging-override "$requested"
-
-        echo "configure hook: applied logging-override"
-
-        # Persist the applied value for future comparison.
-        umask 022
-        mkdir -p "$SNAP_INIT_DIR"
-        printf '%s\n' "$requested" > "$PREV_VAL_FILE"
-
-        # Bounce the daemon when active so workers pick up the new value.
-        if snapctl services jujud.jujud | grep -q 'active'; then
-            echo "configure hook: bouncing jujud daemon"
-            snapctl stop jujud.jujud
-            snapctl start jujud.jujud
-        fi
-    else
-        # runtime.conf does not exist yet. Defer the value via the typed
-        # helper so it is applied after jujud.init stages the base file.
-        "$SNAP/bin/jujud" controller-config \
-            --runtime-config-path "$RUNTIME_CONF" \
-            --snap-common "$SNAP_COMMON" \
-            --logging-override "$requested"
-
-        echo "configure hook: deferred logging-override (runtime.conf not yet staged)"
-    fi
-
-    echo "configure hook: done"
-) >> "$SNAP_COMMON/hook.log"
+log "configure: done"
