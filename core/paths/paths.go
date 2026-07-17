@@ -5,7 +5,6 @@
 package paths
 
 import (
-	"os"
 	"runtime"
 
 	"github.com/juju/juju/core/os/ostype"
@@ -80,10 +79,6 @@ var winVals = map[osVarType]string{
 	metricsSpoolDir:  "C:/Juju/lib/juju/metricspool",
 	uniterStateDir:   "C:/Juju/lib/juju/uniter/state",
 }
-
-// Chown is a variable here so it can be mocked out in tests to a no-op.
-// Agents run as root, but users don't.
-var Chown = os.Chown
 
 // CurrentOS returns the OS value for the currently-running system.
 func CurrentOS() OS {
