@@ -35,7 +35,7 @@ def init():
     juju.observe("config_changed", on_config_changed)
 
 def on_config_changed(event):
-    juju.status_set("active", message=event.message)
+    juju.set_status("active", message=event.message)
 `)
 
 	assertStatusIntents(c, collector.Intents(), Intent{
@@ -61,7 +61,7 @@ def init():
     juju.observe("config_changed", on_config_changed)
 
 def on_config_changed(event):
-    juju.status_set("active")
+    juju.set_status("active")
 `)
 
 	c.Check(collector.Intents(), tc.DeepEquals, []Intent{})

@@ -28,7 +28,7 @@ def init():
     juju.observe("config_changed", on_config_changed)
 
 def on_config_changed(event):
-    juju.status_set("active", message=event.message)
+    juju.set_status("active", message=event.message)
 `,
 			}},
 		},
@@ -64,7 +64,7 @@ def init():
     juju.observe("config_changed", on_config_changed)
 
 def on_config_changed(event):
-    juju.status_set("active", message="before failure")
+    juju.set_status("active", message="before failure")
     1 / 0
 `,
 			}},
