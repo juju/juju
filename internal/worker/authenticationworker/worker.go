@@ -16,6 +16,7 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/agent"
+	coremachineauthentication "github.com/juju/juju/core/machineauthentication"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
 )
@@ -167,14 +168,14 @@ func (a *AuthWorker) enqueue(req ephemeralRequest) error {
 	select {
 	case a.requests <- req:
 	case <-a.catacomb.Dying():
-		return errors.Trace(a.catacomb.ErrDying())
+		return errors.Trace(coremachineauthentication.ErrAuthenticationWorkerDying)
 	}
 
 	select {
 	case err := <-req.done:
 		return errors.Trace(err)
 	case <-a.catacomb.Dying():
-		return errors.Trace(a.catacomb.ErrDying())
+		return errors.Trace(coremachineauthentication.ErrAuthenticationWorkerDying)
 	}
 }
 
