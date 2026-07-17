@@ -20,6 +20,7 @@ import (
 	"github.com/juju/names/v6"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/os/ostype"
@@ -129,12 +130,12 @@ fi
 `
 )
 
-var (
-	// UbuntuGroups is the set of unix groups to add the "ubuntu" user to
-	// when initializing an Ubuntu system.
-	UbuntuGroups = []string{"adm", "audio", "cdrom", "dialout", "dip",
-		"floppy", "netdev", "plugdev", "sudo", "video"}
-)
+// UbuntuGroups is the set of unix groups to add the "ubuntu" user to
+// when initializing an Ubuntu system.
+var UbuntuGroups = []string{
+	"adm", "audio", "cdrom", "dialout", "dip",
+	"floppy", "netdev", "plugdev", "sudo", "video",
+}
 
 // UserdataConfig is the bridge between instancecfg and cloudinit
 // It supports different levels of configuration for instances
@@ -250,7 +251,7 @@ func (w *userdataConfig) ConfigureBasic() error {
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
 	noncefile := path.Join(w.icfg.DataDir, NonceFile)
-	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0644)
+	w.conf.AddRunTextFile(noncefile, w.icfg.MachineNonce, 0o644)
 	return nil
 }
 
@@ -342,7 +343,9 @@ func (w *userdataConfig) ConfigureJuju() error {
 		w.conf.AddScripts(
 			fmt.Sprintf(
 				`(echo %s > /etc/juju-proxy.conf && chmod 0644 /etc/juju-proxy.conf)`,
-				shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment())))
+				shquote(w.icfg.LegacyProxySettings.AsScriptEnvironment()),
+			),
+		)
 
 		// Write out systemd proxy settings
 		w.conf.AddScripts(fmt.Sprintf(`echo %[1]s > /etc/juju-proxy-systemd.conf`,
@@ -351,7 +354,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 
 	if w.icfg.PublicImageSigningKey != "" {
 		keyFile := filepath.Join(agent.DefaultPaths.ConfDir, simplestreams.SimplestreamsPublicKeyFile)
-		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0644)
+		w.conf.AddRunTextFile(keyFile, w.icfg.PublicImageSigningKey, 0o644)
 	}
 
 	// Make the lock dir and change the ownership of the lock dir itself to
@@ -414,7 +417,7 @@ func (w *userdataConfig) ConfigureJuju() error {
 		}
 	}
 
-	w.conf.AddRunTextFile("/sbin/remove-juju-services", removeServicesScript, 0755)
+	w.conf.AddRunTextFile("/sbin/remove-juju-services", removeServicesScript, 0o755)
 
 	return w.addMachineAgentToBoot()
 }
@@ -495,9 +498,9 @@ func (w *userdataConfig) configureBootstrap() error {
 }
 
 // snapInitStagingDir is the host-visible staging directory used by cloud-init
-// to stage runtime.conf and bootstrap-params before jujud.init runs. This
-// path is stable under /var/snap/jujud/common because cloud-init runs outside
-// the snap context and cannot use $SNAP_COMMON shell variables.
+// to stage runtime.conf and bootstrap-params before jujud.init runs. This path
+// is stable under /var/snap/jujud/common because cloud-init runs outside the
+// snap context and cannot use $SNAP_COMMON shell variables.
 const snapInitStagingDir = "/var/snap/jujud/common/.snap-init"
 
 // SnapInitStagingDir is the exported form of snapInitStagingDir for use in
@@ -567,17 +570,17 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 		// SocketDir and SharedAgentDir are intentionally left empty here;
 		// RenderStagedControllerRuntimeConfig will set the token values.
 	}
-	stagedRuntimeCfgContent, err := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(runtimeCfg)
+	stagedRuntimeCfg := controllerruntimeconfig.RenderStagedControllerRuntimeConfig(runtimeCfg)
+	stagedRuntimeCfgContent, err := yaml.Marshal(stagedRuntimeCfg)
 	if err != nil {
 		return errors.Annotate(err, "rendering staged controller runtime config")
 	}
 
-	// Step 3: Connect plugs required by all pre-daemon snap apps used in
-	// the cloud-init flow. Both apps.jujud (daemon) and
-	// apps.bootstrap-state declare "network", and apps.jujud also
-	// declares "network-bind". Snapd shares plugs with the same name
-	// across all apps within a snap, so connecting jujud:network covers
-	// both the daemon and bootstrap-state.
+	// Step 3: Connect plugs required by all pre-daemon snap apps used in the
+	// cloud-init flow. Both apps.jujud (daemon) and apps.bootstrap-state declare
+	// "network", and apps.jujud also declares "network-bind". Snapd shares plugs
+	// with the same name across all apps within a snap, so connecting
+	// jujud:network covers both the daemon and bootstrap-state.
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Connecting snap interfaces for controller snap"))
 	w.conf.AddRunCmd(fmt.Sprintf("snap connect %s:network", bootstrap.ControllerSnapPackageName))
 	w.conf.AddRunCmd(fmt.Sprintf("snap connect %s:network-bind", bootstrap.ControllerSnapPackageName))
@@ -586,10 +589,10 @@ func (w *userdataConfig) configureSnapBootstrap() error {
 	// snap-private files are in place.
 	w.conf.AddRunCmd(fmt.Sprintf("snap stop %s --disable", bootstrap.ControllerSnapPackageName))
 
-	// Stage host-written agent tools into snap-private storage so
-	// the confined controller can seed the agent-binary store. Host cloud-init
-	// writes tools under /var/lib/juju/tools (ubuntu series); the snap base is
-	// core26 and cannot read /var/lib/juju.
+	// Stage host-written agent tools into snap-private storage so the confined
+	// controller can seed the agent-binary store. Host cloud-init writes tools
+	// under /var/lib/juju/tools (ubuntu series); the snap base is core26 and
+	// cannot read /var/lib/juju.
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Staging agent tools into snap data"))
 	w.conf.AddRunCmd(fmt.Sprintf(
 		`set -e
@@ -631,13 +634,12 @@ ls -la "$snap_data/charms"
 		))
 	}
 
-	// Step 5: Write the staged files with owner-only permissions, stage host
-	// OS identity, run jujud.init and jujud.bootstrap-state within a single
+	// Step 5: Write the staged files with owner-only permissions, stage host OS
+	// identity, run jujud.init and jujud.bootstrap-state within a single
 	// trap-protected script. The trap guarantees the staging directory is
-	// removed regardless of exit status, preventing credentials from
-	// persisting on disk on failure. Cloud-init must never write directly
-	// into the revision-specific snap data directory, so we use the stable
-	// staging path.
+	// removed regardless of exit status, preventing credentials from persisting
+	// on disk on failure. Cloud-init must never write directly into the
+	// revision-specific snap data directory, so we use the stable staging path.
 	//
 	// Bootstrap invokes "snap run" via SSH as ubuntu then sudo. Snapd often
 	// leaves the confined process cwd at /home/ubuntu, which strict AppArmor
@@ -680,7 +682,7 @@ func (w *userdataConfig) configureLegacyBootstrap() error {
 	if err != nil {
 		return errors.Annotate(err, "marshalling bootstrap params")
 	}
-	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0600)
+	w.conf.AddRunTextFile(bootstrapParamsFile, string(bootstrapParams), 0o600)
 
 	loggingOption := "--show-log"
 	if loggo.GetLogger("").LogLevel() == loggo.DEBUG {
@@ -721,7 +723,7 @@ func (w *userdataConfig) addLocalControllerCharmsUpload() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0644)
+	w.conf.AddRunBinaryFile(path.Join(w.icfg.CharmDir(), bootstrap.ControllerCharmArchive), charmData, 0o644)
 
 	return nil
 }
@@ -748,7 +750,7 @@ func (w *userdataConfig) addControllerSnapUpload() error {
 	}
 
 	f := path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapArchive)
-	w.conf.AddRunBinaryFile(f, snapData, 0644)
+	w.conf.AddRunBinaryFile(f, snapData, 0o644)
 	logger.Debugf(context.TODO(), "added controller snap archive to cloud-init with path %q", f)
 
 	assertPath := w.icfg.Bootstrap.ControllerSnapAssertPath
@@ -761,7 +763,7 @@ func (w *userdataConfig) addControllerSnapUpload() error {
 		return errors.Trace(err)
 	}
 	f = path.Join(w.icfg.SnapDir(), bootstrap.ControllerSnapAssertArchive)
-	w.conf.AddRunBinaryFile(f, assertData, 0644)
+	w.conf.AddRunBinaryFile(f, assertData, 0o644)
 	logger.Debugf(context.TODO(), "added controller snap assert to cloud-init with path %q", f)
 
 	return nil
@@ -851,7 +853,7 @@ func (w *userdataConfig) addDownloadToolsCmds() error {
 		if err != nil {
 			return err
 		}
-		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0644)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.JujuTools(), "tools.tar.gz"), toolsData, 0o644)
 	} else {
 		curlCommand := curlCommand
 		var urls []string
@@ -994,7 +996,6 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 		Sudo:              "ALL=(ALL) NOPASSWD:ALL",
 		SSHAuthorizedKeys: authorizedKeys,
 	})
-
 }
 
 // TODO(ericsnow) toolsSymlinkCommand should just be replaced with a

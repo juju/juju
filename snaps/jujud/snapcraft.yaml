@@ -28,11 +28,7 @@ layout:
 
 apps:
   jujud:
-    command: >-
-      bin/jujud controller
-      --data-dir $SNAP_DATA
-      --controller-id 0
-      --log-to-stderr
+    command: wrappers/jujud-controller
     daemon: simple
     restart-condition: on-failure
     environment:
