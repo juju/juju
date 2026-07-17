@@ -646,7 +646,7 @@ DO NOTHING
 
 func (st *State) k8sSubnetUUIDsByAddressType(ctx context.Context, tx *sqlair.TX) (map[network.AddressType]string, error) {
 	result := make(map[network.AddressType]string)
-	subnetStmt, err := st.Prepare(`SELECT &subnet.* FROM subnet`, subnet{})
+	subnetStmt, err := st.Prepare(`SELECT &subnet.* FROM subnet WHERE cidr >= ''`, subnet{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
