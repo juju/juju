@@ -18,6 +18,43 @@ func TestStarformSuite(t *testing.T) {
 	tc.Run(t, &starformSuite{})
 }
 
+func (s *starformSuite) TestExecutorConfigValidate(c *tc.C) {
+	config := validExecutorConfig()
+	c.Assert(config.Validate(), tc.ErrorIsNil)
+
+	config.Scriptlet = Scriptlet{}
+	err := config.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "no scriptlet sources not valid")
+
+	config = validExecutorConfig()
+	config.MaxAllocs = -1
+	err = config.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "negative MaxAllocs not valid")
+
+	config = validExecutorConfig()
+	config.MaxSteps = -1
+	err = config.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "negative MaxSteps not valid")
+
+	config = validExecutorConfig()
+	config.Logger = nil
+	err = config.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(err, tc.ErrorMatches, "nil Logger not valid")
+}
+
+func (s *starformSuite) TestNewStarformExecutorRejectsInvalidConfig(c *tc.C) {
+	config := validExecutorConfig()
+	config.Logger = nil
+
+	executor, err := NewStarformExecutor(c.Context(), config)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Check(executor, tc.IsNil)
+}
+
 func (s *starformSuite) TestHandleCollectsIntents(c *tc.C) {
 	executor, err := NewStarformExecutor(c.Context(), ExecutorConfig{
 		Scriptlet: Scriptlet{
@@ -32,6 +69,9 @@ def on_config_changed(event):
 `,
 			}},
 		},
+		MaxAllocs: defaultMaxAllocs,
+		MaxSteps:  defaultMaxSteps,
+		Logger:    NewStarformLogAdapter(newRecordingLogger()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -69,6 +109,9 @@ def on_config_changed(event):
 `,
 			}},
 		},
+		MaxAllocs: defaultMaxAllocs,
+		MaxSteps:  defaultMaxSteps,
+		Logger:    NewStarformLogAdapter(newRecordingLogger()),
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
@@ -142,4 +185,18 @@ func (s *starformSuite) TestValueToStarlarkRejectsNonStringMapKeys(c *tc.C) {
 	_, err := valueToStarlark(map[int]string{1: "one"})
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Check(err, tc.ErrorMatches, `unsupported map key type int.*`)
+}
+
+func validExecutorConfig() ExecutorConfig {
+	return ExecutorConfig{
+		Scriptlet: Scriptlet{
+			Sources: []ScriptSource{{
+				LoadPath: "hooks.star",
+				Source:   "def init(): pass",
+			}},
+		},
+		MaxAllocs: defaultMaxAllocs,
+		MaxSteps:  defaultMaxSteps,
+		Logger:    NewStarformLogAdapter(newRecordingLogger()),
+	}
 }

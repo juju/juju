@@ -20,10 +20,35 @@ const requiredSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe |
 
 // ExecutorConfig is passed to an ExecutorFactory.
 type ExecutorConfig struct {
+	// Scriptlet is the scriptlet to be staged and executed.
 	Scriptlet Scriptlet
+
+	// MaxAllocs limits the allocations that can be made
+	// during a single scriptlet function execution.
 	MaxAllocs int64
-	MaxSteps  int64
-	Logger    starform.Logger
+
+	// MaxSteps limits the execution steps that can be made
+	// during a single scriptlet function execution.
+	MaxSteps int64
+
+	// Logger logs scriptlet output.
+	Logger starform.Logger
+}
+
+func (cfg ExecutorConfig) Validate() error {
+	if err := cfg.Scriptlet.Validate(); err != nil {
+		return errors.Capture(err)
+	}
+	if cfg.MaxAllocs < 0 {
+		return errors.New("negative MaxAllocs not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.MaxSteps < 0 {
+		return errors.New("negative MaxSteps not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.Logger == nil {
+		return errors.New("nil Logger not valid").Add(coreerrors.NotValid)
+	}
+	return nil
 }
 
 // Executor handles event and returns the collected intents.
@@ -35,32 +60,23 @@ type Executor interface {
 type ExecutorFactory func(context.Context, ExecutorConfig) (Executor, error)
 
 // NewStarformExecutor creates an executor backed by a Starform ScriptSet.
-func NewStarformExecutor(ctx context.Context, config ExecutorConfig) (Executor, error) {
-	scriptlet := config.Scriptlet
-	if err := scriptlet.Validate(); err != nil {
+func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, error) {
+	if err := cfg.Validate(); err != nil {
 		return nil, errors.Capture(err)
-	}
-	maxAllocs := config.MaxAllocs
-	if maxAllocs == 0 {
-		maxAllocs = defaultMaxAllocs
-	}
-	maxSteps := config.MaxSteps
-	if maxSteps == 0 {
-		maxSteps = defaultMaxSteps
 	}
 
 	scriptSet, err := starform.NewScriptSet(&starform.ScriptSetOptions{
 		App:            newAppObject(),
-		Logger:         config.Logger,
+		Logger:         cfg.Logger,
 		RequiredSafety: requiredSafety,
-		MaxAllocs:      maxAllocs,
-		MaxSteps:       maxSteps,
+		MaxAllocs:      cfg.MaxAllocs,
+		MaxSteps:       cfg.MaxSteps,
 	})
 	if err != nil {
 		return nil, errors.Errorf("creating Starform script set: %w", err)
 	}
 
-	if err := scriptSet.LoadSources(ctx, transform.Slice(scriptlet.Sources, func(s ScriptSource) starform.ScriptSource {
+	if err := scriptSet.LoadSources(ctx, transform.Slice(cfg.Scriptlet.Sources, func(s ScriptSource) starform.ScriptSource {
 		return s
 	})); err != nil {
 		return nil, errors.Errorf("loading Starform script sources: %w", err)

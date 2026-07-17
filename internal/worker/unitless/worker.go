@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
@@ -21,26 +20,41 @@ const runnerRestartDelay = 10 * time.Second
 
 // Config holds the dependencies for the scriptlet worker.
 type Config struct {
+	// ScriptletService is used by the worker to
+	// schedule scriptlets and dispatch events.
 	ScriptletService ScriptletService
-	NewExecutor      ExecutorFactory
-	MaxAllocs        int64
-	MaxSteps         int64
-	Logger           logger.Logger
+
+	// NewExecutor is a factory for creating scriptlet execution environments.
+	NewExecutor ExecutorFactory
+
+	// MaxAllocs limits the allocations that can be made
+	// during a single scriptlet function execution.
+	MaxAllocs int64
+
+	// MaxSteps limits the execution steps that can be made
+	// during a single scriptlet function execution.
+	MaxSteps int64
+
+	// Logger logs worker output.
+	Logger logger.Logger
 }
 
 // Validate checks that the worker can be started.
-func (config Config) Validate() error {
-	if config.ScriptletService == nil {
+func (cfg Config) Validate() error {
+	if cfg.ScriptletService == nil {
 		return internalerrors.New("nil ScriptletService not valid").Add(coreerrors.NotValid)
 	}
-	if config.Logger == nil {
-		return internalerrors.New("nil Logger not valid").Add(coreerrors.NotValid)
+	if cfg.NewExecutor == nil {
+		return internalerrors.New("nil NewExecutor not valid").Add(coreerrors.NotValid)
 	}
-	if config.MaxAllocs < 0 {
+	if cfg.MaxAllocs < 0 {
 		return internalerrors.New("negative MaxAllocs not valid").Add(coreerrors.NotValid)
 	}
-	if config.MaxSteps < 0 {
+	if cfg.MaxSteps < 0 {
 		return internalerrors.New("negative MaxSteps not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.Logger == nil {
+		return internalerrors.New("nil Logger not valid").Add(coreerrors.NotValid)
 	}
 	return nil
 }
@@ -55,13 +69,6 @@ type scriptletWorker struct {
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, internalerrors.Capture(err)
-	}
-
-	// TODO (manadart 2026-06-12): Remove this fallback, validate it with incoming config.
-	// Close over it with the steps and allocs numbers to we don' have to do a fallback
-	// for those in NewStarformExecutor.
-	if config.NewExecutor == nil {
-		config.NewExecutor = NewStarformExecutor
 	}
 
 	runner, err := worker.NewRunner(worker.RunnerParams{
@@ -136,7 +143,7 @@ func (w *scriptletWorker) handleApplicationChanges(ctx context.Context, applicat
 				Logger:           w.config.Logger,
 			})
 		})
-		if errors.Is(err, errors.AlreadyExists) {
+		if internalerrors.Is(err, coreerrors.AlreadyExists) {
 			continue
 		}
 		if err != nil {

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -32,26 +33,49 @@ func TestWorkerSuite(t *testing.T) {
 
 func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	err := Config{}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "nil ScriptletService not valid")
 
 	ctrl := gomock.NewController(c)
 	service := NewMockScriptletService(ctrl)
 	err = Config{ScriptletService: service}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorMatches, "nil NewExecutor not valid")
+
+	newExecutor := func(context.Context, ExecutorConfig) (Executor, error) {
+		return nil, nil
+	}
+	err = Config{
+		ScriptletService: service,
+		NewExecutor:      newExecutor,
+	}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "nil Logger not valid")
 
 	err = Config{
 		ScriptletService: service,
+		NewExecutor:      newExecutor,
 		Logger:           newRecordingLogger(),
 		MaxAllocs:        -1,
 	}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "negative MaxAllocs not valid")
 
 	err = Config{
 		ScriptletService: service,
+		NewExecutor:      newExecutor,
 		Logger:           newRecordingLogger(),
 		MaxSteps:         -1,
 	}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "negative MaxSteps not valid")
+
+	err = Config{
+		ScriptletService: service,
+		NewExecutor:      newExecutor,
+		Logger:           newRecordingLogger(),
+	}.Validate()
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
@@ -102,6 +126,8 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	}
 	executorConfigs := make(chan ExecutorConfig, 1)
 	log := newRecordingLogger()
+	maxAllocs := int64(12345)
+	maxSteps := int64(67890)
 
 	w, err := NewWorker(Config{
 		ScriptletService: service,
@@ -109,7 +135,9 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 			executorConfigs <- config
 			return executor, nil
 		},
-		Logger: log,
+		MaxAllocs: maxAllocs,
+		MaxSteps:  maxSteps,
+		Logger:    log,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
@@ -117,6 +145,9 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	appChanges <- []string{applicationUUID}
 	executorConfig := waitFor(c, executorConfigs)
 	c.Check(executorConfig.Scriptlet, tc.DeepEquals, scriptlet)
+	c.Check(executorConfig.MaxAllocs, tc.Equals, maxAllocs)
+	c.Check(executorConfig.MaxSteps, tc.Equals, maxSteps)
+	c.Check(executorConfig.Logger, tc.NotNil)
 	waitFor(c, eventWatchers)
 
 	eventChanges <- []string{"config_changed"}
