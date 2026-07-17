@@ -39,6 +39,7 @@ func (s *lokiSuite) TestUsesClientInterfaceAndManagesLifecycle(c *tc.C) {
 		ControllerUUID:       "controller",
 		ModelUUID:            "model",
 		AgentID:              "machine-0",
+		ServiceName:          "juju-controller",
 		PrometheusRegisterer: prometheus.NewRegistry(),
 		NewClient: func(endpoint string, cfg loki.Config) (LokiClient, error) {
 			c.Check(endpoint, tc.Equals, "http://loki/loki/api/v1/push")
@@ -62,6 +63,7 @@ func (s *lokiSuite) TestUsesClientInterfaceAndManagesLifecycle(c *tc.C) {
 	c.Check(got.ControllerUUID, tc.Equals, "controller")
 	c.Check(got.ModelUUID, tc.Equals, "model")
 	c.Check(got.AgentID, tc.Equals, "machine-0")
+	c.Check(got.ServiceName, tc.Equals, "juju-controller")
 	c.Check(got.Fields, tc.DeepEquals, map[string]string{
 		"module":   "test.module",
 		"location": "worker.go:10",
@@ -74,6 +76,70 @@ func (s *lokiSuite) TestUsesClientInterfaceAndManagesLifecycle(c *tc.C) {
 	c.Check(client.waited.Load(), tc.IsTrue)
 }
 
+func (s *lokiSuite) TestForwardsTraceAndSpanFromLabels(c *tc.C) {
+	client := newRecordingLokiClient()
+
+	w, err := NewLoki(LokiConfig{
+		BackendBufferSize: 1,
+		ClientConfig: loki.Config{
+			HTTPClient: &http.Client{},
+		},
+		Endpoint:             "http://loki/loki/api/v1/push",
+		ControllerUUID:       "controller",
+		ModelUUID:            "model",
+		AgentID:              "machine-0",
+		ServiceName:          "juju-unit",
+		PrometheusRegisterer: prometheus.NewRegistry(),
+		NewClient: func(string, loki.Config) (LokiClient, error) {
+			return client, nil
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	w.LogRecords() <- &logsender.LogRecord{
+		Time:     time.Now(),
+		Module:   "test.module",
+		Location: "worker.go:10",
+		Level:    loggo.INFO,
+		Message:  "traced request",
+		Labels: map[string]string{
+			"trace_id": "0123456789abcdef0123456789abcdef",
+			"span_id":  "0123456789abcdef",
+		},
+	}
+
+	got := client.waitRecord(c)
+	c.Check(got.TraceID, tc.Equals, "0123456789abcdef0123456789abcdef")
+	c.Check(got.SpanID, tc.Equals, "0123456789abcdef")
+	c.Check(got.ServiceName, tc.Equals, "juju-unit")
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *lokiSuite) TestReportIncludesServiceName(c *tc.C) {
+	client := newRecordingLokiClient()
+
+	w, err := NewLoki(LokiConfig{
+		BackendBufferSize: 1,
+		ClientConfig: loki.Config{
+			HTTPClient: &http.Client{},
+		},
+		Endpoint:             "http://loki/loki/api/v1/push",
+		ServiceName:          "juju-controller",
+		PrometheusRegisterer: prometheus.NewRegistry(),
+		NewClient: func(string, loki.Config) (LokiClient, error) {
+			return client, nil
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	report := w.Report(c.Context())
+	c.Check(report["name"], tc.Equals, "loki-backend")
+	c.Check(report["service_name"], tc.Equals, "juju-controller")
+}
+
 func (s *lokiSuite) TestUnregistersMetricsCollectorOnStop(c *tc.C) {
 	client := newRecordingLokiClient()
 	registerer := &countingRegisterer{}
@@ -81,6 +147,7 @@ func (s *lokiSuite) TestUnregistersMetricsCollectorOnStop(c *tc.C) {
 	w, err := NewLoki(LokiConfig{
 		BackendBufferSize:    1,
 		Endpoint:             "http://loki/loki/api/v1/push",
+		ServiceName:          "juju-controller",
 		PrometheusRegisterer: registerer,
 		NewClient: func(string, loki.Config) (LokiClient, error) {
 			return client, nil
@@ -108,6 +175,7 @@ func (s *lokiSuite) TestAllowsDistinctWrappedRegisterersOnSharedRegistry(c *tc.C
 	apiBackend, err := NewLoki(LokiConfig{
 		BackendBufferSize:    1,
 		Endpoint:             "http://loki/loki/api/v1/push",
+		ServiceName:          "juju-controller",
 		PrometheusRegisterer: apiRegisterer,
 		NewClient: func(string, loki.Config) (LokiClient, error) {
 			return newRecordingLokiClient(), nil
@@ -119,6 +187,7 @@ func (s *lokiSuite) TestAllowsDistinctWrappedRegisterersOnSharedRegistry(c *tc.C
 	controllerBackend, err := NewLoki(LokiConfig{
 		BackendBufferSize:    1,
 		Endpoint:             "http://loki/loki/api/v1/push",
+		ServiceName:          "juju-controller",
 		PrometheusRegisterer: controllerRegisterer,
 		NewClient: func(string, loki.Config) (LokiClient, error) {
 			return newRecordingLokiClient(), nil
@@ -144,6 +213,10 @@ func (s *lokiSuite) TestLokiConfigValidate(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorMatches, "nil PrometheusRegisterer not valid")
 
 	cfg = validLokiConfig()
+	cfg.ServiceName = ""
+	c.Check(cfg.Validate(), tc.ErrorMatches, "empty ServiceName not valid")
+
+	cfg = validLokiConfig()
 	cfg.NewClient = nil
 	c.Check(cfg.Validate(), tc.ErrorMatches, "nil NewClient not valid")
 }
@@ -152,6 +225,7 @@ func validLokiConfig() LokiConfig {
 	return LokiConfig{
 		BackendBufferSize:    1,
 		Endpoint:             "http://loki/loki/api/v1/push",
+		ServiceName:          "juju-controller",
 		PrometheusRegisterer: prometheus.NewRegistry(),
 		NewClient: func(string, loki.Config) (LokiClient, error) {
 			return newRecordingLokiClient(), nil

@@ -120,6 +120,22 @@ func (s *manifoldSuite) TestNewBackendUpdatesLokiCACert(c *tc.C) {
 	c.Check(client.insecureSkipVerify.Load(), tc.IsFalse)
 }
 
+func (s *manifoldSuite) TestNewBackendUsesLokiBackendForLokiMode(c *tc.C) {
+	client := &recordingCACertUpdaterClient{}
+	backendFunc := NewBackend(stubAPICaller{}, client, clock.WallClock, prometheus.NewRegistry())
+
+	backend, err := backendFunc(BackendTypeLoki, ConfigSnapshot{
+		Mode:     BackendTypeLoki,
+		Endpoint: "http://loki/loki/api/v1/push",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, backend)
+
+	report := backend.Report(c.Context())
+	c.Check(report["name"], tc.Equals, "loki-backend")
+	c.Check(report["service_name"], tc.Equals, UnitServiceName)
+}
+
 func (s *manifoldSuite) TestNewBackendReturnsCACertUpdateError(c *tc.C) {
 	expectErr := stderrors.New("boom")
 	client := &recordingCACertUpdaterClient{err: expectErr}
@@ -228,6 +244,7 @@ func (s *manifoldSuite) TestNewControllerBackendUsesLokiBackendForLokiMode(c *tc
 
 	report := backend.Report(c.Context())
 	c.Check(report["name"], tc.Equals, "loki-backend")
+	c.Check(report["service_name"], tc.Equals, ControllerServiceName)
 
 	sink.mu.Lock()
 	defer sink.mu.Unlock()
