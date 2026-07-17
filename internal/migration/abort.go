@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/retry"
-
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelmigration"
@@ -79,37 +77,39 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 		return errors.Errorf("reading import claim for model %q: %w", modelUUID, err)
 	}
 
-	// Stand aside if the generic removal undertaker is already tearing this
-	// model down. A v7/legacy abort (the migrationtarget API.Abort facade path)
-	// marks the model dead and takes the claim's abort lock in one transaction
-	// (domain/removal ... MarkMigratingModelAsDead); the undertaker then owns
-	// teardown of the model, its database and - via removeBasicModelData - the
-	// import claim. Re-driving v8 compensation here (the abort reconciler picks
-	// up the aborting claim too) would stage a model-database deletion and
-	// deregister the namespace mid-teardown, racing the undertaker's own
-	// DeleteModel/DeleteDB. A v8 abort never marks the model dead, so this only
-	// fires for the legacy path.
-	if removing, err := claim.IsModelRemovalInProgress(ctx, modelUUID); err != nil {
-		return errors.Errorf("checking removal state for model %q: %w", modelUUID, err)
-	} else if removing {
+	// The model is dying, so the generic removal undertaker already owns its
+	// teardown (a v7/legacy abort marks the model dead and takes the claim's
+	// abort lock). Re-driving v8 compensation over it would race the
+	// undertaker's own DeleteModel/DeleteDB, so leave it alone. A v8 abort
+	// never marks the model dead, so this only fires for the legacy path.
+	if dying, err := claim.IsModelDying(ctx, modelUUID); err != nil {
+		return errors.Errorf("checking model life for %q: %w", modelUUID, err)
+	} else if dying {
 		return nil
 	}
 
 	switch c.Phase {
 	case modelmigration.ImportPhaseActivating:
-		// Activation has crossed the point of no return; the imported model may
-		// not be torn down. This is a non-retryable conflict.
+		// Not a programming error, and not a race: Activate takes the claim past
+		// the point of no return before it can fail, and the source cannot tell a
+		// failed Activate from one whose reply it never received. Either way its
+		// VALIDATION phase drives ABORT and lands here. Refuse: the model may in
+		// fact be activated, so it must not be torn down.
 		return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrAbortActivating)
 	case modelmigration.ImportPhaseImporting:
 		if err := claim.SetImportPhaseAborting(ctx, modelUUID); err != nil {
-			// A concurrent activation may have won the race between the read
-			// above and this compare-and-set; surface the conflict (as
-			// ErrAbortActivating) or the transition error unchanged.
+			// The claim read above is not part of the transition transaction, so
+			// a concurrent activation may have won the race. SetImportPhaseAborting
+			// re-reads the phase inside its own transaction and reports
+			// ErrAbortActivating itself, so wrapping preserves that sentinel.
 			return errors.Errorf(
 				"transitioning import claim to aborting for model %q: %w", modelUUID, err)
 		}
 	case modelmigration.ImportPhaseAborting:
-		// Already aborting: re-drive compensation below.
+		// A previous abort was interrupted before it finalized the claim (or the
+		// reconciler is retrying one); re-drive the idempotent compensation below.
+		deps.Logger.Debugf(ctx,
+			"model %q import claim is already aborting; re-driving abort compensation", modelUUID)
 	default:
 		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, c.Phase)
 	}
@@ -149,47 +149,52 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 // Abort path so the model UUID is released before the RPC returns, matching the
 // synchronous abort behaviour of earlier Juju releases.
 //
-// It polls [migrationclaimservice.Service.FinalizeAbortedImport] every
-// wait.Delay for up to wait.MaxDuration, retrying only while finalization is not
-// yet provable ([modelmigrationerrors.ErrAbortNotFinalizable]). On success the
-// claim is gone. When the budget is exhausted it returns nil after logging: the
-// claim stays in the aborting phase and the abort reconciler finalizes it later,
-// so the abort is never lost. Any other error (a genuine finalization failure)
-// is returned.
+// This is a poll, not a retry of a failed operation, and it is deliberately not
+// left to the transaction runner's retry: FinalizeAbortedImport commits
+// successfully every time and reports
+// [modelmigrationerrors.ErrAbortNotFinalizable] as a normal result, meaning the
+// undertaker has not dropped the model database yet. That drop happens out of
+// band in another worker, so no amount of retrying the transaction can make the
+// condition come true - only waiting and re-reading can. The transaction runner
+// retries transient database errors (busy, contention) underneath, which is a
+// disjoint concern this loop never sees.
+//
+// On success the claim is gone. When the budget is exhausted it returns nil
+// after logging: the claim stays in the aborting phase and the reconciler
+// finalizes it later, so the abort is never lost. Any other error (a genuine
+// finalization failure) is returned.
 //
 // The modelmigration import service is injected by the caller; deps supplies
 // only the clock and logger for the bounded wait.
 func WaitAbortFinalized(ctx context.Context, deps Deps, claim *migrationclaimservice.Service, modelUUID coremodel.UUID, wait AbortFinalizeWait) error {
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			return claim.FinalizeAbortedImport(ctx, modelUUID)
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, modelmigrationerrors.ErrAbortNotFinalizable)
-		},
-		Clock:       deps.Clock,
-		Delay:       wait.Delay,
-		MaxDuration: wait.MaxDuration,
-		Stop:        ctx.Done(),
-	})
-	switch {
-	case err == nil:
-		return nil
-	case retry.IsDurationExceeded(err) || retry.IsAttemptsExceeded(err):
-		// The undertaker has not dropped the database within the budget. The
-		// claim is still aborting; the reconciler completes it later.
-		deps.Logger.Warningf(ctx,
-			"model %q abort accepted but claim finalization still pending; the reconciler will complete it",
-			modelUUID)
-		return nil
-	case retry.IsRetryStopped(err):
-		// The context was cancelled (client gone or shutdown). The reconciler
-		// completes the abort later.
-		deps.Logger.Warningf(ctx,
-			"model %q abort finalization interrupted; the reconciler will complete it",
-			modelUUID)
-		return nil
-	default:
-		return errors.Errorf("finalizing aborted import for model %q: %w", modelUUID, retry.LastError(err))
+	deadline := deps.Clock.Now().Add(wait.MaxDuration)
+	for {
+		err := claim.FinalizeAbortedImport(ctx, modelUUID)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, modelmigrationerrors.ErrAbortNotFinalizable) {
+			return errors.Errorf("finalizing aborted import for model %q: %w", modelUUID, err)
+		}
+
+		if !deps.Clock.Now().Add(wait.Delay).Before(deadline) {
+			// The undertaker has not dropped the database within the budget. The
+			// claim is still aborting; the reconciler completes it later.
+			deps.Logger.Warningf(ctx,
+				"model %q abort accepted but claim finalization still pending; the reconciler will complete it",
+				modelUUID)
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			// The client is gone, or we are shutting down. The reconciler
+			// completes the abort later.
+			deps.Logger.Warningf(ctx,
+				"model %q abort finalization interrupted; the reconciler will complete it",
+				modelUUID)
+			return nil
+		case <-deps.Clock.After(wait.Delay):
+		}
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
@@ -39,8 +38,8 @@ const (
 	// interval per model.
 	staleWarnInterval = time.Hour
 
-	// restartDelay is the delay the runner applies before restarting a model
-	// job worker that exited with a non-fatal error (e.g. finalization not yet
+	// restartDelay is the delay the runner applies before restarting an abort
+	// worker that exited with a non-fatal error (e.g. finalization not yet
 	// provable because the undertaker has not dropped the database).
 	restartDelay = time.Minute
 )
@@ -173,20 +172,24 @@ func (w *reconciler) loop() error {
 			return w.catacomb.ErrDying()
 
 		case <-timer.Chan():
-			w.reconcile(ctx)
+			// A scan error is logged rather than returned: the reconciler is
+			// the backstop for interrupted aborts, so it must keep scanning
+			// across a transient controller-database failure.
+			if err := w.reconcile(ctx); err != nil {
+				w.config.Logger.Warningf(ctx, "reconciling migration import claims: %v", err)
+			}
 			timer.Reset(jitter(defaultReconcileInterval))
 		}
 	}
 }
 
-// reconcile scans all outstanding import claims once, spawning per-model job
+// reconcile scans all outstanding import claims once, spawning per-model abort
 // workers for aborting claims and warning about stale importing/activating
-// claims. A scan-level error is logged and swallowed so the worker keeps running.
-func (w *reconciler) reconcile(ctx context.Context) {
+// claims. The caller decides what to do with a scan error.
+func (w *reconciler) reconcile(ctx context.Context) error {
 	claims, err := w.config.Service.GetAllImportClaims(ctx)
 	if err != nil {
-		w.config.Logger.Warningf(ctx, "listing migration import claims: %v", err)
-		return
+		return errors.Errorf("listing migration import claims: %w", err)
 	}
 
 	now := w.config.Clock.Now()
@@ -195,7 +198,11 @@ func (w *reconciler) reconcile(ctx context.Context) {
 		seen[claim.ModelUUID] = struct{}{}
 		switch claim.Phase {
 		case modelmigration.ImportPhaseAborting:
-			w.startAbortWorker(ctx, claim)
+			// The only non-AlreadyExists error the runner returns here is
+			// ErrDead, which means we are shutting down; abandon the scan.
+			if err := w.startAbortWorker(ctx, claim); err != nil {
+				return errors.Capture(err)
+			}
 		case modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseActivating:
 			w.warnIfStale(ctx, claim, now)
 		}
@@ -208,32 +215,45 @@ func (w *reconciler) reconcile(ctx context.Context) {
 			delete(w.staleWarnings, modelUUID)
 		}
 	}
+	return nil
 }
 
-// startAbortWorker starts a per-model job worker for an aborting claim if one
-// is not already running. The job worker re-drives abort compensation and
-// finalizes the claim; on failure it exits and the runner restarts it after
-// restartDelay. Once finalization succeeds the job worker exits cleanly and is
-// not restarted (the claim is gone, so the next scan does not re-spawn it).
-func (w *reconciler) startAbortWorker(ctx context.Context, claim modelmigration.ImportClaimStatus) {
-	running := set.NewStrings(w.runner.WorkerNames()...)
-	if running.Contains(claim.ModelUUID) {
-		return
+// startAbortWorker starts a per-model abort worker for an aborting claim. The
+// abort worker re-drives abort compensation and finalizes the claim; on failure
+// it exits and the runner restarts it after restartDelay. Once finalization
+// succeeds the abort worker exits cleanly and the runner forgets it (the claim
+// is gone, so the next scan does not re-spawn it).
+//
+// The runner is the single source of truth for whether a model already has a
+// worker: it reports AlreadyExists while one exists, whether it is running or
+// waiting to be restarted. Asking it first (via WorkerNames) and starting
+// second would be a check-then-act race.
+func (w *reconciler) startAbortWorker(ctx context.Context, claim modelmigration.ImportClaimStatus) error {
+	err := w.runner.StartWorker(ctx, claim.ModelUUID, newAbortWorker(
+		w.config.Abort, w.config.Service, coremodel.UUID(claim.ModelUUID),
+	))
+	if errors.Is(err, coreerrors.AlreadyExists) {
+		// This model is already being finalized; nothing to do.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("starting abort worker for model %q: %w", claim.ModelUUID, err)
 	}
 	w.config.Logger.Infof(ctx,
 		"scheduling abort finalization for model %q (source migration %q)",
 		claim.ModelUUID, claim.SourceMigrationUUID)
-	if err := w.runner.StartWorker(ctx, claim.ModelUUID, newAbortJobWorker(
-		w.config.Abort, w.config.Service, coremodel.UUID(claim.ModelUUID),
-	)); err != nil {
-		w.config.Logger.Warningf(ctx, "starting abort worker for model %q: %v", claim.ModelUUID, err)
-	}
+	return nil
 }
 
 // warnIfStale emits a rate-limited warning for an importing or activating claim
-// that has not changed phase for longer than staleClaimThreshold. It never
-// mutates the claim: recovering a stale claim requires an operator-driven Abort
-// (for importing) or an activation retry (for activating).
+// that has not changed phase for longer than staleClaimThreshold.
+//
+// It never mutates the claim, because only the source controller knows whether
+// the migration is still wanted: it drives the target's Abort (for importing) or
+// re-drives Activate (for activating) via its migrationmaster. A claim only goes
+// stale when the source stops driving it - typically because the source
+// controller is gone - and in that case there is currently no target-side
+// command an operator can run to release the model UUID. So this warning is
+// deliberately just a signpost for support rather than a recovery instruction.
 func (w *reconciler) warnIfStale(ctx context.Context, claim modelmigration.ImportClaimStatus, now time.Time) {
 	if now.Sub(claim.UpdatedAt) < staleClaimThreshold {
 		return
@@ -245,8 +265,7 @@ func (w *reconciler) warnIfStale(ctx context.Context, claim modelmigration.Impor
 	w.staleWarnings[claim.ModelUUID] = now
 	w.config.Logger.Warningf(ctx,
 		"migration import claim for model %q has been in the %q phase since %s (source migration %q); "+
-			"if the source controller is gone, an operator-driven abort (importing) or activation retry "+
-			"(activating) is required to release the model UUID",
+			"the model UUID stays claimed until the source controller completes or aborts the migration",
 		claim.ModelUUID, claim.Phase, claim.UpdatedAt.Format(time.RFC3339), claim.SourceMigrationUUID)
 }
 
@@ -259,24 +278,24 @@ func jitter(period time.Duration) time.Duration {
 	return retry.ExpBackoff(half, period+half, 2, true)(0, 1)
 }
 
-// abortJobWorker is a per-model worker that finalizes a single aborted import.
+// abortWorker is a per-model worker that finalizes a single aborted import.
 // It re-drives abort compensation (idempotent) and then attempts finalization.
 // If finalization is not yet provable (the undertaker has not dropped the
 // database), it returns a non-fatal error; the runner restarts it after
 // restartDelay. If finalization succeeds, it returns nil and is not restarted
 // (the claim is gone, so the next scan does not re-spawn it).
-type abortJobWorker struct {
+type abortWorker struct {
 	tomb      tomb.Tomb
 	abort     AbortFunc
 	service   Service
 	modelUUID coremodel.UUID
 }
 
-func newAbortJobWorker(
+func newAbortWorker(
 	abort AbortFunc, service Service, modelUUID coremodel.UUID,
 ) func(context.Context) (worker.Worker, error) {
 	return func(ctx context.Context) (worker.Worker, error) {
-		w := &abortJobWorker{
+		w := &abortWorker{
 			abort:     abort,
 			service:   service,
 			modelUUID: modelUUID,
@@ -286,7 +305,7 @@ func newAbortJobWorker(
 	}
 }
 
-func (w *abortJobWorker) run() error {
+func (w *abortWorker) run() error {
 	ctx := w.tomb.Context(context.Background())
 
 	if err := w.abort(ctx, w.modelUUID); err != nil {
@@ -308,11 +327,11 @@ func (w *abortJobWorker) run() error {
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *abortJobWorker) Kill() {
+func (w *abortWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *abortJobWorker) Wait() error {
+func (w *abortWorker) Wait() error {
 	return w.tomb.Wait()
 }

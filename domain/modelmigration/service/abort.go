@@ -63,12 +63,12 @@ func (s *Service) StageAbortedModelDatabaseDeletion(ctx context.Context, modelUU
 	return s.controllerState.StageAbortedModelDatabaseDeletion(ctx, modelUUID.String())
 }
 
-// IsModelRemovalInProgress reports whether the model is already being torn down
-// by the generic removal undertaker (its model row exists and is dying or dead),
-// as happens after a v7/legacy abort marked it dead. The v8 abort driver uses
-// this to stand aside from such a model rather than re-driving its own
-// compensation over the undertaker's teardown.
-func (s *Service) IsModelRemovalInProgress(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
+// IsModelDying reports whether the model row exists and has left the alive
+// state (it is dying or dead), meaning the generic removal undertaker is
+// already tearing it down, as happens after a v7/legacy abort marked it dead.
+// The v8 abort driver uses this to stand aside from such a model rather than
+// re-driving its own compensation over the undertaker's teardown.
+func (s *Service) IsModelDying(ctx context.Context, modelUUID coremodel.UUID) (bool, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
@@ -76,7 +76,7 @@ func (s *Service) IsModelRemovalInProgress(ctx context.Context, modelUUID coremo
 		return false, errors.Errorf("validating model uuid: %w", err)
 	}
 
-	return s.controllerState.IsModelRemovalInProgress(ctx, modelUUID.String())
+	return s.controllerState.IsModelDying(ctx, modelUUID.String())
 }
 
 // GetAllImportClaims returns a snapshot of every outstanding import claim, for

@@ -252,6 +252,48 @@ func (s *logicSuite) TestWarnIfStale(c *tc.C) {
 	c.Check(countContaining(*entries, "has been in the"), tc.Equals, 2)
 }
 
+// TestReconcileReturnsListError verifies a failed claim listing is reported to
+// the caller rather than swallowed, so the loop decides how to handle it.
+func (s *logicSuite) TestReconcileReturnsListError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	boom := errors.New("boom")
+	service := NewMockService(ctrl)
+	service.EXPECT().GetAllImportClaims(gomock.Any()).Return(nil, boom)
+
+	w := bareReconciler(Config{
+		Service: service,
+		Clock:   testclock.NewClock(time.Now()),
+		Logger:  loggertesting.WrapCheckLog(c),
+	})
+
+	err := w.reconcile(c.Context())
+	c.Assert(err, tc.ErrorIs, boom)
+	c.Check(err, tc.ErrorMatches, ".*listing migration import claims.*")
+}
+
+// TestReconcilePrunesStaleWarnings verifies a successful scan forgets warning
+// state for claims that no longer exist, so the map cannot grow unbounded.
+func (s *logicSuite) TestReconcilePrunesStaleWarnings(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	gone := uuid.MustNewUUID().String()
+	service := NewMockService(ctrl)
+	service.EXPECT().GetAllImportClaims(gomock.Any()).Return(nil, nil)
+
+	w := bareReconciler(Config{
+		Service: service,
+		Clock:   testclock.NewClock(time.Now()),
+		Logger:  loggertesting.WrapCheckLog(c),
+	})
+	w.staleWarnings[gone] = time.Now()
+
+	c.Assert(w.reconcile(c.Context()), tc.ErrorIsNil)
+	c.Check(w.staleWarnings, tc.HasLen, 0)
+}
+
 // TestWarnIfStaleFreshClaimSilent verifies a claim younger than the stale
 // threshold is never warned about.
 func (s *logicSuite) TestWarnIfStaleFreshClaimSilent(c *tc.C) {

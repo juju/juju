@@ -96,16 +96,16 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 	})
 }
 
-// IsModelRemovalInProgress reports whether the model row for modelUUID exists
-// and has left the alive state (it is dying or dead). The v8 abort driver uses
-// this to detect a model that the generic (legacy) removal undertaker is already
+// IsModelDying reports whether the model row for modelUUID exists and has left
+// the alive state (it is dying or dead). The v8 abort driver uses this to
+// detect a model that the generic (legacy) removal undertaker is already
 // tearing down after a v7-protocol abort marked it dead and took the claim's
 // abort lock: in that case the v8 abort compensation and model-database staging
 // must stand aside, because the undertaker owns the teardown of the model, its
 // database and the import claim. A missing model row reports false, so a v8
 // abort re-drive after its own compensation has removed the model row still
 // proceeds to finalization.
-func (s *State) IsModelRemovalInProgress(ctx context.Context, modelUUID string) (bool, error) {
+func (s *State) IsModelDying(ctx context.Context, modelUUID string) (bool, error) {
 	db, err := s.DB(ctx)
 	if err != nil {
 		return false, errors.Capture(err)
