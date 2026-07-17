@@ -64,8 +64,10 @@ jobs:
         run: |
           TEST_PACKAGE_LIST=$(mktemp)
           go list ./domain/... | sort > "${TEST_PACKAGE_LIST}"
-          make test BUILD_TAGS=sqlite_trace TEST_ARGS=-v \
-            TEST_PACKAGE_LIST="${TEST_PACKAGE_LIST}" 2>&1 | tee full-table-scans.log
+          make test BUILD_TAGS=sqlite_trace \
+            TEST_ARGS=-v \
+            TEST_PACKAGE_LIST="${TEST_PACKAGE_LIST}" \
+            JUJU_TEST_VERBOSE=1 2>&1 | tee full-table-scans.log
           if grep -Fq "sqlite statement performed full table scan" full-table-scans.log; then
             exit 1
           fi
