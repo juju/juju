@@ -5,7 +5,6 @@ package vault
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/errors"
 	vault "github.com/mittwald/vaultgo"
@@ -24,17 +23,17 @@ func (k vaultBackend) GetContent(ctx context.Context, revisionId string) (_ secr
 		err = maybePermissionDenied(err)
 	}()
 
-	s, err := k.client.KVv1(k.mountPath).Get(ctx, revisionId)
+	if err := ctx.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	s, err := k.client.KVv1WithMountPoint(k.mountPath).Read(revisionId)
 	if isNotFound(err) {
 		return nil, errors.NotFoundf("secret revision %q", revisionId)
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "getting secret %q", revisionId)
 	}
-	val := make(map[string]string)
-	for k, v := range s.Data {
-		val[k] = fmt.Sprintf("%s", v)
-	}
-	return secrets.NewSecretValue(val), nil
+	return secrets.NewSecretValue(s.Data), nil
 }
 
 // DeleteContent implements SecretsBackend.
@@ -43,13 +42,18 @@ func (k vaultBackend) DeleteContent(ctx context.Context, revisionId string) (err
 		err = maybePermissionDenied(err)
 	}()
 
+	if err := ctx.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Read the content first so we can return a not found error
 	// if it doesn't exist.
-	_, err = k.client.KVv1(k.mountPath).Get(ctx, revisionId)
+	client := k.client.KVv1WithMountPoint(k.mountPath)
+	_, err = client.Read(revisionId)
 	if isNotFound(err) {
 		return errors.NotFoundf("secret revision %q", revisionId)
 	}
-	return k.client.KVv1(k.mountPath).Delete(ctx, revisionId)
+	return client.Delete(revisionId)
 }
 
 // SaveContent implements SecretsBackend.
@@ -58,12 +62,12 @@ func (k vaultBackend) SaveContent(ctx context.Context, uri *secrets.URI, revisio
 		err = maybePermissionDenied(err)
 	}()
 
-	path := uri.Name(revision)
-	val := make(map[string]interface{})
-	for k, v := range value.EncodedValues() {
-		val[k] = v
+	if err := ctx.Err(); err != nil {
+		return "", errors.Trace(err)
 	}
-	err = k.client.KVv1(k.mountPath).Put(ctx, path, val)
+
+	path := uri.Name(revision)
+	err = k.client.KVv1WithMountPoint(k.mountPath).Create(path, value.EncodedValues())
 	if err != nil {
 		return "", errors.Annotatef(err, "saving secret content for %q", path)
 	}

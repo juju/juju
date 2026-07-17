@@ -59,7 +59,7 @@ func (p vaultProvider) Initialise(cfg *provider.ModelBackendConfig) error {
 		return errors.Trace(err)
 	}
 	sys := client.client.Sys()
-	ctx := context.Background()
+	ctx := context.TODO()
 
 	mounts, err := sys.ListMountsWithContext(ctx)
 	if err != nil {
@@ -109,7 +109,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 	sys := k.client.Sys()
 
 	// First remove any policies.
-	ctx := context.Background()
+	ctx := context.TODO()
 	policies, err := sys.ListPoliciesWithContext(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -139,7 +139,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 		return nil
 	}
 	for _, id := range keys {
-		err = k.client.KVv1(k.mountPath).Delete(ctx, fmt.Sprintf("%s", id))
+		err = k.client.KVv1WithMountPoint(k.mountPath).Delete(fmt.Sprintf("%s", id))
 		if err != nil && !isNotFound(err) {
 			return errors.Annotatef(err, "deleting secret %q", id)
 		}
@@ -169,7 +169,7 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 		return false
 	}
 
-	ctx := context.Background()
+	ctx := context.TODO()
 	policies, err := sys.ListPoliciesWithContext(ctx)
 	if err != nil {
 		return errors.Trace(err)
