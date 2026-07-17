@@ -7,8 +7,11 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/juju/clock"
@@ -523,7 +526,31 @@ func (a *ControllerApplication) Run(ctx *cmd.Context) (err error) {
 
 	// At this point, all workers will have been configured to start.
 	close(a.workersStarted)
+
+	// Register a SIGTERM handler so snapd's normal service-stop signal
+	// triggers the controller's graceful in-process shutdown. On SIGTERM
+	// the runner is killed, causing workers to drain and the process to
+	// exit cleanly rather than being forcibly terminated.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
+
+	var stoppedBySigterm atomic.Bool
+	go func() {
+		select {
+		case sig := <-sigCh:
+			logger.Infof(context.TODO(), "received signal %v, initiating graceful shutdown", sig)
+			stoppedBySigterm.Store(true)
+			a.runner.Kill()
+		case <-a.dead:
+		}
+	}()
+
 	err = a.runner.Wait()
+
+	if stoppedBySigterm.Load() {
+		return cmdutil.AgentDone(logger, internalworker.ErrTerminateAgent)
+	}
 	return cmdutil.AgentDone(logger, err)
 }
 
