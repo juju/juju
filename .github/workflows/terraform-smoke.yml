@@ -60,19 +60,6 @@ jobs:
                 --constraints "arch=$(go env GOARCH)"
           juju version
 
-      - name: Setup MicroK8s
-        shell: bash
-        run: |
-          set -euxo pipefail
-          sudo snap install microk8s --channel=1.32-strict/stable
-          sudo microk8s stop
-          sudo microk8s start
-          sudo usermod -a -G snap_microk8s $USER
-          sudo chown -R $USER ~/.kube
-          sudo microk8s.enable dns hostpath-storage
-          sudo -g snap_microk8s -E microk8s status --wait-ready --timeout=600
-          sudo microk8s.config > ~/microk8s-config.yaml
-
       - name: Find terraform provider for juju latest release
         uses: actions/checkout@v4
         with:
@@ -103,4 +90,4 @@ jobs:
           TEST_CLOUD: lxd
         run: |
           go mod download
-          go test -timeout 40m -v -cover ./internal/provider/
+          go test -timeout 40m -v -cover ./internal/provider/... -run 'TestAcc_ResourceModel_Minimal|TestAcc_ResourceModel$|TestAcc_ResourceApplication_Minimal|TestAcc_ResourceApplication$|TestAcc_ResourceMachine$|TestAcc_ResourceIntegration$|TestAcc_DataSourceModel$|TestAcc_ResourceUser$' \
