@@ -1,21 +1,25 @@
 #!/bin/sh
-(
-    echo "install hook: preparing controller-snap runtime directories"
 
-    mkdir -p "$SNAP_COMMON/sockets"
-    chmod 755 "$SNAP_COMMON/sockets"
+log() {
+    echo "$@" >&2
+    echo "$@" >> "$SNAP_COMMON/hook.log" 2>/dev/null || true
+}
 
-    mkdir -p "$SNAP_COMMON/agents/controller-0"
-    chmod 755 "$SNAP_COMMON/agents"
+log "install: preparing controller-snap runtime directories"
 
-    mkdir -p "$SNAP_COMMON/var/log/juju"
-    chmod 755 "$SNAP_COMMON/var/log/juju"
+mkdir -p "$SNAP_COMMON/sockets"
+chmod 755 "$SNAP_COMMON/sockets"
 
-    mkdir -p "$SNAP_COMMON/.snap-init"
-    chmod 755 "$SNAP_COMMON/.snap-init"
+mkdir -p "$SNAP_COMMON/agents/controller-0"
+chmod 755 "$SNAP_COMMON/agents"
 
-    mkdir -p "$SNAP_DATA/agents/controller-0"
-    chmod 755 "$SNAP_DATA/agents"
+mkdir -p "$SNAP_COMMON/var/log/juju"
+chmod 755 "$SNAP_COMMON/var/log/juju"
 
-    echo "install hook: done"
-) >> "$SNAP_COMMON/hook.log"
+mkdir -p "$SNAP_COMMON/.snap-init"
+chmod 755 "$SNAP_COMMON/.snap-init"
+
+mkdir -p "$SNAP_DATA/agents/controller-0"
+chmod 755 "$SNAP_DATA/agents"
+
+log "install: done"
