@@ -85,8 +85,12 @@ apps:
   safemode:
     command: wrappers/juju-safemode
 
+  controller-config:
+    command: wrappers/jujud-controller-config
+
 hooks:
   install:
+  configure:
 
 parts:
   dqlite:

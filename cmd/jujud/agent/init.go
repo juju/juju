@@ -104,6 +104,20 @@ func (c *initCommand) Run(ctx *cmd.Context) error {
 	}
 	_, _ = fmt.Fprintf(ctx.Stdout, "Wrote %s\n", runtimeDst)
 
+	// Apply any deferred snap-config logging-override that was set via
+	// the configure hook before jujud.init staged the base runtime.conf.
+	deferred, err := runtimeconf.ReadDeferredLoggingOverride(snapCommon)
+	if err != nil {
+		return errors.Annotate(err, "reading deferred logging-override")
+	}
+	if deferred != "" {
+		overlay := runtimeconf.SnapConfigOverlay{LoggingOverride: deferred}
+		if err := runtimeconf.ApplySnapConfigOverlay(runtimeDst, overlay); err != nil {
+			return errors.Annotate(err, "applying deferred logging-override to runtime.conf")
+		}
+		_, _ = fmt.Fprintf(ctx.Stdout, "Applied deferred logging-override: %s\n", deferred)
+	}
+
 	// Copy bootstrap-params from staged dir to $SNAP_COMMON byte-for-byte.
 	// bootstrap-params is always present during the initial bootstrap
 	// cycle that triggers this init command. It is not re-staged after
