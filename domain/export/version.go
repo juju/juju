@@ -18,7 +18,8 @@ import (
 var exportVersionStrings = []string{
 	"4.0.4",
 	"4.0.6",
-	"4.0.12", // version currently in dev.
+	"4.0.12",
+	"4.0.13", // version currently in dev.
 }
 
 // ExportVersions lists each semantic version for which there is a new export

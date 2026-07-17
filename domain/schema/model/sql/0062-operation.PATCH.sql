@@ -14,10 +14,19 @@ CREATE TABLE operation_new (
     execution_group TEXT
 );
 
-INSERT INTO operation_new (uuid, operation_id, summary, enqueued_at, started_at,
-                           completed_at, parallel, execution_group)
-SELECT uuid, CAST(operation_id AS INTEGER), summary, enqueued_at, started_at,
-       completed_at, parallel, execution_group
+INSERT INTO operation_new (
+    uuid, operation_id, summary, enqueued_at, started_at,
+    completed_at, parallel, execution_group
+)
+SELECT
+    uuid,
+    CAST(operation_id AS INTEGER) AS operation_id,
+    summary,
+    enqueued_at,
+    started_at,
+    completed_at,
+    parallel,
+    execution_group
 FROM operation;
 
 DROP TABLE operation;

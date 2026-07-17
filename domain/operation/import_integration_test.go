@@ -88,7 +88,7 @@ func (s *importSuite) TestImportApplicationOperation(c *tc.C) {
 
 	now := time.Now().UTC().Truncate(time.Second)
 	desc.AddOperation(description.OperationArgs{
-		Id:        "op-1",
+		Id:        "1",
 		Summary:   "test op",
 		Enqueued:  now.Add(-3 * time.Hour),
 		Started:   now.Add(-2 * time.Hour),
@@ -99,7 +99,7 @@ func (s *importSuite) TestImportApplicationOperation(c *tc.C) {
 		Id:        "a-1",
 		Receiver:  "foo/0",
 		Name:      "do-it",
-		Operation: "op-1",
+		Operation: "1",
 		Parameters: map[string]any{
 			"p1": "v1",
 		},
@@ -170,7 +170,7 @@ func (s *importSuite) TestImportUnitOperation(c *tc.C) {
 
 	now := time.Now().UTC().Truncate(time.Second)
 	desc.AddOperation(description.OperationArgs{
-		Id:        "op-1",
+		Id:        "1",
 		Summary:   "test juju-exec on unit",
 		Enqueued:  now.Add(-3 * time.Hour),
 		Started:   now.Add(-2 * time.Hour),
@@ -181,7 +181,7 @@ func (s *importSuite) TestImportUnitOperation(c *tc.C) {
 		Id:        "a-3",
 		Receiver:  "foo/0",
 		Name:      "juju-exec",
-		Operation: "op-1",
+		Operation: "1",
 		Enqueued:  now.Add(-3 * time.Hour),
 		Started:   now.Add(-2 * time.Hour),
 		Status:    corestatus.Failed.String(),
@@ -228,7 +228,7 @@ func (s *importSuite) TestImportMachineOperation(c *tc.C) {
 
 	now := time.Now().UTC().Truncate(time.Second)
 	desc.AddOperation(description.OperationArgs{
-		Id:       "op-2",
+		Id:       "2",
 		Summary:  "machine op",
 		Enqueued: now.Add(-3 * time.Hour),
 		Started:  now.Add(-2 * time.Hour),
@@ -238,7 +238,7 @@ func (s *importSuite) TestImportMachineOperation(c *tc.C) {
 		Id:        "a-2",
 		Receiver:  "0",
 		Name:      "juju-exec",
-		Operation: "op-2",
+		Operation: "2",
 		Enqueued:  now.Add(-3 * time.Hour),
 		Started:   now.Add(-2 * time.Hour),
 		Status:    corestatus.Running.String(),

@@ -12,46 +12,46 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/semversion"
-	"github.com/juju/juju/domain/export/types/v4_0_12"
+	"github.com/juju/juju/domain/export/types/v4_0_13"
 	"github.com/juju/juju/internal/errors"
 )
 
-type exportServiceSuiteV4_0_12 struct{}
+type exportServiceSuiteV4_0_13 struct{}
 
-func TestExportServiceSuiteV4_0_12(t *testing.T) {
-	tc.Run(t, &exportServiceSuiteV4_0_12{})
+func TestExportServiceSuiteV4_0_13(t *testing.T) {
+	tc.Run(t, &exportServiceSuiteV4_0_13{})
 }
 
-func (s *exportServiceSuiteV4_0_12) TestExport(c *tc.C) {
-	expectedPayload := &v4_0_12.ModelExport{}
+func (s *exportServiceSuiteV4_0_13) TestExport(c *tc.C) {
+	expectedPayload := &v4_0_13.ModelExport{}
 
-	svc := NewService(&stubStateV4_0_12{
-		export: func(context.Context) (*v4_0_12.ModelExport, error) {
+	svc := NewService(&stubStateV4_0_13{
+		export: func(context.Context) (*v4_0_13.ModelExport, error) {
 			return expectedPayload, nil
 		},
 	})
 
 	modelExport, err := svc.Export(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(modelExport.Version, tc.Equals, semversion.MustParse("4.0.12"))
+	c.Assert(modelExport.Version, tc.Equals, semversion.MustParse("4.0.13"))
 	c.Assert(modelExport.Payload, tc.Equals, expectedPayload)
 }
 
-func (s *exportServiceSuiteV4_0_12) TestExportError(c *tc.C) {
-	svc := NewService(&stubStateV4_0_12{
-		export: func(context.Context) (*v4_0_12.ModelExport, error) {
+func (s *exportServiceSuiteV4_0_13) TestExportError(c *tc.C) {
+	svc := NewService(&stubStateV4_0_13{
+		export: func(context.Context) (*v4_0_13.ModelExport, error) {
 			return nil, errors.New("boom")
 		},
 	})
 
 	_, err := svc.Export(c.Context())
-	c.Assert(err, tc.ErrorMatches, "exporting model data for version 4.0.12: boom")
+	c.Assert(err, tc.ErrorMatches, "exporting model data for version 4.0.13: boom")
 }
 
-type stubStateV4_0_12 struct {
-	export func(context.Context) (*v4_0_12.ModelExport, error)
+type stubStateV4_0_13 struct {
+	export func(context.Context) (*v4_0_13.ModelExport, error)
 }
 
-func (s *stubStateV4_0_12) Export(ctx context.Context) (*v4_0_12.ModelExport, error) {
+func (s *stubStateV4_0_13) Export(ctx context.Context) (*v4_0_13.ModelExport, error) {
 	return s.export(ctx)
 }
