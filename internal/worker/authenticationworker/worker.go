@@ -28,7 +28,10 @@ var logger = internallogger.GetLogger("juju.worker.authenticationworker")
 
 // Client provides the key updater api client.
 type Client interface {
+	// AuthorisedKeys returns the authorised ssh keys for the machine specified by machineTag.
 	AuthorisedKeys(ctx context.Context, tag names.MachineTag) ([]string, error)
+	// WatchAuthorisedKeys returns a notify watcher that looks for changes in the
+	// authorised ssh keys for the machine specified by machineTag.
 	WatchAuthorisedKeys(ctx context.Context, tag names.MachineTag) (watcher.NotifyWatcher, error)
 }
 
@@ -176,8 +179,7 @@ func (a *AuthWorker) enqueue(req ephemeralRequest) error {
 }
 
 func (a *AuthWorker) loop() error {
-	ctx, cancel := a.scopedContext()
-	defer cancel()
+	ctx := a.catacomb.Context(context.Background())
 
 	// Perform the initial synchronisation of the authorized_keys file before
 	// we start watching for changes. On startup any dangling ephemeral keys
@@ -342,12 +344,4 @@ func (a *AuthWorker) writeSSHKeys(jujuKeys []string, preserveEphemeral bool) err
 	}
 	allKeys = append(allKeys, jujuKeys...)
 	return ssh.ReplaceKeys(SSHUser, allKeys...)
-}
-
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (a *AuthWorker) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return a.catacomb.Context(ctx), cancel
 }
