@@ -867,12 +867,30 @@ func (ap *addressProvider) next(ctx context.Context) (*resolvedAddress, error) {
 	return next, nil
 }
 
+// probedCert holds the certificates retrieved from a remote server during the
+// CA probe, split into the parts needed for verification and for the trust
+// prompt so that callers don't have to re-derive them from the raw chain.
+type probedCert struct {
+	// leaf is the server's end-entity certificate.
+	leaf *x509.Certificate
+	// intermediates holds the remaining certificates presented by the
+	// server. They are used to build a chain from the leaf up to a trusted
+	// root, which is required when the server relies on a cross-signed root
+	// that is not yet distributed in the system trust store.
+	intermediates *x509.CertPool
+	// caCert is the CA certificate presented by the server. Its fingerprint
+	// is shown to the user and it is added to the dial cert pool as a trust
+	// anchor when the chain is not publicly trusted (the self-signed CA of a
+	// private controller).
+	caCert *x509.Certificate
+}
+
 // caRetrieveRes is an adaptor for returning CA certificate lookup results via
 // calls to parallel.Try.
 type caRetrieveRes struct {
 	host     string
 	endpoint string
-	caCert   *x509.Certificate
+	cert     probedCert
 }
 
 func (caRetrieveRes) Close() error { return nil }
@@ -902,7 +920,7 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 		return func(<-chan struct{}) (io.Closer, error) {
 			started := time.Now()
 			logger.Debugf("api ca probe starting: address=%s server=%s proxy=%s", ipStr, addr.url.Host, debugProxy(proxyURL))
-			caCert, err := retrieveCACert(ctx, ipStr, proxyURL)
+			cert, err := retrieveProbedCert(ctx, ipStr, proxyURL)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
 					logger.Debugf("api ca probe failed: address=%s server=%s proxy=%s elapsed=%s err=%v", ipStr, addr.url.Host, debugProxy(proxyURL), time.Since(started).Round(time.Millisecond), err)
@@ -914,7 +932,7 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 			return caRetrieveRes{
 				host:     addr.url.Host,
 				endpoint: addr.ip,
-				caCert:   caCert,
+				cert:     cert,
 			}, nil
 		}
 	}
@@ -953,34 +971,45 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 		return nil
 	}
 
-	// Try to verify CA cert using the system roots. If the verification
-	// succeeds then we are done; tls connections will work out of the box.
 	res := result.(caRetrieveRes)
-	if _, err = res.caCert.Verify(x509.VerifyOptions{}); err == nil {
-		logger.Debugf("remote CA certificate trusted by system roots")
+	// Verify the server's leaf certificate the same way a TLS client would:
+	// build a chain from the leaf up to a trusted system root, using the
+	// certificates presented by the server as intermediates. If a chain can
+	// be built the certificate is publicly trusted and no further action is
+	// required.
+	if _, err = res.cert.leaf.Verify(x509.VerifyOptions{Intermediates: res.cert.intermediates}); err == nil {
+		logger.Debugf("remote certificate chain trusted by system roots")
 		return nil
 	}
 
-	// Invoke the CA verifier; if the CA should be trusted, append it to
-	// the dialOpts certPool and proceed with the actual connection attempt.
-	err = opts.VerifyCA(res.host, res.endpoint, res.caCert)
+	// The certificate is not publicly trusted. This is the expected case for
+	// a controller using a private, self-signed CA. Delegate the trust
+	// decision to VerifyCA, passing the CA certificate so its fingerprint
+	// can be shown to the user. If the CA is trusted, add it to the dial
+	// cert pool so the subsequent connection can verify against it.
+	err = opts.VerifyCA(res.host, res.endpoint, res.cert.caCert)
 	if err == nil {
 		if opts.certPool == nil {
 			opts.certPool = x509.NewCertPool()
 		}
-		opts.certPool.AddCert(res.caCert)
+		opts.certPool.AddCert(res.cert.caCert)
 	}
 
 	return err
 }
 
-// retrieveCACert establishes an insecure TLS connection to addr, optionally
-// through the given proxy, and attempts to retrieve the CA cert presented by
-// the server.
-func retrieveCACert(ctx context.Context, addr string, proxyURL string) (*x509.Certificate, error) {
+// retrieveProbedCert establishes an insecure TLS connection to addr, optionally
+// through the given proxy, and returns the certificates presented by the
+// server split into the leaf, the intermediates and the CA certificate.
+//
+// It returns an error if the server does not present a CA certificate, which
+// indicates an older Juju controller (or a server that does not present its
+// CA); in that case the caller should skip verification and dial as if no
+// VerifyCA implementation was provided.
+func retrieveProbedCert(ctx context.Context, addr string, proxyURL string) (probedCert, error) {
 	netConn, err := dialCAProbeConn(ctx, addr, proxyURL)
 	if err != nil {
-		return nil, err
+		return probedCert{}, err
 	}
 	defer func() {
 		_ = netConn.Close()
@@ -988,19 +1017,35 @@ func retrieveCACert(ctx context.Context, addr string, proxyURL string) (*x509.Ce
 
 	conn := tls.Client(netConn, &tls.Config{InsecureSkipVerify: true})
 	if err = conn.Handshake(); err != nil {
-		return nil, err
+		return probedCert{}, err
 	}
 	defer func() {
 		_ = conn.Close()
 	}()
 
-	for _, cert := range conn.ConnectionState().PeerCertificates {
-		if cert.IsCA {
-			return cert, nil
-		}
+	chain := conn.ConnectionState().PeerCertificates
+	if len(chain) == 0 {
+		return probedCert{}, errors.New("no certificate presented by remote server")
 	}
 
-	return nil, errors.New("no CA certificate presented by remote server")
+	cert := probedCert{
+		leaf:          chain[0],
+		intermediates: x509.NewCertPool(),
+	}
+	for _, c := range chain[1:] {
+		cert.intermediates.AddCert(c)
+	}
+	for _, c := range chain {
+		if c.IsCA {
+			cert.caCert = c
+			break
+		}
+	}
+	if cert.caCert == nil {
+		return probedCert{}, errors.New("no CA certificate presented by remote server")
+	}
+
+	return cert, nil
 }
 
 // dialCAProbeConn establishes a tcp connection to addr, handling routing through
