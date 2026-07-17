@@ -33,3 +33,6 @@ JOIN object_store_metadata_path AS osmp ON osm.uuid = osmp.metadata_uuid;
 
 CREATE INDEX idx_agent_binary_store_object_store_uuid
 ON agent_binary_store (object_store_uuid);
+
+CREATE INDEX idx_agent_binary_store_version_architecture_object_store
+ON agent_binary_store (version, architecture_id, object_store_uuid);

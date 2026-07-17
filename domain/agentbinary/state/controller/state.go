@@ -301,7 +301,8 @@ func (s *ControllerState) ListAgentBinaries(ctx context.Context) ([]agentbinary.
 
 	stmt, err := s.Prepare(`
 SELECT &metadataRecord.*
-FROM   v_agent_binary_store`, metadataRecord{})
+FROM   v_agent_binary_store
+ORDER BY version, architecture_id`, metadataRecord{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
