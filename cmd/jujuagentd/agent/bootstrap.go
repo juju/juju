@@ -38,8 +38,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/controllerruntimeconfig"
 	"github.com/juju/juju/internal/database"
 	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
@@ -152,7 +152,7 @@ var (
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	bootstrapParamsData, err := os.ReadFile(path.Join(c.DataDir(), cloudconfig.FileNameBootstrapParams))
+	bootstrapParamsData, err := os.ReadFile(path.Join(c.DataDir(), controllerruntimeconfig.FileNameBootstrapParams))
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
 	}
