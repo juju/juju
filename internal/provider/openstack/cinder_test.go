@@ -1066,9 +1066,18 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesDeleteAttachmentOrphaned(c *
 }
 
 func (s *cinderVolumeSourceSuite) TestDestroyVolumesDeleteAttachmentForbidden(c *gc.C) {
-	// If the attachment-delete policy forbids these credentials cinder returns
-	// 403. The destroy must not fail on that: it falls back to plain polling
-	// and deletes the volume once it settles to "available".
+	s.assertDestroyVolumesDeleteAttachmentFallback(
+		c, gooseerrors.NewForbiddenf(nil, nil, "forbidden"),
+	)
+}
+
+func (s *cinderVolumeSourceSuite) TestDestroyVolumesDeleteAttachmentNotImplemented(c *gc.C) {
+	s.assertDestroyVolumesDeleteAttachmentFallback(
+		c, gooseerrors.NewNotImplementedf(nil, nil, "not implemented"),
+	)
+}
+
+func (s *cinderVolumeSourceSuite) assertDestroyVolumesDeleteAttachmentFallback(c *gc.C, deleteErr error) {
 	attempted := false
 	mockAdapter := &mockAdapter{
 		getVolume: func(volId string) (*cinder.Volume, error) {
@@ -1086,7 +1095,7 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesDeleteAttachmentForbidden(c 
 		deleteAttachment: func(attId string) error {
 			c.Check(attId, gc.Equals, "att-1")
 			attempted = true
-			return gooseerrors.NewForbiddenf(nil, nil, "forbidden")
+			return deleteErr
 		},
 	}
 	volSource := openstack.NewCinderVolumeSource(mockAdapter, s.env)
