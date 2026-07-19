@@ -1097,6 +1097,39 @@ func (s *cinderVolumeSourceSuite) TestDestroyVolumesDeleteAttachmentForbidden(c 
 		"GetVolume", "DetachVolume", "DeleteAttachment", "GetVolume", "DeleteVolume")
 }
 
+func (s *cinderVolumeSourceSuite) TestDestroyVolumesSkipsEmptyAttachmentId(c *gc.C) {
+	getVolumeCalls := 0
+	var deletedAttachmentIds []string
+	mockAdapter := &mockAdapter{
+		getVolume: func(volId string) (*cinder.Volume, error) {
+			getVolumeCalls++
+			if getVolumeCalls == 3 {
+				return &cinder.Volume{ID: volId, Status: "available"}, nil
+			}
+			attachmentId := ""
+			if getVolumeCalls == 2 {
+				attachmentId = "att-1"
+			}
+			return &cinder.Volume{
+				ID:     volId,
+				Status: "detaching",
+				Attachments: []cinder.VolumeAttachment{{
+					Id: volId, AttachmentId: attachmentId, ServerId: "srv-1", VolumeId: volId,
+				}},
+			}, nil
+		},
+		deleteAttachment: func(attachmentId string) error {
+			deletedAttachmentIds = append(deletedAttachmentIds, attachmentId)
+			return nil
+		},
+	}
+	volSource := openstack.NewCinderVolumeSource(mockAdapter, s.env)
+	errs, err := volSource.DestroyVolumes(s.callCtx, []string{mockVolId})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(errs, jc.DeepEquals, []error{nil})
+	c.Assert(deletedAttachmentIds, jc.DeepEquals, []string{"att-1"})
+}
+
 func (s *cinderVolumeSourceSuite) TestDestroyVolumesDeleteAttachmentConflict(c *gc.C) {
 	// While the instance is still using the volume cinder refuses
 	// attachment-delete with 409 (Conflict). destroyVolume must not fail or give
