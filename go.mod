@@ -34,7 +34,7 @@ require (
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gliderlabs/ssh v0.3.8
-	github.com/go-goose/goose/v5 v5.1.4
+	github.com/go-goose/goose/v5 v5.1.7
 	github.com/go-logr/logr v1.4.3
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
 	github.com/google/gnostic-models v0.7.0
@@ -331,5 +331,3 @@ replace go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.2
 
 // Needed to work around a broken transitive dependency of lxd, testcontainers-go/docker.
 replace github.com/opencontainers/runc => github.com/opencontainers/runc v1.1.3
-
-replace github.com/go-goose/goose/v5 => github.com/xtrusia/goose/v5 v5.0.0-20260629053248-1fcea3b19589
