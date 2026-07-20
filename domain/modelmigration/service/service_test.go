@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
-	"github.com/juju/collections/set"
 	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
@@ -125,8 +124,9 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
-// TestMachinesFromProviderDiscrepancy is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the cloud.
+// TestMachinesFromProviderNotInModel checks that [Service.CheckMachines]
+// reports a discrepancy, with an empty machine name, for a provider instance
+// that is not tracked by any model machine.
 func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -140,10 +140,10 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
@@ -151,12 +151,16 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "provider instance IDs.*instance1.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
 }
 
-// TestMachineInstanceIDsNotInProvider is testing the return value from
-// [Service.CheckMachines] and that it reports discrepancies from the model
-// on the DB.
+// TestMachineInstanceIDsNotInProvider checks that [Service.CheckMachines]
+// reports a discrepancy, naming the offending machine, for a model machine
+// whose cloud instance the provider does not report.
 func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -167,10 +171,10 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 			},
 		},
 			nil)
-	s.modelState.EXPECT().GetAllInstanceIDs(gomock.Any()).
-		Return(set.NewStrings("instance0", "instance1"), nil)
+	s.modelState.EXPECT().GetMachineInstanceIDs(gomock.Any()).
+		Return(map[string]string{"instance0": "0", "instance1": "1"}, nil)
 
-	_, err := NewService(
+	discrepancies, err := NewService(
 		s.controllerState,
 		s.modelState,
 		s.modelUUID,
@@ -178,7 +182,28 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
 	).CheckMachines(c.Context())
-	c.Check(err, tc.ErrorMatches, "instance IDs.*instance1.*")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
+		MachineName:     "1",
+		CloudInstanceId: instance.Id("instance1"),
+	}})
+}
+
+// expectImportValidationPasses sets up the read-only ValidateImportedModel
+// state reads to report a model with no external secrets, so validation passes.
+func (s *serviceSuite) expectImportValidationPasses() {
+	mExp := s.modelState.EXPECT()
+	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
+	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
+}
+
+// expectAgentBinaryCheckAllPresent sets up MissingAgentBinaryArchitectures to
+// report a model with no running agents, so nothing is missing and the
+// agent-version bump proceeds.
+func (s *serviceSuite) expectAgentBinaryCheckAllPresent() {
+	mExp := s.modelState.EXPECT()
+	mExp.GetModelType(gomock.Any()).Return("iaas", nil)
+	mExp.GetRunningAgentArchitectures(gomock.Any()).Return(nil, nil)
 }
 
 func (s *serviceSuite) TestActivateImport(c *tc.C) {
@@ -186,6 +211,9 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 
 	currentVersion := semversion.MustParse("4.0.0").String()
 	desiredVersion := semversion.MustParse("4.0.1").String()
+
+	s.expectImportValidationPasses()
+	s.expectAgentBinaryCheckAllPresent()
 
 	mExp := s.modelState.EXPECT()
 	cExp := s.controllerState.EXPECT()
@@ -212,11 +240,102 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 	c.Check(err, tc.ErrorIsNil)
 }
 
+// TestActivateImportSkipsBumpWhenBinariesMissing checks 3.6 parity: when the
+// target lacks agent binaries for a running architecture at the desired
+// version, activation does not bump the model agent version and does not fail.
+func (s *serviceSuite) TestActivateImportSkipsBumpWhenBinariesMissing(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentVersion := semversion.MustParse("4.0.0").String()
+	desiredVersion := semversion.MustParse("4.0.1").String()
+
+	s.expectImportValidationPasses()
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	// A running arm64 agent exists, but the target has no arm64 binary for the
+	// desired version in either store: the bump is skipped, activation proceeds,
+	// and SetModelTargetAgentVersion is never called.
+	mExp.GetModelType(gomock.Any()).Return("iaas", nil)
+	mExp.GetRunningAgentArchitectures(gomock.Any()).Return([]string{"arm64"}, nil)
+	cExp.GetAgentBinaryArchitecturesForVersion(gomock.Any(), desiredVersion).Return([]string{"amd64"}, nil)
+	mExp.GetAgentBinaryArchitecturesForVersion(gomock.Any(), desiredVersion).Return(nil, nil)
+
+	gomock.InOrder(
+		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
+		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
+		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
+		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
+	)
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ActivateImport(c.Context())
+	c.Check(err, tc.ErrorIsNil)
+}
+
+// TestActivateImportRejectsUnknownSecretBackend checks that activation refuses
+// an imported model whose external secrets reference a backend that does not
+// exist on this controller (an un-rewritten source backend UUID), before any
+// activation write.
+func (s *serviceSuite) TestActivateImportRejectsUnknownSecretBackend(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return([]string{"source-backend-uuid"}, nil)
+	cExp.GetKnownSecretBackends(gomock.Any(), []string{"source-backend-uuid"}).Return(nil, nil)
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ActivateImport(c.Context())
+	c.Check(err, tc.ErrorMatches, ".*secret backend.*source-backend-uuid.*do not exist.*")
+}
+
+// TestActivateImportRejectsMissingBackendReference checks that activation
+// refuses an imported model whose external secret revision has no matching
+// controller secret_backend_reference row (re-attach did not happen).
+func (s *serviceSuite) TestActivateImportRejectsMissingBackendReference(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return([]string{"backend-1"}, nil)
+	cExp.GetKnownSecretBackends(gomock.Any(), []string{"backend-1"}).Return([]string{"backend-1"}, nil)
+	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(map[string]string{"rev-1": "backend-1"}, nil)
+	cExp.GetSecretBackendReferencesForModel(gomock.Any(), s.modelUUID).Return(map[string]string{}, nil)
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+	).ActivateImport(c.Context())
+	c.Check(err, tc.ErrorMatches, ".*missing secret backend references.*rev-1.*")
+}
+
 func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	currentVersion := semversion.MustParse("4.0.0").String()
 	desiredVersion := semversion.MustParse("4.0.0").String()
+
+	s.expectImportValidationPasses()
 
 	mExp := s.modelState.EXPECT()
 	cExp := s.controllerState.EXPECT()
@@ -245,6 +364,8 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectImportValidationPasses()
+
 	cExp := s.controllerState.EXPECT()
 
 	cExp.GetControllerTargetVersion(gomock.Any()).Return("", errors.Errorf("front fell off"))
@@ -264,6 +385,8 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	desiredVersion := semversion.MustParse("4.0.1").String()
+
+	s.expectImportValidationPasses()
 
 	mExp := s.modelState.EXPECT()
 	cExp := s.controllerState.EXPECT()

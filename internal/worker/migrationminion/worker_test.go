@@ -584,6 +584,114 @@ func (s *Suite) TestSuccessAfterValidateWithRedirect(c *tc.C) {
 	s.stub.CheckCall(c, 3, "API open addresses", finalAddress)
 }
 
+// TestSuccessAfterValidateWithMultipleRedirects checks that the minion follows
+// more than one redirect hop to reach the target controller, and persists the
+// final hop's address and CA cert (WS13 redirect checklist: > 1 hop).
+func (s *Suite) TestSuccessAfterValidateWithMultipleRedirects(c *tc.C) {
+	hop1Address := []string{"6.6.6.6:1234"}
+	finalAddress := []string{"7.7.7.7:1234"}
+	finalCACert := "final-cert"
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.VALIDATION,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.SUCCESS,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+
+	s.config.APIOpen = func(_ context.Context, info *api.Info, _ api.DialOpts) (api.Connection, error) {
+		addressCopy := make([]string, len(info.Addrs))
+		copy(addressCopy, info.Addrs)
+		s.stub.AddCall("API open addresses", addressCopy)
+		switch {
+		case slices.Equal(info.Addrs, addrs):
+			// First hop.
+			return nil, &api.RedirectError{
+				Servers: []network.MachineHostPorts{network.NewMachineHostPorts(1234, "6.6.6.6")},
+				CACert:  "hop1-cert",
+			}
+		case slices.Equal(info.Addrs, hop1Address):
+			// Second hop.
+			return nil, &api.RedirectError{
+				Servers: []network.MachineHostPorts{network.NewMachineHostPorts(1234, "7.7.7.7")},
+				CACert:  finalCACert,
+			}
+		case slices.Equal(info.Addrs, finalAddress):
+			return &stubConnection{stub: s.stub}, nil
+		}
+		return nil, errors.Errorf("unexpected address %q", info.Addrs[0])
+	}
+
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out")
+	}
+	workertest.CleanKill(c, w)
+	c.Assert(s.agent.conf.addrs, tc.DeepEquals, finalAddress)
+	c.Assert(s.agent.conf.caCert, tc.DeepEquals, finalCACert)
+	// Two redirect hops then the final controller, following Watch and Lockdown.
+	s.stub.CheckCall(c, 2, "API open addresses", addrs)
+	s.stub.CheckCall(c, 3, "API open addresses", hop1Address)
+	s.stub.CheckCall(c, 4, "API open addresses", finalAddress)
+}
+
+// TestPostSuccessAgentConfigWriteFailureRecovers checks the WS13 recovery
+// behaviour: if writing the target controller details to agent.conf fails on
+// one post-SUCCESS phase, the write is re-attempted on a later post-SUCCESS
+// phase and succeeds, so the agent ends up pointing at the target controller.
+func (s *Suite) TestPostSuccessAgentConfigWriteFailureRecovers(c *tc.C) {
+	// The first agent-config write fails; the next one succeeds.
+	s.agent.changeConfigErrs = []error{errors.New("disk full")}
+
+	// First worker handles LOGTRANSFER. The config write fails, so the worker
+	// exits with the error (in production its manager restarts it, which the
+	// second worker below models).
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.LOGTRANSFER,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w1, err := migrationminion.New(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	err = workertest.CheckKilled(c, w1)
+	c.Assert(err, tc.ErrorMatches, ".*disk full.*")
+	c.Check(s.agent.conf.addrs, tc.HasLen, 0)
+
+	// Second worker (post-restart, same agent) handles a later post-SUCCESS
+	// phase; the config write is re-attempted and succeeds.
+	s.client = newStubMinionClient(s.stub)
+	s.config.Facade = s.client
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId:    "id",
+		Phase:          migration.REAP,
+		TargetAPIAddrs: addrs,
+		TargetCACert:   caCert,
+	}
+	w2, err := migrationminion.New(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w2)
+
+	select {
+	case <-s.agent.configChanged:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for agent config recovery")
+	}
+	workertest.CleanKill(c, w2)
+	c.Check(s.agent.conf.addrs, tc.DeepEquals, addrs)
+	c.Check(s.agent.conf.caCert, tc.Equals, caCert)
+}
+
 func (s *Suite) TestValidateFailsWithRedirectLoop(c *tc.C) {
 	s.client.watcher.changes <- watcher.MigrationStatus{
 		MigrationId:    "id",
@@ -724,6 +832,13 @@ type stubAgent struct {
 	agent.Agent
 	configChanged chan bool
 	conf          stubAgentConfig
+
+	mu sync.Mutex
+	// changeConfigErrs supplies an error (or nil) per ChangeConfig call,
+	// consumed front-to-back; when an error is supplied the config is not
+	// changed and configChanged is not signalled. It lets a test model an
+	// agent-config write failing on one attempt and recovering on a later one.
+	changeConfigErrs []error
 }
 
 func (ma *stubAgent) CurrentConfig() agent.Config {
@@ -731,6 +846,16 @@ func (ma *stubAgent) CurrentConfig() agent.Config {
 }
 
 func (ma *stubAgent) ChangeConfig(f agent.ConfigMutator) error {
+	ma.mu.Lock()
+	var injErr error
+	if len(ma.changeConfigErrs) > 0 {
+		injErr = ma.changeConfigErrs[0]
+		ma.changeConfigErrs = ma.changeConfigErrs[1:]
+	}
+	ma.mu.Unlock()
+	if injErr != nil {
+		return injErr
+	}
 	defer close(ma.configChanged)
 	return f(&ma.conf)
 }

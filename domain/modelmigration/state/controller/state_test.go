@@ -193,6 +193,50 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+// TestGetKnownSecretBackends asserts only the supplied backend UUIDs that
+// exist on the controller are returned.
+func (s *stateSuite) TestGetKnownSecretBackends(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// backend_type_id 2 is 'vault' from the seeded secret_backend_type rows.
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'b1', 2), (?, 'b2', 2)",
+		"backend-1", "backend-2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	known, err := st.GetKnownSecretBackends(c.Context(), []string{"backend-1", "backend-2", "backend-missing"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.SameContents, []string{"backend-1", "backend-2"})
+}
+
+// TestGetKnownSecretBackendsEmptyInput asserts an empty input returns no rows
+// without querying.
+func (s *stateSuite) TestGetKnownSecretBackendsEmptyInput(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	known, err := st.GetKnownSecretBackends(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.HasLen, 0)
+}
+
+// TestGetSecretBackendReferencesForModelEmpty exercises the query for a model
+// with no secret backend references.
+func (s *stateSuite) TestGetSecretBackendReferencesForModelEmpty(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	refs, err := st.GetSecretBackendReferencesForModel(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(refs, tc.HasLen, 0)
+}
+
+// TestGetAgentBinaryArchitecturesForVersionEmpty exercises the query when the
+// controller object store holds no agent binaries for the version.
+func (s *stateSuite) TestGetAgentBinaryArchitecturesForVersionEmpty(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	archs, err := st.GetAgentBinaryArchitecturesForVersion(c.Context(), "4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archs, tc.HasLen, 0)
+}
+
 // TestDeleteModelImportingStatusNoEntry tests that clearing a non-existent
 // model_migration_import entry succeeds without error (idempotent behavior).
 func (s *stateSuite) TestDeleteModelImportingStatusNoEntry(c *tc.C) {
