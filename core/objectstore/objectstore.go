@@ -54,8 +54,9 @@ type ReadSession interface {
 	// GetObject returns a reader for the specified object.
 	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error)
 
-	// ListObjects returns a list of objects in the specified bucket.
-	ListObjects(ctx context.Context, bucketName string) ([]string, error)
+	// ListObjects returns a list of objects in the specified bucket, optionally
+	// filtered by prefix.
+	ListObjects(ctx context.Context, bucketName, prefix string) ([]string, error)
 }
 
 // WriteSession provides read access to the object store.
