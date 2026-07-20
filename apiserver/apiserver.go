@@ -686,7 +686,10 @@ func (srv *Server) loop(ready chan struct{}) error {
 }
 
 const (
-	modelRoutePrefix         = "/model/:modeluuid"
+	modelRoutePrefix = "/model/:modeluuid"
+	// These routes expose an S3-compatible API where model-<uuid> is a
+	// pseudo-bucket that identifies the model. The physical S3 backend uses one
+	// controller-scoped bucket with per-model prefixes.
 	charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
 	objectsRoutePrefix       = "/model-:modeluuid/objects/:object"
 	migrateResourcesPrefix   = "/migrate/resources"
