@@ -4,6 +4,7 @@
 package authenticationworker_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -310,6 +311,106 @@ func (s *workerSuite) TestAddAndRemoveEphemeralKey(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.waitSSHKeysUnordered(c, append(s.existingKeys, s.existingEnvKey))
+}
+
+// TestRemoveLastEphemeralKey asserts that removing an ephemeral key succeeds
+// even when it is the only key in the authorized_keys file. The underlying
+// DeleteKeys helper refuses to delete the final key, so the worker must use
+// the delete-all variant; otherwise a torn-down tunnel's key would remain
+// authorised until the worker restarts.
+func (s *workerSuite) TestRemoveLastEphemeralKey(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Clear the authorized_keys file (SetUpTest seeds one existing key) and
+	// start a worker with no model keys, so the ephemeral key becomes the only
+	// key present.
+	err := ssh.DeleteKeysFromFile(authenticationworker.SSHUser, "authorized_keys", []string{"existinguser@host"})
+	c.Assert(err, tc.ErrorIsNil)
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+	tag := names.NewMachineTag("666")
+	client := mocks.NewMockClient(ctrl)
+	client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return([]string{}, nil).AnyTimes()
+	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
+
+	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, tag))
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, authWorker)
+	s.waitSSHKeysUnordered(c, nil)
+
+	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	c.Assert(ok, tc.IsTrue)
+
+	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = updater.AddEphemeralKey(pub, "tunnel-0")
+	c.Assert(err, tc.ErrorIsNil)
+	ephemeralKey := sshtesting.ValidKeyThree.Key + " Juju:Ephemeral:tunnel-0"
+	s.waitSSHKeysUnordered(c, []string{ephemeralKey})
+
+	// Removing the only key must succeed, leaving an empty key set.
+	err = updater.RemoveEphemeralKey(pub)
+	c.Assert(err, tc.ErrorIsNil)
+	s.waitSSHKeysUnordered(c, nil)
+}
+
+// TestKillDuringModelKeyUpdateReportsCleanShutdown asserts that killing the
+// worker while a model key update is in flight is reported as a normal
+// shutdown. A Kill cancels the catacomb context, which the in-flight
+// AuthorisedKeys call surfaces as a cancelled-context error; the worker must
+// translate that into ErrDying rather than reporting a failure to the runner.
+func (s *workerSuite) TestKillDuringModelKeyUpdateReportsCleanShutdown(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	watch := watchertest.NewMockNotifyWatcher(ch)
+
+	tag := names.NewMachineTag("666")
+	client := mocks.NewMockClient(ctrl)
+	client.EXPECT().WatchAuthorisedKeys(gomock.Any(), tag).Return(watch, nil)
+
+	// blocked signals that the model key update is in flight; release lets it
+	// return once the worker has been killed.
+	blocked := make(chan struct{})
+	release := make(chan struct{})
+	gomock.InOrder(
+		// The initial setUp synchronisation.
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).Return(s.existingModelKeys, nil),
+		// The model key update triggered by the watcher: block until killed,
+		// then return the cancelled-context error the real client would.
+		client.EXPECT().AuthorisedKeys(gomock.Any(), tag).DoAndReturn(
+			func(ctx context.Context, _ names.MachineTag) ([]string, error) {
+				close(blocked)
+				<-release
+				return nil, ctx.Err()
+			},
+		),
+	)
+
+	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, tag))
+	c.Assert(err, tc.ErrorIsNil)
+	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
+
+	// Fire the watcher and wait for the model key update to be in flight.
+	ch <- struct{}{}
+	select {
+	case <-blocked:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for model key update to start")
+	}
+
+	// Kill the worker (cancelling the context), then release the API call so it
+	// returns the cancelled-context error.
+	authWorker.Kill()
+	close(release)
+
+	// A clean kill must observe ErrDying, not the cancelled-context failure.
+	err = workertest.CheckKilled(c, authWorker)
+	c.Check(err, tc.ErrorIsNil)
 }
 
 func (s *workerSuite) TestEphemeralKeyRemovedOnRestart(c *tc.C) {
