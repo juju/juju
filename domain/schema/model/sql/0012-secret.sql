@@ -410,12 +410,13 @@ SELECT
         WHEN sp.scope_type_id = 1 THEN sca.name
         WHEN sp.scope_type_id = 2 THEN m.uuid
     END) AS scope_id
-FROM secret_permission AS sp INDEXED BY idx_secret_permission_list
+FROM secret_permission AS sp
 LEFT JOIN unit AS suu ON sp.subject_uuid = suu.uuid
 LEFT JOIN application AS sua ON sp.subject_uuid = sua.uuid
 LEFT JOIN unit AS scu ON sp.scope_uuid = scu.uuid
 LEFT JOIN application AS sca ON sp.scope_uuid = sca.uuid
-JOIN model AS m INDEXED BY idx_secret_model_uuid_name;
+JOIN model AS m
+WHERE sp.secret_id >= '';
 
 CREATE VIEW v_secret_owner AS
 SELECT
@@ -424,8 +425,9 @@ SELECT
     m.name AS owner_name,
     so.label,
     so.secret_id
-FROM secret_model_owner AS so INDEXED BY idx_secret_model_owner_list
-JOIN model AS m INDEXED BY idx_secret_model_uuid_name -- this is a singleton
+FROM secret_model_owner AS so
+CROSS JOIN model AS m -- this is a singleton
+WHERE so.secret_id >= ''
 UNION ALL
 SELECT
     'application' AS owner_kind,
@@ -434,8 +436,8 @@ SELECT
     so.label,
     so.secret_id
 FROM secret_application_owner AS so
-INDEXED BY idx_secret_application_owner_application_label_secret
 JOIN application AS a ON so.application_uuid = a.uuid
+WHERE so.application_uuid >= ''
 UNION ALL
 SELECT
     'unit' AS owner_kind,
@@ -444,8 +446,8 @@ SELECT
     so.label,
     so.secret_id
 FROM secret_unit_owner AS so
-INDEXED BY idx_secret_unit_owner_unit_label_secret
-JOIN unit AS u ON so.unit_uuid = u.uuid;
+JOIN unit AS u ON so.unit_uuid = u.uuid
+WHERE so.unit_uuid >= '';
 
 CREATE VIEW v_secret_metadata AS
 SELECT
@@ -464,12 +466,13 @@ SELECT
     so.owner_uuid,
     so.owner_name,
     so.label
-FROM secret_metadata AS sm INDEXED BY idx_secret_metadata_list
+FROM secret_metadata AS sm
 JOIN secret_rotate_policy AS rp ON sm.rotate_policy_id = rp.id
 JOIN secret_revision AS sr ON sm.secret_id = sr.secret_id
 LEFT JOIN secret_revision_expire AS sre ON sr.uuid = sre.revision_uuid
 LEFT JOIN secret_rotation AS sro ON sm.secret_id = sro.secret_id
-LEFT JOIN v_secret_owner AS so ON sm.secret_id = so.secret_id;
+LEFT JOIN v_secret_owner AS so ON sm.secret_id = so.secret_id
+WHERE sm.secret_id >= '';
 
 -- secret_reservation tracks secret IDs that have been minted by
 -- CreateSecretURIs but not yet persisted as charm secrets. Each

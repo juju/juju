@@ -242,7 +242,7 @@ SELECT
         SELECT 1
         FROM machine_parent AS mp
         JOIN machine_agent_presence AS map
-          ON mp.machine_uuid = map.machine_uuid
+            ON mp.machine_uuid = map.machine_uuid
         WHERE mp.parent_uuid = ms.machine_uuid
     ) AS present
 FROM machine_status AS ms

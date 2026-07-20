@@ -1,6 +1,6 @@
 CREATE TABLE object_store_metadata (
     uuid TEXT NOT NULL PRIMARY KEY,
-    sha_256 TEXT NOT NULL,
+    sha_256 TEXT NOT NULL COLLATE nocase,
     sha_384 TEXT NOT NULL,
     size INT NOT NULL
 );
@@ -9,8 +9,6 @@ CREATE TABLE object_store_metadata (
 -- to ensure that the same hash is not stored multiple times.
 CREATE UNIQUE INDEX idx_object_store_metadata_sha_256 ON object_store_metadata (sha_256);
 CREATE UNIQUE INDEX idx_object_store_metadata_sha_384 ON object_store_metadata (sha_384);
-CREATE INDEX idx_object_store_metadata_sha_256_nocase
-ON object_store_metadata (sha_256 COLLATE NOCASE);
 
 CREATE TABLE object_store_metadata_path (
     path TEXT NOT NULL PRIMARY KEY,
