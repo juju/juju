@@ -1202,9 +1202,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		}, authenticationworker.Output)),
 
-		// The sshsession worker establishes reverse SSH tunnels back to the
-		// controller in response to SSH connection requests. It is gated behind
-		// the SSHJump feature flag.
 		sshSessionName: ifNotMigrating(sshsession.Manifold(sshsession.ManifoldConfig{
 			AgentName:                agentName,
 			APICallerName:            apiCallerName,

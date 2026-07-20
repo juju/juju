@@ -74,7 +74,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// start starts the sshsession worker.
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	// The SSH jump server is not enabled by default; it must be enabled via a
 	// feature flag.

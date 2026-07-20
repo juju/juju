@@ -177,29 +177,29 @@ func (w *sshSessionWorker) loop() error {
 				return errors.Errorf("SSH connection request watcher closed")
 			}
 			for _, tunnelID := range changes {
-				w.handleConnectionAsync(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey)
+				w.handleConnection(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey)
 			}
 		}
 	}
 }
 
-// handleConnectionAsync handles a single connection request in its own
+// handleConnection handles a single connection request in its own
 // goroutine. The handler uses the worker-scoped context, so it is cancelled
 // when the worker is dying, and is tracked by the worker's WaitGroup so it
 // drains on shutdown. A single failed request must not bring down the worker.
-func (w *sshSessionWorker) handleConnectionAsync(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) {
+func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) {
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
-		if err := w.handleConnection(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey); err != nil {
+		if err := w.handleConnectionInternal(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey); err != nil {
 			w.config.Logger.Errorf(ctx, "failed to handle SSH connection request %q: %v", tunnelID, err)
 		}
 	}()
 }
 
-// handleConnection reads the request and, if it targets this machine,
+// handleConnectionInternal reads the request and, if it targets this machine,
 // establishes the reverse tunnel.
-func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) error {
+func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) error {
 	req, err := w.config.FacadeClient.GetSSHConnRequest(ctx, tunnelID)
 	if err != nil {
 		return errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
