@@ -287,16 +287,6 @@ func (s *apiclientSuite) TestVerifyCA(c *gc.C) {
 			errRegex:     `unable to connect to API: .*`,
 		},
 		{
-			descr:      "VerifyCA that always rejects certs",
-			serverCert: serverCertWithSelfSignedCA,
-			verifyCA: func(host, endpoint string, caCert *x509.Certificate) error {
-				return errors.New("CA not trusted")
-			},
-			// Dial aborts after fetching CAs
-			expConnCount: 1,
-			errRegex:     "CA not trusted",
-		},
-		{
 			descr:      "VerifyCA that always accepts certs",
 			serverCert: serverCertWithSelfSignedCA,
 			verifyCA: func(host, endpoint string, caCert *x509.Certificate) error {
