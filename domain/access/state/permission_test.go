@@ -847,6 +847,64 @@ func (s *permissionStateSuite) TestReadAllUserAccessForTargetExternalUser(c *tc.
 	c.Assert(accesses, tc.DeepEquals, expectedWithExternal)
 }
 
+func (s *permissionStateSuite) TestReadAllUserAccessForTargetDisabledExternalUser(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
+
+	cloudTarget := corepermission.ID{
+		ObjectType: corepermission.Cloud,
+		Key:        "test-cloud",
+	}
+	everyoneCloud, err := st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: corepermission.EveryoneUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTarget,
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.disableUser(c, "777")
+
+	accesses, err := st.ReadAllUserAccessForTarget(c.Context(), cloudTarget)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accesses, tc.HasLen, 1)
+	c.Check(accesses[0].UserName, tc.Equals, jimUserName)
+	c.Check(accesses[0].PermissionID, tc.Equals, everyoneCloud.PermissionID)
+	c.Check(accesses[0].Access, tc.Equals, everyoneCloud.Access)
+}
+
+func (s *permissionStateSuite) TestReadAllUserAccessForTargetRemovedExternalUser(c *tc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	jimUserName := usertesting.GenNewName(c, "jim@juju")
+	s.ensureUser(c, "777", jimUserName.Name(), "42", true)
+
+	cloudTarget := corepermission.ID{
+		ObjectType: corepermission.Cloud,
+		Key:        "test-cloud",
+	}
+	everyoneCloud, err := st.CreatePermission(c.Context(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: corepermission.EveryoneUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTarget,
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.removeUser(c, "777")
+
+	accesses, err := st.ReadAllUserAccessForTarget(c.Context(), cloudTarget)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(accesses, tc.HasLen, 1)
+	c.Check(accesses[0].UserName, tc.Equals, jimUserName)
+	c.Check(accesses[0].PermissionID, tc.Equals, everyoneCloud.PermissionID)
+	c.Check(accesses[0].Access, tc.Equals, everyoneCloud.Access)
+}
+
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *tc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 

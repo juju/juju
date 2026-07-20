@@ -480,9 +480,10 @@ FROM    v_user_auth u
         JOIN user AS creator ON u.created_by_uuid = creator.uuid
         LEFT JOIN v_permission p ON u.uuid = p.grant_to AND p.grant_on = $dbPermission.grant_on 
         LEFT JOIN v_everyone_external ee ON ee.grant_on = $dbPermission.grant_on
-WHERE   u.disabled = false
-AND     u.removed = false
-AND     (p.uuid IS NOT NULL OR (u.external AND ee.uuid IS NOT NULL))
+WHERE   (u.disabled = false
+         AND u.removed = false
+         AND p.uuid IS NOT NULL)
+OR      (u.uuid >= '' AND u.external AND ee.uuid IS NOT NULL)
 `
 	stmt, err := st.Prepare(query, grantOn, dbPermissionUser{}, dbEveryoneExternal{})
 	if err != nil {
