@@ -15,6 +15,7 @@ import (
 	gomock "github.com/canonical/gomock/gomock"
 
 	model "github.com/juju/juju/core/model"
+	watcher "github.com/juju/juju/core/watcher"
 	modelmigration "github.com/juju/juju/domain/modelmigration"
 )
 
@@ -30,6 +31,7 @@ type MockServiceMockRecorder struct {
 	mock                         *MockService
 	finalizeAbortedImportExpects []*gomock.Call2_1[context.Context, model.UUID, error]
 	getAllImportClaimsExpects    []*gomock.Call1_2[context.Context, []modelmigration.ImportClaimStatus, error]
+	watchImportClaimsExpects     []*gomock.Call1_2[context.Context, watcher.StringsWatcher, error]
 }
 
 // NewMockService creates a new mock instance.
@@ -79,3 +81,21 @@ func (mr *MockServiceMockRecorder) GetAllImportClaims(ctx any) *MockServiceGetAl
 
 // MockServiceGetAllImportClaimsCall is the typed call wrapper for GetAllImportClaims.
 type MockServiceGetAllImportClaimsCall = gomock.Call1_2[context.Context, []modelmigration.ImportClaimStatus, error]
+
+// WatchImportClaims mocks base method.
+func (m *MockService) WatchImportClaims(ctx context.Context) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.watchImportClaimsExpects, m.ctrl, m, "WatchImportClaims", ctx)
+}
+
+// WatchImportClaims indicates an expected call of WatchImportClaims.
+func (mr *MockServiceMockRecorder) WatchImportClaims(ctx any) *MockServiceWatchImportClaimsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "WatchImportClaims", gomock.EnsureMatcher(ctx))
+	mr.watchImportClaimsExpects = append(mr.watchImportClaimsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockServiceWatchImportClaimsCall is the typed call wrapper for WatchImportClaims.
+type MockServiceWatchImportClaimsCall = gomock.Call1_2[context.Context, watcher.StringsWatcher, error]

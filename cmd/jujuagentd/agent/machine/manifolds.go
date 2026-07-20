@@ -864,10 +864,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// model-migration import aborts: it drops the partial model database and
 		// releases the durable import claim once cleanup is provably complete.
 		migrationReconcilerName: ifPrimaryController(migrationreconciler.Manifold(migrationreconciler.ManifoldConfig{
-			DBAccessorName: dbAccessorName,
-			Clock:          config.Clock,
-			Logger:         internallogger.GetLogger("juju.worker.migrationreconciler"),
-			NewWorker:      migrationreconciler.NewWorker,
+			DBAccessorName:   dbAccessorName,
+			ChangeStreamName: changeStreamName,
+			Clock:            config.Clock,
+			Logger:           internallogger.GetLogger("juju.worker.migrationreconciler"),
+			NewWorker:        migrationreconciler.NewWorker,
 		})),
 
 		// The global lease manager tracks lease information in the Dqlite database.

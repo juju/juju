@@ -38,6 +38,13 @@ func New(factory coredatabase.TxnRunnerFactory, clock clock.Clock) *State {
 	}
 }
 
+// InitialWatchImportClaimsStatement returns the changestream namespace and
+// initial query for target-side import claims. Both the initial collection and
+// changelog triggers identify claims by their model UUID.
+func (*State) InitialWatchImportClaimsStatement() (string, string) {
+	return "model_migration_import", "SELECT model_uuid FROM model_migration_import"
+}
+
 // DeleteModelImportingStatus removes the entry from the model_migration_import
 // table in the controller database, indicating that the model import has
 // completed or been aborted.

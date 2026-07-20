@@ -16,6 +16,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	"github.com/juju/juju/internal/errors"
@@ -23,11 +24,6 @@ import (
 )
 
 const (
-	// defaultReconcileInterval is the base interval between reconciler scans.
-	// The interval is jittered so multiple controllers (should the singular
-	// gate ever hand over) do not scan in lockstep.
-	defaultReconcileInterval = time.Minute
-
 	// staleClaimThreshold is how old an importing or activating claim must be
 	// before the reconciler warns about it. It is deliberately conservative: a
 	// long-running import must not be flagged, and there is no auto-recovery of
@@ -38,6 +34,11 @@ const (
 	// interval per model.
 	staleWarnInterval = time.Hour
 
+	// staleClaimScanInterval is the base interval between scans used solely for
+	// stale-claim warnings. Abort reconciliation is driven immediately by the
+	// import-claim watcher.
+	staleClaimScanInterval = staleWarnInterval
+
 	// restartDelay is the delay the runner applies before restarting an abort
 	// worker that exited with a non-fatal error (e.g. finalization not yet
 	// provable because the undertaker has not dropped the database).
@@ -47,6 +48,10 @@ const (
 // Service is the subset of the modelmigration import service the reconciler
 // needs to scan and finalize aborting claims.
 type Service interface {
+	// WatchImportClaims emits the initial collection of model UUIDs with import
+	// claims, followed by changed model UUIDs.
+	WatchImportClaims(context.Context) (watcher.StringsWatcher, error)
+
 	// GetAllImportClaims returns a snapshot of every outstanding import claim.
 	GetAllImportClaims(ctx context.Context) ([]modelmigration.ImportClaimStatus, error)
 
@@ -163,7 +168,15 @@ func (w *reconciler) Report(ctx context.Context) map[string]any {
 func (w *reconciler) loop() error {
 	ctx := w.catacomb.Context(context.Background())
 
-	timer := w.config.Clock.NewTimer(jitter(defaultReconcileInterval))
+	watch, err := w.config.Service.WatchImportClaims(ctx)
+	if err != nil {
+		return errors.Errorf("watching migration import claims: %w", err)
+	}
+	if err := w.catacomb.Add(watch); err != nil {
+		return errors.Errorf("adding migration import claims watcher: %w", err)
+	}
+
+	timer := w.config.Clock.NewTimer(jitter(staleClaimScanInterval))
 	defer timer.Stop()
 
 	for {
@@ -171,14 +184,21 @@ func (w *reconciler) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case <-timer.Chan():
-			// A scan error is logged rather than returned: the reconciler is
-			// the backstop for interrupted aborts, so it must keep scanning
-			// across a transient controller-database failure.
-			if err := w.reconcile(ctx); err != nil {
-				w.config.Logger.Warningf(ctx, "reconciling migration import claims: %v", err)
+		case _, ok := <-watch.Changes():
+			if !ok {
+				return errors.New("migration import claims watcher closed")
 			}
-			timer.Reset(jitter(defaultReconcileInterval))
+			// Events are hints only: they may be coalesced, so the full current
+			// snapshot remains the source of truth for reconciliation.
+			if err := w.reconcile(ctx); err != nil {
+				return errors.Errorf("reconciling migration import claims: %w", err)
+			}
+
+		case <-timer.Chan():
+			if err := w.reconcile(ctx); err != nil {
+				return errors.Errorf("reconciling stale migration import claims: %w", err)
+			}
+			timer.Reset(jitter(staleClaimScanInterval))
 		}
 	}
 }

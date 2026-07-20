@@ -11,9 +11,11 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain"
 	migrationservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/internal/errors"
@@ -27,6 +29,10 @@ type ManifoldConfig struct {
 	// reconciler obtains the controller database.
 	DBAccessorName string
 
+	// ChangeStreamName is the change stream manifold from which the reconciler
+	// obtains a controller-scoped watchable database.
+	ChangeStreamName string
+
 	Clock     clock.Clock
 	Logger    logger.Logger
 	NewWorker func(Config) (worker.Worker, error)
@@ -36,6 +42,9 @@ type ManifoldConfig struct {
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.DBAccessorName == "" {
 		return jujuerrors.NotValidf("empty DBAccessorName")
+	}
+	if cfg.ChangeStreamName == "" {
+		return jujuerrors.NotValidf("empty ChangeStreamName")
 	}
 	if cfg.Clock == nil {
 		return jujuerrors.NotValidf("nil Clock")
@@ -54,6 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.DBAccessorName,
+			config.ChangeStreamName,
 		},
 		Start: config.start,
 	}
@@ -68,6 +78,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err := getter.Get(config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Capture(err)
 	}
+	var changeStreamGetter changestream.WatchableDBGetter
+	if err := getter.Get(config.ChangeStreamName, &changeStreamGetter); err != nil {
+		return nil, errors.Capture(err)
+	}
 
 	// The reconciler works entirely on the controller database (import claims,
 	// namespace registrations and staged model-database deletions). The database
@@ -78,8 +92,13 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	// services; this avoids widening the controller domain services interface
 	// for a single consumer.
 	controllerDB := coredatabase.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
-	service := migrationservice.NewImportService(
-		migrationstate.New(controllerDB, config.Clock), config.Logger,
+	controllerWatchableDB := changestream.NewWatchableDBFactoryForNamespace(
+		changeStreamGetter.GetWatchableDB, coredatabase.ControllerNS,
+	)
+	service := migrationservice.NewWatchableImportService(
+		migrationstate.New(controllerDB, config.Clock),
+		domain.NewWatcherFactory(controllerWatchableDB, config.Logger),
+		config.Logger,
 	)
 	deps := migration.Deps{
 		ControllerDB: controllerDB,

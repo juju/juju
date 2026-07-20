@@ -146,6 +146,7 @@ type MockControllerStateMockRecorder struct {
 	getSourceControllerInfoExpects           []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 	importExternalControllersExpects         []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
 	importOfferPermissionsExpects            []*gomock.Call4_1[context.Context, string, string, []string, error]
+	initialWatchImportClaimsStatementExpects []*gomock.Call0_2[string, string]
 	insertExportExpects                      []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects                []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
 	isImportNamespaceRegisteredExpects       []*gomock.Call2_2[context.Context, string, bool, error]
@@ -642,6 +643,24 @@ func (mr *MockControllerStateMockRecorder) ImportOfferPermissions(ctx, modelUUID
 // MockControllerStateImportOfferPermissionsCall is the typed call wrapper for ImportOfferPermissions.
 type MockControllerStateImportOfferPermissionsCall = gomock.Call4_1[context.Context, string, string, []string, error]
 
+// InitialWatchImportClaimsStatement mocks base method.
+func (m *MockControllerState) InitialWatchImportClaimsStatement() (string, string) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_2(&m.recorder.initialWatchImportClaimsStatementExpects, m.ctrl, m, "InitialWatchImportClaimsStatement")
+}
+
+// InitialWatchImportClaimsStatement indicates an expected call of InitialWatchImportClaimsStatement.
+func (mr *MockControllerStateMockRecorder) InitialWatchImportClaimsStatement() *MockControllerStateInitialWatchImportClaimsStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_2[string, string](mr.mock.ctrl.T, mr.mock, "InitialWatchImportClaimsStatement")
+	mr.initialWatchImportClaimsStatementExpects = append(mr.initialWatchImportClaimsStatementExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateInitialWatchImportClaimsStatementCall is the typed call wrapper for InitialWatchImportClaimsStatement.
+type MockControllerStateInitialWatchImportClaimsStatementCall = gomock.Call0_2[string, string]
+
 // InsertExport mocks base method.
 func (m *MockControllerState) InsertExport(ctx context.Context, spec internal.MigrationSpec) error {
 	m.ctrl.T.Helper()
@@ -1060,8 +1079,9 @@ type MockWatcherFactory struct {
 
 // MockWatcherFactoryMockRecorder is the mock recorder for MockWatcherFactory.
 type MockWatcherFactoryMockRecorder struct {
-	mock                    *MockWatcherFactory
-	newNotifyWatcherExpects []*gomock.Call3V_2[context.Context, string, eventsource.FilterOption, eventsource.FilterOption, watcher.NotifyWatcher, error]
+	mock                       *MockWatcherFactory
+	newNamespaceWatcherExpects []*gomock.Call4V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error]
+	newNotifyWatcherExpects    []*gomock.Call3V_2[context.Context, string, eventsource.FilterOption, eventsource.FilterOption, watcher.NotifyWatcher, error]
 }
 
 // NewMockWatcherFactory creates a new mock instance.
@@ -1075,6 +1095,25 @@ func NewMockWatcherFactory(ctrl *gomock.Controller) *MockWatcherFactory {
 func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
+
+// NewNamespaceWatcher mocks base method.
+func (m *MockWatcherFactory) NewNamespaceWatcher(ctx context.Context, initialQuery eventsource.NamespaceQuery, summary string, filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption) (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch4V_2(&m.recorder.newNamespaceWatcherExpects, m.ctrl, m, "NewNamespaceWatcher", ctx, initialQuery, summary, filterOption, filterOptions...)
+}
+
+// NewNamespaceWatcher indicates an expected call of NewNamespaceWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNamespaceWatcher(ctx, initialQuery, summary, filterOption any, filterOptions ...any) *MockWatcherFactoryNewNamespaceWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	varArgs := gomock.EnsureVariadicMatcher(filterOptions)
+	call := gomock.NewCall4V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error](mr.mock.ctrl.T, mr.mock, "NewNamespaceWatcher", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(initialQuery), gomock.EnsureMatcher(summary), gomock.EnsureMatcher(filterOption), varArgs)
+	mr.newNamespaceWatcherExpects = append(mr.newNamespaceWatcherExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockWatcherFactoryNewNamespaceWatcherCall is the typed call wrapper for NewNamespaceWatcher.
+type MockWatcherFactoryNewNamespaceWatcherCall = gomock.Call4V_2[context.Context, eventsource.NamespaceQuery, string, eventsource.FilterOption, eventsource.FilterOption, watcher.StringsWatcher, error]
 
 // NewNotifyWatcher mocks base method.
 func (m *MockWatcherFactory) NewNotifyWatcher(ctx context.Context, summary string, filterOption eventsource.FilterOption, filterOptions ...eventsource.FilterOption) (watcher.NotifyWatcher, error) {

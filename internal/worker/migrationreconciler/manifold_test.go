@@ -14,11 +14,15 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-const dbAccessorName = "db-accessor"
+const (
+	dbAccessorName   = "db-accessor"
+	changeStreamName = "change-stream"
+)
 
 type manifoldSuite struct{}
 
@@ -28,6 +32,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	bad := cfg
 	bad.DBAccessorName = ""
+	c.Check(bad.Validate(), tc.ErrorIs, errors.NotValid)
+
+	bad = cfg
+	bad.ChangeStreamName = ""
 	c.Check(bad.Validate(), tc.ErrorIs, errors.NotValid)
 
 	bad = cfg
@@ -44,7 +52,20 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 }
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
-	c.Check(Manifold(s.newConfig(c)).Inputs, tc.DeepEquals, []string{dbAccessorName})
+	c.Check(Manifold(s.newConfig(c)).Inputs, tc.DeepEquals, []string{
+		dbAccessorName,
+		changeStreamName,
+	})
+}
+
+func (s *manifoldSuite) TestStartMissingChangeStream(c *tc.C) {
+	getter := dt.StubGetter(map[string]any{
+		dbAccessorName:   stubDBAccessor{},
+		changeStreamName: dependency.ErrMissing,
+	})
+	w, err := Manifold(s.newConfig(c)).Start(c.Context(), getter)
+	c.Check(w, tc.IsNil)
+	c.Check(err, tc.ErrorIs, dependency.ErrMissing)
 }
 
 func (s *manifoldSuite) TestStartMissingDBAccessor(c *tc.C) {
@@ -65,7 +86,8 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	}
 
 	getter := dt.StubGetter(map[string]any{
-		dbAccessorName: stubDBAccessor{},
+		dbAccessorName:   stubDBAccessor{},
+		changeStreamName: stubWatchableDBGetter{},
 	})
 	w, err := Manifold(cfg).Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIsNil)
@@ -79,10 +101,11 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 
 func (s *manifoldSuite) newConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DBAccessorName: dbAccessorName,
-		Clock:          testclock.NewClock(time.Now()),
-		Logger:         loggertesting.WrapCheckLog(c),
-		NewWorker:      func(Config) (worker.Worker, error) { return nopWorker{}, nil },
+		DBAccessorName:   dbAccessorName,
+		ChangeStreamName: changeStreamName,
+		Clock:            testclock.NewClock(time.Now()),
+		Logger:           loggertesting.WrapCheckLog(c),
+		NewWorker:        func(Config) (worker.Worker, error) { return nopWorker{}, nil },
 	}
 }
 
@@ -95,6 +118,12 @@ func (stubDBAccessor) GetDB(context.Context, string) (coredatabase.TxnRunner, er
 }
 
 func (stubDBAccessor) DeleteDB(string) error { return nil }
+
+type stubWatchableDBGetter struct{}
+
+func (stubWatchableDBGetter) GetWatchableDB(context.Context, string) (changestream.WatchableDB, error) {
+	return nil, nil
+}
 
 type nopWorker struct{}
 

@@ -18,7 +18,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	coretesting "github.com/juju/juju/core/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	"github.com/juju/juju/internal/errors"
@@ -65,6 +65,7 @@ type workerSuite struct {
 
 	aborted  chan coremodel.UUID
 	abortErr error
+	changes  chan []string
 }
 
 func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
@@ -73,6 +74,10 @@ func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Now())
 	s.aborted = make(chan coremodel.UUID, 16)
 	s.abortErr = nil
+	s.changes = make(chan []string, 16)
+	s.service.EXPECT().WatchImportClaims(gomock.Any()).Return(
+		watchertest.NewMockStringsWatcher(s.changes), nil,
+	)
 	return ctrl
 }
 
@@ -88,13 +93,6 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	return w
-}
-
-// tick advances the clock past one jittered reconcile interval, waiting for the
-// worker's timer to be registered first.
-func (s *workerSuite) tick(c *tc.C) {
-	err := s.clock.WaitAdvance(defaultReconcileInterval*3/2, coretesting.LongWait, 1)
-	c.Assert(err, tc.ErrorIsNil)
 }
 
 func abortingClaim(modelUUID coremodel.UUID, updatedAt time.Time) modelmigration.ImportClaimStatus {
@@ -125,11 +123,11 @@ func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.tick(c)
+	s.changes <- []string{modelUUID.String()}
 
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("aborting claim was not finalized")
 	}
 	select {
@@ -164,17 +162,17 @@ func (s *workerSuite) TestIgnoresFreshNonAbortingClaims(c *tc.C) {
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.tick(c)
+	s.changes <- []string{"changed-model"}
 
 	select {
 	case <-scanned:
-	case <-time.After(coretesting.LongWait):
+	case <-c.Context().Done():
 		c.Fatal("reconcile did not run")
 	}
 	select {
 	case <-s.aborted:
 		c.Fatal("abort must not run for non-aborting claims")
-	case <-time.After(coretesting.ShortWait):
+	default:
 	}
 }
 
@@ -194,7 +192,7 @@ func (s *workerSuite) TestFinalizeFailureKeepsWorkerAlive(c *tc.C) {
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
 
-	s.tick(c)
+	s.changes <- []string{modelUUID.String()}
 
 	// The worker must still be running after a finalize failure.
 	workertest.CheckAlive(c, w)

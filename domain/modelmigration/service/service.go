@@ -78,6 +78,16 @@ type Service struct {
 // WatcherFactory describes methods for creating watchers used by the
 // [Service].
 type WatcherFactory interface {
+	// NewNamespaceWatcher returns a watcher that emits the initial collection
+	// members followed by changed identifiers in the input namespace.
+	NewNamespaceWatcher(
+		ctx context.Context,
+		initialQuery eventsource.NamespaceQuery,
+		summary string,
+		filterOption eventsource.FilterOption,
+		filterOptions ...eventsource.FilterOption,
+	) (watcher.StringsWatcher, error)
+
 	// NewNotifyWatcher returns a new watcher that filters changes from the
 	// input base watcher's db/queue. A single filter option is required,
 	// though additional filter options can be provided.
@@ -92,6 +102,10 @@ type WatcherFactory interface {
 // ControllerState defines the interface required for accessing the underlying
 // state of the model during migration.
 type ControllerState interface {
+	// InitialWatchImportClaimsStatement returns the changestream namespace and
+	// initial query for target-side import claims, keyed by model UUID.
+	InitialWatchImportClaimsStatement() (string, string)
+
 	// NamespaceForWatchExport returns the changestream namespace for export
 	// migration start/end changes keyed by model UUID.
 	NamespaceForWatchExport() string
@@ -334,6 +348,21 @@ type ModelState interface {
 func NewImportService(controllerState ControllerState, logger logger.Logger) *Service {
 	return &Service{
 		controllerState: controllerState,
+		logger:          logger,
+	}
+}
+
+// NewWatchableImportService constructs a controller-scoped import service with
+// watcher support for the migration reconciler. The regular import path does
+// not need a changestream dependency and continues to use [NewImportService].
+func NewWatchableImportService(
+	controllerState ControllerState,
+	watcherFactory WatcherFactory,
+	logger logger.Logger,
+) *Service {
+	return &Service{
+		controllerState: controllerState,
+		watcherFactory:  watcherFactory,
 		logger:          logger,
 	}
 }
