@@ -206,6 +206,25 @@ func (s *querySuite) TestGetOperationByIDEmptyString(c *tc.C) {
 	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
 }
 
+func (s *querySuite) TestGetOperationByIDSigned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// State must never be called when parsing fails.
+	s.state.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := s.service(c).GetOperationByID(c.Context(), "-1")
+	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
+}
+
+func (s *querySuite) TestGetOperationByIDOverflow(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetOperationByID(gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := s.service(c).GetOperationByID(c.Context(), "99999999999999999999")
+	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
+}
+
 func (s *querySuite) TestGetOperationByIDUnknownStatus(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

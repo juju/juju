@@ -75,7 +75,7 @@ func (s *Service) GetOperationByID(ctx context.Context, operationID string) (ope
 
 	id, err := strconv.ParseUint(operationID, 10, 64)
 	if err != nil {
-		return operation.OperationInfo{}, errors.Errorf("invalid operation ID %q: %w", operationID, err)
+		return operation.OperationInfo{}, errors.Errorf("invalid operation ID %q: %w", operationID, err).Add(coreerrors.NotValid)
 	}
 
 	res, err := s.st.GetOperationByID(ctx, id)

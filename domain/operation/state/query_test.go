@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1558,4 +1559,33 @@ func (s *querySuite) TestGetOperationsPaginationWithCombinedFilters(c *tc.C) {
 	c.Check(result.Truncated, tc.IsTrue)
 	// Ensure the returned operation targets "alpha"
 	c.Check(result.Operations[0].Units[0].ReceiverName.String(), tc.Matches, "alpha/.*")
+}
+
+func (s *querySuite) TestGetOperationsInOrder(c *tc.C) {
+	charmUUID := s.addCharm(c)
+	s.addCharmAction(c, charmUUID)
+	unitUUID := s.addUnitWithName(c, charmUUID, "numerical-sort-app/0")
+
+	for range 20 {
+		opUUID := s.addOperation(c)
+		s.addOperationAction(c, opUUID, charmUUID, "test-action")
+		taskUUID := s.addOperationTask(c, opUUID)
+		s.addOperationUnitTask(c, taskUUID, unitUUID)
+	}
+
+	// Act - Should get all 3, not truncated
+	result, err := s.state.GetOperations(c.Context(), operation.QueryArgs{})
+	c.Assert(err, tc.IsNil)
+	c.Assert(result.Operations, tc.HasLen, 20)
+
+	operationIds := make([]uint64, 20)
+	for _, v := range result.Operations {
+		operationId, err := strconv.ParseUint(v.OperationID, 10, 64)
+		c.Assert(err, tc.IsNil)
+		operationIds = append(operationIds, operationId)
+	}
+
+	// Assert
+	c.Check(result.Truncated, tc.IsFalse)
+	c.Check(slices.IsSorted(operationIds), tc.IsTrue)
 }

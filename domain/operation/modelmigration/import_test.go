@@ -353,3 +353,69 @@ func (s *importSuite) TestRollbackNoOperations(c *tc.C) {
 	err := i.Rollback(c.Context(), m)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *importSuite) TestNonNumericOperationId(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	m := description.NewModel(description.ModelArgs{})
+	now := time.Now().UTC()
+
+	m.AddOperation(description.OperationArgs{
+		Id:       "op-1",
+		Summary:  "sum",
+		Enqueued: now.Add(-2 * time.Hour),
+		Status:   corestatus.Running.String(),
+	})
+
+	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).Times(0)
+
+	i := s.newImportOperation(c)
+	err := i.Execute(c.Context(), m)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
+}
+
+func (s *importSuite) TestSignedOperationId(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	m := description.NewModel(description.ModelArgs{})
+	now := time.Now().UTC()
+
+	m.AddOperation(description.OperationArgs{
+		Id:       "-1",
+		Summary:  "sum",
+		Enqueued: now.Add(-2 * time.Hour),
+		Status:   corestatus.Running.String(),
+	})
+
+	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).Times(0)
+
+	i := s.newImportOperation(c)
+	err := i.Execute(c.Context(), m)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
+}
+
+func (s *importSuite) TestOverflowOperationId(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	m := description.NewModel(description.ModelArgs{})
+	now := time.Now().UTC()
+
+	m.AddOperation(description.OperationArgs{
+		Id:       "99999999999999999999",
+		Summary:  "sum",
+		Enqueued: now.Add(-2 * time.Hour),
+		Status:   corestatus.Running.String(),
+	})
+
+	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).Times(0)
+
+	i := s.newImportOperation(c)
+	err := i.Execute(c.Context(), m)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, "invalid operation ID.*")
+}

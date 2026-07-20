@@ -163,7 +163,7 @@ func (i *importOperation) buildImportArgs(ctx context.Context, model description
 
 		opID, err := strconv.ParseUint(op.Id(), 10, 64)
 		if err != nil {
-			return nil, errors.Errorf("parsing operation ID %q: %w", op.Id(), err)
+			return nil, errors.Errorf("invalid operation ID %q: %w", op.Id(), err)
 		}
 
 		opArgs := internal.ImportOperationArg{
