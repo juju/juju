@@ -70,6 +70,7 @@ func (s *operationSchemaSuite) TestOperationIdMigrationCastsTextToInteger(c *tc.
 	// 4. Verify the values are correct integers, sorted numerically.
 	var ids []int64
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		ids = nil
 		rows, err := tx.QueryContext(ctx,
 			`SELECT operation_id FROM operation ORDER BY operation_id`,
 		)
