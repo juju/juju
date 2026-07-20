@@ -13,8 +13,10 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/http"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/providertracker"
@@ -40,12 +42,15 @@ import (
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	changestreamservice "github.com/juju/juju/domain/changestream/service"
 	changestreamstate "github.com/juju/juju/domain/changestream/state"
+	cloudservice "github.com/juju/juju/domain/cloud/service"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
 	cloudimagemetadataservice "github.com/juju/juju/domain/cloudimagemetadata/service"
 	cloudimagemetadatastate "github.com/juju/juju/domain/cloudimagemetadata/state"
 	containerimageresourcestoreservice "github.com/juju/juju/domain/containerimageresourcestore/service"
 	containerimageresourcestorestate "github.com/juju/juju/domain/containerimageresourcestore/state"
 	controllerupgraderservice "github.com/juju/juju/domain/controllerupgrader/service"
 	controllerupgraderstate "github.com/juju/juju/domain/controllerupgrader/state"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	crossmodelrelationservice "github.com/juju/juju/domain/crossmodelrelation/service"
 	crossmodelrelationstatecontroller "github.com/juju/juju/domain/crossmodelrelation/state/controller"
 	crossmodelrelationstatemodel "github.com/juju/juju/domain/crossmodelrelation/state/model"
@@ -107,6 +112,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/resource/store"
 )
 
@@ -425,6 +431,83 @@ func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
 		s.controllerWatcherFactory("modelmigration"),
 		providertracker.ProviderRunner[modelmigrationservice.InstanceProvider](s.providerFactory, s.modelUUID.String()),
 		providertracker.ProviderRunner[modelmigrationservice.ResourceProvider](s.providerFactory, s.modelUUID.String()),
+		s.credentialValidator(),
+	)
+}
+
+// credentialMachineService adapts the machine service to the narrow interface
+// expected by the credential domain validator.
+type credentialMachineService struct {
+	service *machineservice.Service
+}
+
+func (s credentialMachineService) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]instance.Id, error) {
+	return s.service.GetAllProvisionedMachineInstanceID(ctx)
+}
+
+func (s credentialMachineService) InstanceID(ctx context.Context, mUUID machine.UUID) (string, error) {
+	id, err := s.service.GetInstanceID(ctx, mUUID)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return id.String(), nil
+}
+
+// credentialValidator returns the validator used to check an imported model's
+// credential against this controller during the migration VALIDATION phase.
+func (s *ModelServices) credentialValidator() modelmigrationservice.CredentialValidator {
+	return modelmigrationservice.NewCredentialValidator(
+		func(ctx context.Context, modelUUID model.UUID) (credentialservice.CredentialValidationContext, error) {
+			if modelUUID != s.modelUUID {
+				return credentialservice.CredentialValidationContext{}, errors.Errorf("model %q is not the current model", modelUUID)
+			}
+
+			modelState := statemodel.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("model"))
+			modelInfo, err := modelState.GetModel(ctx)
+			if err != nil {
+				return credentialservice.CredentialValidationContext{}, errors.Capture(err)
+			}
+
+			cloudService := cloudservice.NewWatchableService(
+				cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+				s.controllerWatcherFactory("cloud"),
+			)
+			cloudInfo, err := cloudService.Cloud(ctx, modelInfo.Cloud)
+			if err != nil {
+				return credentialservice.CredentialValidationContext{}, errors.Capture(err)
+			}
+
+			modelConfigService := modelconfigservice.NewWatchableService(
+				modeldefaultsservice.NewService(
+					modeldefaultsservice.ProviderModelConfigGetter(),
+					modeldefaultsstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+				).ModelDefaultsProvider(s.modelUUID),
+				config.ModelValidator(),
+				modelconfigservice.ProviderModelConfigGetter(),
+				modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+				s.modelWatcherFactory("modelconfig"),
+			)
+			modelConfig, err := modelConfigService.ModelConfig(ctx)
+			if err != nil {
+				return credentialservice.CredentialValidationContext{}, errors.Capture(err)
+			}
+
+			machineService := machineservice.NewService(
+				machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.clock, s.logger.Child("machine")),
+				domain.NewStatusHistory(s.logger.Child("machine"), s.clock),
+				s.clock,
+				s.logger.Child("machine"),
+			)
+
+			return credentialservice.CredentialValidationContext{
+				ControllerUUID: modelInfo.ControllerUUID.String(),
+				Config:         modelConfig,
+				MachineService: credentialMachineService{machineService},
+				ModelType:      modelInfo.Type,
+				Cloud:          *cloudInfo,
+				Region:         modelInfo.CloudRegion,
+			}, nil
+		},
 	)
 }
 

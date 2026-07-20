@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/modelmigration/service"
 	migrationstatecontroller "github.com/juju/juju/domain/modelmigration/state/controller"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -31,6 +32,12 @@ type exportWatcherSuite struct {
 	changestreamtesting.ControllerSuite
 
 	modelUUID string
+}
+
+type stubCredentialValidator struct{}
+
+func (stubCredentialValidator) Validate(context.Context, string, modelmigration.ModelCloudCredential) error {
+	return nil
 }
 
 func TestExportWatcherSuite(t *testing.T) {
@@ -231,6 +238,7 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 	noopResourceGetter := func(context.Context) (service.ResourceProvider, error) {
 		return nil, nil
 	}
+	noopCredentialValidator := stubCredentialValidator{}
 
 	return service.NewService(
 		migrationstatecontroller.New(s.controllerDBFactory(), clock.WallClock),
@@ -239,5 +247,6 @@ func (s *exportWatcherSuite) setupService(c *tc.C, factory domain.WatchableDBFac
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 		providertracker.ProviderGetter[service.InstanceProvider](noopInstanceGetter),
 		providertracker.ProviderGetter[service.ResourceProvider](noopResourceGetter),
+		noopCredentialValidator,
 	)
 }

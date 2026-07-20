@@ -56,6 +56,12 @@ type ResourceProvider interface {
 	AdoptResources(context.Context, string, semversion.Number) error
 }
 
+// CredentialValidator checks whether the imported model's credential can
+// access its cloud on this controller.
+type CredentialValidator interface {
+	Validate(ctx context.Context, modelUUID string, credential modelmigration.ModelCloudCredential) error
+}
+
 // Service provides the means for supporting model migration actions between
 // controllers and answering questions about the underlying model(s) that are
 // being migrated.
@@ -68,10 +74,11 @@ type Service struct {
 	// [ResourceProvider]
 	resourceProviderGetter func(context.Context) (ResourceProvider, error)
 
-	controllerState ControllerState
-	modelState      ModelState
-	watcherFactory  WatcherFactory
-	modelUUID       string
+	controllerState     ControllerState
+	modelState          ModelState
+	watcherFactory      WatcherFactory
+	credentialValidator CredentialValidator
+	modelUUID           string
 }
 
 // WatcherFactory describes methods for creating watchers used by the
@@ -105,6 +112,11 @@ type ControllerState interface {
 	// UUID to the secret backend UUID recorded for it in
 	// secret_backend_reference for the given model.
 	GetSecretBackendReferencesForModel(ctx context.Context, modelUUID string) (map[string]string, error)
+
+	// GetModelCloudCredential returns the natural key, auth material and
+	// status of the credential assigned to the given model, or nil when the
+	// model has no credential.
+	GetModelCloudCredential(ctx context.Context, modelUUID string) (*modelmigration.ModelCloudCredential, error)
 
 	// GetAgentBinaryArchitecturesForVersion returns the architecture names for
 	// which the controller's object store holds agent binaries at the given
@@ -265,6 +277,7 @@ func NewService(
 	watcherFactory WatcherFactory,
 	instanceProviderGetter providertracker.ProviderGetter[InstanceProvider],
 	resourceProviderGetter providertracker.ProviderGetter[ResourceProvider],
+	credentialValidator CredentialValidator,
 ) *Service {
 	return &Service{
 		controllerState:        controllerState,
@@ -272,6 +285,7 @@ func NewService(
 		watcherFactory:         watcherFactory,
 		instanceProviderGetter: instanceProviderGetter,
 		resourceProviderGetter: resourceProviderGetter,
+		credentialValidator:    credentialValidator,
 		modelUUID:              modelUUID,
 	}
 }
@@ -322,14 +336,18 @@ func (s *Service) AdoptResources(
 }
 
 // CheckMachines is responsible for checking a model after it has been migrated
-// into this target controller. We check the machines that exist in the model
-// against the machines reported by the models cloud and report any
-// discrepancies.
+// into this target controller. We validate the model's cloud credential and
+// check the machines that exist in the model against the machines reported by
+// the models cloud and report any discrepancies.
 func (s *Service) CheckMachines(
 	ctx context.Context,
 ) ([]modelmigration.MigrationMachineDiscrepancy, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
+
+	if err := s.checkModelCredential(ctx); err != nil {
+		return nil, errors.Errorf("validating model credential: %w", err)
+	}
 
 	provider, err := s.instanceProviderGetter(ctx)
 	if err != nil && !errors.Is(err, coreerrors.NotSupported) {
@@ -390,6 +408,26 @@ func (s *Service) CheckMachines(
 	}
 
 	return discrepancies, nil
+}
+
+// checkModelCredential validates the credential assigned to the model against
+// the target controller. It runs for both IAAS and CAAS models so an imported
+// model with unusable credentials fails VALIDATION before activation.
+func (s *Service) checkModelCredential(ctx context.Context) error {
+	credential, err := s.controllerState.GetModelCloudCredential(ctx, s.modelUUID)
+	if err != nil {
+		return errors.Errorf("getting model cloud credential: %w", err)
+	}
+	if credential == nil {
+		return nil
+	}
+	if credential.Revoked {
+		return errors.Errorf(
+			"model cloud credential %q on cloud %q for owner %q is revoked",
+			credential.Name, credential.Cloud, credential.Owner,
+		)
+	}
+	return s.credentialValidator.Validate(ctx, s.modelUUID, *credential)
 }
 
 // ModelMigrationMode returns the current migration mode for the model.

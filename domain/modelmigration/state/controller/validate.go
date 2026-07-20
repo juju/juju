@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -87,6 +88,72 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 		result[r.RevisionUUID] = r.BackendUUID
 	}
 	return result, nil
+}
+
+// GetModelCloudCredential returns the natural key, auth material and status
+// of the credential assigned to the given model, or nil when the model has no
+// credential. It is used by the migration VALIDATION phase to validate the
+// imported model's credential before activation.
+func (s *State) GetModelCloudCredential(ctx context.Context, modelUUID string) (*modelmigration.ModelCloudCredential, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	arg := modelUUIDArg{ModelUUID: modelUUID}
+	stmt, err := s.Prepare(`
+SELECT vcc.cloud_name AS &credentialRow.cloud,
+       vcc.owner_name AS &credentialRow.owner,
+       vcc.name AS &credentialRow.name,
+       vcc.auth_type AS &credentialRow.auth_type,
+       vcc.revoked AS &credentialRow.revoked,
+       vcc.invalid AS &credentialRow.invalid,
+       vcc.invalid_reason AS &credentialRow.invalid_reason,
+       cca."key" AS &credentialRow.attr_key,
+       cca.value AS &credentialRow.attr_value
+FROM   v_cloud_credential AS vcc
+JOIN   model AS m ON m.cloud_credential_uuid = vcc.uuid
+LEFT JOIN cloud_credential_attribute AS cca ON cca.cloud_credential_uuid = vcc.uuid
+WHERE  m.uuid = $modelUUIDArg.model_uuid
+`, credentialRow{}, arg)
+	if err != nil {
+		return nil, errors.Errorf("preparing model cloud credential statement: %w", err)
+	}
+
+	var rows []credentialRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		return getAll(ctx, tx, stmt, &rows, arg)
+	}); err != nil {
+		return nil, errors.Errorf("retrieving model cloud credential for model %q: %w", modelUUID, err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+
+	first := rows[0]
+	credential := &modelmigration.ModelCloudCredential{
+		Cloud:         first.Cloud,
+		Owner:         first.Owner,
+		Name:          first.Name,
+		AuthType:      first.AuthType,
+		Revoked:       first.Revoked != nil && *first.Revoked,
+		Invalid:       first.Invalid != nil && *first.Invalid,
+		InvalidReason: "",
+	}
+	if first.InvalidReason != nil {
+		credential.InvalidReason = *first.InvalidReason
+	}
+	for _, row := range rows {
+		if row.AttrKey == nil || row.AttrValue == nil {
+			continue
+		}
+		if credential.Attributes == nil {
+			credential.Attributes = make(map[string]string)
+		}
+		credential.Attributes[*row.AttrKey] = *row.AttrValue
+	}
+	return credential, nil
 }
 
 // GetAgentBinaryArchitecturesForVersion returns the architecture names for

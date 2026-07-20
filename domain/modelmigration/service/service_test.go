@@ -32,13 +32,14 @@ import (
 )
 
 type serviceSuite struct {
-	controllerState  *MockControllerState
-	modelState       *MockModelState
-	watcherFactory   *MockWatcherFactory
-	instanceProvider *MockInstanceProvider
-	resourceProvider *MockResourceProvider
-	modelUUID        string
-	controllerUUID   string
+	controllerState     *MockControllerState
+	modelState          *MockModelState
+	watcherFactory      *MockWatcherFactory
+	instanceProvider    *MockInstanceProvider
+	resourceProvider    *MockResourceProvider
+	credentialValidator *MockCredentialValidator
+	modelUUID           string
+	controllerUUID      string
 }
 
 func TestServiceSuite(t *testing.T) {
@@ -67,6 +68,7 @@ func (s *serviceSuite) TestAdoptResources(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -93,6 +95,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotSupported(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		resourceGetter,
+		s.credentialValidator,
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -120,6 +123,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).AdoptResources(c.Context(), sourceControllerVersion)
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -130,6 +134,7 @@ func (s *serviceSuite) TestAdoptResourcesProviderNotImplemented(c *tc.C) {
 func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -150,6 +155,7 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
@@ -164,6 +170,7 @@ func (s *serviceSuite) TestMachinesFromProviderNotInModel(c *tc.C) {
 func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).Return(nil, nil)
 	s.instanceProvider.EXPECT().AllInstances(gomock.Any()).
 		Return([]instances.Instance{
 			&instanceStub{
@@ -181,12 +188,88 @@ func (s *serviceSuite) TestMachineInstanceIDsNotInProvider(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).CheckMachines(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(discrepancies, tc.DeepEquals, []modelmigration.MigrationMachineDiscrepancy{{
 		MachineName:     "1",
 		CloudInstanceId: instance.Id("instance1"),
 	}})
+}
+
+// TestCheckMachinesCredentialError checks that [Service.CheckMachines] fails
+// before any provider instance reconciliation when the model credential
+// cannot be read.
+func (s *serviceSuite) TestCheckMachinesCredentialError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).
+		Return(nil, errors.Errorf("boom"))
+
+	_, err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+	).CheckMachines(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*validating model credential: getting model cloud credential: boom")
+}
+
+// TestCheckMachinesRevokedCredential checks that [Service.CheckMachines]
+// rejects a model whose credential is revoked, without invoking the validator.
+func (s *serviceSuite) TestCheckMachinesRevokedCredential(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).
+		Return(&modelmigration.ModelCloudCredential{
+			Cloud:   "aws",
+			Owner:   "fred",
+			Name:    "default",
+			Revoked: true,
+		}, nil)
+
+	_, err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+	).CheckMachines(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*credential.*revoked.*")
+}
+
+// TestCheckMachinesCredentialValidationError checks that [Service.CheckMachines]
+// fails when the credential validator rejects the imported credential.
+func (s *serviceSuite) TestCheckMachinesCredentialValidationError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	credential := modelmigration.ModelCloudCredential{
+		Cloud:      "aws",
+		Owner:      "fred",
+		Name:       "default",
+		AuthType:   "access-key",
+		Attributes: map[string]string{"access-key": "foo"},
+	}
+	s.controllerState.EXPECT().GetModelCloudCredential(gomock.Any(), s.modelUUID).
+		Return(&credential, nil)
+	s.credentialValidator.EXPECT().Validate(gomock.Any(), s.modelUUID, credential).
+		Return(errors.Errorf("invalid credential"))
+
+	_, err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+	).CheckMachines(c.Context())
+	c.Assert(err, tc.ErrorMatches, ".*invalid credential.*")
 }
 
 // expectImportValidationPasses sets up the read-only ValidateImportedModel
@@ -236,6 +319,7 @@ func (s *serviceSuite) TestActivateImport(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -276,6 +360,7 @@ func (s *serviceSuite) TestActivateImportSkipsBumpWhenBinariesMissing(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -300,6 +385,7 @@ func (s *serviceSuite) TestActivateImportRejectsUnknownSecretBackend(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*secret backend.*source-backend-uuid.*do not exist.*")
 }
@@ -325,6 +411,7 @@ func (s *serviceSuite) TestActivateImportRejectsMissingBackendReference(c *tc.C)
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*missing secret backend references.*rev-1.*")
 }
@@ -357,6 +444,7 @@ func (s *serviceSuite) TestActivateImportSameVersion(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorIsNil)
 }
@@ -377,6 +465,7 @@ func (s *serviceSuite) TestActivateImportControllerFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -401,6 +490,7 @@ func (s *serviceSuite) TestActivateImportModelFails(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	).ActivateImport(c.Context())
 	c.Check(err, tc.ErrorMatches, ".*front fell off")
 }
@@ -444,6 +534,7 @@ func (s *serviceSuite) TestWatchForMigration(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	)
 	w, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -473,6 +564,7 @@ func (s *serviceSuite) TestWatchForMigrationError(c *tc.C) {
 		s.watcherFactory,
 		s.instanceProviderGetter(c),
 		s.resourceProviderGetter(c),
+		s.credentialValidator,
 	)
 	_, err := svc.WatchForMigration(c.Context())
 	c.Assert(err, tc.ErrorMatches, ".*boom")
@@ -552,6 +644,7 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 		s.watcherFactory,
 		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
 		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		s.credentialValidator,
 	)
 }
 
@@ -1033,6 +1126,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 	s.controllerState = NewMockControllerState(ctrl)
 	s.modelState = NewMockModelState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
+	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
 	s.instanceProvider = NewMockInstanceProvider(ctrl)
 	s.resourceProvider = NewMockResourceProvider(ctrl)
@@ -1041,6 +1135,7 @@ func (s *serviceSuite) setupMocks(c *tc.C) *gomock.Controller {
 		s.controllerState = nil
 		s.modelState = nil
 		s.watcherFactory = nil
+		s.credentialValidator = nil
 		s.instanceProvider = nil
 		s.resourceProvider = nil
 		s.modelUUID = ""
