@@ -3,6 +3,49 @@
 -- previously stringified before storage. Storing as INTEGER matches the true
 -- type and fixes lexicographic-vs-numeric ordering of ORDER BY operation_id
 -- (domain/operation/state/query.go:307) once IDs reach double digits.
+--
+-- SQLite does not support ALTER COLUMN, so the operation table must be
+-- rebuilt (CREATE _new, INSERT SELECT, DROP, RENAME). Because PRAGMA
+-- foreign_keys = ON and child tables reference operation(uuid) without
+-- ON DELETE CASCADE, every dependent table in the FK tree must also be
+-- rebuilt. See https://www.sqlite.org/lang_altertable.html Section 7.
+
+-- ============================================================================
+-- Step 1: Drop ALL triggers on the tables we will recreate.
+--         SQLite drops triggers automatically when a table is dropped, but we
+--         drop them explicitly first to be clear about what we are rebuilding.
+-- ============================================================================
+
+-- noqa: disable=all
+
+-- Triggers on operation_parameter:
+DROP TRIGGER trg_operation_parameter_immutable_update;
+
+-- Triggers on operation_machine_task:
+DROP TRIGGER trg_operation_machine_task_immutable_update;
+DROP TRIGGER trg_insert_machine_task_if_not_unit_task;
+
+-- Triggers on operation_unit_task:
+DROP TRIGGER trg_operation_unit_task_immutable_update;
+DROP TRIGGER trg_insert_unit_task_if_not_machine_task;
+
+-- Triggers on operation_task_status:
+DROP TRIGGER trg_log_custom_operation_task_status_pending_insert;
+DROP TRIGGER trg_log_custom_operation_task_status_pending_update;
+DROP TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_insert;
+DROP TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_update;
+
+-- Triggers on operation_task_log:
+DROP TRIGGER trg_log_operation_task_log_insert;
+DROP TRIGGER trg_log_operation_task_log_update;
+DROP TRIGGER trg_log_operation_task_log_delete;
+
+-- noqa: enable=all
+
+-- ============================================================================
+-- Step 2: Create operation_new with operation_id as INTEGER.
+-- ============================================================================
+
 CREATE TABLE operation_new (
     uuid TEXT NOT NULL PRIMARY KEY,
     operation_id INTEGER NOT NULL,
@@ -29,8 +72,413 @@ SELECT
     execution_group
 FROM operation;
 
+-- ============================================================================
+-- Step 3: Recreate operation_action with FK pointing to operation_new
+--         (will be auto-updated on rename).
+-- ============================================================================
+
+CREATE TABLE operation_action_new (
+    operation_uuid TEXT NOT NULL PRIMARY KEY,
+    charm_uuid TEXT NOT NULL,
+    charm_action_key TEXT NOT NULL,
+    CONSTRAINT fk_operation_uuid
+    FOREIGN KEY (operation_uuid)
+    REFERENCES operation_new (uuid),
+    CONSTRAINT fk_charm_action
+    FOREIGN KEY (charm_uuid, charm_action_key)
+    REFERENCES charm_action (charm_uuid, "key")
+);
+
+INSERT INTO operation_action_new (
+    operation_uuid, charm_uuid, charm_action_key
+)
+SELECT
+    operation_uuid,
+    charm_uuid,
+    charm_action_key
+FROM operation_action;
+
+DROP INDEX idx_operation_action_charm_action_key_operation_uuid;
+DROP TABLE operation_action;
+
+-- ============================================================================
+-- Step 4: Recreate operation_parameter with FK pointing to operation_new
+--         (will be auto-updated on rename).
+-- ============================================================================
+
+CREATE TABLE operation_parameter_new (
+    operation_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (operation_uuid, "key"),
+    CONSTRAINT fk_operation_uuid
+    FOREIGN KEY (operation_uuid)
+    REFERENCES operation_new (uuid)
+);
+
+INSERT INTO operation_parameter_new (
+    operation_uuid, "key", value
+)
+SELECT
+    operation_uuid,
+    "key",
+    value
+FROM operation_parameter;
+
+DROP TABLE operation_parameter;
+
+-- ============================================================================
+-- Step 5: Recreate operation_task with FK pointing to operation_new
+--         (will be auto-updated on rename).
+--         Can't drop old operation_task yet — its children still reference it.
+-- ============================================================================
+
+CREATE TABLE operation_task_new (
+    uuid TEXT NOT NULL PRIMARY KEY,
+    operation_uuid TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    enqueued_at DATETIME NOT NULL,
+    started_at DATETIME,
+    completed_at DATETIME,
+    CONSTRAINT fk_operation
+    FOREIGN KEY (operation_uuid)
+    REFERENCES operation_new (uuid)
+);
+
+INSERT INTO operation_task_new (
+    uuid, operation_uuid, task_id,
+    enqueued_at, started_at, completed_at
+)
+SELECT
+    uuid,
+    operation_uuid,
+    task_id,
+    enqueued_at,
+    started_at,
+    completed_at
+FROM operation_task;
+
+-- ============================================================================
+-- Step 6: Recreate operation_unit_task with FK pointing to operation_task_new
+--         (will be auto-updated on rename).
+-- ============================================================================
+
+CREATE TABLE operation_unit_task_new (
+    task_uuid TEXT NOT NULL,
+    unit_uuid TEXT NOT NULL,
+    PRIMARY KEY (task_uuid, unit_uuid),
+    CONSTRAINT fk_task_uuid
+    FOREIGN KEY (task_uuid)
+    REFERENCES operation_task_new (uuid),
+    CONSTRAINT fk_unit_uuid
+    FOREIGN KEY (unit_uuid)
+    REFERENCES unit (uuid)
+);
+
+INSERT INTO operation_unit_task_new (
+    task_uuid, unit_uuid
+)
+SELECT
+    task_uuid,
+    unit_uuid
+FROM operation_unit_task;
+
+DROP TABLE operation_unit_task;
+
+-- ============================================================================
+-- Step 7: Recreate operation_machine_task with FK pointing to operation_task_new
+--         (will be auto-updated on rename).
+-- ============================================================================
+
+CREATE TABLE operation_machine_task_new (
+    task_uuid TEXT NOT NULL,
+    machine_uuid TEXT NOT NULL,
+    PRIMARY KEY (task_uuid, machine_uuid),
+    CONSTRAINT fk_task_uuid
+    FOREIGN KEY (task_uuid)
+    REFERENCES operation_task_new (uuid),
+    CONSTRAINT fk_machine_uuid
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);
+
+INSERT INTO operation_machine_task_new (
+    task_uuid, machine_uuid
+)
+SELECT
+    task_uuid,
+    machine_uuid
+FROM operation_machine_task;
+
+DROP TABLE operation_machine_task;
+
+-- ============================================================================
+-- Step 8: Recreate operation_task_output with FK pointing to operation_task_new
+--         (will be auto-updated on rename).
+-- ============================================================================
+
+CREATE TABLE operation_task_output_new (
+    task_uuid TEXT NOT NULL PRIMARY KEY,
+    store_path TEXT NOT NULL,
+    CONSTRAINT fk_task_uuid
+    FOREIGN KEY (task_uuid)
+    REFERENCES operation_task_new (uuid),
+    CONSTRAINT fk_store_path
+    FOREIGN KEY (store_path)
+    REFERENCES object_store_metadata_path (path)
+);
+
+INSERT INTO operation_task_output_new (
+    task_uuid, store_path
+)
+SELECT
+    task_uuid,
+    store_path
+FROM operation_task_output;
+
+DROP TABLE operation_task_output;
+
+-- ============================================================================
+-- Step 9: Recreate operation_task_status with FK pointing to operation_task_new
+--         (will be auto-updated on rename).
+-- ============================================================================
+
+CREATE TABLE operation_task_status_new (
+    task_uuid TEXT NOT NULL PRIMARY KEY,
+    status_id INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
+    CONSTRAINT fk_task_uuid
+    FOREIGN KEY (task_uuid)
+    REFERENCES operation_task_new (uuid),
+    CONSTRAINT fk_task_status
+    FOREIGN KEY (status_id)
+    REFERENCES operation_task_status_value (id)
+);
+
+INSERT INTO operation_task_status_new (
+    task_uuid, status_id, message, updated_at
+)
+SELECT
+    task_uuid,
+    status_id,
+    message,
+    updated_at
+FROM operation_task_status;
+
+DROP TABLE operation_task_status;
+
+-- ============================================================================
+-- Step 10: Recreate operation_task_log with FK pointing to operation_task_new
+--          (will be auto-updated on rename).
+-- ============================================================================
+
+CREATE TABLE operation_task_log_new (
+    task_uuid TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL,
+    CONSTRAINT fk_task_uuid
+    FOREIGN KEY (task_uuid)
+    REFERENCES operation_task_new (uuid)
+);
+
+INSERT INTO operation_task_log_new (
+    task_uuid, content, created_at
+)
+SELECT
+    task_uuid,
+    content,
+    created_at
+FROM operation_task_log;
+
+DROP INDEX idx_operation_task_log_id;
+DROP TABLE operation_task_log;
+
+-- ============================================================================
+-- Step 11: Drop old operation_task (no more FK dependents) and operation.
+--          Rename all _new tables. SQLite >= 3.26.0 auto-updates FK references
+--          in child tables when a parent table is renamed.
+-- ============================================================================
+
+DROP INDEX idx_task_id;
+DROP TABLE operation_task;
+
+DROP INDEX idx_operation_id;
 DROP TABLE operation;
+
 ALTER TABLE operation_new RENAME TO operation;
+ALTER TABLE operation_action_new RENAME TO operation_action;
+ALTER TABLE operation_task_new RENAME TO operation_task;
+ALTER TABLE operation_parameter_new RENAME TO operation_parameter;
+ALTER TABLE operation_unit_task_new RENAME TO operation_unit_task;
+ALTER TABLE operation_machine_task_new RENAME TO operation_machine_task;
+ALTER TABLE operation_task_output_new RENAME TO operation_task_output;
+ALTER TABLE operation_task_status_new RENAME TO operation_task_status;
+ALTER TABLE operation_task_log_new RENAME TO operation_task_log;
+
+-- ============================================================================
+-- Step 12: Recreate all indexes.
+-- ============================================================================
 
 CREATE UNIQUE INDEX idx_operation_id
 ON operation (operation_id);
+
+CREATE INDEX idx_operation_action_charm_action_key_operation_uuid
+ON operation_action (charm_action_key, operation_uuid);
+
+CREATE UNIQUE INDEX idx_task_id
+ON operation_task (task_id);
+
+CREATE INDEX idx_operation_task_log_id
+ON operation_task_log (task_uuid, created_at);
+
+-- ============================================================================
+-- Step 13: Recreate all triggers destroyed in Step 1.
+-- ============================================================================
+
+-- noqa: disable=all
+
+-- --------------------------------------------------------------------------
+-- Immutability triggers (from model.go:340-342)
+-- --------------------------------------------------------------------------
+
+CREATE TRIGGER trg_operation_parameter_immutable_update
+    BEFORE UPDATE ON operation_parameter
+    FOR EACH ROW
+    BEGIN
+        SELECT RAISE(FAIL, 'operation_parameter table is unmodifiable, only insertions and deletions are allowed');
+    END;
+
+CREATE TRIGGER trg_operation_machine_task_immutable_update
+    BEFORE UPDATE ON operation_machine_task
+    FOR EACH ROW
+    BEGIN
+        SELECT RAISE(FAIL, 'operation_machine_task table is unmodifiable, only insertions and deletions are allowed');
+    END;
+
+CREATE TRIGGER trg_operation_unit_task_immutable_update
+    BEFORE UPDATE ON operation_unit_task
+    FOR EACH ROW
+    BEGIN
+        SELECT RAISE(FAIL, 'operation_unit_task table is unmodifiable, only insertions and deletions are allowed');
+    END;
+
+-- --------------------------------------------------------------------------
+-- Mutual exclusivity triggers (from model.go:420-430)
+-- --------------------------------------------------------------------------
+
+CREATE TRIGGER trg_insert_machine_task_if_not_unit_task
+BEFORE INSERT ON operation_machine_task
+WHEN EXISTS (
+    SELECT 1 FROM operation_unit_task WHERE task_uuid = NEW.task_uuid
+)
+BEGIN
+    SELECT RAISE(ABORT, 'Task is already linked to a unit, cannot be added for a machine');
+END;
+
+CREATE TRIGGER trg_insert_unit_task_if_not_machine_task
+BEFORE INSERT ON operation_unit_task
+WHEN EXISTS (
+    SELECT 1 FROM operation_machine_task WHERE task_uuid = NEW.task_uuid
+)
+BEGIN
+    SELECT RAISE(ABORT, 'Task is already linked to a machine, cannot be added for a unit');
+END;
+
+-- --------------------------------------------------------------------------
+-- Operation task status triggers (from modeltriggers.go:583-654)
+-- Namespace rows already exist from fresh schema construction; use
+-- INSERT OR IGNORE for idempotency on upgrade.
+-- --------------------------------------------------------------------------
+
+INSERT OR IGNORE INTO change_log_namespace
+VALUES (22,
+        'custom_operation_task_status_pending',
+        'Operation task status changes to PENDING');
+
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_insert
+AFTER INSERT ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 1, 22, ots.task_uuid, DATETIME('now', 'utc')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid
+    AND otsv.status = 'pending';
+END;
+
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_update
+AFTER UPDATE ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, 22, ots.task_uuid, DATETIME('now', 'utc')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid
+    AND otsv.status = 'pending';
+END;
+
+INSERT OR IGNORE INTO change_log_namespace
+VALUES (23,
+        'custom_operation_task_status_pending_or_aborting',
+        'Operation task status changes to PENDING or ABORTING');
+
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_insert
+AFTER INSERT ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 1, 23, ots.task_uuid, DATETIME('now', 'utc')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid
+    AND (
+        otsv.status = 'aborting'
+        OR otsv.status = 'pending');
+END;
+
+CREATE TRIGGER trg_log_custom_operation_task_status_pending_or_aborting_update
+AFTER UPDATE ON operation_task_status FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    SELECT 2, 23, ots.task_uuid, DATETIME('now', 'utc')
+    FROM operation_task_status AS ots
+    JOIN operation_task_status_value AS otsv ON ots.status_id = otsv.id
+    WHERE ots.task_uuid = NEW.task_uuid
+    AND (
+        otsv.status = 'aborting'
+        OR otsv.status = 'pending');
+END;
+
+-- --------------------------------------------------------------------------
+-- Operation task log changestream triggers (from operation-triggers.gen.go)
+-- --------------------------------------------------------------------------
+
+INSERT OR IGNORE INTO change_log_namespace
+VALUES (10034, 'operation_task_log', 'OperationTaskLog changes based on task_uuid');
+
+CREATE TRIGGER trg_log_operation_task_log_insert
+AFTER INSERT ON operation_task_log FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, 10034, NEW.task_uuid, DATETIME('now', 'utc'));
+END;
+
+CREATE TRIGGER trg_log_operation_task_log_update
+AFTER UPDATE ON operation_task_log FOR EACH ROW
+WHEN
+    NEW.task_uuid != OLD.task_uuid OR
+    NEW.content != OLD.content OR
+    NEW.created_at != OLD.created_at
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, 10034, OLD.task_uuid, DATETIME('now', 'utc'));
+END;
+
+CREATE TRIGGER trg_log_operation_task_log_delete
+AFTER DELETE ON operation_task_log FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, 10034, OLD.task_uuid, DATETIME('now', 'utc'));
+END;
+
+-- noqa: enable=all
