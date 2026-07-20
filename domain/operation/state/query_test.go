@@ -1578,7 +1578,7 @@ func (s *querySuite) TestGetOperationsInOrder(c *tc.C) {
 	c.Assert(err, tc.IsNil)
 	c.Assert(result.Operations, tc.HasLen, 20)
 
-	operationIds := make([]uint64, 20)
+	operationIds := make([]uint64, 0, 20)
 	for _, v := range result.Operations {
 		operationId, err := strconv.ParseUint(v.OperationID, 10, 64)
 		c.Assert(err, tc.IsNil)
