@@ -909,6 +909,51 @@ func (s *stateSuite) TestGetControllerModelInfoIdentity(c *tc.C) {
 	c.Check(info.SecretBackend.Name, tc.Not(tc.Equals), "")
 }
 
+// TestGetModelCloudCredential asserts the natural key, auth attributes and
+// status of the model's credential are returned.
+func (s *stateSuite) TestGetModelCloudCredential(c *tc.C) {
+	credential, err := New(s.TxnRunnerFactory(), clock.WallClock).GetModelCloudCredential(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential, tc.NotNil)
+	c.Check(credential.Cloud, tc.Equals, "my-cloud")
+	c.Check(credential.Owner, tc.Equals, "test-user")
+	c.Check(credential.Name, tc.Equals, "foobar")
+	c.Check(credential.AuthType, tc.Equals, "access-key")
+	c.Check(credential.Attributes, tc.DeepEquals, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	c.Check(credential.Revoked, tc.IsFalse)
+	c.Check(credential.Invalid, tc.IsFalse)
+	c.Check(credential.InvalidReason, tc.Equals, "")
+}
+
+// TestGetModelCloudCredentialRevokedAndInvalid asserts revoked and invalid
+// status are carried through.
+func (s *stateSuite) TestGetModelCloudCredentialRevokedAndInvalid(c *tc.C) {
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	key := corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: usertesting.GenNewName(c, "test-user"),
+		Name:  "foobar",
+	}
+	err := credSt.UpsertCloudCredential(c.Context(), key, credential.CloudCredentialInfo{
+		Label:         "foobar",
+		AuthType:      string(cloud.AccessKeyAuthType),
+		Revoked:       true,
+		Invalid:       true,
+		InvalidReason: "expired",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	credential, err := New(s.TxnRunnerFactory(), clock.WallClock).GetModelCloudCredential(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential, tc.NotNil)
+	c.Check(credential.Revoked, tc.IsTrue)
+	c.Check(credential.Invalid, tc.IsTrue)
+	c.Check(credential.InvalidReason, tc.Equals, "expired")
+}
+
 // TestGetSourceControllerInfo asserts the source controller's identity, alias,
 // CA certificate and raw API addresses are all returned.
 func (s *stateSuite) TestGetSourceControllerInfo(c *tc.C) {
