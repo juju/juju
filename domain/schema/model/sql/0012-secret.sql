@@ -121,6 +121,9 @@ CREATE TABLE secret_deleted_value_ref (
     revision_id TEXT NOT NULL
 );
 
+CREATE INDEX idx_secret_deleted_value_ref_revision_id
+ON secret_deleted_value_ref (revision_id);
+
 -- 1:many
 CREATE TABLE secret_content (
     revision_uuid TEXT NOT NULL,

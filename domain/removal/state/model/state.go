@@ -38,7 +38,10 @@ func (st *State) GetAllJobs(ctx context.Context) ([]removal.Job, error) {
 		return nil, errors.Capture(err)
 	}
 
-	stmt, err := st.Prepare("SELECT &removalJob.* FROM removal", removalJob{})
+	stmt, err := st.Prepare(`
+SELECT &removalJob.*
+FROM   removal
+ORDER BY scheduled_for, uuid`, removalJob{})
 	if err != nil {
 		return nil, errors.Errorf("preparing select jobs query: %w", err)
 	}

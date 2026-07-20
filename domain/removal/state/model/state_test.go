@@ -91,11 +91,12 @@ VALUES (?, ?, ?, ?, ?, ?)`
 	jID1, _ := removal.NewUUID()
 	jID2, _ := removal.NewUUID()
 	now := time.Now().UTC()
+	later := now.Add(time.Second)
 
 	_, err := s.DB().Exec(ins, jID1, 0, "rel-1", 0, now, nil)
 	c.Assert(err, tc.ErrorIsNil)
 
-	_, err = s.DB().Exec(ins, jID2, 0, "rel-2", 1, now, `{"special-key":"special-value"}`)
+	_, err = s.DB().Exec(ins, jID2, 0, "rel-2", 1, later, `{"special-key":"special-value"}`)
 	c.Assert(err, tc.ErrorIsNil)
 
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -117,7 +118,7 @@ VALUES (?, ?, ?, ?, ?, ?)`
 		RemovalType:  removal.RelationJob,
 		EntityUUID:   "rel-2",
 		Force:        true,
-		ScheduledFor: now,
+		ScheduledFor: later,
 		Arg: map[string]any{
 			"special-key": "special-value",
 		},

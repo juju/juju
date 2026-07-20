@@ -35,6 +35,9 @@ CREATE TABLE storage_pool (
 CREATE UNIQUE INDEX idx_storage_pool_name
 ON storage_pool (name);
 
+CREATE INDEX idx_storage_pool_name_uuid
+ON storage_pool (name, uuid);
+
 -- This index is used to speed up access by type, type and name.
 -- Warning: if the "type" is not the first column in the composite query condition,
 -- then the index will not be used.
@@ -63,6 +66,9 @@ CREATE TABLE storage_kind (
 
 CREATE UNIQUE INDEX idx_storage_kind_kind
 ON storage_kind (kind);
+
+CREATE INDEX idx_storage_kind_kind_id
+ON storage_kind (kind, id);
 
 INSERT INTO storage_kind VALUES
 (0, 'block'),

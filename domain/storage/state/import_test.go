@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
@@ -82,7 +83,7 @@ func (s *importSuite) TestImportStorageInstances(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	obtained := s.getStorageInstances(c)
+	obtained := s.getStorageInstances(c, args[0].UUID, args[1].UUID, args[2].UUID)
 	c.Check(obtained, tc.SameContents, []importStorageInstance{
 		{
 			UUID:            args[0].UUID,
@@ -176,7 +177,9 @@ func (s *importSuite) TestImportStorageInstancesWithAttachments(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	obtained := s.getStorageAttachments(c)
+	obtained := s.getStorageAttachments(
+		c, attachmentArgs[0].UUID, attachmentArgs[1].UUID, attachmentArgs[2].UUID,
+	)
 	c.Check(obtained, tc.SameContents, []importStorageAttachment{
 		{
 			UUID:                attachmentArgs[0].UUID,
@@ -244,7 +247,9 @@ func (s *importSuite) TestImportFilesystemsIAAS(c *tc.C) {
 	err := st.ImportFilesystemsIAAS(c.Context(), args, nil)
 
 	c.Assert(err, tc.ErrorIsNil)
-	obtainedFs, obtainedFsInstances := s.getFilesystems(c)
+	obtainedFs, obtainedFsInstances := s.getFilesystems(
+		c, ebsFsUUID.String(), gceFsUUID.String(), azureFsUUID.String(),
+	)
 	c.Check(obtainedFs, tc.SameContents, []importStorageFilesystem{{
 		UUID:       ebsFsUUID.String(),
 		ID:         "ebs-fs-1",
@@ -344,7 +349,12 @@ func (s *importSuite) TestImportFilesystemsIAASWithAttachments(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
-	obtainedAttachments := s.getFilesystemAttachments(c)
+	obtainedAttachments := s.getFilesystemAttachments(
+		c,
+		ebsAttachment1UUID.String(),
+		ebsAttachment2UUID.String(),
+		gceAttachmentUUID.String(),
+	)
 	c.Check(obtainedAttachments, tc.SameContents, []importStorageFilesystemAttachment{{
 		UUID:           ebsAttachment1UUID.String(),
 		FilesystemUUID: ebsFsUUID.String(),
@@ -467,7 +477,9 @@ func (s *importSuite) TestImportVolumesFoundBlockDevice(c *tc.C) {
 			StorageVolumeUUID: args[0].UUID.String(),
 		},
 	})
-	obtainedAttachmentPlanAttrs := s.getStorageInstanceVolumeAttachmentPlanAttrs(c)
+	obtainedAttachmentPlanAttrs := s.getStorageInstanceVolumeAttachmentPlanAttrs(
+		c, attachmentPlan.UUID.String(),
+	)
 	c.Check(obtainedAttachmentPlanAttrs, tc.SameContents, []importStorageVolumePlanAttribute{
 		{
 			PlanUUID: attachmentPlan.UUID.String(),
@@ -661,14 +673,16 @@ func (s *importSuite) TestGetBlockDevicesForMachinesByNetNodeUUIDsMany(c *tc.C) 
 	)
 }
 
-func (s *importSuite) getStorageInstances(c *tc.C) []importStorageInstance {
+func (s *importSuite) getStorageInstances(c *tc.C, uuids ...string) []importStorageInstance {
+	firstUUID, lastUUID := slices.Min(uuids), slices.Max(uuids)
 	var result []importStorageInstance
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		result = nil
 
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, charm_name, storage_name, storage_kind_id, storage_id, life_id, storage_pool_uuid, requested_size_mib 
-FROM   storage_instance`)
+FROM   storage_instance
+WHERE  uuid >= ? AND uuid <= ?`, firstUUID, lastUUID)
 		if err != nil {
 			return err
 		}
@@ -733,14 +747,16 @@ FROM   storage_volume`)
 	return result
 }
 
-func (s *importSuite) getStorageAttachments(c *tc.C) []importStorageAttachment {
+func (s *importSuite) getStorageAttachments(c *tc.C, uuids ...string) []importStorageAttachment {
+	firstUUID, lastUUID := slices.Min(uuids), slices.Max(uuids)
 	var result []importStorageAttachment
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		result = nil
 
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, storage_instance_uuid, unit_uuid, life_id 
-FROM storage_attachment`)
+FROM storage_attachment
+WHERE uuid >= ? AND uuid <= ?`, firstUUID, lastUUID)
 		if err != nil {
 			return err
 		}
@@ -867,14 +883,17 @@ FROM   storage_volume_attachment`)
 	return result
 }
 
-func (s *importSuite) getStorageInstanceVolumeAttachmentPlanAttrs(c *tc.C) []importStorageVolumePlanAttribute {
+func (s *importSuite) getStorageInstanceVolumeAttachmentPlanAttrs(
+	c *tc.C, planUUID string,
+) []importStorageVolumePlanAttribute {
 	var result []importStorageVolumePlanAttribute
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		result = nil
 
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT attachment_plan_uuid, key, value 
-FROM   storage_volume_attachment_plan_attr`)
+FROM   storage_volume_attachment_plan_attr
+WHERE  attachment_plan_uuid = ?`, planUUID)
 		if err != nil {
 			return err
 		}
@@ -1049,7 +1068,10 @@ func (s *importSuite) newMachine(c *tc.C, name, netNodeUUID string) string {
 	return s.newMachineWithLife(c, name, netNodeUUID, life.Alive)
 }
 
-func (s *importSuite) getFilesystems(c *tc.C) ([]importStorageFilesystem, []importStorageInstanceFilesystem) {
+func (s *importSuite) getFilesystems(
+	c *tc.C, uuids ...string,
+) ([]importStorageFilesystem, []importStorageInstanceFilesystem) {
+	firstUUID, lastUUID := slices.Min(uuids), slices.Max(uuids)
 	var filesystems []importStorageFilesystem
 	var instanceFilesystems []importStorageInstanceFilesystem
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -1058,7 +1080,8 @@ func (s *importSuite) getFilesystems(c *tc.C) ([]importStorageFilesystem, []impo
 
 		fsRows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, filesystem_id, life_id, provision_scope_id, provider_id, size_mib
-FROM storage_filesystem`)
+FROM storage_filesystem
+WHERE uuid >= ? AND uuid <= ?`, firstUUID, lastUUID)
 		if err != nil {
 			return err
 		}
@@ -1086,7 +1109,8 @@ FROM storage_filesystem`)
 
 		instFsRows, err := tx.QueryContext(c.Context(), `
 SELECT storage_instance_uuid, storage_filesystem_uuid
-FROM storage_instance_filesystem`)
+FROM storage_instance_filesystem
+WHERE storage_filesystem_uuid >= ? AND storage_filesystem_uuid <= ?`, firstUUID, lastUUID)
 		if err != nil {
 			return err
 		}
@@ -1113,14 +1137,18 @@ FROM storage_instance_filesystem`)
 	return filesystems, instanceFilesystems
 }
 
-func (s *importSuite) getFilesystemAttachments(c *tc.C) []importStorageFilesystemAttachment {
+func (s *importSuite) getFilesystemAttachments(
+	c *tc.C, uuids ...string,
+) []importStorageFilesystemAttachment {
+	firstUUID, lastUUID := slices.Min(uuids), slices.Max(uuids)
 	var attachments []importStorageFilesystemAttachment
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		attachments = nil
 
 		rows, err := tx.QueryContext(c.Context(), `
 SELECT uuid, storage_filesystem_uuid, net_node_uuid, provision_scope_id, life_id, mount_point, provider_id, read_only
-FROM storage_filesystem_attachment`)
+FROM storage_filesystem_attachment
+WHERE uuid >= ? AND uuid <= ?`, firstUUID, lastUUID)
 		if err != nil {
 			return err
 		}

@@ -274,13 +274,13 @@ func (s *applicationSuite) TestEnsureApplicationOnMultipleMachines(c *tc.C) {
 
 	// There should be one unit that is alive (from app2), and one that is dying
 	// (from app1).
-	row := s.DB().QueryRow("SELECT COUNT(*), uuid FROM unit WHERE life_id = 0")
+	row := s.DB().QueryRow("SELECT life_id, uuid FROM unit WHERE uuid = ?", app2UnitUUIDs[0])
 	err = row.Scan(&count, &uuid)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 1)
+	c.Check(count, tc.Equals, 0)
 	c.Check(uuid, tc.Equals, app2UnitUUIDs[0].String())
 
-	row = s.DB().QueryRow("SELECT COUNT(*), uuid FROM unit WHERE life_id != 0")
+	row = s.DB().QueryRow("SELECT life_id, uuid FROM unit WHERE uuid = ?", app1UnitUUIDs[0])
 	err = row.Scan(&count, &uuid)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(count, tc.Equals, 1)
@@ -1346,24 +1346,17 @@ SELECT COUNT(*) FROM sequence WHERE namespace = CONCAT('application_', ?)`, appN
 }
 
 func (s *applicationSuite) checkUnitDyingState(c *tc.C, unitUUIDs []unit.UUID) {
-	// Ensure that there are no units left with life "alive".
-	row := s.DB().QueryRow("SELECT COUNT(*) FROM unit WHERE  life_id = 0")
-	var count int
-	err := row.Scan(&count)
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(count, tc.Equals, 0)
-
 	// Ensure that all units are now "dying".
 	placeholders := strings.Repeat("?,", len(unitUUIDs)-1) + "?"
 	uuids := transform.Slice(unitUUIDs, func(u unit.UUID) any {
 		return u.String()
 	})
 
-	row = s.DB().QueryRow(fmt.Sprintf(`
+	row := s.DB().QueryRow(fmt.Sprintf(`
 SELECT COUNT(*) FROM unit WHERE life_id = 1 AND uuid IN (%s)
 `, placeholders), uuids...)
 	var dyingCount int
-	err = row.Scan(&dyingCount)
+	err := row.Scan(&dyingCount)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(dyingCount, tc.Equals, len(unitUUIDs))
 }

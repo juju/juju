@@ -45,3 +45,6 @@ CREATE TABLE removal (
 
 CREATE INDEX idx_removal_type_entity_arg
 ON removal (removal_type_id, entity_uuid, arg);
+
+CREATE INDEX idx_removal_scheduled_for
+ON removal (scheduled_for, uuid, removal_type_id, entity_uuid, force, arg);

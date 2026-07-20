@@ -462,13 +462,15 @@ func (s *modelSuite) TestIsControllerModel(c *tc.C) {
 
 func (s *modelSuite) TestIsControllerModelControllerModel(c *tc.C) {
 	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		// Force the model to be a controller model.
-		_, err := tx.ExecContext(ctx, `DROP TRIGGER IF EXISTS trg_model_immutable_update;`)
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, `UPDATE model SET is_controller_model = 1 WHERE uuid = ?`, s.getModelUUID(c))
+		_, err := tx.ExecContext(ctx, `
+INSERT OR REPLACE INTO model (
+    uuid, controller_uuid, name, qualifier, type, cloud, cloud_type,
+    cloud_region, credential_owner, credential_name, is_controller_model
+)
+SELECT uuid, controller_uuid, name, qualifier, type, cloud, cloud_type,
+       cloud_region, credential_owner, credential_name, 1
+FROM   model
+WHERE  uuid = ?`, s.getModelUUID(c))
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

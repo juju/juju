@@ -37,7 +37,10 @@ func (st *State) getImportStorageInstanceLookups(ctx context.Context, tx *sqlair
 // getLookupForLife retrieves a mapping of kind to id from
 // the storage_kind table.
 func (st *State) getLookupForStorageKind(ctx context.Context, tx *sqlair.TX) (map[string]int, error) {
-	deviceTypeStmt, err := st.Prepare("SELECT &idAndKind.* FROM storage_kind", idAndKind{})
+	deviceTypeStmt, err := st.Prepare(`
+SELECT &idAndKind.*
+FROM   storage_kind
+ORDER BY kind, id`, idAndKind{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -53,7 +56,10 @@ func (st *State) getLookupForStorageKind(ctx context.Context, tx *sqlair.TX) (ma
 // getStoragePoolUUIDMappings retrieves a mapping of name to uuid from
 // the storage_pool table.
 func (st *State) getStoragePoolUUIDMappings(ctx context.Context, tx *sqlair.TX) (map[string]string, error) {
-	deviceTypeStmt, err := st.Prepare("SELECT &nameAndUUID.* FROM storage_pool", nameAndUUID{})
+	deviceTypeStmt, err := st.Prepare(`
+SELECT &nameAndUUID.*
+FROM   storage_pool
+ORDER BY name, uuid`, nameAndUUID{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}

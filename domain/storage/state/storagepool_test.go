@@ -282,7 +282,11 @@ func (s *storagePoolStateSuite) TestSetModelStoragePools(c *tc.C) {
 	err = st.SetModelStoragePools(ctx, args)
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelStoragePools := s.getModelStoragePools(c)
+	modelStoragePools := s.getModelStoragePools(
+		c,
+		int(domainstorage.StorageKindBlock),
+		int(domainstorage.StorageKindFilesystem),
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(modelStoragePools, tc.SameContents, []dbModelStoragePool{
@@ -332,7 +336,11 @@ func (s *storagePoolStateSuite) TestSetModelStoragePoolsReplacesExisting(c *tc.C
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	modelPools := s.getModelStoragePools(c)
+	modelPools := s.getModelStoragePools(
+		c,
+		int(domainstorage.StorageKindBlock),
+		int(domainstorage.StorageKindBlock),
+	)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Assert(modelPools, tc.DeepEquals, []dbModelStoragePool{
@@ -486,15 +494,16 @@ func (s *storagePoolStateSuite) TestGetStoragePoolProvidersByNamesMiss(c *tc.C) 
 
 // getModelStoragePools is a helper method to fetch model storage pools from DB.
 func (s *storagePoolStateSuite) getModelStoragePools(
-	c *tc.C,
+	c *tc.C, firstKind, lastKind int,
 ) []dbModelStoragePool {
 	query := `
 SELECT storage_kind_id, storage_pool_uuid
 FROM model_storage_pool
+WHERE storage_kind_id >= ? AND storage_kind_id <= ?
 `
 	var result []dbModelStoragePool
 
-	rows, err := s.DB().Query(query)
+	rows, err := s.DB().Query(query, firstKind, lastKind)
 	c.Assert(err, tc.ErrorIsNil)
 	defer rows.Close()
 

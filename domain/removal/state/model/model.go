@@ -133,19 +133,19 @@ func (st *State) EnsureModelNotAliveCascade(ctx context.Context, modelUUID strin
 	// - All applications in the model.
 	// - All relations in the model.
 	// - All machines in the model.
-	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id < 2`, eUUID)
+	selectUnits, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM unit WHERE life_id <= 1`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select units query: %w", err)
 	}
-	selectApplications, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM application WHERE life_id < 2`, eUUID)
+	selectApplications, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM application WHERE life_id <= 1`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select applications query: %w", err)
 	}
-	selectRelations, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM relation WHERE life_id < 2`, eUUID)
+	selectRelations, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM relation WHERE life_id <= 1`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select relations query: %w", err)
 	}
-	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id < 2`, eUUID)
+	selectMachines, err := st.Prepare(`SELECT uuid AS &entityUUID.* FROM machine WHERE life_id <= 1`, eUUID)
 	if err != nil {
 		return removal.ModelArtifacts{}, errors.Errorf("preparing select machines query: %w", err)
 	}

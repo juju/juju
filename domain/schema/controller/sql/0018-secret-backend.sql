@@ -90,6 +90,9 @@ CREATE TABLE secret_backend_reference (
 CREATE INDEX idx_secret_backend_reference_list
 ON secret_backend_reference (secret_backend_uuid, model_uuid, secret_id);
 
+CREATE INDEX idx_secret_backend_reference_revision
+ON secret_backend_reference (secret_revision_uuid);
+
 CREATE TABLE model_secret_backend (
     model_uuid TEXT NOT NULL PRIMARY KEY,
     secret_backend_uuid TEXT NOT NULL,

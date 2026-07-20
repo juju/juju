@@ -130,6 +130,9 @@ CREATE TABLE relation_unit (
 CREATE UNIQUE INDEX idx_relation_unit
 ON relation_unit (relation_endpoint_uuid, unit_uuid);
 
+CREATE INDEX idx_relation_unit_unit_uuid
+ON relation_unit (unit_uuid, uuid);
+
 -- The relation_unit_setting holds key value pair settings
 -- for a relation at the unit level. Keys must be unique
 -- per unit.

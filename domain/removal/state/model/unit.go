@@ -299,35 +299,19 @@ func (st *State) markMachineAsDyingIfAllUnitsAreNotAlive(
 	unitUUID := entityUUID{UUID: uUUID}
 
 	lastUnitStmt, err := st.Prepare(`
-WITH units_alive AS (
-    SELECT uuid, net_node_uuid
-    FROM   unit
-    WHERE  life_id = 0
-), units_not_alive AS (
-    SELECT uuid, net_node_uuid
-    FROM   unit
-    WHERE  life_id != 0
-), machines AS (
-    SELECT    m.uuid AS machine_uuid,
-              m.net_node_uuid,
-              COUNT(ua.uuid) AS unit_alive_count,
-              COUNT(una.uuid) AS unit_not_alive_count,
-			  COUNT(mp.parent_uuid) AS machine_parent_count
-    FROM      machine AS m
-    JOIN      net_node AS nn ON nn.uuid = m.net_node_uuid
-    LEFT JOIN units_alive AS ua ON ua.net_node_uuid = nn.uuid
-    LEFT JOIN units_not_alive AS una ON una.net_node_uuid = nn.uuid
-	LEFT JOIN machine_parent AS mp ON mp.parent_uuid = m.uuid
-    GROUP BY  m.uuid
-)
-SELECT unit_alive_count AS &unitMachineLifeSummary.alive_count,
-       unit_not_alive_count AS &unitMachineLifeSummary.not_alive_count,
-	   machine_parent_count AS &unitMachineLifeSummary.machine_parent_count,
-       machine_uuid AS &unitMachineLifeSummary.uuid
-FROM   machines
-LEFT JOIN unit AS u ON u.net_node_uuid = machines.net_node_uuid
-WHERE  u.uuid = $entityUUID.uuid;
-    `, unitUUID, unitMachineLifeSummary{})
+SELECT COUNT(DISTINCT CASE WHEN u.life_id = 0 THEN u.uuid END)
+           AS &unitMachineLifeSummary.alive_count,
+       COUNT(DISTINCT CASE WHEN u.life_id != 0 THEN u.uuid END)
+           AS &unitMachineLifeSummary.not_alive_count,
+       COUNT(DISTINCT mp.machine_uuid)
+           AS &unitMachineLifeSummary.machine_parent_count,
+       m.uuid AS &unitMachineLifeSummary.uuid
+FROM   unit AS target_unit
+JOIN   machine AS m ON m.net_node_uuid = target_unit.net_node_uuid
+JOIN   unit AS u ON u.net_node_uuid = m.net_node_uuid
+LEFT JOIN machine_parent AS mp ON mp.parent_uuid = m.uuid
+WHERE  target_unit.uuid = $entityUUID.uuid
+GROUP BY m.uuid`, unitUUID, unitMachineLifeSummary{})
 	if err != nil {
 		return "", cascaded, errors.Errorf("preparing unit count query: %w", err)
 	}

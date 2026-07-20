@@ -27,6 +27,9 @@ ON application (charm_uuid);
 CREATE INDEX idx_application_space_details
 ON application (space_uuid, uuid, name, charm_uuid);
 
+CREATE INDEX idx_application_life_uuid
+ON application (life_id, uuid);
+
 -- This table is only used to track whether a application is a controller or
 -- not. It should be sparse and only contain a single row for the controller
 -- application.
