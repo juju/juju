@@ -5,7 +5,6 @@ package objectstore
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -233,7 +232,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			rootBucketName, err := bucketName(controllerConfig)
+			rootBucketName, err := objectstore.ControllerBucketName(controllerConfig)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -292,14 +291,6 @@ func output(in worker.Worker, out any) error {
 		return errors.Errorf("expected output of ObjectStoreGetter, got %T", out)
 	}
 	return nil
-}
-
-func bucketName(config controller.Config) (string, error) {
-	name := fmt.Sprintf("juju-%s", config.ControllerUUID())
-	if _, err := coreobjectstore.ParseObjectStoreBucketName(name); err != nil {
-		return "", errors.Trace(err)
-	}
-	return name, nil
 }
 
 type controllerMetadataService struct {

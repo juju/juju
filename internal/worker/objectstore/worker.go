@@ -57,8 +57,10 @@ type ControllerWorkerFunc func(
 // WorkerConfig encapsulates the configuration options for the
 // objectStore worker.
 type WorkerConfig struct {
-	TracerGetter               trace.TracerGetter
-	RootDir                    string
+	TracerGetter trace.TracerGetter
+	RootDir      string
+	// RootBucket is the controller-scoped bucket shared by all model
+	// namespaces.
 	RootBucket                 string
 	Clock                      clock.Clock
 	Logger                     logger.Logger
