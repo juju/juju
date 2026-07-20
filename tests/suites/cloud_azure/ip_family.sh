@@ -38,7 +38,8 @@ run_ip_family_dual_stack() {
 			echo "${ssh_out}" >>"$log_file"
 			check_contains "${ssh_out}" "Permission denied"
 		else
-			echo "==> No IPv6 egress on runner; IPv6 allocation check only"
+			echo "==> ERROR: no IPv6 egress on CI runner cannot verify SSH reachability"
+			return 1
 		fi
 
 		# Tests #4/#5: post-bootstrap provisioning paths. Run them in the
