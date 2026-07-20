@@ -971,16 +971,20 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 	}
 
 	res := result.(caRetrieveRes)
-	// Try to verify the certificate using the system roots. If the
+	// Try to verify the certificate using the trusted roots. If the
 	// verification succeeds then we are done; tls connections will work out of
 	// the box. Unlike a plain check of the CA cert in isolation, we verify the
 	// server's leaf certificate the same way a TLS client would: build a chain
-	// from the leaf up to a trusted system root, using the certificates
-	// presented by the server as intermediates. This is required when the
-	// server relies on a cross-signed root that is not yet distributed in the
-	// system trust store.
-	if _, err = res.cert.leaf.Verify(x509.VerifyOptions{Intermediates: res.cert.intermediates}); err == nil {
-		logger.Debugf("remote certificate chain trusted by system roots")
+	// from the leaf up to a trusted root, using the certificates presented by
+	// the server as intermediates. This is required when the server relies on
+	// a cross-signed root that is not yet distributed in the system trust
+	// store. Roots is the same pool the subsequent dial verifies against; a nil
+	// pool means the system trust store is used.
+	if _, err = res.cert.leaf.Verify(x509.VerifyOptions{
+		Roots:         opts.certPool,
+		Intermediates: res.cert.intermediates,
+	}); err == nil {
+		logger.Debugf("remote certificate chain trusted")
 		return nil
 	}
 
