@@ -36,7 +36,9 @@ const (
 	autoAssignedMountPoint = ""
 
 	volumeStatusAvailable = "available"
+	volumeStatusAttaching = "attaching"
 	volumeStatusDeleting  = "deleting"
+	volumeStatusDetaching = "detaching"
 	volumeStatusError     = "error"
 	volumeStatusInUse     = "in-use"
 )
@@ -451,16 +453,16 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 	// still be in-use when the instance it is attached to is
 	// in the process of being terminated.
 	var issuedDetach bool
+	var issuedDeleteAttachment bool
 	volume, err := waitVolume(storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
 		switch v.Status {
+		case volumeStatusAvailable, volumeStatusDeleting, volumeStatusError:
+			return true, nil
+		case volumeStatusInUse, volumeStatusAttaching, volumeStatusDetaching:
+			// Detach / delete attachment below.
 		default:
 			// Not ready for deletion; keep waiting.
 			return false, nil
-		case volumeStatusAvailable, volumeStatusDeleting, volumeStatusError:
-			return true, nil
-		case volumeStatusInUse:
-			// Detach below.
-			break
 		}
 		// Volume is still attached, so detach it.
 		if !issuedDetach {
@@ -478,6 +480,38 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 				}
 			}
 			issuedDetach = true
+		}
+		// Also delete the attachment directly: if the instance is gone the
+		// ordinary detach can't finalise, and this frees the wedged volume.
+		// Cinder returns 409 while it's still in use, in which case we wait.
+		if !issuedDeleteAttachment {
+			attemptedDeleteAttachment := false
+			for _, a := range v.Attachments {
+				if a.AttachmentId == "" {
+					continue
+				}
+				attemptedDeleteAttachment = true
+				if err := storageAdapter.DeleteAttachment(a.AttachmentId); err != nil {
+					if gooseerrors.IsConflict(err) {
+						return false, nil
+					}
+					if gooseerrors.IsForbidden(err) {
+						// The attachment-delete policy is not granted to these
+						// credentials, so fall back to plain polling and let the
+						// volume settle on its own.
+						logger.Warningf("cannot delete attachment for volume %q (not permitted for these credentials); waiting for it to detach", volumeId)
+						break
+					}
+					if gooseerrors.IsNotImplemented(err) {
+						logger.Warningf("cannot delete attachment for volume %q (not supported by the Block Storage API); waiting for it to detach", volumeId)
+						break
+					}
+					if !IsNotFoundError(err) {
+						return false, errors.Trace(err)
+					}
+				}
+			}
+			issuedDeleteAttachment = attemptedDeleteAttachment
 		}
 		return false, nil
 	})
@@ -698,6 +732,7 @@ type OpenstackStorage interface {
 	CreateVolume(cinder.CreateVolumeVolumeParams) (*cinder.Volume, error)
 	AttachVolume(serverId, volumeId, mountPoint string) (*nova.VolumeAttachment, error)
 	DetachVolume(serverId, attachmentId string) error
+	DeleteAttachment(attachmentId string) error
 	ListVolumeAttachments(serverId string) ([]nova.VolumeAttachment, error)
 	SetVolumeMetadata(volumeId string, metadata map[string]string) (map[string]string, error)
 	ListVolumeAvailabilityZones() ([]cinder.AvailabilityZone, error)
@@ -790,6 +825,17 @@ func (ga *openstackStorageAdapter) DeleteVolume(volumeId string) error {
 	if err := ga.cinderClient.DeleteVolume(volumeId); err != nil {
 		if IsNotFoundError(err) {
 			return errors.NotFoundf("volume %q", volumeId)
+		}
+		return err
+	}
+	return nil
+}
+
+// DeleteAttachment is part of the OpenstackStorage interface.
+func (ga *openstackStorageAdapter) DeleteAttachment(attachmentId string) error {
+	if err := ga.cinderClient.DeleteAttachment(attachmentId); err != nil {
+		if IsNotFoundError(err) {
+			return errors.NotFoundf("attachment %q", attachmentId)
 		}
 		return err
 	}
