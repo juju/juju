@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"github.com/juju/collections/set"
 
@@ -48,7 +49,53 @@ func (s *Service) ValidateImportedModel(ctx context.Context) error {
 	if err := s.validateSecretBackendsExist(ctx); err != nil {
 		return err
 	}
-	return s.validateSecretBackendReferences(ctx)
+	if err := s.validateSecretBackendReferences(ctx); err != nil {
+		return err
+	}
+	return s.validateRelationConsistency(ctx)
+}
+
+// validateRelationConsistency fails if any unit belonging to an application
+// that participates in a relation lacks the corresponding relation-unit row.
+// Schema foreign keys do not enforce this invariant, and an import that omits
+// the row would otherwise activate a structurally incomplete relation.
+func (s *Service) validateRelationConsistency(ctx context.Context) error {
+	relations, err := s.modelState.GetRelationValidationData(ctx)
+	if err != nil {
+		return errors.Errorf("reading relations of imported model: %w", err)
+	}
+	if len(relations) == 0 {
+		return nil
+	}
+
+	appUnits, err := s.modelState.GetApplicationUnitNames(ctx)
+	if err != nil {
+		return errors.Errorf("reading application units of imported model: %w", err)
+	}
+	relationUnits, err := s.modelState.GetRelationUnitsByApplication(ctx)
+	if err != nil {
+		return errors.Errorf("reading relation units of imported model: %w", err)
+	}
+
+	for _, relation := range relations {
+		endpoints := strings.Split(strings.TrimSpace(relation.Key), " ")
+		applications := set.NewStrings()
+		for _, endpoint := range endpoints {
+			app, _, ok := strings.Cut(endpoint, ":")
+			if ok {
+				applications.Add(app)
+			}
+		}
+		for app := range applications {
+			unitsInScope := set.NewStrings(relationUnits[relation.UUID][app]...)
+			for _, unitName := range appUnits[app] {
+				if !unitsInScope.Contains(unitName) {
+					return errors.Errorf("unit %s hasn't joined relation %q yet", unitName, relation.Key)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // validateSecretBackendsExist fails if any secret backend referenced by the

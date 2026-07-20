@@ -232,6 +232,15 @@ type ModelState interface {
 	// to the backend UUID its external value ref points at, for revisions whose
 	// content is stored externally.
 	GetExternalSecretRevisionBackends(ctx context.Context) (map[string]string, error)
+	// GetRelationValidationData returns the relation identities and keys used
+	// to validate imported relation-unit consistency.
+	GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error)
+	// GetApplicationUnitNames returns a map from application name to the names
+	// of its units.
+	GetApplicationUnitNames(ctx context.Context) (map[string][]string, error)
+	// GetRelationUnitsByApplication returns a map from relation UUID to the
+	// unit names in scope for that relation, grouped by application name.
+	GetRelationUnitsByApplication(ctx context.Context) (map[string]map[string][]string, error)
 	// GetRunningAgentArchitectures returns the distinct architecture names
 	// reported by the model's machine and unit agents.
 	GetRunningAgentArchitectures(ctx context.Context) ([]string, error)

@@ -5,9 +5,11 @@ package model
 
 import (
 	"context"
+	"strings"
 
 	"github.com/canonical/sqlair"
 
+	modelmigrationinternal "github.com/juju/juju/domain/modelmigration/internal"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -202,6 +204,179 @@ JOIN   architecture AS a ON a.id = ra.architecture_id
 		names = append(names, r.Name)
 	}
 	return names, nil
+}
+
+// GetRelationValidationData returns the relation identities and keys needed
+// to validate imported relation-unit consistency before activation.
+func (s *State) GetRelationValidationData(ctx context.Context) ([]modelmigrationinternal.RelationValidationData, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT (r.uuid, r.relation_id) AS (&relationValidationRow.*)
+FROM   relation AS r
+`, relationValidationRow{})
+	if err != nil {
+		return nil, errors.Errorf("preparing relation validation data statement: %w", err)
+	}
+
+	var rows []relationValidationRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("retrieving relation validation data: %w", err)
+	}
+
+	relationKeys, err := s.getRelationKeys(ctx)
+	if err != nil {
+		return nil, errors.Errorf("retrieving relation keys: %w", err)
+	}
+
+	result := make([]modelmigrationinternal.RelationValidationData, len(rows))
+	for i, row := range rows {
+		result[i] = modelmigrationinternal.RelationValidationData{
+			UUID: row.UUID,
+			ID:   row.ID,
+			Key:  strings.Join(relationKeys[row.UUID], " "),
+		}
+	}
+	return result, nil
+}
+
+// relationEndpointKey maps a row from v_relation_endpoint_identifier into
+// a relation's UUID, application and endpoint names.
+type relationEndpointKey struct {
+	RelationUUID    string `db:"relation_uuid"`
+	ApplicationName string `db:"application_name"`
+	EndpointName    string `db:"endpoint_name"`
+}
+
+// getRelationKeys returns a map from relation UUID to its endpoint
+// application:endpoint pairs, used to build readable relation keys for
+// validation error messages.
+func (s *State) getRelationKeys(ctx context.Context) (map[string][]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT (relation_uuid, application_name, endpoint_name) AS (&relationEndpointKey.*)
+FROM   v_relation_endpoint_identifier
+`, relationEndpointKey{})
+	if err != nil {
+		return nil, errors.Errorf("preparing relation endpoint keys statement: %w", err)
+	}
+
+	var rows []relationEndpointKey
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("retrieving relation endpoint keys: %w", err)
+	}
+
+	result := make(map[string][]string)
+	for _, row := range rows {
+		result[row.RelationUUID] = append(result[row.RelationUUID],
+			row.ApplicationName+":"+row.EndpointName)
+	}
+	return result, nil
+}
+
+// GetApplicationUnitNames returns a map from application name to the names of
+// its units, used to ensure every unit in a relation has a corresponding
+// relation-unit row.
+func (s *State) GetApplicationUnitNames(ctx context.Context) (map[string][]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT a.name AS &applicationUnitRow.application_name,
+       u.name AS &applicationUnitRow.unit_name
+FROM   application AS a
+JOIN   unit AS u ON u.application_uuid = a.uuid
+`, applicationUnitRow{})
+	if err != nil {
+		return nil, errors.Errorf("preparing application unit names statement: %w", err)
+	}
+
+	var rows []applicationUnitRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("retrieving application unit names: %w", err)
+	}
+
+	result := make(map[string][]string)
+	for _, row := range rows {
+		result[row.ApplicationName] = append(result[row.ApplicationName], row.UnitName)
+	}
+	return result, nil
+}
+
+// GetRelationUnitsByApplication returns a map from relation UUID to the set of
+// unit names in scope for that relation, grouped by application name.
+func (s *State) GetRelationUnitsByApplication(ctx context.Context) (map[string]map[string][]string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT re.relation_uuid AS &relationUnitScopeRow.relation_uuid,
+       u.name AS &relationUnitScopeRow.unit_name,
+       a.name AS &relationUnitScopeRow.application_name
+FROM   relation_unit AS ru
+JOIN   relation_endpoint AS re ON ru.relation_endpoint_uuid = re.uuid
+JOIN   application_endpoint AS ae ON re.endpoint_uuid = ae.uuid
+JOIN   application AS a ON ae.application_uuid = a.uuid
+JOIN   unit AS u ON ru.unit_uuid = u.uuid
+`, relationUnitScopeRow{})
+	if err != nil {
+		return nil, errors.Errorf("preparing relation units by application statement: %w", err)
+	}
+
+	var rows []relationUnitScopeRow
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("retrieving relation units by application: %w", err)
+	}
+
+	result := make(map[string]map[string][]string)
+	for _, row := range rows {
+		byApp, ok := result[row.RelationUUID]
+		if !ok {
+			byApp = make(map[string][]string)
+			result[row.RelationUUID] = byApp
+		}
+		byApp[row.ApplicationName] = append(byApp[row.ApplicationName], row.UnitName)
+	}
+	return result, nil
 }
 
 // GetAgentBinaryArchitecturesForVersion returns the architecture names for

@@ -278,6 +278,99 @@ func (s *serviceSuite) expectImportValidationPasses() {
 	mExp := s.modelState.EXPECT()
 	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
 	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
+	mExp.GetRelationValidationData(gomock.Any()).Return(nil, nil)
+}
+
+// TestActivateImportRejectsUnitNotInRelation checks that activation refuses
+// an imported model whose relation endpoint application has a unit without
+// a relation_unit row.
+func (s *serviceSuite) TestActivateImportRejectsUnitNotInRelation(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
+	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
+	mExp.GetRelationValidationData(gomock.Any()).Return([]modelmigrationinternal.RelationValidationData{{
+		UUID: "relation-uuid",
+		ID:   7,
+		Key:  "wordpress:db mysql:db",
+	}}, nil)
+	mExp.GetApplicationUnitNames(gomock.Any()).Return(map[string][]string{
+		"wordpress": {"wordpress/0", "wordpress/1"},
+		"mysql":     {"mysql/0"},
+	}, nil)
+	mExp.GetRelationUnitsByApplication(gomock.Any()).Return(map[string]map[string][]string{
+		"relation-uuid": {
+			"wordpress": {"wordpress/0"},
+			"mysql":     {"mysql/0"},
+		},
+	}, nil)
+	cExp.GetControllerTargetVersion(gomock.Any()).Return("4.0.1", nil).AnyTimes()
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+	).ActivateImport(c.Context())
+	c.Assert(err, tc.ErrorMatches, `.*unit wordpress/1 hasn't joined relation "wordpress:db mysql:db" yet.*`)
+}
+
+// TestActivateImportRelationValidationPasses checks activation proceeds when
+// all units in relation endpoint applications have relation_unit rows.
+func (s *serviceSuite) TestActivateImportRelationValidationPasses(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	currentVersion := semversion.MustParse("4.0.0").String()
+	desiredVersion := semversion.MustParse("4.0.1").String()
+
+	mExp := s.modelState.EXPECT()
+	cExp := s.controllerState.EXPECT()
+
+	mExp.GetSecretBackendUUIDsInUse(gomock.Any()).Return(nil, nil)
+	mExp.GetExternalSecretRevisionBackends(gomock.Any()).Return(nil, nil)
+	mExp.GetRelationValidationData(gomock.Any()).Return([]modelmigrationinternal.RelationValidationData{{
+		UUID: "relation-uuid",
+		ID:   7,
+		Key:  "wordpress:db mysql:db",
+	}}, nil)
+	mExp.GetApplicationUnitNames(gomock.Any()).Return(map[string][]string{
+		"wordpress": {"wordpress/0"},
+		"mysql":     {"mysql/0"},
+	}, nil)
+	mExp.GetRelationUnitsByApplication(gomock.Any()).Return(map[string]map[string][]string{
+		"relation-uuid": {
+			"wordpress": {"wordpress/0"},
+			"mysql":     {"mysql/0"},
+		},
+	}, nil)
+
+	mExp.GetModelType(gomock.Any()).Return("iaas", nil)
+	mExp.GetRunningAgentArchitectures(gomock.Any()).Return(nil, nil)
+
+	gomock.InOrder(
+		cExp.GetControllerTargetVersion(gomock.Any()).Return(desiredVersion, nil),
+		mExp.GetModelTargetAgentVersion(gomock.Any()).Return(currentVersion, nil),
+		mExp.SetModelTargetAgentVersion(gomock.Any(), currentVersion, desiredVersion).Return(nil),
+		mExp.DeleteModelImportingStatus(gomock.Any()).Return(nil),
+		cExp.DeleteModelImportingStatus(gomock.Any(), s.modelUUID).Return(nil),
+	)
+
+	err := NewService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		s.instanceProviderGetter(c),
+		s.resourceProviderGetter(c),
+		s.credentialValidator,
+	).ActivateImport(c.Context())
+	c.Check(err, tc.ErrorIsNil)
 }
 
 // expectAgentBinaryCheckAllPresent sets up MissingAgentBinaryArchitectures to
