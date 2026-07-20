@@ -381,7 +381,8 @@ AND    (
        sv.status = 'pending'
        OR
        sv.status = 'aborting'
-)`
+)
+ORDER BY t.task_id`
 }
 
 // InitialWatchStatementMachineTask returns the namespace and an initial
