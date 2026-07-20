@@ -25,5 +25,18 @@ run_constraints_vm() {
 	check_ge "${machine1_cores}" "cores=4"
 	check_ge "${machine1_rootdisk}" "root-disk=16384M"
 
+	# Model constraints must propagate to machines added afterwards.
+	# Regression test for https://github.com/juju/juju/issues/22735
+	echo "Deploy a machine with model constraints applied"
+	juju set-model-constraints "cores=4"
+	juju add-machine
+
+	wait_for_machine_agent_status "2" "started"
+
+	echo "Ensure machine 2 honours the model constraint cores=4"
+	machine2_hardware=$(juju machines --format json | yq -r '.["machines"]["2"]["hardware"]')
+	machine2_cores=$(echo "$machine2_hardware" | awk '{for(i=1;i<=NF;i++){if($i ~ /cores/){print $i}}}')
+	check_ge "${machine2_cores}" "cores=4"
+
 	destroy_model "constraints-vm"
 }
