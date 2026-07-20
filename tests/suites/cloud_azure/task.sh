@@ -17,4 +17,5 @@ test_cloud_azure() {
 
 	test_managed_identity
 	test_storage_account_type
+	test_ip_family
 }
