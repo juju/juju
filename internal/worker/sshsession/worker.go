@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/juju/worker/v5"
-
 	"github.com/juju/worker/v5/catacomb"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -29,13 +28,6 @@ import (
 )
 
 const (
-	// tunnelChannel is the SSH channel type opened on the controller connection
-	// to receive the reverse tunnel.
-	//
-	// TODO(sshproxy): reconcile with the exported constant owned by the
-	// sshtunneler worker (B1) once available.
-	tunnelChannel = "juju-tunnel"
-
 	// controllerDialTimeout bounds the reverse-dial to the controller.
 	controllerDialTimeout = 30 * time.Second
 )
@@ -338,7 +330,7 @@ func (d *connectionDialer) DialController(
 		return nil, errors.Capture(err)
 	}
 
-	ch, reqs, err := client.OpenChannel(tunnelChannel, nil)
+	ch, reqs, err := client.OpenChannel(coressh.JujuTunnelChannel, nil)
 	if err != nil {
 		_ = client.Close()
 		return nil, errors.Capture(err)

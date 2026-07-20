@@ -501,7 +501,7 @@ func (s *workerSuite) TestEphemeralKeyOpsReturnWorkerDying(c *tc.C) {
 
 	authWorker := s.startWorker(c, ctrl)
 
-	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	updater, ok := authWorker.(coressh.EphemeralKeysUpdater)
 	c.Assert(ok, tc.IsTrue)
 
 	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))

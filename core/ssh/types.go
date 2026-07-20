@@ -5,9 +5,16 @@ package ssh
 
 import gossh "golang.org/x/crypto/ssh"
 
-// ReverseTunnelUser is the username used when machine agents
-// connect to the controller to establish a reverse tunnel.
-const ReverseTunnelUser = "juju-reverse-tunnel"
+const (
+	// ReverseTunnelUser is the username used when machine agents
+	// connect to the controller to establish a reverse tunnel.
+	ReverseTunnelUser = "juju-reverse-tunnel"
+	// JujuTunnelChannel is the SSH channel type opened on a controller connection
+	// to establish a reverse tunnel. It is a shared contract between the
+	// controller-side sshtunneler worker, which accepts the channel, and the
+	// machine-side sshsession worker, which opens it.
+	JujuTunnelChannel = "juju-tunnel"
+)
 
 // PublicKey represents a single public ssh key for a user within a model.
 type PublicKey struct {
