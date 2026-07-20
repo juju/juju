@@ -252,8 +252,8 @@ github.com/go-chi/chi/v5 v5.2.3/go.mod h1:L2yAIGWB3H+phAw1NxKwWM+7eUH/lU8pOMm5hH
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
-github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4 h1:IzjmVasvOk8hqDbP0uSOTFZRTSsP4WYmVl9VcQPS92o=
-github.com/go-goose/goose/v5 v5.0.0-20220707165353-781664254fe4/go.mod h1:BxICmnmP7QlxZhKP2BHkpWQS0tbb3LrsrLtd9TQyyms=
+github.com/go-goose/goose/v5 v5.1.7 h1:Knfot0QcBz/pAiW3UgO1Lk1qckiadeO6I9AMVX6dd6o=
+github.com/go-goose/goose/v5 v5.1.7/go.mod h1:wm2H9/ef6rvcIrvqv9WumylTUczf8m/f103RkZwYNdA=
 github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=
 github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=

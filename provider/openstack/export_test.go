@@ -147,7 +147,7 @@ var GetVolumeEndpointURL = getVolumeEndpointURL
 func GetModelGroupNames(e environs.Environ) ([]string, error) {
 	env := e.(*Environ)
 	neutronFw := env.firewaller.(*neutronFirewaller)
-	groups, err := env.neutron().ListSecurityGroupsV2()
+	groups, err := env.neutron().ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{})
 	if err != nil {
 		return nil, err
 	}

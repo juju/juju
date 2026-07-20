@@ -469,7 +469,7 @@ func (c *neutronFirewaller) ensureGroup(name string, rules []neutron.RuleInfoV2)
 	} else if err != nil && strings.Contains(err.Error(), "failed to find security group") {
 		// TODO(hml): We should use a typed error here.  SecurityGroupByNameV2
 		// doesn't currently return one for this case.
-		g, err := neutronClient.CreateSecurityGroupV2(name, "juju group")
+		g, err := neutronClient.CreateSecurityGroupV2(name, "juju group", nil)
 		if err != nil {
 			return zeroGroup, err
 		}
@@ -590,7 +590,7 @@ func newRuleInfoSetFromRuleInfo(rules []neutron.RuleInfoV2) ruleInfoSet {
 
 func (c *neutronFirewaller) deleteSecurityGroups(ctx context.ProviderCallContext, match func(name string) bool) error {
 	neutronClient := c.environ.neutron()
-	securityGroups, err := neutronClient.ListSecurityGroupsV2()
+	securityGroups, err := neutronClient.ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{})
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Annotate(err, "cannot list security groups")
@@ -627,7 +627,7 @@ func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext
 // UpdateGroupController implements Firewaller interface.
 func (c *neutronFirewaller) UpdateGroupController(ctx context.ProviderCallContext, controllerUUID string) error {
 	neutronClient := c.environ.neutron()
-	groups, err := neutronClient.ListSecurityGroupsV2()
+	groups, err := neutronClient.ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{})
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
@@ -666,7 +666,7 @@ func (c *neutronFirewaller) updateGroupControllerUUID(group *neutron.SecurityGro
 		return errors.Trace(err)
 	}
 	client := c.environ.neutron()
-	_, err = client.UpdateSecurityGroupV2(group.Id, newName, group.Description)
+	_, err = client.UpdateSecurityGroupV2(group.Id, newName, group.Description, nil)
 	return errors.Trace(err)
 }
 
@@ -772,7 +772,7 @@ func (c *neutronFirewaller) matchingGroup(ctx context.ProviderCallContext, nameR
 		return neutron.SecurityGroupV2{}, err
 	}
 	neutronClient := c.environ.neutron()
-	allGroups, err := neutronClient.ListSecurityGroupsV2()
+	allGroups, err := neutronClient.ListSecurityGroupsV2(neutron.ListSecurityGroupsV2Query{})
 	if err != nil {
 		handleCredentialError(err, ctx)
 		return neutron.SecurityGroupV2{}, err
