@@ -498,6 +498,10 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 						logger.Warningf("cannot delete attachment for volume %q (not permitted for these credentials); waiting for it to detach", volumeId)
 						break
 					}
+					if gooseerrors.IsNotImplemented(err) {
+						logger.Warningf("cannot delete attachment for volume %q (not supported by the Block Storage API); waiting for it to detach", volumeId)
+						break
+					}
 					if !IsNotFoundError(err) {
 						return false, errors.Trace(err)
 					}
