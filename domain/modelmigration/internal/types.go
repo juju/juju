@@ -111,3 +111,10 @@ type RedirectUserAccess struct {
 	UserName string
 	Access   string
 }
+
+// RelationValidationData identifies a relation for imported-model validation.
+type RelationValidationData struct {
+	UUID string
+	ID   int
+	Key  string
+}

@@ -59,6 +59,27 @@ type agentVersionTarget struct {
 	TargetVersion string `db:"target_version"`
 }
 
+// relationValidationRow is a relation's identity used to validate imported
+// relation-unit consistency.
+type relationValidationRow struct {
+	UUID string `db:"uuid"`
+	ID   int    `db:"relation_id"`
+}
+
+// applicationUnitRow pairs a unit's name with the application it belongs to.
+type applicationUnitRow struct {
+	ApplicationName string `db:"application_name"`
+	UnitName        string `db:"unit_name"`
+}
+
+// relationUnitScopeRow identifies the application for one unit in scope of a
+// relation, along with the relation it belongs to.
+type relationUnitScopeRow struct {
+	RelationUUID    string `db:"relation_uuid"`
+	UnitName        string `db:"unit_name"`
+	ApplicationName string `db:"application_name"`
+}
+
 // offererModel represents a distinct (offerer controller, offerer model) pair
 // referenced by the model's remote applications.
 type offererModel struct {
