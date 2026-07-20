@@ -20,14 +20,37 @@ type agentName struct {
 	Name string `db:"name"`
 }
 
-// instanceID represents the struct to be used for the instance_id column within
-// the sqlair statements in the machine domain.
-type instanceID struct {
-	ID string `db:"instance_id"`
-}
-
 type entityUUID struct {
 	UUID string `db:"uuid"`
+}
+
+// machineInstanceID pairs a machine name with its provider cloud instance ID.
+type machineInstanceID struct {
+	MachineName string `db:"name"`
+	InstanceID  string `db:"instance_id"`
+}
+
+// secretBackendUUID represents a secret backend UUID as referenced by a
+// model-database secret value ref.
+type secretBackendUUID struct {
+	BackendUUID string `db:"backend_uuid"`
+}
+
+// revisionBackend pairs a secret revision UUID with the backend UUID its
+// external value ref points at.
+type revisionBackend struct {
+	RevisionUUID string `db:"revision_uuid"`
+	BackendUUID  string `db:"backend_uuid"`
+}
+
+// architectureName represents an architecture's name.
+type architectureName struct {
+	Name string `db:"name"`
+}
+
+// versionArg carries an agent binary version for use as a query argument.
+type versionArg struct {
+	Version string `db:"version"`
 }
 
 // agentVersionTarget represents the target agent version column from the

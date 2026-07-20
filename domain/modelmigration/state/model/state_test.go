@@ -111,9 +111,9 @@ func (s *migrationSuite) TestGetControllerUUID(c *tc.C) {
 	c.Check(controllerId, tc.Equals, s.controllerUUID.String())
 }
 
-// TestGetAllInstanceIDs is asserting the happy path of getting all instance
-// IDs for the model.
-func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
+// TestGetMachineInstanceIDs is asserting the happy path of mapping each
+// provisioned machine's cloud instance ID to its machine name.
+func (s *migrationSuite) TestGetMachineInstanceIDs(c *tc.C) {
 	// Add two different instances.
 	db := s.DB()
 	machineState := machinestate.NewState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
@@ -166,18 +166,75 @@ func (s *migrationSuite) TestGetAllInstanceIDs(c *tc.C) {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 
-	instanceIDs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetAllInstanceIDs(c.Context())
+	mapping, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(instanceIDs, tc.HasLen, 2)
-	c.Check(instanceIDs.Values(), tc.SameContents, []string{"instance-0", "instance-1"})
+	c.Check(mapping, tc.DeepEquals, map[string]string{
+		"instance-0": machineNames0[0].String(),
+		"instance-1": machineNames1[0].String(),
+	})
 }
 
 // TestEmptyInstanceIDs tests that no error is returned when there are no
 // instances in the model.
 func (s *migrationSuite) TestEmptyInstanceIDs(c *tc.C) {
-	instanceIDs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetAllInstanceIDs(c.Context())
+	mapping, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMachineInstanceIDs(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(instanceIDs, tc.HasLen, 0)
+	c.Check(mapping, tc.HasLen, 0)
+}
+
+// TestGetModelType asserts the model's deployment type is returned.
+func (s *migrationSuite) TestGetModelType(c *tc.C) {
+	modelType, err := New(s.TxnRunnerFactory(), s.modelUUID).GetModelType(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(modelType, tc.Equals, "iaas")
+}
+
+// TestGetSecretBackendUUIDsInUse asserts the distinct backend UUIDs across
+// external value refs and deleted value refs are returned.
+func (s *migrationSuite) TestGetSecretBackendUUIDsInUse(c *tc.C) {
+	db := s.DB()
+	// secret_deleted_value_ref has no foreign keys, so it is the cheapest way
+	// to exercise the union query. Two rows share a backend to prove DISTINCT.
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO secret_deleted_value_ref (revision_uuid, backend_uuid, revision_id) VALUES "+
+			"('rev-1', 'backend-a', 'r1'), ('rev-2', 'backend-a', 'r2'), ('rev-3', 'backend-b', 'r3')")
+	c.Assert(err, tc.ErrorIsNil)
+
+	backends, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSecretBackendUUIDsInUse(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(backends, tc.SameContents, []string{"backend-a", "backend-b"})
+}
+
+// TestGetSecretBackendUUIDsInUseEmpty asserts no error and no rows for a model
+// with no external secrets.
+func (s *migrationSuite) TestGetSecretBackendUUIDsInUseEmpty(c *tc.C) {
+	backends, err := New(s.TxnRunnerFactory(), s.modelUUID).GetSecretBackendUUIDsInUse(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(backends, tc.HasLen, 0)
+}
+
+// TestGetExternalSecretRevisionBackendsEmpty exercises the query against a
+// model with no external secret revisions.
+func (s *migrationSuite) TestGetExternalSecretRevisionBackendsEmpty(c *tc.C) {
+	refs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetExternalSecretRevisionBackends(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(refs, tc.HasLen, 0)
+}
+
+// TestGetRunningAgentArchitecturesEmpty exercises the query against a model
+// with no reported machine or unit agent versions.
+func (s *migrationSuite) TestGetRunningAgentArchitecturesEmpty(c *tc.C) {
+	archs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetRunningAgentArchitectures(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archs, tc.HasLen, 0)
+}
+
+// TestGetAgentBinaryArchitecturesForVersionEmpty exercises the query against a
+// model whose object store holds no agent binaries for the version.
+func (s *migrationSuite) TestGetAgentBinaryArchitecturesForVersionEmpty(c *tc.C) {
+	archs, err := New(s.TxnRunnerFactory(), s.modelUUID).GetAgentBinaryArchitecturesForVersion(c.Context(), "4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archs, tc.HasLen, 0)
 }
 
 func (s *migrationSuite) TestGetMigrationAgentsIAAS(c *tc.C) {

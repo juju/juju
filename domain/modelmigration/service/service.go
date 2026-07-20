@@ -15,6 +15,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/providertracker"
@@ -92,6 +94,22 @@ type ControllerState interface {
 	// GetControllerTargetVersion returns the target controller version in use
 	// by the cluster.
 	GetControllerTargetVersion(ctx context.Context) (string, error)
+
+	// GetKnownSecretBackends returns the subset of the supplied secret backend
+	// UUIDs that exist on the controller, used to detect model secret value
+	// refs that still carry a source-controller-local backend UUID after
+	// import.
+	GetKnownSecretBackends(ctx context.Context, uuids []string) ([]string, error)
+
+	// GetSecretBackendReferencesForModel returns a map from secret revision
+	// UUID to the secret backend UUID recorded for it in
+	// secret_backend_reference for the given model.
+	GetSecretBackendReferencesForModel(ctx context.Context, modelUUID string) (map[string]string, error)
+
+	// GetAgentBinaryArchitecturesForVersion returns the architecture names for
+	// which the controller's object store holds agent binaries at the given
+	// version.
+	GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error)
 
 	// DeleteModelImportingStatus removes the entry from the model_migrating
 	// table in the model database, indicating that the model import has
@@ -188,9 +206,26 @@ type ModelState interface {
 	// GetControllerUUID returns the UUID of the controller that owns this
 	// model.
 	GetControllerUUID(context.Context) (string, error)
-	// GetAllInstanceIDs returns all instance IDs from the current model as
-	// juju/collections set.
-	GetAllInstanceIDs(ctx context.Context) (set.Strings, error)
+	// GetMachineInstanceIDs returns a map from provider cloud instance ID to the
+	// name of the model machine it backs, for every provisioned machine.
+	GetMachineInstanceIDs(ctx context.Context) (map[string]string, error)
+	// GetModelType returns the model's deployment type (for example "iaas" or
+	// "caas").
+	GetModelType(ctx context.Context) (string, error)
+	// GetSecretBackendUUIDsInUse returns the distinct secret backend UUIDs
+	// referenced by the model's external secret value refs, including deleted
+	// value refs pending cleanup.
+	GetSecretBackendUUIDsInUse(ctx context.Context) ([]string, error)
+	// GetExternalSecretRevisionBackends returns a map from secret revision UUID
+	// to the backend UUID its external value ref points at, for revisions whose
+	// content is stored externally.
+	GetExternalSecretRevisionBackends(ctx context.Context) (map[string]string, error)
+	// GetRunningAgentArchitectures returns the distinct architecture names
+	// reported by the model's machine and unit agents.
+	GetRunningAgentArchitectures(ctx context.Context) ([]string, error)
+	// GetAgentBinaryArchitecturesForVersion returns the architecture names for
+	// which the model's object store holds agent binaries at the given version.
+	GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error)
 	// GetModelTargetAgentVersion returns the target agent version for this
 	// model.
 	GetModelTargetAgentVersion(context.Context) (string, error)
@@ -323,21 +358,38 @@ func (s *Service) CheckMachines(
 		providerInstanceIDsSet.Add(instance.Id().String())
 	}
 
-	instanceIDsSet, err := s.modelState.GetAllInstanceIDs(ctx)
+	// instanceToMachine maps each provisioned model machine's cloud instance ID
+	// to its machine name, so discrepancies can name the offending machine.
+	instanceToMachine, err := s.modelState.GetMachineInstanceIDs(ctx)
 	if err != nil {
-		return nil, errors.Errorf("cannot get all instance IDs for model when checking machines: %w", err)
+		return nil, errors.Errorf("cannot get instance IDs for model when checking machines: %w", err)
 	}
-	// First check that all the instance IDs in the model are in the provider.
-	if difference := instanceIDsSet.Difference(providerInstanceIDsSet); difference.Size() > 0 {
-		return nil, errors.Errorf("instance IDs %q are not part of the provider instance IDs", difference.Values())
-	}
-	// Then check that all the instance ids in the provider correspond to model
-	// machines instance IDs
-	if difference := providerInstanceIDsSet.Difference(instanceIDsSet); difference.Size() > 0 {
-		return nil, errors.Errorf("provider instance IDs %q are not part of the model machines instance IDs", difference.Values())
+	modelInstanceIDsSet := make(set.Strings, len(instanceToMachine))
+	for instanceID := range instanceToMachine {
+		modelInstanceIDsSet.Add(instanceID)
 	}
 
-	return nil, nil
+	var discrepancies []modelmigration.MigrationMachineDiscrepancy
+
+	// A model machine whose cloud instance is not reported by the provider: the
+	// instance the model references does not exist in the cloud. Both fields are
+	// populated.
+	for _, instanceID := range modelInstanceIDsSet.Difference(providerInstanceIDsSet).SortedValues() {
+		discrepancies = append(discrepancies, modelmigration.MigrationMachineDiscrepancy{
+			MachineName:     machine.Name(instanceToMachine[instanceID]),
+			CloudInstanceId: instance.Id(instanceID),
+		})
+	}
+
+	// A provider instance not tracked by any model machine: the cloud has an
+	// instance Juju does not know about. MachineName is left empty.
+	for _, instanceID := range providerInstanceIDsSet.Difference(modelInstanceIDsSet).SortedValues() {
+		discrepancies = append(discrepancies, modelmigration.MigrationMachineDiscrepancy{
+			CloudInstanceId: instance.Id(instanceID),
+		})
+	}
+
+	return discrepancies, nil
 }
 
 // ModelMigrationMode returns the current migration mode for the model.
@@ -891,6 +943,13 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 
+	// Validate the imported model before making it live. This is read-only and
+	// runs before any write below, so a validation failure leaves the model
+	// gated and abortable.
+	if err := s.ValidateImportedModel(ctx); err != nil {
+		return errors.Errorf("validating imported model: %w", err)
+	}
+
 	// Before we activate the model after the import, we need to update the
 	// agent version to match the current controller version. This ensures that
 	// all agents after a migration are running the correct version. This was
@@ -929,15 +988,32 @@ func (s *Service) ActivateImport(ctx context.Context) error {
 		)
 	}
 
-	// TODO (stickupkid): We should validate if we have all the binaries
-	// architectures for the desired target version here.
-
 	// If the current target version doesn't match the desired target version,
-	// we need to update it.
+	// we need to update it, but only if the target has the agent binaries for
+	// every running architecture at the desired version.
+	//
+	// 3.6 never changed a migrated model's agent version, so a missing binary is
+	// never fatal here: if the target lacks binaries for a running architecture
+	// at the desired version, the model is left at its current version (whose
+	// binaries the source uploaded during import) and a warning is logged. The
+	// operator upgrades later via upgrade-model, which consults simplestreams.
+	// Activation is never blocked on binary availability.
 	if currentTargetVersion != desiredTargetVersion {
-		// Update the model target agent version to match the controller's
-		// target agent version.
-		if err = s.modelState.SetModelTargetAgentVersion(
+		missing, err := s.MissingAgentBinaryArchitectures(ctx, desiredTargetVersion.String())
+		if err != nil {
+			return errors.Errorf(
+				"checking agent binary availability for version %q: %w",
+				desiredTargetVersion.String(), err,
+			)
+		}
+		if len(missing) > 0 {
+			serviceLogger.Warningf(ctx,
+				"not upgrading migrated model %q agent version from %q to %q: "+
+					"no agent binaries for architecture(s) %q on this controller; "+
+					"run 'juju upgrade-model' once binaries are available",
+				s.modelUUID, currentTargetVersion.String(), desiredTargetVersion.String(), missing,
+			)
+		} else if err = s.modelState.SetModelTargetAgentVersion(
 			ctx, currentTargetVersion.String(), desiredTargetVersion.String(),
 		); err != nil {
 			return errors.Capture(err)

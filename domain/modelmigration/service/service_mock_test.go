@@ -13,7 +13,6 @@ import (
 	context "context"
 
 	gomock "github.com/canonical/gomock/gomock"
-	set "github.com/juju/collections/set"
 	migration "github.com/juju/juju/core/migration"
 	semversion "github.com/juju/juju/core/semversion"
 	watcher "github.com/juju/juju/core/watcher"
@@ -118,26 +117,29 @@ type MockControllerState struct {
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
-	mock                                 *MockControllerState
-	aggregateMinionReportsExpects        []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	completeModelRedirectAndPurgeExpects []*gomock.Call3_1[context.Context, string, string, error]
-	deleteModelImportingStatusExpects    []*gomock.Call2_1[context.Context, string, error]
-	ensureExportOffersExpects            []*gomock.Call3_1[context.Context, string, []string, error]
-	getActiveExportExpects               []*gomock.Call2_2[context.Context, string, internal.Migration, error]
-	getActiveExportUUIDExpects           []*gomock.Call2_2[context.Context, string, string, error]
-	getControllerModelInfoExpects        []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
-	getControllerTargetVersionExpects    []*gomock.Call1_2[context.Context, string, error]
-	getMigrationModeExpects              []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
-	getModelUsersForRedirectExpects      []*gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
-	getSourceControllerInfoExpects       []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
-	insertExportExpects                  []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
-	insertMinionReportExpects            []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
-	namespaceForWatchExportExpects       []*gomock.Call0_1[string]
-	namespaceForWatchMinionSyncExpects   []*gomock.Call0_1[string]
-	namespaceForWatchPhaseExpects        []*gomock.Call0_1[string]
-	setPhaseExpects                      []*gomock.Call3_1[context.Context, string, migration.Phase, error]
-	setStatusMessageExpects              []*gomock.Call3_1[context.Context, string, string, error]
-	stageModelRedirectExpects            []*gomock.Call5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error]
+	mock                                         *MockControllerState
+	aggregateMinionReportsExpects                []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+	completeModelRedirectAndPurgeExpects         []*gomock.Call3_1[context.Context, string, string, error]
+	deleteModelImportingStatusExpects            []*gomock.Call2_1[context.Context, string, error]
+	ensureExportOffersExpects                    []*gomock.Call3_1[context.Context, string, []string, error]
+	getActiveExportExpects                       []*gomock.Call2_2[context.Context, string, internal.Migration, error]
+	getActiveExportUUIDExpects                   []*gomock.Call2_2[context.Context, string, string, error]
+	getAgentBinaryArchitecturesForVersionExpects []*gomock.Call2_2[context.Context, string, []string, error]
+	getControllerModelInfoExpects                []*gomock.Call4_2[context.Context, string, []string, []internal.OffererModel, modelmigration.ControllerModelInfo, error]
+	getControllerTargetVersionExpects            []*gomock.Call1_2[context.Context, string, error]
+	getKnownSecretBackendsExpects                []*gomock.Call2_2[context.Context, []string, []string, error]
+	getMigrationModeExpects                      []*gomock.Call2_2[context.Context, string, modelmigration.MigrationMode, error]
+	getModelUsersForRedirectExpects              []*gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
+	getSecretBackendReferencesForModelExpects    []*gomock.Call2_2[context.Context, string, map[string]string, error]
+	getSourceControllerInfoExpects               []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
+	insertExportExpects                          []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
+	insertMinionReportExpects                    []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	namespaceForWatchExportExpects               []*gomock.Call0_1[string]
+	namespaceForWatchMinionSyncExpects           []*gomock.Call0_1[string]
+	namespaceForWatchPhaseExpects                []*gomock.Call0_1[string]
+	setPhaseExpects                              []*gomock.Call3_1[context.Context, string, migration.Phase, error]
+	setStatusMessageExpects                      []*gomock.Call3_1[context.Context, string, string, error]
+	stageModelRedirectExpects                    []*gomock.Call5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -260,6 +262,24 @@ func (mr *MockControllerStateMockRecorder) GetActiveExportUUID(ctx, modelUUID an
 // MockControllerStateGetActiveExportUUIDCall is the typed call wrapper for GetActiveExportUUID.
 type MockControllerStateGetActiveExportUUIDCall = gomock.Call2_2[context.Context, string, string, error]
 
+// GetAgentBinaryArchitecturesForVersion mocks base method.
+func (m *MockControllerState) GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getAgentBinaryArchitecturesForVersionExpects, m.ctrl, m, "GetAgentBinaryArchitecturesForVersion", ctx, version)
+}
+
+// GetAgentBinaryArchitecturesForVersion indicates an expected call of GetAgentBinaryArchitecturesForVersion.
+func (mr *MockControllerStateMockRecorder) GetAgentBinaryArchitecturesForVersion(ctx, version any) *MockControllerStateGetAgentBinaryArchitecturesForVersionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetAgentBinaryArchitecturesForVersion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(version))
+	mr.getAgentBinaryArchitecturesForVersionExpects = append(mr.getAgentBinaryArchitecturesForVersionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetAgentBinaryArchitecturesForVersionCall is the typed call wrapper for GetAgentBinaryArchitecturesForVersion.
+type MockControllerStateGetAgentBinaryArchitecturesForVersionCall = gomock.Call2_2[context.Context, string, []string, error]
+
 // GetControllerModelInfo mocks base method.
 func (m *MockControllerState) GetControllerModelInfo(ctx context.Context, modelUUID string, offerUUIDs []string, offererModels []internal.OffererModel) (modelmigration.ControllerModelInfo, error) {
 	m.ctrl.T.Helper()
@@ -296,6 +316,24 @@ func (mr *MockControllerStateMockRecorder) GetControllerTargetVersion(ctx any) *
 // MockControllerStateGetControllerTargetVersionCall is the typed call wrapper for GetControllerTargetVersion.
 type MockControllerStateGetControllerTargetVersionCall = gomock.Call1_2[context.Context, string, error]
 
+// GetKnownSecretBackends mocks base method.
+func (m *MockControllerState) GetKnownSecretBackends(ctx context.Context, uuids []string) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getKnownSecretBackendsExpects, m.ctrl, m, "GetKnownSecretBackends", ctx, uuids)
+}
+
+// GetKnownSecretBackends indicates an expected call of GetKnownSecretBackends.
+func (mr *MockControllerStateMockRecorder) GetKnownSecretBackends(ctx, uuids any) *MockControllerStateGetKnownSecretBackendsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, []string, []string, error](mr.mock.ctrl.T, mr.mock, "GetKnownSecretBackends", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(uuids))
+	mr.getKnownSecretBackendsExpects = append(mr.getKnownSecretBackendsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetKnownSecretBackendsCall is the typed call wrapper for GetKnownSecretBackends.
+type MockControllerStateGetKnownSecretBackendsCall = gomock.Call2_2[context.Context, []string, []string, error]
+
 // GetMigrationMode mocks base method.
 func (m *MockControllerState) GetMigrationMode(ctx context.Context, modelUUID string) (modelmigration.MigrationMode, error) {
 	m.ctrl.T.Helper()
@@ -331,6 +369,24 @@ func (mr *MockControllerStateMockRecorder) GetModelUsersForRedirect(ctx, modelUU
 
 // MockControllerStateGetModelUsersForRedirectCall is the typed call wrapper for GetModelUsersForRedirect.
 type MockControllerStateGetModelUsersForRedirectCall = gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
+
+// GetSecretBackendReferencesForModel mocks base method.
+func (m *MockControllerState) GetSecretBackendReferencesForModel(ctx context.Context, modelUUID string) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getSecretBackendReferencesForModelExpects, m.ctrl, m, "GetSecretBackendReferencesForModel", ctx, modelUUID)
+}
+
+// GetSecretBackendReferencesForModel indicates an expected call of GetSecretBackendReferencesForModel.
+func (mr *MockControllerStateMockRecorder) GetSecretBackendReferencesForModel(ctx, modelUUID any) *MockControllerStateGetSecretBackendReferencesForModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetSecretBackendReferencesForModel", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getSecretBackendReferencesForModelExpects = append(mr.getSecretBackendReferencesForModelExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetSecretBackendReferencesForModelCall is the typed call wrapper for GetSecretBackendReferencesForModel.
+type MockControllerStateGetSecretBackendReferencesForModelCall = gomock.Call2_2[context.Context, string, map[string]string, error]
 
 // GetSourceControllerInfo mocks base method.
 func (m *MockControllerState) GetSourceControllerInfo(ctx context.Context) (internal.SourceControllerInfo, error) {
@@ -503,15 +559,20 @@ type MockModelState struct {
 
 // MockModelStateMockRecorder is the mock recorder for MockModelState.
 type MockModelStateMockRecorder struct {
-	mock                              *MockModelState
-	deleteModelImportingStatusExpects []*gomock.Call1_1[context.Context, error]
-	getAllInstanceIDsExpects          []*gomock.Call1_2[context.Context, set.Strings, error]
-	getControllerUUIDExpects          []*gomock.Call1_2[context.Context, string, error]
-	getMigrationAgentsExpects         []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
-	getModelTargetAgentVersionExpects []*gomock.Call1_2[context.Context, string, error]
-	getOfferUUIDsExpects              []*gomock.Call1_2[context.Context, []string, error]
-	getThirdPartyOffererModelsExpects []*gomock.Call1_2[context.Context, []internal.OffererModel, error]
-	setModelTargetAgentVersionExpects []*gomock.Call3_1[context.Context, string, string, error]
+	mock                                         *MockModelState
+	deleteModelImportingStatusExpects            []*gomock.Call1_1[context.Context, error]
+	getAgentBinaryArchitecturesForVersionExpects []*gomock.Call2_2[context.Context, string, []string, error]
+	getControllerUUIDExpects                     []*gomock.Call1_2[context.Context, string, error]
+	getExternalSecretRevisionBackendsExpects     []*gomock.Call1_2[context.Context, map[string]string, error]
+	getMachineInstanceIDsExpects                 []*gomock.Call1_2[context.Context, map[string]string, error]
+	getMigrationAgentsExpects                    []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
+	getModelTargetAgentVersionExpects            []*gomock.Call1_2[context.Context, string, error]
+	getModelTypeExpects                          []*gomock.Call1_2[context.Context, string, error]
+	getOfferUUIDsExpects                         []*gomock.Call1_2[context.Context, []string, error]
+	getRunningAgentArchitecturesExpects          []*gomock.Call1_2[context.Context, []string, error]
+	getSecretBackendUUIDsInUseExpects            []*gomock.Call1_2[context.Context, []string, error]
+	getThirdPartyOffererModelsExpects            []*gomock.Call1_2[context.Context, []internal.OffererModel, error]
+	setModelTargetAgentVersionExpects            []*gomock.Call3_1[context.Context, string, string, error]
 }
 
 // NewMockModelState creates a new mock instance.
@@ -544,23 +605,23 @@ func (mr *MockModelStateMockRecorder) DeleteModelImportingStatus(ctx any) *MockM
 // MockModelStateDeleteModelImportingStatusCall is the typed call wrapper for DeleteModelImportingStatus.
 type MockModelStateDeleteModelImportingStatusCall = gomock.Call1_1[context.Context, error]
 
-// GetAllInstanceIDs mocks base method.
-func (m *MockModelState) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
+// GetAgentBinaryArchitecturesForVersion mocks base method.
+func (m *MockModelState) GetAgentBinaryArchitecturesForVersion(ctx context.Context, version string) ([]string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getAllInstanceIDsExpects, m.ctrl, m, "GetAllInstanceIDs", ctx)
+	return gomock.Dispatch2_2(&m.recorder.getAgentBinaryArchitecturesForVersionExpects, m.ctrl, m, "GetAgentBinaryArchitecturesForVersion", ctx, version)
 }
 
-// GetAllInstanceIDs indicates an expected call of GetAllInstanceIDs.
-func (mr *MockModelStateMockRecorder) GetAllInstanceIDs(ctx any) *MockModelStateGetAllInstanceIDsCall {
+// GetAgentBinaryArchitecturesForVersion indicates an expected call of GetAgentBinaryArchitecturesForVersion.
+func (mr *MockModelStateMockRecorder) GetAgentBinaryArchitecturesForVersion(ctx, version any) *MockModelStateGetAgentBinaryArchitecturesForVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, set.Strings, error](mr.mock.ctrl.T, mr.mock, "GetAllInstanceIDs", gomock.EnsureMatcher(ctx))
-	mr.getAllInstanceIDsExpects = append(mr.getAllInstanceIDsExpects, call)
+	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetAgentBinaryArchitecturesForVersion", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(version))
+	mr.getAgentBinaryArchitecturesForVersionExpects = append(mr.getAgentBinaryArchitecturesForVersionExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockModelStateGetAllInstanceIDsCall is the typed call wrapper for GetAllInstanceIDs.
-type MockModelStateGetAllInstanceIDsCall = gomock.Call1_2[context.Context, set.Strings, error]
+// MockModelStateGetAgentBinaryArchitecturesForVersionCall is the typed call wrapper for GetAgentBinaryArchitecturesForVersion.
+type MockModelStateGetAgentBinaryArchitecturesForVersionCall = gomock.Call2_2[context.Context, string, []string, error]
 
 // GetControllerUUID mocks base method.
 func (m *MockModelState) GetControllerUUID(arg0 context.Context) (string, error) {
@@ -579,6 +640,42 @@ func (mr *MockModelStateMockRecorder) GetControllerUUID(arg0 any) *MockModelStat
 
 // MockModelStateGetControllerUUIDCall is the typed call wrapper for GetControllerUUID.
 type MockModelStateGetControllerUUIDCall = gomock.Call1_2[context.Context, string, error]
+
+// GetExternalSecretRevisionBackends mocks base method.
+func (m *MockModelState) GetExternalSecretRevisionBackends(ctx context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getExternalSecretRevisionBackendsExpects, m.ctrl, m, "GetExternalSecretRevisionBackends", ctx)
+}
+
+// GetExternalSecretRevisionBackends indicates an expected call of GetExternalSecretRevisionBackends.
+func (mr *MockModelStateMockRecorder) GetExternalSecretRevisionBackends(ctx any) *MockModelStateGetExternalSecretRevisionBackendsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetExternalSecretRevisionBackends", gomock.EnsureMatcher(ctx))
+	mr.getExternalSecretRevisionBackendsExpects = append(mr.getExternalSecretRevisionBackendsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetExternalSecretRevisionBackendsCall is the typed call wrapper for GetExternalSecretRevisionBackends.
+type MockModelStateGetExternalSecretRevisionBackendsCall = gomock.Call1_2[context.Context, map[string]string, error]
+
+// GetMachineInstanceIDs mocks base method.
+func (m *MockModelState) GetMachineInstanceIDs(ctx context.Context) (map[string]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getMachineInstanceIDsExpects, m.ctrl, m, "GetMachineInstanceIDs", ctx)
+}
+
+// GetMachineInstanceIDs indicates an expected call of GetMachineInstanceIDs.
+func (mr *MockModelStateMockRecorder) GetMachineInstanceIDs(ctx any) *MockModelStateGetMachineInstanceIDsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, map[string]string, error](mr.mock.ctrl.T, mr.mock, "GetMachineInstanceIDs", gomock.EnsureMatcher(ctx))
+	mr.getMachineInstanceIDsExpects = append(mr.getMachineInstanceIDsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetMachineInstanceIDsCall is the typed call wrapper for GetMachineInstanceIDs.
+type MockModelStateGetMachineInstanceIDsCall = gomock.Call1_2[context.Context, map[string]string, error]
 
 // GetMigrationAgents mocks base method.
 func (m *MockModelState) GetMigrationAgents(ctx context.Context) (internal.MigrationAgents, error) {
@@ -616,6 +713,24 @@ func (mr *MockModelStateMockRecorder) GetModelTargetAgentVersion(arg0 any) *Mock
 // MockModelStateGetModelTargetAgentVersionCall is the typed call wrapper for GetModelTargetAgentVersion.
 type MockModelStateGetModelTargetAgentVersionCall = gomock.Call1_2[context.Context, string, error]
 
+// GetModelType mocks base method.
+func (m *MockModelState) GetModelType(ctx context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getModelTypeExpects, m.ctrl, m, "GetModelType", ctx)
+}
+
+// GetModelType indicates an expected call of GetModelType.
+func (mr *MockModelStateMockRecorder) GetModelType(ctx any) *MockModelStateGetModelTypeCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, string, error](mr.mock.ctrl.T, mr.mock, "GetModelType", gomock.EnsureMatcher(ctx))
+	mr.getModelTypeExpects = append(mr.getModelTypeExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetModelTypeCall is the typed call wrapper for GetModelType.
+type MockModelStateGetModelTypeCall = gomock.Call1_2[context.Context, string, error]
+
 // GetOfferUUIDs mocks base method.
 func (m *MockModelState) GetOfferUUIDs(ctx context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -633,6 +748,42 @@ func (mr *MockModelStateMockRecorder) GetOfferUUIDs(ctx any) *MockModelStateGetO
 
 // MockModelStateGetOfferUUIDsCall is the typed call wrapper for GetOfferUUIDs.
 type MockModelStateGetOfferUUIDsCall = gomock.Call1_2[context.Context, []string, error]
+
+// GetRunningAgentArchitectures mocks base method.
+func (m *MockModelState) GetRunningAgentArchitectures(ctx context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getRunningAgentArchitecturesExpects, m.ctrl, m, "GetRunningAgentArchitectures", ctx)
+}
+
+// GetRunningAgentArchitectures indicates an expected call of GetRunningAgentArchitectures.
+func (mr *MockModelStateMockRecorder) GetRunningAgentArchitectures(ctx any) *MockModelStateGetRunningAgentArchitecturesCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetRunningAgentArchitectures", gomock.EnsureMatcher(ctx))
+	mr.getRunningAgentArchitecturesExpects = append(mr.getRunningAgentArchitecturesExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetRunningAgentArchitecturesCall is the typed call wrapper for GetRunningAgentArchitectures.
+type MockModelStateGetRunningAgentArchitecturesCall = gomock.Call1_2[context.Context, []string, error]
+
+// GetSecretBackendUUIDsInUse mocks base method.
+func (m *MockModelState) GetSecretBackendUUIDsInUse(ctx context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.getSecretBackendUUIDsInUseExpects, m.ctrl, m, "GetSecretBackendUUIDsInUse", ctx)
+}
+
+// GetSecretBackendUUIDsInUse indicates an expected call of GetSecretBackendUUIDsInUse.
+func (mr *MockModelStateMockRecorder) GetSecretBackendUUIDsInUse(ctx any) *MockModelStateGetSecretBackendUUIDsInUseCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, []string, error](mr.mock.ctrl.T, mr.mock, "GetSecretBackendUUIDsInUse", gomock.EnsureMatcher(ctx))
+	mr.getSecretBackendUUIDsInUseExpects = append(mr.getSecretBackendUUIDsInUseExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetSecretBackendUUIDsInUseCall is the typed call wrapper for GetSecretBackendUUIDsInUse.
+type MockModelStateGetSecretBackendUUIDsInUseCall = gomock.Call1_2[context.Context, []string, error]
 
 // GetThirdPartyOffererModels mocks base method.
 func (m *MockModelState) GetThirdPartyOffererModels(ctx context.Context) ([]internal.OffererModel, error) {
