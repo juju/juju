@@ -73,7 +73,7 @@ type MockSessionMockRecorder struct {
 	createBucketExpects []*gomock.Call2_1[context.Context, string, error]
 	deleteObjectExpects []*gomock.Call3_1[context.Context, string, string, error]
 	getObjectExpects    []*gomock.Call3_4[context.Context, string, string, io.ReadCloser, int64, string, error]
-	listObjectsExpects  []*gomock.Call2_2[context.Context, string, []string, error]
+	listObjectsExpects  []*gomock.Call3_2[context.Context, string, string, []string, error]
 	objectExistsExpects []*gomock.Call3_1[context.Context, string, string, error]
 	putObjectExpects    []*gomock.Call5_1[context.Context, string, string, io.Reader, string, error]
 }
@@ -145,22 +145,22 @@ func (mr *MockSessionMockRecorder) GetObject(ctx, bucketName, objectName any) *M
 type MockSessionGetObjectCall = gomock.Call3_4[context.Context, string, string, io.ReadCloser, int64, string, error]
 
 // ListObjects mocks base method.
-func (m *MockSession) ListObjects(ctx context.Context, bucketName string) ([]string, error) {
+func (m *MockSession) ListObjects(ctx context.Context, bucketName, prefix string) ([]string, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch2_2(&m.recorder.listObjectsExpects, m.ctrl, m, "ListObjects", ctx, bucketName)
+	return gomock.Dispatch3_2(&m.recorder.listObjectsExpects, m.ctrl, m, "ListObjects", ctx, bucketName, prefix)
 }
 
 // ListObjects indicates an expected call of ListObjects.
-func (mr *MockSessionMockRecorder) ListObjects(ctx, bucketName any) *MockSessionListObjectsCall {
+func (mr *MockSessionMockRecorder) ListObjects(ctx, bucketName, prefix any) *MockSessionListObjectsCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "ListObjects", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(bucketName))
+	call := gomock.NewCall3_2[context.Context, string, string, []string, error](mr.mock.ctrl.T, mr.mock, "ListObjects", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(bucketName), gomock.EnsureMatcher(prefix))
 	mr.listObjectsExpects = append(mr.listObjectsExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockSessionListObjectsCall is the typed call wrapper for ListObjects.
-type MockSessionListObjectsCall = gomock.Call2_2[context.Context, string, []string, error]
+type MockSessionListObjectsCall = gomock.Call3_2[context.Context, string, string, []string, error]
 
 // ObjectExists mocks base method.
 func (m *MockSession) ObjectExists(ctx context.Context, bucketName, objectName string) error {
