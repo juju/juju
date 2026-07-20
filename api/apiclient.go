@@ -879,9 +879,8 @@ type probedCert struct {
 	// that is not yet distributed in the system trust store.
 	intermediates *x509.CertPool
 	// caCert is the CA certificate presented by the server. Its fingerprint
-	// is shown to the user and it is added to the dial cert pool as a trust
-	// anchor when the chain is not publicly trusted (the self-signed CA of a
-	// private controller).
+	// is shown to the user when the chain is not publicly trusted (the
+	// self-signed CA of a private controller).
 	caCert *x509.Certificate
 }
 
@@ -972,11 +971,14 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 	}
 
 	res := result.(caRetrieveRes)
-	// Verify the server's leaf certificate the same way a TLS client would:
-	// build a chain from the leaf up to a trusted system root, using the
-	// certificates presented by the server as intermediates. If a chain can
-	// be built the certificate is publicly trusted and no further action is
-	// required.
+	// Try to verify the certificate using the system roots. If the
+	// verification succeeds then we are done; tls connections will work out of
+	// the box. Unlike a plain check of the CA cert in isolation, we verify the
+	// server's leaf certificate the same way a TLS client would: build a chain
+	// from the leaf up to a trusted system root, using the certificates
+	// presented by the server as intermediates. This is required when the
+	// server relies on a cross-signed root that is not yet distributed in the
+	// system trust store.
 	if _, err = res.cert.leaf.Verify(x509.VerifyOptions{Intermediates: res.cert.intermediates}); err == nil {
 		logger.Debugf("remote certificate chain trusted by system roots")
 		return nil
@@ -985,13 +987,14 @@ func verifyCAMulti(ctx context.Context, addrs []*url.URL, opts *dialOpts) error 
 	// The certificate is not publicly trusted. This is the expected case for
 	// a controller using a private, self-signed CA. Delegate the trust
 	// decision to VerifyCA, passing the CA certificate so its fingerprint
-	// can be shown to the user. If the CA is trusted, add it to the dial
-	// cert pool so the subsequent connection can verify against it.
+	// can be shown to the user.
 	err = opts.VerifyCA(res.host, res.endpoint, res.cert.caCert)
 	if err == nil {
 		if opts.certPool == nil {
 			opts.certPool = x509.NewCertPool()
 		}
+		// The CA is trusted, so add it to the dial cert pool as a trust anchor
+		// so the subsequent connection can verify against it.
 		opts.certPool.AddCert(res.cert.caCert)
 	}
 
@@ -1035,6 +1038,12 @@ func retrieveProbedCert(ctx context.Context, addr string, proxyURL string) (prob
 	for _, c := range chain[1:] {
 		cert.intermediates.AddCert(c)
 	}
+	// Keep the leaf-most CA in the chain (the first IsCA certificate walking
+	// from the leaf upwards). This is the issuing CA closest to the server's
+	// leaf; its fingerprint is the one shown to the user in the trust prompt
+	// and, when accepted, the one added as a trust anchor. Looping over the
+	// whole chain again keeps this independent of how the intermediates were
+	// collected above.
 	for _, c := range chain {
 		if c.IsCA {
 			cert.caCert = c
