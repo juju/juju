@@ -5,7 +5,6 @@ package objectstoredrainer
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -197,7 +196,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	rootBucketName, err := bucketName(controllerConfig)
+	rootBucketName, err := objectstore.ControllerBucketName(controllerConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -296,14 +295,6 @@ func GetDrainingService(getter dependency.Getter, name string) (DrainingService,
 // for the given namespace and root directory.
 func NewHashFileStoreAccessor(namespace, rootDir string, logger logger.Logger) HashFileSystemAccessor {
 	return objectstore.NewHashFileStore(namespace, rootDir, logger)
-}
-
-func bucketName(config controller.Config) (string, error) {
-	name := fmt.Sprintf("juju-%s", config.ControllerUUID())
-	if _, err := coreobjectstore.ParseObjectStoreBucketName(name); err != nil {
-		return "", errors.Trace(err)
-	}
-	return name, nil
 }
 
 type modelMetadataServiceGetter struct {
