@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -37,10 +38,11 @@ type S3ObjectStoreConfig struct {
 	// This is different to /tmp because the /tmp directory might be
 	// mounted on a different file system.
 	RootDir string
-	// RootBucket is the name of the root bucket.
+	// RootBucket is the name of the bucket shared by all namespaces for a
+	// controller.
 	RootBucket string
 	// Namespace is the namespace for the object store (typically the
-	// model UUID).
+	// model UUID). S3 objects are stored under this namespace prefix.
 	Namespace string
 	// Client is the object store client (s3 client).
 	Client objectstore.Client
@@ -331,12 +333,16 @@ func (t *s3ObjectStore) RemoveAll(ctx context.Context) error {
 		return errors.Errorf("cannot remove all files while the worker is running")
 	}
 
-	// TODO (stickupkid): Remove all the s3 objects in the bucket. This requires
-	// deleting the bucket as well.
-	// We can't rely on the metadata service to remove the metadata, as it
-	// might be inconsistent with the s3 bucket (e.g. the data is removed).
-	// Consider our options, maybe we have to use the s3 client directly to
-	// remove all objects in the bucket.
+	objects, err := t.listObjects(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	for _, object := range objects {
+		if err := t.deleteObject(ctx, object); err != nil {
+			return errors.Capture(err)
+		}
+	}
 
 	return nil
 }
@@ -711,19 +717,33 @@ func (t *s3ObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []str
 		return nil, nil, errors.Errorf("list metadata: %w", err)
 	}
 
+	objects, err := t.listObjects(ctx)
+	if err != nil {
+		return nil, nil, errors.Errorf("list objects: %w", err)
+	}
+
+	return metadata, objects, nil
+}
+
+func (t *s3ObjectStore) listObjects(ctx context.Context) ([]string, error) {
 	var objects []string
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		var err error
-		objects, err = s.ListObjects(ctx, t.rootBucket)
+		objects, err = s.ListObjects(ctx, t.rootBucket, t.namespace+"/")
 		if err != nil {
 			return errors.Capture(err)
 		}
 		return nil
 	}); err != nil {
-		return nil, nil, errors.Errorf("list objects: %w", err)
+		return nil, errors.Capture(err)
 	}
 
-	return metadata, objects, nil
+	prefix := t.namespace + "/"
+	for i, object := range objects {
+		objects[i] = strings.TrimPrefix(object, prefix)
+	}
+
+	return objects, nil
 }
 
 func (t *s3ObjectStore) deleteObject(ctx context.Context, hash string) error {
