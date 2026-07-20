@@ -5,6 +5,7 @@ package charm_test
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -26,6 +27,7 @@ type ManifestDeployerSuite struct {
 	testing.BaseSuite
 	bundles    *bundleReader
 	targetPath string
+	dataPath   string
 	deployer   charm.Deployer
 }
 
@@ -39,8 +41,8 @@ func (s *ManifestDeployerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")
-	deployerPath := filepath.Join(c.MkDir(), "deployer")
-	s.deployer = charm.NewManifestDeployer(s.targetPath, deployerPath, s.bundles, loggo.GetLogger("test"))
+	s.dataPath = filepath.Join(c.MkDir(), "deployer")
+	s.deployer = charm.NewManifestDeployer(s.targetPath, s.dataPath, s.bundles, loggo.GetLogger("test"))
 }
 
 func (s *ManifestDeployerSuite) addMockCharm(revision int, bundle charm.Bundle) charm.BundleInfo {
@@ -165,6 +167,73 @@ func (s *ManifestDeployerSuite) TestUpgradePreserveUserFiles(c *gc.C) {
 	preserveUserContent.Check(c, s.targetPath)
 	removeUserContent.AsRemoveds().Check(c, s.targetPath)
 	originalCharmContent.AsRemoveds().Check(c, s.targetPath)
+}
+
+func (s *ManifestDeployerSuite) TestStageRejectsManifestPathTraversal(c *gc.C) {
+	// A charm archive controls its own member names, so entries that would
+	// reach outside the charm directory (or remove it outright) must be
+	// refused before the manifest is stored.
+	bad := mockBundle{
+		paths: set.NewStrings("charm-file", "../victim", "/abs", "."),
+	}
+	info := s.addMockCharm(1, bad)
+	err := s.deployer.Stage(info, nil)
+	c.Assert(err, gc.ErrorMatches, "charm manifest contains unsafe paths .*")
+}
+
+func (s *ManifestDeployerSuite) TestUpgradeRefusesManifestPathTraversal(c *gc.C) {
+	// Stage refuses unsafe manifests, so one can only reach removeDiff via
+	// stored state written by an older agent or tampered with on disk.
+	// Simulate that and check an upgrade cannot remove a file outside the
+	// charm directory.
+	victimPath := filepath.Join(filepath.Dir(s.targetPath), "victim")
+	err := os.WriteFile(victimPath, []byte("keep me"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	base := mockBundle{
+		paths: set.NewStrings("charm-file"),
+		expand: func(dir string) error {
+			ft.File{"charm-file", "base", 0644}.Create(c, dir)
+			return nil
+		},
+	}
+	info := s.addMockCharm(1, base)
+	err = s.deployer.Stage(info, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.deployer.Deploy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Poison the stored manifest for revision 1 with an entry that escapes
+	// the charm directory.
+	manifestsDir := filepath.Join(s.dataPath, "manifests")
+	entries, err := os.ReadDir(manifestsDir)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(entries, gc.HasLen, 1)
+	manifestPath := filepath.Join(manifestsDir, entries[0].Name())
+	err = os.WriteFile(manifestPath, []byte("- charm-file\n- ../victim\n"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Upgrade to a revision without the escaping entry; an unguarded
+	// removeDiff would call os.RemoveAll("<charm>/../victim").
+	upgrade := mockBundle{
+		paths: set.NewStrings("charm-file"),
+		expand: func(dir string) error {
+			ft.File{"charm-file", "new", 0644}.Create(c, dir)
+			return nil
+		},
+	}
+	info = s.addMockCharm(2, upgrade)
+	err = s.deployer.Stage(info, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.deployer.Deploy()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The file outside the charm directory survives the upgrade and the
+	// legitimate charm content was still updated.
+	data, err := os.ReadFile(victimPath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(data), gc.Equals, "keep me")
+	ft.File{"charm-file", "new", 0644}.Check(c, s.targetPath)
 }
 
 func (s *ManifestDeployerSuite) TestUpgradeConflictResolveRetrySameCharm(c *gc.C) {
