@@ -481,7 +481,12 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		// ordinary detach can't finalise, and this frees the wedged volume.
 		// Cinder returns 409 while it's still in use, in which case we wait.
 		if !issuedDeleteAttachment {
+			attemptedDeleteAttachment := false
 			for _, a := range v.Attachments {
+				if a.AttachmentId == "" {
+					continue
+				}
+				attemptedDeleteAttachment = true
 				if err := storageAdapter.DeleteAttachment(a.AttachmentId); err != nil {
 					if gooseerrors.IsConflict(err) {
 						return false, nil
@@ -498,7 +503,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 					}
 				}
 			}
-			issuedDeleteAttachment = true
+			issuedDeleteAttachment = attemptedDeleteAttachment
 		}
 		return false, nil
 	})
