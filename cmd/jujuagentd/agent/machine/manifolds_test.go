@@ -2061,6 +2061,18 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
+	"ssh-session": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"ssh-authkeys-updater",
+		"upgrade-check-flag",
+		"upgrade-check-gate",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 	"ssh-identity-writer": {
 		"agent",
 		"api-caller",
