@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
@@ -500,6 +501,7 @@ type ProvisioningMachineManagerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	controllerNodeService   *MockControllerNodeService
 	machineService          *MockMachineService
+	modelMigrationService   *MockModelMigrationService
 	statusService           *MockStatusService
 	keyUpdaterService       *MockKeyUpdaterService
 	modelConfigService      *MockModelConfigService
@@ -507,6 +509,7 @@ type ProvisioningMachineManagerSuite struct {
 	blockCommandService     *MockBlockCommandService
 	agentBinaryService      *MockAgentBinaryService
 	agentPasswordService    *MockAgentPasswordService
+	upgradeService          *MockUpgradeService
 }
 
 func TestProvisioningMachineManagerSuite(t *testing.T) {
@@ -526,6 +529,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 	s.controllerNodeService = NewMockControllerNodeService(ctrl)
 	s.machineService = NewMockMachineService(ctrl)
+	s.modelMigrationService = NewMockModelMigrationService(ctrl)
 	s.statusService = NewMockStatusService(ctrl)
 
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
@@ -539,6 +543,7 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 
 	s.agentBinaryService = NewMockAgentBinaryService(ctrl)
 	s.agentPasswordService = NewMockAgentPasswordService(ctrl)
+	s.upgradeService = NewMockUpgradeService(ctrl)
 
 	s.api = NewMachineManagerAPI(
 		s.controllerUUID,
@@ -558,8 +563,10 @@ func (s *ProvisioningMachineManagerSuite) setupMocks(c *tc.C) *gomock.Controller
 			ControllerNodeService:   s.controllerNodeService,
 			KeyUpdaterService:       s.keyUpdaterService,
 			MachineService:          s.machineService,
+			ModelMigrationService:   s.modelMigrationService,
 			StatusService:           s.statusService,
 			ModelConfigService:      s.modelConfigService,
+			UpgradeService:          s.upgradeService,
 		},
 	)
 
@@ -746,6 +753,10 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachine(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.modelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationModeNone, nil)
+	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
+	s.machineService.EXPECT().ReprovisionMachine(gomock.Any(), coremachine.Name("0"), true).Return(nil)
+
 	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
 		Force:      true,
@@ -781,17 +792,52 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineV11RegisteredTyp
 	c.Check(method.Result, tc.Equals, reflect.TypeFor[params.ErrorResult]())
 }
 
-func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineWithoutForce(c *tc.C) {
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineMigrationInProgress(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
+	s.modelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationMode("exporting"), nil)
+
 	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
-		Force:      false,
+		Force:      true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.NotNil)
-	c.Check(result.Error.Message, tc.Matches, "--force is required.*")
+	c.Check(result.Error.Message, tc.Matches, `model migration is in progress.*`)
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineUpgradeInProgress(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.modelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationModeNone, nil)
+	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Message, tc.Matches, `controller upgrade is in progress.*`)
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineServiceError(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.modelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationModeNone, nil)
+	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
+	s.machineService.EXPECT().ReprovisionMachine(gomock.Any(), coremachine.Name("0"), true).Return(errors.New("not eligible"))
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Message, tc.Matches, "not eligible")
 }
 
 func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineInvalidTag(c *tc.C) {

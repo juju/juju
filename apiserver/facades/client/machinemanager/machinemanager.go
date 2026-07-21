@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -61,10 +62,12 @@ type MachineManagerAPI struct {
 	controllerNodeService   ControllerNodeService
 	keyUpdaterService       KeyUpdaterService
 	machineService          MachineService
+	modelMigrationService   ModelMigrationService
 	statusService           StatusService
 	modelConfigService      ModelConfigService
 	networkService          NetworkService
 	removalService          RemovalService
+	upgradeService          UpgradeService
 
 	logger corelogger.Logger
 }
@@ -96,10 +99,12 @@ func NewMachineManagerAPI(
 		cloudService:            services.CloudService,
 		keyUpdaterService:       services.KeyUpdaterService,
 		machineService:          services.MachineService,
+		modelMigrationService:   services.ModelMigrationService,
 		statusService:           services.StatusService,
 		modelConfigService:      services.ModelConfigService,
 		networkService:          services.NetworkService,
 		removalService:          services.RemovalService,
+		upgradeService:          services.UpgradeService,
 	}
 	return api
 }
@@ -397,22 +402,37 @@ func (mm *MachineManagerAPI) ReprovisionMachine(ctx context.Context, args params
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
+	machineName := coremachine.Name(machineTag.Id())
 
-	if args.Force {
-		mm.logger.Infof(ctx, "reprovisioning requested for machine %q", machineTag.Id())
-	} else {
-		mm.logger.Warningf(ctx, "reprovisioning of machine %q rejected: --force required", machineTag.Id())
+	migrationMode, err := mm.modelMigrationService.ModelMigrationMode(ctx)
+	if err != nil {
+		return params.ErrorResult{}, errors.Annotate(err, "checking model migration status")
+	}
+	if migrationMode != modelmigration.MigrationModeNone {
 		return params.ErrorResult{
 			Error: apiservererrors.ServerError(errors.Errorf(
-				"--force is required; reprovisioning will lose root disk, ephemeral disk, " +
-					"charm-local state, and machine-scoped storage data",
+				"model migration is in progress; cannot reprovision machine %q", machineName,
 			)),
 		}, nil
 	}
 
-	// TODO(juju-9600): Full validation and transactional detach
-	// will be implemented in subsequent tasks (machine eligibility,
-	// agent and provider liveness gates, transactional detach).
+	upgrading, err := mm.upgradeService.IsUpgrading(ctx)
+	if err != nil {
+		return params.ErrorResult{}, errors.Annotate(err, "checking controller upgrade status")
+	}
+	if upgrading {
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(errors.Errorf(
+				"controller upgrade is in progress; cannot reprovision machine %q", machineName,
+			)),
+		}, nil
+	}
+
+	if err := mm.machineService.ReprovisionMachine(ctx, machineName, args.Force); err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	mm.logger.Infof(ctx, "reprovisioning requested for machine %q", machineTag.Id())
 	return params.ErrorResult{}, nil
 }
 

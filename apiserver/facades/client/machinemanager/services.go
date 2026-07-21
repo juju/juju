@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/blockcommand"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineservice "github.com/juju/juju/domain/machine/service"
+	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/domain/removal"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -35,10 +36,12 @@ type Services struct {
 	ControllerNodeService   ControllerNodeService
 	KeyUpdaterService       KeyUpdaterService
 	MachineService          MachineService
+	ModelMigrationService   ModelMigrationService
 	StatusService           StatusService
 	ModelConfigService      ModelConfigService
 	NetworkService          NetworkService
 	RemovalService          RemovalService
+	UpgradeService          UpgradeService
 }
 
 // ControllerConfigService defines a method for getting the controller config.
@@ -93,6 +96,12 @@ type MachineService interface {
 
 	// AllMachineNames returns the names of all machines in the model.
 	AllMachineNames(context.Context) ([]coremachine.Name, error)
+
+	// ReprovisionMachine validates that a machine is eligible for
+	// reprovisioning. The force flag acknowledges data loss.
+	// It returns an error if the machine does not meet the eligibility
+	// criteria.
+	ReprovisionMachine(context.Context, coremachine.Name, bool) error
 
 	// GetInstanceTypesFetcher returns the instance types fetcher.
 	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)
@@ -188,4 +197,16 @@ type RemovalService interface {
 		force bool,
 		wait time.Duration,
 	) (removal.UUID, error)
+}
+
+// ModelMigrationService provides access to model migration status.
+type ModelMigrationService interface {
+	// ModelMigrationMode returns the current migration mode for the model.
+	ModelMigrationMode(ctx context.Context) (modelmigration.MigrationMode, error)
+}
+
+// UpgradeService provides access to upgrade information.
+type UpgradeService interface {
+	// IsUpgrading returns whether the controller is currently upgrading.
+	IsUpgrading(context.Context) (bool, error)
 }

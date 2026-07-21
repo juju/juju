@@ -3,6 +3,6 @@
 
 package machinemanager
 
-//go:generate go run github.com/canonical/gomock/mockgen -package machinemanager -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/machinemanager Authorizer,CharmhubClient,ControllerConfigService,MachineService,ApplicationService,NetworkService,KeyUpdaterService,ModelConfigService,BlockCommandService,AgentBinaryService,AgentPasswordService,ControllerNodeService,StatusService,RemovalService
+//go:generate go run github.com/canonical/gomock/mockgen -package machinemanager -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/machinemanager Authorizer,CharmhubClient,ControllerConfigService,MachineService,ApplicationService,NetworkService,KeyUpdaterService,ModelConfigService,BlockCommandService,AgentBinaryService,AgentPasswordService,ControllerNodeService,StatusService,RemovalService,ModelMigrationService,UpgradeService
 //go:generate go run github.com/canonical/gomock/mockgen -package machinemanager -destination environ_mock_test.go github.com/juju/juju/environs Environ,InstanceTypesFetcher,BootstrapEnviron
 //go:generate go run github.com/canonical/gomock/mockgen -package machinemanager -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
