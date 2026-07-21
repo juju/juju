@@ -50,7 +50,7 @@ run_ip_family_dual_stack() {
 		juju switch ip-family-dual
 
 		# Test #3: per-machine constraint path
-		# (machine domain -> provisioner -> StartInstance; PR #22736 QA step 3).
+		# (machine domain -> provisioner -> StartInstance).
 		juju add-machine --constraints "ip-family=dual" >>"$log_file" 2>&1
 		wait_for_machine_agent_status "0" "started"
 		ipv6_m0=$(machine_ipv6 0)
@@ -63,7 +63,7 @@ run_ip_family_dual_stack() {
 		check_ipv6_ssh_probe "${ipv6_m0}" "Permission denied" "$log_file"
 
 		# Test #4: application deploy constraint path
-		# (application service -> provisioner -> StartInstance; PR #22736 QA step 4).
+		# (application service -> provisioner -> StartInstance).
 		# Deploy provisions a fresh machine per unit by default -> machine 1.
 		juju deploy ubuntu --constraints "ip-family=dual" >>"$log_file" 2>&1
 		wait_for_machine_agent_status "1" "started"
