@@ -27,6 +27,10 @@ import (
 const (
 	// controllerDialTimeout bounds the reverse-dial to the controller.
 	controllerDialTimeout = 30 * time.Second
+	// localSSHDDialTimeout bounds the dial to the local sshd. sshd is on
+	// localhost so a connection should be near-instant; the timeout ensures an
+	// unreachable sshd fails fast rather than hanging the handler.
+	localSSHDDialTimeout = 30 * time.Second
 )
 
 // FacadeClient holds the facade methods required by the SSH session worker.
@@ -347,7 +351,10 @@ func (d *connectionDialer) DialController(
 // machine.
 func (d *connectionDialer) DialLocalSSHD(ctx context.Context) (HalfCloseConn, error) {
 	port := d.localSSHPort(ctx)
-	conn, err := net.Dial("tcp", net.JoinHostPort("localhost", port))
+	// Use a context-aware, timeout-bounded dial so an unreachable sshd cannot
+	// hang the handler goroutine (and, through it, worker shutdown).
+	dialer := net.Dialer{Timeout: localSSHDDialTimeout}
+	conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort("localhost", port))
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
