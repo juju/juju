@@ -52,6 +52,9 @@ CREATE TABLE unit_principal (
     REFERENCES unit (uuid)
 );
 
+CREATE INDEX idx_unit_principal_principal
+ON unit_principal (principal_uuid, unit_uuid);
+
 CREATE TABLE unit_workload_version (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,
@@ -187,6 +190,9 @@ CREATE TABLE unit_agent_status (
     FOREIGN KEY (status_id)
     REFERENCES unit_agent_status_value (id)
 );
+
+CREATE INDEX idx_unit_agent_status_status_unit
+ON unit_agent_status (status_id, unit_uuid);
 
 CREATE TABLE unit_workload_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,

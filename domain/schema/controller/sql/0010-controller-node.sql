@@ -24,6 +24,9 @@ CREATE TABLE controller_node_agent_version (
     REFERENCES architecture (id)
 );
 
+CREATE INDEX idx_controller_node_agent_version_architecture
+ON controller_node_agent_version (architecture_id);
+
 CREATE TABLE controller_api_address (
     controller_id TEXT NOT NULL,
     -- The value of the configured IP address with the port appended.

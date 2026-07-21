@@ -155,6 +155,9 @@ CREATE TABLE cloud_credential (
 CREATE UNIQUE INDEX idx_cloud_credential_cloud_uuid_owner_uuid
 ON cloud_credential (cloud_uuid, owner_uuid, name);
 
+CREATE INDEX idx_cloud_credential_owner_uuid
+ON cloud_credential (owner_uuid);
+
 -- view_cloud_credential is a convenience view for accessing a
 -- credential UUID based on the natural key used to display the
 -- credential to users.

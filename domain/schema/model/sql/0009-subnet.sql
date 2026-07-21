@@ -39,6 +39,9 @@ CREATE TABLE provider_network_subnet (
     REFERENCES subnet (uuid)
 );
 
+CREATE INDEX idx_provider_network_subnet_network_uuid
+ON provider_network_subnet (provider_network_uuid);
+
 CREATE TABLE availability_zone (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL
@@ -61,6 +64,9 @@ CREATE TABLE availability_zone_subnet (
 
 CREATE INDEX idx_subnet_space_uuid
 ON subnet (space_uuid);
+
+CREATE INDEX idx_subnet_cidr
+ON subnet (cidr);
 
 CREATE INDEX idx_availability_zone_subnet_subnet_uuid
 ON availability_zone_subnet (subnet_uuid);

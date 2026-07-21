@@ -3,6 +3,9 @@ CREATE TABLE offer (
     name TEXT NOT NULL
 );
 
+CREATE INDEX idx_offer_name
+ON offer (name);
+
 -- The offer_endpoint table is a join table to indicate which application
 -- endpoints are included in the offer.
 --
@@ -19,6 +22,9 @@ CREATE TABLE offer_endpoint (
     FOREIGN KEY (offer_uuid)
     REFERENCES offer (uuid)
 );
+
+CREATE UNIQUE INDEX idx_offer_endpoint_endpoint_offer
+ON offer_endpoint (endpoint_uuid, offer_uuid);
 
 
 CREATE VIEW v_offer_detail AS

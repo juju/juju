@@ -55,3 +55,6 @@ ON block_device_link_device (name, machine_uuid);
 
 CREATE INDEX idx_block_device_link_device_device
 ON block_device_link_device (block_device_uuid);
+
+CREATE INDEX idx_block_device_link_device_machine
+ON block_device_link_device (machine_uuid);

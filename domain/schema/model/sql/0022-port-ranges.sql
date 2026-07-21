@@ -32,6 +32,9 @@ CREATE TABLE port_range (
 -- enforced in the service/state layer.
 CREATE UNIQUE INDEX idx_port_range_endpoint ON port_range (protocol_id, from_port, relation_uuid, unit_uuid);
 
+CREATE INDEX idx_port_range_unit_uuid
+ON port_range (unit_uuid);
+
 CREATE VIEW v_port_range
 AS
 SELECT
