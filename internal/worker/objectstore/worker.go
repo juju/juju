@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apiremotecaller"
@@ -396,12 +397,14 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 			metadataService = w.cfg.ModelMetadataServiceGetter.ForModelUUID(modelUUID)
 		}
 
+		rootBucket := w.rootBucketName(backendInfo)
+
 		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
 			backendInfo.Type,
 			namespace,
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
-			internalobjectstore.WithRootBucket(w.cfg.RootBucket),
+			internalobjectstore.WithRootBucket(rootBucket),
 			internalobjectstore.WithS3Client(w.cfg.S3Client),
 			internalobjectstore.WithAPIRemoveCallers(w.cfg.APIRemoteCaller),
 			internalobjectstore.WithMetadataService(metadataService),
@@ -437,6 +440,13 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (w *objectStoreWorker) rootBucketName(backendInfo objectstoreservice.BackendInfo) string {
+	if backendInfo.Type == objectstore.S3Backend && backendInfo.Bucket != nil && *backendInfo.Bucket != "" {
+		return *backendInfo.Bucket
+	}
+	return w.cfg.RootBucket
 }
 
 // Report returns a map of internal state for the worker.
