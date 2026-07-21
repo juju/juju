@@ -38,6 +38,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// MachineManagerAPIv11 provides access to the MachineManager API facade for
+// version 11.
+type MachineManagerAPIv11 struct {
+	*MachineManagerAPI
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	controllerUUID  string
@@ -363,6 +369,17 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all 
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// ReprovisionMachine is implemented on the v11 API so a v12 client calling a
+// v11 server gets a not-supported response instead of the v12 implementation.
+func (mm *MachineManagerAPIv11) ReprovisionMachine(context.Context, params.ReprovisionMachineArgs) (params.ErrorResult, error) {
+	return params.ErrorResult{
+		Error: apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"reprovisioning machines is not supported by this controller",
+		),
+	}, nil
 }
 
 // ReprovisionMachine reprovisions a machine whose backing cloud instance
