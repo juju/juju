@@ -60,6 +60,7 @@ type MockStateMockRecorder struct {
 	getUnitAndK8sServiceAddressesExpects        []*gomock.Call2_2[context.Context, unit.UUID, network.SpaceAddresses, error]
 	getUnitEgressSubnetsExpects                 []*gomock.Call2_2[context.Context, string, []string, error]
 	getUnitEndpointNetworkInfoExpects           []*gomock.Call3_2[context.Context, string, []string, []internal.EndpointNetworkInfo, error]
+	getUnitFQDNsExpects                         []*gomock.Call2_2[context.Context, string, []string, error]
 	getUnitNetworkInfoExpects                   []*gomock.Call2_2[context.Context, string, internal.UnitNetworkInfo, error]
 	getUnitPublicAddressForEgressExpects        []*gomock.Call2_2[context.Context, string, string, error]
 	getUnitRelationEndpointNameExpects          []*gomock.Call3_2[context.Context, string, string, string, error]
@@ -594,6 +595,24 @@ func (mr *MockStateMockRecorder) GetUnitEndpointNetworkInfo(ctx, unitUUID, endpo
 
 // MockStateGetUnitEndpointNetworkInfoCall is the typed call wrapper for GetUnitEndpointNetworkInfo.
 type MockStateGetUnitEndpointNetworkInfoCall = gomock.Call3_2[context.Context, string, []string, []internal.EndpointNetworkInfo, error]
+
+// GetUnitFQDNs mocks base method.
+func (m *MockState) GetUnitFQDNs(ctx context.Context, unitUUID string) ([]string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getUnitFQDNsExpects, m.ctrl, m, "GetUnitFQDNs", ctx, unitUUID)
+}
+
+// GetUnitFQDNs indicates an expected call of GetUnitFQDNs.
+func (mr *MockStateMockRecorder) GetUnitFQDNs(ctx, unitUUID any) *MockStateGetUnitFQDNsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, []string, error](mr.mock.ctrl.T, mr.mock, "GetUnitFQDNs", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(unitUUID))
+	mr.getUnitFQDNsExpects = append(mr.getUnitFQDNsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateGetUnitFQDNsCall is the typed call wrapper for GetUnitFQDNs.
+type MockStateGetUnitFQDNsCall = gomock.Call2_2[context.Context, string, []string, error]
 
 // GetUnitNetworkInfo mocks base method.
 func (m *MockState) GetUnitNetworkInfo(ctx context.Context, unitUUID string) (internal.UnitNetworkInfo, error) {

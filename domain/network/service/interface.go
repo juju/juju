@@ -213,6 +213,10 @@ type NetworkInfoState interface {
 		ctx context.Context, unitUUID string, endpointNames []string,
 	) ([]networkinternal.EndpointNetworkInfo, error)
 
+	// GetUnitFQDNs retrieves the ordered FQDNs linked to the unit's network
+	// node.
+	GetUnitFQDNs(ctx context.Context, unitUUID string) ([]string, error)
+
 	// GetUnitNetworkInfo retrieves raw unit addresses and selected ingress
 	// addresses for the specified unit when provider networking is not
 	// supported.
