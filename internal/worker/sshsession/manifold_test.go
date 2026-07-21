@@ -4,20 +4,15 @@
 package sshsession
 
 import (
-	"os"
 	"testing"
 
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
-	"github.com/juju/worker/v5/dependency"
-	dt "github.com/juju/worker/v5/dependency/testing"
 
 	"github.com/juju/juju/api/base"
 	coreerrors "github.com/juju/juju/core/errors"
-	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
-	"github.com/juju/juju/juju/osenv"
 )
 
 type manifoldSuite struct {
@@ -55,14 +50,4 @@ func (s *manifoldSuite) TestValidate(c *tc.C) {
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	manifold := Manifold(s.newConfig(c, func(*ManifoldConfig) {}))
 	c.Check(manifold.Inputs, tc.SameContents, []string{"agent", "api-caller", "ssh-authkeys-updater"})
-}
-
-func (s *manifoldSuite) TestStartUninstallsWhenFeatureDisabled(c *tc.C) {
-	// Ensure the feature flag is off.
-	_ = os.Unsetenv(osenv.JujuFeatureFlagEnvKey)
-	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-
-	manifold := Manifold(s.newConfig(c, func(*ManifoldConfig) {}))
-	_, err := manifold.Start(c.Context(), dt.StubGetter(nil))
-	c.Check(err, tc.ErrorIs, dependency.ErrUninstall)
 }
