@@ -31,6 +31,8 @@ require (
 	github.com/canonical/lxd v0.0.0-20251125210512-b190d213bd11
 	github.com/canonical/pebble v1.26.0
 	github.com/canonical/sqlair v0.0.0-20260218132926-bd54c4999dea
+	github.com/canonical/starform v0.0.0-20260521120235-5b4249f3efd2
+	github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -105,6 +107,8 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/trace v1.44.0
+	go.uber.org/goleak v1.3.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/net v0.56.0
 	golang.org/x/oauth2 v0.36.0
