@@ -28,7 +28,7 @@ func (s *authorizationSuite) TestJWTModelAdminAccess(c *tc.C) {
 		"model-" + destination.ModelUUID().String(): permission.AdminAccess.String(),
 	}).Build()
 	c.Assert(err, tc.ErrorIsNil)
-	ctx := &authenticationContext{values: map[any]any{
+	ctx := &stubAuthenticationContext{values: map[any]any{
 		authenticatedViaPublicKey{}: false,
 		userJWT{}:                   token,
 	}}
@@ -41,7 +41,7 @@ func (s *authorizationSuite) TestPublicKeyAccessAllowed(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
 	access := &stubAccessService{allowed: true}
-	ctx := &authenticationContext{user: "alice", values: map[any]any{
+	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
 		authenticatedViaPublicKey{}: true,
 	}}
 
@@ -55,7 +55,7 @@ func (s *authorizationSuite) TestPublicKeyAccessDenied(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
 	access := &stubAccessService{allowed: false}
-	ctx := &authenticationContext{user: "alice", values: map[any]any{
+	ctx := &stubAuthenticationContext{user: "alice", values: map[any]any{
 		authenticatedViaPublicKey{}: true,
 	}}
 
@@ -73,7 +73,21 @@ func (s *authorizationSuite) TestJWTAccessRejectsNonAdmin(c *tc.C) {
 	}).Build()
 	c.Assert(err, tc.ErrorIsNil)
 
-	ctx := &authenticationContext{values: map[any]any{
+	ctx := &stubAuthenticationContext{values: map[any]any{
+		authenticatedViaPublicKey{}: false,
+		userJWT{}:                   token,
+	}}
+	authorizer := authorizer{logger: loggertesting.WrapCheckLog(c)}
+	c.Check(authorizer.Authorize(ctx, destination), tc.IsFalse)
+}
+
+func (s *authorizationSuite) TestJWTAccessRejectsJWTWithMissingAccessClaim(c *tc.C) {
+	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
+	c.Assert(err, tc.ErrorIsNil)
+	token, err := jwt.NewBuilder().Build()
+	c.Assert(err, tc.ErrorIsNil)
+
+	ctx := &stubAuthenticationContext{values: map[any]any{
 		authenticatedViaPublicKey{}: false,
 		userJWT{}:                   token,
 	}}
