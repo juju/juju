@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/internal/errors"
-	"github.com/juju/juju/internal/featureflag"
 )
 
 // ManifoldConfig holds the information necessary to run the sshsession worker
@@ -75,13 +74,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-	// The SSH jump server is not enabled by default; it must be enabled via a
-	// feature flag.
-	if !featureflag.Enabled(featureflag.SSHJump) {
-		config.Logger.Debugf(ctx, "SSH session worker is not enabled")
-		return nil, dependency.ErrUninstall
-	}
-
 	if err := config.Validate(); err != nil {
 		return nil, errors.Capture(err)
 	}
