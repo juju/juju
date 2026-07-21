@@ -138,17 +138,7 @@ func (w *sshSessionWorker) Wait() error {
 // loop watches for SSH connection requests and handles those targeting this
 // machine.
 func (w *sshSessionWorker) loop() error {
-	ctx, cancel := w.scopedContext()
-	defer cancel()
-
-	connRequestWatcher, err := w.config.FacadeClient.WatchSSHConnRequest(ctx)
-	if err != nil {
-		return errors.Errorf("watching SSH connection requests: %w", err)
-	}
-	if err := w.catacomb.Add(connRequestWatcher); err != nil {
-		return errors.Capture(err)
-	}
-
+	ctx := w.catacomb.Context(context.Background())
 	// Fetch the controller SSH port and host public key once. These are stable
 	// per controller HA identity, and are used to reverse-dial and pin the host
 	// key for every connection request this worker handles.
@@ -163,6 +153,14 @@ func (w *sshSessionWorker) loop() error {
 	controllerHostPublicKey, err := gossh.ParsePublicKey(marshalledHostKey)
 	if err != nil {
 		return errors.Errorf("parsing controller public key: %w", err)
+	}
+
+	connRequestWatcher, err := w.config.FacadeClient.WatchSSHConnRequest(ctx)
+	if err != nil {
+		return errors.Errorf("watching SSH connection requests: %w", err)
+	}
+	if err := w.catacomb.Add(connRequestWatcher); err != nil {
+		return errors.Capture(err)
 	}
 
 	// Ensure in-flight connection handlers drain before the loop returns.
@@ -271,26 +269,18 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(
 	}()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer controllerConn.Close()
 		defer sshdConn.Close()
 		_, _ = io.Copy(sshdConn, controllerConn)
-	}()
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		defer controllerConn.Close()
 		defer sshdConn.Close()
 		_, _ = io.Copy(controllerConn, sshdConn)
-	}()
+	})
 	wg.Wait()
 	return nil
-}
-
-func (w *sshSessionWorker) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.catacomb.Context(ctx), cancel
 }
 
 // connectionDialer is the default ConnectionDialer. It reverse-dials the
