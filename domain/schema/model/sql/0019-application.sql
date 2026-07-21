@@ -353,25 +353,6 @@ JOIN charm AS c ON a.charm_uuid = c.uuid
 LEFT JOIN charm_download_info AS cdi ON c.uuid = cdi.charm_uuid
 JOIN charm_hash AS ch ON c.uuid = ch.charm_uuid;
 
-CREATE VIEW v_application_export AS
-SELECT
-    a.uuid,
-    a.name,
-    a.life_id,
-    a.charm_uuid,
-    a.charm_modified_version,
-    a.charm_upgrade_on_error,
-    cm.subordinate,
-    c.reference_name,
-    c.source_id,
-    c.revision,
-    c.architecture_id,
-    k8s.provider_id AS k8s_provider_id
-FROM application AS a
-JOIN charm AS c ON a.charm_uuid = c.uuid
-JOIN charm_metadata AS cm ON c.uuid = cm.charm_uuid
-LEFT JOIN k8s_service AS k8s ON a.uuid = k8s.application_uuid;
-
 CREATE VIEW v_application_endpoint_uuid AS
 SELECT
     a.uuid,
