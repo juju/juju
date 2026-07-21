@@ -21,6 +21,8 @@ import (
 type Deltas interface {
 	// Constraint: struct shape changed in 4.1.0.
 	Constraint(ctx context.Context, src []v4_0_12.Constraint) ([]v4_1_0.Constraint, error)
+	// Operation: struct shape changed in 4.1.0.
+	Operation(ctx context.Context, src []v4_0_12.Operation) ([]v4_1_0.Operation, error)
 	// RelationApplicationSetting: struct shape changed in 4.1.0.
 	RelationApplicationSetting(ctx context.Context, src []v4_0_12.RelationApplicationSetting) ([]v4_1_0.RelationApplicationSetting, error)
 	// RelationUnitSetting: struct shape changed in 4.1.0.
@@ -726,11 +728,6 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 			dst.OfferEndpoint[i] = v4_1_0.OfferEndpoint(src.OfferEndpoint[i])
 		}
 
-		dst.Operation = make([]v4_1_0.Operation, len(src.Operation))
-		for i := range src.Operation {
-			dst.Operation[i] = v4_1_0.Operation(src.Operation[i])
-		}
-
 		dst.OperationAction = make([]v4_1_0.OperationAction, len(src.OperationAction))
 		for i := range src.OperationAction {
 			dst.OperationAction[i] = v4_1_0.OperationAction(src.OperationAction[i])
@@ -1253,6 +1250,10 @@ func NewTransform(d Deltas) transformer.TransformationFunc[v4_0_12.ModelExport, 
 
 		if dst.Constraint, err = d.Constraint(ctx, src.Constraint); err != nil {
 			return v4_1_0.ModelExport{}, errors.Errorf("Constraint delta: %w", err)
+		}
+
+		if dst.Operation, err = d.Operation(ctx, src.Operation); err != nil {
+			return v4_1_0.ModelExport{}, errors.Errorf("Operation delta: %w", err)
 		}
 
 		if dst.RelationApplicationSetting, err = d.RelationApplicationSetting(ctx, src.RelationApplicationSetting); err != nil {

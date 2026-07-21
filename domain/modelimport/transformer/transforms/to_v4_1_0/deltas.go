@@ -5,9 +5,11 @@ package to_v4_1_0
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/export/types/v4_1_0"
+	"github.com/juju/juju/internal/errors"
 )
 
 // deltas is the engineer-owned implementation of the Deltas interface
@@ -20,6 +22,32 @@ var _ Deltas = deltas{}
 // NewDeltas returns the engineer-written delta implementation for the
 // 4.0.12 -> 4.1.0 transform.
 func NewDeltas() Deltas { return deltas{} }
+
+// Operation converts v4_0_12 Operation rows to v4_1_0. The operation_id
+// column changed from TEXT to INTEGER in 4.1.0; the string value is parsed
+// to int64. A non-numeric operation_id indicates data corruption (the
+// sequence always produces numeric values), so the transform halts with
+// an error rather than silently dropping the row.
+func (d deltas) Operation(_ context.Context, src []v4_0_12.Operation) ([]v4_1_0.Operation, error) {
+	result := make([]v4_1_0.Operation, 0, len(src))
+	for _, o := range src {
+		id, err := strconv.ParseInt(o.OperationID, 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("invalid operation ID %q: %w", o.OperationID, err)
+		}
+		result = append(result, v4_1_0.Operation{
+			UUID:           o.UUID,
+			OperationID:    id,
+			Summary:        o.Summary,
+			EnqueuedAt:     o.EnqueuedAt,
+			StartedAt:      o.StartedAt,
+			CompletedAt:    o.CompletedAt,
+			Parallel:       o.Parallel,
+			ExecutionGroup: o.ExecutionGroup,
+		})
+	}
+	return result, nil
+}
 
 // Constraint copies all v4_0_12 fields and leaves IpFamily nil. Constraints
 // exported from a 4.0.12 model carry no IP family information.

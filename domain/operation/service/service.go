@@ -55,7 +55,7 @@ type State interface {
 	) ([]string, error)
 
 	// GetOperationByID returns an operation by its ID.
-	GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error)
+	GetOperationByID(ctx context.Context, operationID uint64) (operation.OperationInfo, error)
 
 	// GetOperations returns a list of operations on specified entities, filtered by the
 	// given parameters.
