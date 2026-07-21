@@ -58,6 +58,20 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 	return modelcmd.Wrap(command), &RemoveCommand{command}
 }
 
+type ReprovisionMachineCommand struct {
+	*reprovisionMachineCommand
+}
+
+// NewReprovisionMachineCommandForTest returns a ReprovisionMachineCommand
+// with the api provided as specified.
+func NewReprovisionMachineCommandForTest(api ReprovisionMachineAPI) cmd.Command {
+	command := &reprovisionMachineCommand{
+		api: api,
+	}
+	command.SetClientStore(jujuclienttesting.MinimalStore())
+	return modelcmd.Wrap(command)
+}
+
 func NewDisksFlag(disks *[]storage.Directive) *disksFlag {
 	return &disksFlag{disks}
 }

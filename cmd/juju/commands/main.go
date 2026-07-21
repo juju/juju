@@ -414,6 +414,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(machine.NewRemoveCommand())
 	r.Register(machine.NewListMachinesCommand())
 	r.Register(machine.NewShowMachineCommand())
+	r.Register(machine.NewReprovisionMachineCommand())
 
 	// Manage model
 	r.Register(model.NewConfigCommand())
