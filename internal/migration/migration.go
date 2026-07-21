@@ -21,6 +21,7 @@ import (
 	domaincharm "github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/deployment/charm"
 	"github.com/juju/juju/domain/export"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelimport"
 	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
@@ -160,25 +161,39 @@ func (i *ModelImporter) ImportModel(
 		return internalerrors.Capture(err)
 	}
 
-	if args.ModelDBPayload == nil {
-		return nil
+	if args.ModelDBPayload != nil {
+		// Now that the controller data is applied, rewrite the model-DB payload's
+		// live secret value ref backend UUIDs from the source controller's to the
+		// target's (matched by name) before the insert. An unmapped live revision
+		// is a hard error; no model-DB rows are written.
+		if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
+			return internalerrors.Errorf(
+				"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
+		}
+
+		// Model-DB import: insert the transformed, target-version payload into the
+		// model DB. The importer is constructed per import because it binds to the
+		// model DB resolved from the scope for this model UUID (the ModelImporter
+		// itself is not bound to a single model).
+		if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
+			return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
+		}
 	}
 
-	// Now that the controller data is applied, rewrite the model-DB payload's
-	// live secret value ref backend UUIDs from the source controller's to the
-	// target's (matched by name) before the insert. An unmapped live revision
-	// is a hard error; no model-DB rows are written.
-	if err := reconcileSecretBackendUUIDs(ctx, deps, args.ControllerModelInfo, args.ModelDBPayload); err != nil {
-		return internalerrors.Errorf(
-			"rewriting secret backend UUIDs for model %q: %w", modelUUID, err)
+	// Activate the imported model so it is visible in v_model and connectable by
+	// the migrating model's agents during the source VALIDATION phase. The model
+	// stays gated by the model_migrating flag and the importing import claim until
+	// the target Activate call clears them; activation here only flips
+	// model.activated, mirroring the legacy importModelActivatorOperation. This is
+	// idempotent: a retried import (or the later Activate) tolerates
+	// AlreadyActivated.
+	modelDomainServices, err := i.domainServices.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return internalerrors.Errorf("retrieving domain services for model %q: %w", modelUUID, err)
 	}
-
-	// Model-DB import: insert the transformed, target-version payload into the
-	// model DB. The importer is constructed per import because it binds to the
-	// model DB resolved from the scope for this model UUID (the ModelImporter
-	// itself is not bound to a single model).
-	if err := modelimport.NewImporter(scope.ModelDB()).Import(ctx, args.ModelDBPayload); err != nil {
-		return internalerrors.Errorf("model-DB import for model %q: %w", modelUUID, err)
+	if err := modelDomainServices.Model().ActivateModel(ctx, modelUUID); err != nil &&
+		!internalerrors.Is(err, modelerrors.AlreadyActivated) {
+		return internalerrors.Errorf("activating imported model %q: %w", modelUUID, err)
 	}
 	return nil
 }
