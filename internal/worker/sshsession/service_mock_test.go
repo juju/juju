@@ -11,7 +11,6 @@ package sshsession
 
 import (
 	context "context"
-	net "net"
 
 	gomock "github.com/canonical/gomock/gomock"
 	watcher "github.com/juju/juju/core/watcher"
@@ -129,8 +128,8 @@ type MockConnectionDialer struct {
 // MockConnectionDialerMockRecorder is the mock recorder for MockConnectionDialer.
 type MockConnectionDialerMockRecorder struct {
 	mock                  *MockConnectionDialer
-	dialControllerExpects []*gomock.Call6_2[context.Context, string, int, string, string, ssh.PublicKey, net.Conn, error]
-	dialLocalSSHDExpects  []*gomock.Call1_2[context.Context, net.Conn, error]
+	dialControllerExpects []*gomock.Call6_2[context.Context, string, int, string, string, ssh.PublicKey, HalfCloseConn, error]
+	dialLocalSSHDExpects  []*gomock.Call1_2[context.Context, HalfCloseConn, error]
 }
 
 // NewMockConnectionDialer creates a new mock instance.
@@ -146,7 +145,7 @@ func (m *MockConnectionDialer) EXPECT() *MockConnectionDialerMockRecorder {
 }
 
 // DialController mocks base method.
-func (m *MockConnectionDialer) DialController(ctx context.Context, address string, port int, username, password string, hostPublicKey ssh.PublicKey) (net.Conn, error) {
+func (m *MockConnectionDialer) DialController(ctx context.Context, address string, port int, username, password string, hostPublicKey ssh.PublicKey) (HalfCloseConn, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch6_2(&m.recorder.dialControllerExpects, m.ctrl, m, "DialController", ctx, address, port, username, password, hostPublicKey)
 }
@@ -154,17 +153,17 @@ func (m *MockConnectionDialer) DialController(ctx context.Context, address strin
 // DialController indicates an expected call of DialController.
 func (mr *MockConnectionDialerMockRecorder) DialController(ctx, address, port, username, password, hostPublicKey any) *MockConnectionDialerDialControllerCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall6_2[context.Context, string, int, string, string, ssh.PublicKey, net.Conn, error](mr.mock.ctrl.T, mr.mock, "DialController", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(address), gomock.EnsureMatcher(port), gomock.EnsureMatcher(username), gomock.EnsureMatcher(password), gomock.EnsureMatcher(hostPublicKey))
+	call := gomock.NewCall6_2[context.Context, string, int, string, string, ssh.PublicKey, HalfCloseConn, error](mr.mock.ctrl.T, mr.mock, "DialController", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(address), gomock.EnsureMatcher(port), gomock.EnsureMatcher(username), gomock.EnsureMatcher(password), gomock.EnsureMatcher(hostPublicKey))
 	mr.dialControllerExpects = append(mr.dialControllerExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockConnectionDialerDialControllerCall is the typed call wrapper for DialController.
-type MockConnectionDialerDialControllerCall = gomock.Call6_2[context.Context, string, int, string, string, ssh.PublicKey, net.Conn, error]
+type MockConnectionDialerDialControllerCall = gomock.Call6_2[context.Context, string, int, string, string, ssh.PublicKey, HalfCloseConn, error]
 
 // DialLocalSSHD mocks base method.
-func (m *MockConnectionDialer) DialLocalSSHD(ctx context.Context) (net.Conn, error) {
+func (m *MockConnectionDialer) DialLocalSSHD(ctx context.Context) (HalfCloseConn, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch1_2(&m.recorder.dialLocalSSHDExpects, m.ctrl, m, "DialLocalSSHD", ctx)
 }
@@ -172,11 +171,11 @@ func (m *MockConnectionDialer) DialLocalSSHD(ctx context.Context) (net.Conn, err
 // DialLocalSSHD indicates an expected call of DialLocalSSHD.
 func (mr *MockConnectionDialerMockRecorder) DialLocalSSHD(ctx any) *MockConnectionDialerDialLocalSSHDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[context.Context, net.Conn, error](mr.mock.ctrl.T, mr.mock, "DialLocalSSHD", gomock.EnsureMatcher(ctx))
+	call := gomock.NewCall1_2[context.Context, HalfCloseConn, error](mr.mock.ctrl.T, mr.mock, "DialLocalSSHD", gomock.EnsureMatcher(ctx))
 	mr.dialLocalSSHDExpects = append(mr.dialLocalSSHDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockConnectionDialerDialLocalSSHDCall is the typed call wrapper for DialLocalSSHD.
-type MockConnectionDialerDialLocalSSHDCall = gomock.Call1_2[context.Context, net.Conn, error]
+type MockConnectionDialerDialLocalSSHDCall = gomock.Call1_2[context.Context, HalfCloseConn, error]

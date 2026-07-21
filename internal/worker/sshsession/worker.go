@@ -48,14 +48,24 @@ type FacadeClient interface {
 	ControllerPublicKey(ctx context.Context) ([]byte, error)
 }
 
+// HalfCloseConn is a net.Conn that additionally supports half-close: signalling
+// EOF on the write side without tearing down the read side. Both connection
+// ends of the reverse tunnel support this - the controller side is an SSH channel
+// and the sshd side is a TCP connection - which lets each direction of the
+// tunnel be closed gracefully when its copy completes.
+type HalfCloseConn interface {
+	net.Conn
+	CloseWrite() error
+}
+
 // ConnectionDialer establishes the controller and local sshd connections that
 // the worker pipes together to form a reverse tunnel.
 type ConnectionDialer interface {
 	// DialController reverse-dials the controller SSH server and opens the
-	// tunnel channel, returning it as a net.Conn.
-	DialController(ctx context.Context, address string, port int, username, password string, hostPublicKey gossh.PublicKey) (net.Conn, error)
+	// tunnel channel.
+	DialController(ctx context.Context, address string, port int, username, password string, hostPublicKey gossh.PublicKey) (HalfCloseConn, error)
 	// DialLocalSSHD dials the local sshd.
-	DialLocalSSHD(ctx context.Context) (net.Conn, error)
+	DialLocalSSHD(ctx context.Context) (HalfCloseConn, error)
 }
 
 // WorkerConfig holds the configuration for a new sshsession worker.
@@ -254,19 +264,36 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(
 	})
 	defer stop()
 
+	// Copy data in both directions between the controller tunnel and the local
+	// sshd. Each direction is half-closed (CloseWrite) rather than hard-closed
+	// when it finishes, so the peer receives a clean end-of-stream marker (a TCP
+	// FIN on the sshd connection, an SSH channel-EOF on the controller
+	// connection) and can flush any remaining data before the tunnel is torn
+	// down, instead of being reset mid-stream.
+	//
+	// For example, on an `exit` command: the client's EOF arrives on the controller
+	// connection, so the controller->sshd copy CloseWrites sshd; sshd then exits,
+	// flushes its final output and closes; the sshd->controller copy drains that
+	// output and CloseWrites the controller connection. The deferred Close calls
+	// above (and the context.AfterFunc on cancellation) perform the full teardown
+	// once both directions have finished.
+	bidirectionalCopy(sshdConn, controllerConn)
+	return nil
+}
+
+// bidirectionalCopy pipes data in both directions between two half-closeable
+// connections until both directions reach EOF.
+func bidirectionalCopy(a HalfCloseConn, b HalfCloseConn) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		defer controllerConn.Close()
-		defer sshdConn.Close()
-		_, _ = io.Copy(sshdConn, controllerConn)
+		defer func() { _ = a.CloseWrite() }()
+		_, _ = io.Copy(a, b)
 	})
 	wg.Go(func() {
-		defer controllerConn.Close()
-		defer sshdConn.Close()
-		_, _ = io.Copy(controllerConn, sshdConn)
+		defer func() { _ = b.CloseWrite() }()
+		_, _ = io.Copy(b, a)
 	})
 	wg.Wait()
-	return nil
 }
 
 // connectionDialer is the default ConnectionDialer. It reverse-dials the
@@ -293,7 +320,7 @@ func (d *connectionDialer) DialController(
 	username string,
 	password string,
 	hostPublicKey gossh.PublicKey,
-) (net.Conn, error) {
+) (HalfCloseConn, error) {
 	sshConfig := &gossh.ClientConfig{
 		User:            username,
 		Auth:            []gossh.AuthMethod{gossh.Password(password)},
@@ -318,13 +345,21 @@ func (d *connectionDialer) DialController(
 
 // DialLocalSSHD performs a standard TCP dial to the sshd running on the
 // machine.
-func (d *connectionDialer) DialLocalSSHD(ctx context.Context) (net.Conn, error) {
+func (d *connectionDialer) DialLocalSSHD(ctx context.Context) (HalfCloseConn, error) {
 	port := d.localSSHPort(ctx)
 	conn, err := net.Dial("tcp", net.JoinHostPort("localhost", port))
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
-	return conn, nil
+	// A TCP connection supports half-close; guard the conversion so a change to
+	// the dial target that does not support it surfaces as an error rather than
+	// silently degrading the tunnel teardown.
+	hc, ok := conn.(HalfCloseConn)
+	if !ok {
+		_ = conn.Close()
+		return nil, errors.Errorf("sshd connection %T does not support half-close", conn)
+	}
+	return hc, nil
 }
 
 // localSSHPort parses the local sshd_config files to find the port sshd is
