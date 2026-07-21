@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gossh "golang.org/x/crypto/ssh"
 
@@ -51,47 +52,44 @@ type authenticator struct {
 }
 
 // PublicKeyAuthentication implements a public key authentication handler.
-func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKey) bool {
+func (a authenticator) PublicKeyAuthentication(ctx ssh.Context, key ssh.PublicKey) (bool, error) {
 	keys, err := a.publicKeys.PublicKeys(ctx, ctx.User())
 	if err != nil {
-		a.logger.Errorf(ctx, "getting SSH public keys for user %q: %v", ctx.User(), err)
-		return false
+		return false, errors.Annotatef(err, "getting SSH public keys for user %q", ctx.User())
 	}
 
 	for _, authorizedKey := range keys {
 		if bytes.Equal(key.Marshal(), authorizedKey.Marshal()) {
 			ctx.SetValue(authenticatedViaPublicKey{}, true)
-			return true
+			return true, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 // PasswordAuthentication implements a password authentication handler.
 // It supports two types of password authentication:
 // 1. Decoding a JWT as the password for JIMM.
 // 2. Reverse-tunnel authentication for machine agents.
-func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) bool {
+func (a authenticator) PasswordAuthentication(ctx ssh.Context, password string) (bool, error) {
 	ctx.SetValue(authenticatedViaPublicKey{}, false)
 
 	switch ctx.User() {
 	case jimmUser:
 		token, err := a.jwtParser.Parse(ctx, password)
 		if err != nil {
-			a.logger.Errorf(ctx, "parsing SSH JWT: %v", err)
-			break
+			return false, errors.Annotate(err, "parsing SSH JWT")
 		}
 		ctx.SetValue(userJWT{}, token)
-		return true
+		return true, nil
 	case coressh.ReverseTunnelUser:
 		tunnelID, err := a.tunnelTracker.AuthenticateTunnel(ctx.User(), password)
 		if err != nil {
-			a.logger.Errorf(ctx, "authenticating reverse SSH tunnel: %v", err)
-			break
+			return false, errors.Annotate(err, "authenticating reverse SSH tunnel")
 		}
 		ctx.SetValue(tunnelIDKey{}, tunnelID)
-		return true
+		return true, nil
 	}
-	return false
+	return false, nil
 }

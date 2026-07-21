@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/juju/errors"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/core/logger"
@@ -28,32 +29,28 @@ type authorizer struct {
 // Authorize checks if the SSH connection context is authorized to access the target destination.
 // By this point, we expect the authenticator to have set the authentication method and
 // any relevant claims in the context.
-func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info) bool {
+func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info) (bool, error) {
 	publicKey, ok := ctx.Value(authenticatedViaPublicKey{}).(bool)
 	if !ok {
-		a.logger.Errorf(ctx, "SSH authentication method is missing from connection context")
-		return false
+		return false, errors.New("SSH authentication method is missing from connection context")
 	}
 	if publicKey {
 		ok, err := a.access.HasSSHAccess(ctx, ctx.User(), destination)
 		if err != nil {
-			a.logger.Errorf(ctx, "checking SSH access: %v", err)
-			return false
+			return false, errors.Annotate(err, "checking SSH access")
 		}
-		return ok
+		return ok, nil
 	}
 
 	token, _ := ctx.Value(userJWT{}).(jwt.Token)
 	if token == nil {
-		a.logger.Warningf(ctx, "SSH JWT is missing from connection context")
-		return false
+		return false, errors.New("SSH JWT is missing from connection context")
 	}
 
 	claims, ok := token.PrivateClaims()["access"].(map[string]any)
 	if !ok {
-		a.logger.Warningf(ctx, "Invalid SSH JWT token, missing access claim")
-		return false
+		return false, errors.New("invalid SSH JWT token, missing access claim")
 	}
 	access, _ := claims["model-"+destination.ModelUUID().String()].(string)
-	return permission.Access(access).EqualOrGreaterModelAccessThan(permission.AdminAccess)
+	return permission.Access(access).EqualOrGreaterModelAccessThan(permission.AdminAccess), nil
 }

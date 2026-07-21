@@ -34,7 +34,9 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsUnexpectedUser(c 
 	auth := authenticator{
 		logger: loggertesting.WrapCheckLog(c),
 	}
-	c.Check(auth.PasswordAuthentication(ctx, "not-a-token"), tc.IsFalse)
+	authenticated, err := auth.PasswordAuthentication(ctx, "not-a-token")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(authenticated, tc.IsFalse)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 }
 
@@ -45,7 +47,9 @@ func (s *authenticationSuite) TestPasswordAuthenticationAcceptsJIMMJWT(c *tc.C) 
 	parser := &stubJWTParser{token: token}
 
 	auth := authenticator{jwtParser: parser}
-	c.Check(auth.PasswordAuthentication(ctx, "encoded-jwt"), tc.IsTrue)
+	authenticated, err := auth.PasswordAuthentication(ctx, "encoded-jwt")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(authenticated, tc.IsTrue)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[userJWT{}], tc.Equals, token)
 	c.Check(parser.password, tc.Equals, "encoded-jwt")
@@ -59,7 +63,9 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidJIMMJWT(c 
 		logger:    loggertesting.WrapCheckLog(c),
 		jwtParser: parser,
 	}
-	c.Check(auth.PasswordAuthentication(ctx, "invalid-jwt"), tc.IsFalse)
+	authenticated, err := auth.PasswordAuthentication(ctx, "invalid-jwt")
+	c.Check(err, tc.ErrorMatches, "parsing SSH JWT: invalid token")
+	c.Check(authenticated, tc.IsFalse)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[userJWT{}], tc.IsNil)
 	c.Check(parser.password, tc.Equals, "invalid-jwt")
@@ -70,7 +76,9 @@ func (s *authenticationSuite) TestPasswordAuthenticationAcceptsReverseTunnel(c *
 	tunnelTracker := &stubTunnelAuthenticator{tunnelID: "tunnel-uuid"}
 
 	auth := authenticator{tunnelTracker: tunnelTracker}
-	c.Check(auth.PasswordAuthentication(ctx, "tunnel-password"), tc.IsTrue)
+	authenticated, err := auth.PasswordAuthentication(ctx, "tunnel-password")
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(authenticated, tc.IsTrue)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[tunnelIDKey{}], tc.Equals, "tunnel-uuid")
 	c.Check(tunnelTracker.username, tc.Equals, coressh.ReverseTunnelUser)
@@ -85,7 +93,9 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidReverseTun
 		logger:        loggertesting.WrapCheckLog(c),
 		tunnelTracker: tunnelTracker,
 	}
-	c.Check(auth.PasswordAuthentication(ctx, "invalid-password"), tc.IsFalse)
+	authenticated, err := auth.PasswordAuthentication(ctx, "invalid-password")
+	c.Check(err, tc.ErrorMatches, "authenticating reverse SSH tunnel: invalid credentials")
+	c.Check(authenticated, tc.IsFalse)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, false)
 	c.Check(ctx.values[tunnelIDKey{}], tc.IsNil)
 	c.Check(tunnelTracker.username, tc.Equals, coressh.ReverseTunnelUser)
@@ -100,7 +110,9 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationAcceptsUsersKey(c *tc.C
 	auth := authenticator{
 		publicKeys: publicKeys,
 	}
-	c.Check(auth.PublicKeyAuthentication(ctx, signer.PublicKey()), tc.IsTrue)
+	authenticated, err := auth.PublicKeyAuthentication(ctx, signer.PublicKey())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(authenticated, tc.IsTrue)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.Equals, true)
 	c.Check(publicKeys.user, tc.Equals, "alice")
 }
@@ -112,7 +124,9 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationRejectsUnauthorizedKey(
 	auth := authenticator{
 		publicKeys: &stubUserPublicKeyService{keys: []gossh.PublicKey{unauthorizedKey}},
 	}
-	c.Check(auth.PublicKeyAuthentication(ctx, newSigner(c).PublicKey()), tc.IsFalse)
+	authenticated, err := auth.PublicKeyAuthentication(ctx, newSigner(c).PublicKey())
+	c.Check(err, tc.ErrorIsNil)
+	c.Check(authenticated, tc.IsFalse)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.IsNil)
 }
 
@@ -123,7 +137,9 @@ func (s *authenticationSuite) TestPublicKeyAuthenticationRejectsKeyLookupError(c
 		logger:     loggertesting.WrapCheckLog(c),
 		publicKeys: &stubUserPublicKeyService{err: errors.New("boom")},
 	}
-	c.Check(auth.PublicKeyAuthentication(ctx, newSigner(c).PublicKey()), tc.IsFalse)
+	authenticated, err := auth.PublicKeyAuthentication(ctx, newSigner(c).PublicKey())
+	c.Check(err, tc.ErrorMatches, "getting SSH public keys for user \\\"alice\\\": boom")
+	c.Check(authenticated, tc.IsFalse)
 	c.Check(ctx.values[authenticatedViaPublicKey{}], tc.IsNil)
 }
 

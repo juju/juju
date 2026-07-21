@@ -31,16 +31,18 @@ type Authenticator interface {
 	// PublicKeyAuthentication authenticates a jump SSH connection using a public key.
 	// Returns true if the public key is valid for the user.
 	// Handles auth for user public keys.
-	PublicKeyAuthentication(ssh.Context, ssh.PublicKey) bool
+	PublicKeyAuthentication(ssh.Context, ssh.PublicKey) (bool, error)
 	// PasswordAuthentication authenticates a jump SSH connection using a password.
 	// Returns true if the password is valid for the user.
 	// Handles auth for JIMM and reverse-tunnel connections.
-	PasswordAuthentication(ssh.Context, string) bool
+	PasswordAuthentication(ssh.Context, string) (bool, error)
 }
 
 // Authorizer checks whether an authenticated user may access a destination.
 type Authorizer interface {
-	Authorize(ssh.Context, virtualhostname.Info) bool
+	// Authorize checks whether the authenticated user in the SSH connection
+	// context is allowed to access the target destination.
+	Authorize(ssh.Context, virtualhostname.Info) (bool, error)
 }
 
 // ServerWorkerConfig holds the configuration required by the server worker.
