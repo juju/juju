@@ -71,6 +71,15 @@ const (
 	// non-retryable conflict. The source must retry/continue Activate instead.
 	ErrAbortActivating = errors.ConstError("cannot abort import: activation already in progress")
 
+	// ErrActivationIncomplete indicates that activation failed after the import
+	// claim crossed the point of no return (it was moved to the activating
+	// phase), during the idempotent finalization steps. The migrated model may
+	// already be live, so the caller must retry/continue activation and must
+	// never drive abort. It is wrapped once around finalizeActivation and maps
+	// to params.CodeActivationIncomplete on the wire so the source master worker
+	// can distinguish it from a pre-point-of-no-return failure.
+	ErrActivationIncomplete = errors.ConstError("model activation incomplete")
+
 	// ErrAbortNotFinalizable indicates that abort finalization cannot yet
 	// delete the import claim because cleanup is not provably complete (the
 	// controller model row or its namespace still exists). The caller should

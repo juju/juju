@@ -16,12 +16,15 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/services"
 )
 
 const (
-	dbAccessorName   = "db-accessor"
-	changeStreamName = "change-stream"
+	dbAccessorName     = "db-accessor"
+	changeStreamName   = "change-stream"
+	domainServicesName = "domain-services"
 )
 
 type manifoldSuite struct{}
@@ -36,6 +39,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	bad = cfg
 	bad.ChangeStreamName = ""
+	c.Check(bad.Validate(), tc.ErrorIs, errors.NotValid)
+
+	bad = cfg
+	bad.DomainServicesName = ""
 	c.Check(bad.Validate(), tc.ErrorIs, errors.NotValid)
 
 	bad = cfg
@@ -55,6 +62,7 @@ func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Check(Manifold(s.newConfig(c)).Inputs, tc.DeepEquals, []string{
 		dbAccessorName,
 		changeStreamName,
+		domainServicesName,
 	})
 }
 
@@ -86,8 +94,9 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 	}
 
 	getter := dt.StubGetter(map[string]any{
-		dbAccessorName:   stubDBAccessor{},
-		changeStreamName: stubWatchableDBGetter{},
+		dbAccessorName:     stubDBAccessor{},
+		changeStreamName:   stubWatchableDBGetter{},
+		domainServicesName: stubDomainServicesGetter{},
 	})
 	w, err := Manifold(cfg).Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIsNil)
@@ -95,17 +104,19 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 
 	c.Check(captured.Service, tc.NotNil)
 	c.Check(captured.Abort, tc.NotNil)
+	c.Check(captured.Activate, tc.NotNil)
 	c.Check(captured.Clock, tc.NotNil)
 	c.Check(captured.Logger, tc.NotNil)
 }
 
 func (s *manifoldSuite) newConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
-		DBAccessorName:   dbAccessorName,
-		ChangeStreamName: changeStreamName,
-		Clock:            testclock.NewClock(time.Now()),
-		Logger:           loggertesting.WrapCheckLog(c),
-		NewWorker:        func(Config) (worker.Worker, error) { return nopWorker{}, nil },
+		DBAccessorName:     dbAccessorName,
+		ChangeStreamName:   changeStreamName,
+		DomainServicesName: domainServicesName,
+		Clock:              testclock.NewClock(time.Now()),
+		Logger:             loggertesting.WrapCheckLog(c),
+		NewWorker:          func(Config) (worker.Worker, error) { return nopWorker{}, nil },
 	}
 }
 
@@ -122,6 +133,12 @@ func (stubDBAccessor) DeleteDB(string) error { return nil }
 type stubWatchableDBGetter struct{}
 
 func (stubWatchableDBGetter) GetWatchableDB(context.Context, string) (changestream.WatchableDB, error) {
+	return nil, nil
+}
+
+type stubDomainServicesGetter struct{}
+
+func (stubDomainServicesGetter) ServicesForModel(context.Context, coremodel.UUID) (services.DomainServices, error) {
 	return nil, nil
 }
 

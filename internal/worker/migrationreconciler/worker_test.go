@@ -40,18 +40,20 @@ func (s *configSuite) TestValidate(c *tc.C) {
 	defer ctrl.Finish()
 
 	base := Config{
-		Service: NewMockService(ctrl),
-		Abort:   func(context.Context, coremodel.UUID) error { return nil },
-		Clock:   testclock.NewClock(time.Now()),
-		Logger:  loggertesting.WrapCheckLog(c),
+		Service:  NewMockService(ctrl),
+		Abort:    func(context.Context, coremodel.UUID) error { return nil },
+		Activate: func(context.Context, coremodel.UUID) error { return nil },
+		Clock:    testclock.NewClock(time.Now()),
+		Logger:   loggertesting.WrapCheckLog(c),
 	}
 	c.Check(base.Validate(), tc.ErrorIsNil)
 
 	for name, mut := range map[string]func(*Config){
-		"Service": func(cfg *Config) { cfg.Service = nil },
-		"Abort":   func(cfg *Config) { cfg.Abort = nil },
-		"Clock":   func(cfg *Config) { cfg.Clock = nil },
-		"Logger":  func(cfg *Config) { cfg.Logger = nil },
+		"Service":  func(cfg *Config) { cfg.Service = nil },
+		"Abort":    func(cfg *Config) { cfg.Abort = nil },
+		"Activate": func(cfg *Config) { cfg.Activate = nil },
+		"Clock":    func(cfg *Config) { cfg.Clock = nil },
+		"Logger":   func(cfg *Config) { cfg.Logger = nil },
 	} {
 		cfg := base
 		mut(&cfg)
@@ -63,9 +65,11 @@ type workerSuite struct {
 	service *MockService
 	clock   *testclock.Clock
 
-	aborted  chan coremodel.UUID
-	abortErr error
-	changes  chan []string
+	aborted     chan coremodel.UUID
+	abortErr    error
+	activatedCh chan coremodel.UUID
+	activateErr error
+	changes     chan []string
 }
 
 func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
@@ -74,6 +78,8 @@ func (s *workerSuite) setup(c *tc.C) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Now())
 	s.aborted = make(chan coremodel.UUID, 16)
 	s.abortErr = nil
+	s.activatedCh = make(chan coremodel.UUID, 16)
+	s.activateErr = nil
 	s.changes = make(chan []string, 16)
 	s.service.EXPECT().WatchImportClaims(gomock.Any()).Return(
 		watchertest.NewMockStringsWatcher(s.changes), nil,
@@ -88,6 +94,10 @@ func (s *workerSuite) newWorker(c *tc.C) worker.Worker {
 			s.aborted <- modelUUID
 			return s.abortErr
 		},
+		Activate: func(_ context.Context, modelUUID coremodel.UUID) error {
+			s.activatedCh <- modelUUID
+			return s.activateErr
+		},
 		Clock:  s.clock,
 		Logger: loggertesting.WrapCheckLog(c),
 	})
@@ -100,6 +110,15 @@ func abortingClaim(modelUUID coremodel.UUID, updatedAt time.Time) modelmigration
 		ModelUUID:           modelUUID.String(),
 		SourceMigrationUUID: "source-migration",
 		Phase:               modelmigration.ImportPhaseAborting,
+		UpdatedAt:           updatedAt,
+	}
+}
+
+func activatingClaim(modelUUID coremodel.UUID, updatedAt time.Time) modelmigration.ImportClaimStatus {
+	return modelmigration.ImportClaimStatus{
+		ModelUUID:           modelUUID.String(),
+		SourceMigrationUUID: "source-migration",
+		Phase:               modelmigration.ImportPhaseActivating,
 		UpdatedAt:           updatedAt,
 	}
 }
@@ -138,9 +157,9 @@ func (s *workerSuite) TestFinalizesAbortingClaim(c *tc.C) {
 	}
 }
 
-// TestIgnoresFreshNonAbortingClaims verifies importing/activating claims that
-// are not stale are left entirely untouched.
-func (s *workerSuite) TestIgnoresFreshNonAbortingClaims(c *tc.C) {
+// TestIgnoresFreshImportingClaims verifies importing claims that are not stale
+// are left entirely untouched (no abort, no activation, no finalize).
+func (s *workerSuite) TestIgnoresFreshImportingClaims(c *tc.C) {
 	defer s.setup(c).Finish()
 
 	scanned := make(chan struct{}, 1)
@@ -153,11 +172,10 @@ func (s *workerSuite) TestIgnoresFreshNonAbortingClaims(c *tc.C) {
 			}
 			return []modelmigration.ImportClaimStatus{
 				{ModelUUID: uuid.MustNewUUID().String(), Phase: modelmigration.ImportPhaseImporting, UpdatedAt: now},
-				{ModelUUID: uuid.MustNewUUID().String(), Phase: modelmigration.ImportPhaseActivating, UpdatedAt: now},
 			}, nil
 		}).AnyTimes()
 
-	// No abort / finalize expectations: any such call fails the test.
+	// No abort / activate / finalize expectations: any such call fails the test.
 
 	w := s.newWorker(c)
 	defer workertest.CleanKill(c, w)
@@ -171,9 +189,69 @@ func (s *workerSuite) TestIgnoresFreshNonAbortingClaims(c *tc.C) {
 	}
 	select {
 	case <-s.aborted:
-		c.Fatal("abort must not run for non-aborting claims")
+		c.Fatal("abort must not run for importing claims")
+	case <-s.activatedCh:
+		c.Fatal("activation must not run for importing claims")
 	default:
 	}
+}
+
+// TestCompletesActivatingClaim verifies the reconciler drives an activating
+// claim to completion by re-driving the idempotent activation finalization -
+// the self-healing backstop for an activation the source worker did not finish.
+func (s *workerSuite) TestCompletesActivatingClaim(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	modelUUID := coremodel.UUID(uuid.MustNewUUID().String())
+
+	s.service.EXPECT().GetAllImportClaims(gomock.Any()).
+		Return([]modelmigration.ImportClaimStatus{activatingClaim(modelUUID, s.clock.Now())}, nil)
+	// Any later scan (e.g. a timer re-fire before kill) sees nothing to do.
+	s.service.EXPECT().GetAllImportClaims(gomock.Any()).Return(nil, nil).AnyTimes()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.changes <- []string{modelUUID.String()}
+
+	select {
+	case got := <-s.activatedCh:
+		c.Check(got, tc.Equals, modelUUID)
+	case <-c.Context().Done():
+		c.Fatal("activating claim was not completed")
+	}
+	// Abort must never run for an activating claim.
+	select {
+	case <-s.aborted:
+		c.Fatal("abort must not run for an activating claim")
+	default:
+	}
+}
+
+// TestActivateFailureKeepsWorkerAlive verifies an activation-completion failure
+// is handled gracefully: the worker survives to retry later (finalization is
+// convergent).
+func (s *workerSuite) TestActivateFailureKeepsWorkerAlive(c *tc.C) {
+	defer s.setup(c).Finish()
+
+	s.activateErr = errors.New("clearing import gate: boom")
+	modelUUID := coremodel.UUID(uuid.MustNewUUID().String())
+
+	s.service.EXPECT().GetAllImportClaims(gomock.Any()).
+		Return([]modelmigration.ImportClaimStatus{activatingClaim(modelUUID, s.clock.Now())}, nil).AnyTimes()
+
+	w := s.newWorker(c)
+	defer workertest.CleanKill(c, w)
+
+	s.changes <- []string{modelUUID.String()}
+
+	select {
+	case <-s.activatedCh:
+	case <-c.Context().Done():
+		c.Fatal("activation completion was not attempted")
+	}
+	// The worker must still be running after an activation-completion failure.
+	workertest.CheckAlive(c, w)
 }
 
 // TestFinalizeFailureKeepsWorkerAlive verifies a finalize error is handled

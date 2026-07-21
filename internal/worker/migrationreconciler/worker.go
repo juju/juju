@@ -69,6 +69,14 @@ type Service interface {
 // controller database.
 type AbortFunc func(ctx context.Context, modelUUID coremodel.UUID) error
 
+// ActivateFunc re-drives the idempotent finalization of a model's activating
+// import claim (clear the model gate, activate the model row, delete the claim).
+// It is [github.com/juju/juju/internal/migration.CompleteActivation] bound to a
+// per-model domain services getter. It needs only the model UUID: all
+// args-dependent activation work completed before the claim crossed the point of
+// no return.
+type ActivateFunc func(ctx context.Context, modelUUID coremodel.UUID) error
+
 // Config is the configuration for the migration reconciler.
 type Config struct {
 	// Service scans and finalizes import claims.
@@ -76,6 +84,10 @@ type Config struct {
 
 	// Abort re-drives the controller-database abort compensation for a model.
 	Abort AbortFunc
+
+	// Activate re-drives the idempotent finalization of an activating import
+	// claim, completing an activation the source worker did not finish.
+	Activate ActivateFunc
 
 	// Clock provides the current time and timers.
 	Clock clock.Clock
@@ -94,6 +106,9 @@ func (c Config) Validate() error {
 	}
 	if c.Abort == nil {
 		return errors.Errorf("nil Abort").Add(coreerrors.NotValid)
+	}
+	if c.Activate == nil {
+		return errors.Errorf("nil Activate").Add(coreerrors.NotValid)
 	}
 	if c.Clock == nil {
 		return errors.Errorf("nil Clock").Add(coreerrors.NotValid)
@@ -223,7 +238,15 @@ func (w *reconciler) reconcile(ctx context.Context) error {
 			if err := w.startAbortWorker(ctx, claim); err != nil {
 				return errors.Capture(err)
 			}
-		case modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseActivating:
+		case modelmigration.ImportPhaseActivating:
+			// The claim is past the point of no return: the model may be live and
+			// must never be torn down. Drive activation to completion (idempotent
+			// finalization) rather than warning - the source worker may never come
+			// back to finish it. Same ErrDead-only contract as the abort path.
+			if err := w.startCompleteActivationWorker(ctx, claim); err != nil {
+				return errors.Capture(err)
+			}
+		case modelmigration.ImportPhaseImporting:
 			w.warnIfStale(ctx, claim, now)
 		}
 	}
@@ -264,16 +287,40 @@ func (w *reconciler) startAbortWorker(ctx context.Context, claim modelmigration.
 	return nil
 }
 
-// warnIfStale emits a rate-limited warning for an importing or activating claim
-// that has not changed phase for longer than staleClaimThreshold.
+// startCompleteActivationWorker starts a per-model worker that drives an
+// activating claim to completion. Like the abort path, it re-drives the
+// idempotent finalization; on failure the runner restarts it after restartDelay,
+// and once the claim is deleted the worker exits cleanly and the next scan does
+// not re-spawn it. The runner is the single source of truth for whether a model
+// already has a worker (it reports AlreadyExists).
+func (w *reconciler) startCompleteActivationWorker(ctx context.Context, claim modelmigration.ImportClaimStatus) error {
+	err := w.runner.StartWorker(ctx, claim.ModelUUID, newCompleteActivationWorker(
+		w.config.Activate, coremodel.UUID(claim.ModelUUID),
+	))
+	if errors.Is(err, coreerrors.AlreadyExists) {
+		// This model is already being finalized; nothing to do.
+		return nil
+	} else if err != nil {
+		return errors.Errorf("starting activation-completion worker for model %q: %w", claim.ModelUUID, err)
+	}
+	w.config.Logger.Infof(ctx,
+		"completing interrupted activation for model %q (source migration %q)",
+		claim.ModelUUID, claim.SourceMigrationUUID)
+	return nil
+}
+
+// warnIfStale emits a rate-limited warning for an importing claim that has not
+// changed phase for longer than staleClaimThreshold.
 //
-// It never mutates the claim, because only the source controller knows whether
-// the migration is still wanted: it drives the target's Abort (for importing) or
-// re-drives Activate (for activating) via its migrationmaster. A claim only goes
-// stale when the source stops driving it - typically because the source
-// controller is gone - and in that case there is currently no target-side
-// command an operator can run to release the model UUID. So this warning is
-// deliberately just a signpost for support rather than a recovery instruction.
+// It never mutates the claim, because only the source controller knows whether a
+// still-importing migration is wanted: it drives the target's Abort via its
+// migrationmaster, and an import that never finished cannot be completed by the
+// target alone. A claim only goes stale when the source stops driving it -
+// typically because the source controller is gone - and there is currently no
+// target-side command an operator can run to release an importing model UUID. So
+// this warning is deliberately a signpost for support rather than a recovery
+// instruction. (Aborting and activating claims are driven to completion by the
+// reconciler; only importing needs source/operator resolution.)
 func (w *reconciler) warnIfStale(ctx context.Context, claim modelmigration.ImportClaimStatus, now time.Time) {
 	if now.Sub(claim.UpdatedAt) < staleClaimThreshold {
 		return
@@ -353,5 +400,47 @@ func (w *abortWorker) Kill() {
 
 // Wait is part of the worker.Worker interface.
 func (w *abortWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+// completeActivationWorker is a per-model worker that drives a single activating
+// import claim to completion by re-driving the idempotent activation
+// finalization. On failure it returns a non-fatal error and the runner restarts
+// it after restartDelay; finalization is convergent, so it eventually succeeds,
+// deletes the claim, and exits cleanly (the next scan does not re-spawn it).
+type completeActivationWorker struct {
+	tomb      tomb.Tomb
+	activate  ActivateFunc
+	modelUUID coremodel.UUID
+}
+
+func newCompleteActivationWorker(
+	activate ActivateFunc, modelUUID coremodel.UUID,
+) func(context.Context) (worker.Worker, error) {
+	return func(ctx context.Context) (worker.Worker, error) {
+		w := &completeActivationWorker{
+			activate:  activate,
+			modelUUID: modelUUID,
+		}
+		w.tomb.Go(w.run)
+		return w, nil
+	}
+}
+
+func (w *completeActivationWorker) run() error {
+	ctx := w.tomb.Context(context.Background())
+	if err := w.activate(ctx, w.modelUUID); err != nil {
+		return errors.Errorf("completing activation for model %q: %w", w.modelUUID, err)
+	}
+	return nil
+}
+
+// Kill is part of the worker.Worker interface.
+func (w *completeActivationWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (w *completeActivationWorker) Wait() error {
 	return w.tomb.Wait()
 }

@@ -20,6 +20,7 @@ import (
 	migrationstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/services"
 )
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
@@ -33,6 +34,11 @@ type ManifoldConfig struct {
 	// obtains a controller-scoped watchable database.
 	ChangeStreamName string
 
+	// DomainServicesName is the domain services manifold, from which the
+	// reconciler obtains a per-model domain services getter used to complete
+	// interrupted activations (which write the model database).
+	DomainServicesName string
+
 	Clock     clock.Clock
 	Logger    logger.Logger
 	NewWorker func(Config) (worker.Worker, error)
@@ -45,6 +51,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.ChangeStreamName == "" {
 		return jujuerrors.NotValidf("empty ChangeStreamName")
+	}
+	if cfg.DomainServicesName == "" {
+		return jujuerrors.NotValidf("empty DomainServicesName")
 	}
 	if cfg.Clock == nil {
 		return jujuerrors.NotValidf("nil Clock")
@@ -64,6 +73,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.DBAccessorName,
 			config.ChangeStreamName,
+			config.DomainServicesName,
 		},
 		Start: config.start,
 	}
@@ -80,6 +90,10 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 	var changeStreamGetter changestream.WatchableDBGetter
 	if err := getter.Get(config.ChangeStreamName, &changeStreamGetter); err != nil {
+		return nil, errors.Capture(err)
+	}
+	var domainServicesGetter services.DomainServicesGetter
+	if err := getter.Get(config.DomainServicesName, &domainServicesGetter); err != nil {
 		return nil, errors.Capture(err)
 	}
 
@@ -110,6 +124,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		Service: service,
 		Abort: func(ctx context.Context, modelUUID coremodel.UUID) error {
 			return migration.AbortModelImport(ctx, deps, service, modelUUID)
+		},
+		Activate: func(ctx context.Context, modelUUID coremodel.UUID) error {
+			return migration.CompleteActivation(ctx, domainServicesGetter, modelUUID)
 		},
 		Clock:  config.Clock,
 		Logger: config.Logger,

@@ -3,22 +3,37 @@
 
 package migrationreconciler
 
-// Package migrationreconciler provides a controller-scoped worker that
-// completes interrupted target-side migration import aborts. When a v8 model
-// import is aborted, the durable model_migration_import claim is moved to the
-// aborting phase, the controller-database import writes are undone, and the
-// model database is staged for deletion, but the claim is deliberately left in
-// place until the drop is proven complete. On the facade Abort path that
-// finalization is synchronous; this worker is the crash-recovery fallback for
-// aborts whose caller did not finish (a source controller that went away, a
-// process restart).
+// Package migrationreconciler provides a controller-scoped worker that completes
+// interrupted target-side migration import claims - both aborts and
+// activations - that their driver (the source controller's migrationmaster) did
+// not finish, for example because the source controller went away or a process
+// restarted.
+//
+// A v8 model import records a durable model_migration_import claim whose phase
+// is the source of truth for the migration's fate. Once a claim leaves the
+// importing phase it is committed to a terminal outcome:
+//
+//   - aborting: the controller-database import writes are undone and the model
+//     database is staged for deletion, but the claim is deliberately left in
+//     place until the drop is proven complete, then finalized (claim deleted).
+//   - activating: the model has crossed the point of no return and may be live,
+//     so it must never be torn down; activation is instead driven to completion
+//     via the idempotent finalization (clear the model gate, activate the model
+//     row, delete the claim).
+//
+// This worker guarantees that guarantee holds even when the driver disappears:
+// it drives both aborting and activating claims to their terminal (deleted)
+// state. On the facade paths that finalization is synchronous; this worker is
+// the crash-recovery fallback.
 //
 // The worker follows the same pattern as the removal worker: a scan loop
-// discovers aborting claims and spawns a per-model job worker for each one via
-// a worker.Runner. Each job worker's sole responsibility is to finalize a
-// single model's abort (re-driving compensation, waiting for the database
-// drop, and releasing the claim). The runner handles restart-with-backoff
-// automatically, so the job worker simply exits on failure and is restarted
-// after a delay. The worker also warns about claims stuck in the importing or
-// activating phase past a conservative age, which indicate a source controller
-// that never completed or aborted a migration.
+// discovers claims and, per phase, spawns a per-model job worker via a
+// worker.Runner - an abort worker for aborting claims and an
+// activation-completion worker for activating claims. Each job worker re-drives
+// its idempotent finalization for a single model; both are convergent, so the
+// runner's restart-with-backoff eventually completes them (the job worker simply
+// exits on failure and is restarted after a delay, and exits cleanly once the
+// claim is gone). Only claims still in the importing phase cannot be completed
+// by the target alone; for those the worker just warns when one is stuck past a
+// conservative age, indicating a source controller that never finished or
+// aborted the migration.

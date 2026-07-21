@@ -47,99 +47,184 @@ type ActivateModelArgs struct {
 }
 
 // activateModel finalises the activation of a model imported via the v8 path.
-// It runs a durable phase machine: importing, activating, then claim deleted,
-// so retrying after a crash at any step resumes safely; every step is
-// idempotent.
+//
+// It runs the fallible, args-dependent reconciliation (CMR offerer controllers,
+// model agent version) while the import claim is still in the importing phase,
+// then flips the claim to activating — the point of no return — immediately
+// before the idempotent, args-independent finalization (clear the model gate,
+// activate the model row, delete the claim). This ordering is deliberate: any
+// failure before the flip leaves the claim importing, so the source may safely
+// abort; everything after the flip is convergent (only transient failures are
+// possible) and its errors are wrapped with ErrActivationIncomplete so the
+// source retries activation rather than aborting a possibly-live model. See
+// ACTIVATE_ABORT_WEDGE.md.
+//
+// Every step is idempotent, so a retry after a crash resumes safely: an
+// already-activating claim skips the reconciliation and re-drives finalization
+// only.
 //
 // Legacy (3.6/4.0) imports set the model_migrating gate but create no
-// model_migration_import claim. When no claim exists, activateModel clears the
-// gate and succeeds, preserving backward compatibility.
+// model_migration_import claim. When no claim exists, activateModel reconciles
+// and clears the gate and succeeds, preserving backward compatibility; a
+// completed v8 activation (claim already deleted) short-circuits to success.
 func activateModel(ctx context.Context, domainServices services.DomainServices, args ActivateModelArgs) error {
 	modelUUID := args.ModelUUID
 	modelUUIDStr := modelUUID.String()
 
-	// Check for a v8 import claim. A missing claim means legacy import.
+	// Check for a v8 import claim. A missing claim means legacy import, or a
+	// completed v8 activation.
 	claim, err := domainServices.ModelMigration().GetImportClaim(ctx, modelUUID)
 	hasClaim := err == nil
 	if err != nil && !errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
 		return errors.Errorf("checking import claim for model %q: %w", modelUUIDStr, err)
 	}
 
-	// 1. Transition to activating (v8 only): point of no return.
 	if hasClaim {
 		switch claim.Phase {
 		case modelmigration.ImportPhaseAborting:
+			// Abort cleanup has begun: refuse. This is a pre-point-of-no-return
+			// decision (nothing is mutated), so the source may safely abort.
 			return errors.Errorf("model %q: %w", modelUUIDStr, modelmigrationerrors.ErrActivationAborting)
-		case modelmigration.ImportPhaseImporting:
-			if err := domainServices.ModelMigration().SetImportPhaseActivating(ctx, modelUUID); err != nil {
-				return errors.Errorf(
-					"transitioning import claim to activating for model %q: %w",
-					modelUUIDStr, err,
-				)
-			}
-		case modelmigration.ImportPhaseActivating:
-			// Idempotent retry: already past the point of no return.
+		case modelmigration.ImportPhaseImporting, modelmigration.ImportPhaseActivating:
+			// importing: run reconciliation, flip, finalize.
+			// activating: resume — reconciliation provably completed before the
+			// flip, so re-drive finalization only.
 		default:
 			return errors.Errorf(
-				"model %q: unexpected import claim phase %q",
-				modelUUIDStr, claim.Phase,
+				"model %q: unexpected import claim phase %q", modelUUIDStr, claim.Phase,
+			)
+		}
+	} else if activated, err := modelAlreadyActivated(ctx, domainServices, modelUUID); err != nil {
+		return errors.Errorf("checking activation state for model %q: %w", modelUUIDStr, err)
+	} else if activated {
+		// No claim and the model is already activated: a v8 activation that
+		// completed and deleted its claim (or an already-activated legacy
+		// model). Return success idempotently rather than re-running the
+		// reconciliation below, which a lost-reply Activate retry would
+		// otherwise hit and could misreport as a pre-point-of-no-return failure,
+		// wrongly aborting a now-live model.
+		return nil
+	}
+
+	// Fallible pre-point-of-no-return work. Runs for a fresh importing claim and
+	// for a legacy (no-claim) import; skipped when resuming an already-activating
+	// claim. Any error here leaves a v8 claim in the importing phase, so the
+	// source may safely abort.
+	if !hasClaim || claim.Phase == modelmigration.ImportPhaseImporting {
+		// CMR offerer-controller reconciliation: populate
+		// application_remote_offerer.offerer_controller_uuid while the model is
+		// gated. Idempotent, but can fail permanently on a genuine
+		// external-controller conflict (ErrExternalControllerMismatch) — which
+		// must therefore surface before the point of no return.
+		if err := reconcileOffererControllers(ctx, domainServices, modelUUID, hasClaim, args); err != nil {
+			return errors.Errorf(
+				"reconciling offerer controller UUIDs for model %q: %w", modelUUIDStr, err,
+			)
+		}
+		// Reconcile the model agent version to match the controller target.
+		if err := reconcileModelAgentVersion(ctx, domainServices, modelUUIDStr); err != nil {
+			return errors.Errorf(
+				"reconciling model agent version during activation of model %q: %w",
+				modelUUIDStr, err,
 			)
 		}
 	}
 
-	// 2. CMR offerer-controller reconciliation: populate
-	// application_remote_offerer.offerer_controller_uuid while the model is
-	// gated. All updates are idempotent so a retry after a crash is safe.
-	if err := reconcileOffererControllers(ctx, domainServices, modelUUID, hasClaim, args); err != nil {
-		return errors.Errorf(
-			"reconciling offerer controller UUIDs for model %q: %w", modelUUIDStr, err,
-		)
+	// The point of no return: flip importing -> activating, immediately before
+	// the idempotent finalization. From here the model may become live and must
+	// never be torn down.
+	if hasClaim && claim.Phase == modelmigration.ImportPhaseImporting {
+		if err := domainServices.ModelMigration().SetImportPhaseActivating(ctx, modelUUID); err != nil {
+			// The flip did not commit (or a concurrent abort won): still before
+			// the point of no return, so the source may abort.
+			return errors.Errorf(
+				"transitioning import claim to activating for model %q: %w", modelUUIDStr, err,
+			)
+		}
 	}
 
-	// 3. Reconcile the model agent version to match the controller target, if
-	// needed.
-	if err := reconcileModelAgentVersion(ctx, domainServices, modelUUIDStr); err != nil {
-		return errors.Errorf(
-			"reconciling model agent version during activation of model %q: %w",
-			modelUUIDStr, err,
-		)
+	// Finalize. For a v8 claim this runs past the point of no return, so wrap any
+	// failure with ErrActivationIncomplete (a single coding point) so the source
+	// retries activation instead of aborting. Legacy (no-claim) activations have
+	// no claim to wedge and keep returning the raw error.
+	if err := finalizeActivation(ctx, domainServices, modelUUID, hasClaim); err != nil {
+		if hasClaim {
+			return errors.Errorf("%w: %w", modelmigrationerrors.ErrActivationIncomplete, err)
+		}
+		return err
 	}
+	return nil
+}
 
-	// 4. Clear the model-DB import gate.
-	// Steps 4 and 5 write to different databases and so cannot share a
-	// transaction, but a crash between them leaves no half-visible model:
-	// visibility gates on model.activated (set in step 5), so until step 5
-	// lands the model stays invisible regardless of the gate. Both steps are
-	// idempotent, so a retry resumes safely.
+// CompleteActivation re-drives the idempotent finalization of a v8 import claim
+// that is already past the point of no return (the activating phase). It exists
+// for the abort reconciler to complete an activation the source worker did not
+// finish - for example because the source controller was destroyed
+// mid-activation. It needs only the model UUID: all args-dependent
+// reconciliation provably completed before the claim crossed the point of no
+// return, so finalization is args-independent and convergent.
+func CompleteActivation(
+	ctx context.Context,
+	domainServicesGetter services.DomainServicesGetter,
+	modelUUID coremodel.UUID,
+) error {
+	domainServices, err := domainServicesGetter.ServicesForModel(ctx, modelUUID)
+	if err != nil {
+		return errors.Errorf("retrieving domain services for model %q: %w", modelUUID, err)
+	}
+	return finalizeActivation(ctx, domainServices, modelUUID, true)
+}
+
+// finalizeActivation runs the idempotent, args-independent activation
+// finalization: clear the model-DB import gate, activate the model row in the
+// controller DB, and (for a v8 import) delete the import claim last. Every step
+// is a delete/set on an existing row that always converges on retry, so it can
+// be re-driven safely — by an Activate retry or by the abort reconciler, which
+// needs only the model UUID.
+//
+// The gate (model DB) and the claim (controller DB) are in different databases
+// and cannot share a transaction, but a crash between the steps leaves no
+// half-visible model: visibility gates on model.activated, and the claim is
+// deleted last, so a retry re-drives whatever remains.
+func finalizeActivation(
+	ctx context.Context,
+	domainServices services.DomainServices,
+	modelUUID coremodel.UUID,
+	hasClaim bool,
+) error {
+	modelUUIDStr := modelUUID.String()
+
 	if err := domainServices.ModelMigration().DeleteModelImportingStatus(ctx); err != nil {
-		return errors.Errorf(
-			"clearing import gate for model %q: %w", modelUUIDStr, err,
-		)
+		return errors.Errorf("clearing import gate for model %q: %w", modelUUIDStr, err)
 	}
 
-	// 5. Activate the model row itself in the controller DB. This is a
-	// distinct flag from the migration claim: model_migration_import tracks
-	// the migration's own phase machine, while model.activated is the
-	// generic "model creation is fully complete" flag every model carries
-	// (migrated or not) and is what v_model/CheckModelExists/GetModel gate
-	// on. Without this, the model stays permanently invisible even after the
-	// claim is later deleted. Idempotent: a retry that finds the row already
-	// activated is a success, not an error.
-	if err := domainServices.Model().ActivateModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.AlreadyActivated) {
+	if err := domainServices.Model().ActivateModel(ctx, modelUUID); err != nil &&
+		!errors.Is(err, modelerrors.AlreadyActivated) {
 		return errors.Errorf("activating model %q: %w", modelUUIDStr, err)
 	}
 
-	// 6. Delete the import claim last (v8 only): after the gate is gone, a
-	// second call with no claim is an idempotent success.
 	if hasClaim {
 		if err := domainServices.ModelMigration().DeleteActivatedImport(ctx, modelUUID); err != nil {
-			return errors.Errorf(
-				"deleting activated import claim for model %q: %w", modelUUIDStr, err,
-			)
+			return errors.Errorf("deleting activated import claim for model %q: %w", modelUUIDStr, err)
 		}
 	}
-
 	return nil
+}
+
+// modelAlreadyActivated reports whether the model row is already activated,
+// using GetModelLife (which reports modelerrors.NotActivated for an unactivated
+// model).
+func modelAlreadyActivated(
+	ctx context.Context, domainServices services.DomainServices, modelUUID coremodel.UUID,
+) (bool, error) {
+	_, err := domainServices.Model().GetModelLife(ctx, modelUUID)
+	if errors.Is(err, modelerrors.NotActivated) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return true, nil
 }
 
 // reconcileOffererControllers populates
