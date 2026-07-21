@@ -38,6 +38,12 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// MachineManagerAPIv11 provides access to the MachineManager API facade for
+// version 11.
+type MachineManagerAPIv11 struct {
+	*MachineManagerAPI
+}
+
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	controllerUUID  string
@@ -363,6 +369,51 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all 
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// ReprovisionMachine is implemented on the v11 API so a v12 client calling a
+// v11 server gets a not-supported response instead of the v12 implementation.
+func (mm *MachineManagerAPIv11) ReprovisionMachine(context.Context, params.ReprovisionMachineArgs) (params.ErrorResult, error) {
+	return params.ErrorResult{
+		Error: apiservererrors.ParamsErrorf(
+			params.CodeNotSupported,
+			"reprovisioning machines is not supported by this controller",
+		),
+	}, nil
+}
+
+// ReprovisionMachine reprovisions a machine whose backing cloud instance
+// is operator-declared lost.
+func (mm *MachineManagerAPI) ReprovisionMachine(ctx context.Context, args params.ReprovisionMachineArgs) (params.ErrorResult, error) {
+	if err := mm.authorizer.CanWrite(ctx); err != nil {
+		return params.ErrorResult{}, err
+	}
+
+	if err := mm.check.ChangeAllowed(ctx); err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+
+	machineTag, err := names.ParseMachineTag(args.MachineTag)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	if args.Force {
+		mm.logger.Infof(ctx, "reprovisioning requested for machine %q", machineTag.Id())
+	} else {
+		mm.logger.Warningf(ctx, "reprovisioning of machine %q rejected: --force required", machineTag.Id())
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(errors.Errorf(
+				"--force is required; reprovisioning will lose root disk, ephemeral disk, " +
+					"charm-local state, and machine-scoped storage data",
+			)),
+		}, nil
+	}
+
+	// TODO(juju-9600): Full validation and transactional detach
+	// will be implemented in subsequent tasks (machine eligibility,
+	// agent and provider liveness gates, transactional detach).
+	return params.ErrorResult{}, nil
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.

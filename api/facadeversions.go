@@ -65,7 +65,7 @@ var facadeVersions = facades.FacadeVersions{
 	// Note that this version of Juju does not implement version 10
 	// of the facade, but 3.6 does. Care must be taken not to break
 	// client compatibility with the prior version.
-	"MachineManager":         {10, 11},
+	"MachineManager":         {10, 11, 12},
 	"Machiner":               {5, 6},
 	"MigrationFlag":          {1},
 	"MigrationMaster":        {4, 5},

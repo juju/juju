@@ -9685,7 +9685,7 @@
     {
         "Name": "MachineManager",
         "Description": "",
-        "Version": 11,
+        "Version": 12,
         "Schema": {
             "type": "object",
             "properties": {
@@ -9730,6 +9730,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ProvisioningScriptResult"
+                        }
+                    }
+                },
+                "ReprovisionMachine": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ReprovisionMachineArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
                         }
                     }
                 },
@@ -10252,6 +10263,22 @@
                     "additionalProperties": false,
                     "required": [
                         "script"
+                    ]
+                },
+                "ReprovisionMachineArgs": {
+                    "type": "object",
+                    "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "machine-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-tag",
+                        "force"
                     ]
                 },
                 "RetryProvisioningArgs": {

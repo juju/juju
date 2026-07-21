@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/tc"
 
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
+	"github.com/juju/juju/apiserver/facade"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
@@ -36,6 +38,7 @@ import (
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 type AddMachineManagerSuite struct {
@@ -737,4 +740,82 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachine(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineV11NotSupported(c *tc.C) {
+	api := &MachineManagerAPIv11{}
+
+	result, err := api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Code, tc.Equals, params.CodeNotSupported)
+	c.Check(result.Error.Message, tc.Equals, "reprovisioning machines is not supported by this controller")
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineV11RegisteredType(c *tc.C) {
+	registry := new(facade.Registry)
+	Register(registry)
+
+	goType, err := registry.GetType("MachineManager", 11)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(goType, tc.Equals, reflect.TypeFor[*MachineManagerAPIv11]())
+
+	method, err := rpcreflect.ObjTypeOf(goType).Method("ReprovisionMachine")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(method.Params, tc.Equals, reflect.TypeFor[params.ReprovisionMachineArgs]())
+	c.Check(method.Result, tc.Equals, reflect.TypeFor[params.ErrorResult]())
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineWithoutForce(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Message, tc.Matches, "--force is required.*")
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineInvalidTag(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "not-a-machine",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Message, tc.Matches, `"not-a-machine" is not a valid tag`)
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineUnauthorised(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.authorizer.Tag = names.NewUserTag("bob")
+
+	_, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

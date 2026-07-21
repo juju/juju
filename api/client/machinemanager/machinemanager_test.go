@@ -288,3 +288,46 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNilWait(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, expected)
 }
+
+func (s *MachinemanagerSuite) TestReprovisionMachine(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.ReprovisionMachineArgs{
+		MachineTag: names.NewMachineTag("0").String(),
+		Force:      true,
+	}
+	res := new(params.ErrorResult)
+	ress := params.ErrorResult{}
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ReprovisionMachine", args, res,
+	).DoAndReturn(func(_ context.Context, _ string, _ any, resPtr any) error {
+		reflect.ValueOf(resPtr).Elem().Set(reflect.ValueOf(ress))
+		return nil
+	})
+	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
+	result, err := client.ReprovisionMachine(c.Context(), names.NewMachineTag("0"), true)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.DeepEquals, params.ErrorResult{})
+}
+
+func (s *MachinemanagerSuite) TestReprovisionMachineError(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	args := params.ReprovisionMachineArgs{
+		MachineTag: names.NewMachineTag("0").String(),
+		Force:      true,
+	}
+	res := new(params.ErrorResult)
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().FacadeCall(
+		gomock.Any(), "ReprovisionMachine", args, res,
+	).Return(errors.New("blargh"))
+	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
+	_, err := client.ReprovisionMachine(c.Context(), names.NewMachineTag("0"), true)
+	c.Check(err, tc.ErrorMatches, "blargh")
+}

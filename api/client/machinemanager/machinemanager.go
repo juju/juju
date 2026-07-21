@@ -126,3 +126,16 @@ func (c *Client) RetryProvisioning(ctx context.Context, all bool, machines ...na
 	err := c.facade.FacadeCall(ctx, "RetryProvisioning", p, &results)
 	return results.Results, err
 }
+
+// ReprovisionMachine requests reprovisioning of a machine whose backing
+// cloud instance is operator-declared lost.
+// The force flag is a data-loss acknowledgement.
+func (c *Client) ReprovisionMachine(ctx context.Context, machine names.MachineTag, force bool) (params.ErrorResult, error) {
+	p := params.ReprovisionMachineArgs{
+		MachineTag: machine.String(),
+		Force:      force,
+	}
+	var result params.ErrorResult
+	err := c.facade.FacadeCall(ctx, "ReprovisionMachine", p, &result)
+	return result, err
+}
