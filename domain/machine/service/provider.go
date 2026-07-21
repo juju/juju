@@ -136,7 +136,7 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 // into account the model constraints. Machine constraints take precedence
 // over model constraints. The returned value never has a Container
 // constraint set; machine constraints do not use a container constraint
-// value, so it is cleared before returning.
+// value, so it is stripped from both inputs before merging.
 func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, cons domainconstraints.Constraints) (constraints.Value, error) {
 	validator, err := s.constraintsValidator(ctx)
 	if err != nil {
@@ -148,17 +148,27 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 		return constraints.Value{}, errors.Errorf("retrieving model constraints constraints: %w	", err)
 	}
 
-	mergedCons, err := validator.Merge(domainconstraints.EncodeConstraints(modelCons), domainconstraints.EncodeConstraints(cons))
+	mergedCons, err := validator.Merge(
+		encodeMachineConstraints(modelCons),
+		encodeMachineConstraints(cons),
+	)
 	if err != nil {
 		return constraints.Value{}, errors.Errorf("merging machine and model constraints: %w", err)
 	}
 
-	// Machine constraints do not use a container constraint value, so clear
-	// it to prevent a container constraint coming from the model constraints
-	// from being persisted on the machine row.
-	mergedCons.Container = nil
-
 	return mergedCons, nil
+}
+
+// encodeMachineConstraints encodes domain constraints into a constraints
+// value suitable for machines. Machine constraints do not use a container
+// constraint value: machine container placement and type are represented
+// separately from constraints. Container is therefore stripped before any
+// merge, so it can neither participate in merge or conflict behaviour nor
+// be persisted on the machine row.
+func encodeMachineConstraints(cons domainconstraints.Constraints) constraints.Value {
+	value := domainconstraints.EncodeConstraints(cons)
+	value.Container = nil
+	return value
 }
 
 // constraintsValidator queries the provider for a constraints validator.
