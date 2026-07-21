@@ -62,10 +62,12 @@ func makeFacade(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 		CloudService:            domainServices.Cloud(),
 		KeyUpdaterService:       domainServices.KeyUpdater(),
 		MachineService:          domainServices.Machine(),
+		ModelMigrationService:   domainServices.ModelMigration(),
 		StatusService:           domainServices.Status(),
 		ModelConfigService:      domainServices.Config(),
 		NetworkService:          domainServices.Network(),
 		RemovalService:          domainServices.Removal(),
+		UpgradeService:          domainServices.Upgrade(),
 	}
 
 	return NewMachineManagerAPI(

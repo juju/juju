@@ -439,16 +439,16 @@ GROUP BY   m.uuid
 	}
 
 	if result.LifeID != life.Alive {
-		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotAlive)
+		return errors.Capture(machineerrors.MachineNotAlive)
 	}
 	if result.IsController > 0 {
-		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineIsController)
+		return errors.Capture(machineerrors.MachineIsController)
 	}
 	if result.IsManual > 0 {
-		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineIsManual)
+		return errors.Capture(machineerrors.MachineIsManual)
 	}
 	if result.HasContainers > 0 {
-		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineHasChildContainers)
+		return errors.Capture(machineerrors.MachineHasChildContainers)
 	}
 	return nil
 }
