@@ -30,6 +30,11 @@ import (
 const (
 	// controllerDialTimeout bounds the reverse-dial to the controller.
 	controllerDialTimeout = 30 * time.Second
+	defaultSSHDPort       = "22"
+)
+
+var (
+	sshdConfigPaths = []string{"/etc/ssh/sshd_config", "/usr/share/openssh/sshd_config"}
 )
 
 // FacadeClient holds the facade methods required by the SSH session worker.
@@ -203,15 +208,13 @@ func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelI
 		return errors.Errorf("getting SSH connection request %q: %w", tunnelID, err)
 	}
 
-	// Requests are model-scoped and the watcher emits all of them; only handle
-	// those targeting this machine.
+	if len(req.ControllerAddresses) == 0 {
+		return errors.Errorf("SSH connection request %q has no controller addresses", tunnelID)
+	}
+
 	if req.MachineName != w.config.MachineName {
 		w.config.Logger.Tracef(ctx, "ignoring SSH connection request %q for machine %q", tunnelID, req.MachineName)
 		return nil
-	}
-
-	if len(req.ControllerAddresses) == 0 {
-		return errors.Errorf("SSH connection request %q has no controller addresses", tunnelID)
 	}
 
 	ephemeralPublicKey, err := gossh.ParsePublicKey(req.EphemeralPublicKey)
@@ -294,7 +297,7 @@ type connectionDialer struct {
 func newConnectionDialer(l logger.Logger) *connectionDialer {
 	return &connectionDialer{
 		logger:          l,
-		sshdConfigPaths: []string{"/etc/ssh/sshd_config", "/usr/share/openssh/sshd_config"},
+		sshdConfigPaths: sshdConfigPaths,
 	}
 }
 
@@ -345,7 +348,6 @@ func (d *connectionDialer) DialLocalSSHD(ctx context.Context) (net.Conn, error) 
 // listening on, trying each configured path. If it cannot be determined, it
 // logs the error and returns the default port 22.
 func (d *connectionDialer) localSSHPort(ctx context.Context) string {
-	const defaultPort = "22"
 
 	for _, filePath := range d.sshdConfigPaths {
 		file, err := os.Open(filePath)
@@ -353,11 +355,11 @@ func (d *connectionDialer) localSSHPort(ctx context.Context) string {
 			d.logger.Errorf(ctx, "opening sshd_config file %q: %v", filePath, err)
 			continue
 		}
-		port := defaultPort
+		port := defaultSSHDPort
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
-			if strings.HasPrefix(line, "#") || line == "" {
+			if line == "" || strings.HasPrefix(line, "#") {
 				continue
 			}
 			if strings.HasPrefix(line, "Port") {
@@ -375,5 +377,5 @@ func (d *connectionDialer) localSSHPort(ctx context.Context) string {
 		return port
 	}
 
-	return defaultPort
+	return defaultSSHDPort
 }
