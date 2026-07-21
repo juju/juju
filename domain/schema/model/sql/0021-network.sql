@@ -77,6 +77,9 @@ CREATE TABLE link_layer_device_parent (
     REFERENCES link_layer_device (uuid)
 );
 
+CREATE INDEX idx_link_layer_device_parent_parent_device
+ON link_layer_device_parent (parent_uuid, device_uuid);
+
 CREATE TABLE provider_link_layer_device (
     provider_id TEXT NOT NULL PRIMARY KEY,
     device_uuid TEXT NOT NULL,

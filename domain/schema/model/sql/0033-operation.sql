@@ -20,6 +20,9 @@ CREATE TABLE operation (
 CREATE UNIQUE INDEX idx_operation_id
 ON operation (operation_id);
 
+CREATE INDEX idx_operation_completed_enqueued
+ON operation (completed_at, enqueued_at);
+
 -- operation_action is a join table to link an operation to its charm_action.
 CREATE TABLE operation_action (
     operation_uuid TEXT NOT NULL PRIMARY KEY,
@@ -55,6 +58,9 @@ CREATE TABLE operation_task (
 CREATE UNIQUE INDEX idx_task_id
 ON operation_task (task_id);
 
+CREATE INDEX idx_operation_task_operation_uuid
+ON operation_task (operation_uuid);
+
 -- operation_unit_task is a join table to link a task with its unit receiver.
 CREATE TABLE operation_unit_task (
     task_uuid TEXT NOT NULL,
@@ -67,6 +73,9 @@ CREATE TABLE operation_unit_task (
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
 );
+
+CREATE INDEX idx_operation_unit_task_unit_uuid_task_uuid
+ON operation_unit_task (unit_uuid, task_uuid);
 
 -- operation_machine_task is a join table to link a task with its machine receiver.
 CREATE TABLE operation_machine_task (
@@ -81,6 +90,9 @@ CREATE TABLE operation_machine_task (
     REFERENCES machine (uuid)
 );
 
+CREATE INDEX idx_operation_machine_task_machine_uuid_task_uuid
+ON operation_machine_task (machine_uuid, task_uuid);
+
 -- operation_task_output is a join table to link a task with where
 -- its output is stored.
 CREATE TABLE operation_task_output (
@@ -93,6 +105,9 @@ CREATE TABLE operation_task_output (
     FOREIGN KEY (store_path)
     REFERENCES object_store_metadata_path (path)
 );
+
+CREATE INDEX idx_operation_task_output_store_path_task_uuid
+ON operation_task_output (store_path, task_uuid);
 
 -- operation_task_status is the status of the task.
 CREATE TABLE operation_task_status (

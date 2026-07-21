@@ -43,3 +43,6 @@ CREATE TABLE upgrade_info_controller_node (
 
 CREATE UNIQUE INDEX idx_upgrade_info_controller_node
 ON upgrade_info_controller_node (controller_node_id, upgrade_info_uuid);
+
+CREATE INDEX idx_upgrade_info_controller_node_upgrade_completed_controller
+ON upgrade_info_controller_node (upgrade_info_uuid, node_upgrade_completed_at);

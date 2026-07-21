@@ -92,6 +92,9 @@ CREATE TABLE secret_value_ref (
     REFERENCES secret_revision (uuid)
 );
 
+CREATE INDEX idx_secret_value_ref_backend_uuid
+ON secret_value_ref (backend_uuid);
+
 -- Deleted revisions for which content is stored externally.
 -- These rows are deleted after the external content has been deleted.
 CREATE TABLE secret_deleted_value_ref (
@@ -99,6 +102,9 @@ CREATE TABLE secret_deleted_value_ref (
     backend_uuid TEXT NOT NULL,
     revision_id TEXT NOT NULL
 );
+
+CREATE INDEX idx_secret_deleted_value_ref_revision_id
+ON secret_deleted_value_ref (revision_id);
 
 -- 1:many
 CREATE TABLE secret_content (
@@ -145,6 +151,9 @@ CREATE TABLE secret_revision_obsolete (
     FOREIGN KEY (revision_uuid)
     REFERENCES secret_revision (uuid)
 );
+
+CREATE INDEX idx_secret_revision_obsolete_status
+ON secret_revision_obsolete (obsolete, pending_delete);
 
 CREATE TABLE secret_revision_expire (
     revision_uuid TEXT NOT NULL PRIMARY KEY,

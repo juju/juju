@@ -184,6 +184,9 @@ CREATE TABLE storage_unit_owner (
     REFERENCES unit (uuid)
 );
 
+CREATE INDEX idx_storage_unit_owner_unit
+ON storage_unit_owner (unit_uuid, storage_instance_uuid);
+
 CREATE TABLE storage_attachment (
     uuid TEXT NOT NULL PRIMARY KEY,
     storage_instance_uuid TEXT NOT NULL,
