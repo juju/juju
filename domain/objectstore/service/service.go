@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"regexp"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	domaincontroller "github.com/juju/juju/domain/controller"
 	domainobjectstore "github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/errors"
@@ -143,6 +145,13 @@ type WatcherFactory interface {
 		filter eventsource.FilterOption,
 		filterOpts ...eventsource.FilterOption,
 	) (watcher.NotifyWatcher, error)
+}
+
+// ControllerInfoService describes the controller information needed by the
+// object store service.
+type ControllerInfoService interface {
+	// GetControllerInfo returns information about the current controller.
+	GetControllerInfo(ctx context.Context) (domaincontroller.ControllerInfo, error)
 }
 
 // Service provides the API for working with the objectstore.
@@ -440,12 +449,17 @@ func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, e
 // and the ability to create watchers and drain the object store.
 type WatchableDrainingService struct {
 	WatchableService
-	st DrainingState
+	st                DrainingState
+	controllerService ControllerInfoService
 }
 
 // NewWatchableDrainingService returns a new service reference wrapping the
 // input state.
-func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory) *WatchableDrainingService {
+func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory, controllerService ...ControllerInfoService) *WatchableDrainingService {
+	var controllerInfoService ControllerInfoService
+	if len(controllerService) > 0 {
+		controllerInfoService = controllerService[0]
+	}
 	return &WatchableDrainingService{
 		WatchableService: WatchableService{
 			Service: Service{
@@ -453,7 +467,8 @@ func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory
 			},
 			watcherFactory: watcherFactory,
 		},
-		st: st,
+		st:                st,
+		controllerService: controllerInfoService,
 	}
 }
 
@@ -506,6 +521,12 @@ type BackendInfo struct {
 	Type objectstore.BackendType
 
 	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
+	Bucket *string
+
+	// Region is the region for the S3 backend.
+	Region *string
+
+	// Endpoint is the endpoint for the S3 backend.
 	Endpoint *string
 
 	// AccessKey is not returned for security reasons, but it is expected to be
@@ -526,6 +547,8 @@ func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
 	}
 
 	return domainobjectstore.S3Credentials{
+		Bucket:    deref(s.Bucket),
+		Region:    deref(s.Region),
 		Endpoint:  deref(s.Endpoint),
 		AccessKey: deref(s.AccessKey),
 		SecretKey: deref(s.SecretKey),
@@ -569,6 +592,8 @@ func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Conte
 	return BackendInfo{
 		UUID:      objectstore.UUID(backendInfo.UUID),
 		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Bucket:    backendInfo.Bucket,
+		Region:    backendInfo.Region,
 		Endpoint:  backendInfo.Endpoint,
 		AccessKey: backendInfo.AccessKey,
 		SecretKey: backendInfo.SecretKey,
@@ -592,6 +617,8 @@ func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uu
 	return BackendInfo{
 		UUID:      objectstore.UUID(backendInfo.UUID),
 		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Bucket:    backendInfo.Bucket,
+		Region:    backendInfo.Region,
 		Endpoint:  backendInfo.Endpoint,
 		AccessKey: backendInfo.AccessKey,
 		SecretKey: backendInfo.SecretKey,

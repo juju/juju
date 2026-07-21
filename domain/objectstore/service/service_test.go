@@ -612,6 +612,8 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	creds := domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
@@ -646,6 +648,18 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3MissingEndpoint(c *tc.C)
 		SecretKey: "secret-key",
 	})
 	c.Assert(err, tc.ErrorMatches, ".*endpoint is required.*")
+}
+
+func (s *drainingServiceSuite) TestTransitionBackendToS3InvalidBucket(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+		Bucket:    "bad_bucket",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	})
+	c.Assert(err, tc.ErrorMatches, `.*bucket: bucket name "bad_bucket": invalid characters.*`)
 }
 
 func (s *drainingServiceSuite) TestTransitionBackendToS3MissingAccessKey(c *tc.C) {
