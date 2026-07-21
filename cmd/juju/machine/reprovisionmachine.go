@@ -36,7 +36,7 @@ type reprovisionMachineCommand struct {
 // reprovision-machine command calls.
 type ReprovisionMachineAPI interface {
 	Close() error
-	ReprovisionMachine(ctx context.Context, machine string, force bool) (params.ErrorResult, error)
+	ReprovisionMachine(ctx context.Context, machine names.MachineTag, force bool) (params.ErrorResult, error)
 }
 
 const reprovisionMachineDoc = `
@@ -117,7 +117,7 @@ func (c *reprovisionMachineCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	result, err := client.ReprovisionMachine(ctx, c.machine, c.force)
+	result, err := client.ReprovisionMachine(ctx, names.NewMachineTag(c.machine), c.force)
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(

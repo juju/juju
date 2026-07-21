@@ -9,6 +9,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v6"
 	"github.com/juju/tc"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -38,7 +39,7 @@ func (f *fakeReprovisionMachineClient) Close() error {
 	return nil
 }
 
-func (f *fakeReprovisionMachineClient) ReprovisionMachine(ctx context.Context, machine string, force bool) (params.ErrorResult, error) {
+func (f *fakeReprovisionMachineClient) ReprovisionMachine(ctx context.Context, machine names.MachineTag, force bool) (params.ErrorResult, error) {
 	if f.err != nil {
 		return params.ErrorResult{}, f.err
 	}

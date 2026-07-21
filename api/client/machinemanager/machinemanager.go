@@ -130,15 +130,9 @@ func (c *Client) RetryProvisioning(ctx context.Context, all bool, machines ...na
 // ReprovisionMachine requests reprovisioning of a machine whose backing
 // cloud instance is operator-declared lost.
 // The force flag is a data-loss acknowledgement.
-func (c *Client) ReprovisionMachine(ctx context.Context, machine string, force bool) (params.ErrorResult, error) {
-	if !names.IsValidMachine(machine) {
-		return params.ErrorResult{Error: &params.Error{
-			Message: errors.NotValidf("machine ID %q", machine).Error(),
-		}}, nil
-	}
-
+func (c *Client) ReprovisionMachine(ctx context.Context, machine names.MachineTag, force bool) (params.ErrorResult, error) {
 	p := params.ReprovisionMachineArgs{
-		MachineTag: names.NewMachineTag(machine).String(),
+		MachineTag: machine.String(),
 		Force:      force,
 	}
 	var result params.ErrorResult
