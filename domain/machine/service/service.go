@@ -92,6 +92,12 @@ type State interface {
 	// exist.
 	GetMachineLifeAndIsManuallyProvisioned(context.Context, machine.Name) (life.Life, bool, error)
 
+	// CheckMachineReprovisioningEligibility checks machine life, controller
+	// status, manual-provision status, and child-container presence in a
+	// single round-trip. It returns a sentinel error for each ineligible
+	// condition.
+	CheckMachineReprovisioningEligibility(context.Context, machine.Name) error
+
 	// ShouldKeepInstance reports whether a machine, when removed from Juju,
 	// should cause the corresponding cloud instance to be stopped.
 	ShouldKeepInstance(ctx context.Context, mName machine.Name) (bool, error)
@@ -306,6 +312,32 @@ func (s *Service) GetMachineLifeAndIsManuallyProvisioned(ctx context.Context, ma
 		return corelife.Dead, false, errors.Errorf("getting life and manual status for machine %q: %w", machineName, err)
 	}
 	return lifeVal, isManual, nil
+}
+
+// ReprovisionMachine validates that the machine identified by name is
+// eligible for reprovisioning and returns an error if it is not.
+// The machine must be alive, non-controller, non-manual, non-container,
+// must not host child containers, and must have a recorded provider
+// instance ID.
+func (s *Service) ReprovisionMachine(ctx context.Context, machineName machine.Name, force bool) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	if err := s.st.CheckMachineReprovisioningEligibility(ctx, machineName); err != nil {
+		return errors.Errorf("reprovisioning machine %q: %w", machineName, err)
+	}
+
+	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	if err != nil {
+		return errors.Errorf("getting UUID for machine %q: %w", machineName, err)
+	}
+
+	_, err = s.GetInstanceID(ctx, machineUUID)
+	if err != nil {
+		return errors.Errorf("machine %q: %w", machineName, err)
+	}
+
+	return nil
 }
 
 // ShouldKeepInstance reports whether a machine, when removed from Juju, should cause

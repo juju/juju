@@ -859,3 +859,85 @@ func (s *serviceSuite) TestSetSSHHostKeys(c *tc.C) {
 		SetSSHHostKeys(c.Context(), machineUUID, keys)
 	c.Assert(err, tc.ErrorIsNil)
 }
+
+func (s *serviceSuite) TestReprovisionMachineSuccess(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(nil)
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(machinetesting.GenUUID(c), nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), gomock.Any()).Return("i-1234", nil)
+
+	err := svc.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestReprovisionMachineNotAlive(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(machineerrors.MachineNotAlive)
+
+	err := svc.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotAlive)
+}
+
+func (s *serviceSuite) TestReprovisionMachineIsController(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(machineerrors.MachineIsController)
+
+	err := svc.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsController)
+}
+
+func (s *serviceSuite) TestReprovisionMachineIsManual(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(machineerrors.MachineIsManual)
+
+	err := svc.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsManual)
+}
+
+func (s *serviceSuite) TestReprovisionMachineHasChildContainers(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(machineerrors.MachineHasChildContainers)
+
+	err := svc.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasChildContainers)
+}
+
+func (s *serviceSuite) TestReprovisionMachineNotFound(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(machineerrors.MachineNotFound)
+
+	err := svc.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *serviceSuite) TestReprovisionMachineNotProvisioned(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	svc := NewService(s.state, s.statusHistory, clock.WallClock, loggertesting.WrapCheckLog(c))
+	mUUID := machinetesting.GenUUID(c)
+
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(nil)
+	s.state.EXPECT().GetMachineUUID(gomock.Any(), machine.Name("0")).Return(mUUID, nil)
+	s.state.EXPECT().GetInstanceID(gomock.Any(), mUUID.String()).Return("", machineerrors.NotProvisioned)
+
+	err := svc.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+}

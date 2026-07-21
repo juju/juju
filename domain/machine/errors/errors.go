@@ -57,4 +57,20 @@ const (
 	// MachineCloudInstanceNotFound describes an error that occurs when
 	// a machine cloud instance does not satisfy some given constraints.
 	MachineConstraintViolation = errors.ConstError("machine constraint violation")
+
+	// MachineIsContainer describes an error that occurs when attempting
+	// to reprovision a container machine.
+	MachineIsContainer = errors.ConstError("machine is a container")
+
+	// MachineIsController describes an error that occurs when attempting
+	// to reprovision a controller machine.
+	MachineIsController = errors.ConstError("machine is a controller machine")
+
+	// MachineIsManual describes an error that occurs when attempting
+	// to reprovision a manually provisioned machine.
+	MachineIsManual = errors.ConstError("machine is manually provisioned")
+
+	// MachineHasChildContainers describes an error that occurs when
+	// attempting to reprovision a machine that hosts child containers.
+	MachineHasChildContainers = errors.ConstError("machine hosts child containers")
 )
