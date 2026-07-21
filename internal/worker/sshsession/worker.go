@@ -183,13 +183,11 @@ func (w *sshSessionWorker) loop() error {
 // when the worker is dying, and is tracked by the worker's WaitGroup so it
 // drains on shutdown. A single failed request must not bring down the worker.
 func (w *sshSessionWorker) handleConnection(ctx context.Context, tunnelID string, controllerSSHPort int, controllerHostPublicKey gossh.PublicKey) {
-	w.wg.Add(1)
-	go func() {
-		defer w.wg.Done()
+	w.wg.Go(func() {
 		if err := w.handleConnectionInternal(ctx, tunnelID, controllerSSHPort, controllerHostPublicKey); err != nil {
 			w.config.Logger.Errorf(ctx, "failed to handle SSH connection request %q: %v", tunnelID, err)
 		}
-	}()
+	})
 }
 
 // handleConnectionInternal reads the request and, if it targets this machine,
@@ -250,18 +248,11 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(
 	}
 	defer func() { _ = sshdConn.Close() }()
 
-	// Close both connections when the context is done, otherwise signal the
-	// goroutine to exit once the copies finish.
-	doneChan := make(chan struct{})
-	defer close(doneChan)
-	go func() {
-		select {
-		case <-ctx.Done():
-			_ = controllerConn.Close()
-			_ = sshdConn.Close()
-		case <-doneChan:
-		}
-	}()
+	stop := context.AfterFunc(ctx, func() {
+		_ = controllerConn.Close()
+		_ = sshdConn.Close()
+	})
+	defer stop()
 
 	var wg sync.WaitGroup
 	wg.Go(func() {

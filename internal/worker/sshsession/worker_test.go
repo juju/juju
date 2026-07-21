@@ -156,6 +156,81 @@ func (s *workerSuite) TestHandlesRequestForOwnMachine(c *tc.C) {
 	workertest.CleanKill(c, worker)
 }
 
+func (s *workerSuite) TestCancellationClosesConnections(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	req := params.SSHConnRequestResult{
+		MachineName:         "0",
+		ControllerAddresses: []string{"10.0.0.1"},
+		Username:            "juju-reverse-tunnel",
+		Password:            "jwt",
+		EphemeralPublicKey:  newPublicKey(c),
+	}
+
+	s.facadeClient.EXPECT().GetSSHConnRequest(gomock.Any(), "tunnel-0").Return(req, nil)
+	s.keysUpdater.EXPECT().AddEphemeralKey(gomock.Any(), "tunnel-0").Return(nil)
+
+	// Leave the remote ends open so the bidirectional io.Copy stays blocked;
+	// the copies can only unblock when the worker closes the conns on
+	// cancellation.
+	controllerConn, _ := net.Pipe()
+	sshdConn, _ := net.Pipe()
+
+	// dialed is closed once the tunnel is fully established (both conns
+	// dialled), so the test cancels only after the copies are in flight.
+	dialed := make(chan struct{})
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(controllerConn, nil)
+	s.dialer.EXPECT().DialLocalSSHD(gomock.Any()).DoAndReturn(func(context.Context) (net.Conn, error) {
+		close(dialed)
+		return sshdConn, nil
+	})
+
+	// RemoveEphemeralKey firing proves the handler drained after the conns were
+	// torn down by the cancellation path.
+	handled := make(chan struct{})
+	s.keysUpdater.EXPECT().RemoveEphemeralKey(gomock.Any()).DoAndReturn(func(gossh.PublicKey) error {
+		close(handled)
+		return nil
+	})
+
+	changes := make(chan []string)
+	worker, _ := s.startWorker(c, "0", changes)
+	defer workertest.DirtyKill(c, worker)
+
+	select {
+	case changes <- []string{"tunnel-0"}:
+	case <-time.After(testhelpers.LongWait):
+		c.Fatal("timed out sending change")
+	}
+
+	// Wait until the tunnel is established (both conns dialled) before
+	// cancelling, so we exercise the cancellation teardown rather than a race
+	// during setup.
+	select {
+	case <-dialed:
+	case <-time.After(testhelpers.LongWait):
+		c.Fatal("timed out waiting for tunnel to be established")
+	}
+
+	// Killing the worker cancels the handler context, which must close both
+	// conns, unblock the copies and complete the handler.
+	worker.Kill()
+
+	select {
+	case <-handled:
+	case <-time.After(testhelpers.LongWait):
+		c.Fatal("connections not torn down on cancellation")
+	}
+
+	// The worker's side of both conns must be closed.
+	_ = controllerConn.SetReadDeadline(time.Now().Add(testhelpers.ShortWait))
+	_, err := controllerConn.Read(make([]byte, 1))
+	c.Check(err, tc.NotNil)
+
+	workertest.CleanKill(c, worker)
+}
+
 func (s *workerSuite) TestSkipsRequestForOtherMachine(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
