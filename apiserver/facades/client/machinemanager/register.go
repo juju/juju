@@ -17,7 +17,15 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("MachineManager", 11, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		api, err := makeFacadeV11(stdCtx, ctx)
+		api, err := makeFacade(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("cannot register machine manager facade: %w", err)
+		}
+		return api, nil
+	}, reflect.TypeFor[*MachineManagerAPI]())
+
+	registry.MustRegister("MachineManager", 12, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		api, err := makeFacade(stdCtx, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("cannot register machine manager facade: %w", err)
 		}
@@ -25,9 +33,8 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeFor[*MachineManagerAPI]())
 }
 
-// makeMachineManagerFacadeV11 create a new server-side MachineManager API
-// facade. This is used for facade registration.
-func makeFacadeV11(stdCtx context.Context, ctx facade.ModelContext) (*MachineManagerAPI, error) {
+// makeFacade creates a new server-side MachineManager API facade.
+func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*MachineManagerAPI, error) {
 	// Check the the user is authenticated for this API before creating.
 	if !ctx.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm

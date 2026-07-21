@@ -365,6 +365,40 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(ctx context.Context, all 
 	return nil
 }
 
+// ReprovisionMachine reprovisions a machine whose backing cloud instance
+// is operator-declared lost.
+func (mm *MachineManagerAPI) ReprovisionMachine(ctx context.Context, args params.ReprovisionMachineArgs) (params.ErrorResult, error) {
+	if err := mm.authorizer.CanWrite(ctx); err != nil {
+		return params.ErrorResult{}, err
+	}
+
+	if err := mm.check.ChangeAllowed(ctx); err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+
+	machineTag, err := names.ParseMachineTag(args.MachineTag)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+
+	if args.Force {
+		mm.logger.Infof(ctx, "reprovisioning requested for machine %q", machineTag.Id())
+	} else {
+		mm.logger.Warningf(ctx, "reprovisioning of machine %q rejected: --force required", machineTag.Id())
+		return params.ErrorResult{
+			Error: apiservererrors.ServerError(errors.Errorf(
+				"--force is required; reprovisioning will lose root disk, ephemeral disk, " +
+					"charm-local state, and machine-scoped storage data",
+			)),
+		}, nil
+	}
+
+	// TODO(juju-9600): Full validation and transactional detach
+	// will be implemented in subsequent tasks (machine eligibility,
+	// agent and provider liveness gates, transactional detach).
+	return params.ErrorResult{}, nil
+}
+
 // DestroyMachineWithParams removes a set of machines from the model.
 func (mm *MachineManagerAPI) DestroyMachineWithParams(ctx context.Context, args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
 	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}

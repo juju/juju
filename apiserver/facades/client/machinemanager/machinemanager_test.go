@@ -738,3 +738,54 @@ func (s *ProvisioningMachineManagerSuite) TestRetryProvisioningAll(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(results, tc.DeepEquals, params.ErrorResults{})
 }
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachine(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.IsNil)
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineWithoutForce(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      false,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Message, tc.Matches, "--force is required.*")
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineInvalidTag(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "not-a-machine",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result.Error, tc.NotNil)
+	c.Check(result.Error.Message, tc.Matches, `"not-a-machine" is not a valid tag`)
+}
+
+func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineUnauthorised(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.authorizer.Tag = names.NewUserTag("bob")
+
+	_, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
+		MachineTag: "machine-0",
+		Force:      true,
+	})
+	c.Assert(err, tc.ErrorMatches, "permission denied")
+}
