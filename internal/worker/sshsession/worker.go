@@ -236,24 +236,53 @@ func (w *sshSessionWorker) handleConnectionInternal(ctx context.Context, tunnelI
 	}()
 
 	// Reverse-dial the originating controller for origin-controller affinity.
-	address := req.ControllerAddresses[0]
-	return w.pipeConnectionToSSHD(ctx, address, controllerSSHPort, req.Username, req.Password, controllerHostPublicKey)
+	// ControllerAddresses are all addresses of the single originating
+	// controller, prioritized best-first, so trying alternates on failure
+	// preserves affinity while adding route resilience.
+	controllerConn, err := w.dialController(ctx, req.ControllerAddresses, controllerSSHPort, req.Username, req.Password, controllerHostPublicKey)
+	if err != nil {
+		return errors.Errorf("dialling controller for request %q: %w", tunnelID, err)
+	}
+	return w.pipeConnectionToSSHD(ctx, controllerConn)
 }
 
-// pipeConnectionToSSHD reverse-dials the controller and pipes the tunnel to the
-// local sshd. It blocks until the connection finishes or the context is done.
-func (w *sshSessionWorker) pipeConnectionToSSHD(
+// dialController reverse-dials the originating controller, trying each address
+// in the supplied (prioritized) order and returning the first successful
+// connection. It stops early if the context is cancelled.
+func (w *sshSessionWorker) dialController(
 	ctx context.Context,
-	address string,
+	addresses []string,
 	port int,
 	username string,
 	password string,
 	hostPublicKey gossh.PublicKey,
-) error {
-	controllerConn, err := w.config.ConnectionDialer.DialController(ctx, address, port, username, password, hostPublicKey)
-	if err != nil {
-		return errors.Errorf("dialling controller %s:%d: %w", address, port, err)
+) (HalfCloseConn, error) {
+	var err error
+	for _, address := range addresses {
+		var conn HalfCloseConn
+		conn, err = w.config.ConnectionDialer.DialController(ctx, address, port, username, password, hostPublicKey)
+		if err == nil {
+			return conn, nil
+		}
+		w.config.Logger.Debugf(ctx, "dialling controller %s:%d failed, trying next address: %v", address, port, err)
+		// Stop trying alternates if the worker is shutting down.
+		if ctx.Err() != nil {
+			break
+		}
 	}
+	if err == nil {
+		err = errors.Errorf("no controller addresses to dial")
+	}
+	return nil, errors.Capture(err)
+}
+
+// pipeConnectionToSSHD dials the local sshd and pipes the supplied controller
+// tunnel to it. It takes ownership of controllerConn and closes it. It blocks
+// until the connection finishes or the context is done.
+func (w *sshSessionWorker) pipeConnectionToSSHD(
+	ctx context.Context,
+	controllerConn HalfCloseConn,
+) error {
 	defer func() { _ = controllerConn.Close() }()
 
 	sshdConn, err := w.config.ConnectionDialer.DialLocalSSHD(ctx)

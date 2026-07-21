@@ -20,6 +20,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/rpc/params"
@@ -171,6 +172,56 @@ func (s *workerSuite) TestHandlesRequestForOwnMachine(c *tc.C) {
 	case <-handled:
 	case <-time.After(testhelpers.LongWait):
 		c.Fatal("timed out waiting for request to be handled")
+	}
+
+	workertest.CleanKill(c, worker)
+}
+
+func (s *workerSuite) TestFallsBackToNextControllerAddress(c *tc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	req := params.SSHConnRequestResult{
+		MachineName:         "0",
+		ControllerAddresses: []string{"10.0.0.1", "10.0.0.2"},
+		Username:            "juju-reverse-tunnel",
+		Password:            "jwt",
+		EphemeralPublicKey:  newPublicKey(c),
+	}
+
+	handled := make(chan struct{})
+	s.facadeClient.EXPECT().GetSSHConnRequest(gomock.Any(), "tunnel-0").Return(req, nil)
+	s.keysUpdater.EXPECT().AddEphemeralKey(gomock.Any(), "tunnel-0").Return(nil)
+
+	controllerConn, controllerRemote := net.Pipe()
+	sshdConn, sshdRemote := net.Pipe()
+	// The first (preferred) address fails; the worker must fall back to the
+	// second address of the same controller.
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.1", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(nil, errors.Errorf("unreachable"))
+	s.dialer.EXPECT().DialController(gomock.Any(), "10.0.0.2", 2223, "juju-reverse-tunnel", "jwt", gomock.Any()).Return(newPipeHalfCloseConn(controllerConn), nil)
+	s.dialer.EXPECT().DialLocalSSHD(gomock.Any()).Return(newPipeHalfCloseConn(sshdConn), nil)
+	s.keysUpdater.EXPECT().RemoveEphemeralKey(gomock.Any()).DoAndReturn(func(gossh.PublicKey) error {
+		close(handled)
+		return nil
+	})
+
+	changes := make(chan []string)
+	worker, _ := s.startWorker(c, "0", changes)
+	defer workertest.DirtyKill(c, worker)
+
+	select {
+	case changes <- []string{"tunnel-0"}:
+	case <-time.After(testhelpers.LongWait):
+		c.Fatal("timed out sending change")
+	}
+
+	_ = controllerRemote.Close()
+	_ = sshdRemote.Close()
+
+	select {
+	case <-handled:
+	case <-time.After(testhelpers.LongWait):
+		c.Fatal("timed out waiting for request to be handled via fallback address")
 	}
 
 	workertest.CleanKill(c, worker)
