@@ -4,13 +4,10 @@
 package sshsession
 
 import (
-	"bufio"
 	"context"
 	"io"
 	"net"
-	"os"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,11 +27,6 @@ import (
 const (
 	// controllerDialTimeout bounds the reverse-dial to the controller.
 	controllerDialTimeout = 30 * time.Second
-	defaultSSHDPort       = "22"
-)
-
-var (
-	sshdConfigPaths = []string{"/etc/ssh/sshd_config", "/usr/share/openssh/sshd_config"}
 )
 
 // FacadeClient holds the facade methods required by the SSH session worker.
@@ -297,7 +289,7 @@ type connectionDialer struct {
 func newConnectionDialer(l logger.Logger) *connectionDialer {
 	return &connectionDialer{
 		logger:          l,
-		sshdConfigPaths: sshdConfigPaths,
+		sshdConfigPaths: coressh.DefaultSSHDConfigPaths,
 	}
 }
 
@@ -346,36 +338,16 @@ func (d *connectionDialer) DialLocalSSHD(ctx context.Context) (net.Conn, error) 
 
 // localSSHPort parses the local sshd_config files to find the port sshd is
 // listening on, trying each configured path. If it cannot be determined, it
-// logs the error and returns the default port 22.
+// logs the error and returns the default port.
 func (d *connectionDialer) localSSHPort(ctx context.Context) string {
-
 	for _, filePath := range d.sshdConfigPaths {
-		file, err := os.Open(filePath)
+		cfg, err := coressh.OpenSSHDConfig(filePath)
 		if err != nil {
-			d.logger.Errorf(ctx, "opening sshd_config file %q: %v", filePath, err)
+			d.logger.Errorf(ctx, "reading sshd_config file %q: %v", filePath, err)
 			continue
 		}
-		port := defaultSSHDPort
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			if strings.HasPrefix(line, "Port") {
-				fields := strings.Fields(line)
-				if len(fields) == 2 {
-					port = fields[1]
-				}
-				break
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			d.logger.Errorf(ctx, "reading sshd_config file %q: %v", filePath, err)
-		}
-		_ = file.Close()
-		return port
+		return cfg.Port()
 	}
 
-	return defaultSSHDPort
+	return coressh.DefaultSSHDPort
 }
