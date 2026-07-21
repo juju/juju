@@ -4,21 +4,38 @@
 package state
 
 import (
+	"context"
 	"testing"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
+	coredatabase "github.com/juju/juju/core/database"
 	corenetwork "github.com/juju/juju/core/network"
 	networkinternal "github.com/juju/juju/domain/network/internal"
 	relationerrors "github.com/juju/juju/domain/relation/errors"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
 type infoSuite struct {
 	linkLayerBaseSuite
 	relationCount int
+}
+
+type retryingTxnRunner struct {
+	coredatabase.TxnRunner
+}
+
+func (r retryingTxnRunner) Txn(
+	ctx context.Context, fn func(context.Context, *sqlair.TX) error,
+) error {
+	if err := r.TxnRunner.Txn(ctx, fn); err != nil {
+		return err
+	}
+	return r.TxnRunner.Txn(ctx, fn)
 }
 
 func TestInfoSuite(t *testing.T) {
@@ -453,6 +470,78 @@ WHERE uuid = ?
 		MACAddress: "00:11:22:33:44:66",
 		DeviceType: corenetwork.VirtualEthernetDevice,
 	}})
+}
+
+func (s *infoSuite) TestGetUnitFQDNsReturnsOrderedUnitFQDNs(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	otherNodeUUID := s.addNetNode(c)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+
+	s.addFQDNAddress(c, nodeUUID, "unit-0.example.test")
+	s.addFQDNAddress(c, nodeUUID, "a-unit-0.example.test")
+	s.addFQDNAddress(c, otherNodeUUID, "other.example.test")
+
+	fqdns, err := s.state.GetUnitFQDNs(c.Context(), string(unitUUID))
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fqdns, tc.DeepEquals, []string{
+		"a-unit-0.example.test",
+		"unit-0.example.test",
+	})
+}
+
+func (s *infoSuite) TestGetUnitFQDNsNoFQDNs(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+	fqdns, err := s.state.GetUnitFQDNs(c.Context(), string(unitUUID))
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(fqdns, tc.HasLen, 0)
+}
+
+func (s *infoSuite) TestUnitNetworkQueriesResetResultsOnTransactionRetry(c *tc.C) {
+	nodeUUID := s.addNetNode(c)
+	deviceUUID := s.addLinkLayerDevice(
+		c, nodeUUID, "eth0", "00:11:22:33:44:55", corenetwork.EthernetDevice,
+	)
+	spaceUUID := corenetwork.AlphaSpaceId.String()
+	subnetUUID := s.addSubnet(c, "10.0.0.0/24", spaceUUID)
+	s.addIPAddressWithSubnetAndScope(
+		c, deviceUUID, nodeUUID, subnetUUID, "10.0.0.1", corenetwork.ScopeCloudLocal,
+	)
+	charmUUID := s.addCharm(c)
+	appUUID := s.addApplication(c, charmUUID, spaceUUID)
+	unitUUID := s.addUnit(c, appUUID, charmUUID, nodeUUID)
+	endpointName := "endpoint1"
+	s.addApplicationEndpoint(c, appUUID, charmUUID, endpointName, "")
+	s.addFQDNAddress(c, nodeUUID, "unit-0.example.test")
+
+	runner := retryingTxnRunner{TxnRunner: s.TxnRunner()}
+	state := NewState(
+		func(context.Context) (coredatabase.TxnRunner, error) { return runner, nil },
+		loggertesting.WrapCheckLog(c),
+	)
+	fqdns, err := state.GetUnitFQDNs(c.Context(), string(unitUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	info, err := state.GetUnitNetworkInfo(c.Context(), string(unitUUID))
+	c.Assert(err, tc.ErrorIsNil)
+	endpointInfos, err := state.GetUnitEndpointNetworkInfo(
+		c.Context(), string(unitUUID), []string{endpointName},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	c.Check(fqdns, tc.DeepEquals, []string{"unit-0.example.test"})
+	c.Check(info.Addresses, tc.HasLen, 1)
+	c.Check(info.IngressAddresses, tc.DeepEquals, []string{"10.0.0.1"})
+	c.Assert(endpointInfos, tc.HasLen, 1)
+	c.Check(endpointInfos[0].Addresses, tc.HasLen, 1)
+	c.Check(endpointInfos[0].IngressAddresses, tc.DeepEquals, []string{"10.0.0.1"})
 }
 
 func (s *infoSuite) TestGetUnitNetworkInfoPrioritisesPrimaryIngress(c *tc.C) {
