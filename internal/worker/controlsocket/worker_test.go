@@ -1094,6 +1094,8 @@ func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
 		Endpoint:  "https://example.com",
 		AccessKey: "foo",
 		SecretKey: "bar",
@@ -1107,7 +1109,7 @@ func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/s3-credentials",
-		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
+		body:       `{"bucket":"test-bucket","region":"us-east-1","endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
 		statusCode: http.StatusOK,
 		response:   ".*updated S3 credentials.*",
 	})

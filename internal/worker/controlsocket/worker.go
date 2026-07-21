@@ -308,6 +308,8 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	// with the following format:
 	//
 	// {
+	//   "bucket": <string>,
+	//   "region": <string>,
 	//   "endpoint": <string>,
 	//   "access_key": <string>,
 	//   "secret_key": <string>,
@@ -567,6 +569,8 @@ func (w *Worker) handleSetWorkloadTracingConfig(resp http.ResponseWriter, req *h
 }
 
 type s3CredentialsRequest struct {
+	Bucket    string `json:"bucket"`
+	Region    string `json:"region"`
 	Endpoint  string `json:"endpoint"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
@@ -593,6 +597,8 @@ func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Requ
 	}
 
 	if err := w.objectStoreService.TransitionBackendToS3(ctx, domainobjectstore.S3Credentials{
+		Bucket:    parsedBody.Bucket,
+		Region:    parsedBody.Region,
 		Endpoint:  parsedBody.Endpoint,
 		AccessKey: parsedBody.AccessKey,
 		SecretKey: parsedBody.SecretKey,
