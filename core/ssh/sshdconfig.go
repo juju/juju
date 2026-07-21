@@ -44,11 +44,13 @@ func ParseSSHDConfig(r io.Reader) (*SSHDConfig, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if strings.HasPrefix(line, "Port") {
-			fields := strings.Fields(line)
-			if len(fields) == 2 {
-				cfg.port = fields[1]
-			}
+		// Match the Port directive exactly (fields[0] == "Port") rather than by
+		// prefix, so directives like PortForwarding do not match. A malformed
+		// Port line (no value, or extra tokens) is ignored, falling back to the
+		// default; the scan continues so a later valid Port line is still found.
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[0] == "Port" {
+			cfg.port = fields[1]
 			break
 		}
 	}

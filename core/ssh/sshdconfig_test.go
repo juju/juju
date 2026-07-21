@@ -57,6 +57,10 @@ func (s *sshdConfigSuite) TestParseSSHDConfigPort(c *tc.C) {
 		input: "Port 2222 extra\n",
 		want:  DefaultSSHDPort,
 	}, {
+		name:  "port-prefixed directive does not match and does not abort scan",
+		input: "PortForwarding no\nPort 2222\n",
+		want:  "2222",
+	}, {
 		name:  "empty input",
 		input: "",
 		want:  DefaultSSHDPort,
