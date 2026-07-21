@@ -206,9 +206,17 @@ FROM   machine
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
+	// Synthetic cross-model-relation units/applications use a CMR-source charm
+	// (charm_source.source_id = 2) and run no agent, so they must be excluded
+	// from the set of agents expected to report during migration - otherwise an
+	// active CMR leaves the phase waiting forever for a report that never comes
+	// ("N succeeded, 1 still to report"). Same charm-source filter as
+	// juju/juju#22927.
 	unitStmt, err := s.Prepare(`
 SELECT &agentName.name
-FROM   unit
+FROM   unit AS u
+JOIN   charm AS c ON c.uuid = u.charm_uuid
+WHERE  c.source_id < 2
 `, agentName{})
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
@@ -217,6 +225,8 @@ FROM   unit
 SELECT &agentName.name
 FROM   application AS a
 JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  c.source_id < 2
 `, agentName{})
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)

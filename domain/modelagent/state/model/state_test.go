@@ -653,6 +653,42 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionAllUptoDate(c *tc.C) {
 	c.Check(len(list), tc.Equals, 0)
 }
 
+// TestUnitsNotAtTargetAgentVersionExcludesRemoteUnits verifies that synthetic
+// cross-model-relation units are never reported as lagging. Such units use a
+// CMR-source charm (charm_source.source_id = 2) and run no agent, so without the
+// charm-source filter they would be caught by the "unit has no reported version"
+// arm of the query - which made the migration precheck fail on any model with an
+// active CMR. See juju/juju#22927.
+func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionExcludesRemoteUnits(c *tc.C) {
+	// A real, unreported unit is still reported.
+	s.createTestingApplicationWithName(c, "foo")
+	s.createTestingUnitForApplication(c, "foo")
+
+	// A synthetic remote application and its agentless unit must be excluded.
+	// Mark the charm as CMR source after adding the unit (the application state
+	// rejects adding units to synthetic apps).
+	remoteAppUUID := s.createTestingApplicationWithName(c, "remote-app")
+	s.createTestingUnitForApplication(c, "remote-app")
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm
+SET source_id = 2, architecture_id = NULL
+WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)`,
+			remoteAppUUID.String())
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.setModelTargetAgentVersion(c, "4.1.0")
+
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(list, tc.DeepEquals, []coreunit.Name{
+		coreunit.Name("foo/0"),
+	})
+}
+
 // TestGetMachinesAgentBinaryMetadataNoMachines is testing that if the model
 // has no machines we get back an empty list of machine agent binary metadata.
 func (s *modelStateSuite) TestGetMachinesAgentBinaryMetadataNoMachines(c *tc.C) {
