@@ -839,6 +839,12 @@ type RetryProvisioningArgs struct {
 	All      bool     `json:"all"`
 }
 
+// ReprovisionMachineArgs holds args for reprovisioning a machine.
+type ReprovisionMachineArgs struct {
+	MachineTag string `json:"machine-tag"`
+	Force      bool   `json:"force"`
+}
+
 // ProvisioningNetworkTopology holds a network topology that is based on
 // positive machine space constraints.
 // This is used for creating NICs on instances where the provider is not space
