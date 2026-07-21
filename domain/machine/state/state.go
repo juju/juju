@@ -395,6 +395,64 @@ GROUP BY   m.uuid
 	return result.LifeID, result.IsManual > 0, nil
 }
 
+// CheckMachineReprovisioningEligibility checks whether the machine identified
+// by name is eligible for reprovisioning. It queries life, controller status,
+// manual-provision status, and child-container presence in a single round-trip.
+// It returns a [machineerrors.MachineNotFound] if the machine doesn't exist.
+func (st *State) CheckMachineReprovisioningEligibility(ctx context.Context, mName machine.Name) error {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	machineNameParam := machineName{Name: mName.String()}
+	query := `
+SELECT     m.life_id AS &reprovisionEligibility.life_id,
+           COUNT(mic.machine_uuid) AS &reprovisionEligibility.is_controller,
+           COUNT(mm.machine_uuid) AS &reprovisionEligibility.is_manual,
+           COUNT(mp.machine_uuid) AS &reprovisionEligibility.has_containers
+FROM       machine AS m
+LEFT JOIN  v_machine_is_controller AS mic ON m.uuid = mic.machine_uuid
+LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
+LEFT JOIN  machine_parent AS mp ON m.uuid = mp.parent_uuid
+WHERE      m.name = $machineName.name
+GROUP BY   m.uuid
+`
+	queryStmt, err := st.Prepare(query, machineNameParam, reprovisionEligibility{})
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	var result reprovisionEligibility
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return errors.Errorf("checking reprovisioning eligibility for machine %q: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Errorf("checking reprovisioning eligibility for machine %q: %w", mName, err)
+	}
+
+	if result.LifeID != life.Alive {
+		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineNotAlive)
+	}
+	if result.IsController > 0 {
+		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineIsController)
+	}
+	if result.IsManual > 0 {
+		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineIsManual)
+	}
+	if result.HasContainers > 0 {
+		return errors.Errorf("machine %q: %w", mName, machineerrors.MachineHasChildContainers)
+	}
+	return nil
+}
+
 func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (entityUUID, error) {
 	machineNameParam := machineName{Name: mName.String()}
 	machineUUIDOutput := entityUUID{}
