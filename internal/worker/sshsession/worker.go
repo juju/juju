@@ -6,10 +6,10 @@ package sshsession
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -315,7 +315,7 @@ func (d *connectionDialer) DialController(
 		Timeout:         controllerDialTimeout,
 	}
 
-	client, err := gossh.Dial("tcp", fmt.Sprintf("%s:%d", address, port), sshConfig)
+	client, err := gossh.Dial("tcp", net.JoinHostPort(address, strconv.Itoa(port)), sshConfig)
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
