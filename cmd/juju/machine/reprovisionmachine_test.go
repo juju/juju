@@ -88,10 +88,8 @@ func (s *reprovisionMachineSuite) TestSuccess(c *tc.C) {
 func (s *reprovisionMachineSuite) TestAPIError(c *tc.C) {
 	s.fake.machineErr = &params.Error{Message: "API error message"}
 	command := machine.NewReprovisionMachineCommandForTest(s.fake)
-	ctx, err := cmdtesting.RunCommand(c, command, "0", "--force")
-	c.Check(err, tc.ErrorIsNil)
-	stderr := cmdtesting.Stderr(ctx)
-	c.Check(strings.TrimSpace(stderr), tc.Equals, "API error message")
+	_, err := cmdtesting.RunCommand(c, command, "0", "--force")
+	c.Check(err, tc.ErrorMatches, "API error message")
 }
 
 func (s *reprovisionMachineSuite) TestBlockedError(c *tc.C) {

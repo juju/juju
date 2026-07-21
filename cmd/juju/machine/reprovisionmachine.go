@@ -128,8 +128,7 @@ func (c *reprovisionMachineCommand) Run(ctx *cmd.Context) error {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}
 	if result.Error != nil {
-		fmt.Fprintf(ctx.Stderr, "%v\n", result.Error)
-		return nil
+		return result.Error
 	}
 
 	fmt.Fprintf(ctx.Stdout, "reprovisioning machine %s\n", c.machine)
