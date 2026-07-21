@@ -863,6 +863,148 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *tc.C) {
 	))
 }
 
+// validationActivationCalls are the VALIDATION-phase calls up to and including
+// a single target Activate attempt.
+func (s *Suite) validationActivationCalls() []testhelpers.StubCall {
+	return []testhelpers.StubCall{
+		{FuncName: "controllerConfigService.ControllerConfig", Args: nil},
+		{FuncName: "modelMigrationService.WatchMinionReports", Args: nil},
+		{FuncName: "modelMigrationService.MinionReports", Args: nil},
+		apiOpenControllerCall,
+		checkMachinesCall,
+		{FuncName: "modelMigrationService.SourceControllerInfo", Args: nil},
+		activateCall,
+		apiCloseCall,
+	}
+}
+
+// driveWorkerAdvancingClock runs the worker and advances the test clock whenever
+// the worker waits (for an activation-retry backoff), until the worker exits;
+// it returns the worker's exit error. It lets the retry loop make progress under
+// the test clock.
+func (s *Suite) driveWorkerAdvancingClock(c *tc.C) error {
+	w, err := migrationmaster.New(s.config)
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	done := make(chan error, 1)
+	go func() { done <- w.Wait() }()
+	for {
+		select {
+		case werr := <-done:
+			return werr
+		case <-s.clock.Alarms():
+			// Advance past any activation-retry backoff (max 30s) so the next
+			// attempt fires.
+			s.clock.Advance(time.Minute)
+		case <-time.After(coretesting.LongWait):
+			c.Fatal("timed out waiting for worker to finish")
+			return nil
+		}
+	}
+}
+
+// assertNoTargetAbort asserts the wedge invariant: target Abort was never called.
+func (s *Suite) assertNoTargetAbort(c *tc.C) {
+	for _, call := range s.stub.Calls() {
+		c.Check(call.FuncName, tc.Not(tc.Equals), "MigrationTarget.Abort")
+	}
+}
+
+// TestVALIDATIONActivateAbortingAborts checks that when the target refuses
+// activation because abort cleanup is already underway (activation-aborting),
+// the source transitions to ABORT to join it.
+func (s *Suite) TestVALIDATIONActivateAbortingAborts(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.activateErr = &params.Error{
+		Code:    params.CodeActivationAborting,
+		Message: "cannot activate import: cleanup already in progress",
+	}
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		s.validationActivationCalls(),
+		abortCalls,
+	))
+}
+
+// TestVALIDATIONActivateIncompleteThenSucceeds checks that a transient
+// activation-incomplete failure (past the point of no return) is retried and,
+// when the retry succeeds, the migration proceeds without ever aborting.
+func (s *Suite) TestVALIDATIONActivateIncompleteThenSucceeds(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.SUCCESS))
+	// Fail the first activation attempt past the point of no return, then let the
+	// retry succeed.
+	s.connection.activateErrQueue = []error{&params.Error{
+		Code:    params.CodeActivationIncomplete,
+		Message: "model activation incomplete: clearing import gate: boom",
+	}}
+
+	err := s.driveWorkerAdvancingClock(c)
+	c.Check(errors.Cause(err), tc.Equals, migrationmaster.ErrMigrated)
+	s.assertNoTargetAbort(c)
+}
+
+// TestVALIDATIONActivateIncompleteNeverAborts is the core wedge regression: when
+// activation keeps failing past the point of no return, the model may be live on
+// the target, so the source must never drive abort. The worker retries, exhausts
+// its per-invocation budget, exits with a retryable error, and never calls target
+// Abort.
+func (s *Suite) TestVALIDATIONActivateIncompleteNeverAborts(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.activateErr = &params.Error{
+		Code:    params.CodeActivationIncomplete,
+		Message: "model activation incomplete: reconciling offerer controllers: boom",
+	}
+
+	err := s.driveWorkerAdvancingClock(c)
+	c.Check(err, tc.ErrorMatches, ".*activation incomplete.*")
+	s.assertNoTargetAbort(c)
+}
+
+// TestVALIDATIONActivateTransportErrorNeverAborts checks the lost-reply case: a
+// transport-level failure (no structured server reply) is indistinguishable from
+// a completed activation whose reply was lost, so it is retried and never
+// aborted.
+func (s *Suite) TestVALIDATIONActivateTransportErrorNeverAborts(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.activateErr = errors.New("connection reset by peer")
+
+	err := s.driveWorkerAdvancingClock(c)
+	c.Check(err, tc.ErrorMatches, ".*connection reset by peer.*")
+	s.assertNoTargetAbort(c)
+}
+
+// TestVALIDATIONActivatePreFlightErrorAborts checks that a persistent definite
+// pre-point-of-no-return failure (a structured server error that is neither
+// activation-incomplete nor activation-aborting - the claim is still importing)
+// is safe to abort, and does so after the tolerated retry budget.
+func (s *Suite) TestVALIDATIONActivatePreFlightErrorAborts(c *tc.C) {
+	s.modelMigrationService.queueStatus(s.makeStatus(coremigration.VALIDATION))
+	s.modelMigrationService.queueMinionReports(makeMinionReports(coremigration.VALIDATION))
+	s.connection.activateErr = &params.Error{
+		Code:    params.CodeNotValid,
+		Message: "validating imported model: something is wrong",
+	}
+
+	err := s.driveWorkerAdvancingClock(c)
+	c.Check(errors.Cause(err), tc.Equals, migrationmaster.ErrInactive)
+	// The abort path was taken (a definite pre-point-of-no-return failure).
+	var sawAbort bool
+	for _, call := range s.stub.Calls() {
+		if call.FuncName == "MigrationTarget.Abort" {
+			sawAbort = true
+		}
+	}
+	c.Check(sawAbort, tc.IsTrue)
+}
+
 func (s *Suite) TestSUCCESSMinionWaitWatchError(c *tc.C) {
 	s.checkMinionWaitWatchError(c, coremigration.SUCCESS)
 }
@@ -1654,10 +1796,15 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 type stubConnection struct {
 	c *tc.C
 	api.Connection
-	stub          *testhelpers.Stub
-	prechecksErr  error
-	importErr     error
-	controllerTag names.ControllerTag
+	stub         *testhelpers.Stub
+	prechecksErr error
+	importErr    error
+	activateErr  error
+	// activateErrQueue supplies a distinct error (or nil) per Activate call,
+	// consumed front-to-back; once exhausted, activateErr is used. It lets a
+	// test drive the activation retry loop (e.g. fail once, then succeed).
+	activateErrQueue []error
+	controllerTag    names.ControllerTag
 
 	streamErr error
 	logStream *mockStream
@@ -1686,7 +1833,14 @@ func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, 
 			return c.prechecksErr
 		case "Import":
 			return c.importErr
-		case "Activate", "AdoptResources":
+		case "Activate":
+			if len(c.activateErrQueue) > 0 {
+				err := c.activateErrQueue[0]
+				c.activateErrQueue = c.activateErrQueue[1:]
+				return err
+			}
+			return c.activateErr
+		case "AdoptResources":
 			return nil
 		case "LatestLogTime":
 			responseTime := response.(*time.Time)

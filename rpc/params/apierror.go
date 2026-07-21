@@ -217,6 +217,18 @@ const (
 	CodeAppShouldNotHaveUnits      = "application should not have units"
 	CodeFatalLoginError            = "fatal login error"
 
+	// CodeActivationIncomplete indicates that a target-side model activation
+	// failed after crossing the point of no return (the import claim was moved
+	// to the activating phase). The migrated model may already be live on the
+	// target, so the source must retry/continue activation and must never drive
+	// abort. Emitted by the 4.1+ target.
+	CodeActivationIncomplete = "activation incomplete"
+
+	// CodeActivationAborting indicates that a target-side model activation was
+	// refused because the import claim is already in the aborting phase (target
+	// cleanup is underway).
+	CodeActivationAborting = "activation aborting"
+
 	//
 	// Tag based error
 	//
@@ -566,4 +578,19 @@ func IsCodeAppShouldNotHaveUnits(err error) bool {
 // error code.
 func IsCodeFatalLoginError(err error) bool {
 	return ErrCode(err) == CodeFatalLoginError
+}
+
+// IsCodeActivationIncomplete returns true if err carries the
+// ActivationIncomplete error code, meaning target-side activation failed after
+// crossing the point of no return and the source must retry activation rather
+// than abort.
+func IsCodeActivationIncomplete(err error) bool {
+	return ErrCode(err) == CodeActivationIncomplete
+}
+
+// IsCodeActivationAborting returns true if err carries the ActivationAborting
+// error code, meaning target-side activation was refused because abort cleanup
+// is already in progress.
+func IsCodeActivationAborting(err error) bool {
+	return ErrCode(err) == CodeActivationAborting
 }
