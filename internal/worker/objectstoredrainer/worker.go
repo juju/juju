@@ -440,10 +440,13 @@ func (w *Worker) activeRootBucketName(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", errors.Errorf("getting active object store backend: %w", err)
 	}
-	if backendInfo.Type == objectstore.S3Backend && backendInfo.Bucket != nil && *backendInfo.Bucket != "" {
-		return *backendInfo.Bucket, nil
+	if backendInfo.Type != objectstore.S3Backend {
+		return w.rootBucketName, nil
 	}
-	return w.rootBucketName, nil
+	if backendInfo.Bucket == nil || *backendInfo.Bucket == "" {
+		return "", errors.Errorf("empty S3 bucket").Add(coreerrors.NotValid)
+	}
+	return *backendInfo.Bucket, nil
 }
 
 // waitForDraining waits for all the draining workers to complete. It will

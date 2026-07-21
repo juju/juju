@@ -30,6 +30,8 @@ type serviceSuite struct {
 	watcherFactory *MockWatcherFactory
 }
 
+const testControllerUUID = "00000000-0000-4000-8000-000000000000"
+
 func TestServiceSuite(t *testing.T) {
 	tc.Run(t, &serviceSuite{})
 }
@@ -464,7 +466,7 @@ func (s *drainingServiceSuite) TestSetDrainingPhase(c *tc.C) {
 
 	s.state.EXPECT().TransitionDrainingPhase(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), newPhase).Return(nil)
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -475,7 +477,7 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseCompleted(c *tc.C) {
 
 	s.state.EXPECT().TransitionDrainingPhase(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), newPhase).Return(nil)
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -484,7 +486,7 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseInvalid(c *tc.C) {
 
 	phase := objectstore.Phase("invalid")
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), phase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).SetDrainingPhase(c.Context(), phase)
 	c.Assert(err, tc.ErrorMatches, "invalid phase \"invalid\"")
 }
 
@@ -495,7 +497,7 @@ func (s *drainingServiceSuite) TestSetDrainingPhaseError(c *tc.C) {
 
 	s.state.EXPECT().TransitionDrainingPhase(gomock.Any(), tc.Bind(tc.IsNonZeroUUID), newPhase).Return(errors.Errorf("boom"))
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).SetDrainingPhase(c.Context(), newPhase)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).SetDrainingPhase(c.Context(), newPhase)
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -510,7 +512,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhase(c *tc.C) {
 		Phase: phase.String(),
 	}, nil)
 
-	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	p, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(p, tc.Equals, phase)
 }
@@ -521,7 +523,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseNotFoundReturnsUnknown(c *tc.
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
 		Return(domainobjectstore.DrainingInfo{}, objectstoreerrors.ErrDrainingPhaseNotFound)
 
-	p, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	p, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(p, tc.Equals, objectstore.PhaseUnknown)
 }
@@ -532,7 +534,7 @@ func (s *drainingServiceSuite) TestGetDrainingPhaseError(c *tc.C) {
 	s.state.EXPECT().GetActiveDrainingInfo(gomock.Any()).
 		Return(domainobjectstore.DrainingInfo{}, errors.Errorf("boom"))
 
-	_, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetDrainingPhase(c.Context())
+	_, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetDrainingPhase(c.Context())
 	c.Assert(err, tc.ErrorMatches, `.*boom`)
 }
 
@@ -543,14 +545,14 @@ func (s *drainingServiceSuite) TestRemoveMetadata(c *tc.C) {
 
 	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).RemoveMetadata(c.Context(), key)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).RemoveMetadata(c.Context(), key)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *drainingServiceSuite) TestRemoveMetadataEmptyPath(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).RemoveMetadata(c.Context(), "")
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).RemoveMetadata(c.Context(), "")
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrEmptyPath)
 }
 
@@ -562,7 +564,7 @@ func (s *drainingServiceSuite) TestGetActiveObjectStoreBackend(c *tc.C) {
 		ObjectStoreType: "file",
 	}, nil)
 
-	info, err := NewWatchableDrainingService(s.state, s.watcherFactory).GetActiveObjectStoreBackend(c.Context())
+	info, err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).GetActiveObjectStoreBackend(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(info.Type, tc.Equals, objectstore.FileBackend)
 	c.Check(info.UUID, tc.Equals, objectstore.UUID("backend-uuid"))
@@ -621,7 +623,24 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3Success(c *tc.C) {
 
 	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), gomock.Any(), creds).Return(nil)
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *drainingServiceSuite) TestTransitionBackendToS3DefaultBucket(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	creds := domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+	expected := creds
+	expected.Bucket = "juju-" + testControllerUUID
+
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), gomock.Any(), expected).Return(nil)
+
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -634,16 +653,18 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3StateError(c *tc.C) {
 		SecretKey: "secret-key",
 	}
 
-	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), gomock.Any(), creds).Return(errors.New("boom"))
+	expected := creds
+	expected.Bucket = "juju-" + testControllerUUID
+	s.state.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any(), gomock.Any(), expected).Return(errors.New("boom"))
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), creds)
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorMatches, ".*boom.*")
 }
 
 func (s *drainingServiceSuite) TestTransitionBackendToS3MissingEndpoint(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
 	})
@@ -653,7 +674,7 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3MissingEndpoint(c *tc.C)
 func (s *drainingServiceSuite) TestTransitionBackendToS3InvalidBucket(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
 		Bucket:    "bad_bucket",
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
@@ -665,7 +686,7 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3InvalidBucket(c *tc.C) {
 func (s *drainingServiceSuite) TestTransitionBackendToS3MissingAccessKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
 		Endpoint:  "https://s3.example.com",
 		SecretKey: "secret-key",
 	})
@@ -675,7 +696,7 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3MissingAccessKey(c *tc.C
 func (s *drainingServiceSuite) TestTransitionBackendToS3MissingSecretKey(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 	})
@@ -685,7 +706,7 @@ func (s *drainingServiceSuite) TestTransitionBackendToS3MissingSecretKey(c *tc.C
 func (s *drainingServiceSuite) TestTransitionBackendToS3EmptyCredentials(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	err := NewWatchableDrainingService(s.state, s.watcherFactory).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{})
+	err := NewWatchableDrainingService(s.state, s.watcherFactory, testControllerUUID).TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{})
 	c.Assert(err, tc.ErrorMatches, ".*endpoint is required.*")
 }
 

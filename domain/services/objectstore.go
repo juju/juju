@@ -25,7 +25,8 @@ import (
 type ObjectStoreServices struct {
 	modelServiceFactoryBase
 
-	clock clock.Clock
+	clock          clock.Clock
+	controllerUUID string
 }
 
 // NewObjectStoreServices returns a new set of services for the usage of the
@@ -33,6 +34,7 @@ type ObjectStoreServices struct {
 func NewObjectStoreServices(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
+	controllerUUID string,
 	clock clock.Clock,
 	logger logger.Logger,
 ) *ObjectStoreServices {
@@ -44,7 +46,8 @@ func NewObjectStoreServices(
 			},
 			modelDB: modelDB,
 		},
-		clock: clock,
+		clock:          clock,
+		controllerUUID: controllerUUID,
 	}
 }
 
@@ -77,6 +80,7 @@ func (s *ObjectStoreServices) AgentObjectStore() *objectstoreservice.WatchableDr
 	return objectstoreservice.NewWatchableDrainingService(
 		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock),
 		s.controllerWatcherFactory("objectstore"),
+		s.controllerUUID,
 	)
 }
 

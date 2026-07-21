@@ -397,7 +397,10 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 			metadataService = w.cfg.ModelMetadataServiceGetter.ForModelUUID(modelUUID)
 		}
 
-		rootBucket := w.rootBucketName(backendInfo)
+		rootBucket, err := w.rootBucketName(backendInfo)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
@@ -442,11 +445,14 @@ func (w *objectStoreWorker) initObjectStore(ctx context.Context, namespace strin
 	return errors.Trace(err)
 }
 
-func (w *objectStoreWorker) rootBucketName(backendInfo objectstoreservice.BackendInfo) string {
-	if backendInfo.Type == objectstore.S3Backend && backendInfo.Bucket != nil && *backendInfo.Bucket != "" {
-		return *backendInfo.Bucket
+func (w *objectStoreWorker) rootBucketName(backendInfo objectstoreservice.BackendInfo) (string, error) {
+	if backendInfo.Type != objectstore.S3Backend {
+		return w.cfg.RootBucket, nil
 	}
-	return w.cfg.RootBucket
+	if backendInfo.Bucket == nil || *backendInfo.Bucket == "" {
+		return "", errors.NotValidf("empty S3 bucket")
+	}
+	return *backendInfo.Bucket, nil
 }
 
 // Report returns a map of internal state for the worker.
