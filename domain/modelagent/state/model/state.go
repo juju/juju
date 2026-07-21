@@ -815,10 +815,11 @@ FROM   unit
 	return rval, nil
 }
 
-// GetUnitsNotAtTargetAgentVersion returns the list of units where
-// their agent version is not the same as the models target agent version or
-// who have no agent version reproted at all. If no units exist that match
-// this criteria an empty slice is returned.
+// GetUnitsNotAtTargetAgentVersion returns the list of non-synthetic units
+// where their agent version is not the same as the model's target agent
+// version or who have no agent version reported at all. Synthetic CMR units
+// are excluded because they do not run unit agents. If no units exist that
+// match this criteria an empty slice is returned.
 func (st *State) GetUnitsNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]coreunit.Name, error) {
@@ -828,14 +829,21 @@ func (st *State) GetUnitsNotAtTargetAgentVersion(
 	}
 
 	query := `
-SELECT &unitName.*
-FROM v_unit_target_agent_version
-WHERE version != target_version
-UNION
-SELECT name
-FROM unit
-WHERE uuid NOT IN (SELECT unit_uuid
-                   FROM v_unit_target_agent_version)
+WITH agent_units AS (
+    SELECT u.uuid AS unit_uuid,
+           u.name AS unit_name
+    FROM unit AS u
+    JOIN charm AS c ON c.uuid = u.charm_uuid
+    -- Don't include units from CMR charm source (source_id >= 2).
+    WHERE c.source_id < 2
+)
+SELECT au.unit_name AS &unitName.name
+FROM agent_units AS au
+LEFT JOIN v_unit_target_agent_version AS utav
+ON au.unit_uuid = utav.unit_uuid
+WHERE utav.unit_uuid IS NULL
+OR utav.version != utav.target_version
+ORDER BY au.unit_name
 `
 
 	queryStmt, err := st.Prepare(query, unitName{})

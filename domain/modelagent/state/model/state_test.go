@@ -619,6 +619,85 @@ func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionUnreported(c *tc.C) {
 	})
 }
 
+// TestUnitsNotAtTargetAgentVersionIgnoresSyntheticCMRUnits tests that
+// synthetic CMR units are excluded because they do not run unit agents.
+func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionIgnoresSyntheticCMRUnits(c *tc.C) {
+	s.createTestingApplicationWithName(c, "foo")
+	s.createTestingUnitForApplication(c, "foo")
+	unitUUID := s.createTestingUnitForApplication(c, "foo")
+
+	remoteAppUUID := s.createTestingApplicationWithName(c, "remote-app")
+	s.createTestingUnitForApplication(c, "remote-app")
+
+	// Convert the application to a synthetic CMR application after adding its
+	// unit. The application state rejects adding units to synthetic apps.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm
+SET source_id = 2, architecture_id = NULL
+WHERE uuid = (
+    SELECT charm_uuid
+    FROM application
+    WHERE uuid = ?
+)`, remoteAppUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.setModelTargetAgentVersion(c, "4.0.1")
+	s.setUnitAgentVersion(c, unitUUID, "4.0.1")
+
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(list, tc.DeepEquals, []coreunit.Name{
+		coreunit.Name("foo/0"),
+	})
+}
+
+// TestUnitsNotAtTargetAgentVersionIgnoresSyntheticCMRUnitsStaleVersion
+// tests that a synthetic CMR unit is excluded even when a stale agent
+// version is recorded for it. The charm source filter is applied in the CTE
+// before the join on the target agent version view, so no version state on a
+// CMR unit can make it appear in the list.
+func (s *modelStateSuite) TestUnitsNotAtTargetAgentVersionIgnoresSyntheticCMRUnitsStaleVersion(c *tc.C) {
+	s.createTestingApplicationWithName(c, "foo")
+	unitUUID := s.createTestingUnitForApplication(c, "foo")
+
+	remoteAppUUID := s.createTestingApplicationWithName(c, "remote-app")
+	remoteUnitUUID := s.createTestingUnitForApplication(c, "remote-app")
+
+	// Convert the application to a synthetic CMR application after adding its
+	// unit. The application state rejects adding units to synthetic apps.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm
+SET source_id = 2, architecture_id = NULL
+WHERE uuid = (
+    SELECT charm_uuid
+    FROM application
+    WHERE uuid = ?
+)`, remoteAppUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	s.setModelTargetAgentVersion(c, "4.1.0")
+	// Synthetic CMR units never report an agent version in practice, but
+	// record a stale one to prove the exclusion holds regardless of any
+	// recorded version state.
+	s.setUnitAgentVersion(c, remoteUnitUUID, "4.0.1")
+	// A normal unit behind the target version must still be reported.
+	s.setUnitAgentVersion(c, unitUUID, "4.0.1")
+
+	st := NewState(s.TxnRunnerFactory())
+	list, err := st.GetUnitsNotAtTargetAgentVersion(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(list, tc.DeepEquals, []coreunit.Name{
+		coreunit.Name("foo/0"),
+	})
+}
+
 // TestUnitsNotAtTargetAgentVersionFallingBehind is testing that when a
 // unit's agent version is behind that of the target for the model it is
 // reported in the list.

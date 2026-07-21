@@ -87,10 +87,11 @@ type ModelState interface {
 	// checks.
 	GetUnitsAgentBinaryMetadata(context.Context) (map[coreunit.Name]agentbinary.Metadata, error)
 
-	// GetUnitsNotAtTargetAgentVersion returns the list of units where their
-	// agent version is not the same as the models target agent version or who
-	// have no agent version reported at all. If no units exist that match the
-	// criteria an empty slice is returned.
+	// GetUnitsNotAtTargetAgentVersion returns the list of non-synthetic units
+	// where their agent version is not the same as the model's target agent
+	// version or who have no agent version reported at all. Synthetic CMR units
+	// are excluded because they do not run unit agents. If no units exist that
+	// match the criteria an empty slice is returned.
 	GetUnitsNotAtTargetAgentVersion(context.Context) ([]coreunit.Name, error)
 
 	// GetUnitRunningAgentBinaryVersion returns the running unit agent binary
@@ -478,9 +479,10 @@ func (s *Service) GetUnitsAgentBinaryMetadata(
 	return s.modelSt.GetUnitsAgentBinaryMetadata(ctx)
 }
 
-// GetUnitsNotAtTargetAgentVersion reports all of the units in the model that
-// are currently not at the desired target agent version. This also returns
-// units that have no reported agent version set. If all units are up to the
+// GetUnitsNotAtTargetAgentVersion reports all non-synthetic units in the
+// model that are currently not at the desired target agent version. This also
+// returns units that have no reported agent version set. Synthetic CMR units
+// are excluded because they do not run unit agents. If all units are up to the
 // target version or no units exist in the model a zero length slice is
 // returned.
 func (s *Service) GetUnitsNotAtTargetAgentVersion(
