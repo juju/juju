@@ -124,6 +124,16 @@ type machineLifeAndManual struct {
 	IsManual int64     `db:"is_manual"`
 }
 
+// reprovisionEligibility holds the results of a compressed eligibility check
+// for reprovisioning.
+type reprovisionEligibility struct {
+	LifeID        life.Life `db:"life_id"`
+	IsContainer   int64     `db:"is_container"`
+	IsController  int64     `db:"is_controller"`
+	IsManual      int64     `db:"is_manual"`
+	HasContainers int64     `db:"has_containers"`
+}
+
 // instanceID represents the struct to be used for the instance_id column within
 // the sqlair statements in the machine domain.
 type instanceID struct {

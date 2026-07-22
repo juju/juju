@@ -39,6 +39,7 @@ type MockStateMockRecorder struct {
 	allMachineNamesExpects                                    []*gomock.Call1_2[context.Context, []machine.Name, error]
 	appliedLXDProfileNamesExpects                             []*gomock.Call2_2[context.Context, string, []string, error]
 	availabilityZoneExpects                                   []*gomock.Call2_2[context.Context, string, string, error]
+	checkMachineReprovisioningEligibilityExpects              []*gomock.Call2_1[context.Context, machine.Name, error]
 	clearMachineRebootExpects                                 []*gomock.Call2_1[context.Context, machine.UUID, error]
 	countMachinesInSpaceExpects                               []*gomock.Call2_2[context.Context, string, int64, error]
 	getAllProvisionedMachineInstanceIDExpects                 []*gomock.Call1_2[context.Context, map[machine.Name]string, error]
@@ -163,6 +164,24 @@ func (mr *MockStateMockRecorder) AvailabilityZone(arg0, arg1 any) *MockStateAvai
 
 // MockStateAvailabilityZoneCall is the typed call wrapper for AvailabilityZone.
 type MockStateAvailabilityZoneCall = gomock.Call2_2[context.Context, string, string, error]
+
+// CheckMachineReprovisioningEligibility mocks base method.
+func (m *MockState) CheckMachineReprovisioningEligibility(arg0 context.Context, arg1 machine.Name) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.checkMachineReprovisioningEligibilityExpects, m.ctrl, m, "CheckMachineReprovisioningEligibility", arg0, arg1)
+}
+
+// CheckMachineReprovisioningEligibility indicates an expected call of CheckMachineReprovisioningEligibility.
+func (mr *MockStateMockRecorder) CheckMachineReprovisioningEligibility(arg0, arg1 any) *MockStateCheckMachineReprovisioningEligibilityCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, machine.Name, error](mr.mock.ctrl.T, mr.mock, "CheckMachineReprovisioningEligibility", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
+	mr.checkMachineReprovisioningEligibilityExpects = append(mr.checkMachineReprovisioningEligibilityExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateCheckMachineReprovisioningEligibilityCall is the typed call wrapper for CheckMachineReprovisioningEligibility.
+type MockStateCheckMachineReprovisioningEligibilityCall = gomock.Call2_1[context.Context, machine.Name, error]
 
 // ClearMachineReboot mocks base method.
 func (m *MockState) ClearMachineReboot(ctx context.Context, uuid machine.UUID) error {

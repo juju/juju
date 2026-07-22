@@ -1044,6 +1044,65 @@ func (s *stateSuite) TestGetSSHHostKeysMachineNotFound(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
 }
 
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilitySuccess(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityNotFound(c *tc.C) {
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityNotAlive(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	s.runQuery(c, "UPDATE machine SET life_id = ? WHERE name = ?", life.Dying, machineName)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotAlive)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsController(c *tc.C) {
+	machineName := s.createApplicationWithUnitAndMachine(c, true, false)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsController)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsContainer(c *tc.C) {
+	_, childUUID := s.createContainer(c)
+
+	namesForUUIDs, err := s.state.GetNamesForUUIDs(c.Context(), []string{childUUID.String()})
+	c.Assert(err, tc.ErrorIsNil)
+	machineName := namesForUUIDs[childUUID]
+
+	err = s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsContainer)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsManual(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+
+	s.runQuery(c, "INSERT INTO machine_manual (machine_uuid) VALUES (?)", machineUUID)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsManual)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasChildContainers(c *tc.C) {
+	parentUUID, _ := s.createContainer(c)
+
+	namesForUUIDs, err := s.state.GetNamesForUUIDs(c.Context(), []string{parentUUID.String()})
+	c.Assert(err, tc.ErrorIsNil)
+	machineName := namesForUUIDs[parentUUID]
+
+	err = s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasChildContainers)
+}
+
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
