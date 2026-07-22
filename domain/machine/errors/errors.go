@@ -58,19 +58,17 @@ const (
 	// a machine cloud instance does not satisfy some given constraints.
 	MachineConstraintViolation = errors.ConstError("machine constraint violation")
 
-	// MachineIsContainer describes an error that occurs when attempting
-	// to reprovision a container machine.
+	// MachineIsContainer is an error when a machine is a container type.
 	MachineIsContainer = errors.ConstError("machine is a container")
 
-	// MachineIsController describes an error that occurs when attempting
-	// to reprovision a controller machine.
+	// MachineIsController is an error when the machine is a controller machine.
 	MachineIsController = errors.ConstError("machine is a controller machine")
 
-	// MachineIsManual describes an error that occurs when attempting
-	// to reprovision a manually provisioned machine.
+	// MachineIsManual describes an error when the machine is manually
+	// provisioned.
 	MachineIsManual = errors.ConstError("machine is manually provisioned")
 
-	// MachineHasChildContainers describes an error that occurs when
-	// attempting to reprovision a machine that hosts child containers.
+	// MachineHasChildContainers describes an error when the machine has child
+	// containers.
 	MachineHasChildContainers = errors.ConstError("machine hosts child containers")
 )
