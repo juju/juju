@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/constraints"
@@ -195,6 +196,149 @@ func (s *providerServiceSuite) TestAddMachineContainer(c *tc.C) {
 	c.Check(res.MachineName, tc.Equals, machine.Name("0"))
 	c.Assert(res.ChildMachineName, tc.NotNil)
 	c.Check(*res.ChildMachineName, tc.Equals, machine.Name("0/lxd/0"))
+}
+
+// TestAddMachinePersistsMergedModelConstraints asserts that the constraints
+// persisted for a new machine are the model constraints merged with the
+// machine constraints, and not the raw machine constraints.
+func (s *providerServiceSuite) TestAddMachinePersistsMergedModelConstraints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		CpuCores: new(uint64(4)),
+		Mem:      new(uint64(1024)),
+	}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			CpuCores: new(uint64(4)),
+			Mem:      new(uint64(1024)),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	}).Return("netNodeUUID", []machine.Name{"name"}, nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
+}
+
+// TestAddMachineMachineConstraintsOverrideModelConstraints asserts that
+// machine constraints take precedence over model constraints when both are
+// persisted for a new machine.
+func (s *providerServiceSuite) TestAddMachineMachineConstraintsOverrideModelConstraints(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		CpuCores: new(uint64(4)),
+		Mem:      new(uint64(1024)),
+	}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			CpuCores: new(uint64(4)),
+			Mem:      new(uint64(2048)),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	}).Return("netNodeUUID", []machine.Name{"name"}, nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			Mem: new(uint64(2048)),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
+}
+
+// TestAddMachineModelContainerConstraintCleared asserts that a container
+// constraint coming from the model constraints is never persisted on the
+// machine row. Machine constraints do not use a container constraint value.
+func (s *providerServiceSuite) TestAddMachineModelContainerConstraintCleared(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{
+		Container: new(instance.LXD),
+		CpuCores:  new(uint64(4)),
+	}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			CpuCores: new(uint64(4)),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	}).Return("netNodeUUID", []machine.Name{"name"}, nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
+}
+
+// TestAddMachineMachineContainerConstraintCleared asserts that a container
+// constraint coming from the machine constraints is never persisted on the
+// machine row. Machine constraints do not use a container constraint value,
+// so it is cleared regardless of its source.
+func (s *providerServiceSuite) TestAddMachineMachineContainerConstraintCleared(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetModelConstraints(gomock.Any()).Return(constraints.Constraints{}, nil)
+	s.provider.EXPECT().ConstraintsValidator(gomock.Any()).Return(coreconstraints.NewValidator(), nil)
+	s.provider.EXPECT().PrecheckInstance(gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().AddMachine(gomock.Any(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			CpuCores: new(uint64(4)),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	}).Return("netNodeUUID", []machine.Name{"name"}, nil)
+
+	s.expectCreateMachineStatusHistory(c, machine.Name("name"))
+
+	res, err := s.service.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Constraints: constraints.Constraints{
+			Container: new(instance.LXD),
+			CpuCores:  new(uint64(4)),
+		},
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "22.04",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(res.MachineName, tc.Equals, machine.Name("name"))
 }
 
 // TestAddMachineError asserts that an error coming from the state layer is

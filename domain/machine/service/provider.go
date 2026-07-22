@@ -97,6 +97,12 @@ func (s *ProviderService) AddMachine(ctx context.Context, args domainmachine.Add
 		return AddMachineResults{}, errors.Errorf("prechecking instance for create machine: %w", err)
 	}
 
+	// Persist the merged constraints (model defaults with machine overrides)
+	// on the machine row, so that the provisioning path observes the
+	// effective constraints. This mirrors the application deployment path
+	// and the pre-4.0 behaviour.
+	args.Constraints = domainconstraints.DecodeConstraints(mergedCons)
+
 	_, machineNames, err := s.st.AddMachine(ctx, args)
 	if err != nil {
 		return AddMachineResults{}, errors.Capture(err)
@@ -126,8 +132,11 @@ func encodeOSType(ostype deployment.OSType) (string, error) {
 	}
 }
 
-// mergeMachineAndModelConstraints resolves given application constraints, taking
-// into account the model constraints
+// mergeMachineAndModelConstraints resolves given machine constraints, taking
+// into account the model constraints. Machine constraints take precedence
+// over model constraints. The returned value never has a Container
+// constraint set; machine constraints do not use a container constraint
+// value, so it is stripped from both inputs before merging.
 func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, cons domainconstraints.Constraints) (constraints.Value, error) {
 	validator, err := s.constraintsValidator(ctx)
 	if err != nil {
@@ -136,15 +145,30 @@ func (s *ProviderService) mergeMachineAndModelConstraints(ctx context.Context, c
 
 	modelCons, err := s.st.GetModelConstraints(ctx)
 	if err != nil && !errors.Is(err, modelerrors.ConstraintsNotFound) {
-		return constraints.Value{}, errors.Errorf("retrieving model constraints constraints: %w	", err)
+		return constraints.Value{}, errors.Errorf("retrieving model constraints: %w", err)
 	}
 
-	mergedCons, err := validator.Merge(domainconstraints.EncodeConstraints(modelCons), domainconstraints.EncodeConstraints(cons))
+	mergedCons, err := validator.Merge(
+		encodeMachineConstraints(modelCons),
+		encodeMachineConstraints(cons),
+	)
 	if err != nil {
-		return constraints.Value{}, errors.Errorf("merging application and model constraints: %w", err)
+		return constraints.Value{}, errors.Errorf("merging machine and model constraints: %w", err)
 	}
 
 	return mergedCons, nil
+}
+
+// encodeMachineConstraints encodes domain constraints into a constraints
+// value suitable for machines. Machine constraints do not use a container
+// constraint value: machine container placement and type are represented
+// separately from constraints. Container is therefore stripped before any
+// merge, so it can neither participate in merge or conflict behaviour nor
+// be persisted on the machine row.
+func encodeMachineConstraints(cons domainconstraints.Constraints) constraints.Value {
+	value := domainconstraints.EncodeConstraints(cons)
+	value.Container = nil
+	return value
 }
 
 // constraintsValidator queries the provider for a constraints validator.
