@@ -34,7 +34,7 @@ type Authenticator interface {
 	PublicKeyAuthentication(ssh.Context, ssh.PublicKey) (bool, error)
 	// PasswordAuthentication authenticates a jump SSH connection using a password.
 	// Returns true if the password is valid for the user.
-	// Handles auth for JIMM and reverse-tunnel connections.
+	// Handles auth for external-auth and reverse-tunnel connections.
 	PasswordAuthentication(ssh.Context, string) (bool, error)
 }
 

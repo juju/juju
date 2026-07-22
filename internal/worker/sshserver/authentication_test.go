@@ -43,7 +43,7 @@ func (s *authenticationSuite) TestPasswordAuthenticationRejectsUnexpectedUser(c 
 func (s *authenticationSuite) TestPasswordAuthenticationAcceptsJIMMJWT(c *tc.C) {
 	token, err := jwt.NewBuilder().Subject("alice").Build()
 	c.Assert(err, tc.ErrorIsNil)
-	ctx := &stubAuthenticationContext{user: jimmUser, values: map[any]any{}}
+	ctx := &stubAuthenticationContext{user: externalAuthUser, values: map[any]any{}}
 	parser := &stubJWTParser{token: token}
 
 	auth := authenticator{jwtParser: parser}
@@ -56,7 +56,7 @@ func (s *authenticationSuite) TestPasswordAuthenticationAcceptsJIMMJWT(c *tc.C) 
 }
 
 func (s *authenticationSuite) TestPasswordAuthenticationRejectsInvalidJIMMJWT(c *tc.C) {
-	ctx := &stubAuthenticationContext{user: jimmUser, values: map[any]any{}}
+	ctx := &stubAuthenticationContext{user: externalAuthUser, values: map[any]any{}}
 	parser := &stubJWTParser{err: errors.New("invalid token")}
 
 	auth := authenticator{
