@@ -394,6 +394,7 @@ func (st *State) getOfferDetails(ctx context.Context, tx *sqlair.TX) (offerDetai
 	stmt, err := st.Prepare(`
 SELECT &offerDetail.*
 FROM   v_offer_detail
+ORDER BY offer_name, endpoint_name
 `, offerDetail{})
 	if err != nil {
 		return nil, errors.Errorf("preparing offer detail query: %w", err)
@@ -416,6 +417,7 @@ func (st *State) getOfferDetailsForUUIDs(ctx context.Context, tx *sqlair.TX, off
 SELECT &offerDetail.*
 FROM   v_offer_detail
 WHERE  offer_uuid IN ($uuids[:])
+ORDER BY offer_name, endpoint_name
 `, offerDetail{}, uuids{})
 	if err != nil {
 		return nil, errors.Errorf("preparing offer detail for UUID query: %w", err)
@@ -442,6 +444,7 @@ AND    (application_description LIKE $offerFilter.application_description OR $of
 AND    (endpoint_name = $offerFilter.endpoint_name OR $offerFilter.endpoint_name = '')
 AND    (endpoint_role = $offerFilter.endpoint_role OR $offerFilter.endpoint_role = '')
 AND    (endpoint_interface = $offerFilter.endpoint_interface OR $offerFilter.endpoint_interface = '')
+ORDER BY offer_name, endpoint_name
 `, offerDetail{}, offerFilter{})
 	if err != nil {
 		return nil, errors.Errorf("preparing filtered offer detail query: %w", err)
@@ -558,6 +561,7 @@ SELECT ae.application_endpoint_uuid AS &uuid.uuid
 FROM   v_application_endpoint AS ae            
 WHERE  ae.application_uuid = $uuid.uuid
 AND    ae.endpoint_name IN ($dbStrings[:])
+ORDER BY ae.endpoint_name
 `, uuid{}, dbStrings{})
 	if err != nil {
 		return nil, errors.Errorf("preparing application endpoint query: %w", err)

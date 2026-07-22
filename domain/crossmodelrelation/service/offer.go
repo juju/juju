@@ -173,7 +173,9 @@ func (s *Service) CreateOffer(
 			args.OfferName, existingOffer.OfferUUID).Add(crossmodelrelationerrors.OfferAlreadyExists)
 	}
 
-	endpoints := slices.Collect(maps.Keys(args.Endpoints))
+	// Sort the endpoint names so offer creation is deterministic regardless
+	// of map iteration order.
+	endpoints := slices.Sorted(maps.Keys(args.Endpoints))
 
 	// Verify the application exists and is not dead before creating the offer,
 	// and that the application endpoints are valid.

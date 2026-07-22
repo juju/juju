@@ -235,6 +235,105 @@ func (s *modelOfferSuite) TestDeleteFailedOffer(c *tc.C) {
 	c.Check(s.readOfferEndpoints(c), tc.HasLen, 0)
 }
 
+func (s *modelOfferSuite) TestCreateOfferEndpointsInsertedInNameOrder(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relationAlpha := charm.Relation{
+		Name:      "alpha",
+		Role:      charm.RoleProvider,
+		Interface: "alpha",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationAlphaUUID := s.addCharmRelation(c, charmUUID, relationAlpha)
+	relationZed := charm.Relation{
+		Name:      "zed",
+		Role:      charm.RoleRequirer,
+		Interface: "zed",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationZedUUID := s.addCharmRelation(c, charmUUID, relationZed)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	appEndpointAlphaUUID := s.addApplicationEndpoint(c, appUUID, relationAlphaUUID)
+	appEndpointZedUUID := s.addApplicationEndpoint(c, appUUID, relationZedUUID)
+
+	args := crossmodelrelation.CreateOfferArgs{
+		UUID:            tc.Must(c, offer.NewUUID),
+		ApplicationUUID: appUUID.String(),
+		// Request the endpoints in reverse name order.
+		Endpoints: []string{relationZed.Name, relationAlpha.Name},
+		OfferName: "test-offer",
+	}
+
+	// Act
+	err := s.state.CreateOffer(c.Context(), args)
+
+	// Assert — the offer_endpoint rows are inserted in canonical endpoint
+	// name order, regardless of the requested order.
+	c.Assert(err, tc.ErrorIsNil)
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT endpoint_uuid FROM offer_endpoint ORDER BY rowid`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+	var obtained []string
+	for rows.Next() {
+		var endpointUUID string
+		c.Assert(rows.Scan(&endpointUUID), tc.ErrorIsNil)
+		obtained = append(obtained, endpointUUID)
+	}
+	c.Check(obtained, tc.DeepEquals, []string{appEndpointAlphaUUID, appEndpointZedUUID})
+}
+
+// TestGetOfferDetailsDeterministicOrder verifies that offers and their
+// endpoints are returned in canonical name order, regardless of insertion
+// order.
+func (s *modelOfferSuite) TestGetOfferDetailsDeterministicOrder(c *tc.C) {
+	// Arrange — create two offers on the same application, with names and
+	// endpoint associations in reverse canonical order.
+	charmUUID := s.addCharmWithReferenceName(c, "test-charm")
+	s.addCharmMetadataWithDescription(c, charmUUID, "testing application")
+	relationZed := charm.Relation{
+		Name:      "zed",
+		Role:      charm.RoleProvider,
+		Interface: "zed",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationZedUUID := s.addCharmRelation(c, charmUUID, relationZed)
+	relationAlpha := charm.Relation{
+		Name:      "alpha",
+		Role:      charm.RoleProvider,
+		Interface: "alpha",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationAlphaUUID := s.addCharmRelation(c, charmUUID, relationAlpha)
+
+	appUUID := s.addApplication(c, charmUUID, "test-application")
+	appEndpointZedUUID := s.addApplicationEndpoint(c, appUUID, relationZedUUID)
+	appEndpointAlphaUUID := s.addApplicationEndpoint(c, appUUID, relationAlphaUUID)
+
+	s.addOffer(c, "beta-offer", []string{appEndpointZedUUID, appEndpointAlphaUUID})
+	s.addOffer(c, "alpha-offer", []string{appEndpointZedUUID})
+
+	// Act
+	obtained, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{})
+
+	// Assert — offers are ordered by offer name, endpoints by endpoint name.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 2)
+	c.Check(obtained[0].OfferName, tc.Equals, "alpha-offer")
+	c.Check(obtained[1].OfferName, tc.Equals, "beta-offer")
+	endpointNames := func(endpoints []crossmodelrelation.OfferEndpoint) []string {
+		names := make([]string, len(endpoints))
+		for i, endpoint := range endpoints {
+			names[i] = endpoint.Name
+		}
+		return names
+	}
+	c.Check(endpointNames(obtained[0].Endpoints), tc.DeepEquals, []string{"zed"})
+	c.Check(endpointNames(obtained[1].Endpoints), tc.DeepEquals, []string{"alpha", "zed"})
+}
+
 // TestGetOfferDetailsFilterTwoOffersSameApplication creates two offers for the
 // same application and verifies that filtering by offer name and application
 // name returns only the targeted offer.
