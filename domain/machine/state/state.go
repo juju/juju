@@ -492,7 +492,7 @@ GROUP BY   m.uuid
 		return nil
 	})
 	if err != nil {
-		return false, errors.Errorf("checking machine %q agent presence: %w", mName, err)
+		return false, errors.Capture(err)
 	}
 	return result.Count > 0, nil
 }

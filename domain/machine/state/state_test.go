@@ -1123,6 +1123,7 @@ func (s *stateSuite) TestIsMachineAgentPresentAbsent(c *tc.C) {
 func (s *stateSuite) TestIsMachineAgentPresentNotFound(c *tc.C) {
 	_, err := s.state.IsMachineAgentPresent(c.Context(), "666")
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorMatches, "machine not found")
 }
 
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
