@@ -128,6 +128,7 @@ type machineLifeAndManual struct {
 // for reprovisioning.
 type reprovisionEligibility struct {
 	LifeID        life.Life `db:"life_id"`
+	IsContainer   int64     `db:"is_container"`
 	IsController  int64     `db:"is_controller"`
 	IsManual      int64     `db:"is_manual"`
 	HasContainers int64     `db:"has_containers"`

@@ -1072,6 +1072,17 @@ func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsController(c *tc
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsController)
 }
 
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsContainer(c *tc.C) {
+	_, childUUID := s.createContainer(c)
+
+	namesForUUIDs, err := s.state.GetNamesForUUIDs(c.Context(), []string{childUUID.String()})
+	c.Assert(err, tc.ErrorIsNil)
+	machineName := namesForUUIDs[childUUID]
+
+	err = s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineIsContainer)
+}
+
 func (s *stateSuite) TestCheckMachineReprovisioningEligibilityIsManual(c *tc.C) {
 	machineUUID, machineName := s.addMachine(c)
 

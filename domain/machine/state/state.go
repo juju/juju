@@ -408,10 +408,12 @@ func (st *State) CheckMachineReprovisioningEligibility(ctx context.Context, mNam
 	machineNameParam := machineName{Name: mName.String()}
 	query := `
 SELECT     m.life_id AS &reprovisionEligibility.life_id,
+           COUNT(mpc.machine_uuid) AS &reprovisionEligibility.is_container,
            COUNT(mic.machine_uuid) AS &reprovisionEligibility.is_controller,
            COUNT(mm.machine_uuid) AS &reprovisionEligibility.is_manual,
            COUNT(mp.machine_uuid) AS &reprovisionEligibility.has_containers
 FROM       machine AS m
+LEFT JOIN  machine_parent AS mpc ON m.uuid = mpc.machine_uuid
 LEFT JOIN  v_machine_is_controller AS mic ON m.uuid = mic.machine_uuid
 LEFT JOIN  machine_manual AS mm ON m.uuid = mm.machine_uuid
 LEFT JOIN  machine_parent AS mp ON m.uuid = mp.parent_uuid
@@ -440,6 +442,9 @@ GROUP BY   m.uuid
 
 	if result.LifeID != life.Alive {
 		return errors.Capture(machineerrors.MachineNotAlive)
+	}
+	if result.IsContainer > 0 {
+		return errors.Capture(machineerrors.MachineIsContainer)
 	}
 	if result.IsController > 0 {
 		return errors.Capture(machineerrors.MachineIsController)
