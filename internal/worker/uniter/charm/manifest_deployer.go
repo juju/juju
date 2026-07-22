@@ -71,6 +71,13 @@ func (d *manifestDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
+	// A charm archive controls its own member names, so validate them before
+	// they are stored: an unsafe entry would poison the manifest and direct
+	// later removals outside the charm directory.
+	manifest, err = validateManifest(manifest)
+	if err != nil {
+		return err
+	}
 	url := info.URL()
 	if err := d.storeManifest(url, manifest); err != nil {
 		return err
@@ -150,6 +157,13 @@ func (d *manifestDeployer) startDeploy() error {
 // removeDiff removes every path in oldManifest that is not present in newManifest.
 func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) error {
 	diff := oldManifest.Difference(newManifest)
+	// Manifests are validated when they are ingested, but re-validate the
+	// diff here so an unsafe entry can never direct os.RemoveAll outside the
+	// charm directory.
+	diff, err := validateManifest(diff)
+	if err != nil {
+		d.logger.Warningf("skipping removal of manifest entries: %v", err)
+	}
 	for _, path := range diff.SortedValues() {
 		fullPath := filepath.Join(d.charmPath, filepath.FromSlash(path))
 		if err := os.RemoveAll(fullPath); err != nil {
@@ -157,6 +171,29 @@ func (d *manifestDeployer) removeDiff(oldManifest, newManifest set.Strings) erro
 		}
 	}
 	return nil
+}
+
+// validateManifest returns the subset of manifest entries that are safe to
+// join onto the charm directory. A charm archive controls its own member
+// names, so an entry like "../../x" or an absolute path would reach outside
+// the charm directory, and an entry that cleans to "." would remove the charm
+// directory itself. Unsafe entries are dropped from the returned set and
+// reported in the error.
+func validateManifest(manifest set.Strings) (set.Strings, error) {
+	valid := set.NewStrings()
+	var invalid []string
+	for _, path := range manifest.SortedValues() {
+		relPath := filepath.FromSlash(path)
+		if !filepath.IsLocal(relPath) || filepath.Clean(relPath) == "." {
+			invalid = append(invalid, path)
+			continue
+		}
+		valid.Add(path)
+	}
+	if len(invalid) > 0 {
+		return valid, errors.Errorf("charm manifest contains unsafe paths %q", invalid)
+	}
+	return valid, nil
 }
 
 // finishDeploy persists the fact that we've finished deploying the staged bundle.
@@ -218,7 +255,14 @@ func (d *manifestDeployer) loadManifest(urlFilePath string) (string, set.Strings
 		d.logger.Warningf("manifest not found at %q: files from charm %q may be left unremoved", path, url)
 		err = nil
 	}
-	return url, set.NewStrings(manifest...), err
+	// Manifests are validated before they are stored, but one written by an
+	// older agent (or tampered with on disk) may still hold unsafe entries;
+	// drop them rather than fail, so the deploy can still proceed.
+	valid, invalidErr := validateManifest(set.NewStrings(manifest...))
+	if invalidErr != nil {
+		d.logger.Warningf("ignoring entries in stored manifest for charm %q: %v", url, invalidErr)
+	}
+	return url, valid, err
 }
 
 // CharmPath returns the supplied path joined to the ManifestDeployer's charm directory.
