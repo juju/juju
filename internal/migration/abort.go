@@ -145,7 +145,7 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 
 // WaitAbortFinalized blocks until the aborted model's import claim can be
 // finalized (the model database has been dropped by the undertaker and the
-// claim deleted), or the wait budget is exhausted. It is called on the facade
+// claim deleted), or the wait timeout occurs. It is called on the facade
 // Abort path so the model UUID is released before the RPC returns, matching the
 // synchronous abort behaviour of earlier Juju releases.
 //

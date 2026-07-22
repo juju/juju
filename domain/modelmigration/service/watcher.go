@@ -16,7 +16,7 @@ import (
 // contains model UUIDs initially and thereafter emits model UUIDs whose claim
 // was inserted, updated, or deleted. Consumers must re-query claim state,
 // since events can be coalesced.
-func (s *Service) WatchImportClaims(ctx context.Context) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchImportClaims(ctx context.Context) (watcher.StringsWatcher, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

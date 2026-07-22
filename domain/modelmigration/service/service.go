@@ -352,6 +352,15 @@ func NewImportService(controllerState ControllerState, logger logger.Logger) *Se
 	}
 }
 
+// WatchableService is a controller-scoped import [Service] extended with the
+// watchers the migration reconciler needs. It composes the base [Service] so
+// the non-watching claim methods (scan, finalize, ...) are shared, and adds the
+// changestream-backed watcher support on top.
+type WatchableService struct {
+	*Service
+	watcherFactory WatcherFactory
+}
+
 // NewWatchableImportService constructs a controller-scoped import service with
 // watcher support for the migration reconciler. The regular import path does
 // not need a changestream dependency and continues to use [NewImportService].
@@ -359,11 +368,10 @@ func NewWatchableImportService(
 	controllerState ControllerState,
 	watcherFactory WatcherFactory,
 	logger logger.Logger,
-) *Service {
-	return &Service{
-		controllerState: controllerState,
-		watcherFactory:  watcherFactory,
-		logger:          logger,
+) *WatchableService {
+	return &WatchableService{
+		Service:        NewImportService(controllerState, logger),
+		watcherFactory: watcherFactory,
 	}
 }
 

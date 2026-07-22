@@ -3,8 +3,8 @@
 
 package migrationreconciler
 
-// Package migrationreconciler provides a controller-scoped worker that completes
-// interrupted target-side migration import claims - both aborts and
+// Package migrationreconciler provides a controller-scoped worker that
+// completes interrupted target-side migration import claims - both aborts and
 // activations - that their driver (the source controller's migrationmaster) did
 // not finish, for example because the source controller went away or a process
 // restarted.

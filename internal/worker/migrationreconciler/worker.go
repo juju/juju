@@ -139,7 +139,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	runner, err := worker.NewRunner(worker.RunnerParams{
 		Name:          "migration-reconciler",
 		IsFatal:       func(error) bool { return false },
-		ShouldRestart: func(error) bool { return true },
+		ShouldRestart: internalworker.ShouldRunnerRestart,
 		RestartDelay:  restartDelay,
 		Clock:         config.Clock,
 		Logger:        internalworker.WrapLogger(config.Logger),
@@ -376,16 +376,17 @@ func (w *abortWorker) run() error {
 	ctx := w.tomb.Context(context.Background())
 
 	if err := w.abort(ctx, w.modelUUID); err != nil {
-		return errors.Errorf("re-driving abort compensation: %w", err)
+		return errors.Errorf("aborting model: %w", err)
 	}
 
 	if err := w.service.FinalizeAbortedImport(ctx, w.modelUUID); err != nil {
 		if errors.Is(err, modelmigrationerrors.ErrAbortNotFinalizable) {
-			// Not yet provable: the undertaker has not dropped the database.
-			// Return a non-fatal error so the runner restarts us after
-			// restartDelay.
+			// The claim can only be finalized once the undertaker's
+			// model-database deleter has dropped the model database. That drop
+			// happens out of band, so return a non-fatal error and let the
+			// runner restart us after restartDelay to re-check.
 			return errors.Errorf(
-				"abort finalization for model %q not yet provable: %w",
+				"waiting for undertaker to drop database for model %q before finalizing abort: %w",
 				w.modelUUID, err)
 		}
 		return errors.Errorf("finalizing aborted import: %w", err)
@@ -429,6 +430,9 @@ func newCompleteActivationWorker(
 
 func (w *completeActivationWorker) run() error {
 	ctx := w.tomb.Context(context.Background())
+	// activate is idempotent: it tolerates an already-activated model (the
+	// underlying finalization ignores AlreadyActivated) and an already-deleted
+	// claim, so re-driving a finished activation is a no-op that returns nil.
 	if err := w.activate(ctx, w.modelUUID); err != nil {
 		return errors.Errorf("completing activation for model %q: %w", w.modelUUID, err)
 	}
