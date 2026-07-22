@@ -286,6 +286,26 @@ func (s *stateSuite) TestInstanceIdError(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
 }
 
+func (s *stateSuite) TestInstanceIDByMachineNameSuccess(c *tc.C) {
+	_, machineName := s.ensureInstance(c)
+
+	instanceID, err := s.state.GetInstanceIDByMachineName(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(instanceID, tc.Equals, "123")
+}
+
+func (s *stateSuite) TestInstanceIDByMachineNameNotProvisioned(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	_, err := s.state.GetInstanceIDByMachineName(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.NotProvisioned)
+}
+
+func (s *stateSuite) TestInstanceIDByMachineNameNotFound(c *tc.C) {
+	_, err := s.state.GetInstanceIDByMachineName(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+}
+
 func (s *stateSuite) TestInstanceNameSuccess(c *tc.C) {
 	machineUUID, _ := s.ensureInstance(c)
 

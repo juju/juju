@@ -11,6 +11,7 @@ import (
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	networkerrors "github.com/juju/juju/domain/network/errors"
@@ -347,6 +348,48 @@ func (st *State) GetInstanceID(ctx context.Context, mUUID string) (string, error
 	}
 
 	return instanceId, nil
+}
+
+// GetInstanceIDByMachineName returns the cloud specific instance ID for the
+// machine identified by name. If the machine is not provisioned, it returns a
+// [machineerrors.NotProvisioned] error.
+func (st *State) GetInstanceIDByMachineName(ctx context.Context, mName machine.Name) (string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	machineNameParam := machineName{Name: mName.String()}
+	query := `
+SELECT     &instanceID.instance_id
+FROM       machine AS m
+LEFT JOIN  machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
+WHERE      m.name = $machineName.name
+`
+	queryStmt, err := st.Prepare(query, machineNameParam, instanceID{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var result instanceID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return errors.Errorf("querying instance for machine %q: %w", mName, err)
+		}
+		if result.ID == "" {
+			return errors.Errorf("getting machine instance id for %q: %w", mName, machineerrors.NotProvisioned)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	return result.ID, nil
 }
 
 func (st *State) getInstanceID(ctx context.Context, tx *sqlair.TX, mUUID string) (string, error) {
