@@ -291,10 +291,16 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(
 	}
 	defer func() { _ = sshdConn.Close() }()
 
+	// On context cancellation (worker shutdown), force both connections closed
+	// so the bidirectionalCopy below can unblock and this pipe handler can return.
 	stop := context.AfterFunc(ctx, func() {
 		_ = controllerConn.Close()
 		_ = sshdConn.Close()
 	})
+	// stop() deregisters the callback above. We defer our stop to allow the
+	// bidirectionalCopy to gracefully complete. If the context is cancelled whilst
+	// the copy is running, the above callback will execute and stop will return false
+	// (resulting in a no-op).
 	defer stop()
 
 	// Copy data in both directions between the controller tunnel and the local
