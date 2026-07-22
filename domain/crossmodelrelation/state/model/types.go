@@ -66,6 +66,14 @@ type consumeDetail struct {
 	EndpointLimit     int                `db:"capacity"`
 }
 
+// endpointDetail contains the name, role and interface of an application
+// endpoint.
+type endpointDetail struct {
+	Name      string             `db:"name"`
+	Role      charm.RelationRole `db:"role"`
+	Interface string             `db:"interface"`
+}
+
 // offerDetail contains the data necessary for create
 // OfferDetail structures
 type offerDetail struct {

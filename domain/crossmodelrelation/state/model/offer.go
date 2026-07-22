@@ -253,6 +253,7 @@ JOIN   application AS a ON ae.application_uuid = a.uuid
 JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN   charm_relation_role AS crr ON cr.role_id = crr.id
 WHERE  o.name = $name.name
+ORDER BY cr.name
 `, consumeDetail{}, name{})
 	if err != nil {
 		return empty, errors.Errorf("preparing consume detail query: %w", err)
@@ -282,6 +283,70 @@ WHERE  o.name = $name.name
 		ApplicationName: details[0].ApplicationName,
 		Endpoints:       endpoints,
 	}, nil
+}
+
+// GetApplicationEndpointDetails returns the name, role and interface of the
+// provided endpoints for the given application, ordered by endpoint name.
+// Returns applicationerrors.ApplicationNotFound if the application does not
+// exist. Returns an error satisfying
+// [crossmodelrelationerrors.MissingEndpoints] if any of the endpoints do not
+// exist on the application.
+func (st *State) GetApplicationEndpointDetails(
+	ctx context.Context,
+	applicationName string,
+	endpoints []string,
+) ([]crossmodelrelation.OfferEndpoint, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type names []string
+	stmt, err := st.Prepare(`
+SELECT cr.name      AS &endpointDetail.name,
+       crr.name     AS &endpointDetail.role,
+       cr.interface AS &endpointDetail.interface
+FROM   application_endpoint AS ae
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN   charm_relation_role AS crr ON cr.role_id = crr.id
+WHERE  ae.application_uuid = $uuid.uuid
+AND    cr.name IN ($names[:])
+ORDER BY cr.name
+`, endpointDetail{}, uuid{}, names{})
+	if err != nil {
+		return nil, errors.Errorf("preparing application endpoint details query: %w", err)
+	}
+
+	var details []endpointDetail
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		applicationUUID, _, err := st.getApplicationUUIDAndLife(ctx, tx, applicationName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmt, uuid{UUID: applicationUUID}, names(endpoints)).GetAll(&details)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%q: %w", strings.Join(endpoints, ","), applicationerrors.EndpointNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(details) != len(endpoints) {
+		return nil, errors.Errorf("not all endpoints found %q for application %q",
+			strings.Join(endpoints, ", "),
+			applicationName,
+		).Add(crossmodelrelationerrors.MissingEndpoints)
+	}
+
+	return transform.Slice(details, func(in endpointDetail) crossmodelrelation.OfferEndpoint {
+		return crossmodelrelation.OfferEndpoint{
+			Name:      in.Name,
+			Role:      in.Role,
+			Interface: in.Interface,
+		}
+	}), nil
 }
 
 // GetOfferDetails returns the OfferDetail of every offer in the model.

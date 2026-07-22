@@ -606,16 +606,17 @@ func (s *modelOfferSuite) TestGetConsumeDetails(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained.OfferUUID, tc.Equals, offerUUID.String())
 	c.Check(obtained.ApplicationName, tc.Equals, appName)
-	c.Check(obtained.Endpoints, tc.SameContents, []crossmodelrelation.OfferEndpoint{
+	// Endpoints are returned ordered by endpoint name.
+	c.Check(obtained.Endpoints, tc.DeepEquals, []crossmodelrelation.OfferEndpoint{
 		{
+			Name:      relationTwo.Name,
+			Role:      domaincharm.RoleProvider,
+			Interface: relationTwo.Interface,
+		}, {
 			Name:      relation.Name,
 			Role:      domaincharm.RoleProvider,
 			Interface: relation.Interface,
 			Limit:     4,
-		}, {
-			Name:      relationTwo.Name,
-			Role:      domaincharm.RoleProvider,
-			Interface: relationTwo.Interface,
 		},
 	})
 }
@@ -626,6 +627,101 @@ func (s *modelOfferSuite) TestGetConsumeDetailsNotFound(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetails(c *tc.C) {
+	// Arrange — insert the endpoints in reverse name order to verify the
+	// results are ordered by endpoint name.
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relationZed := charm.Relation{
+		Name:      "zed",
+		Role:      charm.RoleRequirer,
+		Interface: "zed",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationZedUUID := s.addCharmRelation(c, charmUUID, relationZed)
+	relationAlpha := charm.Relation{
+		Name:      "alpha",
+		Role:      charm.RoleProvider,
+		Interface: "alpha",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationAlphaUUID := s.addCharmRelation(c, charmUUID, relationAlpha)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationZedUUID)
+	s.addApplicationEndpoint(c, appUUID, relationAlphaUUID)
+
+	// Act
+	obtained, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), appName, []string{"zed", "alpha"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, []crossmodelrelation.OfferEndpoint{
+		{
+			Name:      relationAlpha.Name,
+			Role:      domaincharm.RoleProvider,
+			Interface: relationAlpha.Interface,
+		}, {
+			Name:      relationZed.Name,
+			Role:      domaincharm.RoleRequirer,
+			Interface: relationZed.Interface,
+		},
+	})
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetailsApplicationNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), "no-such-app", []string{"db"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetailsEndpointNotFound(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	appName := "test-application"
+	s.addApplication(c, charmUUID, appName)
+
+	// Act
+	_, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), appName, []string{"no-such-endpoint"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.EndpointNotFound)
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetailsMissingEndpoints(c *tc.C) {
+	// Arrange — request two endpoints but only one exists.
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+
+	// Act
+	_, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), appName, []string{"db", "missing-one"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.MissingEndpoints)
 }
 
 func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation.OfferDetail {

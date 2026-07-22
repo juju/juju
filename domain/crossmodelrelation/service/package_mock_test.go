@@ -144,6 +144,7 @@ type MockModelStateMockRecorder struct {
 	deleteFailedOfferExpects                                                    []*gomock.Call2_1[context.Context, offer.UUID, error]
 	ensureUnitsExistExpects                                                     []*gomock.Call3_1[context.Context, string, []string, error]
 	getAllOffererRelationUUIDsExpects                                           []*gomock.Call1_2[context.Context, []string, error]
+	getApplicationEndpointDetailsExpects                                        []*gomock.Call3_2[context.Context, string, []string, []crossmodelrelation.OfferEndpoint, error]
 	getApplicationNameAndUUIDByOfferUUIDExpects                                 []*gomock.Call2_3[context.Context, string, string, string, error]
 	getConsumeDetailsExpects                                                    []*gomock.Call2_2[context.Context, string, crossmodelrelation.ConsumeDetails, error]
 	getConsumerRelationUUIDsExpects                                             []*gomock.Call1V_2[context.Context, string, []string, error]
@@ -326,6 +327,24 @@ func (mr *MockModelStateMockRecorder) GetAllOffererRelationUUIDs(ctx any) *MockM
 
 // MockModelStateGetAllOffererRelationUUIDsCall is the typed call wrapper for GetAllOffererRelationUUIDs.
 type MockModelStateGetAllOffererRelationUUIDsCall = gomock.Call1_2[context.Context, []string, error]
+
+// GetApplicationEndpointDetails mocks base method.
+func (m *MockModelState) GetApplicationEndpointDetails(ctx context.Context, applicationName string, endpoints []string) ([]crossmodelrelation.OfferEndpoint, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch3_2(&m.recorder.getApplicationEndpointDetailsExpects, m.ctrl, m, "GetApplicationEndpointDetails", ctx, applicationName, endpoints)
+}
+
+// GetApplicationEndpointDetails indicates an expected call of GetApplicationEndpointDetails.
+func (mr *MockModelStateMockRecorder) GetApplicationEndpointDetails(ctx, applicationName, endpoints any) *MockModelStateGetApplicationEndpointDetailsCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall3_2[context.Context, string, []string, []crossmodelrelation.OfferEndpoint, error](mr.mock.ctrl.T, mr.mock, "GetApplicationEndpointDetails", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(applicationName), gomock.EnsureMatcher(endpoints))
+	mr.getApplicationEndpointDetailsExpects = append(mr.getApplicationEndpointDetailsExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateGetApplicationEndpointDetailsCall is the typed call wrapper for GetApplicationEndpointDetails.
+type MockModelStateGetApplicationEndpointDetailsCall = gomock.Call3_2[context.Context, string, []string, []crossmodelrelation.OfferEndpoint, error]
 
 // GetApplicationNameAndUUIDByOfferUUID mocks base method.
 func (m *MockModelState) GetApplicationNameAndUUIDByOfferUUID(ctx context.Context, offerUUID string) (string, string, error) {
