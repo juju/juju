@@ -4,7 +4,9 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -74,7 +76,9 @@ func main() {
 		fmt.Printf(`db.%s.update({"_id": "%s:%s"}, {$set: {"passwordhash": "%s"}})`+"\n",
 			collection, modelUUID, agent, hash)
 		if agentType == targetK8sApplicationAgent {
-			printK8sApplicationAgentHelp(*modelName, agent, passwd)
+			if err := printK8sApplicationAgentHelp(os.Stdout, *modelName, agent, passwd); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 }
@@ -99,13 +103,14 @@ func classifyTarget(target string) (targetType, string) {
 	return targetK8sApplicationAgent, "applications"
 }
 
-func printK8sApplicationAgentHelp(modelName, appName, password string) {
-	fmt.Printf("\nKubernetes application-agent recovery:\n")
-	fmt.Printf("1. Update the introduction secret for new pod init.\n")
-	fmt.Printf(
-		`kubectl -n %s patch secret %s-application-config --type merge -p '{"stringData":{"JUJU_K8S_APPLICATION_PASSWORD":"%s"}}'`+"\n",
-		modelName, appName, password,
-	)
-	fmt.Printf("2. Restart workload pods so init picks up the new secret.\n")
-	fmt.Printf(`kubectl -n %s delete pod -l app.kubernetes.io/name=%s`+"\n", modelName, appName)
+func printK8sApplicationAgentHelp(w io.Writer, modelName, appName, password string) error {
+	passwordBase64 := base64.StdEncoding.EncodeToString([]byte(password))
+	_, err := fmt.Fprintf(w, `
+Kubernetes application-agent recovery:
+1. Update the introduction secret for new pod init.
+kubectl -n %s patch secret %s-application-config --type merge -p '{"data":{"JUJU_K8S_APPLICATION_PASSWORD":"%s"}}'
+2. Restart workload pods so init picks up the new secret.
+kubectl -n %s delete pod -l app.kubernetes.io/name=%s
+`, modelName, appName, passwordBase64, modelName, appName)
+	return err
 }
