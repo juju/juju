@@ -229,8 +229,8 @@ func (st *State) GetOfferUUID(ctx context.Context, name string) (string, error) 
 	return offerUUID, err
 }
 
-// GetConsumeDetails returns the offer uuid and endpoints necessary to
-// consume the offer.
+// GetConsumeDetails returns the offer uuid, application name and endpoints
+// necessary to consume the offer.
 // Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
 func (st *State) GetConsumeDetails(
 	ctx context.Context,
@@ -244,6 +244,7 @@ func (st *State) GetConsumeDetails(
 
 	stmt, err := st.Prepare(`
 SELECT (o.uuid, cr.name, cr.interface, cr.capacity) AS (&consumeDetail.*),
+       a.name   AS &consumeDetail.application_name,
        crr.name AS &consumeDetail.role
 FROM   offer AS o
 JOIN   offer_endpoint AS oe ON o.uuid = oe.offer_uuid
@@ -277,8 +278,9 @@ WHERE  o.name = $name.name
 		}
 	})
 	return crossmodelrelation.ConsumeDetails{
-		OfferUUID: details[0].OfferUUID,
-		Endpoints: endpoints,
+		OfferUUID:       details[0].OfferUUID,
+		ApplicationName: details[0].ApplicationName,
+		Endpoints:       endpoints,
 	}, nil
 }
 

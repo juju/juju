@@ -59,6 +59,7 @@ type offerAndApplicationUUID struct {
 
 type consumeDetail struct {
 	OfferUUID         string             `db:"uuid"`
+	ApplicationName   string             `db:"application_name"`
 	EndpointName      string             `db:"name"`
 	EndpointRole      charm.RelationRole `db:"role"`
 	EndpointInterface string             `db:"interface"`

@@ -605,6 +605,7 @@ func (s *modelOfferSuite) TestGetConsumeDetails(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained.OfferUUID, tc.Equals, offerUUID.String())
+	c.Check(obtained.ApplicationName, tc.Equals, appName)
 	c.Check(obtained.Endpoints, tc.SameContents, []crossmodelrelation.OfferEndpoint{
 		{
 			Name:      relation.Name,
