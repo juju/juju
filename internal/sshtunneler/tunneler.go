@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coressh "github.com/juju/juju/core/ssh"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/ssh"
 	"github.com/juju/juju/internal/uuid"
@@ -27,11 +28,10 @@ var (
 )
 
 const (
-	reverseTunnelUser = "juju-reverse-tunnel"
-	tokenIssuer       = "sshtunneler"
-	tokenSubject      = "reverse-tunnel"
-	tunnelIDClaimKey  = "tunnelID"
-	defaultUser       = "ubuntu"
+	tokenIssuer      = "sshtunneler"
+	tokenSubject     = "reverse-tunnel"
+	tunnelIDClaimKey = "tunnelID"
+	defaultUser      = "ubuntu"
 )
 
 // ConnRequestState defines an interface to write SSH connection requests to
@@ -234,7 +234,7 @@ func (tt *Tracker) RequestTunnel(ctx context.Context, req RequestArgs) (*gossh.C
 		TunnelID:            tunnelID.String(),
 		MachineName:         req.MachineID,
 		Expires:             deadline,
-		SSHUsername:         reverseTunnelUser,
+		SSHUsername:         coressh.ReverseTunnelUser,
 		SSHPassword:         password,
 		ControllerAddresses: controllerAddresses,
 		UnitPort:            0, // Allow the unit worker to determine the port.
@@ -276,7 +276,7 @@ func (tt *Tracker) delete(tunnelID string) {
 // If the request is valid, the provided tunnelID should be
 // stored and provided alongside the network connection to PushTunnel.
 func (tt *Tracker) AuthenticateTunnel(username, password string) (tunnelID string, err error) {
-	if username != reverseTunnelUser {
+	if username != coressh.ReverseTunnelUser {
 		return "", errors.New("invalid username")
 	}
 

@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	coressh "github.com/juju/juju/core/ssh"
 	domainssh "github.com/juju/juju/domain/ssh"
 	"github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/testhelpers"
@@ -128,7 +129,7 @@ func (s *sshTunnelerSuite) TestTunneler(c *tc.C) {
 	}
 	c.Check(tunnels, tc.HasLen, 1)
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.SSHPassword)
+	tunnelID, err := tunnelTracker.AuthenticateTunnel(coressh.ReverseTunnelUser, sshConnArgs.SSHPassword)
 	c.Check(err, tc.ErrorIsNil)
 	c.Check(tunnelID, tc.Equals, tunnels[0])
 
@@ -207,7 +208,7 @@ func (s *sshTunnelerSuite) TestTunnelIsClosedWhenDialFails(c *tc.C) {
 		c.Error("timeout waiting for tunnel request to be processed")
 	}
 
-	tunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, sshConnArgs.SSHPassword)
+	tunnelID, err := tunnelTracker.AuthenticateTunnel(coressh.ReverseTunnelUser, sshConnArgs.SSHPassword)
 	c.Check(err, tc.ErrorIsNil)
 
 	ctx := c.Context()
@@ -248,7 +249,7 @@ func (s *sshTunnelerSuite) TestAuthenticateTunnel(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 
 	s.clock.EXPECT().Now().AnyTimes().Return(now)
-	authTunnelID, err := tunnelTracker.AuthenticateTunnel(reverseTunnelUser, token)
+	authTunnelID, err := tunnelTracker.AuthenticateTunnel(coressh.ReverseTunnelUser, token)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(authTunnelID, tc.Equals, tunnelID)
 }
