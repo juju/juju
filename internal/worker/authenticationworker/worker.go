@@ -25,6 +25,10 @@ import (
 // Override for testing.
 var SSHUser = "ubuntu"
 
+// authorizedKeysFile is the name of the ssh authorized_keys file that the
+// worker manages, relative to the user's .ssh directory.
+const authorizedKeysFile = "authorized_keys"
+
 var logger = internallogger.GetLogger("juju.worker.authenticationworker")
 
 // Client provides the key updater api client.
@@ -207,7 +211,15 @@ func (a *AuthWorker) loop() error {
 				return errors.New("change channel closed")
 			}
 			if err := a.handleModelKeyUpdate(ctx); err != nil {
-				return errors.Trace(err)
+				// A Kill cancels the catacomb context, which surfaces here as a
+				// cancelled-context error from the API call. Report that as a
+				// normal shutdown (ErrDying) rather than a worker failure.
+				select {
+				case <-a.catacomb.Dying():
+					return a.catacomb.ErrDying()
+				default:
+					return errors.Trace(err)
+				}
 			}
 		}
 	}
@@ -273,7 +285,10 @@ func (a *AuthWorker) handleEphemeralRequest(req ephemeralRequest) error {
 		return nil
 	case removeOp:
 		fingerprint := gossh.FingerprintLegacyMD5(req.key)
-		if err := ssh.DeleteKeys(SSHUser, fingerprint); err != nil {
+		// Use DeleteKeysFromFile rather than DeleteKeys: the latter refuses to
+		// remove the final key in the file, which would leave a torn-down
+		// tunnel's ephemeral key authorised until the worker restarts.
+		if err := ssh.DeleteKeysFromFile(SSHUser, authorizedKeysFile, []string{fingerprint}); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
