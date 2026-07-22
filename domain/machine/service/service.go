@@ -58,6 +58,10 @@ type State interface {
 	// GetInstanceID returns the cloud specific instance id for this machine.
 	GetInstanceID(context.Context, string) (string, error)
 
+	// GetInstanceIDByMachineName returns the cloud specific instance ID for the
+	// machine identified by name.
+	GetInstanceIDByMachineName(context.Context, machine.Name) (string, error)
+
 	// GetInstanceIDAndName returns the cloud specific instance ID and display name
 	// for this machine.
 	GetInstanceIDAndName(ctx context.Context, mUUID string) (string, string, error)
@@ -97,6 +101,10 @@ type State interface {
 	// single round-trip. It returns a sentinel error for each ineligible
 	// condition.
 	CheckMachineReprovisioningEligibility(context.Context, machine.Name) error
+
+	// IsMachineAgentPresent returns whether presence exists for the specified
+	// machine agent.
+	IsMachineAgentPresent(context.Context, machine.Name) (bool, error)
 
 	// ShouldKeepInstance reports whether a machine, when removed from Juju,
 	// should cause the corresponding cloud instance to be stopped.
@@ -314,30 +322,17 @@ func (s *Service) GetMachineLifeAndIsManuallyProvisioned(ctx context.Context, ma
 	return lifeVal, isManual, nil
 }
 
-// ReprovisionMachine validates that the machine identified by name is
-// eligible for reprovisioning and returns an error if it is not.
-// The machine must be alive, non-controller, non-manual, non-container,
-// must not host child containers, and must have a recorded provider
-// instance ID.
-func (s *Service) ReprovisionMachine(ctx context.Context, machineName machine.Name, force bool) error {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
-	defer span.End()
-
+func (s *Service) validateReprovisionMachine(ctx context.Context, machineName machine.Name) (instance.Id, error) {
 	if err := s.st.CheckMachineReprovisioningEligibility(ctx, machineName); err != nil {
-		return errors.Errorf("reprovisioning machine %q: %w", machineName, err)
+		return "", errors.Errorf("reprovisioning machine %q: %w", machineName, err)
 	}
 
-	machineUUID, err := s.st.GetMachineUUID(ctx, machineName)
+	instanceID, err := s.st.GetInstanceIDByMachineName(ctx, machineName)
 	if err != nil {
-		return errors.Errorf("getting UUID for machine %q: %w", machineName, err)
+		return "", errors.Errorf("machine %q: %w", machineName, err)
 	}
 
-	_, err = s.GetInstanceID(ctx, machineUUID)
-	if err != nil {
-		return errors.Errorf("machine %q: %w", machineName, err)
-	}
-
-	return nil
+	return instance.Id(instanceID), nil
 }
 
 // ShouldKeepInstance reports whether a machine, when removed from Juju, should cause
