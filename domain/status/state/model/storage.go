@@ -382,6 +382,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
               si.life_id,
               si.storage_kind_id,
               si.storage_name,
+              sv.persistent AS persistent,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,
               svs.message AS volume_status_message,
@@ -393,6 +394,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
     LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
     LEFT JOIN unit u ON suo.unit_uuid=u.uuid
     LEFT JOIN storage_instance_volume siv ON si.uuid=siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
     LEFT JOIN storage_volume_status svs ON siv.storage_volume_uuid=svs.volume_uuid
     LEFT JOIN storage_instance_filesystem sif ON si.uuid=sif.storage_instance_uuid
     LEFT JOIN storage_filesystem_status sfs ON sif.storage_filesystem_uuid=sfs.filesystem_uuid
@@ -436,7 +438,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
 			}
 		}
 		var volStatus status.StatusInfo[status.StorageVolumeStatusType]
-		if v.FilesystemStatusID.Valid {
+		if v.VolumeStatusID.Valid {
 			statusValue, err := status.DecodeStorageVolumeStatus(
 				v.VolumeStatusID.V)
 			if err != nil {
@@ -457,6 +459,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
 			Owner:            owner,
 			FilesystemStatus: fsStatus,
 			VolumeStatus:     volStatus,
+			Persistent:       v.Persistent.Valid && v.Persistent.Bool,
 		}, nil
 	})
 }
@@ -477,6 +480,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
               si.life_id,
               si.storage_kind_id,
               si.storage_name,
+              sv.persistent AS persistent,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,
               svs.message AS volume_status_message,
@@ -488,6 +492,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
     LEFT JOIN storage_unit_owner suo ON si.uuid=suo.storage_instance_uuid
     LEFT JOIN unit u ON suo.unit_uuid=u.uuid
     LEFT JOIN storage_instance_volume siv ON si.uuid=siv.storage_instance_uuid
+    LEFT JOIN storage_volume sv ON sv.uuid=siv.storage_volume_uuid
     LEFT JOIN storage_volume_status svs ON siv.storage_volume_uuid=svs.volume_uuid
     LEFT JOIN storage_instance_filesystem sif ON si.uuid=sif.storage_instance_uuid
     LEFT JOIN storage_filesystem_status sfs ON sif.storage_filesystem_uuid=sfs.filesystem_uuid
@@ -551,6 +556,7 @@ SELECT &storageInstanceStatusDetails.* FROM (
 			Owner:            owner,
 			FilesystemStatus: fsStatus,
 			VolumeStatus:     volStatus,
+			Persistent:       v.Persistent.Valid && v.Persistent.Bool,
 		}, nil
 	})
 }
