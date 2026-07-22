@@ -42,6 +42,16 @@ func (c *Client) Leader(ctx context.Context) (*dqlite.NodeInfo, error) {
 	return nil, nil
 }
 
+// Remove removes a node from the cluster.
+func (c *Client) Remove(context.Context, uint64) error {
+	return nil
+}
+
+// Close closes the client.
+func (c *Client) Close() error {
+	return nil
+}
+
 // FindLeader returns no leader and no error, as dqlite is not available.
 func FindLeader(ctx context.Context, store NodeStore, opts ...Option) (*Client, error) {
 	return nil, nil
