@@ -731,11 +731,12 @@ func (s *fullStatusSuite) TestProcessStorageLinksVolumeStorage(c *tc.C) {
 
 	s.statusService.EXPECT().GetAllStorageInstanceStatuses(gomock.Any()).Return(
 		[]service.StorageInstance{{
-			UUID:  storageUUID,
-			ID:    "pgdata/0",
-			Owner: &unitName,
-			Kind:  domainstorage.StorageKindBlock,
-			Life:  corelife.Alive,
+			UUID:       storageUUID,
+			ID:         "pgdata/0",
+			Owner:      &unitName,
+			Kind:       domainstorage.StorageKindBlock,
+			Persistent: true,
+			Life:       corelife.Alive,
 			Status: status.StatusInfo{
 				Status: status.Pending,
 				Since:  &storageSince,
@@ -755,7 +756,7 @@ func (s *fullStatusSuite) TestProcessStorageLinksVolumeStorage(c *tc.C) {
 			ID:         "0",
 			StorageID:  "pgdata/0",
 			Life:       corelife.Alive,
-			Persistent: true,
+			Persistent: false,
 			Status: status.StatusInfo{
 				Status: status.Attached,
 				Since:  &volumeSince,
@@ -786,9 +787,9 @@ func (s *fullStatusSuite) TestProcessStorageLinksVolumeStorage(c *tc.C) {
 	c.Assert(volumes[0].Storage, tc.NotNil)
 	c.Check(volumes[0].Storage.StorageTag, tc.Equals, "storage-pgdata-0")
 	c.Check(volumes[0].Storage.Status.Status, tc.Equals, status.Pending)
-	c.Check(volumes[0].Storage.Persistent, tc.IsFalse)
+	c.Check(volumes[0].Storage.Persistent, tc.IsTrue)
 	c.Check(storage[0].Status.Status, tc.Equals, status.Pending)
-	c.Check(storage[0].Persistent, tc.IsFalse)
+	c.Check(storage[0].Persistent, tc.IsTrue)
 
 	attachment := volumes[0].Storage.Attachments["unit-postgresql-0"]
 	c.Check(attachment.MachineTag, tc.Equals, "machine-0")

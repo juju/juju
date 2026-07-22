@@ -82,6 +82,7 @@ type StorageInstance struct {
 	Life             life.Life
 	FilesystemStatus StatusInfo[StorageFilesystemStatusType]
 	VolumeStatus     StatusInfo[StorageVolumeStatusType]
+	Persistent       bool
 }
 
 // StorageAttachment represents the status of a storage attachment.

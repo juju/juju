@@ -396,6 +396,51 @@ func (s *storageStatusSuite) NewModelState(c *tc.C) *ModelState {
 	return NewModelState(s.TxnRunnerFactory(), clock.WallClock, loggertesting.WrapCheckLog(c))
 }
 
+// TestGetStorageInstancesVolumeStatusWithoutFilesystem verifies that a
+// storage instance with a volume status but no filesystem status still
+// decodes its VolumeStatus correctly.
+func (s *storageStatusSuite) TestGetStorageInstancesVolumeStatusWithoutFilesystem(c *tc.C) {
+	ch0 := s.newCharm(c)
+	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
+
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	volUUID, _ := s.newVolumeWithStatus(c, status.StorageVolumeStatusTypeAttached)
+	s.newStorageInstanceVolume(c, s0, volUUID)
+
+	st := s.NewModelState(c)
+	instances, err := st.GetStorageInstances(c.Context(), []storage.StorageInstanceUUID{s0})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(instances, tc.HasLen, 1)
+	c.Check(instances[0].VolumeStatus.Status, tc.Equals, status.StorageVolumeStatusTypeAttached)
+}
+
+// TestGetStorageInstancesPersistent verifies that GetStorageInstances joins
+// storage_volume and returns Persistent=true for a block storage instance
+// backed by a volume with persistent=true.
+func (s *storageStatusSuite) TestGetStorageInstancesPersistent(c *tc.C) {
+	ch0 := s.newCharm(c)
+	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
+
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	volUUID, _ := s.newVolume(c)
+	s.newStorageInstanceVolume(c, s0, volUUID)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`UPDATE storage_volume SET persistent=true WHERE uuid=?`,
+		volUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := s.NewModelState(c)
+	instances, err := st.GetStorageInstances(c.Context(), []storage.StorageInstanceUUID{s0})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(instances, tc.HasLen, 1)
+	c.Check(instances[0].Persistent, tc.IsTrue)
+}
+
 func (s *storageStatusSuite) TestGetAllStorageInstancesEmpty(c *tc.C) {
 	st := s.NewModelState(c)
 	res, err := st.GetAllStorageInstances(c.Context())
@@ -442,6 +487,32 @@ func (s *storageStatusSuite) TestGetAllStorageInstances(c *tc.C) {
 			Kind:  storage.StorageKindFilesystem,
 		},
 	})
+}
+
+// TestGetAllStorageInstancesPersistent verifies that the state query joins
+// storage_volume and returns Persistent=true for a block storage instance
+// backed by a volume with persistent=true.
+func (s *storageStatusSuite) TestGetAllStorageInstancesPersistent(c *tc.C) {
+	ch0 := s.newCharm(c)
+	s.newCharmStorage(c, ch0, "blk", storage.StorageKindBlock)
+
+	blkPoolUUID := s.newStoragePool(c, "blkpool", "blkpool", nil)
+	s0, _ := s.newStorageInstance(c, ch0, "blk", blkPoolUUID, storage.StorageKindBlock)
+	volUUID, _ := s.newVolume(c)
+	s.newStorageInstanceVolume(c, s0, volUUID)
+
+	_, err := s.DB().ExecContext(
+		c.Context(),
+		`UPDATE storage_volume SET persistent=true WHERE uuid=?`,
+		volUUID.String(),
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := s.NewModelState(c)
+	res, err := st.GetAllStorageInstances(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(res, tc.HasLen, 1)
+	c.Check(res[0].Persistent, tc.IsTrue)
 }
 
 func (s *storageStatusSuite) TestGetAllStorageInstanceAttachmentsEmpty(c *tc.C) {
