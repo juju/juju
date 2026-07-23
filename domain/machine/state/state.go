@@ -458,6 +458,45 @@ GROUP BY   m.uuid
 	return nil
 }
 
+// IsMachineAgentPresent returns whether presence exists for the specified
+// machine agent. It returns a [machineerrors.MachineNotFound] if the machine
+// doesn't exist.
+func (st *State) IsMachineAgentPresent(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	machineNameParam := machineName{Name: mName.String()}
+	query := `
+SELECT     COUNT(mapr.machine_uuid) AS &count.count
+FROM       machine AS m
+LEFT JOIN  machine_agent_presence AS mapr ON m.uuid = mapr.machine_uuid
+WHERE      m.name = $machineName.name
+GROUP BY   m.uuid
+`
+	queryStmt, err := st.Prepare(query, machineNameParam, count{})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+
+	var result count
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
+		if err != nil {
+			return errors.Errorf("checking machine %q agent presence: %w", mName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return false, errors.Capture(err)
+	}
+	return result.Count > 0, nil
+}
+
 func (st *State) getMachineUUIDFromName(ctx context.Context, tx *sqlair.TX, mName machine.Name) (entityUUID, error) {
 	machineNameParam := machineName{Name: mName.String()}
 	machineUUIDOutput := entityUUID{}

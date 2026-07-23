@@ -11,12 +11,16 @@ import (
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/providertracker"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/trace"
 	domainconstraints "github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
@@ -25,6 +29,7 @@ import (
 // Provider represents an underlying cloud provider.
 type Provider interface {
 	environs.BootstrapEnviron
+	environs.InstanceLister
 	environs.InstanceTypesFetcher
 	environs.InstancePrechecker
 }
@@ -42,7 +47,8 @@ func NewProviderService(
 	st State,
 	statusHistory StatusHistory,
 	providerGetter providertracker.ProviderGetter[Provider],
-	clock clock.Clock, logger logger.Logger,
+	clock clock.Clock,
+	logger logger.Logger,
 ) *ProviderService {
 	return &ProviderService{
 		Service: Service{
@@ -53,6 +59,44 @@ func NewProviderService(
 		},
 		providerGetter: providerGetter,
 	}
+}
+
+// ReprovisionMachine validates that the machine identified by name is eligible
+// for reprovisioning, then applies the split-brain prevention liveness gates.
+func (s *ProviderService) ReprovisionMachine(ctx context.Context, machineName machine.Name, force bool) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	instanceID, err := s.validateReprovisionMachine(ctx, machineName)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	present, err := s.st.IsMachineAgentPresent(ctx, machineName)
+	if err != nil {
+		return errors.Errorf("checking machine %q agent presence: %w", machineName, err)
+	}
+	if present {
+		return errors.Errorf("machine %q: %w", machineName, machineerrors.MachineAgentPresent)
+	}
+
+	provider, err := s.providerGetter(ctx)
+	if err != nil {
+		return errors.Errorf("getting provider for machine %q reprovisioning: %w", machineName, err)
+	}
+	instances, err := provider.Instances(ctx, []instance.Id{instanceID})
+	if err != nil && !errors.Is(err, environs.ErrNoInstances) && !errors.Is(err, environs.ErrPartialInstances) {
+		return errors.Errorf("checking provider instance %q for machine %q: %w", instanceID, machineName, err)
+	}
+	if len(instances) == 0 || instances[0] == nil {
+		return nil
+	}
+
+	providerStatus := instances[0].Status(ctx)
+	if providerStatus.Status == corestatus.Running {
+		return errors.Errorf("machine %q instance %q: %w", machineName, instanceID, machineerrors.MachineProviderInstanceRunning)
+	}
+	return nil
 }
 
 // AddMachine creates the net node and machines if required, depending

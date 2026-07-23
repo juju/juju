@@ -15,15 +15,19 @@ import (
 	"github.com/juju/juju/core/base"
 	coreconstraints "github.com/juju/juju/core/constraints"
 	coreerrors "github.com/juju/juju/core/errors"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/ipfamily"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/constraints"
 	"github.com/juju/juju/domain/deployment"
 	domainmachine "github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/statushistory"
@@ -458,4 +462,129 @@ func (s *providerServiceSuite) TestGetBootstrapEnvironFail(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorMatches, "boom")
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineAgentPresent(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectReprovisionMachineValidated(c, "i-1234")
+	s.state.EXPECT().IsMachineAgentPresent(gomock.Any(), machine.Name("0")).Return(true, nil)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineAgentPresent)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineAgentAbsentNoInstance(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	instanceID := instance.Id("i-1234")
+	s.expectReprovisionMachineValidated(c, instanceID)
+	s.expectMachineAgentAbsent()
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, environs.ErrNoInstances)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineProviderRunning(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	instanceID := instance.Id("i-1234")
+	s.expectReprovisionMachineValidated(c, instanceID)
+	s.expectMachineAgentAbsent()
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{
+		reprovisionInstance{id: instanceID, status: status.Running},
+	}, nil)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineProviderInstanceRunning)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineProviderLookupError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	instanceID := instance.Id("i-1234")
+	s.expectReprovisionMachineValidated(c, instanceID)
+	s.expectMachineAgentAbsent()
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, errors.New("provider lookup failed"))
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorMatches, `checking provider instance "i-1234" for machine "0": provider lookup failed`)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineProviderNoInstance(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	instanceID := instance.Id("i-1234")
+	s.expectReprovisionMachineValidated(c, instanceID)
+	s.expectMachineAgentAbsent()
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, environs.ErrNoInstances)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineProviderPartialNoInstance(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	instanceID := instance.Id("i-1234")
+	s.expectReprovisionMachineValidated(c, instanceID)
+	s.expectMachineAgentAbsent()
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{nil}, environs.ErrPartialInstances)
+
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *providerServiceSuite) TestReprovisionMachineProviderNonRunningStatuses(c *tc.C) {
+	for _, providerStatus := range []status.Status{
+		status.Empty,
+		status.Pending,
+		status.Provisioning,
+		status.ProvisioningError,
+		status.Error,
+		status.Unknown,
+	} {
+		c.Logf("provider status %q", providerStatus)
+		func() {
+			ctrl := s.setupMocks(c)
+			defer ctrl.Finish()
+
+			instanceID := instance.Id("i-1234")
+			s.expectReprovisionMachineValidated(c, instanceID)
+			s.expectMachineAgentAbsent()
+			s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{
+				reprovisionInstance{id: instanceID, status: providerStatus},
+			}, nil)
+
+			err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+			c.Assert(err, tc.ErrorIsNil)
+		}()
+	}
+}
+
+func (s *providerServiceSuite) expectReprovisionMachineValidated(c *tc.C, instanceID instance.Id) {
+	s.state.EXPECT().CheckMachineReprovisioningEligibility(gomock.Any(), machine.Name("0")).Return(nil)
+	s.state.EXPECT().GetInstanceIDByMachineName(gomock.Any(), machine.Name("0")).Return(instanceID.String(), nil)
+}
+
+func (s *providerServiceSuite) expectMachineAgentAbsent() {
+	s.state.EXPECT().IsMachineAgentPresent(gomock.Any(), machine.Name("0")).Return(false, nil)
+}
+
+type reprovisionInstance struct {
+	id     instance.Id
+	status status.Status
+}
+
+func (i reprovisionInstance) Id() instance.Id {
+	return i.id
+}
+
+func (i reprovisionInstance) Status(context.Context) instance.Status {
+	return instance.Status{Status: i.status}
+}
+
+func (i reprovisionInstance) Addresses(context.Context) (corenetwork.ProviderAddresses, error) {
+	return nil, nil
 }

@@ -71,4 +71,12 @@ const (
 	// MachineHasChildContainers describes an error when the machine has child
 	// containers.
 	MachineHasChildContainers = errors.ConstError("machine hosts child containers")
+
+	// MachineAgentPresent describes an error when the machine agent is still
+	// present in the model.
+	MachineAgentPresent = errors.ConstError("machine agent is still present")
+
+	// MachineProviderInstanceRunning describes an error when the provider still
+	// reports the machine's cloud instance as running.
+	MachineProviderInstanceRunning = errors.ConstError("machine provider instance is running")
 )

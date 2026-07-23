@@ -1103,6 +1103,29 @@ func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasChildContainers
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasChildContainers)
 }
 
+func (s *stateSuite) TestIsMachineAgentPresent(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	s.runQuery(c, "INSERT INTO machine_agent_presence (machine_uuid) VALUES (?)", machineUUID)
+
+	present, err := s.state.IsMachineAgentPresent(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(present, tc.IsTrue)
+}
+
+func (s *stateSuite) TestIsMachineAgentPresentAbsent(c *tc.C) {
+	_, machineName := s.addMachine(c)
+
+	present, err := s.state.IsMachineAgentPresent(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(present, tc.IsFalse)
+}
+
+func (s *stateSuite) TestIsMachineAgentPresentNotFound(c *tc.C) {
+	_, err := s.state.IsMachineAgentPresent(c.Context(), "666")
+	c.Assert(err, tc.ErrorIs, machineerrors.MachineNotFound)
+	c.Check(err, tc.ErrorMatches, "machine not found")
+}
+
 func (s *stateSuite) addMachine(c *tc.C) (machine.UUID, machine.Name) {
 	_, mNames, err := s.state.AddMachine(c.Context(), domainmachine.AddMachineArgs{
 		Platform: deployment.Platform{
