@@ -303,19 +303,6 @@ func (w *sshSessionWorker) pipeConnectionToSSHD(
 	// (resulting in a no-op).
 	defer stop()
 
-	// Copy data in both directions between the controller tunnel and the local
-	// sshd. Each direction is half-closed (CloseWrite) rather than hard-closed
-	// when it finishes, so the peer receives a clean end-of-stream marker (a TCP
-	// FIN on the sshd connection, an SSH channel-EOF on the controller
-	// connection) and can flush any remaining data before the tunnel is torn
-	// down, instead of being reset mid-stream.
-	//
-	// For example, on an `exit` command: the client's EOF arrives on the controller
-	// connection, so the controller->sshd copy CloseWrites sshd; sshd then exits,
-	// flushes its final output and closes; the sshd->controller copy drains that
-	// output and CloseWrites the controller connection. The deferred Close calls
-	// above (and the context.AfterFunc on cancellation) perform the full teardown
-	// once both directions have finished.
 	bidirectionalCopy(sshdConn, controllerConn)
 	return nil
 }
