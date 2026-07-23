@@ -53,7 +53,7 @@ func (s *importSuite) TestExecuteSuccess(c *tc.C) {
 
 	// Operation present in the model
 	m.AddOperation(description.OperationArgs{
-		Id:        "op-1",
+		Id:        "1",
 		Summary:   "sum 1",
 		Enqueued:  now.Add(-3 * time.Hour),
 		Started:   now.Add(-2 * time.Hour),
@@ -67,7 +67,7 @@ func (s *importSuite) TestExecuteSuccess(c *tc.C) {
 		Id:        "a-1",
 		Receiver:  "0",
 		Name:      "do-it",
-		Operation: "op-1",
+		Operation: "1",
 		Parameters: map[string]any{
 			"p1": "v1",
 		},
@@ -91,7 +91,7 @@ func (s *importSuite) TestExecuteSuccess(c *tc.C) {
 		func(_ context.Context, args internal.ImportOperationsArgs) error {
 			c.Assert(len(args), tc.Equals, 1)
 			opArg := args[0]
-			c.Check(opArg.ID, tc.Equals, "op-1")
+			c.Check(opArg.ID, tc.Equals, uint64(1))
 			c.Check(opArg.Summary, tc.Equals, "sum 1")
 			c.Check(opArg.Enqueued.Equal(now.Add(-3*time.Hour)), tc.IsTrue)
 			c.Check(opArg.Started.Equal(now.Add(-2*time.Hour)), tc.IsTrue)
@@ -142,17 +142,17 @@ func (s *importSuite) TestExecuteSuccessTwoTasksTwoOps(c *tc.C) {
 
 	// Operation present in the model
 	m.AddOperation(description.OperationArgs{
-		Id:      "op-1",
+		Id:      "1",
 		Summary: "sum 1",
 	})
 	m.AddOperation(description.OperationArgs{
-		Id:      "op-2",
+		Id:      "2",
 		Summary: "sum 2",
 	})
 
 	// template for action of op-1
 	opTaskTmpl1 := description.ActionArgs{
-		Operation: "op-1",
+		Operation: "1",
 
 		// params that should be the same for both actions
 		Receiver:       "happy/0",
@@ -166,7 +166,7 @@ func (s *importSuite) TestExecuteSuccessTwoTasksTwoOps(c *tc.C) {
 
 	// template for action of op-2
 	opTaskTmpl2 := description.ActionArgs{
-		Operation: "op-2",
+		Operation: "2",
 
 		// params that should be the same for both actions
 		Receiver:       "0/lxd/1",
@@ -196,7 +196,7 @@ func (s *importSuite) TestExecuteSuccessTwoTasksTwoOps(c *tc.C) {
 		func(_ context.Context, args internal.ImportOperationsArgs) error {
 			c.Assert(len(args), tc.Equals, 2)
 			op1 := args[0]
-			c.Check(op1.ID, tc.Equals, "op-1")
+			c.Check(op1.ID, tc.Equals, uint64(1))
 			c.Check(op1.Summary, tc.Equals, "sum 1")
 			c.Check(op1.IsParallel, tc.Equals, true)
 			c.Check(op1.ExecutionGroup, tc.Equals, "G1")
@@ -206,7 +206,7 @@ func (s *importSuite) TestExecuteSuccessTwoTasksTwoOps(c *tc.C) {
 				{ID: "a-2", UnitName: "happy/1"}})
 
 			op2 := args[1]
-			c.Check(op2.ID, tc.Equals, "op-2")
+			c.Check(op2.ID, tc.Equals, uint64(2))
 			c.Check(op2.Summary, tc.Equals, "sum 2")
 			c.Check(op2.IsParallel, tc.Equals, false)
 			c.Check(op2.ExecutionGroup, tc.Equals, "G2")
@@ -237,7 +237,7 @@ func (s *importSuite) TestExecuteInconsistentOperationArgs(c *tc.C) {
 	now := time.Now().UTC()
 
 	m.AddOperation(description.OperationArgs{
-		Id:       "op-1",
+		Id:       "1",
 		Summary:  "sum",
 		Enqueued: now.Add(-2 * time.Hour),
 		Status:   corestatus.Running.String(),
@@ -246,7 +246,7 @@ func (s *importSuite) TestExecuteInconsistentOperationArgs(c *tc.C) {
 	// First action:
 	m.AddAction(description.ActionArgs{
 		Id:        "a-1",
-		Operation: "op-1",
+		Operation: "1",
 
 		// params that should be the same for both actions
 		Receiver:       "happy/0",
@@ -260,7 +260,7 @@ func (s *importSuite) TestExecuteInconsistentOperationArgs(c *tc.C) {
 	// Second action: parallel=false, group=G2
 	m.AddAction(description.ActionArgs{
 		Id:        "a-2",
-		Operation: "op-1",
+		Operation: "1",
 
 		// params that should be the same for both actions, but different
 		Receiver:       "grumpy/0",
@@ -290,7 +290,7 @@ func (s *importSuite) TestExecuteNoActionsDefaults(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	m := description.NewModel(description.ModelArgs{})
-	m.AddOperation(description.OperationArgs{Id: "op-1", Status: corestatus.Completed.String()})
+	m.AddOperation(description.OperationArgs{Id: "1", Status: corestatus.Completed.String()})
 
 	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, args internal.ImportOperationsArgs) error {
@@ -313,7 +313,7 @@ func (s *importSuite) TestExecuteServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	m := description.NewModel(description.ModelArgs{})
-	m.AddOperation(description.OperationArgs{Id: "op-1"})
+	m.AddOperation(description.OperationArgs{Id: "1"})
 
 	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
 
@@ -328,7 +328,7 @@ func (s *importSuite) TestExecuteUnknownTaskOperation(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	m := description.NewModel(description.ModelArgs{})
-	m.AddOperation(description.OperationArgs{Id: "op-1"})
+	m.AddOperation(description.OperationArgs{Id: "1"})
 	m.AddAction(description.ActionArgs{Id: "a-unknown", Operation: "op-unknown", Name: "x", Receiver: "0", Status: corestatus.Running.String()})
 
 	i := s.newImportOperation(c)
@@ -352,4 +352,76 @@ func (s *importSuite) TestRollbackNoOperations(c *tc.C) {
 	i := s.newImportOperation(c)
 	err := i.Rollback(c.Context(), m)
 	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestNonNumericOperationId verifies that importing an operation with a
+// non-numeric ID fails before reaching the state layer.
+func (s *importSuite) TestNonNumericOperationId(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	m := description.NewModel(description.ModelArgs{})
+	now := time.Now().UTC()
+
+	m.AddOperation(description.OperationArgs{
+		Id:       "op-1",
+		Summary:  "sum",
+		Enqueued: now.Add(-2 * time.Hour),
+		Status:   corestatus.Running.String(),
+	})
+
+	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).Times(0)
+
+	i := s.newImportOperation(c)
+	err := i.Execute(c.Context(), m)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*invalid operation ID.*")
+}
+
+// TestSignedOperationId verifies that importing an operation with a signed
+// ID fails before reaching the state layer.
+func (s *importSuite) TestSignedOperationId(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	m := description.NewModel(description.ModelArgs{})
+	now := time.Now().UTC()
+
+	m.AddOperation(description.OperationArgs{
+		Id:       "-1",
+		Summary:  "sum",
+		Enqueued: now.Add(-2 * time.Hour),
+		Status:   corestatus.Running.String(),
+	})
+
+	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).Times(0)
+
+	i := s.newImportOperation(c)
+	err := i.Execute(c.Context(), m)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*invalid operation ID.*")
+}
+
+// TestOverflowOperationId verifies that importing an operation with an
+// overflowing ID fails before reaching the state layer.
+func (s *importSuite) TestOverflowOperationId(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	m := description.NewModel(description.ModelArgs{})
+	now := time.Now().UTC()
+
+	m.AddOperation(description.OperationArgs{
+		Id:       "99999999999999999999",
+		Summary:  "sum",
+		Enqueued: now.Add(-2 * time.Hour),
+		Status:   corestatus.Running.String(),
+	})
+
+	s.importService.EXPECT().InsertMigratingOperations(gomock.Any(), gomock.Any()).Times(0)
+
+	i := s.newImportOperation(c)
+	err := i.Execute(c.Context(), m)
+
+	// Assert
+	c.Assert(err, tc.ErrorMatches, ".*invalid operation ID.*")
 }

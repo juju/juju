@@ -921,7 +921,7 @@ type OfferEndpoint struct {
 
 type Operation struct {
 	UUID           string     `db:"uuid" json:"uuid" yaml:"uuid"`
-	OperationID    string     `db:"operation_id" json:"operation_id" yaml:"operation_id"`
+	OperationID    int64      `db:"operation_id" json:"operation_id" yaml:"operation_id"`
 	Summary        *string    `db:"summary" json:"summary" yaml:"summary"`
 	EnqueuedAt     time.Time  `db:"enqueued_at" json:"enqueued_at" yaml:"enqueued_at"`
 	StartedAt      *time.Time `db:"started_at" json:"started_at" yaml:"started_at"`

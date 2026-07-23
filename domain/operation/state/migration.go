@@ -40,14 +40,14 @@ func (st *State) InsertMigratingOperations(ctx context.Context, args internal.Im
 				ExecutionGroup: ops.ExecutionGroup,
 			})
 			if err != nil {
-				return errors.Errorf("inserting operations at operation %q: %w", ops.ID, err)
+				return errors.Errorf("inserting operations at operation %d: %w", ops.ID, err)
 			}
 
 			// Insert operation parameters
 			for key, value := range ops.Parameters {
 				err = st.insertOperationParameter(ctx, tx, ops.UUID, key, value)
 				if err != nil {
-					return errors.Errorf("inserting parameter %q at operation %q: %w", key, ops.ID, err)
+					return errors.Errorf("inserting parameter %q at operation %d: %w", key, ops.ID, err)
 				}
 			}
 
@@ -61,7 +61,7 @@ func (st *State) InsertMigratingOperations(ctx context.Context, args internal.Im
 				}
 				err = st.insertOperationAction(ctx, tx, ops.UUID, charmUUID, ops.ActionName)
 				if err != nil {
-					return errors.Errorf("inserting operation action at operation %q: %w", ops.ID, err)
+					return errors.Errorf("inserting operation action at operation %d: %w", ops.ID, err)
 				}
 			}
 
@@ -76,13 +76,13 @@ func (st *State) InsertMigratingOperations(ctx context.Context, args internal.Im
 					CompletedAt:   nilZeroPtr(task.Completed),
 				})
 				if err != nil {
-					return errors.Errorf("inserting task %q at operation %q: %w", task.ID, ops.ID, err)
+					return errors.Errorf("inserting task %q at operation %d: %w", task.ID, ops.ID, err)
 				}
 
 				if task.UnitName != "" {
 					err = st.insertOperationUnitTask(ctx, tx, task.UUID, task.UnitName)
 					if err != nil {
-						return errors.Errorf("inserting task %q unit receiver %q at operation %q: %w",
+						return errors.Errorf("inserting task %q unit receiver %q at operation %d: %w",
 							task.ID, task.UnitName, ops.ID, err)
 					}
 				}
@@ -93,25 +93,25 @@ func (st *State) InsertMigratingOperations(ctx context.Context, args internal.Im
 					}
 					err = st.insertOperationMachineTask(ctx, tx, task.UUID, machineUUID)
 					if err != nil {
-						return errors.Errorf("inserting task %q machine receiver %q at operation %q: %w",
+						return errors.Errorf("inserting task %q machine receiver %q at operation %d: %w",
 							task.ID, task.MachineName, ops.ID, err)
 					}
 				}
 
 				err = st.insertOperationTaskOutputIfAny(ctx, tx, task.UUID, task.StorePath)
 				if err != nil {
-					return errors.Errorf("inserting task %q output store %q at operation %q: %w",
+					return errors.Errorf("inserting task %q output store %q at operation %d: %w",
 						task.ID, task.StorePath, ops.ID, err)
 				}
 
 				err = st.insertOperationTaskStatus(ctx, tx, task.UUID, task.Status, task.Message)
 				if err != nil {
-					return errors.Errorf("inserting task %q status at operation %q: %w", task.ID, ops.ID, err)
+					return errors.Errorf("inserting task %q status at operation %d: %w", task.ID, ops.ID, err)
 				}
 				for _, log := range task.Log {
 					err = st.insertTaskMessage(ctx, tx, task.ID, log.Timestamp, log.Message)
 					if err != nil {
-						return errors.Errorf("inserting task %q log at operation %q: %w", task.ID, ops.ID, err)
+						return errors.Errorf("inserting task %q log at operation %d: %w", task.ID, ops.ID, err)
 					}
 				}
 			}

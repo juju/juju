@@ -8,6 +8,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/juju/clock"
@@ -160,8 +161,13 @@ func (i *importOperation) buildImportArgs(ctx context.Context, model description
 		tasks, _ := tasksByOp[op.Id()]
 		delete(tasksByOp, op.Id())
 
+		opID, err := strconv.ParseUint(op.Id(), 10, 64)
+		if err != nil {
+			return nil, errors.Errorf("invalid operation ID %q: %w", op.Id(), err)
+		}
+
 		opArgs := internal.ImportOperationArg{
-			ID:             op.Id(),
+			ID:             opID,
 			Summary:        op.Summary(),
 			Enqueued:       op.Enqueued(),
 			Started:        op.Started(),

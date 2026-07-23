@@ -8,7 +8,7 @@ CREATE TABLE operation (
     uuid TEXT NOT NULL PRIMARY KEY,
     -- operation_id is a sequence number, and the sequence is shared with 
     -- the operation_task.task_id sequence.
-    operation_id TEXT NOT NULL,
+    operation_id INTEGER NOT NULL,
     summary TEXT,
     enqueued_at TIMESTAMP NOT NULL,
     started_at TIMESTAMP,

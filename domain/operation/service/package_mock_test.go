@@ -42,7 +42,7 @@ type MockStateMockRecorder struct {
 	getLatestTaskLogsByUUIDExpects                 []*gomock.Call3_3[context.Context, string, time.Time, []internal.TaskLogMessage, time.Time, error]
 	getMachineTaskIDsWithStatusExpects             []*gomock.Call3_2[context.Context, string, string, []string, error]
 	getMachineUUIDByNameExpects                    []*gomock.Call2_2[context.Context, machine.Name, string, error]
-	getOperationByIDExpects                        []*gomock.Call2_2[context.Context, string, operation.OperationInfo, error]
+	getOperationByIDExpects                        []*gomock.Call2_2[context.Context, uint64, operation.OperationInfo, error]
 	getOperationsExpects                           []*gomock.Call2_2[context.Context, operation.QueryArgs, operation.QueryResult, error]
 	getReceiverFromTaskIDExpects                   []*gomock.Call2_2[context.Context, string, string, error]
 	getTaskExpects                                 []*gomock.Call2_3[context.Context, string, operation.Task, *string, error]
@@ -271,7 +271,7 @@ func (mr *MockStateMockRecorder) GetMachineUUIDByName(ctx, n any) *MockStateGetM
 type MockStateGetMachineUUIDByNameCall = gomock.Call2_2[context.Context, machine.Name, string, error]
 
 // GetOperationByID mocks base method.
-func (m *MockState) GetOperationByID(ctx context.Context, operationID string) (operation.OperationInfo, error) {
+func (m *MockState) GetOperationByID(ctx context.Context, operationID uint64) (operation.OperationInfo, error) {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch2_2(&m.recorder.getOperationByIDExpects, m.ctrl, m, "GetOperationByID", ctx, operationID)
 }
@@ -279,14 +279,14 @@ func (m *MockState) GetOperationByID(ctx context.Context, operationID string) (o
 // GetOperationByID indicates an expected call of GetOperationByID.
 func (mr *MockStateMockRecorder) GetOperationByID(ctx, operationID any) *MockStateGetOperationByIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall2_2[context.Context, string, operation.OperationInfo, error](mr.mock.ctrl.T, mr.mock, "GetOperationByID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(operationID))
+	call := gomock.NewCall2_2[context.Context, uint64, operation.OperationInfo, error](mr.mock.ctrl.T, mr.mock, "GetOperationByID", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(operationID))
 	mr.getOperationByIDExpects = append(mr.getOperationByIDExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockStateGetOperationByIDCall is the typed call wrapper for GetOperationByID.
-type MockStateGetOperationByIDCall = gomock.Call2_2[context.Context, string, operation.OperationInfo, error]
+type MockStateGetOperationByIDCall = gomock.Call2_2[context.Context, uint64, operation.OperationInfo, error]
 
 // GetOperations mocks base method.
 func (m *MockState) GetOperations(ctx context.Context, params operation.QueryArgs) (operation.QueryResult, error) {
