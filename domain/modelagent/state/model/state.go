@@ -736,10 +736,17 @@ LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
 		return nil, errors.Capture(err)
 	}
 
+	// Count only real units: synthetic cross-model-relation units use a
+	// CMR-source charm (charm_source.source_id = 2), have no unit_agent_version
+	// row (and no agent binaries), so they must be excluded or the count mismatch
+	// below wrongly reports "not all units ... have their agent version set" when
+	// a CMR is active. Same charm-source filter as juju/juju#22927.
 	unitCount := rowCount{}
 	stmtUnitCount, err := st.Prepare(`
 SELECT (count(*)) AS (&rowCount.count)
-FROM   unit
+FROM   unit AS u
+JOIN   charm AS c ON c.uuid = u.charm_uuid
+WHERE  c.source_id < 2
 `, unitCount)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -828,6 +835,11 @@ func (st *State) GetUnitsNotAtTargetAgentVersion(
 		return nil, errors.Capture(err)
 	}
 
+	// Synthetic cross-model-relation units do not run a unit agent (they use a
+	// CMR-source charm, charm_source.source_id = 2), so they never report an
+	// agent version and must be excluded - otherwise an active CMR makes the
+	// migration precheck report a bogus "remote-<uuid>/N" unit as lagging. This
+	// mirrors juju/juju#22927.
 	query := `
 WITH agent_units AS (
     SELECT u.uuid AS unit_uuid,

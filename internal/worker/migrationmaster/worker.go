@@ -62,6 +62,31 @@ var (
 // to the newly-migrated model.
 const progressUpdateInterval = 30 * time.Second
 
+const (
+	// activateInitialRetryDelay is the initial backoff between target-activation
+	// retries in the VALIDATION phase; it grows exponentially up to
+	// activateMaxRetryDelay.
+	activateInitialRetryDelay = 2 * time.Second
+
+	// activateMaxRetryDelay caps the backoff between activation retries.
+	activateMaxRetryDelay = 30 * time.Second
+
+	// activatePreFlightAbortThreshold is how many consecutive definite
+	// pre-point-of-no-return activation failures (structured server errors that
+	// are neither activation-incomplete nor activation-aborting) are tolerated
+	// before the migration aborts. A short run absorbs a transient hiccup; a
+	// persistent failure (e.g. a genuine external-controller conflict) aborts so
+	// the operator can fix it and re-migrate.
+	activatePreFlightAbortThreshold = 3
+
+	// activateMaxAttempts bounds the retries within a single doVALIDATION
+	// invocation before it exits the worker with a retryable error. On restart
+	// the worker re-enters VALIDATION and retries, so this is only a per-run cap,
+	// not a give-up: an activation past the point of no return is retried until
+	// it completes (or the target reconciler completes it), never aborted.
+	activateMaxAttempts = 10
+)
+
 // Facade exposes the controller facade functionality the Worker still needs.
 // These are the operations shared with remote callers; everything that is
 // worker-private is reached directly through the domain services instead.
@@ -591,14 +616,91 @@ func (w *Worker) doVALIDATION(ctx context.Context, status coremigration.Migratio
 		return coremigration.ABORT, nil
 	}
 
-	// Once all agents have validated, activate the model in the
-	// target controller.
-	err = w.activateModel(ctx, client, status.ModelUUID)
-	if err != nil {
-		w.setErrorStatus(ctx, "model activation failed, %v", err)
-		return coremigration.ABORT, nil
+	// Once all agents have validated, activate the model in the target
+	// controller. Activation is a durable, idempotent state machine on the
+	// target: once it moves the import claim past the point of no return the
+	// model may be live, and the target refuses to abort it. So the source must
+	// never abort an activation that may have crossed that point - it retries to
+	// completion instead (spec §4.8). Aborting anyway would wedge the model UUID
+	// in the activating phase forever (see ACTIVATE_ABORT_WEDGE.md).
+	return w.activateModelUntilDecided(ctx, client, status.ModelUUID)
+}
+
+// activateModelUntilDecided drives target activation to a phase decision,
+// retrying inside the VALIDATION phase (the phase machine forbids re-entering
+// VALIDATION). It classifies each Activate outcome:
+//
+//   - success -> SUCCESS.
+//   - activation-aborting (target cleanup underway) -> ABORT, to join it.
+//   - activation-incomplete (past the point of no return) or a transport error
+//     (a lost reply that may be past that point) -> retry, never abort.
+//   - any other structured server error (a definite pre-point-of-no-return
+//     failure) -> retry a few times to absorb a transient hiccup, then ABORT.
+//
+// On exhausting the per-invocation attempt cap it returns UNKNOWN with a
+// retryable error, so the worker restarts and re-enters VALIDATION and retries -
+// never aborting an activation that may be past the point of no return.
+func (w *Worker) activateModelUntilDecided(
+	ctx context.Context, client *migrationtarget.Client, modelUUID string,
+) (coremigration.Phase, error) {
+	preFlightErrs := 0
+	delay := activateInitialRetryDelay
+	for attempt := 0; ; attempt++ {
+		err := w.activateModel(ctx, client, modelUUID)
+		switch {
+		case err == nil:
+			return coremigration.SUCCESS, nil
+
+		case params.IsCodeActivationAborting(err):
+			// The target claim is already aborting: cleanup is underway there.
+			// Abort is idempotent and correct.
+			w.setErrorStatus(ctx, "model activation refused, target cleanup in progress: %v", err)
+			return coremigration.ABORT, nil
+
+		case params.IsCodeActivationIncomplete(err), !isTargetServerError(err):
+			// Past (or possibly past, for a lost reply) the point of no return:
+			// the model may be live, so never abort. Keep retrying.
+			preFlightErrs = 0
+			w.setInfoStatus(ctx, "model activation incomplete, retrying: %v", err)
+
+		default:
+			// A definite pre-point-of-no-return target error: the claim is still
+			// importing, so aborting is safe. Tolerate a short run of transient
+			// failures before aborting.
+			preFlightErrs++
+			if preFlightErrs >= activatePreFlightAbortThreshold {
+				w.setErrorStatus(ctx, "model activation failed, %v", err)
+				return coremigration.ABORT, nil
+			}
+		}
+
+		if attempt+1 >= activateMaxAttempts {
+			// Give up this invocation without aborting; the worker restarts and
+			// re-enters VALIDATION to retry (the target completes activation, via
+			// its own reconciler if the source never returns).
+			return coremigration.UNKNOWN, errors.Trace(err)
+		}
+
+		select {
+		case <-w.catacomb.Dying():
+			return coremigration.UNKNOWN, w.catacomb.ErrDying()
+		case <-w.config.Clock.After(delay):
+		}
+		if delay *= 2; delay > activateMaxRetryDelay {
+			delay = activateMaxRetryDelay
+		}
 	}
-	return coremigration.SUCCESS, nil
+}
+
+// isTargetServerError reports whether err is a structured error reply produced
+// by the target apiserver (a *params.Error), as opposed to a transport-level
+// failure (connection dropped, timeout) where no reply was received. A transport
+// failure after an Activate request was sent is indistinguishable from a
+// completed activation whose reply was lost, so it must not be treated as a
+// safe-to-abort error.
+func isTargetServerError(err error) bool {
+	var perr *params.Error
+	return errors.As(err, &perr)
 }
 
 func (w *Worker) checkTargetMachines(ctx context.Context, targetClient *migrationtarget.Client, modelUUID string) (bool, error) {

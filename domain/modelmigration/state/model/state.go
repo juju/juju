@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
@@ -71,40 +70,6 @@ FROM model`, modelInfo{})
 	}
 
 	return result.ControllerUUID, nil
-}
-
-// GetAllInstanceIDs returns all instance IDs from the current model as
-// juju/collections set.
-func (s *State) GetAllInstanceIDs(ctx context.Context) (set.Strings, error) {
-	db, err := s.DB(ctx)
-	if err != nil {
-		return nil, errors.Errorf("cannot get database to retrieve instance IDs: %w", err)
-	}
-
-	query := `
-SELECT &instanceID.instance_id
-FROM   machine_cloud_instance`
-	queryStmt, err := s.Prepare(query, instanceID{})
-	if err != nil {
-		return nil, errors.Errorf("preparing retrieve all instance IDs statement: %w", err)
-	}
-
-	var result []instanceID
-	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt).GetAll(&result)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Errorf("retrieving all instance IDs: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	instanceIDs := make(set.Strings, len(result))
-	for _, instanceID := range result {
-		instanceIDs.Add(instanceID.ID)
-	}
-	return instanceIDs, nil
 }
 
 // GetOfferUUIDs returns the UUIDs of all offers hosted by this model. These are
@@ -206,9 +171,17 @@ FROM   machine
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
+	// Synthetic cross-model-relation units/applications use a CMR-source charm
+	// (charm_source.source_id = 2) and run no agent, so they must be excluded
+	// from the set of agents expected to report during migration - otherwise an
+	// active CMR leaves the phase waiting forever for a report that never comes
+	// ("N succeeded, 1 still to report"). Same charm-source filter as
+	// juju/juju#22927.
 	unitStmt, err := s.Prepare(`
 SELECT &agentName.name
-FROM   unit
+FROM   unit AS u
+JOIN   charm AS c ON c.uuid = u.charm_uuid
+WHERE  c.source_id < 2
 `, agentName{})
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
@@ -217,6 +190,8 @@ FROM   unit
 SELECT &agentName.name
 FROM   application AS a
 JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  c.source_id < 2
 `, agentName{})
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)

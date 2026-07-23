@@ -193,6 +193,50 @@ func (s *stateSuite) TestDeleteModelImportingStatusSuccess(c *tc.C) {
 	c.Check(count, tc.Equals, 0)
 }
 
+// TestGetKnownSecretBackends asserts only the supplied backend UUIDs that
+// exist on the controller are returned.
+func (s *stateSuite) TestGetKnownSecretBackends(c *tc.C) {
+	db := s.DB()
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+
+	// backend_type_id 2 is 'vault' from the seeded secret_backend_type rows.
+	_, err := db.ExecContext(c.Context(),
+		"INSERT INTO secret_backend (uuid, name, backend_type_id) VALUES (?, 'b1', 2), (?, 'b2', 2)",
+		"backend-1", "backend-2")
+	c.Assert(err, tc.ErrorIsNil)
+
+	known, err := st.GetKnownSecretBackends(c.Context(), []string{"backend-1", "backend-2", "backend-missing"})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.SameContents, []string{"backend-1", "backend-2"})
+}
+
+// TestGetKnownSecretBackendsEmptyInput asserts an empty input returns no rows
+// without querying.
+func (s *stateSuite) TestGetKnownSecretBackendsEmptyInput(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	known, err := st.GetKnownSecretBackends(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(known, tc.HasLen, 0)
+}
+
+// TestGetSecretBackendReferencesForModelEmpty exercises the query for a model
+// with no secret backend references.
+func (s *stateSuite) TestGetSecretBackendReferencesForModelEmpty(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	refs, err := st.GetSecretBackendReferencesForModel(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(refs, tc.HasLen, 0)
+}
+
+// TestGetAgentBinaryArchitecturesForVersionEmpty exercises the query when the
+// controller object store holds no agent binaries for the version.
+func (s *stateSuite) TestGetAgentBinaryArchitecturesForVersionEmpty(c *tc.C) {
+	st := New(s.TxnRunnerFactory(), clock.WallClock)
+	archs, err := st.GetAgentBinaryArchitecturesForVersion(c.Context(), "4.0.1")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(archs, tc.HasLen, 0)
+}
+
 // TestDeleteModelImportingStatusNoEntry tests that clearing a non-existent
 // model_migration_import entry succeeds without error (idempotent behavior).
 func (s *stateSuite) TestDeleteModelImportingStatusNoEntry(c *tc.C) {
@@ -863,6 +907,51 @@ func (s *stateSuite) TestGetControllerModelInfoIdentity(c *tc.C) {
 	// The fixture creates the model with the juju (internal) secret backend.
 	c.Assert(info.SecretBackend, tc.NotNil)
 	c.Check(info.SecretBackend.Name, tc.Not(tc.Equals), "")
+}
+
+// TestGetModelCloudCredential asserts the natural key, auth attributes and
+// status of the model's credential are returned.
+func (s *stateSuite) TestGetModelCloudCredential(c *tc.C) {
+	credential, err := New(s.TxnRunnerFactory(), clock.WallClock).GetModelCloudCredential(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential, tc.NotNil)
+	c.Check(credential.Cloud, tc.Equals, "my-cloud")
+	c.Check(credential.Owner, tc.Equals, "test-user")
+	c.Check(credential.Name, tc.Equals, "foobar")
+	c.Check(credential.AuthType, tc.Equals, "access-key")
+	c.Check(credential.Attributes, tc.DeepEquals, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	c.Check(credential.Revoked, tc.IsFalse)
+	c.Check(credential.Invalid, tc.IsFalse)
+	c.Check(credential.InvalidReason, tc.Equals, "")
+}
+
+// TestGetModelCloudCredentialRevokedAndInvalid asserts revoked and invalid
+// status are carried through.
+func (s *stateSuite) TestGetModelCloudCredentialRevokedAndInvalid(c *tc.C) {
+	credSt := credentialstate.NewState(s.TxnRunnerFactory())
+	key := corecredential.Key{
+		Cloud: "my-cloud",
+		Owner: usertesting.GenNewName(c, "test-user"),
+		Name:  "foobar",
+	}
+	err := credSt.UpsertCloudCredential(c.Context(), key, credential.CloudCredentialInfo{
+		Label:         "foobar",
+		AuthType:      string(cloud.AccessKeyAuthType),
+		Revoked:       true,
+		Invalid:       true,
+		InvalidReason: "expired",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	credential, err := New(s.TxnRunnerFactory(), clock.WallClock).GetModelCloudCredential(c.Context(), s.modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(credential, tc.NotNil)
+	c.Check(credential.Revoked, tc.IsTrue)
+	c.Check(credential.Invalid, tc.IsTrue)
+	c.Check(credential.InvalidReason, tc.Equals, "expired")
 }
 
 // TestGetSourceControllerInfo asserts the source controller's identity, alias,
