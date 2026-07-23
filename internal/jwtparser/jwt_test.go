@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/tc"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 type jwtParserSuite struct {
@@ -47,16 +47,18 @@ func (s *jwtParserSuite) SetUpTest(c *tc.C) {
 func (s *jwtParserSuite) TestCacheRegistration(c *tc.C) {
 	ctx, done := context.WithCancel(c.Context())
 	defer done()
-	authenticator := NewParserWithHTTPClient(ctx, s.client)
-	err := authenticator.SetJWKSCache(c.Context(), s.url)
+	authenticator, err := NewParserWithHTTPClient(ctx, s.client)
+	c.Assert(err, tc.ErrorIsNil)
+	err = authenticator.SetJWKSCache(c.Context(), s.url)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *jwtParserSuite) TestCacheRegistrationSucceedsWithBadURL(c *tc.C) {
 	ctx, done := context.WithCancel(c.Context())
 	defer done()
-	authenticator := NewParserWithHTTPClient(ctx, s.client)
-	err := authenticator.SetJWKSCache(c.Context(), "noexisturl")
+	authenticator, err := NewParserWithHTTPClient(ctx, s.client)
+	c.Assert(err, tc.ErrorIsNil)
+	err = authenticator.SetJWKSCache(c.Context(), "noexisturl")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(authenticator.refreshURL, tc.Equals, "noexisturl")
 }
@@ -64,8 +66,14 @@ func (s *jwtParserSuite) TestCacheRegistrationSucceedsWithBadURL(c *tc.C) {
 func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
 	ctx, done := context.WithCancel(c.Context())
 	defer done()
-	authenticator := NewParserWithHTTPClient(ctx, s.client)
-	err := authenticator.SetJWKSCache(c.Context(), s.url)
+	authenticator, err := NewParserWithHTTPClient(ctx, s.client)
+	c.Assert(err, tc.ErrorIsNil)
+	err = authenticator.SetJWKSCache(c.Context(), s.url)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// SetJWKSCache is non-blocking; force an initial synchronous fetch so the
+	// cache is ready before we call Parse.
+	_, err = authenticator.cache.Refresh(c.Context(), s.url)
 	c.Assert(err, tc.ErrorIsNil)
 
 	params := JWTParams{
@@ -81,12 +89,24 @@ func (s *jwtParserSuite) TestParseJWT(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(token, tc.NotNil)
 
-	claims := token.PrivateClaims()
-	c.Assert(token.Subject(), tc.Equals, "alice")
-	c.Assert(token.Issuer(), tc.Equals, "test")
-	c.Assert(token.Audience(), tc.DeepEquals, []string{"controller-1"})
-	c.Assert(token.Expiration().After(token.IssuedAt()), tc.Equals, true)
-	c.Assert(claims["access"], tc.DeepEquals, map[string]any{"model-1": "read"})
+	subject, ok := token.Subject()
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(subject, tc.Equals, "alice")
+	issuer, ok := token.Issuer()
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(issuer, tc.Equals, "test")
+	audience, ok := token.Audience()
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(audience, tc.DeepEquals, []string{"controller-1"})
+	expiration, ok := token.Expiration()
+	c.Assert(ok, tc.IsTrue)
+	issuedAt, ok := token.IssuedAt()
+	c.Assert(ok, tc.IsTrue)
+	c.Assert(expiration.After(issuedAt), tc.Equals, true)
+	var access map[string]any
+	err = token.Get("access", &access)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(access, tc.DeepEquals, map[string]any{"model-1": "read"})
 }
 
 // NewJWKSet returns a new key set and signing key.
@@ -98,7 +118,7 @@ func NewJWKSet(c *tc.C) (jwk.Set, jwk.Key) {
 	pkeyDecoded, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	c.Assert(err, tc.ErrorIsNil)
 
-	signingKey, err := jwk.FromRaw(pkeyDecoded)
+	signingKey, err := jwk.Import(pkeyDecoded)
 	c.Assert(err, tc.ErrorIsNil)
 
 	return jwkSet, signingKey
@@ -118,7 +138,7 @@ func getJWKS(c *tc.C) (jwk.Set, []byte) {
 	kid, err := uuid.NewRandom()
 	c.Assert(err, tc.ErrorIsNil)
 
-	jwks, err := jwk.FromRaw(keySet.PublicKey)
+	jwks, err := jwk.Import(keySet.PublicKey)
 	c.Assert(err, tc.ErrorIsNil)
 	err = jwks.Set(jwk.KeyIDKey, kid.String())
 	c.Assert(err, tc.ErrorIsNil)
@@ -126,7 +146,7 @@ func getJWKS(c *tc.C) (jwk.Set, []byte) {
 	err = jwks.Set(jwk.KeyUsageKey, "sig")
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = jwks.Set(jwk.AlgorithmKey, jwa.RS256)
+	err = jwks.Set(jwk.AlgorithmKey, jwa.RS256())
 	c.Assert(err, tc.ErrorIsNil)
 
 	ks := jwk.NewSet()

@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
 type testJWTParser struct {
