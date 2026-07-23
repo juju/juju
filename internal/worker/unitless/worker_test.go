@@ -10,15 +10,18 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/juju/clock"
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5/workertest"
 	"go.uber.org/goleak"
 	gomock "go.uber.org/mock/gomock"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	domainunitless "github.com/juju/juju/domain/unitless"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -50,11 +53,20 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 		NewExecutor:      newExecutor,
 	}.Validate()
 	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
+	c.Assert(err, tc.ErrorMatches, "nil Clock not valid")
+
+	err = Config{
+		ScriptletService: service,
+		NewExecutor:      newExecutor,
+		Clock:            clock.WallClock,
+	}.Validate()
+	c.Assert(err, tc.ErrorIs, coreerrors.NotValid)
 	c.Assert(err, tc.ErrorMatches, "nil Logger not valid")
 
 	err = Config{
 		ScriptletService: service,
 		NewExecutor:      newExecutor,
+		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
 		MaxAllocs:        -1,
 	}.Validate()
@@ -64,6 +76,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	err = Config{
 		ScriptletService: service,
 		NewExecutor:      newExecutor,
+		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
 		MaxSteps:         -1,
 	}.Validate()
@@ -73,6 +86,7 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 	err = Config{
 		ScriptletService: service,
 		NewExecutor:      newExecutor,
+		Clock:            clock.WallClock,
 		Logger:           newRecordingLogger(),
 	}.Validate()
 	c.Assert(err, tc.ErrorIsNil)
@@ -81,14 +95,14 @@ func (s *workerSuite) TestConfigValidate(c *tc.C) {
 func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	service := NewMockScriptletService(ctrl)
-	applicationUUID := "app-uuid-1"
-	scriptlet := Scriptlet{
-		Sources: []ScriptSource{{
+	applicationUUID := coreapplication.UUID("app-uuid-1")
+	scriptlet := domainunitless.Scriptlet{
+		Sources: []domainunitless.ScriptSource{{
 			LoadPath: "hooks.star",
 			Source:   "def init(): pass",
 		}},
 	}
-	event := Event{
+	event := domainunitless.Event{
 		Name: "config_changed",
 		Attrs: map[string]any{
 			"message": "updated",
@@ -96,7 +110,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	}
 	appChanges := make(chan []string, 1)
 	eventChanges := make(chan []string, 1)
-	eventWatchers := make(chan string, 1)
+	eventWatchers := make(chan coreapplication.UUID, 1)
 
 	service.EXPECT().WatchScriptletApplications(gomock.Any()).Return(
 		watchertest.NewMockStringsWatcher(appChanges), nil,
@@ -105,7 +119,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 		scriptlet, nil,
 	)
 	service.EXPECT().WatchApplicationEvents(gomock.Any(), applicationUUID).DoAndReturn(
-		func(context.Context, string) (watcher.StringsWatcher, error) {
+		func(context.Context, coreapplication.UUID) (watcher.StringsWatcher, error) {
 			eventWatchers <- applicationUUID
 			return watchertest.NewMockStringsWatcher(eventChanges), nil
 		},
@@ -115,7 +129,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	)
 
 	executor := &fakeExecutor{
-		handled: make(chan Event, 1),
+		handled: make(chan domainunitless.Event, 1),
 		intents: []Intent{{
 			Type: IntentSetStatus,
 			Args: map[string]any{
@@ -135,6 +149,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 			executorConfigs <- config
 			return executor, nil
 		},
+		Clock:     clock.WallClock,
 		MaxAllocs: maxAllocs,
 		MaxSteps:  maxSteps,
 		Logger:    log,
@@ -142,7 +157,7 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	appChanges <- []string{applicationUUID}
+	appChanges <- []string{applicationUUID.String()}
 	executorConfig := waitFor(c, executorConfigs)
 	c.Check(executorConfig.Scriptlet, tc.DeepEquals, scriptlet)
 	c.Check(executorConfig.MaxAllocs, tc.Equals, maxAllocs)
@@ -159,12 +174,12 @@ func (s *workerSuite) TestWorkerDispatchesEventAndLogsIntents(c *tc.C) {
 }
 
 type fakeExecutor struct {
-	handled chan Event
+	handled chan domainunitless.Event
 	intents []Intent
 	err     error
 }
 
-func (e *fakeExecutor) Handle(_ context.Context, event Event) ([]Intent, error) {
+func (e *fakeExecutor) Handle(_ context.Context, event domainunitless.Event) ([]Intent, error) {
 	e.handled <- event
 	return e.intents, e.err
 }

@@ -9,12 +9,13 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
 )
 
 type applicationRunnerConfig struct {
-	ApplicationUUID  string
+	ApplicationUUID  coreapplication.UUID
 	ScriptletService ScriptletService
 	NewExecutor      ExecutorFactory
 	MaxAllocs        int64
@@ -33,7 +34,7 @@ func newApplicationRunner(config applicationRunnerConfig) (worker.Worker, error)
 		config: config,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
-		Name: "scriptlet-" + config.ApplicationUUID,
+		Name: "scriptlet-" + config.ApplicationUUID.String(),
 		Site: &r.catacomb,
 		Work: r.loop,
 	}); err != nil {
