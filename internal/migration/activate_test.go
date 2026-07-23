@@ -167,6 +167,7 @@ func (*controllerImportSuite) activateModel(
 			)
 		},
 		activationDomainServicesGetter{deps: deps},
+		nil,
 		"",
 		deps.Logger,
 		deps.Clock,
@@ -565,6 +566,7 @@ func (*controllerImportSuite) commitActivation(
 			return coremodelmigration.NewScope(deps.ControllerDB, deps.ModelDB, nil, nil, modelUUID)
 		},
 		activationDomainServicesGetter{deps: deps, adopted: adopted},
+		nil,
 		"",
 		deps.Logger,
 		deps.Clock,

@@ -24,6 +24,11 @@ type modelUUIDArg struct {
 	ModelUUID string `db:"model_uuid"`
 }
 
+// modelLifeRow projects a model row's life id (0 alive, 1 dying, 2 dead).
+type modelLifeRow struct {
+	LifeID int `db:"life_id"`
+}
+
 // migrationUUIDArg is a query argument holding a migration uuid (the export
 // migration's primary key, referenced as migration_uuid by child tables).
 type migrationUUIDArg struct {
@@ -359,6 +364,23 @@ type importClaimArg struct {
 // transaction.
 type importPhaseRow struct {
 	PhaseType string `db:"phase_type"`
+}
+
+// importClaimStatusRow maps a full model_migration_import row (including its
+// model UUID) joined to its phase type, for the abort reconciler's scan of all
+// outstanding claims. UpdatedAt is read as text and canonicalised to RFC3339
+// via strftime, as for importClaimRow.
+type importClaimStatusRow struct {
+	ModelUUID           string `db:"model_uuid"`
+	SourceMigrationUUID string `db:"source_migration_uuid"`
+	PhaseType           string `db:"phase_type"`
+	UpdatedAt           string `db:"updated_at"`
+}
+
+// namespaceArg binds a dqlite namespace name (a model UUID) for existence
+// reads against namespace_list.
+type namespaceArg struct {
+	Namespace string `db:"namespace"`
 }
 
 // importPhaseNames binds the source and target phase names of a claim phase

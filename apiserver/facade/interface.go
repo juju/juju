@@ -214,6 +214,11 @@ type ModelImporter interface {
 	// AdoptResources, the first call a source makes after durably recording
 	// SUCCESS.
 	CommitActivation(ctx context.Context, modelUUID model.UUID, sourceControllerVersion semversion.Number) error
+
+	// AbortModel drives target-side cleanup of a partially imported v8 model,
+	// transitioning its import claim to the aborting phase and undoing the
+	// controller-database import writes. It is idempotent.
+	AbortModel(ctx context.Context, modelUUID model.UUID) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.

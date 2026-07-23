@@ -238,11 +238,17 @@ func (s *State) SetImportPhaseActivating(ctx context.Context, modelUUID string) 
 		Source: string(modelmigration.ImportPhaseImporting),
 	}
 	updateStmt, err := s.Prepare(`
+WITH target_phase AS (
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.target
+),
+source_phase AS (
+    SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.source
+)
 UPDATE model_migration_import
-SET    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.target),
+SET    phase_type_id = (SELECT id FROM target_phase),
        updated_at    = DATETIME('now', 'utc')
 WHERE  model_uuid = $modelUUIDArg.model_uuid
-AND    phase_type_id = (SELECT id FROM model_migration_import_phase_type WHERE type = $importPhaseNames.source)
+AND    phase_type_id = (SELECT id FROM source_phase)
 `, mUUID, phases)
 	if err != nil {
 		return errors.Capture(err)
@@ -294,17 +300,21 @@ func (s *State) DeleteActivatedImport(ctx context.Context, modelUUID string) err
 
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	deleteOffersStmt, err := s.Prepare(`
+WITH claim AS (
+    SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid
+)
 DELETE FROM model_migration_import_offer
-WHERE  migration_uuid IN (
-       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+WHERE  migration_uuid IN (SELECT uuid FROM claim)
 	`, mUUID)
 	if err != nil {
 		return errors.Capture(err)
 	}
 	deleteECMStmt, err := s.Prepare(`
+WITH claim AS (
+    SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid
+)
 DELETE FROM model_migration_import_external_controller_model
-WHERE  migration_uuid IN (
-       SELECT uuid FROM model_migration_import WHERE model_uuid = $modelUUIDArg.model_uuid)
+WHERE  migration_uuid IN (SELECT uuid FROM claim)
 	`, mUUID)
 	if err != nil {
 		return errors.Capture(err)
@@ -522,7 +532,7 @@ INSERT INTO external_model (*) VALUES ($externalModelArg.*)
 // records each (offerer_model_uuid, controller_uuid) pair into
 // model_migration_import_external_controller_model -- the durable handoff
 // Activate reads to reconcile offerer-controller mappings even after a
-// controller restart (WS9/WS4.1).
+// controller restart.
 func (s *State) ImportExternalControllers(
 	ctx context.Context, modelUUID, claimUUID string, refs []modelmigrationinternal.ExternalController,
 ) error {
