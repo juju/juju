@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coremachineauthentication "github.com/juju/juju/core/machineauthentication"
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/authenticationworker"
@@ -292,7 +293,7 @@ func (s *workerSuite) TestAddAndRemoveEphemeralKey(c *tc.C) {
 	authWorker := s.startWorker(c, ctrl)
 	defer workertest.CleanKill(c, authWorker)
 
-	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	updater, ok := authWorker.(coressh.EphemeralKeysUpdater)
 	c.Assert(ok, tc.IsTrue)
 
 	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
@@ -340,7 +341,7 @@ func (s *workerSuite) TestRemoveLastEphemeralKey(c *tc.C) {
 	defer workertest.CleanKill(c, authWorker)
 	s.waitSSHKeysUnordered(c, nil)
 
-	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	updater, ok := authWorker.(coressh.EphemeralKeysUpdater)
 	c.Assert(ok, tc.IsTrue)
 
 	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
@@ -419,7 +420,7 @@ func (s *workerSuite) TestEphemeralKeyRemovedOnRestart(c *tc.C) {
 
 	authWorker := s.startWorker(c, ctrl)
 
-	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	updater, ok := authWorker.(coressh.EphemeralKeysUpdater)
 	c.Assert(ok, tc.IsTrue)
 
 	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
@@ -464,7 +465,7 @@ func (s *workerSuite) TestAddEphemeralKeyDuringModelChange(c *tc.C) {
 	defer workertest.CleanKill(c, authWorker)
 	s.waitSSHKeys(c, append(s.existingKeys, s.existingEnvKey))
 
-	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	updater, ok := authWorker.(coressh.EphemeralKeysUpdater)
 	c.Assert(ok, tc.IsTrue)
 
 	key4, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyFour.Key))
@@ -500,7 +501,7 @@ func (s *workerSuite) TestEphemeralKeyOpsReturnWorkerDying(c *tc.C) {
 
 	authWorker := s.startWorker(c, ctrl)
 
-	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	updater, ok := authWorker.(coressh.EphemeralKeysUpdater)
 	c.Assert(ok, tc.IsTrue)
 
 	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))

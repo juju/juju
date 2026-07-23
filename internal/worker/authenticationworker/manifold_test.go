@@ -9,6 +9,7 @@ import (
 	"github.com/juju/tc"
 	"github.com/juju/worker/v5"
 
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/internal/testhelpers"
 )
 
@@ -32,14 +33,14 @@ func (s *manifoldSuite) TestManifoldHasOutput(c *tc.C) {
 func (s *manifoldSuite) TestOutputExtractsEphemeralKeysUpdater(c *tc.C) {
 	in := &AuthWorker{}
 
-	var updater EphemeralKeysUpdater
+	var updater coressh.EphemeralKeysUpdater
 	err := Output(in, &updater)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(updater, tc.Equals, in)
 }
 
 func (s *manifoldSuite) TestOutputWrongInputType(c *tc.C) {
-	var updater EphemeralKeysUpdater
+	var updater coressh.EphemeralKeysUpdater
 	err := Output(&stubWorker{}, &updater)
 	c.Check(err, tc.ErrorMatches, `expected \*AuthWorker, got .*`)
 }
@@ -49,7 +50,7 @@ func (s *manifoldSuite) TestOutputWrongOutputType(c *tc.C) {
 
 	var wrong worker.Worker
 	err := Output(in, &wrong)
-	c.Check(err, tc.ErrorMatches, `expected \*EphemeralKeysUpdater, got .*`)
+	c.Check(err, tc.ErrorMatches, `expected \*coressh.EphemeralKeysUpdater, got .*`)
 }
 
 type stubWorker struct{}

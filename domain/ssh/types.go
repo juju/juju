@@ -26,7 +26,8 @@ type SSHConnRequest struct {
 	SSHPassword string
 	// ControllerAddresses contains the controller addresses to use for the SSH connection.
 	ControllerAddresses network.SpaceAddresses
-	// UnitPort contains the port of the unit that the SSH connection is being requested for.
+	// UnitPort holds the port that the unit worker will forward traffic to on the machine.
+	// If this is 0, it defaults to port 22.
 	UnitPort int
 	// EphemeralPublicKey contains the ephemeral public key to use for the SSH connection.
 	EphemeralPublicKey []byte

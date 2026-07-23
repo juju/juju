@@ -40,17 +40,6 @@ type Client interface {
 	WatchAuthorisedKeys(ctx context.Context, tag names.MachineTag) (watcher.NotifyWatcher, error)
 }
 
-// EphemeralKeysUpdater adds and removes ephemeral SSH keys from the machine's
-// authorized_keys file. It is consumed by the sshsession worker, which injects
-// an ephemeral key for the lifetime of a reverse SSH tunnel.
-type EphemeralKeysUpdater interface {
-	// AddEphemeralKey adds an ephemeral key to the authorized_keys file,
-	// tagged with the supplied comment for later removal.
-	AddEphemeralKey(key gossh.PublicKey, comment string) error
-	// RemoveEphemeralKey removes a previously added ephemeral key.
-	RemoveEphemeralKey(key gossh.PublicKey) error
-}
-
 // opType identifies the kind of ephemeral key operation carried by a request.
 type opType int
 

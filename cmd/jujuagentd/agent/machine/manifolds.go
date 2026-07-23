@@ -114,6 +114,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/sshserver"
+	"github.com/juju/juju/internal/worker/sshsession"
 	"github.com/juju/juju/internal/worker/sshtunneler"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
@@ -1201,6 +1202,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 		}, authenticationworker.Output)),
 
+		sshSessionName: ifNotMigrating(sshsession.Manifold(sshsession.ManifoldConfig{
+			AgentName:                agentName,
+			APICallerName:            apiCallerName,
+			AuthenticationWorkerName: authenticationWorkerName,
+			Logger:                   internallogger.GetLogger("juju.worker.sshsession"),
+			NewWorker:                sshsession.NewWorker,
+			NewFacadeClient:          sshsession.NewFacadeClient,
+		})),
+
 		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -1674,6 +1684,7 @@ const (
 	secretBackendRotateName            = "secret-backend-rotate"
 	sshServerName                      = "ssh-server"
 	sshTunnelerName                    = "ssh-tunneler"
+	sshSessionName                     = "ssh-session"
 	machineConverterName               = "machine-converter"
 	storageProvisionerName             = "storage-provisioner"
 	storageRegistryName                = "storage-registry"
