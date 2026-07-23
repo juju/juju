@@ -84,6 +84,25 @@ type ImportClaim struct {
 	UpdatedAt time.Time
 }
 
+// ImportClaimStatus is a full snapshot of a target-side import claim, keyed by
+// its model UUID. The abort reconciler scans all outstanding claims and uses
+// the phase and UpdatedAt to decide which to finalize and which to warn about
+// as stale.
+type ImportClaimStatus struct {
+	// ModelUUID is the UUID of the model the claim belongs to.
+	ModelUUID string
+
+	// SourceMigrationUUID is the migration UUID recorded by the source side.
+	// It is diagnostic only.
+	SourceMigrationUUID string
+
+	// Phase is the claim's current import phase.
+	Phase ImportPhase
+
+	// UpdatedAt is when the claim last changed phase.
+	UpdatedAt time.Time
+}
+
 // ImportClaimConflictError builds the coded AlreadyExists error returned when
 // a v8 import claim attempt finds an existing claim for modelUUID. The
 // message reflects the existing claim's phase: activation-in-progress

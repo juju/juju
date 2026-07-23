@@ -59,6 +59,11 @@ type ModelImporter interface {
 	// path, running a durable, idempotent phase machine. It is also safe to
 	// call for legacy (3.6/4.0) imports that have no import claim.
 	ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error
+
+	// AbortModel drives target-side cleanup of a partially imported v8 model,
+	// transitioning its import claim to the aborting phase and undoing the
+	// controller-database import writes. It is idempotent.
+	AbortModel(ctx context.Context, modelUUID coremodel.UUID) error
 }
 
 // CloudService provides a subset of the cloud domain service methods.
@@ -657,14 +662,13 @@ func (api *APIV8) Prechecks(ctx context.Context, args params.SerializedModelV2) 
 }
 
 // Import accepts a v8 model migration envelope, claims the model, bootstraps
-// it and applies the envelope's controller-scoped semantic data. Model-DB
-// content import and activation are not yet part of this path (Tasks 7-10).
+// it and applies the envelope's controller-scoped semantic data.
 //
 // Unlike Prechecks, Import deliberately does NOT re-run the environmental
-// prechecks. Per the spec (WS4a / Task 6) the only work that must precede the
-// first target-side write is schema validation, payload version/decode
-// preparation and the non-empty SourceMigrationUUID check — exactly what
-// importGuard covers. The equivalent collision checks become
+// prechecks. The only work that must precede the first target-side write is
+// schema validation, payload version/decode preparation and the non-empty
+// SourceMigrationUUID check — exactly what importGuard covers. The equivalent
+// collision checks become
 // structural guarded writes inside the real import path (UNIQUE(model_uuid)
 // claim insert, compare-or-insert controller data), so Import does not
 // duplicate the Prechecks routine. This mirrors v7, where Import does not
@@ -681,6 +685,26 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 	return nil
 }
 
+// Abort drives target-side cleanup of a partially imported v8 model. It shadows
+// the v7 API.Abort (which marks the model dead and hands off to the undertaker):
+// on the v8 path, cleanup is owned by the migration abort finalizers. AbortModel
+// undoes the import, stages the model database for deletion, and waits (bounded)
+// for the import claim to be released, so the model UUID is free when this
+// returns and an immediate re-migration succeeds. If the claim cannot be
+// finalized within that budget the abort is still accepted and the abort
+// reconciler completes it later. A claim that has crossed the activation point
+// of no return is refused.
+func (api *APIV8) Abort(ctx context.Context, args params.ModelArgs) error {
+	modelTag, err := names.ParseModelTag(args.ModelTag)
+	if err != nil {
+		return errors.Capture(err)
+	}
+
+	api.logger.Debugf(ctx, "Abort v8 migrating model %q", args.ModelTag)
+
+	return errors.Capture(api.modelImporter.AbortModel(ctx, coremodel.UUID(modelTag.Id())))
+}
+
 // importGuard runs the mandatory pre-write checks that must pass before any
 // target-side row is written on the v8 import path: model identity
 // validation (including a non-empty source migration UUID) and the payload
@@ -691,7 +715,7 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 // There is no runtime controller-schema guard: the v8 import objects are
 // guaranteed present by the time the facade serves requests, because the
 // controllerupgrader manifold gates the apiserver behind completion of the
-// controller-DB schema upgrade (see the migrationtarget v8 spec, §4.6).
+// controller-DB schema upgrade.
 func (api *APIV8) importGuard(ctx context.Context, args params.SerializedModelV2) (export.ProjectionView, *latest.ModelExport, error) {
 	// Model sanity first: nothing else is meaningful without a valid
 	// model identity.

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -157,6 +158,89 @@ func (s *exportWatcherSuite) TestWatchMinionReports(c *tc.C) {
 	harness.Run(c, struct{}{})
 }
 
+// TestWatchImportClaims asserts that the target-side import claim watcher
+// returns model UUIDs for its initial collection and all claim mutations.
+func (s *exportWatcherSuite) TestWatchImportClaims(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, coredatabase.ControllerNS)
+	svc := service.NewWatchableImportService(
+		migrationstatecontroller.New(s.controllerDBFactory(), clock.WallClock),
+		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
+	)
+
+	// A claim present before the watcher starts must be returned in its initial
+	// collection.
+	s.insertImportClaim(c, s.modelUUID)
+	s.AssertChangeStreamIdle(c, "before watcher start")
+	w, err := svc.WatchImportClaims(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+	otherModelUUID := uuid.MustNewUUID().String()
+	harness.AddTest(c, func(c *tc.C) {
+		s.insertImportClaim(c, otherModelUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert(otherModelUUID))
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.setImportClaimPhase(c, otherModelUUID, 1)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert(otherModelUUID))
+	})
+	harness.AddTest(c, func(c *tc.C) {
+		s.deleteImportClaim(c, otherModelUUID)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(watchertest.StringSliceAssert(otherModelUUID))
+	})
+	harness.Run(c, []string{s.modelUUID})
+}
+
+// TestWatchModelDatabaseDeletion asserts the staged model-database deletion
+// watcher fires for the target model's namespace - both when a deletion is
+// staged and when it is removed (the drop completing) - and ignores other
+// models.
+func (s *exportWatcherSuite) TestWatchModelDatabaseDeletion(c *tc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, coredatabase.ControllerNS)
+	svc := service.NewWatchableImportService(
+		migrationstatecontroller.New(s.controllerDBFactory(), clock.WallClock),
+		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
+		loggertesting.WrapCheckLog(c),
+	)
+
+	s.AssertChangeStreamIdle(c, "before watcher start")
+	w, err := svc.WatchModelDatabaseDeletion(c.Context(), coremodel.UUID(s.modelUUID))
+	c.Assert(err, tc.ErrorIsNil)
+
+	harness := watchertest.NewHarness(s, watchertest.NewWatcherC(c, w))
+
+	harness.AddTest(c, func(c *tc.C) {}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// A deletion staged for another model must NOT fire this model's watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		s.stageModelDatabaseDeletion(c, uuid.MustNewUUID().String())
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertNoChange()
+	})
+
+	// Staging this model's deletion fires the watcher.
+	harness.AddTest(c, func(c *tc.C) {
+		s.stageModelDatabaseDeletion(c, s.modelUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	// Removing it (the undertaker having dropped the database) fires again.
+	harness.AddTest(c, func(c *tc.C) {
+		s.removeModelDatabaseDeletion(c, s.modelUUID)
+	}, func(w watchertest.WatcherC[struct{}]) {
+		w.AssertChange()
+	})
+
+	harness.Run(c, struct{}{})
+}
+
 // insertMinionReport records a minion sync row directly.
 func (s *exportWatcherSuite) insertMinionReport(c *tc.C, migrationUUID string, phaseID int, entityKey string, success bool) {
 	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
@@ -213,6 +297,52 @@ func (s *exportWatcherSuite) insertPhase(c *tc.C, migrationUUID string, phaseID 
 INSERT INTO model_migration_export_phase (migration_uuid, model_uuid, phase_id, changed_at)
 VALUES (?, ?, ?, DATETIME('now', 'utc'))`,
 			migrationUUID, s.modelUUID, phaseID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *exportWatcherSuite) insertImportClaim(c *tc.C, modelUUID string) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO model_migration_import (uuid, model_uuid, source_migration_uuid)
+VALUES (?, ?, 'source-migration-uuid')`, uuid.MustNewUUID().String(), modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *exportWatcherSuite) setImportClaimPhase(c *tc.C, modelUUID string, phaseID int) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE model_migration_import
+SET    phase_type_id = ?, updated_at = DATETIME('now', 'utc')
+WHERE  model_uuid = ?`, phaseID, modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *exportWatcherSuite) deleteImportClaim(c *tc.C, modelUUID string) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM model_migration_import WHERE model_uuid = ?", modelUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *exportWatcherSuite) stageModelDatabaseDeletion(c *tc.C, namespace string) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO model_database_deletion (namespace, created_at) VALUES (?, DATETIME('now', 'utc'))", namespace)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *exportWatcherSuite) removeModelDatabaseDeletion(c *tc.C, namespace string) {
+	err := s.ControllerTxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "DELETE FROM model_database_deletion WHERE namespace = ?", namespace)
 		return err
 	})
 	c.Assert(err, tc.ErrorIsNil)

@@ -29,6 +29,7 @@ import (
 	leaseservice "github.com/juju/juju/domain/lease/service"
 	leasestate "github.com/juju/juju/domain/lease/state"
 	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelmigrationservice "github.com/juju/juju/domain/model/service/migration"
 	modelstatecontroller "github.com/juju/juju/domain/model/state/controller"
@@ -451,10 +452,16 @@ func (op *opImportAuthorizedKeys) Execute(ctx context.Context, st *importState) 
 	return nil
 }
 
-// RemoveOnAbort deletes all authorized keys stored for the model. The keymanager
-// service already treats this as idempotent.
+// RemoveOnAbort deletes all authorized keys stored for the model. A missing
+// model is tolerated as success: on an abort re-drive the model row (and its
+// FK-dependent authorized keys) may already have been deleted by a prior pass's
+// opBootstrapModel.RemoveOnAbort, so re-driving key deletion must be a no-op
+// rather than an error.
 func (op *opImportAuthorizedKeys) RemoveOnAbort(ctx context.Context) error {
-	return op.keymanager.DeleteKeysForModel(ctx)
+	if err := op.keymanager.DeleteKeysForModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
+		return errors.Errorf("deleting authorized keys for model %q: %w", op.modelUUIDStr, err)
+	}
+	return nil
 }
 
 // ----

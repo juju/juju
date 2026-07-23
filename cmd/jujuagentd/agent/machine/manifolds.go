@@ -100,6 +100,7 @@ import (
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
+	"github.com/juju/juju/internal/worker/migrationreconciler"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstoredrainer"
@@ -858,6 +859,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:         internallogger.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
 			NewStore:       leaseexpiry.NewStore,
+		})),
+
+		// The migration reconciler completes interrupted target-side
+		// model-migration import aborts: it drops the partial model database and
+		// releases the durable import claim once cleanup is provably complete.
+		migrationReconcilerName: ifPrimaryController(migrationreconciler.Manifold(migrationreconciler.ManifoldConfig{
+			DBAccessorName:     dbAccessorName,
+			DomainServicesName: domainServicesName,
+			Clock:              config.Clock,
+			Logger:             internallogger.GetLogger("juju.worker.migrationreconciler"),
+			NewWorker:          migrationreconciler.NewWorker,
 		})),
 
 		// The global lease manager tracks lease information in the Dqlite database.
@@ -1622,6 +1634,7 @@ const (
 	upgradeDomainServicesName  = "upgrade-services"
 
 	migrationFortressName     = "migration-fortress"
+	migrationReconcilerName   = "migration-reconciler"
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
