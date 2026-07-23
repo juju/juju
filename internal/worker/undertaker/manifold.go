@@ -14,10 +14,12 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/removal/service"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/services"
+	workertrace "github.com/juju/juju/internal/worker/trace"
 )
 
 // ControllerModelService is an interface that defines the methods
@@ -72,6 +74,7 @@ type GetDomainServicesGetterFunc func(ctx context.Context, getter dependency.Get
 type ManifoldConfig struct {
 	DBAccessorName            string
 	DomainServicesName        string
+	TraceName                 string
 	Logger                    logger.Logger
 	Clock                     clock.Clock
 	NewWorker                 func(Config) (worker.Worker, error)
@@ -86,6 +89,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.DomainServicesName == "" {
 		return jujuerrors.NotValidf("empty DomainServicesName")
+	}
+	if config.TraceName == "" {
+		return jujuerrors.NotValidf("empty TraceName")
 	}
 	if config.GetRemovalServiceGetter == nil {
 		return jujuerrors.NotValidf("nil GetRemovalServiceGetter")
@@ -112,6 +118,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.DBAccessorName,
 			config.DomainServicesName,
+			config.TraceName,
 		},
 		Start: config.start,
 	}
@@ -138,12 +145,23 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Capture(err)
 	}
 
+	var tracerGetter workertrace.TracerGetter
+	if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("undertaker", coredatabase.ControllerNS))
+	if err != nil {
+		tracer = coretrace.NoopTracer{}
+	}
+
 	return config.NewWorker(Config{
 		DBDeleter:              dbDeleter,
 		ControllerModelService: controllerModelService,
 		RemovalServiceGetter:   removalServiceGetter,
 		Logger:                 config.Logger,
 		Clock:                  config.Clock,
+		Tracer:                 tracer,
 	})
 }
 
