@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -89,9 +90,18 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 		c.Check(pty.Term, tc.Equals, "xterm")
 
 		_, _ = io.WriteString(session, "shell ready\n")
-		window := <-windowChanges
+		var window ssh.Window
+		// This loop terminates when we get what we expect
+		// or when the server is shutdown and windowChanges closes.
+		for {
+			window = <-windowChanges
+			if window.Height == 30 && window.Width == 100 {
+				break
+			}
+		}
 		c.Check(window.Height, tc.Equals, 30)
 		c.Check(window.Width, tc.Equals, 100)
+		_, _ = io.WriteString(session, "shell done\n")
 	}})
 
 	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
@@ -107,14 +117,35 @@ func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	defer session.Close()
 
-	var stdout bytes.Buffer
-	session.Stdout = &stdout
+	stdoutReader, stdoutWriter := io.Pipe()
+	defer stdoutReader.Close()
+	defer stdoutWriter.Close()
+	session.Stdout = stdoutWriter
 	c.Assert(session.RequestPty("xterm", 24, 80, gossh.TerminalModes{}), tc.ErrorIsNil)
 	c.Assert(session.Shell(), tc.ErrorIsNil)
+
+	type outputResult struct {
+		message string
+		err     error
+	}
+	outputs := make(chan outputResult, 2)
+	go func() {
+		stdout := bufio.NewReader(stdoutReader)
+		message, err := stdout.ReadString('\n')
+		outputs <- outputResult{message: message, err: err}
+		message, err = stdout.ReadString('\n')
+		outputs <- outputResult{message: message, err: err}
+	}()
+
+	output := <-outputs
+	c.Assert(output.err, tc.ErrorIsNil)
+	c.Check(output.message, tc.Equals, "shell ready\r\n")
 	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
 	c.Assert(session.Wait(), tc.ErrorIsNil)
 
-	c.Check(stdout.String(), tc.Equals, "shell ready\r\n")
+	output = <-outputs
+	c.Assert(output.err, tc.ErrorIsNil)
+	c.Check(output.message, tc.Equals, "shell done\r\n")
 }
 
 func (s *machineSuite) TestSessionHandlerReportsConnectionFailure(c *tc.C) {

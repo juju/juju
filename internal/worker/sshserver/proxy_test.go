@@ -26,7 +26,7 @@ func (s *proxySuite) TestNewSelectsMachineHandlers(c *tc.C) {
 	handlers, err := (proxyFactory{
 		logger:    loggertesting.WrapCheckLog(c),
 		connector: proxyConnector{},
-	}).New(c.Context(), destination)
+	}).New(destination)
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(handlers, tc.FitsTypeOf, &machine.Handlers{})
 }
