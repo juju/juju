@@ -4,7 +4,9 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strconv"
@@ -16,10 +18,11 @@ import (
 
 func main() {
 	gnuflag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s <modeluuid> <agent> [<password>] | --user <username> [password]\n", os.Args[0])
+		_, _ = fmt.Fprintf(os.Stderr, "Usage: %s [--model-name <modelname>] <modeluuid> <agent> [<password>] | --user <username> [password]\n", os.Args[0])
 		gnuflag.PrintDefaults()
 	}
 	user := gnuflag.String("user", "", "supply a username to generate a password instead of modeluuid and agent")
+	modelName := gnuflag.String("model-name", "", "Kubernetes model name, used as the namespace for application-agent recovery")
 	gnuflag.Parse(true)
 	args := gnuflag.Args()
 	var modelUUID string
@@ -63,20 +66,51 @@ func main() {
 		fmt.Printf(`db.users.update({"_id": "%s"}, {"$set": {"passwordsalt": "%s", "passwordhash": "%s"}})`+"\n",
 			*user, salt, hash)
 	} else {
-		var collection string
-		if strings.Index(agent, "/") < 0 {
-			// must be a machine
-			collection = "machines"
-			if _, err := strconv.Atoi(agent); err != nil {
-				fmt.Fprintf(os.Stderr, "Agent %q isn't a unit agent (with /) nor an integer machine id\n", agent)
-				os.Exit(1)
-			}
-		} else {
-			collection = "units"
+		agentType, collection := classifyTarget(agent)
+		if agentType == targetK8sApplicationAgent && *modelName == "" {
+			_, _ = fmt.Fprintln(os.Stderr, "--model-name is required for Kubernetes application-agent recovery")
+			os.Exit(1)
 		}
 		hash := utils.AgentPasswordHash(passwd)
 		fmt.Printf("oldpassword: %s\n", passwd)
 		fmt.Printf(`db.%s.update({"_id": "%s:%s"}, {$set: {"passwordhash": "%s"}})`+"\n",
 			collection, modelUUID, agent, hash)
+		if agentType == targetK8sApplicationAgent {
+			if err := printK8sApplicationAgentHelp(os.Stdout, *modelName, agent, passwd); err != nil {
+				log.Fatal(err)
+			}
+		}
 	}
+}
+
+type targetType int
+
+const (
+	targetMachine targetType = iota
+	targetUnit
+	targetK8sApplicationAgent
+)
+
+func classifyTarget(target string) (targetType, string) {
+	if strings.Contains(target, "/") {
+		return targetUnit, "units"
+	}
+	if _, err := strconv.Atoi(target); err == nil {
+		return targetMachine, "machines"
+	}
+	// Bare non-integer, non-unit identifiers are treated as CAAS application
+	// names for password-hash recovery.
+	return targetK8sApplicationAgent, "applications"
+}
+
+func printK8sApplicationAgentHelp(w io.Writer, modelName, appName, password string) error {
+	passwordBase64 := base64.StdEncoding.EncodeToString([]byte(password))
+	_, err := fmt.Fprintf(w, `
+Kubernetes application-agent recovery:
+1. Update the introduction secret for new pod init.
+kubectl -n %s patch secret %s-application-config --type merge -p '{"data":{"JUJU_K8S_APPLICATION_PASSWORD":"%s"}}'
+2. Restart workload pods so init picks up the new secret.
+kubectl -n %s delete pod -l app.kubernetes.io/name=%s
+`, modelName, appName, passwordBase64, modelName, appName)
+	return err
 }
