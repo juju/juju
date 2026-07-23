@@ -341,7 +341,7 @@ func (s *workerSuite) TestRemoveLastEphemeralKey(c *tc.C) {
 	defer workertest.CleanKill(c, authWorker)
 	s.waitSSHKeysUnordered(c, nil)
 
-	updater, ok := authWorker.(authenticationworker.EphemeralKeysUpdater)
+	updater, ok := authWorker.(coressh.EphemeralKeysUpdater)
 	c.Assert(ok, tc.IsTrue)
 
 	pub, _, _, _, err := gossh.ParseAuthorizedKey([]byte(sshtesting.ValidKeyThree.Key))
