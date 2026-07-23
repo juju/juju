@@ -60,3 +60,100 @@ assert_endpoint_binding_matches() {
 		exit 1
 	fi
 }
+
+# assert_opened_ports_output checks that the open-port and opened-ports hook
+# tools behave as expected on the given application unit: it opens a port
+# range for all endpoints, then — when both <endpoint> and
+# <endpoint_port_range> are supplied — opens a port for that specific
+# endpoint. It asserts both the legacy and the --endpoints output formats.
+# Ports are ordered by start port in the output, so expected values are
+# sorted accordingly. Both port ranges must use the same protocol; this
+# helper does not sort or validate across mixed TCP/UDP ranges.
+#
+# Usage:
+#   assert_opened_ports_output <app_name> <all_endpoints_port_range> \
+#       [<endpoint> <endpoint_port_range>]
+assert_opened_ports_output() {
+	local app_name all_ports endpoint endpoint_ports
+	local exp_legacy exp_endpoints all_start ep_start
+
+	if [ "$#" -lt 2 ] || [ "$#" -gt 4 ]; then
+		echo "ERROR: usage: assert_opened_ports_output <app> <all-ports> [<endpoint> <endpoint-ports>]" >&2
+		return 1
+	fi
+
+	app_name=${1:-}
+	all_ports=${2:-}
+	endpoint=${3:-}
+	endpoint_ports=${4:-}
+	if [ -z "${app_name}" ] || [ -z "${all_ports}" ]; then
+		echo "ERROR: application and all-endpoints port range are required" >&2
+		return 1
+	fi
+	if { [ -n "${endpoint}" ] && [ -z "${endpoint_ports}" ]; } || \
+		{ [ -z "${endpoint}" ] && [ -n "${endpoint_ports}" ]; }; then
+		echo "ERROR: endpoint and endpoint port range must be supplied together" >&2
+		return 1
+	fi
+
+	# Reject mixed protocols: the current sorter only compares numeric start
+	# ports, which is valid only when both ranges share the same protocol.
+	if [ -n "${endpoint_ports}" ]; then
+		if [ "${all_ports##*/}" != "${endpoint_ports##*/}" ]; then
+			echo "ERROR: this helper only accepts ranges with the same protocol: ${all_ports} vs ${endpoint_ports}" >&2
+			return 1
+		fi
+	fi
+
+	all_start="${all_ports%%[-\/]*}"
+	if ! [[ ${all_start} =~ ^[0-9]+$ ]]; then
+		echo "ERROR: invalid all-endpoints port range: ${all_ports}" >&2
+		return 1
+	fi
+	if [ -n "${endpoint_ports}" ]; then
+		ep_start="${endpoint_ports%%[-\/]*}"
+		if ! [[ ${ep_start} =~ ^[0-9]+$ ]]; then
+			echo "ERROR: invalid endpoint port range: ${endpoint_ports}" >&2
+			return 1
+		fi
+	fi
+
+	echo "==> Checking open/opened-ports hook tools work as expected"
+
+	juju exec --unit "${app_name}/0" "open-port ${all_ports}"
+
+	if [ -n "${endpoint}" ]; then
+		juju exec --unit "${app_name}/0" "open-port ${endpoint_ports} --endpoints ${endpoint}"
+	fi
+
+	# Build expected outputs sorted by numeric start port, matching the
+	# order produced by opened-ports (sorts by protocol, then by port).
+	if [ -n "${endpoint_ports}" ]; then
+		ep_start="${endpoint_ports%%[-\/]*}"
+		all_start="${all_ports%%[-\/]*}"
+		if [ "${ep_start}" -lt "${all_start}" ]; then
+			exp_legacy="${endpoint_ports} ${all_ports}"
+			exp_endpoints="${endpoint_ports} (${endpoint}) ${all_ports} (*)"
+		else
+			exp_legacy="${all_ports} ${endpoint_ports}"
+			exp_endpoints="${all_ports} (*) ${endpoint_ports} (${endpoint})"
+		fi
+	else
+		exp_legacy="${all_ports}"
+		exp_endpoints="${all_ports} (*)"
+	fi
+
+	got=$(juju_exec_output --unit "${app_name}/0" "opened-ports" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
+	if [ "$got" != "$exp_legacy" ]; then
+		# shellcheck disable=SC2046
+		echo $(red "expected opened-ports output to be:\n${exp_legacy}\nGOT:\n${got}")
+		exit 1
+	fi
+
+	got=$(juju_exec_output --unit "${app_name}/0" "opened-ports --endpoints" | tr '\n' ' ' | sed -e 's/[[:space:]]*$//')
+	if [ "$got" != "$exp_endpoints" ]; then
+		# shellcheck disable=SC2046
+		echo $(red "expected opened-ports output when using --endpoints to be:\n${exp_endpoints}\nGOT:\n${got}")
+		exit 1
+	fi
+}
