@@ -118,12 +118,6 @@ func (s SubnetInfos) SpaceIDs() set.Strings {
 	return spaceIDs
 }
 
-// ContainsID returns true if the collection contains a
-// space with the given ID.
-func (s SubnetInfos) ContainsID(id Id) bool {
-	return s.GetByID(id) != nil
-}
-
 // GetByID returns a reference to the subnet with the input ID if one is found.
 func (s SubnetInfos) GetByID(id Id) *SubnetInfo {
 	for _, sub := range s {

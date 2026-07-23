@@ -25,13 +25,18 @@ func RegisterImportSubnets(coordinator Coordinator, logger logger.Logger) {
 	})
 }
 
-// SubnetsImportService provides a subset of the network domain service
-// methods needed for spaces and subnets import.
-type SubnetsImportService interface {
+// SpaceImportService provides a subset of the network domain service
+// methods needed for spaces import.
+type SpaceImportService interface {
 	// AddSpace creates and returns a new space.
 	AddSpace(ctx context.Context, args domainnetwork.AddSpaceArgs) (corenetwork.SpaceUUID, error)
-	// AddSubnet creates and returns a new subnet.
-	AddSubnet(ctx context.Context, args corenetwork.SubnetInfo) (corenetwork.Id, error)
+}
+
+// SubnetImportService provides a subset of the network domain service
+// methods needed for subnets import.
+type SubnetImportService interface {
+	// ImportSubnets imports the provided subnets as a single bulk operation.
+	ImportSubnets(ctx context.Context, args []domainnetwork.ImportSubnetArgs) error
 	// GetModelCloudType returns the type of the cloud that is in use by this model.
 	GetModelCloudType(context.Context) (string, error)
 }
@@ -39,7 +44,8 @@ type SubnetsImportService interface {
 type importSubnetsOperation struct {
 	modelmigration.BaseOperation
 
-	importService SubnetsImportService
+	spaceService  SpaceImportService
+	importService SubnetImportService
 	logger        logger.Logger
 }
 
@@ -51,7 +57,11 @@ func (i *importSubnetsOperation) Name() string {
 // Setup implements Operation.
 func (i *importSubnetsOperation) Setup(scope modelmigration.Scope) error {
 	st := state.NewState(scope.ModelDB(), i.logger)
-	i.importService = service.NewService(
+	i.spaceService = service.NewService(
+		st,
+		i.logger,
+	)
+	i.importService = service.NewMigrationService(
 		st,
 		i.logger,
 	)
@@ -95,7 +105,7 @@ func (i *importSubnetsOperation) importSpaces(ctx context.Context, modelSpaces [
 		if space.Name() == corenetwork.AlphaSpaceName.String() {
 			continue
 		}
-		spaceID, err := i.importService.AddSpace(ctx, domainnetwork.AddSpaceArgs{
+		spaceID, err := i.spaceService.AddSpace(ctx, domainnetwork.AddSpaceArgs{
 			UUID:       corenetwork.SpaceUUID(space.UUID()),
 			Name:       corenetwork.SpaceName(space.Name()),
 			ProviderID: corenetwork.Id(space.ProviderID()),
@@ -126,6 +136,7 @@ func (i *importSubnetsOperation) importIAASSubnets(
 		return errors.Capture(err)
 	}
 
+	args := make([]domainnetwork.ImportSubnetArgs, 0, len(modelSubnets))
 	for _, subnet := range modelSubnets {
 		// Fix subnet data from 3.6 during import, net- is superfluous.
 		var providerID, providerNetworkID string
@@ -136,8 +147,17 @@ func (i *importSubnetsOperation) importIAASSubnets(
 			providerNetworkID = subnet.ProviderNetworkId()
 		}
 
-		subnetInfo := corenetwork.SubnetInfo{
-			ID:                corenetwork.Id(subnet.UUID()),
+		subnetUUID := domainnetwork.SubnetUUID(subnet.UUID())
+		if subnetUUID == "" {
+			generated, err := domainnetwork.NewSubnetUUID()
+			if err != nil {
+				return errors.Errorf("generating uuid for subnet %q: %w", subnet.CIDR(), err)
+			}
+			subnetUUID = generated
+		}
+
+		subnetArg := domainnetwork.ImportSubnetArgs{
+			UUID:              subnetUUID,
 			CIDR:              subnet.CIDR(),
 			ProviderId:        corenetwork.Id(providerID),
 			VLANTag:           subnet.VLANTag(),
@@ -145,25 +165,37 @@ func (i *importSubnetsOperation) importIAASSubnets(
 			ProviderNetworkId: corenetwork.Id(providerNetworkID),
 		}
 
-		importedSpaceID, ok := spaceIDsMap[subnet.SpaceID()]
-		if ok {
-			subnetInfo.SpaceID = importedSpaceID
+		if importedSpaceID, ok := spaceIDsMap[subnet.SpaceID()]; ok {
+			subnetArg.SpaceID = importedSpaceID
 		}
 
-		_, err := i.importService.AddSubnet(ctx, subnetInfo)
-		if err != nil {
-			return errors.Errorf("creating subnet %s: %w", subnet.CIDR(), err)
-		}
+		args = append(args, subnetArg)
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	if err := i.importService.ImportSubnets(ctx, args); err != nil {
+		return errors.Errorf("importing subnets: %w", err)
 	}
 	return nil
 }
 
 func (i *importSubnetsOperation) populateFallbackSubnets(ctx context.Context) error {
+	args := make([]domainnetwork.ImportSubnetArgs, 0, len(corenetwork.FallbackSubnetInfo))
 	for _, subnet := range corenetwork.FallbackSubnetInfo {
-		_, err := i.importService.AddSubnet(ctx, subnet)
+		subnetUUID, err := domainnetwork.NewSubnetUUID()
 		if err != nil {
-			return errors.Errorf("creating fallback subnet %s: %w", subnet.CIDR, err)
+			return errors.Capture(err)
 		}
+		args = append(args, domainnetwork.ImportSubnetArgs{
+			UUID: subnetUUID,
+			CIDR: subnet.CIDR,
+		})
+	}
+	if err := i.importService.ImportSubnets(ctx, args); err != nil {
+		return errors.Errorf("importing fallback subnets: %w", err)
 	}
 	return nil
 }

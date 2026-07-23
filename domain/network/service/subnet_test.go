@@ -13,6 +13,7 @@ import (
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/network"
 	networktesting "github.com/juju/juju/core/network/testing"
+	domainnetwork "github.com/juju/juju/domain/network"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -35,71 +36,81 @@ func (s *subnetSuite) setupMocks(c *tc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *subnetSuite) TestFailAddSubnet(c *tc.C) {
+func (s *subnetSuite) TestFailImportSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	subnetInfo := network.SubnetInfo{
+	args := domainnetwork.ImportSubnetArgs{
+		UUID:              domainnetwork.SubnetUUID("subnet-uuid-0"),
 		CIDR:              "192.168.0.0/20",
 		ProviderId:        "provider-id-0",
 		ProviderNetworkId: "provider-network-id-0",
 		AvailabilityZones: []string{"az0"},
 	}
 
-	// Verify that the passed subnetInfo matches and return an error.
-	s.st.EXPECT().AddSubnet(gomock.Any(), gomock.Any()).
+	// Verify that the passed args match and return an error.
+	s.st.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(
 				ctx context.Context,
-				subnet network.SubnetInfo,
+				subnets []domainnetwork.ImportSubnetArgs,
 			) error {
-				c.Assert(subnet.CIDR, tc.Equals, subnetInfo.CIDR)
-				c.Assert(subnet.ProviderId, tc.Equals, subnetInfo.ProviderId)
-				c.Assert(subnet.ProviderNetworkId, tc.Equals, subnetInfo.ProviderNetworkId)
-				c.Assert(subnet.AvailabilityZones, tc.SameContents, subnetInfo.AvailabilityZones)
+				c.Assert(subnets, tc.HasLen, 1)
+				got := subnets[0]
+				c.Assert(got.UUID, tc.Equals, args.UUID)
+				c.Assert(got.CIDR, tc.Equals, args.CIDR)
+				c.Assert(got.ProviderId, tc.Equals, args.ProviderId)
+				c.Assert(got.ProviderNetworkId, tc.Equals, args.ProviderNetworkId)
+				c.Assert(got.AvailabilityZones, tc.SameContents, args.AvailabilityZones)
 				return errors.New("boom")
 			})
 
-	_, err := NewService(s.st, nil).AddSubnet(c.Context(), subnetInfo)
+	err := NewMigrationService(s.st, nil).ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{args})
 	c.Assert(err, tc.ErrorMatches, "boom")
 }
 
-func (s *subnetSuite) TestAddSubnet(c *tc.C) {
+func (s *subnetSuite) TestImportSubnet(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	subnetInfo := network.SubnetInfo{
+	args := domainnetwork.ImportSubnetArgs{
+		UUID:              domainnetwork.SubnetUUID("subnet-uuid-0"),
 		CIDR:              "192.168.0.0/20",
 		ProviderId:        "provider-id-0",
 		ProviderNetworkId: "provider-network-id-0",
 		AvailabilityZones: []string{"az0"},
 	}
 
-	var expectedUUID network.Id
-	// Verify that the passed subnetInfo matches and don't return an error.
-	s.st.EXPECT().AddSubnet(gomock.Any(), gomock.Any()).
+	// Verify that the passed args match and don't return an error.
+	s.st.EXPECT().ImportSubnets(gomock.Any(), gomock.Any()).
 		DoAndReturn(
 			func(
 				ctx context.Context,
-				subnet network.SubnetInfo,
+				subnets []domainnetwork.ImportSubnetArgs,
 			) error {
-				c.Assert(subnet.CIDR, tc.Equals, subnetInfo.CIDR)
-				c.Assert(subnet.ProviderId, tc.Equals, subnetInfo.ProviderId)
-				c.Assert(subnet.ProviderNetworkId, tc.Equals, subnetInfo.ProviderNetworkId)
-				c.Assert(subnet.AvailabilityZones, tc.SameContents, subnetInfo.AvailabilityZones)
-				expectedUUID = subnet.ID
+				c.Assert(subnets, tc.HasLen, 1)
+				got := subnets[0]
+				c.Assert(got, tc.DeepEquals, args)
 				return nil
 			})
 
-	returnedUUID, err := NewService(s.st, nil).AddSubnet(c.Context(), subnetInfo)
+	err := NewMigrationService(s.st, nil).ImportSubnets(c.Context(), []domainnetwork.ImportSubnetArgs{args})
 	c.Assert(err, tc.ErrorIsNil)
-	// Verify that the passed UUID is also returned.
-	c.Assert(returnedUUID, tc.Equals, expectedUUID)
+}
+
+func (s *subnetSuite) TestImportSubnetEmptyArgs(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Verify that ImportSubnets with an empty slice returns nil without
+	// calling the state layer.
+	err := NewMigrationService(s.st, nil).ImportSubnets(c.Context(), nil)
+	c.Assert(err, tc.ErrorIsNil)
 }
 
 func (s *subnetSuite) TestRetrieveAllSubnets(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	subnetInfos := network.SubnetInfos{
+	subnetInfos := domainnetwork.SubnetInfos{
 		{
+			UUID:              domainnetwork.SubnetUUID("subnet-uuid-0"),
 			CIDR:              "192.168.0.0/20",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -109,24 +120,9 @@ func (s *subnetSuite) TestRetrieveAllSubnets(c *tc.C) {
 	s.st.EXPECT().GetAllSubnets(gomock.Any()).Return(subnetInfos, nil)
 	subnets, err := NewService(s.st, nil).GetAllSubnets(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Check(subnets, tc.SameContents, subnetInfos)
-}
-
-func (s *subnetSuite) TestRetrieveSubnetByID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetSubnet(gomock.Any(), "subnet0")
-	_, err := NewService(s.st, nil).Subnet(c.Context(), "subnet0")
-	c.Assert(err, tc.ErrorIsNil)
-}
-
-func (s *subnetSuite) TestFailRetrieveSubnetByID(c *tc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.st.EXPECT().GetSubnet(gomock.Any(), "unknown-subnet").
-		Return(nil, errors.Errorf("subnet %q %w", "unknown-subnet", coreerrors.NotFound))
-	_, err := NewService(s.st, nil).Subnet(c.Context(), "unknown-subnet")
-	c.Assert(err, tc.ErrorMatches, "subnet \"unknown-subnet\" not found")
+	c.Check(subnets, tc.HasLen, 1)
+	c.Check(subnets[0].ID, tc.Equals, network.Id("subnet-uuid-0"))
+	c.Check(subnets[0].CIDR, tc.Equals, "192.168.0.0/20")
 }
 
 func (s *subnetSuite) TestRetrieveSubnetByCIDRs(c *tc.C) {
