@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/semversion"
 	internaldependency "github.com/juju/juju/internal/dependency"
 	internallogger "github.com/juju/juju/internal/logger"
-	k8sconstants "github.com/juju/juju/internal/provider/kubernetes/constants"
 	internalworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	jujunames "github.com/juju/juju/juju/names"
@@ -66,7 +65,6 @@ type safeModeAgentCommand struct {
 	safeModeMachineAgentFactory safeModeMachineAgentFactoryFnType
 	ctx                         *cmd.Context
 
-	isCaas   bool
 	agentTag names.Tag
 
 	// The following are set via command-line flags.
@@ -109,8 +107,6 @@ func (a *safeModeAgentCommand) Init(args []string) error {
 	if err := os.MkdirAll(config.LogDir(), 0o644); err != nil {
 		logger.Warningf(context.TODO(), "cannot create log dir: %v", err)
 	}
-	a.isCaas = config.Value(agent.ProviderType) == k8sconstants.CAASProviderType
-
 	return nil
 }
 
@@ -129,7 +125,7 @@ func (a *safeModeAgentCommand) Run(c *cmd.Context) error {
 	// it's better than nothing).
 	fmt.Fprint(os.Stderr, safeModeWarningHeader)
 
-	machineAgent, err := a.safeModeMachineAgentFactory(a.agentTag, a.isCaas)
+	machineAgent, err := a.safeModeMachineAgentFactory(a.agentTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -171,7 +167,7 @@ before running in safe mode.
 `
 )
 
-type safeModeMachineAgentFactoryFnType func(names.Tag, bool) (*SafeModeMachineAgent, error)
+type safeModeMachineAgentFactoryFnType func(names.Tag) (*SafeModeMachineAgent, error)
 
 // SafeModeMachineAgentFactoryFn returns a function which instantiates a
 // SafeModeMachineAgent given a machineId.
@@ -179,7 +175,7 @@ func SafeModeMachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 ) safeModeMachineAgentFactoryFnType {
-	return func(agentTag names.Tag, isCaasAgent bool) (*SafeModeMachineAgent, error) {
+	return func(agentTag names.Tag) (*SafeModeMachineAgent, error) {
 		runner, err := worker.NewRunner(worker.RunnerParams{
 			Name:          "safemode",
 			IsFatal:       agenterrors.IsFatal,
@@ -195,7 +191,6 @@ func SafeModeMachineAgentFactoryFn(
 			agentConfWriter,
 			runner,
 			newDBWorkerFunc,
-			isCaasAgent,
 		)
 	}
 }
@@ -206,7 +201,6 @@ func NewSafeModeMachineAgent(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	runner *worker.Runner,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
-	isCaasAgent bool,
 ) (*SafeModeMachineAgent, error) {
 	a := &SafeModeMachineAgent{
 		agentTag:          agentTag,
@@ -216,7 +210,6 @@ func NewSafeModeMachineAgent(
 		dead:              make(chan struct{}),
 		runner:            runner,
 		newDBWorkerFunc:   newDBWorkerFunc,
-		isCaasAgent:       isCaasAgent,
 	}
 	return a, nil
 }
@@ -235,8 +228,6 @@ type SafeModeMachineAgent struct {
 	workersStarted chan struct{}
 
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
-
-	isCaasAgent bool
 }
 
 // Wait waits for the safe mode machine agent to finish.
@@ -320,15 +311,9 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 			LogDir:                  agentConfig.LogDir(),
 			ConfigChangeSocketPath:  path.Join(agentConfig.DataDir(), "configchange.socket"),
 			Clock:                   clock.WallClock,
-			IsCaasConfig:            a.isCaasAgent,
 		}
 
-		var manifolds dependency.Manifolds
-		if a.isCaasAgent {
-			manifolds = safemode.CAASManifolds(manifoldsCfg)
-		} else {
-			manifolds = safemode.IAASManifolds(manifoldsCfg)
-		}
+		manifolds := safemode.Manifolds(manifoldsCfg)
 
 		if err := dependency.Install(eng, manifolds); err != nil {
 			if err := worker.Stop(eng); err != nil {

@@ -4,9 +4,13 @@
 package agent
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 )
 
 type BootstrapSuite struct {
@@ -26,4 +30,27 @@ func (s *BootstrapSuite) TestStub(c *tc.C) {
   - Test set constraints for bootstrap machine and model.
   - Test system identity is written to the data directory.
 `)
+}
+
+func (s *BootstrapSuite) TestBootstrapControllerAddressesUsesProviderInterface(c *tc.C) {
+	want := network.NewMachineAddresses([]string{"10.0.0.1"}).AsProviderAddresses()
+	env := &stubBootstrapAddressEnviron{addresses: want}
+
+	got, err := bootstrapControllerAddresses(c.Context(), env, "bootstrap-instance")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, want)
+	c.Check(env.calls, tc.Equals, 1)
+}
+
+type stubBootstrapAddressEnviron struct {
+	environs.BootstrapEnviron
+	addresses network.ProviderAddresses
+	calls     int
+}
+
+func (e *stubBootstrapAddressEnviron) BootstrapControllerAddresses(
+	_ context.Context,
+) (network.ProviderAddresses, error) {
+	e.calls++
+	return e.addresses, nil
 }
