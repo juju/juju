@@ -28,8 +28,6 @@ import (
 	v1beta12 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	v13 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	v2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
-	v2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
-	v2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	v14 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	v1beta13 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	v15 "k8s.io/client-go/kubernetes/typed/certificates/v1"
@@ -63,12 +61,12 @@ import (
 	v1beta114 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
 	v1beta21 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
 	v116 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
-	v1alpha15 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
+	v1alpha20 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha2"
 	v1beta115 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
 	v117 "k8s.io/client-go/kubernetes/typed/storage/v1"
-	v1alpha16 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
+	v1alpha15 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	v1beta116 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
-	v1alpha17 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	v1beta117 "k8s.io/client-go/kubernetes/typed/storagemigration/v1beta1"
 )
 
 // MockInterface is a mock of Interface interface.
@@ -584,82 +582,6 @@ func (c *MockInterfaceAutoscalingV2Call) Do(f func() v2.AutoscalingV2Interface) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockInterfaceAutoscalingV2Call) DoAndReturn(f func() v2.AutoscalingV2Interface) *MockInterfaceAutoscalingV2Call {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AutoscalingV2beta1 mocks base method.
-func (m *MockInterface) AutoscalingV2beta1() v2beta1.AutoscalingV2beta1Interface {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AutoscalingV2beta1")
-	ret0, _ := ret[0].(v2beta1.AutoscalingV2beta1Interface)
-	return ret0
-}
-
-// AutoscalingV2beta1 indicates an expected call of AutoscalingV2beta1.
-func (mr *MockInterfaceMockRecorder) AutoscalingV2beta1() *MockInterfaceAutoscalingV2beta1Call {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoscalingV2beta1", reflect.TypeOf((*MockInterface)(nil).AutoscalingV2beta1))
-	return &MockInterfaceAutoscalingV2beta1Call{Call: call}
-}
-
-// MockInterfaceAutoscalingV2beta1Call wrap *gomock.Call
-type MockInterfaceAutoscalingV2beta1Call struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockInterfaceAutoscalingV2beta1Call) Return(arg0 v2beta1.AutoscalingV2beta1Interface) *MockInterfaceAutoscalingV2beta1Call {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockInterfaceAutoscalingV2beta1Call) Do(f func() v2beta1.AutoscalingV2beta1Interface) *MockInterfaceAutoscalingV2beta1Call {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInterfaceAutoscalingV2beta1Call) DoAndReturn(f func() v2beta1.AutoscalingV2beta1Interface) *MockInterfaceAutoscalingV2beta1Call {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// AutoscalingV2beta2 mocks base method.
-func (m *MockInterface) AutoscalingV2beta2() v2beta2.AutoscalingV2beta2Interface {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AutoscalingV2beta2")
-	ret0, _ := ret[0].(v2beta2.AutoscalingV2beta2Interface)
-	return ret0
-}
-
-// AutoscalingV2beta2 indicates an expected call of AutoscalingV2beta2.
-func (mr *MockInterfaceMockRecorder) AutoscalingV2beta2() *MockInterfaceAutoscalingV2beta2Call {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutoscalingV2beta2", reflect.TypeOf((*MockInterface)(nil).AutoscalingV2beta2))
-	return &MockInterfaceAutoscalingV2beta2Call{Call: call}
-}
-
-// MockInterfaceAutoscalingV2beta2Call wrap *gomock.Call
-type MockInterfaceAutoscalingV2beta2Call struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockInterfaceAutoscalingV2beta2Call) Return(arg0 v2beta2.AutoscalingV2beta2Interface) *MockInterfaceAutoscalingV2beta2Call {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockInterfaceAutoscalingV2beta2Call) Do(f func() v2beta2.AutoscalingV2beta2Interface) *MockInterfaceAutoscalingV2beta2Call {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInterfaceAutoscalingV2beta2Call) DoAndReturn(f func() v2beta2.AutoscalingV2beta2Interface) *MockInterfaceAutoscalingV2beta2Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1994,40 +1916,40 @@ func (c *MockInterfaceSchedulingV1Call) DoAndReturn(f func() v116.SchedulingV1In
 	return c
 }
 
-// SchedulingV1alpha1 mocks base method.
-func (m *MockInterface) SchedulingV1alpha1() v1alpha15.SchedulingV1alpha1Interface {
+// SchedulingV1alpha2 mocks base method.
+func (m *MockInterface) SchedulingV1alpha2() v1alpha20.SchedulingV1alpha2Interface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SchedulingV1alpha1")
-	ret0, _ := ret[0].(v1alpha15.SchedulingV1alpha1Interface)
+	ret := m.ctrl.Call(m, "SchedulingV1alpha2")
+	ret0, _ := ret[0].(v1alpha20.SchedulingV1alpha2Interface)
 	return ret0
 }
 
-// SchedulingV1alpha1 indicates an expected call of SchedulingV1alpha1.
-func (mr *MockInterfaceMockRecorder) SchedulingV1alpha1() *MockInterfaceSchedulingV1alpha1Call {
+// SchedulingV1alpha2 indicates an expected call of SchedulingV1alpha2.
+func (mr *MockInterfaceMockRecorder) SchedulingV1alpha2() *MockInterfaceSchedulingV1alpha2Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SchedulingV1alpha1", reflect.TypeOf((*MockInterface)(nil).SchedulingV1alpha1))
-	return &MockInterfaceSchedulingV1alpha1Call{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SchedulingV1alpha2", reflect.TypeOf((*MockInterface)(nil).SchedulingV1alpha2))
+	return &MockInterfaceSchedulingV1alpha2Call{Call: call}
 }
 
-// MockInterfaceSchedulingV1alpha1Call wrap *gomock.Call
-type MockInterfaceSchedulingV1alpha1Call struct {
+// MockInterfaceSchedulingV1alpha2Call wrap *gomock.Call
+type MockInterfaceSchedulingV1alpha2Call struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockInterfaceSchedulingV1alpha1Call) Return(arg0 v1alpha15.SchedulingV1alpha1Interface) *MockInterfaceSchedulingV1alpha1Call {
+func (c *MockInterfaceSchedulingV1alpha2Call) Return(arg0 v1alpha20.SchedulingV1alpha2Interface) *MockInterfaceSchedulingV1alpha2Call {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInterfaceSchedulingV1alpha1Call) Do(f func() v1alpha15.SchedulingV1alpha1Interface) *MockInterfaceSchedulingV1alpha1Call {
+func (c *MockInterfaceSchedulingV1alpha2Call) Do(f func() v1alpha20.SchedulingV1alpha2Interface) *MockInterfaceSchedulingV1alpha2Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInterfaceSchedulingV1alpha1Call) DoAndReturn(f func() v1alpha15.SchedulingV1alpha1Interface) *MockInterfaceSchedulingV1alpha1Call {
+func (c *MockInterfaceSchedulingV1alpha2Call) DoAndReturn(f func() v1alpha20.SchedulingV1alpha2Interface) *MockInterfaceSchedulingV1alpha2Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2109,10 +2031,10 @@ func (c *MockInterfaceStorageV1Call) DoAndReturn(f func() v117.StorageV1Interfac
 }
 
 // StorageV1alpha1 mocks base method.
-func (m *MockInterface) StorageV1alpha1() v1alpha16.StorageV1alpha1Interface {
+func (m *MockInterface) StorageV1alpha1() v1alpha15.StorageV1alpha1Interface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StorageV1alpha1")
-	ret0, _ := ret[0].(v1alpha16.StorageV1alpha1Interface)
+	ret0, _ := ret[0].(v1alpha15.StorageV1alpha1Interface)
 	return ret0
 }
 
@@ -2129,19 +2051,19 @@ type MockInterfaceStorageV1alpha1Call struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockInterfaceStorageV1alpha1Call) Return(arg0 v1alpha16.StorageV1alpha1Interface) *MockInterfaceStorageV1alpha1Call {
+func (c *MockInterfaceStorageV1alpha1Call) Return(arg0 v1alpha15.StorageV1alpha1Interface) *MockInterfaceStorageV1alpha1Call {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInterfaceStorageV1alpha1Call) Do(f func() v1alpha16.StorageV1alpha1Interface) *MockInterfaceStorageV1alpha1Call {
+func (c *MockInterfaceStorageV1alpha1Call) Do(f func() v1alpha15.StorageV1alpha1Interface) *MockInterfaceStorageV1alpha1Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInterfaceStorageV1alpha1Call) DoAndReturn(f func() v1alpha16.StorageV1alpha1Interface) *MockInterfaceStorageV1alpha1Call {
+func (c *MockInterfaceStorageV1alpha1Call) DoAndReturn(f func() v1alpha15.StorageV1alpha1Interface) *MockInterfaceStorageV1alpha1Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2184,40 +2106,40 @@ func (c *MockInterfaceStorageV1beta1Call) DoAndReturn(f func() v1beta116.Storage
 	return c
 }
 
-// StoragemigrationV1alpha1 mocks base method.
-func (m *MockInterface) StoragemigrationV1alpha1() v1alpha17.StoragemigrationV1alpha1Interface {
+// StoragemigrationV1beta1 mocks base method.
+func (m *MockInterface) StoragemigrationV1beta1() v1beta117.StoragemigrationV1beta1Interface {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StoragemigrationV1alpha1")
-	ret0, _ := ret[0].(v1alpha17.StoragemigrationV1alpha1Interface)
+	ret := m.ctrl.Call(m, "StoragemigrationV1beta1")
+	ret0, _ := ret[0].(v1beta117.StoragemigrationV1beta1Interface)
 	return ret0
 }
 
-// StoragemigrationV1alpha1 indicates an expected call of StoragemigrationV1alpha1.
-func (mr *MockInterfaceMockRecorder) StoragemigrationV1alpha1() *MockInterfaceStoragemigrationV1alpha1Call {
+// StoragemigrationV1beta1 indicates an expected call of StoragemigrationV1beta1.
+func (mr *MockInterfaceMockRecorder) StoragemigrationV1beta1() *MockInterfaceStoragemigrationV1beta1Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoragemigrationV1alpha1", reflect.TypeOf((*MockInterface)(nil).StoragemigrationV1alpha1))
-	return &MockInterfaceStoragemigrationV1alpha1Call{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StoragemigrationV1beta1", reflect.TypeOf((*MockInterface)(nil).StoragemigrationV1beta1))
+	return &MockInterfaceStoragemigrationV1beta1Call{Call: call}
 }
 
-// MockInterfaceStoragemigrationV1alpha1Call wrap *gomock.Call
-type MockInterfaceStoragemigrationV1alpha1Call struct {
+// MockInterfaceStoragemigrationV1beta1Call wrap *gomock.Call
+type MockInterfaceStoragemigrationV1beta1Call struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockInterfaceStoragemigrationV1alpha1Call) Return(arg0 v1alpha17.StoragemigrationV1alpha1Interface) *MockInterfaceStoragemigrationV1alpha1Call {
+func (c *MockInterfaceStoragemigrationV1beta1Call) Return(arg0 v1beta117.StoragemigrationV1beta1Interface) *MockInterfaceStoragemigrationV1beta1Call {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInterfaceStoragemigrationV1alpha1Call) Do(f func() v1alpha17.StoragemigrationV1alpha1Interface) *MockInterfaceStoragemigrationV1alpha1Call {
+func (c *MockInterfaceStoragemigrationV1beta1Call) Do(f func() v1beta117.StoragemigrationV1beta1Interface) *MockInterfaceStoragemigrationV1beta1Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInterfaceStoragemigrationV1alpha1Call) DoAndReturn(f func() v1alpha17.StoragemigrationV1alpha1Interface) *MockInterfaceStoragemigrationV1alpha1Call {
+func (c *MockInterfaceStoragemigrationV1beta1Call) DoAndReturn(f func() v1beta117.StoragemigrationV1beta1Interface) *MockInterfaceStoragemigrationV1beta1Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
