@@ -35,6 +35,7 @@ require (
 	github.com/canonical/starlark v0.0.0-20250127110116-8c33ed2b410b
 	github.com/chzyer/readline v1.5.1
 	github.com/coreos/go-systemd/v22 v22.5.0
+	github.com/creack/pty v1.1.24
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/distribution/reference v0.5.0
 	github.com/docker/distribution v2.8.3+incompatible
