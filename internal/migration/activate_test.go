@@ -139,6 +139,7 @@ func (*controllerImportSuite) activateModel(
 			)
 		},
 		activationDomainServicesGetter{deps: deps},
+		nil,
 		"",
 		deps.Logger,
 		deps.Clock,

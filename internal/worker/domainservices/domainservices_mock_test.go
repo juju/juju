@@ -93,6 +93,7 @@ type MockControllerDomainServicesMockRecorder struct {
 	macaroonExpects                   []*gomock.Call0_1[*service23.Service]
 	modelExpects                      []*gomock.Call0_1[*service25.WatchableService]
 	modelDefaultsExpects              []*gomock.Call0_1[*service28.Service]
+	modelMigrationImportExpects       []*gomock.Call0_1[*service29.WatchableService]
 	sSHServerHostKeyExpects           []*gomock.Call0_1[*controller.Service]
 	secretBackendExpects              []*gomock.Call0_1[*service41.WatchableService]
 	tracingExpects                    []*gomock.Call0_1[*service45.WatchableService]
@@ -380,6 +381,24 @@ func (mr *MockControllerDomainServicesMockRecorder) ModelDefaults() *MockControl
 
 // MockControllerDomainServicesModelDefaultsCall is the typed call wrapper for ModelDefaults.
 type MockControllerDomainServicesModelDefaultsCall = gomock.Call0_1[*service28.Service]
+
+// ModelMigrationImport mocks base method.
+func (m *MockControllerDomainServices) ModelMigrationImport() *service29.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.modelMigrationImportExpects, m.ctrl, m, "ModelMigrationImport")
+}
+
+// ModelMigrationImport indicates an expected call of ModelMigrationImport.
+func (mr *MockControllerDomainServicesMockRecorder) ModelMigrationImport() *MockControllerDomainServicesModelMigrationImportCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*service29.WatchableService](mr.mock.ctrl.T, mr.mock, "ModelMigrationImport")
+	mr.modelMigrationImportExpects = append(mr.modelMigrationImportExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerDomainServicesModelMigrationImportCall is the typed call wrapper for ModelMigrationImport.
+type MockControllerDomainServicesModelMigrationImportCall = gomock.Call0_1[*service29.WatchableService]
 
 // SSHServerHostKey mocks base method.
 func (m *MockControllerDomainServices) SSHServerHostKey() *controller.Service {
@@ -1245,6 +1264,7 @@ type MockDomainServicesMockRecorder struct {
 	modelDefaultsExpects              []*gomock.Call0_1[*service28.Service]
 	modelInfoExpects                  []*gomock.Call0_1[*service25.ProviderModelService]
 	modelMigrationExpects             []*gomock.Call0_1[*service29.Service]
+	modelMigrationImportExpects       []*gomock.Call0_1[*service29.WatchableService]
 	modelProviderExpects              []*gomock.Call0_1[*service30.Service]
 	modelSecretBackendExpects         []*gomock.Call0_1[*service41.ModelSecretBackendService]
 	networkExpects                    []*gomock.Call0_1[*service31.WatchableService]
@@ -1927,6 +1947,24 @@ func (mr *MockDomainServicesMockRecorder) ModelMigration() *MockDomainServicesMo
 
 // MockDomainServicesModelMigrationCall is the typed call wrapper for ModelMigration.
 type MockDomainServicesModelMigrationCall = gomock.Call0_1[*service29.Service]
+
+// ModelMigrationImport mocks base method.
+func (m *MockDomainServices) ModelMigrationImport() *service29.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.modelMigrationImportExpects, m.ctrl, m, "ModelMigrationImport")
+}
+
+// ModelMigrationImport indicates an expected call of ModelMigrationImport.
+func (mr *MockDomainServicesMockRecorder) ModelMigrationImport() *MockDomainServicesModelMigrationImportCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*service29.WatchableService](mr.mock.ctrl.T, mr.mock, "ModelMigrationImport")
+	mr.modelMigrationImportExpects = append(mr.modelMigrationImportExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDomainServicesModelMigrationImportCall is the typed call wrapper for ModelMigrationImport.
+type MockDomainServicesModelMigrationImportCall = gomock.Call0_1[*service29.WatchableService]
 
 // ModelProvider mocks base method.
 func (m *MockDomainServices) ModelProvider() *service30.Service {
