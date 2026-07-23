@@ -986,11 +986,7 @@ func (st *ModelState) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (stat
 	}
 
 	// Exclude synthetic cross-model-relation units: they use a CMR-source charm
-	// (charm_source.source_id = 2), have no workload/agent status rows, and both
-	// callers of this method are migration-only (precheck + export). Without this,
-	// an active CMR makes the migration precheck fail with "workload status for
-	// unit remote-<uuid>/N not found". Uses the same charm-source filter as
-	// juju/juju#22927.
+	// (charm_source.source_id = 2), have no workload/agent status rows.
 	query, err := st.Prepare(`
 SELECT &workloadAgentStatus.*
 FROM v_unit_workload_agent_status
