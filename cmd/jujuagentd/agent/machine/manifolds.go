@@ -1134,6 +1134,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		undertakerName: ifController(undertaker.Manifold(undertaker.ManifoldConfig{
 			DBAccessorName:            dbAccessorName,
 			DomainServicesName:        domainServicesName,
+			TraceName:                 controllerTraceName,
 			NewWorker:                 undertaker.NewWorker,
 			GetControllerModelService: undertaker.GetControllerModelService,
 			GetRemovalServiceGetter:   undertaker.GetRemovalServiceGetter,
