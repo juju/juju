@@ -22,5 +22,5 @@ func (s *bucketSuite) TestControllerBucketName(c *tc.C) {
 
 	name, err := ControllerBucketName(config)
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(name, tc.Equals, "juju-"+config.ControllerUUID())
+	c.Check(name, tc.Equals, "juju-"+config.ControllerUUID())
 }
