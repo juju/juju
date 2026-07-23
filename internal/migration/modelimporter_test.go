@@ -64,7 +64,7 @@ func (s *modelImporterSuite) TestImportModel(c *tc.C) {
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -126,7 +126,7 @@ func (s *modelImporterSuite) TestImportModelNoSecretBackendRewriteRows(c *tc.C) 
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -223,7 +223,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewrite(c *tc.C) {
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -312,7 +312,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingRef(c *tc
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),
@@ -380,7 +380,7 @@ func (s *modelImporterSuite) TestImportModelSecretBackendRewriteMissingBackend(c
 	scope := func(coremodel.UUID) coremodelmigration.Scope {
 		return coremodelmigration.NewScope(controllerFactory, modelFactory, nil, nil, modelUUID)
 	}
-	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
+	importer := migration.NewModelImporter(scope, s.ModelDomainServicesGetter(c), nil, "controller-uuid", loggertesting.WrapCheckLog(c), clock.WallClock)
 
 	importArgs := migration.ImportModelArgs{
 		SourceMigrationUUID: uuid.MustNewUUID().String(),

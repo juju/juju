@@ -23,6 +23,9 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
+
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 )
 
 // claimService builds the modelmigration import service the abort tests inject
@@ -32,6 +35,27 @@ func (s *controllerImportSuite) claimService(c *tc.C) *migrationclaimservice.Ser
 		migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock),
 		loggertesting.WrapCheckLog(c),
 	)
+}
+
+// waitAbortClaim wraps the real import Service with a controllable
+// model-database deletion watcher, so the finalize-wait tests can drive
+// WaitAbortFinalized without a changestream. The watcher never fires; the wait's
+// fallback re-check drives the finalize attempts.
+type waitAbortClaim struct {
+	*migrationclaimservice.Service
+	changes chan struct{}
+}
+
+func (w waitAbortClaim) WatchModelDatabaseDeletion(
+	context.Context, coremodel.UUID,
+) (watcher.NotifyWatcher, error) {
+	return watchertest.NewMockNotifyWatcher(w.changes), nil
+}
+
+// waitClaim builds the abortFinalizer the WaitAbortFinalized tests inject: the
+// real import Service plus a stubbed deletion watcher.
+func (s *controllerImportSuite) waitClaim(c *tc.C) waitAbortClaim {
+	return waitAbortClaim{Service: s.claimService(c), changes: make(chan struct{})}
 }
 
 // importWithContent runs a full v8 controller-data import for a fresh model,
@@ -219,7 +243,7 @@ func (s *controllerImportSuite) TestWaitAbortFinalized(c *tc.C) {
 	})
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = migration.WaitAbortFinalized(c.Context(), deps, s.claimService(c), modelUUID, shortWait)
+	err = migration.WaitAbortFinalized(c.Context(), deps, s.waitClaim(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim is gone, so the model UUID can be claimed by a fresh import.
@@ -234,7 +258,7 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedNoClaim(c *tc.C) {
 	modelUUID := tc.Must(c, coremodel.NewUUID)
 	deps, _, _ := s.deps(c, modelUUID)
 
-	err := migration.WaitAbortFinalized(c.Context(), deps, s.claimService(c), modelUUID, shortWait)
+	err := migration.WaitAbortFinalized(c.Context(), deps, s.waitClaim(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -250,7 +274,7 @@ func (s *controllerImportSuite) TestWaitAbortFinalizedPendingDropReturnsNil(c *t
 
 	// The staged deletion row is left in place: the undertaker has not dropped
 	// the database yet, so finalization cannot prove cleanup complete.
-	err = migration.WaitAbortFinalized(c.Context(), deps, s.claimService(c), modelUUID, shortWait)
+	err = migration.WaitAbortFinalized(c.Context(), deps, s.waitClaim(c), modelUUID, shortWait)
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The claim survives in the aborting phase for the reconciler to complete.

@@ -865,7 +865,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// releases the durable import claim once cleanup is provably complete.
 		migrationReconcilerName: ifPrimaryController(migrationreconciler.Manifold(migrationreconciler.ManifoldConfig{
 			DBAccessorName:     dbAccessorName,
-			ChangeStreamName:   changeStreamName,
 			DomainServicesName: domainServicesName,
 			Clock:              config.Clock,
 			Logger:             internallogger.GetLogger("juju.worker.migrationreconciler"),

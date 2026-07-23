@@ -118,6 +118,11 @@ type ControllerState interface {
 	// sync report changes keyed by migration UUID.
 	NamespaceForWatchMinionSync() string
 
+	// NamespaceForWatchModelDatabaseDeletion returns the changestream namespace
+	// for staged model-database deletion changes, keyed by the model's namespace
+	// (its UUID).
+	NamespaceForWatchModelDatabaseDeletion() string
+
 	// InsertExport records a new export migration attempt for a model,
 	// returning [modelmigrationerrors.ErrMigrationAlreadyActive] if the model already
 	// has an active export.

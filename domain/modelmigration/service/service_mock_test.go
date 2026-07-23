@@ -119,48 +119,49 @@ type MockControllerState struct {
 
 // MockControllerStateMockRecorder is the mock recorder for MockControllerState.
 type MockControllerStateMockRecorder struct {
-	mock                                     *MockControllerState
-	aggregateMinionReportsExpects            []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
-	assertImportingExpects                   []*gomock.Call2_1[context.Context, string, error]
-	beginImportExpects                       []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportClaim, error]
-	checkCloudRegionExpects                  []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
-	checkImportModelCollisionExpects         []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportModelCollision, error]
-	completeModelRedirectAndPurgeExpects     []*gomock.Call3_1[context.Context, string, string, error]
-	deleteActivatedImportExpects             []*gomock.Call2_1[context.Context, string, error]
-	ensureExportOffersExpects                []*gomock.Call3_1[context.Context, string, []string, error]
-	ensureExternalControllerExistsExpects    []*gomock.Call2_1[context.Context, internal.ExternalController, error]
-	ensureSourceControllerExistsExpects      []*gomock.Call7_1[context.Context, string, string, string, []string, []string, []string, error]
-	externalControllerModelsForImportExpects []*gomock.Call2_2[context.Context, string, []modelmigration.OffererModel, error]
-	finalizeAbortedImportExpects             []*gomock.Call2_1[context.Context, string, error]
-	getActiveExportExpects                   []*gomock.Call2_2[context.Context, string, internal.Migration, error]
-	getActiveExportUUIDExpects               []*gomock.Call2_2[context.Context, string, string, error]
-	getAllImportClaimsExpects                []*gomock.Call1_2[context.Context, []modelmigration0.ImportClaimStatus, error]
-	getConflictingCloudImageMetadataExpects  []*gomock.Call2_2[context.Context, []modelmigration0.ImportPrecheckImageMetadata, []modelmigration0.CloudImageMetadataConflict, error]
-	getControllerTargetVersionExpects        []*gomock.Call1_2[context.Context, string, error]
-	getCredentialRevokedExpects              []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
-	getDisabledUsersExpects                  []*gomock.Call2_2[context.Context, []string, []string, error]
-	getImportClaimExpects                    []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
-	getImportedOfferUUIDsExpects             []*gomock.Call2_2[context.Context, string, []string, error]
-	getMigrationModeExpects                  []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
-	getModelUsersForRedirectExpects          []*gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
-	getSourceControllerInfoExpects           []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
-	importExternalControllersExpects         []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
-	importOfferPermissionsExpects            []*gomock.Call4_1[context.Context, string, string, []string, error]
-	initialWatchImportClaimsStatementExpects []*gomock.Call0_2[string, string]
-	insertExportExpects                      []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
-	insertMinionReportExpects                []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
-	isImportNamespaceRegisteredExpects       []*gomock.Call2_2[context.Context, string, bool, error]
-	isModelDyingExpects                      []*gomock.Call2_2[context.Context, string, bool, error]
-	namespaceForWatchExportExpects           []*gomock.Call0_1[string]
-	namespaceForWatchMinionSyncExpects       []*gomock.Call0_1[string]
-	namespaceForWatchPhaseExpects            []*gomock.Call0_1[string]
-	secretBackendExistsExpects               []*gomock.Call2_2[context.Context, string, bool, error]
-	setImportPhaseAbortingExpects            []*gomock.Call2_1[context.Context, string, error]
-	setImportPhaseActivatingExpects          []*gomock.Call2_1[context.Context, string, error]
-	setPhaseExpects                          []*gomock.Call3_1[context.Context, string, migration.Phase, error]
-	setStatusMessageExpects                  []*gomock.Call3_1[context.Context, string, string, error]
-	stageAbortedModelDatabaseDeletionExpects []*gomock.Call2_1[context.Context, string, error]
-	stageModelRedirectExpects                []*gomock.Call5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error]
+	mock                                          *MockControllerState
+	aggregateMinionReportsExpects                 []*gomock.Call3_2[context.Context, string, migration.Phase, internal.MinionReports, error]
+	assertImportingExpects                        []*gomock.Call2_1[context.Context, string, error]
+	beginImportExpects                            []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportClaim, error]
+	checkCloudRegionExpects                       []*gomock.Call3_3[context.Context, string, string, bool, bool, error]
+	checkImportModelCollisionExpects              []*gomock.Call4_2[context.Context, string, string, string, modelmigration0.ImportModelCollision, error]
+	completeModelRedirectAndPurgeExpects          []*gomock.Call3_1[context.Context, string, string, error]
+	deleteActivatedImportExpects                  []*gomock.Call2_1[context.Context, string, error]
+	ensureExportOffersExpects                     []*gomock.Call3_1[context.Context, string, []string, error]
+	ensureExternalControllerExistsExpects         []*gomock.Call2_1[context.Context, internal.ExternalController, error]
+	ensureSourceControllerExistsExpects           []*gomock.Call7_1[context.Context, string, string, string, []string, []string, []string, error]
+	externalControllerModelsForImportExpects      []*gomock.Call2_2[context.Context, string, []modelmigration.OffererModel, error]
+	finalizeAbortedImportExpects                  []*gomock.Call2_1[context.Context, string, error]
+	getActiveExportExpects                        []*gomock.Call2_2[context.Context, string, internal.Migration, error]
+	getActiveExportUUIDExpects                    []*gomock.Call2_2[context.Context, string, string, error]
+	getAllImportClaimsExpects                     []*gomock.Call1_2[context.Context, []modelmigration0.ImportClaimStatus, error]
+	getConflictingCloudImageMetadataExpects       []*gomock.Call2_2[context.Context, []modelmigration0.ImportPrecheckImageMetadata, []modelmigration0.CloudImageMetadataConflict, error]
+	getControllerTargetVersionExpects             []*gomock.Call1_2[context.Context, string, error]
+	getCredentialRevokedExpects                   []*gomock.Call4_3[context.Context, string, string, string, bool, bool, error]
+	getDisabledUsersExpects                       []*gomock.Call2_2[context.Context, []string, []string, error]
+	getImportClaimExpects                         []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
+	getImportedOfferUUIDsExpects                  []*gomock.Call2_2[context.Context, string, []string, error]
+	getMigrationModeExpects                       []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
+	getModelUsersForRedirectExpects               []*gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
+	getSourceControllerInfoExpects                []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
+	importExternalControllersExpects              []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
+	importOfferPermissionsExpects                 []*gomock.Call4_1[context.Context, string, string, []string, error]
+	initialWatchImportClaimsStatementExpects      []*gomock.Call0_2[string, string]
+	insertExportExpects                           []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
+	insertMinionReportExpects                     []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
+	isImportNamespaceRegisteredExpects            []*gomock.Call2_2[context.Context, string, bool, error]
+	isModelDyingExpects                           []*gomock.Call2_2[context.Context, string, bool, error]
+	namespaceForWatchExportExpects                []*gomock.Call0_1[string]
+	namespaceForWatchMinionSyncExpects            []*gomock.Call0_1[string]
+	namespaceForWatchModelDatabaseDeletionExpects []*gomock.Call0_1[string]
+	namespaceForWatchPhaseExpects                 []*gomock.Call0_1[string]
+	secretBackendExistsExpects                    []*gomock.Call2_2[context.Context, string, bool, error]
+	setImportPhaseAbortingExpects                 []*gomock.Call2_1[context.Context, string, error]
+	setImportPhaseActivatingExpects               []*gomock.Call2_1[context.Context, string, error]
+	setPhaseExpects                               []*gomock.Call3_1[context.Context, string, migration.Phase, error]
+	setStatusMessageExpects                       []*gomock.Call3_1[context.Context, string, string, error]
+	stageAbortedModelDatabaseDeletionExpects      []*gomock.Call2_1[context.Context, string, error]
+	stageModelRedirectExpects                     []*gomock.Call5_1[context.Context, string, string, internal.RedirectionTarget, []internal.RedirectUserAccess, error]
 }
 
 // NewMockControllerState creates a new mock instance.
@@ -768,6 +769,24 @@ func (mr *MockControllerStateMockRecorder) NamespaceForWatchMinionSync() *MockCo
 
 // MockControllerStateNamespaceForWatchMinionSyncCall is the typed call wrapper for NamespaceForWatchMinionSync.
 type MockControllerStateNamespaceForWatchMinionSyncCall = gomock.Call0_1[string]
+
+// NamespaceForWatchModelDatabaseDeletion mocks base method.
+func (m *MockControllerState) NamespaceForWatchModelDatabaseDeletion() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchModelDatabaseDeletionExpects, m.ctrl, m, "NamespaceForWatchModelDatabaseDeletion")
+}
+
+// NamespaceForWatchModelDatabaseDeletion indicates an expected call of NamespaceForWatchModelDatabaseDeletion.
+func (mr *MockControllerStateMockRecorder) NamespaceForWatchModelDatabaseDeletion() *MockControllerStateNamespaceForWatchModelDatabaseDeletionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchModelDatabaseDeletion")
+	mr.namespaceForWatchModelDatabaseDeletionExpects = append(mr.namespaceForWatchModelDatabaseDeletionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateNamespaceForWatchModelDatabaseDeletionCall is the typed call wrapper for NamespaceForWatchModelDatabaseDeletion.
+type MockControllerStateNamespaceForWatchModelDatabaseDeletionCall = gomock.Call0_1[string]
 
 // NamespaceForWatchPhase mocks base method.
 func (m *MockControllerState) NamespaceForWatchPhase() string {

@@ -56,7 +56,7 @@ func (s *ImportSuite) TestBadBytes(c *tc.C) {
 		return modelmigration.NewScope(nil, nil, nil, nil, tc.Must0(c, model.NewUUID))
 	}
 	importer := migration.NewModelImporter(
-		scope, nil,
+		scope, nil, nil,
 		"controller-uuid",
 		loggertesting.WrapCheckLog(c),
 		clock.WallClock,

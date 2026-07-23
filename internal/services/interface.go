@@ -77,6 +77,10 @@ type ControllerDomainServices interface {
 	ControllerNode() *controllernodeservice.WatchableService
 	// Model returns the model service.
 	Model() *modelservice.WatchableService
+	// ModelMigrationImport returns the controller-scoped model migration import
+	// service, extended with the watchers the migration reconciler uses to drive
+	// interrupted import claims to completion.
+	ModelMigrationImport() *modelmigrationservice.WatchableService
 	//ModelDefaults returns the modeldefaults service.
 	ModelDefaults() *modeldefaultsservice.Service
 	// ExternalController returns the external controller service.

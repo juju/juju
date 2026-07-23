@@ -23,8 +23,6 @@ import (
 	"github.com/juju/juju/domain/export"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelimport"
-	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
-	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -49,6 +47,12 @@ type ConfigSchemaSourceProvider = func(environs.CloudService) config.ConfigSchem
 type ModelImporter struct {
 	domainServices services.DomainServicesGetter
 
+	// controllerServices provides the controller-scoped import claim service
+	// (with its watcher) used by the abort path. It is resolved directly rather
+	// than via domainServices.ServicesForModel because abort runs after the
+	// model namespace may have been removed, which would fail model resolution.
+	controllerServices services.ControllerDomainServices
+
 	controllerUUID string
 	scope          modelmigration.ScopeForModel
 	logger         corelogger.Logger
@@ -61,16 +65,18 @@ type ModelImporter struct {
 func NewModelImporter(
 	scope modelmigration.ScopeForModel,
 	domainServices services.DomainServicesGetter,
+	controllerServices services.ControllerDomainServices,
 	controllerUUID string,
 	logger corelogger.Logger,
 	clock clock.Clock,
 ) *ModelImporter {
 	return &ModelImporter{
-		scope:          scope,
-		controllerUUID: controllerUUID,
-		domainServices: domainServices,
-		logger:         logger,
-		clock:          clock,
+		scope:              scope,
+		controllerUUID:     controllerUUID,
+		domainServices:     domainServices,
+		controllerServices: controllerServices,
+		logger:             logger,
+		clock:              clock,
 	}
 }
 
@@ -103,9 +109,9 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 // free when this returns and an immediate re-migration succeeds. The model
 // database is never opened during abort, so no model-DB scope is needed.
 //
-// The controller-scoped modelmigration import service is constructed directly
-// from the controller DB rather than via ServicesForModel: the abort path only
-// uses controller-DB state (import claims, namespace registrations, staged
+// The controller-scoped modelmigration import service comes from the controller
+// domain services rather than ServicesForModel: the abort path only uses
+// controller-DB state (import claims, namespace registrations, staged
 // deletions), and a re-invocation after a prior partial abort may have already
 // removed the model namespace, which would make ServicesForModel fail.
 //
@@ -123,10 +129,8 @@ func (i *ModelImporter) AbortModel(ctx context.Context, modelUUID coremodel.UUID
 		Clock:        i.clock,
 		Logger:       i.logger,
 	}
-	claim := migrationclaimservice.NewImportService(
-		migrationclaimstate.New(deps.ControllerDB, deps.Clock), deps.Logger,
-	)
-	if err := AbortModelImport(ctx, deps, claim, modelUUID); err != nil {
+	claim := i.controllerServices.ModelMigrationImport()
+	if err := AbortModelImport(ctx, deps, claim.Service, modelUUID); err != nil {
 		return err
 	}
 	return WaitAbortFinalized(ctx, deps, claim, modelUUID, DefaultAbortFinalizeWait)

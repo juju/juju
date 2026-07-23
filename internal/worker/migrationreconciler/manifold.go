@@ -11,13 +11,9 @@ import (
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/dependency"
 
-	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain"
-	migrationservice "github.com/juju/juju/domain/modelmigration/service"
-	migrationstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	"github.com/juju/juju/internal/errors"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/services"
@@ -27,15 +23,13 @@ import (
 // depend.
 type ManifoldConfig struct {
 	// DBAccessorName is the name of the DB accessor manifold, from which the
-	// reconciler obtains the controller database.
+	// reconciler obtains the controller database used to undo the import writes
+	// during abort compensation.
 	DBAccessorName string
 
-	// ChangeStreamName is the change stream manifold from which the reconciler
-	// obtains a controller-scoped watchable database.
-	ChangeStreamName string
-
 	// DomainServicesName is the domain services manifold, from which the
-	// reconciler obtains a per-model domain services getter used to complete
+	// reconciler obtains the controller-scoped import claim service (with its
+	// watcher) and a per-model domain services getter used to complete
 	// interrupted activations (which write the model database).
 	DomainServicesName string
 
@@ -48,9 +42,6 @@ type ManifoldConfig struct {
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.DBAccessorName == "" {
 		return jujuerrors.NotValidf("empty DBAccessorName")
-	}
-	if cfg.ChangeStreamName == "" {
-		return jujuerrors.NotValidf("empty ChangeStreamName")
 	}
 	if cfg.DomainServicesName == "" {
 		return jujuerrors.NotValidf("empty DomainServicesName")
@@ -72,7 +63,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.DBAccessorName,
-			config.ChangeStreamName,
 			config.DomainServicesName,
 		},
 		Start: config.start,
@@ -88,8 +78,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err := getter.Get(config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Capture(err)
 	}
-	var changeStreamGetter changestream.WatchableDBGetter
-	if err := getter.Get(config.ChangeStreamName, &changeStreamGetter); err != nil {
+	var controllerDomainServices services.ControllerDomainServices
+	if err := getter.Get(config.DomainServicesName, &controllerDomainServices); err != nil {
 		return nil, errors.Capture(err)
 	}
 	var domainServicesGetter services.DomainServicesGetter
@@ -97,23 +87,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Capture(err)
 	}
 
-	// The reconciler works entirely on the controller database (import claims,
-	// namespace registrations and staged model-database deletions). The database
-	// drop itself is performed out of band by the undertaker's model-database
-	// deleter. Build a controller-DB txn-runner factory from the accessor and
-	// construct the controller-scoped modelmigration import service directly,
-	// mirroring how the migration import path constructs its own controller
-	// services; this avoids widening the controller domain services interface
-	// for a single consumer.
+	// The import claim service (with its watcher) comes from the controller
+	// domain services. Abort compensation additionally undoes the raw
+	// controller-database import writes, which the claim service cannot express,
+	// so it needs a direct controller-DB txn-runner factory of its own.
+	service := controllerDomainServices.ModelMigrationImport()
 	controllerDB := coredatabase.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
-	controllerWatchableDB := changestream.NewWatchableDBFactoryForNamespace(
-		changeStreamGetter.GetWatchableDB, coredatabase.ControllerNS,
-	)
-	service := migrationservice.NewWatchableImportService(
-		migrationstate.New(controllerDB, config.Clock),
-		domain.NewWatcherFactory(controllerWatchableDB, config.Logger),
-		config.Logger,
-	)
 	deps := migration.Deps{
 		ControllerDB: controllerDB,
 		Clock:        config.Clock,

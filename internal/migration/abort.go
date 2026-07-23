@@ -7,8 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/worker/v5"
+
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	migrationclaimservice "github.com/juju/juju/domain/modelmigration/service"
@@ -18,21 +21,39 @@ import (
 // AbortFinalizeWait bounds how long [WaitAbortFinalized] blocks waiting for the
 // model database to be dropped and the import claim released.
 type AbortFinalizeWait struct {
-	// Delay is the constant interval between finalization attempts.
+	// Delay is the interval between fallback finalization re-checks. The wait is
+	// primarily driven by the model-database-deletion watcher; this re-check
+	// backs it up in case an event is coalesced.
 	Delay time.Duration
 
 	// MaxDuration is the total time budget across all attempts.
 	MaxDuration time.Duration
 }
 
-// DefaultAbortFinalizeWait is the wait applied on the facade Abort path: poll
-// finalization twice a second for up to twenty seconds. The model database is
-// dropped by the undertaker within milliseconds in the normal case, so
-// finalization usually succeeds on the first or second attempt; the budget only
-// covers a controller node under load.
+// DefaultAbortFinalizeWait is the wait applied on the facade Abort path: wait
+// for finalization for up to twenty seconds, re-checking every half second as a
+// fallback to the watcher. The model database is dropped by the undertaker
+// within milliseconds in the normal case, so finalization usually succeeds on
+// the first attempt; the budget only covers a controller node under load.
 var DefaultAbortFinalizeWait = AbortFinalizeWait{
 	Delay:       500 * time.Millisecond,
 	MaxDuration: 20 * time.Second,
+}
+
+// abortFinalizer is the subset of the modelmigration import service that
+// [WaitAbortFinalized] needs: finalize the aborted claim once the database drop
+// is proven, and watch the staged model-database deletion so the wait reacts to
+// the drop completing instead of polling blindly.
+type abortFinalizer interface {
+	// FinalizeAbortedImport deletes the model's import claim once abort cleanup
+	// is provably complete, returning
+	// [modelmigrationerrors.ErrAbortNotFinalizable] while it is not.
+	FinalizeAbortedImport(ctx context.Context, modelUUID coremodel.UUID) error
+
+	// WatchModelDatabaseDeletion fires when the staged model-database deletion
+	// for the model changes, including when the undertaker removes it after
+	// dropping the database.
+	WatchModelDatabaseDeletion(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error)
 }
 
 // AbortModelImport drives target-side cleanup of a partially imported v8 model.
@@ -149,15 +170,15 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 // Abort path so the model UUID is released before the RPC returns, matching the
 // synchronous abort behaviour of earlier Juju releases.
 //
-// This is a poll, not a retry of a failed operation, and it is deliberately not
-// left to the transaction runner's retry: FinalizeAbortedImport commits
-// successfully every time and reports
-// [modelmigrationerrors.ErrAbortNotFinalizable] as a normal result, meaning the
-// undertaker has not dropped the model database yet. That drop happens out of
-// band in another worker, so no amount of retrying the transaction can make the
-// condition come true - only waiting and re-reading can. The transaction runner
-// retries transient database errors (busy, contention) underneath, which is a
-// disjoint concern this loop never sees.
+// The database drop that unblocks finalization happens out of band in the
+// undertaker's model-database deleter, which removes the model's staged
+// deletion row when it is done. This function watches that row and re-attempts
+// finalization when it changes, rather than polling blindly: FinalizeAbortedImport
+// commits successfully every time and reports
+// [modelmigrationerrors.ErrAbortNotFinalizable] as a normal result while the
+// drop is not yet proven, so only the drop event (or the fallback re-check) can
+// make the condition come true. A periodic re-check backs the watcher up in
+// case an event is coalesced.
 //
 // On success the claim is gone. When the budget is exhausted it returns nil
 // after logging: the claim stays in the aborting phase and the reconciler
@@ -166,8 +187,16 @@ func AbortModelImport(ctx context.Context, deps Deps, claim *migrationclaimservi
 //
 // The modelmigration import service is injected by the caller; deps supplies
 // only the clock and logger for the bounded wait.
-func WaitAbortFinalized(ctx context.Context, deps Deps, claim *migrationclaimservice.Service, modelUUID coremodel.UUID, wait AbortFinalizeWait) error {
-	deadline := deps.Clock.Now().Add(wait.MaxDuration)
+func WaitAbortFinalized(ctx context.Context, deps Deps, claim abortFinalizer, modelUUID coremodel.UUID, wait AbortFinalizeWait) error {
+	// Subscribe before the first finalize attempt so the drop cannot slip
+	// through between a check and the subscription.
+	w, err := claim.WatchModelDatabaseDeletion(ctx, modelUUID)
+	if err != nil {
+		return errors.Errorf("watching model database deletion for model %q: %w", modelUUID, err)
+	}
+	defer func() { _ = worker.Stop(w) }()
+
+	timeout := deps.Clock.After(wait.MaxDuration)
 	for {
 		err := claim.FinalizeAbortedImport(ctx, modelUUID)
 		if err == nil {
@@ -175,15 +204,6 @@ func WaitAbortFinalized(ctx context.Context, deps Deps, claim *migrationclaimser
 		}
 		if !errors.Is(err, modelmigrationerrors.ErrAbortNotFinalizable) {
 			return errors.Errorf("finalizing aborted import for model %q: %w", modelUUID, err)
-		}
-
-		if !deps.Clock.Now().Add(wait.Delay).Before(deadline) {
-			// The undertaker has not dropped the database within the budget. The
-			// claim is still aborting; the reconciler completes it later.
-			deps.Logger.Warningf(ctx,
-				"model %q abort accepted but claim finalization still pending; the reconciler will complete it",
-				modelUUID)
-			return nil
 		}
 
 		select {
@@ -194,6 +214,17 @@ func WaitAbortFinalized(ctx context.Context, deps Deps, claim *migrationclaimser
 				"model %q abort finalization interrupted; the reconciler will complete it",
 				modelUUID)
 			return nil
+		case <-timeout:
+			// The undertaker has not dropped the database within the budget. The
+			// claim is still aborting; the reconciler completes it later.
+			deps.Logger.Warningf(ctx,
+				"model %q abort accepted but claim finalization still pending; the reconciler will complete it",
+				modelUUID)
+			return nil
+		case _, ok := <-w.Changes():
+			if !ok {
+				return errors.Errorf("model database deletion watcher for model %q closed", modelUUID)
+			}
 		case <-deps.Clock.After(wait.Delay):
 		}
 	}

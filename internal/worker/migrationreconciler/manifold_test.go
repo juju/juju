@@ -14,16 +14,15 @@ import (
 	"github.com/juju/worker/v5/dependency"
 	dt "github.com/juju/worker/v5/dependency/testing"
 
-	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	migrationservice "github.com/juju/juju/domain/modelmigration/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/services"
 )
 
 const (
 	dbAccessorName     = "db-accessor"
-	changeStreamName   = "change-stream"
 	domainServicesName = "domain-services"
 )
 
@@ -35,10 +34,6 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 
 	bad := cfg
 	bad.DBAccessorName = ""
-	c.Check(bad.Validate(), tc.ErrorIs, errors.NotValid)
-
-	bad = cfg
-	bad.ChangeStreamName = ""
 	c.Check(bad.Validate(), tc.ErrorIs, errors.NotValid)
 
 	bad = cfg
@@ -61,15 +56,14 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Check(Manifold(s.newConfig(c)).Inputs, tc.DeepEquals, []string{
 		dbAccessorName,
-		changeStreamName,
 		domainServicesName,
 	})
 }
 
-func (s *manifoldSuite) TestStartMissingChangeStream(c *tc.C) {
+func (s *manifoldSuite) TestStartMissingDomainServices(c *tc.C) {
 	getter := dt.StubGetter(map[string]any{
-		dbAccessorName:   stubDBAccessor{},
-		changeStreamName: dependency.ErrMissing,
+		dbAccessorName:     stubDBAccessor{},
+		domainServicesName: dependency.ErrMissing,
 	})
 	w, err := Manifold(s.newConfig(c)).Start(c.Context(), getter)
 	c.Check(w, tc.IsNil)
@@ -95,8 +89,7 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 
 	getter := dt.StubGetter(map[string]any{
 		dbAccessorName:     stubDBAccessor{},
-		changeStreamName:   stubWatchableDBGetter{},
-		domainServicesName: stubDomainServicesGetter{},
+		domainServicesName: stubDomainServices{},
 	})
 	w, err := Manifold(cfg).Start(c.Context(), getter)
 	c.Assert(err, tc.ErrorIsNil)
@@ -112,7 +105,6 @@ func (s *manifoldSuite) TestStartSuccess(c *tc.C) {
 func (s *manifoldSuite) newConfig(c *tc.C) ManifoldConfig {
 	return ManifoldConfig{
 		DBAccessorName:     dbAccessorName,
-		ChangeStreamName:   changeStreamName,
 		DomainServicesName: domainServicesName,
 		Clock:              testclock.NewClock(time.Now()),
 		Logger:             loggertesting.WrapCheckLog(c),
@@ -130,15 +122,20 @@ func (stubDBAccessor) GetDB(context.Context, string) (coredatabase.TxnRunner, er
 
 func (stubDBAccessor) DeleteDB(string) error { return nil }
 
-type stubWatchableDBGetter struct{}
-
-func (stubWatchableDBGetter) GetWatchableDB(context.Context, string) (changestream.WatchableDB, error) {
-	return nil, nil
+// stubDomainServices backs the domain services dependency. The manifold reads it
+// twice from the same name - once as a ControllerDomainServices (for the import
+// claim service) and once as a DomainServicesGetter (for activation) - so this
+// single stub satisfies both. Only the methods the manifold calls at start time
+// are implemented; the rest come from the embedded nil interface.
+type stubDomainServices struct {
+	services.ControllerDomainServices
 }
 
-type stubDomainServicesGetter struct{}
+func (stubDomainServices) ModelMigrationImport() *migrationservice.WatchableService {
+	return &migrationservice.WatchableService{}
+}
 
-func (stubDomainServicesGetter) ServicesForModel(context.Context, coremodel.UUID) (services.DomainServices, error) {
+func (stubDomainServices) ServicesForModel(context.Context, coremodel.UUID) (services.DomainServices, error) {
 	return nil, nil
 }
 
