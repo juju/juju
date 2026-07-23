@@ -969,8 +969,9 @@ func (s *modelOfferSuite) setupOfferConnection(c *tc.C) (string, string) {
 
 // addOfferConnectionWithConsumer sets up a complete offer connection scenario
 // including the synthetic remote consumer application. It returns the offer
-// UUID, consumer model UUID, and relation UUID.
-func (s *modelOfferSuite) addOfferConnectionWithConsumer(c *tc.C) (string, string, string) {
+// UUID, consumer model UUID, relation UUID, offerer application UUID and
+// offerer endpoint UUID.
+func (s *modelOfferSuite) addOfferConnectionWithConsumer(c *tc.C) (string, string, string, string, string) {
 	charmUUID := s.addCharm(c)
 	s.addCharmMetadata(c, charmUUID, false)
 	relation := charm.Relation{
@@ -1006,11 +1007,11 @@ INSERT INTO application_remote_consumer
 (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
 VALUES (?, ?, ?, ?, 0)`, connUUID, appUUID, internaluuid.MustNewUUID().String(), consumerModelUUID)
 
-	return offerUUID.String(), consumerModelUUID, relUUID.String()
+	return offerUUID.String(), consumerModelUUID, relUUID.String(), appUUID.String(), appEndpointUUID
 }
 
 func (s *modelOfferSuite) TestGetOfferConnections(c *tc.C) {
-	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+	offerUUID, consumerModelUUID, relUUID, _, _ := s.addOfferConnectionWithConsumer(c)
 
 	// Set relation status with message and timestamp.
 	s.query(c, `
@@ -1042,7 +1043,7 @@ INSERT INTO relation_network_ingress (relation_uuid, cidr) VALUES (?, '192.168.1
 }
 
 func (s *modelOfferSuite) TestGetOfferConnectionsNullMessageAndTimestamp(c *tc.C) {
-	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+	offerUUID, consumerModelUUID, relUUID, _, _ := s.addOfferConnectionWithConsumer(c)
 
 	// Set relation status with NULL message and NULL updated_at.
 	s.query(c, `
@@ -1063,6 +1064,45 @@ VALUES (?, '0')`, relUUID)
 	c.Check(connections[0].Message, tc.Equals, "")
 	c.Check(connections[0].StatusSince, tc.IsNil)
 	c.Check(connections[0].IngressSubnets, tc.IsNil)
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsDeterministicOrder(c *tc.C) {
+	// Arrange — two connections on the same offer; relation IDs are
+	// assigned in insertion order.
+	offerUUID, _, relUUID1, appUUID, appEndpointUUID := s.addOfferConnectionWithConsumer(c)
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id)
+VALUES (?, '0')`, relUUID1)
+
+	relUUID2 := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID2.String(), appEndpointUUID)
+	connUUID2 := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'consumer-user')`, connUUID2, offerUUID, relUUID2)
+	synthCharmUUID := s.addCMRCharm(c)
+	s.addCharmMetadata(c, synthCharmUUID, false)
+	s.query(c, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, 'remote-consumer-2', 0, ?, ?)`, connUUID2, synthCharmUUID, network.AlphaSpaceId)
+	s.query(c, `
+INSERT INTO application_remote_consumer
+(offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+VALUES (?, ?, ?, ?, 0)`, connUUID2, appUUID, internaluuid.MustNewUUID().String(), internaluuid.MustNewUUID().String())
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id)
+VALUES (?, '0')`, relUUID2.String())
+
+	// Act
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID})
+
+	// Assert — connections are returned ordered by offer UUID and relation ID.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(connections, tc.HasLen, 2)
+	c.Check(connections[0].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[0].RelationID, tc.Equals, 0)
+	c.Check(connections[1].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[1].RelationID, tc.Equals, 1)
 }
 
 func (s *modelOfferSuite) TestGetOfferConnectionsNoConnections(c *tc.C) {

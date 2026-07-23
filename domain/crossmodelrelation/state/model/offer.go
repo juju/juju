@@ -675,6 +675,7 @@ JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN   relation_status AS rs ON r.uuid = rs.relation_uuid
 JOIN   relation_status_type AS rst ON rs.relation_status_type_id = rst.id
 WHERE  oc.offer_uuid IN ($uuids[:])
+ORDER BY oc.offer_uuid, r.relation_id
 `, offerConnectionDetail{}, uuids{})
 	if err != nil {
 		return nil, errors.Errorf("preparing offer connection detail query: %w", err)
