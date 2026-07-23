@@ -149,6 +149,21 @@ func (s *s3ClientSuite) TestDeleteObject(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (s *s3ClientSuite) TestListObjectsWithPrefix(c *tc.C) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, tc.Equals, http.MethodGet)
+		c.Check(r.URL.Path, tc.Equals, "/bucket")
+		c.Check(r.URL.Query().Get("prefix"), tc.Equals, "model-uuid/")
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
+	c.Assert(err, tc.ErrorIsNil)
+
+	_, err = client.ListObjects(c.Context(), "bucket", "model-uuid/")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (s *s3ClientSuite) TestCreateBucket(c *tc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, tc.Equals, http.MethodPut)

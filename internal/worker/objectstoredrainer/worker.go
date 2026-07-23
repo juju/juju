@@ -105,9 +105,11 @@ type Config struct {
 	S3Client                     objectstore.Client
 	SelectFileHash               SelectFileHashFunc
 	RootDir                      string
-	RootBucketName               string
-	Logger                       logger.Logger
-	Clock                        clock.Clock
+	// RootBucketName is the controller-scoped bucket shared by all model
+	// namespaces.
+	RootBucketName string
+	Logger         logger.Logger
+	Clock          clock.Clock
 }
 
 // Validate returns an error if the config cannot be expected to

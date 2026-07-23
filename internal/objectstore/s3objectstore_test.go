@@ -717,6 +717,72 @@ func (s *s3ObjectStoreSuite) TestRemoveDoesNotDeleteSharedHash(c *tc.C) {
 	workertest.CleanKill(c, store)
 }
 
+func (s *s3ObjectStoreSuite) TestRemoveAll(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	otherModelObject := "limbo/baz"
+	objects := map[string]bool{
+		filePath("foo"):  true,
+		filePath("bar"):  true,
+		otherModelObject: true,
+	}
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").DoAndReturn(
+		func(_ context.Context, _, prefix string) ([]string, error) {
+			var result []string
+			for object := range objects {
+				if strings.HasPrefix(object, prefix) {
+					result = append(result, object)
+				}
+			}
+			return result, nil
+		},
+	)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _, object string) error {
+			delete(objects, object)
+			return nil
+		},
+	).Times(2)
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	store.Kill()
+
+	err := store.RemoveAll(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(objects, tc.DeepEquals, map[string]bool{
+		otherModelObject: true,
+	})
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *s3ObjectStoreSuite) TestRemoveAllWithListError(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").Return(nil, errors.Errorf("boom"))
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	store.Kill()
+
+	err := store.RemoveAll(c.Context())
+	c.Assert(err, tc.ErrorMatches, `.*boom`)
+
+	workertest.CleanKill(c, store)
+}
+
 func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -734,7 +800,7 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 		Path:   fileName,
 		Size:   size,
 	}}, nil)
-	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName).Return([]string{hexSHA384}, nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").Return([]string{filePath(hexSHA384)}, nil)
 
 	store := s.newS3ObjectStore(c).(*s3ObjectStore)
 	defer workertest.DirtyKill(c, store)
@@ -750,6 +816,37 @@ func (s *s3ObjectStoreSuite) TestList(c *tc.C) {
 		Path:   fileName,
 		Size:   size,
 	}})
+	c.Check(files, tc.DeepEquals, []string{hexSHA384})
+
+	workertest.CleanKill(c, store)
+}
+
+func (s *s3ObjectStoreSuite) TestListStripsNamespacePrefix(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexSHA384 := s.calculateHexSHA384(c, content)
+	hexSHA256 := s.calculateHexSHA256(c, content)
+
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
+	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+		SHA384: hexSHA384,
+		SHA256: hexSHA256,
+		Path:   "foo",
+		Size:   12,
+	}}, nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").Return([]string{
+		filePath(hexSHA384),
+	}, nil)
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
+
+	_, files, err := store.list(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
 	c.Check(files, tc.DeepEquals, []string{hexSHA384})
 
 	workertest.CleanKill(c, store)

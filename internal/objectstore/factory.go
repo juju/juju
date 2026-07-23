@@ -82,7 +82,7 @@ func WithAllowDraining(allowDraining bool) Option {
 	}
 }
 
-// WithRootBucket is the option to set the root bucket to use.
+// WithRootBucket is the option to set the controller bucket to use.
 // This is for s3 base object stores.
 func WithRootBucket(rootBucket string) Option {
 	return func(o *options) {

@@ -243,13 +243,15 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 	return obj.Body, size, hash, nil
 }
 
-// ListObjects returns a list of objects in the specified bucket.
-func (c *S3Client) ListObjects(ctx context.Context, bucketName string) ([]string, error) {
-	c.logger.Tracef(ctx, "listing objects in bucket %s from s3 storage", bucketName)
+// ListObjects returns a list of objects in the specified bucket, optionally
+// filtered by prefix.
+func (c *S3Client) ListObjects(ctx context.Context, bucketName, prefix string) ([]string, error) {
+	c.logger.Tracef(ctx, "listing objects in bucket %s with prefix %s from s3 storage", bucketName, prefix)
 
 	objs, err := c.client.ListObjectsV2(ctx,
 		&s3.ListObjectsV2Input{
 			Bucket: aws.String(bucketName),
+			Prefix: aws.String(prefix),
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {
