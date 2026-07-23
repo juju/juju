@@ -138,14 +138,7 @@ func dbAccessorOutput(in worker.Worker, out any) error {
 	return nil
 }
 
-// IAASNodeManager returns a NodeManager that is configured to use
-// the cloud-local TLS terminated address for Dqlite.
-func IAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
-	return database.NewNodeManager(cfg, false, logger, slowQueryLogger)
-}
-
-// CAASNodeManager returns a NodeManager that is configured to use
-// the loopback address for Dqlite.
-func CAASNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
-	return database.NewNodeManager(cfg, true, logger, slowQueryLogger)
+// NewNodeManager returns a NodeManager for a controller Dqlite node.
+func NewNodeManager(cfg database.NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+	return database.NewNodeManager(cfg, logger, slowQueryLogger)
 }

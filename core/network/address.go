@@ -556,6 +556,12 @@ func (a ProviderAddress) String() string {
 // supporting conversion to SpaceAddresses.
 type ProviderAddresses []ProviderAddress
 
+// AllMatchingScope returns the addresses that satisfy the input scope
+// matching function.
+func (pas ProviderAddresses) AllMatchingScope(getMatcher ScopeMatchFunc) ProviderAddresses {
+	return allMatchingScope(pas, getMatcher)
+}
+
 // Values transforms the ProviderAddresses to a string slice containing
 // their raw IP values.
 func (pas ProviderAddresses) Values() []string {

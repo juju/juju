@@ -38,6 +38,12 @@ func (s *ProviderService) GetUnitRelationNetworks(
 	}
 
 	result := make(map[corerelation.UUID]domainnetwork.UnitNetwork, len(relationUUIDs))
+	var (
+		supportsNetworking bool
+		isCaas             bool
+		fqdns              []string
+		propertiesLoaded   bool
+	)
 	for _, relationUUID := range relationUUIDs {
 		endpointName, err := s.st.GetUnitRelationEndpointName(
 			ctx, unitUUID.String(), relationUUID.String(),
@@ -54,9 +60,19 @@ func (s *ProviderService) GetUnitRelationNetworks(
 		if err != nil {
 			return nil, internalerrors.Capture(err)
 		}
+		if !propertiesLoaded {
+			supportsNetworking, isCaas, fqdns, err = s.getUnitNetworkProperties(
+				ctx, unitUUID.String(),
+			)
+			if err != nil {
+				return nil, internalerrors.Capture(err)
+			}
+			propertiesLoaded = true
+		}
 
 		infos, err := s.getUnitEndpointNetworks(
 			ctx, unitUUID.String(), []string{endpointName}, egressSubnets,
+			supportsNetworking, isCaas, fqdns,
 		)
 		if err != nil {
 			return nil, internalerrors.Errorf("getting unit endpoint networks: %w", err)
@@ -98,7 +114,47 @@ func (s *ProviderService) GetUnitEndpointNetworks(
 		return nil, internalerrors.Errorf("getting model egress subnets: %w", err)
 	}
 
-	return s.getUnitEndpointNetworks(ctx, unitUUID.String(), endpointNames, defaultEgressSubnets)
+	supportsNetworking, isCaas, fqdns, err := s.getUnitNetworkProperties(
+		ctx, unitUUID.String(),
+	)
+	if err != nil {
+		return nil, internalerrors.Capture(err)
+	}
+
+	return s.getUnitEndpointNetworks(
+		ctx, unitUUID.String(), endpointNames, defaultEgressSubnets,
+		supportsNetworking, isCaas, fqdns,
+	)
+}
+
+func (s *ProviderService) getUnitNetworkProperties(
+	ctx context.Context, unitUUID string,
+) (bool, bool, []string, error) {
+	supportsNetworking, err := s.supportsNetworking(ctx)
+	if err != nil {
+		return false, false, nil, internalerrors.Errorf(
+			"checking provider networking support: %w", err,
+		)
+	}
+
+	isCaas, err := s.st.IsCaasUnit(ctx, unitUUID)
+	if err != nil {
+		return false, false, nil, internalerrors.Errorf(
+			"checking if unit is caas: %w", err,
+		)
+	}
+
+	var fqdns []string
+	if isCaas {
+		fqdns, err = s.st.GetUnitFQDNs(ctx, unitUUID)
+		if err != nil {
+			return false, false, nil, internalerrors.Errorf(
+				"getting unit FQDNs: %w", err,
+			)
+		}
+	}
+
+	return supportsNetworking, isCaas, fqdns, nil
 }
 
 func (s *ProviderService) getUnitEndpointNetworks(
@@ -106,19 +162,14 @@ func (s *ProviderService) getUnitEndpointNetworks(
 	unitUUID string,
 	endpointNames []string,
 	defaultEgressSubnets []string,
+	supportsNetworking bool,
+	isCaas bool,
+	fqdns []string,
 ) ([]domainnetwork.UnitNetwork, error) {
-	supportsNetworking, err := s.supportsNetworking(ctx)
-	if err != nil {
-		return nil, internalerrors.Errorf("checking provider networking support: %w", err)
-	}
-
-	isCaas, err := s.st.IsCaasUnit(ctx, unitUUID)
-	if err != nil {
-		return nil, internalerrors.Errorf("checking if unit is caas: %w", err)
-	}
-
 	if !supportsNetworking {
-		return s.getUnitEndpointNetworksWithoutProviderNetworking(ctx, unitUUID, endpointNames, isCaas, defaultEgressSubnets)
+		return s.getUnitEndpointNetworksWithoutProviderNetworking(
+			ctx, unitUUID, endpointNames, fqdns, isCaas, defaultEgressSubnets,
+		)
 	}
 
 	endpointNetworks, err := s.st.GetUnitEndpointNetworkInfo(ctx, unitUUID, endpointNames)
@@ -131,6 +182,7 @@ func (s *ProviderService) getUnitEndpointNetworks(
 		info := buildUnitNetworkWithIngressAddresses(
 			endpointNetwork.Addresses,
 			endpointNetwork.IngressAddresses,
+			fqdns,
 			isCaas,
 		)
 		info.EndpointName = endpointNetwork.EndpointName
@@ -195,9 +247,22 @@ func (s *ProviderService) getUnitPublicEgressSubnets(
 func buildUnitNetworkWithIngressAddresses(
 	addresses []networkinternal.UnitAddress,
 	ingressAddresses []string,
+	fqdns []string,
 	isCaas bool,
 ) domainnetwork.UnitNetwork {
 	var devices []domainnetwork.DeviceInfo
+	// TODO: IAAS FQDNs require separate selection and device-association
+	// semantics and will be handled in future work.
+	if isCaas && len(fqdns) > 0 {
+		devices = []domainnetwork.DeviceInfo{{
+			Addresses: transform.Slice(fqdns, func(fqdn string) domainnetwork.AddressInfo {
+				return domainnetwork.AddressInfo{
+					Hostname: fqdn,
+					Value:    fqdn,
+				}
+			}),
+		}}
+	}
 	deviceIndex := make(map[string]int)
 	for _, addr := range addresses {
 		// The purpose of the method is to get connectivity information for
@@ -252,13 +317,20 @@ func subnetsForAddresses(addrs []string) []string {
 }
 
 func (s *ProviderService) getUnitEndpointNetworksWithoutProviderNetworking(
-	ctx context.Context, unitUUID string, endpointNames []string, isCaas bool, defaultEgressSubnets []string,
+	ctx context.Context,
+	unitUUID string,
+	endpointNames []string,
+	fqdns []string,
+	isCaas bool,
+	defaultEgressSubnets []string,
 ) ([]domainnetwork.UnitNetwork, error) {
 	unitNetwork, err := s.st.GetUnitNetworkInfo(ctx, unitUUID)
 	if err != nil {
 		return nil, internalerrors.Errorf("getting unit network info: %w", err)
 	}
-	info := buildUnitNetworkWithIngressAddresses(unitNetwork.Addresses, unitNetwork.IngressAddresses, isCaas)
+	info := buildUnitNetworkWithIngressAddresses(
+		unitNetwork.Addresses, unitNetwork.IngressAddresses, fqdns, isCaas,
+	)
 	info.EgressSubnets = defaultEgressSubnets
 	if len(info.EgressSubnets) == 0 {
 		info.EgressSubnets = subnetsForAddresses(info.IngressAddresses)

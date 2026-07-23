@@ -202,6 +202,7 @@ ORDER BY endpoint_name,
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
 		err := tx.Query(ctx, stmt, ident, endpoints).GetAll(&rows)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf(
@@ -249,6 +250,49 @@ ORDER BY endpoint_name,
 	return infos, nil
 }
 
+// GetUnitFQDNs retrieves the ordered FQDNs linked to the unit's network node.
+func (st *State) GetUnitFQDNs(ctx context.Context, unitUUID string) ([]string, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type fqdnAddress struct {
+		Address string `db:"address"`
+	}
+
+	ident := entityUUID{UUID: unitUUID}
+	stmt, err := st.Prepare(`
+SELECT fqa.address AS &fqdnAddress.address
+FROM   unit AS u
+JOIN   net_node_fqdn_address AS nnfa
+       ON nnfa.net_node_uuid = u.net_node_uuid
+JOIN   fqdn_address AS fqa ON fqa.uuid = nnfa.address_uuid
+WHERE  u.uuid = $entityUUID.uuid
+ORDER BY fqa.address
+`, fqdnAddress{}, entityUUID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var fqdns []fqdnAddress
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		fqdns = nil
+		err := tx.Query(ctx, stmt, ident).GetAll(&fqdns)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("querying unit FQDNs: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	return transform.Slice(fqdns, func(fqdn fqdnAddress) string {
+		return fqdn.Address
+	}), nil
+}
+
 // GetUnitNetworkInfo retrieves raw unit addresses and selected ingress
 // addresses for the specified unit when provider networking is not supported.
 func (st *State) GetUnitNetworkInfo(
@@ -268,7 +312,6 @@ func (st *State) GetUnitNetworkInfo(
 		DeviceType     string         `db:"device_type"`
 		IngressAddress sql.NullString `db:"ingress_address_value"`
 	}
-
 	var rows []unitNetworkInfoRow
 	ident := entityUUID{UUID: unitUUID}
 	stmt, err := st.Prepare(`
@@ -340,8 +383,8 @@ ORDER BY CASE WHEN ingress_address_value IS NULL THEN 1 ELSE 0 END,
 	if err != nil {
 		return networkinternal.UnitNetworkInfo{}, errors.Capture(err)
 	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		rows = nil
 		err := tx.Query(ctx, stmt, ident).GetAll(&rows)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Errorf("querying unit network: %w", err)

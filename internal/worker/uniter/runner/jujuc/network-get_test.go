@@ -140,6 +140,22 @@ func (s *NetworkGetSuite) createCommand(c *tc.C) cmd.Command {
 		IngressAddresses: []string{"203.0.113.10"},
 		EgressSubnets:    []string{"10.55.0.0/16"},
 	}
+	presetBindings["caas-fqdn"] = params.NetworkInfoResult{
+		Info: []params.NetworkInfo{{
+			Addresses: []params.InterfaceAddress{{
+				Hostname: "controller-0.example.test",
+				Address:  "controller-0.example.test",
+			}},
+		}, {
+			MACAddress:    "00:11:22:33:44:66",
+			InterfaceName: "eth0",
+			Addresses: []params.InterfaceAddress{{
+				Address: "10.55.0.9",
+				CIDR:    "10.55.0.0/24",
+			}},
+		}},
+		IngressAddresses: []string{"10.55.0.2"},
+	}
 	presetBindings["result-error"] = params.NetworkInfoResult{
 		Error: &params.Error{Message: "network info failed"},
 	}
@@ -329,6 +345,39 @@ ingress-addresses:
 		args:    []string{"ingress-egress-only", "--primary-address"},
 		code:    1,
 		out:     `no primary address attached to space for binding "ingress-egress-only"`,
+	}, {
+		summary: "CAAS FQDN is the bind address",
+		args:    []string{"caas-fqdn", "--bind-address"},
+		out:     "controller-0.example.test",
+	}, {
+		summary: "CAAS service address remains the ingress address",
+		args:    []string{"caas-fqdn", "--ingress-address"},
+		out:     "10.55.0.2",
+	}, {
+		summary: "CAAS full output lists FQDN before pod IP",
+		args:    []string{"caas-fqdn"},
+		out: `
+bind-addresses:
+- mac-address: ""
+  interface-name: ""
+  addresses:
+  - hostname: controller-0.example.test
+    value: controller-0.example.test
+    cidr: ""
+    address: controller-0.example.test
+  macaddress: ""
+  interfacename: ""
+- mac-address: 00:11:22:33:44:66
+  interface-name: eth0
+  addresses:
+  - hostname: ""
+    value: 10.55.0.9
+    cidr: 10.55.0.0/24
+    address: 10.55.0.9
+  macaddress: 00:11:22:33:44:66
+  interfacename: eth0
+ingress-addresses:
+- 10.55.0.2`[1:],
 	}, {
 		summary: "explicit ingress and egress information",
 		args:    []string{"ingress-egress", "--ingress-address", "--bind-address", "--egress-subnets"},

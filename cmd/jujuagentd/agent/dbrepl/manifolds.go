@@ -108,7 +108,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.dbreplaccessor"),
 			NewApp:               dbreplaccessor.NewApp,
 			NewDBReplWorker:      config.NewDBReplWorkerFunc,
-			NewNodeManager:       dbreplaccessor.IAASNodeManager,
+			NewNodeManager:       dbreplaccessor.NewNodeManager,
 		}),
 	})
 }
@@ -125,7 +125,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               internallogger.GetLogger("juju.worker.dbreplaccessor"),
 			NewApp:               dbreplaccessor.NewApp,
 			NewDBReplWorker:      config.NewDBReplWorkerFunc,
-			NewNodeManager:       dbreplaccessor.CAASNodeManager,
+			NewNodeManager:       dbreplaccessor.NewNodeManager,
 		}),
 	})
 }

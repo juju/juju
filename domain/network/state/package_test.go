@@ -409,6 +409,15 @@ func (s *linkLayerBaseSuite) addK8sService(c *tc.C, nodeUUID, appUUID string) {
 		svcUUID, nodeUUID, appUUID, "provider-id")
 }
 
+func (s *linkLayerBaseSuite) addFQDNAddress(c *tc.C, nodeUUID, address string) {
+	addressUUID := uuid.MustNewUUID().String()
+	s.query(c, `INSERT INTO fqdn_address (uuid, address, scope_id)
+VALUES (?, ?, (SELECT id FROM network_address_scope WHERE name = ?))`,
+		addressUUID, address, corenetwork.ScopeCloudLocal)
+	s.query(c, `INSERT INTO net_node_fqdn_address (net_node_uuid, address_uuid) VALUES (?, ?)`,
+		nodeUUID, addressUUID)
+}
+
 func zeroNilPtr[T comparable](v *T) T {
 	var zero T
 	if v == nil {

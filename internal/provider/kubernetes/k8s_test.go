@@ -236,6 +236,21 @@ func (s *K8sBrokerSuite) TestControllerUnitFQDN(c *tc.C) {
 	)
 }
 
+func (s *K8sBrokerSuite) TestBootstrapControllerAddresses(c *tc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	addresses, err := s.broker.BootstrapControllerAddresses(c.Context(), "ignored")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(addresses, tc.DeepEquals, network.ProviderAddresses{{
+		MachineAddress: network.MachineAddress{
+			Value: "controller-0.controller-service-endpoints.test.svc.cluster.local",
+			Type:  network.HostName,
+			Scope: network.ScopeCloudLocal,
+		},
+	}})
+}
+
 func (s *K8sBrokerSuite) TestConfig(c *tc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()

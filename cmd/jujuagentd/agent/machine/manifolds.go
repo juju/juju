@@ -1236,7 +1236,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewApp:                    dbaccessor.NewApp,
 			NewDBWorker:               config.NewDBWorkerFunc,
 			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-			NewNodeManager:            dbaccessor.IAASNodeManager,
+			NewNodeManager:            dbaccessor.NewNodeManager,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -1475,7 +1475,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewApp:                    dbaccessor.NewApp,
 			NewDBWorker:               config.NewDBWorkerFunc,
 			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-			NewNodeManager:            dbaccessor.CAASNodeManager,
+			NewNodeManager:            dbaccessor.NewNodeManager,
 		})),
 	})
 }
