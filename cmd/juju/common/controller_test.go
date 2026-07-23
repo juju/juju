@@ -122,6 +122,26 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyRetries(c *tc.C) {
 		})
 	})
 
+	c.Run("K8sLostConnectionToPodRetries", func(c *stdtesting.T) {
+		count := 0
+		tryAPI := func(ctx context.Context, c *modelcmd.ModelCommandBase) error {
+			count++
+			if count == 1 {
+				return errors.New(
+					"unable to connect to API: dial tcp 127.0.0.1:36141: " +
+						"connect: connection refused; proxy error: lost connection to pod",
+				)
+			}
+			return nil
+		}
+		runInCommand(&tc.TBC{TB: c}, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
+			bootstrapCtx := environscmd.BootstrapContext(c.Context(), ctx)
+			err := WaitForAgentInitialisation(bootstrapCtx, base, false, "arthur", tryAPI)
+			tc.Assert(c, err, tc.ErrorIsNil)
+			tc.Check(c, count, tc.Equals, 2)
+		})
+	})
+
 	c.Run("ExhaustedRetries", func(c *stdtesting.T) {
 		count := 0
 		tryAPI := func(ctx context.Context, c *modelcmd.ModelCommandBase) error {
