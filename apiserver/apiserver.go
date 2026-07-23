@@ -774,6 +774,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	var debuglogAuth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
 		tagKindAuthorizer{names.ControllerAgentTagKind},
+		httpcontext.ControllerAuthorizer,
 		controllerAdminAuthorizer,
 		modelPermissionAuthorizer{
 			perm: permission.ReadAccess,
