@@ -37,12 +37,14 @@ func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 	return func(_ *ssh.Server, _ *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 		var data localForwardChannelData
 		if err := gossh.Unmarshal(newChan.ExtraData(), &data); err != nil {
+			h.logger.Debugf(ctx, "failed to parse local forward channel data: %v", err)
 			_ = newChan.Reject(gossh.ConnectionFailed, "parsing forward data: "+err.Error())
 			return
 		}
 
 		client, err := h.connector.Connect(ctx, h.destination)
 		if err != nil {
+			h.logger.Debugf(ctx, "failed to connect to machine: %v", err)
 			_ = newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("connecting to machine: %v", err))
 			return
 		}
@@ -51,12 +53,14 @@ func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 		destination := net.JoinHostPort(data.DestAddr, strconv.FormatUint(uint64(data.DestPort), 10))
 		connection, err := client.DialContext(ctx, "tcp", destination)
 		if err != nil {
+			h.logger.Debugf(ctx, "failed to dial target %q: %v", destination, err)
 			_ = newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("dialling target: %v", err))
 			return
 		}
 
 		halfCloseConnection, ok := connection.(halfCloseConn)
 		if !ok {
+			h.logger.Debugf(ctx, "target connection does not support half-close")
 			_ = connection.Close()
 			_ = newChan.Reject(gossh.ConnectionFailed, "target connection does not support half-close")
 			return
@@ -64,6 +68,7 @@ func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 
 		channel, requests, err := newChan.Accept()
 		if err != nil {
+			h.logger.Debugf(ctx, "failed to accept channel: %v", err)
 			_ = connection.Close()
 			return
 		}
