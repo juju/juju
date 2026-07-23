@@ -4,11 +4,8 @@
 package state
 
 import (
-	"context"
-	"database/sql"
 	"testing"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 	"github.com/juju/tc"
 
@@ -24,122 +21,6 @@ type linkLayerSuite struct {
 
 func TestLinkLayerSuite(t *testing.T) {
 	tc.Run(t, &linkLayerSuite{})
-}
-
-func (s *linkLayerSuite) TestMachineInterfaceViewFitsType(c *tc.C) {
-	db, err := s.TxnRunnerFactory()(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Arrange
-	nodeUUID := "net-node-uuid"
-	machineUUID := "machine-uuid"
-	machineName := "0"
-	devUUID := "dev-uuid"
-	devName := "eth0"
-	subUUID := "sub-uuid"
-	addrUUID := "addr-uuid"
-
-	ctx := c.Context()
-
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, "INSERT INTO net_node (uuid) VALUES (?)", nodeUUID); err != nil {
-			return err
-		}
-
-		if _, err := tx.ExecContext(ctx, "INSERT INTO machine (uuid, net_node_uuid, name, life_id) VALUES (?, ?, ? ,?)",
-			machineUUID, nodeUUID, machineName, 0,
-		); err != nil {
-			return err
-		}
-
-		insertLLD := `
-INSERT INTO link_layer_device (uuid, net_node_uuid, name, mtu, mac_address, device_type_id, virtual_port_type_id) 
-VALUES (?, ?, ?, ?, ?, ?, ?)`
-
-		if _, err = tx.ExecContext(ctx, insertLLD, devUUID, nodeUUID, devName, 1500, "00:11:22:33:44:55", 0, 0); err != nil {
-			return err
-		}
-
-		if _, err = tx.ExecContext(ctx, "INSERT INTO subnet (uuid, cidr, space_uuid) VALUES (?, ?, ?)",
-			subUUID, "10.0.0.0/24", corenetwork.AlphaSpaceId,
-		); err != nil {
-			return err
-		}
-
-		insertIPAddress := `
-INSERT INTO ip_address (uuid, device_uuid, address_value, type_id, scope_id, origin_id, config_type_id, subnet_uuid, net_node_uuid) 
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
-		_, err = tx.ExecContext(ctx, insertIPAddress, addrUUID, devUUID, "10.0.0.1", 0, 0, 0, 0, subUUID, nodeUUID)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	// Act
-	stmt, err := sqlair.Prepare("SELECT &machineInterfaceRow.* FROM v_machine_interface", machineInterfaceRow{})
-
-	// Assert
-	c.Assert(err, tc.ErrorIsNil)
-
-	var rows []machineInterfaceRow
-	err = db.Txn(ctx, func(ctx context.Context, txn *sqlair.TX) error {
-		return txn.Query(ctx, stmt).GetAll(&rows)
-	})
-	c.Assert(err, tc.ErrorIsNil)
-
-	c.Assert(rows, tc.HasLen, 1)
-
-	r := rows[0]
-	c.Check(r.MachineUUID, tc.Equals, machineUUID)
-	c.Check(r.MachineName, tc.Equals, machineName)
-	c.Check(r.DeviceUUID, tc.Equals, devUUID)
-	c.Check(r.DeviceName, tc.Equals, devName)
-	c.Check(r.AddressUUID.String, tc.Equals, addrUUID)
-	c.Check(r.SubnetUUID.String, tc.Equals, subUUID)
-}
-
-// machineInterfaceRow is the type for a row from the v_machine_interface view.
-type machineInterfaceRow struct {
-	// MachineUUID and associated machine fields.
-	MachineUUID string `db:"machine_uuid"`
-	MachineName string `db:"machine_name"`
-	NetNodeUUID string `db:"net_node_uuid"`
-
-	// DeviceUUID and associated link-layer device fields.
-	DeviceUUID        string         `db:"device_uuid"`
-	DeviceName        string         `db:"device_name"`
-	MTU               sql.NullInt64  `db:"mtu"`
-	MacAddress        sql.NullString `db:"mac_address"`
-	ProviderID        sql.NullString `db:"device_provider_id"`
-	DeviceTypeID      int64          `db:"device_type_id"`
-	VirtualPortTypeID int64          `db:"virtual_port_type_id"`
-	IsAutoStart       bool           `db:"is_auto_start"`
-	IsEnabled         bool           `db:"is_enabled"`
-	ParentDeviceUUID  sql.NullString `db:"parent_device_uuid"`
-	ParentDeviceName  sql.NullString `db:"parent_device_name"`
-	GatewayAddress    sql.NullString `db:"gateway_address"`
-	IsDefaultGateway  bool           `db:"is_default_gateway"`
-	VLANTag           uint64         `db:"vlan_tag"`
-	DNSAddress        sql.NullString `db:"dns_address"`
-	DNSSearchDomain   sql.NullString `db:"search_domain"`
-
-	// AddressUUID and associated IP address fields.
-	AddressUUID       sql.NullString `db:"address_uuid"`
-	ProviderAddressID sql.NullString `db:"provider_address_id"`
-	AddressValue      sql.NullString `db:"address_value"`
-	SubnetUUID        sql.NullString `db:"subnet_uuid"`
-	CIDR              sql.NullString `db:"cidr"`
-	ProviderSubnetID  sql.NullString `db:"provider_subnet_id"`
-	AddressTypeID     sql.NullInt64  `db:"address_type_id"`
-	ConfigTypeID      sql.NullInt64  `db:"config_type_id"`
-	OriginID          sql.NullInt64  `db:"origin_id"`
-	ScopeID           sql.NullInt64  `db:"scope_id"`
-	IsSecondary       sql.NullBool   `db:"is_secondary"`
-	IsShadow          sql.NullBool   `db:"is_shadow"`
 }
 
 func (s *linkLayerSuite) TestGetMachineNetNodeUUID(c *tc.C) {

@@ -81,6 +81,9 @@ CREATE TABLE secret_backend_reference (
     REFERENCES secret_backend (uuid)
 );
 
+CREATE INDEX idx_secret_backend_reference_revision
+ON secret_backend_reference (secret_revision_uuid);
+
 CREATE TABLE model_secret_backend (
     model_uuid TEXT NOT NULL PRIMARY KEY,
     secret_backend_uuid TEXT NOT NULL,

@@ -58,6 +58,7 @@ CREATE TABLE model (
 -- with the same qualified name.
 CREATE UNIQUE INDEX idx_model_qualified_name ON model (name, qualifier);
 CREATE INDEX idx_model_activated ON model (activated);
+CREATE INDEX idx_model_life ON model (life_id);
 
 -- v_model_all is a view that provides a simple way to access models
 -- that have not been activated. This is useful for the model creation process

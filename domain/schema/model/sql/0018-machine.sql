@@ -27,6 +27,9 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
+CREATE INDEX idx_machine_life_name
+ON machine (life_id, name);
+
 CREATE TABLE machine_manual (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     CONSTRAINT fk_machine_manual_machine
@@ -87,6 +90,9 @@ CREATE TABLE machine_parent (
     FOREIGN KEY (parent_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE INDEX idx_machine_parent_parent_uuid
+ON machine_parent (parent_uuid);
 
 -- machine_agent_version tracks the reported agent version running for each
 -- machine.
@@ -160,6 +166,9 @@ CREATE TABLE machine_volume (
     PRIMARY KEY (machine_uuid, volume_uuid)
 );
 
+CREATE INDEX idx_machine_volume_volume
+ON machine_volume (volume_uuid, machine_uuid);
+
 CREATE TABLE machine_filesystem (
     machine_uuid TEXT NOT NULL,
     filesystem_uuid TEXT NOT NULL,
@@ -171,6 +180,9 @@ CREATE TABLE machine_filesystem (
     REFERENCES storage_filesystem (uuid),
     PRIMARY KEY (machine_uuid, filesystem_uuid)
 );
+
+CREATE INDEX idx_machine_filesystem_filesystem
+ON machine_filesystem (filesystem_uuid, machine_uuid);
 
 CREATE TABLE machine_requires_reboot (
     machine_uuid TEXT NOT NULL PRIMARY KEY,

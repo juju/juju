@@ -23,3 +23,6 @@ CREATE TABLE external_model (
     FOREIGN KEY (controller_uuid)
     REFERENCES external_controller (uuid)
 );
+
+CREATE INDEX idx_external_model_controller_uuid
+ON external_model (controller_uuid);

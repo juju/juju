@@ -11,6 +11,9 @@ CREATE TABLE model_last_login (
     REFERENCES user (uuid)
 );
 
+CREATE INDEX idx_model_last_login_user_uuid_time
+ON model_last_login (user_uuid, time);
+
 CREATE VIEW v_user_last_login AS
 -- We cannot select last_login as MAX directly here because it returns a sqlite
 -- string value, not a timestamp and this stops us scanning into time.Time.

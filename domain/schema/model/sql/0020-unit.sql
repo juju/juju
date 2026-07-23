@@ -52,6 +52,9 @@ CREATE TABLE unit_principal (
     REFERENCES unit (uuid)
 );
 
+CREATE INDEX idx_unit_principal_principal
+ON unit_principal (principal_uuid, unit_uuid);
+
 CREATE TABLE unit_workload_version (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     version TEXT NOT NULL,
@@ -188,6 +191,9 @@ CREATE TABLE unit_agent_status (
     REFERENCES unit_agent_status_value (id)
 );
 
+CREATE INDEX idx_unit_agent_status_status_unit
+ON unit_agent_status (status_id, unit_uuid);
+
 CREATE TABLE unit_workload_status (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
     status_id INT NOT NULL,
@@ -224,14 +230,6 @@ CREATE TABLE unit_agent_presence (
     REFERENCES unit (uuid)
 );
 
-CREATE VIEW v_unit_agent_presence AS
-SELECT
-    unit.uuid,
-    unit_agent_presence.last_seen,
-    unit.name
-FROM unit
-JOIN unit_agent_presence ON unit.uuid = unit_agent_presence.unit_uuid;
-
 CREATE VIEW v_unit_agent_status AS
 SELECT
     u.uuid AS unit_uuid,
@@ -263,18 +261,6 @@ SELECT
     ) AS present
 FROM unit AS u
 JOIN unit_workload_status AS uws ON u.uuid = uws.unit_uuid;
-
-CREATE VIEW v_unit_k8s_pod_status AS
-SELECT
-    u.uuid AS unit_uuid,
-    u.name AS unit_name,
-    u.application_uuid,
-    kps.status_id,
-    kps.message,
-    kps.data,
-    kps.updated_at
-FROM unit AS u
-JOIN k8s_pod_status AS kps ON u.uuid = kps.unit_uuid;
 
 CREATE VIEW v_unit_workload_agent_status AS
 SELECT
@@ -363,16 +349,3 @@ SELECT
 FROM unit AS u
 LEFT JOIN unit_resolved AS ur ON u.uuid = ur.unit_uuid
 LEFT JOIN k8s_pod AS k ON u.uuid = k.unit_uuid;
-
-CREATE VIEW v_unit_export AS
-SELECT
-    u.uuid,
-    u.name,
-    u.password_hash,
-    u.application_uuid,
-    m.name AS machine_name,
-    upname.name AS principal_name
-FROM unit AS u
-LEFT JOIN machine AS m ON u.net_node_uuid = m.net_node_uuid
-LEFT JOIN unit_principal AS up ON u.uuid = up.unit_uuid
-LEFT JOIN unit AS upname ON up.principal_uuid = upname.uuid;

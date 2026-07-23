@@ -1461,7 +1461,11 @@ func (s *modelStateSuite) TestSetUnitPresence(c *tc.C) {
 
 	var lastSeen time.Time
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, "SELECT last_seen FROM v_unit_agent_presence WHERE name=?", "foo/0").Scan(&lastSeen); err != nil {
+		if err := tx.QueryRowContext(ctx, `
+SELECT uap.last_seen
+FROM   unit_agent_presence AS uap
+JOIN   unit AS u ON u.uuid = uap.unit_uuid
+WHERE  u.name = ?`, "foo/0").Scan(&lastSeen); err != nil {
 			return err
 		}
 		return err
@@ -1490,7 +1494,11 @@ func (s *modelStateSuite) TestDeleteUnitPresence(c *tc.C) {
 
 	var lastSeen time.Time
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, "SELECT last_seen FROM v_unit_agent_presence WHERE name=?", "foo/0").Scan(&lastSeen); err != nil {
+		if err := tx.QueryRowContext(ctx, `
+SELECT uap.last_seen
+FROM   unit_agent_presence AS uap
+JOIN   unit AS u ON u.uuid = uap.unit_uuid
+WHERE  u.name = ?`, "foo/0").Scan(&lastSeen); err != nil {
 			return err
 		}
 		return err
@@ -1505,7 +1513,11 @@ func (s *modelStateSuite) TestDeleteUnitPresence(c *tc.C) {
 
 	var count int
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
-		if err := tx.QueryRowContext(ctx, "SELECT COUNT(*) FROM v_unit_agent_presence WHERE name=?", "foo/0").Scan(&count); err != nil {
+		if err := tx.QueryRowContext(ctx, `
+SELECT COUNT(*)
+FROM   unit_agent_presence AS uap
+JOIN   unit AS u ON u.uuid = uap.unit_uuid
+WHERE  u.name = ?`, "foo/0").Scan(&count); err != nil {
 			return err
 		}
 		return err

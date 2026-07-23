@@ -15,6 +15,9 @@ CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FA
 
 CREATE INDEX idx_user_name ON user (name);
 
+CREATE INDEX idx_user_removed
+ON user (removed);
+
 CREATE TABLE user_authentication (
     user_uuid TEXT NOT NULL PRIMARY KEY,
     disabled BOOLEAN NOT NULL,
@@ -22,6 +25,9 @@ CREATE TABLE user_authentication (
     FOREIGN KEY (user_uuid)
     REFERENCES user (uuid)
 );
+
+CREATE INDEX idx_user_authentication_disabled_user_uuid
+ON user_authentication (disabled, user_uuid);
 
 CREATE TABLE user_password (
     user_uuid TEXT NOT NULL PRIMARY KEY,
