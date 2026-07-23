@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/juju/clock"
@@ -22,9 +23,13 @@ import (
 	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	domainstatus "github.com/juju/juju/domain/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/errors"
+	"github.com/juju/juju/internal/statushistory"
 )
+
+const reprovisioningStatusMessage = "reprovisioning requested"
 
 // Provider represents an underlying cloud provider.
 type Provider interface {
@@ -88,14 +93,64 @@ func (s *ProviderService) ReprovisionMachine(ctx context.Context, machineName ma
 	if err != nil && !errors.Is(err, environs.ErrNoInstances) && !errors.Is(err, environs.ErrPartialInstances) {
 		return errors.Errorf("checking provider instance %q for machine %q: %w", instanceID, machineName, err)
 	}
+
+	// If the provider returns no instance, there is nothing to do.
 	if len(instances) == 0 || instances[0] == nil {
 		return nil
 	}
 
+	// If the provider reports that the instance is running, then there isn't
+	// anything we should do.
 	providerStatus := instances[0].Status(ctx)
 	if providerStatus.Status == corestatus.Running {
 		return errors.Errorf("machine %q instance %q: %w", machineName, instanceID, machineerrors.MachineProviderInstanceRunning)
 	}
+	return s.detachLostMachineCloudInstance(ctx, machineName, instanceID)
+}
+
+// detachLostMachineCloudInstance atomically clears provider-observed state for
+// a lost machine instance and moves the machine back to pending. The expected
+// instance ID prevents detaching a replacement that appeared after the
+// provider liveness check.
+func (s *ProviderService) detachLostMachineCloudInstance(
+	ctx context.Context,
+	machineName machine.Name,
+	expectedInstanceID instance.Id,
+) error {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	statusData := map[string]any{
+		"old-instance-id": expectedInstanceID.String(),
+	}
+	encodedStatusData, err := json.Marshal(statusData)
+	if err != nil {
+		return errors.Errorf("encoding reprovisioning status data: %w", err)
+	}
+
+	now := s.clock.Now().UTC()
+	if err := s.st.DetachLostMachineCloudInstance(
+		ctx, machineName.String(), expectedInstanceID.String(), reprovisioningStatusMessage,
+		encodedStatusData, now,
+	); err != nil {
+		return errors.Errorf("detaching lost cloud instance for machine %q: %w", machineName, err)
+	}
+
+	statusInfo := corestatus.StatusInfo{
+		Status:  corestatus.Pending,
+		Message: reprovisioningStatusMessage,
+		Data:    statusData,
+		Since:   &now,
+	}
+	for _, namespace := range []statushistory.Namespace{
+		domainstatus.MachineNamespace.WithID(machineName.String()),
+		domainstatus.MachineInstanceNamespace.WithID(machineName.String()),
+	} {
+		if err := s.statusHistory.RecordStatus(ctx, namespace, statusInfo); err != nil {
+			s.logger.Warningf(ctx, "recording reprovisioning status history: %w", err)
+		}
+	}
+
 	return nil
 }
 

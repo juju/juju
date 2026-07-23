@@ -48,6 +48,10 @@ const (
 	// when adding cloud instance on a machine that already exists.
 	MachineCloudInstanceAlreadyExists = errors.ConstError("machine cloud instance already exists")
 
+	// MachineCloudInstanceChanged describes an error that occurs when the
+	// machine's cloud instance changes during a reprovisioning request.
+	MachineCloudInstanceChanged = errors.ConstError("machine cloud instance changed")
+
 	// InvalidMachineConstraints describes an error that occurs when the
 	// machine constraints are not valid. This happens when if the
 	// provided space constraints do not exist or the container type is not
