@@ -82,14 +82,19 @@ WHERE ms.machine_uuid = ?`, machineUUID.String()).Scan(
 		"instance_tag",
 		"provider_ip_address",
 		"ip_address",
+		"link_layer_device_parent",
 		"provider_link_layer_device",
 		"link_layer_device_dns_domain",
 		"link_layer_device_dns_address",
 		"link_layer_device_route",
 		"link_layer_device",
+		"net_node_fqdn_address",
+		"net_node_hostname_address",
 	} {
 		c.Check(s.rowCount(c, table), tc.Equals, 0, tc.Commentf("table %s", table))
 	}
+	c.Check(s.rowCountWhere(c, "fqdn_address", "uuid = ?", "fqdn-uuid"), tc.Equals, 1)
+	c.Check(s.rowCountWhere(c, "hostname_address", "uuid = ?", "hostname-uuid"), tc.Equals, 1)
 	c.Check(s.rowCountWhere(c, "block_device", "uuid = ?", "unreferenced-block"), tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "block_device_link_device", "block_device_uuid = ?", "unreferenced-block"), tc.Equals, 0)
 	c.Check(s.rowCountWhere(c, "block_device", "uuid = ?", "referenced-block"), tc.Equals, 1)
@@ -172,8 +177,11 @@ END`)
 	c.Assert(err, tc.ErrorMatches, ".*detach failed.*")
 	s.checkInstanceID(c, machineUUID.String(), "123")
 	c.Check(s.rowCount(c, "instance_tag"), tc.Equals, 2)
-	c.Check(s.rowCount(c, "link_layer_device"), tc.Equals, 1)
+	c.Check(s.rowCount(c, "link_layer_device"), tc.Equals, 2)
+	c.Check(s.rowCount(c, "link_layer_device_parent"), tc.Equals, 1)
 	c.Check(s.rowCount(c, "ip_address"), tc.Equals, 1)
+	c.Check(s.rowCount(c, "net_node_fqdn_address"), tc.Equals, 1)
+	c.Check(s.rowCount(c, "net_node_hostname_address"), tc.Equals, 1)
 }
 
 func (s *stateSuite) machineNetNodeUUID(c *tc.C, machineUUID string) string {
@@ -190,6 +198,12 @@ func (s *stateSuite) addReprovisionNetworkState(c *tc.C, netNodeUUID string) {
 INSERT INTO link_layer_device
     (uuid, net_node_uuid, name, device_type_id, virtual_port_type_id)
 VALUES (?, ?, 'eth0', 2, 0)`, "device-uuid", netNodeUUID)
+	s.runQuery(c, `
+INSERT INTO link_layer_device
+    (uuid, net_node_uuid, name, device_type_id, virtual_port_type_id)
+VALUES (?, ?, 'eth1', 2, 0)`, "child-device-uuid", netNodeUUID)
+	s.runQuery(c, "INSERT INTO link_layer_device_parent VALUES (?, ?)",
+		"child-device-uuid", "device-uuid")
 	s.runQuery(c, "INSERT INTO provider_link_layer_device VALUES (?, ?)", "provider-device", "device-uuid")
 	s.runQuery(c, "INSERT INTO link_layer_device_dns_domain VALUES (?, ?)", "device-uuid", "example.test")
 	s.runQuery(c, "INSERT INTO link_layer_device_dns_address VALUES (?, ?)", "device-uuid", "10.0.0.2")
@@ -200,6 +214,14 @@ INSERT INTO ip_address
      config_type_id, origin_id, scope_id)
 VALUES (?, ?, ?, '10.0.0.2/24', 0, 1, 1, 2)`, "address-uuid", netNodeUUID, "device-uuid")
 	s.runQuery(c, "INSERT INTO provider_ip_address VALUES (?, ?)", "provider-address", "address-uuid")
+	s.runQuery(c, "INSERT INTO fqdn_address VALUES (?, ?, ?)",
+		"fqdn-uuid", "machine.example.test", 1)
+	s.runQuery(c, "INSERT INTO net_node_fqdn_address VALUES (?, ?)",
+		netNodeUUID, "fqdn-uuid")
+	s.runQuery(c, "INSERT INTO hostname_address VALUES (?, ?, ?)",
+		"hostname-uuid", "machine", 0)
+	s.runQuery(c, "INSERT INTO net_node_hostname_address VALUES (?, ?)",
+		netNodeUUID, "hostname-uuid")
 }
 
 func (s *stateSuite) addReprovisionBlockDeviceState(c *tc.C, machineUUID, netNodeUUID string) {
