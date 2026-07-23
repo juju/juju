@@ -6,7 +6,7 @@ run_deploy_repo_resource() {
 
 	ensure "test-${name}" "${file}"
 
-	juju deploy juju-qa-test --channel candidate
+	juju deploy juju-qa-test --channel latest/candidate
 	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
 	juju config juju-qa-test foo-file=true
 

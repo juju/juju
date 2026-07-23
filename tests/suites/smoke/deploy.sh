@@ -34,7 +34,7 @@ run_charmhub_deploy() {
 
 	ensure "${model_name}" "${file}"
 
-	juju deploy "juju-qa-test" --revision 22 --channel stable "juju-qa-test"
+	juju deploy "juju-qa-test" --revision 22 --channel 2.0/stable "juju-qa-test"
 	# TODO(nvinuesa): Ideally, we want to deploy the next 2 charms with a
 	# placement directive, both to make the test faster and also to test
 	# the placement directives. However, until machines are not fully

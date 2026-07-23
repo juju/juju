@@ -11,7 +11,7 @@ run_start_hook_fires_after_reboot() {
 	juju model-config -m "${model_name}" logging-config="<root>=INFO;unit=DEBUG"
 
 	charm="juju-qa-test"
-	juju deploy "$charm" --revision 22 --channel stable "$charm"
+	juju deploy "$charm" --revision 22 --channel 2.0/stable "$charm"
 	wait_for "$charm" "$(idle_condition "$charm")"
 
 	# Ensure that the implicit start hook after reboot detection does not

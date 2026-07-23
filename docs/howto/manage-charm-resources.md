@@ -11,7 +11,7 @@ myst:
 See also: {ref}`charm-resource`
 ```
 
-When you deploy / update an application from a charm, that automatically deploys / updates any charm resources, using the defaults specified by the charm author. However, you can also specify resources manually (e.g., to try a resource released only to `edge` or to specify a non-Charmhub resource). This document shows you how.
+Charm resources are selected based on the revision co-released with the specified charm revision. If no charm revision is specified then the resources will come from the tip of the charm's default/specified channel. However, you can also specify resources manually (e.g., to try a resource released only to `edge` or to specify a non-Charmhub resource). This document shows you how.
 
 
 ## Find out the resources available for a charm
