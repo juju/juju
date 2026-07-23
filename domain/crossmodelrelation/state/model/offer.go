@@ -229,8 +229,8 @@ func (st *State) GetOfferUUID(ctx context.Context, name string) (string, error) 
 	return offerUUID, err
 }
 
-// GetConsumeDetails returns the offer uuid and endpoints necessary to
-// consume the offer.
+// GetConsumeDetails returns the offer uuid, application name and endpoints
+// necessary to consume the offer.
 // Returns crossmodelrelationerrors.OfferNotFound of the offer is not found.
 func (st *State) GetConsumeDetails(
 	ctx context.Context,
@@ -244,6 +244,7 @@ func (st *State) GetConsumeDetails(
 
 	stmt, err := st.Prepare(`
 SELECT (o.uuid, cr.name, cr.interface, cr.capacity) AS (&consumeDetail.*),
+       a.name   AS &consumeDetail.application_name,
        crr.name AS &consumeDetail.role
 FROM   offer AS o
 JOIN   offer_endpoint AS oe ON o.uuid = oe.offer_uuid
@@ -252,6 +253,7 @@ JOIN   application AS a ON ae.application_uuid = a.uuid
 JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN   charm_relation_role AS crr ON cr.role_id = crr.id
 WHERE  o.name = $name.name
+ORDER BY cr.name
 `, consumeDetail{}, name{})
 	if err != nil {
 		return empty, errors.Errorf("preparing consume detail query: %w", err)
@@ -277,9 +279,74 @@ WHERE  o.name = $name.name
 		}
 	})
 	return crossmodelrelation.ConsumeDetails{
-		OfferUUID: details[0].OfferUUID,
-		Endpoints: endpoints,
+		OfferUUID:       details[0].OfferUUID,
+		ApplicationName: details[0].ApplicationName,
+		Endpoints:       endpoints,
 	}, nil
+}
+
+// GetApplicationEndpointDetails returns the name, role and interface of the
+// provided endpoints for the given application, ordered by endpoint name.
+// Returns applicationerrors.ApplicationNotFound if the application does not
+// exist. Returns an error satisfying
+// [crossmodelrelationerrors.MissingEndpoints] if any of the endpoints do not
+// exist on the application.
+func (st *State) GetApplicationEndpointDetails(
+	ctx context.Context,
+	applicationName string,
+	endpoints []string,
+) ([]crossmodelrelation.OfferEndpoint, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	type names []string
+	stmt, err := st.Prepare(`
+SELECT cr.name      AS &endpointDetail.name,
+       crr.name     AS &endpointDetail.role,
+       cr.interface AS &endpointDetail.interface
+FROM   application_endpoint AS ae
+JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
+JOIN   charm_relation_role AS crr ON cr.role_id = crr.id
+WHERE  ae.application_uuid = $uuid.uuid
+AND    cr.name IN ($names[:])
+ORDER BY cr.name
+`, endpointDetail{}, uuid{}, names{})
+	if err != nil {
+		return nil, errors.Errorf("preparing application endpoint details query: %w", err)
+	}
+
+	var details []endpointDetail
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		applicationUUID, _, err := st.getApplicationUUIDAndLife(ctx, tx, applicationName)
+		if err != nil {
+			return errors.Capture(err)
+		}
+
+		err = tx.Query(ctx, stmt, uuid{UUID: applicationUUID}, names(endpoints)).GetAll(&details)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("%q: %w", strings.Join(endpoints, ","), applicationerrors.EndpointNotFound)
+		}
+		return errors.Capture(err)
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	if len(details) != len(endpoints) {
+		return nil, errors.Errorf("not all endpoints found %q for application %q",
+			strings.Join(endpoints, ", "),
+			applicationName,
+		).Add(crossmodelrelationerrors.MissingEndpoints)
+	}
+
+	return transform.Slice(details, func(in endpointDetail) crossmodelrelation.OfferEndpoint {
+		return crossmodelrelation.OfferEndpoint{
+			Name:      in.Name,
+			Role:      in.Role,
+			Interface: in.Interface,
+		}
+	}), nil
 }
 
 // GetOfferDetails returns the OfferDetail of every offer in the model.
@@ -327,6 +394,7 @@ func (st *State) getOfferDetails(ctx context.Context, tx *sqlair.TX) (offerDetai
 	stmt, err := st.Prepare(`
 SELECT &offerDetail.*
 FROM   v_offer_detail
+ORDER BY offer_name, endpoint_name
 `, offerDetail{})
 	if err != nil {
 		return nil, errors.Errorf("preparing offer detail query: %w", err)
@@ -349,6 +417,7 @@ func (st *State) getOfferDetailsForUUIDs(ctx context.Context, tx *sqlair.TX, off
 SELECT &offerDetail.*
 FROM   v_offer_detail
 WHERE  offer_uuid IN ($uuids[:])
+ORDER BY offer_name, endpoint_name
 `, offerDetail{}, uuids{})
 	if err != nil {
 		return nil, errors.Errorf("preparing offer detail for UUID query: %w", err)
@@ -375,6 +444,7 @@ AND    (application_description LIKE $offerFilter.application_description OR $of
 AND    (endpoint_name = $offerFilter.endpoint_name OR $offerFilter.endpoint_name = '')
 AND    (endpoint_role = $offerFilter.endpoint_role OR $offerFilter.endpoint_role = '')
 AND    (endpoint_interface = $offerFilter.endpoint_interface OR $offerFilter.endpoint_interface = '')
+ORDER BY offer_name, endpoint_name
 `, offerDetail{}, offerFilter{})
 	if err != nil {
 		return nil, errors.Errorf("preparing filtered offer detail query: %w", err)
@@ -491,6 +561,7 @@ SELECT ae.application_endpoint_uuid AS &uuid.uuid
 FROM   v_application_endpoint AS ae            
 WHERE  ae.application_uuid = $uuid.uuid
 AND    ae.endpoint_name IN ($dbStrings[:])
+ORDER BY ae.endpoint_name
 `, uuid{}, dbStrings{})
 	if err != nil {
 		return nil, errors.Errorf("preparing application endpoint query: %w", err)
@@ -604,6 +675,7 @@ JOIN   charm_relation AS cr ON ae.charm_relation_uuid = cr.uuid
 JOIN   relation_status AS rs ON r.uuid = rs.relation_uuid
 JOIN   relation_status_type AS rst ON rs.relation_status_type_id = rst.id
 WHERE  oc.offer_uuid IN ($uuids[:])
+ORDER BY oc.offer_uuid, r.relation_id
 `, offerConnectionDetail{}, uuids{})
 	if err != nil {
 		return nil, errors.Errorf("preparing offer connection detail query: %w", err)

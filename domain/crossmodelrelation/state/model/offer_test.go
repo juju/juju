@@ -235,6 +235,105 @@ func (s *modelOfferSuite) TestDeleteFailedOffer(c *tc.C) {
 	c.Check(s.readOfferEndpoints(c), tc.HasLen, 0)
 }
 
+func (s *modelOfferSuite) TestCreateOfferEndpointsInsertedInNameOrder(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relationAlpha := charm.Relation{
+		Name:      "alpha",
+		Role:      charm.RoleProvider,
+		Interface: "alpha",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationAlphaUUID := s.addCharmRelation(c, charmUUID, relationAlpha)
+	relationZed := charm.Relation{
+		Name:      "zed",
+		Role:      charm.RoleRequirer,
+		Interface: "zed",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationZedUUID := s.addCharmRelation(c, charmUUID, relationZed)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	appEndpointAlphaUUID := s.addApplicationEndpoint(c, appUUID, relationAlphaUUID)
+	appEndpointZedUUID := s.addApplicationEndpoint(c, appUUID, relationZedUUID)
+
+	args := crossmodelrelation.CreateOfferArgs{
+		UUID:            tc.Must(c, offer.NewUUID),
+		ApplicationUUID: appUUID.String(),
+		// Request the endpoints in reverse name order.
+		Endpoints: []string{relationZed.Name, relationAlpha.Name},
+		OfferName: "test-offer",
+	}
+
+	// Act
+	err := s.state.CreateOffer(c.Context(), args)
+
+	// Assert — the offer_endpoint rows are inserted in canonical endpoint
+	// name order, regardless of the requested order.
+	c.Assert(err, tc.ErrorIsNil)
+	rows, err := s.DB().QueryContext(c.Context(), `SELECT endpoint_uuid FROM offer_endpoint ORDER BY rowid`)
+	c.Assert(err, tc.ErrorIsNil)
+	defer func() { _ = rows.Close() }()
+	var obtained []string
+	for rows.Next() {
+		var endpointUUID string
+		c.Assert(rows.Scan(&endpointUUID), tc.ErrorIsNil)
+		obtained = append(obtained, endpointUUID)
+	}
+	c.Check(obtained, tc.DeepEquals, []string{appEndpointAlphaUUID, appEndpointZedUUID})
+}
+
+// TestGetOfferDetailsDeterministicOrder verifies that offers and their
+// endpoints are returned in canonical name order, regardless of insertion
+// order.
+func (s *modelOfferSuite) TestGetOfferDetailsDeterministicOrder(c *tc.C) {
+	// Arrange — create two offers on the same application, with names and
+	// endpoint associations in reverse canonical order.
+	charmUUID := s.addCharmWithReferenceName(c, "test-charm")
+	s.addCharmMetadataWithDescription(c, charmUUID, "testing application")
+	relationZed := charm.Relation{
+		Name:      "zed",
+		Role:      charm.RoleProvider,
+		Interface: "zed",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationZedUUID := s.addCharmRelation(c, charmUUID, relationZed)
+	relationAlpha := charm.Relation{
+		Name:      "alpha",
+		Role:      charm.RoleProvider,
+		Interface: "alpha",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationAlphaUUID := s.addCharmRelation(c, charmUUID, relationAlpha)
+
+	appUUID := s.addApplication(c, charmUUID, "test-application")
+	appEndpointZedUUID := s.addApplicationEndpoint(c, appUUID, relationZedUUID)
+	appEndpointAlphaUUID := s.addApplicationEndpoint(c, appUUID, relationAlphaUUID)
+
+	s.addOffer(c, "beta-offer", []string{appEndpointZedUUID, appEndpointAlphaUUID})
+	s.addOffer(c, "alpha-offer", []string{appEndpointZedUUID})
+
+	// Act
+	obtained, err := s.state.GetOfferDetails(c.Context(), crossmodelrelation.OfferFilter{})
+
+	// Assert — offers are ordered by offer name, endpoints by endpoint name.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(obtained, tc.HasLen, 2)
+	c.Check(obtained[0].OfferName, tc.Equals, "alpha-offer")
+	c.Check(obtained[1].OfferName, tc.Equals, "beta-offer")
+	endpointNames := func(endpoints []crossmodelrelation.OfferEndpoint) []string {
+		names := make([]string, len(endpoints))
+		for i, endpoint := range endpoints {
+			names[i] = endpoint.Name
+		}
+		return names
+	}
+	c.Check(endpointNames(obtained[0].Endpoints), tc.DeepEquals, []string{"zed"})
+	c.Check(endpointNames(obtained[1].Endpoints), tc.DeepEquals, []string{"alpha", "zed"})
+}
+
 // TestGetOfferDetailsFilterTwoOffersSameApplication creates two offers for the
 // same application and verifies that filtering by offer name and application
 // name returns only the targeted offer.
@@ -605,16 +704,18 @@ func (s *modelOfferSuite) TestGetConsumeDetails(c *tc.C) {
 	// Assert
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(obtained.OfferUUID, tc.Equals, offerUUID.String())
-	c.Check(obtained.Endpoints, tc.SameContents, []crossmodelrelation.OfferEndpoint{
+	c.Check(obtained.ApplicationName, tc.Equals, appName)
+	// Endpoints are returned ordered by endpoint name.
+	c.Check(obtained.Endpoints, tc.DeepEquals, []crossmodelrelation.OfferEndpoint{
 		{
+			Name:      relationTwo.Name,
+			Role:      domaincharm.RoleProvider,
+			Interface: relationTwo.Interface,
+		}, {
 			Name:      relation.Name,
 			Role:      domaincharm.RoleProvider,
 			Interface: relation.Interface,
 			Limit:     4,
-		}, {
-			Name:      relationTwo.Name,
-			Role:      domaincharm.RoleProvider,
-			Interface: relationTwo.Interface,
 		},
 	})
 }
@@ -625,6 +726,101 @@ func (s *modelOfferSuite) TestGetConsumeDetailsNotFound(c *tc.C) {
 
 	// Assert
 	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.OfferNotFound)
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetails(c *tc.C) {
+	// Arrange — insert the endpoints in reverse name order to verify the
+	// results are ordered by endpoint name.
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relationZed := charm.Relation{
+		Name:      "zed",
+		Role:      charm.RoleRequirer,
+		Interface: "zed",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationZedUUID := s.addCharmRelation(c, charmUUID, relationZed)
+	relationAlpha := charm.Relation{
+		Name:      "alpha",
+		Role:      charm.RoleProvider,
+		Interface: "alpha",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationAlphaUUID := s.addCharmRelation(c, charmUUID, relationAlpha)
+
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationZedUUID)
+	s.addApplicationEndpoint(c, appUUID, relationAlphaUUID)
+
+	// Act
+	obtained, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), appName, []string{"zed", "alpha"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(obtained, tc.DeepEquals, []crossmodelrelation.OfferEndpoint{
+		{
+			Name:      relationAlpha.Name,
+			Role:      domaincharm.RoleProvider,
+			Interface: relationAlpha.Interface,
+		}, {
+			Name:      relationZed.Name,
+			Role:      domaincharm.RoleRequirer,
+			Interface: relationZed.Interface,
+		},
+	})
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetailsApplicationNotFound(c *tc.C) {
+	// Act
+	_, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), "no-such-app", []string{"db"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.ApplicationNotFound)
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetailsEndpointNotFound(c *tc.C) {
+	// Arrange
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	appName := "test-application"
+	s.addApplication(c, charmUUID, appName)
+
+	// Act
+	_, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), appName, []string{"no-such-endpoint"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, applicationerrors.EndpointNotFound)
+}
+
+func (s *modelOfferSuite) TestGetApplicationEndpointDetailsMissingEndpoints(c *tc.C) {
+	// Arrange — request two endpoints but only one exists.
+	charmUUID := s.addCharm(c)
+	s.addCharmMetadata(c, charmUUID, false)
+	relation := charm.Relation{
+		Name:      "db",
+		Role:      charm.RoleProvider,
+		Interface: "db",
+		Scope:     charm.ScopeGlobal,
+	}
+	relationUUID := s.addCharmRelation(c, charmUUID, relation)
+	appName := "test-application"
+	appUUID := s.addApplication(c, charmUUID, appName)
+	s.addApplicationEndpoint(c, appUUID, relationUUID)
+
+	// Act
+	_, err := s.state.GetApplicationEndpointDetails(
+		c.Context(), appName, []string{"db", "missing-one"},
+	)
+
+	// Assert
+	c.Assert(err, tc.ErrorIs, crossmodelrelationerrors.MissingEndpoints)
 }
 
 func (s *modelOfferSuite) setupForGetOfferDetails(c *tc.C) []*crossmodelrelation.OfferDetail {
@@ -773,8 +969,9 @@ func (s *modelOfferSuite) setupOfferConnection(c *tc.C) (string, string) {
 
 // addOfferConnectionWithConsumer sets up a complete offer connection scenario
 // including the synthetic remote consumer application. It returns the offer
-// UUID, consumer model UUID, and relation UUID.
-func (s *modelOfferSuite) addOfferConnectionWithConsumer(c *tc.C) (string, string, string) {
+// UUID, consumer model UUID, relation UUID, offerer application UUID and
+// offerer endpoint UUID.
+func (s *modelOfferSuite) addOfferConnectionWithConsumer(c *tc.C) (string, string, string, string, string) {
 	charmUUID := s.addCharm(c)
 	s.addCharmMetadata(c, charmUUID, false)
 	relation := charm.Relation{
@@ -810,11 +1007,11 @@ INSERT INTO application_remote_consumer
 (offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
 VALUES (?, ?, ?, ?, 0)`, connUUID, appUUID, internaluuid.MustNewUUID().String(), consumerModelUUID)
 
-	return offerUUID.String(), consumerModelUUID, relUUID.String()
+	return offerUUID.String(), consumerModelUUID, relUUID.String(), appUUID.String(), appEndpointUUID
 }
 
 func (s *modelOfferSuite) TestGetOfferConnections(c *tc.C) {
-	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+	offerUUID, consumerModelUUID, relUUID, _, _ := s.addOfferConnectionWithConsumer(c)
 
 	// Set relation status with message and timestamp.
 	s.query(c, `
@@ -846,7 +1043,7 @@ INSERT INTO relation_network_ingress (relation_uuid, cidr) VALUES (?, '192.168.1
 }
 
 func (s *modelOfferSuite) TestGetOfferConnectionsNullMessageAndTimestamp(c *tc.C) {
-	offerUUID, consumerModelUUID, relUUID := s.addOfferConnectionWithConsumer(c)
+	offerUUID, consumerModelUUID, relUUID, _, _ := s.addOfferConnectionWithConsumer(c)
 
 	// Set relation status with NULL message and NULL updated_at.
 	s.query(c, `
@@ -867,6 +1064,45 @@ VALUES (?, '0')`, relUUID)
 	c.Check(connections[0].Message, tc.Equals, "")
 	c.Check(connections[0].StatusSince, tc.IsNil)
 	c.Check(connections[0].IngressSubnets, tc.IsNil)
+}
+
+func (s *modelOfferSuite) TestGetOfferConnectionsDeterministicOrder(c *tc.C) {
+	// Arrange — two connections on the same offer; relation IDs are
+	// assigned in insertion order.
+	offerUUID, _, relUUID1, appUUID, appEndpointUUID := s.addOfferConnectionWithConsumer(c)
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id)
+VALUES (?, '0')`, relUUID1)
+
+	relUUID2 := s.addRelation(c)
+	s.addRelationEndpoint(c, relUUID2.String(), appEndpointUUID)
+	connUUID2 := internaluuid.MustNewUUID().String()
+	s.query(c, `
+INSERT INTO offer_connection (uuid, offer_uuid, remote_relation_uuid, username)
+VALUES (?, ?, ?, 'consumer-user')`, connUUID2, offerUUID, relUUID2)
+	synthCharmUUID := s.addCMRCharm(c)
+	s.addCharmMetadata(c, synthCharmUUID, false)
+	s.query(c, `
+INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid)
+VALUES (?, 'remote-consumer-2', 0, ?, ?)`, connUUID2, synthCharmUUID, network.AlphaSpaceId)
+	s.query(c, `
+INSERT INTO application_remote_consumer
+(offer_connection_uuid, offerer_application_uuid, consumer_application_uuid, consumer_model_uuid, life_id)
+VALUES (?, ?, ?, ?, 0)`, connUUID2, appUUID, internaluuid.MustNewUUID().String(), internaluuid.MustNewUUID().String())
+	s.query(c, `
+INSERT INTO relation_status (relation_uuid, relation_status_type_id)
+VALUES (?, '0')`, relUUID2.String())
+
+	// Act
+	connections, err := s.state.GetOfferConnections(c.Context(), []string{offerUUID})
+
+	// Assert — connections are returned ordered by offer UUID and relation ID.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(connections, tc.HasLen, 2)
+	c.Check(connections[0].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[0].RelationID, tc.Equals, 0)
+	c.Check(connections[1].OfferUUID, tc.Equals, offerUUID)
+	c.Check(connections[1].RelationID, tc.Equals, 1)
 }
 
 func (s *modelOfferSuite) TestGetOfferConnectionsNoConnections(c *tc.C) {

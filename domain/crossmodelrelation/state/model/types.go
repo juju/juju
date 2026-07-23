@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	corelife "github.com/juju/juju/core/life"
@@ -59,10 +60,19 @@ type offerAndApplicationUUID struct {
 
 type consumeDetail struct {
 	OfferUUID         string             `db:"uuid"`
+	ApplicationName   string             `db:"application_name"`
 	EndpointName      string             `db:"name"`
 	EndpointRole      charm.RelationRole `db:"role"`
 	EndpointInterface string             `db:"interface"`
 	EndpointLimit     int                `db:"capacity"`
+}
+
+// endpointDetail contains the name, role and interface of an application
+// endpoint.
+type endpointDetail struct {
+	Name      string             `db:"name"`
+	Role      charm.RelationRole `db:"role"`
+	Interface string             `db:"interface"`
 }
 
 // offerDetail contains the data necessary for create
@@ -141,7 +151,13 @@ func (o offerDetails) TransformToOfferDetails() []*crossmodelrelation.OfferDetai
 		converted[details.OfferUUID] = found
 	}
 
-	return slices.Collect(maps.Values(converted))
+	// Return the offers in canonical offer name order, so the result does
+	// not depend on map iteration order.
+	result := slices.Collect(maps.Values(converted))
+	slices.SortFunc(result, func(a, b *crossmodelrelation.OfferDetail) int {
+		return strings.Compare(a.OfferName, b.OfferName)
+	})
+	return result
 }
 
 type setApplicationDetails struct {

@@ -220,7 +220,8 @@ SELECT  a.name AS &remoteApplicationOffererInfo.application_name,
         aro.macaroon AS &remoteApplicationOffererInfo.macaroon
 FROM    application_remote_offerer AS aro
 JOIN    application AS a ON a.uuid = aro.application_uuid
-WHERE   aro.life_id < 2;`
+WHERE   aro.life_id < 2
+ORDER BY a.name;`
 	queryStmt, err := st.Prepare(query, remoteApplicationOffererInfo{})
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -341,7 +342,8 @@ SELECT  a.name AS &remoteApplicationConsumerInfo.application_name,
 FROM    application_remote_consumer AS arc
 JOIN    application AS a ON a.uuid = arc.offer_connection_uuid
 JOIN    offer_connection AS oc ON oc.uuid = arc.offer_connection_uuid
-WHERE   arc.life_id < 2;`
+WHERE   arc.life_id < 2
+ORDER BY a.name;`
 	queryStmt, err := st.Prepare(query, remoteApplicationConsumerInfo{})
 	if err != nil {
 		return nil, errors.Capture(err)
