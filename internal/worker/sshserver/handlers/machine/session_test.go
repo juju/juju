@@ -172,5 +172,5 @@ func (s *machineSuite) TestSessionHandlerReportsConnectionFailure(c *tc.C) {
 	err = session.Run("echo hello")
 
 	c.Check(err, tc.ErrorMatches, "Process exited with status 1")
-	c.Check(stderr.String(), tc.Equals, "connecting to machine: connection failed\n")
+	c.Check(stderr.String(), tc.Equals, "failed to connect to machine: connection failed\n")
 }

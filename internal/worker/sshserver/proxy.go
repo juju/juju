@@ -4,8 +4,6 @@
 package sshserver
 
 import (
-	"context"
-
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 
@@ -22,11 +20,6 @@ type ProxyHandlers interface {
 	DirectTCPIPHandler() ssh.ChannelHandler
 	// SFTPHandler returns a handler for proxying SFTP requests.
 	SFTPHandler() ssh.SubsystemHandler
-}
-
-// ProxyFactory creates handlers for a routed SSH target.
-type ProxyFactory interface {
-	New(context.Context, virtualhostname.Info) (ProxyHandlers, error)
 }
 
 type proxyFactory struct {

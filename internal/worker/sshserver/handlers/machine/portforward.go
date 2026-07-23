@@ -5,13 +5,12 @@ package machine
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"strconv"
-	"sync"
 
 	"github.com/gliderlabs/ssh"
+	"github.com/juju/errors"
 	gossh "golang.org/x/crypto/ssh"
 )
 
@@ -30,9 +29,9 @@ type halfCloseConn interface {
 }
 
 // DirectTCPIPHandler returns a handler for the DirectTCPIP channel type.
-// This handler is used for local port forwarding. While the handler is similar
-// to the default DirectTCPIPHandler, it first connects to the target machine
-// machine and proxies the port forwarding request through the machine's SSH server.
+// This handler is used for local port forwarding. The newChan is the user's
+// SSH channel to the controller, and the handler will create a new connection
+// to the target machine and proxy data between the two connections.
 func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 	return func(_ *ssh.Server, _ *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 		var data localForwardChannelData
@@ -42,59 +41,45 @@ func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 			return
 		}
 
-		client, err := h.connector.Connect(ctx, h.destination)
-		if err != nil {
-			h.logger.Debugf(ctx, "failed to connect to machine: %v", err)
-			_ = newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("connecting to machine: %v", err))
-			return
-		}
-		defer client.Close()
-
 		destination := net.JoinHostPort(data.DestAddr, strconv.FormatUint(uint64(data.DestPort), 10))
-		connection, err := client.DialContext(ctx, "tcp", destination)
-		if err != nil {
-			h.logger.Debugf(ctx, "failed to dial target %q: %v", destination, err)
-			_ = newChan.Reject(gossh.ConnectionFailed, fmt.Sprintf("dialling target: %v", err))
-			return
-		}
+		accepted := false
+		handleProxy(h, ctx, proxyConfig[halfCloseConn]{
+			createRemote: func(ctx context.Context, client *gossh.Client) (halfCloseConn, error) {
+				connection, err := client.DialContext(ctx, "tcp", destination)
+				if err != nil {
+					return nil, err
+				}
+				halfCloseConnection, ok := connection.(halfCloseConn)
+				if !ok {
+					_ = connection.Close()
+					return nil, errors.New("target connection does not support half-close")
+				}
 
-		halfCloseConnection, ok := connection.(halfCloseConn)
-		if !ok {
-			h.logger.Debugf(ctx, "target connection does not support half-close")
-			_ = connection.Close()
-			_ = newChan.Reject(gossh.ConnectionFailed, "target connection does not support half-close")
-			return
-		}
+				return halfCloseConnection, nil
+			},
+			run: func(remote halfCloseConn) error {
+				channel, requests, err := newChan.Accept()
+				if err != nil {
+					return err
+				}
+				accepted = true
+				stop := context.AfterFunc(ctx, func() {
+					_ = channel.Close()
+				})
+				defer stop()
 
-		channel, requests, err := newChan.Accept()
-		if err != nil {
-			h.logger.Debugf(ctx, "failed to accept channel: %v", err)
-			_ = connection.Close()
-			return
-		}
-		defer channel.Close()
-		defer halfCloseConnection.Close()
-
-		stop := context.AfterFunc(ctx, func() {
-			_ = channel.Close()
-			_ = halfCloseConnection.Close()
+				go gossh.DiscardRequests(requests)
+				proxyStreams(channel, remote)
+				_ = channel.Close()
+				return nil
+			},
+			onError: func(err error) {
+				h.logger.Debugf(ctx, "machine proxy failure: %v", err)
+				if accepted {
+					return
+				}
+				_ = newChan.Reject(gossh.ConnectionFailed, err.Error())
+			},
 		})
-		defer stop()
-
-		go gossh.DiscardRequests(requests)
-		proxy(channel, halfCloseConnection)
 	}
-}
-
-func proxy(channel gossh.Channel, connection halfCloseConn) {
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		_, _ = io.Copy(channel, connection)
-		_ = channel.CloseWrite()
-	})
-	wg.Go(func() {
-		_, _ = io.Copy(connection, channel)
-		_ = connection.CloseWrite()
-	})
-	wg.Wait()
 }

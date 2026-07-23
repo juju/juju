@@ -16,48 +16,30 @@ import (
 // SFTPHandler proxies the SFTP subsystem to the target machine.
 func (h *Handlers) SFTPHandler() ssh.SubsystemHandler {
 	return func(session ssh.Session) {
-		handleError := func(err error) {
-			h.logger.Errorf(session.Context(), "SFTP proxy failure: %v", err)
-			_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
-			_ = session.Exit(1)
-		}
-
-		client, err := h.connector.Connect(session.Context(), h.destination)
-		if err != nil {
-			handleError(errors.Annotate(err, "connecting to machine"))
-			return
-		}
-		defer client.Close()
-
-		machineChannel, machineRequests, err := client.OpenChannel("session", nil)
-		if err != nil {
-			handleError(errors.Annotate(err, "opening machine session"))
-			return
-		}
-		defer machineChannel.Close()
-
-		// Note that we don't call `session.Close()` in this function.
-		// The routine copying *from* session will return once the
-		// session is closed. Closing session is handled by
-		// `proxyRequests` in order to propagate the exit code
-		// back to the client.
-
-		stop := context.AfterFunc(session.Context(), func() {
-			_ = machineChannel.Close()
+		handleProxy(h, session.Context(), proxyConfig[*sftpProxy]{
+			createRemote: func(_ context.Context, client *gossh.Client) (*sftpProxy, error) {
+				machineChannel, machineRequests, err := client.OpenChannel("session", nil)
+				if err != nil {
+					return nil, err
+				}
+				return &sftpProxy{Channel: machineChannel, requests: machineRequests}, nil
+			},
+			run: func(machine *sftpProxy) error {
+				if err := requestSubsystem(machine.Channel, "sftp"); err != nil {
+					return errors.Annotate(err, "requesting SFTP subsystem")
+				}
+				go proxyRequests(session, machine.requests, h.logger)
+				proxyStreams(machine.Channel, session)
+				return nil
+			},
+			onError: func(err error) { h.handleError(session, err) },
 		})
-		defer stop()
-
-		// This routine is cleaned up when machineRequests channel closes
-		// which occurs when machineChannel is closed.
-		go proxyRequests(session, machineRequests, h.logger)
-
-		if err := requestSubsystem(machineChannel, "sftp"); err != nil {
-			handleError(errors.Annotate(err, "requesting SFTP subsystem"))
-			return
-		}
-
-		proxy(machineChannel, session)
 	}
+}
+
+type sftpProxy struct {
+	gossh.Channel
+	requests <-chan *gossh.Request
 }
 
 // proxyReqs proxies SSH requests (things like signals, etc) from the
