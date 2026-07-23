@@ -53,6 +53,19 @@ func (s *ManifoldsSuite) TestStartFuncsCAAS(c *tc.C) {
 	}))
 }
 
+func (s *ManifoldsSuite) TestDependencyGraphsAreAcyclic(c *tc.C) {
+	config := machine.ManifoldsConfig{
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
+	}
+	for _, manifolds := range []dependency.Manifolds{
+		machine.IAASManifolds(config),
+		machine.CAASManifolds(config),
+	} {
+		c.Check(dependency.Validate(manifolds), tc.ErrorIsNil)
+	}
+}
+
 func (*ManifoldsSuite) assertStartFuncs(c *tc.C, manifolds dependency.Manifolds) {
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
@@ -635,6 +648,15 @@ func (*ManifoldsSuite) TestControllerOnlyWorkerDirectInputs(c *tc.C) {
 		c.Assert(ok, tc.IsTrue)
 		checkNotContains(c, apiServerManifold.Inputs, "clock")
 		checkNotContains(c, apiServerManifold.Inputs, "agent")
+
+		undertakerManifold, ok := manifolds["undertaker"]
+		c.Assert(ok, tc.IsTrue)
+		c.Check(undertakerManifold.Inputs, tc.SameContents, []string{
+			"controller-trace",
+			"db-accessor",
+			"domain-services",
+			"is-controller-flag",
+		})
 
 		// external-controller-updater must consume only domain-services directly
 		// (plus the inputs added by the ifNotMigrating and ifPrimaryController

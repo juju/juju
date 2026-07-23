@@ -15,6 +15,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/internal/errors"
 	internalworker "github.com/juju/juju/internal/worker"
@@ -27,6 +28,7 @@ type Config struct {
 	RemovalServiceGetter   RemovalServiceGetter
 	Logger                 logger.Logger
 	Clock                  clock.Clock
+	Tracer                 coretrace.Tracer
 }
 
 // Worker is the undertaker worker that manages the lifecycle of resources.
@@ -38,6 +40,7 @@ type Worker struct {
 	removalServiceGetter   RemovalServiceGetter
 	logger                 logger.Logger
 	clock                  clock.Clock
+	tracer                 coretrace.Tracer
 }
 
 // NewWorker creates a new instance of the undertaker worker.
@@ -64,6 +67,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		removalServiceGetter:   config.RemovalServiceGetter,
 		logger:                 config.Logger,
 		clock:                  config.Clock,
+		tracer:                 config.Tracer,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -158,7 +162,7 @@ func (w *Worker) handleDeadModel(ctx context.Context, mUUID model.UUID) error {
 			return nil, errors.Errorf("getting removal service for model %s: %w", mUUID, err)
 		}
 
-		return newModelWorker(mUUID, removalService, w.dbDeleter), nil
+		return newModelWorker(mUUID, removalService, w.dbDeleter, w.tracer), nil
 	})
 	if err != nil && !errors.Is(err, jujuerrors.AlreadyExists) {
 		return errors.Errorf("starting worker for model %s: %w", mUUID, err)
@@ -173,7 +177,7 @@ func (w *Worker) handlePendingDeletion(ctx context.Context, namespace string) er
 	// key, and the runner guarantees only one of them runs at a time. This is
 	// impossible today, but it means it can never happen in the future either.
 	err := w.runner.StartWorker(ctx, namespace, func(ctx context.Context) (worker.Worker, error) {
-		return newDBDeletionWorker(namespace, w.controllerModelService, w.dbDeleter, w.logger), nil
+		return newDBDeletionWorker(namespace, w.controllerModelService, w.dbDeleter, w.logger, w.tracer), nil
 	})
 	if err != nil && !errors.Is(err, jujuerrors.AlreadyExists) {
 		return errors.Errorf("starting worker for model database deletion %s: %w", namespace, err)
@@ -188,13 +192,20 @@ type modelWorker struct {
 	modelUUID      model.UUID
 	removalService RemovalService
 	dbDeleter      coredatabase.DBDeleter
+	tracer         coretrace.Tracer
 }
 
-func newModelWorker(modelUUID model.UUID, removalService RemovalService, dbDeleter coredatabase.DBDeleter) *modelWorker {
+func newModelWorker(
+	modelUUID model.UUID,
+	removalService RemovalService,
+	dbDeleter coredatabase.DBDeleter,
+	tracer coretrace.Tracer,
+) *modelWorker {
 	w := &modelWorker{
 		modelUUID:      modelUUID,
 		removalService: removalService,
 		dbDeleter:      dbDeleter,
+		tracer:         tracer,
 	}
 
 	w.tomb.Go(w.loop)
@@ -230,7 +241,15 @@ func (w *modelWorker) loop() error {
 	}
 }
 
-func (w *modelWorker) deleteModel(ctx context.Context) error {
+func (w *modelWorker) deleteModel(ctx context.Context) (err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, w.tracer), coretrace.NameFromFunc(),
+		coretrace.WithAttributes(coretrace.StringAttr("undertaker.model.uuid", w.modelUUID.String())),
+	)
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	if err := w.removalService.DeleteModel(ctx); err != nil && !errors.IsOneOf(err,
 		coredatabase.ErrDBNotFound,
 		modelerrors.NotFound,
@@ -256,6 +275,7 @@ type dbDeletionWorker struct {
 	service   ControllerModelService
 	dbDeleter coredatabase.DBDeleter
 	logger    logger.Logger
+	tracer    coretrace.Tracer
 }
 
 func newDBDeletionWorker(
@@ -263,12 +283,14 @@ func newDBDeletionWorker(
 	service ControllerModelService,
 	dbDeleter coredatabase.DBDeleter,
 	logger logger.Logger,
+	tracer coretrace.Tracer,
 ) *dbDeletionWorker {
 	w := &dbDeletionWorker{
 		namespace: namespace,
 		service:   service,
 		dbDeleter: dbDeleter,
 		logger:    logger,
+		tracer:    tracer,
 	}
 
 	w.tomb.Go(w.loop)
@@ -304,7 +326,15 @@ func (w *dbDeletionWorker) loop() error {
 	}
 }
 
-func (w *dbDeletionWorker) deleteDatabase(ctx context.Context) error {
+func (w *dbDeletionWorker) deleteDatabase(ctx context.Context) (err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, w.tracer), coretrace.NameFromFunc(),
+		coretrace.WithAttributes(coretrace.StringAttr("undertaker.database.namespace", w.namespace)),
+	)
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	// Delete the model's dqlite database. A not-found database is already
 	// gone, so treat it as success. Any other failure is returned so the
 	// runner restarts this worker with backoff and the staged row survives to

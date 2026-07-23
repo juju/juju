@@ -15,7 +15,9 @@ import (
 	dependencytesting "github.com/juju/worker/v5/dependency/testing"
 	"github.com/juju/worker/v5/workertest"
 
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/testhelpers"
+	workertrace "github.com/juju/juju/internal/worker/trace"
 )
 
 type manifoldSuite struct {
@@ -43,6 +45,10 @@ func (s *manifoldSuite) TestValidateConfig(c *tc.C) {
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
+	cfg.TraceName = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
 	cfg.NewWorker = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 
@@ -67,6 +73,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		DBAccessorName:     "db-accessor",
 		DomainServicesName: "domain-services",
+		TraceName:          "trace",
 		Logger:             s.logger,
 		Clock:              clock.WallClock,
 		NewWorker: func(c Config) (worker.Worker, error) {
@@ -85,11 +92,12 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"db-accessor":     s.dbDeleter,
 		"domain-services": s.controllerModelService,
+		"trace":           stubTracerGetter{},
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"db-accessor", "domain-services"}
+var expectedInputs = []string{"db-accessor", "domain-services", "trace"}
 
 func (s *manifoldSuite) TestInputs(c *tc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, tc.SameContents, expectedInputs)
@@ -101,4 +109,12 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 	w, err := Manifold(s.getConfig()).Start(c.Context(), s.newGetter())
 	c.Assert(err, tc.ErrorIsNil)
 	workertest.CleanKill(c, w)
+}
+
+type stubTracerGetter struct {
+	workertrace.TracerGetter
+}
+
+func (stubTracerGetter) GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error) {
+	return coretrace.NoopTracer{}, nil
 }
