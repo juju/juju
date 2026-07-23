@@ -720,13 +720,31 @@ func (s *s3ObjectStoreSuite) TestRemoveDoesNotDeleteSharedHash(c *tc.C) {
 func (s *s3ObjectStoreSuite) TestRemoveAll(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
+	otherModelObject := "limbo/baz"
+	objects := map[string]bool{
+		filePath("foo"):  true,
+		filePath("bar"):  true,
+		otherModelObject: true,
+	}
+
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
-	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").Return([]string{
-		filePath("foo"),
-		filePath("bar"),
-	}, nil)
-	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath("foo")).Return(nil)
-	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath("bar")).Return(nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName, "inferi/").DoAndReturn(
+		func(_ context.Context, _, prefix string) ([]string, error) {
+			var result []string
+			for object := range objects {
+				if strings.HasPrefix(object, prefix) {
+					result = append(result, object)
+				}
+			}
+			return result, nil
+		},
+	)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _, object string) error {
+			delete(objects, object)
+			return nil
+		},
+	).Times(2)
 
 	store := s.newS3ObjectStore(c).(*s3ObjectStore)
 	defer workertest.DirtyKill(c, store)
@@ -738,6 +756,9 @@ func (s *s3ObjectStoreSuite) TestRemoveAll(c *tc.C) {
 
 	err := store.RemoveAll(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(objects, tc.DeepEquals, map[string]bool{
+		otherModelObject: true,
+	})
 
 	workertest.CleanKill(c, store)
 }
