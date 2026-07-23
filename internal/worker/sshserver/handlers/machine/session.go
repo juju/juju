@@ -16,6 +16,12 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	handleError := func(err error) {
 		h.logger.Errorf(session.Context(), "machine session proxy failure: %v", err)
 		_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
+
+		var exitErr *gossh.ExitError
+		if errors.As(err, &exitErr) {
+			_ = session.Exit(exitErr.ExitStatus())
+			return
+		}
 		_ = session.Exit(1)
 	}
 

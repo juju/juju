@@ -5,8 +5,6 @@ package machine
 
 import (
 	"context"
-	"io"
-	"sync"
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
@@ -58,17 +56,7 @@ func (h *Handlers) SFTPHandler() ssh.SubsystemHandler {
 			return
 		}
 
-		var wg sync.WaitGroup
-
-		wg.Go(func() {
-			_, _ = io.Copy(machineChannel, session)
-			_ = machineChannel.CloseWrite()
-		})
-		wg.Go(func() {
-			_, _ = io.Copy(session, machineChannel)
-			_ = session.CloseWrite()
-		})
-		wg.Wait()
+		proxy(machineChannel, session)
 	}
 }
 

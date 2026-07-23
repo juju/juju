@@ -11,14 +11,16 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/virtualhostname"
-	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/machine"
 )
 
 // ProxyHandlers provide session, local forwarding, and SFTP handling for a target.
 type ProxyHandlers interface {
+	// SessionHandler returns a handler for proxying SSH commands/terminal sessions.
 	SessionHandler(ssh.Session)
+	// DirectTCPIPHandler returns a handler for proxying SSH local forwarding requests.
 	DirectTCPIPHandler() ssh.ChannelHandler
+	// SFTPHandler returns a handler for proxying SFTP requests.
 	SFTPHandler() ssh.SubsystemHandler
 }
 
@@ -28,12 +30,13 @@ type ProxyFactory interface {
 }
 
 type proxyFactory struct {
-	logger      logger.Logger
-	connector   machine.SSHConnector
-	getExecutor func(string) (k8sexec.Executor, error)
+	logger    logger.Logger
+	connector machine.SSHConnector
 }
 
-func (f proxyFactory) New(_ context.Context, destination virtualhostname.Info) (ProxyHandlers, error) {
+// New returns a set of handlers for the given target based
+// on whether the target is a container, unit or machine.
+func (f proxyFactory) New(destination virtualhostname.Info) (ProxyHandlers, error) {
 	switch destination.Target() {
 	case virtualhostname.ContainerTarget:
 		return nil, errors.NotImplemented

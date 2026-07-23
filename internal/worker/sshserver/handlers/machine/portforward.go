@@ -15,6 +15,8 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+// localForwardChannelData mirrors the unexported
+// gossh.localForwardChannelData from x/crypto/ssh.
 type localForwardChannelData struct {
 	DestAddr   string
 	DestPort   uint32
@@ -23,7 +25,7 @@ type localForwardChannelData struct {
 }
 
 type halfCloseConn interface {
-	net.Conn
+	io.ReadWriteCloser
 	CloseWrite() error
 }
 
@@ -33,7 +35,7 @@ type halfCloseConn interface {
 // machine and proxies the port forwarding request through the machine's SSH server.
 func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 	return func(_ *ssh.Server, _ *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
-		data := localForwardChannelData{}
+		var data localForwardChannelData
 		if err := gossh.Unmarshal(newChan.ExtraData(), &data); err != nil {
 			_ = newChan.Reject(gossh.ConnectionFailed, "parsing forward data: "+err.Error())
 			return

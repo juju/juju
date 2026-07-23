@@ -51,6 +51,72 @@ func (s *machineSuite) TestSessionHandlerProxiesCommand(c *tc.C) {
 	c.Check(stderr.String(), tc.Equals, "warning\n")
 }
 
+func (s *machineSuite) TestSessionHandlerPropagatesCommandExitCode(c *tc.C) {
+	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	machine := startSSHTestServer(c, &ssh.Server{Handler: func(session ssh.Session) {
+		c.Check(session.RawCommand(), tc.Equals, "exit 3")
+		_ = session.Exit(3)
+	}})
+
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+
+	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
+
+	client, err := controller.client()
+	c.Assert(err, tc.ErrorIsNil)
+	defer client.Close()
+
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	defer session.Close()
+
+	err = session.Run("exit 3")
+	var exitErr *gossh.ExitError
+	c.Assert(errors.As(err, &exitErr), tc.IsTrue)
+	c.Check(exitErr.ExitStatus(), tc.Equals, 3)
+}
+
+func (s *machineSuite) TestSessionHandlerProxiesPTYAndWindowChanges(c *tc.C) {
+	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
+	c.Assert(err, tc.ErrorIsNil)
+
+	machine := startSSHTestServer(c, &ssh.Server{Handler: func(session ssh.Session) {
+		pty, windowChanges, hasPTY := session.Pty()
+		c.Check(hasPTY, tc.IsTrue)
+		c.Check(pty.Term, tc.Equals, "xterm")
+
+		_, _ = io.WriteString(session, "shell ready\n")
+		window := <-windowChanges
+		c.Check(window.Height, tc.Equals, 30)
+		c.Check(window.Width, tc.Equals, 100)
+	}})
+
+	handlers, err := NewHandlers(destination, connectorForServer(machine), loggertesting.WrapCheckLog(c))
+	c.Assert(err, tc.ErrorIsNil)
+
+	controller := startSSHTestServer(c, &ssh.Server{Handler: handlers.SessionHandler})
+
+	client, err := controller.client()
+	c.Assert(err, tc.ErrorIsNil)
+	defer client.Close()
+
+	session, err := client.NewSession()
+	c.Assert(err, tc.ErrorIsNil)
+	defer session.Close()
+
+	var stdout bytes.Buffer
+	session.Stdout = &stdout
+	c.Assert(session.RequestPty("xterm", 24, 80, gossh.TerminalModes{}), tc.ErrorIsNil)
+	c.Assert(session.Shell(), tc.ErrorIsNil)
+	c.Assert(session.WindowChange(30, 100), tc.ErrorIsNil)
+	c.Assert(session.Wait(), tc.ErrorIsNil)
+
+	c.Check(stdout.String(), tc.Equals, "shell ready\r\n")
+}
+
 func (s *machineSuite) TestSessionHandlerReportsConnectionFailure(c *tc.C) {
 	destination, err := virtualhostname.NewInfoMachineTarget("8419cd78-4993-4c3a-928e-c646226beeee", "0")
 	c.Assert(err, tc.ErrorIsNil)
