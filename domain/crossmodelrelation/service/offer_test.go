@@ -256,6 +256,8 @@ func (s *offerServiceSuite) TestOfferAlreadyExistsDifferentApplication(c *tc.C) 
 		ApplicationName: "other-application",
 		Endpoints:       []crossmodelrelation.OfferEndpoint{{Name: "db"}},
 	}, nil)
+	s.modelState.EXPECT().GetApplicationEndpointDetails(gomock.Any(), "test-application", []string{"db"}).
+		Return([]crossmodelrelation.OfferEndpoint{{Name: "db", Role: charm.RoleProvider, Interface: "mysql"}}, nil)
 
 	args := crossmodelrelation.ApplicationOfferArgs{
 		ApplicationName: "test-application",

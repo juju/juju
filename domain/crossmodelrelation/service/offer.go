@@ -162,11 +162,22 @@ func (s *Service) CreateOffer(
 		// succeed if the existing offer is identical to the requested one,
 		// that is it offers the same endpoints of the same application.
 		// This keeps creating an offer idempotent.
-		same, err := s.isSameOffer(ctx, existingOffer, args)
-		if err != nil {
+		//
+		// Resolve the requested endpoints on the application, so they can
+		// be compared against the ones the existing offer exposes.
+		requested, err := s.modelState.GetApplicationEndpointDetails(
+			ctx, args.ApplicationName, slices.Collect(maps.Keys(args.Endpoints)),
+		)
+		if err != nil &&
+			!errors.Is(err, applicationerrors.ApplicationNotFound) &&
+			!errors.Is(err, applicationerrors.EndpointNotFound) &&
+			!errors.Is(err, crossmodelrelationerrors.MissingEndpoints) {
 			return errors.Errorf("validating against existing offer: %w", err)
 		}
-		if same {
+		// The existing offer may be for another application, so the
+		// requested application or its endpoints may not resolve; in
+		// that case the offers differ.
+		if err == nil && isSameOffer(existingOffer, requested, args) {
 			return nil
 		}
 		return errors.Errorf("creating offer: offer %q already exists with UUID %q",
@@ -222,27 +233,13 @@ func (s *Service) CreateOffer(
 // application and offers the same endpoints as the requested ones.
 // Requested endpoint aliases are not persisted as part of the offer and
 // are ignored.
-func (s *Service) isSameOffer(
-	ctx context.Context,
+func isSameOffer(
 	existingOffer crossmodelrelation.ConsumeDetails,
+	requested []crossmodelrelation.OfferEndpoint,
 	args crossmodelrelation.ApplicationOfferArgs,
-) (bool, error) {
-	if existingOffer.ApplicationName != args.ApplicationName {
-		return false, nil
-	}
-	requested, err := s.modelState.GetApplicationEndpointDetails(
-		ctx, args.ApplicationName, slices.Collect(maps.Keys(args.Endpoints)),
-	)
-	if errors.Is(err, applicationerrors.ApplicationNotFound) ||
-		errors.Is(err, applicationerrors.EndpointNotFound) ||
-		errors.Is(err, crossmodelrelationerrors.MissingEndpoints) {
-		// The requested endpoints cannot be resolved on the application,
-		// so the existing offer differs from the requested one.
-		return false, nil
-	} else if err != nil {
-		return false, errors.Capture(err)
-	}
-	return sameOfferEndpoints(existingOffer.Endpoints, requested), nil
+) bool {
+	return existingOffer.ApplicationName == args.ApplicationName &&
+		sameOfferEndpoints(existingOffer.Endpoints, requested)
 }
 
 // sameOfferEndpoints returns true if the offered and the requested
