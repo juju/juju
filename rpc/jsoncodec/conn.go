@@ -199,12 +199,15 @@ func NetJSONConn(conn io.ReadWriteCloser) JSONConn {
 }
 
 type netConn struct {
+	mu   sync.Mutex
 	enc  *json.Encoder
 	dec  *json.Decoder
 	conn io.ReadWriteCloser
 }
 
 func (conn *netConn) Send(msg any) error {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
 	return conn.enc.Encode(msg)
 }
 

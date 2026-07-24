@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"reflect"
 	"regexp"
@@ -781,6 +782,193 @@ func (*rpcSuite) TestConcurrentCalls(c *tc.C) {
 	chanRead(c, done2, "method 2 done")
 }
 
+func (*rpcSuite) TestErrorResponseWriteDoesNotBlockRequestHandling(c *tc.C) {
+	codec := newBlockingServerCodec(
+		rpc.Header{
+			RequestId: 1,
+			Request: rpc.Request{
+				Type:    "UnknownMethods",
+				Version: 0,
+				Id:      "",
+				Action:  "Nope",
+			},
+			Version: 1,
+		},
+		rpc.Header{
+			RequestId: 2,
+			Request: rpc.Request{
+				Type:    "BlockingWriteMethods",
+				Version: 0,
+				Id:      "",
+				Action:  "Ping",
+			},
+			Version: 1,
+		},
+	)
+	methods := &blockingWriteMethods{
+		called: make(chan struct{}),
+	}
+	root := &blockingWriteRoot{
+		methods: methods,
+	}
+
+	conn := rpc.NewConn(codec, nil)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+	defer func() {
+		codec.unblockFirstWrite()
+		err := conn.Close()
+		c.Assert(err, tc.ErrorIsNil)
+	}()
+
+	chanRead(c, codec.firstWriteStarted, "first response write started")
+	chanRead(c, methods.called, "second request handled")
+}
+
+func (*rpcSuite) TestClientRequestIDConcurrentRead(c *tc.C) {
+	root := SimpleRoot(c)
+	client, _, srvDone, _ := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+
+	stopReads := make(chan struct{})
+	readsDone := make(chan struct{})
+	go func() {
+		defer close(readsDone)
+		for {
+			select {
+			case <-stopReads:
+				return
+			default:
+				_ = client.ClientRequestID()
+			}
+		}
+	}()
+
+	const callCount = 64
+	var wg sync.WaitGroup
+	for range callCount {
+		wg.Go(func() {
+			var response stringVal
+			err := client.Call(c.Context(), rpc.Request{
+				Type:    "SimpleMethods",
+				Version: 0,
+				Id:      "a99",
+				Action:  "Call0r1",
+			}, nil, &response)
+			c.Check(err, tc.ErrorIsNil)
+			c.Check(response, tc.Equals, stringVal{Val: "Call0r1 ret"})
+		})
+	}
+	wg.Wait()
+	close(stopReads)
+	<-readsDone
+
+	c.Assert(client.ClientRequestID(), tc.Equals, uint64(callCount))
+}
+
+// TestCloseWithStuckWriteCompletes verifies that Close does not hang
+// forever when a server-side write is stalled (e.g. by TCP
+// backpressure). The write here blocks until the codec is closed; the
+// bounded writeFlushTimeout lets Close proceed to codec.Close, which
+// unblocks the stalled write. Previously the unbounded
+// pendingWrites.Wait gated codec.Close and deadlocked Close.
+func (*rpcSuite) TestCloseWithStuckWriteCompletes(c *tc.C) {
+	codec := newPauseableCodec(rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type:    "BlockingWriteMethods",
+			Version: 0,
+			Id:      "",
+			Action:  "Ping",
+		},
+		Version: 1,
+	})
+	methods := &blockingWriteMethods{
+		called: make(chan struct{}),
+	}
+	root := &blockingWriteRoot{
+		methods: methods,
+	}
+
+	conn := rpc.NewConn(codec, nil)
+	conn.SetCloseTimeout(100 * time.Millisecond)
+	conn.SetWriteFlushTimeout(100 * time.Millisecond)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+
+	// The writer is now blocked inside WriteMessage for the Ping reply.
+	chanRead(c, codec.writeStarted, "writer started writing")
+
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- conn.Close() }()
+
+	select {
+	case err := <-closeDone:
+		c.Assert(err, tc.ErrorIsNil)
+	case <-time.After(5 * time.Second):
+		c.Fatalf("Close hung waiting for a stalled write to complete")
+	}
+}
+
+// TestCloseWithLateResponseDoesNotPanic verifies that a handler which
+// outlives the srvPending timeout and then calls sendResponse after the
+// writer has been torn down does not panic. Previously Close closed the
+// responses channel, so a late sendResponse could panic with
+// "send on closed channel"; responses is now never closed and the late
+// response is dropped via the <-dead path.
+func (*rpcSuite) TestCloseWithLateResponseDoesNotPanic(c *tc.C) {
+	codec := newPauseableCodec(rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type:    "LateResponseMethods",
+			Version: 0,
+			Id:      "",
+			Action:  "Block",
+		},
+		Version: 1,
+	})
+	methods := &lateResponseMethods{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	root := &lateResponseRoot{methods: methods}
+
+	// The response hook fires when sendResponse completes (either branch).
+	// A panic in sendResponse would prevent it from firing, so receiving
+	// on the hook proves sendResponse returned without panicking.
+	responseHook := make(chan struct{}, 1)
+
+	conn := rpc.NewConn(codec, nil)
+	conn.SetCloseTimeout(100 * time.Millisecond)
+	conn.SetWriteFlushTimeout(100 * time.Millisecond)
+	conn.SetResponseHook(responseHook)
+	conn.Serve(root, nil, nil)
+	conn.Start(c.Context())
+
+	closeDone := make(chan error, 1)
+
+	// Wait for the handler to be spawned and start running before
+	// calling Close, so handleRequest's closing check doesn't short-
+	// circuit it into an error response.
+	chanRead(c, methods.started, "handler started")
+	go func() { closeDone <- conn.Close() }()
+
+	// Close's srvPending wait times out because the handler is blocked;
+	// it then tears the writer down. Assert Close completes promptly.
+	select {
+	case err := <-closeDone:
+		c.Assert(err, tc.ErrorIsNil)
+	case <-time.After(5 * time.Second):
+		c.Fatalf("Close did not complete with a late handler running")
+	}
+
+	// Release the handler. Its sendResponse now runs after the writer is
+	// gone and dead is closed. It must not panic (responses not closed)
+	// and must not block (dead is closed); the response is dropped.
+	close(methods.release)
+	chanRead(c, responseHook, "late sendResponse completed without panicking")
+}
+
 type codedError struct {
 	m    string
 	code string
@@ -1167,6 +1355,28 @@ func (*rpcSuite) TestClientCloseIdempotent(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+func (*rpcSuite) TestClientCloseConcurrentIdempotent(c *tc.C) {
+	client, _, srvDone, _ := newRPCClientServer(c, &Root{c: c}, nil, false)
+
+	const closeCalls = 16
+	errs := make(chan error, closeCalls)
+	var wg sync.WaitGroup
+	for range closeCalls {
+		wg.Go(func() {
+			errs <- client.Close()
+		})
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		c.Assert(err, tc.ErrorIsNil)
+	}
+
+	err := chanReadError(c, srvDone, "server done")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
 func (*rpcSuite) TestBidirectional(c *tc.C) {
 	srvRoot := &Root{c: c}
 	client, _, srvDone, _ := newRPCClientServer(c, srvRoot, nil, true)
@@ -1489,6 +1699,181 @@ func closeClient(c tc.LikeTB, client *rpc.Conn, srvDone <-chan error) {
 	tc.Assert(c, err, tc.ErrorIsNil)
 	err = chanReadError(c, srvDone, "server done")
 	tc.Assert(c, err, tc.ErrorIsNil)
+}
+
+type blockingWriteRoot struct {
+	methods *blockingWriteMethods
+}
+
+func (r *blockingWriteRoot) BlockingWriteMethods(string) (*blockingWriteMethods, error) {
+	return r.methods, nil
+}
+
+type blockingWriteMethods struct {
+	called chan struct{}
+	once   sync.Once
+}
+
+func (m *blockingWriteMethods) Ping() {
+	m.once.Do(func() {
+		close(m.called)
+	})
+}
+
+type blockingServerCodec struct {
+	mu                sync.Mutex
+	headers           []rpc.Header
+	readIndex         int
+	closeCh           chan struct{}
+	closeOnce         sync.Once
+	firstWriteStarted chan struct{}
+	firstWriteOnce    sync.Once
+	unblockWrite      chan struct{}
+	unblockWriteOnce  sync.Once
+	writeCount        int
+}
+
+func newBlockingServerCodec(headers ...rpc.Header) *blockingServerCodec {
+	copied := make([]rpc.Header, len(headers))
+	copy(copied, headers)
+	return &blockingServerCodec{
+		headers:           copied,
+		closeCh:           make(chan struct{}),
+		firstWriteStarted: make(chan struct{}),
+		unblockWrite:      make(chan struct{}),
+	}
+}
+
+func (c *blockingServerCodec) ReadHeader(hdr *rpc.Header) error {
+	c.mu.Lock()
+	if c.readIndex < len(c.headers) {
+		*hdr = c.headers[c.readIndex]
+		c.readIndex++
+		c.mu.Unlock()
+		return nil
+	}
+	closeCh := c.closeCh
+	c.mu.Unlock()
+
+	<-closeCh
+	return io.EOF
+}
+
+func (*blockingServerCodec) ReadBody(any, bool) error {
+	return nil
+}
+
+func (c *blockingServerCodec) WriteMessage(_ *rpc.Header, _ any) error {
+	c.mu.Lock()
+	c.writeCount++
+	writeCount := c.writeCount
+	c.mu.Unlock()
+
+	if writeCount == 1 {
+		c.firstWriteOnce.Do(func() {
+			close(c.firstWriteStarted)
+		})
+		<-c.unblockWrite
+	}
+	return nil
+}
+
+func (c *blockingServerCodec) Close() error {
+	c.closeOnce.Do(func() {
+		close(c.closeCh)
+	})
+	return nil
+}
+
+func (c *blockingServerCodec) unblockFirstWrite() {
+	c.unblockWriteOnce.Do(func() {
+		close(c.unblockWrite)
+	})
+}
+
+// pauseableCodec is a server-side codec used to exercise the writer
+// shutdown paths. ReadHeader serves the configured headers and then
+// blocks until Close. WriteMessage signals writeStarted and then blocks
+// until either unblockWrite is closed or the codec is closed (emulating a
+// stalled write that is only unblocked by codec.Close, like the write
+// deadline set by wsJSONConn.Close).
+type pauseableCodec struct {
+	mu               sync.Mutex
+	headers          []rpc.Header
+	readIndex        int
+	closeCh          chan struct{}
+	closeOnce        sync.Once
+	writeStarted     chan struct{}
+	writeStartedOnce sync.Once
+}
+
+func newPauseableCodec(headers ...rpc.Header) *pauseableCodec {
+	copied := make([]rpc.Header, len(headers))
+	copy(copied, headers)
+	return &pauseableCodec{
+		headers:      copied,
+		closeCh:      make(chan struct{}),
+		writeStarted: make(chan struct{}),
+	}
+}
+
+func (c *pauseableCodec) ReadHeader(hdr *rpc.Header) error {
+	c.mu.Lock()
+	if c.readIndex < len(c.headers) {
+		*hdr = c.headers[c.readIndex]
+		c.readIndex++
+		c.mu.Unlock()
+		return nil
+	}
+	c.mu.Unlock()
+	<-c.closeCh
+	return io.EOF
+}
+
+func (*pauseableCodec) ReadBody(any, bool) error {
+	return nil
+}
+
+func (c *pauseableCodec) WriteMessage(_ *rpc.Header, _ any) error {
+	c.writeStartedOnce.Do(func() {
+		close(c.writeStarted)
+	})
+	select {
+	case <-c.closeCh:
+		// Codec closed while writing; emulate a peer-closed write error.
+		return io.ErrClosedPipe
+	}
+}
+
+func (c *pauseableCodec) Close() error {
+	c.closeOnce.Do(func() {
+		close(c.closeCh)
+	})
+	return nil
+}
+
+// lateResponseRoot serves lateResponseMethods.
+type lateResponseRoot struct {
+	methods *lateResponseMethods
+}
+
+func (r *lateResponseRoot) LateResponseMethods(string) (*lateResponseMethods, error) {
+	return r.methods, nil
+}
+
+// lateResponseMethods blocks in Block until released, simulating a
+// long-running handler that outlives Close's srvPending timeout.
+type lateResponseMethods struct {
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (m *lateResponseMethods) Block() {
+	m.once.Do(func() {
+		close(m.started)
+	})
+	<-m.release
 }
 
 // testCodec wraps an rpc.Codec with extra error checking code.
