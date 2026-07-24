@@ -23,16 +23,13 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/dqlite"
 	dqlitedriver "github.com/juju/juju/internal/database/driver"
-	"github.com/juju/juju/internal/network"
 )
 
 const (
-	dqliteBootstrapBindIP = "127.0.0.1"
 	dqliteDataDir         = "dqlite"
 	dqlitePort            = 17666
 	dqliteClusterFileName = "cluster.yaml"
@@ -79,45 +76,27 @@ type NodeManagerConfig struct {
 // and emitting configuration for starting its Dqlite `App` based on
 // operational requirements and controller agent config.
 type NodeManager struct {
-	cfg                 NodeManagerConfig
-	port                int
-	isLoopbackPreferred bool
-	logger              logger.Logger
-	slowQueryLogger     coredatabase.SlowQueryLogger
+	cfg             NodeManagerConfig
+	port            int
+	logger          logger.Logger
+	slowQueryLogger coredatabase.SlowQueryLogger
 
 	dataDir string
 }
 
 // NewNodeManager returns a new NodeManager reference
 // based on the input controller runtime configuration.
-//
-// If isLoopbackPreferred is true, we bind Dqlite to 127.0.0.1 and eschew TLS
-// termination. This is useful primarily in unit testing and a temporary
-// workaround for CAAS, which does not yet support high availability.
-//
-// If it is false, we attempt to identify a unique local-cloud address.
-// If we find one, we use it as the bind address. Otherwise, we fall back
-// to the loopback binding.
-func NewNodeManager(cfg NodeManagerConfig, isLoopbackPreferred bool, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
+func NewNodeManager(cfg NodeManagerConfig, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	m := &NodeManager{
-		cfg:                 cfg,
-		port:                dqlitePort,
-		isLoopbackPreferred: isLoopbackPreferred,
-		logger:              logger,
-		slowQueryLogger:     slowQueryLogger,
+		cfg:             cfg,
+		port:            dqlitePort,
+		logger:          logger,
+		slowQueryLogger: slowQueryLogger,
 	}
 	if cfg.DqlitePort != 0 {
 		m.port = cfg.DqlitePort
 	}
 	return m
-}
-
-// IsLoopbackPreferred returns true if we should prefer to bind Dqlite
-// to the loopback IP address.
-// This is currently true for CAAS and unit testing. Once CAAS supports
-// high availability we'll have to revisit this.
-func (m *NodeManager) IsLoopbackPreferred() bool {
-	return m.isLoopbackPreferred
 }
 
 // IsLoopbackBound returns true if we are a cluster of one,
@@ -140,7 +119,12 @@ func (m *NodeManager) IsLoopbackBound(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	return strings.HasPrefix(servers[0].Address, "127."), nil
+	host, _, err := net.SplitHostPort(servers[0].Address)
+	if err != nil {
+		return false, errors.Annotate(err, "parsing Dqlite node address")
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback(), nil
 }
 
 // IsExistingNode returns true if this machine or container has
@@ -270,60 +254,12 @@ func (m *NodeManager) WithBusyTimeoutOption() app.Option {
 	return app.WithBusyTimeout(max(m.cfg.DqliteBusyTimeout, 0))
 }
 
-// WithPreferredCloudLocalAddressOption uses the input network config source to
-// return a local-cloud address to which to bind Dqlite, provided that a unique
-// one can be determined.
-// If there are zero or multiple local-cloud addresses detected on the host,
-// we fall back to binding to the loopback address.
-// This method is only relevant to bootstrap. At all other times (such as when
-// joining a cluster) the bind address is determined externally and passed as
-// the argument to WithAddressOption.
-func (m *NodeManager) WithPreferredCloudLocalAddressOption(source corenetwork.ConfigSource) (app.Option, error) {
-	nics, err := source.Interfaces()
-	if err != nil {
-		return nil, errors.Annotate(err, "querying local network interfaces")
-	}
-
-	var addrs corenetwork.MachineAddresses
-	for _, nic := range nics {
-		name := nic.Name()
-		if nic.Type() == corenetwork.LoopbackDevice ||
-			name == network.DefaultLXDBridge ||
-			name == network.DefaultDockerBridge {
-			continue
-		}
-
-		sysAddrs, err := nic.Addresses()
-		if err != nil || len(sysAddrs) == 0 {
-			continue
-		}
-
-		for _, addr := range sysAddrs {
-			addrs = append(addrs, corenetwork.NewMachineAddress(addr.IP().String()))
-		}
-	}
-
-	cloudLocal := addrs.AllMatchingScope(corenetwork.ScopeMatchCloudLocal).Values()
-	if len(cloudLocal) == 1 {
-		return m.WithAddressOption(cloudLocal[0]), nil
-	}
-
-	m.logger.Warningf(context.TODO(), "failed to determine a unique local-cloud address; falling back to 127.0.0.1 for Dqlite")
-	return m.WithLoopbackAddressOption(), nil
-}
-
-// WithLoopbackAddressOption returns a Dqlite application
-// Option that will bind Dqlite to the loopback IP.
-func (m *NodeManager) WithLoopbackAddressOption() app.Option {
-	return m.WithAddressOption(dqliteBootstrapBindIP)
-}
-
 // WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
-func (m *NodeManager) WithAddressOption(ip string) app.Option {
+func (m *NodeManager) WithAddressOption(address string) app.Option {
 	// dqlite expects an ipv6 address to be in square brackets
 	// e.g. [::1]:1234 so we need to use net.JoinHostPort.
-	return app.WithAddress(net.JoinHostPort(ip, strconv.Itoa(m.port)))
+	return app.WithAddress(net.JoinHostPort(address, strconv.Itoa(m.port)))
 }
 
 // WithTLSOption returns a Dqlite application Option for TLS encryption

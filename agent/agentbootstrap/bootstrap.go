@@ -52,6 +52,7 @@ import (
 type DqliteInitializerFunc func(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
+	bootstrapAddresses corenetwork.ProviderAddresses,
 	modelUUID coremodel.UUID,
 	logger logger.Logger,
 	options ...database.BootstrapOpt,
@@ -70,9 +71,10 @@ func CheckJWKSReachable(url string) error {
 
 // AgentBootstrap is used to initialize the state for a new controller.
 type AgentBootstrap struct {
-	adminUser       names.UserTag
-	agentConfig     agent.ConfigSetter
-	bootstrapDqlite DqliteInitializerFunc
+	adminUser                 names.UserTag
+	agentConfig               agent.ConfigSetter
+	bootstrapDqlite           DqliteInitializerFunc
+	bootstrapMachineAddresses corenetwork.ProviderAddresses
 
 	stateInitializationParams instancecfg.StateInitializationParams
 
@@ -134,6 +136,7 @@ func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 		adminUser:                 args.AdminUser,
 		agentConfig:               args.AgentConfig,
 		bootstrapDqlite:           args.BootstrapDqlite,
+		bootstrapMachineAddresses: args.BootstrapMachineAddresses,
 		clock:                     clock.WallClock,
 		logger:                    args.Logger,
 		stateInitializationParams: args.StateInitializationParams,
@@ -255,26 +258,8 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 		)
 	}
 
-	// If we're running caas, we need to bind to the loopback address
-	// and eschew TLS termination.
-	// This is to prevent dqlite to become all at sea when the controller pod
-	// is rescheduled. This is only a temporary measure until we have HA
-	// dqlite for k8s.
-	isLoopbackPreferred := isCAAS
-
-	agentInfo, _ := b.agentConfig.ControllerAgentInfo()
-	nodeManagerCfg := database.NodeManagerConfig{
-		DataDir:              b.agentConfig.DataDir(),
-		CACert:               b.agentConfig.CACert(),
-		ControllerCert:       agentInfo.Cert,
-		ControllerPrivateKey: agentInfo.PrivateKey,
-	}
-	if err := b.bootstrapDqlite(
-		ctx,
-		database.NewNodeManager(nodeManagerCfg, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
-		controllerModelUUID,
-		b.logger,
-		databaseBootstrapOptions...,
+	if err := b.initializeDqlite(
+		ctx, controllerModelUUID, databaseBootstrapOptions...,
 	); err != nil {
 		return errors.Trace(err)
 	}
@@ -291,6 +276,29 @@ func (b *AgentBootstrap) Initialize(ctx context.Context) (resultErr error) {
 	b.agentConfig.SetPassword(newPassword)
 
 	return nil
+}
+
+func (b *AgentBootstrap) initializeDqlite(
+	ctx context.Context, controllerModelUUID coremodel.UUID,
+	options ...database.BootstrapOpt,
+) error {
+	agentInfo, _ := b.agentConfig.ControllerAgentInfo()
+	nodeManagerCfg := database.NodeManagerConfig{
+		DataDir:              b.agentConfig.DataDir(),
+		CACert:               b.agentConfig.CACert(),
+		ControllerCert:       agentInfo.Cert,
+		ControllerPrivateKey: agentInfo.PrivateKey,
+	}
+	return b.bootstrapDqlite(
+		ctx,
+		database.NewNodeManager(
+			nodeManagerCfg, b.logger, coredatabase.NoopSlowQueryLogger{},
+		),
+		b.bootstrapMachineAddresses,
+		controllerModelUUID,
+		b.logger,
+		options...,
+	)
 }
 
 func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCredentialTag, error) {

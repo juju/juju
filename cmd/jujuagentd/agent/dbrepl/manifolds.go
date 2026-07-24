@@ -5,7 +5,6 @@ package dbrepl
 
 import (
 	"io"
-	"maps"
 
 	"github.com/juju/clock"
 	"github.com/juju/worker/v5/dependency"
@@ -59,10 +58,9 @@ type ManifoldsConfig struct {
 	Stdin io.Reader
 }
 
-// commonManifolds returns manifolds shared between IAAS and CAAS controller
-// REPL engines.  The controller binary is always a controller, so no
-// ifController gating is required.
-func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
+// Manifolds returns manifolds for a controller REPL engine. The controller
+// binary is always a controller, so no ifController gating is required.
+func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	return dependency.Manifolds{
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
@@ -85,6 +83,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		),
 
+		dbReplAccessorName: dbreplaccessor.Manifold(dbreplaccessor.ManifoldConfig{
+			DataDir:              config.DataDir,
+			CACert:               config.CACert,
+			ControllerCert:       config.ControllerCert,
+			ControllerPrivateKey: config.ControllerPrivateKey,
+			Clock:                config.Clock,
+			Logger:               internallogger.GetLogger("juju.worker.dbreplaccessor"),
+			NewApp:               dbreplaccessor.NewApp,
+			NewDBReplWorker:      config.NewDBReplWorkerFunc,
+			NewNodeManager:       dbreplaccessor.NewNodeManager,
+		}),
+
 		// The db-repl manifold drives the interactive REPL worker.
 		dbReplName: dbrepl.Manifold(dbrepl.ManifoldConfig{
 			DBReplAccessorName: dbReplAccessorName,
@@ -94,48 +104,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Stdin:              config.Stdin,
 		}),
 	}
-}
-
-// IAASManifolds returns manifolds for an IAAS controller REPL engine.
-func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{
-		dbReplAccessorName: dbreplaccessor.Manifold(dbreplaccessor.ManifoldConfig{
-			DataDir:              config.DataDir,
-			CACert:               config.CACert,
-			ControllerCert:       config.ControllerCert,
-			ControllerPrivateKey: config.ControllerPrivateKey,
-			Clock:                config.Clock,
-			Logger:               internallogger.GetLogger("juju.worker.dbreplaccessor"),
-			NewApp:               dbreplaccessor.NewApp,
-			NewDBReplWorker:      config.NewDBReplWorkerFunc,
-			NewNodeManager:       dbreplaccessor.IAASNodeManager,
-		}),
-	})
-}
-
-// CAASManifolds returns manifolds for a CAAS controller REPL engine.
-func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{
-		dbReplAccessorName: dbreplaccessor.Manifold(dbreplaccessor.ManifoldConfig{
-			DataDir:              config.DataDir,
-			CACert:               config.CACert,
-			ControllerCert:       config.ControllerCert,
-			ControllerPrivateKey: config.ControllerPrivateKey,
-			Clock:                config.Clock,
-			Logger:               internallogger.GetLogger("juju.worker.dbreplaccessor"),
-			NewApp:               dbreplaccessor.NewApp,
-			NewDBReplWorker:      config.NewDBReplWorkerFunc,
-			NewNodeManager:       dbreplaccessor.CAASNodeManager,
-		}),
-	})
-}
-
-func mergeManifolds(
-	config ManifoldsConfig, manifolds dependency.Manifolds,
-) dependency.Manifolds {
-	result := commonManifolds(config)
-	maps.Copy(result, manifolds)
-	return result
 }
 
 const (

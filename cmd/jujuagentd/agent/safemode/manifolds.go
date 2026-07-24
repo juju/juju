@@ -4,8 +4,6 @@
 package safemode
 
 import (
-	"maps"
-
 	"github.com/juju/clock"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v5/dependency"
@@ -51,16 +49,13 @@ type ManifoldsConfig struct {
 
 	// Clock supplies timekeeping services to various workers.
 	Clock clock.Clock
-
-	// IsCaasConfig is true if this config is for a caas agent.
-	IsCaasConfig bool
 }
 
-// commonManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a machine agent.
+// Manifolds returns a set of co-configured manifolds covering the various
+// responsibilities of a machine agent in safe mode.
 //
 // Thou Shalt Not Use String Literals In This Function. Or Else.
-func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
+func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
@@ -102,51 +97,21 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogDir: config.LogDir,
 			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		})),
+
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			QueryLoggerName:           queryLoggerName,
+			ControllerAgentConfigName: controllerAgentConfigName,
+			ControllerStartupValues:   config.ControllerStartupValues,
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
+			PrometheusRegisterer:      noopPrometheusRegisterer{},
+			NewApp:                    dbaccessor.NewApp,
+			NewDBWorker:               config.NewDBWorkerFunc,
+			NewNodeManager:            dbaccessor.NewNodeManager,
+			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
+		})),
 	}
 
 	return manifolds
-}
-
-// IAASManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a IAAS machine agent.
-func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.ControllerStartupValues,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:      noopPrometheusRegisterer{},
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewNodeManager:            dbaccessor.IAASNodeManager,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		})),
-	})
-}
-
-// CAASManifolds returns a set of co-configured manifolds covering the
-// various responsibilities of a CAAS machine agent.
-func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			QueryLoggerName:           queryLoggerName,
-			ControllerAgentConfigName: controllerAgentConfigName,
-			ControllerStartupValues:   config.ControllerStartupValues,
-			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
-			PrometheusRegisterer:      noopPrometheusRegisterer{},
-			NewApp:                    dbaccessor.NewApp,
-			NewDBWorker:               config.NewDBWorkerFunc,
-			NewNodeManager:            dbaccessor.CAASNodeManager,
-			NewMetricsCollector:       dbaccessor.NewMetricsCollector,
-		})),
-	})
-}
-
-func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
-	result := commonManifolds(config)
-	maps.Copy(result, manifolds)
-	return result
 }
 
 var ifController = engine.Housing{
