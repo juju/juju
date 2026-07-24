@@ -179,7 +179,10 @@ func (w *Worker) loop() error {
 		ConnContext:  recordRawFd,
 	}
 
+	serveStopped := make(chan struct{})
 	go func() {
+		defer close(serveStopped)
+
 		err := server.Serve(tls.NewListener(w.listener, w.config.TLSConfig))
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			w.logger.Errorf(ctx, "server finished with error %v", err)
@@ -203,6 +206,11 @@ func (w *Worker) loop() error {
 		if err := w.listener.Close(); err != nil {
 			w.logger.Errorf(ctx, "error closing listener: %v", err)
 		}
+
+		// Shutdown normally causes Serve to return, but closing the listener
+		// also unblocks it when Shutdown fails. Do not let the worker finish
+		// while the serving goroutine can still use worker-owned resources.
+		<-serveStopped
 	}()
 
 	shutDownCtx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
