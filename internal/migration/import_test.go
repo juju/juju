@@ -46,7 +46,7 @@ import (
 // controllerImportSuite exercises [migration.ImportControllerModelInfo] end-to-end
 // against real controller and model databases: the decode, the claim, the
 // target-local bootstrap, and the controller-data import steps. It does not
-// exercise model-DB content import (Tasks 7-9) or activation (Task 10).
+// exercise model-DB content import or activation.
 type controllerImportSuite struct {
 	schematesting.ControllerModelSuite
 

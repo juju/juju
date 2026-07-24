@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain/export"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstatecontroller "github.com/juju/juju/domain/model/state/controller"
+	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	modelmigrationservice "github.com/juju/juju/domain/modelmigration/service"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
@@ -139,6 +140,7 @@ func (*controllerImportSuite) activateModel(
 			)
 		},
 		activationDomainServicesGetter{deps: deps},
+		nil,
 		"",
 		deps.Logger,
 		deps.Clock,
@@ -310,6 +312,88 @@ func (s *controllerImportSuite) TestActivateModelUnexpectedImportPhase(c *tc.C) 
 	c.Assert(err, tc.ErrorMatches, `model ".+": unexpected import claim phase "paused"`)
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsTrue)
+}
+
+// TestActivateModelReconcileFailureLeavesClaimImporting verifies the core
+// wedge-fix property: a genuine (permanent) reconciliation failure now happens
+// before the point-of-no-return flip, so the claim stays in the importing phase
+// and the source can safely abort — instead of wedging in activating.
+func (s *controllerImportSuite) TestActivateModelReconcileFailureLeavesClaimImporting(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	sourceControllerUUID := uuid.MustNewUUID().String()
+	sourceOffererModelUUID := uuid.MustNewUUID().String()
+	s.addActivationOffererForModel(c, deps, modelUUID, "source-offerer", sourceOffererModelUUID)
+
+	// Pre-seed the source controller with a different CA cert so activation's
+	// reconcileOffererControllers (EnsureSourceControllerExists) fails with a
+	// genuine external-controller mismatch.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO external_controller (uuid, alias, ca_cert) VALUES (?, ?, ?)",
+			sourceControllerUUID, "source", "a-different-ca-cert")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{
+		ModelUUID:             modelUUID,
+		SourceControllerUUID:  sourceControllerUUID,
+		SourceControllerAlias: "source",
+		SourceCACert:          "source-ca-cert", // differs from the seeded cert
+		SourceAPIAddrs:        []string{"10.0.0.1:17070"},
+		CrossModelUUIDs:       []string{sourceOffererModelUUID},
+	})
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrExternalControllerMismatch)
+
+	// The claim is still importing (abortable), and the model is neither
+	// activated nor un-gated.
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	claim, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(claim.Phase, tc.Equals, modelmigration.ImportPhaseImporting)
+	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
+	c.Check(s.modelGateExists(c, modelUUID), tc.IsTrue)
+}
+
+// TestActivateModelActivatingSkipsReconcile verifies that resuming an
+// already-activating claim runs only the idempotent finalization and skips the
+// fallible reconciliation: even with a seeded external-controller mismatch that
+// would fail reconciliation, activation completes.
+func (s *controllerImportSuite) TestActivateModelActivatingSkipsReconcile(c *tc.C) {
+	modelUUID, deps := s.importForActivation(c, "1.0.0")
+
+	sourceControllerUUID := uuid.MustNewUUID().String()
+	sourceOffererModelUUID := uuid.MustNewUUID().String()
+	s.addActivationOffererForModel(c, deps, modelUUID, "source-offerer", sourceOffererModelUUID)
+
+	// A mismatch that reconciliation would trip over if it ran.
+	err := s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			"INSERT INTO external_controller (uuid, alias, ca_cert) VALUES (?, ?, ?)",
+			sourceControllerUUID, "source", "a-different-ca-cert")
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Move the claim past the point of no return.
+	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
+	c.Assert(claimSt.SetImportPhaseActivating(c.Context(), modelUUID.String()), tc.ErrorIsNil)
+
+	err = s.activateModel(c, deps, migration.ActivateModelArgs{
+		ModelUUID:             modelUUID,
+		SourceControllerUUID:  sourceControllerUUID,
+		SourceControllerAlias: "source",
+		SourceCACert:          "source-ca-cert",
+		SourceAPIAddrs:        []string{"10.0.0.1:17070"},
+		CrossModelUUIDs:       []string{sourceOffererModelUUID},
+	})
+	// Reconciliation was skipped, so the mismatch is never hit and activation
+	// completes.
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
+	_, err = claimSt.GetImportClaim(c.Context(), modelUUID.String())
+	c.Check(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotFound)
 }
 
 // TestActivateModelReconcilesOffererControllers verifies activation's CMR
