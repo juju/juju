@@ -15,6 +15,7 @@ CREATE TABLE controller_ssh_host_key (
     id TEXT NOT NULL PRIMARY KEY,
     algorithm_type_id INT NOT NULL,
     ssh_key TEXT NOT NULL,
+    public_key BLOB NOT NULL DEFAULT '',
     CONSTRAINT fk_controller_ssh_host_key_algorithm_type_id
     FOREIGN KEY (algorithm_type_id)
     REFERENCES ssh_key_algorithm_type (id)

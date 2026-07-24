@@ -38,33 +38,32 @@ func (s *serviceSuite) TestSSHServerHostKeyErrorsWhenMissing(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, context.Canceled)
 }
 
-// TestSSHServerHostPublicKeyDerivesAndCaches checks the public key is derived
-// from the stored private key and that the derivation is cached: the private
-// key is only parsed once, so repeated calls do not re-parse it.
-func (s *serviceSuite) TestSSHServerHostPublicKeyDerivesAndCaches(c *tc.C) {
-	controllerState := &stubControllerState{key: testPrivateKey}
-	svc := controllersshservice.NewService(controllerState)
-
+// TestSSHServerHostPublicKeyReturnsStored checks the public key is returned
+// directly from state without deriving it from the private key.
+func (s *serviceSuite) TestSSHServerHostPublicKeyReturnsStored(c *tc.C) {
 	signer, err := gossh.ParsePrivateKey([]byte(testPrivateKey))
 	c.Assert(err, tc.ErrorIsNil)
 	want := signer.PublicKey().Marshal()
+
+	controllerState := &stubControllerState{
+		key:       testPrivateKey,
+		publicKey: want,
+	}
+	svc := controllersshservice.NewService(controllerState)
 
 	got, err := svc.SSHServerHostPublicKey(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(got, tc.DeepEquals, want)
 
-	// A second call returns the same cached key and does not re-fetch or
-	// re-derive it: the private key is fetched from state exactly once.
-	got2, err := svc.SSHServerHostPublicKey(c.Context())
-	c.Assert(err, tc.ErrorIsNil)
-	c.Check(got2, tc.DeepEquals, want)
-	c.Check(controllerState.gets, tc.Equals, 1)
+	// The public key is read from state; the private key is never fetched.
+	c.Check(controllerState.gets, tc.Equals, 0)
+	c.Check(controllerState.publicKeyGets, tc.Equals, 1)
 }
 
-// TestSSHServerHostPublicKeyErrorsWhenMissing checks that a state error fetching
-// the host key is propagated to the caller.
+// TestSSHServerHostPublicKeyErrorsWhenMissing checks that a state error
+// fetching the public key is propagated to the caller.
 func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
-	svc := controllersshservice.NewService(&stubControllerState{getErr: context.Canceled})
+	svc := controllersshservice.NewService(&stubControllerState{publicKeyGetErr: context.Canceled})
 
 	got, err := svc.SSHServerHostPublicKey(c.Context())
 	c.Check(got, tc.IsNil)
@@ -72,14 +71,22 @@ func (s *serviceSuite) TestSSHServerHostPublicKeyErrorsWhenMissing(c *tc.C) {
 }
 
 type stubControllerState struct {
-	key    string
-	getErr error
-	gets   int
+	key             string
+	getErr          error
+	gets            int
+	publicKey       []byte
+	publicKeyGetErr error
+	publicKeyGets   int
 }
 
 func (s *stubControllerState) GetSSHServerHostKey(_ context.Context) (string, error) {
 	s.gets++
 	return s.key, s.getErr
+}
+
+func (s *stubControllerState) GetSSHServerHostPublicKey(_ context.Context) ([]byte, error) {
+	s.publicKeyGets++
+	return s.publicKey, s.publicKeyGetErr
 }
 
 const testPrivateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\n" +

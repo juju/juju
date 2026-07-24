@@ -9,4 +9,10 @@ import "context"
 type State interface {
 	// GetSSHServerHostKey returns the stored controller jump host key.
 	GetSSHServerHostKey(context.Context) (string, error)
+
+	// GetSSHServerHostPublicKey returns the marshalled public host key of the
+	// controller SSH jump server. The public key is derived once at bootstrap
+	// and stored alongside the private key, so this method never handles
+	// private key material.
+	GetSSHServerHostPublicKey(context.Context) ([]byte, error)
 }
