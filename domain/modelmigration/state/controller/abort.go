@@ -97,41 +97,39 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 	})
 }
 
-// getAbortClaimCheck computes within tx, in a single round trip, the two
-// predicates [State.StageAbortedModelDatabaseDeletion] and
-// [State.FinalizeAbortedImport] assert on a model's import claim: whether a
-// claim exists at all, and whether it is in the aborting phase. The
-// discrimination is done in SQL (rather than filtering to an aborting-only
-// row, or extracting the claim and testing its phase in Go) so each caller
-// can map the outcome to its own contract: a missing claim is idempotent
-// success for finalization but an error for staging, while a wrong-phase
-// claim is a hard error for both. A phase-filtered query cannot tell those
-// apart: a still-importing claim and a missing claim would both yield no
-// rows, and finalization would silently succeed while the claim survives.
-func (s *State) getAbortClaimCheck(
-	ctx context.Context, tx *sqlair.TX, modelUUID string,
-) (abortClaimCheck, error) {
-	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+// checkAbortingState returns nil only while the model_migration_import claim
+// for modelUUID is in the aborting phase. It returns
+// [modelmigrationerrors.ErrImportNotFound] when no claim exists and
+// [modelmigrationerrors.ErrPhaseTransitionInvalid] when a claim exists but is
+// in another phase. It reads the phase rather than filtering to an
+// aborting-only row so those two outcomes stay distinct, which the callers
+// rely on: a missing claim is idempotent success for finalization but an error
+// for staging. It mirrors [State.checkImportingState] for the aborting phase.
+func (s *State) checkAbortingState(ctx context.Context, tx *sqlair.TX, modelUUID string) error {
+	arg := modelUUIDArg{ModelUUID: modelUUID}
+	var row importPhaseRow
 	stmt, err := s.Prepare(`
-WITH claim AS (
-    SELECT mmipt.type AS phase_type
-    FROM   model_migration_import AS mmi
-    JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-    WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
-)
-SELECT EXISTS(SELECT 1 FROM claim) AS &abortClaimCheck.claim_exists,
-       EXISTS(SELECT 1 FROM claim WHERE phase_type = 'aborting') AS &abortClaimCheck.claim_aborting
-`, abortClaimCheck{}, mUUID)
+SELECT mmipt.type AS &importPhaseRow.phase_type
+FROM   model_migration_import AS mmi
+JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
+`, row, arg)
 	if err != nil {
-		return abortClaimCheck{}, errors.Capture(err)
+		return errors.Capture(err)
 	}
 
-	var check abortClaimCheck
-	if err := tx.Query(ctx, stmt, mUUID).Get(&check); err != nil {
-		return abortClaimCheck{}, errors.Errorf(
-			"checking aborting import claim for model %q: %w", modelUUID, err)
+	err = tx.Query(ctx, stmt, arg).Get(&row)
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
+	} else if err != nil {
+		return errors.Errorf("checking import claim phase for model %q: %w", modelUUID, err)
 	}
-	return check, nil
+	if modelmigration.ImportPhase(row.PhaseType) != modelmigration.ImportPhaseAborting {
+		return errors.Errorf(
+			"model %q import claim is %q, expected aborting: %w", modelUUID, row.PhaseType,
+			modelmigrationerrors.ErrPhaseTransitionInvalid)
+	}
+	return nil
 }
 
 // IsModelDying reports whether the model row for modelUUID exists and has left
@@ -321,17 +319,8 @@ VALUES ($modelDatabaseDeletion.*)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		check, err := s.getAbortClaimCheck(ctx, tx, modelUUID)
-		if err != nil {
+		if err := s.checkAbortingState(ctx, tx, modelUUID); err != nil {
 			return errors.Capture(err)
-		}
-		if !check.ClaimExists {
-			return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
-		}
-		if !check.ClaimAborting {
-			return errors.Errorf(
-				"import claim for model %q is not aborting: %w",
-				modelUUID, modelmigrationerrors.ErrPhaseTransitionInvalid)
 		}
 
 		if err := tx.Query(ctx, deleteNamespaceListStmt, nsArg).Run(); err != nil {
@@ -428,17 +417,10 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		check, err := s.getAbortClaimCheck(ctx, tx, modelUUID)
-		if err != nil {
-			return errors.Capture(err)
-		}
-		if !check.ClaimExists {
+		if err := s.checkAbortingState(ctx, tx, modelUUID); errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
 			return nil // idempotent: already finalized
-		}
-		if !check.ClaimAborting {
-			return errors.Errorf(
-				"import claim for model %q is not aborting: %w",
-				modelUUID, modelmigrationerrors.ErrPhaseTransitionInvalid)
+		} else if err != nil {
+			return errors.Capture(err)
 		}
 
 		// Finalization predicates, read in a single round trip: the controller

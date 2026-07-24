@@ -156,15 +156,6 @@ type abortFinalizeChecks struct {
 	DeletionStaged  bool `db:"deletion_staged"`
 }
 
-// abortClaimCheck projects the two predicates
-// [State.StageAbortedModelDatabaseDeletion] and [State.FinalizeAbortedImport]
-// assert on a model's import claim in a single round trip: whether a claim
-// exists at all, and whether it is in the aborting phase.
-type abortClaimCheck struct {
-	ClaimExists   bool `db:"claim_exists"`
-	ClaimAborting bool `db:"claim_aborting"`
-}
-
 // cloudImageRow is a custom cloud_image_metadata row with its architecture
 // resolved to a name, used to detect natural-key conflicts during the v8
 // import precheck.
