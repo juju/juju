@@ -11,6 +11,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -220,9 +221,12 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfoDischargeRequired(c
 	acquirer := &mockDischargeAcquirer{}
 	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
 	client := crossmodelsecrets.NewClient(callerWithBakery)
-	start := time.Now()
+	// Patch the retry Clock with a test clock that is never advanced.
+	// The discharge happens inside Func and Clock.After is
+	// never called, so the call completes without advancing the clock.
+	clock := testclock.NewClock(time.Now())
+	s.PatchValue(&crossmodelsecrets.Clock, clock)
 	content, _, latestRevision, _, err := client.GetRemoteSecretContentInfo(uri, 0, true, false, coretesting.ControllerTag.Id(), "token", 666, nil)
-	elapsed := time.Since(start)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(latestRevision, gc.Equals, 1)
 	c.Check(content.SecretValue.EncodedValues(), gc.DeepEquals, map[string]string{"key": "value"})
@@ -231,7 +235,66 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfoDischargeRequired(c
 	// The discharged macaroon was sent on the second call.
 	c.Assert(dischargedMac, gc.HasLen, 1)
 	c.Assert(dischargedMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
-	c.Assert(elapsed < crossmodelsecrets.RetryDelay, jc.IsTrue, gc.Commentf("elapsed: %v", elapsed))
+}
+
+// failingDischargeAcquirer implements base.MacaroonDischarger for testing
+// macaroon discharge failures.
+type failingDischargeAcquirer struct {
+	base.MacaroonDischarger
+}
+
+func (m *failingDischargeAcquirer) DischargeAll(ctx context.Context, b *bakery.Macaroon) (macaroon.Slice, error) {
+	return nil, errors.New("discharge failed")
+}
+
+// TestGetRemoteSecretContentInfoDischargeFailure verifies that when the
+// macaroon discharge itself fails, the error is treated as fatal and not
+// retried.
+func (s *CrossControllerSuite) TestGetRemoteSecretContentInfoDischargeFailure(c *gc.C) {
+	uri := coresecrets.NewURI()
+	key, err := bakery.GenerateKey()
+	c.Assert(err, jc.ErrorIsNil)
+	bk := bakery.New(bakery.BakeryParams{
+		Key:     key,
+		Locator: testLocator{key.Public},
+	})
+	dischargeMacaroon, err := bk.Oven.NewMacaroon(context.TODO(), bakery.LatestVersion, []checkers.Caveat{
+		checkers.NeedDeclaredCaveat(checkers.Caveat{
+			Location:  "third party location",
+			Condition: "third party caveat",
+		}),
+	}, bakery.Op{Entity: "secret", Action: "read"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	callCount := 0
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		callCount++
+		resp := params.SecretContentResults{
+			Results: []params.SecretContentResult{{
+				Error: &params.Error{
+					Code: params.CodeDischargeRequired,
+					Info: params.DischargeRequiredErrorInfo{
+						BakeryMacaroon: dischargeMacaroon,
+					}.AsMap(),
+				},
+			}},
+		}
+		fillResponse(c, result, resp)
+		return nil
+	})
+	acquirer := &failingDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelsecrets.NewClient(callerWithBakery)
+	// Use a test clock that is never advanced. If the discharge failure
+	// were retried, retry.Call would call Clock.After and block forever.
+	clock := testclock.NewClock(time.Now())
+	s.PatchValue(&crossmodelsecrets.Clock, clock)
+	content, _, _, _, err := client.GetRemoteSecretContentInfo(uri, 0, true, false, coretesting.ControllerTag.Id(), "token", 666, nil)
+	c.Check(err, gc.NotNil)
+	c.Check(content, gc.IsNil)
+	// Only 1 API call was made — the discharge failure is fatal and not
+	// retried.
+	c.Check(callCount, gc.Equals, 1)
 }
 
 func (s *CrossControllerSuite) TestGetSecretAccessScope(c *gc.C) {

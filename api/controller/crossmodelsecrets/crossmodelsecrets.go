@@ -92,6 +92,10 @@ func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) 
 
 var Clock retry.Clock = clock.WallClock
 
+// errDischargeFailed is a sentinel error used to mark a failed macaroon
+// discharge as fatal so retry.Call does not retry it.
+var errDischargeFailed = errors.ConstError("discharge failed")
+
 // Account for the fact that the remote controller might be starting up.
 const (
 	numRetries = 3
@@ -250,7 +254,7 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, 
 
 			mac, err := c.handleDischargeError(apiErr)
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Wrap(err, errDischargeFailed)
 			}
 			args.Args[0].Macaroons = mac
 			args.Args[0].BakeryVersion = bakery.LatestVersion
@@ -258,7 +262,14 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, 
 			return apiErr
 		},
 		IsFatalError: func(err error) bool {
-			return errors.IsNotFound(err) || errors.Is(err, apiservererrors.ErrPerm)
+			if errors.IsNotFound(err) || errors.Is(err, apiservererrors.ErrPerm) {
+				return true
+			}
+			// A discharge failure should not be retried.
+			if errors.Cause(err) == errDischargeFailed {
+				return true
+			}
+			return false
 		},
 		Delay:    retryDelay,
 		Clock:    Clock,
