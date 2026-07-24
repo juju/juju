@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -52,27 +54,106 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 			handleError(err)
 			return
 		}
-		defer proxy.Close()
 		stdin, stdout, stderr = proxy.Streams()
 	}
+
+	command := session.RawCommand()
+	if command == "" {
+		command = "/bin/sh"
+	}
+	signals := make(chan ssh.Signal, 1)
+	session.Signals(signals)
+	// Based on the docstring of `session.Signals`:
+	// registering nil will unregister the channel from signal sends.
+	defer session.Signals(nil)
 
 	err = executor.Exec(session.Context(), k8sexec.ExecParams{
 		PodName:       podName,
 		ContainerName: container,
-		Commands:      session.Command(),
+		Commands:      []string{command},
 		Stdout:        stdout,
 		Stderr:        stderr,
 		Stdin:         stdin,
 		TTY:           hasPTY,
-		Env:           session.Environ(),
+		Env:           sessionEnvironment(session.Environ(), ptyRequest.Term, hasPTY),
+		Signal:        translateSignals(session.Context(), signals),
 	}, session.Context().Done())
 	if err != nil {
-		handleError(errors.Annotate(err, "executing command in Kubernetes pod"))
+		if exitErr, ok := errors.Cause(err).(k8sexec.ExitError); ok {
+			if proxy != nil {
+				proxy.Close(exitErr.ExitStatus())
+			} else {
+				_ = session.Exit(exitErr.ExitStatus())
+			}
+			return
+		}
+		annotated := errors.Annotate(err, "executing command in Kubernetes pod")
+		if proxy != nil {
+			h.logger.Errorf(session.Context(), "Kubernetes session proxy failure: %v", annotated)
+			_, _ = stderr.Write([]byte(annotated.Error() + "\n"))
+			proxy.Close(1)
+		} else {
+			handleError(annotated)
+		}
 		return
 	}
 	if proxy != nil {
-		proxy.Succeed()
+		proxy.Close(0)
 	}
+}
+
+func sessionEnvironment(env []string, terminal string, hasPTY bool) []string {
+	if !hasPTY || terminal == "" {
+		return env
+	}
+	// Verify that the TERM environment variable is set.
+	// If it is not, add it to the environment with the value from the PTY request.
+	for _, value := range env {
+		if len(value) >= len("TERM=") && value[:len("TERM=")] == "TERM=" {
+			return env
+		}
+	}
+	return append(env, "TERM="+terminal)
+}
+
+func translateSignals(ctx context.Context, signals <-chan ssh.Signal) <-chan syscall.Signal {
+	translated := make(chan syscall.Signal, 1)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case signal, ok := <-signals:
+				if !ok {
+					return
+				}
+				if value, ok := sshSignals[signal]; ok {
+					select {
+					case translated <- value:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}
+	}()
+	return translated
+}
+
+var sshSignals = map[ssh.Signal]syscall.Signal{
+	ssh.SIGABRT: syscall.SIGABRT,
+	ssh.SIGALRM: syscall.SIGALRM,
+	ssh.SIGFPE:  syscall.SIGFPE,
+	ssh.SIGHUP:  syscall.SIGHUP,
+	ssh.SIGILL:  syscall.SIGILL,
+	ssh.SIGINT:  syscall.SIGINT,
+	ssh.SIGKILL: syscall.SIGKILL,
+	ssh.SIGPIPE: syscall.SIGPIPE,
+	ssh.SIGQUIT: syscall.SIGQUIT,
+	ssh.SIGSEGV: syscall.SIGSEGV,
+	ssh.SIGTERM: syscall.SIGTERM,
+	ssh.SIGUSR1: syscall.SIGUSR1,
+	ssh.SIGUSR2: syscall.SIGUSR2,
 }
 
 // ptyProxy owns a pseudo-terminal and the goroutines that copy data and resize
@@ -85,9 +166,10 @@ type ptyProxy struct {
 	cancel     context.CancelFunc
 	resizeDone chan struct{}
 	outputDone chan struct{}
-	succeeded  bool
 	wg         sync.WaitGroup
 }
+
+const ptyOutputDrainTimeout = 5 * time.Second
 
 func newPTYProxy(session ssh.Session, request ssh.Pty, windowChanges <-chan ssh.Window) (*ptyProxy, error) {
 	ptmx, tty, err := pty.Open()
@@ -121,14 +203,9 @@ func (p *ptyProxy) Streams() (io.Reader, io.Writer, io.Writer) {
 	return p.tty, p.tty, p.tty
 }
 
-// Succeed records that the command completed successfully.
-func (p *ptyProxy) Succeed() {
-	p.succeeded = true
-}
-
 // Close drains final command output, closes the SSH session with the
 // appropriate status, and waits for all proxy goroutines to stop.
-func (p *ptyProxy) Close() {
+func (p *ptyProxy) Close(status int) {
 	// Stop resizing before closing descriptors so Setsize cannot race with
 	// File.Close.
 	p.cancel()
@@ -137,15 +214,13 @@ func (p *ptyProxy) Close() {
 	// Closing the slave signals command completion. Keep the master open until
 	// its copier has drained any final command output to the SSH client.
 	_ = p.tty.Close()
-	<-p.outputDone
-
-	// Exit sends the successful status and closes the SSH channel. On failure,
-	// SessionHandler has already sent status 1, so only a close is needed here.
-	if p.succeeded {
-		_ = p.session.Exit(0)
-	} else {
-		_ = p.session.Close()
+	select {
+	case <-p.outputDone:
+	case <-p.session.Context().Done():
+	case <-time.After(ptyOutputDrainTimeout):
 	}
+
+	_ = p.session.Exit(status)
 	_ = p.ptmx.Close()
 	p.wg.Wait()
 }
