@@ -2286,6 +2286,61 @@ func (s *machineSuite) TestDeleteMachineWithForceWaitsForDeadUnitRemoval(c *tc.C
 	c.Check(exists, tc.IsFalse)
 }
 
+// TestDeleteMachineWithProviderPlacement verifies that a machine created
+// with a provider placement directive (e.g. zone=us-east-1a) can be
+// deleted. The machine_placement table has a foreign key to machine(uuid),
+// so removeBasicMachineData must clean it up before deleting the machine
+// row. This test prevents a regression where provider-placed machines
+// caused "FOREIGN KEY constraint failed" during model destruction.
+func (s *machineSuite) TestDeleteMachineWithProviderPlacement(c *tc.C) {
+	svc := s.setupMachineService(c)
+	machineRes, err := svc.AddMachine(c.Context(), domainmachine.AddMachineArgs{
+		Platform: deployment.Platform{
+			OSType:  deployment.Ubuntu,
+			Channel: "24.04",
+		},
+		Directive: deployment.Placement{
+			Type:      deployment.PlacementTypeProvider,
+			Directive: "zone=us-east-1a",
+		},
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	machineUUID, err := svc.GetMachineUUID(c.Context(), machineRes.MachineName)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the machine_placement row was created.
+	var count int
+	err = s.DB().QueryRow(
+		"SELECT COUNT(*) FROM machine_placement WHERE machine_uuid = ?",
+		machineUUID.String(),
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 1)
+
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.advanceMachineLife(c, machineUUID, life.Dead)
+	s.advanceInstanceLife(c, machineUUID, life.Dead)
+
+	// This previously failed with "FOREIGN KEY constraint failed" because
+	// machine_placement was not cleaned up by removeBasicMachineData.
+	err = st.DeleteMachine(c.Context(), machineUUID.String(), false)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// The machine should be gone.
+	exists, err := st.MachineExists(c.Context(), machineUUID.String())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(exists, tc.IsFalse)
+
+	// The machine_placement row should be gone.
+	err = s.DB().QueryRow(
+		"SELECT COUNT(*) FROM machine_placement WHERE machine_uuid = ?",
+		machineUUID.String(),
+	).Scan(&count)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(count, tc.Equals, 0)
+}
+
 func (s *machineSuite) createMachineFilesystem(
 	c *tc.C, machineUUID string,
 ) string {

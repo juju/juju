@@ -215,6 +215,28 @@ func (s *migrationSuite) TestGetMigrationAgentsIAAS(c *tc.C) {
 		unitUUID, "foo/0", appUUID, unitNetNodeUUID, charmUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// A synthetic cross-model-relation unit (CMR-source charm, source_id = 2)
+	// runs no agent and must NOT be an expected migration agent.
+	cmrCharmUUID := uuid.MustNewUUID().String()
+	cmrAppUUID := uuid.MustNewUUID().String()
+	cmrUnitNetNodeUUID := uuid.MustNewUUID().String()
+	cmrUnitUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)",
+		cmrCharmUUID, "remote-app")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+		cmrAppUUID, "remote-app", cmrCharmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO net_node (uuid) VALUES (?)", cmrUnitNetNodeUUID)
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO unit (uuid, name, life_id, application_uuid, net_node_uuid, charm_uuid) VALUES (?, ?, 0, ?, ?, ?)",
+		cmrUnitUUID, "remote-app/0", cmrAppUUID, cmrUnitNetNodeUUID, cmrCharmUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
 	agents, err := New(s.TxnRunnerFactory(), s.modelUUID).GetMigrationAgents(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(agents.Machines, tc.SameContents, []string{"0"})
@@ -239,6 +261,23 @@ func (s *caasMigrationSuite) TestGetMigrationAgentsCAAS(c *tc.C) {
 	_, err = db.ExecContext(c.Context(),
 		"INSERT INTO application_agent (application_uuid) VALUES (?)",
 		legacyAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// A synthetic CMR application can retain a stale application agent row, but
+	// it does not run an application agent and must be excluded.
+	cmrCharmUUID := uuid.MustNewUUID().String()
+	cmrAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)",
+		cmrCharmUUID, "remote-app")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+		cmrAppUUID, "remote-app", cmrCharmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_agent (application_uuid) VALUES (?)",
+		cmrAppUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	sidecarAppUUID := uuid.MustNewUUID().String()

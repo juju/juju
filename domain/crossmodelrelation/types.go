@@ -98,6 +98,10 @@ type OfferDetail struct {
 // ConsumeDetails contains details about a offer which is being consumed.
 type ConsumeDetails struct {
 	OfferUUID string
+
+	// ApplicationName is the name of the application the offer is for.
+	ApplicationName string
+
 	Endpoints []OfferEndpoint
 }
 

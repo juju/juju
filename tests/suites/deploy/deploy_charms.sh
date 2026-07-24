@@ -48,6 +48,58 @@ run_deploy_charm_placement_directive() {
 	destroy_model "test-deploy-charm-placement-directive"
 }
 
+run_deploy_charm_zone_placement_directive() {
+	echo
+
+	file="${TEST_DIR}/test-deploy-charm-zone-placement-directive.log"
+
+	ensure "test-deploy-charm-zone-placement" "${file}"
+
+	# Add a machine so that we can discover the availability zone for
+	# the cloud under test. The zone is extracted from the machine's
+	# hardware info and used in the zone-based placement directive below.
+	if [[ ${BOOTSTRAP_PROVIDER} == "lxd" ]]; then
+		juju add-machine --constraints="virt-type=virtual-machine"
+	else
+		juju add-machine
+	fi
+	wait_for_machine_agent_status "0" "started"
+
+	# Extract the availability zone from the machine hardware field.
+	# The hardware field is a space-separated string of key=value pairs,
+	# e.g. "availability-zone=us-east-1a arch=amd64 cores=4 ..."
+	az=$(juju show-machine 0 --format=json |
+		yq -r '.["machines"]["0"]["hardware"]' |
+		grep -oP 'availability-zone=\K\S+')
+
+	if [[ -z "${az}" ]]; then
+		echo "==> TEST SKIPPED: no availability zone reported by provider ${BOOTSTRAP_PROVIDER}"
+		destroy_model "test-deploy-charm-zone-placement"
+		return
+	fi
+
+	# Deploy a local charm using a zone-based placement directive.
+	# A local charm deploy goes through the legacy Deploy API path, where
+	# the client substitutes the "model-uuid" placeholder scope with the
+	# real model UUID before sending it to the API server. The domain
+	# layer must recognise the model UUID scope as a provider placement
+	# directive, not attempt to parse it as a container type.
+	# shellcheck disable=SC2046
+	juju deploy $(pack_charm ./testcharms/charms/ubuntu-plus) --to "zone=${az}" ubuntu-zone-placement
+	wait_for "ubuntu-zone-placement" "$(idle_condition "ubuntu-zone-placement")"
+
+	# Verify that the machine hosting the deployed unit is in the
+	# requested availability zone.
+	machine_id=$(juju status --format=json |
+		yq -r '.applications."ubuntu-zone-placement".units."ubuntu-zone-placement/0".machine')
+	deployed_az=$(juju show-machine "${machine_id}" --format=json |
+		yq -r ".[\"machines\"][\"${machine_id}\"][\"hardware\"]" |
+		grep -oP 'availability-zone=\K\S+')
+	echo "${deployed_az}" | check "${az}"
+
+	destroy_model "test-deploy-charm-zone-placement"
+}
+
 run_deploy_charm_unsupported_series() {
 	# Test trying to deploy a charmhub charm to an operating system
 	# never supported in the specified channel. It should fail.
@@ -405,8 +457,10 @@ test_deploy_charms() {
 		"lxd")
 			if kvm-ok; then
 				run "run_deploy_charm_placement_directive"
+				run "run_deploy_charm_zone_placement_directive"
 			else
 				echo "==> TEST SKIPPED: deploy_charm_placement_directive - lxd without kvm is not supported"
+				echo "==> TEST SKIPPED: deploy_charm_zone_placement_directive - lxd without kvm is not supported"
 			fi
 			# Skip these tests for now, as they rely on lxd profiles, which
 			# have not been re-implemented yet
@@ -420,6 +474,7 @@ test_deploy_charms() {
 			;;
 		*)
 			run "run_deploy_charm_placement_directive"
+			run "run_deploy_charm_zone_placement_directive"
 			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"

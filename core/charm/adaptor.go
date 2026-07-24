@@ -28,7 +28,7 @@ func (adaptor charmInfoAdaptor) Config() *charm.ConfigSpec {
 }
 
 func (adaptor charmInfoAdaptor) Actions() *charm.Actions {
-	return nil // not part of the essential metadata
+	return adaptor.meta.Actions
 }
 
 func (adaptor charmInfoAdaptor) Revision() int {

@@ -6,6 +6,7 @@ package deployer
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/canonical/gomock/gomock"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
+	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/deployment/charm"
 	charmresource "github.com/juju/juju/domain/deployment/charm/resource"
@@ -68,6 +70,108 @@ func (s *charmSuite) TestSimpleCharmDeploy(c *tc.C) {
 	s.deployerAPI.EXPECT().Deploy(gomock.Any(), gomock.Any()).Return(nil)
 
 	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *charmSuite) TestModelTypeMismatchK8sCharmOnMachineModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	m := mocks.NewMockModelCommand(ctrl)
+	m.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil)
+	m.EXPECT().ModelDetails(gomock.Any()).Return("machinemodel", nil, nil)
+
+	// A sidecar charm on a machine model is unambiguous: error.
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	warning, err := modelTypeMismatch(c.Context(), m, meta)
+
+	c.Check(warning, tc.Equals, "")
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *charmSuite) TestModelTypeMismatchMachineCharmOnK8sModel(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	m := mocks.NewMockModelCommand(ctrl)
+	m.EXPECT().ModelType(gomock.Any()).Return(model.CAAS, nil)
+	m.EXPECT().ModelDetails(gomock.Any()).Return("k8smodel", nil, nil)
+
+	// A charm with no containers on a Kubernetes model: warn only.
+	meta := &charm.Meta{Name: "mysql"}
+	warning, err := modelTypeMismatch(c.Context(), m, meta)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals,
+		`"mysql" declares no containers but "k8smodel" is a Kubernetes model; it has no workload to run there`)
+}
+
+func (s *charmSuite) TestModelTypeMismatchConsistent(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	m := mocks.NewMockModelCommand(ctrl)
+	m.EXPECT().ModelType(gomock.Any()).Return(model.CAAS, nil)
+	m.EXPECT().ModelDetails(gomock.Any()).Return("k8smodel", nil, nil)
+
+	// A sidecar charm on a Kubernetes model is consistent: no warning, no error.
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	warning, err := modelTypeMismatch(c.Context(), m, meta)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
+}
+
+func (s *charmSuite) TestModelTypeMismatchNilMeta(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	// No expectations: a nil Meta must short-circuit before touching the model.
+	m := mocks.NewMockModelCommand(ctrl)
+
+	warning, err := modelTypeMismatch(c.Context(), m, nil)
+
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(warning, tc.Equals, "")
+}
+
+func (s *charmSuite) TestModelTypeMismatchModelNameFallback(c *tc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	m := mocks.NewMockModelCommand(ctrl)
+	m.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil)
+	// ModelDetails failing must not produce an empty quoted model name.
+	m.EXPECT().ModelDetails(gomock.Any()).Return("", nil, errors.New("boom"))
+
+	meta := &charm.Meta{Name: "redis-k8s", Containers: map[string]charm.Container{"redis": {}}}
+	_, err := modelTypeMismatch(c.Context(), m, meta)
+
+	c.Assert(err, tc.NotNil)
+	c.Check(strings.Contains(err.Error(), "the target model"), tc.IsTrue)
+	c.Check(strings.Contains(err.Error(), `""`), tc.IsFalse)
+}
+
+func (s *charmSuite) TestDeployK8sCharmOnMachineModelRejected(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// The model type from setupMocks is IAAS; a charm declaring containers
+	// must be rejected before the deploy is attempted.
+	s.charmInfo.Meta.Containers = map[string]charm.Container{"redis": {}}
+
+	err := s.newDeployCharm().deploy(s.ctx, s.deployerAPI)
+	c.Check(err, tc.ErrorIs, coreerrors.NotSupported)
+}
+
+func (s *charmSuite) TestDeployK8sCharmOnMachineModelForced(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
+	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
+	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().Deploy(gomock.Any(), gomock.Any()).Return(nil)
+
+	// With --force the rejection is downgraded to a warning and the deploy
+	// proceeds.
+	s.charmInfo.Meta.Containers = map[string]charm.Container{"redis": {}}
+	dCharm := s.newDeployCharm()
+	dCharm.force = true
+
+	err := dCharm.deploy(s.ctx, s.deployerAPI)
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -271,6 +375,7 @@ func (s *charmSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)
 	s.modelCommand.EXPECT().ModelType(gomock.Any()).Return(model.IAAS, nil).AnyTimes()
+	s.modelCommand.EXPECT().ModelDetails(gomock.Any()).Return("test-model", nil, nil).AnyTimes()
 	s.configFlag = mocks.NewMockDeployConfigFlag(ctrl)
 	return ctrl
 }

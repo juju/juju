@@ -69,8 +69,8 @@ type MockHTTPClient struct {
 
 // MockHTTPClientMockRecorder is the mock recorder for MockHTTPClient.
 type MockHTTPClientMockRecorder struct {
-	mock       *MockHTTPClient
-	getExpects []*gomock.Call1_2[string, *http.Response, error]
+	mock      *MockHTTPClient
+	doExpects []*gomock.Call1_2[*http.Request, *http.Response, error]
 }
 
 // NewMockHTTPClient creates a new mock instance.
@@ -85,20 +85,20 @@ func (m *MockHTTPClient) EXPECT() *MockHTTPClientMockRecorder {
 	return m.recorder
 }
 
-// Get mocks base method.
-func (m *MockHTTPClient) Get(arg0 string) (*http.Response, error) {
+// Do mocks base method.
+func (m *MockHTTPClient) Do(arg0 *http.Request) (*http.Response, error) {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch1_2(&m.recorder.getExpects, m.ctrl, m, "Get", arg0)
+	return gomock.Dispatch1_2(&m.recorder.doExpects, m.ctrl, m, "Do", arg0)
 }
 
-// Get indicates an expected call of Get.
-func (mr *MockHTTPClientMockRecorder) Get(arg0 any) *MockHTTPClientGetCall {
+// Do indicates an expected call of Do.
+func (mr *MockHTTPClientMockRecorder) Do(arg0 any) *MockHTTPClientDoCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall1_2[string, *http.Response, error](mr.mock.ctrl.T, mr.mock, "Get", gomock.EnsureMatcher(arg0))
-	mr.getExpects = append(mr.getExpects, call)
+	call := gomock.NewCall1_2[*http.Request, *http.Response, error](mr.mock.ctrl.T, mr.mock, "Do", gomock.EnsureMatcher(arg0))
+	mr.doExpects = append(mr.doExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
-// MockHTTPClientGetCall is the typed call wrapper for Get.
-type MockHTTPClientGetCall = gomock.Call1_2[string, *http.Response, error]
+// MockHTTPClientDoCall is the typed call wrapper for Do.
+type MockHTTPClientDoCall = gomock.Call1_2[*http.Request, *http.Response, error]

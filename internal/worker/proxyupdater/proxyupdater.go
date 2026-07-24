@@ -38,6 +38,9 @@ func (c *Config) Validate() error {
 	if c.API == nil {
 		return errors.NotValidf("missing API")
 	}
+	if c.ExternalUpdate == nil {
+		return errors.NotValidf("missing ExternalUpdate")
+	}
 	if c.InProcessUpdate == nil {
 		return errors.NotValidf("missing InProcessUpdate")
 	}
@@ -137,14 +140,11 @@ func (w *proxyWorker) handleProxyValues(ctx context.Context, legacyProxySettings
 		w.config.Logger.Errorf(ctx, "error updating in-process proxy settings: %v", err)
 	}
 
-	// If the external update function is passed in, it is to update the LXD
-	// proxies. We want to set this to the proxy specified regardless of whether
-	// it was set with the legacy fields or the new juju fields.
-	if externalFunc := w.config.ExternalUpdate; externalFunc != nil {
-		if err := externalFunc(settings); err != nil {
-			// It isn't really fatal, but we should record it.
-			w.config.Logger.Errorf(ctx, "%v", err)
-		}
+	// ExternalUpdate handles integrations such as LXD. It is called regardless
+	// of whether the proxy was set with the legacy or new Juju fields.
+	if err := w.config.ExternalUpdate(settings); err != nil {
+		// It isn't really fatal, but we should record it.
+		w.config.Logger.Errorf(ctx, "%v", err)
 	}
 
 	// Here we write files to disk. This is done only for legacyProxySettings.
@@ -264,7 +264,6 @@ func (w *proxyWorker) handleAptProxyValues(ctx context.Context, aptSettings prox
 			w.config.Logger.Warningf(ctx, "unable to update apt mirrors: %v, output: %q", err, output)
 		}
 	}
-	return
 }
 
 func (w *proxyWorker) onChange(ctx context.Context) error {
@@ -272,11 +271,14 @@ func (w *proxyWorker) onChange(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	w.applyConfig(ctx, config)
+	return nil
+}
 
+func (w *proxyWorker) applyConfig(ctx context.Context, config proxyupdater.ProxyConfiguration) {
 	w.handleProxyValues(ctx, config.LegacyProxy, config.JujuProxy)
 	w.handleSnapProxyValues(ctx, config.SnapProxy, config.SnapStoreProxyId, config.SnapStoreProxyAssertions, config.SnapStoreProxyURL)
 	w.handleAptProxyValues(ctx, config.APTProxy, config.AptMirror)
-	return nil
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.

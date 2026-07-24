@@ -12,7 +12,7 @@ import (
 	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
 )
 
-// PGPPGPSignatureCheckFn can be overridden by tests to allow signatures from
+// PGPSignatureCheckFn can be overridden by tests to allow signatures from
 // non-trusted sources to be verified.
 var PGPSignatureCheckFn = func(keyring openpgp.KeyRing, signed, signature io.Reader) (*openpgp.Entity, error) {
 	return openpgp.CheckDetachedSignature(keyring, signed, signature, nil)

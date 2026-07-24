@@ -761,7 +761,7 @@ func (s *ProviderService) makeIAASUnitArgs(
 ) ([]application.AddIAASUnitArg, error) {
 	args := make([]application.AddIAASUnitArg, len(units))
 	for i, u := range units {
-		placement, err := deployment.ParsePlacement(u.Placement)
+		placement, err := deployment.ParsePlacement(u.Placement, s.modelUUID.String())
 		if err != nil {
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}
@@ -894,7 +894,7 @@ func (s *ProviderService) makeCAASUnitArgs(
 ) ([]application.AddCAASUnitArg, error) {
 	args := make([]application.AddCAASUnitArg, len(units))
 	for i, u := range units {
-		placement, err := deployment.ParsePlacement(u.Placement)
+		placement, err := deployment.ParsePlacement(u.Placement, s.modelUUID.String())
 		if err != nil {
 			return nil, errors.Errorf("invalid placement: %w", err)
 		}

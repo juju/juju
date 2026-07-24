@@ -9,9 +9,9 @@ run_diff_bundle_reflexive() {
 	# The juju-qa-test charm includes both int and float options
 	# so we install it from a bundle and then compare the model to the bundle
 
-	bundle="./test/suites/cli/bundles/juju-qa-test_full-options_bundle.yaml"
+	bundle="./tests/suites/cli/bundles/juju-qa-test_full-options_bundle.yaml"
 
-	juju deploy bundle
+	juju deploy "${bundle}"
 	juju diff-bundle "${bundle}" | check "{}"
 
 	destroy_model "test-cli-diff-bundle-reflexive"
