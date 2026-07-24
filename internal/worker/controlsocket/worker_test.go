@@ -1005,7 +1005,7 @@ func (s *workerSuite) TestWorkloadTracingConfigServiceError(c *tc.C) {
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsInvalidMethod(c *tc.C) {
+func (s *workerSuite) TestSetS3ConfigInvalidMethod(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	socket := s.newSocket(c)
@@ -1015,13 +1015,13 @@ func (s *workerSuite) TestAddS3CredentialsInvalidMethod(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodGet,
-		endpoint:   "/s3-credentials",
+		endpoint:   "/s3-config",
 		statusCode: http.StatusMethodNotAllowed,
 		ignoreBody: true,
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsMissingBody(c *tc.C) {
+func (s *workerSuite) TestS3CredentialsEndpointRemoved(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	socket := s.newSocket(c)
@@ -1032,12 +1032,29 @@ func (s *workerSuite) TestAddS3CredentialsMissingBody(c *tc.C) {
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
 		endpoint:   "/s3-credentials",
+		body:       `{}`,
+		statusCode: http.StatusNotFound,
+		ignoreBody: true,
+	})
+}
+
+func (s *workerSuite) TestSetS3ConfigMissingBody(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	socket := s.newSocket(c)
+
+	w := s.newWorker(c, socket)
+	defer workertest.CleanKill(c, w)
+
+	s.runHandlerTest(c, socket, handlerTest{
+		method:     http.MethodPost,
+		endpoint:   "/s3-config",
 		statusCode: http.StatusBadRequest,
 		response:   ".*missing request body.*",
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsPayloadTooLarge(c *tc.C) {
+func (s *workerSuite) TestSetS3ConfigPayloadTooLarge(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	socket := s.newSocket(c)
@@ -1047,14 +1064,14 @@ func (s *workerSuite) TestAddS3CredentialsPayloadTooLarge(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
-		endpoint:   "/s3-credentials",
+		endpoint:   "/s3-config",
 		body:       strings.Repeat("a", maxPayloadBytes+1),
 		statusCode: http.StatusRequestEntityTooLarge,
 		response:   ".*must not exceed.*",
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsInvalidJSON(c *tc.C) {
+func (s *workerSuite) TestSetS3ConfigInvalidJSON(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	socket := s.newSocket(c)
@@ -1064,14 +1081,14 @@ func (s *workerSuite) TestAddS3CredentialsInvalidJSON(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
-		endpoint:   "/s3-credentials",
+		endpoint:   "/s3-config",
 		body:       `{"Endpoint":`,
 		statusCode: http.StatusBadRequest,
 		response:   ".*request body is not valid JSON.*",
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsServiceError(c *tc.C) {
+func (s *workerSuite) TestSetS3ConfigServiceError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any()).Return(errors.New("boom"))
@@ -1083,14 +1100,14 @@ func (s *workerSuite) TestAddS3CredentialsServiceError(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
-		endpoint:   "/s3-credentials",
+		endpoint:   "/s3-config",
 		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
 		statusCode: http.StatusInternalServerError,
-		response:   ".*saving S3 credentials.*boom.*",
+		response:   ".*saving S3 config.*boom.*",
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
+func (s *workerSuite) TestSetS3ConfigSuccess(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), domainobjectstore.S3Credentials{
@@ -1108,14 +1125,14 @@ func (s *workerSuite) TestAddS3CredentialsSuccess(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
-		endpoint:   "/s3-credentials",
+		endpoint:   "/s3-config",
 		body:       `{"bucket":"test-bucket","region":"us-east-1","endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
 		statusCode: http.StatusOK,
-		response:   ".*updated S3 credentials.*",
+		response:   ".*updated S3 config.*",
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsNotValid(c *tc.C) {
+func (s *workerSuite) TestSetS3ConfigNotValid(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.objectStoreService.EXPECT().TransitionBackendToS3(gomock.Any(), gomock.Any()).Return(
@@ -1129,14 +1146,14 @@ func (s *workerSuite) TestAddS3CredentialsNotValid(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodPost,
-		endpoint:   "/s3-credentials",
+		endpoint:   "/s3-config",
 		body:       `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
 		statusCode: http.StatusBadRequest,
-		response:   ".*invalid S3 credentials.*",
+		response:   ".*invalid S3 config.*",
 	})
 }
 
-func (s *workerSuite) TestRemoveS3CredentialsNotImplemented(c *tc.C) {
+func (s *workerSuite) TestRemoveS3ConfigNotImplemented(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	socket := s.newSocket(c)
@@ -1146,13 +1163,13 @@ func (s *workerSuite) TestRemoveS3CredentialsNotImplemented(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:     http.MethodDelete,
-		endpoint:   "/s3-credentials",
+		endpoint:   "/s3-config",
 		statusCode: http.StatusNotImplemented,
-		response:   ".*removing s3 credentials is not supported.*",
+		response:   ".*removing S3 config is not supported.*",
 	})
 }
 
-func (s *workerSuite) TestAddS3CredentialsUnsupportedContentType(c *tc.C) {
+func (s *workerSuite) TestSetS3ConfigUnsupportedContentType(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	socket := s.newSocket(c)
@@ -1162,7 +1179,7 @@ func (s *workerSuite) TestAddS3CredentialsUnsupportedContentType(c *tc.C) {
 
 	s.runHandlerTest(c, socket, handlerTest{
 		method:      http.MethodPost,
-		endpoint:    "/s3-credentials",
+		endpoint:    "/s3-config",
 		body:        `{"endpoint":"https://example.com","access_key":"foo","secret_key":"bar"}`,
 		contentType: "text/plain",
 		statusCode:  http.StatusUnsupportedMediaType,
