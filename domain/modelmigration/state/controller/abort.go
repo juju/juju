@@ -9,6 +9,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/modelmigration"
 	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	"github.com/juju/juju/internal/errors"
@@ -81,19 +82,56 @@ AND    phase_type_id = (SELECT id FROM source_phase)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		if affected == 0 {
-			// The read above saw importing, so the CAS should have matched.
-			// This is unreachable under snapshot isolation: a concurrent
-			// phase change on another node would fail the transaction at
-			// commit time and the framework would retry, at which point the
-			// read would see the new phase. Treat it as a defensive guard.
-			return errors.Errorf(
-				"import phase changed concurrently: %w",
-				modelmigrationerrors.ErrPhaseTransitionInvalid,
-			)
+		if affected == 1 {
+			return nil
 		}
-		return nil
+		// The read above saw importing, so the CAS should have matched.
+		// This is unreachable under snapshot isolation: a concurrent
+		// phase change on another node would fail the transaction at
+		// commit time and the framework would retry, at which point the
+		// read would see the new phase. Treat it as a defensive guard.
+		return errors.Errorf(
+			"import phase changed concurrently: %w",
+			modelmigrationerrors.ErrPhaseTransitionInvalid,
+		)
 	})
+}
+
+// getAbortClaimCheck computes within tx, in a single round trip, the two
+// predicates [State.StageAbortedModelDatabaseDeletion] and
+// [State.FinalizeAbortedImport] assert on a model's import claim: whether a
+// claim exists at all, and whether it is in the aborting phase. The
+// discrimination is done in SQL (rather than filtering to an aborting-only
+// row, or extracting the claim and testing its phase in Go) so each caller
+// can map the outcome to its own contract: a missing claim is idempotent
+// success for finalization but an error for staging, while a wrong-phase
+// claim is a hard error for both. A phase-filtered query cannot tell those
+// apart: a still-importing claim and a missing claim would both yield no
+// rows, and finalization would silently succeed while the claim survives.
+func (s *State) getAbortClaimCheck(
+	ctx context.Context, tx *sqlair.TX, modelUUID string,
+) (abortClaimCheck, error) {
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	stmt, err := s.Prepare(`
+WITH claim AS (
+    SELECT mmipt.type AS phase_type
+    FROM   model_migration_import AS mmi
+    JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+    WHERE  mmi.model_uuid = $modelUUIDArg.model_uuid
+)
+SELECT EXISTS(SELECT 1 FROM claim) AS &abortClaimCheck.claim_exists,
+       EXISTS(SELECT 1 FROM claim WHERE phase_type = 'aborting') AS &abortClaimCheck.claim_aborting
+`, abortClaimCheck{}, mUUID)
+	if err != nil {
+		return abortClaimCheck{}, errors.Capture(err)
+	}
+
+	var check abortClaimCheck
+	if err := tx.Query(ctx, stmt, mUUID).Get(&check); err != nil {
+		return abortClaimCheck{}, errors.Errorf(
+			"checking aborting import claim for model %q: %w", modelUUID, err)
+	}
+	return check, nil
 }
 
 // IsModelDying reports whether the model row for modelUUID exists and has left
@@ -121,14 +159,18 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid`, arg, modelLifeRow{})
 	}
 
 	var row modelLifeRow
-	found := true
+	var found bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		found = false
 		err := tx.Query(ctx, stmt, arg).Get(&row)
 		if errors.Is(err, sqlair.ErrNoRows) {
-			found = false
 			return nil
 		}
-		return err
+		if err != nil {
+			return err
+		}
+		found = true
+		return nil
 	})
 	if err != nil {
 		return false, errors.Errorf("reading model life for %q: %w", modelUUID, err)
@@ -136,9 +178,9 @@ WHERE  m.uuid = $modelUUIDArg.model_uuid`, arg, modelLifeRow{})
 	if !found {
 		return false, nil
 	}
-	// life_id 0 is alive; anything else (dying, dead) means the generic removal
-	// undertaker has taken over.
-	return row.LifeID != 0, nil
+	// Anything but alive (dying, dead) means the generic removal undertaker
+	// has taken over.
+	return life.Life(row.LifeID) != life.Alive, nil
 }
 
 // GetAllImportClaims returns a snapshot of every outstanding
@@ -239,10 +281,11 @@ LIMIT  1
 // [State.FinalizeAbortedImport] then releases the claim once the staged row is
 // gone.
 //
-// It asserts, in the same transaction, that the claim is in the aborting phase,
-// so a live model's database can never be staged for deletion. It is idempotent:
-// the namespace delete is a no-op once done, and the staged row is upserted, so
-// re-driving it (or racing another controller node) is safe. Returns
+// It asserts, in the same transaction, that the claim is in the aborting
+// phase, so a live model's database can never be staged for deletion. It is
+// idempotent: the namespace delete is a no-op once done, and an already-staged
+// deletion is left untouched, so re-driving it (or racing another controller
+// node) is safe. Returns
 // [modelmigrationerrors.ErrImportNotFound] when no claim exists and
 // [modelmigrationerrors.ErrPhaseTransitionInvalid] when the claim is not
 // aborting.
@@ -260,29 +303,46 @@ WHERE  namespace = $namespaceArg.namespace
 	if err != nil {
 		return errors.Capture(err)
 	}
+	stagedDeletionStmt, err := s.Prepare(`
+SELECT 1 AS &countResult.count
+FROM   model_database_deletion
+WHERE  namespace = $namespaceArg.namespace
+LIMIT  1
+`, countResult{}, nsArg)
+	if err != nil {
+		return errors.Capture(err)
+	}
 	stageDeletionStmt, err := s.Prepare(`
 INSERT INTO model_database_deletion (*)
 VALUES ($modelDatabaseDeletion.*)
-ON CONFLICT (namespace) DO UPDATE SET created_at = excluded.created_at
 `, modelDatabaseDeletion{})
 	if err != nil {
 		return errors.Capture(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		claim, err := s.getImportClaim(ctx, tx, modelUUID)
+		check, err := s.getAbortClaimCheck(ctx, tx, modelUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		if claim.Phase != modelmigration.ImportPhaseAborting {
+		if !check.ClaimExists {
+			return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrImportNotFound)
+		}
+		if !check.ClaimAborting {
 			return errors.Errorf(
-				"import claim is %q, expected aborting: %w",
-				claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
-			)
+				"import claim for model %q is not aborting: %w",
+				modelUUID, modelmigrationerrors.ErrPhaseTransitionInvalid)
 		}
 
 		if err := tx.Query(ctx, deleteNamespaceListStmt, nsArg).Run(); err != nil {
 			return errors.Errorf("deleting namespace registration: %w", err)
+		}
+		// The deletion is already staged; leave its created_at untouched rather
+		// than rewriting a timestamp that would misreport when it was staged.
+		if staged, err := rowExists(ctx, tx, stagedDeletionStmt, nsArg); err != nil {
+			return errors.Errorf("checking staged model database deletion: %w", err)
+		} else if staged {
+			return nil
 		}
 		if err := tx.Query(ctx, stageDeletionStmt, modelDatabaseDeletion{
 			Namespace: modelUUID,
@@ -303,8 +363,8 @@ ON CONFLICT (namespace) DO UPDATE SET created_at = excluded.created_at
 // model_database_deletion row is still staged for the model's namespace (which
 // would mean the undertaker has not yet dropped the model database); if any of
 // these does not hold it returns [modelmigrationerrors.ErrAbortNotFinalizable]
-// and makes no deletions, leaving the claim in aborting for a later retry. It is
-// idempotent when no claim exists (already finalized). Returns
+// and makes no deletions, leaving the claim in aborting for a later retry. It
+// is idempotent when no claim exists (already finalized). Returns
 // [modelmigrationerrors.ErrPhaseTransitionInvalid] when a claim exists but is
 // not aborting.
 //
@@ -322,30 +382,20 @@ func (s *State) FinalizeAbortedImport(ctx context.Context, modelUUID string) err
 	mUUID := modelUUIDArg{ModelUUID: modelUUID}
 	nsArg := namespaceArg{Namespace: modelUUID}
 
-	modelStmt, err := s.Prepare(`
-SELECT 1 AS &countResult.count
-FROM   model AS m
-WHERE  m.uuid = $modelUUIDArg.model_uuid
-LIMIT  1
-`, countResult{}, mUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	modelNamespaceStmt, err := s.Prepare(`
-SELECT 1 AS &countResult.count
-FROM   model_namespace AS mn
-WHERE  mn.model_uuid = $modelUUIDArg.model_uuid
-LIMIT  1
-`, countResult{}, mUUID)
-	if err != nil {
-		return errors.Capture(err)
-	}
-	stagedDeletionStmt, err := s.Prepare(`
-SELECT 1 AS &countResult.count
-FROM   model_database_deletion
-WHERE  namespace = $namespaceArg.namespace
-LIMIT  1
-`, countResult{}, nsArg)
+	finalizeChecksStmt, err := s.Prepare(`
+WITH model_row AS (
+    SELECT 1 FROM model WHERE uuid = $modelUUIDArg.model_uuid
+),
+model_namespace_row AS (
+    SELECT 1 FROM model_namespace WHERE model_uuid = $modelUUIDArg.model_uuid
+),
+staged_deletion_row AS (
+    SELECT 1 FROM model_database_deletion WHERE namespace = $namespaceArg.namespace
+)
+SELECT EXISTS(SELECT 1 FROM model_row)           AS &abortFinalizeChecks.model_exists,
+       EXISTS(SELECT 1 FROM model_namespace_row) AS &abortFinalizeChecks.namespace_exists,
+       EXISTS(SELECT 1 FROM staged_deletion_row) AS &abortFinalizeChecks.deletion_staged
+`, abortFinalizeChecks{}, mUUID, nsArg)
 	if err != nil {
 		return errors.Capture(err)
 	}
@@ -378,41 +428,38 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		claim, err := s.getImportClaim(ctx, tx, modelUUID)
-		if errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
-			return nil // idempotent: already finalized
-		}
+		check, err := s.getAbortClaimCheck(ctx, tx, modelUUID)
 		if err != nil {
 			return errors.Capture(err)
 		}
-		if claim.Phase != modelmigration.ImportPhaseAborting {
+		if !check.ClaimExists {
+			return nil // idempotent: already finalized
+		}
+		if !check.ClaimAborting {
 			return errors.Errorf(
-				"import claim is %q, expected aborting: %w",
-				claim.Phase, modelmigrationerrors.ErrPhaseTransitionInvalid,
-			)
+				"import claim for model %q is not aborting: %w",
+				modelUUID, modelmigrationerrors.ErrPhaseTransitionInvalid)
 		}
 
-		// Finalization predicates: the controller model identity row and its
-		// namespace mapping must both be gone, and the model database must have
-		// been dropped by the undertaker (its staged deletion row cleared),
-		// before the claim can be released.
-		if modelExists, err := rowExists(ctx, tx, modelStmt, mUUID); err != nil {
-			return errors.Errorf("checking model row for model %q: %w", modelUUID, err)
-		} else if modelExists {
+		// Finalization predicates, read in a single round trip: the controller
+		// model identity row and its namespace mapping must both be gone, and the
+		// model database must have been dropped by the undertaker (its staged
+		// deletion row cleared), before the claim can be released.
+		var checks abortFinalizeChecks
+		if err := tx.Query(ctx, finalizeChecksStmt, mUUID, nsArg).Get(&checks); err != nil {
+			return errors.Errorf("checking finalization predicates for model %q: %w", modelUUID, err)
+		}
+		if checks.ModelExists {
 			return errors.Errorf(
 				"model %q identity row still present: %w",
 				modelUUID, modelmigrationerrors.ErrAbortNotFinalizable)
 		}
-		if nsExists, err := rowExists(ctx, tx, modelNamespaceStmt, mUUID); err != nil {
-			return errors.Errorf("checking model namespace for model %q: %w", modelUUID, err)
-		} else if nsExists {
+		if checks.NamespaceExists {
 			return errors.Errorf(
 				"model %q namespace mapping still present: %w",
 				modelUUID, modelmigrationerrors.ErrAbortNotFinalizable)
 		}
-		if staged, err := rowExists(ctx, tx, stagedDeletionStmt, nsArg); err != nil {
-			return errors.Errorf("checking staged database deletion for model %q: %w", modelUUID, err)
-		} else if staged {
+		if checks.DeletionStaged {
 			return errors.Errorf(
 				"model %q database deletion still pending: %w",
 				modelUUID, modelmigrationerrors.ErrAbortNotFinalizable)
