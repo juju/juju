@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
-	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -32,7 +31,7 @@ func InsertInitialSSHServerHostKey(sshServerHostKey string) internaldatabase.Boo
 			return errors.Errorf("determining controller SSH host key algorithm: %w", err)
 		}
 
-		publicKey, err := marshalPublicKey(sshServerHostKey)
+		publicKey, err := pkissh.MarshalPublicKey([]byte(sshServerHostKey))
 		if err != nil {
 			return errors.Errorf("deriving controller SSH host public key: %w", err)
 		}
@@ -81,14 +80,4 @@ func sshKeyAlgorithmTypeID(sshKey string) (int, error) {
 	default:
 		return 0, errors.Errorf("unsupported SSH key algorithm %q", algorithm)
 	}
-}
-
-// marshalPublicKey parses the marshalled private key and returns the
-// marshalled public key derived from it.
-func marshalPublicKey(privateKey string) ([]byte, error) {
-	signer, err := gossh.ParsePrivateKey([]byte(privateKey))
-	if err != nil {
-		return nil, errors.Capture(err)
-	}
-	return signer.PublicKey().Marshal(), nil
 }

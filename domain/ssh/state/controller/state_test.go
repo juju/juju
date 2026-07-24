@@ -80,6 +80,24 @@ func (s *stateSuite) TestGetSSHServerHostPublicKeyExisting(c *tc.C) {
 	c.Check(got, tc.DeepEquals, want)
 }
 
+// TestGetSSHServerHostPublicKeyEmpty checks that a row with an empty
+// public_key column returns an empty byte slice without error. This can
+// happen if a row was inserted without deriving the public key.
+func (s *stateSuite) TestGetSSHServerHostPublicKeyEmpty(c *tc.C) {
+	// Insert a row directly with an empty public_key.
+	_, err := s.DB().Exec(
+		`INSERT INTO controller_ssh_host_key (id, algorithm_type_id, ssh_key, public_key) VALUES (?, ?, ?, x'')`,
+		domainssh.SSHServerHostKeyUUID, domainssh.SSHKeyAlgorithmTypeED25519ID, "dummy-key",
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+
+	got, err := st.GetSSHServerHostPublicKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, []byte{})
+}
+
 func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactory {
 	return func(context.Context) (coredatabase.TxnRunner, error) {
 		return runner, nil
