@@ -263,6 +263,23 @@ func (s *caasMigrationSuite) TestGetMigrationAgentsCAAS(c *tc.C) {
 		legacyAppUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
+	// A synthetic CMR application can retain a stale application agent row, but
+	// it does not run an application agent and must be excluded.
+	cmrCharmUUID := uuid.MustNewUUID().String()
+	cmrAppUUID := uuid.MustNewUUID().String()
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO charm (uuid, reference_name, source_id) VALUES (?, ?, 2)",
+		cmrCharmUUID, "remote-app")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application (uuid, name, life_id, charm_uuid, space_uuid) VALUES (?, ?, 0, ?, ?)",
+		cmrAppUUID, "remote-app", cmrCharmUUID, "656b4a82-e28c-53d6-a014-f0dd53417eb6")
+	c.Assert(err, tc.ErrorIsNil)
+	_, err = db.ExecContext(c.Context(),
+		"INSERT INTO application_agent (application_uuid) VALUES (?)",
+		cmrAppUUID)
+	c.Assert(err, tc.ErrorIsNil)
+
 	sidecarAppUUID := uuid.MustNewUUID().String()
 	unitNetNodeUUID := uuid.MustNewUUID().String()
 	unitUUID := uuid.MustNewUUID().String()

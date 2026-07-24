@@ -1402,6 +1402,45 @@ func (s *modelStateSuite) TestGetAllFullUnitStatuses(c *tc.C) {
 	c.Check(u3Full.Present, tc.Equals, false)
 }
 
+func (s *modelStateSuite) TestGetAllUnitWorkloadAgentStatusesIgnoresSyntheticCMRUnits(c *tc.C) {
+	_, unitUUIDs := s.createIAASApplicationWithNUnits(c, "foo", 1)
+	unitUUID := unitUUIDs[0]
+	workloadStatus := status.StatusInfo[status.WorkloadStatusType]{
+		Status: status.WorkloadStatusActive,
+		Since:  new(time.Now()),
+	}
+	err := s.state.SetUnitWorkloadStatus(c.Context(), unitUUID, workloadStatus)
+	c.Assert(err, tc.ErrorIsNil)
+
+	agentStatus := status.StatusInfo[status.UnitAgentStatusType]{
+		Status: status.UnitAgentStatusIdle,
+		Since:  new(time.Now()),
+	}
+	err = s.state.SetUnitAgentStatus(c.Context(), unitUUID, agentStatus)
+	c.Assert(err, tc.ErrorIsNil)
+
+	remoteAppUUID, _ := s.createIAASApplicationWithNUnits(c, "remote-app", 1)
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm
+SET source_id = 2, architecture_id = NULL
+WHERE uuid = (SELECT charm_uuid FROM application WHERE uuid = ?)`, remoteAppUUID)
+		return err
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	result, err := s.state.GetAllUnitWorkloadAgentStatuses(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Assert(result, tc.HasLen, 1)
+
+	unitStatus, ok := result["foo/0"]
+	c.Assert(ok, tc.IsTrue)
+	c.Check(unitStatus.WorkloadStatus.Status, tc.Equals, workloadStatus.Status)
+	c.Check(unitStatus.AgentStatus.Status, tc.Equals, agentStatus.Status)
+	_, ok = result["remote-app/0"]
+	c.Check(ok, tc.IsFalse)
+}
+
 func (s *modelStateSuite) TestGetAllApplicationStatusesEmptyModel(c *tc.C) {
 	statuses, err := s.state.GetAllApplicationStatuses(c.Context())
 	c.Assert(err, tc.ErrorIsNil)

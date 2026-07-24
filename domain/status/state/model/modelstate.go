@@ -976,9 +976,10 @@ WHERE application_uuid = $applicationUUID.uuid
 	return ret, nil
 }
 
-// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and agent status
-// of every unit in the model. Returns an error satisfying [statuserrors.UnitStatusNotFound]
-// if any units do not have statuses.
+// GetAllUnitWorkloadAgentStatuses retrieves the presence, workload status, and
+// agent status of every non-synthetic unit in the model. It returns an error
+// satisfying [statuserrors.UnitStatusNotFound] if any non-synthetic unit does
+// not have statuses.
 func (st *ModelState) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (status.UnitWorkloadAgentStatuses, error) {
 	db, err := st.DB(ctx)
 	if err != nil {
@@ -988,14 +989,15 @@ func (st *ModelState) GetAllUnitWorkloadAgentStatuses(ctx context.Context) (stat
 	// Exclude synthetic cross-model-relation units: they use a CMR-source charm
 	// (charm_source.source_id = 2), have no workload/agent status rows.
 	query, err := st.Prepare(`
-SELECT &workloadAgentStatus.*
-FROM v_unit_workload_agent_status
-WHERE application_uuid NOT IN (
-    SELECT a.uuid
-    FROM application AS a
-    JOIN charm AS c ON c.uuid = a.charm_uuid
-    WHERE c.source_id >= 2
+WITH agent_units AS (
+    SELECT u.uuid AS unit_uuid
+    FROM unit AS u
+    JOIN charm AS c ON c.uuid = u.charm_uuid
+    WHERE c.source_id < 2
 )
+SELECT &workloadAgentStatus.*
+FROM v_unit_workload_agent_status AS was
+JOIN agent_units AS au ON au.unit_uuid = was.unit_uuid
 `, workloadAgentStatus{})
 	if err != nil {
 		return nil, errors.Capture(err)
