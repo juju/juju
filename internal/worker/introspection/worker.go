@@ -44,6 +44,7 @@ type Reporter interface {
 // Config describes the arguments required to create the introspection worker.
 type Config struct {
 	SocketName         string
+	ControlSocketPath  string
 	DepEngine          DependencyEngine
 	MachineLock        machinelock.Lock
 	PrometheusGatherer prometheus.Gatherer
@@ -68,9 +69,10 @@ func (c *Config) Validate() error {
 type socketListener struct {
 	tomb tomb.Tomb
 
-	listener    net.Listener
-	depEngine   DependencyEngine
-	machineLock machinelock.Lock
+	listener          net.Listener
+	depEngine         DependencyEngine
+	machineLock       machinelock.Lock
+	controlSocketPath string
 
 	prometheusGatherer prometheus.Gatherer
 	flightRecorder     flightrecorder.FlightRecorder
@@ -102,6 +104,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		listener:           l,
 		depEngine:          config.DepEngine,
 		machineLock:        config.MachineLock,
+		controlSocketPath:  config.ControlSocketPath,
 		prometheusGatherer: config.PrometheusGatherer,
 		flightRecorder:     config.FlightRecorder,
 		done:               make(chan struct{}),
@@ -182,6 +185,10 @@ func (w *socketListener) RegisterHTTPHandlers(
 	handle("/flightrecorder/start", introspectionflightrecorder.StartHandler(w.flightRecorder))
 	handle("/flightrecorder/stop", introspectionflightrecorder.StopHandler(w.flightRecorder))
 	handle("/flightrecorder/capture", introspectionflightrecorder.CaptureHandler(w.flightRecorder))
+
+	if w.controlSocketPath != "" {
+		handle("/objectstore/read-repair", newObjectStoreReadRepairHandler(w.controlSocketPath))
+	}
 }
 
 type notSupportedHandler struct {

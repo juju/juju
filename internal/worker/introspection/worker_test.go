@@ -81,11 +81,12 @@ func (s *suite) TestStartStop(c *tc.C) {
 type introspectionSuite struct {
 	testhelpers.IsolationSuite
 
-	name           string
-	worker         worker.Worker
-	depEngine      introspection.DependencyEngine
-	gatherer       prometheus.Gatherer
-	flightRecorder flightrecorder.FlightRecorder
+	name              string
+	controlSocketPath string
+	worker            worker.Worker
+	depEngine         introspection.DependencyEngine
+	gatherer          prometheus.Gatherer
+	flightRecorder    flightrecorder.FlightRecorder
 }
 
 func TestIntrospectionSuite(t *testing.T) {
@@ -99,6 +100,7 @@ func (s *introspectionSuite) SetUpTest(c *tc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.depEngine = nil
 	s.worker = nil
+	s.controlSocketPath = ""
 	s.gatherer = newPrometheusGatherer()
 	s.flightRecorder = flightRecorder{}
 	s.startWorker(c)
@@ -108,6 +110,7 @@ func (s *introspectionSuite) startWorker(c *tc.C) {
 	s.name = path.Join(c.MkDir(), fmt.Sprintf("introspection-test-%d.socket", os.Getpid()))
 	w, err := introspection.NewWorker(introspection.Config{
 		SocketName:         s.name,
+		ControlSocketPath:  s.controlSocketPath,
 		DepEngine:          s.depEngine,
 		PrometheusGatherer: s.gatherer,
 		FlightRecorder:     s.flightRecorder,
@@ -120,12 +123,24 @@ func (s *introspectionSuite) startWorker(c *tc.C) {
 }
 
 func (s *introspectionSuite) call(c *tc.C, path string) *http.Response {
+	return s.request(c, http.MethodGet, path)
+}
+
+func (s *introspectionSuite) post(c *tc.C, path string) *http.Response {
+	return s.request(c, http.MethodPost, path)
+}
+
+func (s *introspectionSuite) request(
+	c *tc.C, method, path string,
+) *http.Response {
 	client := unixSocketHTTPClient(s.name)
 	c.Assert(strings.HasPrefix(path, "/"), tc.IsTrue)
 	targetURL, err := url.Parse("http://unix.socket" + path)
 	c.Assert(err, tc.ErrorIsNil)
 
-	resp, err := client.Get(targetURL.String())
+	req, err := http.NewRequest(method, targetURL.String(), nil)
+	c.Assert(err, tc.ErrorIsNil)
+	resp, err := client.Do(req)
 	c.Assert(err, tc.ErrorIsNil)
 	return resp
 }
@@ -213,6 +228,102 @@ func (s *introspectionSuite) TestPrometheusMetrics(c *tc.C) {
 	s.assertContains(c, body, "# HELP tau Tau")
 	s.assertContains(c, body, "# TYPE tau counter")
 	s.assertContains(c, body, "tau 6.283185")
+}
+
+func (s *introspectionSuite) TestObjectStoreReadRepairNotConfigured(c *tc.C) {
+	response := s.post(c, "/objectstore/read-repair")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusNotFound)
+}
+
+func (s *introspectionSuite) TestObjectStoreReadRepairInvalidMethod(c *tc.C) {
+	workertest.CleanKill(c, s.worker)
+	s.controlSocketPath = path.Join(c.MkDir(), "control.socket")
+	s.startWorker(c)
+
+	response := s.call(c, "/objectstore/read-repair")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusMethodNotAllowed)
+	s.assertBody(c, response, "method not allowed")
+}
+
+func (s *introspectionSuite) TestObjectStoreReadRepair(c *tc.C) {
+	socketPath := s.startReadRepairControlSocketServer(c, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, tc.Equals, http.MethodPost)
+		c.Check(r.URL.Path, tc.Equals, "/objectstore/read-repair")
+		c.Check(r.Header.Get("Content-Type"), tc.Equals, "application/json")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"ok"}`))
+	}))
+
+	workertest.CleanKill(c, s.worker)
+	s.controlSocketPath = socketPath
+	s.startWorker(c)
+
+	response := s.post(c, "/objectstore/read-repair")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusOK)
+	c.Assert(response.Header.Get("Content-Type"), tc.Equals, "application/json")
+	c.Assert(s.body(c, response), tc.Equals, `{"message":"ok"}`)
+}
+
+func (s *introspectionSuite) TestObjectStoreReadRepairProxyError(c *tc.C) {
+	workertest.CleanKill(c, s.worker)
+	s.controlSocketPath = path.Join(c.MkDir(), "control.socket")
+	s.startWorker(c)
+
+	response := s.post(c, "/objectstore/read-repair")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusInternalServerError)
+	s.assertBody(c, response, "requesting read-repair failed")
+}
+
+func (s *introspectionSuite) TestObjectStoreReadRepairPassesBackendConflict(c *tc.C) {
+	socketPath := s.startReadRepairControlSocketServer(c, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, tc.Equals, http.MethodPost)
+		c.Check(r.URL.Path, tc.Equals, "/objectstore/read-repair")
+		c.Check(r.Header.Get("Content-Type"), tc.Equals, "application/json")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		_, _ = w.Write([]byte(`{"error":"incomplete"}`))
+	}))
+
+	workertest.CleanKill(c, s.worker)
+	s.controlSocketPath = socketPath
+	s.startWorker(c)
+
+	response := s.post(c, "/objectstore/read-repair")
+	defer response.Body.Close()
+	c.Assert(response.StatusCode, tc.Equals, http.StatusConflict)
+	c.Assert(response.Header.Get("Content-Type"), tc.Equals, "application/json")
+	c.Assert(s.body(c, response), tc.Equals, `{"error":"incomplete"}`)
+}
+
+func (s *introspectionSuite) startReadRepairControlSocketServer(
+	c *tc.C, handler http.Handler,
+) string {
+	socketPath := path.Join(c.MkDir(), "control.socket")
+	listener, err := sockets.Listen(sockets.Socket{
+		Network: "unix",
+		Address: socketPath,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	done := make(chan struct{})
+	server := &http.Server{
+		Handler: handler,
+	}
+	go func() {
+		defer close(done)
+		_ = server.Serve(listener)
+	}()
+	c.Cleanup(func() {
+		_ = server.Close()
+		_ = listener.Close()
+		<-done
+	})
+	return socketPath
 }
 
 type depEngine struct {
