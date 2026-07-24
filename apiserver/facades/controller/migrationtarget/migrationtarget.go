@@ -686,7 +686,7 @@ func (api *APIV8) Import(ctx context.Context, envelope params.SerializedModelV2)
 }
 
 // Abort drives target-side cleanup of a partially imported v8 model. It shadows
-// the v7 API.Abort (which marks the model dead and hands off to the undertaker):
+// the v7 API.Abort (which marks the model for deletion and hands off to the undertaker):
 // on the v8 path, cleanup is owned by the migration abort finalizers. AbortModel
 // undoes the import, stages the model database for deletion, and waits (bounded)
 // for the import claim to be released, so the model UUID is free when this

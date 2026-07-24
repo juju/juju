@@ -24,7 +24,8 @@ type modelUUIDArg struct {
 	ModelUUID string `db:"model_uuid"`
 }
 
-// modelLifeRow projects a model row's life id (0 alive, 1 dying, 2 dead).
+// modelLifeRow projects a model row's life id (see
+// [github.com/juju/juju/domain/life]).
 type modelLifeRow struct {
 	LifeID int `db:"life_id"`
 }
@@ -142,6 +143,26 @@ type addressValue struct {
 // countResult holds a COUNT(*) projection.
 type countResult struct {
 	Count int `db:"count"`
+}
+
+// abortFinalizeChecks projects the three existence predicates
+// FinalizeAbortedImport asserts in a single round trip before releasing an
+// aborted import claim: the controller model identity row, its
+// model_namespace mapping, and any still-staged model_database_deletion for
+// the model's namespace.
+type abortFinalizeChecks struct {
+	ModelExists     bool `db:"model_exists"`
+	NamespaceExists bool `db:"namespace_exists"`
+	DeletionStaged  bool `db:"deletion_staged"`
+}
+
+// abortClaimCheck projects the two predicates
+// [State.StageAbortedModelDatabaseDeletion] and [State.FinalizeAbortedImport]
+// assert on a model's import claim in a single round trip: whether a claim
+// exists at all, and whether it is in the aborting phase.
+type abortClaimCheck struct {
+	ClaimExists   bool `db:"claim_exists"`
+	ClaimAborting bool `db:"claim_aborting"`
 }
 
 // cloudImageRow is a custom cloud_image_metadata row with its architecture

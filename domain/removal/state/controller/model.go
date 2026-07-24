@@ -125,7 +125,7 @@ func (st *State) IsMigratingModel(ctx context.Context, mUUID string) (bool, erro
 	return isMigrating, nil
 }
 
-// MarkMigratingModelAsDead force-kills a migrating model as part of a
+// MarkMigratingModelAsDead marks a migrating model as dead as part of a
 // target-side import abort (the v7/legacy Abort facade path), and, when the
 // model still carries an import claim in the importing phase, transitions that
 // claim to the aborting phase in the *same transaction*.
@@ -452,66 +452,50 @@ WHERE  mmi.model_uuid = $entityUUID.uuid;`, modelUUID, migrationImportPhase{})
 func (st *State) removeBasicModelData(ctx context.Context, tx *sqlair.TX, mUUID string) error {
 	modelUUIDRec := entityUUID{UUID: mUUID}
 
+	// deletableClaim selects the model's import claim UUID only when the generic
+	// teardown is allowed to release it. The two import companion tables are
+	// keyed by that claim UUID and FK onto model_migration_import, so they must
+	// be deleted before the claim row itself, otherwise the parent delete fails
+	// an enforced foreign-key constraint when an import had recorded offer
+	// permissions or external controllers. All three deletes therefore share
+	// this CTE.
+	//
+	// The claim (and its companions) is deleted here when it is:
+	//   - importing: a legacy v4-v7 abort (whose claims are always importing) or
+	//     normal destruction of a model that never migrated (no claim, so these
+	//     are no-ops); or
+	//   - aborting AND no model-database deletion is still staged for the model's
+	//     namespace: a v7/legacy abort marked the model dead and took the claim's
+	//     abort lock (MarkMigratingModelAsDead), and this undertaker-driven
+	//     teardown owns releasing it. The staged-deletion guard preserves the v8
+	//     invariant that an aborting claim outlives a proven model-database drop:
+	//     if a v8 finalizer has staged the drop, it owns the claim and the
+	//     generic path must not release it early.
+	// An activating claim is never released here - it is owned by the v8
+	// activation finalizer.
+	const deletableClaim = `WITH deletable_claim AS (
+	     SELECT mmi.uuid
+	     FROM   model_migration_import AS mmi
+	     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
+	     WHERE  mmi.model_uuid = $entityUUID.uuid
+	     AND    (mmipt.type = 'importing'
+	         OR (mmipt.type = 'aborting'
+	             AND NOT EXISTS (SELECT 1 FROM model_database_deletion mdd
+	                             WHERE mdd.namespace = $entityUUID.uuid)))
+	 )
+	 `
+
 	tables := []string{
 		"DELETE FROM model_namespace WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_secret_backend WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM secret_backend_reference WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_authorized_keys WHERE model_uuid = $entityUUID.uuid",
 		"DELETE FROM model_last_login WHERE model_uuid = $entityUUID.uuid",
-		// The two import companion tables are keyed by the import claim UUID
-		// and FK onto model_migration_import. They must be deleted before the
-		// claim row itself, otherwise the parent delete fails an enforced
-		// foreign-key constraint when an import had recorded offer permissions
-		// or external controllers.
-		//
-		// The claim (and its companions) is deleted here when it is:
-		//   - importing: a legacy v4-v7 abort (whose claims are always
-		//     importing) or normal destruction of a model that never migrated
-		//     (no claim, so these are no-ops); or
-		//   - aborting AND no model-database deletion is still staged for the
-		//     model's namespace: a v7/legacy abort marked the model dead and
-		//     took the claim's abort lock (MarkMigratingModelAsDead), and this
-		//     undertaker-driven teardown owns releasing it. The staged-deletion
-		//     guard preserves the v8 invariant that an aborting claim outlives a
-		//     proven model-database drop: if a v8 finalizer has staged the drop,
-		//     it owns the claim and the generic path must not release it early.
-		// An activating claim is never released here - it is owned by the v8
-		// activation finalizer.
-		`WITH deletable_claim AS (
-		     SELECT mmi.uuid
-		     FROM   model_migration_import AS mmi
-		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-		     WHERE  mmi.model_uuid = $entityUUID.uuid
-		     AND    (mmipt.type = 'importing'
-		         OR (mmipt.type = 'aborting'
-		             AND NOT EXISTS (SELECT 1 FROM model_database_deletion mdd
-		                             WHERE mdd.namespace = $entityUUID.uuid)))
-		 )
-		 DELETE FROM model_migration_import_offer
+		deletableClaim + `DELETE FROM model_migration_import_offer
 		 WHERE migration_uuid IN (SELECT uuid FROM deletable_claim)`,
-		`WITH deletable_claim AS (
-		     SELECT mmi.uuid
-		     FROM   model_migration_import AS mmi
-		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-		     WHERE  mmi.model_uuid = $entityUUID.uuid
-		     AND    (mmipt.type = 'importing'
-		         OR (mmipt.type = 'aborting'
-		             AND NOT EXISTS (SELECT 1 FROM model_database_deletion mdd
-		                             WHERE mdd.namespace = $entityUUID.uuid)))
-		 )
-		 DELETE FROM model_migration_import_external_controller_model
+		deletableClaim + `DELETE FROM model_migration_import_external_controller_model
 		 WHERE migration_uuid IN (SELECT uuid FROM deletable_claim)`,
-		`WITH deletable_claim AS (
-		     SELECT mmi.uuid
-		     FROM   model_migration_import AS mmi
-		     JOIN   model_migration_import_phase_type AS mmipt ON mmipt.id = mmi.phase_type_id
-		     WHERE  mmi.model_uuid = $entityUUID.uuid
-		     AND    (mmipt.type = 'importing'
-		         OR (mmipt.type = 'aborting'
-		             AND NOT EXISTS (SELECT 1 FROM model_database_deletion mdd
-		                             WHERE mdd.namespace = $entityUUID.uuid)))
-		 )
-		 DELETE FROM model_migration_import
+		deletableClaim + `DELETE FROM model_migration_import
 		 WHERE model_uuid = $entityUUID.uuid
 		 AND uuid IN (SELECT uuid FROM deletable_claim)`,
 	}
