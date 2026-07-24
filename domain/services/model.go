@@ -104,6 +104,8 @@ import (
 	storagestate "github.com/juju/juju/domain/storage/state"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
 	storageprovisioningstate "github.com/juju/juju/domain/storageprovisioning/state"
+	unitlessservice "github.com/juju/juju/domain/unitless/service"
+	unitlessstate "github.com/juju/juju/domain/unitless/state"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	unitstatestate "github.com/juju/juju/domain/unitstate/state"
 	"github.com/juju/juju/environs"
@@ -511,6 +513,13 @@ func (s *ModelServices) UnitState() *unitstateservice.LeadershipService {
 		domain.NewLeaseService(s.leaseManager),
 		s.clock,
 		log,
+	)
+}
+
+// Unitless returns the service for unitless application scriptlets.
+func (s *ModelServices) Unitless() *unitlessservice.WatchableService {
+	return unitlessservice.NewWatchableService(
+		unitlessstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
 

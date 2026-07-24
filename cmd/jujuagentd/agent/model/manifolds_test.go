@@ -62,6 +62,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *tc.C) {
 		"removal",
 		"secrets-pruner",
 		"storage-provisioner",
+		"unitless",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
@@ -102,6 +103,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *tc.C) {
 		"removal",
 		"secrets-pruner",
 		"storage-provisioner",
+		"unitless",
 		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
@@ -170,6 +172,14 @@ func (s *ManifoldsSuite) TestCAASManifold(c *tc.C) {
 }
 
 var expectedCAASModelManifoldsWithDependencies = map[string][]string{
+	"unitless": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
 
 	"secrets-pruner": {
 		"domain-services",
@@ -365,6 +375,14 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 }
 
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
+	"unitless": {
+		"domain-services",
+		"is-responsible-flag",
+		"lease-manager",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
 
 	"secrets-pruner": {
 		"domain-services",

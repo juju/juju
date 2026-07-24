@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/singular"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
+	"github.com/juju/juju/internal/worker/unitless"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -408,6 +409,18 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:              changestreampruner.NewWorker,
 			GetChangeStreamService: changestreampruner.GetModelChangeStreamService,
 		}))),
+
+		// Only one unitless worker is started per model, and it is responsible
+		// ensures that it only runs on one controller in a HA setup. The
+		// unitless worker is responsible for running scriptlets for all
+		// applications in the model.
+		unitlessName: ifResponsible(ifNotMigrating(unitless.Manifold(unitless.ManifoldConfig{
+			DomainServicesName:  domainServicesName,
+			GetScriptletService: unitless.GetScriptletService,
+			NewWorker:           unitless.NewWorker,
+			Clock:               config.Clock,
+			Logger:              config.LoggingContext.GetLogger("juju.worker.unitless"),
+		}))),
 	}
 	return result
 }
@@ -623,6 +636,7 @@ const (
 	remoteRelationOffererName    = "remote-relation-offerer"
 	removalName                  = "removal"
 	storageProvisionerName       = "storage-provisioner"
+	unitlessName                 = "unitless"
 	undertakerName               = "undertaker"
 	logSinkName                  = "log-sink"
 

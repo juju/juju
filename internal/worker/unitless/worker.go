@@ -7,9 +7,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/worker/v5"
 	"github.com/juju/worker/v5/catacomb"
 
+	coreapplication "github.com/juju/juju/core/application"
 	coreerrors "github.com/juju/juju/core/errors"
 	"github.com/juju/juju/core/logger"
 	internalerrors "github.com/juju/juju/internal/errors"
@@ -26,6 +28,9 @@ type Config struct {
 
 	// NewExecutor is a factory for creating scriptlet execution environments.
 	NewExecutor ExecutorFactory
+
+	// Clock supplies timing services to the worker runner.
+	Clock clock.Clock
 
 	// MaxAllocs limits the allocations that can be made
 	// during a single scriptlet function execution.
@@ -46,6 +51,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.NewExecutor == nil {
 		return internalerrors.New("nil NewExecutor not valid").Add(coreerrors.NotValid)
+	}
+	if cfg.Clock == nil {
+		return internalerrors.New("nil Clock not valid").Add(coreerrors.NotValid)
 	}
 	if cfg.MaxAllocs < 0 {
 		return internalerrors.New("negative MaxAllocs not valid").Add(coreerrors.NotValid)
@@ -76,6 +84,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		IsFatal:       func(error) bool { return false },
 		ShouldRestart: internalworker.ShouldRunnerRestart,
 		RestartDelay:  runnerRestartDelay,
+		Clock:         config.Clock,
 		Logger:        internalworker.WrapLogger(config.Logger),
 	})
 	if err != nil {
@@ -135,7 +144,7 @@ func (w *scriptletWorker) handleApplicationChanges(ctx context.Context, applicat
 
 		err := w.runner.StartWorker(ctx, applicationUUID, func(context.Context) (worker.Worker, error) {
 			return newApplicationRunner(applicationRunnerConfig{
-				ApplicationUUID:  applicationUUID,
+				ApplicationUUID:  coreapplication.UUID(applicationUUID),
 				ScriptletService: w.config.ScriptletService,
 				NewExecutor:      w.config.NewExecutor,
 				MaxAllocs:        w.config.MaxAllocs,
