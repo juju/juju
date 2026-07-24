@@ -119,6 +119,24 @@ func (a modelPermissionAuthorizer) Authorize(ctx context.Context, authInfo authe
 	return nil
 }
 
+// debugLogAuthorizer returns the authorizer for the /log endpoint.
+//
+// [httpcontext.ControllerAuthorizer] admits controller machines: the
+// migration-master's LOGTRANSFER phase streams the source model's logs
+// through /log while authenticated as the controller machine agent, which
+// is neither a controller-agent tag nor a user. Workload machines
+// (AuthInfo.Controller == false) remain denied. Do not remove this entry
+// or widen the admission to [names.MachineTagKind], that would reopen the
+// cross-model log disclosure fixed in #22387.
+func debugLogAuthorizer(adminAuth controllerAdminAuthorizer) httpcontext.CompositeAuthorizer {
+	return httpcontext.CompositeAuthorizer{
+		tagKindAuthorizer{names.ControllerAgentTagKind},
+		httpcontext.ControllerAuthorizer,
+		adminAuth,
+		modelPermissionAuthorizer{perm: permission.ReadAccess},
+	}
+}
+
 // ModelAuthorizationInfo provides information to authorizer's about the model
 // that is being used in the authorization request.
 type ModelAuthorizationInfo interface {
