@@ -4,7 +4,6 @@
 package sshserver
 
 import (
-	"context"
 	"testing"
 
 	"github.com/juju/tc"
@@ -46,10 +45,6 @@ func (s *proxySuite) TestNewSelectsKubernetesHandlers(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(handlers, tc.FitsTypeOf, &k8s.Handlers{})
 }
-
-type proxyLogger struct{}
-
-func (proxyLogger) Errorf(context.Context, string, ...any) {}
 
 type proxyConnector struct {
 	machine.SSHConnector

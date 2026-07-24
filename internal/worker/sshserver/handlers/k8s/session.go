@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 )
 
@@ -31,12 +33,19 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		handleError(errors.Annotate(err, "resolving Kubernetes exec information"))
 		return
 	}
+
 	executor, err := h.getExecutor(namespace)
 	if err != nil {
 		handleError(errors.Annotate(err, "getting Kubernetes executor"))
 		return
 	}
-	container, _ := h.destination.Container()
+
+	container, ok := h.destination.Container()
+	if !ok {
+		handleError(errors.New("destination is not a container target"))
+		return
+	}
+
 	ptyRequest, windowChanges, hasPTY := session.Pty()
 
 	var stdin io.Reader = session
@@ -49,7 +58,7 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 
 	var proxy *ptyProxy
 	if hasPTY {
-		proxy, err = newPTYProxy(session, ptyRequest, windowChanges)
+		proxy, err = newPTYProxy(session, ptyRequest, windowChanges, h.logger)
 		if err != nil {
 			handleError(err)
 			return
@@ -109,7 +118,7 @@ func sessionEnvironment(env []string, terminal string, hasPTY bool) []string {
 	// Verify that the TERM environment variable is set.
 	// If it is not, add it to the environment with the value from the PTY request.
 	for _, value := range env {
-		if len(value) >= len("TERM=") && value[:len("TERM=")] == "TERM=" {
+		if strings.HasPrefix(value, "TERM=") {
 			return env
 		}
 	}
@@ -162,6 +171,7 @@ type ptyProxy struct {
 	session ssh.Session
 	ptmx    *os.File
 	tty     *os.File
+	logger  logger.Logger
 
 	cancel     context.CancelFunc
 	resizeDone chan struct{}
@@ -171,7 +181,7 @@ type ptyProxy struct {
 
 const ptyOutputDrainTimeout = 5 * time.Second
 
-func newPTYProxy(session ssh.Session, request ssh.Pty, windowChanges <-chan ssh.Window) (*ptyProxy, error) {
+func newPTYProxy(session ssh.Session, request ssh.Pty, windowChanges <-chan ssh.Window, logger logger.Logger) (*ptyProxy, error) {
 	ptmx, tty, err := pty.Open()
 	if err != nil {
 		return nil, errors.Annotate(err, "opening pseudo-terminal")
@@ -191,6 +201,7 @@ func newPTYProxy(session ssh.Session, request ssh.Pty, windowChanges <-chan ssh.
 		ptmx:       ptmx,
 		tty:        tty,
 		cancel:     cancel,
+		logger:     logger,
 		resizeDone: make(chan struct{}),
 		outputDone: make(chan struct{}),
 	}
@@ -218,6 +229,7 @@ func (p *ptyProxy) Close(status int) {
 	case <-p.outputDone:
 	case <-p.session.Context().Done():
 	case <-time.After(ptyOutputDrainTimeout):
+		p.logger.Debugf(p.session.Context(), "timed out waiting for pty output to drain")
 	}
 
 	_ = p.session.Exit(status)
