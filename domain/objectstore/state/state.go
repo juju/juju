@@ -786,7 +786,7 @@ func (s *State) GetObjectStoreBackend(ctx context.Context, uuid string) (domaino
 SELECT &backendInfo.*
 FROM object_store_backend
 JOIN object_store_backend_type ON object_store_backend.type_id = object_store_backend_type.id
-LEFT JOIN object_store_backend_s3_credential ON object_store_backend.uuid = object_store_backend_s3_credential.object_store_backend_uuid
+LEFT JOIN object_store_backend_s3_config ON object_store_backend.uuid = object_store_backend_s3_config.object_store_backend_uuid
 WHERE uuid = $backendInfo.uuid`, backendInfo{})
 	if err != nil {
 		return domainobjectstore.BackendInfo{}, errors.Errorf("preparing select object store backend statement: %w", err)
@@ -848,7 +848,7 @@ func (s *State) GetActiveObjectStoreBackend(ctx context.Context) (domainobjectst
 SELECT &backendInfo.*
 FROM object_store_backend
 JOIN object_store_backend_type ON object_store_backend.type_id = object_store_backend_type.id
-LEFT JOIN object_store_backend_s3_credential ON object_store_backend.uuid = object_store_backend_s3_credential.object_store_backend_uuid
+LEFT JOIN object_store_backend_s3_config ON object_store_backend.uuid = object_store_backend_s3_config.object_store_backend_uuid
 WHERE life_id = 0`, backendInfo{})
 	if err != nil {
 		return domainobjectstore.BackendInfo{}, errors.Errorf("preparing select active object store backend statement: %w", err)
@@ -892,8 +892,8 @@ WHERE life_id = 0`, backendInfo{})
 //
 // This method returns the following errors:
 //   - [objectstoreerrors.ErrDrainingAlreadyInProgress]: if there is already an
-//     active draining phase, as we don't want to update the backend information
-//     while we're in the middle of a draining process.
+//     active draining phase with different S3 configuration. Repeating the
+//     transition with the same configuration is an idempotent success.
 //   - [objectstoreerrors.ErrBackendAlreadyExists]: if there is already a
 //     backend with the specified uuid.
 //   - [objectstoreerrors.ErrBackendTransitionNotSupported]: if the current
@@ -949,6 +949,21 @@ WHERE di.phase_type_id < 2`, count{})
 		return errors.Errorf("preparing select draining phase statement: %w", err)
 	}
 
+	getDrainingS3ConfigStmt, err := s.Prepare(`
+SELECT c.object_store_backend_uuid AS &s3Credentials.object_store_backend_uuid,
+       c.bucket AS &s3Credentials.bucket,
+       c.region AS &s3Credentials.region,
+       c.endpoint AS &s3Credentials.endpoint,
+       c.static_key AS &s3Credentials.static_key,
+       c.static_secret AS &s3Credentials.static_secret
+FROM object_store_drain_info AS di
+JOIN object_store_backend_s3_config AS c
+  ON di.to_backend_uuid = c.object_store_backend_uuid
+WHERE di.phase_type_id < 2`, s3Credentials{})
+	if err != nil {
+		return errors.Errorf("preparing select draining S3 configuration statement: %w", err)
+	}
+
 	setBackendDyingStmt, err := s.Prepare(`
 UPDATE object_store_backend
 SET life_id = 1, updated_at = $newBackend.updated_at
@@ -965,7 +980,7 @@ VALUES ($newBackend.uuid, 0, 1, $newBackend.updated_at)`, backend)
 	}
 
 	s3InsertStmt, err := s.Prepare(`
-INSERT INTO object_store_backend_s3_credential (
+INSERT INTO object_store_backend_s3_config (
     object_store_backend_uuid, 
     bucket,
     region,
@@ -1013,11 +1028,23 @@ WHERE b.life_id = 0`, activeBackend{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Ensure that we're not currently in a draining phase, as we don't want
 		// to update the backend information while we're in the middle of a
-		// draining process.
+		// draining process. An identical request is already satisfied by the
+		// in-progress transition, so treat it as an idempotent success.
 		var phaseCount count
 		if err := tx.Query(ctx, getPhaseInfoStmt).Get(&phaseCount); err != nil {
 			return errors.Errorf("checking draining phase: %w", err)
 		} else if phaseCount.Count > 0 {
+			var current s3Credentials
+			if err := tx.Query(ctx, getDrainingS3ConfigStmt).Get(&current); err != nil {
+				return errors.Errorf("getting draining S3 configuration: %w", err)
+			}
+			if current.Bucket == s3Creds.Bucket &&
+				current.Region == s3Creds.Region &&
+				current.Endpoint == s3Creds.Endpoint &&
+				current.AccessKey == s3Creds.AccessKey &&
+				current.SecretKey == s3Creds.SecretKey {
+				return nil
+			}
 			return objectstoreerrors.ErrDrainingAlreadyInProgress
 		}
 
@@ -1117,7 +1144,7 @@ WHERE uuid = $backendType.uuid`, backendType{})
 	}
 
 	deleteStmt, err := s.Prepare(`
-DELETE FROM object_store_backend_s3_credential
+DELETE FROM object_store_backend_s3_config
 WHERE object_store_backend_uuid = $backendType.uuid`, backendType{})
 	if err != nil {
 		return errors.Errorf("preparing delete credentials statement: %w", err)

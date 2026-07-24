@@ -165,20 +165,92 @@ func (s *s3ClientSuite) TestListObjectsWithPrefix(c *tc.C) {
 }
 
 func (s *s3ClientSuite) TestCreateBucket(c *tc.C) {
+	var requests int
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
-		c.Check(r.Method, tc.Equals, http.MethodPut)
+		requests++
 		c.Check(r.URL.Path, tc.Equals, "/bucket")
+		if r.Method == http.MethodHead {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		c.Check(r.Method, tc.Equals, http.MethodPut)
 
 		// Ensure the bucket is created with object lock enabled.
 		c.Check(r.Header.Get("x-amz-bucket-object-lock-enabled"), tc.Equals, "true")
+		body, err := io.ReadAll(r.Body)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(body), tc.Contains,
+			"<LocationConstraint>eu-west-1</LocationConstraint>")
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(url, httpClient, AnonymousCredentials{})
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{},
+		WithRegion("eu-west-1"))
 	c.Assert(err, tc.ErrorIsNil)
 
 	err = client.CreateBucket(c.Context(), "bucket")
 	c.Assert(err, tc.ErrorIsNil)
+	c.Check(requests, tc.Equals, 2)
+}
+
+func (s *s3ClientSuite) TestCreateBucketAlreadyExists(c *tc.C) {
+	var requests int
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		c.Check(r.Method, tc.Equals, http.MethodHead)
+		c.Check(r.URL.Path, tc.Equals, "/bucket")
+		w.WriteHeader(http.StatusOK)
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{},
+		WithRegion("eu-west-1"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = client.CreateBucket(c.Context(), "bucket")
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(requests, tc.Equals, 1)
+}
+
+func (s *s3ClientSuite) TestCreateBucketInUSEastOneOmitsLocationConstraint(c *tc.C) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.URL.Path, tc.Equals, "/bucket")
+		if r.Method == http.MethodHead {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		c.Check(r.Method, tc.Equals, http.MethodPut)
+		body, err := io.ReadAll(r.Body)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(string(body), tc.Equals, "")
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{},
+		WithRegion("us-east-1"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = client.CreateBucket(c.Context(), "bucket")
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *s3ClientSuite) TestCreateBucketDoesNotCreateWhenExistenceCheckFails(c *tc.C) {
+	var requests int
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		c.Check(r.Method, tc.Equals, http.MethodHead)
+		c.Check(r.URL.Path, tc.Equals, "/bucket")
+		w.WriteHeader(http.StatusForbidden)
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{},
+		WithRegion("eu-west-1"))
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = client.CreateBucket(c.Context(), "bucket")
+	c.Assert(err, tc.ErrorIs, errors.Forbidden)
+	c.Check(requests, tc.Equals, 1)
 }
 
 func (s *s3ClientSuite) TestRegionFromEndpoint(c *tc.C) {

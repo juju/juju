@@ -73,7 +73,8 @@ type WriteSession interface {
 // BucketSession provides additional access to the object store. This allows
 // the manipulation of buckets.
 type BucketSession interface {
-	// CreateBucket creates a bucket in the object store based on the bucket name.
+	// CreateBucket ensures that a bucket with the supplied name exists in the
+	// object store.
 	CreateBucket(ctx context.Context, bucketName string) error
 }
 
