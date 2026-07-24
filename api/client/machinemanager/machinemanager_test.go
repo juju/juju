@@ -295,7 +295,6 @@ func (s *MachinemanagerSuite) TestReprovisionMachine(c *tc.C) {
 
 	args := params.ReprovisionMachineArgs{
 		MachineTag: names.NewMachineTag("0").String(),
-		Force:      true,
 	}
 	res := new(params.ErrorResult)
 	ress := params.ErrorResult{}
@@ -308,7 +307,7 @@ func (s *MachinemanagerSuite) TestReprovisionMachine(c *tc.C) {
 		return nil
 	})
 	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
-	result, err := client.ReprovisionMachine(c.Context(), names.NewMachineTag("0"), true)
+	result, err := client.ReprovisionMachine(c.Context(), names.NewMachineTag("0"))
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result, tc.DeepEquals, params.ErrorResult{})
 }
@@ -319,7 +318,6 @@ func (s *MachinemanagerSuite) TestReprovisionMachineError(c *tc.C) {
 
 	args := params.ReprovisionMachineArgs{
 		MachineTag: names.NewMachineTag("0").String(),
-		Force:      true,
 	}
 	res := new(params.ErrorResult)
 
@@ -328,6 +326,6 @@ func (s *MachinemanagerSuite) TestReprovisionMachineError(c *tc.C) {
 		gomock.Any(), "ReprovisionMachine", args, res,
 	).Return(errors.New("blargh"))
 	client := machinemanager.NewClientFromCaller(mockFacadeCaller)
-	_, err := client.ReprovisionMachine(c.Context(), names.NewMachineTag("0"), true)
+	_, err := client.ReprovisionMachine(c.Context(), names.NewMachineTag("0"))
 	c.Check(err, tc.ErrorMatches, "blargh")
 }

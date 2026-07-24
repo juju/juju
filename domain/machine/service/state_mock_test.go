@@ -11,6 +11,7 @@ package service
 
 import (
 	context "context"
+	time "time"
 
 	gomock "github.com/canonical/gomock/gomock"
 	agentbinary "github.com/juju/juju/core/agentbinary"
@@ -42,6 +43,7 @@ type MockStateMockRecorder struct {
 	checkMachineReprovisioningEligibilityExpects              []*gomock.Call2_1[context.Context, machine.Name, error]
 	clearMachineRebootExpects                                 []*gomock.Call2_1[context.Context, machine.UUID, error]
 	countMachinesInSpaceExpects                               []*gomock.Call2_2[context.Context, string, int64, error]
+	detachLostMachineCloudInstanceExpects                     []*gomock.Call6_1[context.Context, string, string, string, []byte, time.Time, error]
 	getAllProvisionedMachineInstanceIDExpects                 []*gomock.Call1_2[context.Context, map[machine.Name]string, error]
 	getHardwareCharacteristicsExpects                         []*gomock.Call2_2[context.Context, string, instance.HardwareCharacteristics, error]
 	getInstanceIDExpects                                      []*gomock.Call2_2[context.Context, string, string, error]
@@ -220,6 +222,24 @@ func (mr *MockStateMockRecorder) CountMachinesInSpace(ctx, spUUID any) *MockStat
 
 // MockStateCountMachinesInSpaceCall is the typed call wrapper for CountMachinesInSpace.
 type MockStateCountMachinesInSpaceCall = gomock.Call2_2[context.Context, string, int64, error]
+
+// DetachLostMachineCloudInstance mocks base method.
+func (m *MockState) DetachLostMachineCloudInstance(arg0 context.Context, arg1, arg2, arg3 string, arg4 []byte, arg5 time.Time) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch6_1(&m.recorder.detachLostMachineCloudInstanceExpects, m.ctrl, m, "DetachLostMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// DetachLostMachineCloudInstance indicates an expected call of DetachLostMachineCloudInstance.
+func (mr *MockStateMockRecorder) DetachLostMachineCloudInstance(arg0, arg1, arg2, arg3, arg4, arg5 any) *MockStateDetachLostMachineCloudInstanceCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall6_1[context.Context, string, string, string, []byte, time.Time, error](mr.mock.ctrl.T, mr.mock, "DetachLostMachineCloudInstance", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2), gomock.EnsureMatcher(arg3), gomock.EnsureMatcher(arg4), gomock.EnsureMatcher(arg5))
+	mr.detachLostMachineCloudInstanceExpects = append(mr.detachLostMachineCloudInstanceExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateDetachLostMachineCloudInstanceCall is the typed call wrapper for DetachLostMachineCloudInstance.
+type MockStateDetachLostMachineCloudInstanceCall = gomock.Call6_1[context.Context, string, string, string, []byte, time.Time, error]
 
 // GetAllProvisionedMachineInstanceID mocks base method.
 func (m *MockState) GetAllProvisionedMachineInstanceID(ctx context.Context) (map[machine.Name]string, error) {

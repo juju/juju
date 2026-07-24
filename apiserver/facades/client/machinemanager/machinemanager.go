@@ -428,7 +428,7 @@ func (mm *MachineManagerAPI) ReprovisionMachine(ctx context.Context, args params
 		}, nil
 	}
 
-	if err := mm.machineService.ReprovisionMachine(ctx, machineName, args.Force); err != nil {
+	if err := mm.machineService.ReprovisionMachine(ctx, machineName); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
