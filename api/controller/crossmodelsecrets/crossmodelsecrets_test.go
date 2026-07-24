@@ -4,13 +4,18 @@
 package crossmodelsecrets_test
 
 import (
+	"context"
+	"encoding/json"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	apitesting "github.com/juju/juju/api/testing"
@@ -124,6 +129,109 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 	c.Assert(content, gc.IsNil)
 	c.Assert(backend, gc.IsNil)
 	c.Assert(attemptCount, gc.Equals, 3)
+}
+
+// mockDischargeAcquirer implements base.MacaroonDischarger for testing
+// macaroon discharge flows.
+type mockDischargeAcquirer struct {
+	base.MacaroonDischarger
+}
+
+func (m *mockDischargeAcquirer) DischargeAll(ctx context.Context, b *bakery.Macaroon) (macaroon.Slice, error) {
+	mac, err := apitesting.NewMacaroon("discharge mac")
+	if err != nil {
+		return nil, err
+	}
+	return macaroon.Slice{mac}, nil
+}
+
+// testLocator resolves any third party location to a known public key.
+type testLocator struct {
+	PublicKey bakery.PublicKey
+}
+
+func (b testLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
+	return bakery.ThirdPartyInfo{
+		PublicKey: b.PublicKey,
+		Version:   bakery.LatestVersion,
+	}, nil
+}
+
+func fillResponse(c *gc.C, resp interface{}, value interface{}) {
+	b, err := json.Marshal(value)
+	c.Assert(err, jc.ErrorIsNil)
+	err = json.Unmarshal(b, resp)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestGetRemoteSecretContentInfoDischargeRequired verifies that when the
+// remote controller returns a discharge-required error, the macaroon is
+// discharged and the call is retried immediately within the same Func
+// invocation — without incurring the retry.Call delay.
+func (s *CrossControllerSuite) TestGetRemoteSecretContentInfoDischargeRequired(c *gc.C) {
+	uri := coresecrets.NewURI()
+	key, err := bakery.GenerateKey()
+	c.Assert(err, jc.ErrorIsNil)
+	bk := bakery.New(bakery.BakeryParams{
+		Key:     key,
+		Locator: testLocator{key.Public},
+	})
+	dischargeMacaroon, err := bk.Oven.NewMacaroon(context.TODO(), bakery.LatestVersion, []checkers.Caveat{
+		checkers.NeedDeclaredCaveat(checkers.Caveat{
+			Location:  "third party location",
+			Condition: "third party caveat",
+		}),
+	}, bakery.Op{Entity: "secret", Action: "read"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		callCount     int
+		dischargedMac macaroon.Slice
+	)
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		var resultErr *params.Error
+		if callCount == 0 {
+			// First call: return a discharge-required error.
+			resultErr = &params.Error{
+				Code: params.CodeDischargeRequired,
+				Info: params.DischargeRequiredErrorInfo{
+					BakeryMacaroon: dischargeMacaroon,
+				}.AsMap(),
+			}
+		} else {
+			// Second call: succeed, and capture the discharged macaroon
+			// that was sent.
+			argParam := arg.(params.GetRemoteSecretContentArgs)
+			dischargedMac = argParam.Args[0].Macaroons
+		}
+		resp := params.SecretContentResults{
+			Results: []params.SecretContentResult{{
+				Error: resultErr,
+				Content: params.SecretContentParams{
+					Data: map[string]string{"key": "value"},
+				},
+				LatestRevision: ptr(1),
+			}},
+		}
+		fillResponse(c, result, resp)
+		callCount++
+		return nil
+	})
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelsecrets.NewClient(callerWithBakery)
+	start := time.Now()
+	content, _, latestRevision, _, err := client.GetRemoteSecretContentInfo(uri, 0, true, false, coretesting.ControllerTag.Id(), "token", 666, nil)
+	elapsed := time.Since(start)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(latestRevision, gc.Equals, 1)
+	c.Check(content.SecretValue.EncodedValues(), gc.DeepEquals, map[string]string{"key": "value"})
+	// Only 2 API calls were made (1st: discharge-required, 2nd: success).
+	c.Check(callCount, gc.Equals, 2)
+	// The discharged macaroon was sent on the second call.
+	c.Assert(dischargedMac, gc.HasLen, 1)
+	c.Assert(dischargedMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Assert(elapsed < crossmodelsecrets.RetryDelay, jc.IsTrue, gc.Commentf("elapsed: %v", elapsed))
 }
 
 func (s *CrossControllerSuite) TestGetSecretAccessScope(c *gc.C) {

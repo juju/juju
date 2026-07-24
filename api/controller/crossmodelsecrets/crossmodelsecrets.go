@@ -239,24 +239,26 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, 
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
 			content, backend, latestRevision, draining, apiErr = apiCall()
-			return apiErr
-		},
-		IsFatalError: func(err error) bool {
-			if errors.IsNotFound(err) || errors.Is(err, apiservererrors.ErrPerm) {
-				return true
+			if apiErr == nil {
+				return nil
 			}
+			// Discharge-required errors are expected: discharge the
+			// macaroon and retry immediately.
 			if params.ErrCode(apiErr) != params.CodeDischargeRequired {
-				return false
+				return apiErr
 			}
-			// On error, possibly discharge the macaroon and retry.
-			var mac macaroon.Slice
-			mac, apiErr = c.handleDischargeError(err)
-			if apiErr != nil {
-				return true
+
+			mac, err := c.handleDischargeError(apiErr)
+			if err != nil {
+				return errors.Trace(err)
 			}
 			args.Args[0].Macaroons = mac
 			args.Args[0].BakeryVersion = bakery.LatestVersion
-			return false
+			content, backend, latestRevision, draining, apiErr = apiCall()
+			return apiErr
+		},
+		IsFatalError: func(err error) bool {
+			return errors.IsNotFound(err) || errors.Is(err, apiservererrors.ErrPerm)
 		},
 		Delay:    retryDelay,
 		Clock:    Clock,
