@@ -772,13 +772,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	controllerAdminAuthorizer := controllerAdminAuthorizer{
 		controllerTag: names.NewControllerTag(srv.shared.controllerUUID),
 	}
-	var debuglogAuth httpcontext.CompositeAuthorizer = []authentication.Authorizer{
-		tagKindAuthorizer{names.ControllerAgentTagKind},
-		controllerAdminAuthorizer,
-		modelPermissionAuthorizer{
-			perm: permission.ReadAccess,
-		},
-	}
+	debuglogAuth := debugLogAuthorizer(controllerAdminAuthorizer)
 	debugLogHandler := srv.monitoredHandler(newDebugLogTailerHandler(
 		httpCtxt,
 		httpAuthenticator,
