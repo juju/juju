@@ -144,7 +144,7 @@ func (s *facadeSuite) TestControllerPublicKey(c *tc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	// The service derives and caches the public key; the facade simply returns
+	// The public key is stored in state at bootstrap; the facade simply returns
 	// what it is given. Derive the expected bytes from the known private key.
 	signer, err := gossh.ParsePrivateKey([]byte(jujutesting.SSHServerHostKey))
 	c.Assert(err, tc.ErrorIsNil)

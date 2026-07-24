@@ -60,10 +60,49 @@ WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHos
 	return key.SSHKey, nil
 }
 
+// GetSSHServerHostPublicKey returns the marshalled public host key of the
+// controller SSH jump server. The public key is derived once at bootstrap and
+// stored alongside the private key, so this method never handles private key
+// material.
+func (st *State) GetSSHServerHostPublicKey(ctx context.Context) ([]byte, error) {
+	db, err := st.DB(ctx)
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	id := controllerSSHHostKeyID{ID: domainssh.SSHServerHostKeyUUID}
+	stmt, err := st.Prepare(`
+SELECT &controllerSSHHostKey.public_key
+FROM controller_ssh_host_key
+WHERE id = $controllerSSHHostKeyID.id`, controllerSSHHostKey{}, controllerSSHHostKeyID{})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+
+	var key controllerSSHHostKey
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		key = controllerSSHHostKey{}
+
+		err := tx.Query(ctx, stmt, id).Get(&key)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Errorf("controller SSH host key not found").Add(coreerrors.NotFound)
+		}
+		if err != nil {
+			return errors.Errorf("querying controller SSH host public key: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return key.PublicKey, nil
+}
+
 type controllerSSHHostKey struct {
 	ID              string `db:"id"`
 	AlgorithmTypeID int    `db:"algorithm_type_id"`
 	SSHKey          string `db:"ssh_key"`
+	PublicKey       []byte `db:"public_key"`
 }
 
 type controllerSSHHostKeyID struct {

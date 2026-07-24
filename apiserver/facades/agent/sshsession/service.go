@@ -38,8 +38,7 @@ type ControllerConfigService interface {
 // jump server host key.
 type ControllerSSHHostKeyService interface {
 	// SSHServerHostPublicKey returns the marshalled public host key of the
-	// controller SSH jump server. The service derives it from the private host
-	// key and caches the result, so the facade never handles private key
-	// material and the key is only parsed once.
+	// controller SSH jump server. The public key is derived once at bootstrap
+	// and stored in state, so the facade never handles private key material.
 	SSHServerHostPublicKey(ctx context.Context) ([]byte, error)
 }

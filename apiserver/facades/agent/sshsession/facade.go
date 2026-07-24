@@ -126,8 +126,8 @@ func (f *Facade) ControllerSSHPort(ctx context.Context) (params.SSHControllerSSH
 
 // ControllerPublicKey returns the marshalled public host key of the controller
 // SSH jump server. The machine agent uses it to pin the host key when
-// reverse-dialling the controller. The public key derivation and caching live
-// in the service, so the facade never handles private key material.
+// reverse-dialling the controller. The public key is derived once at bootstrap
+// and stored in state, so the facade never handles private key material.
 func (f *Facade) ControllerPublicKey(ctx context.Context) (params.SSHControllerPublicKeyResult, error) {
 	publicKey, err := f.controllerSSHHostKeyService.SSHServerHostPublicKey(ctx)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -17,7 +18,9 @@ import (
 )
 
 // InsertInitialSSHServerHostKey inserts the controller jump host key into the
-// controller database during bootstrap.
+// controller database during bootstrap. The marshalled public host key is
+// derived from the private key once here and stored alongside it, so it can be
+// served to clients without re-parsing the private key on every retrieval.
 func InsertInitialSSHServerHostKey(sshServerHostKey string) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if sshServerHostKey == "" {
@@ -29,13 +32,19 @@ func InsertInitialSSHServerHostKey(sshServerHostKey string) internaldatabase.Boo
 			return errors.Errorf("determining controller SSH host key algorithm: %w", err)
 		}
 
+		publicKey, err := marshalPublicKey(sshServerHostKey)
+		if err != nil {
+			return errors.Errorf("deriving controller SSH host public key: %w", err)
+		}
+
 		record := controllerSSHHostKey{
 			ID:              domainssh.SSHServerHostKeyUUID,
 			AlgorithmTypeID: algorithmTypeID,
 			SSHKey:          sshServerHostKey,
+			PublicKey:       publicKey,
 		}
 		stmt, err := sqlair.Prepare(`
-INSERT INTO controller_ssh_host_key (id, algorithm_type_id, ssh_key)
+INSERT INTO controller_ssh_host_key (id, algorithm_type_id, ssh_key, public_key)
 VALUES ($controllerSSHHostKey.*)`, controllerSSHHostKey{})
 		if err != nil {
 			return errors.Capture(err)
@@ -54,6 +63,7 @@ type controllerSSHHostKey struct {
 	ID              string `db:"id"`
 	AlgorithmTypeID int    `db:"algorithm_type_id"`
 	SSHKey          string `db:"ssh_key"`
+	PublicKey       []byte `db:"public_key"`
 }
 
 func sshKeyAlgorithmTypeID(sshKey string) (int, error) {
@@ -71,4 +81,14 @@ func sshKeyAlgorithmTypeID(sshKey string) (int, error) {
 	default:
 		return 0, errors.Errorf("unsupported SSH key algorithm %q", algorithm)
 	}
+}
+
+// marshalPublicKey parses the marshalled private key and returns the
+// marshalled public key derived from it.
+func marshalPublicKey(privateKey string) ([]byte, error) {
+	signer, err := gossh.ParsePrivateKey([]byte(privateKey))
+	if err != nil {
+		return nil, errors.Capture(err)
+	}
+	return signer.PublicKey().Marshal(), nil
 }

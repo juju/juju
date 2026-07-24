@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/tc"
+	gossh "golang.org/x/crypto/ssh"
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreerrors "github.com/juju/juju/core/errors"
@@ -52,6 +53,31 @@ func (s *stateSuite) TestGetSSHServerHostKeyExisting(c *tc.C) {
 	c.Assert(row.Scan(&storedID, &algorithmTypeID), tc.ErrorIsNil)
 	c.Check(storedID, tc.Equals, domainssh.SSHServerHostKeyUUID)
 	c.Check(algorithmTypeID, tc.Equals, domainssh.SSHKeyAlgorithmTypeED25519ID)
+}
+
+func (s *stateSuite) TestGetSSHServerHostPublicKeyMissing(c *tc.C) {
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+
+	key, err := st.GetSSHServerHostPublicKey(c.Context())
+	c.Check(key, tc.IsNil)
+	c.Assert(err, tc.ErrorIs, coreerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetSSHServerHostPublicKeyExisting(c *tc.C) {
+	err := sshbootstrap.InsertInitialSSHServerHostKey(jujutesting.SSHServerHostKey)(c.Context(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, tc.ErrorIsNil)
+
+	st := sshcontrollerstate.NewState(txRunnerFactory(s.ControllerTxnRunner()))
+
+	// Derive the expected public key from the same private key that bootstrap
+	// stored, so we can verify the stored value matches.
+	signer, err := gossh.ParsePrivateKey([]byte(jujutesting.SSHServerHostKey))
+	c.Assert(err, tc.ErrorIsNil)
+	want := signer.PublicKey().Marshal()
+
+	got, err := st.GetSSHServerHostPublicKey(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, want)
 }
 
 func txRunnerFactory(runner coredatabase.TxnRunner) coredatabase.TxnRunnerFactory {
