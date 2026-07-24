@@ -66,10 +66,10 @@ func ChooseCloudRegion(cloud jujucloud.Cloud, regionName string) (jujucloud.Regi
 		return cloud.Regions[0], nil
 	}
 	return jujucloud.Region{
-		"", // no region name
-		cloud.Endpoint,
-		cloud.IdentityEndpoint,
-		cloud.StorageEndpoint,
+		Name:             "", // no region name
+		Endpoint:         cloud.Endpoint,
+		IdentityEndpoint: cloud.IdentityEndpoint,
+		StorageEndpoint:  cloud.StorageEndpoint,
 	}, nil
 }
 
