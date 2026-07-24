@@ -110,10 +110,10 @@ func (s *State) AssertImporting(ctx context.Context, modelUUID string) error {
 	return nil
 }
 
-// ensureImportingState returns nil only while the model_migration_import claim
+// checkImportingState returns nil only while the model_migration_import claim
 // for modelUUID is in the importing phase, run inside a write-group
 // transaction so the phase check and the write it gates commit atomically.
-func (s *State) ensureImportingState(ctx context.Context, tx *sqlair.TX, modelUUID string) error {
+func (s *State) checkImportingState(ctx context.Context, tx *sqlair.TX, modelUUID string) error {
 	arg := modelUUIDArg{ModelUUID: modelUUID}
 	var row importPhaseRow
 	stmt, err := s.Prepare(`
@@ -168,7 +168,7 @@ VALUES ($importOfferArg.migration_uuid, $importOfferArg.offer_uuid)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
+		if err := s.checkImportingState(ctx, tx, modelUUID); err != nil {
 			return errors.Capture(err)
 		}
 		args := make([]importOfferArg, len(offerUUIDs))
@@ -557,7 +557,7 @@ VALUES ($importExternalControllerModelArg.migration_uuid,
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.ensureImportingState(ctx, tx, modelUUID); err != nil {
+		if err := s.checkImportingState(ctx, tx, modelUUID); err != nil {
 			return errors.Capture(err)
 		}
 		var mappings []importExternalControllerModelArg
