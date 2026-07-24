@@ -775,6 +775,8 @@ func (s *State) GetObjectStoreBackend(ctx context.Context, uuid string) (domaino
 		TypeID    int              `db:"type_id"`
 		TypeValue string           `db:"type"`
 		LifeID    life.Life        `db:"life_id"`
+		Bucket    sql.Null[string] `db:"bucket"`
+		Region    sql.Null[string] `db:"region"`
 		Endpoint  sql.Null[string] `db:"endpoint"`
 		AccessKey sql.Null[string] `db:"static_key"`
 		SecretKey sql.Null[string] `db:"static_secret"`
@@ -808,6 +810,8 @@ WHERE uuid = $backendInfo.uuid`, backendInfo{})
 		UUID:            info.UUID,
 		ObjectStoreType: info.TypeValue,
 		LifeID:          info.LifeID,
+		Bucket:          nullableOrNil(info.Bucket),
+		Region:          nullableOrNil(info.Region),
 		Endpoint:        nullableOrNil(info.Endpoint),
 		AccessKey:       nullableOrNil(info.AccessKey),
 		SecretKey:       nullableOrNil(info.SecretKey),
@@ -833,6 +837,8 @@ func (s *State) GetActiveObjectStoreBackend(ctx context.Context) (domainobjectst
 		TypeID    int              `db:"type_id"`
 		TypeValue string           `db:"type"`
 		LifeID    life.Life        `db:"life_id"`
+		Bucket    sql.Null[string] `db:"bucket"`
+		Region    sql.Null[string] `db:"region"`
 		Endpoint  sql.Null[string] `db:"endpoint"`
 		AccessKey sql.Null[string] `db:"static_key"`
 		SecretKey sql.Null[string] `db:"static_secret"`
@@ -866,6 +872,8 @@ WHERE life_id = 0`, backendInfo{})
 		UUID:            info.UUID,
 		ObjectStoreType: info.TypeValue,
 		LifeID:          info.LifeID,
+		Bucket:          nullableOrNil(info.Bucket),
+		Region:          nullableOrNil(info.Region),
 		Endpoint:        nullableOrNil(info.Endpoint),
 		AccessKey:       nullableOrNil(info.AccessKey),
 		SecretKey:       nullableOrNil(info.SecretKey),
@@ -898,6 +906,8 @@ func (s *State) TransitionBackendToS3(ctx context.Context, bUUID, dUUID string, 
 
 	type s3Credentials struct {
 		UUID      string `db:"object_store_backend_uuid"`
+		Bucket    string `db:"bucket"`
+		Region    string `db:"region"`
 		Endpoint  string `db:"endpoint"`
 		AccessKey string `db:"static_key"`
 		SecretKey string `db:"static_secret"`
@@ -916,6 +926,8 @@ func (s *State) TransitionBackendToS3(ctx context.Context, bUUID, dUUID string, 
 
 	s3Creds := s3Credentials{
 		UUID:      bUUID,
+		Bucket:    credential.Bucket,
+		Region:    credential.Region,
 		Endpoint:  credential.Endpoint,
 		AccessKey: credential.AccessKey,
 		SecretKey: credential.SecretKey,
@@ -955,6 +967,8 @@ VALUES ($newBackend.uuid, 0, 1, $newBackend.updated_at)`, backend)
 	s3InsertStmt, err := s.Prepare(`
 INSERT INTO object_store_backend_s3_credential (
     object_store_backend_uuid, 
+    bucket,
+    region,
     endpoint, 
     static_key, 
     static_secret

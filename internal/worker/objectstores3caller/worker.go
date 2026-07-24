@@ -200,6 +200,7 @@ func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, erro
 			Key:    credentials.AccessKey,
 			Secret: credentials.SecretKey,
 		},
+		credentials.Region,
 		w.config.Logger,
 	)
 	if err != nil {

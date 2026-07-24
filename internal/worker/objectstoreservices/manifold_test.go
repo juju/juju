@@ -67,6 +67,7 @@ func (s *manifoldSuite) TestStart(c *tc.C) {
 
 	manifold := Manifold(ManifoldConfig{
 		ChangeStreamName:             "changestream",
+		ControllerUUID:               "controller-uuid",
 		Clock:                        clock.WallClock,
 		Logger:                       s.logger,
 		NewWorker:                    NewWorker,
@@ -90,6 +91,7 @@ func (s *manifoldSuite) TestStartUsesWallClock(c *tc.C) {
 	var workerConfig Config
 	manifold := Manifold(ManifoldConfig{
 		ChangeStreamName: "changestream",
+		ControllerUUID:   "controller-uuid",
 		Clock:            clock.WallClock,
 		Logger:           s.logger,
 		NewWorker: func(cfg Config) (worker.Worker, error) {
@@ -110,6 +112,7 @@ func (s *manifoldSuite) TestOutputObjectStoreServicesGetter(c *tc.C) {
 
 	w, err := NewWorker(Config{
 		DBGetter:                     s.dbGetter,
+		ControllerUUID:               "controller-uuid",
 		Clock:                        clock.WallClock,
 		Logger:                       s.logger,
 		NewObjectStoreServices:       NewObjectStoreServices,
@@ -130,6 +133,7 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 
 	w, err := NewWorker(Config{
 		DBGetter:                     s.dbGetter,
+		ControllerUUID:               "controller-uuid",
 		Clock:                        clock.WallClock,
 		Logger:                       s.logger,
 		NewObjectStoreServices:       NewObjectStoreServices,
@@ -148,15 +152,16 @@ func (s *manifoldSuite) TestOutputInvalid(c *tc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		ChangeStreamName: "changestream",
+		ControllerUUID:   "controller-uuid",
 		Clock:            clock.WallClock,
 		Logger:           s.logger,
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewObjectStoreServices: func(model.UUID, changestream.WatchableDBGetter, clock.Clock, logger.Logger) services.ObjectStoreServices {
+		NewObjectStoreServices: func(model.UUID, changestream.WatchableDBGetter, string, clock.Clock, logger.Logger) services.ObjectStoreServices {
 			return nil
 		},
-		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, clock.Clock, logger.Logger) services.ObjectStoreServicesGetter {
+		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, string, clock.Clock, logger.Logger) services.ObjectStoreServicesGetter {
 			return nil
 		},
 	}

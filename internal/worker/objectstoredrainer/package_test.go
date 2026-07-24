@@ -8,6 +8,8 @@ import (
 	"github.com/juju/tc"
 
 	"github.com/juju/juju/core/logger"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testhelpers"
 )
@@ -48,6 +50,11 @@ func (s *baseSuite) setupMocks(c *tc.C) *gomock.Controller {
 
 	s.guard = NewMockGuard(ctrl)
 	s.guardService = NewMockDrainingService(ctrl)
+	bucket := "test-bucket"
+	s.guardService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(objectstoreservice.BackendInfo{
+		Type:   coreobjectstore.S3Backend,
+		Bucket: &bucket,
+	}, nil).AnyTimes()
 
 	s.objectStoreService = NewMockObjectStoreService(ctrl)
 	s.objectStoreServicesGetter = NewMockObjectStoreServicesGetter(ctrl)

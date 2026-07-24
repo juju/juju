@@ -567,16 +567,29 @@ func (s *workerSuite) TestDrainingPhaseError(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	draining := make(chan struct{}, 1)
+	phases := make(chan objectstore.Phase, 2)
+	done := make(chan struct{})
 	s.guardService.EXPECT().WatchDraining(gomock.Any()).DoAndReturn(func(ctx context.Context) (watcher.Watcher[struct{}], error) {
 		return watchertest.NewMockNotifyWatcher(draining), nil
 	})
-	// Return PhaseError — the worker should log and continue (not die).
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseError, nil)
+	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).DoAndReturn(func(context.Context) (objectstore.Phase, error) {
+		select {
+		case phase := <-phases:
+			return phase, nil
+		case <-c.Context().Done():
+			return "", c.Context().Err()
+		}
+	}).AnyTimes()
+	s.guard.EXPECT().Unlock(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
+		defer close(done)
+		return nil
+	})
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
 	// Trigger draining watcher.
+	phases <- objectstore.PhaseError
 	select {
 	case draining <- struct{}{}:
 	case <-c.Context().Done():
@@ -585,13 +598,7 @@ func (s *workerSuite) TestDrainingPhaseError(c *tc.C) {
 
 	// Give the worker time to process. If it didn't crash, it's still alive.
 	// Send another event with PhaseCompleted to verify it kept looping.
-	s.guardService.EXPECT().GetDrainingPhase(gomock.Any()).Return(objectstore.PhaseCompleted, nil)
-	done := make(chan struct{})
-	s.guard.EXPECT().Unlock(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
-		defer close(done)
-		return nil
-	})
-
+	phases <- objectstore.PhaseCompleted
 	select {
 	case draining <- struct{}{}:
 	case <-c.Context().Done():

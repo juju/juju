@@ -23,6 +23,8 @@ type Config struct {
 	Clock  clock.Clock
 	Logger logger.Logger
 
+	ControllerUUID string
+
 	NewObjectStoreServicesGetter ObjectStoreServicesGetterFn
 	NewObjectStoreServices       ObjectStoreServicesFn
 }
@@ -37,6 +39,9 @@ func (config Config) Validate() error {
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if config.ControllerUUID == "" {
+		return errors.NotValidf("empty ControllerUUID")
 	}
 	if config.NewObjectStoreServices == nil {
 		return errors.NotValidf("nil NewObjectStoreServices")
@@ -57,6 +62,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		servicesGetter: config.NewObjectStoreServicesGetter(
 			config.NewObjectStoreServices,
 			config.DBGetter,
+			config.ControllerUUID,
 			config.Clock,
 			config.Logger,
 		),
@@ -110,6 +116,7 @@ type objectStoreServices struct {
 type domainServicesGetter struct {
 	newObjectStoreServices ObjectStoreServicesFn
 	dbGetter               changestream.WatchableDBGetter
+	controllerUUID         string
 	clock                  clock.Clock
 	logger                 logger.Logger
 }
@@ -120,7 +127,7 @@ type domainServicesGetter struct {
 func (s *domainServicesGetter) ServicesForModel(modelUUID coremodel.UUID) services.ObjectStoreServices {
 	return &objectStoreServices{
 		ObjectStoreServices: s.newObjectStoreServices(
-			modelUUID, s.dbGetter, s.clock, s.logger,
+			modelUUID, s.dbGetter, s.controllerUUID, s.clock, s.logger,
 		),
 	}
 }

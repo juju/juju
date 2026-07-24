@@ -36,7 +36,7 @@ func (s *integrationSuite) newService() *service.Service {
 }
 
 func (s *integrationSuite) newDrainingService() *service.WatchableDrainingService {
-	return service.NewWatchableDrainingService(s.newState(), nil)
+	return service.NewWatchableDrainingService(s.newState(), nil, testControllerUUID)
 }
 
 // TestPutAndGetMetadata verifies that metadata can be stored and retrieved
@@ -460,7 +460,7 @@ func (s *integrationSuite) TestMetadataPersistsThroughBackendTransition(c *tc.C)
 // state so tests can call state methods directly for setup.
 func (s *integrationSuite) newDrainingServiceWithState() (*service.WatchableDrainingService, *state.State) {
 	st := s.newState()
-	svc := service.NewWatchableDrainingService(st, nil)
+	svc := service.NewWatchableDrainingService(st, nil, testControllerUUID)
 	return svc, st
 }
 

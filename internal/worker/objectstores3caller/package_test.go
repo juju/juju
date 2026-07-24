@@ -66,10 +66,12 @@ func (s *baseSuite) expectHTTPClient(c *tc.C) {
 
 func (s *baseSuite) expectGetActiveBackendS3(c *tc.C) {
 	endpoint := "https://s3.example.com"
+	region := "us-east-1"
 	accessKey := "access-key"
 	secretKey := "secret-key"
 	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).Return(objectstoreservice.BackendInfo{
 		Type:      "s3",
+		Region:    &region,
 		Endpoint:  &endpoint,
 		AccessKey: &accessKey,
 		SecretKey: &secretKey,

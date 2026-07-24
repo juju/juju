@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math/rand/v2"
 	"regexp"
 
@@ -440,12 +441,13 @@ func (s *WatchableService) Watch(ctx context.Context) (watcher.StringsWatcher, e
 // and the ability to create watchers and drain the object store.
 type WatchableDrainingService struct {
 	WatchableService
-	st DrainingState
+	st             DrainingState
+	controllerUUID string
 }
 
 // NewWatchableDrainingService returns a new service reference wrapping the
 // input state.
-func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory) *WatchableDrainingService {
+func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory, controllerUUID string) *WatchableDrainingService {
 	return &WatchableDrainingService{
 		WatchableService: WatchableService{
 			Service: Service{
@@ -453,7 +455,8 @@ func NewWatchableDrainingService(st DrainingState, watcherFactory WatcherFactory
 			},
 			watcherFactory: watcherFactory,
 		},
-		st: st,
+		st:             st,
+		controllerUUID: controllerUUID,
 	}
 }
 
@@ -506,6 +509,12 @@ type BackendInfo struct {
 	Type objectstore.BackendType
 
 	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
+	Bucket *string
+
+	// Region is the region for the S3 backend.
+	Region *string
+
+	// Endpoint is the endpoint for the S3 backend.
 	Endpoint *string
 
 	// AccessKey is not returned for security reasons, but it is expected to be
@@ -526,6 +535,8 @@ func (s BackendInfo) S3Credentials() (domainobjectstore.S3Credentials, bool) {
 	}
 
 	return domainobjectstore.S3Credentials{
+		Bucket:    deref(s.Bucket),
+		Region:    deref(s.Region),
 		Endpoint:  deref(s.Endpoint),
 		AccessKey: deref(s.AccessKey),
 		SecretKey: deref(s.SecretKey),
@@ -569,6 +580,8 @@ func (s *WatchableDrainingService) GetActiveObjectStoreBackend(ctx context.Conte
 	return BackendInfo{
 		UUID:      objectstore.UUID(backendInfo.UUID),
 		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Bucket:    backendInfo.Bucket,
+		Region:    backendInfo.Region,
 		Endpoint:  backendInfo.Endpoint,
 		AccessKey: backendInfo.AccessKey,
 		SecretKey: backendInfo.SecretKey,
@@ -592,6 +605,8 @@ func (s *WatchableDrainingService) GetObjectStoreBackend(ctx context.Context, uu
 	return BackendInfo{
 		UUID:      objectstore.UUID(backendInfo.UUID),
 		Type:      objectstore.BackendType(backendInfo.ObjectStoreType),
+		Bucket:    backendInfo.Bucket,
+		Region:    backendInfo.Region,
 		Endpoint:  backendInfo.Endpoint,
 		AccessKey: backendInfo.AccessKey,
 		SecretKey: backendInfo.SecretKey,
@@ -610,6 +625,13 @@ func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, cr
 	if err := credential.Validate(); err != nil {
 		return errors.Errorf("validating S3 credentials: %w", err)
 	}
+	if credential.Bucket == "" {
+		bucket, err := s.defaultS3Bucket()
+		if err != nil {
+			return errors.Errorf("getting default S3 bucket: %w", err)
+		}
+		credential.Bucket = bucket
+	}
 
 	backendUUID, err := objectstore.NewUUID()
 	if err != nil {
@@ -625,6 +647,17 @@ func (s *WatchableDrainingService) TransitionBackendToS3(ctx context.Context, cr
 		return errors.Errorf("transitioning backend to S3: %w", err)
 	}
 	return nil
+}
+
+func (s *WatchableDrainingService) defaultS3Bucket() (string, error) {
+	if s.controllerUUID == "" {
+		return "", errors.Errorf("empty controller UUID")
+	}
+	bucket := fmt.Sprintf("juju-%s", s.controllerUUID)
+	if _, err := objectstore.ParseObjectStoreBucketName(bucket); err != nil {
+		return "", errors.Capture(err)
+	}
+	return bucket, nil
 }
 
 // WatchObjectStoreBackend returns a watcher that watches the object store

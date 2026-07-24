@@ -688,6 +688,8 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
@@ -931,7 +933,7 @@ func (s *stateSuite) TestTransitionBackendToS3(c *tc.C) {
 
 	var lifeID, typeID int
 	var dyingTypeID int
-	var endpoint, accessKey, secretKey string
+	var bucket, region, endpoint, accessKey, secretKey string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT life_id, type_id FROM object_store_backend
@@ -948,10 +950,10 @@ WHERE life_id = 1`)
 		}
 
 		row = tx.QueryRowContext(ctx, `
-SELECT endpoint, static_key, static_secret
+SELECT bucket, region, endpoint, static_key, static_secret
 FROM object_store_backend_s3_credential
 WHERE object_store_backend_uuid = ?`, backendUUID)
-		if err := row.Scan(&endpoint, &accessKey, &secretKey); err != nil {
+		if err := row.Scan(&bucket, &region, &endpoint, &accessKey, &secretKey); err != nil {
 			return errors.Errorf("querying backend credentials: %w", err)
 		}
 
@@ -964,6 +966,8 @@ WHERE object_store_backend_uuid = ?`, backendUUID)
 
 	c.Check(dyingTypeID, tc.Equals, 0)
 
+	c.Check(bucket, tc.Equals, creds.Bucket)
+	c.Check(region, tc.Equals, creds.Region)
 	c.Check(endpoint, tc.Equals, creds.Endpoint)
 	c.Check(accessKey, tc.Equals, creds.AccessKey)
 	c.Check(secretKey, tc.Equals, creds.SecretKey)
@@ -1091,6 +1095,8 @@ WHERE life_id = 0`)
 	c.Check(info.UUID, tc.Equals, activeUUID)
 	c.Check(info.ObjectStoreType, tc.Equals, "file")
 	c.Check(info.LifeID, tc.Equals, life.Alive)
+	c.Check(info.Bucket, tc.IsNil)
+	c.Check(info.Region, tc.IsNil)
 	c.Check(info.Endpoint, tc.IsNil)
 	c.Check(info.AccessKey, tc.IsNil)
 	c.Check(info.SecretKey, tc.IsNil)
@@ -1101,6 +1107,8 @@ func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
@@ -1114,6 +1122,10 @@ func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
 	c.Check(info.UUID, tc.Equals, backendUUID)
 	c.Check(info.ObjectStoreType, tc.Equals, "s3")
 	c.Check(info.LifeID, tc.Equals, life.Alive)
+	c.Assert(info.Bucket, tc.NotNil)
+	c.Check(*info.Bucket, tc.Equals, creds.Bucket)
+	c.Assert(info.Region, tc.NotNil)
+	c.Check(*info.Region, tc.Equals, creds.Region)
 	c.Assert(info.Endpoint, tc.NotNil)
 	c.Check(*info.Endpoint, tc.Equals, creds.Endpoint)
 	c.Assert(info.AccessKey, tc.NotNil)

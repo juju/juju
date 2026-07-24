@@ -133,6 +133,7 @@ func (s *watcherSuite) TestWatchDraining(c *tc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
+		testControllerUUID,
 	)
 	watcher, err := svc.WatchDraining(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
@@ -179,6 +180,7 @@ func (s *watcherSuite) TestWatchObjectStoreBackend(c *tc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
+		testControllerUUID,
 	)
 
 	s.AssertChangeStreamIdle(c, "before watcher start")
@@ -222,6 +224,7 @@ func (s *watcherSuite) TestWatchDrainingFullLifecycle(c *tc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
+		testControllerUUID,
 	)
 
 	// Verify the initial state: no draining in progress.
@@ -298,6 +301,7 @@ func (s *watcherSuite) TestWatchDrainingTransitionToError(c *tc.C) {
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
+		testControllerUUID,
 	)
 
 	watcher, err := svc.WatchDraining(c.Context())
