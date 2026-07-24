@@ -243,11 +243,12 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 	}
 	si := []status.StorageInstance{
 		{
-			UUID:  uuids[0],
-			ID:    "12",
-			Owner: new(unit.Name("foo/10")),
-			Life:  life.Alive,
-			Kind:  storage.StorageKindFilesystem,
+			UUID:       uuids[0],
+			ID:         "12",
+			Owner:      new(unit.Name("foo/10")),
+			Life:       life.Alive,
+			Kind:       storage.StorageKindFilesystem,
+			Persistent: true,
 			FilesystemStatus: status.StatusInfo[status.StorageFilesystemStatusType]{
 				Message: "filesystem is attached",
 				Status:  status.StorageFilesystemStatusTypeAttached,
@@ -273,11 +274,12 @@ func (s *storageServiceSuite) TestGetStorageInstanceStatuses(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(res, tc.DeepEquals, []StorageInstance{
 		{
-			UUID:  uuids[0],
-			ID:    "12",
-			Owner: new(unit.Name("foo/10")),
-			Kind:  storage.StorageKindFilesystem,
-			Life:  corelife.Alive,
+			UUID:       uuids[0],
+			ID:         "12",
+			Owner:      new(unit.Name("foo/10")),
+			Kind:       storage.StorageKindFilesystem,
+			Life:       corelife.Alive,
+			Persistent: true,
 			Attachments: map[unit.Name]StorageAttachment{
 				"foo/10": {
 					Life:    corelife.Alive,
