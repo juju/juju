@@ -80,10 +80,10 @@ type ModelState interface {
 	GetModelTargetAgentVersion(context.Context) (semversion.Number, error)
 
 	// GetUnitsAgentBinaryMetadata reports the agent binary metadata that each
-	// unit in the model is currently running. This is a bulk call to support
-	// operations such as model export where it is expected that the state of a
-	// model stays relatively static over the operation. This function will
-	// never provide enough granularity into what unit fails as part of the
+	// non-synthetic unit in the model is currently running. This is a bulk call
+	// to support operations such as model export where it is expected that the
+	// state of a model stays relatively static over the operation. This function
+	// will never provide enough granularity into what unit fails as part of the
 	// checks.
 	GetUnitsAgentBinaryMetadata(context.Context) (map[coreunit.Name]agentbinary.Metadata, error)
 
@@ -459,18 +459,19 @@ func (s *Service) GetMissingAgentTargetVersions(ctx context.Context) (semversion
 }
 
 // GetUnitsAgentBinaryMetadata returns the agent binary metadata that is running
-// for each unit in the model. This call expects that every unit in the model
-// has their agent binary version set and there exist agent binaries available
-// for each unit and the version that it is running.
+// for each non-synthetic unit in the model. This call expects that every
+// non-synthetic unit has their agent binary version set and there exist agent
+// binaries available for each unit and the version that it is running.
 //
 // This is a bulk call to support operations such as model export where it will
 // never provide enough granularity into what unit fails as part of the checks.
 //
 // The following error types can be expected:
 // - [modelagenterrors.AgentVersionNotSet] when one or more units in the
-// model do not have their agent binary version set.
+// model, excluding synthetic CMR units, do not have their agent binary version
+// set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
-// for one or more units in the model.
+// for one or more non-synthetic units in the model.
 func (s *Service) GetUnitsAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[coreunit.Name]agentbinary.Metadata, error) {
