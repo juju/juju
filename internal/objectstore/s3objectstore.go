@@ -706,6 +706,8 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 }
 
 func (t *s3ObjectStore) filePath(hash string) string {
+	// S3 object keys always use forward slashes, so do not use
+	// filepath.Join here because its separator depends on the host OS.
 	return fmt.Sprintf("%s/%s", t.namespace, hash)
 }
 

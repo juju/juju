@@ -242,6 +242,52 @@ func (s *drainerSuite) TestDrainFilePut(c *tc.C) {
 	c.Assert(reader.Closed(), tc.IsTrue)
 }
 
+func (s *drainerSuite) TestDrainFileCreatesNamespacedObjectKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	const content = "some content"
+	s3Hash := s.calculateBase64SHA256(c, content)
+
+	for _, namespace := range []string{
+		"model-uuid",
+		"controller",
+		"01234567-89ab-cdef-0123-456789abcdef",
+	} {
+		reader := &readCloser{Reader: strings.NewReader(content)}
+		s.hashFileSystemAccessor.EXPECT().HashExists(
+			gomock.Any(), "object-sha",
+		).Return(nil)
+		s.s3Session.EXPECT().ObjectExists(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+		).Return(errors.NotFoundf("not found"))
+		s.hashFileSystemAccessor.EXPECT().GetByHash(
+			gomock.Any(), "object-sha",
+		).Return(reader, int64(len(content)), nil)
+		s.s3Session.EXPECT().PutObject(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+			gomock.Any(), s3Hash,
+		).DoAndReturn(func(_ context.Context, _, _ string, body io.Reader, _ string) error {
+			got, err := io.ReadAll(body)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(string(got), tc.Equals, content)
+			return nil
+		})
+
+		store := &drainWorker{
+			rootBucket: defaultBucketName,
+			namespace:  namespace,
+			fileSystem: s.hashFileSystemAccessor,
+			client:     &client{s3Session: s.s3Session},
+			logger:     s.logger,
+		}
+		err := store.drainFile(
+			c.Context(), "/path", "object-sha", int64(len(content)),
+		)
+		c.Assert(err, tc.ErrorIsNil)
+		c.Check(reader.Closed(), tc.IsTrue)
+	}
+}
+
 func (s *drainerSuite) TestComputeS3Hash(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -335,5 +335,7 @@ func (w *drainWorker) objectAlreadyExists(ctx context.Context, hash string) erro
 }
 
 func (w *drainWorker) filePath(hash string) string {
+	// S3 object keys always use forward slashes, so do not use
+	// filepath.Join here because its separator depends on the host OS.
 	return fmt.Sprintf("%s/%s", w.namespace, hash)
 }
