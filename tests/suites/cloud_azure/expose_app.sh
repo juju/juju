@@ -33,31 +33,19 @@ assert_ingress_cidrs_for_exposed_app_azure() {
 	local app_name all_ports endpoint endpoint_ports
 	local bounds all_from all_to endpoint_from endpoint_to
 
-	if [ "$#" -lt 2 ] || [ "$#" -gt 4 ]; then
-		echo "ERROR: usage: assert_ingress_cidrs_for_exposed_app_azure <app> <all-ports> [<endpoint> <endpoint-ports>]" >&2
-		return 1
-	fi
+	_validate_port_args "assert_ingress_cidrs_for_exposed_app_azure" "$@" || return 1
 
 	app_name=${1:-}
 	all_ports=${2:-}
 	endpoint=${3:-}
 	endpoint_ports=${4:-}
-	if [ -z "${app_name}" ] || [ -z "${all_ports}" ]; then
-		echo "ERROR: application and all-endpoints port range are required" >&2
-		return 1
-	fi
-	if { [ -n "${endpoint}" ] && [ -z "${endpoint_ports}" ]; } || \
-		{ [ -z "${endpoint}" ] && [ -n "${endpoint_ports}" ]; }; then
-		echo "ERROR: endpoint and endpoint port range must be supplied together" >&2
-		return 1
-	fi
 
-	if ! bounds=$(azure_port_range_bounds "${all_ports}"); then
+	if ! bounds=$(port_range_bounds "${all_ports}"); then
 		return 1
 	fi
 	read -r all_from all_to <<< "${bounds}"
 	if [ -n "${endpoint}" ]; then
-		if ! bounds=$(azure_port_range_bounds "${endpoint_ports}"); then
+		if ! bounds=$(port_range_bounds "${endpoint_ports}"); then
 			return 1
 		fi
 		read -r endpoint_from endpoint_to <<< "${bounds}"
@@ -197,7 +185,7 @@ assert_dual_stack_reachability_for_exposed_app_azure() {
 		echo "ERROR: application and all-endpoints port range are required" >&2
 		return 1
 	fi
-	if ! bounds=$(azure_port_range_bounds "${all_ports}"); then
+	if ! bounds=$(port_range_bounds "${all_ports}"); then
 		return 1
 	fi
 	port=${bounds%% *}
