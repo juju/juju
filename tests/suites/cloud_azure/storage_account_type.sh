@@ -34,7 +34,7 @@ check_storage_account_type_controller() {
 		echo "ERROR: could not determine controller instance-id for ${controller_name}" >>"${file}"
 		return 1
 	else
-		controller_resource_group=$(az vm list -o yaml 2>/dev/null | yq -r ".[] | select(.name == \"${controller_instance_id}\") | .resourceGroup" 2>/dev/null || true)
+		controller_resource_group=$(azure_resource_group_for_instance "${controller_instance_id}" "controller" 2>/dev/null || true)
 		if [[ -z ${controller_resource_group} || ${controller_resource_group} == "null" ]]; then
 			echo "ERROR: could not find resource group for controller instance-id ${controller_instance_id}" >>"${file}"
 			return 1
@@ -124,7 +124,7 @@ check_storage_account_type_controller() {
 		fi
 
 		# Retrieve the resource group using the instance id.
-		rg=$(az vm list -o yaml 2>/dev/null | yq -r ".[] | select(.name == \"${iid}\") | .resourceGroup" 2>/dev/null || true)
+		rg=$(azure_resource_group_for_instance "${iid}" 2>/dev/null || true)
 		if [[ -z ${rg} || ${rg} == "null" ]]; then
 			echo "ERROR: could not find resource group for instance-id ${iid}" >>"${file}"
 			return 1
