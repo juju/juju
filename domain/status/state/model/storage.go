@@ -382,6 +382,9 @@ SELECT &storageInstanceStatusDetails.* FROM (
               si.life_id,
               si.storage_kind_id,
               si.storage_name,
+              -- Persistent is a storage_volume property. A filesystem-kind
+              -- storage instance has no storage_instance_volume row, so sv.
+              -- persistent will always be NULL there and will resolve to false.
               sv.persistent AS persistent,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,
@@ -480,6 +483,9 @@ SELECT &storageInstanceStatusDetails.* FROM (
               si.life_id,
               si.storage_kind_id,
               si.storage_name,
+              -- Persistent is a storage_volume property. A filesystem-kind
+              -- storage instance has no storage_instance_volume row, so sv.
+              -- persistent will always be NULL there and will resolve to false.
               sv.persistent AS persistent,
               u.name AS owner_unit_name,
               svs.status_id AS volume_status_id,

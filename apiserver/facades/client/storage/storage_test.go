@@ -23,6 +23,34 @@ func TestStorageSuite(t *testing.T) {
 	tc.Run(t, &storageSuite{})
 }
 
+func (s *storageSuite) TestStub(c *tc.C) {
+	c.Skip(`This suite is missing tests for the following scenerios:
+- ListStorageDetails but retrieving units returns an error (is this a useful test?)
+- ListStorageDetails but retrieving the unit's storage attachements returns an error (is this a useful test?)
+- TestStorageListEmpty
+- TestStorageListFilesystem
+- TestStorageListVolume
+- TestStorageListError
+- TestStorageListInstanceError
+- TestStorageListFilesystemError
+- TestShowStorageEmpty
+- TestShowStorageInvalidTag
+- TestShowStorage
+- TestShowStorageInvalidId
+- TestRemove
+- TestAttach
+- TestImportFilesystem
+- TestImportFilesystemVolumeBacked
+- TestImportFilesystemError
+- TestImportFilesystemNotSupported
+- TestImportFilesystemK8sProvider
+- TestImportFilesystemVolumeBackedNotSupported
+- TestImportValidationErrors
+- TestListStorageAsAdminOnNotOwnedModel
+- TestListStorageAsNonAdminOnNotOwnedModel
+`)
+}
+
 // TestListStorageDetailsPersistent verifies that a block storage instance
 // marked as persistent propagates Persistent=true to the API response, and
 // that a filesystem-kind instance without a backing volume remains false.
@@ -54,6 +82,16 @@ func (s *storageSuite) TestListStorageDetailsPersistent(c *tc.C) {
 
 	details := results.Results[0].Result
 	c.Assert(details, tc.HasLen, 2)
-	c.Check(details[0].Persistent, tc.IsTrue)
-	c.Check(details[1].Persistent, tc.IsFalse)
+
+	findByTag := func(tag string) params.StorageDetails {
+		for _, d := range details {
+			if d.StorageTag == tag {
+				return d
+			}
+		}
+		c.Fatalf("storage detail with tag %q not found", tag)
+		return params.StorageDetails{}
+	}
+	c.Check(findByTag("storage-single-blk-0").Persistent, tc.IsTrue)
+	c.Check(findByTag("storage-single-fs-1").Persistent, tc.IsFalse)
 }
