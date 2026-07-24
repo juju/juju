@@ -244,15 +244,17 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, 
 			}
 			// Discharge-required errors are expected: discharge the
 			// macaroon and retry immediately.
-			if params.ErrCode(apiErr) == params.CodeDischargeRequired {
-				mac, err := c.handleDischargeError(apiErr)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				args.Args[0].Macaroons = mac
-				args.Args[0].BakeryVersion = bakery.LatestVersion
-				content, backend, latestRevision, draining, apiErr = apiCall()
+			if params.ErrCode(apiErr) != params.CodeDischargeRequired {
+				return apiErr
 			}
+
+			mac, err := c.handleDischargeError(apiErr)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			args.Args[0].Macaroons = mac
+			args.Args[0].BakeryVersion = bakery.LatestVersion
+			content, backend, latestRevision, draining, apiErr = apiCall()
 			return apiErr
 		},
 		IsFatalError: func(err error) bool {
