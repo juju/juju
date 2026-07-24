@@ -1,14 +1,55 @@
 # Azure-specific helper functions used by the cloud_azure test suite.
 # Sourced automatically by run_test via import_subdir_files.
 
+# azure_resource_group_for_instance <instance_id> [<model_name>]
+#
+# Prints the resource group for the given Azure instance id, preferring a
+# scoped az vm show lookup when the (model-)configured resource-group-name
+# is known. Falls back to a subscription-wide az vm list search.
+azure_resource_group_for_instance() {
+	local instance_id=${1}
+	local model_name=${2:-}
+	local rg model_rg
+
+	rg=""
+	if [ -n "${model_name}" ]; then
+		model_rg=$(juju model-config -m "${model_name}" resource-group-name 2>/dev/null || true)
+	else
+		model_rg=$(juju model-config resource-group-name 2>/dev/null || true)
+	fi
+	if [ -n "${model_rg}" ] && [ "${model_rg}" != "null" ]; then
+		rg=$(az vm show --resource-group "${model_rg}" --name "${instance_id}" --query "resourceGroup" -o tsv 2>/dev/null || true)
+	fi
+	if [ -z "${rg}" ]; then
+		rg=$(az vm list -o yaml 2>/dev/null | yq -r ".[] | select(.name == \"${instance_id}\") | .resourceGroup")
+	fi
+
+	echo "${rg}"
+}
+
 # azure_first_model_instance prints "<instance_id> <resource_group>" for
-# the first machine of the current model, discovered via the az CLI.
+# the first machine of the current model, discovered via the az CLI. The
+# result is cached for the lifetime of the test process.
 azure_first_model_instance() {
+	if [ -n "${AZURE_MODEL_INSTANCE_ID:-}" ] && [ -n "${AZURE_MODEL_RG:-}" ]; then
+		echo "${AZURE_MODEL_INSTANCE_ID} ${AZURE_MODEL_RG}"
+		return 0
+	fi
+
 	local machine_id instance_id rg
 
 	machine_id=$(juju show-machine --format json | yq -r '.machines | keys | .[0]')
 	instance_id=$(juju show-machine "${machine_id}" --format json | yq -r ".machines[\"${machine_id}\"][\"instance-id\"]")
-	rg=$(az vm list -o yaml 2>/dev/null | yq -r ".[] | select(.name == \"${instance_id}\") | .resourceGroup")
+	rg=$(azure_resource_group_for_instance "${instance_id}")
+
+	if [ -z "${rg}" ]; then
+		echo "ERROR: could not find resource group for instance ${instance_id}" >&2
+		return 1
+	fi
+
+	AZURE_MODEL_INSTANCE_ID="${instance_id}"
+	AZURE_MODEL_RG="${rg}"
+	export AZURE_MODEL_INSTANCE_ID AZURE_MODEL_RG
 	echo "${instance_id} ${rg}"
 }
 
@@ -90,6 +131,8 @@ wait_for_azure_nsg_ingress_cidrs_for_port_range() {
 	exp_cidrs=${3}
 	cidr_type=${4}
 
+	# Normalize the expected CIDR order to match the sorted output from az.
+	exp_cidrs=$(printf '%s\n' "${exp_cidrs}" | tr ',' '\n' | sort | paste -sd, -)
 	read -r instance_id rg <<< "$(azure_first_model_instance)"
 	nsg_name=$(azure_nsg_name_for_instance "${rg}" "${instance_id}")
 
@@ -122,26 +165,6 @@ wait_for_azure_nsg_ingress_cidrs_for_port_range() {
 	fi
 
 	echo "[+] NSG rules for port range [${from_port}, ${to_port}] and CIDRs ${exp_cidrs} updated"
-}
-
-# azure_port_range_bounds <port-range>
-# Prints the numeric start and end ports. The protocol suffix is optional.
-azure_port_range_bounds() {
-	local port_range=${1:-}
-	local ports="${port_range%/*}"
-	local from=${ports} to=${ports}
-
-	if [[ ${ports} == *-* ]]; then
-		from=${ports%%-*}
-		to=${ports##*-}
-	fi
-
-	if ! [[ ${from} =~ ^[0-9]+$ && ${to} =~ ^[0-9]+$ ]] || (( from > to )); then
-		echo "ERROR: invalid port range: ${port_range}" >&2
-		return 1
-	fi
-
-	printf '%s %s\n' "${from}" "${to}"
 }
 
 # azure_upload_tcp_listener installs a one-shot HTTP listener script on a

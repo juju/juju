@@ -61,31 +61,27 @@ assert_endpoint_binding_matches() {
 	fi
 }
 
-# assert_opened_ports_output checks that the open-port and opened-ports hook
-# tools behave as expected on the given application unit: it opens a port
-# range for all endpoints, then — when both <endpoint> and
-# <endpoint_port_range> are supplied — opens a port for that specific
-# endpoint. It asserts both the legacy and the --endpoints output formats.
-# Ports are ordered by start port in the output, so expected values are
-# sorted accordingly. Both port ranges must use the same protocol; this
-# helper does not sort or validate across mixed TCP/UDP ranges.
+# _validate_port_args <func_name> [args...]
 #
-# Usage:
-#   assert_opened_ports_output <app_name> <all_endpoints_port_range> \
-#       [<endpoint> <endpoint_port_range>]
-assert_opened_ports_output() {
-	local app_name all_ports endpoint endpoint_ports
-	local exp_legacy exp_endpoints all_start ep_start
+# Validates the argument pattern expected by helpers that accept:
+#   <app_name> <all_endpoints_port_range> [<endpoint> <endpoint_port_range>]
+# Returns 0 when valid, 1 otherwise with an error to stderr.
+_validate_port_args() {
+	local func_name
+	func_name=${1}
+	shift
 
 	if [ "$#" -lt 2 ] || [ "$#" -gt 4 ]; then
-		echo "ERROR: usage: assert_opened_ports_output <app> <all-ports> [<endpoint> <endpoint-ports>]" >&2
+		echo "ERROR: usage: ${func_name} <app> <all-ports> [<endpoint> <endpoint-ports>]" >&2
 		return 1
 	fi
 
+	local app_name all_ports endpoint endpoint_ports
 	app_name=${1:-}
 	all_ports=${2:-}
 	endpoint=${3:-}
 	endpoint_ports=${4:-}
+
 	if [ -z "${app_name}" ] || [ -z "${all_ports}" ]; then
 		echo "ERROR: application and all-endpoints port range are required" >&2
 		return 1
@@ -104,16 +100,59 @@ assert_opened_ports_output() {
 			return 1
 		fi
 	fi
+}
 
-	all_start="${all_ports%%[-\/]*}"
-	if ! [[ ${all_start} =~ ^[0-9]+$ ]]; then
-		echo "ERROR: invalid all-endpoints port range: ${all_ports}" >&2
+# port_range_bounds <port-range>
+#
+# Prints the numeric start and end ports for a port range such as
+# <port>[-<port>][/<protocol>]. The protocol suffix is optional.
+# On failure writes a diagnostic to stderr and returns non-zero.
+port_range_bounds() {
+	local port_range=${1:-}
+	local ports="${port_range%/*}"
+	local from=${ports} to=${ports}
+
+	if [[ ${ports} == *-* ]]; then
+		from=${ports%%-*}
+		to=${ports##*-}
+	fi
+
+	if ! [[ ${from} =~ ^[0-9]+$ && ${to} =~ ^[0-9]+$ ]] || ((from > to)); then
+		echo "ERROR: invalid port range: ${port_range}" >&2
+		return 1
+	fi
+
+	printf '%s %s\n' "${from}" "${to}"
+}
+
+# assert_opened_ports_output checks that the open-port and opened-ports hook
+# tools behave as expected on the given application unit: it opens a port
+# range for all endpoints, then — when both <endpoint> and
+# <endpoint_port_range> are supplied — opens a port for that specific
+# endpoint. It asserts both the legacy and the --endpoints output formats.
+# Ports are ordered by start port in the output, so expected values are
+# sorted accordingly. Both port ranges must use the same protocol; this
+# helper does not sort or validate across mixed TCP/UDP ranges.
+#
+# Usage:
+#   assert_opened_ports_output <app_name> <all_endpoints_port_range> \
+#       [<endpoint> <endpoint_port_range>]
+assert_opened_ports_output() {
+	local app_name all_ports endpoint endpoint_ports
+	local exp_legacy exp_endpoints all_start ep_start
+
+	_validate_port_args "assert_opened_ports_output" "$@" || return 1
+
+	app_name=${1:-}
+	all_ports=${2:-}
+	endpoint=${3:-}
+	endpoint_ports=${4:-}
+
+	if ! all_start=$(port_range_bounds "${all_ports}" | awk '{print $1}'); then
 		return 1
 	fi
 	if [ -n "${endpoint_ports}" ]; then
-		ep_start="${endpoint_ports%%[-\/]*}"
-		if ! [[ ${ep_start} =~ ^[0-9]+$ ]]; then
-			echo "ERROR: invalid endpoint port range: ${endpoint_ports}" >&2
+		if ! ep_start=$(port_range_bounds "${endpoint_ports}" | awk '{print $1}'); then
 			return 1
 		fi
 	fi
@@ -129,8 +168,6 @@ assert_opened_ports_output() {
 	# Build expected outputs sorted by numeric start port, matching the
 	# order produced by opened-ports (sorts by protocol, then by port).
 	if [ -n "${endpoint_ports}" ]; then
-		ep_start="${endpoint_ports%%[-\/]*}"
-		all_start="${all_ports%%[-\/]*}"
 		if [ "${ep_start}" -lt "${all_start}" ]; then
 			exp_legacy="${endpoint_ports} ${all_ports}"
 			exp_endpoints="${endpoint_ports} (${endpoint}) ${all_ports} (*)"
