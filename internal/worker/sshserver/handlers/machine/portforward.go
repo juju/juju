@@ -42,7 +42,11 @@ func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 		}
 
 		destination := net.JoinHostPort(data.DestAddr, strconv.FormatUint(uint64(data.DestPort), 10))
+
+		// Delay accepting the channel until we have successfully connected to the target
+		// machine so that we can send the user an error message if the connection fails.
 		accepted := false
+
 		handleProxy(h, ctx, proxyConfig[halfCloseConn]{
 			createRemote: func(ctx context.Context, client *gossh.Client) (halfCloseConn, error) {
 				connection, err := client.DialContext(ctx, "tcp", destination)
@@ -62,6 +66,8 @@ func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 				if err != nil {
 					return err
 				}
+				defer channel.Close()
+
 				accepted = true
 				stop := context.AfterFunc(ctx, func() {
 					_ = channel.Close()
@@ -70,7 +76,6 @@ func (h *Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 
 				go gossh.DiscardRequests(requests)
 				proxyStreams(channel, remote)
-				_ = channel.Close()
 				return nil
 			},
 			onError: func(err error) {

@@ -13,6 +13,9 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 )
 
+// proxyConfig provides an abstraction around an SSH proxy
+// handler to ensure consistent connection management,
+// error handling, logging and eventually monitoring.
 type proxyConfig[T io.Closer] struct {
 	// createRemote takes an SSH connection to a remote machine and
 	//  returns a protocol specific object for proxying the user's request.
