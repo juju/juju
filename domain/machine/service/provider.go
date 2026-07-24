@@ -68,7 +68,7 @@ func NewProviderService(
 
 // ReprovisionMachine validates that the machine identified by name is eligible
 // for reprovisioning, then applies the split-brain prevention liveness gates.
-func (s *ProviderService) ReprovisionMachine(ctx context.Context, machineName machine.Name, force bool) error {
+func (s *ProviderService) ReprovisionMachine(ctx context.Context, machineName machine.Name) error {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
 

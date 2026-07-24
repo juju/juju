@@ -472,7 +472,7 @@ func (s *providerServiceSuite) TestReprovisionMachineAgentPresent(c *tc.C) {
 	s.expectReprovisionMachineValidated(c, "i-1234")
 	s.state.EXPECT().IsMachineAgentPresent(gomock.Any(), machine.Name("0")).Return(true, nil)
 
-	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAgentPresent)
 }
 
@@ -484,7 +484,7 @@ func (s *providerServiceSuite) TestReprovisionMachineAgentAbsentNoInstance(c *tc
 	s.expectMachineAgentAbsent()
 	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, environs.ErrNoInstances)
 
-	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -498,7 +498,7 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderRunning(c *tc.C) {
 		reprovisionInstance{id: instanceID, status: status.Running},
 	}, nil)
 
-	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineProviderInstanceRunning)
 }
 
@@ -510,7 +510,7 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderLookupError(c *tc.C
 	s.expectMachineAgentAbsent()
 	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, errors.New("provider lookup failed"))
 
-	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorMatches, `checking provider instance "i-1234" for machine "0": provider lookup failed`)
 }
 
@@ -522,7 +522,7 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderNoInstance(c *tc.C)
 	s.expectMachineAgentAbsent()
 	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, environs.ErrNoInstances)
 
-	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -541,7 +541,7 @@ func (s *providerServiceSuite) TestReprovisionMachineDetachError(c *tc.C) {
 		statusData, gomock.Any(),
 	).Return(errors.New("detach failed"))
 
-	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorMatches, `detaching lost cloud instance for machine "0": detach failed`)
 }
 
@@ -585,7 +585,7 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderPartialNoInstance(c
 	s.expectMachineAgentAbsent()
 	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{nil}, environs.ErrPartialInstances)
 
-	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
 }
 
@@ -611,7 +611,7 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderNonRunningStatuses(
 			}, nil)
 			s.expectMachineDetached()
 
-			err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"), true)
+			err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 			c.Assert(err, tc.ErrorIsNil)
 		}()
 	}

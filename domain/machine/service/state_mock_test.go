@@ -224,7 +224,7 @@ func (mr *MockStateMockRecorder) CountMachinesInSpace(ctx, spUUID any) *MockStat
 type MockStateCountMachinesInSpaceCall = gomock.Call2_2[context.Context, string, int64, error]
 
 // DetachLostMachineCloudInstance mocks base method.
-func (m *MockState) DetachLostMachineCloudInstance(arg0 context.Context, arg1 string, arg2 string, arg3 string, arg4 []byte, arg5 time.Time) error {
+func (m *MockState) DetachLostMachineCloudInstance(arg0 context.Context, arg1, arg2, arg3 string, arg4 []byte, arg5 time.Time) error {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch6_1(&m.recorder.detachLostMachineCloudInstanceExpects, m.ctrl, m, "DetachLostMachineCloudInstance", arg0, arg1, arg2, arg3, arg4, arg5)
 }

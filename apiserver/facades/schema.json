@@ -10268,17 +10268,13 @@
                 "ReprovisionMachineArgs": {
                     "type": "object",
                     "properties": {
-                        "force": {
-                            "type": "boolean"
-                        },
                         "machine-tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "machine-tag",
-                        "force"
+                        "machine-tag"
                     ]
                 },
                 "RetryProvisioningArgs": {

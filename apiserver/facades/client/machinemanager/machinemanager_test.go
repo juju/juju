@@ -755,11 +755,10 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachine(c *tc.C) {
 
 	s.modelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationModeNone, nil)
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
-	s.machineService.EXPECT().ReprovisionMachine(gomock.Any(), coremachine.Name("0"), true).Return(nil)
+	s.machineService.EXPECT().ReprovisionMachine(gomock.Any(), coremachine.Name("0")).Return(nil)
 
 	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
-		Force:      true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.IsNil)
@@ -770,7 +769,6 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineV11NotSupported(
 
 	result, err := api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
-		Force:      true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.NotNil)
@@ -800,7 +798,6 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineMigrationInProgr
 
 	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
-		Force:      true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.NotNil)
@@ -816,7 +813,6 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineUpgradeInProgres
 
 	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
-		Force:      true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.NotNil)
@@ -829,11 +825,10 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineServiceError(c *
 
 	s.modelMigrationService.EXPECT().ModelMigrationMode(gomock.Any()).Return(modelmigration.MigrationModeNone, nil)
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
-	s.machineService.EXPECT().ReprovisionMachine(gomock.Any(), coremachine.Name("0"), true).Return(errors.New("not eligible"))
+	s.machineService.EXPECT().ReprovisionMachine(gomock.Any(), coremachine.Name("0")).Return(errors.New("not eligible"))
 
 	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
-		Force:      true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.NotNil)
@@ -846,7 +841,6 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineInvalidTag(c *tc
 
 	result, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "not-a-machine",
-		Force:      true,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(result.Error, tc.NotNil)
@@ -861,7 +855,6 @@ func (s *ProvisioningMachineManagerSuite) TestReprovisionMachineUnauthorised(c *
 
 	_, err := s.api.ReprovisionMachine(c.Context(), params.ReprovisionMachineArgs{
 		MachineTag: "machine-0",
-		Force:      true,
 	})
 	c.Assert(err, tc.ErrorMatches, "permission denied")
 }

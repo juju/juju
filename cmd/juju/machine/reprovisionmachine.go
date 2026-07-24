@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"github.com/juju/names/v6"
 
 	"github.com/juju/juju/api/client/machinemanager"
@@ -28,7 +27,6 @@ type reprovisionMachineCommand struct {
 	modelcmd.ModelCommandBase
 	modelcmd.IAASOnlyCommand
 	machine string
-	force   bool
 	api     ReprovisionMachineAPI
 }
 
@@ -36,7 +34,7 @@ type reprovisionMachineCommand struct {
 // reprovision-machine command calls.
 type ReprovisionMachineAPI interface {
 	Close() error
-	ReprovisionMachine(ctx context.Context, machine names.MachineTag, force bool) (params.ErrorResult, error)
+	ReprovisionMachine(ctx context.Context, machine names.MachineTag) (params.ErrorResult, error)
 }
 
 const reprovisionMachineDoc = `
@@ -47,16 +45,13 @@ replacement cloud instance through the normal provisioning path.
 Root disk, ephemeral disk, charm-local state, and machine-scoped storage
 data are NOT recovered. The replacement instance will have empty storage.
 
-The --force flag is required by the server to acknowledge this data loss.
-It does not bypass safety checks.
-
 This command is only supported for top-level, non-controller, IaaS
 provider-backed machines without child container machines or attached
 model-scoped storage.
 `
 
 const reprovisionMachineExamples = `
-    juju reprovision-machine 3 --force
+    juju reprovision-machine 3
 `
 
 // Info implements Command.Info.
@@ -68,12 +63,6 @@ func (c *reprovisionMachineCommand) Info() *cmd.Info {
 		Doc:      reprovisionMachineDoc,
 		Examples: reprovisionMachineExamples,
 	})
-}
-
-// SetFlags implements Command.SetFlags.
-func (c *reprovisionMachineCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.force, "force", false, "Acknowledge that root disk, ephemeral disk, charm-local state, and machine-scoped storage data will be lost")
 }
 
 // Init implements Command.Init.
@@ -117,7 +106,7 @@ func (c *reprovisionMachineCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	result, err := client.ReprovisionMachine(ctx, names.NewMachineTag(c.machine), c.force)
+	result, err := client.ReprovisionMachine(ctx, names.NewMachineTag(c.machine))
 	if err != nil {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(

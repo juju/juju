@@ -218,7 +218,7 @@ type MockMachineServiceMockRecorder struct {
 	getMachineBaseExpects             []*gomock.Call2_2[context.Context, machine.Name, base.Base, error]
 	getMachineContainersExpects       []*gomock.Call2_2[context.Context, machine.UUID, []machine.Name, error]
 	getMachineUUIDExpects             []*gomock.Call2_2[context.Context, machine.Name, machine.UUID, error]
-	reprovisionMachineExpects         []*gomock.Call3_1[context.Context, machine.Name, bool, error]
+	reprovisionMachineExpects         []*gomock.Call2_1[context.Context, machine.Name, error]
 	setKeepInstanceExpects            []*gomock.Call3_1[context.Context, machine.Name, bool, error]
 	shouldKeepInstanceExpects         []*gomock.Call2_2[context.Context, machine.Name, bool, error]
 }
@@ -362,22 +362,22 @@ func (mr *MockMachineServiceMockRecorder) GetMachineUUID(arg0, arg1 any) *MockMa
 type MockMachineServiceGetMachineUUIDCall = gomock.Call2_2[context.Context, machine.Name, machine.UUID, error]
 
 // ReprovisionMachine mocks base method.
-func (m *MockMachineService) ReprovisionMachine(arg0 context.Context, arg1 machine.Name, arg2 bool) error {
+func (m *MockMachineService) ReprovisionMachine(arg0 context.Context, arg1 machine.Name) error {
 	m.ctrl.T.Helper()
-	return gomock.Dispatch3_1(&m.recorder.reprovisionMachineExpects, m.ctrl, m, "ReprovisionMachine", arg0, arg1, arg2)
+	return gomock.Dispatch2_1(&m.recorder.reprovisionMachineExpects, m.ctrl, m, "ReprovisionMachine", arg0, arg1)
 }
 
 // ReprovisionMachine indicates an expected call of ReprovisionMachine.
-func (mr *MockMachineServiceMockRecorder) ReprovisionMachine(arg0, arg1, arg2 any) *MockMachineServiceReprovisionMachineCall {
+func (mr *MockMachineServiceMockRecorder) ReprovisionMachine(arg0, arg1 any) *MockMachineServiceReprovisionMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall3_1[context.Context, machine.Name, bool, error](mr.mock.ctrl.T, mr.mock, "ReprovisionMachine", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1), gomock.EnsureMatcher(arg2))
+	call := gomock.NewCall2_1[context.Context, machine.Name, error](mr.mock.ctrl.T, mr.mock, "ReprovisionMachine", gomock.EnsureMatcher(arg0), gomock.EnsureMatcher(arg1))
 	mr.reprovisionMachineExpects = append(mr.reprovisionMachineExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockMachineServiceReprovisionMachineCall is the typed call wrapper for ReprovisionMachine.
-type MockMachineServiceReprovisionMachineCall = gomock.Call3_1[context.Context, machine.Name, bool, error]
+type MockMachineServiceReprovisionMachineCall = gomock.Call2_1[context.Context, machine.Name, error]
 
 // SetKeepInstance mocks base method.
 func (m *MockMachineService) SetKeepInstance(ctx context.Context, machineName machine.Name, keep bool) error {
