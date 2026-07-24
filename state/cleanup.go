@@ -1470,11 +1470,28 @@ func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.
 	return machine.Remove()
 }
 
-// cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
-// from the machine before then kicking off machine destroy.
+// cleanupEvacuateMachine is initiated by machine.ForceDestroy() to remove units
+// from a controller machine before then kicking off machine destroy.
 func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw) error {
-	if len(cleanupArgs) > 0 {
-		return errors.Errorf("expected no arguments, got %d", len(cleanupArgs))
+	var (
+		force   bool
+		maxWait time.Duration
+	)
+	switch n := len(cleanupArgs); {
+	case n > 2:
+		return errors.Errorf("expected 0-2 arguments, got %d", n)
+	case n == 0:
+		// Legacy cleanups have no args and can only finish with force.
+		force = true
+	case n >= 1:
+		if err := cleanupArgs[0].Unmarshal(&force); err != nil {
+			return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
+		}
+		if n == 2 {
+			if err := cleanupArgs[1].Unmarshal(&maxWait); err != nil {
+				return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
+			}
+		}
 	}
 
 	machine, err := st.Machine(machineId)
@@ -1496,6 +1513,9 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 		if err := machine.advanceLifecycle(Dying, false, false, 0); err != nil {
 			return errors.Trace(err)
 		}
+		if force {
+			st.scheduleForceCleanup(cleanupForceDestroyedMachine, machineId, maxWait)
+		}
 		return nil
 	}
 
@@ -1509,6 +1529,8 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 		var ops []txn.Op
 		for _, unit := range units {
 			destroyOp := unit.DestroyOperation()
+			destroyOp.Force = force
+			destroyOp.MaxWait = maxWait
 			op, err := destroyOp.Build(attempt)
 			if err != nil && !errors.Is(err, jujutxn.ErrNoOperations) {
 				return nil, errors.Trace(err)

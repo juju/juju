@@ -667,7 +667,7 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 				Assert: bson.D{{"controller-ids", controllerIds}},
 			},
 			setControllerWantsVoteOp(m.st, m.Id(), false),
-			newCleanupOp(cleanupEvacuateMachine, m.doc.Id),
+			newCleanupOp(cleanupEvacuateMachine, m.doc.Id, true, maxWait),
 		}, nil
 	} else {
 		// Make sure the machine doesn't become a manager while we're destroying it

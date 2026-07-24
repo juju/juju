@@ -599,15 +599,65 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	s.assertCleanupRuns(c)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	// However, if we remove the vote, it can be cleaned up.
-	// ForceDestroy sets up a cleanupEvacuateMachine, which will not
-	// add any other cleanup ops.
-	// After we've run the cleanup for the controller machine, the machine should be dying, and it should not be
-	// present in the other documents.
+	// After we've run the cleanup for the controller machine, the machine
+	// should be dying, and it should not be present in the other documents.
 	assertLife(c, machine, state.Dying)
 	controllerIds, err = s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(controllerIds)
 	sort.Strings(changes.Added)
+}
+
+func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachineEvacuatesUnitsWithForce(c *gc.C) {
+	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
+	machine, err := s.State.Machine(changes.Added[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", ch)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.AssignToMachine(machine)
+	c.Assert(err, jc.ErrorIsNil)
+	preventUnitDestroyRemove(c, unit)
+
+	s.assertDoesNotNeedCleanup(c)
+
+	err = machine.ForceDestroy(dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+
+	for i := 0; i < 5; i++ {
+		if err := unit.Refresh(); errors.IsNotFound(err) {
+			break
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
+	assertRemoved(c, unit)
+
+	for i := 0; i < 3; i++ {
+		c.Assert(machine.Refresh(), jc.ErrorIsNil)
+		if machine.Life() == state.Dying {
+			break
+		}
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
+	assertLife(c, machine, state.Dying)
+
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	assertLife(c, machine, state.Dead)
+
+	s.assertNeedsCleanup(c)
+	s.assertCleanupRuns(c)
+	assertRemoved(c, machine)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
