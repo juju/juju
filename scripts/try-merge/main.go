@@ -36,7 +36,7 @@ func main() {
 	}
 	switch cmd := os.Args[1]; cmd {
 	// TODO: migrate the merging logic from merge.yml to here
-	//case "try-merge":
+	// case "try-merge":
 	//	tryMerge()
 	case "errmsg":
 		printErrMsg()
@@ -88,30 +88,60 @@ func printErrMsg() {
 
 	badCommits := findOffendingCommits()
 
-	// Iterate through commits and find people to notify
-	peopleToNotify := set.NewStrings()
+	// Map from display key (MM username or name) -> notification info
+	peopleToNotify := map[string]*notifyInfo{}
+
 	for _, commit := range badCommits {
-		if ignoreEmails.Contains(commit.CommitterEmail) {
-			stderrf("DEBUG: skipping commit %s: committer on ignore list\n", commit.SHA)
-			continue
-		}
 		if num, ok := commitHasOpenPR(commit); ok {
 			stderrf("DEBUG: skipping commit %s: has open PR #%d\n", commit.SHA, num)
 			continue
 		}
 
-		_, ok := emailToMMUser[commit.CommitterEmail]
-		if ok {
-			peopleToNotify.Add("@" + emailToMMUser[commit.CommitterEmail])
+		// Try to find the PR that introduced this commit on the source branch
+		prNumber, prAuthorEmail, prAuthorLogin, foundPR := findPRForCommit(commit)
+
+		var email, name string
+		if foundPR {
+			name = prAuthorLogin
+			email = prAuthorEmail
+			if email == "" {
+				// PR author email not public; fall back to commit author
+				email = commit.AuthorEmail
+			}
 		} else {
-			// Don't have a username for this email - just use commit author name
-			stderrf("WARNING: no MM username found for email %q\n", commit.CommitterEmail)
-			peopleToNotify.Add(commit.CommitterName)
+			// Fallback to commit committer
+			email = commit.CommitterEmail
+			name = commit.CommitterName
 		}
+
+		if ignoreEmails.Contains(email) {
+			stderrf("DEBUG: skipping commit %s: email on ignore list\n", commit.SHA)
+			continue
+		}
+
+		// Determine the display key (MM username or name)
+		var key string
+		if mmUser, ok := emailToMMUser[email]; ok {
+			key = "@" + mmUser
+		} else {
+			stderrf("WARNING: no MM username found for email %q\n", email)
+			key = name
+		}
+
+		if _, exists := peopleToNotify[key]; !exists {
+			peopleToNotify[key] = &notifyInfo{
+				Name:      name,
+				PRNumbers: set.NewStrings(),
+			}
+		}
+		if foundPR && prNumber > 0 {
+			peopleToNotify[key].PRNumbers.Add(fmt.Sprintf("#%d", prNumber))
+		}
+		peopleToNotify[key].Commits = append(peopleToNotify[key].Commits, commit)
 	}
 
-	if !peopleToNotify.IsEmpty() {
-		printMessage(peopleToNotify)
+	if len(peopleToNotify) > 0 {
+		printMessageWithPRs(peopleToNotify, os.Getenv("GITHUB_REPOSITORY"))
 	}
 }
 
@@ -121,36 +151,42 @@ func findOffendingCommits() []commitInfo {
 	// Call `git log` to get commit info
 	gitLogRes := execute(executeArgs{
 		command: "git",
-		args: []string{"log",
+		args: []string{
+			"log",
 			// Restrict to commits which are present in source branch, but not target
 			fmt.Sprintf("%s..%s", targetBranch, sourceBranch),
 			"--merge",     // show refs that touch files having a conflict
 			"--no-merges", // ignore merge commits
-			"--format=" + gitLogJSONFormat,
+			"--format=" + gitLogFormat,
 		},
 		dir: gitDir,
 	})
 	handleExecuteError(gitLogRes)
 	stderrf("DEBUG: offending commits are\n%s\n", gitLogRes.stdout)
-	gitLogInfo := gitLogOutputToValidJSON(gitLogRes.stdout)
 
 	var commits []commitInfo
-	check(json.Unmarshal(gitLogInfo, &commits))
+	for line := range strings.SplitSeq(string(gitLogRes.stdout), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\t", 6)
+		if len(parts) < 6 {
+			stderrf("WARNING: skipping malformed git log line: %q\n", line)
+			continue
+		}
+		commits = append(commits, commitInfo{
+			SHA:            parts[0],
+			AuthorName:     parts[1],
+			AuthorEmail:    parts[2],
+			CommitterName:  parts[3],
+			CommitterEmail: parts[4],
+			CommitMessage:  parts[5],
+		})
+	}
 	return commits
 }
 
-var gitLogJSONFormat = `{"sha":"%H","authorName":"%an","authorEmail":"%ae","committerName":"%cn","committerEmail":"%ce"}`
-
-// Transforms the output of `git log` into a valid JSON array.
-func gitLogOutputToValidJSON(raw []byte) []byte {
-	rawString := string(raw)
-	lines := strings.Split(rawString, "\n")
-	// Remove empty last line
-	filteredLines := lines[:len(lines)-1]
-	joinedLines := strings.Join(filteredLines, ",")
-	array := "[" + joinedLines + "]"
-	return []byte(array)
-}
+var gitLogFormat = "%H\t%an\t%ae\t%cn\t%ce\t%s"
 
 type commitInfo struct {
 	SHA            string `json:"sha"`
@@ -158,6 +194,7 @@ type commitInfo struct {
 	AuthorEmail    string `json:"authorEmail"`
 	CommitterName  string `json:"committerName"`
 	CommitterEmail string `json:"committerEmail"`
+	CommitMessage  string `json:"commitMessage"`
 }
 
 type prInfo struct {
@@ -165,12 +202,36 @@ type prInfo struct {
 	State  string `json:"state"`
 }
 
+// ghPRInfo represents a PR returned by the GitHub API endpoint
+// /repos/{owner}/{repo}/commits/{sha}/pulls
+type ghPRInfo struct {
+	Number   int    `json:"number"`
+	State    string `json:"state"`
+	MergedAt string `json:"merged_at"`
+	User     struct {
+		Login string `json:"login"`
+		Email string `json:"email"`
+	} `json:"user"`
+	Base struct {
+		Ref string `json:"ref"`
+	} `json:"base"`
+}
+
+// notifyInfo holds information about a person to notify for merge conflicts,
+// including the PR numbers and commits they are responsible for.
+type notifyInfo struct {
+	Name      string
+	PRNumbers set.Strings
+	Commits   []commitInfo
+}
+
 // Check if there is already an open merge containing this commit. If so,
 // we don't need to notify.
 func commitHasOpenPR(commit commitInfo) (prNumber int, ok bool) {
 	ghRes := execute(executeArgs{
 		command: "gh",
-		args: []string{"pr", "list",
+		args: []string{
+			"pr", "list",
 			"--search", commit.SHA,
 			"--state", "all",
 			"--base", targetBranch,
@@ -192,19 +253,85 @@ func commitHasOpenPR(commit commitInfo) (prNumber int, ok bool) {
 	return -1, false
 }
 
-func printMessage(peopleToNotify set.Strings) {
-	messageData := struct{ TaggedUsers, SourceBranch, TargetBranch, LogsLink string }{
-		TaggedUsers:  strings.Join(peopleToNotify.Values(), ", "),
-		SourceBranch: sourceBranch,
-		TargetBranch: targetBranch,
-		LogsLink: fmt.Sprintf("https://github.com/%s/actions/runs/%s",
-			os.Getenv("GITHUB_REPOSITORY"), os.Getenv("GITHUB_RUN_ID")),
+// findPRForCommit finds the merged PR that introduced a commit on the source
+// branch. Returns the PR number, author email, author login, and true if
+// found.
+func findPRForCommit(commit commitInfo) (prNumber int, prAuthorEmail string, prAuthorLogin string, ok bool) {
+	repo := os.Getenv("GITHUB_REPOSITORY")
+	if repo == "" {
+		return -1, "", "", false
 	}
 
-	tmpl, err := template.New("test").Parse(
-		"{{.TaggedUsers}}: your recent changes to `{{.SourceBranch}}` have caused merge conflicts. " +
-			"Please merge `{{.SourceBranch}}` into `{{.TargetBranch}}` and resolve the conflicts. " +
-			"[[logs]({{.LogsLink}})]",
+	ghRes := execute(executeArgs{
+		command: "gh",
+		args: []string{
+			"api",
+			fmt.Sprintf("/repos/%s/commits/%s/pulls", repo, commit.SHA),
+		},
+		dir: gitDir,
+	})
+	if ghRes.runError != nil {
+		stderrf("WARNING: couldn't find PRs for commit %s: %v\n", commit.SHA, ghRes.runError)
+		return -1, "", "", false
+	}
+
+	var prList []ghPRInfo
+	if err := json.Unmarshal(ghRes.stdout, &prList); err != nil {
+		stderrf("WARNING: couldn't parse PR list for commit %s: %v\n", commit.SHA, err)
+		return -1, "", "", false
+	}
+
+	for _, pr := range prList {
+		if pr.Base.Ref != sourceBranch {
+			continue
+		}
+		if pr.MergedAt == "" {
+			continue
+		}
+		return pr.Number, pr.User.Email, pr.User.Login, true
+	}
+	return -1, "", "", false
+}
+
+func printMessageWithPRs(peopleToNotify map[string]*notifyInfo, repo string) {
+	var personBlocks []string
+	for key, info := range peopleToNotify {
+		var personLine string
+		if info.PRNumbers.IsEmpty() {
+			personLine = fmt.Sprintf("- %s", key)
+		} else {
+			prList := strings.Join(info.PRNumbers.SortedValues(), ", ")
+			personLine = fmt.Sprintf("- %s (%s)", key, prList)
+		}
+
+		var commitLines []string
+		for _, c := range info.Commits {
+			shortSHA := c.SHA[:7]
+			commitURL := fmt.Sprintf("%s/%s/commit/%s", os.Getenv("GITHUB_SERVER_URL"), repo, c.SHA)
+			commitLines = append(commitLines, fmt.Sprintf("  - `%s` %s ([commit](%s))", shortSHA, c.CommitMessage, commitURL))
+		}
+
+		block := personLine
+		if len(commitLines) > 0 {
+			block += "\n" + strings.Join(commitLines, "\n")
+		}
+		personBlocks = append(personBlocks, block)
+	}
+
+	messageData := struct {
+		SourceBranch, TargetBranch, Details string
+	}{
+		SourceBranch: sourceBranch,
+		TargetBranch: targetBranch,
+		Details:      strings.Join(personBlocks, "\n"),
+	}
+
+	tmpl, err := template.New("msg").Parse(
+		"🤖 **Beep boop! Merge conflict detected!**\n" +
+			"📍 **Source branch:** `{{.SourceBranch}}`\n\n" +
+			"⚠️ The following changes on `{{.SourceBranch}}` have merge conflicts with `{{.TargetBranch}}`:\n" +
+			"{{.Details}}\n\n" +
+			"Please merge `{{.SourceBranch}}` into `{{.TargetBranch}}` and resolve the conflicts.",
 	)
 	check(err)
 	check(tmpl.Execute(os.Stdout, messageData))
