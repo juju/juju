@@ -834,6 +834,7 @@ type MockModelStateMockRecorder struct {
 	getMigrationAgentsExpects         []*gomock.Call1_2[context.Context, internal.MigrationAgents, error]
 	getModelTargetAgentVersionExpects []*gomock.Call1_2[context.Context, string, error]
 	getOfferUUIDsExpects              []*gomock.Call1_2[context.Context, []string, error]
+	isModelImportingExpects           []*gomock.Call1_2[context.Context, bool, error]
 	setModelTargetAgentVersionExpects []*gomock.Call3_1[context.Context, string, string, error]
 }
 
@@ -956,6 +957,24 @@ func (mr *MockModelStateMockRecorder) GetOfferUUIDs(ctx any) *MockModelStateGetO
 
 // MockModelStateGetOfferUUIDsCall is the typed call wrapper for GetOfferUUIDs.
 type MockModelStateGetOfferUUIDsCall = gomock.Call1_2[context.Context, []string, error]
+
+// IsModelImporting mocks base method.
+func (m *MockModelState) IsModelImporting(ctx context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch1_2(&m.recorder.isModelImportingExpects, m.ctrl, m, "IsModelImporting", ctx)
+}
+
+// IsModelImporting indicates an expected call of IsModelImporting.
+func (mr *MockModelStateMockRecorder) IsModelImporting(ctx any) *MockModelStateIsModelImportingCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall1_2[context.Context, bool, error](mr.mock.ctrl.T, mr.mock, "IsModelImporting", gomock.EnsureMatcher(ctx))
+	mr.isModelImportingExpects = append(mr.isModelImportingExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelStateIsModelImportingCall is the typed call wrapper for IsModelImporting.
+type MockModelStateIsModelImportingCall = gomock.Call1_2[context.Context, bool, error]
 
 // SetModelTargetAgentVersion mocks base method.
 func (m *MockModelState) SetModelTargetAgentVersion(ctx context.Context, preCondition, toVersion string) error {

@@ -55,6 +55,10 @@ type ModelImporter interface {
 	// carried by the import args.
 	ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
 
+	// CommitActivation records that the source committed the migration and
+	// releases the model for use. Driven by AdoptResources.
+	CommitActivation(ctx context.Context, modelUUID coremodel.UUID) error
+
 	// ActivateModel finalises the activation of a model imported via the v8
 	// path, running a durable, idempotent phase machine. It is also safe to
 	// call for legacy (3.6/4.0) imports that have no import claim.
@@ -524,6 +528,19 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 		return errors.Errorf("cannot get model migration service for model %q: %w", modelId, err)
 	}
 
+	// AdoptResources is the first call a source makes after durably recording
+	// SUCCESS, the point from which its phase machine can never reach ABORT. Its
+	// arrival is therefore the source's commit decision, and the only reliable
+	// one the wire protocol offers - so committing activation here is what lets
+	// Activate stay abortable. This holds for every facade version: 3.6 and 4.0
+	// sources send it at exactly the same point.
+	if err := api.modelImporter.CommitActivation(ctx, modelId); err != nil {
+		return errors.Errorf("committing activation for model %q: %w", modelId, err)
+	}
+
+	// Adopt last, and let its error surface: the source retries this call, and a
+	// retry finds the model already released and re-runs adoption alone. This
+	// matches 3.6, which released the model before adopting its resources.
 	return svc.AdoptResources(ctx, args.SourceControllerVersion)
 }
 

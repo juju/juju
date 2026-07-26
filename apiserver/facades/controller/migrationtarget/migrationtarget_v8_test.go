@@ -33,6 +33,7 @@ import (
 	v4_0_12 "github.com/juju/juju/domain/export/types/v4_0_12"
 	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/errors"
+	internalerrors "github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
@@ -644,4 +645,51 @@ func newMacaroon(c *tc.C) *macaroon.Macaroon {
 	)
 	c.Assert(err, tc.ErrorIsNil)
 	return mac
+}
+
+// TestAdoptResourcesCommitsActivationFirst asserts that AdoptResources commits
+// the activation before asking the provider to re-tag anything.
+//
+// AdoptResources is the first call a source makes after durably recording
+// SUCCESS - the point from which its phase machine can never reach ABORT - so
+// its arrival is the source's commit decision, and the only reliable one the
+// wire protocol offers. Committing here is what lets Activate remain abortable.
+// Releasing before adopting also matches 3.6, which released the model in
+// Activate and re-tagged afterwards.
+func (s *v8Suite) TestAdoptResourcesCommitsActivationFirst(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, model.NewUUID)
+	sourceVersion := semversion.MustParse("4.0.12")
+
+	gomock.InOrder(
+		s.modelImporter.EXPECT().CommitActivation(gomock.Any(), modelUUID).Return(nil),
+		s.modelMigrationService.EXPECT().AdoptResources(gomock.Any(), sourceVersion).Return(nil),
+	)
+
+	api := s.mustNewAPIV8(c)
+	err := api.AdoptResources(c.Context(), params.AdoptResourcesArgs{
+		ModelTag:                names.NewModelTag(modelUUID.String()).String(),
+		SourceControllerVersion: sourceVersion,
+	})
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+// TestAdoptResourcesFailedCommitSkipsProvider asserts the provider is left alone
+// when the commit is refused. A commit is refused only when the model is not the
+// target's to take - it is being aborted, or was never imported here - so
+// re-tagging its cloud resources would be wrong.
+func (s *v8Suite) TestAdoptResourcesFailedCommitSkipsProvider(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := tc.Must0(c, model.NewUUID)
+
+	s.modelImporter.EXPECT().CommitActivation(gomock.Any(), modelUUID).Return(internalerrors.New("boom"))
+
+	api := s.mustNewAPIV8(c)
+	err := api.AdoptResources(c.Context(), params.AdoptResourcesArgs{
+		ModelTag:                names.NewModelTag(modelUUID.String()).String(),
+		SourceControllerVersion: semversion.MustParse("4.0.12"),
+	})
+	c.Check(err, tc.ErrorMatches, ".*committing activation.*boom.*")
 }

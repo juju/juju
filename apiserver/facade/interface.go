@@ -203,10 +203,15 @@ type ModelImporter interface {
 	// carried by the import args.
 	ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error
 
-	// ActivateModel finalises the activation of a model imported via the v8
-	// path, running a durable, idempotent phase machine. It is also safe to
-	// call for legacy (3.6/4.0) imports that have no import claim.
+	// ActivateModel prepares an imported model for activation without
+	// committing anything, leaving it abortable. Called during the source's
+	// VALIDATION phase, where any failure sends the source to ABORT.
 	ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error
+
+	// CommitActivation records that the source committed the migration and
+	// releases the model for use. Driven by AdoptResources, the first call a
+	// source makes after durably recording SUCCESS.
+	CommitActivation(ctx context.Context, modelUUID model.UUID) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.

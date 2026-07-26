@@ -46,100 +46,194 @@ type ActivateModelArgs struct {
 	CrossModelUUIDs []string
 }
 
-// activateModel finalises the activation of a model imported via the v8 path.
-// It runs a durable phase machine: importing, activating, then claim deleted,
-// so retrying after a crash at any step resumes safely; every step is
-// idempotent.
+// Migrating a model between two controllers is a commit across two
+// controllers, and only the source can decide its outcome: it is the side that
+// chooses between SUCCESS and ABORT. The target's job is to carry out that
+// decision, never to guess it.
 //
-// Legacy (3.6/4.0) imports set the model_migrating gate but create no
-// model_migration_import claim. When no claim exists, activateModel clears the
-// gate and succeeds, preserving backward compatibility.
-func activateModel(ctx context.Context, domainServices services.DomainServices, args ActivateModelArgs) error {
+// The source's phase machine makes the decision legible. Any error activating
+// the model sends it to ABORT, and it treats the target's cleanup as best
+// effort. But once it durably records SUCCESS it can never reach ABORT again -
+// it only rolls forward, retrying failures. So the target has exactly one
+// reliable commit signal: the first message the source sends after recording
+// SUCCESS, which is AdoptResources.
+//
+// Activation is therefore split in two, with no new RPC and no new error code,
+// so an unmodified 3.6 or 4.0 source speaks the protocol unchanged:
+//
+//	prepareActivation  every fallible, reversible step. Called during
+//	                   VALIDATION, while the source may still abort.
+//	commitActivation   the irreversible transition. Called during SUCCESS, so
+//	                   its arrival is the commit decision.
+
+// prepareActivation performs every fallible, reversible step of activating an
+// imported model, and nothing else.
+//
+// It is 3.6's Activate minus its final act of releasing the model. Each step is
+// idempotent, and every failure leaves the model exactly as it was: claim still
+// importing, gate still closed, workers still parked. That is the point - the
+// source treats any failure here, or a reply it never receives, as a reason to
+// abort, so nothing done here may prevent that abort from succeeding.
+func prepareActivation(ctx context.Context, domainServices services.DomainServices, args ActivateModelArgs) error {
 	modelUUID := args.ModelUUID
-	modelUUIDStr := modelUUID.String()
 
-	// Check for a v8 import claim. A missing claim means legacy import.
+	// Every import creates a claim, legacy ones included, so claim existence
+	// says nothing about which path imported this model.
 	claim, err := domainServices.ModelMigration().GetImportClaim(ctx, modelUUID)
-	hasClaim := err == nil
-	if err != nil && !errors.Is(err, modelmigrationerrors.ErrImportNotFound) {
-		return errors.Errorf("checking import claim for model %q: %w", modelUUIDStr, err)
-	}
-
-	// 1. Transition to activating (v8 only): point of no return.
-	if hasClaim {
-		switch claim.Phase {
-		case modelmigration.ImportPhaseAborting:
-			return errors.Errorf("model %q: %w", modelUUIDStr, modelmigrationerrors.ErrActivationAborting)
-		case modelmigration.ImportPhaseImporting:
-			if err := domainServices.ModelMigration().SetImportPhaseActivating(ctx, modelUUID); err != nil {
-				return errors.Errorf(
-					"transitioning import claim to activating for model %q: %w",
-					modelUUIDStr, err,
-				)
-			}
-		case modelmigration.ImportPhaseActivating:
-			// Idempotent retry: already past the point of no return.
-		default:
-			return errors.Errorf(
-				"model %q: unexpected import claim phase %q",
-				modelUUIDStr, claim.Phase,
-			)
+	switch {
+	case errors.Is(err, modelmigrationerrors.ErrImportNotFound):
+		// No claim: either this model was never imported here, or it was
+		// already committed and released. Only the latter is a success.
+		if committed, err := committedPredicates(ctx, domainServices, modelUUID); err != nil {
+			return errors.Capture(err)
+		} else if committed {
+			return nil
 		}
+		return errors.Errorf("model %q is not importing", modelUUID)
+	case err != nil:
+		return errors.Errorf("reading import claim for model %q: %w", modelUUID, err)
 	}
 
-	// 2. CMR offerer-controller reconciliation: populate
-	// application_remote_offerer.offerer_controller_uuid while the model is
-	// gated. All updates are idempotent so a retry after a crash is safe.
-	if err := reconcileOffererControllers(ctx, domainServices, modelUUID, hasClaim, args); err != nil {
+	switch claim.Phase {
+	case modelmigration.ImportPhaseAborting:
+		// Cleanup has started; the source will abort anyway.
+		return errors.Errorf("model %q: %w", modelUUID, modelmigrationerrors.ErrActivationAborting)
+	case modelmigration.ImportPhaseActivating:
+		// The commit already arrived, so there is nothing left to prepare.
+		// Reporting success beats failing: a stale caller that failed here
+		// would drive an abort the target must then refuse.
+		return nil
+	case modelmigration.ImportPhaseImporting:
+	default:
+		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, claim.Phase)
+	}
+
+	if err := reconcileOffererControllers(ctx, domainServices, modelUUID, args); err != nil {
 		return errors.Errorf(
-			"reconciling offerer controller UUIDs for model %q: %w", modelUUIDStr, err,
-		)
+			"reconciling offerer controller UUIDs for model %q: %w", modelUUID, err)
 	}
 
-	// 3. Reconcile the model agent version to match the controller target, if
-	// needed.
-	if err := reconcileModelAgentVersion(ctx, domainServices, modelUUIDStr); err != nil {
+	if err := reconcileModelAgentVersion(ctx, domainServices, modelUUID.String()); err != nil {
 		return errors.Errorf(
-			"reconciling model agent version during activation of model %q: %w",
-			modelUUIDStr, err,
-		)
+			"reconciling model agent version during activation of model %q: %w", modelUUID, err)
 	}
 
-	// 4. Clear the model-DB import gate.
-	// Steps 4 and 5 write to different databases and so cannot share a
-	// transaction, but a crash between them leaves no half-visible model:
-	// visibility gates on model.activated (set in step 5), so until step 5
-	// lands the model stays invisible regardless of the gate. Both steps are
-	// idempotent, so a retry resumes safely.
-	if err := domainServices.ModelMigration().DeleteModelImportingStatus(ctx); err != nil {
-		return errors.Errorf(
-			"clearing import gate for model %q: %w", modelUUIDStr, err,
-		)
+	// Re-check the claim last. Preparation writes only shared controller rows,
+	// using compare-or-insert, so an abort racing it has nothing to undo - but a
+	// caller told preparation succeeded should not then meet a refused commit.
+	if err := domainServices.ModelMigration().AssertImporting(ctx, modelUUID); err != nil {
+		return errors.Errorf("model %q import claim changed during activation: %w", modelUUID, err)
 	}
-
-	// 5. Activate the model row itself in the controller DB. This is a
-	// distinct flag from the migration claim: model_migration_import tracks
-	// the migration's own phase machine, while model.activated is the
-	// generic "model creation is fully complete" flag every model carries
-	// (migrated or not) and is what v_model/CheckModelExists/GetModel gate
-	// on. Without this, the model stays permanently invisible even after the
-	// claim is later deleted. Idempotent: a retry that finds the row already
-	// activated is a success, not an error.
-	if err := domainServices.Model().ActivateModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.AlreadyActivated) {
-		return errors.Errorf("activating model %q: %w", modelUUIDStr, err)
-	}
-
-	// 6. Delete the import claim last (v8 only): after the gate is gone, a
-	// second call with no claim is an idempotent success.
-	if hasClaim {
-		if err := domainServices.ModelMigration().DeleteActivatedImport(ctx, modelUUID); err != nil {
-			return errors.Errorf(
-				"deleting activated import claim for model %q: %w", modelUUIDStr, err,
-			)
-		}
-	}
-
 	return nil
+}
+
+// commitActivation performs the irreversible half of activation: it records
+// that the source committed, then releases the model.
+//
+// It is driven by AdoptResources, which a source sends only after durably
+// recording SUCCESS. Receipt is therefore proof that the source can never abort
+// this migration, which is what makes the transition safe to treat as a point
+// of no return.
+//
+// Releasing before adopting resources matches 3.6, which released the model in
+// Activate and adopted afterwards. An adoption failure does not undo the
+// release: the model is already this controller's, and the source retries
+// AdoptResources until it succeeds.
+func commitActivation(
+	ctx context.Context,
+	domainServices services.DomainServices,
+	modelUUID coremodel.UUID,
+) error {
+	claim, err := domainServices.ModelMigration().GetImportClaim(ctx, modelUUID)
+	switch {
+	case errors.Is(err, modelmigrationerrors.ErrImportNotFound):
+		// The claim is gone: either this commit already completed and its reply
+		// was lost, or the model was never imported here. Only the former may
+		// pass, and it has nothing left to do.
+		committed, err := committedPredicates(ctx, domainServices, modelUUID)
+		if err != nil {
+			return errors.Capture(err)
+		}
+		if !committed {
+			return errors.Errorf("model %q is not importing or activating", modelUUID)
+		}
+		return nil
+	case err != nil:
+		return errors.Errorf("reading import claim for model %q: %w", modelUUID, err)
+	}
+
+	switch claim.Phase {
+	case modelmigration.ImportPhaseAborting:
+		// Unreachable from a correct source: a migration that reached SUCCESS
+		// never drove an abort. Refuse loudly rather than resurrect a model
+		// whose teardown is under way.
+		return errors.Errorf("model %q: cannot commit activation, import is aborting", modelUUID)
+	case modelmigration.ImportPhaseActivating:
+		// An interrupted commit; everything below is idempotent, so resume.
+	case modelmigration.ImportPhaseImporting:
+		// The commit record itself.
+		if err := domainServices.ModelMigration().SetImportPhaseActivating(ctx, modelUUID); err != nil {
+			return errors.Errorf("recording activation commit for model %q: %w", modelUUID, err)
+		}
+	default:
+		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, claim.Phase)
+	}
+
+	return releaseModel(ctx, domainServices, modelUUID)
+}
+
+// releaseModel makes a committed model usable and gives up the claim. Every
+// step is idempotent, so a commit interrupted part-way is finished by repeating
+// all of them.
+//
+// Claim deletion is last and is what actually releases the model: it is the
+// change the migration flag watches, so the model's workers start at that
+// moment and not before.
+func releaseModel(
+	ctx context.Context, domainServices services.DomainServices, modelUUID coremodel.UUID,
+) error {
+	if err := domainServices.ModelMigration().DeleteModelImportingStatus(ctx); err != nil {
+		return errors.Errorf("clearing import gate for model %q: %w", modelUUID, err)
+	}
+
+	// model.activated is the generic "model creation is complete" flag every
+	// model carries, distinct from the migration claim. The import sets it so
+	// agents can reach the model during validation, so this is usually a no-op.
+	if err := domainServices.Model().ActivateModel(ctx, modelUUID); err != nil &&
+		!errors.Is(err, modelerrors.AlreadyActivated) {
+		return errors.Errorf("activating model %q: %w", modelUUID, err)
+	}
+
+	if err := domainServices.ModelMigration().DeleteActivatedImport(ctx, modelUUID); err != nil {
+		return errors.Errorf("releasing import claim for model %q: %w", modelUUID, err)
+	}
+	return nil
+}
+
+// committedPredicates reports whether a model with no import claim shows every
+// sign of having been released by a completed commit.
+//
+// A missing claim is ambiguous on its own - it equally describes a model that
+// was never imported and one whose abort finished - so callers that treat it as
+// success must confirm it rather than assume.
+func committedPredicates(
+	ctx context.Context, domainServices services.DomainServices, modelUUID coremodel.UUID,
+) (bool, error) {
+	// CheckModelExists is false for a model that is absent *or* not yet
+	// activated, which is exactly the distinction wanted here.
+	exists, err := domainServices.Model().CheckModelExists(ctx, modelUUID)
+	if err != nil {
+		return false, errors.Errorf("checking model %q exists: %w", modelUUID, err)
+	}
+	if !exists {
+		return false, nil
+	}
+
+	gated, err := domainServices.ModelMigration().IsModelImporting(ctx)
+	if err != nil {
+		return false, errors.Errorf("checking import gate for model %q: %w", modelUUID, err)
+	}
+	return !gated, nil
 }
 
 // reconcileOffererControllers populates
@@ -154,8 +248,7 @@ func activateModel(ctx context.Context, domainServices services.DomainServices, 
 //
 //   - Third-party offerers: applications whose offering model is hosted on a
 //     controller other than the source, recorded in
-//     model_migration_import_external_controller_model during import. Only
-//     present on the v8 path (hasClaim).
+//     model_migration_import_external_controller_model during import.
 //
 // The source controller is registered via EnsureSourceControllerExists
 // (compare-or-insert) rather than the legacy blind upsert. All CMR updates are
@@ -164,7 +257,6 @@ func reconcileOffererControllers(
 	ctx context.Context,
 	domainServices services.DomainServices,
 	modelUUID coremodel.UUID,
-	hasClaim bool,
 	args ActivateModelArgs,
 ) error {
 	if args.SourceControllerUUID == "" {
@@ -203,14 +295,10 @@ func reconcileOffererControllers(
 		}
 	}
 
-	// Third-party offerers (v8 only): mappings recorded during
-	// ImportExternalControllers, read from the companion table. Legacy imports
-	// have no claim and therefore no mappings, so skip the query entirely.
-	if !hasClaim {
-		return nil
-	}
-	// We first retrieve them (from the controller DB) to later be inserted into
-	// the model DB.
+	// Third-party offerers: mappings recorded during ImportExternalControllers,
+	// read from the companion table. A legacy import records none, so this
+	// simply returns nothing for it - there is no need to branch on the import
+	// path, and no way to tell them apart by claim existence anyway.
 	thirdParty, err := domainServices.ModelMigration().ExternalControllerModelsForImport(ctx, modelUUID)
 	if err != nil {
 		return errors.Errorf(

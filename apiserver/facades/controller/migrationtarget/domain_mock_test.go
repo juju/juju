@@ -229,6 +229,7 @@ type MockModelImporter struct {
 type MockModelImporterMockRecorder struct {
 	mock                     *MockModelImporter
 	activateModelExpects     []*gomock.Call2_1[context.Context, migration.ActivateModelArgs, error]
+	commitActivationExpects  []*gomock.Call2_1[context.Context, model.UUID, error]
 	importModelExpects       []*gomock.Call3_1[context.Context, migration.ImportModelArgs, export.ProjectionView, error]
 	importModelLegacyExpects []*gomock.Call2_1[context.Context, []byte, error]
 }
@@ -262,6 +263,24 @@ func (mr *MockModelImporterMockRecorder) ActivateModel(ctx, args any) *MockModel
 
 // MockModelImporterActivateModelCall is the typed call wrapper for ActivateModel.
 type MockModelImporterActivateModelCall = gomock.Call2_1[context.Context, migration.ActivateModelArgs, error]
+
+// CommitActivation mocks base method.
+func (m *MockModelImporter) CommitActivation(ctx context.Context, modelUUID model.UUID) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.commitActivationExpects, m.ctrl, m, "CommitActivation", ctx, modelUUID)
+}
+
+// CommitActivation indicates an expected call of CommitActivation.
+func (mr *MockModelImporterMockRecorder) CommitActivation(ctx, modelUUID any) *MockModelImporterCommitActivationCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, model.UUID, error](mr.mock.ctrl.T, mr.mock, "CommitActivation", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.commitActivationExpects = append(mr.commitActivationExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelImporterCommitActivationCall is the typed call wrapper for CommitActivation.
+type MockModelImporterCommitActivationCall = gomock.Call2_1[context.Context, model.UUID, error]
 
 // ImportModel mocks base method.
 func (m *MockModelImporter) ImportModel(ctx context.Context, args migration.ImportModelArgs, view export.ProjectionView) error {
