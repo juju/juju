@@ -142,6 +142,17 @@ func (s *State) NamespaceForWatchMinionSync() string {
 	return "model_migration_export_minion_sync"
 }
 
+// NamespaceForWatchImportClaim returns the changestream namespace that fires
+// when a target-side import claim is created, changes phase, or is deleted,
+// keyed by model UUID.
+//
+// Claim deletion is the moment an imported model becomes usable, so this
+// namespace is what unfreezes the target: see
+// [github.com/juju/juju/domain/modelmigration/service.Service.WatchMigrationActivity].
+func (s *State) NamespaceForWatchImportClaim() string {
+	return "model_migration_import"
+}
+
 // GetActiveExportUUID returns the UUID of the active export migration for the
 // given model. If no active export exists [modelmigrationerrors.ErrMigrationNotFound]
 // is returned.

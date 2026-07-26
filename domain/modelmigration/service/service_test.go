@@ -413,6 +413,96 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
 }
 
+// TestMigrationPhaseImportClaimReportsImport asserts that a live target-side
+// import claim reports IMPORT, so a model being imported into this controller
+// is frozen exactly as one being exported from it. Without this, the migration
+// flag would report NONE for a half-imported model and let its workers run.
+func (s *serviceSuite) TestMigrationPhaseImportClaimReportsImport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
+		modelmigration.MigrationModeImporting, nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT)
+	// IMPORT must be non-terminal, or a flag built on IsTerminal would report
+	// the model as usable while it is still claimed.
+	c.Check(phase.IsTerminal(), tc.IsFalse)
+}
+
+// TestMigrationPhaseExportReportsExportPhase asserts that with no import claim
+// the source-side export phase is reported unchanged.
+func (s *serviceSuite) TestMigrationPhaseExportReportsExportPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
+		modelmigration.MigrationModeExporting, nil)
+	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
+		modelmigrationinternal.Migration{Phase: migration.QUIESCE}, nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.QUIESCE)
+}
+
+// TestMigrationPhaseIdleReportsNone asserts a model that is neither importing
+// nor exporting reports NONE, which is terminal and therefore unfreezes it.
+func (s *serviceSuite) TestMigrationPhaseIdleReportsNone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationMode(gomock.Any(), s.modelUUID).Return(
+		modelmigration.MigrationModeNone, nil)
+	s.controllerState.EXPECT().GetActiveExport(gomock.Any(), s.modelUUID).Return(
+		modelmigrationinternal.Migration{}, modelmigrationerrors.ErrMigrationNotFound)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE)
+	c.Check(phase.IsTerminal(), tc.IsTrue)
+}
+
+// TestWatchMigrationActivityWatchesBothSides asserts the activity watcher
+// covers the export phase namespace *and* the import claim namespace, both
+// scoped to this model. Watching exports alone would never fire when a target
+// import claim is deleted - the moment the model becomes usable.
+func (s *serviceSuite) TestWatchMigrationActivityWatchesBothSides(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var namespaces []string
+	matchesUUID := map[string]bool{}
+	matchesOther := map[string]bool{}
+
+	otherUUID := tc.Must(c, uuid.NewUUID).String()
+	ch := make(chan struct{}, 1)
+	s.controllerState.EXPECT().NamespaceForWatchPhase().Return("model_migration_export_phase")
+	s.controllerState.EXPECT().NamespaceForWatchImportClaim().Return("model_migration_import")
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, fo eventsource.FilterOption, extra ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			for _, f := range append([]eventsource.FilterOption{fo}, extra...) {
+				namespaces = append(namespaces, f.Namespace())
+				if pred := f.ChangePredicate(); pred != nil {
+					matchesUUID[f.Namespace()] = pred(s.modelUUID)
+					matchesOther[f.Namespace()] = pred(otherUUID)
+				}
+			}
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		},
+	)
+
+	w, err := s.service(c).WatchMigrationActivity(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(namespaces, tc.SameContents, []string{
+		"model_migration_export_phase", "model_migration_import",
+	})
+	for _, ns := range namespaces {
+		c.Check(matchesUUID[ns], tc.IsTrue)
+		c.Check(matchesOther[ns], tc.IsFalse)
+	}
+}
+
 // TestSourceControllerInfoArrangesRawStateAddresses asserts the service
 // arranges raw controller API address rows into the client-facing order.
 func (s *serviceSuite) TestSourceControllerInfoArrangesRawStateAddresses(c *tc.C) {

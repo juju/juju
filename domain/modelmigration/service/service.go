@@ -104,6 +104,10 @@ type ControllerState interface {
 	// sync report changes keyed by migration UUID.
 	NamespaceForWatchMinionSync() string
 
+	// NamespaceForWatchImportClaim returns the changestream namespace for
+	// target-side import claim changes keyed by model UUID.
+	NamespaceForWatchImportClaim() string
+
 	// InsertExport records a new export migration attempt for a model,
 	// returning [modelmigrationerrors.ErrMigrationAlreadyActive] if the model already
 	// has an active export.
@@ -437,9 +441,52 @@ func (s *Service) ModelMigrationMode(ctx context.Context) (modelmigration.Migrat
 	return mode, nil
 }
 
+// MigrationPhase returns the migration phase of this model considering
+// migration in *both* directions:
+//
+//   - a live target-side import claim, in any phase, reports [migration.IMPORT];
+//   - otherwise an active source-side export reports its own phase;
+//   - otherwise [migration.NONE].
+//
+// It exists because [Service.Migration] deliberately reports only exports: the
+// migration master needs export identity and target info, and must never treat
+// an import claim as something it should drive. Callers that only want to know
+// "is this model migrating, either way?" - the migration flag on both the
+// controller and agent sides - must use this instead, so that a target model
+// stays frozen for the whole of an import rather than only during an export.
+//
+// [migration.IMPORT] is reported for every claim phase, including aborting,
+// because none of them make the model usable. Since IMPORT is non-terminal, a
+// flag built on [IsTerminal] reports false and workers stay parked until the
+// claim is gone.
+func (s *Service) MigrationPhase(ctx context.Context) (migration.Phase, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	// GetMigrationMode resolves both tables in one transaction and already
+	// treats any import claim as importing, so it cannot report a stale mix of
+	// the two sides.
+	mode, err := s.controllerState.GetMigrationMode(ctx, s.modelUUID)
+	if err != nil {
+		return migration.UNKNOWN, errors.Capture(err)
+	}
+	if mode == modelmigration.MigrationModeImporting {
+		return migration.IMPORT, nil
+	}
+
+	mig, err := s.Migration(ctx)
+	if err != nil {
+		return migration.UNKNOWN, errors.Capture(err)
+	}
+	return mig.Phase, nil
+}
+
 // Migration returns status about migration of this model. If the model is not
 // currently being migrated, a migration with phase [migration.NONE] is
 // returned.
+//
+// This reports source-side exports only. See [Service.MigrationPhase] for the
+// direction-agnostic read used by the migration flag.
 func (s *Service) Migration(ctx context.Context) (modelmigration.Migration, error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc())
 	defer span.End()
@@ -649,6 +696,36 @@ func (s *Service) WatchMigrationPhase(ctx context.Context) (watcher.NotifyWatche
 
 	return s.watchControllerNamespace(
 		ctx, "watch for migration phase change", s.controllerState.NamespaceForWatchPhase(),
+	)
+}
+
+// WatchMigrationActivity returns a notification watcher that fires whenever
+// this model's migration activity changes in either direction: an export phase
+// transition on the source side, or an import claim being created, changing
+// phase, or being deleted on the target side.
+//
+// It is the watcher behind [Service.MigrationPhase], and exists because
+// [Service.WatchMigrationPhase] observes exports only. A target import is
+// invisible to it, so on its own it would never fire when an imported model
+// becomes usable. Claim deletion is exactly that moment, so watching both
+// namespaces is what lets the migration flag unfreeze a target model.
+func (s *Service) WatchMigrationActivity(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer span.End()
+
+	return s.watcherFactory.NewNotifyWatcher(
+		ctx,
+		"watch for migration activity",
+		eventsource.PredicateFilter(
+			s.controllerState.NamespaceForWatchPhase(),
+			changestream.All,
+			eventsource.EqualsPredicate(s.modelUUID),
+		),
+		eventsource.PredicateFilter(
+			s.controllerState.NamespaceForWatchImportClaim(),
+			changestream.All,
+			eventsource.EqualsPredicate(s.modelUUID),
+		),
 	)
 }
 

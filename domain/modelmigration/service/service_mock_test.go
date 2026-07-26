@@ -147,6 +147,7 @@ type MockControllerStateMockRecorder struct {
 	insertExportExpects                      []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects                []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
 	namespaceForWatchExportExpects           []*gomock.Call0_1[string]
+	namespaceForWatchImportClaimExpects      []*gomock.Call0_1[string]
 	namespaceForWatchMinionSyncExpects       []*gomock.Call0_1[string]
 	namespaceForWatchPhaseExpects            []*gomock.Call0_1[string]
 	secretBackendExistsExpects               []*gomock.Call2_2[context.Context, string, bool, error]
@@ -653,6 +654,24 @@ func (mr *MockControllerStateMockRecorder) NamespaceForWatchExport() *MockContro
 
 // MockControllerStateNamespaceForWatchExportCall is the typed call wrapper for NamespaceForWatchExport.
 type MockControllerStateNamespaceForWatchExportCall = gomock.Call0_1[string]
+
+// NamespaceForWatchImportClaim mocks base method.
+func (m *MockControllerState) NamespaceForWatchImportClaim() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchImportClaimExpects, m.ctrl, m, "NamespaceForWatchImportClaim")
+}
+
+// NamespaceForWatchImportClaim indicates an expected call of NamespaceForWatchImportClaim.
+func (mr *MockControllerStateMockRecorder) NamespaceForWatchImportClaim() *MockControllerStateNamespaceForWatchImportClaimCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchImportClaim")
+	mr.namespaceForWatchImportClaimExpects = append(mr.namespaceForWatchImportClaimExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateNamespaceForWatchImportClaimCall is the typed call wrapper for NamespaceForWatchImportClaim.
+type MockControllerStateNamespaceForWatchImportClaimCall = gomock.Call0_1[string]
 
 // NamespaceForWatchMinionSync mocks base method.
 func (m *MockControllerState) NamespaceForWatchMinionSync() string {

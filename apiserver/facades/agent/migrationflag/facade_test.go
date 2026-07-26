@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/testhelpers"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
@@ -100,10 +99,7 @@ func (s *FacadeSuite) TestRejectsNonAgent(c *tc.C) {
 func (s *FacadeSuite) TestPhaseSuccess(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	mig := modelmigration.Migration{
-		Phase: migration.REAP,
-	}
-	s.modelMigrationService.EXPECT().Migration(gomock.Any()).Return(mig, nil).Times(2)
+	s.modelMigrationService.EXPECT().MigrationPhase(gomock.Any()).Return(migration.REAP, nil).Times(2)
 
 	facade, err := migrationflag.New(
 		s.watcherRegistry,
@@ -127,8 +123,7 @@ func (s *FacadeSuite) TestPhaseSuccess(c *tc.C) {
 func (s *FacadeSuite) TestPhaseErrors(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	mig := modelmigration.Migration{}
-	s.modelMigrationService.EXPECT().Migration(gomock.Any()).Return(mig, errors.New("ouch"))
+	s.modelMigrationService.EXPECT().MigrationPhase(gomock.Any()).Return(migration.UNKNOWN, errors.New("ouch"))
 	facade, err := migrationflag.New(
 		s.watcherRegistry,
 		authOK,
@@ -166,7 +161,7 @@ func (s *FacadeSuite) TestWatchSuccess(c *tc.C) {
 	w := watchertest.NewMockNotifyWatcher(ch)
 	defer workertest.CleanKill(c, w)
 
-	s.modelMigrationService.EXPECT().WatchMigrationPhase(gomock.Any()).Return(w, nil)
+	s.modelMigrationService.EXPECT().WatchMigrationActivity(gomock.Any()).Return(w, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any(), gomock.Any()).Return("123", nil)
 	facade, err := migrationflag.New(
 		s.watcherRegistry,
@@ -188,7 +183,7 @@ func (s *FacadeSuite) TestWatchSuccess(c *tc.C) {
 func (s *FacadeSuite) TestWatchErrors(c *tc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	s.modelMigrationService.EXPECT().WatchMigrationPhase(gomock.Any()).Return(nil, errors.New("blort"))
+	s.modelMigrationService.EXPECT().WatchMigrationActivity(gomock.Any()).Return(nil, errors.New("blort"))
 
 	facade, err := migrationflag.New(
 		s.watcherRegistry,
