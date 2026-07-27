@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 // DetachLostMachineCloudInstance atomically rechecks the critical
 // reprovisioning preconditions, clears stale provider-observed state, and
 // moves the machine and its cloud instance back to pending. Machine-scoped
-// physical storage realization is deleted while logical storage intent is
+// storage is reset to pending while its Juju identity and logical intent are
 // preserved. Unsupported storage is rejected in the same transaction.
 func (st *State) DetachLostMachineCloudInstance(
 	ctx context.Context,
@@ -97,6 +98,7 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 			ctx, tx, volumeTargetStmt, filesystemTargetStmt,
 			reprovisionStorageTargetParams{
 				NetNodeUUID:    target.NetNodeUUID,
+				AliveLifeID:    int(life.Alive),
 				ModelScopeID:   int(domainstorage.ProvisionScopeModel),
 				MachineScopeID: int(domainstorage.ProvisionScopeMachine),
 			},
@@ -116,7 +118,7 @@ GROUP BY   m.uuid, m.net_node_uuid, mci.instance_id, m.life_id
 			return errors.Errorf("clearing block devices: %w", err)
 		}
 
-		if err := st.removeReprovisionStorage(
+		if err := st.resetReprovisionStorage(
 			ctx, tx, storageTargets,
 		); err != nil {
 			return errors.Errorf("clearing machine-scoped storage: %w", err)
@@ -375,9 +377,9 @@ func runReprovisionStatements(
 }
 
 type reprovisionStorageTargets struct {
-	volumes, filesystems                reprovisionUUIDs
-	plans, volumeAttachments            reprovisionUUIDs
-	filesystemAttachments, blockDevices reprovisionUUIDs
+	volumes, filesystems                map[string]struct{}
+	plans, volumeAttachments            map[string]struct{}
+	filesystemAttachments, blockDevices map[string]struct{}
 }
 
 func (st *State) prepareReprovisionStorageTargetStatements() (
@@ -386,13 +388,21 @@ func (st *State) prepareReprovisionStorageTargetStatements() (
 	volumeStmt, err := st.Prepare(`
 WITH volume_targets AS (
     SELECT DISTINCT sv.uuid AS volume_uuid,
+           sv.life_id AS volume_life_id,
            sv.provision_scope_id AS volume_scope_id,
+           siv.storage_instance_uuid AS storage_instance_uuid,
+           si.life_id AS storage_instance_life_id,
            sva.uuid AS attachment_uuid,
+           sva.life_id AS attachment_life_id,
            sva.provision_scope_id AS attachment_scope_id,
            svap.uuid AS plan_uuid,
            svap.provision_scope_id AS plan_scope_id,
            sva.block_device_uuid AS block_device_uuid
     FROM storage_volume AS sv
+    LEFT JOIN storage_instance_volume AS siv
+        ON sv.uuid = siv.storage_volume_uuid
+    LEFT JOIN storage_instance AS si
+        ON siv.storage_instance_uuid = si.uuid
     LEFT JOIN storage_volume_attachment AS sva
         ON sv.uuid = sva.storage_volume_uuid
         AND sva.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
@@ -403,10 +413,22 @@ WITH volume_targets AS (
 ),
 classified_volume_targets AS (
     SELECT vt.volume_uuid,
+           vt.volume_scope_id,
+           vt.storage_instance_uuid,
+           vt.storage_instance_life_id,
            vt.attachment_uuid,
            vt.plan_uuid,
            vt.block_device_uuid,
            CASE
+               WHEN vt.storage_instance_uuid IS NULL OR vt.attachment_uuid IS NULL
+                   THEN TRUE
+               ELSE vt.volume_life_id = $reprovisionStorageTargetParams.alive_life_id
+                   AND vt.attachment_life_id = $reprovisionStorageTargetParams.alive_life_id
+                   AND vt.storage_instance_life_id = $reprovisionStorageTargetParams.alive_life_id
+           END AS all_alive,
+           CASE
+               WHEN vt.storage_instance_uuid IS NULL OR vt.attachment_uuid IS NULL
+                   THEN 'ambiguous'
                WHEN vt.volume_scope_id NOT IN (
                    $reprovisionStorageTargetParams.model_scope_id,
                    $reprovisionStorageTargetParams.machine_scope_id
@@ -424,6 +446,7 @@ classified_volume_targets AS (
     FROM volume_targets AS vt
 )
 SELECT cvt.volume_uuid AS &reprovisionVolumeTarget.volume_uuid,
+       cvt.all_alive AS &reprovisionVolumeTarget.all_alive,
        cvt.scope_class AS &reprovisionVolumeTarget.scope_class,
        cvt.attachment_uuid AS &reprovisionVolumeTarget.attachment_uuid,
        cvt.plan_uuid AS &reprovisionVolumeTarget.plan_uuid,
@@ -435,18 +458,38 @@ FROM classified_volume_targets AS cvt`, reprovisionStorageTargetParams{}, reprov
 	filesystemStmt, err := st.Prepare(`
 WITH filesystem_targets AS (
     SELECT sf.uuid AS filesystem_uuid,
+           sf.life_id AS filesystem_life_id,
            sf.provision_scope_id AS filesystem_scope_id,
+           sif.storage_instance_uuid AS storage_instance_uuid,
+           si.life_id AS storage_instance_life_id,
            sfa.uuid AS attachment_uuid,
+           sfa.life_id AS attachment_life_id,
            sfa.provision_scope_id AS attachment_scope_id
     FROM storage_filesystem AS sf
+    LEFT JOIN storage_instance_filesystem AS sif
+        ON sf.uuid = sif.storage_filesystem_uuid
+    LEFT JOIN storage_instance AS si
+        ON sif.storage_instance_uuid = si.uuid
     JOIN storage_filesystem_attachment AS sfa
         ON sf.uuid = sfa.storage_filesystem_uuid
     WHERE sfa.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
 ),
 classified_filesystem_targets AS (
     SELECT ft.filesystem_uuid,
+           ft.filesystem_scope_id,
+           ft.storage_instance_uuid,
+           ft.storage_instance_life_id,
            ft.attachment_uuid,
            CASE
+               WHEN ft.storage_instance_uuid IS NULL
+                   THEN TRUE
+               ELSE ft.filesystem_life_id = $reprovisionStorageTargetParams.alive_life_id
+                   AND ft.attachment_life_id = $reprovisionStorageTargetParams.alive_life_id
+                   AND ft.storage_instance_life_id = $reprovisionStorageTargetParams.alive_life_id
+           END AS all_alive,
+           CASE
+               WHEN ft.storage_instance_uuid IS NULL
+                   THEN 'ambiguous'
                WHEN ft.filesystem_scope_id NOT IN (
                    $reprovisionStorageTargetParams.model_scope_id,
                    $reprovisionStorageTargetParams.machine_scope_id
@@ -460,6 +503,7 @@ classified_filesystem_targets AS (
     FROM filesystem_targets AS ft
 )
 SELECT cft.filesystem_uuid AS &reprovisionFilesystemTarget.filesystem_uuid,
+       cft.all_alive AS &reprovisionFilesystemTarget.all_alive,
        cft.scope_class AS &reprovisionFilesystemTarget.scope_class,
        cft.attachment_uuid AS &reprovisionFilesystemTarget.attachment_uuid
 FROM classified_filesystem_targets AS cft`, reprovisionStorageTargetParams{}, reprovisionFilesystemTarget{})
@@ -469,6 +513,14 @@ FROM classified_filesystem_targets AS cft`, reprovisionStorageTargetParams{}, re
 	return volumeStmt, filesystemStmt, nil
 }
 
+// getReprovisionStorageTargets captures the machine-scoped storage that must
+// be reset before any references are changed. This runs inside the detach
+// transaction so storage cannot change between validation and mutation.
+//
+// Scope and lifecycle are checked from the same rows used to build the target
+// sets. Model-scoped, inconsistent, incomplete, or non-alive storage fails
+// closed. Maps are used because joins may return the same physical entity more
+// than once, while each reset statement must target every UUID only once.
 func (st *State) getReprovisionStorageTargets(
 	ctx context.Context, tx *sqlair.TX,
 	volumeStmt, filesystemStmt *sqlair.Statement,
@@ -483,14 +535,20 @@ func (st *State) getReprovisionStorageTargets(
 		return reprovisionStorageTargets{}, errors.Errorf("querying attached filesystems: %w", err)
 	}
 
-	var targets reprovisionStorageTargets
-	add := func(ids reprovisionUUIDs, value string) reprovisionUUIDs {
-		if slices.Contains(ids, value) {
-			return ids
-		}
-		return append(ids, value)
+	targets := reprovisionStorageTargets{
+		volumes:               make(map[string]struct{}),
+		filesystems:           make(map[string]struct{}),
+		plans:                 make(map[string]struct{}),
+		volumeAttachments:     make(map[string]struct{}),
+		filesystemAttachments: make(map[string]struct{}),
+		blockDevices:          make(map[string]struct{}),
 	}
 	for _, row := range volumeRows {
+		if !row.AllAlive {
+			return reprovisionStorageTargets{}, errors.Errorf(
+				"volume %q: %w", row.VolumeUUID, machineerrors.MachineStorageNotAlive,
+			)
+		}
 		switch row.ScopeClass {
 		case "model":
 			return reprovisionStorageTargets{}, errors.Errorf(
@@ -508,18 +566,23 @@ func (st *State) getReprovisionStorageTargets(
 				row.VolumeUUID, row.ScopeClass, machineerrors.StorageScopeAmbiguous,
 			)
 		}
-		targets.volumes = add(targets.volumes, row.VolumeUUID)
+		targets.volumes[row.VolumeUUID] = struct{}{}
 		if row.AttachmentUUID.Valid {
-			targets.volumeAttachments = add(targets.volumeAttachments, row.AttachmentUUID.V)
+			targets.volumeAttachments[row.AttachmentUUID.V] = struct{}{}
 		}
 		if row.PlanUUID.Valid {
-			targets.plans = add(targets.plans, row.PlanUUID.V)
+			targets.plans[row.PlanUUID.V] = struct{}{}
 		}
 		if row.BlockDeviceUUID.Valid {
-			targets.blockDevices = add(targets.blockDevices, row.BlockDeviceUUID.V)
+			targets.blockDevices[row.BlockDeviceUUID.V] = struct{}{}
 		}
 	}
 	for _, row := range filesystemRows {
+		if !row.AllAlive {
+			return reprovisionStorageTargets{}, errors.Errorf(
+				"filesystem %q: %w", row.FilesystemUUID, machineerrors.MachineStorageNotAlive,
+			)
+		}
 		switch row.ScopeClass {
 		case "model":
 			return reprovisionStorageTargets{}, errors.Errorf(
@@ -537,16 +600,28 @@ func (st *State) getReprovisionStorageTargets(
 				row.FilesystemUUID, row.ScopeClass, machineerrors.StorageScopeAmbiguous,
 			)
 		}
-		targets.filesystems = add(targets.filesystems, row.FilesystemUUID)
-		targets.filesystemAttachments = add(targets.filesystemAttachments, row.AttachmentUUID)
+		targets.filesystems[row.FilesystemUUID] = struct{}{}
+		targets.filesystemAttachments[row.AttachmentUUID] = struct{}{}
 	}
 	return targets, nil
 }
 
-func (st *State) removeReprovisionStorage(
+// resetReprovisionStorage discards provider-observed storage state for the
+// lost machine while preserving Juju storage identities and intent. Volume,
+// filesystem, instance-link, machine-link, and attachment rows remain so the
+// normal provisioner can create empty replacement storage.
+//
+// Provider-specific attachment plans are deleted first. Attachments are then
+// marked unprovisioned before their old block devices are removed. Finally the
+// volume and filesystem provider fields are cleared and their statuses are
+// moved back to pending.
+func (st *State) resetReprovisionStorage(
 	ctx context.Context, tx *sqlair.TX,
 	targets reprovisionStorageTargets,
 ) error {
+	ids := func(values map[string]struct{}) reprovisionUUIDs {
+		return reprovisionUUIDs(slices.Collect(maps.Keys(values)))
+	}
 	run := func(query string, ids reprovisionUUIDs) error {
 		if len(ids) == 0 {
 			return nil
@@ -561,32 +636,85 @@ func (st *State) removeReprovisionStorage(
 		query string
 		ids   reprovisionUUIDs
 	}{
-		{query: `DELETE FROM storage_volume_attachment_plan_attr WHERE attachment_plan_uuid IN ($reprovisionUUIDs[:])`, ids: targets.plans},
-		{query: `DELETE FROM storage_volume_attachment_plan WHERE uuid IN ($reprovisionUUIDs[:])`, ids: targets.plans},
-		{query: `DELETE FROM storage_volume_attachment WHERE uuid IN ($reprovisionUUIDs[:])`, ids: targets.volumeAttachments},
-		{query: `DELETE FROM storage_filesystem_attachment WHERE uuid IN ($reprovisionUUIDs[:])`, ids: targets.filesystemAttachments},
+		// Plan attributes describe the old provider attachment and cannot be
+		// reused.
+		{query: `
+DELETE FROM storage_volume_attachment_plan_attr
+WHERE attachment_plan_uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.plans)},
+		// Attachment plans must be recalculated for the replacement machine.
+		{query: `
+DELETE FROM storage_volume_attachment_plan
+WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.plans)},
+		// Keep attachment intent, but remove evidence of the old provider
+		// attachment.
+		{query: `
+UPDATE storage_volume_attachment
+SET provider_id = NULL,
+    block_device_uuid = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.volumeAttachments)},
+		// Keep mount intent, but remove the old provider attachment identifier.
+		{query: `
+UPDATE storage_filesystem_attachment
+SET provider_id = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.filesystemAttachments)},
+		// Attachment references are now clear, so old block-device links can
+		// be removed.
 		{query: `
 DELETE FROM block_device_link_device
 WHERE block_device_uuid IN ($reprovisionUUIDs[:])
 AND NOT EXISTS (
     SELECT 1 FROM storage_volume_attachment AS sva
     WHERE sva.block_device_uuid = block_device_link_device.block_device_uuid
-)`, ids: targets.blockDevices},
+)`, ids: ids(targets.blockDevices)},
+		// Remove old block-device evidence only when no attachment still
+		// references it.
 		{query: `
 DELETE FROM block_device
 WHERE uuid IN ($reprovisionUUIDs[:])
 AND NOT EXISTS (
     SELECT 1 FROM storage_volume_attachment AS sva
     WHERE sva.block_device_uuid = block_device.uuid
-)`, ids: targets.blockDevices},
-		{query: `DELETE FROM machine_volume WHERE volume_uuid IN ($reprovisionUUIDs[:])`, ids: targets.volumes},
-		{query: `DELETE FROM storage_volume_status WHERE volume_uuid IN ($reprovisionUUIDs[:])`, ids: targets.volumes},
-		{query: `DELETE FROM storage_instance_volume WHERE storage_volume_uuid IN ($reprovisionUUIDs[:])`, ids: targets.volumes},
-		{`DELETE FROM storage_volume WHERE uuid IN ($reprovisionUUIDs[:])`, targets.volumes},
-		{query: `DELETE FROM machine_filesystem WHERE filesystem_uuid IN ($reprovisionUUIDs[:])`, ids: targets.filesystems},
-		{query: `DELETE FROM storage_filesystem_status WHERE filesystem_uuid IN ($reprovisionUUIDs[:])`, ids: targets.filesystems},
-		{query: `DELETE FROM storage_instance_filesystem WHERE storage_filesystem_uuid IN ($reprovisionUUIDs[:])`, ids: targets.filesystems},
-		{query: `DELETE FROM storage_filesystem WHERE uuid IN ($reprovisionUUIDs[:])`, ids: targets.filesystems},
+)`, ids: ids(targets.blockDevices)},
+		// Clear the old provider realization while retaining the Juju volume
+		// identity.
+		{query: `
+UPDATE storage_volume
+SET provider_id = NULL,
+    size_mib = NULL,
+    hardware_id = NULL,
+    wwn = NULL,
+    persistent = NULL,
+    obliterate_on_cleanup = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.volumes)},
+		// Ensure the retained volume is visible to provisioning as pending work.
+		{query: `
+INSERT INTO storage_volume_status (volume_uuid, status_id, message, updated_at)
+SELECT sv.uuid, 0, 'waiting for replacement machine', NULL
+FROM storage_volume AS sv
+WHERE sv.uuid IN ($reprovisionUUIDs[:])
+ON CONFLICT (volume_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at`, ids: ids(targets.volumes)},
+		// Clear the old provider realization while retaining the filesystem
+		// identity.
+		{query: `
+UPDATE storage_filesystem
+SET provider_id = NULL,
+    size_mib = NULL,
+    obliterate_on_cleanup = NULL
+WHERE uuid IN ($reprovisionUUIDs[:])`, ids: ids(targets.filesystems)},
+		// Ensure the retained filesystem is visible to provisioning as pending
+		// work.
+		{query: `
+INSERT INTO storage_filesystem_status (filesystem_uuid, status_id, message, updated_at)
+SELECT sf.uuid, 0, 'waiting for replacement machine', NULL
+FROM storage_filesystem AS sf
+WHERE sf.uuid IN ($reprovisionUUIDs[:])
+ON CONFLICT (filesystem_uuid) DO UPDATE SET
+    status_id = excluded.status_id,
+    message = excluded.message,
+    updated_at = excluded.updated_at`, ids: ids(targets.filesystems)},
 	}
 	for _, step := range steps {
 		if err := run(step.query, step.ids); err != nil {

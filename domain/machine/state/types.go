@@ -553,6 +553,7 @@ type netNode struct {
 
 type reprovisionVolumeTarget struct {
 	VolumeUUID      string           `db:"volume_uuid"`
+	AllAlive        bool             `db:"all_alive"`
 	ScopeClass      string           `db:"scope_class"`
 	AttachmentUUID  sql.Null[string] `db:"attachment_uuid"`
 	PlanUUID        sql.Null[string] `db:"plan_uuid"`
@@ -561,6 +562,7 @@ type reprovisionVolumeTarget struct {
 
 type reprovisionFilesystemTarget struct {
 	FilesystemUUID string `db:"filesystem_uuid"`
+	AllAlive       bool   `db:"all_alive"`
 	ScopeClass     string `db:"scope_class"`
 	AttachmentUUID string `db:"attachment_uuid"`
 }
@@ -569,6 +571,7 @@ type reprovisionUUIDs []string
 
 type reprovisionStorageTargetParams struct {
 	NetNodeUUID    string `db:"net_node_uuid"`
+	AliveLifeID    int    `db:"alive_life_id"`
 	ModelScopeID   int    `db:"model_scope_id"`
 	MachineScopeID int    `db:"machine_scope_id"`
 }

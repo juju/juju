@@ -91,4 +91,8 @@ const (
 	// StorageScopeAmbiguous describes an error that occurs during reprovisioning
 	// when Juju cannot safely classify attached storage.
 	StorageScopeAmbiguous = errors.ConstError("storage scope is ambiguous")
+
+	// MachineStorageNotAlive describes an error that occurs during
+	// reprovisioning when attached machine storage is not alive.
+	MachineStorageNotAlive = errors.ConstError("machine storage is not alive")
 )
