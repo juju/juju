@@ -35,6 +35,7 @@ type MockSharedIndexInformerMockRecorder struct {
 	getIndexerExpects                      []*gomock.Call0_1[cache.Indexer]
 	getStoreExpects                        []*gomock.Call0_1[cache.Store]
 	hasSyncedExpects                       []*gomock.Call0_1[bool]
+	hasSyncedCheckerExpects                []*gomock.Call0_1[cache.DoneChecker]
 	isStoppedExpects                       []*gomock.Call0_1[bool]
 	lastSyncResourceVersionExpects         []*gomock.Call0_1[string]
 	removeEventHandlerExpects              []*gomock.Call1_1[cache.ResourceEventHandlerRegistration, error]
@@ -200,6 +201,24 @@ func (mr *MockSharedIndexInformerMockRecorder) HasSynced() *MockSharedIndexInfor
 
 // MockSharedIndexInformerHasSyncedCall is the typed call wrapper for HasSynced.
 type MockSharedIndexInformerHasSyncedCall = gomock.Call0_1[bool]
+
+// HasSyncedChecker mocks base method.
+func (m *MockSharedIndexInformer) HasSyncedChecker() cache.DoneChecker {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.hasSyncedCheckerExpects, m.ctrl, m, "HasSyncedChecker")
+}
+
+// HasSyncedChecker indicates an expected call of HasSyncedChecker.
+func (mr *MockSharedIndexInformerMockRecorder) HasSyncedChecker() *MockSharedIndexInformerHasSyncedCheckerCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[cache.DoneChecker](mr.mock.ctrl.T, mr.mock, "HasSyncedChecker")
+	mr.hasSyncedCheckerExpects = append(mr.hasSyncedCheckerExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockSharedIndexInformerHasSyncedCheckerCall is the typed call wrapper for HasSyncedChecker.
+type MockSharedIndexInformerHasSyncedCheckerCall = gomock.Call0_1[cache.DoneChecker]
 
 // IsStopped mocks base method.
 func (m *MockSharedIndexInformer) IsStopped() bool {
