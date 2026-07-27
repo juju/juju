@@ -46,6 +46,34 @@ func (m *MockAdmissionregistrationV1Interface) EXPECT() *MockAdmissionregistrati
 	return m.recorder
 }
 
+// MutatingAdmissionPolicies mocks base method.
+func (m *MockAdmissionregistrationV1Interface) MutatingAdmissionPolicies() v12.MutatingAdmissionPolicyInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MutatingAdmissionPolicies")
+	ret0, _ := ret[0].(v12.MutatingAdmissionPolicyInterface)
+	return ret0
+}
+
+// MutatingAdmissionPolicies indicates an expected call of MutatingAdmissionPolicies.
+func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) MutatingAdmissionPolicies() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MutatingAdmissionPolicies", reflect.TypeOf((*MockAdmissionregistrationV1Interface)(nil).MutatingAdmissionPolicies))
+}
+
+// MutatingAdmissionPolicyBindings mocks base method.
+func (m *MockAdmissionregistrationV1Interface) MutatingAdmissionPolicyBindings() v12.MutatingAdmissionPolicyBindingInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MutatingAdmissionPolicyBindings")
+	ret0, _ := ret[0].(v12.MutatingAdmissionPolicyBindingInterface)
+	return ret0
+}
+
+// MutatingAdmissionPolicyBindings indicates an expected call of MutatingAdmissionPolicyBindings.
+func (mr *MockAdmissionregistrationV1InterfaceMockRecorder) MutatingAdmissionPolicyBindings() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MutatingAdmissionPolicyBindings", reflect.TypeOf((*MockAdmissionregistrationV1Interface)(nil).MutatingAdmissionPolicyBindings))
+}
+
 // MutatingWebhookConfigurations mocks base method.
 func (m *MockAdmissionregistrationV1Interface) MutatingWebhookConfigurations() v12.MutatingWebhookConfigurationInterface {
 	m.ctrl.T.Helper()
