@@ -10,8 +10,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
+	coreerrors "github.com/juju/juju/core/errors"
 	coremodel "github.com/juju/juju/core/model"
 	coremodelmigration "github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/semversion"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/application/charm"
 	"github.com/juju/juju/domain/crossmodelrelation"
@@ -77,6 +79,23 @@ func (s *controllerImportSuite) importForActivation(
 
 type activationDomainServicesGetter struct {
 	deps migration.Deps
+
+	// adopted records the source controller versions handed to the provider,
+	// so tests can assert whether - and in what state - resource adoption ran.
+	adopted *[]semversion.Number
+}
+
+// recordingResourceProvider stands in for the cloud provider, recording the
+// adoption calls the commit makes instead of tagging anything.
+type recordingResourceProvider struct {
+	adopted *[]semversion.Number
+}
+
+func (p recordingResourceProvider) AdoptResources(
+	_ context.Context, _ string, sourceControllerVersion semversion.Number,
+) error {
+	*p.adopted = append(*p.adopted, sourceControllerVersion)
+	return nil
 }
 
 func (g activationDomainServicesGetter) ServicesForModel(
@@ -89,7 +108,12 @@ func (g activationDomainServicesGetter) ServicesForModel(
 			modelUUID.String(),
 			nil,
 			nil,
-			nil,
+			func(context.Context) (modelmigrationservice.ResourceProvider, error) {
+				if g.adopted == nil {
+					return nil, coreerrors.NotSupported
+				}
+				return recordingResourceProvider{adopted: g.adopted}, nil
+			},
 			g.deps.Logger,
 		),
 		model: modelservice.NewWatchableService(
@@ -265,7 +289,8 @@ func (s *controllerImportSuite) TestCommitActivationReleasesModel(c *tc.C) {
 	modelUUID, deps := s.importForActivation(c, "1.0.0")
 
 	c.Assert(s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
-	c.Assert(s.commitActivation(c, deps, modelUUID), tc.ErrorIsNil)
+	commitErr, adopted := s.commitActivation(c, deps, modelUUID)
+	c.Assert(commitErr, tc.ErrorIsNil)
 
 	claimSt := migrationclaimstate.New(s.TxnRunnerFactory(), clock.WallClock)
 	_, err := claimSt.GetImportClaim(c.Context(), modelUUID.String())
@@ -273,6 +298,11 @@ func (s *controllerImportSuite) TestCommitActivationReleasesModel(c *tc.C) {
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsFalse)
+
+	// Adoption ran, and ran with the source's version. It happens after the
+	// release, not before: the model's availability must not depend on the
+	// cloud provider being reachable.
+	c.Check(*adopted, tc.DeepEquals, []semversion.Number{sourceVersion})
 }
 
 // TestCommitActivationIsIdempotentAfterRelease verifies a commit retry arriving
@@ -282,8 +312,17 @@ func (s *controllerImportSuite) TestCommitActivationIsIdempotentAfterRelease(c *
 	modelUUID, deps := s.importForActivation(c, "1.0.0")
 
 	c.Assert(s.activateModel(c, deps, migration.ActivateModelArgs{ModelUUID: modelUUID}), tc.ErrorIsNil)
-	c.Assert(s.commitActivation(c, deps, modelUUID), tc.ErrorIsNil)
-	c.Assert(s.commitActivation(c, deps, modelUUID), tc.ErrorIsNil)
+
+	commitErr, adopted := s.commitActivation(c, deps, modelUUID)
+	c.Assert(commitErr, tc.ErrorIsNil)
+	c.Check(*adopted, tc.DeepEquals, []semversion.Number{sourceVersion})
+
+	// The retry finds no claim, confirms the model was already released, and
+	// re-runs the adoption alone - which is the point of retrying, since the
+	// lost reply may have been for a call whose adoption never completed.
+	retryErr, retryAdopted := s.commitActivation(c, deps, modelUUID)
+	c.Assert(retryErr, tc.ErrorIsNil)
+	c.Check(*retryAdopted, tc.DeepEquals, []semversion.Number{sourceVersion})
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
 }
@@ -302,7 +341,7 @@ func (s *controllerImportSuite) TestCommitActivationWithoutImportFails(c *tc.C) 
 	c.Assert(err, tc.ErrorIsNil)
 
 	// The model is neither activated nor ungated, so the predicates fail.
-	err = s.commitActivation(c, deps, modelUUID)
+	err, _ = s.commitActivation(c, deps, modelUUID)
 	c.Check(err, tc.ErrorMatches, ".*is not importing or activating.*")
 }
 
@@ -314,8 +353,11 @@ func (s *controllerImportSuite) TestCommitActivationRefusesAbortingClaim(c *tc.C
 	modelUUID, deps := s.importForActivation(c, "1.0.0")
 	s.setClaimPhase(c, modelUUID, "aborting")
 
-	err := s.commitActivation(c, deps, modelUUID)
+	err, adopted := s.commitActivation(c, deps, modelUUID)
 	c.Check(err, tc.ErrorMatches, ".*cannot commit activation, import is aborting.*")
+	// A refused commit must not re-tag anything: adoption runs only once the
+	// model has become this controller's, and this one has not.
+	c.Check(*adopted, tc.HasLen, 0)
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
 }
 
@@ -347,7 +389,7 @@ func (s *controllerImportSuite) TestCommitActivationResumesFromActivating(c *tc.
 	err := claimSt.SetImportPhaseActivating(c.Context(), modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 
-	err = s.commitActivation(c, deps, modelUUID)
+	err, _ = s.commitActivation(c, deps, modelUUID)
 	c.Assert(err, tc.ErrorIsNil)
 
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
@@ -483,7 +525,8 @@ func (s *controllerImportSuite) TestActivateAndCommitWithLegacyClaimShape(c *tc.
 	c.Check(s.modelActivated(c, modelUUID), tc.IsFalse)
 
 	// The commit releases it.
-	c.Assert(s.commitActivation(c, deps, modelUUID), tc.ErrorIsNil)
+	commitErr, _ := s.commitActivation(c, deps, modelUUID)
+	c.Assert(commitErr, tc.ErrorIsNil)
 	c.Check(s.modelActivated(c, modelUUID), tc.IsTrue)
 	c.Check(s.modelGateExists(c, modelUUID), tc.IsFalse)
 	c.Check(s.modelAgentVersion(c, modelUUID), tc.Equals, jujuversion.Current.String())
@@ -503,19 +546,25 @@ WHERE  model_uuid = ?`, phase, modelUUID.String())
 	c.Assert(err, tc.ErrorIsNil)
 }
 
+// sourceVersion stands in for the source controller's version, which the
+// commit hands to the provider when adopting resources.
+var sourceVersion = semversion.MustParse("4.0.12")
+
 // commitActivation drives the commit half of activation, as the target's
-// AdoptResources call does.
+// AdoptResources call does, returning the source versions the provider was
+// asked to adopt with.
 func (*controllerImportSuite) commitActivation(
 	c *tc.C, deps migration.Deps, modelUUID coremodel.UUID,
-) error {
+) (error, *[]semversion.Number) {
+	adopted := &[]semversion.Number{}
 	importer := migration.NewModelImporter(
 		func(coremodel.UUID) coremodelmigration.Scope {
 			return coremodelmigration.NewScope(deps.ControllerDB, deps.ModelDB, nil, nil, modelUUID)
 		},
-		activationDomainServicesGetter{deps: deps},
+		activationDomainServicesGetter{deps: deps, adopted: adopted},
 		"",
 		deps.Logger,
 		deps.Clock,
 	)
-	return importer.CommitActivation(c.Context(), modelUUID)
+	return importer.CommitActivation(c.Context(), modelUUID, sourceVersion), adopted
 }

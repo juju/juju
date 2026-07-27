@@ -128,21 +128,31 @@ func prepareActivation(ctx context.Context, domainServices services.DomainServic
 }
 
 // commitActivation performs the irreversible half of activation: it records
-// that the source committed, then releases the model.
+// that the source committed, releases the model, and adopts its cloud
+// resources.
 //
 // It is driven by AdoptResources, which a source sends only after durably
 // recording SUCCESS. Receipt is therefore proof that the source can never abort
 // this migration, which is what makes the transition safe to treat as a point
 // of no return.
 //
-// Releasing before adopting resources matches 3.6, which released the model in
-// Activate and adopted afterwards. An adoption failure does not undo the
+// This is an ordered, replayable sequence rather than a transaction, and cannot
+// be otherwise: the claim lives in the controller database, the gate in the
+// model database, and resource adoption is a call out to the cloud provider.
+// Each step is idempotent so that a commit interrupted anywhere is finished by
+// repeating all of them - that replayability is what stands in for the
+// atomicity a single database write would have given.
+//
+// The order matters. Releasing before adopting matches 3.6, which released the
+// model in Activate and adopted afterwards, and it keeps model availability
+// independent of the provider. An adoption failure therefore does not undo the
 // release: the model is already this controller's, and the source retries
 // AdoptResources until it succeeds.
 func commitActivation(
 	ctx context.Context,
 	domainServices services.DomainServices,
 	modelUUID coremodel.UUID,
+	sourceControllerVersion semversion.Number,
 ) error {
 	claim, err := domainServices.ModelMigration().GetImportClaim(ctx, modelUUID)
 	switch {
@@ -157,7 +167,9 @@ func commitActivation(
 		if !committed {
 			return errors.Errorf("model %q is not importing or activating", modelUUID)
 		}
-		return nil
+		// Already released by an earlier commit whose reply was lost. Nothing
+		// left to do locally, but the adoption may not have run yet.
+		return adoptResources(ctx, domainServices, modelUUID, sourceControllerVersion)
 	case err != nil:
 		return errors.Errorf("reading import claim for model %q: %w", modelUUID, err)
 	}
@@ -179,7 +191,31 @@ func commitActivation(
 		return errors.Errorf("model %q: unexpected import claim phase %q", modelUUID, claim.Phase)
 	}
 
-	return releaseModel(ctx, domainServices, modelUUID)
+	if err := releaseModel(ctx, domainServices, modelUUID); err != nil {
+		return errors.Capture(err)
+	}
+
+	return adoptResources(ctx, domainServices, modelUUID, sourceControllerVersion)
+}
+
+// adoptResources asks the cloud provider to re-tag the model's resources with
+// this controller, so they are not destroyed when the source controller goes
+// away.
+//
+// It runs last, after the model has already been released, and its error is
+// returned to the source, which retries the whole call. A retry finds no claim,
+// confirms the model was already released, and reaches here again to repeat the
+// adoption alone.
+func adoptResources(
+	ctx context.Context,
+	domainServices services.DomainServices,
+	modelUUID coremodel.UUID,
+	sourceControllerVersion semversion.Number,
+) error {
+	if err := domainServices.ModelMigration().AdoptResources(ctx, sourceControllerVersion); err != nil {
+		return errors.Errorf("adopting cloud resources for model %q: %w", modelUUID, err)
+	}
+	return nil
 }
 
 // releaseModel makes a committed model usable and gives up the claim. Every

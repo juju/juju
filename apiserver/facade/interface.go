@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/semversion"
 	"github.com/juju/juju/domain/export"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/services"
@@ -208,10 +209,11 @@ type ModelImporter interface {
 	// VALIDATION phase, where any failure sends the source to ABORT.
 	ActivateModel(ctx context.Context, args migration.ActivateModelArgs) error
 
-	// CommitActivation records that the source committed the migration and
-	// releases the model for use. Driven by AdoptResources, the first call a
-	// source makes after durably recording SUCCESS.
-	CommitActivation(ctx context.Context, modelUUID model.UUID) error
+	// CommitActivation records that the source committed the migration,
+	// releases the model for use and adopts its cloud resources. Driven by
+	// AdoptResources, the first call a source makes after durably recording
+	// SUCCESS.
+	CommitActivation(ctx context.Context, modelUUID model.UUID, sourceControllerVersion semversion.Number) error
 }
 
 // ModelMigrationFactory defines an interface for getting a model migrator.

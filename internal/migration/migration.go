@@ -96,19 +96,23 @@ func (i *ModelImporter) ActivateModel(ctx context.Context, args ActivateModelArg
 }
 
 // CommitActivation crosses the point of no return for an imported model: it
-// records that the source committed, then releases the model for use.
+// records that the source committed, releases the model for use, and adopts its
+// cloud resources.
 //
 // It is driven by the target's AdoptResources call, which a source sends only
 // after durably recording SUCCESS - the point from which it can never abort. See
-// activate.go for why that is the only reliable commit signal available.
-func (i *ModelImporter) CommitActivation(ctx context.Context, modelUUID coremodel.UUID) error {
+// activate.go for why that is the only reliable commit signal available, and
+// why this is an ordered replayable sequence rather than a transaction.
+func (i *ModelImporter) CommitActivation(
+	ctx context.Context, modelUUID coremodel.UUID, sourceControllerVersion semversion.Number,
+) error {
 	domainServices, err := i.domainServices.ServicesForModel(ctx, modelUUID)
 	if err != nil {
 		return internalerrors.Errorf(
 			"retrieving domain services for model %q: %w", modelUUID, err,
 		)
 	}
-	return commitActivation(ctx, domainServices, modelUUID)
+	return commitActivation(ctx, domainServices, modelUUID, sourceControllerVersion)
 }
 
 // ImportModel applies a v8 import's controller-scoped semantic data to the
