@@ -78,6 +78,7 @@ func (s *networkSuite) TestEnsureIPv4Modified(c *tc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
+	op := lxdtesting.NewMockOperation(ctrl)
 
 	req := lxdapi.NetworkPut{
 		Config: map[string]string{
@@ -87,7 +88,8 @@ func (s *networkSuite) TestEnsureIPv4Modified(c *tc.C) {
 	}
 	gomock.InOrder(
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(&lxdapi.Network{}, lxdtesting.ETag, nil),
-		cSvr.EXPECT().UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(nil),
+		cSvr.EXPECT().UpdateNetwork(network.DefaultLXDBridge, req, lxdtesting.ETag).Return(op, nil),
+		op.EXPECT().Wait().Return(nil),
 	)
 
 	jujuSvr, err := lxd.NewServer(cSvr)
@@ -243,8 +245,8 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *tc.C) {
 	defer ctrl.Finish()
 	cSvr := s.NewMockServerWithExtensions(ctrl, "network")
 
-	op := lxdtesting.NewMockOperation(ctrl)
-	op.EXPECT().Wait().Return(nil)
+	createOp := lxdtesting.NewMockOperation(ctrl)
+	updateProfileOp := lxdtesting.NewMockOperation(ctrl)
 
 	netConf := map[string]string{
 		"ipv4.address": "auto",
@@ -265,9 +267,11 @@ func (s *networkSuite) TestVerifyNetworkDeviceNotPresentCreated(c *tc.C) {
 	}
 	gomock.InOrder(
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(nil, "", errors.New("network not found")),
-		cSvr.EXPECT().CreateNetwork(netCreateReq).Return(nil),
+		cSvr.EXPECT().CreateNetwork(netCreateReq).Return(createOp, nil),
+		createOp.EXPECT().Wait().Return(nil),
 		cSvr.EXPECT().GetNetwork(network.DefaultLXDBridge).Return(newNet, "", nil),
-		cSvr.EXPECT().UpdateProfile("default", defaultLegacyProfileWithNIC().Writable(), lxdtesting.ETag).Return(op, nil),
+		cSvr.EXPECT().UpdateProfile("default", defaultLegacyProfileWithNIC().Writable(), lxdtesting.ETag).Return(updateProfileOp, nil),
+		updateProfileOp.EXPECT().Wait().Return(nil),
 	)
 
 	profile := defaultLegacyProfileWithNIC()

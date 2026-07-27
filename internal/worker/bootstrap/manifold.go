@@ -206,7 +206,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Locate the controller unit password.
-			unitPassword, err := config.ControllerUnitPassword(context.TODO())
+			unitPassword, err := config.ControllerUnitPassword(ctx)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

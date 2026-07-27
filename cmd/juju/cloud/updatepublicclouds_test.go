@@ -24,6 +24,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/internal/testhelpers"
 	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/juju/keys"
 )
 
 type updatePublicCloudsSuite struct {
@@ -86,6 +87,12 @@ func (s *updatePublicCloudsSuite) setupTestServer(c *tc.C, serverContent string)
 	}))
 }
 
+func (s *updatePublicCloudsSuite) setupRawTestServer(serverContent string) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, serverContent)
+	}))
+}
+
 func (s *updatePublicCloudsSuite) TestBadArgs(c *tc.C) {
 	updateCmd := cloud.NewUpdatePublicCloudsCommandForTest(s.store, nil, "")
 	_, err := cmdtesting.RunCommand(c, updateCmd, "extra")
@@ -124,6 +131,25 @@ func (s *updatePublicCloudsSuite) TestUnsignedData(c *tc.C) {
 	defer ts.Close()
 	_, err := cloud.PublishedPublicClouds(c.Context(), ts.URL, "")
 	c.Assert(err, tc.ErrorMatches, "receiving updated cloud data: no PGP signature embedded in plain text data")
+}
+
+func (s *updatePublicCloudsSuite) TestInvalidSignature(c *tc.C) {
+	signed := encodeCloudYAML(c, sampleUpdateCloudData)
+	tampered := strings.Replace(signed, "endpoint: http://region", "endpoint: http://tampered", 1)
+	ts := s.setupRawTestServer(tampered)
+	defer ts.Close()
+
+	_, err := cloud.PublishedPublicClouds(c.Context(), ts.URL, sstesting.SignedMetadataPublicKey)
+	c.Assert(err, tc.ErrorMatches, "receiving updated cloud data: openpgp: invalid signature:.*")
+}
+
+func (s *updatePublicCloudsSuite) TestUntrustedSignature(c *tc.C) {
+	signed := encodeCloudYAML(c, sampleUpdateCloudData)
+	ts := s.setupRawTestServer(signed)
+	defer ts.Close()
+
+	_, err := cloud.PublishedPublicClouds(c.Context(), ts.URL, keys.JujuPublicKey)
+	c.Assert(err, tc.ErrorMatches, "receiving updated cloud data: openpgp: signature made by unknown entity")
 }
 
 func (s *updatePublicCloudsSuite) TestBadDataOnServer(c *tc.C) {

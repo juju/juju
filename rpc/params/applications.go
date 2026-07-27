@@ -683,6 +683,9 @@ type DeployFromRepositoryInfo struct {
 	Name string `json:"name"`
 	// Revision is the revision of the charm deployed.
 	Revision int `json:"revision"`
+	// Warnings holds advisory, non-blocking messages about the deployment
+	// (e.g. a charm/model-type mismatch) for the client to surface to the user.
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // PendingResourceUpload holds data required to upload a

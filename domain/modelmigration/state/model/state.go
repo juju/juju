@@ -206,9 +206,13 @@ FROM   machine
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
 	}
+	// Exclude synthetic cross-model-relation units/applications: they use a
+	// CMR-source charm (charm_source.source_id = 2) and run no agent.
 	unitStmt, err := s.Prepare(`
 SELECT &agentName.name
-FROM   unit
+FROM   unit AS u
+JOIN   charm AS c ON c.uuid = u.charm_uuid
+WHERE  c.source_id < 2
 `, agentName{})
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)
@@ -217,6 +221,8 @@ FROM   unit
 SELECT &agentName.name
 FROM   application AS a
 JOIN   application_agent AS aa ON aa.application_uuid = a.uuid
+JOIN   charm AS c ON c.uuid = a.charm_uuid
+WHERE  c.source_id < 2
 `, agentName{})
 	if err != nil {
 		return modelmigrationinternal.MigrationAgents{}, errors.Capture(err)

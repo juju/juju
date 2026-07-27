@@ -689,16 +689,17 @@ WHERE machine_uuid = $machineUUIDRef.machine_uuid
 }
 
 // GetUnitsAgentBinaryMetadata reports the agent binary metadata that each
-// unit in the model is currently running. This is a bulk call to support
-// operations such as model export where it is expected that the state of a
-// model stays relatively static over the operation. This function will never
-// provide enough granuality into what unit fails as part of the checks.
+// non-synthetic unit in the model is currently running. This is a bulk call to
+// support operations such as model export where it is expected that the state
+// of a model stays relatively static over the operation. This function will
+// never provide enough granularity into what unit fails as part of the checks.
 //
 // The following errors can be expected:
 // - [modelagenterrors.AgentVersionNotSet] when one or more units in
-// the model do not have their agent version set.
+// the model, excluding synthetic CMR units, do not have their agent version
+// set.
 // - [modelagenterrors.MissingAgentBinaries] when the agent binaries don't exist
-// for one or more units in the model.
+// for one or more non-synthetic units in the model.
 func (st *State) GetUnitsAgentBinaryMetadata(
 	ctx context.Context,
 ) (map[coreunit.Name]coreagentbinary.Metadata, error) {
@@ -726,20 +727,26 @@ SELECT    u.name AS &unitAgentBinaryMetadata.name,
           osm.sha_384 AS &unitAgentBinaryMetadata.sha_384
 FROM      unit_agent_version AS uav
 JOIN      unit AS u ON uav.unit_uuid = u.uuid
+JOIN      charm AS c ON c.uuid = u.charm_uuid
 JOIN      architecture AS a ON uav.architecture_id = a.id
 LEFT JOIN v_agent_binary_store AS abs ON (
           uav.version = abs.version
 AND       uav.architecture_id = abs.architecture_id)
 LEFT JOIN object_store_metadata AS osm ON abs.object_store_uuid = osm.uuid
+WHERE     c.source_id < 2
 `, unitAgentBinaryMetadata{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
 
+	// Exclude synthetic CMR units from both queries: they do not run unit
+	// agents, but may have stale unit_agent_version rows.
 	unitCount := rowCount{}
 	stmtUnitCount, err := st.Prepare(`
 SELECT (count(*)) AS (&rowCount.count)
-FROM   unit
+FROM   unit AS u
+JOIN   charm AS c ON c.uuid = u.charm_uuid
+WHERE  c.source_id < 2
 `, unitCount)
 	if err != nil {
 		return nil, errors.Capture(err)
@@ -769,7 +776,7 @@ FROM   unit
 
 	if len(unitBinaryMetadata) != unitCount.Count {
 		return nil, errors.New(
-			"not all units in the model have their agent version set",
+			"not all non-synthetic units in the model have their agent version set",
 		).Add(modelagenterrors.AgentVersionNotSet)
 	}
 
@@ -815,10 +822,11 @@ FROM   unit
 	return rval, nil
 }
 
-// GetUnitsNotAtTargetAgentVersion returns the list of units where
-// their agent version is not the same as the models target agent version or
-// who have no agent version reproted at all. If no units exist that match
-// this criteria an empty slice is returned.
+// GetUnitsNotAtTargetAgentVersion returns the list of non-synthetic units
+// where their agent version is not the same as the model's target agent
+// version or who have no agent version reported at all. Synthetic CMR units
+// are excluded because they do not run unit agents. If no units exist that
+// match this criteria an empty slice is returned.
 func (st *State) GetUnitsNotAtTargetAgentVersion(
 	ctx context.Context,
 ) ([]coreunit.Name, error) {
@@ -827,15 +835,24 @@ func (st *State) GetUnitsNotAtTargetAgentVersion(
 		return nil, errors.Capture(err)
 	}
 
+	// Exclude synthetic cross-model-relation units: they use a CMR-source charm
+	// (charm_source.source_id = 2) and never report an agent version.
 	query := `
-SELECT &unitName.*
-FROM v_unit_target_agent_version
-WHERE version != target_version
-UNION
-SELECT name
-FROM unit
-WHERE uuid NOT IN (SELECT unit_uuid
-                   FROM v_unit_target_agent_version)
+WITH agent_units AS (
+    SELECT u.uuid AS unit_uuid,
+           u.name AS unit_name
+    FROM unit AS u
+    JOIN charm AS c ON c.uuid = u.charm_uuid
+    -- Don't include units from CMR charm source (source_id >= 2).
+    WHERE c.source_id < 2
+)
+SELECT au.unit_name AS &unitName.name
+FROM agent_units AS au
+LEFT JOIN v_unit_target_agent_version AS utav
+ON au.unit_uuid = utav.unit_uuid
+WHERE utav.unit_uuid IS NULL
+OR utav.version != utav.target_version
+ORDER BY au.unit_name
 `
 
 	queryStmt, err := st.Prepare(query, unitName{})

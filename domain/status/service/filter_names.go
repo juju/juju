@@ -4,6 +4,8 @@
 package service
 
 import (
+	"strings"
+
 	coremachine "github.com/juju/juju/core/machine"
 	coreunit "github.com/juju/juju/core/unit"
 )
@@ -19,11 +21,18 @@ type NameMatchResult struct {
 // MatchStatusNames matches exact machine, application, and unit names from the
 // supplied status snapshot and expands the result enough to keep status output
 // coherent.
+//
+// Patterns of the form "appname/leader" are resolved to the current leader unit
+// name using leaders before matching. Patterns whose application has no known
+// leader are left unchanged and will not match any entity.
+//
+// The patterns slice is mutated.
 func MatchStatusNames(
 	patterns []string,
 	applications map[string]Application,
 	units map[coreunit.Name]Unit,
 	machines map[coremachine.Name]Machine,
+	leaders map[string]string,
 ) NameMatchResult {
 	result := newNameMatchResult()
 	if len(patterns) == 0 {
@@ -37,6 +46,20 @@ func MatchStatusNames(
 			result.addMachine(machineName)
 		}
 		return result
+	}
+
+	if len(leaders) > 0 {
+		// Resolve "appname/leader" patterns to the actual leader unit name in
+		// place. Patterns whose application has no known leader are left unchanged.
+		for i, p := range patterns {
+			appName, ok := strings.CutSuffix(p, "/leader")
+			if !ok {
+				continue
+			}
+			if leaderUnit, ok := leaders[appName]; ok {
+				patterns[i] = leaderUnit
+			}
+		}
 	}
 
 	patternSet := make(map[string]struct{}, len(patterns))

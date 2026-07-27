@@ -52,9 +52,9 @@ func (w *trackedWorker) ReplaceCACert(caCert string, insecureSkipVerify bool) er
 }
 
 func (w *trackedWorker) loop() error {
-	// TODO (stickupkid): In the future, it is expected that we can watch the
-	// model-config for any proxy related changes and update the http client
-	// accordingly.
+	// ProxyMiddleware resolves the process proxy configuration for every
+	// request. The proxy updater applies the initial configuration and keeps it
+	// in sync, so tracked clients do not need their own model-config watcher.
 	<-w.tomb.Dying()
 	return w.tomb.Err()
 }

@@ -21,7 +21,11 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          sudo snap install snapcraft --classic
+          action=$(snap info snapcraft | grep -q "installed" || echo "install")
+          if [ "$action" == "" ]; then
+              action="refresh"
+          fi
+          sudo snap $action snapcraft --channel 9.x --classic
           echo "/snap/bin" >> $GITHUB_PATH
 
       - name: Checkout

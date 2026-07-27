@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
 // tunnelAuthentication provides a way of creating
@@ -34,7 +34,7 @@ func newTunnelAuthentication(clock clock.Clock) (tunnelAuthentication, error) {
 	}
 	return tunnelAuthentication{
 		sharedSecret: key,
-		jwtAlg:       jwa.HS512,
+		jwtAlg:       jwa.HS512(),
 		clock:        clock,
 	}, nil
 }
@@ -70,11 +70,12 @@ func (tAuth *tunnelAuthentication) validatePassword(password string) (string, er
 		jwt.WithClock(tAuth.clock),
 	)
 	if err != nil {
-		return "", errors.Annotate(err, "failed to parse token")
+		return "", errors.Trace(err)
 	}
 
-	tunnelID, ok := token.PrivateClaims()[tunnelIDClaimKey].(string)
-	if !ok {
+	var tunnelID string
+	err = token.Get(tunnelIDClaimKey, &tunnelID)
+	if err != nil {
 		return "", errors.New("invalid token")
 	}
 	return tunnelID, nil

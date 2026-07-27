@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/core/offer"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/crossmodelrelation"
 	crossmodelrelationerrors "github.com/juju/juju/domain/crossmodelrelation/errors"
 	"github.com/juju/juju/internal/errors"
@@ -37,12 +39,20 @@ type ModelOfferState interface {
 		offer.UUID,
 	) error
 
-	// GetConsumeDetails returns the offer uuid and endpoints necessary to
-	// consume the offer.
+	// GetConsumeDetails returns the offer uuid, application name and
+	// endpoints necessary to consume the offer.
 	GetConsumeDetails(
 		ctx context.Context,
 		offerName string,
 	) (crossmodelrelation.ConsumeDetails, error)
+
+	// GetApplicationEndpointDetails returns the name, role and interface
+	// of the provided endpoints for the given application.
+	GetApplicationEndpointDetails(
+		ctx context.Context,
+		applicationName string,
+		endpoints []string,
+	) ([]crossmodelrelation.OfferEndpoint, error)
 
 	// GetOfferDetails returns the OfferDetail of every offer in the model.
 	// No error is returned if offers are found.
@@ -113,8 +123,12 @@ func (s *Service) GetOfferUUIDByRelationUUID(ctx context.Context, relationUUID c
 	return res, nil
 }
 
-// CreateOffer updates an existing offer, or creates a new offer if it does not
-// exist. Permissions are created for a new offer only.
+// CreateOffer creates an offer. Permissions are created for a new offer
+// only. If the offer already exists and offers the same endpoints of the
+// same application, the call is a no-op and succeeds, keeping offer creation
+// idempotent. If the offer exists but differs, an error satisfying
+// [crossmodelrelationerrors.OfferAlreadyExists] is returned, as updating
+// offers is not supported.
 func (s *Service) CreateOffer(
 	ctx context.Context,
 	args crossmodelrelation.ApplicationOfferArgs,
@@ -139,18 +153,40 @@ func (s *Service) CreateOffer(
 		return errors.Capture(err)
 	}
 
-	// Check if the offer already exists.
-	existingOfferUUID, err := s.modelState.GetOfferUUID(ctx, args.OfferName)
+	// Check if the offer already exists by fetching its details.
+	existingOffer, err := s.modelState.GetConsumeDetails(ctx, args.OfferName)
 	if err != nil && !errors.Is(err, crossmodelrelationerrors.OfferNotFound) {
 		return errors.Errorf("creating offer: %w", err)
 	} else if err == nil {
-		// The offer exists, this means that we have to return an error since we
-		// don't support updating offers.
+		// The offer exists. Since updating offers is not supported, only
+		// succeed if the existing offer is identical to the requested one,
+		// that is it offers the same endpoints of the same application.
+		// This keeps creating an offer idempotent.
+		//
+		// Resolve the requested endpoints on the application, so they can
+		// be compared against the ones the existing offer exposes.
+		requested, err := s.modelState.GetApplicationEndpointDetails(
+			ctx, args.ApplicationName, slices.Collect(maps.Keys(args.Endpoints)),
+		)
+		if err != nil &&
+			!errors.Is(err, applicationerrors.ApplicationNotFound) &&
+			!errors.Is(err, applicationerrors.EndpointNotFound) &&
+			!errors.Is(err, crossmodelrelationerrors.MissingEndpoints) {
+			return errors.Errorf("validating against existing offer: %w", err)
+		}
+		// The existing offer may be for another application, so the
+		// requested application or its endpoints may not resolve; in
+		// that case the offers differ.
+		if err == nil && isSameOffer(existingOffer, requested, args) {
+			return nil
+		}
 		return errors.Errorf("creating offer: offer %q already exists with UUID %q",
-			args.OfferName, existingOfferUUID).Add(crossmodelrelationerrors.OfferAlreadyExists)
+			args.OfferName, existingOffer.OfferUUID).Add(crossmodelrelationerrors.OfferAlreadyExists)
 	}
 
-	endpoints := slices.Collect(maps.Keys(args.Endpoints))
+	// Sort the endpoint names so offer creation is deterministic regardless
+	// of map iteration order.
+	endpoints := slices.Sorted(maps.Keys(args.Endpoints))
 
 	// Verify the application exists and is not dead before creating the offer,
 	// and that the application endpoints are valid.
@@ -191,6 +227,43 @@ func (s *Service) CreateOffer(
 	}
 	err = errors.Errorf("creating access for offer %q: %w", args.OfferName, err)
 	return errors.Capture(err)
+}
+
+// isSameOffer returns true if the existing offer is for the same
+// application and offers the same endpoints as the requested ones.
+// Requested endpoint aliases are not persisted as part of the offer and
+// are ignored.
+func isSameOffer(
+	existingOffer crossmodelrelation.ConsumeDetails,
+	requested []crossmodelrelation.OfferEndpoint,
+	args crossmodelrelation.ApplicationOfferArgs,
+) bool {
+	return existingOffer.ApplicationName == args.ApplicationName &&
+		sameOfferEndpoints(existingOffer.Endpoints, requested)
+}
+
+// sameOfferEndpoints returns true if the offered and the requested
+// endpoints contain the same endpoint names, roles and interfaces. The
+// comparison is order-insensitive, no ordering of either slice is assumed.
+func sameOfferEndpoints(offered, requested []crossmodelrelation.OfferEndpoint) bool {
+	if len(offered) != len(requested) {
+		return false
+	}
+	type endpointKey struct {
+		name  string
+		role  charm.RelationRole
+		iface string
+	}
+	existing := make(map[endpointKey]struct{}, len(offered))
+	for _, endpoint := range offered {
+		existing[endpointKey{name: endpoint.Name, role: endpoint.Role, iface: endpoint.Interface}] = struct{}{}
+	}
+	for _, endpoint := range requested {
+		if _, ok := existing[endpointKey{name: endpoint.Name, role: endpoint.Role, iface: endpoint.Interface}]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // GetConsumeDetails returns the offer uuid and endpoints necessary to

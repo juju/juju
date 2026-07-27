@@ -23,9 +23,11 @@ import (
 	objectstoretesting "github.com/juju/juju/core/objectstore/testing"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/semversion"
+	"github.com/juju/juju/domain/application"
 	"github.com/juju/juju/domain/application/architecture"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
+	"github.com/juju/juju/domain/deployment"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/errors"
@@ -2814,6 +2816,84 @@ func (s *charmStateSuite) TestGetCharmActionsEmpty(c *tc.C) {
 	c.Check(config, tc.DeepEquals, charm.Actions{
 		Actions: map[string]charm.Action(nil),
 	})
+}
+
+// TestCreateApplicationThenGetCharmActionsBeforeDownloadResolved
+// verifies that actions are available immediately after an application is
+// created (deployed), without needing the async charm download to be
+// resolved.
+func (s *charmStateSuite) TestCreateApplicationThenGetCharmActionsBeforeDownloadResolved(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), s.modelUUID, clock.WallClock, loggertesting.WrapCheckLog(c))
+
+	expectedActions := charm.Actions{
+		Actions: map[string]charm.Action{
+			"backup": {
+				Description:    "Take a backup of the database.",
+				Parallel:       false,
+				ExecutionGroup: "default",
+				Params:         []byte(`{}`),
+			},
+			"restart": {
+				Description:    "Restart the service.",
+				Parallel:       true,
+				ExecutionGroup: "restart-group",
+			},
+		},
+	}
+
+	platform := deployment.Platform{
+		Channel:      "22.04/stable",
+		OSType:       deployment.Ubuntu,
+		Architecture: architecture.ARM64,
+	}
+	channel := &deployment.Channel{
+		Track: "track",
+		Risk:  "stable",
+	}
+
+	// Create the application with actions in the charm. This simulates a
+	// deploy where the charmhub essential metadata includes actions-yaml.
+	appUUID, _, err := st.CreateIAASApplication(c.Context(), "test-app", application.AddIAASApplicationArg{
+		BaseAddApplicationArg: application.BaseAddApplicationArg{
+			Platform: platform,
+			Channel:  channel,
+			Charm: charm.Charm{
+				Metadata: charm.Metadata{
+					Name: "test-app",
+				},
+				Manifest:      s.minimalManifest(c),
+				Actions:       expectedActions,
+				ReferenceName: "test-app",
+				Source:        charm.CharmHubSource,
+				Revision:      42,
+				Hash:          "hash",
+			},
+			CharmDownloadInfo: &charm.DownloadInfo{
+				Provenance:         charm.ProvenanceDownload,
+				CharmhubIdentifier: "ident",
+				DownloadURL:        "https://example.com",
+				DownloadSize:       42,
+			},
+		},
+	}, nil)
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Verify the charm is NOT yet available (download not resolved).
+	charmID, err := st.GetCharmIDByApplicationName(c.Context(), "test-app")
+	c.Assert(err, tc.ErrorIsNil)
+	available, err := st.IsCharmAvailable(c.Context(), charmID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(available, tc.IsFalse)
+
+	// Despite the charm not being downloaded yet, the actions should be
+	// available because they were stored at deploy time from the essential
+	// metadata.
+	got, err := st.GetCharmActions(c.Context(), charmID)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(got, tc.DeepEquals, expectedActions)
+
+	// Sanity check: the application UUID is valid.
+	c.Check(appUUID, tc.NotNil)
 }
 
 func (s *charmStateSuite) TestAddCharmThenGetCharmArchivePath(c *tc.C) {

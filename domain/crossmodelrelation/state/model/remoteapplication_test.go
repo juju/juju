@@ -399,6 +399,54 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferers(c *tc.C) 
 	}})
 }
 
+func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferersOrderedByName(c *tc.C) {
+	mac := newMacaroon(c, "encoded macaroon")
+	macBytes := tc.Must(c, mac.MarshalJSON)
+
+	addOfferer := func(applicationName, charmReferenceName string) {
+		ch := charm.Charm{
+			ReferenceName: charmReferenceName,
+			Source:        charm.CMRSource,
+			Metadata: charm.Metadata{
+				Name:        applicationName,
+				Description: "remote offerer application",
+				Provides: map[string]charm.Relation{
+					"db": {
+						Name:      "db",
+						Role:      charm.RoleProvider,
+						Interface: "db",
+						Limit:     1,
+						Scope:     charm.ScopeGlobal,
+					},
+				},
+			},
+		}
+		err := s.state.AddRemoteApplicationOfferer(c.Context(), applicationName, crossmodelrelation.AddRemoteApplicationOffererArgs{
+			ApplicationUUID:       tc.Must(c, internaluuid.NewUUID).String(),
+			CharmUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			RemoteApplicationUUID: tc.Must(c, internaluuid.NewUUID).String(),
+			OfferUUID:             tc.Must(c, internaluuid.NewUUID).String(),
+			Charm:                 ch,
+			OffererModelUUID:      tc.Must(c, internaluuid.NewUUID).String(),
+			OfferURL:              "controller:qualifier/model." + applicationName,
+			EncodedMacaroon:       macBytes,
+		})
+		c.Assert(err, tc.ErrorIsNil)
+	}
+	// Insert in reverse name order.
+	addOfferer("zed-app", "zed-charm")
+	addOfferer("alpha-app", "alpha-charm")
+
+	results, err := s.state.GetRemoteApplicationOfferers(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+
+	// Offerers are returned ordered by application name, regardless of
+	// insertion order.
+	c.Assert(results, tc.HasLen, 2)
+	c.Check(results[0].ApplicationName, tc.Equals, "alpha-app")
+	c.Check(results[1].ApplicationName, tc.Equals, "zed-app")
+}
+
 func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationOfferersEmpty(c *tc.C) {
 	// Initially there are no remote application offerers.
 	results, err := s.state.GetRemoteApplicationOfferers(c.Context())
@@ -1096,19 +1144,13 @@ func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersMultiple(
 
 	results, err := s.state.GetRemoteApplicationConsumers(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
-	c.Assert(results, tc.HasLen, 2)
 
-	// Order not strictly guaranteed; map by name.
-	found := map[string]crossmodelrelation.RemoteApplicationConsumer{}
-	for _, r := range results {
-		found[r.ApplicationName] = r
-	}
-
-	foo := found["foo"]
-	bar := found["bar"]
-
-	c.Check(foo.OfferUUID, tc.Equals, offerUUID)
-	c.Check(bar.OfferUUID, tc.Equals, offerUUID)
+	// Consumers are returned ordered by application name, regardless of
+	// insertion order.
+	c.Check(results, tc.DeepEquals, []crossmodelrelation.RemoteApplicationConsumer{
+		{ApplicationName: "bar", Life: life.Alive, OfferUUID: offerUUID},
+		{ApplicationName: "foo", Life: life.Alive, OfferUUID: offerUUID},
+	})
 }
 
 func (s *modelRemoteApplicationSuite) TestGetRemoteApplicationConsumersEmpty(c *tc.C) {
