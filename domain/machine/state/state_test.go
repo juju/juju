@@ -1103,6 +1103,56 @@ func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasChildContainers
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineHasChildContainers)
 }
 
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasModelScopedVolume(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 0, 0)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasModelScopedFilesystem(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 0, 0)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityAllowsMachineScopedVolume(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityAllowsMachineScopedFilesystem(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionFilesystemStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestCheckMachineReprovisioningEligibilityHasModelScopedVolumePlan(c *tc.C) {
+	machineUUID, machineName := s.addMachine(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumePlanStorage(c, machineUUID.String(), netNodeUUID, 0)
+
+	err := s.state.CheckMachineReprovisioningEligibility(c.Context(), machineName)
+	c.Assert(err, tc.ErrorIs, machineerrors.ModelScopedStorageAttached)
+}
+
 func (s *stateSuite) TestIsMachineAgentPresent(c *tc.C) {
 	machineUUID, machineName := s.addMachine(c)
 	s.runQuery(c, "INSERT INTO machine_agent_presence (machine_uuid) VALUES (?)", machineUUID)

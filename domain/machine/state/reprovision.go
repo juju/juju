@@ -5,6 +5,7 @@ package state
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/canonical/sqlair"
