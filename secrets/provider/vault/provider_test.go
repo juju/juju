@@ -4,6 +4,7 @@
 package vault_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -108,6 +109,174 @@ func (s *providerSuite) TestBackendConfigBadClient(c *gc.C) {
 	_, err = p.RestrictedConfig(
 		adminCfg, true, false, issuedTokenUUID, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *providerSuite) TestCleanupModelSkipsInvalidKeysAndContinues(c *gc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	deleted := make([]string, 0)
+	unmounted := false
+	const mountPath = "fred-06f00d"
+
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			isListMethod := req.Method == http.MethodGet || req.Method == "LIST"
+			switch {
+			case isListMethod && req.URL.Path == "/v1/sys/policies/acl":
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"data":{"keys":["default","root"]}}`)),
+				}, nil
+			case isListMethod && req.URL.Path == "/v1/"+mountPath:
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"data":{"keys":["rev-1",42,"rev-2"]}}`)),
+				}, nil
+			case req.Method == http.MethodDelete && strings.HasPrefix(req.URL.Path, "/v1/"+mountPath+"/"):
+				deleted = append(deleted, strings.TrimPrefix(req.URL.Path, "/v1/"+mountPath+"/"))
+				return &http.Response{Request: req, StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader(`{}`))}, nil
+			case req.Method == http.MethodDelete && req.URL.Path == "/v1/sys/mounts/"+mountPath:
+				unmounted = true
+				return &http.Response{Request: req, StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader(`{}`))}, nil
+			default:
+				c.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+				return nil, nil
+			}
+		},
+	).AnyTimes()
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = p.CleanupModel(&provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(deleted, jc.DeepEquals, []string{"rev-1", "rev-2"})
+	c.Check(unmounted, jc.IsTrue)
+}
+
+func (s *providerSuite) TestCleanupModelInvalidKeysTypeContinues(c *gc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	deleted := make([]string, 0)
+	unmounted := false
+	const mountPath = "fred-06f00d"
+
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			isListMethod := req.Method == http.MethodGet || req.Method == "LIST"
+			switch {
+			case isListMethod && req.URL.Path == "/v1/sys/policies/acl":
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"data":{"keys":[]}}`)),
+				}, nil
+			case isListMethod && req.URL.Path == "/v1/"+mountPath:
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"data":{"keys":"not-a-list"}}`)),
+				}, nil
+			case req.Method == http.MethodDelete && strings.HasPrefix(req.URL.Path, "/v1/"+mountPath+"/"):
+				deleted = append(deleted, strings.TrimPrefix(req.URL.Path, "/v1/"+mountPath+"/"))
+				return &http.Response{Request: req, StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader(`{}`))}, nil
+			case req.Method == http.MethodDelete && req.URL.Path == "/v1/sys/mounts/"+mountPath:
+				unmounted = true
+				return &http.Response{Request: req, StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader(`{}`))}, nil
+			default:
+				c.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+				return nil, nil
+			}
+		},
+	).AnyTimes()
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = p.CleanupModel(&provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(deleted, gc.HasLen, 0)
+	c.Check(unmounted, jc.IsTrue)
+}
+
+func (s *providerSuite) TestBackendGetContentSkipsInvalidValues(c *gc.C) {
+	ctrl, newVaultClient := s.newVaultClient(c, nil)
+	defer ctrl.Finish()
+
+	const mountPath = "fred-06f00d"
+
+	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+		func(req *http.Request) (*http.Response, error) {
+			if req.Method == http.MethodGet && req.URL.Path == "/v1/"+mountPath+"/rev-1" {
+				return &http.Response{
+					Request:    req,
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"data":{"good":"value","bad":42}}`)),
+				}, nil
+			}
+			c.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		},
+	).AnyTimes()
+
+	s.PatchValue(&jujuvault.NewVaultClient, newVaultClient)
+	p, err := provider.Provider(jujuvault.BackendType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	b, err := p.NewBackend(&provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "vault",
+			Config: map[string]any{
+				"endpoint":        "http://vault-ip:8200/",
+				"namespace":       "ns",
+				"token":           "vault-token",
+				"ca-cert":         coretesting.CACert,
+				"tls-server-name": "tls-server",
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	value, err := b.GetContent(context.Background(), "rev-1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value.EncodedValues(), jc.DeepEquals, map[string]string{"good": "value"})
 }
 
 func (s *providerSuite) TestBackendConfigAdmin(c *gc.C) {

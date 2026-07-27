@@ -5,7 +5,6 @@ package vault
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
@@ -37,8 +36,13 @@ func (k vaultBackend) GetContent(ctx context.Context, revisionId string) (_ secr
 		return nil, errors.Annotatef(err, "getting secret %q", revisionId)
 	}
 	val := make(map[string]string)
-	for k, v := range s.Data {
-		val[k] = fmt.Sprintf("%s", v)
+	for key, value := range s.Data {
+		secretValue, ok := value.(string)
+		if !ok {
+			logger.Warningf("vault secret %q contains non-string value for key %q (type %T); skipping key", revisionId, key, value)
+			continue
+		}
+		val[key] = secretValue
 	}
 	return secrets.NewSecretValue(val), nil
 }
