@@ -38,6 +38,9 @@ ON application_remote_offerer (offer_uuid);
 CREATE UNIQUE INDEX idx_application_remote_offerer_application_uuid
 ON application_remote_offerer (application_uuid);
 
+CREATE INDEX idx_application_remote_offerer_model
+ON application_remote_offerer (offerer_model_uuid);
+
 -- application_remote_offerer_status represents the status of the remote
 -- offerer application inside of the consumer model.
 CREATE TABLE application_remote_offerer_status (
@@ -125,6 +128,15 @@ CREATE TABLE application_remote_consumer (
     FOREIGN KEY (offer_connection_uuid)
     REFERENCES offer_connection (uuid)
 );
+
+CREATE INDEX idx_application_remote_consumer_consumer
+ON application_remote_consumer (consumer_application_uuid);
+
+CREATE INDEX idx_application_remote_consumer_life
+ON application_remote_consumer (life_id);
+
+CREATE INDEX idx_application_remote_consumer_offerer
+ON application_remote_consumer (offerer_application_uuid);
 
 -- relation_network_ingress holds information about ingress CIDRs for a 
 -- relation.

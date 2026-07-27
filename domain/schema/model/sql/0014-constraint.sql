@@ -67,6 +67,9 @@ CREATE TABLE constraint_space (
     PRIMARY KEY (constraint_uuid, space)
 );
 
+CREATE INDEX idx_constraint_space_space
+ON constraint_space (space);
+
 CREATE TABLE constraint_zone (
     constraint_uuid TEXT NOT NULL,
     zone TEXT NOT NULL,

@@ -271,7 +271,8 @@ func (st *State) getTaskUUIDsByOperationUUIDs(ctx context.Context, tx *sqlair.TX
 	stmt, err := st.Prepare(`
 SELECT &task.uuid
 FROM   operation_task
-WHERE  operation_uuid IN ($uuids[:])`, toGet, task{})
+WHERE  operation_uuid IN ($uuids[:])
+ORDER BY task_id`, toGet, task{})
 	if err != nil {
 		return nil, errors.Capture(err)
 	}
@@ -380,7 +381,8 @@ AND    (
        sv.status = 'pending'
        OR
        sv.status = 'aborting'
-)`
+)
+ORDER BY t.task_id`
 }
 
 // InitialWatchStatementMachineTask returns the namespace and an initial
@@ -394,7 +396,8 @@ JOIN   operation_machine_task AS mt ON t.uuid = mt.task_uuid
 JOIN   operation_task_status AS ts ON t.uuid = ts.task_uuid
 JOIN   operation_task_status_value AS sv ON ts.status_id = sv.id
 WHERE  mt.machine_uuid = ?
-AND    sv.status = 'pending'`
+AND    sv.status = 'pending'
+ORDER BY t.task_id`
 }
 
 // FiltertTaskUUIDsForUnit returns a list of task IDs that corresponds to the
