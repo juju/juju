@@ -94,9 +94,10 @@ func (s *ProviderService) ReprovisionMachine(ctx context.Context, machineName ma
 		return errors.Errorf("checking provider instance %q for machine %q: %w", instanceID, machineName, err)
 	}
 
-	// If the provider returns no instance, there is nothing to do.
+	// If the provider reports that the instance is missing, then we can safely
+	// detach the instance and move the machine back to pending.
 	if len(instances) == 0 || instances[0] == nil {
-		return nil
+		return s.detachLostMachineCloudInstance(ctx, machineName, instanceID)
 	}
 
 	// If the provider reports that the instance is running, then there isn't

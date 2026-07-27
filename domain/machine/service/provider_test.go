@@ -476,13 +476,14 @@ func (s *providerServiceSuite) TestReprovisionMachineAgentPresent(c *tc.C) {
 	c.Assert(err, tc.ErrorIs, machineerrors.MachineAgentPresent)
 }
 
-func (s *providerServiceSuite) TestReprovisionMachineAgentAbsentNoInstance(c *tc.C) {
+func (s *providerServiceSuite) TestReprovisionMachineProviderEmptyInstances(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
 	instanceID := instance.Id("i-1234")
 	s.expectReprovisionMachineValidated(c, instanceID)
 	s.expectMachineAgentAbsent()
-	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, environs.ErrNoInstances)
+	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, nil)
+	s.expectMachineDetached()
 
 	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -521,6 +522,7 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderNoInstance(c *tc.C)
 	s.expectReprovisionMachineValidated(c, instanceID)
 	s.expectMachineAgentAbsent()
 	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return(nil, environs.ErrNoInstances)
+	s.expectMachineDetached()
 
 	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
@@ -584,6 +586,7 @@ func (s *providerServiceSuite) TestReprovisionMachineProviderPartialNoInstance(c
 	s.expectReprovisionMachineValidated(c, instanceID)
 	s.expectMachineAgentAbsent()
 	s.provider.EXPECT().Instances(gomock.Any(), []instance.Id{instanceID}).Return([]instances.Instance{nil}, environs.ErrPartialInstances)
+	s.expectMachineDetached()
 
 	err := s.service.ReprovisionMachine(c.Context(), machine.Name("0"))
 	c.Assert(err, tc.ErrorIsNil)
