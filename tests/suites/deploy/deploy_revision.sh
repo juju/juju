@@ -25,6 +25,32 @@ run_deploy_revision() {
 	destroy_model "${model_name}"
 }
 
+# Verify when deploying a charm with a specific revision that the resource
+# revision deployed is consistent with the charm revision that was released
+# into the channel. This test could break if the charm revision is
+# re-released into the channel with a different resource revision but this
+# is not conventionally done and is not expected to be done with the JIMM charm.
+run_deploy_revision_uses_consistent_resource() {
+	echo
+
+	model_name="test-deploy-revision-uses-consistent-resource"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	# Use the jimm charm for this test which tracks what
+	# resource revision was released alongside a charm revision.
+	# See https://github.com/canonical/jimm-k8s-operator/releases/tag/rev110
+	juju deploy juju-jimm-k8s --revision 110 --channel 3/edge
+	wait_for "juju-jimm-k8s" "$(charm_rev "juju-jimm-k8s" 110)"
+
+	# check resource revision per channel specified.
+	got=$(juju resources juju-jimm-k8s --format json | yq '.resources[0] | .["revision"] == "63"')
+	check_contains "${got}" "true"
+
+	destroy_model "${model_name}"
+}
+
 run_deploy_revision_resource() {
 	echo
 
@@ -102,6 +128,7 @@ test_deploy_revision() {
 		cd .. || exit
 
 		run "run_deploy_revision"
+		run "run_deploy_revision_uses_consistent_resource"
 		run "run_deploy_revision_fail"
 		run "run_deploy_revision_refresh"
 		run "run_deploy_revision_resource"
