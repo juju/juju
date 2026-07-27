@@ -98,10 +98,10 @@ type MachineService interface {
 	AllMachineNames(context.Context) ([]coremachine.Name, error)
 
 	// ReprovisionMachine validates that a machine is eligible for
-	// reprovisioning. The force flag acknowledges data loss.
+	// reprovisioning.
 	// It returns an error if the machine does not meet the eligibility
 	// criteria.
-	ReprovisionMachine(context.Context, coremachine.Name, bool) error
+	ReprovisionMachine(context.Context, coremachine.Name) error
 
 	// GetInstanceTypesFetcher returns the instance types fetcher.
 	GetInstanceTypesFetcher(context.Context) (environs.InstanceTypesFetcher, error)

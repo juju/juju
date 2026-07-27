@@ -532,3 +532,15 @@ type sshHostKey struct {
 	MachineUUID string `db:"machine_uuid"`
 	Key         string `db:"ssh_key"`
 }
+
+type reprovisionDetachTarget struct {
+	UUID         string           `db:"machine_uuid"`
+	NetNodeUUID  string           `db:"net_node_uuid"`
+	InstanceID   sql.Null[string] `db:"instance_id"`
+	LifeID       life.Life        `db:"life_id"`
+	AgentPresent int64            `db:"agent_present"`
+}
+
+type netNode struct {
+	UUID string `db:"net_node_uuid"`
+}

@@ -842,7 +842,6 @@ type RetryProvisioningArgs struct {
 // ReprovisionMachineArgs holds args for reprovisioning a machine.
 type ReprovisionMachineArgs struct {
 	MachineTag string `json:"machine-tag"`
-	Force      bool   `json:"force"`
 }
 
 // ProvisioningNetworkTopology holds a network topology that is based on

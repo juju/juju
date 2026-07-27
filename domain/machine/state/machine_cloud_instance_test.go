@@ -221,6 +221,32 @@ func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {
 	c.Check(displayName.Valid, tc.IsFalse)
 }
 
+func (s *stateSuite) TestSetInstanceDataNonceOnlyUpdatesTargetMachine(c *tc.C) {
+	otherMachineUUID, _ := s.addMachine(c)
+	s.runQuery(c, "UPDATE machine SET nonce = '' WHERE uuid = ?", otherMachineUUID.String())
+	targetMachineUUID, _ := s.addMachine(c)
+
+	err := s.state.SetMachineCloudInstance(
+		c.Context(), targetMachineUUID.String(), instance.Id("1"), "",
+		"replacement-nonce", &instance.HardwareCharacteristics{},
+	)
+	c.Assert(err, tc.ErrorIsNil)
+
+	var otherNonce, targetNonce sql.Null[string]
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT nonce FROM machine WHERE uuid = ?", otherMachineUUID.String(),
+	).Scan(&otherNonce)
+	c.Assert(err, tc.ErrorIsNil)
+	err = s.DB().QueryRowContext(c.Context(),
+		"SELECT nonce FROM machine WHERE uuid = ?", targetMachineUUID.String(),
+	).Scan(&targetNonce)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(otherNonce.V, tc.Equals, "")
+	c.Check(otherNonce.Valid, tc.IsTrue)
+	c.Check(targetNonce.V, tc.Equals, "replacement-nonce")
+	c.Check(targetNonce.Valid, tc.IsTrue)
+}
+
 func (s *stateSuite) TestSetInstanceDataEmptyUniqueIndex(c *tc.C) {
 	// Ensure that setting empty instance IDs and display names does not
 	// violate the unique index on the machine_cloud_instance table.

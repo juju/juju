@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/transform"
@@ -76,6 +77,12 @@ type State interface {
 	// SetMachineCloudInstance sets an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
 	SetMachineCloudInstance(context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics) error
+
+	// DetachLostMachineCloudInstance atomically clears the provider-observed
+	// state for a lost machine instance and moves the machine back to pending.
+	DetachLostMachineCloudInstance(
+		context.Context, string, string, string, []byte, time.Time,
+	) error
 
 	// SetRunningAgentBinaryVersion sets the running agent version for the
 	// machine. A MachineNotFound error will be returned if the machine does not

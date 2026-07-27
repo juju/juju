@@ -39,7 +39,7 @@ func (f *fakeReprovisionMachineClient) Close() error {
 	return nil
 }
 
-func (f *fakeReprovisionMachineClient) ReprovisionMachine(ctx context.Context, machine names.MachineTag, force bool) (params.ErrorResult, error) {
+func (f *fakeReprovisionMachineClient) ReprovisionMachine(ctx context.Context, machine names.MachineTag) (params.ErrorResult, error) {
 	if f.err != nil {
 		return params.ErrorResult{}, f.err
 	}
@@ -78,9 +78,15 @@ func (s *reprovisionMachineSuite) TestContainerMachine(c *tc.C) {
 	c.Check(err, tc.ErrorMatches, `invalid machine "0/lxd/0" reprovision-machine does not support containers`)
 }
 
+func (s *reprovisionMachineSuite) TestForceFlagRemoved(c *tc.C) {
+	command := machine.NewReprovisionMachineCommandForTest(s.fake)
+	_, err := cmdtesting.RunCommand(c, command, "0", "--force")
+	c.Check(err, tc.ErrorMatches, `option provided but not defined: --force`)
+}
+
 func (s *reprovisionMachineSuite) TestSuccess(c *tc.C) {
 	command := machine.NewReprovisionMachineCommandForTest(s.fake)
-	ctx, err := cmdtesting.RunCommand(c, command, "0", "--force")
+	ctx, err := cmdtesting.RunCommand(c, command, "0")
 	c.Check(err, tc.ErrorIsNil)
 	output := cmdtesting.Stdout(ctx)
 	c.Check(strings.TrimSpace(output), tc.Equals, "reprovisioning machine 0")
@@ -89,21 +95,21 @@ func (s *reprovisionMachineSuite) TestSuccess(c *tc.C) {
 func (s *reprovisionMachineSuite) TestAPIError(c *tc.C) {
 	s.fake.machineErr = &params.Error{Message: "API error message"}
 	command := machine.NewReprovisionMachineCommandForTest(s.fake)
-	_, err := cmdtesting.RunCommand(c, command, "0", "--force")
+	_, err := cmdtesting.RunCommand(c, command, "0")
 	c.Check(err, tc.ErrorMatches, "API error message")
 }
 
 func (s *reprovisionMachineSuite) TestBlockedError(c *tc.C) {
 	s.fake.err = apiservererrors.OperationBlockedError("TestBlockReprovisionMachine")
 	command := machine.NewReprovisionMachineCommandForTest(s.fake)
-	_, err := cmdtesting.RunCommand(c, command, "0", "--force")
+	_, err := cmdtesting.RunCommand(c, command, "0")
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockReprovisionMachine.*")
 }
 
 func (s *reprovisionMachineSuite) TestConnectionError(c *tc.C) {
 	s.fake.err = errors.New("connection refused")
 	command := machine.NewReprovisionMachineCommandForTest(s.fake)
-	_, err := cmdtesting.RunCommand(c, command, "0", "--force")
+	_, err := cmdtesting.RunCommand(c, command, "0")
 	c.Check(err, tc.ErrorMatches, "connection refused")
 }
 
@@ -113,7 +119,7 @@ func (s *reprovisionMachineSuite) TestNotSupported(c *tc.C) {
 		Code:    "not implemented",
 	}
 	command := machine.NewReprovisionMachineCommandForTest(s.fake)
-	_, err := cmdtesting.RunCommand(c, command, "0", "--force")
+	_, err := cmdtesting.RunCommand(c, command, "0")
 	c.Check(err, tc.ErrorMatches,
 		"reprovision-machine is not supported by this controller; "+
 			"the controller must be upgraded to a version that supports reprovisioning")
