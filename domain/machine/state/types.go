@@ -550,3 +550,25 @@ type reprovisionDetachTarget struct {
 type netNode struct {
 	UUID string `db:"net_node_uuid"`
 }
+
+type reprovisionVolumeTarget struct {
+	VolumeUUID      string           `db:"volume_uuid"`
+	ScopeClass      string           `db:"scope_class"`
+	AttachmentUUID  sql.Null[string] `db:"attachment_uuid"`
+	PlanUUID        sql.Null[string] `db:"plan_uuid"`
+	BlockDeviceUUID sql.Null[string] `db:"block_device_uuid"`
+}
+
+type reprovisionFilesystemTarget struct {
+	FilesystemUUID string `db:"filesystem_uuid"`
+	ScopeClass     string `db:"scope_class"`
+	AttachmentUUID string `db:"attachment_uuid"`
+}
+
+type reprovisionUUIDs []string
+
+type reprovisionStorageTargetParams struct {
+	NetNodeUUID    string `db:"net_node_uuid"`
+	ModelScopeID   int    `db:"model_scope_id"`
+	MachineScopeID int    `db:"machine_scope_id"`
+}
