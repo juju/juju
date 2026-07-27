@@ -60,7 +60,7 @@ func (s *deployRepositorySuite) TestResolveResourcesNoResourcesOverride(c *tc.C)
 		URL:    charmURL,
 		Origin: origin,
 	}).Return(mockRepoResult, nil)
-	validator := s.expectValidator()
+	validator := s.expectValidator(1)
 
 	// Act
 	result, resourceToUpload, err := validator.resolveResources(
@@ -124,7 +124,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesWithOverride(c 
 		URL:    charmURL,
 		Origin: origin,
 	}).Return(mockRepoResult, nil)
-	validator := s.expectValidator()
+	validator := s.expectValidator(1)
 
 	// Act
 	result, resourcesToUpload, err := validator.resolveResources(
@@ -156,7 +156,7 @@ func (s *deployRepositorySuite) TestResolveResourcesWithResourcesErrorWhileCharm
 	}
 
 	s.charmRepository.EXPECT().ResolveResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, mockRepoError)
-	validator := s.expectValidator()
+	validator := s.expectValidator(1)
 
 	// Act
 	_, _, err := validator.resolveResources(c.Context(), charmURL, origin, nil, map[string]string{}, resMeta)
@@ -183,7 +183,7 @@ func (s *deployRepositorySuite) TestResolveResourcesUsesDefaultRepoResources(c *
 	}
 	charmURL := charm.MustParseURL("ch:ubuntu-0")
 	origin := corecharm.Origin{Source: corecharm.CharmHub}
-	validator := s.expectValidator()
+	validator := s.expectValidator(0)
 
 	result, resourcesToUpload, err := validator.resolveResources(
 		c.Context(),
@@ -221,7 +221,7 @@ func (s *deployRepositorySuite) TestResolveResourcesAllowsOverrides(c *tc.C) {
 	charmURL := charm.MustParseURL("ch:ubuntu-0")
 	origin := corecharm.Origin{Source: corecharm.CharmHub}
 	s.charmRepository.EXPECT().ResolveResources(gomock.Any(), gomock.InAnyOrder(mockRepoExpectedInput), corecharm.CharmID{URL: charmURL, Origin: origin}).Return(mockRepoResult, nil)
-	validator := s.expectValidator()
+	validator := s.expectValidator(1)
 
 	result, resourcesToUpload, err := validator.resolveResources(
 		c.Context(),
@@ -237,8 +237,8 @@ func (s *deployRepositorySuite) TestResolveResourcesAllowsOverrides(c *tc.C) {
 }
 
 // expectValidator sets up a mock deployFromRepositoryValidator with predefined expectations for testing purposes.
-func (s *deployRepositorySuite) expectValidator() deployFromRepositoryValidator {
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil).AnyTimes()
+func (s *deployRepositorySuite) expectValidator(expectedModelConfigCalls int) deployFromRepositoryValidator {
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil).Times(expectedModelConfigCalls)
 	validator := deployFromRepositoryValidator{
 		modelConfigService: s.modelConfigService,
 		newCharmHubRepository: func(repositoryConfig repository.CharmHubRepositoryConfig) (corecharm.Repository, error) {
