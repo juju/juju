@@ -20,29 +20,55 @@ import (
 	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
 )
 
+// Proxy defines the interface for closing an
+// SSH session to a Kubernetes container.
+type Proxy interface {
+	// Streams returns the terminal streams to pass to the Kubernetes executor.
+	Streams() (io.Reader, io.Writer, io.Writer)
+
+	// Close drains final command output, closes the SSH session with the
+	// appropriate status, and waits for all proxy goroutines to stop.
+	Close(status int)
+}
+
+type sessionProxy struct {
+	session ssh.Session
+}
+
+func (p sessionProxy) Streams() (io.Reader, io.Writer, io.Writer) {
+	return p.session, p.session, p.session.Stderr()
+}
+
+func (p sessionProxy) Close(status int) {
+	_ = p.session.Exit(status)
+}
+
 // SessionHandler proxies a user SSH session to a Kubernetes container.
 func (h *Handlers) SessionHandler(session ssh.Session) {
-	handleError := func(err error) {
+	handleError := func(p Proxy, err error) {
 		h.logger.Errorf(session.Context(), "Kubernetes session proxy failure: %v", err)
-		_, _ = session.Stderr().Write([]byte(err.Error() + "\n"))
-		_ = session.Exit(1)
+		_, _, stderr := p.Streams()
+		_, _ = stderr.Write([]byte(err.Error() + "\n"))
+		p.Close(1)
 	}
+
+	var proxy Proxy = sessionProxy{session: session}
 
 	namespace, podName, err := h.resolver.ResolveK8sExecInfo(session.Context(), h.destination)
 	if err != nil {
-		handleError(errors.Annotate(err, "resolving Kubernetes exec information"))
+		handleError(proxy, errors.Annotate(err, "resolving Kubernetes exec information"))
 		return
 	}
 
 	executor, err := h.getExecutor(namespace)
 	if err != nil {
-		handleError(errors.Annotate(err, "getting Kubernetes executor"))
+		handleError(proxy, errors.Annotate(err, "getting Kubernetes executor"))
 		return
 	}
 
 	container, ok := h.destination.Container()
 	if !ok {
-		handleError(errors.New("destination is not a container target"))
+		handleError(proxy, errors.New("destination is not a container target"))
 		return
 	}
 
@@ -56,13 +82,13 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	// Further investigation is needed to understand this fully and whether it
 	// can be simplified.
 
-	var proxy *ptyProxy
 	if hasPTY {
-		proxy, err = newPTYProxy(session, ptyRequest, windowChanges, h.logger)
+		p, err := newPTYProxy(session, ptyRequest, windowChanges, h.logger)
 		if err != nil {
-			handleError(err)
+			handleError(proxy, err)
 			return
 		}
+		proxy = p
 		stdin, stdout, stderr = proxy.Streams()
 	}
 
@@ -89,26 +115,13 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 	}, session.Context().Done())
 	if err != nil {
 		if exitErr, ok := errors.Cause(err).(k8sexec.ExitError); ok {
-			if proxy != nil {
-				proxy.Close(exitErr.ExitStatus())
-			} else {
-				_ = session.Exit(exitErr.ExitStatus())
-			}
+			proxy.Close(exitErr.ExitStatus())
 			return
 		}
-		annotated := errors.Annotate(err, "executing command in Kubernetes pod")
-		if proxy != nil {
-			h.logger.Errorf(session.Context(), "Kubernetes session proxy failure: %v", annotated)
-			_, _ = stderr.Write([]byte(annotated.Error() + "\n"))
-			proxy.Close(1)
-		} else {
-			handleError(annotated)
-		}
+		handleError(proxy, errors.Annotate(err, "executing command in Kubernetes pod"))
 		return
 	}
-	if proxy != nil {
-		proxy.Close(0)
-	}
+	proxy.Close(0)
 }
 
 func sessionEnvironment(env []string, terminal string, hasPTY bool) []string {
