@@ -222,6 +222,7 @@ func (s *modelSchemaSuite) TestModelTables(c *tc.C) {
 		"machine_placement_scope",
 		"machine_platform",
 		"machine_placement",
+		"machine_reprovision",
 		"machine_requires_reboot",
 		"machine_ssh_host_key",
 		"machine_virtual_ssh_host_key",
@@ -539,6 +540,10 @@ func (s *modelSchemaSuite) TestModelTriggers(c *tc.C) {
 		"trg_log_machine_requires_reboot_delete",
 		"trg_log_machine_requires_reboot_insert",
 		"trg_log_machine_requires_reboot_update",
+
+		"trg_log_machine_reprovision_delete",
+		"trg_log_machine_reprovision_insert",
+		"trg_log_machine_reprovision_update",
 
 		"trg_log_ssh_connection_request_delete",
 		"trg_log_ssh_connection_request_insert",
