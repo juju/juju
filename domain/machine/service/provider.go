@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/internal/statushistory"
 )
 
-const reprovisioningStatusMessage = "reprovisioning requested; replacement machine-scoped storage will be empty"
+const reprovisioningStatusMessage = "reprovisioning requested"
 
 // Provider represents an underlying cloud provider.
 type Provider interface {
