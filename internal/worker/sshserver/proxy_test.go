@@ -10,6 +10,8 @@ import (
 
 	"github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	k8sexec "github.com/juju/juju/internal/provider/kubernetes/exec"
+	"github.com/juju/juju/internal/worker/sshserver/handlers/k8s"
 	"github.com/juju/juju/internal/worker/sshserver/handlers/machine"
 )
 
@@ -31,6 +33,23 @@ func (s *proxySuite) TestNewSelectsMachineHandlers(c *tc.C) {
 	c.Check(handlers, tc.FitsTypeOf, &machine.Handlers{})
 }
 
+func (s *proxySuite) TestNewSelectsKubernetesHandlers(c *tc.C) {
+	destination, err := virtualhostname.NewInfoContainerTarget("8419cd78-4993-4c3a-928e-c646226beeee", "app/0", "workload")
+	c.Assert(err, tc.ErrorIsNil)
+
+	handlers, err := (proxyFactory{
+		logger:      loggertesting.WrapCheckLog(c),
+		k8sResolver: proxyResolver{},
+		getExecutor: func(string) (k8sexec.Executor, error) { return nil, nil },
+	}).New(destination)
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(handlers, tc.FitsTypeOf, &k8s.Handlers{})
+}
+
 type proxyConnector struct {
 	machine.SSHConnector
+}
+
+type proxyResolver struct {
+	k8s.Resolver
 }
