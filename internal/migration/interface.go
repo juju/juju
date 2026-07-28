@@ -124,6 +124,10 @@ type ImportClaimService interface {
 	// import, and returns its UUID.
 	BeginImport(ctx context.Context, modelUUID coremodel.UUID, sourceMigrationUUID string) (string, error)
 
+	// AssertImporting returns an error unless the claim still exists and is
+	// still in the importing phase.
+	AssertImporting(ctx context.Context, modelUUID coremodel.UUID) error
+
 	// ImportOfferPermissions records the offers this import granted permissions
 	// on, so an abort can find those permission rows again.
 	ImportOfferPermissions(ctx context.Context, modelUUID coremodel.UUID, claimUUID string, offerUUIDs []string) error

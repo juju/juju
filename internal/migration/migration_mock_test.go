@@ -817,6 +817,7 @@ type MockImportClaimService struct {
 // MockImportClaimServiceMockRecorder is the mock recorder for MockImportClaimService.
 type MockImportClaimServiceMockRecorder struct {
 	mock                             *MockImportClaimService
+	assertImportingExpects           []*gomock.Call2_1[context.Context, model.UUID, error]
 	beginImportExpects               []*gomock.Call3_2[context.Context, model.UUID, string, string, error]
 	getImportedOfferUUIDsExpects     []*gomock.Call2_2[context.Context, model.UUID, []string, error]
 	importExternalControllersExpects []*gomock.Call4_1[context.Context, model.UUID, string, []modelmigration.ExternalController, error]
@@ -834,6 +835,24 @@ func NewMockImportClaimService(ctrl *gomock.Controller) *MockImportClaimService 
 func (m *MockImportClaimService) EXPECT() *MockImportClaimServiceMockRecorder {
 	return m.recorder
 }
+
+// AssertImporting mocks base method.
+func (m *MockImportClaimService) AssertImporting(ctx context.Context, modelUUID model.UUID) error {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_1(&m.recorder.assertImportingExpects, m.ctrl, m, "AssertImporting", ctx, modelUUID)
+}
+
+// AssertImporting indicates an expected call of AssertImporting.
+func (mr *MockImportClaimServiceMockRecorder) AssertImporting(ctx, modelUUID any) *MockImportClaimServiceAssertImportingCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_1[context.Context, model.UUID, error](mr.mock.ctrl.T, mr.mock, "AssertImporting", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.assertImportingExpects = append(mr.assertImportingExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockImportClaimServiceAssertImportingCall is the typed call wrapper for AssertImporting.
+type MockImportClaimServiceAssertImportingCall = gomock.Call2_1[context.Context, model.UUID, error]
 
 // BeginImport mocks base method.
 func (m *MockImportClaimService) BeginImport(ctx context.Context, modelUUID model.UUID, sourceMigrationUUID string) (string, error) {

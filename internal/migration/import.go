@@ -143,14 +143,39 @@ type importState struct {
 // an Import (forward) and a RemoveOnAbort (abort) driver.
 type importCoordinator struct {
 	ops []controllerImportOp
+
+	// claim and modelUUID guard the sequence: see [importCoordinator.Import].
+	claim     ImportClaimService
+	modelUUID coremodel.UUID
 }
 
 // Import runs each op's Execute in registration order, threading importState
 // forward. The first error aborts the sequence; the caller is responsible for
 // calling RemoveOnAbort.
+//
+// Before each op that follows the claim's creation it re-asserts that the claim
+// still exists and is still importing. The claim is the model's ownership
+// record: if an abort takes it while an import is mid-sequence, every write
+// after that point lands behind the abort's back, because the abort compensates
+// the rows it knows about and anything written afterwards is left with nothing
+// to remove it.
+//
+// This bounds the race to the single op already in flight rather than
+// eliminating it. Ops whose writes must not survive an abort at all take the
+// same assertion inside their own transaction, which is the only way to make
+// the check and the write atomic. Model-database writes need neither, because
+// abort drops the whole database and seals the namespace.
 func (c *importCoordinator) Import(ctx context.Context) error {
 	var st importState
 	for _, op := range c.ops {
+		// Only meaningful once the claim exists; the first op is what creates
+		// it.
+		if st.claimUUID != "" {
+			if err := c.claim.AssertImporting(ctx, c.modelUUID); err != nil {
+				return errors.Errorf(
+					"import for model %q cannot run %q: %w", c.modelUUID, op.Name(), err)
+			}
+		}
 		if err := op.Execute(ctx, &st); err != nil {
 			return errors.Capture(err)
 		}
@@ -257,7 +282,11 @@ func newImportCoordinator(
 		},
 	}
 
-	return &importCoordinator{ops: ops}
+	return &importCoordinator{
+		ops:       ops,
+		claim:     svc.Claim,
+		modelUUID: modelUUID,
+	}
 }
 
 // ---- per-op structs ---------------------------------------------------------

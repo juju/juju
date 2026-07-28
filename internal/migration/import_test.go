@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/canonical/gomock/gomock"
 	"github.com/juju/clock"
 	"github.com/juju/tc"
 
@@ -36,8 +37,10 @@ import (
 	modelstatecontroller "github.com/juju/juju/domain/model/state/controller"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	migrationdomain "github.com/juju/juju/domain/modelmigration"
+	modelmigrationerrors "github.com/juju/juju/domain/modelmigration/errors"
 	migrationclaimstate "github.com/juju/juju/domain/modelmigration/state/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/uuid"
@@ -290,4 +293,176 @@ func (s *controllerImportSuite) TestImportModelDuplicateClaim(c *tc.C) {
 		c.Context(), migration.NewImportServices(deps, modelUUID), deps,
 		sourceMigrationUUID, info, view)
 	c.Check(err, tc.ErrorIs, coreerrors.AlreadyExists)
+}
+
+// importFenceSuite exercises the check the import makes between operations,
+// that the model's import claim is still its to write against.
+//
+// Every service the import writes through is mocked, so these tests assert the
+// sequence itself rather than its effect on a database. What the individual
+// operations write is covered by controllerImportSuite in import_test.go.
+type importFenceSuite struct {
+	claim         *MockImportClaimService
+	access        *MockImportAccessService
+	credential    *MockImportCredentialService
+	keyManager    *MockImportKeyManagerService
+	secretBackend *MockImportSecretBackendService
+	lease         *MockImportLeaseService
+	cloudImage    *MockImportCloudImageMetadataService
+}
+
+func TestImportFenceSuite(t *testing.T) {
+	tc.Run(t, &importFenceSuite{})
+}
+
+func (s *importFenceSuite) setUpMocks(c *tc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.claim = NewMockImportClaimService(ctrl)
+	s.access = NewMockImportAccessService(ctrl)
+	s.credential = NewMockImportCredentialService(ctrl)
+	s.keyManager = NewMockImportKeyManagerService(ctrl)
+	s.secretBackend = NewMockImportSecretBackendService(ctrl)
+	s.lease = NewMockImportLeaseService(ctrl)
+	s.cloudImage = NewMockImportCloudImageMetadataService(ctrl)
+	return ctrl
+}
+
+func (s *importFenceSuite) services() migration.ImportServices {
+	return migration.ImportServices{
+		Claim:         s.claim,
+		Access:        s.access,
+		Credential:    s.credential,
+		KeyManager:    s.keyManager,
+		SecretBackend: s.secretBackend,
+		Lease:         s.lease,
+		CloudImage:    s.cloudImage,
+	}
+}
+
+// importModelInfo is the smallest envelope that still drives the whole
+// sequence. It carries no users, permissions or keys, so each operation runs
+// but has nothing of its own to write - leaving the claim checks as the only
+// interactions under test.
+func (s *importFenceSuite) importModelInfo(modelUUID coremodel.UUID) coremodelmigration.ControllerModelInfo {
+	return coremodelmigration.ControllerModelInfo{
+		ModelInfo: coremodelmigration.ModelIdentityInfo{
+			UUID:      modelUUID.String(),
+			Name:      "imported-model",
+			Qualifier: "prod",
+			Type:      "iaas",
+			Cloud:     "test-cloud",
+			Life:      "alive",
+		},
+	}
+}
+
+func (s *importFenceSuite) deps(c *tc.C) migration.Deps {
+	return migration.Deps{
+		Clock:  clock.WallClock,
+		Logger: loggertesting.WrapCheckLog(c),
+	}
+}
+
+// TestImportChecksTheClaimBeforeEveryWrite asserts the import re-checks its
+// claim before each operation that follows the one creating it.
+//
+// The claim is this controller's record that the model is its to write to. An
+// abort takes the claim away, so re-checking is how the import notices that it
+// has lost the right to continue.
+func (s *importFenceSuite) TestImportChecksTheClaimBeforeEveryWrite(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	claimUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+
+	// The claim is created once, by the first operation.
+	s.claim.EXPECT().BeginImport(gomock.Any(), modelUUID, sourceMigrationUUID).
+		Return(claimUUID, nil)
+
+	// Every later operation is preceded by a check. There are more operations
+	// than the ones asserted below, so this counts rather than enumerates.
+	checks := 0
+	s.claim.EXPECT().AssertImporting(gomock.Any(), modelUUID).
+		DoAndReturn(func(context.Context, coremodel.UUID) error { checks++; return nil }).AnyTimes()
+
+	// The remaining services have nothing to write for this envelope.
+	s.access.EXPECT().ImportModelUsers(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	s.access.EXPECT().ImportModelPermissions(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	s.access.EXPECT().ImportLastModelLogins(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.keyManager.EXPECT().ImportAuthorizedKeys(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.secretBackend.EXPECT().ImportSecretBackendReferences(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.lease.EXPECT().ImportApplicationLeadership(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.cloudImage.EXPECT().ImportCloudImageMetadata(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+	s.claim.EXPECT().ImportOfferPermissions(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.claim.EXPECT().ImportExternalControllers(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
+	err := migration.ImportControllerModelInfo(
+		c.Context(), s.services(), s.deps(c), sourceMigrationUUID,
+		s.importModelInfo(modelUUID), export.ProjectionView{},
+	)
+
+	// The sequence stops at the bootstrap operation, which writes through the
+	// database directly rather than through one of these services. It is
+	// reached fourth, so the three operations before it were each preceded by a
+	// check, and the failure is bootstrap's rather than a refused claim.
+	c.Assert(err, tc.NotNil)
+	c.Check(err, tc.Not(tc.ErrorIs), modelmigrationerrors.ErrImportNotImporting)
+	c.Check(checks, tc.Equals, 3)
+}
+
+// TestImportStopsWhenTheClaimIsLost asserts the import refuses to run its next
+// operation once the claim is no longer in the importing phase, and says which
+// operation it refused.
+//
+// Without this, an import racing an abort keeps writing after the abort has
+// already undone the rows it knew about. Those later writes are left behind
+// with nothing that will ever remove them.
+func (s *importFenceSuite) TestImportStopsWhenTheClaimIsLost(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	claimUUID := uuid.MustNewUUID().String()
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+
+	s.claim.EXPECT().BeginImport(gomock.Any(), modelUUID, sourceMigrationUUID).
+		Return(claimUUID, nil)
+
+	// An abort has taken the claim, so the very first check refuses.
+	s.claim.EXPECT().AssertImporting(gomock.Any(), modelUUID).Return(
+		errors.Errorf("claim gone: %w", modelmigrationerrors.ErrImportNotImporting))
+
+	err := migration.ImportControllerModelInfo(
+		c.Context(), s.services(), s.deps(c), sourceMigrationUUID,
+		s.importModelInfo(modelUUID), export.ProjectionView{},
+	)
+	c.Assert(err, tc.ErrorIs, modelmigrationerrors.ErrImportNotImporting)
+	c.Check(err, tc.ErrorMatches, `.*cannot run ".*".*`)
+
+	// No service other than the claim was touched: the sequence stopped before
+	// the first write that follows the claim's creation. gomock fails the test
+	// on any call that was not expected, so the absence of expectations for the
+	// other services is the assertion.
+}
+
+// TestImportNeedsNoCheckBeforeTheClaimExists asserts the import does not check
+// a claim it has not created yet. The first operation is what creates it, so
+// there is nothing to check before it runs.
+func (s *importFenceSuite) TestImportNeedsNoCheckBeforeTheClaimExists(c *tc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	modelUUID := tc.Must(c, coremodel.NewUUID)
+	sourceMigrationUUID := uuid.MustNewUUID().String()
+
+	// Creating the claim fails, so the sequence stops immediately. No check may
+	// have happened: gomock fails the test if AssertImporting is called, since
+	// nothing expects it.
+	s.claim.EXPECT().BeginImport(gomock.Any(), modelUUID, sourceMigrationUUID).
+		Return("", errors.New("boom"))
+
+	err := migration.ImportControllerModelInfo(
+		c.Context(), s.services(), s.deps(c), sourceMigrationUUID,
+		s.importModelInfo(modelUUID), export.ProjectionView{},
+	)
+	c.Assert(err, tc.ErrorMatches, ".*boom.*")
 }
