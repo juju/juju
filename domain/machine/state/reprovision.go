@@ -390,7 +390,25 @@ func (st *State) prepareReprovisionStorageTargetStatements() (
 	*sqlair.Statement, *sqlair.Statement, error,
 ) {
 	volumeStmt, err := st.Prepare(`
-WITH volume_targets AS (
+WITH volume_target_uuids AS (
+    SELECT mv.volume_uuid
+    FROM machine AS m
+    JOIN machine_volume AS mv ON m.uuid = mv.machine_uuid
+    WHERE m.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+
+    UNION
+
+    SELECT sva.storage_volume_uuid
+    FROM storage_volume_attachment AS sva
+    WHERE sva.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+
+    UNION
+
+    SELECT svap.storage_volume_uuid
+    FROM storage_volume_attachment_plan AS svap
+    WHERE svap.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
+),
+volume_targets AS (
     SELECT DISTINCT sv.uuid AS volume_uuid,
            sv.life_id AS volume_life_id,
            sv.provision_scope_id AS volume_scope_id,
@@ -402,7 +420,8 @@ WITH volume_targets AS (
            svap.uuid AS plan_uuid,
            svap.provision_scope_id AS plan_scope_id,
            sva.block_device_uuid AS block_device_uuid
-    FROM storage_volume AS sv
+    FROM volume_target_uuids AS vtu
+    JOIN storage_volume AS sv ON vtu.volume_uuid = sv.uuid
     LEFT JOIN storage_instance_volume AS siv
         ON sv.uuid = siv.storage_volume_uuid
     LEFT JOIN storage_instance AS si
@@ -413,7 +432,6 @@ WITH volume_targets AS (
     LEFT JOIN storage_volume_attachment_plan AS svap
         ON sv.uuid = svap.storage_volume_uuid
         AND svap.net_node_uuid = $reprovisionStorageTargetParams.net_node_uuid
-    WHERE sva.uuid IS NOT NULL OR svap.uuid IS NOT NULL
 ),
 classified_volume_targets AS (
     SELECT vt.volume_uuid,
@@ -538,6 +556,9 @@ FROM classified_filesystem_targets AS cft`, reprovisionStorageTargetParams{}, re
 // sets. Model-scoped, inconsistent, incomplete, or non-alive storage fails
 // closed. Maps are used because joins may return the same physical entity more
 // than once, while each reset statement must target every UUID only once.
+// machine_volume and machine_filesystem are retained as logical associations;
+// they participate in target discovery so incomplete physical state cannot be
+// skipped.
 func (st *State) getReprovisionStorageTargets(
 	ctx context.Context, tx *sqlair.TX,
 	volumeStmt, filesystemStmt *sqlair.Statement,

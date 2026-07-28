@@ -388,6 +388,25 @@ func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsPlanOnlyVolume(c *
 	c.Check(s.rowCount(c, "storage_volume_attachment_plan"), tc.Equals, 1)
 }
 
+func (s *stateSuite) TestDetachLostMachineCloudInstanceRejectsVolumeWithoutAttachmentOrPlan(c *tc.C) {
+	machineUUID, machineName := s.ensureInstance(c)
+	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
+	s.addReprovisionUnit(c, netNodeUUID)
+	s.addReprovisionVolumeStorage(c, machineUUID.String(), netNodeUUID, 1, 1)
+	s.runQuery(c, "DELETE FROM storage_volume_attachment_plan_attr")
+	s.runQuery(c, "DELETE FROM storage_volume_attachment_plan")
+	s.runQuery(c, "UPDATE storage_volume_attachment SET block_device_uuid = NULL")
+	s.runQuery(c, "DELETE FROM storage_volume_attachment")
+
+	err := s.state.DetachLostMachineCloudInstance(
+		c.Context(), machineName.String(), "123", "message", nil, time.Now(),
+	)
+	c.Assert(err, tc.ErrorIs, machineerrors.StorageScopeAmbiguous)
+	s.checkInstanceID(c, machineUUID.String(), "123")
+	c.Check(s.rowCountWhere(c, "machine_volume", "machine_uuid = ?",
+		machineUUID.String()), tc.Equals, 1)
+}
+
 func (s *stateSuite) TestDetachLostMachineCloudInstancePreservesOtherMachineStorage(c *tc.C) {
 	machineUUID, machineName := s.ensureInstance(c)
 	netNodeUUID := s.machineNetNodeUUID(c, machineUUID.String())
