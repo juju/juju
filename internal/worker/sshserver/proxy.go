@@ -24,6 +24,13 @@ type ProxyHandlers interface {
 	SFTPHandler() ssh.SubsystemHandler
 }
 
+// ProxyFactory creates handlers for an SSH target.
+type ProxyFactory interface {
+	// New validates the destination matches a supported target type
+	// and returns a set of handlers for the target.
+	New(virtualhostname.Info) (ProxyHandlers, error)
+}
+
 type proxyFactory struct {
 	k8sResolver k8s.Resolver
 	logger      logger.Logger

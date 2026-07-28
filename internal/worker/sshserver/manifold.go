@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"context"
+	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v5"
@@ -168,8 +169,22 @@ func (config ManifoldConfig) startWrapperWorker(ctx context.Context, getter depe
 		SSHService:              sshService,
 		NewServerWorker:         config.NewServerWorker,
 		Logger:                  config.Logger,
-		SessionHandler:          &stubSessionHandler{},
+		// TODO(Kian): Complete wiring below.
+		Authenticator: authenticator{},
+		Authorizer:    authorizer{},
+		ProxyFactory:  proxyFactory{},
+		TunnelTracker: stubTunnelTracker{},
 	})
+}
+
+type stubTunnelTracker struct{}
+
+func (stubTunnelTracker) AuthenticateTunnel(username, password string) (string, error) {
+	return "", nil
+}
+
+func (stubTunnelTracker) PushTunnel(context.Context, string, net.Conn) error {
+	return nil
 }
 
 // sshService wraps our ssh domain services to enable two things:

@@ -4,8 +4,6 @@
 package sshserver
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 	net "net"
 	"testing"
@@ -19,8 +17,8 @@ import (
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
-	virtualhostname "github.com/juju/juju/core/virtualhostname"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/testhelpers"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -32,8 +30,12 @@ const testVirtualHostname = "1.postgresql.8419cd78-4993-4c3a-928e-c646226beeee.j
 type sshServerSuite struct {
 	testhelpers.IsolationSuite
 
-	userSigner     ssh.Signer
-	sessionHandler *MockSessionHandler
+	userSigner    ssh.Signer
+	authenticator *MockAuthenticator
+	authorizer    *MockAuthorizer
+	proxyFactory  *MockProxyFactory
+	proxyHandlers *MockProxyHandlers
+	tunnelTracker *MockTunnelTracker
 }
 
 func TestSshServerSuite(t *testing.T) {
@@ -46,21 +48,38 @@ func (s *sshServerSuite) SetUpSuite(c *tc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 
 	// Setup user signer
-	userKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	privateKey, err := test.InsecureKeyProfile()
 	c.Assert(err, tc.ErrorIsNil)
 
-	userSigner, err := gossh.NewSignerFromKey(userKey)
+	signer, err := gossh.NewSignerFromSigner(privateKey)
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.userSigner = userSigner
+	s.userSigner = signer
 }
 
 func (s *sshServerSuite) SetUpMocks(c *tc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.sessionHandler = NewMockSessionHandler(ctrl)
+	s.authenticator = NewMockAuthenticator(ctrl)
+	s.authorizer = NewMockAuthorizer(ctrl)
+	s.proxyFactory = NewMockProxyFactory(ctrl)
+	s.proxyHandlers = NewMockProxyHandlers(ctrl)
+	s.tunnelTracker = NewMockTunnelTracker(ctrl)
+
+	s.authenticator.EXPECT().PublicKeyAuthentication(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.authenticator.EXPECT().PasswordAuthentication(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.authorizer.EXPECT().Authorize(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.proxyFactory.EXPECT().New(gomock.Any()).Return(s.proxyHandlers, nil).AnyTimes()
+	s.proxyHandlers.EXPECT().DirectTCPIPHandler().Return(rejectDirectTCPIP).AnyTimes()
+	s.proxyHandlers.EXPECT().SFTPHandler().Return(rejectSFTP).AnyTimes()
+	s.tunnelTracker.EXPECT().AuthenticateTunnel(gomock.Any(), gomock.Any()).Return("", nil).AnyTimes()
+	s.tunnelTracker.EXPECT().PushTunnel(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	c.Cleanup(func() {
-		s.sessionHandler = nil
+		s.authenticator = nil
+		s.authorizer = nil
+		s.proxyFactory = nil
+		s.proxyHandlers = nil
+		s.tunnelTracker = nil
 	})
 	return ctrl
 }
@@ -121,8 +140,10 @@ func (s *sshServerSuite) TestSSHServer(c *tc.C) {
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: jujutesting.SSHServerHostKey},
 		MaxConcurrentConnections: maxConcurrentConnections,
-		disableAuth:              true,
-		SessionHandler:           s.sessionHandler,
+		Authenticator:            s.authenticator,
+		Authorizer:               s.authorizer,
+		ProxyFactory:             s.proxyFactory,
+		TunnelTracker:            s.tunnelTracker,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, server)
@@ -168,12 +189,9 @@ func (s *sshServerSuite) TestSSHServer(c *tc.C) {
 	terminatingSession, err := terminatingClient.NewSession()
 	c.Assert(err, tc.ErrorIsNil)
 
-	s.sessionHandler.EXPECT().Handle(gomock.Any(), gomock.Any()).Do(
-		func(session ssh.Session, destination virtualhostname.Info) {
-			c.Check(destination.String(), tc.Equals, testVirtualHostname)
-			_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", destination.String()))
-		},
-	)
+	s.proxyHandlers.EXPECT().SessionHandler(gomock.Any()).Do(func(session ssh.Session) {
+		_, _ = session.Write(fmt.Appendf([]byte{}, "Your final destination is: %s\n", testVirtualHostname))
+	})
 	output, err := terminatingSession.CombinedOutput("")
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(string(output), tc.Equals, fmt.Sprintf("Your final destination is: %s\n", testVirtualHostname))
@@ -198,8 +216,10 @@ func (s *sshServerSuite) TestSSHServerMaxConnections(c *tc.C) {
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
-		disableAuth:              true,
-		SessionHandler:           s.sessionHandler,
+		Authenticator:            s.authenticator,
+		Authorizer:               s.authorizer,
+		ProxyFactory:             s.proxyFactory,
+		TunnelTracker:            s.tunnelTracker,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
@@ -286,8 +306,10 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 		MaxConcurrentConnections: maxConcurrentConnections,
 		JumpHostKey:              jujutesting.SSHServerHostKey,
 		SSHService:               stubSSHService{jumpHostKey: testHostKey, virtualHostKey: testHostKey},
-		disableAuth:              true,
-		SessionHandler:           s.sessionHandler,
+		Authenticator:            s.authenticator,
+		Authorizer:               s.authorizer,
+		ProxyFactory:             s.proxyFactory,
+		TunnelTracker:            s.tunnelTracker,
 	})
 	c.Assert(err, tc.ErrorIsNil)
 	defer workertest.DirtyKill(c, worker)
@@ -312,4 +334,13 @@ func (s *sshServerSuite) TestSSHWorkerReport(c *tc.C) {
 	c.Assert(report, tc.DeepEquals, map[string]any{
 		"concurrent_connections": int32(1),
 	})
+}
+
+func rejectDirectTCPIP(_ *ssh.Server, _ *gossh.ServerConn, newChan gossh.NewChannel, _ ssh.Context) {
+	_ = newChan.Reject(gossh.Prohibited, "not implemented")
+}
+
+func rejectSFTP(session ssh.Session) {
+	_, _ = session.Stderr().Write([]byte("not implemented\n"))
+	_ = session.Exit(1)
 }

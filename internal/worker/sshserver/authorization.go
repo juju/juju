@@ -8,7 +8,7 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
@@ -47,8 +47,9 @@ func (a authorizer) Authorize(ctx ssh.Context, destination virtualhostname.Info)
 		return false, errors.New("SSH JWT is missing from connection context")
 	}
 
-	claims, ok := token.PrivateClaims()["access"].(map[string]any)
-	if !ok {
+	claims := map[string]any{}
+	err := token.Get("access", &claims)
+	if err != nil {
 		return false, errors.New("invalid SSH JWT token, missing access claim")
 	}
 	access, _ := claims["model-"+destination.ModelUUID().String()].(string)

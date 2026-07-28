@@ -5,6 +5,7 @@ package sshserver
 
 import (
 	"context"
+	"net"
 	"sync"
 
 	"github.com/juju/errors"
@@ -39,6 +40,19 @@ type SSHModelService interface {
 	VirtualHostKey(context.Context, virtualhostname.Info) (string, error)
 }
 
+// TunnelTracker authenticates and track reverse SSH tunnels.
+//
+// It authenticates the tunnel request to obtain a tunnel ID
+// that associates the tunnel with a request for a connection
+// to the specific machine.
+type TunnelTracker interface {
+	// AuthenticateTunnel authenticates a reverse SSH tunnel request and
+	// returns the tunnel ID that needs to be passed to PushTunnel.
+	AuthenticateTunnel(username, password string) (string, error)
+	// PushTunnel registers a reverse SSH tunnel connection with the given tunnel ID.
+	PushTunnel(context.Context, string, net.Conn) error
+}
+
 // SSHService resolves controller and terminating SSH host keys.
 type SSHService interface {
 	ControllerSSHHostKeyService
@@ -51,7 +65,10 @@ type ServerWrapperWorkerConfig struct {
 	SSHService              SSHService
 	NewServerWorker         func(ServerWorkerConfig) (worker.Worker, error)
 	Logger                  logger.Logger
-	SessionHandler          SessionHandler
+	Authenticator           Authenticator
+	Authorizer              Authorizer
+	ProxyFactory            ProxyFactory
+	TunnelTracker           TunnelTracker
 }
 
 // Validate validates the workers configuration is as expected.
@@ -68,8 +85,17 @@ func (c ServerWrapperWorkerConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("Logger is required")
 	}
-	if c.SessionHandler == nil {
-		return errors.NotValidf("SessionHandler is required")
+	if c.Authenticator == nil {
+		return errors.NotValidf("Authenticator is required")
+	}
+	if c.Authorizer == nil {
+		return errors.NotValidf("Authorizer is required")
+	}
+	if c.ProxyFactory == nil {
+		return errors.NotValidf("ProxyFactory is required")
+	}
+	if c.TunnelTracker == nil {
+		return errors.NotValidf("TunnelTracker is required")
 	}
 	return nil
 }
@@ -172,7 +198,10 @@ func (ssw *serverWrapperWorker) loop() error {
 		Port:                     port,
 		MaxConcurrentConnections: maxConns,
 		SSHService:               ssw.config.SSHService,
-		SessionHandler:           ssw.config.SessionHandler,
+		Authenticator:            ssw.config.Authenticator,
+		Authorizer:               ssw.config.Authorizer,
+		ProxyFactory:             ssw.config.ProxyFactory,
+		TunnelTracker:            ssw.config.TunnelTracker,
 	})
 	ssw.addWorkerReporter("ssh-server", srv)
 	if err != nil {

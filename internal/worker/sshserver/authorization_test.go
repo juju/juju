@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/juju/tc"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/virtualhostname"

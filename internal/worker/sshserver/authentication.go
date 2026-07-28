@@ -9,7 +9,7 @@ import (
 
 	"github.com/gliderlabs/ssh"
 	"github.com/juju/errors"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 	gossh "golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/logger"
