@@ -46,7 +46,8 @@ import (
 	service30 "github.com/juju/juju/domain/status/service"
 	service31 "github.com/juju/juju/domain/storage/service"
 	service32 "github.com/juju/juju/domain/storageprovisioning/service"
-	service33 "github.com/juju/juju/domain/unitstate/service"
+	service33 "github.com/juju/juju/domain/unitless/service"
+	service34 "github.com/juju/juju/domain/unitstate/service"
 )
 
 // MockModelDomainServices is a mock of ModelDomainServices interface.
@@ -96,7 +97,8 @@ type MockModelDomainServicesMockRecorder struct {
 	statusExpects                 []*gomock.Call0_1[*service30.LeadershipService]
 	storageExpects                []*gomock.Call0_1[*service31.Service]
 	storageProvisioningExpects    []*gomock.Call0_1[*service32.Service]
-	unitStateExpects              []*gomock.Call0_1[*service33.LeadershipService]
+	unitStateExpects              []*gomock.Call0_1[*service34.LeadershipService]
+	unitlessExpects               []*gomock.Call0_1[*service33.WatchableService]
 }
 
 // NewMockModelDomainServices creates a new mock instance.
@@ -778,7 +780,7 @@ func (mr *MockModelDomainServicesMockRecorder) StorageProvisioning() *MockModelD
 type MockModelDomainServicesStorageProvisioningCall = gomock.Call0_1[*service32.Service]
 
 // UnitState mocks base method.
-func (m *MockModelDomainServices) UnitState() *service33.LeadershipService {
+func (m *MockModelDomainServices) UnitState() *service34.LeadershipService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.unitStateExpects, m.ctrl, m, "UnitState")
 }
@@ -786,11 +788,29 @@ func (m *MockModelDomainServices) UnitState() *service33.LeadershipService {
 // UnitState indicates an expected call of UnitState.
 func (mr *MockModelDomainServicesMockRecorder) UnitState() *MockModelDomainServicesUnitStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service33.LeadershipService](mr.mock.ctrl.T, mr.mock, "UnitState")
+	call := gomock.NewCall0_1[*service34.LeadershipService](mr.mock.ctrl.T, mr.mock, "UnitState")
 	mr.unitStateExpects = append(mr.unitStateExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockModelDomainServicesUnitStateCall is the typed call wrapper for UnitState.
-type MockModelDomainServicesUnitStateCall = gomock.Call0_1[*service33.LeadershipService]
+type MockModelDomainServicesUnitStateCall = gomock.Call0_1[*service34.LeadershipService]
+
+// Unitless mocks base method.
+func (m *MockModelDomainServices) Unitless() *service33.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.unitlessExpects, m.ctrl, m, "Unitless")
+}
+
+// Unitless indicates an expected call of Unitless.
+func (mr *MockModelDomainServicesMockRecorder) Unitless() *MockModelDomainServicesUnitlessCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*service33.WatchableService](mr.mock.ctrl.T, mr.mock, "Unitless")
+	mr.unitlessExpects = append(mr.unitlessExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockModelDomainServicesUnitlessCall is the typed call wrapper for Unitless.
+type MockModelDomainServicesUnitlessCall = gomock.Call0_1[*service33.WatchableService]

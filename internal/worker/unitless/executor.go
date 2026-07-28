@@ -13,6 +13,7 @@ import (
 	"github.com/juju/collections/transform"
 
 	coreerrors "github.com/juju/juju/core/errors"
+	domainunitless "github.com/juju/juju/domain/unitless"
 	"github.com/juju/juju/internal/errors"
 )
 
@@ -21,7 +22,7 @@ const requiredSafety = starlark.MemSafe | starlark.CPUSafe | starlark.TimeSafe |
 // ExecutorConfig is passed to an ExecutorFactory.
 type ExecutorConfig struct {
 	// Scriptlet is the scriptlet to be staged and executed.
-	Scriptlet Scriptlet
+	Scriptlet domainunitless.Scriptlet
 
 	// MaxAllocs limits the allocations that can be made
 	// during a single scriptlet function execution.
@@ -53,7 +54,7 @@ func (cfg ExecutorConfig) Validate() error {
 
 // Executor handles event and returns the collected intents.
 type Executor interface {
-	Handle(context.Context, Event) ([]Intent, error)
+	Handle(context.Context, domainunitless.Event) ([]Intent, error)
 }
 
 // ExecutorFactory creates an executor for a loaded application scriptlet.
@@ -76,7 +77,7 @@ func NewStarformExecutor(ctx context.Context, cfg ExecutorConfig) (Executor, err
 		return nil, errors.Errorf("creating Starform script set: %w", err)
 	}
 
-	if err := scriptSet.LoadSources(ctx, transform.Slice(cfg.Scriptlet.Sources, func(s ScriptSource) starform.ScriptSource {
+	if err := scriptSet.LoadSources(ctx, transform.Slice(cfg.Scriptlet.Sources, func(s domainunitless.ScriptSource) starform.ScriptSource {
 		return s
 	})); err != nil {
 		return nil, errors.Errorf("loading Starform script sources: %w", err)
@@ -108,7 +109,7 @@ type starformExecutor struct {
 
 // Handle handles a single Event, by dispatching it to the Scriptlet associated
 // with the event name, and returning the resulting intents.
-func (e *starformExecutor) Handle(ctx context.Context, event Event) ([]Intent, error) {
+func (e *starformExecutor) Handle(ctx context.Context, event domainunitless.Event) ([]Intent, error) {
 	attrs, err := attrsToStarlark(event.Attrs)
 	if err != nil {
 		return nil, errors.Errorf("serialising event attrs: %w", err)

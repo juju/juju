@@ -13,7 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	watcher "github.com/juju/juju/core/watcher"
+	unitless "github.com/juju/juju/domain/unitless"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,10 +44,10 @@ func (m *MockScriptletService) EXPECT() *MockScriptletServiceMockRecorder {
 }
 
 // GetApplicationScriptlet mocks base method.
-func (m *MockScriptletService) GetApplicationScriptlet(ctx context.Context, applicationUUID string) (Scriptlet, error) {
+func (m *MockScriptletService) GetApplicationScriptlet(ctx context.Context, applicationUUID application.UUID) (unitless.Scriptlet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetApplicationScriptlet", ctx, applicationUUID)
-	ret0, _ := ret[0].(Scriptlet)
+	ret0, _ := ret[0].(unitless.Scriptlet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,28 +65,28 @@ type MockScriptletServiceGetApplicationScriptletCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockScriptletServiceGetApplicationScriptletCall) Return(arg0 Scriptlet, arg1 error) *MockScriptletServiceGetApplicationScriptletCall {
+func (c *MockScriptletServiceGetApplicationScriptletCall) Return(arg0 unitless.Scriptlet, arg1 error) *MockScriptletServiceGetApplicationScriptletCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockScriptletServiceGetApplicationScriptletCall) Do(f func(context.Context, string) (Scriptlet, error)) *MockScriptletServiceGetApplicationScriptletCall {
+func (c *MockScriptletServiceGetApplicationScriptletCall) Do(f func(context.Context, application.UUID) (unitless.Scriptlet, error)) *MockScriptletServiceGetApplicationScriptletCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockScriptletServiceGetApplicationScriptletCall) DoAndReturn(f func(context.Context, string) (Scriptlet, error)) *MockScriptletServiceGetApplicationScriptletCall {
+func (c *MockScriptletServiceGetApplicationScriptletCall) DoAndReturn(f func(context.Context, application.UUID) (unitless.Scriptlet, error)) *MockScriptletServiceGetApplicationScriptletCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetScriptletEvent mocks base method.
-func (m *MockScriptletService) GetScriptletEvent(ctx context.Context, applicationUUID, eventName string) (Event, error) {
+func (m *MockScriptletService) GetScriptletEvent(ctx context.Context, applicationUUID application.UUID, eventName string) (unitless.Event, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetScriptletEvent", ctx, applicationUUID, eventName)
-	ret0, _ := ret[0].(Event)
+	ret0, _ := ret[0].(unitless.Event)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -102,25 +104,25 @@ type MockScriptletServiceGetScriptletEventCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockScriptletServiceGetScriptletEventCall) Return(arg0 Event, arg1 error) *MockScriptletServiceGetScriptletEventCall {
+func (c *MockScriptletServiceGetScriptletEventCall) Return(arg0 unitless.Event, arg1 error) *MockScriptletServiceGetScriptletEventCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockScriptletServiceGetScriptletEventCall) Do(f func(context.Context, string, string) (Event, error)) *MockScriptletServiceGetScriptletEventCall {
+func (c *MockScriptletServiceGetScriptletEventCall) Do(f func(context.Context, application.UUID, string) (unitless.Event, error)) *MockScriptletServiceGetScriptletEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockScriptletServiceGetScriptletEventCall) DoAndReturn(f func(context.Context, string, string) (Event, error)) *MockScriptletServiceGetScriptletEventCall {
+func (c *MockScriptletServiceGetScriptletEventCall) DoAndReturn(f func(context.Context, application.UUID, string) (unitless.Event, error)) *MockScriptletServiceGetScriptletEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchApplicationEvents mocks base method.
-func (m *MockScriptletService) WatchApplicationEvents(ctx context.Context, applicationUUID string) (watcher.StringsWatcher, error) {
+func (m *MockScriptletService) WatchApplicationEvents(ctx context.Context, applicationUUID application.UUID) (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchApplicationEvents", ctx, applicationUUID)
 	ret0, _ := ret[0].(watcher.StringsWatcher)
@@ -147,13 +149,13 @@ func (c *MockScriptletServiceWatchApplicationEventsCall) Return(arg0 watcher.Str
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockScriptletServiceWatchApplicationEventsCall) Do(f func(context.Context, string) (watcher.StringsWatcher, error)) *MockScriptletServiceWatchApplicationEventsCall {
+func (c *MockScriptletServiceWatchApplicationEventsCall) Do(f func(context.Context, application.UUID) (watcher.StringsWatcher, error)) *MockScriptletServiceWatchApplicationEventsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockScriptletServiceWatchApplicationEventsCall) DoAndReturn(f func(context.Context, string) (watcher.StringsWatcher, error)) *MockScriptletServiceWatchApplicationEventsCall {
+func (c *MockScriptletServiceWatchApplicationEventsCall) DoAndReturn(f func(context.Context, application.UUID) (watcher.StringsWatcher, error)) *MockScriptletServiceWatchApplicationEventsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

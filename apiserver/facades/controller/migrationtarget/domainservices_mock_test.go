@@ -63,8 +63,9 @@ import (
 	service43 "github.com/juju/juju/domain/storage/service"
 	service44 "github.com/juju/juju/domain/storageprovisioning/service"
 	service45 "github.com/juju/juju/domain/tracing/service"
-	service46 "github.com/juju/juju/domain/unitstate/service"
-	service47 "github.com/juju/juju/domain/upgrade/service"
+	service46 "github.com/juju/juju/domain/unitless/service"
+	service47 "github.com/juju/juju/domain/unitstate/service"
+	service48 "github.com/juju/juju/domain/upgrade/service"
 	services "github.com/juju/juju/internal/services"
 )
 
@@ -176,8 +177,9 @@ type MockDomainServicesMockRecorder struct {
 	storageExpects                    []*gomock.Call0_1[*service43.Service]
 	storageProvisioningExpects        []*gomock.Call0_1[*service44.Service]
 	tracingExpects                    []*gomock.Call0_1[*service45.WatchableService]
-	unitStateExpects                  []*gomock.Call0_1[*service46.LeadershipService]
-	upgradeExpects                    []*gomock.Call0_1[*service47.WatchableService]
+	unitStateExpects                  []*gomock.Call0_1[*service47.LeadershipService]
+	unitlessExpects                   []*gomock.Call0_1[*service46.WatchableService]
+	upgradeExpects                    []*gomock.Call0_1[*service48.WatchableService]
 }
 
 // NewMockDomainServices creates a new mock instance.
@@ -1183,7 +1185,7 @@ func (mr *MockDomainServicesMockRecorder) Tracing() *MockDomainServicesTracingCa
 type MockDomainServicesTracingCall = gomock.Call0_1[*service45.WatchableService]
 
 // UnitState mocks base method.
-func (m *MockDomainServices) UnitState() *service46.LeadershipService {
+func (m *MockDomainServices) UnitState() *service47.LeadershipService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.unitStateExpects, m.ctrl, m, "UnitState")
 }
@@ -1191,17 +1193,35 @@ func (m *MockDomainServices) UnitState() *service46.LeadershipService {
 // UnitState indicates an expected call of UnitState.
 func (mr *MockDomainServicesMockRecorder) UnitState() *MockDomainServicesUnitStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service46.LeadershipService](mr.mock.ctrl.T, mr.mock, "UnitState")
+	call := gomock.NewCall0_1[*service47.LeadershipService](mr.mock.ctrl.T, mr.mock, "UnitState")
 	mr.unitStateExpects = append(mr.unitStateExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesUnitStateCall is the typed call wrapper for UnitState.
-type MockDomainServicesUnitStateCall = gomock.Call0_1[*service46.LeadershipService]
+type MockDomainServicesUnitStateCall = gomock.Call0_1[*service47.LeadershipService]
+
+// Unitless mocks base method.
+func (m *MockDomainServices) Unitless() *service46.WatchableService {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.unitlessExpects, m.ctrl, m, "Unitless")
+}
+
+// Unitless indicates an expected call of Unitless.
+func (mr *MockDomainServicesMockRecorder) Unitless() *MockDomainServicesUnitlessCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[*service46.WatchableService](mr.mock.ctrl.T, mr.mock, "Unitless")
+	mr.unitlessExpects = append(mr.unitlessExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockDomainServicesUnitlessCall is the typed call wrapper for Unitless.
+type MockDomainServicesUnitlessCall = gomock.Call0_1[*service46.WatchableService]
 
 // Upgrade mocks base method.
-func (m *MockDomainServices) Upgrade() *service47.WatchableService {
+func (m *MockDomainServices) Upgrade() *service48.WatchableService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.upgradeExpects, m.ctrl, m, "Upgrade")
 }
@@ -1209,11 +1229,11 @@ func (m *MockDomainServices) Upgrade() *service47.WatchableService {
 // Upgrade indicates an expected call of Upgrade.
 func (mr *MockDomainServicesMockRecorder) Upgrade() *MockDomainServicesUpgradeCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service47.WatchableService](mr.mock.ctrl.T, mr.mock, "Upgrade")
+	call := gomock.NewCall0_1[*service48.WatchableService](mr.mock.ctrl.T, mr.mock, "Upgrade")
 	mr.upgradeExpects = append(mr.upgradeExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesUpgradeCall is the typed call wrapper for Upgrade.
-type MockDomainServicesUpgradeCall = gomock.Call0_1[*service47.WatchableService]
+type MockDomainServicesUpgradeCall = gomock.Call0_1[*service48.WatchableService]

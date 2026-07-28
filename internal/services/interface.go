@@ -59,6 +59,7 @@ import (
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storageprovisioningservice "github.com/juju/juju/domain/storageprovisioning/service"
 	tracingservice "github.com/juju/juju/domain/tracing/service"
+	unitlessservice "github.com/juju/juju/domain/unitless/service"
 	unitstateservice "github.com/juju/juju/domain/unitstate/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -170,6 +171,8 @@ type ModelDomainServices interface {
 	// state. This is used to reconcile with local state to determine which
 	// hooks to run, and is saved upon hook completion.
 	UnitState() *unitstateservice.LeadershipService
+	// Unitless returns the service for unitless application scriptlets.
+	Unitless() *unitlessservice.WatchableService
 	// CloudImageMetadata returns the service for persisting and retrieving
 	// cloud image metadata for a specific model.
 	CloudImageMetadata() *cloudimagemetadataservice.Service
