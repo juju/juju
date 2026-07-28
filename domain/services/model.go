@@ -431,8 +431,8 @@ func (s *ModelServices) SSH() *sshmodelservice.WatchableService {
 
 // ModelMigration returns the model's migration service for supporting migration
 // operations.
-func (s *ModelServices) ModelMigration() *modelmigrationservice.Service {
-	return modelmigrationservice.NewService(
+func (s *ModelServices) ModelMigration() *modelmigrationservice.WatchableService {
+	return modelmigrationservice.NewWatchableService(
 		modelmigrationstatecontroller.New(changestream.NewTxnRunnerFactory(s.controllerDB), s.clock),
 		modelmigrationstatemodel.New(changestream.NewTxnRunnerFactory(s.modelDB), s.modelUUID),
 		s.modelUUID.String(),

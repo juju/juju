@@ -340,6 +340,19 @@ func (s *serviceSuite) service(c *tc.C) *Service {
 	)
 }
 
+// watchableService constructs a WatchableService backed by the suite mocks.
+func (s *serviceSuite) watchableService(c *tc.C) *WatchableService {
+	return NewWatchableService(
+		s.controllerState,
+		s.modelState,
+		s.modelUUID,
+		s.watcherFactory,
+		func(context.Context) (InstanceProvider, error) { return s.instanceProvider, nil },
+		func(context.Context) (ResourceProvider, error) { return s.resourceProvider, nil },
+		loggertesting.WrapCheckLog(c),
+	)
+}
+
 // validTargetInfo returns a TargetInfo that passes validation.
 func (s *serviceSuite) validTargetInfo() migration.TargetInfo {
 	return migration.TargetInfo{
@@ -411,6 +424,117 @@ func (s *serviceSuite) TestMigrationNone(c *tc.C) {
 	mig, err := s.service(c).Migration(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(mig.Phase, tc.Equals, migration.NONE)
+}
+
+// TestMigrationPhaseImportClaimReportsImport asserts that a live target-side
+// import claim reports IMPORT, so a model being imported into this controller
+// is frozen exactly as one being exported from it. Without this, the migration
+// flag would report NONE for a half-imported model and let its workers run.
+func (s *serviceSuite) TestMigrationPhaseImportClaimReportsImport(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.IMPORT.String(), nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.IMPORT)
+	// IMPORT must be non-terminal, or a flag built on IsTerminal would report
+	// the model as usable while it is still claimed.
+	c.Check(phase.IsTerminal(), tc.IsFalse)
+}
+
+// TestMigrationPhaseExportReportsExportPhase asserts that with no import claim
+// the source-side export phase is reported unchanged.
+func (s *serviceSuite) TestMigrationPhaseExportReportsExportPhase(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.QUIESCE.String(), nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.QUIESCE)
+}
+
+// TestMigrationPhaseIdleReportsNone asserts a model that is neither importing
+// nor exporting reports NONE, which is terminal and therefore unfreezes it.
+func (s *serviceSuite) TestMigrationPhaseIdleReportsNone(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		migration.NONE.String(), nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phase, tc.Equals, migration.NONE)
+	c.Check(phase.IsTerminal(), tc.IsTrue)
+}
+
+// TestMigrationPhaseUnparsableErrors asserts a phase name from state that does
+// not parse is an error with the UNKNOWN phase, not silently a wrong answer.
+func (s *serviceSuite) TestMigrationPhaseUnparsableErrors(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		"NOTAPHASE", nil)
+
+	phase, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, `unknown migration phase "NOTAPHASE"`)
+	c.Check(phase, tc.Equals, migration.UNKNOWN)
+}
+
+// TestMigrationPhaseErrorPropagates asserts a state error surfaces with the
+// UNKNOWN phase rather than being mistaken for a real phase answer.
+func (s *serviceSuite) TestMigrationPhaseErrorPropagates(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerState.EXPECT().GetMigrationPhase(gomock.Any(), s.modelUUID).Return(
+		"", errors.New("boom"))
+
+	_, err := s.service(c).MigrationPhase(c.Context())
+	c.Check(err, tc.ErrorMatches, "boom")
+}
+
+// TestWatchMigrationActivityWatchesBothSides asserts the activity watcher
+// covers the export phase namespace *and* the import claim namespace, both
+// scoped to this model. Watching exports alone would never fire when a target
+// import claim is deleted - the moment the model becomes usable.
+func (s *serviceSuite) TestWatchMigrationActivityWatchesBothSides(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var namespaces []string
+	matchesUUID := map[string]bool{}
+	matchesOther := map[string]bool{}
+
+	otherUUID := tc.Must(c, uuid.NewUUID).String()
+	ch := make(chan struct{}, 1)
+	s.controllerState.EXPECT().NamespaceForWatchPhase().Return("model_migration_export_phase")
+	s.controllerState.EXPECT().NamespaceForWatchImportClaim().Return("model_migration_import")
+	s.watcherFactory.EXPECT().NewNotifyWatcher(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, fo eventsource.FilterOption, extra ...eventsource.FilterOption) (watcher.Watcher[struct{}], error) {
+			for _, f := range append([]eventsource.FilterOption{fo}, extra...) {
+				namespaces = append(namespaces, f.Namespace())
+				if pred := f.ChangePredicate(); pred != nil {
+					matchesUUID[f.Namespace()] = pred(s.modelUUID)
+					matchesOther[f.Namespace()] = pred(otherUUID)
+				}
+			}
+			return watchertest.NewMockNotifyWatcher(ch), nil
+		},
+	)
+
+	w, err := s.watchableService(c).WatchMigrationActivity(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	c.Check(namespaces, tc.SameContents, []string{
+		"model_migration_export_phase", "model_migration_import",
+	})
+	for _, ns := range namespaces {
+		c.Check(matchesUUID[ns], tc.IsTrue)
+		c.Check(matchesOther[ns], tc.IsFalse)
+	}
 }
 
 // TestSourceControllerInfoArrangesRawStateAddresses asserts the service

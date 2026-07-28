@@ -22,7 +22,7 @@ type stubDomainServices struct {
 	services.ModelDomainServices
 }
 
-func (s *stubDomainServices) ModelMigration() *modelmigrationservice.Service {
+func (s *stubDomainServices) ModelMigration() *modelmigrationservice.WatchableService {
 	return nil
 }
 

@@ -84,19 +84,29 @@ func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 // domainServicesFacade is a local facade adapter that satisfies the Facade
 // interface by reading from domain services directly.
 type domainServicesFacade struct {
-	migrationSvc *modelmigrationservice.Service
+	migrationSvc *modelmigrationservice.WatchableService
 }
 
 // Phase is part of the Facade interface.
+//
+// It reads the direction-agnostic phase, so that a model being imported into
+// this controller is reported as migrating just like one being exported from
+// it. Reading only exports would let this controller's model workers run
+// against a half-imported model.
 func (f *domainServicesFacade) Phase(ctx context.Context, _ string) (migration.Phase, error) {
-	mig, err := f.migrationSvc.Migration(ctx)
+	phase, err := f.migrationSvc.MigrationPhase(ctx)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
-	return mig.Phase, nil
+	return phase, nil
 }
 
 // Watch is part of the Facade interface.
+//
+// It watches migration activity in both directions to match Phase. Watching
+// export phases alone would never fire when a target import claim is deleted,
+// which is precisely the moment the flag must flip so the model's workers can
+// start.
 func (f *domainServicesFacade) Watch(ctx context.Context, _ string) (watcher.NotifyWatcher, error) {
-	return f.migrationSvc.WatchMigrationPhase(ctx)
+	return f.migrationSvc.WatchMigrationActivity(ctx)
 }

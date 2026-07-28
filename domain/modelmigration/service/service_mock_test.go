@@ -140,6 +140,7 @@ type MockControllerStateMockRecorder struct {
 	getImportClaimExpects                    []*gomock.Call2_2[context.Context, string, modelmigration0.ImportClaim, error]
 	getImportedOfferUUIDsExpects             []*gomock.Call2_2[context.Context, string, []string, error]
 	getMigrationModeExpects                  []*gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
+	getMigrationPhaseExpects                 []*gomock.Call2_2[context.Context, string, string, error]
 	getModelUsersForRedirectExpects          []*gomock.Call2_2[context.Context, string, []internal.RedirectUserAccess, error]
 	getSourceControllerInfoExpects           []*gomock.Call1_2[context.Context, internal.SourceControllerInfo, error]
 	importExternalControllersExpects         []*gomock.Call4_1[context.Context, string, string, []internal.ExternalController, error]
@@ -147,6 +148,7 @@ type MockControllerStateMockRecorder struct {
 	insertExportExpects                      []*gomock.Call2_1[context.Context, internal.MigrationSpec, error]
 	insertMinionReportExpects                []*gomock.Call5_1[context.Context, string, migration.Phase, string, bool, error]
 	namespaceForWatchExportExpects           []*gomock.Call0_1[string]
+	namespaceForWatchImportClaimExpects      []*gomock.Call0_1[string]
 	namespaceForWatchMinionSyncExpects       []*gomock.Call0_1[string]
 	namespaceForWatchPhaseExpects            []*gomock.Call0_1[string]
 	secretBackendExistsExpects               []*gomock.Call2_2[context.Context, string, bool, error]
@@ -528,6 +530,24 @@ func (mr *MockControllerStateMockRecorder) GetMigrationMode(ctx, modelUUID any) 
 // MockControllerStateGetMigrationModeCall is the typed call wrapper for GetMigrationMode.
 type MockControllerStateGetMigrationModeCall = gomock.Call2_2[context.Context, string, modelmigration0.MigrationMode, error]
 
+// GetMigrationPhase mocks base method.
+func (m *MockControllerState) GetMigrationPhase(ctx context.Context, modelUUID string) (string, error) {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch2_2(&m.recorder.getMigrationPhaseExpects, m.ctrl, m, "GetMigrationPhase", ctx, modelUUID)
+}
+
+// GetMigrationPhase indicates an expected call of GetMigrationPhase.
+func (mr *MockControllerStateMockRecorder) GetMigrationPhase(ctx, modelUUID any) *MockControllerStateGetMigrationPhaseCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall2_2[context.Context, string, string, error](mr.mock.ctrl.T, mr.mock, "GetMigrationPhase", gomock.EnsureMatcher(ctx), gomock.EnsureMatcher(modelUUID))
+	mr.getMigrationPhaseExpects = append(mr.getMigrationPhaseExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateGetMigrationPhaseCall is the typed call wrapper for GetMigrationPhase.
+type MockControllerStateGetMigrationPhaseCall = gomock.Call2_2[context.Context, string, string, error]
+
 // GetModelUsersForRedirect mocks base method.
 func (m *MockControllerState) GetModelUsersForRedirect(ctx context.Context, modelUUID string) ([]internal.RedirectUserAccess, error) {
 	m.ctrl.T.Helper()
@@ -653,6 +673,24 @@ func (mr *MockControllerStateMockRecorder) NamespaceForWatchExport() *MockContro
 
 // MockControllerStateNamespaceForWatchExportCall is the typed call wrapper for NamespaceForWatchExport.
 type MockControllerStateNamespaceForWatchExportCall = gomock.Call0_1[string]
+
+// NamespaceForWatchImportClaim mocks base method.
+func (m *MockControllerState) NamespaceForWatchImportClaim() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchImportClaimExpects, m.ctrl, m, "NamespaceForWatchImportClaim")
+}
+
+// NamespaceForWatchImportClaim indicates an expected call of NamespaceForWatchImportClaim.
+func (mr *MockControllerStateMockRecorder) NamespaceForWatchImportClaim() *MockControllerStateNamespaceForWatchImportClaimCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchImportClaim")
+	mr.namespaceForWatchImportClaimExpects = append(mr.namespaceForWatchImportClaimExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockControllerStateNamespaceForWatchImportClaimCall is the typed call wrapper for NamespaceForWatchImportClaim.
+type MockControllerStateNamespaceForWatchImportClaimCall = gomock.Call0_1[string]
 
 // NamespaceForWatchMinionSync mocks base method.
 func (m *MockControllerState) NamespaceForWatchMinionSync() string {

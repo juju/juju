@@ -142,6 +142,17 @@ func (s *State) NamespaceForWatchMinionSync() string {
 	return "model_migration_export_minion_sync"
 }
 
+// NamespaceForWatchImportClaim returns the changestream namespace that fires
+// when a target-side import claim is created, changes phase, or is deleted,
+// keyed by model UUID.
+//
+// Claim deletion is the moment an imported model becomes usable, so this
+// namespace is what unfreezes the target: see
+// [github.com/juju/juju/domain/modelmigration/service.WatchableService.WatchMigrationActivity].
+func (s *State) NamespaceForWatchImportClaim() string {
+	return "model_migration_import"
+}
+
 // GetActiveExportUUID returns the UUID of the active export migration for the
 // given model. If no active export exists [modelmigrationerrors.ErrMigrationNotFound]
 // is returned.
@@ -999,6 +1010,76 @@ WHERE  model_uuid = $modelUUIDArg.model_uuid
 		return modelmigration.MigrationModeNone, errors.Capture(err)
 	}
 	return mode, nil
+}
+
+// GetMigrationPhase derives the model's migration phase considering migration
+// in both directions: [migration.IMPORT] while a target import claim exists in
+// any phase, otherwise the active export's phase, otherwise [migration.NONE].
+// The phase is returned as its name; constructing the [migration.Phase] is the
+// caller's concern. Both tables are read in one transaction so the answer is
+// never a stale mix of the two sides.
+//
+// The import claim takes precedence over an active export: a model with both
+// is in an inconsistent state, and IMPORT is non-terminal, so consumers that
+// gate work on the phase stay frozen.
+func (s *State) GetMigrationPhase(ctx context.Context, modelUUID string) (string, error) {
+	db, err := s.DB(ctx)
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	mUUID := modelUUIDArg{ModelUUID: modelUUID}
+	terminalIDs := terminalPhaseIDs()
+	importStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &countResult.count
+FROM   model_migration_import
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+`, mUUID, countResult{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	exportStmt, err := s.Prepare(`
+SELECT &currentPhase.current_phase_id
+FROM   model_migration_export
+WHERE  model_uuid = $modelUUIDArg.model_uuid
+AND    current_phase_id NOT IN (
+       $terminalPhaseIDArgs.reap_failed_id,
+       $terminalPhaseIDArgs.done_id,
+       $terminalPhaseIDArgs.abort_done_id)
+`, mUUID, terminalIDs, currentPhase{})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+
+	var phase string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var importCount countResult
+		if err := tx.Query(ctx, importStmt, mUUID).Get(&importCount); err != nil {
+			return errors.Errorf("counting import claims for model %q: %w", modelUUID, err)
+		}
+		if importCount.Count > 0 {
+			phase = migration.IMPORT.String()
+			return nil
+		}
+		var current currentPhase
+		err := tx.Query(ctx, exportStmt, mUUID, terminalIDs).Get(&current)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			phase = migration.NONE.String()
+			return nil
+		} else if err != nil {
+			return errors.Errorf("reading active export phase for model %q: %w", modelUUID, err)
+		}
+		exportPhase, err := modelmigration.Phase(current.CurrentPhaseID).CoreMigrationPhase()
+		if err != nil {
+			return errors.Errorf("translating export phase for model %q: %w", modelUUID, err)
+		}
+		phase = exportPhase.String()
+		return nil
+	})
+	if err != nil {
+		return "", errors.Capture(err)
+	}
+	return phase, nil
 }
 
 // addressesMatch reports whether the persisted addresses equal the supplied

@@ -114,7 +114,7 @@ type MockDomainServicesMockRecorder struct {
 	modelExpects                      []*gomock.Call0_1[*service25.WatchableService]
 	modelDefaultsExpects              []*gomock.Call0_1[*service28.Service]
 	modelInfoExpects                  []*gomock.Call0_1[*service25.ProviderModelService]
-	modelMigrationExpects             []*gomock.Call0_1[*service29.Service]
+	modelMigrationExpects             []*gomock.Call0_1[*service29.WatchableService]
 	modelProviderExpects              []*gomock.Call0_1[*service30.Service]
 	modelSecretBackendExpects         []*gomock.Call0_1[*service41.ModelSecretBackendService]
 	networkExpects                    []*gomock.Call0_1[*service31.WatchableService]
@@ -782,7 +782,7 @@ func (mr *MockDomainServicesMockRecorder) ModelInfo() *MockDomainServicesModelIn
 type MockDomainServicesModelInfoCall = gomock.Call0_1[*service25.ProviderModelService]
 
 // ModelMigration mocks base method.
-func (m *MockDomainServices) ModelMigration() *service29.Service {
+func (m *MockDomainServices) ModelMigration() *service29.WatchableService {
 	m.ctrl.T.Helper()
 	return gomock.Dispatch0_1(&m.recorder.modelMigrationExpects, m.ctrl, m, "ModelMigration")
 }
@@ -790,14 +790,14 @@ func (m *MockDomainServices) ModelMigration() *service29.Service {
 // ModelMigration indicates an expected call of ModelMigration.
 func (mr *MockDomainServicesMockRecorder) ModelMigration() *MockDomainServicesModelMigrationCall {
 	mr.mock.ctrl.T.Helper()
-	call := gomock.NewCall0_1[*service29.Service](mr.mock.ctrl.T, mr.mock, "ModelMigration")
+	call := gomock.NewCall0_1[*service29.WatchableService](mr.mock.ctrl.T, mr.mock, "ModelMigration")
 	mr.modelMigrationExpects = append(mr.modelMigrationExpects, call)
 	mr.mock.ctrl.Track(call.Call)
 	return call
 }
 
 // MockDomainServicesModelMigrationCall is the typed call wrapper for ModelMigration.
-type MockDomainServicesModelMigrationCall = gomock.Call0_1[*service29.Service]
+type MockDomainServicesModelMigrationCall = gomock.Call0_1[*service29.WatchableService]
 
 // ModelProvider mocks base method.
 func (m *MockDomainServices) ModelProvider() *service30.Service {
