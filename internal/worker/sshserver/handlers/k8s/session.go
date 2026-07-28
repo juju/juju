@@ -114,7 +114,7 @@ func (h *Handlers) SessionHandler(session ssh.Session) {
 		Signal:        translateSignals(session.Context(), signals),
 	}, session.Context().Done())
 	if err != nil {
-		if exitErr, ok := errors.Cause(err).(k8sexec.ExitError); ok {
+		if exitErr, ok := errors.AsType[k8sexec.ExitError](err); ok {
 			proxy.Close(exitErr.ExitStatus())
 			return
 		}

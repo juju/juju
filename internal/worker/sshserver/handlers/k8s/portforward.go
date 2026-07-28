@@ -12,6 +12,6 @@ import (
 // Kubernetes container targets.
 func (*Handlers) DirectTCPIPHandler() ssh.ChannelHandler {
 	return func(_ *ssh.Server, _ *gossh.ServerConn, newChan gossh.NewChannel, _ ssh.Context) {
-		_ = newChan.Reject(gossh.Prohibited, "local forwarding is not supported for Kubernetes targets")
+		_ = newChan.Reject(gossh.UnknownChannelType, "local forwarding is not supported for Kubernetes targets")
 	}
 }

@@ -15,6 +15,7 @@ import (
 
 // Resolver resolves Kubernetes pod information for a routed destination.
 type Resolver interface {
+	// ResolveK8sExecInfo resolves the Kubernetes namespace and pod name for a given destination.
 	ResolveK8sExecInfo(context.Context, virtualhostname.Info) (namespace, podName string, err error)
 }
 
