@@ -324,6 +324,7 @@ func (s *DomainServicesSuite) ObjectStoreServicesGetter(c *tc.C) ObjectStoreServ
 		return domainservices.NewObjectStoreServices(
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
+			jujutesting.ControllerTag.Id(),
 			clock.WallClock,
 			loggertesting.WrapCheckLog(c),
 		)

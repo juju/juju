@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	coreerrors "github.com/juju/juju/core/errors"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/errors"
 )
@@ -23,6 +24,10 @@ type Metadata struct {
 
 // S3Credentials represents the credentials for the s3 object store.
 type S3Credentials struct {
+	// Bucket is the bucket for the object store.
+	Bucket string
+	// Region is the region for the object store.
+	Region string
 	// Endpoint is the endpoint for the object store.
 	Endpoint string
 	// AccessKey is the access key for the object store.
@@ -33,6 +38,11 @@ type S3Credentials struct {
 
 // Validate validates the S3Credentials.
 func (s S3Credentials) Validate() error {
+	if s.Bucket != "" {
+		if _, err := coreobjectstore.ParseObjectStoreBucketName(s.Bucket); err != nil {
+			return errors.Errorf("bucket: %w", err)
+		}
+	}
 	if s.Endpoint == "" {
 		return errors.New("endpoint is required").Add(coreerrors.NotValid)
 	}
@@ -72,6 +82,12 @@ type BackendInfo struct {
 	ObjectStoreType string
 
 	// Endpoint, AccessKey, SecretKey, and Region are only used for S3 backend.
+	Bucket *string
+
+	// Region is the region for the S3 backend.
+	Region *string
+
+	// Endpoint is the endpoint for the S3 backend.
 	Endpoint *string
 
 	// AccessKey is the access key for the S3 backend. It is expected to be set

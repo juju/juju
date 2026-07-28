@@ -49,6 +49,84 @@ func TestS3ObjectStoreSuite(t *stdtesting.T) {
 	})
 }
 
+func (s *s3ObjectStoreSuite) TestFilePathUsesNamespace(c *tc.C) {
+	for _, test := range []struct {
+		namespace string
+		hash      string
+		expected  string
+	}{
+		{
+			namespace: "model-uuid",
+			hash:      "abc123",
+			expected:  "model-uuid/abc123",
+		}, {
+			namespace: "controller",
+			hash:      "def456",
+			expected:  "controller/def456",
+		}, {
+			namespace: "01234567-89ab-cdef-0123-456789abcdef",
+			hash:      "fedcba",
+			expected:  "01234567-89ab-cdef-0123-456789abcdef/fedcba",
+		},
+	} {
+		store := &s3ObjectStore{namespace: test.namespace}
+		c.Check(store.filePath(test.hash), tc.Equals, test.expected)
+	}
+}
+
+func (s *s3ObjectStoreSuite) TestPutFileCreatesNamespacedObjectKey(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	for _, namespace := range []string{
+		"model-uuid",
+		"controller",
+		"01234567-89ab-cdef-0123-456789abcdef",
+	} {
+		s.session.EXPECT().PutObject(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+			gomock.Any(), "s3-hash",
+		).DoAndReturn(func(_ context.Context, _, _ string, body io.Reader, _ string) error {
+			content, err := io.ReadAll(body)
+			c.Assert(err, tc.ErrorIsNil)
+			c.Check(string(content), tc.Equals, "some content")
+			return nil
+		})
+
+		store := &s3ObjectStore{
+			client:     s.client,
+			rootBucket: defaultBucketName,
+			namespace:  namespace,
+		}
+		err := store.putFile(
+			c.Context(), strings.NewReader("some content"),
+			"object-sha", "s3-hash",
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
+func (s *s3ObjectStoreSuite) TestDeleteObjectUsesNamespace(c *tc.C) {
+	defer s.setupMocks(c).Finish()
+
+	for _, namespace := range []string{
+		"model-uuid",
+		"controller",
+		"01234567-89ab-cdef-0123-456789abcdef",
+	} {
+		s.session.EXPECT().DeleteObject(
+			gomock.Any(), defaultBucketName, namespace+"/object-sha",
+		).Return(nil)
+
+		store := &s3ObjectStore{
+			client:     s.client,
+			rootBucket: defaultBucketName,
+			namespace:  namespace,
+		}
+		err := store.deleteObject(c.Context(), "object-sha")
+		c.Assert(err, tc.ErrorIsNil)
+	}
+}
+
 func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -720,11 +798,14 @@ func (s *s3ObjectStoreSuite) TestRemoveDoesNotDeleteSharedHash(c *tc.C) {
 func (s *s3ObjectStoreSuite) TestRemoveAll(c *tc.C) {
 	defer s.setupMocks(c).Finish()
 
-	otherModelObject := "limbo/baz"
 	objects := map[string]bool{
-		filePath("foo"):  true,
-		filePath("bar"):  true,
-		otherModelObject: true,
+		filePath("foo"):        true,
+		filePath("bar"):        true,
+		"limbo/foo":            true,
+		"limbo/bar":            true,
+		"inferior/foo":         true,
+		"controller/foo":       true,
+		"another-model/shared": true,
 	}
 
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
@@ -741,6 +822,7 @@ func (s *s3ObjectStoreSuite) TestRemoveAll(c *tc.C) {
 	)
 	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _, object string) error {
+			c.Check(strings.HasPrefix(object, "inferi/"), tc.IsTrue)
 			delete(objects, object)
 			return nil
 		},
@@ -757,7 +839,11 @@ func (s *s3ObjectStoreSuite) TestRemoveAll(c *tc.C) {
 	err := store.RemoveAll(c.Context())
 	c.Assert(err, tc.ErrorIsNil)
 	c.Check(objects, tc.DeepEquals, map[string]bool{
-		otherModelObject: true,
+		"limbo/foo":            true,
+		"limbo/bar":            true,
+		"inferior/foo":         true,
+		"controller/foo":       true,
+		"another-model/shared": true,
 	})
 
 	workertest.CleanKill(c, store)

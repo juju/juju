@@ -73,7 +73,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		HTTPClientName:          "http-client",
 		ObjectStoreServicesName: "object-store-services",
-		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger) (objectstore.Session, error) {
+		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, string, logger.Logger) (objectstore.Session, error) {
 			return s.session, nil
 		},
 		Logger: s.logger,

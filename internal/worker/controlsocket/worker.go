@@ -303,21 +303,23 @@ func (w *Worker) registerHandlers(r *mux.Router) {
 	r.Handle("/workload-tracing-config", w.withMetrics("/workload-tracing-config", w.handleJSONPost(w.handleSetWorkloadTracingConfig))).
 		Methods(http.MethodPost)
 
-	// s3-credentials endpoint for managing object store credentials when S3 is
-	// used as the backend. This is a POST endpoint that accepts a JSON body
+	// s3-config endpoint for managing the object store configuration when S3
+	// is used as the backend. This is a POST endpoint that accepts a JSON body
 	// with the following format:
 	//
 	// {
+	//   "bucket": <string>,
+	//   "region": <string>,
 	//   "endpoint": <string>,
 	//   "access_key": <string>,
 	//   "secret_key": <string>,
 	// }
 	//
 	// The worker will update the object store configuration with the provided
-	// S3 credentials.
-	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", w.handleJSONPost(w.handleAddS3Credentials))).
+	// S3 configuration.
+	r.Handle("/s3-config", w.withMetrics("/s3-config", w.handleJSONPost(w.handleSetS3Config))).
 		Methods(http.MethodPost)
-	r.Handle("/s3-credentials", w.withMetrics("/s3-credentials", http.HandlerFunc(w.handleRemoveS3Credentials))).
+	r.Handle("/s3-config", w.withMetrics("/s3-config", http.HandlerFunc(w.handleRemoveS3Config))).
 		Methods(http.MethodDelete)
 
 	// loki-endpoint endpoint for managing the Loki push API endpoint. This
@@ -566,16 +568,18 @@ func (w *Worker) handleSetWorkloadTracingConfig(resp http.ResponseWriter, req *h
 	w.writeResponse(ctx, resp, http.StatusOK, "updated workload tracing config")
 }
 
-type s3CredentialsRequest struct {
+type s3ConfigRequest struct {
+	Bucket    string `json:"bucket"`
+	Region    string `json:"region"`
 	Endpoint  string `json:"endpoint"`
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key"`
 }
 
-func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Request) {
+func (w *Worker) handleSetS3Config(resp http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 
-	var parsedBody s3CredentialsRequest
+	var parsedBody s3ConfigRequest
 	if err := json.NewDecoder(req.Body).Decode(&parsedBody); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		switch {
@@ -593,25 +597,27 @@ func (w *Worker) handleAddS3Credentials(resp http.ResponseWriter, req *http.Requ
 	}
 
 	if err := w.objectStoreService.TransitionBackendToS3(ctx, domainobjectstore.S3Credentials{
+		Bucket:    parsedBody.Bucket,
+		Region:    parsedBody.Region,
 		Endpoint:  parsedBody.Endpoint,
 		AccessKey: parsedBody.AccessKey,
 		SecretKey: parsedBody.SecretKey,
 	}); internalerrors.Is(err, coreerrors.NotValid) {
-		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid S3 credentials: %w", err))
+		w.writeErrorResponse(ctx, resp, http.StatusBadRequest, internalerrors.Errorf("invalid S3 config: %w", err))
 		return
 	} else if err != nil {
-		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving S3 credentials: %w", err))
+		w.writeErrorResponse(ctx, resp, http.StatusInternalServerError, internalerrors.Errorf("saving S3 config: %w", err))
 		return
 	}
 
-	w.writeResponse(ctx, resp, http.StatusOK, infof("updated S3 credentials"))
+	w.writeResponse(ctx, resp, http.StatusOK, infof("updated S3 config"))
 }
 
-func (w *Worker) handleRemoveS3Credentials(resp http.ResponseWriter, req *http.Request) {
+func (w *Worker) handleRemoveS3Config(resp http.ResponseWriter, req *http.Request) {
 	// We currently don't allow you to move to another s3 provider. This will
 	// be fixed in future requests.
 	w.writeErrorResponse(req.Context(), resp, http.StatusNotImplemented,
-		internalerrors.New("removing s3 credentials is not supported at this time"))
+		internalerrors.New("removing S3 config is not supported at this time"))
 }
 
 type lokiEndpointRequest struct {

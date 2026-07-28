@@ -51,6 +51,10 @@ func (s *workerSuite) TestValidateConfig(c *tc.C) {
 	cfg = s.getConfig()
 	cfg.NewObjectStoreServicesGetter = nil
 	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ControllerUUID = ""
+	c.Check(cfg.Validate(), tc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {
@@ -58,10 +62,13 @@ func (s *workerSuite) getConfig() Config {
 		DBGetter: s.dbGetter,
 		Clock:    clock.WallClock,
 		Logger:   s.logger,
-		NewObjectStoreServices: func(coremodel.UUID, changestream.WatchableDBGetter, clock.Clock, logger.Logger) services.ObjectStoreServices {
+
+		ControllerUUID: "controller-uuid",
+
+		NewObjectStoreServices: func(coremodel.UUID, changestream.WatchableDBGetter, string, clock.Clock, logger.Logger) services.ObjectStoreServices {
 			return s.objectStoreServices
 		},
-		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, clock.Clock, logger.Logger) services.ObjectStoreServicesGetter {
+		NewObjectStoreServicesGetter: func(ObjectStoreServicesFn, changestream.WatchableDBGetter, string, clock.Clock, logger.Logger) services.ObjectStoreServicesGetter {
 			return s.objectStoreServicesGetter
 		},
 	}

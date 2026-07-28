@@ -77,12 +77,14 @@ CREATE UNIQUE INDEX idx_singleton_object_store_backend_type_id ON object_store_b
 CREATE UNIQUE INDEX idx_singleton_object_store_backend_life_id_alive ON object_store_backend ((1)) WHERE life_id = 0;
 CREATE UNIQUE INDEX idx_singleton_object_store_backend_life_id_dying ON object_store_backend ((1)) WHERE life_id = 1;
 
-CREATE TABLE object_store_backend_s3_credential (
+CREATE TABLE object_store_backend_s3_config (
     object_store_backend_uuid TEXT NOT NULL PRIMARY KEY,
+    bucket TEXT,
+    region TEXT,
     endpoint TEXT NOT NULL,
     static_key TEXT NOT NULL,
     static_secret TEXT NOT NULL,
-    CONSTRAINT fk_object_store_backend_uuid_s3_credential_object_store_uuid
+    CONSTRAINT fk_object_store_backend_uuid_s3_config_object_store_uuid
     FOREIGN KEY (object_store_backend_uuid)
     REFERENCES object_store_backend (uuid)
 );

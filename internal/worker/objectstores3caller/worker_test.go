@@ -366,7 +366,7 @@ func (s *workerSuite) getConfig() workerConfig {
 	return workerConfig{
 		ObjectStoreService: s.objectStoreService,
 		HTTPClient:         s.httpClient,
-		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger) (objectstore.Session, error) {
+		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, string, logger.Logger) (objectstore.Session, error) {
 			atomic.AddInt64(&s.sessionRefCount, 1)
 			return s.session, nil
 		},
@@ -376,6 +376,7 @@ func (s *workerSuite) getConfig() workerConfig {
 
 func (s *workerSuite) expectGetActiveBackendS3WithDone(done chan struct{}) {
 	endpoint := "https://s3.example.com"
+	region := "us-east-1"
 	accessKey := "access-key"
 	secretKey := "secret-key"
 	s.objectStoreService.EXPECT().GetActiveObjectStoreBackend(gomock.Any()).
@@ -383,6 +384,7 @@ func (s *workerSuite) expectGetActiveBackendS3WithDone(done chan struct{}) {
 			defer close(done)
 			return objectstoreservice.BackendInfo{
 				Type:      "s3",
+				Region:    &region,
 				Endpoint:  &endpoint,
 				AccessKey: &accessKey,
 				SecretKey: &secretKey,

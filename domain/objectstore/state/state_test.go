@@ -688,6 +688,8 @@ func (s *stateSuite) TestGetActiveDrainingInfo(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
@@ -829,6 +831,8 @@ func (s *stateSuite) TestTransitionBackendToS3CalledTwice(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
@@ -837,13 +841,76 @@ func (s *stateSuite) TestTransitionBackendToS3CalledTwice(c *tc.C) {
 	err := st.TransitionBackendToS3(c.Context(), backendUUID, "drain-uuid", creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Force the old backend to be marked as dead.
-	s.markBackendAsDead(c, "653813f9-2896-5332-8cbe-629a337a56a3")
+	// A repeated request has newly generated backend and drain UUIDs, but is
+	// already satisfied by the in-progress transition.
+	err = st.TransitionBackendToS3(c.Context(),
+		tc.Must(c, coreobjectstore.NewUUID).String(), "drain-uuid-2", creds)
+	c.Assert(err, tc.ErrorIsNil)
 
-	// The second call fails because the draining phase is already active
-	// from the first call.
-	err = st.TransitionBackendToS3(c.Context(), backendUUID, "drain-uuid-2", creds)
-	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
+	var backendCount, drainCount, configCount int
+	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM object_store_backend`).Scan(&backendCount); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM object_store_drain_info`).Scan(&drainCount); err != nil {
+			return err
+		}
+		return tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM object_store_backend_s3_config`).Scan(&configCount)
+	})
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(backendCount, tc.Equals, 2)
+	c.Check(drainCount, tc.Equals, 1)
+	c.Check(configCount, tc.Equals, 1)
+}
+
+func (s *stateSuite) TestTransitionBackendToS3CalledWhileDrainingWithDifferentConfig(c *tc.C) {
+	st := NewState(s.TxnRunnerFactory(), clock.WallClock)
+
+	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
+	creds := domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	}
+	err := st.TransitionBackendToS3(c.Context(), backendUUID, "drain-uuid", creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	tests := []struct {
+		name  string
+		creds domainobjectstore.S3Credentials
+	}{
+		{name: "bucket", creds: domainobjectstore.S3Credentials{
+			Bucket: "other-bucket", Region: creds.Region, Endpoint: creds.Endpoint,
+			AccessKey: creds.AccessKey, SecretKey: creds.SecretKey,
+		}},
+		{name: "region", creds: domainobjectstore.S3Credentials{
+			Bucket: creds.Bucket, Region: "eu-west-1", Endpoint: creds.Endpoint,
+			AccessKey: creds.AccessKey, SecretKey: creds.SecretKey,
+		}},
+		{name: "endpoint", creds: domainobjectstore.S3Credentials{
+			Bucket: creds.Bucket, Region: creds.Region, Endpoint: "https://other.example.com",
+			AccessKey: creds.AccessKey, SecretKey: creds.SecretKey,
+		}},
+		{name: "access key", creds: domainobjectstore.S3Credentials{
+			Bucket: creds.Bucket, Region: creds.Region, Endpoint: creds.Endpoint,
+			AccessKey: "other-access-key", SecretKey: creds.SecretKey,
+		}},
+		{name: "secret key", creds: domainobjectstore.S3Credentials{
+			Bucket: creds.Bucket, Region: creds.Region, Endpoint: creds.Endpoint,
+			AccessKey: creds.AccessKey, SecretKey: "other-secret-key",
+		}},
+	}
+	for _, test := range tests {
+		err := st.TransitionBackendToS3(c.Context(),
+			tc.Must(c, coreobjectstore.NewUUID).String(), "other-drain-uuid", test.creds)
+		c.Check(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress,
+			tc.Commentf("changed field: %s", test.name))
+	}
 }
 
 func (s *stateSuite) TestTransitionBackendToS3FromS3NotSupported(c *tc.C) {
@@ -931,7 +998,7 @@ func (s *stateSuite) TestTransitionBackendToS3(c *tc.C) {
 
 	var lifeID, typeID int
 	var dyingTypeID int
-	var endpoint, accessKey, secretKey string
+	var bucket, region, endpoint, accessKey, secretKey string
 	err = s.TxnRunner().StdTxn(c.Context(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT life_id, type_id FROM object_store_backend
@@ -948,10 +1015,10 @@ WHERE life_id = 1`)
 		}
 
 		row = tx.QueryRowContext(ctx, `
-SELECT endpoint, static_key, static_secret
-FROM object_store_backend_s3_credential
+SELECT bucket, region, endpoint, static_key, static_secret
+FROM object_store_backend_s3_config
 WHERE object_store_backend_uuid = ?`, backendUUID)
-		if err := row.Scan(&endpoint, &accessKey, &secretKey); err != nil {
+		if err := row.Scan(&bucket, &region, &endpoint, &accessKey, &secretKey); err != nil {
 			return errors.Errorf("querying backend credentials: %w", err)
 		}
 
@@ -964,6 +1031,8 @@ WHERE object_store_backend_uuid = ?`, backendUUID)
 
 	c.Check(dyingTypeID, tc.Equals, 0)
 
+	c.Check(bucket, tc.Equals, creds.Bucket)
+	c.Check(region, tc.Equals, creds.Region)
 	c.Check(endpoint, tc.Equals, creds.Endpoint)
 	c.Check(accessKey, tc.Equals, creds.AccessKey)
 	c.Check(secretKey, tc.Equals, creds.SecretKey)
@@ -1002,7 +1071,7 @@ WHERE uuid = ?`, seedBackendUUID)
 		}
 
 		row = tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM object_store_backend_s3_credential
+SELECT COUNT(*) FROM object_store_backend_s3_config
 WHERE object_store_backend_uuid = ?`, seedBackendUUID)
 		if err := row.Scan(&credsCount); err != nil {
 			return errors.Errorf("counting drained backend credentials: %w", err)
@@ -1060,7 +1129,7 @@ WHERE uuid = ?`, seedBackendUUID)
 		}
 
 		row = tx.QueryRowContext(ctx, `
-SELECT COUNT(*) FROM object_store_backend_s3_credential
+SELECT COUNT(*) FROM object_store_backend_s3_config
 WHERE object_store_backend_uuid = ?`, seedBackendUUID)
 		if err := row.Scan(&credsCount); err != nil {
 			return errors.Errorf("counting drained backend credentials: %w", err)
@@ -1091,6 +1160,8 @@ WHERE life_id = 0`)
 	c.Check(info.UUID, tc.Equals, activeUUID)
 	c.Check(info.ObjectStoreType, tc.Equals, "file")
 	c.Check(info.LifeID, tc.Equals, life.Alive)
+	c.Check(info.Bucket, tc.IsNil)
+	c.Check(info.Region, tc.IsNil)
 	c.Check(info.Endpoint, tc.IsNil)
 	c.Check(info.AccessKey, tc.IsNil)
 	c.Check(info.SecretKey, tc.IsNil)
@@ -1101,6 +1172,8 @@ func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
 
 	backendUUID := tc.Must(c, coreobjectstore.NewUUID).String()
 	creds := domainobjectstore.S3Credentials{
+		Bucket:    "test-bucket",
+		Region:    "us-east-1",
 		Endpoint:  "https://s3.example.com",
 		AccessKey: "access-key",
 		SecretKey: "secret-key",
@@ -1114,6 +1187,10 @@ func (s *stateSuite) TestGetActiveObjectStoreBackendS3(c *tc.C) {
 	c.Check(info.UUID, tc.Equals, backendUUID)
 	c.Check(info.ObjectStoreType, tc.Equals, "s3")
 	c.Check(info.LifeID, tc.Equals, life.Alive)
+	c.Assert(info.Bucket, tc.NotNil)
+	c.Check(*info.Bucket, tc.Equals, creds.Bucket)
+	c.Assert(info.Region, tc.NotNil)
+	c.Check(*info.Region, tc.Equals, creds.Region)
 	c.Assert(info.Endpoint, tc.NotNil)
 	c.Check(*info.Endpoint, tc.Equals, creds.Endpoint)
 	c.Assert(info.AccessKey, tc.NotNil)

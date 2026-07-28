@@ -315,8 +315,14 @@ func (w *Worker) loop() error {
 			// another. For now, we just log that we're in the draining phase
 			// from file to s3.
 
+			rootBucketName, err := w.activeRootBucketName(ctx)
+			if err != nil {
+				_ = w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseError)
+				return errors.Errorf("getting active root bucket name: %w", err)
+			}
+
 			// Drain the agent binary object store, then drain all the models.
-			if err := w.drainAgentBinaries(ctx); err != nil {
+			if err := w.drainAgentBinaries(ctx, rootBucketName); err != nil {
 				_ = w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("draining agent binaries: %w", err)
 			}
@@ -336,7 +342,7 @@ func (w *Worker) loop() error {
 				continue
 			}
 
-			signal, err := w.drainModels(ctx, uniqueNamespaces)
+			signal, err := w.drainModels(ctx, uniqueNamespaces, rootBucketName)
 			if err != nil {
 				_ = w.drainingService.SetDrainingPhase(ctx, objectstore.PhaseError)
 				return errors.Errorf("draining models: %w", err)
@@ -355,7 +361,7 @@ func (w *Worker) loop() error {
 	}
 }
 
-func (w *Worker) drainAgentBinaries(ctx context.Context) error {
+func (w *Worker) drainAgentBinaries(ctx context.Context, rootBucketName string) error {
 	w.logger.Infof(ctx, "draining controller agent binaries")
 	signal := make(chan drainResult, 1)
 
@@ -367,7 +373,7 @@ func (w *Worker) drainAgentBinaries(ctx context.Context) error {
 			fileSystem,
 			w.client,
 			w.controllerObjectStoreService,
-			w.rootBucketName,
+			rootBucketName,
 			namespace,
 			w.selectFileHash,
 			w.clock,
@@ -399,7 +405,7 @@ func (w *Worker) drainAgentBinaries(ctx context.Context) error {
 
 // drainModels starts a worker for each model in the state and waits for them
 // to complete. It signals the completion of each worker through a channel.
-func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan drainResult, error) {
+func (w *Worker) drainModels(ctx context.Context, namespaces []string, rootBucketName string) (<-chan drainResult, error) {
 	signal := make(chan drainResult, len(namespaces))
 	for _, namespace := range namespaces {
 		w.logger.Infof(ctx, "draining model %q", namespace)
@@ -412,7 +418,7 @@ func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan d
 				fileSystem,
 				w.client,
 				metadataService.ObjectStore(),
-				w.rootBucketName,
+				rootBucketName,
 				namespace,
 				w.selectFileHash,
 				w.clock,
@@ -427,6 +433,20 @@ func (w *Worker) drainModels(ctx context.Context, namespaces []string) (<-chan d
 		}
 	}
 	return signal, nil
+}
+
+func (w *Worker) activeRootBucketName(ctx context.Context) (string, error) {
+	backendInfo, err := w.drainingService.GetActiveObjectStoreBackend(ctx)
+	if err != nil {
+		return "", errors.Errorf("getting active object store backend: %w", err)
+	}
+	if backendInfo.Type != objectstore.S3Backend {
+		return w.rootBucketName, nil
+	}
+	if backendInfo.Bucket == nil || *backendInfo.Bucket == "" {
+		return "", errors.Errorf("empty S3 bucket").Add(coreerrors.NotValid)
+	}
+	return *backendInfo.Bucket, nil
 }
 
 // waitForDraining waits for all the draining workers to complete. It will

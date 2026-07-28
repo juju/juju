@@ -164,7 +164,7 @@ func (s *controllerSchemaSuite) TestControllerTables(c *tc.C) {
 		"upgrade_state_type",
 
 		// Object store metadata
-		"object_store_backend_s3_credential",
+		"object_store_backend_s3_config",
 		"object_store_backend_type",
 		"object_store_backend",
 		"object_store_drain_info",

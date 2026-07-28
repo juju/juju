@@ -36,7 +36,7 @@ func (s *integrationSuite) newService() *service.Service {
 }
 
 func (s *integrationSuite) newDrainingService() *service.WatchableDrainingService {
-	return service.NewWatchableDrainingService(s.newState(), nil)
+	return service.NewWatchableDrainingService(s.newState(), nil, testControllerUUID)
 }
 
 // TestPutAndGetMetadata verifies that metadata can be stored and retrieved
@@ -221,9 +221,9 @@ func (s *integrationSuite) TestTransitionBackendToS3(c *tc.C) {
 	c.Check(phaseInfo.ActiveBackendUUID, tc.Equals, newBackend.UUID)
 }
 
-// TestTransitionBackendToS3AlreadyInProgress verifies that attempting to
-// transition while a drain is already in progress returns the expected error.
-func (s *integrationSuite) TestTransitionBackendToS3AlreadyInProgress(c *tc.C) {
+// TestTransitionBackendToS3Idempotent verifies that repeating the same
+// transition while its drain is in progress succeeds without changing it.
+func (s *integrationSuite) TestTransitionBackendToS3Idempotent(c *tc.C) {
 	svc := s.newDrainingService()
 
 	creds := domainobjectstore.S3Credentials{
@@ -235,8 +235,32 @@ func (s *integrationSuite) TestTransitionBackendToS3AlreadyInProgress(c *tc.C) {
 	err := svc.TransitionBackendToS3(c.Context(), creds)
 	c.Assert(err, tc.ErrorIsNil)
 
-	// Second call should fail because draining is already in progress.
+	// The same request is already being fulfilled by the active drain.
 	err = svc.TransitionBackendToS3(c.Context(), creds)
+	c.Assert(err, tc.ErrorIsNil)
+
+	phaseInfo, err := svc.GetDrainingPhaseInfo(c.Context())
+	c.Assert(err, tc.ErrorIsNil)
+	c.Check(phaseInfo.Phase, tc.Equals, objectstore.PhaseDraining)
+}
+
+// TestTransitionBackendToS3AlreadyInProgress verifies that a different S3
+// configuration cannot replace one whose drain is still in progress.
+func (s *integrationSuite) TestTransitionBackendToS3AlreadyInProgress(c *tc.C) {
+	svc := s.newDrainingService()
+
+	err := svc.TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+		Endpoint:  "https://s3.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	})
+	c.Assert(err, tc.ErrorIsNil)
+
+	err = svc.TransitionBackendToS3(c.Context(), domainobjectstore.S3Credentials{
+		Endpoint:  "https://other.example.com",
+		AccessKey: "access-key",
+		SecretKey: "secret-key",
+	})
 	c.Assert(err, tc.ErrorIs, objectstoreerrors.ErrDrainingAlreadyInProgress)
 }
 
@@ -460,7 +484,7 @@ func (s *integrationSuite) TestMetadataPersistsThroughBackendTransition(c *tc.C)
 // state so tests can call state methods directly for setup.
 func (s *integrationSuite) newDrainingServiceWithState() (*service.WatchableDrainingService, *state.State) {
 	st := s.newState()
-	svc := service.NewWatchableDrainingService(st, nil)
+	svc := service.NewWatchableDrainingService(st, nil, testControllerUUID)
 	return svc, st
 }
 
