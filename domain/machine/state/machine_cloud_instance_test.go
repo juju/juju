@@ -5,6 +5,7 @@ package state
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/juju/tc"
 
@@ -98,10 +99,13 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, machineName := s.addMachine(c)
 	// Add a reference AZ.
 	_, err := db.ExecContext(c.Context(), "INSERT INTO availability_zone VALUES('deadbeef-0bad-400d-8000-4b1d0d06f00d', 'az-1')")
 	c.Assert(err, tc.ErrorIsNil)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName.String(), time.Now())
 
 	err = s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -167,13 +171,17 @@ func (s *stateSuite) TestSetInstanceData(c *tc.C) {
 	c.Check(instanceTags, tc.HasLen, 2)
 	c.Check(instanceTags[0], tc.Equals, "tag1")
 	c.Check(instanceTags[1], tc.Equals, "tag2")
+	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 0)
 }
 
 func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	machineUUID, _ := s.addMachine(c)
+	machineUUID, machineName := s.addMachine(c)
+	s.runQuery(c, `
+INSERT INTO machine_reprovision (machine_name, requested_at)
+VALUES (?, ?)`, machineName.String(), time.Now())
 
 	err := s.state.SetMachineCloudInstance(
 		c.Context(),
@@ -193,6 +201,7 @@ func (s *stateSuite) TestSetInstanceDataEmptyInstanceID(c *tc.C) {
 	c.Assert(err, tc.ErrorIsNil)
 	c.Assert(row.Err(), tc.ErrorIsNil)
 	c.Check(instanceID.Valid, tc.IsFalse)
+	c.Check(s.rowCount(c, "machine_reprovision"), tc.Equals, 1)
 }
 
 func (s *stateSuite) TestSetInstanceDataEmptyDisplayName(c *tc.C) {

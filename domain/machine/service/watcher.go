@@ -249,7 +249,7 @@ func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.Stri
 		),
 		eventsource.PredicateFilter(
 			s.st.NamespaceForWatchMachineReprovision(),
-			changestream.All,
+			changestream.Changed,
 			notContainer,
 		),
 	)

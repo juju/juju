@@ -138,6 +138,18 @@ WHERE machine_uuid = ?`, machineUUID.String())
 		w.Check(watchertest.SliceAssert([]string{res.MachineName.String()}))
 	})
 
+	// Recording the replacement instance clears the marker without emitting
+	// another provisioning event.
+	harness.AddTest(c, func(c *tc.C) {
+		err := s.svc.SetMachineCloudInstance(
+			c.Context(), machineUUID, "i-5678", "replacement-instance",
+			"replacement-nonce", nil,
+		)
+		c.Assert(err, tc.ErrorIsNil)
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.AssertNoChange()
+	})
+
 	harness.Run(c, []string{res.MachineName.String()})
 }
 
