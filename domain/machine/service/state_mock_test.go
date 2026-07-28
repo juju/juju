@@ -75,6 +75,7 @@ type MockStateMockRecorder struct {
 	namespaceForMachineLifeAndDependantsExpects               []*gomock.Call0_1[string]
 	namespaceForWatchMachineCloudInstanceExpects              []*gomock.Call0_1[string]
 	namespaceForWatchMachineRebootExpects                     []*gomock.Call0_1[string]
+	namespaceForWatchMachineReprovisionExpects                []*gomock.Call0_1[string]
 	requireMachineRebootExpects                               []*gomock.Call2_1[context.Context, machine.UUID, error]
 	setKeepInstanceExpects                                    []*gomock.Call3_1[context.Context, machine.Name, bool, error]
 	setMachineCloudInstanceExpects                            []*gomock.Call6_1[context.Context, string, instance.Id, string, string, *instance.HardwareCharacteristics, error]
@@ -798,6 +799,24 @@ func (mr *MockStateMockRecorder) NamespaceForWatchMachineReboot() *MockStateName
 
 // MockStateNamespaceForWatchMachineRebootCall is the typed call wrapper for NamespaceForWatchMachineReboot.
 type MockStateNamespaceForWatchMachineRebootCall = gomock.Call0_1[string]
+
+// NamespaceForWatchMachineReprovision mocks base method.
+func (m *MockState) NamespaceForWatchMachineReprovision() string {
+	m.ctrl.T.Helper()
+	return gomock.Dispatch0_1(&m.recorder.namespaceForWatchMachineReprovisionExpects, m.ctrl, m, "NamespaceForWatchMachineReprovision")
+}
+
+// NamespaceForWatchMachineReprovision indicates an expected call of NamespaceForWatchMachineReprovision.
+func (mr *MockStateMockRecorder) NamespaceForWatchMachineReprovision() *MockStateNamespaceForWatchMachineReprovisionCall {
+	mr.mock.ctrl.T.Helper()
+	call := gomock.NewCall0_1[string](mr.mock.ctrl.T, mr.mock, "NamespaceForWatchMachineReprovision")
+	mr.namespaceForWatchMachineReprovisionExpects = append(mr.namespaceForWatchMachineReprovisionExpects, call)
+	mr.mock.ctrl.Track(call.Call)
+	return call
+}
+
+// MockStateNamespaceForWatchMachineReprovisionCall is the typed call wrapper for NamespaceForWatchMachineReprovision.
+type MockStateNamespaceForWatchMachineReprovisionCall = gomock.Call0_1[string]
 
 // RequireMachineReboot mocks base method.
 func (m *MockState) RequireMachineReboot(ctx context.Context, uuid machine.UUID) error {

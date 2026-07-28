@@ -44,6 +44,10 @@ type State interface {
 	// watch statement for watching life changes of non-container machines.
 	InitialWatchModelMachinesStatement() (string, string)
 
+	// NamespaceForWatchMachineReprovision returns the namespace used to wake
+	// the provisioner after a machine is detached for reprovisioning.
+	NamespaceForWatchMachineReprovision() string
+
 	// InitialWatchModelMachineLifeAndStartTimesStatement returns the namespace and the initial watch
 	// statement for watching life and agent start time changes machines.
 	InitialWatchModelMachineLifeAndStartTimesStatement() (string, string)
